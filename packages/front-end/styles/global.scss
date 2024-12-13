@@ -30,20 +30,14 @@ body {
   color: var(--text-color-muted) !important;
 }
 
-.dropdown-text-color {
-  &:focus {
-    svg {
-      color: white;
-    }
-  }
-  svg {
-    color: var(--text-color-muted);
-  }
-}
 .text-ellipsis {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+.wrap-code,
+.wrap-code code {
+  white-space: pre-wrap !important;
 }
 
 #block-menu-container {
@@ -117,16 +111,6 @@ pre {
   font-weight: 600;
   &.lg {
     font-size: 13px;
-  }
-}
-
-#feature-page-tabs,
-#experiment-page-tabs {
-  font-size: 1.2em;
-  .active-tab {
-    color: var(--text-color-primary);
-    background: var(--background-color);
-    border-bottom-color: var(--background-color);
   }
 }
 
@@ -580,10 +564,15 @@ pre {
 .main.bandit {
   .experiment-header {
     margin: -4px -8px 0;
+    .border {
+      border-bottom: 1px solid var(--border-color-200);
+    }
   }
   .experiment-tabs {
+    background-color: var(--background-color);
+    // NB: Keep top property in sync with TABS_HEADER_HEIGHT_PX in ExperimentHeader.tsx
     top: 55px;
-    height: 44px;
+    height: 40px;
     margin: 0 -8px -3px;
     transition: 150ms all;
     .header-tabs {
@@ -606,6 +595,11 @@ pre {
         }
       }
       .experiment-date-range {
+        position: absolute;
+        right: 0;
+        height: 100%;
+        display: flex;
+        align-items: center;
         text-align: right;
         font-size: 12px;
         @media (max-width: 750px) {
@@ -623,7 +617,7 @@ pre {
     &.pinned {
       position: sticky;
       z-index: 830;
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+      box-shadow: var(--shadow-3);
       .header-tabs .tab-wrapper {
         overflow: hidden;
       }
@@ -968,7 +962,6 @@ main.main.report {
 .gbtable {
   background-color: var(--surface-background-color);
   margin-bottom: 0;
-
   thead {
     th {
       font-size: 11px;
@@ -3417,10 +3410,4 @@ input:disabled {
 
 .disabled-opacity {
   opacity: 0.65;
-}
-.text-color-high {
-  color: var(--text-color-high);
-}
-.text-color-mid {
-  color: var(--text-color-mid);
 }

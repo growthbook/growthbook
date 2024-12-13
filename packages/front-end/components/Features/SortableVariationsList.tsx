@@ -21,11 +21,13 @@ const SortableVariationsList: FC<{
   children: ReactNode;
   variations: (SortableVariation | Variation)[];
   setVariations?: (variations: (SortableVariation | Variation)[]) => void;
+  valuesAsIds?: boolean;
   sortingStrategy?: "vertical" | "rect";
 }> = ({
   children,
   variations,
   setVariations,
+  valuesAsIds = false,
   sortingStrategy = "vertical",
 }) => {
   const sensors = useSensors(
@@ -55,11 +57,15 @@ const SortableVariationsList: FC<{
 
           if (oldIndex === -1 || newIndex === -1) return;
 
-          const newVariations = arrayMove<SortableVariation | Variation>(
-            variations,
-            oldIndex,
-            newIndex
-          );
+          const newVariations = arrayMove<
+            SortableVariation | (Variation & { value?: string })
+          >(variations, oldIndex, newIndex);
+          if (valuesAsIds) {
+            newVariations.forEach((variation, i) => {
+              if (variation.value === undefined) return;
+              variation.value = i + "";
+            });
+          }
 
           setVariations(newVariations);
         }

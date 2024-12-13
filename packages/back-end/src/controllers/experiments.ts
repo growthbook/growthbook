@@ -651,6 +651,7 @@ export async function postExperiments(
     banditScheduleUnit: data.banditScheduleUnit ?? "days",
     banditBurnInValue: data.banditBurnInValue ?? 1,
     banditBurnInUnit: data.banditBurnInUnit ?? "days",
+    customFields: data.customFields || undefined,
   };
 
   const { settings } = getScopedSettings({
@@ -777,6 +778,7 @@ export async function postExperiment(
       currentPhase?: number;
       phaseStartDate?: string;
       phaseEndDate?: string;
+      variationWeights?: number[];
     },
     { id: string }
   >,
@@ -933,6 +935,7 @@ export async function postExperiment(
     "banditScheduleUnit",
     "banditBurnInValue",
     "banditBurnInUnit",
+    "customFields",
   ];
   let changes: Changeset = {};
 
@@ -948,7 +951,8 @@ export async function postExperiment(
       key === "secondaryMetrics" ||
       key === "guardrailMetrics" ||
       key === "metricOverrides" ||
-      key === "variations"
+      key === "variations" ||
+      key === "customFields"
     ) {
       hasChanges =
         JSON.stringify(data[key]) !== JSON.stringify(experiment[key]);
@@ -1009,6 +1013,16 @@ export async function postExperiment(
         ...changes,
       } as ExperimentInterface);
     }
+  }
+
+  if (data.variationWeights) {
+    const phases = [...experiment.phases];
+    const lastIndex = phases.length - 1;
+    phases[lastIndex] = {
+      ...phases[lastIndex],
+      variationWeights: data.variationWeights,
+    };
+    changes.phases = phases;
   }
 
   // Only some fields affect production SDK payloads

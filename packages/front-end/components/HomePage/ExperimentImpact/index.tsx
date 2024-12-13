@@ -17,8 +17,13 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
-import Tab from "@/components/Tabs/Tab";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/Radix/Tabs";
+import Avatar from "@/components/Radix/Avatar";
 import DatePicker from "@/components/DatePicker";
 import { jamesSteinAdjustment } from "./JamesSteinAdjustment";
 import ExperimentImpactTab from "./ExperimentImpactTab";
@@ -306,7 +311,6 @@ export default function ExperimentImpact({
   const { metrics, project, projects, getFactTableById } = useDefinitions();
 
   const [loading, setLoading] = useState(true);
-  const [impactTab, setImpactTab] = useState<ExperimentImpactTab>("summary");
   const [snapshots, setSnapshots] = useState<ExperimentSnapshotInterface[]>();
 
   const experimentIds = experiments.map((e) => e.id);
@@ -564,21 +568,30 @@ export default function ExperimentImpact({
           0 ? (
             <NoExperimentsForImpactBanner />
           ) : null}
-          <ControlledTabs
-            setActive={(s) => {
-              setImpactTab((s as ExperimentImpactTab) || "summary");
-            }}
-            active={impactTab}
-            showActiveCount={true}
-            newStyle={false}
-            buttonsClassName="px-3 py-2 h4"
-          >
-            <Tab
-              key={"summary"}
-              id={"summary"}
-              display={"Summary"}
-              padding={false}
-            >
+          <Tabs defaultValue="summary">
+            <TabsList>
+              <TabsTrigger value="summary">Summary</TabsTrigger>
+              <TabsTrigger value="winner">
+                Won
+                <Avatar color="gray" variant="soft" ml="2" size="sm">
+                  {summaryObj.winners.experiments.length}
+                </Avatar>
+              </TabsTrigger>
+              <TabsTrigger value="loser">
+                Lost
+                <Avatar color="gray" variant="soft" ml="2" size="sm">
+                  {summaryObj.losers.experiments.length}
+                </Avatar>
+              </TabsTrigger>
+              <TabsTrigger value="other">
+                Other
+                <Avatar color="gray" variant="soft" ml="2" size="sm">
+                  {summaryObj.others.experiments.length}
+                </Avatar>
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="summary">
               <div className="px-3 pt-3">
                 <table className="table bg-white text-center w-auto mb-0">
                   <thead>
@@ -759,53 +772,35 @@ export default function ExperimentImpact({
                   </tbody>
                 </table>
               </div>
-            </Tab>
+            </TabsContent>
 
-            <Tab
-              key={"winner"}
-              id={"winner"}
-              display={"Won"}
-              count={summaryObj.winners.experiments.length}
-              padding={false}
-            >
+            <TabsContent value="winner">
               <ExperimentImpactTab
                 experimentImpactData={summaryObj.winners}
                 experimentImpactType={"winner"}
                 formatter={formatter}
                 formatterOptions={formatterOptions}
               />
-            </Tab>
+            </TabsContent>
 
-            <Tab
-              key={"loser"}
-              id={"loser"}
-              display={"Lost"}
-              count={summaryObj.losers.experiments.length}
-              padding={false}
-            >
+            <TabsContent value="loser">
               <ExperimentImpactTab
                 experimentImpactData={summaryObj.losers}
                 experimentImpactType={"loser"}
                 formatter={formatter}
                 formatterOptions={formatterOptions}
               />
-            </Tab>
+            </TabsContent>
 
-            <Tab
-              key={"other"}
-              id={"other"}
-              display={"Other"}
-              count={summaryObj.others.experiments.length}
-              padding={false}
-            >
+            <TabsContent value="other">
               <ExperimentImpactTab
                 experimentImpactData={summaryObj.others}
                 experimentImpactType={"other"}
                 formatter={formatter}
                 formatterOptions={formatterOptions}
               />
-            </Tab>
-          </ControlledTabs>
+            </TabsContent>
+          </Tabs>
         </>
       ) : null}
     </div>

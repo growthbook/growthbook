@@ -7,7 +7,12 @@ import {
   Polyfills,
 } from "./types/growthbook";
 import { getPolyfills, promiseTimeout } from "./util";
-import type { GrowthBook } from ".";
+import type {
+  GrowthBook,
+  InitOptions,
+  InitSyncOptions,
+  GrowthBookClient,
+} from ".";
 
 type CacheEntry = {
   data: FeatureApiResponse;
@@ -101,7 +106,10 @@ try {
 }
 
 // Global state
-const subscribedInstances: Map<string, Set<GrowthBook>> = new Map();
+const subscribedInstances: Map<
+  string,
+  Set<GrowthBook | GrowthBookClient>
+> = new Map();
 let cacheInitialized = false;
 const cache: Map<string, CacheEntry> = new Map();
 const activeFetches: Map<string, Promise<FetchResponse>> = new Map();
@@ -135,7 +143,7 @@ export async function refreshFeatures({
   allowStale,
   backgroundSync,
 }: {
-  instance: GrowthBook;
+  instance: GrowthBook | GrowthBookClient;
   timeout?: number;
   skipCache?: boolean;
   allowStale?: boolean;
@@ -154,13 +162,13 @@ export async function refreshFeatures({
 }
 
 // Subscribe a GrowthBook instance to feature changes
-export function subscribe(instance: GrowthBook): void {
+function subscribe(instance: GrowthBook | GrowthBookClient): void {
   const key = getKey(instance);
   const subs = subscribedInstances.get(key) || new Set();
   subs.add(instance);
   subscribedInstances.set(key, subs);
 }
-export function unsubscribe(instance: GrowthBook): void {
+export function unsubscribe(instance: GrowthBook | GrowthBookClient): void {
   subscribedInstances.forEach((s) => s.delete(instance));
 }
 
@@ -201,7 +209,7 @@ async function fetchFeaturesWithCache({
   timeout,
   skipCache,
 }: {
-  instance: GrowthBook;
+  instance: GrowthBook | GrowthBookClient;
   allowStale?: boolean;
   timeout?: number;
   skipCache?: boolean;
@@ -247,14 +255,14 @@ async function fetchFeaturesWithCache({
   }
 }
 
-function getKey(instance: GrowthBook): string {
+function getKey(instance: GrowthBook | GrowthBookClient): string {
   const [apiHost, clientKey] = instance.getApiInfo();
   return `${apiHost}||${clientKey}`;
 }
 
-function getCacheKey(instance: GrowthBook): string {
+function getCacheKey(instance: GrowthBook | GrowthBookClient): string {
   const baseKey = getKey(instance);
-  if (!instance.isRemoteEval()) return baseKey;
+  if (!("isRemoteEval" in instance) || !instance.isRemoteEval()) return baseKey;
 
   const attributes = instance.getAttributes();
   const cacheKeyAttributes =
@@ -363,17 +371,19 @@ function onNewFeatureData(
 }
 
 async function refreshInstance(
-  instance: GrowthBook,
+  instance: GrowthBook | GrowthBookClient,
   data: FeatureApiResponse | null
 ): Promise<void> {
   await instance.setPayload(data || instance.getPayload());
 }
 
 // Fetch the features payload from helper function or from in-mem injected payload
-async function fetchFeatures(instance: GrowthBook): Promise<FetchResponse> {
+async function fetchFeatures(
+  instance: GrowthBook | GrowthBookClient
+): Promise<FetchResponse> {
   const { apiHost, apiRequestHeaders } = instance.getApiHosts();
   const clientKey = instance.getClientKey();
-  const remoteEval = instance.isRemoteEval();
+  const remoteEval = "isRemoteEval" in instance && instance.isRemoteEval();
   const key = getKey(instance);
   const cacheKey = getCacheKey(instance);
 
@@ -436,8 +446,8 @@ async function fetchFeatures(instance: GrowthBook): Promise<FetchResponse> {
 }
 
 // Start SSE streaming, listens to feature payload changes and triggers a refresh or re-fetch
-export function startAutoRefresh(
-  instance: GrowthBook,
+function startAutoRefresh(
+  instance: GrowthBook | GrowthBookClient,
   forceSSE: boolean = false
 ): void {
   const key = getKey(instance);
@@ -550,4 +560,19 @@ function clearAutoRefresh() {
 
   // Run the idle stream cleanup function
   helpers.stopIdleListener();
+}
+
+export function startStreaming(
+  instance: GrowthBook | GrowthBookClient,
+  options: InitOptions | InitSyncOptions
+) {
+  if (options.streaming) {
+    if (!instance.getClientKey()) {
+      throw new Error("Must specify clientKey to enable streaming");
+    }
+    if (options.payload) {
+      startAutoRefresh(instance, true);
+    }
+    subscribe(instance);
+  }
 }

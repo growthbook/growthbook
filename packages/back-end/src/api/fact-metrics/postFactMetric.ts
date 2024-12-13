@@ -8,7 +8,9 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
+import { getSelectedColumnDatatype } from "shared/experiments";
 import {
+  ColumnRef,
   CreateFactMetricProps,
   FactTableInterface,
 } from "back-end/types/fact-table";
@@ -17,6 +19,31 @@ import { getFactTable } from "back-end/src/models/FactTableModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { postFactMetricValidator } from "back-end/src/validators/openapi";
 import { OrganizationInterface } from "back-end/types/organization";
+
+export function validateAggregationSpecification({
+  column,
+  factTable,
+  errorPrefix,
+}: {
+  column: ColumnRef;
+  factTable: FactTableInterface;
+  errorPrefix?: string;
+}) {
+  const datatype = getSelectedColumnDatatype({
+    factTable,
+    column: column.column,
+  });
+  if (column.aggregation === "count distinct" && datatype !== "string") {
+    throw new Error(
+      `${errorPrefix}Cannot use 'count distinct' aggregation with the special or numeric column '${column.column}'.`
+    );
+  }
+  if (datatype === "string" && column.aggregation !== "count distinct") {
+    throw new Error(
+      `${errorPrefix}Must use 'count distinct' aggregation with string column '${column.column}'.`
+    );
+  }
+}
 
 export async function getCreateMetricPropsFromBody(
   body: z.infer<typeof postFactMetricValidator.bodySchema>,
@@ -55,6 +82,12 @@ export async function getCreateMetricPropsFromBody(
         ? "$$distinctUsers"
         : body.numerator.column || "$$distinctUsers",
   };
+
+  validateAggregationSpecification({
+    errorPrefix: "Numerator misspecified. ",
+    column: cleanedNumerator,
+    factTable: factTable,
+  });
 
   const data: CreateFactMetricProps = {
     datasource: factTable.datasource,
@@ -117,6 +150,18 @@ export async function getCreateMetricPropsFromBody(
       ...denominator,
       column: denominator.column || "$$distinctUsers",
     };
+    const denominatorFactTable =
+      denominator.factTableId === numerator.factTableId
+        ? factTable
+        : await getFactTable(denominator.factTableId);
+    if (!denominatorFactTable) {
+      throw new Error("Could not find denominator fact table");
+    }
+    validateAggregationSpecification({
+      errorPrefix: "Denominator misspecified. ",
+      column: data.denominator,
+      factTable: denominatorFactTable,
+    });
   }
 
   if (cappingSettings?.type && cappingSettings?.type !== "none") {

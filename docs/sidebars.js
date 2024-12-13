@@ -641,8 +641,15 @@ const sidebars = {
       items: [
         {
           type: "doc",
-          id: "guide/deno-hono",
-          label: "Deno + Hono",
+          id: "guide/contentful",
+          label: "Contentful CMS",
+          className: "pill-new",
+        },
+        { type: "doc", id: "guide/deno-hono", label: "Deno + Hono" },
+        {
+          type: "doc",
+          id: "guide/express-js",
+          label: "Express.js",
         },
         {
           type: "doc",
@@ -731,6 +738,18 @@ const sidebars = {
               type: "doc",
               id: "kb/experiments/holdouts",
               label: "Holdouts in GrowthBook",
+            },
+          ],
+        },
+        {
+          type: "category",
+          label: "Metrics",
+          collapsed: false,
+          items: [
+            {
+              type: "doc",
+              id: "kb/metrics/fact-metric-optimization",
+              label: "Fact Metric Optimization",
             },
           ],
         },

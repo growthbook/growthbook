@@ -286,14 +286,12 @@ export default function ExperimentSettings({
             </div>
           </div>
 
-          <div className="mb-3 form-group flex-column align-items-start">
+          <div className="mb-3 mt-4 form-group flex-column align-items-start">
             <PremiumTooltip
               commercialFeature="custom-launch-checklist"
               premiumText="Custom pre-launch checklists are available to Enterprise customers"
             >
-              <div className="d-inline-block h4 mt-4 mb-0">
-                Experiment Pre-Launch Checklist
-              </div>
+              <h4 className="m-0">Experiment Pre-Launch Checklist</h4>
             </PremiumTooltip>
             <p className="pt-2">
               Configure required steps that need to be completed before an
