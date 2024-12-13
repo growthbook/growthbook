@@ -19,6 +19,7 @@ import {
   quantileSettingsValidator,
   priorSettingsValidator,
   columnAggregationValidator,
+  retentionSettingsValidator,
 } from "back-end/src/routers/fact-table/fact-table.validators";
 import { TestQueryRow } from "back-end/src/types/Integration";
 import { CreateProps, UpdateProps } from "./models";
@@ -87,6 +88,7 @@ export type ConversionWindowUnit = z.infer<
 >;
 export type MetricWindowSettings = z.infer<typeof windowSettingsValidator>;
 export type MetricPriorSettings = z.infer<typeof priorSettingsValidator>;
+export type MetricRetentionSettings = z.infer<typeof retentionSettingsValidator>;
 
 export type FactMetricInterface = z.infer<typeof factMetricValidator>;
 

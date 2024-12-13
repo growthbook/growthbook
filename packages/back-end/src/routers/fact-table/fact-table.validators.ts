@@ -113,8 +113,6 @@ export const quantileSettingsValidator = z.object({
 });
 
 export const retentionSettingsValidator = z.object({
-  type: z.enum(["exposure", "column"]),
-  column: columnRefValidator.nullable(),
   retentionValue: z.number(),
   retentionUnit: conversionWindowUnitValidator,
 });

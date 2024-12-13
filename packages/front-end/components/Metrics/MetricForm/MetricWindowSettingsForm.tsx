@@ -1,9 +1,11 @@
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
+import { UseFormReturn } from "react-hook-form";
+import { CreateFactMetricProps, FactMetricType } from "back-end/types/fact-table";
 
 // TODO form type
-export function MetricWindowSettingsForm({ form }) {
+export function MetricWindowSettingsForm({ form, type }: {form: UseFormReturn<CreateFactMetricProps>; type: FactMetricType}) {
   const windowSettingsFields = (
     <>
       <div className="col-auto">
@@ -85,14 +87,20 @@ export function MetricWindowSettingsForm({ form }) {
               <>
                 <div className="col-auto">Use only data within</div>
                 {windowSettingsFields}
-                <div className="col-auto">
-                  of first experiment exposure{" "}
-                  <Tooltip
-                    body={
-                      "If you specify a conversion delay, then the conversion window will be a length of time starting from the first experiment exposure plus the conversion delay."
-                    }
-                  />
-                </div>
+                
+                {type === "retention" ? (
+                  <div className="col-auto">
+                    of start of user's retention window
+                  </div>
+                ): 
+                  <div className="col-auto">
+                    of first experiment exposure{!!form.watch("windowSettings.delayHours") ? <>
+                    <span className="plusminus ml-1">
+                                ±{" "}</span>{"conversion delay"}</>: null}
+
+                  </div>
+                }
+                
               </>
             )}
             {form.watch("windowSettings.type") === "lookback" && (
