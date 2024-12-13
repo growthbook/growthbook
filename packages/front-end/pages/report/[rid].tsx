@@ -274,7 +274,7 @@ export default function ReportPage() {
           )}
         </div>
 
-        <Tabs value={tab} onValueChange={setTab}>
+        <Tabs value={tab} onValueChange={setTab} persistInURL={true}>
           {canUpdateReport && (
             <TabsList>
               <TabsTrigger value="results">Results</TabsTrigger>
