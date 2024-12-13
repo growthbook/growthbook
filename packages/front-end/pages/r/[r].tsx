@@ -9,6 +9,7 @@ import { ExperimentMetricInterface } from "shared/experiments";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { FactTableInterface } from "back-end/types/fact-table";
 import { DimensionInterface } from "back-end/types/dimension";
+import Head from "next/head";
 import PageHead from "@/components/Layout/PageHead";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
@@ -26,11 +27,15 @@ import { useUser } from "@/services/UserContext";
 import Callout from "@/components/Radix/Callout";
 import Link from "@/components/Radix/Link";
 
+const APP_ORIGIN =
+  (process.env.APP_ORIGIN ?? "").replace(/\/$/, "") || "http://localhost:3000";
+
 export async function getServerSideProps(context) {
   const { r } = context.params;
 
   const API_HOST =
     (process.env.API_HOST ?? "").replace(/\/$/, "") || "http://localhost:3100";
+  console.log({ API_HOST });
   try {
     const resp = await fetch(API_HOST + `/api/report/public/${r}`);
     const data = await resp.json();
@@ -196,8 +201,20 @@ export default function ReportPage(props: ReportPageProps) {
     getDimensionById: getDimensionByIdSSR,
   };
 
+  const shareableLink = report.tinyid
+    ? `${APP_ORIGIN}/r/${report.tinyid}`
+    : `${APP_ORIGIN}/report/${report.id}`;
+
   return (
     <div className="pagecontents container-fluid">
+      <Head>
+        <title>{report.title || "Report"}</title>
+        <meta property="og:title" content={report.title || "Report"} />
+        <meta property="og:description" content={report.description || ""} />
+        <meta property="og:url" content={shareableLink} />
+        <meta property="og:type" content="website" />
+      </Head>
+
       <PageHead
         breadcrumb={[
           { display: `Reports`, href: `/reports` },

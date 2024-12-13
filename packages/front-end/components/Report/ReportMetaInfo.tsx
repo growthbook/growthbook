@@ -30,9 +30,6 @@ import EditableH1 from "@/components/Forms/EditableH1";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import Markdown from "@/components/Markdown/Markdown";
 
-const APP_ORIGIN =
-  (process.env.APP_ORIGIN ?? "").replace(/\/$/, "") || "http://localhost:3000";
-
 export default function ReportMetaInfo({
   report,
   mutate,
@@ -65,9 +62,10 @@ export default function ReportMetaInfo({
   const [editingTitle, setEditingTitle] = useState(false);
   const [title, setTitle] = useState(report.title);
 
+  const HOST = window.location.origin;
   const shareableLink = report.tinyid
-    ? `${APP_ORIGIN}/r/${report.tinyid}`
-    : `${APP_ORIGIN}/report/${report.id}`;
+    ? `${HOST}/r/${report.tinyid}`
+    : `${HOST}/report/${report.id}`;
 
   const shareLevel = report.shareLevel || "organization";
 
