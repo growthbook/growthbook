@@ -420,18 +420,9 @@ export default function ExperimentHeader({
 
             <div className="ml-2">
               <MoreMenu>
-                {experiment.status !== "running" && editTargeting && (
-                  <button
-                    className="dropdown-item"
-                    onClick={() => {
-                      editTargeting();
-                    }}
-                  >
-                    Edit targeting & traffic
-                  </button>
-                )}
                 {canRunExperiment &&
-                  !(isBandit && experiment.status === "running") && (
+                  !isBandit &&
+                  experiment.status !== "draft" && (
                     <button
                       className="dropdown-item"
                       onClick={() => setStatusModal(true)}
@@ -447,12 +438,12 @@ export default function ExperimentHeader({
                     Edit phases
                   </button>
                 )}
-                {canRunExperiment && growthbook.isOn("bandits") && (
-                  <ConvertBanditExperiment
-                    experiment={experiment}
-                    mutate={mutate}
-                  />
-                )}
+                <button
+                  className="dropdown-item"
+                  onClick={() => setAuditModal(true)}
+                >
+                  Audit log
+                </button>
                 <WatchButton
                   itemType="experiment"
                   item={experiment.id}
@@ -467,12 +458,14 @@ export default function ExperimentHeader({
                     {usersWatching.length}
                   </span>
                 </button>
-                <button
-                  className="dropdown-item"
-                  onClick={() => setAuditModal(true)}
-                >
-                  Audit log
-                </button>
+                {canRunExperiment &&
+                  growthbook.isOn("bandits") &&
+                  experiment.status === "draft" && (
+                    <ConvertBanditExperiment
+                      experiment={experiment}
+                      mutate={mutate}
+                    />
+                  )}
                 {duplicate && (
                   <button className="dropdown-item" onClick={duplicate}>
                     Duplicate
