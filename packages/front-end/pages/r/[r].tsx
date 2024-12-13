@@ -27,9 +27,6 @@ import { useUser } from "@/services/UserContext";
 import Callout from "@/components/Radix/Callout";
 import Link from "@/components/Radix/Link";
 
-const APP_ORIGIN =
-  (process.env.APP_ORIGIN ?? "").replace(/\/$/, "") || "http://localhost:3000";
-
 export async function getServerSideProps(context) {
   const { r } = context.params;
 
@@ -40,7 +37,9 @@ export async function getServerSideProps(context) {
     const resp = await fetch(API_HOST + `/api/report/public/${r}`);
     const data = await resp.json();
     const report = data?.report;
-    if (!report) throw new Error("Report not found");
+    if (!report) {
+      context.res.statusCode = 404;
+    }
 
     const snapshot = data?.snapshot;
     const ssrData = data?.ssrData;
@@ -48,9 +47,9 @@ export async function getServerSideProps(context) {
     return {
       props: {
         r,
-        report,
-        snapshot,
-        ssrData,
+        report: report || null,
+        snapshot: snapshot || null,
+        ssrData: ssrData || null,
       },
     };
   } catch (e) {
@@ -63,9 +62,9 @@ export async function getServerSideProps(context) {
 
 interface ReportPageProps {
   r: string;
-  report: ExperimentSnapshotReportInterface;
-  snapshot?: ExperimentSnapshotInterface;
-  ssrData?: SSRExperimentReportData;
+  report: ExperimentSnapshotReportInterface | null;
+  snapshot: ExperimentSnapshotInterface | null;
+  ssrData: SSRExperimentReportData | null;
 }
 
 export interface SSRExperimentReportPolyfills {
@@ -96,9 +95,9 @@ export default function ReportPage(props: ReportPageProps) {
   const hasCsrSettings = !!Object.keys(useOrgSettings() || {})?.length;
 
   const isOrgMember =
-    (!!userId && report.organization === userOrganization.id) || !!superAdmin;
-  let canView = report.shareLevel === "public";
-  if (report.shareLevel === "organization") {
+    (!!userId && report?.organization === userOrganization.id) || !!superAdmin;
+  let canView = report?.shareLevel === "public";
+  if (report?.shareLevel === "organization") {
     // must be an org member or superAdmin
     canView = isOrgMember;
   }
@@ -201,50 +200,59 @@ export default function ReportPage(props: ReportPageProps) {
     getDimensionById: getDimensionByIdSSR,
   };
 
-  const shareableLink = report.tinyid
-    ? `${APP_ORIGIN}/r/${report.tinyid}`
-    : `${APP_ORIGIN}/report/${report.id}`;
-
   return (
     <div className="pagecontents container-fluid">
       <Head>
-        <title>{report.title || "Report"}</title>
-        <meta property="og:title" content={report.title || "Report"} />
-        <meta property="og:description" content={report.description || ""} />
-        <meta property="og:url" content={shareableLink} />
+        <title>{report?.title || "Report not found"}</title>
+        <meta
+          property="og:title"
+          content={report?.title || "Report not found"}
+        />
+        <meta property="og:description" content={report?.description || ""} />
         <meta property="og:type" content="website" />
       </Head>
 
       <PageHead
         breadcrumb={[
           { display: `Reports`, href: `/reports` },
-          { display: report?.title ?? "(no title)" },
+          {
+            display:
+              report?.title ?? report ? "(no title)" : "(report not found)",
+          },
         ]}
       />
 
-      <ReportMetaInfo
-        report={report}
-        canView={canView}
-        showPrivateLink={isOrgMember}
-      />
+      {report ? (
+        <>
+          <ReportMetaInfo
+            report={report}
+            canView={canView}
+            showPrivateLink={isOrgMember}
+          />
 
-      {canView ? (
-        <ReportResults
-          report={report}
-          snapshot={snapshot}
-          snapshotError={!snapshot ? new Error("Missing snapshot") : undefined}
-          ssrPolyfills={ssrPolyfills}
-        />
-      ) : (
-        <Callout status="error">
-          This report is not shared publicly.
-          {!userReady && (
-            <>
-              {" "}
-              <Link href="/">Log in</Link> to view this link.
-            </>
+          {canView ? (
+            <ReportResults
+              report={report}
+              snapshot={snapshot ?? undefined}
+              snapshotError={
+                !snapshot ? new Error("Missing snapshot") : undefined
+              }
+              ssrPolyfills={ssrPolyfills}
+            />
+          ) : (
+            <Callout status="error">
+              This report is not shared publicly.
+              {!userReady && (
+                <>
+                  {" "}
+                  <Link href="/">Log in</Link> to view this link.
+                </>
+              )}
+            </Callout>
           )}
-        </Callout>
+        </>
+      ) : (
+        <Callout status="error">This report was not found.</Callout>
       )}
     </div>
   );

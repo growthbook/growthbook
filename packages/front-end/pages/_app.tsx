@@ -183,6 +183,7 @@ function App({
         }
         .radix-themes[data-is-root-theme="true"] {
           min-height: 100%;
+          height: 100vh;
         }
       `}</style>
       <Head>

@@ -62,7 +62,7 @@ export default function ReportMetaInfo({
   const [editingTitle, setEditingTitle] = useState(false);
   const [title, setTitle] = useState(report.title);
 
-  const HOST = window.location.origin;
+  const HOST = globalThis?.window?.location?.origin;
   const shareableLink = report.tinyid
     ? `${HOST}/r/${report.tinyid}`
     : `${HOST}/report/${report.id}`;
