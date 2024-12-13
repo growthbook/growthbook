@@ -127,6 +127,7 @@ export function getDefaultFactMetricProps({
         mean: 0,
         stddev: DEFAULT_PROPER_PRIOR_STDDEV,
       }),
+    retentionSettings: existing?.retentionSettings || null,
   };
 }
 

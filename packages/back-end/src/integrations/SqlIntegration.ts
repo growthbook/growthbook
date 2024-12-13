@@ -4967,7 +4967,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         : columnRef?.column;
 
       const value =
-        (!hasAggregateFilter && metric.metricType === "proportion") ||
+        (!hasAggregateFilter && isBinomialMetric(metric)) ||
         !columnRef ||
         column === "$$distinctUsers" ||
         column === "$$count"

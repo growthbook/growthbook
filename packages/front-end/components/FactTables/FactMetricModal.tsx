@@ -1,4 +1,4 @@
-import { useForm } from "react-hook-form";
+import { useForm, UseFormReturn } from "react-hook-form";
 import omit from "lodash/omit";
 import { ReactElement, useEffect, useState } from "react";
 import { FaArrowRight, FaTimes } from "react-icons/fa";
@@ -267,76 +267,106 @@ function getAggregationOptions(
   ];
 }
 
-function RetentionTimestampSelector({form}: {form}) {
+function RetentionTimestampSelector({
+    form,
+    defaultTimestampCol,
+    datasource,
+    setDatasource,
+  }: {
+    form: UseFormReturn<CreateFactMetricProps>;
+    defaultTimestampCol: ColumnRef;
+    datasource: DataSourceInterfaceWithParams;
+    setDatasource: (datasource: string) => void;
+  }) {
 
-  const [addRetentionTimestamp, setAddRetentionTimestamp] = useState(false);
+  const timestampCol = form.watch("retentionSettings.column") ?? defaultTimestampCol;
 
   return (
-    <div className="appbox px-3 pt-3 bg-light">
-      <div className="row align-items-top">
-        {addRetentionTimestamp ? (
-          <></>
-        ) : (
-          <>
-          <div className="col-auto">Retention is a matching event at least</div>
-            <div className="col-auto">
-              <Field
-                {...form?.register("windowSettings.windowValue", {
-                  valueAsNumber: true,
-                })}
-                type="number"
-                min={1}
-                max={999}
-                step={1}
-                style={{ width: 70 }}
-                required
-                autoFocus
-              />
-            </div>
-            <div className="col-auto">
-              <SelectField
-                value={form?.watch("windowSettings.windowUnit")}
-                onChange={(value) => {
-                  form.setValue(
-                    "windowSettings.windowUnit",
-                    value as "days" | "hours" | "weeks"
-                  );
-                }}
-                sort={false}
-                options={[
-                  {
-                    label: "Hours",
-                    value: "hours",
-                  },
-                  {
-                    label: "Days",
-                    value: "days",
-                  },
-                  {
-                    label: "Weeks",
-                    value: "weeks",
-                  },
-                ]}
-              />
-            </div>
-                <div className="col-auto">
-                  after the first experiment exposure
-                </div>
+    <div>
+      <div className="appbox px-3 pt-3 bg-light">
+        <div className="row align-items-center mb-3">
+          <div className="col-auto">Event must be at least</div>
           <div className="col-auto">
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setAddRetentionTimestamp(true);
-              }}
-              className="py-2"
-            >
-              Customize baseline timestamp
-            </a>
+            <Field
+              {...form?.register("retentionSettings.retentionValue", {
+                valueAsNumber: true,
+              })}
+              type="number"
+              min={1}
+              max={999}
+              step={1}
+              style={{ width: 70 }}
+              required
+              autoFocus
+            />
           </div>
-        </>
-      )}
+          <div className="col-auto ">
+            <SelectField
+              value={form?.watch("retentionSettings.retentionUnit") ?? "days"}
+              onChange={(value) => {
+                form.setValue(
+                  "retentionSettings.retentionUnit",
+                  value as "days" | "hours" | "weeks"
+                );
+              }}
+              sort={false}
+              options={[
+                {
+                  label: "Hours",
+                  value: "hours",
+                },
+                {
+                  label: "Days",
+                  value: "days",
+                },
+                {
+                  label: "Weeks",
+                  value: "weeks",
+                },
+              ]}
+            />
+          </div>
+          <div className="col-auto">
+            after
+          </div>
+          <div className="col-auto">
+            <SelectField
+              value={form?.watch("retentionSettings.type") ?? "exposure"}
+              onChange={(value) => {
+                form.setValue(
+                  "retentionSettings.type",
+                  value as "exposure" | "column"
+                );
+              }}
+              sort={false}
+              options={[
+                {
+                  label: "experiment exposure",
+                  value: "exposure",
+                },
+                {
+                  label: "other timestamp",
+                  value: "column",
+                },
+              ]}
+            />
+          </div>
+        </div>
       </div>
+      {form?.watch("retentionSettings.type") === "column" ? (<>
+
+        <label>Other Timestamp</label>
+        <ColumnRefSelector 
+        value={timestampCol}
+        setValue={(timestampCol) => 
+          form.setValue("retentionSettings.column", timestampCol)
+        }
+        datasource={datasource}
+        setDatasource={setDatasource}
+        supportsAggregatedFilter={false}
+        allowChangingDatasource={false}
+      />
+      </>) : null}
     </div>
   )
 }
@@ -1174,6 +1204,8 @@ function FieldMappingModal({
           (data.numerator as ColumnRef).inlineFilters = newInlineFilters;
         }
 
+        // TODO retention column
+
         if (denominator) {
           if (denominator.column in numericColumnMap) {
             (data.denominator as ColumnRef).column =
@@ -1381,15 +1413,16 @@ export default function FactMetricModal({
     .filter((d) => d.properties?.queryLanguage === "sql")
     .filter((d) => !datasource || d.id === datasource);
 
+  const factTable = initialFactTable
+    ? getFactTableById(initialFactTable) || undefined
+    : undefined;
   const defaultValues = getDefaultFactMetricProps({
     datasources,
     metricDefaults,
     existing,
     settings,
     project,
-    initialFactTable: initialFactTable
-      ? getFactTableById(initialFactTable) || undefined
-      : undefined,
+    initialFactTable: factTable
   });
 
   // Multiple percent values by 100 for the UI
@@ -1473,6 +1506,13 @@ export default function FactMetricModal({
   const numeratorFactTable = getFactTableById(numerator?.factTableId || "");
   const denominator = form.watch("denominator");
 
+  const defaultRetentionTimestampCol: ColumnRef = {
+    factTableId: numerator.factTableId,
+    column: "$$distinctUsers",
+    filters: [],
+    inlineFilters:factTable ? getInitialInlineFilters(factTable): undefined
+  }
+
   // Must have at least one numeric column to use event-level quantile metrics
   // For user-level quantiles, there is the option to count rows so it's always available
   const canUseEventQuantile = getNumericColumns(numeratorFactTable).length > 0;
@@ -1540,6 +1580,11 @@ export default function FactMetricModal({
           values.numerator.column !== "$$distinctUsers"
         ) {
           values.numerator.column = "$$distinctUsers";
+        }
+
+        // unset delay for retention metrics
+        if (values.metricType === "retention") {
+          values.windowSettings.delayHours = 0;
         }
 
         if (values.cappingSettings?.type) {
@@ -1845,7 +1890,7 @@ export default function FactMetricModal({
               ) : type === "retention" ? (
                 <div>
                   <div className="form-group">
-                  <label>Retention event</label>
+                  <label>Retention Event</label>
                   <ColumnRefSelector
                     value={numerator}
                     setValue={(numerator) =>
@@ -1860,11 +1905,17 @@ export default function FactMetricModal({
                   />
                   </div>
                   <div className="form-group">
-                    <RetentionTimestampSelector />
+                    <RetentionTimestampSelector 
+                      form={form} 
+                      defaultTimestampCol={defaultRetentionTimestampCol} 
+                      datasource={selectedDataSource}
+                      setDatasource={setDatasource}
+                    />
                   </div>
-                  <HelperText status="info"> 
+                  <HelperText status="info">
                     The final metric value will be the percent of users in the
-                    experiment that match the above criteria at least X hours
+                    experiment that match the retention event at least 
+                    {` ${form.watch("retentionSettings.retentionValue") || "X"} ${form.watch("retentionSettings.retentionUnit") || "days"} `}
                     after experiment exposure.
                   </HelperText>
                 </div>
@@ -2087,7 +2138,7 @@ export default function FactMetricModal({
 
                   <Box py="3">
                     <TabsContent value="query">
-                      <MetricDelayHours form={form} />
+                      {type !== "retention" ? <MetricDelayHours form={form} /> : null}
                       {type !== "quantile" && type !== "proportion" ? (
                         <MetricCappingSettingsForm
                           form={form}

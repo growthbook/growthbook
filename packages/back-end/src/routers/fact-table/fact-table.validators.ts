@@ -112,6 +112,13 @@ export const quantileSettingsValidator = z.object({
   ignoreZeros: z.boolean(),
 });
 
+export const retentionSettingsValidator = z.object({
+  type: z.enum(["exposure", "column"]),
+  column: columnRefValidator.nullable(),
+  retentionValue: z.number(),
+  retentionUnit: conversionWindowUnitValidator,
+});
+
 export const priorSettingsValidator = z.object({
   override: z.boolean(),
   proper: z.boolean(),
@@ -162,6 +169,7 @@ export const factMetricValidator = z
     regressionAdjustmentDays: z.number(),
 
     quantileSettings: quantileSettingsValidator.nullable(),
+    retentionSettings: retentionSettingsValidator.nullable(),
   })
   .strict();
 
