@@ -3,8 +3,6 @@ import { ExperimentSnapshotReportInterface } from "back-end/types/report";
 import { getSnapshotAnalysis } from "shared/util";
 import { ago, date, datetime, getValidDate } from "shared/dates";
 import React, { RefObject, useEffect, useState } from "react";
-import { getAllMetricIdsFromExperiment } from "shared/experiments";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { FaChartBar } from "react-icons/fa";
 import { SSRExperimentReportPolyfills } from "@/pages/r/[r]";
 import RunQueriesButton from "@/components/Queries/RunQueriesButton";
@@ -13,8 +11,6 @@ import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser
 import { useAuth } from "@/services/auth";
 import Callout from "@/components/Radix/Callout";
 import Button from "@/components/Radix/Button";
-import ReportResultMoreMenu from "@/components/Report/ReportResultMoreMenu";
-import SplitButton from "@/components/Radix/SplitButton";
 
 export default function ReportAnalysisSettingsBar({
   report,
@@ -23,7 +19,6 @@ export default function ReportAnalysisSettingsBar({
   mutateSnapshot,
   ssrPolyfills,
   canUpdateReport = false,
-  datasource,
   settingsOpen = false,
   setSettingsOpen,
   runQueriesButtonRef,
@@ -34,7 +29,6 @@ export default function ReportAnalysisSettingsBar({
   mutateSnapshot?: () => Promise<unknown> | unknown;
   ssrPolyfills?: SSRExperimentReportPolyfills;
   canUpdateReport?: boolean;
-  datasource?: DataSourceInterfaceWithParams;
   settingsOpen?: boolean;
   setSettingsOpen?: (o: boolean) => void;
   runQueriesButtonRef?: RefObject<HTMLButtonElement>;
@@ -104,8 +98,6 @@ export default function ReportAnalysisSettingsBar({
               differenceType={
                 report?.experimentAnalysisSettings?.differenceType ?? "relative"
               }
-              // ensure disabled is true to style correctly
-              // and callbacks are not needed
               disabled={true}
               phase={0}
               setDifferenceType={() => {}}
@@ -179,37 +171,15 @@ export default function ReportAnalysisSettingsBar({
             </div>
           ) : null}
           {canUpdateReport && setSettingsOpen ? (
-            <div className="col-auto">
-              <SplitButton
-                variant="outline"
-                menu={
-                  <ReportResultMoreMenu
-                    hasData={hasData}
-                    supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
-                    notebookUrl={`/report/${report.id}/notebook`}
-                    notebookFilename={report.title}
-                    queries={snapshot.queries}
-                    queryError={snapshot.error}
-                    results={analysis?.results}
-                    variations={variations}
-                    metrics={getAllMetricIdsFromExperiment(
-                      snapshot.settings,
-                      false
-                    )}
-                    trackingKey={report.title}
-                    dimension={snapshot.dimension ?? undefined}
-                  />
-                }
+            <div className="col-auto d-flex">
+              <Button
+                type="button"
+                variant={settingsOpen ? "solid" : "outline"}
+                size="sm"
+                onClick={() => setSettingsOpen(!settingsOpen)}
               >
-                <Button
-                  type="button"
-                  variant={settingsOpen ? "solid" : "outline"}
-                  size="sm"
-                  onClick={() => setSettingsOpen(!settingsOpen)}
-                >
-                  Edit Analysis
-                </Button>
-              </SplitButton>
+                Edit Analysis
+              </Button>
             </div>
           ) : null}
         </div>

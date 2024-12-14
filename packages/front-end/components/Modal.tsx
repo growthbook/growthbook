@@ -13,7 +13,6 @@ import { v4 as uuidv4 } from "uuid";
 import track, { TrackEventProps } from "@/services/track";
 import ConditionalWrapper from "@/components/ConditionalWrapper";
 import Button from "@/components/Radix/Button";
-import Link from "@/components/Radix/Link";
 import LoadingOverlay from "./LoadingOverlay";
 import Portal from "./Modal/Portal";
 import Tooltip from "./Tooltip/Tooltip";
@@ -260,14 +259,15 @@ const Modal: FC<ModalProps> = ({
             {close && includeCloseCta ? (
               <>
                 {useRadixButton ? (
-                  <Link
+                  <Button
+                    variant="ghost"
                     onClick={async () => {
                       await onClickCloseCta?.();
                       close();
                     }}
                   >
                     {isSuccess && successMessage ? "Close" : closeCta}
-                  </Link>
+                  </Button>
                 ) : (
                   <button
                     type="button"

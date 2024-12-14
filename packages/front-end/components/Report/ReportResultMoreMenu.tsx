@@ -1,20 +1,20 @@
-import { FaFileDownload } from "react-icons/fa";
 import { Queries } from "back-end/types/query";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
+  ExperimentSnapshotReportInterface,
 } from "back-end/types/report";
-import { PiCaretDownFill } from "react-icons/pi";
 import React from "react";
+import { useRouter } from "next/router";
 import { useAuth } from "@/services/auth";
 import ResultsDownloadButton from "@/components/Experiment/ResultsDownloadButton";
-import Button from "@/components/Radix/Button";
-import OldButton from "@/components/Button";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { DropdownMenu } from "@/components/Radix/DropdownMenu";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
 
 export default function ReportResultMoreMenu({
+  report,
   queries,
   queryError,
   hasData,
@@ -26,7 +26,10 @@ export default function ReportResultMoreMenu({
   variations,
   trackingKey,
   dimension,
+  canDelete,
+  setNameModalOpen,
 }: {
+  report: ExperimentSnapshotReportInterface;
   queries?: Queries;
   queryError?: string;
   hasData?: boolean;
@@ -38,34 +41,38 @@ export default function ReportResultMoreMenu({
   variations?: ExperimentReportVariation[];
   trackingKey?: string;
   dimension?: string;
+  canDelete?: boolean;
+  setNameModalOpen?: (o: boolean) => void;
 }) {
   const { apiCall } = useAuth();
+  const router = useRouter();
 
   const canDownloadJupyterNotebook =
     hasData && supportsNotebooks && notebookUrl && notebookFilename;
 
   return (
-    <DropdownMenu
-      menuPlacement="end"
-      trigger={
-        <Button variant="outline" size="sm">
-          <PiCaretDownFill />
-        </Button>
-      }
-    >
+    <MoreMenu autoCloseOnClick={false} useRadix={true} className="ml-2">
+      {setNameModalOpen ? (
+        <button
+          className="dropdown-item py-2"
+          onClick={() => setNameModalOpen(true)}
+        >
+          Edit Name &amp; Description
+        </button>
+      ) : null}
       {(queries?.length ?? 0) > 0 && (
         <ViewAsyncQueriesButton
           queries={queries?.map((q) => q.query) ?? []}
           error={queryError}
           className="dropdown-item py-2"
+          icon={null}
         />
       )}
       <Tooltip
         shouldDisplay={!canDownloadJupyterNotebook}
         body="To download results as a Jupyter notebook, you must set up a Jupyter Notebook query runner. View our docs for more info."
       >
-        <OldButton
-          color="outline-info"
+        <button
           className="dropdown-item py-2"
           disabled={!canDownloadJupyterNotebook}
           onClick={async () => {
@@ -92,9 +99,8 @@ export default function ReportResultMoreMenu({
             el.click();
           }}
         >
-          <FaFileDownload className="mr-2" style={{ fontSize: "1.2rem" }} />{" "}
           Download Notebook
-        </OldButton>
+        </button>
       </Tooltip>
       {results && (
         <ResultsDownloadButton
@@ -103,8 +109,31 @@ export default function ReportResultMoreMenu({
           variations={variations}
           trackingKey={trackingKey || ""}
           dimension={dimension || ""}
+          noIcon={true}
         />
       )}
-    </DropdownMenu>
+      {canDelete && (
+        <>
+          <hr className="mx-4 my-2" />
+          <DeleteButton
+            className="dropdown-item text-danger"
+            useIcon={false}
+            text="Delete report"
+            displayName="Report"
+            deleteMessage="Are you sure you want to delete this report?"
+            additionalMessage="This cannot be undone"
+            onClick={async () => {
+              await apiCall<{ status: number; message?: string }>(
+                `/report/${report.id}`,
+                {
+                  method: "DELETE",
+                }
+              );
+              router.push(`/experiment/${report.experimentId}#results`);
+            }}
+          />
+        </>
+      )}
+    </MoreMenu>
   );
 }

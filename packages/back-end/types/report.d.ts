@@ -32,6 +32,7 @@ export interface ExperimentSnapshotReportInterface extends ReportInterfaceBase {
   type: "experiment-snapshot";
   tinyid: string;
   shareLevel: "public" | "organization" | "private";
+  editLevel: "organization" | "private";
   snapshot: string;
   experimentMetadata: ExperimentReportMetadata;
   experimentAnalysisSettings: ExperimentReportAnalysisSettings;

@@ -10,7 +10,6 @@ import {
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import React, { RefObject } from "react";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { SSRExperimentReportPolyfills } from "@/pages/r/[r]";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -25,7 +24,6 @@ import ConfigureReport from "@/components/Report/ConfigureReport";
 export default function ReportResults({
   report,
   snapshot,
-  datasource,
   snapshotError,
   mutateReport,
   mutateSnapshot,
@@ -38,7 +36,6 @@ export default function ReportResults({
 }: {
   report: ExperimentSnapshotReportInterface;
   snapshot?: ExperimentSnapshotInterface;
-  datasource?: DataSourceInterfaceWithParams;
   snapshotError?: Error;
   mutateReport?: () => Promise<unknown> | unknown;
   mutateSnapshot?: () => Promise<unknown> | unknown;
@@ -122,7 +119,6 @@ export default function ReportResults({
             mutateSnapshot={mutateSnapshot}
             ssrPolyfills={ssrPolyfills}
             canUpdateReport={canEdit}
-            datasource={datasource}
             settingsOpen={settingsOpen}
             setSettingsOpen={setSettingsOpen}
             runQueriesButtonRef={runQueriesButtonRef}

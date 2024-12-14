@@ -110,6 +110,8 @@ export default function ReportPage() {
 
       <ReportMetaInfo
         report={report}
+        snapshot={snapshot ?? undefined}
+        datasource={datasource}
         mutate={mutate}
         canView={true}
         isOwner={isOwner}
@@ -131,7 +133,6 @@ export default function ReportPage() {
       <ReportResults
         report={report}
         snapshot={snapshot}
-        datasource={datasource}
         snapshotError={snapshotError}
         mutateReport={mutate}
         mutateSnapshot={mutateSnapshot}

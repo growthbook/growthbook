@@ -29,10 +29,9 @@ import Link from "@/components/Radix/Link";
 
 export async function getServerSideProps(context) {
   const { r } = context.params;
-
   const API_HOST =
     (process.env.API_HOST ?? "").replace(/\/$/, "") || "http://localhost:3100";
-  console.log({ API_HOST });
+
   try {
     const resp = await fetch(API_HOST + `/api/report/public/${r}`);
     const data = await resp.json();

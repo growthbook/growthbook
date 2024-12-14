@@ -492,6 +492,7 @@ export async function putReport(
         "title",
         "description",
         "shareLevel",
+        "editLevel",
         "status",
         "snapshot",
       ]),

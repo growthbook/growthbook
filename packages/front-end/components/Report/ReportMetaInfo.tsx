@@ -1,37 +1,39 @@
 import { ExperimentSnapshotReportInterface } from "back-end/types/report";
-import React, { useState } from "react";
-import {
-  PiBuildingFill,
-  PiCaretDownFill,
-  PiLink,
-  PiGlobeHemisphereWestFill,
-  PiLockBold,
-  PiCheck,
-} from "react-icons/pi";
+import React, { useEffect, useState } from "react";
+import { PiLink, PiCheck } from "react-icons/pi";
 import { Text } from "@radix-ui/themes";
 import { FaGear } from "react-icons/fa6";
 import { date } from "shared/dates";
-import { useRouter } from "next/router";
+import { getAllMetricIdsFromExperiment } from "shared/experiments";
+import { getSnapshotAnalysis } from "shared/util";
+import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { useForm } from "react-hook-form";
 import Button from "@/components/Radix/Button";
-import { DropdownMenu } from "@/components/Radix/DropdownMenu";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { useAuth } from "@/services/auth";
 import LinkButton from "@/components/Radix/LinkButton";
 import SplitButton from "@/components/Radix/SplitButton";
-import { Select, SelectItem } from "@/components/Radix/Select";
 import Badge from "@/components/Radix/Badge";
 import { useUser } from "@/services/UserContext";
-import { GBEdit } from "@/components/Icons";
-import Toggle from "@/components/Forms/Toggle";
 import HelperText from "@/components/Radix/HelperText";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import EditableH1 from "@/components/Forms/EditableH1";
-import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import Markdown from "@/components/Markdown/Markdown";
+import Modal from "@/components/Modal";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import SelectField from "@/components/Forms/SelectField";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import Callout from "@/components/Radix/Callout";
+import ReportResultMoreMenu from "@/components/Report/ReportResultMoreMenu";
+import Field from "@/components/Forms/Field";
+import MarkdownInput from "@/components/Markdown/MarkdownInput";
+
+type ShareLevel = "public" | "organization" | "private";
+type EditLevel = "organization" | "private";
 
 export default function ReportMetaInfo({
   report,
+  snapshot,
+  datasource,
   mutate,
   canView = true,
   isOwner,
@@ -42,6 +44,8 @@ export default function ReportMetaInfo({
   showPrivateLink,
 }: {
   report: ExperimentSnapshotReportInterface;
+  snapshot?: ExperimentSnapshotInterface;
+  datasource?: DataSourceInterfaceWithParams;
   mutate?: () => Promise<unknown> | unknown;
   canView?: boolean;
   isOwner?: boolean;
@@ -51,129 +55,156 @@ export default function ReportMetaInfo({
   showEditControls?: boolean;
   showPrivateLink?: boolean;
 }) {
-  const { apiCall } = useAuth();
-  const { getUserDisplay } = useUser();
-  const router = useRouter();
-
-  const { performCopy, copySuccess } = useCopyToClipboard({
-    timeout: 800,
-  });
-
-  const [editingTitle, setEditingTitle] = useState(false);
-  const [title, setTitle] = useState(report.title);
-
   const HOST = globalThis?.window?.location?.origin;
   const shareableLink = report.tinyid
     ? `${HOST}/r/${report.tinyid}`
     : `${HOST}/report/${report.id}`;
 
-  const shareLevel = report.shareLevel || "organization";
+  const { apiCall } = useAuth();
+  const { getUserDisplay } = useUser();
 
-  const shareIcon =
-    shareLevel === "public" ? (
-      <PiGlobeHemisphereWestFill />
-    ) : shareLevel === "organization" ? (
-      <PiBuildingFill />
-    ) : (
-      <PiLockBold />
-    );
-  const shareText =
-    shareLevel === "public"
-      ? "Viewable by anybody with the link"
-      : shareLevel === "organization"
-      ? "Viewable by members of my organization"
-      : "Shareable link disabled";
-  const shareColor =
-    shareLevel === "public"
-      ? "green"
-      : shareLevel === "organization"
-      ? "gold"
-      : "tomato";
+  const { performCopy, copySuccess } = useCopyToClipboard({
+    timeout: 800,
+  });
 
-  const saveShareLevel = async (
-    shareLevel: "public" | "organization" | "private"
-  ) => {
-    await apiCall<{
-      updatedReport: ExperimentSnapshotReportInterface;
-    }>(`/report/${report.id}`, {
-      method: "PUT",
-      body: JSON.stringify({ shareLevel }),
-    });
-    await mutate?.();
-  };
+  const [generalModalOpen, setGeneralModalOpen] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
 
-  const saveStatus = async (published: boolean) => {
-    await apiCall<{
-      updatedReport: ExperimentSnapshotReportInterface;
-    }>(`/report/${report.id}`, {
-      method: "PUT",
-      body: JSON.stringify({ status: published ? "published" : "private" }),
-    });
-    await mutate?.();
-  };
+  const [shareLevel, setShareLevel] = useState<ShareLevel>(
+    report.shareLevel || "organization"
+  );
+  const [saveShareLevelStatus, setSaveShareLevelStatus] = useState<
+    null | "loading" | "success" | "fail"
+  >(null);
 
-  const saveTitle = async () => {
-    await apiCall<{
-      updatedReport: ExperimentSnapshotReportInterface;
-    }>(`/report/${report.id}`, {
-      method: "PUT",
-      body: JSON.stringify({ title }),
-    });
-    await mutate?.();
-  };
+  const [editLevel, setEditLevel] = useState<EditLevel>(
+    report.editLevel || "organization"
+  );
+  const [saveEditLevelStatus, setSaveEditLevelStatus] = useState<
+    null | "loading" | "success" | "fail"
+  >(null);
+
+  const generalForm = useForm<Partial<ExperimentSnapshotReportInterface>>({
+    defaultValues: {
+      title: report.title ?? "",
+      description: report.description ?? "",
+    },
+  });
+
+  // Report/snapshot info for dropdown menu controls
+  const variations = report.experimentMetadata.variations.map(
+    (variation, i) => ({
+      id: variation.id,
+      name: variation.name,
+      weight:
+        report.experimentMetadata.phases?.[snapshot?.phase || 0]
+          ?.variationWeights?.[i] || 1 / (variations?.length || 2),
+    })
+  );
+  const analysis = snapshot
+    ? getSnapshotAnalysis(snapshot) ?? undefined
+    : undefined;
+  const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
+
+  useEffect(() => {
+    if (report.shareLevel !== shareLevel) {
+      console.log({ r: report.shareLevel, shareLevel });
+      setSaveShareLevelStatus("loading");
+      apiCall<{
+        updatedReport: ExperimentSnapshotReportInterface;
+      }>(`/report/${report.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ shareLevel }),
+      })
+        .then(() => {
+          mutate?.();
+          setSaveShareLevelStatus("success");
+          setTimeout(() => setSaveShareLevelStatus(null), 1500);
+        })
+        .catch(() => {
+          setSaveShareLevelStatus("fail");
+          setTimeout(() => setSaveShareLevelStatus(null), 1500);
+        });
+    }
+  }, [
+    report.id,
+    report.shareLevel,
+    shareLevel,
+    mutate,
+    setSaveEditLevelStatus,
+    apiCall,
+  ]);
+
+  useEffect(() => {
+    if (report.editLevel !== editLevel) {
+      setSaveEditLevelStatus("loading");
+      apiCall<{
+        updatedReport: ExperimentSnapshotReportInterface;
+      }>(`/report/${report.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ editLevel }),
+      })
+        .then(() => {
+          mutate?.();
+          setSaveEditLevelStatus("success");
+          setTimeout(() => setSaveEditLevelStatus(null), 1500);
+        })
+        .catch(() => {
+          setSaveEditLevelStatus("fail");
+          setTimeout(() => setSaveEditLevelStatus(null), 1500);
+        });
+    }
+  }, [
+    report.id,
+    report.editLevel,
+    editLevel,
+    mutate,
+    setSaveEditLevelStatus,
+    apiCall,
+  ]);
 
   const shareLinkButton = copySuccess ? (
-    <Button icon={<PiCheck />}>Link copied</Button>
+    <Button style={{ width: 150 }} icon={<PiCheck />}>
+      Link copied
+    </Button>
   ) : (
     <Button
       icon={<PiLink />}
-      onClick={() => performCopy(shareableLink)}
+      onClick={() => {
+        if (!copySuccess) performCopy(shareableLink);
+        setTimeout(() => setShareModalOpen(false), 810);
+      }}
       disabled={shareLevel === "private"}
+      style={{ width: 150 }}
     >
       Copy Link
     </Button>
   );
 
+  const shareLinkButtonTiny =
+    copySuccess && !shareModalOpen ? (
+      <Button>
+        <Tooltip
+          state={true}
+          body="Link copied"
+          style={{ pointerEvents: "none" }}
+          tipMinWidth="80"
+        >
+          <PiCheck />
+        </Tooltip>
+      </Button>
+    ) : (
+      <Button onClick={() => performCopy(shareableLink)}>
+        <PiLink />
+      </Button>
+    );
+
   return (
     <>
-      <div className="mt-1 mb-4">
-        <div className="d-flex align-items-end">
+      <div className="mt-1 mb-3">
+        <div className="d-flex">
           <div className="flex-1">
-            {showEditControls && canEdit ? (
-              <div className="d-flex align-items-center mr-3">
-                <EditableH1
-                  style={{ minWidth: 500, height: 34, padding: "0 8px" }}
-                  className="mb-2"
-                  editing={editingTitle}
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  save={saveTitle}
-                />
-                {!editingTitle ? (
-                  <a
-                    role="button"
-                    className="link-purple ml-3 mb-2"
-                    onClick={() => setEditingTitle(true)}
-                  >
-                    <GBEdit />
-                  </a>
-                ) : (
-                  <Button
-                    size="sm"
-                    mb="2"
-                    ml="3"
-                    onClick={async () => {
-                      await saveTitle();
-                      setEditingTitle(false);
-                    }}
-                  >
-                    Save
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <h1>{report.title}</h1>
-            )}
+            <h1>{report.title}</h1>
             {showPrivateLink && (
               <div>
                 <LinkButton
@@ -197,50 +228,24 @@ export default function ReportMetaInfo({
               {showEditControls && (
                 <>
                   <div className="d-inline-block ml-2">
-                    {report.status === "published" ? (
+                    {report.shareLevel === "private" ? (
                       <Badge
                         variant="soft"
-                        label="Published"
-                        radius="full"
-                        style={{ justifyContent: "center", width: 70 }}
-                      />
-                    ) : (
-                      <Badge
-                        variant="soft"
-                        color="tomato"
+                        color="gray"
                         label="Private"
                         radius="full"
-                        style={{ justifyContent: "center", width: 70 }}
                       />
-                    )}
+                    ) : report.shareLevel === "organization" ? (
+                      <Badge variant="soft" label="Published" radius="full" />
+                    ) : report.shareLevel === "public" ? (
+                      <Badge
+                        variant="soft"
+                        color="orange"
+                        label="Public"
+                        radius="full"
+                      />
+                    ) : null}
                   </div>
-                  {isOwner || isAdmin ? (
-                    <DropdownMenu
-                      trigger={
-                        <a role="button" className="link-purple ml-2">
-                          <GBEdit />
-                        </a>
-                      }
-                      menuPlacement="end"
-                      menuWidth={200}
-                    >
-                      <label className="font-weight-bold mb-1">
-                        Publish report
-                      </label>
-                      <Toggle
-                        id="toggle-published"
-                        value={report.status === "published"}
-                        setValue={() =>
-                          saveStatus(report.status !== "published")
-                        }
-                      />
-                      <div className="mt-2">
-                        <HelperText status="info" size="sm">
-                          Controls whether this report is discoverable
-                        </HelperText>
-                      </div>
-                    </DropdownMenu>
-                  ) : null}
                 </>
               )}
             </div>
@@ -250,118 +255,189 @@ export default function ReportMetaInfo({
               <div className="d-flex">
                 {showEditControls ? (
                   <div className="d-flex flex-column align-items-end">
-                    <SplitButton
-                      menu={
-                        <DropdownMenu
-                          menuWidth={300}
-                          menuPlacement="end"
-                          trigger={
-                            <Button>
-                              <PiCaretDownFill />
-                            </Button>
-                          }
-                        >
-                          <Select
-                            label="Share Options"
-                            value={shareLevel}
-                            setValue={saveShareLevel}
-                          >
-                            <SelectItem value="public">
-                              <PiGlobeHemisphereWestFill /> Public
-                            </SelectItem>
-                            <SelectItem value="organization">
-                              <PiBuildingFill /> Organization
-                            </SelectItem>
-                            <SelectItem value="private">
-                              <PiLockBold /> Disabled
-                            </SelectItem>
-                          </Select>
-
-                          <div className="mt-2 px-2 mb-1">
-                            {shareLevel !== "private" ? (
-                              <Text size="1" color="gray" wrap="nowrap">
-                                {shareableLink}
-                              </Text>
-                            ) : null}
-                            <div className="mt-1">
-                              <Text size="1" color={shareColor}>
-                                {shareIcon}
-                                <span className="ml-1">{shareText}</span>
-                              </Text>
-                            </div>
-                          </div>
-                        </DropdownMenu>
-                      }
-                    >
-                      {shareLinkButton}
-                    </SplitButton>
-                    <div className="mt-1">
-                      <Text size="1" color={shareColor}>
-                        {shareIcon}
-                        <span className="ml-1">{shareText}</span>
-                      </Text>
-                    </div>
+                    {shareLevel === "private" ? (
+                      <Button onClick={() => setShareModalOpen(true)} size="sm">
+                        Share...
+                      </Button>
+                    ) : (
+                      <SplitButton menu={shareLinkButtonTiny}>
+                        <Button onClick={() => setShareModalOpen(true)}>
+                          Share...
+                        </Button>
+                      </SplitButton>
+                    )}
                   </div>
                 ) : (
-                  <div className="mb-3">{shareLinkButton}</div>
+                  shareLinkButton
                 )}
-                {showEditControls && (
-                  <div className="px-1 ml-2 mt-2">
-                    <MoreMenu>
-                      {canDelete && (
-                        <DeleteButton
-                          className="dropdown-item text-danger"
-                          useIcon={false}
-                          text="Delete report"
-                          displayName="Report"
-                          deleteMessage="Are you sure you want to delete this report?"
-                          additionalMessage="This cannot be undone"
-                          onClick={async () => {
-                            await apiCall<{ status: number; message?: string }>(
-                              `/report/${report.id}`,
-                              {
-                                method: "DELETE",
-                              }
-                            );
-                            router.push(
-                              `/experiment/${report.experimentId}#results`
-                            );
-                          }}
-                        />
-                      )}
-                    </MoreMenu>
-                  </div>
-                )}
+                {showEditControls ? (
+                  <ReportResultMoreMenu
+                    report={report}
+                    hasData={hasData}
+                    supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
+                    notebookUrl={`/report/${report.id}/notebook`}
+                    notebookFilename={report.title}
+                    queries={snapshot?.queries}
+                    queryError={snapshot?.error}
+                    results={analysis?.results}
+                    variations={variations}
+                    metrics={
+                      snapshot?.settings
+                        ? getAllMetricIdsFromExperiment(
+                            snapshot.settings,
+                            false
+                          )
+                        : undefined
+                    }
+                    trackingKey={report.title}
+                    dimension={snapshot?.dimension ?? undefined}
+                    setNameModalOpen={canEdit ? setGeneralModalOpen : undefined}
+                    canDelete={canDelete}
+                  />
+                ) : null}
               </div>
             </div>
           ) : null}
         </div>
+        {showPrivateLink && (
+          <div>
+            <LinkButton
+              size="sm"
+              variant="ghost"
+              href={`/report/${report.id}`}
+              icon={<FaGear />}
+            >
+              Manage this report
+            </LinkButton>
+          </div>
+        )}
       </div>
 
-      {showEditControls && (isOwner || canEdit) ? (
-        <div className="mb-4">
-          <MarkdownInlineEdit
-            value={report.description ?? ""}
-            save={async (description) => {
-              await apiCall(`/report/${report.id}`, {
-                method: "PUT",
-                body: JSON.stringify({ description }),
-              });
-              mutate?.();
-            }}
-            canCreate={canEdit}
-            canEdit={canEdit}
-            label="description"
-            header="Description"
-            headerClassName="h4"
-            containerClassName="mb-2"
+      <div className="mb-4">
+        <Markdown>{report.description}</Markdown>
+      </div>
+
+      {generalModalOpen && (
+        <Modal
+          size="lg"
+          open={true}
+          trackingEventModalType="report-edit-name-description"
+          close={() => {
+            generalForm.reset();
+            setGeneralModalOpen(false);
+          }}
+          submit={generalForm.handleSubmit(async (value) => {
+            await apiCall(`/report/${report.id}`, {
+              method: "PUT",
+              body: JSON.stringify(value),
+            });
+            mutate?.();
+          })}
+          header={`Edit "${report.title}"`}
+          useRadixButton={true}
+        >
+          <Field label="Report Name" {...generalForm.register("title")} />
+
+          <label>Description</label>
+          <MarkdownInput
+            value={generalForm.watch("description") || ""}
+            setValue={(v) => generalForm.setValue("description", v)}
           />
-        </div>
-      ) : report.description ? (
-        <div className="mb-4">
-          <Markdown>{report.description}</Markdown>
-        </div>
-      ) : null}
+        </Modal>
+      )}
+
+      {shareModalOpen && (
+        <Modal
+          open={true}
+          trackingEventModalType="share-report-settings"
+          close={() => setShareModalOpen(false)}
+          closeCta="Close"
+          includeCloseCta={true}
+          header={`Share "${report.title}"`}
+          useRadixButton={true}
+          secondaryCTA={shareLinkButton}
+        >
+          <div className="mb-3">
+            {shareLevel === "organization" ? (
+              <Callout status="info" size="sm">
+                This report is discoverable within your organization.
+              </Callout>
+            ) : shareLevel === "public" ? (
+              <>
+                <Callout status="error" size="sm">
+                  Anyone with the link can view this report, even those outside
+                  your organization.
+                </Callout>
+              </>
+            ) : shareLevel === "private" ? (
+              <Callout status="info" size="sm">
+                This report is currently unlisted
+                {editLevel === "private" ? " — only you can view or edit" : ""}.
+              </Callout>
+            ) : null}
+          </div>
+
+          <SelectField
+            label="View access"
+            value={shareLevel}
+            onChange={(v: ShareLevel) => setShareLevel(v)}
+            containerClassName="mb-2"
+            sort={false}
+            disabled={!isOwner && !isAdmin}
+            options={[
+              { value: "organization", label: "Only organization members" },
+              { value: "public", label: "Anyone with the link" },
+              { value: "private", label: "Only me" },
+            ]}
+          />
+          <div className="mb-1" style={{ height: 24 }}>
+            {saveShareLevelStatus === "loading" ? (
+              <div className="position-relative" style={{ top: -6 }}>
+                <LoadingSpinner />
+              </div>
+            ) : saveShareLevelStatus === "success" ? (
+              <HelperText status="success" size="sm">
+                Sharing status has been updated
+              </HelperText>
+            ) : saveShareLevelStatus === "fail" ? (
+              <HelperText status="error" size="sm">
+                Unable to update sharing status
+              </HelperText>
+            ) : null}
+          </div>
+
+          <SelectField
+            label="Edit access"
+            value={editLevel}
+            onChange={(v: EditLevel) => setEditLevel(v)}
+            containerClassName="mb-2"
+            sort={false}
+            disabled={!isOwner && !isAdmin}
+            options={[
+              {
+                value: "organization",
+                label: "Any organization members with editing permissions",
+              },
+              { value: "private", label: "Only me" },
+            ]}
+          />
+          <div className="mb-1" style={{ height: 24 }}>
+            {saveEditLevelStatus === "loading" ? (
+              <div className="position-relative" style={{ top: -6 }}>
+                <LoadingSpinner />
+              </div>
+            ) : saveEditLevelStatus === "success" ? (
+              <HelperText status="success" size="sm">
+                Editing status has been updated
+              </HelperText>
+            ) : saveEditLevelStatus === "fail" ? (
+              <HelperText status="error" size="sm">
+                Unable to update editing status
+              </HelperText>
+            ) : null}
+          </div>
+        </Modal>
+      )}
     </>
   );
 }

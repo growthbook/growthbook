@@ -20,6 +20,7 @@ const reportSchema = new mongoose.Schema({
   id: String,
   tinyid: String,
   shareLevel: String,
+  editLevel: String,
   dateCreated: Date,
   dateUpdated: Date,
   organization: String,
