@@ -1475,6 +1475,9 @@ export default function FactMetricModal({
   const hasQuantileMetricCommercialFeature = hasCommercialFeature(
     "quantile-metrics"
   );
+  const hasRetentionMetricCommercialFeature = hasCommercialFeature(
+    "retention-metrics"
+  );
 
   const numerator = form.watch("numerator");
   const numeratorFactTable = getFactTableById(numerator?.factTableId || "");
@@ -1752,6 +1755,12 @@ export default function FactMetricModal({
                     type === "quantile" &&
                     (!quantileMetricsAvailableForDatasource ||
                       !hasQuantileMetricCommercialFeature)
+                  ) {
+                    return;
+                  }
+                  if (
+                    type === "retention" &&
+                    !hasRetentionMetricCommercialFeature
                   ) {
                     return;
                   }
