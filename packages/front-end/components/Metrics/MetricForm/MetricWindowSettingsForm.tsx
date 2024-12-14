@@ -92,8 +92,8 @@ export function MetricWindowSettingsForm({ form, type }) {
                 ) : (
                   <div className="col-auto">
                     of first experiment exposure
-                    {form.watch("windowSettings.delayHours") ? (
-                      <>{" + conversion delay"}</>
+                    {form.watch("windowSettings.delayValue") ? (
+                      <>{" + metric delay"}</>
                     ) : null}
                   </div>
                 )}

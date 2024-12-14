@@ -1181,8 +1181,6 @@ function FieldMappingModal({
           (data.numerator as ColumnRef).inlineFilters = newInlineFilters;
         }
 
-        // TODO retention column
-
         if (denominator) {
           if (denominator.column in numericColumnMap) {
             (data.denominator as ColumnRef).column =
