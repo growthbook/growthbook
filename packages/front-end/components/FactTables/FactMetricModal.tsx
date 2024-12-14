@@ -1764,6 +1764,16 @@ export default function FactMetricModal({
                   ) {
                     return;
                   }
+
+                  // always reset delay value when switching away from retention
+                  if (
+                    form.getValues("metricType") === "retention" &&
+                    type !== "retention"
+                  ) {
+                    form.setValue("windowSettings.delayValue", 0);
+                    form.setValue("windowSettings.delayUnit", "hours");
+                  }
+
                   form.setValue("metricType", type as FactMetricType);
 
                   // Set better defaults for retention metrics

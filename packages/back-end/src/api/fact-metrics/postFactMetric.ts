@@ -120,8 +120,11 @@ export async function getCreateMetricPropsFromBody(
     windowSettings: {
       type: scopedSettings.windowType.value ?? DEFAULT_FACT_METRIC_WINDOW,
       delayValue:
-        scopedSettings.delayHours.value ?? DEFAULT_METRIC_WINDOW_DELAY_HOURS,
-      delayUnit: "hours",
+        windowSettings?.delayValue ??
+        windowSettings?.delayHours ??
+        scopedSettings.delayHours.value ??
+        DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+      delayUnit: windowSettings?.delayUnit ?? "hours",
       windowValue:
         scopedSettings.windowHours.value ?? DEFAULT_METRIC_WINDOW_HOURS,
       windowUnit: "hours",
@@ -169,6 +172,7 @@ export async function getCreateMetricPropsFromBody(
     data.cappingSettings.type = cappingSettings.type;
     data.cappingSettings.value = cappingSettings.value || 0;
   }
+
   if (windowSettings?.type && windowSettings?.type !== "none") {
     data.windowSettings.type = windowSettings.type;
     if (windowSettings.windowValue) {
@@ -177,10 +181,6 @@ export async function getCreateMetricPropsFromBody(
     if (windowSettings.windowUnit) {
       data.windowSettings.windowUnit = windowSettings.windowUnit;
     }
-  }
-  if (windowSettings?.delayHours && !windowSettings?.delayValue) {
-    data.windowSettings.delayUnit = "hours";
-    data.windowSettings.delayValue = windowSettings.delayHours;
   }
 
   if (regressionAdjustmentSettings?.override) {

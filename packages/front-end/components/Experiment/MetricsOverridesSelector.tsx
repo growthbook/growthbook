@@ -288,7 +288,9 @@ export default function MetricsOverridesSelector({
                       </div>
                       {(form.watch(`metricOverrides.${i}.windowType`) ??
                         metricDefinition?.windowSettings?.type) ===
-                      "conversion" ? (
+                        "conversion" ||
+                      (metricDefinition &&
+                        isRetentionMetric(metricDefinition)) ? (
                         <div className="row m-1 mr-1 px-1">
                           <div className="col">
                             <Field
@@ -323,6 +325,12 @@ export default function MetricsOverridesSelector({
                             <Field
                               label="Conversion Window (hours)"
                               placeholder="default"
+                              disabled={
+                                (form.watch(
+                                  `metricOverrides.${i}.windowType`
+                                ) ?? metricDefinition?.windowSettings?.type) !==
+                                "conversion"
+                              }
                               helpText={
                                 <div className="text-right">
                                   default:{" "}
