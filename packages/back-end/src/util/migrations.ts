@@ -88,11 +88,11 @@ export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
       };
     }
   } else {
-    if (doc.windowSettings.delayHours !== undefined) {
+    if (doc.windowSettings.delayValue === undefined) {
       newDoc.windowSettings = {
         ...doc.windowSettings,
-        delayUnit: "hours",
-        delayValue: doc.windowSettings.delayHours,
+        delayValue: doc.windowSettings.delayHours ?? 0,
+        delayUnit: doc.windowSettings.delayUnit ?? "hours",
       };
     }
 
@@ -837,13 +837,13 @@ export function migrateSnapshot(
             ...defaultMetricPriorSettings,
             ...m.computedSettings,
           };
-          // @ts-expect-error To prevent building a full legacy snapshot settings type
-          if (m.computedSettings.windowSettings?.delayHours !== undefined) {
+          if (m.computedSettings.windowSettings?.delayValue === undefined) {
             m.computedSettings.windowSettings = {
               ...m.computedSettings.windowSettings,
-              delayUnit: "hours",
               // @ts-expect-error To prevent building a full legacy snapshot settings type
-              delayValue: m.computedSettings.windowSettings?.delayHours,
+              delayValue: m.computedSettings.windowSettings?.delayHours ?? 0,
+              delayUnit:
+                m.computedSettings.windowSettings?.delayUnit ?? "hours",
             };
           }
         }

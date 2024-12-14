@@ -38,7 +38,7 @@ export async function getUpdateFactMetricPropsFromBody(
       filters: [],
       ...numerator,
       column:
-        metricType === "proportion" //update
+        metricType === "proportion" || metricType === "retention"
           ? "$$distinctUsers"
           : numerator.column || "$$distinctUsers",
     };

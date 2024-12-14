@@ -153,11 +153,11 @@ export default function RestoreConfigYamlButton({
               n.windowSettings = windowSetting;
               delete n.conversionWindowDelay;
               delete n.conversionDelayHours;
-            } else if (n.windowSettings.delayHours !== undefined) {
+            } else if (n.windowSettings.delayValue === undefined) {
               const windowSettings: MetricWindowSettings = {
                 ...n.windowSettings,
-                delayUnit: "hours",
-                delayValue: n.windowSettings.delayHours,
+                delayValue: n.windowSettings.delayHours ?? 0,
+                delayUnit: n.windowSettings.delayUnit ?? "hours",
               };
               n.windowSettings = windowSettings;
               delete n.windowSettings.delayHours;

@@ -882,7 +882,7 @@ describe("experiments utils", () => {
         expect(result.windowSettings.delayValue).toEqual(10);
         expect(result.windowSettings.delayUnit).toEqual("hours");
       });
-      it("upgrades delay Hours", () => {
+      it("upgrades delayHours", () => {
         const input: z.infer<typeof postMetricValidator.bodySchema> = {
           datasourceId: "ds_abc123",
           tags: ["checkout"],
@@ -930,46 +930,60 @@ describe("experiments utils", () => {
           datasource
         );
 
-        expect(result.aggregation).toEqual(undefined);
-        expect(result.conditions).toEqual([
-          {
-            column: "signed_up",
-            operator: "=",
-            value: "true",
-          },
-        ]);
-        expect(result.datasource).toEqual("ds_abc123");
-        expect(result.denominator).toBe(undefined);
-        expect(result.description).toEqual(
-          "This is a metric with lots of fields"
-        );
-        expect(result.ignoreNulls).toEqual(false);
-        expect(result.inverse).toEqual(true);
-        expect(result.name).toEqual("My Cool Metric");
-        expect(result.organization).toEqual("org_abc123");
-        expect(result.owner).toEqual("");
-        expect(result.queries).toEqual([]);
-        expect(result.queryFormat).toEqual("builder");
-        expect(result.runStarted).toEqual(null);
-        expect(result.sql).toEqual(undefined);
-        expect(result.type).toEqual("count");
-        expect(result.userIdTypes).toEqual(undefined);
-        // More fields
-        expect(result.projects).toEqual(["proj_abc987"]);
-        expect(result.tags).toEqual(["checkout"]);
-        expect(result.winRisk).toEqual(5);
-        expect(result.loseRisk).toEqual(0.5);
-        expect(result.minPercentChange).toEqual(1);
-        expect(result.maxPercentChange).toEqual(50);
-        expect(result.minSampleSize).toEqual(200);
-        expect(result.cappingSettings.type).toEqual("");
-        expect(result.cappingSettings.value).toEqual(0);
-        expect(result.windowSettings.type).toEqual("lookback");
-        expect(result.windowSettings.windowValue).toEqual(33);
-        expect(result.windowSettings.windowUnit).toEqual("days");
         expect(result.windowSettings.delayValue).toEqual(5);
         expect(result.windowSettings.delayUnit).toEqual("hours");
-        expect(result.column).toEqual("signed_up");
+      });
+      it("ignores delayHours if delayValue also set", () => {
+        const input: z.infer<typeof postMetricValidator.bodySchema> = {
+          datasourceId: "ds_abc123",
+          tags: ["checkout"],
+          projects: ["proj_abc987"],
+          sqlBuilder: {
+            tableName: "users",
+            timestampColumnName: "created_at",
+            valueColumnName: "signed_up",
+            conditions: [
+              {
+                value: "true",
+                operator: "=",
+                column: "signed_up",
+              },
+            ],
+            identifierTypeColumns: [
+              {
+                columnName: "id",
+                identifierType: "string",
+              },
+            ],
+          },
+          behavior: {
+            goal: "decrease",
+            windowSettings: {
+              type: "lookback",
+              windowUnit: "days",
+              windowValue: 33,
+              delayHours: 5,
+              delayValue: 10,
+            },
+            riskThresholdSuccess: 5,
+            riskThresholdDanger: 0.5,
+            minPercentChange: 1,
+            maxPercentChange: 50,
+            minSampleSize: 200,
+          },
+          name: "My Cool Metric",
+          description: "This is a metric with lots of fields",
+          type: "count",
+        };
+
+        const result = postMetricApiPayloadToMetricInterface(
+          input,
+          organization,
+          datasource
+        );
+
+        expect(result.windowSettings.delayValue).toEqual(10);
+        expect(result.windowSettings.delayUnit).toEqual("hours");
       });
     });
   });
