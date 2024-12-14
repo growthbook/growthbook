@@ -685,7 +685,7 @@ function ColumnRefSelector({
                 />
               </label>
               {value.aggregateFilterColumn || addUserFilter ? (
-                <>
+                <div className="d-flex align-items-center">
                   <SelectField
                     value={value.aggregateFilterColumn || ""}
                     onChange={(v) =>
@@ -709,7 +709,6 @@ function ColumnRefSelector({
                   {value.aggregateFilterColumn ? (
                     <div className="ml-1">
                       <Field
-                        label={<>&nbsp;</>}
                         value={value.aggregateFilter || ""}
                         onChange={(v) =>
                           setValue({
@@ -718,12 +717,12 @@ function ColumnRefSelector({
                           })
                         }
                         placeholder=">= 10"
-                        style={{ maxWidth: 120 }}
+                        style={{ maxWidth: 100 }}
                         required
                       />
                     </div>
                   ) : null}
-                </>
+                </div>
               ) : (
                 <div className="py-2">
                   <a
