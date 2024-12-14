@@ -665,7 +665,7 @@ export default function DesignSystemPage() {
         <Flex direction="column" gap="3">
           <Box>
             Uncontrolled tabs with persistance in the URL
-            <Tabs defaultValue="tab1">
+            <Tabs defaultValue="tab1" persistInURL={true}>
               <TabsList>
                 <TabsTrigger value="tab1">
                   <PiHourglassMedium style={{ color: "var(--accent-10)" }} />{" "}

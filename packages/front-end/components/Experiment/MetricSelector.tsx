@@ -94,7 +94,7 @@ const MetricSelector: FC<
     .filter((m) => !onlyBinomial || m.isBinomial)
     .filter((m) =>
       userIdType && m.userIdTypes.length
-        ? isMetricJoinable(m.userIdTypes, userIdType)
+        ? isMetricJoinable(m.userIdTypes, userIdType, datasourceSettings)
         : true
     )
     .filter((m) => {
