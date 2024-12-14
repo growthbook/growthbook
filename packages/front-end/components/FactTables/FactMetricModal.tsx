@@ -742,26 +742,44 @@ function ColumnRefSelector({
                 />
               </label>
               {value.aggregateFilterColumn || addUserFilter ? (
-                <SelectField
-                  value={value.aggregateFilterColumn || ""}
-                  onChange={(v) =>
-                    setValue({
-                      ...value,
-                      aggregateFilterColumn: v,
-                    })
-                  }
-                  options={getColumnOptions({
-                    factTable: factTable,
-                    includeCount: true,
-                    includeCountDistinct: false,
-                    includeStringColumns: false,
-                    showColumnsAsSums: true,
-                    groupPrefix: "Filter by ",
-                  })}
-                  initialOption="Any User"
-                  autoFocus
-                  onBlur={() => setAddUserFilter(false)}
-                />
+                <div className="d-flex align-items-center">
+                  <SelectField
+                    value={value.aggregateFilterColumn || ""}
+                    onChange={(v) =>
+                      setValue({
+                        ...value,
+                        aggregateFilterColumn: v,
+                      })
+                    }
+                    options={getColumnOptions({
+                      factTable: factTable,
+                      includeCount: true,
+                      includeCountDistinct: false,
+                      includeStringColumns: false,
+                      showColumnsAsSums: true,
+                      groupPrefix: "Filter by ",
+                    })}
+                    initialOption="Any User"
+                    autoFocus
+                    onBlur={() => setAddUserFilter(false)}
+                  />
+                  {value.aggregateFilterColumn ? (
+                    <div className="ml-1">
+                      <Field
+                        value={value.aggregateFilter || ""}
+                        onChange={(v) =>
+                          setValue({
+                            ...value,
+                            aggregateFilter: v.target.value,
+                          })
+                        }
+                        placeholder=">= 10"
+                        style={{ maxWidth: 100 }}
+                        required
+                      />
+                    </div>
+                  ) : null}
+                </div>
               ) : (
                 <div className="py-2">
                   <a
