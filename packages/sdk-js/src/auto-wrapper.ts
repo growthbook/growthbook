@@ -40,6 +40,8 @@ declare global {
     };
     // eslint-disable-next-line
     gtag?: (...args: any) => void;
+    // eslint-disable-next-line
+    snowplow?: (...args: any) => void;
   }
 }
 
@@ -331,6 +333,26 @@ const gb = new GrowthBook({
         window.setTimeout(resolve, 300)
       );
       promises.push(segmentPromise);
+    }
+
+    // snowplow:
+    if (window.snowplow) {
+      window.snowplow("trackSelfDescribingEvent", {
+        event: {
+          schema: "iglu:com.growthbook/experiment_viewed/jsonschema/1-0-0",
+          data: {
+            experimentId: e.key,
+            variationId: r.key,
+            hashAttribute: r.hashAttribute,
+            hashValue: r.hashValue,
+          },
+        },
+      });
+      // snowplow uses local storage so we don't need to wait long
+      const snowplowPromise = new Promise((resolve) =>
+        window.setTimeout(resolve, 80)
+      );
+      promises.push(snowplowPromise);
     }
 
     await Promise.all(promises);
