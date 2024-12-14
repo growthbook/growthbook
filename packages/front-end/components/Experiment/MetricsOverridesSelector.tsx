@@ -360,7 +360,7 @@ export default function MetricsOverridesSelector({
                       ) : null}
                       {(form.watch(`metricOverrides.${i}.windowType`) ??
                         metricDefinition?.windowSettings?.type) ===
-                      "lookback" ? ( // TODO
+                      "lookback" ? (
                         <div className="row m-1 mr-1 px-1">
                           <div className="col">
                             <Field
@@ -378,8 +378,11 @@ export default function MetricsOverridesSelector({
                                     metricDefinition?.windowSettings?.type ?? ""
                                   )
                                     ? "No delay"
-                                    : metricDefinition?.windowSettings
-                                        .delayHours}
+                                    : metricDefinition
+                                    ? getConversionWindowHours(
+                                        metricDefinition.windowSettings
+                                      )
+                                    : 0}
                                 </div>
                               }
                               labelClassName="small mb-1"
