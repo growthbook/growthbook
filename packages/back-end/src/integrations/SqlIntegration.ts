@@ -1528,7 +1528,6 @@ export default abstract class SqlIntegration
 
     return metricEnd;
   }
-  // check windowSettings.type!
 
   private getMaxHoursToConvert(
     funnelMetric: boolean,

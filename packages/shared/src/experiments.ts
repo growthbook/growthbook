@@ -161,8 +161,6 @@ export function getMetricTemplateVariables(
 
   return m.templateVariables || {};
 }
-// TODO check all binomial/proportion type checks
-// TODO check all isBinomialMetric checks
 
 export function isBinomialMetric(m: ExperimentMetricInterface) {
   if (isFactMetric(m))
@@ -171,8 +169,7 @@ export function isBinomialMetric(m: ExperimentMetricInterface) {
 }
 
 export function isRetentionMetric(m: ExperimentMetricInterface) {
-  if (isFactMetric(m)) return m.metricType === "retention";
-  return false;
+  return isFactMetric(m) && m.metricType === "retention";
 }
 
 export function isRatioMetric(

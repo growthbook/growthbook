@@ -814,15 +814,15 @@ function getWHERE({
         )
       : [];
 
-  if (type !== "retention") {
-    whereParts.push(
-      `-- Only after seeing the experiment + delay\ntimestamp > (exposure_timestamp + '${windowSettings.delayValue} ${windowSettings.delayUnit}')`
-    );
-  } else if (type === "retention") {
+  if (type === "retention") {
     whereParts.push(
       `-- Only after seeing the experiment + retention delay\ntimestamp > (exposure_timestamp + '${
         windowSettings.delayValue
       } ${windowSettings.delayUnit ?? "days"}')`
+    );
+  } else if (windowSettings.delayValue) {
+    whereParts.push(
+      `-- Only after seeing the experiment + delay\ntimestamp > (exposure_timestamp + '${windowSettings.delayValue} ${windowSettings.delayUnit}')`
     );
   } else {
     whereParts.push(
@@ -835,17 +835,17 @@ function getWHERE({
       `-- Lookback Metric Window\ntimestamp > (NOW() - '${windowSettings.windowValue} ${windowSettings.windowUnit}')`
     );
   } else if (windowSettings.type === "conversion") {
-    if (type !== "retention") {
-      whereParts.push(
-        `-- Conversion Metric Window\ntimestamp < (exposure_timestamp + '${windowSettings.delayValue} ${windowSettings.delayUnit}' + '${windowSettings.windowValue} ${windowSettings.windowUnit}')`
-      );
-    } else if (type === "retention") {
+    if (type === "retention") {
       whereParts.push(
         `-- Conversion Metric Window\ntimestamp < (exposure_timestamp + '${
           windowSettings.delayValue
         } ${windowSettings.delayUnit ?? "days"}' + '${
           windowSettings.windowValue
         } ${windowSettings.windowUnit}')`
+      );
+    } else if (windowSettings.delayValue) {
+      whereParts.push(
+        `-- Conversion Metric Window\ntimestamp < (exposure_timestamp + '${windowSettings.delayValue} ${windowSettings.delayUnit}' + '${windowSettings.windowValue} ${windowSettings.windowUnit}')`
       );
     } else {
       whereParts.push(
@@ -1388,16 +1388,15 @@ export default function FactMetricModal({
     .filter((d) => d.properties?.queryLanguage === "sql")
     .filter((d) => !datasource || d.id === datasource);
 
-  const factTable = initialFactTable
-    ? getFactTableById(initialFactTable) || undefined
-    : undefined;
   const defaultValues = getDefaultFactMetricProps({
     datasources,
     metricDefaults,
     existing,
     settings,
     project,
-    initialFactTable: factTable,
+    initialFactTable: initialFactTable
+      ? getFactTableById(initialFactTable) || undefined
+      : undefined,
   });
 
   // Multiple percent values by 100 for the UI

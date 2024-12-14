@@ -145,7 +145,7 @@ properties:
           - "lookback"
       delayValue:
         type: number
-        description: Wait this long after experiment exposure before counting conversions. Preferred over delayHours.
+        description: Wait this long after experiment exposure before counting conversions.
       delayUnit:
         type: string
         enum:

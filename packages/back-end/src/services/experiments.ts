@@ -1889,8 +1889,8 @@ export function postMetricApiPayloadToMetricInterface(
     },
     windowSettings: {
       type: DEFAULT_METRIC_WINDOW,
-      delayUnit: "hours",
       delayValue: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+      delayUnit: "hours",
       windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,
       windowUnit: "hours",
     },
@@ -1930,16 +1930,15 @@ export function postMetricApiPayloadToMetricInterface(
       metric.cappingSettings.value = behavior.cap;
     }
 
-    /// TODO metric API
-
     if (typeof behavior.windowSettings !== "undefined") {
       metric.windowSettings = {
         type:
           behavior.windowSettings.type === "none"
             ? ""
             : behavior?.windowSettings?.type ?? DEFAULT_METRIC_WINDOW,
-        delayUnit: "hours",
+        delayUnit: behavior.windowSettings.delayUnit ?? "hours",
         delayValue:
+          behavior.windowSettings.delayValue ??
           behavior.windowSettings.delayHours ??
           DEFAULT_METRIC_WINDOW_DELAY_HOURS,
         windowUnit: behavior.windowSettings.windowUnit ?? "hours",
@@ -2086,9 +2085,10 @@ export function putMetricApiPayloadToMetricInterface(
             ? ""
             : behavior.windowSettings?.type ?? DEFAULT_METRIC_WINDOW,
         delayValue:
+          behavior.windowSettings?.delayValue ??
           behavior.windowSettings?.delayHours ??
           DEFAULT_METRIC_WINDOW_DELAY_HOURS,
-        delayUnit: "hours",
+        delayUnit: behavior.windowSettings?.delayUnit ?? "hours",
         windowValue:
           behavior.windowSettings?.windowValue ??
           DEFAULT_CONVERSION_WINDOW_HOURS,
@@ -2259,9 +2259,10 @@ export function toMetricApiInterface(
           }
         : {
             type: DEFAULT_METRIC_WINDOW || "none",
-            delayHours: metric.earlyStart
+            delayValue: metric.earlyStart
               ? -0.5
               : DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+            delayUnit: "hours",
             windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,
             windowUnit: "hours",
           },

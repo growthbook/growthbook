@@ -78,7 +78,7 @@ export async function getCreateMetricPropsFromBody(
     filters: [],
     ...numerator,
     column:
-      body.metricType === "proportion" // update
+      body.metricType === "proportion" || body.metricType === "retention"
         ? "$$distinctUsers"
         : body.numerator.column || "$$distinctUsers",
   };

@@ -7,16 +7,14 @@ export function MetricDelayHours({ form }) {
       <label>Metric Delay</label>
       <div className="appbox px-3 pt-3 bg-light">
         <div className="row align-items-center mb-3">
-          <div className="col-auto">Ignore all data first</div>
+          <div className="col-auto">Begin using metric data</div>
           <div className="col-auto">
             <Field
               {...form?.register("windowSettings.delayValue", {
                 valueAsNumber: true,
               })}
               type="number"
-              min={1}
-              max={999}
-              step={1}
+              placeholder={"0"}
               style={{ width: 70 }}
               required
               autoFocus

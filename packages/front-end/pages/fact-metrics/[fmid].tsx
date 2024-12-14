@@ -5,6 +5,7 @@ import { FaChartLine, FaExternalLinkAlt, FaTimes } from "react-icons/fa";
 import { FactTableInterface } from "back-end/types/fact-table";
 import {
   getAggregateFilters,
+  isBinomialMetric,
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
@@ -255,8 +256,7 @@ export default function FactMetricPage() {
           <em>None</em>
         ),
     },
-    // TODO retention
-    ...(factMetric.metricType !== "proportion"
+    ...(!isBinomialMetric(factMetric)
       ? [
           {
             label: `Value`,

@@ -837,6 +837,15 @@ export function migrateSnapshot(
             ...defaultMetricPriorSettings,
             ...m.computedSettings,
           };
+          // @ts-expect-error To prevent building a full legacy snapshot settings type
+          if (m.computedSettings.windowSettings?.delayHours !== undefined) {
+            m.computedSettings.windowSettings = {
+              ...m.computedSettings.windowSettings,
+              delayUnit: "hours",
+              // @ts-expect-error To prevent building a full legacy snapshot settings type
+              delayValue: m.computedSettings.windowSettings?.delayHours,
+            };
+          }
         }
         return m;
       }

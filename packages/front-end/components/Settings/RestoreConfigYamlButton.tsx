@@ -154,7 +154,6 @@ export default function RestoreConfigYamlButton({
               delete n.conversionWindowDelay;
               delete n.conversionDelayHours;
             } else if (n.windowSettings.delayHours !== undefined) {
-              // unit test this and others
               const windowSettings: MetricWindowSettings = {
                 ...n.windowSettings,
                 delayUnit: "hours",

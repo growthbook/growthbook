@@ -46,7 +46,7 @@ export class FactMetricModel extends BaseClass {
   public static upgradeFactMetricDoc(
     doc: LegacyFactMetricInterface
   ): FactMetricInterface {
-    const newDoc: FactMetricInterface = { ...doc };
+    const newDoc = { ...doc };
 
     if (doc.windowSettings === undefined) {
       newDoc.windowSettings = {
@@ -63,6 +63,7 @@ export class FactMetricModel extends BaseClass {
         delayValue: doc.windowSettings.delayHours,
         delayUnit: "hours",
       };
+      delete newDoc.windowSettings.delayHours;
     }
 
     if (doc.cappingSettings === undefined) {
@@ -81,7 +82,7 @@ export class FactMetricModel extends BaseClass {
       };
     }
 
-    return newDoc;
+    return newDoc as FactMetricInterface;
   }
 
   protected migrate(legacyDoc: unknown): FactMetricInterface {

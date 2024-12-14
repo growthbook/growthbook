@@ -30,7 +30,6 @@ export function getRecommendedFactMetrics(
 ): RecommendedMetric[] {
   const recommendedMetrics: RecommendedMetric[] = [];
 
-  // TODO recommend retention?
   function addMetric(
     type: "proportion" | "mean",
     column?: ColumnInterface,

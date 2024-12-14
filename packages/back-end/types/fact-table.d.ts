@@ -94,8 +94,11 @@ export type MetricPriorSettings = z.infer<typeof priorSettingsValidator>;
 
 export type FactMetricInterface = z.infer<typeof factMetricValidator>;
 
-export type LegacyFactMetricInterface = FactMetricInterface & {
-  windowSettings: MetricWindowSettings & LegacyMetricWindowSettings;
+export type LegacyFactMetricInterface = Omit<
+  FactMetricInterface,
+  "windowSettings"
+> & {
+  windowSettings: LegacyMetricWindowSettings;
   capping?: CappingType;
   capValue?: number;
 

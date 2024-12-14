@@ -24,8 +24,8 @@ export interface MetricData {
   };
   windowSettings?: {
     type: "conversion" | "lookback" | "";
-    // TODO
-    delayHours: number;
+    delayUnit: number;
+    delayValue: "weeks" | "days" | "hours";
     windowValue: number;
     windowUnit: "weeks" | "days" | "hours";
   };

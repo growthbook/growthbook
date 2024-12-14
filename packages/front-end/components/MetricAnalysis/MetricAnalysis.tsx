@@ -5,6 +5,8 @@ import {
   FaExclamationTriangle,
   FaQuestionCircle,
 } from "react-icons/fa";
+import clsx from "clsx";
+import { isBinomialMetric } from "shared/experiments";
 import {
   CreateMetricAnalysisProps,
   MetricAnalysisInterface,
@@ -14,9 +16,7 @@ import {
 } from "back-end/types/metric-analysis";
 import { FactMetricInterface } from "back-end/types/fact-table";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import clsx from "clsx";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { isBinomialMetric } from "shared/experiments";
 import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
