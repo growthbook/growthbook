@@ -292,7 +292,7 @@ const Modal: FC<ModalProps> = ({
                 className={fullWidthSubmit ? "w-100" : ""}
               >
                 {useRadixButton ? (
-                  <Button size="sm" type="submit" disabled={!ctaEnabled}>
+                  <Button type="submit" disabled={!ctaEnabled} ml="3">
                     {cta}
                   </Button>
                 ) : (

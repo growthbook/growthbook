@@ -19,8 +19,7 @@ export default function ReportAnalysisSettingsBar({
   mutateSnapshot,
   ssrPolyfills,
   canUpdateReport = false,
-  settingsOpen = false,
-  setSettingsOpen,
+  setEditAnalysisOpen,
   runQueriesButtonRef,
 }: {
   report: ExperimentSnapshotReportInterface;
@@ -29,8 +28,7 @@ export default function ReportAnalysisSettingsBar({
   mutateSnapshot?: () => Promise<unknown> | unknown;
   ssrPolyfills?: SSRExperimentReportPolyfills;
   canUpdateReport?: boolean;
-  settingsOpen?: boolean;
-  setSettingsOpen?: (o: boolean) => void;
+  setEditAnalysisOpen?: (o: boolean) => void;
   runQueriesButtonRef?: RefObject<HTMLButtonElement>;
 }) {
   const { apiCall } = useAuth();
@@ -150,7 +148,6 @@ export default function ReportAnalysisSettingsBar({
                 model={snapshot}
                 cancelEndpoint={`/report/${report.id}/cancel`}
                 color="outline-primary"
-                disabled={settingsOpen}
                 useRadixButton={true}
                 onSubmit={async () => {
                   try {
@@ -170,13 +167,13 @@ export default function ReportAnalysisSettingsBar({
               />
             </div>
           ) : null}
-          {canUpdateReport && setSettingsOpen ? (
+          {canUpdateReport && setEditAnalysisOpen ? (
             <div className="col-auto d-flex">
               <Button
                 type="button"
-                variant={settingsOpen ? "solid" : "outline"}
+                variant="outline"
                 size="sm"
-                onClick={() => setSettingsOpen(!settingsOpen)}
+                onClick={() => setEditAnalysisOpen(true)}
               >
                 Edit Analysis
               </Button>

@@ -9,6 +9,7 @@ import { getSnapshotAnalysis } from "shared/util";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { useForm } from "react-hook-form";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Button from "@/components/Radix/Button";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { useAuth } from "@/services/auth";
@@ -26,6 +27,8 @@ import Callout from "@/components/Radix/Callout";
 import ReportResultMoreMenu from "@/components/Report/ReportResultMoreMenu";
 import Field from "@/components/Forms/Field";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import Link from "@/components/Radix/Link";
+import ConditionalWrapper from "@/components/ConditionalWrapper";
 
 type ShareLevel = "public" | "organization" | "private";
 type EditLevel = "organization" | "private";
@@ -33,6 +36,7 @@ type EditLevel = "organization" | "private";
 export default function ReportMetaInfo({
   report,
   snapshot,
+  experiment,
   datasource,
   mutate,
   canView = true,
@@ -45,6 +49,7 @@ export default function ReportMetaInfo({
 }: {
   report: ExperimentSnapshotReportInterface;
   snapshot?: ExperimentSnapshotInterface;
+  experiment?: Partial<ExperimentInterfaceStringDates>;
   datasource?: DataSourceInterfaceWithParams;
   mutate?: () => Promise<unknown> | unknown;
   canView?: boolean;
@@ -205,21 +210,39 @@ export default function ReportMetaInfo({
         <div className="d-flex">
           <div className="flex-1">
             <h1>{report.title}</h1>
-            {showPrivateLink && (
-              <div>
-                <LinkButton
-                  size="sm"
-                  variant="ghost"
-                  href={`/report/${report.id}`}
-                  icon={<FaGear />}
+
+            {experiment ? (
+              <div className="d-flex mb-2">
+                <Text size="2" color="gray" mr="2">
+                  Ad-hoc report for{" "}
+                  {experiment?.type === "multi-armed-bandit"
+                    ? "Bandit"
+                    : "Experiment"}
+                  :
+                </Text>
+                <ConditionalWrapper
+                  condition={
+                    !!experiment?.id &&
+                    (!!showPrivateLink || !!showEditControls)
+                  }
+                  wrapper={
+                    <Link
+                      href={`/${
+                        experiment?.type === "multi-armed-bandit"
+                          ? "bandit"
+                          : "experiment"
+                      }/${experiment?.id}`}
+                    />
+                  }
                 >
-                  Manage this report
-                </LinkButton>
+                  {experiment?.name || experiment?.id || "(unknown experiment)"}
+                </ConditionalWrapper>
               </div>
-            )}
+            ) : null}
+
             <div>
               <Text size="1" color="gray">
-                Created{" "}
+                Report created{" "}
                 {showEditControls && report?.userId ? (
                   <>by {getUserDisplay(report.userId)} </>
                 ) : null}{" "}
@@ -299,10 +322,11 @@ export default function ReportMetaInfo({
             </div>
           ) : null}
         </div>
+
         {showPrivateLink && (
           <div>
             <LinkButton
-              size="sm"
+              size="xs"
               variant="ghost"
               href={`/report/${report.id}`}
               icon={<FaGear />}
@@ -327,10 +351,18 @@ export default function ReportMetaInfo({
             setGeneralModalOpen(false);
           }}
           submit={generalForm.handleSubmit(async (value) => {
-            await apiCall(`/report/${report.id}`, {
+            const { updatedReport } = await apiCall<{
+              updatedReport: ExperimentSnapshotReportInterface;
+            }>(`/report/${report.id}`, {
               method: "PUT",
               body: JSON.stringify(value),
             });
+            if (updatedReport) {
+              generalForm.reset({
+                title: updatedReport.title ?? "",
+                description: updatedReport.description ?? "",
+              });
+            }
             mutate?.();
           })}
           header={`Edit "${report.title}"`}
@@ -352,7 +384,6 @@ export default function ReportMetaInfo({
           trackingEventModalType="share-report-settings"
           close={() => setShareModalOpen(false)}
           closeCta="Close"
-          includeCloseCta={true}
           header={`Share "${report.title}"`}
           useRadixButton={true}
           secondaryCTA={shareLinkButton}

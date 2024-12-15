@@ -23,6 +23,7 @@ interface MetricToolTipCompProps {
   row?: ExperimentTableRow;
   statsEngine?: StatsEngine;
   reportRegressionAdjustmentEnabled?: boolean;
+  hideDetails?: boolean;
 }
 
 interface MetricInfo {
@@ -37,6 +38,7 @@ const MetricTooltipBody = ({
   row,
   statsEngine,
   reportRegressionAdjustmentEnabled,
+  hideDetails,
 }: MetricToolTipCompProps): React.ReactElement => {
   function validMetricDescription(description: string): boolean {
     if (!description) return false;
@@ -52,17 +54,21 @@ const MetricTooltipBody = ({
       label: "Type",
       body: isFactMetric(metric) ? metric.metricType : metric.type,
     },
-    {
-      show: (metric.tags?.length ?? 0) > 0,
-      label: "Tags",
-      body: (
-        <SortedTags
-          tags={metric.tags}
-          shouldShowEllipsis={false}
-          useFlex={true}
-        />
-      ),
-    },
+    ...(!hideDetails
+      ? [
+          {
+            show: (metric.tags?.length ?? 0) > 0,
+            label: "Tags",
+            body: (
+              <SortedTags
+                tags={metric.tags}
+                shouldShowEllipsis={false}
+                useFlex={true}
+              />
+            ),
+          },
+        ]
+      : []),
     {
       show: !!quantileMetricType(metric),
       label: "Quantile",

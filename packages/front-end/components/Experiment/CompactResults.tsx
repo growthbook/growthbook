@@ -43,6 +43,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
 import MetricName, { PercentileLabel } from "@/components/Metrics/MetricName";
 import { SSRExperimentReportPolyfills } from "@/pages/r/[r]";
+import ConditionalWrapper from "@/components/ConditionalWrapper";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
@@ -83,6 +84,7 @@ const CompactResults: FC<{
   noTooltip?: boolean;
   experimentType?: ExperimentType;
   ssrPolyfills?: SSRExperimentReportPolyfills;
+  hideDetails?: boolean;
 }> = ({
   editMetrics,
   variations,
@@ -115,6 +117,7 @@ const CompactResults: FC<{
   noTooltip,
   experimentType,
   ssrPolyfills,
+  hideDetails,
 }) => {
   const { getExperimentMetricById, metricGroups, ready } = useDefinitions();
 
@@ -369,7 +372,8 @@ const CompactResults: FC<{
           differenceType={differenceType}
           renderLabelColumn={getRenderLabelColumn(
             regressionAdjustmentEnabled,
-            statsEngine
+            statsEngine,
+            hideDetails
           )}
           metricFilter={
             experimentType !== "multi-armed-bandit" ? metricFilter : undefined
@@ -412,7 +416,8 @@ const CompactResults: FC<{
             differenceType={differenceType}
             renderLabelColumn={getRenderLabelColumn(
               regressionAdjustmentEnabled,
-              statsEngine
+              statsEngine,
+              hideDetails
             )}
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
@@ -449,7 +454,8 @@ const CompactResults: FC<{
             differenceType={differenceType}
             renderLabelColumn={getRenderLabelColumn(
               regressionAdjustmentEnabled,
-              statsEngine
+              statsEngine,
+              hideDetails
             )}
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
@@ -469,7 +475,11 @@ const CompactResults: FC<{
 };
 export default CompactResults;
 
-export function getRenderLabelColumn(regressionAdjustmentEnabled, statsEngine) {
+export function getRenderLabelColumn(
+  regressionAdjustmentEnabled?: boolean,
+  statsEngine?: StatsEngine,
+  hideDetails?: boolean
+) {
   return function renderLabelColumn(
     label: string,
     metric: ExperimentMetricInterface,
@@ -484,6 +494,7 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled, statsEngine) {
             row={row}
             statsEngine={statsEngine}
             reportRegressionAdjustmentEnabled={regressionAdjustmentEnabled}
+            hideDetails={hideDetails}
           />
         }
         tipPosition="right"
@@ -511,13 +522,18 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled, statsEngine) {
                 }
           }
         >
-          <Link
-            href={getMetricLink(metric.id)}
-            className="metriclabel text-dark"
+          <ConditionalWrapper
+            condition={!hideDetails}
+            wrapper={
+              <Link
+                href={getMetricLink(metric.id)}
+                className="metriclabel text-dark"
+              />
+            }
           >
             <MetricName metric={metric} disableTooltip />
             <PercentileLabel metric={metric} />
-          </Link>
+          </ConditionalWrapper>
         </span>
       </Tooltip>
     );

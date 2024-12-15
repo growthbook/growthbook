@@ -10,6 +10,7 @@ import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { FactTableInterface } from "back-end/types/fact-table";
 import { DimensionInterface } from "back-end/types/dimension";
 import Head from "next/head";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import PageHead from "@/components/Layout/PageHead";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
@@ -41,6 +42,7 @@ export async function getServerSideProps(context) {
     }
 
     const snapshot = data?.snapshot;
+    const experiment = data?.experiment;
     const ssrData = data?.ssrData;
 
     return {
@@ -48,6 +50,7 @@ export async function getServerSideProps(context) {
         r,
         report: report || null,
         snapshot: snapshot || null,
+        experiment: experiment || null,
         ssrData: ssrData || null,
       },
     };
@@ -63,6 +66,7 @@ interface ReportPageProps {
   r: string;
   report: ExperimentSnapshotReportInterface | null;
   snapshot: ExperimentSnapshotInterface | null;
+  experiment: Partial<ExperimentInterfaceStringDates> | null;
   ssrData: SSRExperimentReportData | null;
 }
 
@@ -87,7 +91,7 @@ export default function ReportPage(props: ReportPageProps) {
     superAdmin,
     ready: userReady,
   } = useUser();
-  const { report, snapshot, ssrData } = props;
+  const { report, snapshot, experiment, ssrData } = props;
 
   const [isSsr, setIsSsr] = useState(true);
   useEffect(() => setIsSsr(false), []);
@@ -225,6 +229,7 @@ export default function ReportPage(props: ReportPageProps) {
         <>
           <ReportMetaInfo
             report={report}
+            experiment={experiment ?? undefined}
             canView={canView}
             showPrivateLink={isOrgMember}
           />
@@ -236,6 +241,7 @@ export default function ReportPage(props: ReportPageProps) {
               snapshotError={
                 !snapshot ? new Error("Missing snapshot") : undefined
               }
+              showDetails={isOrgMember}
               ssrPolyfills={ssrPolyfills}
             />
           ) : (

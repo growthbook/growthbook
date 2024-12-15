@@ -19,7 +19,6 @@ import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import CompactResults from "@/components/Experiment/CompactResults";
 import ReportAnalysisSettingsBar from "@/components/Report/ReportAnalysisSettingsBar";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import ConfigureReport from "@/components/Report/ConfigureReport";
 
 export default function ReportResults({
   report,
@@ -29,10 +28,9 @@ export default function ReportResults({
   mutateSnapshot,
   ssrPolyfills,
   canEdit,
-  showSettingsBar = true,
-  settingsOpen = false,
-  setSettingsOpen,
+  setEditAnalysisOpen,
   runQueriesButtonRef,
+  showDetails,
 }: {
   report: ExperimentSnapshotReportInterface;
   snapshot?: ExperimentSnapshotInterface;
@@ -41,10 +39,9 @@ export default function ReportResults({
   mutateSnapshot?: () => Promise<unknown> | unknown;
   ssrPolyfills?: SSRExperimentReportPolyfills;
   canEdit?: boolean;
-  showSettingsBar?: boolean;
-  settingsOpen?: boolean;
-  setSettingsOpen?: (o: boolean) => void;
+  setEditAnalysisOpen?: (o: boolean) => void;
   runQueriesButtonRef?: RefObject<HTMLButtonElement>;
+  showDetails?: boolean;
 }) {
   const phases = report.experimentMetadata.phases;
   const phase = phases.length - 1;
@@ -110,34 +107,43 @@ export default function ReportResults({
 
   return (
     <div className="bg-white border pt-2 mb-5">
-      {showSettingsBar && (
-        <div className="mb-3">
-          <ReportAnalysisSettingsBar
-            report={report}
-            snapshot={snapshot}
-            mutateReport={mutateReport}
-            mutateSnapshot={mutateSnapshot}
-            ssrPolyfills={ssrPolyfills}
-            canUpdateReport={canEdit}
-            settingsOpen={settingsOpen}
-            setSettingsOpen={setSettingsOpen}
-            runQueriesButtonRef={runQueriesButtonRef}
-          />
-          {mutateReport && setSettingsOpen ? (
-            <ConfigureReport
-              report={report}
-              mutate={mutateReport}
-              open={settingsOpen}
-              setOpen={setSettingsOpen}
-              runQueriesButtonRef={runQueriesButtonRef}
-              canEdit={canEdit}
-            />
-          ) : null}
-        </div>
-      )}
+      <div className="mb-3">
+        <ReportAnalysisSettingsBar
+          report={report}
+          snapshot={snapshot}
+          mutateReport={mutateReport}
+          mutateSnapshot={mutateSnapshot}
+          ssrPolyfills={ssrPolyfills}
+          canUpdateReport={canEdit}
+          setEditAnalysisOpen={setEditAnalysisOpen}
+          runQueriesButtonRef={runQueriesButtonRef}
+        />
+      </div>
 
-      {snapshotError || (snapshot && !analysis) ? (
-        <Callout status="error">Missing snapshot!</Callout>
+      {snapshotError ? (
+        <div className="m-3">
+          <Callout status="error">
+            Report error
+            {showDetails && <>: {snapshotError?.message ?? "Unknown error"}</>}
+            {canEdit && (
+              <div className="mt-2 text-muted">
+                Try refreshing this report, or click &quot;View Queries&quot;
+                from the report menu to debug.
+              </div>
+            )}
+          </Callout>
+        </div>
+      ) : snapshot && !analysis ? (
+        <div className="m-3">
+          <Callout status="error">
+            Missing analysis
+            {canEdit && (
+              <div className="mt-2 text-muted">
+                Try refreshing this report to resolve.
+              </div>
+            )}
+          </Callout>
+        </div>
       ) : !snapshot ? (
         <div className="d-flex justify-content-center my-4">
           <LoadingSpinner />
@@ -203,6 +209,7 @@ export default function ReportResults({
               // metricFilter={metricFilter}
               // setMetricFilter={setMetricFilter}
               ssrPolyfills={ssrPolyfills}
+              hideDetails={!showDetails}
             />
           ) : showCompactResults ? (
             <CompactResults
@@ -238,6 +245,7 @@ export default function ReportResults({
               isTabActive={true}
               experimentType={report.experimentMetadata.type}
               ssrPolyfills={ssrPolyfills}
+              hideDetails={!showDetails}
             />
           ) : null}
         </>

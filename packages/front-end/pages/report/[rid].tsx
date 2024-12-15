@@ -14,6 +14,7 @@ import ReportResults from "@/components/Report/ReportResults";
 import ReportMetaInfo from "@/components/Report/ReportMetaInfo";
 import LegacyReportPage from "@/components/Report/LegacyReportPage";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import ConfigureReport from "@/components/Report/ConfigureReport";
 
 export default function ReportPage() {
   const router = useRouter();
@@ -21,7 +22,7 @@ export default function ReportPage() {
   const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
 
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [editAnalysisOpen, setEditAnalysisOpen] = useState(false);
 
   const { rid } = router.query;
   const { data, error, mutate } = useApi<{ report: ReportInterface }>(
@@ -111,6 +112,7 @@ export default function ReportPage() {
       <ReportMetaInfo
         report={report}
         snapshot={snapshot ?? undefined}
+        experiment={experiment}
         datasource={datasource}
         mutate={mutate}
         canView={true}
@@ -121,14 +123,15 @@ export default function ReportPage() {
         showEditControls={true}
       />
 
-      {/*<ConfigureReport*/}
-      {/*  report={report}*/}
-      {/*  mutate={mutate}*/}
-      {/*  open={settingsOpen}*/}
-      {/*  setOpen={setSettingsOpen}*/}
-      {/*  runQueriesButtonRef={runQueriesButtonRef}*/}
-      {/*  canEdit={canEdit}*/}
-      {/*/>*/}
+      {editAnalysisOpen && (
+        <ConfigureReport
+          report={report}
+          mutate={mutate}
+          close={() => setEditAnalysisOpen(false)}
+          runQueriesButtonRef={runQueriesButtonRef}
+          canEdit={canEdit}
+        />
+      )}
 
       <ReportResults
         report={report}
@@ -137,9 +140,9 @@ export default function ReportPage() {
         mutateReport={mutate}
         mutateSnapshot={mutateSnapshot}
         canEdit={canEdit}
-        settingsOpen={settingsOpen}
-        setSettingsOpen={setSettingsOpen}
+        setEditAnalysisOpen={setEditAnalysisOpen}
         runQueriesButtonRef={runQueriesButtonRef}
+        showDetails={true}
       />
     </div>
   );

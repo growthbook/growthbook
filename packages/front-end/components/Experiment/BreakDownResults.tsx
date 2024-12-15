@@ -84,6 +84,7 @@ const BreakDownResults: FC<{
   setMetricFilter?: (filter: ResultsMetricFilters) => void;
   isBandit?: boolean;
   ssrPolyfills?: SSRExperimentReportPolyfills;
+  hideDetails?: boolean;
 }> = ({
   dimensionId,
   results,
@@ -110,6 +111,7 @@ const BreakDownResults: FC<{
   setMetricFilter,
   isBandit,
   ssrPolyfills,
+  hideDetails,
 }) => {
   const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
 
@@ -358,7 +360,8 @@ const BreakDownResults: FC<{
                 <div style={{ marginBottom: 2 }}>
                   {getRenderLabelColumn(
                     !!regressionAdjustmentEnabled,
-                    statsEngine
+                    statsEngine,
+                    hideDetails
                   )(table.metric.name, table.metric, table.rows[0])}
                 </div>
               }

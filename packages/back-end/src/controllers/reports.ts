@@ -259,6 +259,11 @@ export async function getReportPublic(
         undefined
       : undefined;
 
+  const _experiment = report.experimentId
+    ? (await getExperimentById(context, report.experimentId || "")) || undefined
+    : undefined;
+  const experiment = pick(_experiment, ["id", "name", "type"]);
+
   const metricGroups = await context.models.metricGroups.getAll();
   const experimentMetricIds = expandMetricGroups(
     uniq([
@@ -363,6 +368,7 @@ export async function getReportPublic(
     status: 200,
     report,
     snapshot,
+    experiment,
     ssrData,
   });
 }
@@ -512,6 +518,15 @@ export async function putReport(
           }
           return phase;
         }),
+      };
+    }
+    if (data?.experimentMetadata?.variations) {
+      updates.experimentMetadata = updates.experimentMetadata ?? {
+        ...report.experimentMetadata,
+      };
+      updates.experimentMetadata = {
+        ...updates.experimentMetadata,
+        variations: data?.experimentMetadata?.variations,
       };
     }
     if (data?.experimentAnalysisSettings) {
