@@ -1,4 +1,6 @@
+import clsx from "clsx";
 import { Tabs as RadixTabs } from "@radix-ui/themes";
+import useURLHash from "@/hooks/useURLHash";
 
 /**
  * See more examples in design-system/index.tsx
@@ -16,18 +18,84 @@ import { Tabs as RadixTabs } from "@radix-ui/themes";
  * ```
  */
 
+type ControlledTabsProps = {
+  defaultValue?: never;
+  value?: string;
+  persistInURL?: never;
+};
+
+type UncontrolledTabsProps = {
+  defaultValue?: string;
+  value?: never;
+  persistInURL?: boolean;
+};
+
+type TabsProps = (ControlledTabsProps | UncontrolledTabsProps) &
+  Omit<React.ComponentProps<typeof RadixTabs.Root>, "defaultValue" | "value">;
+
 export function Tabs({
   children,
+  defaultValue,
+  value,
+  onValueChange,
+  persistInURL = false,
   ...props
-}: React.ComponentProps<typeof RadixTabs.Root>) {
-  return <RadixTabs.Root {...props}>{children}</RadixTabs.Root>;
+}: TabsProps) {
+  let rootProps: React.ComponentProps<typeof RadixTabs.Root> = {};
+
+  const [urlHash, setUrlHash] = useURLHash();
+
+  if (defaultValue && persistInURL) {
+    rootProps = {
+      value: urlHash ?? defaultValue,
+      onValueChange: (value) => {
+        setUrlHash(value as string);
+        onValueChange?.(value);
+      },
+    };
+  } else if (defaultValue) {
+    rootProps = {
+      defaultValue,
+    };
+  } else if (value) {
+    rootProps = {
+      value,
+      onValueChange,
+    };
+  }
+
+  return (
+    <RadixTabs.Root {...rootProps} {...props}>
+      {children}
+    </RadixTabs.Root>
+  );
 }
+
+type TabsListProps = Omit<
+  React.ComponentProps<typeof RadixTabs.List>,
+  "size"
+> & {
+  size?: "1" | "2" | "3";
+};
 
 export function TabsList({
   children,
+  size = "2",
+  className,
   ...props
-}: React.ComponentProps<typeof RadixTabs.List>) {
-  return <RadixTabs.List {...props}>{children}</RadixTabs.List>;
+}: TabsListProps) {
+  const sizeValue = size === "3" ? "2" : size;
+  const classNameValue = size === "3" ? "rt-r-size-3" : "";
+
+  return (
+    <RadixTabs.List
+      className={clsx(classNameValue, className)}
+      size={sizeValue}
+      {...props}
+    >
+      {children}
+    </RadixTabs.List>
+  );
 }
 
 export function TabsTrigger({

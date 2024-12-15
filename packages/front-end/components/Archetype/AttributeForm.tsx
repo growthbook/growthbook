@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { SDKAttribute, SDKAttributeSchema } from "back-end/types/organization";
-import { useForm } from "react-hook-form";
 import { ArchetypeAttributeValues } from "back-end/types/archetype";
+import { datetime } from "shared/dates";
+import isEqual from "lodash/isEqual";
 import { useAttributeSchema } from "@/services/features";
 import Field from "@/components/Forms/Field";
 import {
@@ -13,18 +14,21 @@ import {
 import SelectField from "@/components/Forms/SelectField";
 import Toggle from "@/components/Forms/Toggle";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
+import DatePicker from "@/components/DatePicker";
 import styles from "./AttributeForm.module.scss";
 
 export interface Props {
   onChange: (attributes: ArchetypeAttributeValues) => void;
-  initialValues?: ArchetypeAttributeValues;
+  attributeValues: ArchetypeAttributeValues;
+  archetypeId?: string;
   jsonCTA?: string;
   useJSONButton?: boolean;
 }
 
 export default function AttributeForm({
   onChange,
-  initialValues = {},
+  attributeValues = {},
+  archetypeId,
   jsonCTA = "Test Attributes",
   useJSONButton = true,
 }: Props) {
@@ -45,48 +49,100 @@ export default function AttributeForm({
     [attributeSchema]
   );
 
-  const attributesMap = new Map();
-  const defaultValues = orderedAttributes
-    .filter((o) => !o.archived)
-    .reduce((list, attr) => {
-      attributesMap.set(attr.property, attr);
-      const defaultValue = initialValues[attr.property]
-        ? initialValues[attr.property]
-        : attr.datatype === "boolean"
-        ? false
-        : undefined;
-      return { ...list, [attr.property]: defaultValue };
-    }, {});
-
-  // eslint-disable-next-line
-  const attributeForm = useForm<any>({
-    defaultValues: defaultValues,
-  });
-
-  // filter out empty values (for strings, at least)
-  const updateFormValues = (skipJsonUpdate = false) => {
-    const filteredValues = Object.entries(attributeForm.getValues())
-      .filter(([key, value]) => {
-        if (
-          attributesMap.get(key)?.datatype === "string" ||
-          attributesMap.get(key)?.datatype === "number"
-        ) {
-          return value !== "";
-        } else {
-          return true;
-        }
+  const attributesMap = useMemo(() => {
+    return new Map(
+      orderedAttributes.map((attr) => {
+        const defaultValue = attributeValues[attr.property]
+          ? attributeValues[attr.property]
+          : attr.datatype === "boolean"
+          ? false
+          : attr.datatype === "string[]" || attr.datatype === "number[]"
+          ? []
+          : undefined;
+        return [
+          attr.property,
+          {
+            ...attr,
+            defaultValue,
+            value: attributeValues[attr.property] ?? defaultValue,
+          },
+        ];
       })
-      .reduce((obj, [key, value]) => {
-        return { ...obj, [key]: value };
-      }, {});
-    setFormValues(filteredValues ?? {});
-    if (!skipJsonUpdate)
-      setJsonAttributes(JSON.stringify(filteredValues, null, 2));
-    onChange(filteredValues);
-  };
+    );
+  }, [orderedAttributes, attributeValues]);
+
+  const attributeFormValues = useMemo(() => {
+    return new Map(
+      orderedAttributes.map((attr) => [
+        attr.property,
+        attributeValues[attr.property] ??
+          attributesMap.get(attr.property)?.defaultValue ??
+          "",
+      ])
+    );
+  }, [orderedAttributes, attributeValues, attributesMap]);
+
+  // filter out empty values (for some types at least)
+  const updateFormValues = useCallback(
+    (skipJsonUpdate = false) => {
+      const filteredValues = Array.from(attributeFormValues.entries())
+        .filter(([key, value]) => {
+          if (
+            attributesMap.get(key)?.datatype === "string" ||
+            attributesMap.get(key)?.datatype === "number"
+          ) {
+            return value !== "";
+          } else if (
+            attributesMap.get(key)?.datatype === "string[]" ||
+            attributesMap.get(key)?.datatype === "number[]"
+          ) {
+            return !(Array.isArray(value) && value.length === 0);
+          } else if (attributesMap.get(key)?.datatype === "enum") {
+            return value !== "";
+          } else {
+            return true;
+          }
+        })
+        .reduce((obj, [key, value]) => {
+          return { ...obj, [key]: value };
+        }, {});
+      const newValues = filteredValues ?? {};
+      if (!isEqual(newValues, formValues)) {
+        setFormValues(newValues);
+        if (!skipJsonUpdate)
+          setJsonAttributes(JSON.stringify(filteredValues, null, 2));
+        onChange(filteredValues);
+      }
+    },
+    [attributeFormValues, attributesMap, formValues, onChange]
+  );
+
+  useEffect(() => {
+    // When the archetype changes, update the form values (this makes sure the JSON tab works correctly)
+    updateFormValues();
+  }, [archetypeId, updateFormValues]);
 
   const attributeInput = (attribute: SDKAttribute, i: number) => {
     if (attribute.archived) return null;
+    let value = attributeFormValues.get(attribute.property);
+    let dateValue = "";
+    let options: { value: string; label: string }[] = [];
+    if (
+      attribute.datatype === "string[]" ||
+      attribute.datatype === "number[]"
+    ) {
+      // prep for use in MultiSelectField
+      if (Array.isArray(value)) {
+        options = value.map((v: string) => ({ value: v, label: v }));
+      } else if (typeof value === "string") {
+        options = [{ value: value, label: value }];
+        value = [value];
+      }
+    } else if (attribute.datatype === "string") {
+      if (attribute.format === "date") {
+        dateValue = typeof value === "string" ? value : "";
+      }
+    }
     return (
       <div className="" key={"formInput" + i}>
         <div
@@ -97,18 +153,18 @@ export default function AttributeForm({
             {attribute.datatype === "boolean" ? (
               <Toggle
                 id={"form-toggle" + attribute.property}
-                value={!!attributeForm.watch(attribute.property)}
+                value={!!attributeFormValues.get(attribute.property)}
                 setValue={(value) => {
-                  attributeForm.setValue(attribute.property, value);
+                  attributeFormValues.set(attribute.property, value);
                   updateFormValues();
                 }}
               />
             ) : attribute.datatype === "enum" ? (
               <SelectField
-                value={attributeForm.watch(attribute.property)}
+                value={value as string}
                 onChange={(v) => {
                   // on change here does not trigger the form to change
-                  attributeForm.setValue(attribute.property, v);
+                  attributeFormValues.set(attribute.property, v);
                   updateFormValues();
                 }}
                 placeholder="Select..."
@@ -122,29 +178,48 @@ export default function AttributeForm({
               />
             ) : attribute.datatype === "string[]" ? (
               <MultiSelectField
-                options={
-                  (attribute.enum
-                    ? attribute.enum
-                        .split(",")
-                        .map((v) => ({ value: v.trim(), label: v.trim() }))
-                    : attributeForm
-                        .watch(attribute.property)
-                        ?.map((v: string) => ({ value: v, label: v }))) || []
-                }
-                value={attributeForm.watch(attribute.property) || []}
+                options={options}
+                value={Array.isArray(value) ? value : []}
                 onChange={(value) => {
-                  attributeForm.setValue(attribute.property, value);
+                  attributeFormValues.set(attribute.property, value);
                   updateFormValues();
                 }}
-                creatable={!attribute.enum}
+                creatable={true}
               />
+            ) : attribute.datatype === "string" ? (
+              <>
+                {attribute.format === "date" ? (
+                  <DatePicker
+                    precision="date"
+                    date={dateValue ? new Date(dateValue) : undefined}
+                    setDate={(v) => {
+                      attributeFormValues.set(
+                        attribute.property,
+                        v ? datetime(v) : ""
+                      );
+                      updateFormValues();
+                    }}
+                  />
+                ) : (
+                  <Field
+                    className=""
+                    value={value as string}
+                    onChange={(e) => {
+                      attributeFormValues.set(
+                        attribute.property,
+                        e.target.value
+                      );
+                      updateFormValues();
+                    }}
+                  />
+                )}
+              </>
             ) : (
               <Field
                 className=""
-                {...attributeForm.register(attribute.property)}
+                value={value as string}
                 onChange={(e) => {
-                  attributeForm.setValue(attribute.property, e.target.value);
-                  updateFormValues();
+                  attributeFormValues.set(attribute.property, e.target.value);
                 }}
               />
             )}
@@ -180,11 +255,9 @@ export default function AttributeForm({
             <TabsTrigger value="adv">JSON</TabsTrigger>
           </TabsList>
 
-          <div
-            className={`border border-secondary rounded-bottom ${styles.attributeBox} pb-2 bg-light`}
-          >
+          <div className={`${styles.attributeBox} pb-2 bg-light round`}>
             <TabsContent value="simple">
-              <div className=" form-group rounded">
+              <div className=" form-group ">
                 <div
                   className={`${styles.attrHeader} d-flex flex-row align-items-center justify-content-between small border-bottom p-1 mb-2 sticky-top`}
                 >

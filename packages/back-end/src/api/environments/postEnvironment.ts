@@ -18,8 +18,9 @@ export const postEnvironment = createApiRequestHandler(
       throw Error(`Environment ${environment.id} already exists!`);
     }
 
-    if (!req.context.permissions.canCreateEnvironment(environment))
+    if (!req.context.permissions.canCreateEnvironment(environment)) {
       req.context.permissions.throwPermissionError();
+    }
 
     const updates: Partial<OrganizationInterface> = {
       settings: {
