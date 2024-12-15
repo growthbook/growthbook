@@ -35,6 +35,13 @@ properties:
       column:
         type: string
         description: "Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count'"
+      aggregation:
+        type: string
+        description: "User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics."
+        enum:
+          - sum
+          - max
+          - count distinct
       filters:
         type: array
         description: Array of Fact Table Filter Ids
@@ -52,6 +59,13 @@ properties:
       column:
         type: string
         description: "The column name or one of the special values: '$$distinctUsers' or '$$count'"
+      aggregation:
+        type: string
+        description: "User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics."
+        enum:
+          - sum
+          - max
+          - count distinct
       filters:
         type: array
         description: Array of Fact Table Filter Ids

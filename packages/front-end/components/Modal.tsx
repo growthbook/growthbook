@@ -72,7 +72,7 @@ const Modal: FC<ModalProps> = ({
   fullWidthSubmit = false,
   submitColor = "primary",
   open = true,
-  cta = "Submit",
+  cta = "Save",
   ctaEnabled = true,
   closeCta = "Cancel",
   onClickCloseCta,

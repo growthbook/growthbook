@@ -35,6 +35,7 @@ export type CommercialFeature =
   | "advanced-permissions"
   | "encrypt-features-endpoint"
   | "schedule-feature-flag"
+  | "custom-metadata"
   | "override-metrics"
   | "regression-adjustment"
   | "sequential-testing"
@@ -42,6 +43,7 @@ export type CommercialFeature =
   | "audit-logging"
   | "visual-editor"
   | "archetypes"
+  | "simulate"
   | "cloud-proxy"
   | "hash-secure-attributes"
   | "livechat"
@@ -159,6 +161,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "sequential-testing",
     "visual-editor",
     "archetypes",
+    "simulate",
     "cloud-proxy",
     "hash-secure-attributes",
     "livechat",
@@ -182,6 +185,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "sequential-testing",
     "visual-editor",
     "archetypes",
+    "simulate",
     "cloud-proxy",
     "hash-secure-attributes",
     "livechat",
@@ -202,6 +206,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "audit-logging",
     "encrypt-features-endpoint",
     "schedule-feature-flag",
+    "custom-metadata",
     "override-metrics",
     "regression-adjustment",
     "sequential-testing",
@@ -209,6 +214,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "multi-metric-queries",
     "visual-editor",
     "archetypes",
+    "simulate",
     "cloud-proxy",
     "hash-secure-attributes",
     "json-validation",

@@ -189,7 +189,6 @@ export default function FeaturePage() {
           { display: feature.id },
         ]}
       />
-
       <FeaturesHeader
         feature={feature}
         features={features}

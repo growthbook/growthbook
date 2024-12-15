@@ -215,6 +215,12 @@ export default function SchemaBrowser({
                                   <FaAngleRight />
                                   {`${database.databaseName}.${schema.schemaName}`}
                                 </>
+                              ) : datasource.type ===
+                                "growthbook_clickhouse" ? (
+                                <>
+                                  <FaAngleRight />
+                                  Tables
+                                </>
                               ) : (
                                 <>
                                   <FaAngleRight />
@@ -229,6 +235,12 @@ export default function SchemaBrowser({
                                 <>
                                   <FaAngleDown />
                                   {`${database.databaseName}.${schema.schemaName}`}
+                                </>
+                              ) : datasource.type ===
+                                "growthbook_clickhouse" ? (
+                                <>
+                                  <FaAngleRight />
+                                  Tables
                                 </>
                               ) : (
                                 <>
@@ -300,6 +312,7 @@ export default function SchemaBrowser({
       {error && <div className="alert alert-danger mt-2 mb-0">{error}</div>}
       {currentTable ? (
         <DatasourceTableData
+          datasource={datasource}
           canRunQueries={canRunQueries}
           tableId={currentTable}
           datasourceId={datasource.id}

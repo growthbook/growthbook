@@ -36,6 +36,18 @@ export default class Redshift extends SqlIntegration {
   ensureFloat(col: string): string {
     return `${col}::float`;
   }
+  hasCountDistinctHLL(): boolean {
+    return true;
+  }
+  hllAggregate(col: string): string {
+    return `HLL_CREATE_SKETCH(${col})`;
+  }
+  hllReaggregate(col: string): string {
+    return `HLL_COMBINE(${col})`;
+  }
+  hllCardinality(col: string): string {
+    return `HLL_CARDINALITY(${col})`;
+  }
   approxQuantile(value: string, quantile: string | number): string {
     // approx behaves differently in redshift
     return `PERCENTILE_CONT(${quantile}) WITHIN GROUP (ORDER BY ${value})`;
