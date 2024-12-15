@@ -53,6 +53,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/Radix/Tabs";
+import useURLHash from "@/hooks/useURLHash";
 
 export default function LegacyReportPage({
   report,
@@ -82,7 +83,7 @@ export default function LegacyReportPage({
   const { userId, getUserDisplay, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
-  const [tab, setTab] = useState<string>("results");
+  const [tab, setTab] = useURLHash(["results", "configuration"]);
   const [refreshError, setRefreshError] = useState("");
 
   const { apiCall } = useAuth();
