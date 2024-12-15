@@ -220,7 +220,7 @@ export default function ReportPage(props: ReportPageProps) {
           { display: `Reports`, href: `/reports` },
           {
             display:
-              report?.title ?? report ? "(no title)" : "(report not found)",
+              report?.title ?? (report ? "(no title)" : "(report not found)"),
           },
         ]}
       />

@@ -4,6 +4,7 @@ import { getSnapshotAnalysis } from "shared/util";
 import { ago, date, datetime, getValidDate } from "shared/dates";
 import React, { RefObject, useEffect, useState } from "react";
 import { FaChartBar } from "react-icons/fa";
+import { PiEye } from "react-icons/pi";
 import { SSRExperimentReportPolyfills } from "@/pages/r/[r]";
 import RunQueriesButton from "@/components/Queries/RunQueriesButton";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
@@ -11,6 +12,8 @@ import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser
 import { useAuth } from "@/services/auth";
 import Callout from "@/components/Radix/Callout";
 import Button from "@/components/Radix/Button";
+import { DropdownMenu } from "@/components/Radix/DropdownMenu";
+import Metadata from "@/components/Radix/Metadata";
 
 export default function ReportAnalysisSettingsBar({
   report,
@@ -115,6 +118,62 @@ export default function ReportAnalysisSettingsBar({
                 </span>
               </div>
             </div>
+          </div>
+          <div className="col-auto d-flex mr-3">
+            <DropdownMenu
+              trigger={
+                <Button variant="ghost" size="sm">
+                  <PiEye className="mr-1" />
+                  More...
+                </Button>
+              }
+              menuPlacement="center"
+            >
+              <div style={{ minWidth: 250 }} className="p-2">
+                <h5>Results computed with:</h5>
+                <Metadata
+                  label="Engine"
+                  value={
+                    report?.experimentAnalysisSettings?.statsEngine ===
+                    "frequentist"
+                      ? "Frequentist"
+                      : "Bayesian"
+                  }
+                />
+                <Metadata
+                  label="CUPED"
+                  value={
+                    report?.experimentAnalysisSettings
+                      ?.regressionAdjustmentEnabled
+                      ? "Enabled"
+                      : "Disabled"
+                  }
+                />
+                <Metadata
+                  label="Sequential"
+                  value={
+                    report?.experimentAnalysisSettings?.sequentialTestingEnabled
+                      ? "Enabled"
+                      : "Disabled"
+                  }
+                />
+                <div className="text-right mt-3">
+                  <Metadata
+                    label="Run date"
+                    value={getValidDate(snapshot.runStarted).toLocaleString(
+                      [],
+                      {
+                        year: "numeric",
+                        month: "numeric",
+                        day: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      }
+                    )}
+                  />
+                </div>
+              </div>
+            </DropdownMenu>
           </div>
           <div className="flex-1" />
           <div className="col-auto">
