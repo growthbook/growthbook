@@ -8,12 +8,14 @@ export const validatePayload = async (
     projects = [],
     toggleOnList = false,
     defaultState = false,
+    parent,
   }: {
     id: string;
     description?: string;
     projects?: string[];
     toggleOnList?: boolean;
     defaultState?: boolean;
+    parent?: string;
   }
 ) => {
   if (id === "") throw Error("Environment ID cannot empty!");
@@ -30,5 +32,5 @@ export const validatePayload = async (
       );
   }
 
-  return { id, projects, description, toggleOnList, defaultState };
+  return { id, projects, description, toggleOnList, defaultState, parent };
 };

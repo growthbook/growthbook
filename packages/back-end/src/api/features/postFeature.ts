@@ -175,6 +175,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
       feature.id
     );
     const revision = await getRevision(
+      req.context,
       feature.organization,
       feature.id,
       feature.version

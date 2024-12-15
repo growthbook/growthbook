@@ -1042,6 +1042,7 @@ export async function evaluateAllFeatures({
     // now loop through all features to eval them:
     for (const feature of features) {
       const revision = await getRevision(
+        context,
         context.org.id,
         feature.id,
         parseInt(feature.version.toString())

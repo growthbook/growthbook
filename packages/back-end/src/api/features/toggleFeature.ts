@@ -67,6 +67,7 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
       updatedFeature.id
     );
     const revision = await getRevision(
+      req.context,
       updatedFeature.organization,
       updatedFeature.id,
       updatedFeature.version

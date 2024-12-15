@@ -255,10 +255,6 @@ export interface paths {
     /** Deletes a single environment */
     delete: operations["deleteEnvironment"];
   };
-  "/environments/fork": {
-    /** Creates a new environment as a fork of an existing environment */
-    post: operations["postForkEnvironment"];
-  };
   "/fact-tables": {
     /** Get all fact tables */
     get: operations["listFactTables"];
@@ -452,6 +448,7 @@ export interface components {
       toggleOnList: boolean;
       defaultState: boolean;
       projects: (string)[];
+      parent?: string;
     };
     Attribute: {
       property: string;
@@ -5992,6 +5989,7 @@ export interface operations {
                 toggleOnList: boolean;
                 defaultState: boolean;
                 projects: (string)[];
+                parent?: string;
               })[];
           };
         };
@@ -6012,6 +6010,7 @@ export interface operations {
           /** @description Default state for new features */
           defaultState?: any;
           projects?: (string)[];
+          parent?: string;
         };
       };
     };
@@ -6025,6 +6024,7 @@ export interface operations {
               toggleOnList: boolean;
               defaultState: boolean;
               projects: (string)[];
+              parent?: string;
             };
           };
         };
@@ -6062,6 +6062,7 @@ export interface operations {
               toggleOnList: boolean;
               defaultState: boolean;
               projects: (string)[];
+              parent?: string;
             };
           };
         };
@@ -6081,41 +6082,6 @@ export interface operations {
         content: {
           "application/json": {
             deletedId: string;
-          };
-        };
-      };
-    };
-  };
-  postForkEnvironment: {
-    /** Creates a new environment as a fork of an existing environment */
-    requestBody: {
-      content: {
-        "application/json": {
-          /** @description The ID of the new environment */
-          id: string;
-          /** @description The ID of the environment to fork from */
-          forkBase: string;
-          /** @description The description of the new environment */
-          description?: string;
-          /** @description Show toggle on feature list */
-          toggleOnList?: any;
-          /** @description Default state for new features */
-          defaultState?: any;
-          projects?: (string)[];
-        };
-      };
-    };
-    responses: {
-      200: {
-        content: {
-          "application/json": {
-            environment: {
-              id: string;
-              description: string;
-              toggleOnList: boolean;
-              defaultState: boolean;
-              projects: (string)[];
-            };
           };
         };
       };
@@ -7471,7 +7437,6 @@ export type ListEnvironmentsResponse = operations["listEnvironments"]["responses
 export type PostEnvironmentResponse = operations["postEnvironment"]["responses"]["200"]["content"]["application/json"];
 export type PutEnvironmentResponse = operations["putEnvironment"]["responses"]["200"]["content"]["application/json"];
 export type DeleteEnvironmentResponse = operations["deleteEnvironment"]["responses"]["200"]["content"]["application/json"];
-export type PostForkEnvironmentResponse = operations["postForkEnvironment"]["responses"]["200"]["content"]["application/json"];
 export type ListFactTablesResponse = operations["listFactTables"]["responses"]["200"]["content"]["application/json"];
 export type PostFactTableResponse = operations["postFactTable"]["responses"]["200"]["content"]["application/json"];
 export type GetFactTableResponse = operations["getFactTable"]["responses"]["200"]["content"]["application/json"];

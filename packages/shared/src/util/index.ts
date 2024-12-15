@@ -226,29 +226,6 @@ export function isProjectListValidForProject(
   return projects.includes(project);
 }
 
-// Given two lists of projects, gets the intersection between them, using the empty list as
-// "all projects" and undefined as no intersection
-export function projectListIntersection(
-  projectsA: string[],
-  projectsB: string[]
-) {
-  let intersectionToReturn: string[] | undefined = undefined;
-  if (projectsA.length === 0) {
-    intersectionToReturn = projectsB;
-  } else if (projectsB.length === 0) {
-    intersectionToReturn = projectsA;
-  } else {
-    const innerIntersection = projectsA.filter((proj) =>
-      projectsB.includes(proj)
-    );
-    // If innerIntersection is empty, we need to return undefined rather than the empty list (all projects)
-    if (innerIntersection.length > 0) {
-      intersectionToReturn = innerIntersection;
-    }
-  }
-  return intersectionToReturn;
-}
-
 export function stringToBoolean(
   value: string | undefined,
   defaultValue = false

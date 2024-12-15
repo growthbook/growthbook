@@ -27,7 +27,10 @@ import {
 import { EventUser } from "back-end/src/events/event-types";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { logger } from "back-end/src/util/logger";
-import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import {
+  getContextForAgendaJobByOrgId,
+  getEnvironmentIdsFromOrg,
+} from "back-end/src/services/organizations";
 import { ApiReqContext } from "back-end/types/api";
 import { simpleSchemaValidator } from "back-end/src/validators/features";
 import { getChangedApiFeatureEnvironments } from "back-end/src/events/handlers/utils";
@@ -48,7 +51,6 @@ import {
   createInitialRevision,
   createRevisionFromLegacyDraft,
   deleteAllRevisionsForFeature,
-  FeatureRevisionModel,
   getRevision,
   hasDraft,
   markRevisionAsPublished,
@@ -151,8 +153,35 @@ export const FeatureModel = mongoose.model<LegacyFeatureInterface>(
  * Convert the Mongo document to an FeatureInterface, omitting Mongo default fields __v, _id
  * @param doc
  */
-const toInterface = (doc: FeatureDocument): FeatureInterface =>
-  omit(doc.toJSON<FeatureDocument>(), ["__v", "_id"]);
+const toInterface = (
+  doc: FeatureDocument,
+  context: ReqContext | ApiReqContext
+): FeatureInterface => {
+  const featureInterface = omit(doc.toJSON<FeatureDocument>(), ["__v", "_id"]);
+  const environmentParents = Object.fromEntries(
+    (context.org.settings?.environments || [])
+      .filter((env) => env.parent)
+      .map((env) => [env.id, env.parent])
+  );
+  Object.keys(environmentParents).forEach((env) => {
+    if (featureInterface.environmentSettings[env]) return;
+    // If feature doesn't have a definition for the environment yet, recursively inherit from the parent environments
+    let baseEnv = environmentParents[env];
+    while (
+      baseEnv &&
+      typeof featureInterface.environmentSettings[baseEnv] === "undefined"
+    ) {
+      baseEnv = environmentParents[baseEnv];
+    }
+    // If a valid parent was found, copy its environmentSettings
+    if (baseEnv) {
+      featureInterface.environmentSettings[env] = cloneDeep(
+        featureInterface.environmentSettings[baseEnv]
+      );
+    }
+  });
+  return featureInterface;
+};
 
 export async function getAllFeatures(
   context: ReqContext | ApiReqContext,
@@ -170,7 +199,7 @@ export async function getAllFeatures(
   }
 
   const features = (await FeatureModel.find(q)).map((m) =>
-    upgradeFeatureInterface(toInterface(m))
+    upgradeFeatureInterface(toInterface(m, context))
   );
 
   return features.filter((feature) =>
@@ -229,7 +258,9 @@ export async function getAllFeaturesWithLinkedExperiments(
   const experiments = await getExperimentsByIds(context, [...expIds]);
 
   return {
-    features: features.map((m) => upgradeFeatureInterface(toInterface(m))),
+    features: features.map((m) =>
+      upgradeFeatureInterface(toInterface(m, context))
+    ),
     experiments,
   };
 }
@@ -245,15 +276,18 @@ export async function getFeature(
   if (!feature) return null;
 
   return context.permissions.canReadSingleProjectResource(feature.project)
-    ? upgradeFeatureInterface(toInterface(feature))
+    ? upgradeFeatureInterface(toInterface(feature, context))
     : null;
 }
 
-export async function migrateDraft(feature: FeatureInterface) {
+export async function migrateDraft(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface
+) {
   if (!feature.legacyDraft || feature.legacyDraftMigrated) return null;
 
   try {
-    const draft = await createRevisionFromLegacyDraft(feature);
+    const draft = await createRevisionFromLegacyDraft(context, feature);
     await FeatureModel.updateOne(
       {
         organization: feature.organization,
@@ -279,36 +313,8 @@ export async function getFeaturesByIds(
 ): Promise<FeatureInterface[]> {
   const features = (
     await FeatureModel.find({ organization: context.org.id, id: { $in: ids } })
-  ).map((m) => upgradeFeatureInterface(toInterface(m)));
+  ).map((m) => upgradeFeatureInterface(toInterface(m, context)));
 
-  return features.filter((feature) =>
-    context.permissions.canReadSingleProjectResource(feature.project)
-  );
-}
-
-export async function getAllFeaturesWithRulesForEnvironment(
-  context: ReqContext | ApiReqContext,
-  environment: string,
-  projectsFilter: string[]
-) {
-  let query;
-  if (projectsFilter.length === 0) {
-    query = {
-      organization: context.org.id,
-      [`environmentSettings.${environment}`]: { $exists: true },
-    };
-  } else {
-    projectsFilter.push("");
-    query = {
-      organization: context.org.id,
-      project: { $in: projectsFilter },
-      [`environmentSettings.${environment}`]: { $exists: true },
-    };
-  }
-
-  const features = (await FeatureModel.find(query)).map((m) =>
-    upgradeFeatureInterface(toInterface(m))
-  );
   return features.filter((feature) =>
     context.permissions.canReadSingleProjectResource(feature.project)
   );
@@ -334,7 +340,8 @@ export async function createFeature(
   await deleteAllRevisionsForFeature(org.id, feature.id);
 
   await createInitialRevision(
-    toInterface(feature),
+    context,
+    toInterface(feature, context),
     context.auditUser,
     getEnvironmentIdsFromOrg(org)
   );
@@ -412,6 +419,7 @@ export const createFeatureEvent = async <
     );
 
     const currentRevision = await getRevision(
+      eventData.context,
       eventData.data.object.organization,
       eventData.data.object.id,
       eventData.data.object.version
@@ -439,6 +447,7 @@ export const createFeatureEvent = async <
       } as CreateEventParams<"feature", Event>;
 
     const previousRevision = await getRevision(
+      eventData.context,
       eventData.data.previous_object.organization,
       eventData.data.previous_object.id,
       eventData.data.previous_object.version
@@ -659,7 +668,16 @@ export async function getScheduledFeaturesToUpdate() {
       $lt: new Date(),
     },
   });
-  return features.map((m) => upgradeFeatureInterface(toInterface(m)));
+  const orgIds = Array.from(new Set(features.map((f) => f.organization)));
+  const jobContextsByOrg: Record<string, ApiReqContext> = {};
+  await Promise.all(
+    orgIds.map(async (orgId) => {
+      jobContextsByOrg[orgId] = await getContextForAgendaJobByOrgId(orgId);
+    })
+  );
+  return features.map((m) =>
+    upgradeFeatureInterface(toInterface(m, jobContextsByOrg[m.organization]))
+  );
 }
 
 export async function archiveFeature(
@@ -668,54 +686,6 @@ export async function archiveFeature(
   isArchived: boolean
 ) {
   return await updateFeature(context, feature, { archived: isArchived });
-}
-
-export async function syncEnvironmentSettings(
-  context: ReqContext | ApiReqContext,
-  feature: FeatureInterface,
-  sourceEnvironment: string,
-  destinationEnvironment: string
-) {
-  const live = await getRevision(context.org.id, feature.id, feature.version);
-  if (!live) {
-    throw new Error(
-      `Could not lookup feature history for feature ${feature.id}`
-    );
-  }
-  // Find all revisions based on this one to propagate the forked environment
-  let featureRevisionVersions = [live.version];
-  let checkingIndex = 0;
-  while (checkingIndex < featureRevisionVersions.length) {
-    const dependentVersions = (
-      await FeatureRevisionModel.find({
-        organization: live.organization,
-        featureId: live.featureId,
-        baseVersion: featureRevisionVersions[checkingIndex],
-      })
-    ).map((r) => r.version);
-    featureRevisionVersions = featureRevisionVersions.concat(dependentVersions);
-    checkingIndex += 1;
-  }
-  await FeatureRevisionModel.updateMany(
-    {
-      organization: live.organization,
-      featureId: live.featureId,
-      version: { $in: featureRevisionVersions },
-    },
-    // Copy only the live version's rules to all dependent revisions so the fork is a snapshot of
-    // the current version and isn't affected by drafts being merged in the future
-    {
-      [`rules.${destinationEnvironment}`]: live.rules[sourceEnvironment],
-    }
-  );
-
-  await FeatureModel.updateOne(
-    { organization: feature.organization, id: feature.id },
-    {
-      [`environmentSettings.${destinationEnvironment}`]: feature
-        .environmentSettings[sourceEnvironment],
-    }
-  );
 }
 
 function setEnvironmentSettings(
@@ -852,7 +822,7 @@ export async function removeTagInFeature(
   const query = { organization: context.org.id, tags: tag };
 
   const featureDocs = await FeatureModel.find(query);
-  const features = (featureDocs || []).map(toInterface);
+  const features = (featureDocs || []).map((m) => toInterface(m, context));
 
   await FeatureModel.updateMany(query, {
     $pull: { tags: tag },
@@ -877,7 +847,7 @@ export async function removeProjectFromFeatures(
   const query = { organization: context.org.id, project };
 
   const featureDocs = await FeatureModel.find(query);
-  const features = (featureDocs || []).map(toInterface);
+  const features = (featureDocs || []).map((m) => toInterface(m, context));
 
   await FeatureModel.updateMany(query, { $set: { project: "" } });
 

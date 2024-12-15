@@ -3306,6 +3306,8 @@ paths:
                   type: array
                   items:
                     type: string
+                parent:
+                  type: string
       responses:
         '200':
           content:
@@ -3385,58 +3387,6 @@ paths:
                 properties:
                   deletedId:
                     type: string
-  /environments/fork:
-    post:
-      summary: Creates a new environment as a fork of an existing environment
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - id
-                - forkBase
-              properties:
-                id:
-                  type: string
-                  description: The ID of the new environment
-                forkBase:
-                  type: string
-                  description: The ID of the environment to fork from
-                description:
-                  type: string
-                  description: The description of the new environment
-                toggleOnList:
-                  type: bool
-                  description: Show toggle on feature list
-                defaultState:
-                  type: bool
-                  description: Default state for new features
-                projects:
-                  type: array
-                  items:
-                    type: string
-      tags:
-        - environments
-      operationId: postForkEnvironment
-      x-codeSamples:
-        - lang: cURL
-          source: |
-            curl -X POST https://api.growthbook.io/api/v1/environments/fork \
-               -d '{"id": "new-env", "forkBase": "existing-env", "description": "Fork of existing-env" }' \
-              -u secret_abc123DEF456:
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - environment
-                properties:
-                  environment:
-                    $ref: '#/components/schemas/Environment'
   /fact-tables:
     get:
       summary: Get all fact tables
@@ -4962,6 +4912,8 @@ components:
           type: array
           items:
             type: string
+        parent:
+          type: string
     Attribute:
       type: object
       required:

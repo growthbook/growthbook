@@ -175,6 +175,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         }
 
         const revision = await createRevision({
+          context: req.context,
           feature,
           user: req.eventAudit,
           baseVersion: feature.version,
@@ -217,6 +218,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       feature.id
     );
     const revision = await getRevision(
+      req.context,
       updatedFeature.organization,
       updatedFeature.id,
       updatedFeature.version
