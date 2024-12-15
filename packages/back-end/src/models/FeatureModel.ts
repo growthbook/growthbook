@@ -21,6 +21,7 @@ import {
 import { upgradeFeatureInterface } from "back-end/src/util/migrations";
 import { ReqContext } from "back-end/types/organization";
 import {
+  applyEnvironmentInheritance,
   getAffectedSDKPayloadKeys,
   getSDKPayloadKeysByDiff,
 } from "back-end/src/util/features";
@@ -158,28 +159,10 @@ const toInterface = (
   context: ReqContext | ApiReqContext
 ): FeatureInterface => {
   const featureInterface = omit(doc.toJSON<FeatureDocument>(), ["__v", "_id"]);
-  const environmentParents = Object.fromEntries(
-    (context.org.settings?.environments || [])
-      .filter((env) => env.parent)
-      .map((env) => [env.id, env.parent])
+  featureInterface.environmentSettings = applyEnvironmentInheritance(
+    context.org.settings?.environments || [],
+    featureInterface.environmentSettings
   );
-  Object.keys(environmentParents).forEach((env) => {
-    if (featureInterface.environmentSettings[env]) return;
-    // If feature doesn't have a definition for the environment yet, recursively inherit from the parent environments
-    let baseEnv = environmentParents[env];
-    while (
-      baseEnv &&
-      typeof featureInterface.environmentSettings[baseEnv] === "undefined"
-    ) {
-      baseEnv = environmentParents[baseEnv];
-    }
-    // If a valid parent was found, copy its environmentSettings
-    if (baseEnv) {
-      featureInterface.environmentSettings[env] = cloneDeep(
-        featureInterface.environmentSettings[baseEnv]
-      );
-    }
-  });
   return featureInterface;
 };
 

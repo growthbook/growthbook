@@ -1,7 +1,6 @@
 import mongoose from "mongoose";
 import omit from "lodash/omit";
 import { checkIfRevisionNeedsReview } from "shared/util";
-import { cloneDeep } from "lodash";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import {
   FeatureRevisionInterface,
@@ -10,6 +9,7 @@ import {
 import { EventUser, EventUserLoggedIn } from "back-end/src/events/event-types";
 import { OrganizationInterface, ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
+import { applyEnvironmentInheritance } from "back-end/src/util/features";
 
 export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
 
@@ -80,23 +80,10 @@ function toInterface(
         .revisionDate || revision.dateCreated;
   }
 
-  const environmentParents = Object.fromEntries(
-    (context.org.settings?.environments || [])
-      .filter((env) => env.parent)
-      .map((env) => [env.id, env.parent])
+  revision.rules = applyEnvironmentInheritance(
+    context.org.settings?.environments || [],
+    revision.rules
   );
-  Object.keys(environmentParents).forEach((env) => {
-    if (revision.rules[env]) return;
-    // If feature doesn't have a definition for the environment yet, recursively inherit from the parent environments
-    let baseEnv = environmentParents[env];
-    while (baseEnv && typeof revision.rules[baseEnv] === "undefined") {
-      baseEnv = environmentParents[baseEnv];
-    }
-    // If a valid parent was found, copy its rules
-    if (baseEnv) {
-      revision.rules[env] = cloneDeep(revision.rules[baseEnv]);
-    }
-  });
   return revision;
 }
 
