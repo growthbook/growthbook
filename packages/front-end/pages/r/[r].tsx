@@ -27,6 +27,8 @@ import ReportMetaInfo from "@/components/Report/ReportMetaInfo";
 import { useUser } from "@/services/UserContext";
 import Callout from "@/components/Radix/Callout";
 import Link from "@/components/Radix/Link";
+import {truncateString} from "shared/util";
+import {date} from "shared/dates";
 
 export async function getServerSideProps(context) {
   const { r } = context.params;
@@ -47,8 +49,6 @@ export async function getServerSideProps(context) {
 
     return {
       props: {
-        r,
-        apiHost,
         report: report || null,
         snapshot: snapshot || null,
         experiment: experiment || null,
@@ -64,8 +64,6 @@ export async function getServerSideProps(context) {
 }
 
 interface ReportPageProps {
-  r: string;
-  apiHost: string;
   report: ExperimentSnapshotReportInterface | null;
   snapshot: ExperimentSnapshotInterface | null;
   experiment: Partial<ExperimentInterfaceStringDates> | null;
@@ -94,8 +92,6 @@ export default function ReportPage(props: ReportPageProps) {
     ready: userReady,
   } = useUser();
   const {
-    r,
-    apiHost,
     report,
     snapshot,
     experiment,
@@ -212,22 +208,40 @@ export default function ReportPage(props: ReportPageProps) {
     getDimensionById: getDimensionByIdSSR,
   };
 
+  const dimensionName =
+    !snapshot?.dimension ? "None" :
+    ssrPolyfills?.getDimensionById?.(snapshot.dimension)?.name ||
+    getDimensionById(snapshot.dimension)?.name ||
+    (snapshot.dimension === "pre:date" ? "Date Cohorts (First Exposure)" : "") ||
+    (snapshot.dimension === "pre:activation" ? "Activation status" : "") ||
+      snapshot.dimension?.split(":")?.[1] ||
+    "None";
+
+  const differenceTypeLabel = report?.experimentAnalysisSettings?.differenceType === "absolute" ?
+    "Absolute" : report?.experimentAnalysisSettings?.differenceType === "scaled" ?
+    "Scaled Impact" : "Relative";
+
+  const dateRangeLabel = `${date(snapshot.settings.startDate)} — ${snapshot.settings.endDate
+    ? date(snapshot.settings.endDate)
+    : "now"}`;
+
   return (
     <div className="pagecontents container-fluid">
       <Head>
         <title>{report?.title || "Report not found"}</title>
-        <meta
-          property="og:title"
-          content={report?.title || "Report not found"}
-        />
-        <meta property="og:description" content={report?.description || ""}/>
-        <meta property="og:type" content="website"/>
-        <meta property="og:image" content={apiHost + `/api/report/public-image/${r}`}/>
+        <meta property="og:title" content={report?.title || "Report not found"}/>
+        <meta property="og:description" content={truncateString(report?.description || "", 500)}/>
+        <meta property="twitter:label1" content="Dimension"/>
+        <meta property="twitter:data1" content={dimensionName}/>
+        <meta property="twitter:label2" content="Difference Type"/>
+        <meta property="twitter:data2" content={differenceTypeLabel}/>
+        <meta property="twitter:label3" content="Date Range"/>
+        <meta property="twitter:data3" content={dateRangeLabel}/>
       </Head>
 
       <PageHead
         breadcrumb={[
-          { display: `Reports`, href: `/reports` },
+          {display: `Reports`, href: `/reports`},
           {
             display:
               report?.title ?? (report ? "(no title)" : "(report not found)"),

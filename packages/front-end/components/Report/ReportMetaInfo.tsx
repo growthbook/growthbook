@@ -29,6 +29,7 @@ import Field from "@/components/Forms/Field";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Link from "@/components/Radix/Link";
 import ConditionalWrapper from "@/components/ConditionalWrapper";
+import track from "@/services/track";
 
 type ShareLevel = "public" | "organization" | "private";
 type EditLevel = "organization" | "private";
@@ -113,7 +114,6 @@ export default function ReportMetaInfo({
 
   useEffect(() => {
     if (report.shareLevel !== shareLevel) {
-      console.log({ r: report.shareLevel, shareLevel });
       setSaveShareLevelStatus("loading");
       apiCall<{
         updatedReport: ExperimentSnapshotReportInterface;
@@ -130,6 +130,10 @@ export default function ReportMetaInfo({
           setSaveShareLevelStatus("fail");
           setTimeout(() => setSaveShareLevelStatus(null), 1500);
         });
+      track("Set Share Level", {
+        source: showEditControls ? "private report" : "public report",
+        type: shareLevel,
+      });
     }
   }, [
     report.id,
@@ -138,6 +142,7 @@ export default function ReportMetaInfo({
     mutate,
     setSaveEditLevelStatus,
     apiCall,
+    showEditControls,
   ]);
 
   useEffect(() => {
@@ -158,6 +163,10 @@ export default function ReportMetaInfo({
           setSaveEditLevelStatus("fail");
           setTimeout(() => setSaveEditLevelStatus(null), 1500);
         });
+      track("Set Edit Level", {
+        source: showEditControls ? "private report" : "public report",
+        type: editLevel,
+      });
     }
   }, [
     report.id,
@@ -166,6 +175,7 @@ export default function ReportMetaInfo({
     mutate,
     setSaveEditLevelStatus,
     apiCall,
+    showEditControls,
   ]);
 
   const shareLinkButton = copySuccess ? (
@@ -178,6 +188,11 @@ export default function ReportMetaInfo({
       onClick={() => {
         if (!copySuccess) performCopy(shareableLink);
         setTimeout(() => setShareModalOpen(false), 810);
+        track("Clicked Copy Link", {
+          source: showEditControls ? "private report" : "public report",
+          type: shareLevel,
+          action: "normal button",
+        });
       }}
       disabled={shareLevel === "private"}
       style={{ width: 150 }}
@@ -199,7 +214,16 @@ export default function ReportMetaInfo({
         </Tooltip>
       </Button>
     ) : (
-      <Button onClick={() => performCopy(shareableLink)}>
+      <Button
+        onClick={() => {
+          performCopy(shareableLink);
+          track("Clicked Share URL", {
+            source: showEditControls ? "private report" : "public report",
+            type: shareLevel,
+            action: "small button",
+          });
+        }}
+      >
         <PiLink />
       </Button>
     );

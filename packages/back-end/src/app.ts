@@ -291,15 +291,6 @@ app.get(
   }),
   reportsController.getReportPublic
 );
-// public shareable reports: preview image
-app.get(
-  "/api/report/public-image/:tinyid",
-  cors({
-    credentials: false,
-    origin: "*",
-  }),
-  reportsController.getReportPublicImage
-);
 
 // Secret API routes (no JWT or CORS)
 app.use(
