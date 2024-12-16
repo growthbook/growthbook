@@ -45,15 +45,9 @@ export default function SetupTabOverview({
       return true;
     }
 
-    const closed = localStorage.getItem(
-      `collapse-${experiment.id}-description`
-    );
-
-    if (closed) {
-      return false;
-    }
-
-    return true;
+    return localStorage.getItem(`collapse-${experiment.id}-description`)
+      ? false
+      : true;
   });
 
   const permissionsUtil = usePermissionsUtil();
