@@ -106,7 +106,7 @@ export default function ReportResults({
     !analysis?.settings?.dimensions?.length;
 
   return (
-    <div className="bg-white border pt-2 mb-5">
+    <div className="bg-white border mb-5">
       <div className="mb-3">
         <ReportAnalysisSettingsBar
           report={report}

@@ -30,11 +30,11 @@ import Link from "@/components/Radix/Link";
 
 export async function getServerSideProps(context) {
   const { r } = context.params;
-  const API_HOST =
+  const apiHost =
     (process.env.API_HOST ?? "").replace(/\/$/, "") || "http://localhost:3100";
 
   try {
-    const resp = await fetch(API_HOST + `/api/report/public/${r}`);
+    const resp = await fetch(apiHost + `/api/report/public/${r}`);
     const data = await resp.json();
     const report = data?.report;
     if (!report) {
@@ -48,6 +48,7 @@ export async function getServerSideProps(context) {
     return {
       props: {
         r,
+        apiHost,
         report: report || null,
         snapshot: snapshot || null,
         experiment: experiment || null,
@@ -64,6 +65,7 @@ export async function getServerSideProps(context) {
 
 interface ReportPageProps {
   r: string;
+  apiHost: string;
   report: ExperimentSnapshotReportInterface | null;
   snapshot: ExperimentSnapshotInterface | null;
   experiment: Partial<ExperimentInterfaceStringDates> | null;
@@ -91,7 +93,14 @@ export default function ReportPage(props: ReportPageProps) {
     superAdmin,
     ready: userReady,
   } = useUser();
-  const { report, snapshot, experiment, ssrData } = props;
+  const {
+    r,
+    apiHost,
+    report,
+    snapshot,
+    experiment,
+    ssrData
+  } = props;
 
   const [isSsr, setIsSsr] = useState(true);
   useEffect(() => setIsSsr(false), []);
@@ -211,8 +220,9 @@ export default function ReportPage(props: ReportPageProps) {
           property="og:title"
           content={report?.title || "Report not found"}
         />
-        <meta property="og:description" content={report?.description || ""} />
-        <meta property="og:type" content="website" />
+        <meta property="og:description" content={report?.description || ""}/>
+        <meta property="og:type" content="website"/>
+        <meta property="og:image" content={apiHost + `/api/report/public-image/${r}`}/>
       </Head>
 
       <PageHead

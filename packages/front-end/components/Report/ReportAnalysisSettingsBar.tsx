@@ -74,15 +74,15 @@ export default function ReportAnalysisSettingsBar({
 
   return (
     <>
-      <div className="pt-1 pb-2 border-bottom">
-        <div className="row align-items-center px-3">
+      <div className="py-2 border-bottom d-flex">
+        <div className="row align-items-center px-3" style={{ gap: "0.5rem 1rem" }}>
           <div className="col-auto d-flex align-items-center mr-3">
-            <div className="h5 my-0 mr-4">
+            <div className="h4 my-0">
               <FaChartBar className="mr-2" />
               Results
             </div>
           </div>
-          <div className="col-auto d-flex align-items-end mr-3">
+          <div className="col-auto d-flex align-items-end">
             <DimensionChooser
               value={snapshot.dimension ?? ""}
               activationMetric={!!snapshot.settings.activationMetric}
@@ -94,7 +94,7 @@ export default function ReportAnalysisSettingsBar({
               ssrPolyfills={ssrPolyfills}
             />
           </div>
-          <div className="col-auto d-flex align-items-end mr-3">
+          <div className="col-auto d-flex align-items-end">
             <DifferenceTypeChooser
               differenceType={
                 report?.experimentAnalysisSettings?.differenceType ?? "relative"
@@ -106,7 +106,7 @@ export default function ReportAnalysisSettingsBar({
               mutate={() => {}}
             />
           </div>
-          <div className="col-auto d-flex align-items-end mr-3">
+          <div className="col-auto d-flex align-items-end">
             <div>
               <div className="uppercase-title text-muted">Date range</div>
               <div className="relative">
@@ -119,7 +119,7 @@ export default function ReportAnalysisSettingsBar({
               </div>
             </div>
           </div>
-          <div className="col-auto d-flex mr-3">
+          <div className="col-auto d-flex px-0">
             <DropdownMenu
               trigger={
                 <Button variant="ghost" size="sm">
@@ -175,7 +175,8 @@ export default function ReportAnalysisSettingsBar({
               </div>
             </DropdownMenu>
           </div>
-          <div className="flex-1" />
+        </div>
+        <div className="row flex-grow-1 flex-shrink-0 pt-1 px-3 justify-content-end">
           <div className="col-auto">
             {hasData && snapshot.runStarted ? (
               <div
