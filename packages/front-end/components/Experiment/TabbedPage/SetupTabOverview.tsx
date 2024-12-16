@@ -41,6 +41,22 @@ export default function SetupTabOverview({
   const [showHypothesisModal, setShowHypothesisModal] = useState(false);
   const [showDescriptionModal, setShowDescriptionModal] = useState(false);
 
+  const expandDescription = () => {
+    if (!experiment.description) {
+      return true;
+    }
+
+    const closed = localStorage.getItem(
+      `collapse-${experiment.id}-description`
+    );
+
+    if (closed) {
+      return false;
+    }
+
+    return true;
+  };
+
   const permissionsUtil = usePermissionsUtil();
 
   const canEditExperiment =
@@ -86,10 +102,25 @@ export default function SetupTabOverview({
         ) : null}
         <Box className="box" pt="4" pb="2">
           <Collapsible
-            open={true}
+            open={expandDescription()}
             transitionTime={100}
+            triggerDisabled={!experiment.description}
+            onOpening={() =>
+              localStorage.removeItem(`collapse-${experiment.id}-description`)
+            }
+            onClosing={() =>
+              localStorage.setItem(
+                `collapse-${experiment.id}-description`,
+                "true"
+              )
+            }
             trigger={
-              <Box as="div">
+              <Box
+                as="div"
+                style={{
+                  cursor: `${experiment.description ? "pointer" : "default"}`,
+                }}
+              >
                 <Flex
                   align="center"
                   justify="between"
@@ -101,7 +132,9 @@ export default function SetupTabOverview({
                   <Flex align="center">
                     {canEditExperiment ? (
                       <button
-                        className="btn p-0 link-purple mr-3"
+                        className={`btn p-0 link-purple ${
+                          experiment.description ? "mr-3" : ""
+                        }`}
                         onClick={(e) => {
                           e.stopPropagation();
                           setShowDescriptionModal(true);
@@ -110,38 +143,12 @@ export default function SetupTabOverview({
                         Edit
                       </button>
                     ) : null}
-                    <FaAngleRight className="chevron" />
+                    {experiment.description ? (
+                      <FaAngleRight className="chevron" />
+                    ) : null}
                   </Flex>
                 </Flex>
-                <Box as="div" px="5" py="2">
-                  <button className="btn p-0 link-purple">Show More</button>
-                </Box>
               </Box>
-            }
-            triggerWhenOpen={
-              <Flex
-                align="center"
-                justify="between"
-                px="5"
-                pb="2"
-                className="text-dark"
-              >
-                <h4 className="m-0">Description</h4>
-                <Flex align="center">
-                  {canEditExperiment ? (
-                    <button
-                      className="btn p-0 link-purple mr-3"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowDescriptionModal(true);
-                      }}
-                    >
-                      Edit
-                    </button>
-                  ) : null}
-                  <FaAngleRight className="chevron" />
-                </Flex>
-              </Flex>
             }
           >
             {!experiment.description ? (
