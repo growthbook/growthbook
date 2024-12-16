@@ -18,9 +18,9 @@ import Link from "next/link";
 import Collapsible from "react-collapsible";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import { PiCheck, PiEye } from "react-icons/pi";
+import { Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
-
-import ConfirmButton from "@/components/Modal/ConfirmButton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/Radix/Tabs";
 import Avatar from "@/components/Radix/Avatar";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
@@ -127,7 +127,7 @@ export default function ExperimentHeader({
   const growthbook = useGrowthBook<AppFeatures>();
 
   const { apiCall } = useAuth();
-  const { users } = useUser();
+  const { users, email, hasCommercialFeature } = useUser();
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
@@ -139,6 +139,10 @@ export default function ExperimentHeader({
   const [showSdkForm, setShowSdkForm] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [watchers, setWatchers] = useState([...usersWatching]);
+  const [showBanditModal, setShowBanditModal] = useState(false);
+
+  const isWatching = watchers.includes(email);
 
   const tabsRef = useRef<HTMLDivElement>(null);
   const [headerPinned, setHeaderPinned] = useState(false);
@@ -169,6 +173,10 @@ export default function ExperimentHeader({
   const viewingOldPhase = phases.length > 0 && phase < phases.length - 1;
 
   const [showStartExperiment, setShowStartExperiment] = useState(false);
+
+  const hasMultiArmedBanditFeature = hasCommercialFeature(
+    "multi-armed-bandits"
+  );
 
   const hasUpdatePermissions = permissionsUtil.canViewExperimentModal(
     experiment.project
@@ -206,6 +214,25 @@ export default function ExperimentHeader({
     });
     return ownerId;
   };
+
+  async function handleWatchUpdates(watch: boolean) {
+    try {
+      await apiCall(
+        `/user/${watch ? "watch" : "unwatch"}/experiment/${experiment.id}`,
+        {
+          method: "POST",
+        }
+      );
+
+      if (watch) {
+        setWatchers([...watchers, email]);
+      } else {
+        setWatchers(watchers.filter((watcher) => watcher !== email));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
 
   async function startExperiment() {
     if (!experiment.phases?.length) {
@@ -252,6 +279,102 @@ export default function ExperimentHeader({
             }}
           />
         )}
+        {showBanditModal ? (
+          <Modal
+            open={true}
+            close={() => setShowBanditModal(false)}
+            trackingEventModalType=""
+            size="lg"
+            trackingEventModalSource="experiment-more-menu"
+            header={`Convert to ${isBandit ? "Experiment" : "Bandit"}`}
+            submit={async () => {
+              if (!isBandit && !hasMultiArmedBanditFeature) return;
+              try {
+                await apiCall(`/experiment/${experiment.id}`, {
+                  method: "POST",
+                  body: JSON.stringify({
+                    type: !isBandit ? "multi-armed-bandit" : "standard",
+                  }),
+                });
+                mutate();
+              } catch (e) {
+                console.error(e);
+              }
+            }}
+            cta={
+              isBandit ? (
+                "Convert"
+              ) : (
+                <PremiumTooltip
+                  body={null}
+                  commercialFeature="multi-armed-bandits"
+                  usePortal={true}
+                >
+                  Convert
+                </PremiumTooltip>
+              )
+            }
+            ctaEnabled={isBandit || hasMultiArmedBanditFeature}
+          >
+            <div>
+              <p>
+                Are you sure you want to convert this{" "}
+                {!isBandit ? "Experiment" : "Bandit"} to a{" "}
+                <strong>{isBandit ? "Experiment" : "Bandit"}</strong>?
+              </p>
+              {!isBandit && experiment.goalMetrics.length > 0 && (
+                <div className="alert alert-warning">
+                  <Collapsible
+                    trigger={
+                      <div>
+                        <FaExclamationTriangle className="mr-2" />
+                        Some of your experiment settings may be altered. More
+                        info <FaAngleRight className="chevron" />
+                      </div>
+                    }
+                    transitionTime={100}
+                  >
+                    <ul className="ml-0 pl-3 mt-3">
+                      <li>
+                        A <strong>single decision metric</strong> will be
+                        automatically assigned. You may change this before
+                        running the experiment.
+                      </li>
+                      <li>
+                        Experiment variations will begin with{" "}
+                        <strong>equal weights</strong> (
+                        {experiment.variations
+                          .map((_, i) =>
+                            i < 3
+                              ? formatPercent(
+                                  1 / (experiment.variations.length ?? 2)
+                                )
+                              : i === 3
+                              ? "..."
+                              : null
+                          )
+                          .filter(Boolean)
+                          .join(", ")}
+                        ).
+                      </li>
+                      <li>
+                        The stats engine will be locked to{" "}
+                        <strong>Bayesian</strong>.
+                      </li>
+                      <li>
+                        Any <strong>Activation Metric</strong>,{" "}
+                        <strong>Segments</strong>,{" "}
+                        <strong>Conversion Window overrides</strong>,{" "}
+                        <strong>Custom SQL Filters</strong>, or{" "}
+                        <strong>Metric Overrides</strong> will be removed.
+                      </li>
+                    </ul>
+                  </Collapsible>
+                </div>
+              )}
+            </div>
+          </Modal>
+        ) : null}
         {showDeleteModal ? (
           <Modal
             header="Delete Experiment"
@@ -259,7 +382,20 @@ export default function ExperimentHeader({
             trackingEventModalSource="experiment-more-menu"
             open={true}
             close={() => setShowDeleteModal(false)}
-            submit={() => console.log("submitted")} //TODO: Update this with the actual api call
+            submit={async () => {
+              try {
+                await apiCall<{ status: number; message?: string }>(
+                  `/experiment/${experiment.id}`,
+                  {
+                    method: "DELETE",
+                    body: JSON.stringify({ id: experiment.id }),
+                  }
+                );
+                router.push(isBandit ? "/bandits" : "/experiments");
+              } catch (e) {
+                console.error(e);
+              }
+            }}
           >
             <div>
               <p>Are you sure you want to delete this experiment?</p>
@@ -274,17 +410,24 @@ export default function ExperimentHeader({
         ) : null}
         {showArchiveModal ? (
           <Modal
-            header="Archive Experiment"
+            header={`${
+              experiment.archived ? "Unarchive" : "Archive"
+            } Experiment`}
             trackingEventModalType="archive-experiment"
             trackingEventModalSource="experiment-more-menu"
             open={true}
-            cta="Archive"
+            cta={experiment.archived ? "Unarchive" : "Archive"}
             close={() => setShowArchiveModal(false)}
             submit={async () => {
               try {
-                await apiCall(`/experiment/${experiment.id}/archive`, {
-                  method: "POST",
-                });
+                await apiCall(
+                  `/experiment/${experiment.id}/${
+                    experiment.archived ? "unarchive" : "archive"
+                  }`,
+                  {
+                    method: "POST",
+                  }
+                );
                 mutate();
               } catch (e) {
                 console.error(e);
@@ -292,8 +435,10 @@ export default function ExperimentHeader({
             }}
           >
             <div>
-              <p>Are you sure you want to archive this experiment?</p>
-              {!safeToEdit ? (
+              <p>{`Are you sure you want to ${
+                experiment.archived ? "unarchive" : "archive"
+              } this experiment?`}</p>
+              {!safeToEdit && !experiment.archived ? (
                 <div className="alert alert-danger">
                   This will immediately stop all linked Feature Flags and Visual
                   Changes from running
@@ -481,7 +626,7 @@ export default function ExperimentHeader({
               <DropdownMenu
                 trigger={
                   <button className="btn btn-link text-dark">
-                    <BsThreeDotsVertical />
+                    <BsThreeDotsVertical size={18} />
                   </button>
                 }
                 menuPlacement="end"
@@ -505,14 +650,36 @@ export default function ExperimentHeader({
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
-                  {/* TODO: Make the trigger change depending on what status */}
-                  <DropdownSubMenu trigger="Watch">
-                    <DropdownMenuItem>Start Watching</DropdownMenuItem>
-                    <DropdownMenuItem>Stop Watching</DropdownMenuItem>
+                  <DropdownSubMenu
+                    trigger={
+                      <Flex align="center">
+                        <PiEye className="mr-2" size={18} />{" "}
+                        {isWatching ? "Watching" : "Not Watching"}
+                      </Flex>
+                    }
+                  >
+                    <DropdownMenuItem
+                      onClick={async () => await handleWatchUpdates(true)}
+                      disabled={isWatching}
+                    >
+                      <Flex align="center" justify="between" className="w-100">
+                        Watch
+                        {isWatching ? <PiCheck /> : null}
+                      </Flex>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={async () => await handleWatchUpdates(false)}
+                      disabled={!isWatching}
+                    >
+                      <Flex align="center" justify="between" className="w-100">
+                        Stop Watching
+                        {!isWatching ? <PiCheck /> : null}
+                      </Flex>
+                    </DropdownMenuItem>
                   </DropdownSubMenu>
                   <DropdownMenuItem onClick={() => setWatchersModal(true)}>
                     <span className="badge badge-pill badge-info">
-                      {usersWatching.length}
+                      {watchers.length}
                     </span>
                     View watchers
                   </DropdownMenuItem>
@@ -523,11 +690,13 @@ export default function ExperimentHeader({
                   experiment.status === "draft" && (
                     <>
                       <DropdownMenuGroup>
-                        <DropdownMenuItem>
-                          <ConvertBanditExperiment
-                            experiment={experiment}
-                            mutate={mutate}
-                          />
+                        <DropdownMenuItem
+                          onClick={() => setShowBanditModal(true)}
+                        >
+                          <span className="pr-4">
+                            {!isBandit ? <GBBandit /> : null}
+                            Convert to {isBandit ? "Experiment" : "Bandit"}
+                          </span>
                         </DropdownMenuItem>
                       </DropdownMenuGroup>
                       <DropdownMenuSeparator />
@@ -545,26 +714,8 @@ export default function ExperimentHeader({
                     </DropdownMenuItem>
                   )}
                   {hasUpdatePermissions && experiment.archived && (
-                    <DropdownMenuItem onClick={() => console.log("nothing")}>
-                      <button
-                        //MKTODO: The async here is breaking the menu item
-                        onClick={async (e) => {
-                          e.preventDefault();
-                          try {
-                            await apiCall(
-                              `/experiment/${experiment.id}/unarchive`,
-                              {
-                                method: "POST",
-                              }
-                            );
-                            mutate();
-                          } catch (e) {
-                            console.error(e);
-                          }
-                        }}
-                      >
-                        Unarchive
-                      </button>
+                    <DropdownMenuItem onClick={() => setShowArchiveModal(true)}>
+                      Unarchive
                     </DropdownMenuItem>
                   )}
                   {canDeleteExperiment && (
@@ -575,45 +726,6 @@ export default function ExperimentHeader({
                       Delete
                     </DropdownMenuItem>
                   )}
-                  {/* {canDeleteExperiment && (
-                    // This has the issue where the user thinks they're clicking the "delete" button, but they're only clicking the menu item
-                    // they need to actually click the ConfirmButton INSIDE of the menu item div
-                    <DropdownMenuItem color="red">
-                      <ConfirmButton
-                        modalHeader="Delete Experiment"
-                        confirmationText={
-                          <div>
-                            <p>
-                              Are you sure you want to delete this experiment?
-                            </p>
-                            {!safeToEdit ? (
-                              <div className="alert alert-danger">
-                                Deleting this experiment will also affect all
-                                linked Feature Flags and Visual Changes
-                              </div>
-                            ) : null}
-                          </div>
-                        }
-                        onClick={async () => {
-                          try {
-                            await apiCall<{ status: number; message?: string }>(
-                              `/experiment/${experiment.id}`,
-                              {
-                                method: "DELETE",
-                                body: JSON.stringify({ id: experiment.id }),
-                              }
-                            );
-                            router.push(isBandit ? "/bandits" : "/experiments");
-                          } catch (e) {
-                            console.error(e);
-                          }
-                        }}
-                        cta="Delete"
-                      >
-                        Delete
-                      </ConfirmButton>
-                    </DropdownMenuItem>
-                  )} */}
                 </DropdownMenuGroup>
               </DropdownMenu>
             </div>
@@ -697,132 +809,5 @@ export default function ExperimentHeader({
         </div>
       )}
     </>
-  );
-}
-
-export function ConvertBanditExperiment({
-  experiment,
-  mutate,
-}: {
-  experiment: ExperimentInterfaceStringDates;
-  mutate: () => void;
-}) {
-  const { apiCall } = useAuth();
-  const { hasCommercialFeature } = useUser();
-  const isBandit = experiment.type === "multi-armed-bandit";
-  const hasMultiArmedBanditFeature = hasCommercialFeature(
-    "multi-armed-bandits"
-  );
-
-  return (
-    <Tooltip
-      body="Can be converted only while in draft mode"
-      shouldDisplay={experiment.status !== "draft"}
-      usePortal={true}
-      tipPosition="left"
-    >
-      <ConfirmButton
-        modalHeader={`Convert to ${isBandit ? "Experiment" : "Bandit"}`}
-        disabled={experiment.status !== "draft"}
-        size="lg"
-        confirmationText={
-          <div>
-            <p>
-              Are you sure you want to convert this{" "}
-              {!isBandit ? "Experiment" : "Bandit"} to a{" "}
-              <strong>{isBandit ? "Experiment" : "Bandit"}</strong>?
-            </p>
-            {!isBandit && experiment.goalMetrics.length > 0 && (
-              <div className="alert alert-warning">
-                <Collapsible
-                  trigger={
-                    <div>
-                      <FaExclamationTriangle className="mr-2" />
-                      Some of your experiment settings may be altered. More info{" "}
-                      <FaAngleRight className="chevron" />
-                    </div>
-                  }
-                  transitionTime={100}
-                >
-                  <ul className="ml-0 pl-3 mt-3">
-                    <li>
-                      A <strong>single decision metric</strong> will be
-                      automatically assigned. You may change this before running
-                      the experiment.
-                    </li>
-                    <li>
-                      Experiment variations will begin with{" "}
-                      <strong>equal weights</strong> (
-                      {experiment.variations
-                        .map((_, i) =>
-                          i < 3
-                            ? formatPercent(
-                                1 / (experiment.variations.length ?? 2)
-                              )
-                            : i === 3
-                            ? "..."
-                            : null
-                        )
-                        .filter(Boolean)
-                        .join(", ")}
-                      ).
-                    </li>
-                    <li>
-                      The stats engine will be locked to{" "}
-                      <strong>Bayesian</strong>.
-                    </li>
-                    <li>
-                      Any <strong>Activation Metric</strong>,{" "}
-                      <strong>Segments</strong>,{" "}
-                      <strong>Conversion Window overrides</strong>,{" "}
-                      <strong>Custom SQL Filters</strong>, or{" "}
-                      <strong>Metric Overrides</strong> will be removed.
-                    </li>
-                  </ul>
-                </Collapsible>
-              </div>
-            )}
-          </div>
-        }
-        onClick={async () => {
-          if (!isBandit && !hasMultiArmedBanditFeature) return;
-          try {
-            await apiCall(`/experiment/${experiment.id}`, {
-              method: "POST",
-              body: JSON.stringify({
-                type: !isBandit ? "multi-armed-bandit" : "standard",
-              }),
-            });
-            mutate();
-          } catch (e) {
-            console.error(e);
-          }
-        }}
-        cta={
-          isBandit ? (
-            "Convert"
-          ) : (
-            <PremiumTooltip
-              body={null}
-              commercialFeature="multi-armed-bandits"
-              usePortal={true}
-            >
-              Convert
-            </PremiumTooltip>
-          )
-        }
-        ctaEnabled={isBandit || hasMultiArmedBanditFeature}
-      >
-        <DropdownMenuItem
-          // className="dropdown-item"
-          // type="button"
-          disabled={experiment.status !== "draft"}
-        >
-          {!isBandit ? <GBBandit /> : null}
-          Convert to {isBandit ? "Experiment" : "Bandit"}
-          {/* </button> */}
-        </DropdownMenuItem>
-      </ConfirmButton>
-    </Tooltip>
   );
 }
