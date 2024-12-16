@@ -368,24 +368,6 @@ export async function deleteAllFeaturesForAProject({
   }
 }
 
-/**
- * Deletes rules for a given environment from all features
- */
-export async function removeEnvironmentFromFeatureRules(
-  context: ReqContext | ApiReqContext,
-  envId: string
-) {
-  const environmentKey = `environmentSettings.${envId}`;
-  const query = {
-    organization: context.org.id,
-    [environmentKey]: { $exists: true },
-  };
-
-  await FeatureModel.updateMany(query, {
-    $unset: { [environmentKey]: "" },
-  });
-}
-
 export const createFeatureEvent = async <
   Event extends ResourceEvents<"feature">
 >(eventData: {

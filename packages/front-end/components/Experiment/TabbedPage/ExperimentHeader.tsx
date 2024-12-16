@@ -3,15 +3,13 @@ import {
   ExperimentPhaseStringDates,
   LinkedFeatureInfo,
 } from "back-end/types/experiment";
-import { FaAngleRight, FaExclamationTriangle, FaHome } from "react-icons/fa";
-import { PiChartBarHorizontalFill } from "react-icons/pi";
-import { FaHeartPulse, FaMagnifyingGlassChart } from "react-icons/fa6";
+import { FaAngleRight, FaExclamationTriangle } from "react-icons/fa";
 import { useRouter } from "next/router";
 import {
   experimentHasLiveLinkedChanges,
   getAffectedEnvsForExperiment,
 } from "shared/util";
-import React, { ReactNode, useState } from "react";
+import React, { ReactNode, useEffect, useRef, useState } from "react";
 import { date, daysBetween } from "shared/dates";
 import { MdRocketLaunch } from "react-icons/md";
 import clsx from "clsx";
@@ -24,8 +22,8 @@ import WatchButton from "@/components/WatchButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import ConfirmButton from "@/components/Modal/ConfirmButton";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import TabButtons from "@/components/Tabs/TabButtons";
-import TabButton from "@/components/Tabs/TabButton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/Radix/Tabs";
+import Avatar from "@/components/Radix/Avatar";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import Modal from "@/components/Modal";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
@@ -93,6 +91,9 @@ const DisabledHealthTabTooltip = ({
   );
 };
 
+// NB: Keep in sync with .experiment-tabs top property in global.scss
+const TABS_HEADER_HEIGHT_PX = 55;
+
 export default function ExperimentHeader({
   tab,
   setTab,
@@ -124,13 +125,23 @@ export default function ExperimentHeader({
   const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
   const dataSource = getDatasourceById(experiment.datasource);
-  const { scrollY } = useScrollPosition();
-  const headerPinned = scrollY > 45;
   const startCelebration = useCelebration();
   const { data: sdkConnections } = useSDKConnections();
   const { phase, analysis } = useSnapshot();
   const connections = sdkConnections?.connections || [];
   const [showSdkForm, setShowSdkForm] = useState(false);
+
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const [headerPinned, setHeaderPinned] = useState(false);
+  const { scrollY } = useScrollPosition();
+  useEffect(() => {
+    if (!tabsRef.current) return;
+
+    const isHeaderSticky =
+      tabsRef.current.getBoundingClientRect().top <= TABS_HEADER_HEIGHT_PX;
+
+    setHeaderPinned(isHeaderSticky);
+  }, [scrollY]);
 
   const phases = experiment.phases || [];
   const lastPhaseIndex = phases.length - 1;
@@ -145,7 +156,7 @@ export default function ExperimentHeader({
       ? lastPhase?.dateEnded
         ? date(lastPhase.dateEnded ?? "")
         : "now"
-      : new Date();
+      : date(new Date());
   const viewingOldPhase = phases.length > 0 && phase < phases.length - 1;
 
   const [showStartExperiment, setShowStartExperiment] = useState(false);
@@ -221,11 +232,7 @@ export default function ExperimentHeader({
 
   return (
     <>
-      <div
-        className={clsx("experiment-header", "bg-white", "px-3", "pt-3", {
-          border: shouldHideTabs,
-        })}
-      >
+      <div className={clsx("experiment-header", "px-3", "pt-3")}>
         {showSdkForm && (
           <InitialSDKConnectionForm
             close={() => setShowSdkForm(false)}
@@ -575,97 +582,55 @@ export default function ExperimentHeader({
 
       {shouldHideTabs ? null : (
         <div
-          className={clsx(
-            "experiment-tabs bg-white px-3 border-bottom d-print-none",
-            {
-              pinned: headerPinned,
-            }
-          )}
+          className={clsx("experiment-tabs px-3 d-print-none", {
+            pinned: headerPinned,
+          })}
         >
           <div className="container-fluid pagecontents position-relative">
-            <div className="row align-items-center header-tabs">
-              <div
-                className="col-auto pt-2 tab-wrapper"
-                id="experiment-page-tabs"
+            <div className="row header-tabs" ref={tabsRef}>
+              <Tabs
+                value={tab}
+                onValueChange={setTab}
+                style={{ width: "100%" }}
               >
-                <TabButtons className="mb-0 pb-0">
-                  <TabButton
-                    active={tab === "overview"}
-                    display={
-                      <>
-                        <FaHome /> Overview
-                      </>
-                    }
-                    anchor="overview"
-                    onClick={() => setTab("overview")}
-                    newStyle={false}
-                    activeClassName="active-tab"
-                  />
-                  <TabButton
-                    active={tab === "results"}
-                    display={
-                      <>
-                        <PiChartBarHorizontalFill /> Results
-                      </>
-                    }
-                    anchor="results"
-                    onClick={() => setTab("results")}
-                    newStyle={false}
-                    activeClassName="active-tab"
-                    last={false}
-                  />
-                  {isBandit && (
-                    <TabButton
-                      active={tab === "explore"}
-                      display={
-                        <>
-                          <FaMagnifyingGlassChart /> Explore
-                        </>
-                      }
-                      anchor="explore"
-                      onClick={() => setTab("explore")}
-                      newStyle={false}
-                      activeClassName="active-tab"
-                      last={false}
-                    />
-                  )}
+                <TabsList size="3">
+                  <TabsTrigger value="overview">Overview</TabsTrigger>
+                  <TabsTrigger value="results">Results</TabsTrigger>
+                  {isBandit ? (
+                    <TabsTrigger value="explore">Explore</TabsTrigger>
+                  ) : null}
                   {disableHealthTab ? (
                     <DisabledHealthTabTooltip reason="UNSUPPORTED_DATASOURCE">
-                      <span className="nav-item nav-link text-muted">
-                        <FaHeartPulse /> Health
-                      </span>
+                      <TabsTrigger disabled value="health">
+                        Health
+                      </TabsTrigger>
                     </DisabledHealthTabTooltip>
                   ) : (
-                    <TabButton
-                      active={tab === "health"}
-                      display={
-                        <>
-                          <FaHeartPulse /> Health
-                        </>
-                      }
-                      anchor="health"
+                    <TabsTrigger
+                      value="health"
                       onClick={() => {
                         track("Open health tab", { source: "tab-click" });
-                        setTab("health");
                       }}
-                      newStyle={false}
-                      activeClassName="active-tab"
-                      last={true}
-                      notificationCount={healthNotificationCount}
-                    />
+                    >
+                      Health
+                      {healthNotificationCount > 0 ? (
+                        <Avatar size="sm" ml="2" color="red">
+                          {healthNotificationCount}
+                        </Avatar>
+                      ) : null}
+                    </TabsTrigger>
                   )}
-                </TabButtons>
-              </div>
+                </TabsList>
+              </Tabs>
 
-              <div className="flex-1" />
               <div className="col-auto experiment-date-range">
                 {startDate && (
-                  <>
+                  <span>
                     {startDate} — {endDate}{" "}
                     <span className="text-muted">
-                      ({daysBetween(startDate, endDate || new Date())} days)
+                      ({daysBetween(startDate, endDate)} days)
                     </span>
-                  </>
+                  </span>
                 )}
               </div>
             </div>

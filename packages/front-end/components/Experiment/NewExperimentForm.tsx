@@ -599,7 +599,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               </>
             )}
             {hasCommercialFeature("custom-metadata") &&
-              customFields?.length && (
+              !!customFields?.length && (
                 <CustomFieldInput
                   customFields={customFields}
                   form={form}
