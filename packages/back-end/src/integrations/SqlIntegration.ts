@@ -247,8 +247,8 @@ export default abstract class SqlIntegration
 
     let amount = roundedHours;
 
-    // If not within a few minutes of an even hour, go with minutes as the unit instead
-    if (Math.round(roundedMinutes / 15) % 4 > 0) {
+    // If minutes are needed, use them
+    if (roundedMinutes % 60 > 0) {
       unit = "minute";
       amount = roundedMinutes;
     }
