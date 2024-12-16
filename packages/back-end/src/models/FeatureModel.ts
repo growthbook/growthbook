@@ -401,12 +401,12 @@ export const createFeatureEvent = async <
       eventData.data.object.id
     );
 
-    const currentRevision = await getRevision(
-      eventData.context,
-      eventData.data.object.organization,
-      eventData.data.object.id,
-      eventData.data.object.version
-    );
+    const currentRevision = await getRevision({
+      context: eventData.context,
+      organization: eventData.data.object.organization,
+      featureId: eventData.data.object.id,
+      version: eventData.data.object.version,
+    });
 
     const currentApiFeature = getApiFeatureObj({
       feature: eventData.data.object,
@@ -429,12 +429,12 @@ export const createFeatureEvent = async <
         containsSecrets: false,
       } as CreateEventParams<"feature", Event>;
 
-    const previousRevision = await getRevision(
-      eventData.context,
-      eventData.data.previous_object.organization,
-      eventData.data.previous_object.id,
-      eventData.data.previous_object.version
-    );
+    const previousRevision = await getRevision({
+      context: eventData.context,
+      organization: eventData.data.previous_object.organization,
+      featureId: eventData.data.previous_object.id,
+      version: eventData.data.previous_object.version,
+    });
 
     const previousApiFeature = getApiFeatureObj({
       feature: eventData.data.previous_object,

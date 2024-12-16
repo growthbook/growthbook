@@ -123,12 +123,17 @@ export async function hasDraft(
   return doc ? true : false;
 }
 
-export async function getRevision(
-  context: ReqContext | ApiReqContext,
-  organization: string,
-  featureId: string,
-  version: number
-) {
+export async function getRevision({
+  context,
+  organization,
+  featureId,
+  version,
+}: {
+  context: ReqContext | ApiReqContext;
+  organization: string;
+  featureId: string;
+  version: number;
+}) {
   const doc = await FeatureRevisionModel.findOne({
     organization,
     featureId,
@@ -261,12 +266,12 @@ export async function createRevision({
   const baseRevision =
     lastRevision?.version === baseVersion
       ? lastRevision
-      : await getRevision(
+      : await getRevision({
           context,
-          feature.organization,
-          feature.id,
-          baseVersion
-        );
+          organization: feature.organization,
+          featureId: feature.id,
+          version: baseVersion,
+        });
 
   if (!baseRevision) {
     throw new Error("can not find a base revision");

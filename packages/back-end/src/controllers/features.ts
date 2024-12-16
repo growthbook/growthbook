@@ -542,12 +542,12 @@ export async function postFeatureRebase(
     context.permissions.throwPermissionError();
   }
 
-  const revision = await getRevision(
+  const revision = await getRevision({
     context,
-    org.id,
-    feature.id,
-    parseInt(version)
-  );
+    organization: org.id,
+    featureId: feature.id,
+    version: parseInt(version),
+  });
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
@@ -555,7 +555,12 @@ export async function postFeatureRebase(
     throw new Error("Can only fix conflicts for Draft revisions");
   }
 
-  const live = await getRevision(context, org.id, feature.id, feature.version);
+  const live = await getRevision({
+    context,
+    organization: org.id,
+    featureId: feature.id,
+    version: feature.version,
+  });
   if (!live) {
     throw new Error("Could not lookup feature history");
   }
@@ -563,7 +568,12 @@ export async function postFeatureRebase(
   const base =
     revision.baseVersion === live.version
       ? live
-      : await getRevision(context, org.id, feature.id, revision.baseVersion);
+      : await getRevision({
+          context,
+          organization: org.id,
+          featureId: feature.id,
+          version: revision.baseVersion,
+        });
   if (!base) {
     throw new Error("Could not lookup feature history");
   }
@@ -629,12 +639,12 @@ export async function postFeatureRequestReview(
     context.permissions.throwPermissionError();
   }
 
-  const revision = await getRevision(
+  const revision = await getRevision({
     context,
-    context.org.id,
-    feature.id,
-    parseInt(version)
-  );
+    organization: context.org.id,
+    featureId: feature.id,
+    version: parseInt(version),
+  });
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
@@ -669,12 +679,12 @@ export async function postFeatureReviewOrComment(
     context.permissions.throwPermissionError();
   }
 
-  const revision = await getRevision(
+  const revision = await getRevision({
     context,
-    context.org.id,
-    feature.id,
-    parseInt(version)
-  );
+    organization: context.org.id,
+    featureId: feature.id,
+    version: parseInt(version),
+  });
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
@@ -734,12 +744,12 @@ export async function postFeaturePublish(
     context.permissions.throwPermissionError();
   }
 
-  const revision = await getRevision(
+  const revision = await getRevision({
     context,
-    org.id,
-    feature.id,
-    parseInt(version)
-  );
+    organization: org.id,
+    featureId: feature.id,
+    version: parseInt(version),
+  });
   const reviewStatuses = [
     "pending-review",
     "changes-requested",
@@ -749,7 +759,12 @@ export async function postFeaturePublish(
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
-  const live = await getRevision(context, org.id, feature.id, feature.version);
+  const live = await getRevision({
+    context,
+    organization: org.id,
+    featureId: feature.id,
+    version: feature.version,
+  });
   if (!live) {
     throw new Error("Could not lookup feature history");
   }
@@ -757,7 +772,12 @@ export async function postFeaturePublish(
   const base =
     revision.baseVersion === live.version
       ? live
-      : await getRevision(context, org.id, feature.id, revision.baseVersion);
+      : await getRevision({
+          context,
+          organization: org.id,
+          featureId: feature.id,
+          version: revision.baseVersion,
+        });
   if (!base) {
     throw new Error("Could not lookup feature history");
   }
@@ -856,12 +876,12 @@ export async function postFeatureRevert(
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
 
-  const revision = await getRevision(
+  const revision = await getRevision({
     context,
-    org.id,
-    feature.id,
-    parseInt(version)
-  );
+    organization: org.id,
+    featureId: feature.id,
+    version: parseInt(version),
+  });
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
@@ -948,12 +968,12 @@ export async function postFeatureFork(
     throw new Error("Could not find feature");
   }
 
-  const revision = await getRevision(
+  const revision = await getRevision({
     context,
-    org.id,
-    feature.id,
-    parseInt(version)
-  );
+    organization: org.id,
+    featureId: feature.id,
+    version: parseInt(version),
+  });
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
@@ -998,12 +1018,12 @@ export async function postFeatureDiscard(
     throw new Error("Could not find feature");
   }
 
-  const revision = await getRevision(
+  const revision = await getRevision({
     context,
-    org.id,
-    feature.id,
-    parseInt(version)
-  );
+    organization: org.id,
+    featureId: feature.id,
+    version: parseInt(version),
+  });
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
@@ -1371,12 +1391,12 @@ async function getDraftRevision(
   }
 
   // If this is already a draft, return it
-  const revision = await getRevision(
+  const revision = await getRevision({
     context,
-    feature.organization,
-    feature.id,
-    version
-  );
+    organization: feature.organization,
+    featureId: feature.id,
+    version,
+  });
   if (!revision) {
     throw new Error("Cannot find revision");
   }
@@ -1415,12 +1435,12 @@ export async function putRevisionComment(
     context.permissions.throwPermissionError();
   }
 
-  const revision = await getRevision(
+  const revision = await getRevision({
     context,
-    org.id,
-    feature.id,
-    parseInt(version)
-  );
+    organization: org.id,
+    featureId: feature.id,
+    version: parseInt(version),
+  });
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
@@ -1912,12 +1932,12 @@ export async function postFeatureEvaluate(
     throw new Error("Could not find feature");
   }
 
-  const revision = await getRevision(
+  const revision = await getRevision({
     context,
-    org.id,
-    feature.id,
-    parseInt(version)
-  );
+    organization: org.id,
+    featureId: feature.id,
+    version: parseInt(version),
+  });
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
@@ -2092,12 +2112,12 @@ export async function getRevisionLog(
     throw new Error("Could not find feature");
   }
 
-  const revision = await getRevision(
+  const revision = await getRevision({
     context,
-    context.org.id,
-    feature.id,
-    parseInt(version)
-  );
+    organization: context.org.id,
+    featureId: feature.id,
+    version: parseInt(version),
+  });
   if (!revision) {
     throw new Error("Could not find feature revision");
   }
@@ -2128,7 +2148,12 @@ export async function getFeatureById(
   if (req.query.v) {
     const version = parseInt(req.query.v);
     if (!revisions.some((r) => r.version === version)) {
-      const revision = await getRevision(context, org.id, id, version);
+      const revision = await getRevision({
+        context,
+        organization: org.id,
+        featureId: id,
+        version,
+      });
       if (revision) {
         revisions.push(revision);
       }
@@ -2137,7 +2162,12 @@ export async function getFeatureById(
 
   // Make sure we always select the live version, even if it's not one of the most recent revisions
   if (!revisions.some((r) => r.version === feature.version)) {
-    const revision = await getRevision(context, org.id, id, feature.version);
+    const revision = await getRevision({
+      context,
+      organization: org.id,
+      featureId: id,
+      version: feature.version,
+    });
     if (revision) {
       revisions.push(revision);
     }
