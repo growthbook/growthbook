@@ -31,6 +31,7 @@ import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/components/Radix/Callout";
 import Button from "@/components/Radix/Button";
+import track from "@/services/track";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
 
@@ -341,6 +342,9 @@ export default function ResultsTab({
                     if (!res.report) {
                       throw new Error("Failed to create report");
                     }
+                    track("Experiment Report: Create", {
+                      source: "experiment results tab",
+                    });
                     await router.push(`/report/${res.report.id}`);
                   }}
                 >

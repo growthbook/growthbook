@@ -134,7 +134,7 @@ export default function ReportMetaInfo({
           setSaveShareLevelStatus("fail");
           setTimeout(() => setSaveShareLevelStatus(null), 1500);
         });
-      track("Set Share Level", {
+      track("Experiment Report: Set Share Level", {
         source: showEditControls ? "private report" : "public report",
         type: shareLevel,
       });
@@ -167,7 +167,7 @@ export default function ReportMetaInfo({
           setSaveEditLevelStatus("fail");
           setTimeout(() => setSaveEditLevelStatus(null), 1500);
         });
-      track("Set Edit Level", {
+      track("Experiment Report: Set Edit Level", {
         source: showEditControls ? "private report" : "public report",
         type: editLevel,
       });
@@ -192,7 +192,7 @@ export default function ReportMetaInfo({
       onClick={() => {
         if (!copySuccess) performCopy(shareableLink);
         setTimeout(() => setShareModalOpen(false), 810);
-        track("Clicked Copy Link", {
+        track("Experiment Report: Click Copy Link", {
           source: showEditControls ? "private report" : "public report",
           type: shareLevel,
           action: "normal button",
@@ -221,7 +221,7 @@ export default function ReportMetaInfo({
       <Button
         onClick={() => {
           performCopy(shareableLink);
-          track("Clicked Share URL", {
+          track("Experiment Report: Click Share URL", {
             source: showEditControls ? "private report" : "public report",
             type: shareLevel,
             action: "small button",
