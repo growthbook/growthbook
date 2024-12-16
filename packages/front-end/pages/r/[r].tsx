@@ -11,6 +11,8 @@ import { FactTableInterface } from "back-end/types/fact-table";
 import { DimensionInterface } from "back-end/types/dimension";
 import Head from "next/head";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { truncateString } from "shared/util";
+import { date } from "shared/dates";
 import PageHead from "@/components/Layout/PageHead";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
@@ -27,8 +29,6 @@ import ReportMetaInfo from "@/components/Report/ReportMetaInfo";
 import { useUser } from "@/services/UserContext";
 import Callout from "@/components/Radix/Callout";
 import Link from "@/components/Radix/Link";
-import {truncateString} from "shared/util";
-import {date} from "shared/dates";
 
 export async function getServerSideProps(context) {
   const { r } = context.params;
@@ -91,12 +91,7 @@ export default function ReportPage(props: ReportPageProps) {
     superAdmin,
     ready: userReady,
   } = useUser();
-  const {
-    report,
-    snapshot,
-    experiment,
-    ssrData
-  } = props;
+  const { report, snapshot, experiment, ssrData } = props;
 
   const [isSsr, setIsSsr] = useState(true);
   useEffect(() => setIsSsr(false), []);
@@ -208,40 +203,54 @@ export default function ReportPage(props: ReportPageProps) {
     getDimensionById: getDimensionByIdSSR,
   };
 
-  const dimensionName =
-    !snapshot?.dimension ? "None" :
-    ssrPolyfills?.getDimensionById?.(snapshot.dimension)?.name ||
-    getDimensionById(snapshot.dimension)?.name ||
-    (snapshot.dimension === "pre:date" ? "Date Cohorts (First Exposure)" : "") ||
-    (snapshot.dimension === "pre:activation" ? "Activation status" : "") ||
+  const dimensionName = !snapshot?.dimension
+    ? "None"
+    : ssrPolyfills?.getDimensionById?.(snapshot.dimension)?.name ||
+      getDimensionById(snapshot.dimension)?.name ||
+      (snapshot.dimension === "pre:date"
+        ? "Date Cohorts (First Exposure)"
+        : "") ||
+      (snapshot.dimension === "pre:activation" ? "Activation status" : "") ||
       snapshot.dimension?.split(":")?.[1] ||
-    "None";
+      "None";
 
-  const differenceTypeLabel = report?.experimentAnalysisSettings?.differenceType === "absolute" ?
-    "Absolute" : report?.experimentAnalysisSettings?.differenceType === "scaled" ?
-    "Scaled Impact" : "Relative";
+  const differenceTypeLabel =
+    report?.experimentAnalysisSettings?.differenceType === "absolute"
+      ? "Absolute"
+      : report?.experimentAnalysisSettings?.differenceType === "scaled"
+      ? "Scaled Impact"
+      : "Relative";
 
-  const dateRangeLabel = `${date(snapshot.settings.startDate)} — ${snapshot.settings.endDate
-    ? date(snapshot.settings.endDate)
-    : "now"}`;
+  const dateRangeLabel = snapshot
+    ? `${date(snapshot.settings.startDate)} — ${
+        snapshot.settings.endDate ? date(snapshot.settings.endDate) : "now"
+      }`
+    : "";
 
   return (
     <div className="pagecontents container-fluid">
       <Head>
         <title>{report?.title || "Report not found"}</title>
-        <meta property="og:title" content={report?.title || "Report not found"}/>
-        <meta property="og:description" content={truncateString(report?.description || "", 500)}/>
-        <meta property="twitter:label1" content="Dimension"/>
-        <meta property="twitter:data1" content={dimensionName}/>
-        <meta property="twitter:label2" content="Difference Type"/>
-        <meta property="twitter:data2" content={differenceTypeLabel}/>
-        <meta property="twitter:label3" content="Date Range"/>
-        <meta property="twitter:data3" content={dateRangeLabel}/>
+        <meta
+          property="og:title"
+          content={report?.title || "Report not found"}
+        />
+        <meta
+          property="og:description"
+          content={
+            truncateString(report?.description || "", 500) +
+            (dateRangeLabel ? `\n\nDate: ${dateRangeLabel}` : "")
+          }
+        />
+        <meta property="twitter:label1" content="Dimension" />
+        <meta property="twitter:data1" content={dimensionName} />
+        <meta property="twitter:label2" content="Difference Type" />
+        <meta property="twitter:data2" content={differenceTypeLabel} />
       </Head>
 
       <PageHead
         breadcrumb={[
-          {display: `Reports`, href: `/reports`},
+          { display: `Reports`, href: `/reports` },
           {
             display:
               report?.title ?? (report ? "(no title)" : "(report not found)"),
