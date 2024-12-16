@@ -45,6 +45,7 @@ properties:
     type: string
     enum:
       - proportion
+      - retention
       - mean
       - quantile
       - ratio
@@ -142,9 +143,15 @@ properties:
           - "none"
           - "conversion"
           - "lookback"
-      delayHours:
+      delayValue:
         type: number
-        description: Wait this many hours after experiment exposure before counting conversions
+        description: Wait this long after experiment exposure before counting conversions.
+      delayUnit:
+        type: string
+        enum:
+          - "hours"
+          - "days"
+          - "weeks"
       windowValue:
         type: number
       windowUnit:

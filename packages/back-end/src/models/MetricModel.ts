@@ -51,9 +51,10 @@ const metricSchema = new mongoose.Schema({
   },
   windowSettings: {
     type: { type: String },
-    delayHours: Number,
     windowValue: Number,
     windowUnit: String,
+    delayValue: Number,
+    delayUnit: String,
   },
   priorSettings: {
     override: Boolean,

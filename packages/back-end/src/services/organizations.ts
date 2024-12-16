@@ -172,8 +172,9 @@ export function getMetricDefaultsForOrg(context: ReqContext): MetricDefaults {
   const defaultMetricWindowSettings: MetricWindowSettings = {
     type: DEFAULT_METRIC_WINDOW,
     windowValue: DEFAULT_METRIC_WINDOW_HOURS,
-    delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
     windowUnit: "hours",
+    delayValue: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+    delayUnit: "hours",
   };
   const defaultMetricCappingSettings: MetricCappingSettings = {
     type: DEFAULT_METRIC_CAPPING,
