@@ -49,6 +49,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/Radix/Tabs";
+import useURLHash from "@/hooks/useURLHash";
 
 export default function ReportPage() {
   const router = useRouter();
@@ -70,7 +71,7 @@ export default function ReportPage() {
 
   const { userId, getUserDisplay, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
-  const [tab, setTab] = useState<string>("results");
+  const [tab, setTab] = useURLHash(["results", "configuration"]);
   const [refreshError, setRefreshError] = useState("");
 
   const { apiCall } = useAuth();

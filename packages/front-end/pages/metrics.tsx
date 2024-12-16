@@ -54,7 +54,7 @@ const MetricsPage = (): React.ReactElement => {
           </div>
         </div>
       ) : (
-        <Tabs defaultValue="metrics">
+        <Tabs defaultValue="metrics" persistInURL={true}>
           <TabsList>
             <TabsTrigger value="metrics">Individual Metrics</TabsTrigger>
             <TabsTrigger value="metricgroups">

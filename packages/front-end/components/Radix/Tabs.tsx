@@ -21,11 +21,13 @@ import useURLHash from "@/hooks/useURLHash";
 type ControlledTabsProps = {
   defaultValue?: never;
   value?: string;
+  persistInURL?: never;
 };
 
 type UncontrolledTabsProps = {
   defaultValue?: string;
   value?: never;
+  persistInURL?: boolean;
 };
 
 type TabsProps = (ControlledTabsProps | UncontrolledTabsProps) &
@@ -36,30 +38,34 @@ export function Tabs({
   defaultValue,
   value,
   onValueChange,
+  persistInURL = false,
   ...props
 }: TabsProps) {
-  let innerValue: string | undefined;
-  let innerOnValueChange: ((value: string) => void) | undefined;
+  let rootProps: React.ComponentProps<typeof RadixTabs.Root> = {};
 
-  // For uncontrolled tabs always set the value in URL
   const [urlHash, setUrlHash] = useURLHash();
-  if (defaultValue) {
-    innerValue = urlHash ?? defaultValue;
-    innerOnValueChange = (value) => {
-      setUrlHash(value as string);
-      onValueChange?.(value);
+
+  if (defaultValue && persistInURL) {
+    rootProps = {
+      value: urlHash ?? defaultValue,
+      onValueChange: (value) => {
+        setUrlHash(value as string);
+        onValueChange?.(value);
+      },
     };
-  } else {
-    innerValue = value;
-    innerOnValueChange = onValueChange;
+  } else if (defaultValue) {
+    rootProps = {
+      defaultValue,
+    };
+  } else if (value) {
+    rootProps = {
+      value,
+      onValueChange,
+    };
   }
 
   return (
-    <RadixTabs.Root
-      value={innerValue}
-      onValueChange={innerOnValueChange}
-      {...props}
-    >
+    <RadixTabs.Root {...rootProps} {...props}>
       {children}
     </RadixTabs.Root>
   );
