@@ -17,11 +17,10 @@ import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import Link from "next/link";
 import Collapsible from "react-collapsible";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { useAuth } from "@/services/auth";
-import WatchButton from "@/components/WatchButton";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
+
 import ConfirmButton from "@/components/Modal/ConfirmButton";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/Radix/Tabs";
 import Avatar from "@/components/Radix/Avatar";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
@@ -40,6 +39,14 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { formatPercent } from "@/services/metrics";
 import { AppFeatures } from "@/types/app-features";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import {
+  DropdownMenu,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownSubMenu,
+} from "@/components/Radix/DropdownMenu";
+import { GBBandit } from "@/components/Icons";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import ExperimentActionButtons from "./ExperimentActionButtons";
 import ProjectTagBar from "./ProjectTagBar";
@@ -130,6 +137,8 @@ export default function ExperimentHeader({
   const { phase, analysis } = useSnapshot();
   const connections = sdkConnections?.connections || [];
   const [showSdkForm, setShowSdkForm] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showArchiveModal, setShowArchiveModal] = useState(false);
 
   const tabsRef = useRef<HTMLDivElement>(null);
   const [headerPinned, setHeaderPinned] = useState(false);
@@ -243,6 +252,56 @@ export default function ExperimentHeader({
             }}
           />
         )}
+        {showDeleteModal ? (
+          <Modal
+            header="Delete Experiment"
+            trackingEventModalType="delete-experiment"
+            trackingEventModalSource="experiment-more-menu"
+            open={true}
+            close={() => setShowDeleteModal(false)}
+            submit={() => console.log("submitted")} //TODO: Update this with the actual api call
+          >
+            <div>
+              <p>Are you sure you want to delete this experiment?</p>
+              {!safeToEdit ? (
+                <div className="alert alert-danger">
+                  This will immediately stop all linked Feature Flags and Visual
+                  Changes from running
+                </div>
+              ) : null}
+            </div>
+          </Modal>
+        ) : null}
+        {showArchiveModal ? (
+          <Modal
+            header="Archive Experiment"
+            trackingEventModalType="archive-experiment"
+            trackingEventModalSource="experiment-more-menu"
+            open={true}
+            cta="Archive"
+            close={() => setShowArchiveModal(false)}
+            submit={async () => {
+              try {
+                await apiCall(`/experiment/${experiment.id}/archive`, {
+                  method: "POST",
+                });
+                mutate();
+              } catch (e) {
+                console.error(e);
+              }
+            }}
+          >
+            <div>
+              <p>Are you sure you want to archive this experiment?</p>
+              {!safeToEdit ? (
+                <div className="alert alert-danger">
+                  This will immediately stop all linked Feature Flags and Visual
+                  Changes from running
+                </div>
+              ) : null}
+            </div>
+          </Modal>
+        ) : null}
         {showStartExperiment && experiment.status === "draft" && (
           <Modal
             trackingEventModalType="start-experiment"
@@ -419,137 +478,144 @@ export default function ExperimentHeader({
             ) : null}
 
             <div className="ml-2">
-              <MoreMenu>
-                {canRunExperiment &&
-                  !isBandit &&
-                  experiment.status !== "draft" && (
-                    <button
-                      className="dropdown-item"
-                      onClick={() => setStatusModal(true)}
-                    >
-                      Edit status
-                    </button>
-                  )}
-                {editPhases && !isBandit && (
-                  <button
-                    className="dropdown-item"
-                    onClick={() => editPhases()}
-                  >
-                    Edit phases
+              <DropdownMenu
+                trigger={
+                  <button className="btn btn-link text-dark">
+                    <BsThreeDotsVertical />
                   </button>
-                )}
-                <button
-                  className="dropdown-item"
-                  onClick={() => setAuditModal(true)}
-                >
-                  Audit log
-                </button>
-                <WatchButton
-                  itemType="experiment"
-                  item={experiment.id}
-                  className="dropdown-item text-dark"
-                />
-                <button
-                  className="dropdown-item"
-                  onClick={() => setWatchersModal(true)}
-                >
-                  View watchers{" "}
-                  <span className="badge badge-pill badge-info">
-                    {usersWatching.length}
-                  </span>
-                </button>
+                }
+                menuPlacement="end"
+              >
+                <DropdownMenuGroup>
+                  {canRunExperiment &&
+                    !isBandit &&
+                    experiment.status !== "draft" && (
+                      <DropdownMenuItem onClick={() => setStatusModal(true)}>
+                        Edit status
+                      </DropdownMenuItem>
+                    )}
+                  {editPhases && !isBandit && (
+                    <DropdownMenuItem onClick={() => editPhases()}>
+                      Edit phases
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onClick={() => setAuditModal(true)}>
+                    Audit log
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  {/* TODO: Make the trigger change depending on what status */}
+                  <DropdownSubMenu trigger="Watch">
+                    <DropdownMenuItem>Start Watching</DropdownMenuItem>
+                    <DropdownMenuItem>Stop Watching</DropdownMenuItem>
+                  </DropdownSubMenu>
+                  <DropdownMenuItem onClick={() => setWatchersModal(true)}>
+                    <span className="badge badge-pill badge-info">
+                      {usersWatching.length}
+                    </span>
+                    View watchers
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
                 {canRunExperiment &&
                   growthbook.isOn("bandits") &&
                   experiment.status === "draft" && (
-                    <ConvertBanditExperiment
-                      experiment={experiment}
-                      mutate={mutate}
-                    />
+                    <>
+                      <DropdownMenuGroup>
+                        <DropdownMenuItem>
+                          <ConvertBanditExperiment
+                            experiment={experiment}
+                            mutate={mutate}
+                          />
+                        </DropdownMenuItem>
+                      </DropdownMenuGroup>
+                      <DropdownMenuSeparator />
+                    </>
                   )}
-                {duplicate && (
-                  <button className="dropdown-item" onClick={duplicate}>
-                    Duplicate
-                  </button>
-                )}
-                {canRunExperiment && (
-                  <ConfirmButton
-                    modalHeader="Archive Experiment"
-                    confirmationText={
-                      <div>
-                        <p>Are you sure you want to archive this experiment?</p>
-                        {!safeToEdit ? (
-                          <div className="alert alert-danger">
-                            This will immediately stop all linked Feature Flags
-                            and Visual Changes from running
-                          </div>
-                        ) : null}
-                      </div>
-                    }
-                    onClick={async () => {
-                      try {
-                        await apiCall(`/experiment/${experiment.id}/archive`, {
-                          method: "POST",
-                        });
-                        mutate();
-                      } catch (e) {
-                        console.error(e);
-                      }
-                    }}
-                    cta="Archive"
-                  >
-                    <button className="dropdown-item" type="button">
+                <DropdownMenuGroup>
+                  {duplicate && (
+                    <DropdownMenuItem onClick={duplicate}>
+                      Duplicate
+                    </DropdownMenuItem>
+                  )}
+                  {canRunExperiment && (
+                    <DropdownMenuItem onClick={() => setShowArchiveModal(true)}>
                       Archive
-                    </button>
-                  </ConfirmButton>
-                )}
-                {hasUpdatePermissions && experiment.archived && (
-                  <button
-                    className="dropdown-item"
-                    onClick={async (e) => {
-                      e.preventDefault();
-                      try {
-                        await apiCall(
-                          `/experiment/${experiment.id}/unarchive`,
-                          {
-                            method: "POST",
+                    </DropdownMenuItem>
+                  )}
+                  {hasUpdatePermissions && experiment.archived && (
+                    <DropdownMenuItem onClick={() => console.log("nothing")}>
+                      <button
+                        //MKTODO: The async here is breaking the menu item
+                        onClick={async (e) => {
+                          e.preventDefault();
+                          try {
+                            await apiCall(
+                              `/experiment/${experiment.id}/unarchive`,
+                              {
+                                method: "POST",
+                              }
+                            );
+                            mutate();
+                          } catch (e) {
+                            console.error(e);
                           }
-                        );
-                        mutate();
-                      } catch (e) {
-                        console.error(e);
-                      }
-                    }}
-                  >
-                    Unarchive
-                  </button>
-                )}
-                {canDeleteExperiment && (
-                  <DeleteButton
-                    className="dropdown-item text-danger"
-                    useIcon={false}
-                    text="Delete"
-                    displayName="Experiment"
-                    additionalMessage={
-                      !safeToEdit ? (
-                        <div className="alert alert-danger">
-                          Deleting this experiment will also affect all linked
-                          Feature Flags and Visual Changes
-                        </div>
-                      ) : null
-                    }
-                    onClick={async () => {
-                      await apiCall<{ status: number; message?: string }>(
-                        `/experiment/${experiment.id}`,
-                        {
-                          method: "DELETE",
-                          body: JSON.stringify({ id: experiment.id }),
+                        }}
+                      >
+                        Unarchive
+                      </button>
+                    </DropdownMenuItem>
+                  )}
+                  {canDeleteExperiment && (
+                    <DropdownMenuItem
+                      color="red"
+                      onClick={() => setShowDeleteModal(true)}
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  )}
+                  {/* {canDeleteExperiment && (
+                    // This has the issue where the user thinks they're clicking the "delete" button, but they're only clicking the menu item
+                    // they need to actually click the ConfirmButton INSIDE of the menu item div
+                    <DropdownMenuItem color="red">
+                      <ConfirmButton
+                        modalHeader="Delete Experiment"
+                        confirmationText={
+                          <div>
+                            <p>
+                              Are you sure you want to delete this experiment?
+                            </p>
+                            {!safeToEdit ? (
+                              <div className="alert alert-danger">
+                                Deleting this experiment will also affect all
+                                linked Feature Flags and Visual Changes
+                              </div>
+                            ) : null}
+                          </div>
                         }
-                      );
-                      router.push(isBandit ? "/bandits" : "/experiments");
-                    }}
-                  />
-                )}
-              </MoreMenu>
+                        onClick={async () => {
+                          try {
+                            await apiCall<{ status: number; message?: string }>(
+                              `/experiment/${experiment.id}`,
+                              {
+                                method: "DELETE",
+                                body: JSON.stringify({ id: experiment.id }),
+                              }
+                            );
+                            router.push(isBandit ? "/bandits" : "/experiments");
+                          } catch (e) {
+                            console.error(e);
+                          }
+                        }}
+                        cta="Delete"
+                      >
+                        Delete
+                      </ConfirmButton>
+                    </DropdownMenuItem>
+                  )} */}
+                </DropdownMenuGroup>
+              </DropdownMenu>
             </div>
           </div>
           <ProjectTagBar
@@ -747,13 +813,15 @@ export function ConvertBanditExperiment({
         }
         ctaEnabled={isBandit || hasMultiArmedBanditFeature}
       >
-        <button
-          className="dropdown-item"
-          type="button"
+        <DropdownMenuItem
+          // className="dropdown-item"
+          // type="button"
           disabled={experiment.status !== "draft"}
         >
+          {!isBandit ? <GBBandit /> : null}
           Convert to {isBandit ? "Experiment" : "Bandit"}
-        </button>
+          {/* </button> */}
+        </DropdownMenuItem>
       </ConfirmButton>
     </Tooltip>
   );
