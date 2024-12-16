@@ -40,8 +40,7 @@ export default function SetupTabOverview({
 }: Props) {
   const [showHypothesisModal, setShowHypothesisModal] = useState(false);
   const [showDescriptionModal, setShowDescriptionModal] = useState(false);
-
-  const expandDescription = () => {
+  const [expandDescription] = useState(() => {
     if (!experiment.description) {
       return true;
     }
@@ -55,7 +54,7 @@ export default function SetupTabOverview({
     }
 
     return true;
-  };
+  });
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -102,7 +101,7 @@ export default function SetupTabOverview({
         ) : null}
         <Box className="box" pt="4" pb="2">
           <Collapsible
-            open={expandDescription()}
+            open={expandDescription}
             transitionTime={100}
             triggerDisabled={!experiment.description}
             onOpening={() =>
