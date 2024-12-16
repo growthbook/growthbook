@@ -86,12 +86,10 @@ export default function ReportPage() {
   const canUpdateReport = experiment
     ? permissionsUtil.canViewReportModal(experiment.project)
     : false;
-  const canDeleteReport = permissionsUtil.canDeleteReport(experiment || {});
-
   const isOwner = userId === report?.userId || !report?.userId;
-  const isAdmin = canDeleteReport;
-  const canEdit = isOwner || isAdmin || canUpdateReport;
-  const canDelete = isOwner || canDeleteReport;
+  const canEdit = isOwner || canUpdateReport;
+  const isAdmin = permissionsUtil.canSuperDeleteReport();
+  const canDelete = isOwner || isAdmin;
 
   return (
     <div className="pagecontents container-fluid">

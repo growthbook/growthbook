@@ -37,7 +37,11 @@ const ReportsPage = (): React.ReactElement => {
     (r) => ({
       userName: r.userId ? getUserDisplay(r.userId) : "",
       experimentName: r.experimentId ? experimentNames.get(r.experimentId) : "",
-      status: r.status === "private" ? "private" : "published",
+      status: r.type === "experiment" ?
+        r.status === "private" ? "private" : "published":
+        r.shareLevel === "public" ? "public" :
+        r.shareLevel === "private" ? "private" :
+        "published",
     }),
     [experimentNames]
   );

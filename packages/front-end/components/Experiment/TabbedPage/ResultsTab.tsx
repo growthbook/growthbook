@@ -24,8 +24,6 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
-import Button from "@/components/Button";
-import { GBAddCircle } from "@/components/Icons";
 import Results, { ResultsMetricFilters } from "@/components/Experiment/Results";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import ExperimentReportsList from "@/components/Experiment/ExperimentReportsList";
@@ -34,6 +32,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/components/Radix/Callout";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
+import Button from "@/components/Radix/Button";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -319,13 +318,13 @@ export default function ResultsTab({
       {snapshot && !isBandit && (
         <div className="bg-white border mt-4">
           <div className="row mx-2 py-3 d-flex align-items-center">
-            <div className="col h3 ml-2 mb-0">Custom Reports</div>
+            <div className="col ml-2">
+              <div className="h3">Custom Reports</div>
+              <div>Create and share an ad-hoc analysis without affecting this experiment.</div>
+            </div>
             <div className="col-auto mr-2">
               {permissionsUtil.canCreateReport(experiment) ? (
                 <Button
-                  className="btn btn-outline-primary float-right"
-                  color="outline-info"
-                  stopPropagation={true}
                   onClick={async () => {
                     const res = await apiCall<{ report: ReportInterface }>(
                       `/experiments/report/${snapshot.id}`,
@@ -342,8 +341,7 @@ export default function ResultsTab({
                     await router.push(`/report/${res.report.id}`);
                   }}
                 >
-                  <GBAddCircle className="pr-1" />
-                  Custom Report
+                  New Custom Report
                 </Button>
               ) : null}
             </div>

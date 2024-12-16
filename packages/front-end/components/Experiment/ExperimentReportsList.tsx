@@ -36,8 +36,23 @@ export default function ExperimentReportsList({
   }
 
   const { reports } = data;
+  const isAdmin = permissionsUtil.canSuperDeleteReport();
 
-  if (!reports.length) {
+  // todo: filter based on permissions / published status
+  const filteredReports = reports
+    .map((report) => {
+      const isOwner = userId === report?.userId || !report?.userId;
+      const canDelete = isOwner || isAdmin;
+      const show =
+        report.type === "experiment"
+          ? report.status === "published"
+          : isOwner || isAdmin;
+      const showDelete = report.type === "experiment" ? isAdmin : canDelete;
+      return { report, show, showDelete };
+    })
+    .filter((fr) => fr.show);
+
+  if (!filteredReports.length) {
     return null;
   }
 
@@ -54,7 +69,8 @@ export default function ExperimentReportsList({
           </tr>
         </thead>
         <tbody>
-          {reports.map((report) => {
+          {filteredReports.map((filteredReport) => {
+            const report = filteredReport.report;
             const user = report.userId ? users.get(report.userId) : null;
             const name = user ? user.name : "";
             return (
@@ -103,8 +119,7 @@ export default function ExperimentReportsList({
                 </td>
                 <td>{name}</td>
                 <td style={{ width: 50 }}>
-                  {permissionsUtil.canSuperDeleteReport() ||
-                  report.userId === userId ? (
+                  {report.showDelete ? (
                     <DeleteButton
                       displayName="Custom Report"
                       link={true}
