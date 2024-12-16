@@ -30,9 +30,9 @@ import ExperimentReportsList from "@/components/Experiment/ExperimentReportsList
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/components/Radix/Callout";
+import Button from "@/components/Radix/Button";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
-import Button from "@/components/Radix/Button";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -320,7 +320,10 @@ export default function ResultsTab({
           <div className="row mx-2 py-3 d-flex align-items-center">
             <div className="col ml-2">
               <div className="h3">Custom Reports</div>
-              <div>Create and share an ad-hoc analysis without affecting this experiment.</div>
+              <div>
+                Create and share an ad-hoc analysis without affecting this
+                experiment.
+              </div>
             </div>
             <div className="col-auto mr-2">
               {permissionsUtil.canCreateReport(experiment) ? (

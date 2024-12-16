@@ -190,7 +190,7 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
             {useRadixButton ? (
               <Button
                 ref={ref}
-                variant={"outline"}
+                variant="soft"
                 size="sm"
                 disabled={status === "running" || disabled}
                 type="button"

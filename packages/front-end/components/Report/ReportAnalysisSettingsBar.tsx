@@ -3,7 +3,6 @@ import { ExperimentSnapshotReportInterface } from "back-end/types/report";
 import { getSnapshotAnalysis } from "shared/util";
 import { ago, date, datetime, getValidDate } from "shared/dates";
 import React, { RefObject, useEffect, useState } from "react";
-import { FaChartBar } from "react-icons/fa";
 import { PiEye } from "react-icons/pi";
 import { SSRExperimentReportPolyfills } from "@/pages/r/[r]";
 import RunQueriesButton from "@/components/Queries/RunQueriesButton";
@@ -80,10 +79,7 @@ export default function ReportAnalysisSettingsBar({
           style={{ gap: "0.5rem 1rem" }}
         >
           <div className="col-auto d-flex align-items-center mr-3">
-            <div className="h4 my-0">
-              <FaChartBar className="mr-2" />
-              Results
-            </div>
+            <div className="h4 my-0">Analysis</div>
           </div>
           <div className="col-auto d-flex align-items-end">
             <DimensionChooser

@@ -1,8 +1,7 @@
 import { ExperimentSnapshotReportInterface } from "back-end/types/report";
 import React, { useEffect, useState } from "react";
 import { PiLink, PiCheck } from "react-icons/pi";
-import { Text } from "@radix-ui/themes";
-import { FaGear } from "react-icons/fa6";
+import { Flex, Text } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { getSnapshotAnalysis } from "shared/util";
@@ -30,6 +29,9 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Link from "@/components/Radix/Link";
 import ConditionalWrapper from "@/components/ConditionalWrapper";
 import track from "@/services/track";
+import UserAvatar from "@/components/Avatar/UserAvatar";
+import metaDataStyles from "@/components/Radix/Styles/Metadata.module.scss";
+import Metadata from "@/components/Radix/Metadata";
 
 type ShareLevel = "public" | "organization" | "private";
 type EditLevel = "organization" | "private";
@@ -68,6 +70,8 @@ export default function ReportMetaInfo({
 
   const { apiCall } = useAuth();
   const { getUserDisplay } = useUser();
+  const ownerName =
+    (report.userId ? getUserDisplay(report.userId, false) : "") || "";
 
   const { performCopy, copySuccess } = useCopyToClipboard({
     timeout: 800,
@@ -233,48 +237,11 @@ export default function ReportMetaInfo({
       <div className="mt-1 mb-3">
         <div className="d-flex">
           <div className="flex-1">
-            <h1>{report.title}</h1>
-
-            {experiment ? (
-              <div className="d-flex mb-2">
-                <Text size="2" color="gray" mr="2">
-                  Ad-hoc report for{" "}
-                  {experiment?.type === "multi-armed-bandit"
-                    ? "Bandit"
-                    : "Experiment"}
-                  :
-                </Text>
-                <ConditionalWrapper
-                  condition={
-                    !!experiment?.id &&
-                    (!!showPrivateLink || !!showEditControls)
-                  }
-                  wrapper={
-                    <Link
-                      href={`/${
-                        experiment?.type === "multi-armed-bandit"
-                          ? "bandit"
-                          : "experiment"
-                      }/${experiment?.id}`}
-                    />
-                  }
-                >
-                  {experiment?.name || experiment?.id || "(unknown experiment)"}
-                </ConditionalWrapper>
-              </div>
-            ) : null}
-
-            <div>
-              <Text size="1" color="gray">
-                Report created{" "}
-                {showEditControls && report?.userId ? (
-                  <>by {getUserDisplay(report.userId)} </>
-                ) : null}{" "}
-                on {date(report.dateCreated)}
-              </Text>
+            <div className="d-flex align-items-end mb-3">
+              <h1 className="mb-0">{report.title}</h1>
               {showEditControls && (
                 <>
-                  <div className="d-inline-block ml-2">
+                  <div className="d-inline-block ml-3 mb-1">
                     {report.shareLevel === "private" ? (
                       <Badge
                         variant="soft"
@@ -296,10 +263,72 @@ export default function ReportMetaInfo({
                 </>
               )}
             </div>
+
+            <Flex gap="3" mt="2" mb="1">
+              {showEditControls && (
+                <Metadata
+                  label="Report by"
+                  value={
+                    <>
+                      {ownerName !== "" && (
+                        <UserAvatar name={ownerName} size="sm" variant="soft" />
+                      )}
+                      <Text
+                        weight="regular"
+                        className={metaDataStyles.valueColor}
+                      >
+                        {ownerName === "" ? "None" : ownerName}
+                      </Text>
+                    </>
+                  }
+                />
+              )}
+              <Metadata
+                label="Report created"
+                value={date(report.dateCreated)}
+              />
+              <Metadata
+                label={
+                  experiment?.type === "multi-armed-bandit"
+                    ? "Bandit"
+                    : "Experiment"
+                }
+                value={
+                  <ConditionalWrapper
+                    condition={
+                      !!experiment?.id &&
+                      (!!showPrivateLink || !!showEditControls)
+                    }
+                    wrapper={
+                      <Link
+                        href={`/${
+                          experiment?.type === "multi-armed-bandit"
+                            ? "bandit"
+                            : "experiment"
+                        }/${experiment?.id}`}
+                      />
+                    }
+                  >
+                    {experiment?.name ||
+                      experiment?.id ||
+                      "(unknown experiment)"}
+                  </ConditionalWrapper>
+                }
+              />
+            </Flex>
           </div>
           {canView ? (
             <div className="flex-shrink-0">
               <div className="d-flex">
+                {showPrivateLink && (
+                  <LinkButton
+                    variant="outline"
+                    href={`/report/${report.id}`}
+                    mr="4"
+                  >
+                    Edit Report
+                  </LinkButton>
+                )}
                 {showEditControls ? (
                   <div className="d-flex flex-column align-items-end">
                     {shareLevel === "private" ? (
@@ -346,19 +375,6 @@ export default function ReportMetaInfo({
             </div>
           ) : null}
         </div>
-
-        {showPrivateLink && (
-          <div>
-            <LinkButton
-              size="xs"
-              variant="ghost"
-              href={`/report/${report.id}`}
-              icon={<FaGear />}
-            >
-              Manage this report
-            </LinkButton>
-          </div>
-        )}
       </div>
 
       <div className="mb-4">
