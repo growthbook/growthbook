@@ -7,6 +7,7 @@ import {
   getAggregateFilters,
   isBinomialMetric,
   isRatioMetric,
+  isRetentionMetric,
   quantileMetricType,
 } from "shared/experiments";
 import {
@@ -597,7 +598,29 @@ export default function FactMetricPage() {
           <div className="mb-4">
             <h3>Metric Window</h3>
             <div className="appbox p-3 mb-3">
-              {factMetric.windowSettings.type === "conversion" ? (
+              {isRetentionMetric(factMetric) ? (
+                <>
+                <em className="font-weight-bold">Retention Window</em>{" - "}{
+                  factMetric.windowSettings.type !== "conversion" ? (
+                    <>Require events to happen{" "}
+                    <strong>
+                      {factMetric.windowSettings.delayValue}{" "}
+                      {factMetric.windowSettings.delayUnit}
+                    </strong>{" "}
+                    after first experiment exposure.
+                  </>) :
+                  (<>Require events to happen between{" "}
+                    <strong>
+                      {factMetric.windowSettings.delayValue}</strong>{" and "}<strong>
+                      {factMetric.windowSettings.delayValue + factMetric.windowSettings.windowValue}{" "}
+                      {factMetric.windowSettings.delayUnit}
+                    </strong>{" "}
+                    after first experiment exposure.
+                  </>
+                  )
+                }
+              </>
+              ) : factMetric.windowSettings.type === "conversion" ? (
                 <>
                   <em className="font-weight-bold">Conversion Window</em> -
                   Require conversions to happen within{" "}
@@ -606,9 +629,7 @@ export default function FactMetricPage() {
                     {factMetric.windowSettings.windowUnit}
                   </strong>{" "}
                   of first experiment exposure
-                  {factMetric.metricType === "retention"
-                    ? " plus the retention window"
-                    : factMetric.windowSettings.delayValue
+                  {factMetric.windowSettings.delayValue
                     ? " plus the metric delay"
                     : ""}
                   .
@@ -627,9 +648,7 @@ export default function FactMetricPage() {
                 <>
                   <em className="font-weight-bold">Disabled</em> - Include all
                   metric data after first experiment exposure
-                  {factMetric.metricType === "retention"
-                    ? " plus the retention window"
-                    : factMetric.windowSettings.delayValue
+                  {factMetric.windowSettings.delayValue
                     ? " plus the metric delay"
                     : ""}
                   .
@@ -645,14 +664,12 @@ export default function FactMetricPage() {
               open={() => setEditOpen(true)}
               canOpen={canEdit}
             >
-              {factMetric.windowSettings.delayValue ? (
+              {factMetric.windowSettings.delayValue && !isRetentionMetric(factMetric) ? (
                 <RightRailSectionGroup type="custom" empty="" className="mt-3">
                   <ul className="right-rail-subsection list-unstyled mb-4">
                     <li className="mt-3 mb-1">
                       <span className="uppercase-title lg">
-                        {factMetric.metricType === "retention"
-                          ? "Retention Window"
-                          : "Metric Delay"}
+                        {"Metric Delay"}
                       </span>
                     </li>
                     <li className="mb-2">

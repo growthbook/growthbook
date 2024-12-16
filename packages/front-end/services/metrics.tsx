@@ -5,6 +5,7 @@ import {
   FactTableInterface,
   CreateFactMetricProps,
   FactMetricInterface,
+  MetricWindowSettings,
 } from "back-end/types/fact-table";
 import {
   canInlineFilterColumn,
@@ -29,6 +30,7 @@ import {
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { decimalToPercent } from "@/services/utils";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
+import cloneDeep from "lodash/cloneDeep";
 
 export function getInitialInlineFilters(
   factTable: FactTableInterface,
@@ -60,7 +62,16 @@ export function getDefaultFactMetricProps({
   existing?: Partial<FactMetricInterface>;
   initialFactTable?: FactTableInterface;
 }): CreateFactMetricProps {
-  return {
+
+  const defaultWindowSettings: MetricWindowSettings = {
+    type: DEFAULT_FACT_METRIC_WINDOW,
+    windowUnit: "days",
+    windowValue: 3,
+    delayUnit: "hours",
+    delayValue: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+  };
+
+  const defaultProps = {
     name: existing?.name || "",
     owner: existing?.owner || "",
     description: existing?.description || "",
@@ -90,13 +101,7 @@ export function getDefaultFactMetricProps({
       value: 0,
     },
     quantileSettings: existing?.quantileSettings || null,
-    windowSettings: existing?.windowSettings || {
-      type: DEFAULT_FACT_METRIC_WINDOW,
-      windowUnit: "days",
-      windowValue: 3,
-      delayUnit: "hours",
-      delayValue: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
-    },
+    windowSettings: !!existing?.windowSettings ? cloneDeep<MetricWindowSettings>(existing.windowSettings) : defaultWindowSettings,
     winRisk: existing?.winRisk ?? DEFAULT_WIN_RISK_THRESHOLD,
     loseRisk: existing?.loseRisk ?? DEFAULT_LOSE_RISK_THRESHOLD,
     minPercentChange:
@@ -129,6 +134,13 @@ export function getDefaultFactMetricProps({
         stddev: DEFAULT_PROPER_PRIOR_STDDEV,
       }),
   };
+
+  // add back in delay to make UI more intuitive
+  if (defaultProps.metricType === "retention" && defaultProps.windowSettings.type === "conversion") {
+    defaultProps.windowSettings.windowValue += defaultProps.windowSettings.delayValue;
+  }
+
+  return defaultProps;
 }
 
 export function getMetricConversionTitle(type: MetricType): string {
