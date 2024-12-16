@@ -75,7 +75,10 @@ export default function ReportAnalysisSettingsBar({
   return (
     <>
       <div className="py-2 border-bottom d-flex">
-        <div className="row align-items-center px-3" style={{ gap: "0.5rem 1rem" }}>
+        <div
+          className="row align-items-center px-3"
+          style={{ gap: "0.5rem 1rem" }}
+        >
           <div className="col-auto d-flex align-items-center mr-3">
             <div className="h4 my-0">
               <FaChartBar className="mr-2" />
