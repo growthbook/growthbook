@@ -1,7 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import omit from "lodash/omit";
-import { customAlphabet } from "nanoid";
 import { migrateExperimentReport } from "back-end/src/util/migrations";
 import {
   ExperimentReportInterface,
@@ -12,9 +11,6 @@ import { ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
 import { getAllExperiments } from "./ExperimentModel";
 import { queriesSchema } from "./QueryModel";
-
-const TINYID_ALPHABET =
-  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
 const reportSchema = new mongoose.Schema({
   id: String,
@@ -68,13 +64,12 @@ export async function createReport(
   organization: string,
   initialValue: Partial<ExperimentSnapshotReportInterface>
 ): Promise<ExperimentSnapshotReportInterface> {
-  const nanoid = customAlphabet(TINYID_ALPHABET);
   let tries = 0;
   let size = 6;
   let collision = false;
   let tinyid = "";
   while (tries < 5) {
-    tinyid = nanoid(size);
+    tinyid = makeTinyId(size);
     collision = !!(await ReportModel.exists({ tinyid }));
     if (!collision) break;
     tries++;
@@ -187,4 +182,14 @@ export async function deleteReportById(organization: string, id: string) {
     organization,
     id,
   });
+}
+
+function makeTinyId(length: number) {
+  let id = "";
+  const characters =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  for (let i = 0; i < length; i++) {
+    id += characters.charAt(Math.floor(Math.random() * characters.length));
+  }
+  return id;
 }

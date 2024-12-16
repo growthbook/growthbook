@@ -419,7 +419,7 @@ export default function ReportMetaInfo({
               </Callout>
             ) : shareLevel === "public" ? (
               <>
-                <Callout status="error" size="sm">
+                <Callout status="warning" size="sm">
                   Anyone with the link can view this report, even those outside
                   your organization.
                 </Callout>
