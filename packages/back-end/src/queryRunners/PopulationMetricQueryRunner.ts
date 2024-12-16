@@ -14,6 +14,7 @@ import {
   ExperimentSnapshotHealth,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
+  MetricForSnapshot,
 } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import { Queries, QueryPointer, QueryStatus } from "back-end/types/query";
@@ -28,6 +29,7 @@ import {
   analyzeExperimentTraffic,
 } from "back-end/src/services/stats";
 import {
+  Dimension,
   ExperimentAggregateUnitsQueryResponseRows,
   ExperimentDimension,
   ExperimentFactMetricsQueryParams,
@@ -51,141 +53,40 @@ import {
   RowsType,
   StartQueryParams,
 } from "./QueryRunner";
+import { getFactMetricGroups } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 
-export type SnapshotResult = {
-  unknownVariations: string[];
-  multipleExposures: number;
-  analyses: ExperimentSnapshotAnalysis[];
-  banditResult?: BanditResult;
-  health?: ExperimentSnapshotHealth;
-};
-
-export type ExperimentResultsQueryParams = {
-  snapshotSettings: ExperimentSnapshotSettings;
-  variationNames: string[];
+// MOVE
+export interface PopulationMetricQuerySettings {
+  metricSettings: MetricForSnapshot[];
+    populationType: "segment" | "factTable";
+    populationId: string;
+  datasourceId: string;
+  startDate: Date;
+  endDate: Date;
+}
+export interface PopulationMetricQueryParams {
+  settings: PopulationMetricQuerySettings;
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
-  queryParentId: string;
 };
-
-export const TRAFFIC_QUERY_NAME = "traffic";
-
-export const UNITS_TABLE_PREFIX = "growthbook_tmp_units";
-
-export const MAX_METRICS_PER_QUERY = 20;
-
-export function getFactMetricGroup(metric: FactMetricInterface) {
-  // Ratio metrics must have the same numerator and denominator fact table to be grouped
-  if (isRatioMetric(metric)) {
-    if (metric.numerator.factTableId !== metric.denominator?.factTableId) {
-      return "";
-    }
-  }
-
-  // Quantile metrics get their own group to prevent slowing down the main query
-  if (quantileMetricType(metric)) {
-    return metric.numerator.factTableId
-      ? `${metric.numerator.factTableId} (quantile metrics)`
-      : "";
-  }
-  return metric.numerator.factTableId || "";
-}
-
-export interface GroupedMetrics {
-  groups: FactMetricInterface[][];
-  singles: ExperimentMetricInterface[];
-}
-
-export function getFactMetricGroups(
-  metrics: ExperimentMetricInterface[],
-  settings: Pick<ExperimentSnapshotSettings, "skipPartialData">,
-  integration: SourceIntegrationInterface,
-  organization: OrganizationInterface
-): GroupedMetrics {
-  const defaultReturn: GroupedMetrics = {
-    groups: [],
-    singles: metrics,
-  };
-
-  // Metrics might have different conversion windows which makes the query super complicated
-  if (settings.skipPartialData) {
-    return defaultReturn;
-  }
-  // Combining metrics in a single query is an Enterprise-only feature
-  if (!orgHasPremiumFeature(organization, "multi-metric-queries")) {
-    return defaultReturn;
-  }
-
-  // Org-level setting (in case the multi-metric query introduces bugs)
-  if (organization.settings?.disableMultiMetricQueries) {
-    return defaultReturn;
-  }
-
-  // Group metrics by fact table id
-  const groups: Record<string, FactMetricInterface[]> = {};
-  metrics.forEach((m) => {
-    // Only fact metrics
-    if (!isFactMetric(m)) return;
-
-    // Skip grouping metrics with percentile caps or quantile metrics if there's not an efficient implementation
-    if (
-      (m.cappingSettings.type === "percentile" || quantileMetricType(m)) &&
-      !integration.getSourceProperties().hasEfficientPercentiles
-    ) {
-      return;
-    }
-
-    const group = getFactMetricGroup(m);
-    if (group) {
-      groups[group] = groups[group] || [];
-      groups[group].push(m);
-    }
-  });
-
-  const groupArrays: FactMetricInterface[][] = [];
-  Object.values(groups).forEach((group) => {
-    // Split groups into chunks of MAX_METRICS_PER_QUERY
-    const chunks = chunk(group, MAX_METRICS_PER_QUERY);
-    groupArrays.push(...chunks);
-  });
-
-  // Add any metrics that aren't in groupArrays to the singles array
-  const singles: ExperimentMetricInterface[] = [];
-  metrics.forEach((m) => {
-    if (!isFactMetric(m) || !groupArrays.some((group) => group.includes(m))) {
-      singles.push(m);
-    }
-  });
-
-  return {
-    groups: groupArrays,
-    singles,
-  };
-}
 
 export const startExperimentResultQueries = async (
   context: ApiReqContext,
-  params: ExperimentResultsQueryParams,
+  params: PopulationMetricQueryParams,
   integration: SourceIntegrationInterface,
   startQuery: (
     params: StartQueryParams<RowsType, ProcessedRowsType>
   ) => Promise<QueryPointer>
 ): Promise<Queries> => {
-  const snapshotSettings = params.snapshotSettings;
-  const queryParentId = params.queryParentId;
+  const settings = params.settings;
   const metricMap = params.metricMap;
 
   const { org } = context;
-  const hasPipelineModeFeature = orgHasPremiumFeature(org, "pipeline-mode");
-
-  const activationMetric = snapshotSettings.activationMetric
-    ? metricMap.get(snapshotSettings.activationMetric) ?? null
-    : null;
 
   // Only include metrics tied to this experiment (both goal and guardrail metrics)
   const allMetricGroups = await context.models.metricGroups.getAll();
   const selectedMetrics = expandMetricGroups(
-    getAllMetricIdsFromExperiment(snapshotSettings, false),
+    settings.metricSettings.map((m) => m.id),
     allMetricGroups
   )
     .map((m) => metricMap.get(m))
@@ -194,89 +95,18 @@ export const startExperimentResultQueries = async (
     throw new Error("Experiment must have at least 1 metric selected.");
   }
 
-  let segmentObj: SegmentInterface | null = null;
-  if (snapshotSettings.segment) {
-    segmentObj = await context.models.segments.getById(
-      snapshotSettings.segment
-    );
-  }
-
-  const settings = integration.datasource.settings;
-
   const exposureQuery = (settings?.queries?.exposure || []).find(
     (q) => q.id === snapshotSettings.exposureQueryId
   );
 
-  const dimensionObj = await parseDimensionId(
-    snapshotSettings.dimensions[0]?.id,
-    org.id
-  );
+  // date or week in SQL?
+  const dimensionObj: Dimension = {type: "date"}
 
   const queries: Queries = [];
 
-  // Settings for units table
-  const useUnitsTable =
-    (integration.getSourceProperties().supportsWritingTables &&
-      settings.pipelineSettings?.allowWriting &&
-      !!settings.pipelineSettings?.writeDataset &&
-      hasPipelineModeFeature) ??
-    false;
-  let unitQuery: QueryPointer | null = null;
-  const unitsTableFullName =
-    useUnitsTable && !!integration.generateTablePath
-      ? integration.generateTablePath(
-          `${UNITS_TABLE_PREFIX}_${queryParentId}`,
-          settings.pipelineSettings?.writeDataset,
-          settings.pipelineSettings?.writeDatabase,
-          true
-        )
-      : "";
-
-  // Settings for health query
-  const runTrafficQuery = !dimensionObj && org.settings?.runHealthTrafficQuery;
-  let dimensionsForTraffic: ExperimentDimension[] = [];
-  if (runTrafficQuery && exposureQuery?.dimensionMetadata) {
-    dimensionsForTraffic = exposureQuery.dimensionMetadata
-      .filter((dm) => exposureQuery.dimensions.includes(dm.dimension))
-      .map((dm) => ({
-        type: "experiment",
-        id: dm.dimension,
-        specifiedSlices: dm.specifiedSlices,
-      }));
-  }
-
-  const unitQueryParams: ExperimentUnitsQueryParams = {
-    activationMetric: activationMetric,
-    dimensions: dimensionObj ? [dimensionObj] : dimensionsForTraffic,
-    segment: segmentObj,
-    settings: snapshotSettings,
-    unitsTableFullName: unitsTableFullName,
-    includeIdJoins: true,
-    factTableMap: params.factTableMap,
-  };
-
-  if (useUnitsTable) {
-    // The Mixpanel integration does not support writing tables
-    if (!integration.generateTablePath) {
-      throw new Error(
-        "Unable to generate table; table path generator not specified."
-      );
-    }
-    unitQuery = await startQuery({
-      name: queryParentId,
-      query: integration.getExperimentUnitsTableQuery(unitQueryParams),
-      dependencies: [],
-      run: (query, setExternalId) =>
-        integration.runExperimentUnitsQuery(query, setExternalId),
-      process: (rows) => rows,
-      queryType: "experimentUnits",
-    });
-    queries.push(unitQuery);
-  }
-
   const { groups, singles } = getFactMetricGroups(
     selectedMetrics,
-    params.snapshotSettings,
+    {skipPartialData: false},
     integration,
     org
   );
@@ -352,51 +182,13 @@ export const startExperimentResultQueries = async (
     );
   }
 
-  let trafficQuery: QueryPointer | null = null;
-  if (runTrafficQuery) {
-    trafficQuery = await startQuery({
-      name: TRAFFIC_QUERY_NAME,
-      query: integration.getExperimentAggregateUnitsQuery({
-        ...unitQueryParams,
-        dimensions: dimensionsForTraffic,
-        useUnitsTable: !!unitQuery,
-      }),
-      dependencies: unitQuery ? [unitQuery.query] : [],
-      run: (query, setExternalId) =>
-        integration.runExperimentAggregateUnitsQuery(query, setExternalId),
-      process: (rows) => rows,
-      queryType: "experimentTraffic",
-    });
-    queries.push(trafficQuery);
-  }
-
-  const dropUnitsTable =
-    integration.getSourceProperties().dropUnitsTable &&
-    settings.pipelineSettings?.unitsTableDeletion;
-  if (useUnitsTable && dropUnitsTable) {
-    const dropUnitsTableQuery = await startQuery({
-      name: `drop_${queryParentId}`,
-      query: integration.getDropUnitsTableQuery({
-        fullTablePath: unitsTableFullName,
-      }),
-      dependencies: [],
-      // all other queries in model must succeed or fail first
-      runAtEnd: true,
-      run: (query, setExternalId) =>
-        integration.runDropTableQuery(query, setExternalId),
-      process: (rows) => rows,
-      queryType: "experimentDropUnitsTable",
-    });
-    queries.push(dropUnitsTableQuery);
-  }
-
   return queries;
 };
 
-export class ExperimentResultsQueryRunner extends QueryRunner<
-  ExperimentSnapshotInterface,
-  ExperimentResultsQueryParams,
-  SnapshotResult
+export class PopulationMetricQueryRunner extends QueryRunner<
+  ExperimentSnapshotInterface, //
+  PopulationMetricQueryParams,
+  SnapshotResult //
 > {
   private variationNames: string[] = [];
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
