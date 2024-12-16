@@ -14,6 +14,8 @@ import {
   quantileMetricType,
   getColumnRefWhereClause,
   getAggregateFilters,
+  isBinomialMetric,
+  getDelayWindowHours,
 } from "shared/experiments";
 import {
   AUTOMATIC_DIMENSION_OTHER_NAME,
@@ -1435,7 +1437,7 @@ export default abstract class SqlIntegration
     overrideConversionWindows: boolean
   ): string {
     let windowHours = getConversionWindowHours(metric.windowSettings);
-    const delayHours = metric.windowSettings.delayHours ?? 0;
+    const delayHours = getDelayWindowHours(metric.windowSettings);
 
     // all metrics have to be after the base timestamp +- delay hours
     let metricWindow = `${metricCol} >= ${this.addHours(baseCol, delayHours)}`;
@@ -1474,8 +1476,8 @@ export default abstract class SqlIntegration
     let runningDelay = 0;
     let minDelay = 0;
     metrics.forEach((m) => {
-      if (m.windowSettings.delayHours) {
-        const delay = runningDelay + m.windowSettings.delayHours;
+      if (getDelayWindowHours(m.windowSettings)) {
+        const delay = runningDelay + getDelayWindowHours(m.windowSettings);
         if (delay < minDelay) minDelay = delay;
         runningDelay = delay;
       }
@@ -1514,7 +1516,7 @@ export default abstract class SqlIntegration
         const hours =
           runningHours +
           getConversionWindowHours(m.windowSettings) +
-          (m.windowSettings.delayHours || 0);
+          getDelayWindowHours(m.windowSettings);
         if (hours > maxHours) maxHours = hours;
         runningHours = hours;
       }
@@ -1539,7 +1541,7 @@ export default abstract class SqlIntegration
     metricAndDenominatorMetrics.forEach((m) => {
       if (m.windowSettings.type === "conversion") {
         const metricHours =
-          (m.windowSettings.delayHours || 0) +
+          getDelayWindowHours(m.windowSettings) +
           getConversionWindowHours(m.windowSettings);
         if (funnelMetric) {
           // funnel metric windows can cascade, so sum each metric hours to get max
@@ -1555,7 +1557,7 @@ export default abstract class SqlIntegration
       activationMetric.windowSettings.type == "conversion"
     ) {
       neededHoursForConversion +=
-        (activationMetric.windowSettings.delayHours || 0) +
+        getDelayWindowHours(activationMetric.windowSettings) +
         getConversionWindowHours(activationMetric.windowSettings);
     }
     return neededHoursForConversion;
@@ -1729,7 +1731,7 @@ export default abstract class SqlIntegration
             idJoinMap,
             startDate: this.getMetricStart(
               settings.startDate,
-              activationMetric.windowSettings.delayHours || 0,
+              getDelayWindowHours(activationMetric.windowSettings),
               0
             ),
             endDate: this.getMetricEnd(
@@ -4813,7 +4815,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
       if (
         !hasAggregateFilter &&
-        (metric.metricType === "proportion" || column === "$$distinctUsers")
+        (isBinomialMetric(metric) || column === "$$distinctUsers")
       ) {
         return `COALESCE(MAX(${valueColumn}), 0)`;
       } else if (column === "$$count") {
@@ -4911,7 +4913,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
       if (
         !hasAggregateFilter &&
-        (metric.metricType === "proportion" || column === "$$distinctUsers")
+        (isBinomialMetric(metric) || column === "$$distinctUsers")
       ) {
         return `MAX(COALESCE(${valueColumn}, 0))`;
       } else if (columnRef?.aggregation === "count distinct") {
@@ -4966,7 +4968,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         : columnRef?.column;
 
       const value =
-        (!hasAggregateFilter && metric.metricType === "proportion") ||
+        (!hasAggregateFilter && isBinomialMetric(metric)) ||
         !columnRef ||
         column === "$$distinctUsers" ||
         column === "$$count"

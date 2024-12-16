@@ -1,23 +1,54 @@
+import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
+
 export function MetricDelayHours({ form }) {
   return (
     <div className="form-group">
-      <label>Metric Delay (hours)</label>
-      <input
-        type="number"
-        step="any"
-        className="form-control"
-        placeholder={"0"}
-        {...form.register("windowSettings.delayHours", {
-          valueAsNumber: true,
-        })}
-      />
-      <small className="text-muted">
-        Ignore all metric data within the first X hours of being put into an
-        experiment.
-        {form.watch("windowSettings.type") === "conversion"
-          ? " Will shift the start of the conversion window."
-          : null}
-      </small>
+      <label>Metric Delay</label>
+      <div className="appbox px-3 pt-3 bg-light">
+        <div className="row align-items-center mb-3">
+          <div className="col-auto">Begin using metric data</div>
+          <div className="col-auto">
+            <Field
+              {...form?.register("windowSettings.delayValue", {
+                valueAsNumber: true,
+              })}
+              type="number"
+              placeholder={"0"}
+              style={{ width: 70 }}
+              required
+              autoFocus
+            />
+          </div>
+          <div className="col-auto">
+            <SelectField
+              value={form?.watch("windowSettings.delayUnit")}
+              onChange={(value) => {
+                form.setValue(
+                  "windowSettings.delayUnit",
+                  value as "days" | "hours" | "weeks"
+                );
+              }}
+              sort={false}
+              options={[
+                {
+                  label: "Hours",
+                  value: "hours",
+                },
+                {
+                  label: "Days",
+                  value: "days",
+                },
+                {
+                  label: "Weeks",
+                  value: "weeks",
+                },
+              ]}
+            />
+          </div>
+          <div className="col-auto">after experiment exposure</div>
+        </div>
+      </div>
     </div>
   );
 }

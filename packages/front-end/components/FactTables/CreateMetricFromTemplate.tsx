@@ -64,7 +64,10 @@ export default function CreateMetricFromTemplate() {
           json.numerator.factTableId = "";
           json.numerator.filters = json.numerator.filters || [];
 
-          if (json.metricType === "proportion") {
+          if (
+            json.metricType === "proportion" ||
+            json.metricType === "retention"
+          ) {
             json.numerator.column = "$$distinctUsers";
           } else {
             json.numerator.column = json.numerator.column || "";
@@ -91,6 +94,26 @@ export default function CreateMetricFromTemplate() {
                   setUpgradeModal({
                     source: "metric-template-quantile",
                     reason: "To create quantile metrics,",
+                  })
+                }
+              />
+            ),
+          };
+        }
+
+        if (
+          data.metricType === "retention" &&
+          !hasCommercialFeature("retention-metrics")
+        ) {
+          return {
+            callout: (
+              <UpgradeMessage
+                commercialFeature="retention-metrics"
+                upgradeMessage="create retention metrics"
+                showUpgradeModal={() =>
+                  setUpgradeModal({
+                    source: "metric-template-retention",
+                    reason: "To create retention metrics,",
                   })
                 }
               />

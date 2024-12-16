@@ -27,7 +27,14 @@ describe("bigquery integration", () => {
         type: "conversion",
         windowUnit: "hours",
         windowValue: 72,
-        delayHours: 0,
+        delayUnit: "hours",
+        delayValue: 0,
+      },
+      priorSettings: {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: 0.1,
       },
       cappingSettings: {
         type: "",
@@ -137,11 +144,18 @@ describe("bigquery integration", () => {
         type: "conversion",
         windowUnit: "hours",
         windowValue: 72,
-        delayHours: 0,
+        delayUnit: "hours",
+        delayValue: 0,
       },
       cappingSettings: {
         type: "",
         value: 0,
+      },
+      priorSettings: {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: 0.1,
       },
       userIdTypes: ["anonymous_id", "user_id"],
     };
@@ -152,7 +166,8 @@ describe("bigquery integration", () => {
         type: "conversion",
         windowUnit: "hours",
         windowValue: 24,
-        delayHours: -4,
+        delayUnit: "hours",
+        delayValue: -4,
       },
     };
     const denominatorCountMetric: MetricInterface = {
@@ -163,7 +178,8 @@ describe("bigquery integration", () => {
         type: "conversion",
         windowUnit: "hours",
         windowValue: 1,
-        delayHours: 0,
+        delayUnit: "hours",
+        delayValue: 0,
       },
     };
     const denominatorBinomialMetric: MetricInterface = {
@@ -172,7 +188,8 @@ describe("bigquery integration", () => {
         type: "conversion",
         windowUnit: "hours",
         windowValue: 1,
-        delayHours: 0,
+        delayUnit: "hours",
+        delayValue: 0,
       },
     };
     const activationMetric: MetricInterface = {
@@ -181,7 +198,8 @@ describe("bigquery integration", () => {
         type: "conversion",
         windowUnit: "hours",
         windowValue: 72,
-        delayHours: 0,
+        delayUnit: "hours",
+        delayValue: 0,
       },
     };
 
