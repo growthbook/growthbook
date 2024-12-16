@@ -30,6 +30,7 @@ import {
 } from "shared/util";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import isEqual from "lodash/isEqual";
+import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
@@ -39,6 +40,11 @@ import { isExperimentRefRuleSkipped } from "@/components/Features/ExperimentRefS
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useUser } from "@/services/UserContext";
 import { ALL_COUNTRY_CODES } from "@/components/Forms/CountrySelector";
+import useSDKConnections from "@/hooks/useSDKConnections";
+import {
+  CheckListItem,
+  getChecklistItems,
+} from "@/components/Experiment/PreLaunchChecklist";
 import { useDefinitions } from "./DefinitionsContext";
 
 export { generateVariationId } from "shared/util";
@@ -1247,4 +1253,78 @@ export function getNewDraftExperimentsToPublish({
     .filter(isExp);
 
   return [...new Set(draftExperiments)];
+}
+
+export function useFeatureExperimentChecklists({
+  feature,
+  revision,
+  experimentsMap,
+}: {
+  feature: FeatureInterface;
+  revision?: FeatureRevisionInterface;
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>;
+}) {
+  const allEnvironments = useEnvironments();
+
+  const { data: checklistData } = useApi<{
+    checklist: ExperimentLaunchChecklistInterface;
+  }>("/experiments/launch-checklist");
+
+  const settings = useOrgSettings();
+  const orgStickyBucketing = !!settings.useStickyBucketing;
+
+  const { data: sdkConnectionsData } = useSDKConnections();
+  const connections = sdkConnectionsData?.connections || [];
+
+  const experimentData = useMemo(() => {
+    const experimentsAvailableToPublish = revision
+      ? getNewDraftExperimentsToPublish({
+          feature,
+          revision,
+          environments: allEnvironments,
+          experimentsMap,
+        })
+      : [];
+
+    const experimentData: {
+      checklist: CheckListItem[];
+      experiment: ExperimentInterfaceStringDates;
+      failedRequired: boolean;
+    }[] = [];
+    experimentsAvailableToPublish.forEach((exp) => {
+      const projectConnections = connections.filter(
+        (connection) =>
+          !connection.projects.length ||
+          connection.projects.includes(exp.project || "")
+      );
+
+      const checklist = getChecklistItems({
+        experiment: exp,
+        linkedFeatures: [],
+        visualChangesets: [],
+        checklist: checklistData?.checklist,
+        usingStickyBucketing: orgStickyBucketing && !exp.disableStickyBucketing,
+        checkLinkedChanges: false,
+        connections: projectConnections,
+      });
+
+      const failedRequired = checklist.some(
+        (item) => item.status === "incomplete" && item.required
+      );
+
+      experimentData.push({ checklist, experiment: exp, failedRequired });
+    });
+
+    return experimentData;
+  }, [
+    connections,
+    allEnvironments,
+    orgStickyBucketing,
+    checklistData,
+    revision,
+  ]);
+
+  return {
+    experimentData,
+  };
 }

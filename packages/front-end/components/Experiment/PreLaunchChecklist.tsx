@@ -16,7 +16,6 @@ import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
-import useSDKConnections from "@/hooks/useSDKConnections";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
@@ -360,7 +359,6 @@ export function PreLaunchChecklistUI({
   analysisModal,
   setAnalysisModal,
   allowEditChecklist,
-  showErrors,
   title = "Pre-Launch Checklist",
   collapsible = true,
 }: {
@@ -373,7 +371,6 @@ export function PreLaunchChecklistUI({
   analysisModal?: boolean;
   setAnalysisModal?: (value: boolean) => void;
   allowEditChecklist?: boolean;
-  showErrors?: boolean;
   title?: string;
   collapsible?: boolean;
 }) {
@@ -440,10 +437,6 @@ export function PreLaunchChecklistUI({
 
   if (experiment.status !== "draft") return null;
 
-  const failedRequired = checklist.some(
-    (item) => item.status === "incomplete" && item.required
-  );
-
   const contents = !data ? (
     <LoadingSpinner />
   ) : (
@@ -488,11 +481,6 @@ export function PreLaunchChecklistUI({
           />
         </div>
       ))}
-      {showErrors && failedRequired ? (
-        <Callout status="error" mb="3">
-          Please complete all required items before starting your experiment.
-        </Callout>
-      ) : null}
     </div>
   );
 
@@ -573,34 +561,33 @@ export function PreLaunchChecklistFeatureExpRule({
   mutateExperiment: () => unknown | Promise<unknown>;
   checklist: CheckListItem[];
 }) {
-  const { data: sdkConnectionsData } = useSDKConnections();
-  const connections = sdkConnectionsData?.connections || [];
-
-  const projectConnections = connections.filter(
-    (connection) =>
-      !connection.projects.length ||
-      connection.projects.includes(experiment.project || "")
-  );
-  const verifiedConnections = projectConnections.filter(
-    (connection) => connection.connected
+  const failedRequired = checklist.some(
+    (item) => item.status === "incomplete" && item.required
   );
 
   return (
-    <PreLaunchChecklistUI
-      {...{
-        experiment,
-        verifiedConnections,
-        mutateExperiment,
-        checklist,
-        checklistItemsRemaining: checklist.filter(
-          (item) => item.status === "incomplete"
-        ).length,
-        setChecklistItemsRemaining: () => {},
-        showErrors: true,
-        collapsible: false,
-        title: experiment.name,
-      }}
-    />
+    <>
+      <PreLaunchChecklistUI
+        experiment={experiment}
+        mutateExperiment={mutateExperiment}
+        checklist={checklist}
+        checklistItemsRemaining={
+          checklist.filter((item) => item.status === "incomplete").length
+        }
+        setChecklistItemsRemaining={() => {}}
+        collapsible={false}
+        title={experiment.name}
+      />
+      {failedRequired ? (
+        <Callout status="error" mb="3">
+          Please complete all required items before starting your experiment.
+        </Callout>
+      ) : (
+        <Callout status="success" mb="3">
+          All required items are complete. The experiment is ready to start.
+        </Callout>
+      )}
+    </>
   );
 }
 

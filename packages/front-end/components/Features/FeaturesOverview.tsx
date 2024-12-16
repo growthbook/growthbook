@@ -1294,10 +1294,7 @@ export default function FeaturesOverview({
             version={revision.version}
             close={() => setReviewModal(false)}
             mutate={mutate}
-            onDiscard={() => {
-              // When discarding a draft, switch back to the live version
-              setVersion(feature.version);
-            }}
+            experimentsMap={experimentsMap}
           />
         )}
         {draftModal && revision && (

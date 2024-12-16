@@ -9,11 +9,10 @@ import {
   mergeResultHasChanges,
 } from "shared/util";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
 import {
   getAffectedRevisionEnvs,
-  getNewDraftExperimentsToPublish,
   useEnvironments,
+  useFeatureExperimentChecklists,
 } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
@@ -22,14 +21,7 @@ import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/components/Radix/Callout";
 import Checkbox from "@/components/Radix/Checkbox";
-import {
-  CheckListItem,
-  getChecklistItems,
-  PreLaunchChecklistFeatureExpRule,
-} from "@/components/Experiment/PreLaunchChecklist";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import useApi from "@/hooks/useApi";
-import useSDKConnections from "@/hooks/useSDKConnections";
+import { PreLaunchChecklistFeatureExpRule } from "@/components/Experiment/PreLaunchChecklist";
 
 export interface Props {
   feature: FeatureInterface;
@@ -116,63 +108,11 @@ export default function DraftModal({
 
   const [comment, setComment] = useState(revision?.comment || "");
 
-  const { data: checklistData } = useApi<{
-    checklist: ExperimentLaunchChecklistInterface;
-  }>("/experiments/launch-checklist");
-
-  const settings = useOrgSettings();
-  const orgStickyBucketing = !!settings.useStickyBucketing;
-
-  const { data: sdkConnectionsData } = useSDKConnections();
-  const connections = sdkConnectionsData?.connections || [];
-
-  const experimentData = useMemo(() => {
-    const experimentsAvailableToPublish = revision
-      ? getNewDraftExperimentsToPublish({
-          feature,
-          revision,
-          environments: allEnvironments,
-          experimentsMap,
-        })
-      : [];
-
-    const experimentData: {
-      checklist: CheckListItem[];
-      experiment: ExperimentInterfaceStringDates;
-      failedRequired: boolean;
-    }[] = [];
-    experimentsAvailableToPublish.forEach((exp) => {
-      const projectConnections = connections.filter(
-        (connection) =>
-          !connection.projects.length ||
-          connection.projects.includes(exp.project || "")
-      );
-
-      const checklist = getChecklistItems({
-        experiment: exp,
-        linkedFeatures: [],
-        visualChangesets: [],
-        checklist: checklistData?.checklist,
-        usingStickyBucketing: orgStickyBucketing && !exp.disableStickyBucketing,
-        checkLinkedChanges: false,
-        connections: projectConnections,
-      });
-
-      const failedRequired = checklist.some(
-        (item) => item.status === "incomplete" && item.required
-      );
-
-      experimentData.push({ checklist, experiment: exp, failedRequired });
-    });
-
-    return experimentData;
-  }, [
-    connections,
-    allEnvironments,
-    orgStickyBucketing,
-    checklistData,
+  const { experimentData } = useFeatureExperimentChecklists({
+    feature,
     revision,
-  ]);
+    experimentsMap,
+  });
 
   const [selectedExperiments, setSelectedExperiments] = useState(
     new Set(experimentData.map((e) => e.experiment.id))
