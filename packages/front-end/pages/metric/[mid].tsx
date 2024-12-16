@@ -1191,7 +1191,7 @@ const MetricPage: FC = () => {
                         of first experiment exposure
                         ${
                           metric.windowSettings.delayValue
-                            ? " plus the conversion delay"
+                            ? " plus the metric delay"
                             : ""
                         }`}</span>
                       </li>
@@ -1221,7 +1221,7 @@ const MetricPage: FC = () => {
                         <span className="text-gray">{`Include all metric data after first experiment exposure
                       ${
                         metric.windowSettings.delayValue
-                          ? " plus the conversion delay"
+                          ? " plus the metric delay"
                           : ""
                       }`}</span>
                       </li>
