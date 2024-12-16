@@ -1217,7 +1217,7 @@ const MetricForm: FC<MetricFormProps> = ({
             )}
 
           {conversionWindowSupported && (
-            <MetricWindowSettingsForm form={form} />
+            <MetricWindowSettingsForm form={form} type={""} />
           )}
 
           {!showAdvanced ? (

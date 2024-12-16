@@ -119,12 +119,15 @@ const MetricTooltipBody = ({
     },
     {
       show:
-        (metric.windowSettings.delayHours ?? 0) !== 0 ||
+        (metric.windowSettings.delayValue ?? 0) !== 0 ||
         metricOverrideFields.includes("delayHours"),
-      label: "Metric Delay Hours",
+      label:
+        isFactMetric(metric) && metric.metricType === "retention"
+          ? "Retention Window"
+          : "Metric Delay Hours",
       body: (
         <>
-          {metric.windowSettings.delayHours}
+          {`${metric.windowSettings.delayValue} ${metric.windowSettings.delayUnit}`}
           {metricOverrideFields.includes("delayHours") ? (
             <small className="text-purple ml-1">(override)</small>
           ) : null}

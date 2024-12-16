@@ -101,8 +101,19 @@ properties:
               - "conversion"
               - "lookback"
           delayHours:
+            deprecated: true
             type: number
-            description: Wait this many hours after experiment exposure before counting conversions
+            description: Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+          delayValue:
+            type: number
+            description: Wait this long after experiment exposure before counting conversions.
+          delayUnit:
+            type: string
+            description: Default `hours`.
+            enum:
+              - "hours"
+              - "days"
+              - "weeks"
           windowValue:
             type: number
           windowUnit:

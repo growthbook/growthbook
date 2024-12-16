@@ -372,8 +372,10 @@ export interface components {
         windowSettings: {
           /** @enum {string} */
           type: "none" | "conversion" | "lookback";
-          /** @description Wait this many hours after experiment exposure before counting conversions */
-          delayHours?: number;
+          /** @description Wait this long after experiment exposure before counting conversions */
+          delayValue?: number;
+          /** @enum {string} */
+          delayUnit?: "hours" | "days" | "weeks";
           windowValue?: number;
           /** @enum {string} */
           windowUnit?: "hours" | "days" | "weeks";
@@ -1417,7 +1419,7 @@ export interface components {
       tags: (string)[];
       datasource: string;
       /** @enum {string} */
-      metricType: "proportion" | "mean" | "quantile" | "ratio";
+      metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
       numerator: {
         factTableId: string;
         column: string;
@@ -1459,8 +1461,10 @@ export interface components {
       windowSettings: {
         /** @enum {string} */
         type: "none" | "conversion" | "lookback";
-        /** @description Wait this many hours after experiment exposure before counting conversions */
-        delayHours?: number;
+        /** @description Wait this long after experiment exposure before counting conversions. */
+        delayValue?: number;
+        /** @enum {string} */
+        delayUnit?: "hours" | "days" | "weeks";
         windowValue?: number;
         /** @enum {string} */
         windowUnit?: "hours" | "days" | "weeks";
@@ -4559,8 +4563,10 @@ export interface operations {
                   windowSettings: {
                     /** @enum {string} */
                     type: "none" | "conversion" | "lookback";
-                    /** @description Wait this many hours after experiment exposure before counting conversions */
-                    delayHours?: number;
+                    /** @description Wait this long after experiment exposure before counting conversions */
+                    delayValue?: number;
+                    /** @enum {string} */
+                    delayUnit?: "hours" | "days" | "weeks";
                     windowValue?: number;
                     /** @enum {string} */
                     windowUnit?: "hours" | "days" | "weeks";
@@ -4689,8 +4695,18 @@ export interface operations {
             windowSettings?: {
               /** @enum {string} */
               type: "none" | "conversion" | "lookback";
-              /** @description Wait this many hours after experiment exposure before counting conversions */
+              /**
+               * @deprecated 
+               * @description Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+               */
               delayHours?: number;
+              /** @description Wait this long after experiment exposure before counting conversions. */
+              delayValue?: number;
+              /**
+               * @description Default `hours`. 
+               * @enum {string}
+               */
+              delayUnit?: "hours" | "days" | "weeks";
               windowValue?: number;
               /** @enum {string} */
               windowUnit?: "hours" | "days" | "weeks";
@@ -4811,8 +4827,10 @@ export interface operations {
                 windowSettings: {
                   /** @enum {string} */
                   type: "none" | "conversion" | "lookback";
-                  /** @description Wait this many hours after experiment exposure before counting conversions */
-                  delayHours?: number;
+                  /** @description Wait this long after experiment exposure before counting conversions */
+                  delayValue?: number;
+                  /** @enum {string} */
+                  delayUnit?: "hours" | "days" | "weeks";
                   windowValue?: number;
                   /** @enum {string} */
                   windowUnit?: "hours" | "days" | "weeks";
@@ -4929,8 +4947,10 @@ export interface operations {
                 windowSettings: {
                   /** @enum {string} */
                   type: "none" | "conversion" | "lookback";
-                  /** @description Wait this many hours after experiment exposure before counting conversions */
-                  delayHours?: number;
+                  /** @description Wait this long after experiment exposure before counting conversions */
+                  delayValue?: number;
+                  /** @enum {string} */
+                  delayUnit?: "hours" | "days" | "weeks";
                   windowValue?: number;
                   /** @enum {string} */
                   windowUnit?: "hours" | "days" | "weeks";
@@ -5056,8 +5076,18 @@ export interface operations {
             windowSettings?: {
               /** @enum {string} */
               type: "none" | "conversion" | "lookback";
-              /** @description Wait this many hours after experiment exposure before counting conversions */
+              /**
+               * @deprecated 
+               * @description Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+               */
               delayHours?: number;
+              /** @description Wait this long after experiment exposure before counting conversions. */
+              delayValue?: number;
+              /**
+               * @description Default `hours`. 
+               * @enum {string}
+               */
+              delayUnit?: "hours" | "days" | "weeks";
               windowValue?: number;
               /** @enum {string} */
               windowUnit?: "hours" | "days" | "weeks";
@@ -6545,7 +6575,7 @@ export interface operations {
                 tags: (string)[];
                 datasource: string;
                 /** @enum {string} */
-                metricType: "proportion" | "mean" | "quantile" | "ratio";
+                metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
                 numerator: {
                   factTableId: string;
                   column: string;
@@ -6587,8 +6617,10 @@ export interface operations {
                 windowSettings: {
                   /** @enum {string} */
                   type: "none" | "conversion" | "lookback";
-                  /** @description Wait this many hours after experiment exposure before counting conversions */
-                  delayHours?: number;
+                  /** @description Wait this long after experiment exposure before counting conversions. */
+                  delayValue?: number;
+                  /** @enum {string} */
+                  delayUnit?: "hours" | "days" | "weeks";
                   windowValue?: number;
                   /** @enum {string} */
                   windowUnit?: "hours" | "days" | "weeks";
@@ -6640,7 +6672,7 @@ export interface operations {
           projects?: (string)[];
           tags?: (string)[];
           /** @enum {string} */
-          metricType: "proportion" | "mean" | "quantile" | "ratio";
+          metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
           numerator: {
             factTableId: string;
             /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
@@ -6693,10 +6725,23 @@ export interface operations {
           windowSettings?: {
             /** @enum {string} */
             type: "none" | "conversion" | "lookback";
-            /** @description Wait this many hours after experiment exposure before counting conversions */
+            /**
+             * @deprecated 
+             * @description Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+             */
             delayHours?: number;
+            /** @description Wait this long after experiment exposure before counting conversions. */
+            delayValue?: number;
+            /**
+             * @description Default `hours`. 
+             * @enum {string}
+             */
+            delayUnit?: "hours" | "days" | "weeks";
             windowValue?: number;
-            /** @enum {string} */
+            /**
+             * @description Default `hours`. 
+             * @enum {string}
+             */
             windowUnit?: "hours" | "days" | "weeks";
           };
           /** @description Controls the bayesian prior for the metric. If omitted, organization defaults will be used. */
@@ -6749,7 +6794,7 @@ export interface operations {
               tags: (string)[];
               datasource: string;
               /** @enum {string} */
-              metricType: "proportion" | "mean" | "quantile" | "ratio";
+              metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
               numerator: {
                 factTableId: string;
                 column: string;
@@ -6791,8 +6836,10 @@ export interface operations {
               windowSettings: {
                 /** @enum {string} */
                 type: "none" | "conversion" | "lookback";
-                /** @description Wait this many hours after experiment exposure before counting conversions */
-                delayHours?: number;
+                /** @description Wait this long after experiment exposure before counting conversions. */
+                delayValue?: number;
+                /** @enum {string} */
+                delayUnit?: "hours" | "days" | "weeks";
                 windowValue?: number;
                 /** @enum {string} */
                 windowUnit?: "hours" | "days" | "weeks";
@@ -6847,7 +6894,7 @@ export interface operations {
               tags: (string)[];
               datasource: string;
               /** @enum {string} */
-              metricType: "proportion" | "mean" | "quantile" | "ratio";
+              metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
               numerator: {
                 factTableId: string;
                 column: string;
@@ -6889,8 +6936,10 @@ export interface operations {
               windowSettings: {
                 /** @enum {string} */
                 type: "none" | "conversion" | "lookback";
-                /** @description Wait this many hours after experiment exposure before counting conversions */
-                delayHours?: number;
+                /** @description Wait this long after experiment exposure before counting conversions. */
+                delayValue?: number;
+                /** @enum {string} */
+                delayUnit?: "hours" | "days" | "weeks";
                 windowValue?: number;
                 /** @enum {string} */
                 windowUnit?: "hours" | "days" | "weeks";
@@ -6941,7 +6990,7 @@ export interface operations {
           projects?: (string)[];
           tags?: (string)[];
           /** @enum {string} */
-          metricType?: "proportion" | "mean" | "quantile" | "ratio";
+          metricType?: "proportion" | "retention" | "mean" | "quantile" | "ratio";
           numerator?: {
             factTableId: string;
             /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
@@ -6994,10 +7043,23 @@ export interface operations {
           windowSettings?: {
             /** @enum {string} */
             type: "none" | "conversion" | "lookback";
-            /** @description Wait this many hours after experiment exposure before counting conversions */
+            /**
+             * @deprecated 
+             * @description Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+             */
             delayHours?: number;
+            /** @description Wait this long after experiment exposure before counting conversions. */
+            delayValue?: number;
+            /**
+             * @description Default `hours`. 
+             * @enum {string}
+             */
+            delayUnit?: "hours" | "days" | "weeks";
             windowValue?: number;
-            /** @enum {string} */
+            /**
+             * @description Default `hours`. 
+             * @enum {string}
+             */
             windowUnit?: "hours" | "days" | "weeks";
           };
           /** @description Controls the regression adjustment (CUPED) settings for the metric */
@@ -7039,7 +7101,7 @@ export interface operations {
               tags: (string)[];
               datasource: string;
               /** @enum {string} */
-              metricType: "proportion" | "mean" | "quantile" | "ratio";
+              metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
               numerator: {
                 factTableId: string;
                 column: string;
@@ -7081,8 +7143,10 @@ export interface operations {
               windowSettings: {
                 /** @enum {string} */
                 type: "none" | "conversion" | "lookback";
-                /** @description Wait this many hours after experiment exposure before counting conversions */
-                delayHours?: number;
+                /** @description Wait this long after experiment exposure before counting conversions. */
+                delayValue?: number;
+                /** @enum {string} */
+                delayUnit?: "hours" | "days" | "weeks";
                 windowValue?: number;
                 /** @enum {string} */
                 windowUnit?: "hours" | "days" | "weeks";
@@ -7196,7 +7260,7 @@ export interface operations {
                 projects?: (string)[];
                 tags?: (string)[];
                 /** @enum {string} */
-                metricType: "proportion" | "mean" | "quantile" | "ratio";
+                metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
                 numerator: {
                   factTableId: string;
                   /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
@@ -7249,10 +7313,23 @@ export interface operations {
                 windowSettings?: {
                   /** @enum {string} */
                   type: "none" | "conversion" | "lookback";
-                  /** @description Wait this many hours after experiment exposure before counting conversions */
+                  /**
+                   * @deprecated 
+                   * @description Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+                   */
                   delayHours?: number;
+                  /** @description Wait this long after experiment exposure before counting conversions. */
+                  delayValue?: number;
+                  /**
+                   * @description Default `hours`. 
+                   * @enum {string}
+                   */
+                  delayUnit?: "hours" | "days" | "weeks";
                   windowValue?: number;
-                  /** @enum {string} */
+                  /**
+                   * @description Default `hours`. 
+                   * @enum {string}
+                   */
                   windowUnit?: "hours" | "days" | "weeks";
                 };
                 /** @description Controls the bayesian prior for the metric. If omitted, organization defaults will be used. */

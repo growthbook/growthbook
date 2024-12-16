@@ -180,7 +180,8 @@ export function applyMetricOverrides<T extends ExperimentMetricInterface>(
       overrideFields.push("windowHours");
     }
     if (!isNil(metricOverride?.delayHours)) {
-      newMetric.windowSettings.delayHours = metricOverride.delayHours;
+      newMetric.windowSettings.delayUnit = "hours";
+      newMetric.windowSettings.delayValue = metricOverride.delayHours;
       overrideFields.push("delayHours");
     }
     if (!isNil(metricOverride?.winRisk)) {

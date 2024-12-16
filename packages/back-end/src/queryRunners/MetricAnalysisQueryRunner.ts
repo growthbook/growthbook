@@ -1,5 +1,5 @@
 import { getValidDateOffsetByUTC } from "shared/dates";
-import { isRatioMetric } from "shared/experiments";
+import { isBinomialMetric, isRatioMetric } from "shared/experiments";
 import { returnZeroIfNotFinite } from "shared/util";
 import { DEFAULT_METRIC_HISTOGRAM_BINS } from "shared/constants";
 import {
@@ -134,7 +134,7 @@ export function processMetricAnalysisQueryResponse(
           n: units,
         })
       );
-    } else if (metric.metricType === "proportion") {
+    } else if (isBinomialMetric(metric)) {
       mean = main_sum / units;
       stddev = mean * Math.sqrt(proportionVarianceFromSums(main_sum, units));
     } else {

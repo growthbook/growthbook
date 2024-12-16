@@ -99,9 +99,19 @@ export const cappingSettingsValidator = z
   })
   .strict();
 
+export const legacyWindowSettingsValidator = z.object({
+  type: windowTypeValidator.optional(),
+  delayHours: z.coerce.number().optional(),
+  delayValue: z.coerce.number().optional(),
+  delayUnit: conversionWindowUnitValidator.optional(),
+  windowValue: z.number().optional(),
+  windowUnit: conversionWindowUnitValidator.optional(),
+});
+
 export const windowSettingsValidator = z.object({
   type: windowTypeValidator,
-  delayHours: z.coerce.number(),
+  delayValue: z.coerce.number(),
+  delayUnit: conversionWindowUnitValidator,
   windowValue: z.number(),
   windowUnit: conversionWindowUnitValidator,
 });
@@ -123,6 +133,7 @@ export const metricTypeValidator = z.enum([
   "ratio",
   "mean",
   "proportion",
+  "retention",
   "quantile",
 ]);
 

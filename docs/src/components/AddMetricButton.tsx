@@ -5,7 +5,7 @@ import { useGrowthBookHost } from "./HostSelector";
 export interface MetricData {
   name: string;
   description?: string;
-  metricType: "proportion" | "mean" | "quantile" | "ratio";
+  metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
   numerator: {
     column?: string;
     inlineFilters?: Record<string, string[]>;
@@ -24,7 +24,8 @@ export interface MetricData {
   };
   windowSettings?: {
     type: "conversion" | "lookback" | "";
-    delayHours: number;
+    delayUnit: number;
+    delayValue: "weeks" | "days" | "hours";
     windowValue: number;
     windowUnit: "weeks" | "days" | "hours";
   };
