@@ -667,6 +667,14 @@ const ExperimentsPage = (): React.ReactElement => {
                     consistency across your team and projects.
                   </Text>
                   <div className="mt-3">
+                    <LinkButton
+                      external
+                      href="www.growthbook.io"
+                      variant="outline"
+                      mr="4"
+                    >
+                      View Docs
+                    </LinkButton>
                     {/* Add docs button on left and render either Upgrade Plan or Create Template depending on plan */}
                     {!true ? (
                       <LinkButton href="/datasources">

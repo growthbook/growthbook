@@ -9,6 +9,19 @@ import {
   ExperimentTemplateInterface,
 } from "./template.validators";
 
+export const getTemplates = async (
+  req: AuthRequest,
+  res: Response<{ status: 200; templates: ExperimentTemplateInterface[] }>
+) => {
+  const context = getContextFromReq(req);
+
+  const templates = await context.models.experimentTemplates.getAll();
+  res.status(200).json({
+    status: 200,
+    templates,
+  });
+};
+
 export type CreateTemplateProps = z.infer<typeof createTemplateValidator>;
 
 // region POST /Templates
