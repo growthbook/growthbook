@@ -31,6 +31,10 @@ export function MetricWindowSettingsForm({ form, type }) {
           sort={false}
           options={[
             {
+              label: "Minutes",
+              value: "minutes",
+            },
+            {
               label: "Hours",
               value: "hours",
             },

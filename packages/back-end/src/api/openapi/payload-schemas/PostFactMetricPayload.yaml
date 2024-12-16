@@ -139,6 +139,7 @@ properties:
         type: string
         description: Default `hours`.
         enum:
+          - "minutes"
           - "hours"
           - "days"
           - "weeks"
@@ -148,6 +149,7 @@ properties:
         type: string
         description: Default `hours`.
         enum:
+          - "minutes"
           - "hours"
           - "days"
           - "weeks"
