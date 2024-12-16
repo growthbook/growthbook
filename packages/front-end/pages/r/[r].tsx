@@ -214,13 +214,6 @@ export default function ReportPage(props: ReportPageProps) {
       snapshot.dimension?.split(":")?.[1] ||
       "None";
 
-  const differenceTypeLabel =
-    report?.experimentAnalysisSettings?.differenceType === "absolute"
-      ? "Absolute"
-      : report?.experimentAnalysisSettings?.differenceType === "scaled"
-      ? "Scaled Impact"
-      : "Relative";
-
   const dateRangeLabel = snapshot
     ? `${date(snapshot.settings.startDate)} — ${
         snapshot.settings.endDate ? date(snapshot.settings.endDate) : "now"
@@ -237,15 +230,12 @@ export default function ReportPage(props: ReportPageProps) {
         />
         <meta
           property="og:description"
-          content={
-            truncateString(report?.description || "", 500) +
-            (dateRangeLabel ? `\n\nDate: ${dateRangeLabel}` : "")
-          }
+          content={truncateString(report?.description || "", 500)}
         />
         <meta property="twitter:label1" content="Dimension" />
         <meta property="twitter:data1" content={dimensionName} />
-        <meta property="twitter:label2" content="Difference Type" />
-        <meta property="twitter:data2" content={differenceTypeLabel} />
+        <meta property="twitter:label2" content="Date Range" />
+        <meta property="twitter:data2" content={dateRangeLabel} />
       </Head>
 
       <PageHead
