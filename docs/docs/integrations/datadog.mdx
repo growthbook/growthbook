@@ -30,19 +30,19 @@ Now that you&apos;re passing Feature Flag data to DataDog, you can build monitor
 
 The beta Feature Flag Tracking feature allows you to see error rates between the various feature flag states.
 
-![](../../static/images/integrations/datadog/view-feature-flags-error-rates-in-data-dog.png)
+![Screenshot showing error rates between feature flag variations in DataDog's RUM interface](../../static/images/integrations/datadog/1-view-feature-flags-error-rates-in-data-dog.png)
 
 You can then save the Error rate view to a Dashboard.
 
-![](../../static/images/integrations/datadog/add-feature-flags-to-dashboard-data-dog.png)
+![Screenshot adding feature flags errors per view to a DataDog dashboard](../../static/images/integrations/datadog/2-add-feature-flags-to-dashboard-data-dog.png)
 
 And from the Dashboard, there is a handy “Create Monitor” option that can seed much of the monitor&apos;s search query for you.
 
-![](../../static/images/integrations/datadog/create-data-dog-monitor-from-dashboard.png)
+![Screenshot showing the "Create Monitor" option in a DataDog dashboard](../../static/images/integrations/datadog/3-create-data-dog-monitor-from-dashboard.png)
 
 This is the out-of-the-box search query created from the Create Monitor link above. You could take it a step further and calculate the difference in error rates between the Feature Flag variations (e.g. error rate when the Feature Flag is enabled vs disabled) and use that value as your alert threshold.
 
-![](../../static/images/integrations/datadog/customize-monitor-query-in-data-dog.png)
+![Screenshot customizing a monitor query in DataDog](../../static/images/integrations/datadog/4-customize-monitor-query-in-data-dog.png)
 
 #### 2. Create a DataDog webhook
 
@@ -52,13 +52,13 @@ Before you can call a [Webhook](https://docs.datadoghq.com/integrations/webhooks
 
 You can do that via the Integrations tab.
 
-![](../../static/images/integrations/datadog/create-datadog-webhook.png)
+![Screenshot showing a DataDog tile integration to create a webhook](../../static/images/integrations/datadog/5-create-datadog-webhook.png)
 
 Once installed, you can build the Webhook that will turn the feature flag off for the desired environments.
 
 Remember to update the Webhook URL with your feature flag ID [as described here](https://docs.growthbook.io/api#tag/features/operation/toggleFeature).
 
-![](../../static/images/integrations/datadog/customize-webhook-to-hit-aws-url.png)
+![Screenshot customizing a webhook in DataDog to make a request to GrowthBook feature toggle endpoint](../../static/images/integrations/datadog/6-customize-webhook-to-hit-api-url.png)
 
 #### 3. Update the monitor to trigger the webhook
 
