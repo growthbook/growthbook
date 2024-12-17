@@ -74,7 +74,7 @@ export default function ReportAnalysisSettingsBar({
   return (
     <>
       <div className="d-flex justify-content-between">
-        <div className="h4 my-0">Analysis</div>
+        <div className="h3 my-0">Analysis</div>
         <DropdownMenu
           trigger={
             <Button variant="ghost" size="sm">
