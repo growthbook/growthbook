@@ -40,15 +40,11 @@ export default function SetupTabOverview({
 }: Props) {
   const [showHypothesisModal, setShowHypothesisModal] = useState(false);
   const [showDescriptionModal, setShowDescriptionModal] = useState(false);
-  const [expandDescription] = useState(() => {
-    if (!experiment.description) {
-      return true;
-    }
 
-    return localStorage.getItem(`collapse-${experiment.id}-description`)
+  const expandDescription =
+    localStorage.getItem(`collapse-${experiment.id}-description`) === "true"
       ? false
       : true;
-  });
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -95,7 +91,7 @@ export default function SetupTabOverview({
         ) : null}
         <Box className="box" pt="4" pb="2">
           <Collapsible
-            open={expandDescription}
+            open={!experiment.description ? true : expandDescription}
             transitionTime={100}
             triggerDisabled={!experiment.description}
             onOpening={() =>
@@ -144,12 +140,7 @@ export default function SetupTabOverview({
               </Box>
             }
           >
-            {!experiment.description ? (
-              <Box as="div" className="font-italic text-muted" px="5" py="2">
-                Add a description to keep your team informed about the purpose
-                and parameters of your experiment
-              </Box>
-            ) : (
+            {experiment.description ? (
               <Box
                 as="div"
                 px="5"
@@ -159,6 +150,11 @@ export default function SetupTabOverview({
                 className="fade-mask-vertical-1rem"
               >
                 <Markdown>{experiment.description}</Markdown>
+              </Box>
+            ) : (
+              <Box as="div" className="font-italic text-muted" px="5" py="2">
+                Add a description to keep your team informed about the purpose
+                and parameters of your experiment
               </Box>
             )}
           </Collapsible>

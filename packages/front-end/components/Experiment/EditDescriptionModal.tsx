@@ -42,6 +42,8 @@ export default function EditDescriptionModal({
           body: JSON.stringify(description),
         });
         mutate();
+        // forces the description box to be "expanded"
+        localStorage.removeItem(`collapse-${experimentId}-description`);
       })}
     >
       <Flex align="center" wrap="wrap" width="auto" mb="2">
