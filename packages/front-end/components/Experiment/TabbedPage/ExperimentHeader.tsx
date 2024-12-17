@@ -19,7 +19,7 @@ import Collapsible from "react-collapsible";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiCheck, PiEye } from "react-icons/pi";
-import { Flex } from "@radix-ui/themes";
+import { Flex, IconButton } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { Tabs, TabsList, TabsTrigger } from "@/components/Radix/Tabs";
 import Avatar from "@/components/Radix/Avatar";
@@ -651,9 +651,14 @@ export default function ExperimentHeader({
                 <DropdownMenuGroup>
                   <DropdownSubMenu
                     trigger={
-                      <Flex align="center">
-                        <PiEye className="mr-2" size={18} />{" "}
-                        {isWatching ? "Watching" : "Not Watching"}
+                      <Flex
+                        align="center"
+                        className={isWatching ? "font-weight-bold" : ""}
+                      >
+                        <PiEye style={{ marginRight: "12px" }} size={20} />
+                        <span className="pr-5">
+                          {isWatching ? "Watching" : "Not Watching"}
+                        </span>
                       </Flex>
                     }
                   >
@@ -680,9 +685,9 @@ export default function ExperimentHeader({
                     onClick={() => setWatchersModal(true)}
                     disabled={!usersWatching.length}
                   >
-                    <span className="badge badge-pill badge-info">
-                      {usersWatching.length}
-                    </span>
+                    <IconButton color="purple" radius="full" size="1">
+                      {usersWatching.length || 0}
+                    </IconButton>
                     View watchers
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
@@ -696,9 +701,11 @@ export default function ExperimentHeader({
                           onClick={() => setShowBanditModal(true)}
                           className="pl-2"
                         >
-                          <span className="pr-4">
-                            {!isBandit ? <GBBandit className="mr-1" /> : null}
-                            Convert to {isBandit ? "Experiment" : "Bandit"}
+                          <span>
+                            {!isBandit ? <GBBandit /> : null}
+                            <span style={{ paddingLeft: "9px" }}>
+                              Convert to {isBandit ? "Experiment" : "Bandit"}
+                            </span>
                           </span>
                         </DropdownMenuItem>
                       </DropdownMenuGroup>
