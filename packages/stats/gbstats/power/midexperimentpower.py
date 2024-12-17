@@ -27,12 +27,11 @@ class MidExperimentPowerConfig(BaseConfig):
 
 @dataclass
 class MidExperimentPowerResult:
-    additional_n: Optional[float]
-    additional_days: Optional[float]
+    additional_users: Optional[float]
     update_message: str
     error: Optional[str] = None
     target_power: float = 0.8
-    v_prime: float = 1
+    v_prime: Optional[float] = None
 
 
 @dataclass
@@ -86,25 +85,24 @@ class MidExperimentPower:
             return MidExperimentPowerResult(
                 error=None,
                 update_message="already significant",
-                additional_n=0,
-                additional_days=0,
+                additional_users=0,
                 target_power=self.target_power,
+                v_prime=None,
             )
         else:
             scaling_factor_result = self.find_scaling_factor()
             if scaling_factor_result.converged and scaling_factor_result.scaling_factor:
-                self.additional_n = (
+                self.additional_users = (
                     self.pairwise_sample_size * scaling_factor_result.scaling_factor
                 )
                 daily_traffic = self.pairwise_sample_size / self.phase_length_days
-                self.additional_days = self.additional_n / daily_traffic
+                self.additional_days = self.additional_users / daily_traffic
                 return MidExperimentPowerResult(
                     error=None,
                     update_message="successful",
                     v_prime=self.sigmahat_2_delta
                     / scaling_factor_result.scaling_factor,
-                    additional_n=self.additional_n,
-                    additional_days=self.additional_days,
+                    additional_users=self.additional_users,
                     target_power=self.target_power,
                 )
             else:
@@ -112,8 +110,7 @@ class MidExperimentPower:
                     error=scaling_factor_result.error,
                     update_message="unsuccessful",
                     v_prime=0,
-                    additional_n=0,
-                    additional_days=0,
+                    additional_users=0,
                     target_power=self.target_power,
                 )
 

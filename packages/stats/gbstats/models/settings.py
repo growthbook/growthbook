@@ -26,7 +26,7 @@ class AnalysisSettingsForStatsEngine:
     traffic_percentage: float = 1
     min_duration_days: float = 7
     max_duration_days: float = 42
-    new_users_per_day: int = 1000
+    new_users_per_day: Optional[float] = None
 
 
 @dataclass
@@ -76,7 +76,7 @@ class MetricSettingsForStatsEngine:
     covariate_metric_type: Optional[MetricType] = None
     quantile_value: Optional[float] = None
     min_percent_change: float = 0.01
-    business_metric_type: Optional[BusinessMetricType] = None
+    business_metric_type: Optional[List[BusinessMetricType]] = None
 
 
 @dataclass
