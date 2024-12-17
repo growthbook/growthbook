@@ -641,8 +641,15 @@ const sidebars = {
       items: [
         {
           type: "doc",
-          id: "guide/deno-hono",
-          label: "Deno + Hono",
+          id: "guide/contentful",
+          label: "Contentful CMS",
+          className: "pill-new",
+        },
+        { type: "doc", id: "guide/deno-hono", label: "Deno + Hono" },
+        {
+          type: "doc",
+          id: "guide/express-js",
+          label: "Express.js",
         },
         {
           type: "doc",

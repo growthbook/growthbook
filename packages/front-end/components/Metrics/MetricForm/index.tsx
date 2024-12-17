@@ -51,7 +51,7 @@ import RadioGroup from "@/components/Radix/RadioGroup";
 import Callout from "@/components/Radix/Callout";
 import { MetricWindowSettingsForm } from "./MetricWindowSettingsForm";
 import { MetricCappingSettingsForm } from "./MetricCappingSettingsForm";
-import { MetricDelayHours } from "./MetricDelayHours";
+import { MetricDelaySettings } from "./MetricDelaySettings";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -1217,7 +1217,7 @@ const MetricForm: FC<MetricFormProps> = ({
             )}
 
           {conversionWindowSupported && (
-            <MetricWindowSettingsForm form={form} />
+            <MetricWindowSettingsForm form={form} type={""} />
           )}
 
           {!showAdvanced ? (
@@ -1233,7 +1233,7 @@ const MetricForm: FC<MetricFormProps> = ({
             </a>
           ) : (
             <>
-              <MetricDelayHours form={form} />
+              <MetricDelaySettings form={form} />
 
               <MetricPriorSettingsForm
                 priorSettings={form.watch("priorSettings")}
@@ -1280,7 +1280,7 @@ const MetricForm: FC<MetricFormProps> = ({
               />
 
               <div className="form-group">
-                <label>Minimum Sample Size</label>
+                <label>Minimum Metric Total</label>
                 <input
                   type="number"
                   className="form-control"
@@ -1296,7 +1296,10 @@ const MetricForm: FC<MetricFormProps> = ({
                   {value.type === "binomial"
                     ? metricDefaults.minimumSampleSize
                     : getMetricFormatter(value.type)(
-                        metricDefaults.minimumSampleSize
+                        metricDefaults.minimumSampleSize,
+                        {
+                          currency: displayCurrency,
+                        }
                       )}
                   )
                 </small>

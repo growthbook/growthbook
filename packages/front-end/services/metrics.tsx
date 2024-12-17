@@ -6,7 +6,10 @@ import {
   CreateFactMetricProps,
   FactMetricInterface,
 } from "back-end/types/fact-table";
-import { ExperimentMetricInterface } from "shared/experiments";
+import {
+  canInlineFilterColumn,
+  ExperimentMetricInterface,
+} from "shared/experiments";
 import {
   DEFAULT_FACT_METRIC_WINDOW,
   DEFAULT_LOSE_RISK_THRESHOLD,
@@ -26,6 +29,21 @@ import {
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { decimalToPercent } from "@/services/utils";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
+
+export function getInitialInlineFilters(
+  factTable: FactTableInterface,
+  existingInlineFilters?: Record<string, string[]>
+) {
+  const inlineFilters = { ...existingInlineFilters };
+  factTable.columns
+    .filter((c) => c.alwaysInlineFilter && canInlineFilterColumn(factTable, c))
+    .forEach((c) => {
+      if (!inlineFilters[c.column] || !inlineFilters[c.column].length) {
+        inlineFilters[c.column] = [""];
+      }
+    });
+  return inlineFilters;
+}
 
 export function getDefaultFactMetricProps({
   metricDefaults,
@@ -52,6 +70,9 @@ export function getDefaultFactMetricProps({
       factTableId: initialFactTable?.id || "",
       column: "$$count",
       filters: [],
+      inlineFilters: initialFactTable
+        ? getInitialInlineFilters(initialFactTable)
+        : {},
     },
     projects: existing?.projects || [],
     denominator: existing?.denominator || null,
@@ -71,9 +92,10 @@ export function getDefaultFactMetricProps({
     quantileSettings: existing?.quantileSettings || null,
     windowSettings: existing?.windowSettings || {
       type: DEFAULT_FACT_METRIC_WINDOW,
-      delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
       windowUnit: "days",
       windowValue: 3,
+      delayUnit: "hours",
+      delayValue: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
     },
     winRisk: existing?.winRisk ?? DEFAULT_WIN_RISK_THRESHOLD,
     loseRisk: existing?.loseRisk ?? DEFAULT_LOSE_RISK_THRESHOLD,
@@ -274,6 +296,7 @@ export function getExperimentMetricFormatter(
   // Fact metric
   switch (metric.metricType) {
     case "proportion":
+    case "retention":
       if (formatProportionAsNumber) {
         return formatNumber;
       }

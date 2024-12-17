@@ -45,6 +45,7 @@ properties:
     type: string
     enum:
       - proportion
+      - retention
       - mean
       - quantile
       - ratio
@@ -59,6 +60,12 @@ properties:
         type: string
       column:
         type: string
+      aggregation:
+        type: string
+        enum:
+          - sum
+          - max
+          - count distinct
       filters:
         type: array
         description: Array of Fact Table Filter Ids
@@ -136,14 +143,22 @@ properties:
           - "none"
           - "conversion"
           - "lookback"
-      delayHours:
+      delayValue:
         type: number
-        description: Wait this many hours after experiment exposure before counting conversions
+        description: Wait this long after experiment exposure before counting conversions.
+      delayUnit:
+        type: string
+        enum:
+          - "minutes"
+          - "hours"
+          - "days"
+          - "weeks"
       windowValue:
         type: number
       windowUnit:
         type: string
         enum:
+          - "minutes"
           - "hours"
           - "days"
           - "weeks"

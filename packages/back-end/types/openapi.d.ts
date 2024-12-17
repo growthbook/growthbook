@@ -374,11 +374,13 @@ export interface components {
         windowSettings: {
           /** @enum {string} */
           type: "none" | "conversion" | "lookback";
-          /** @description Wait this many hours after experiment exposure before counting conversions */
-          delayHours?: number;
+          /** @description Wait this long after experiment exposure before counting conversions */
+          delayValue?: number;
+          /** @enum {string} */
+          delayUnit?: "minutes" | "hours" | "days" | "weeks";
           windowValue?: number;
           /** @enum {string} */
-          windowUnit?: "hours" | "days" | "weeks";
+          windowUnit?: "minutes" | "hours" | "days" | "weeks";
         };
         /** @description Controls the bayesian prior for the metric. */
         priorSettings?: {
@@ -1419,10 +1421,12 @@ export interface components {
       tags: (string)[];
       datasource: string;
       /** @enum {string} */
-      metricType: "proportion" | "mean" | "quantile" | "ratio";
+      metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
       numerator: {
         factTableId: string;
         column: string;
+        /** @enum {string} */
+        aggregation?: "sum" | "max" | "count distinct";
         /** @description Array of Fact Table Filter Ids */
         filters: (string)[];
       };
@@ -1459,11 +1463,13 @@ export interface components {
       windowSettings: {
         /** @enum {string} */
         type: "none" | "conversion" | "lookback";
-        /** @description Wait this many hours after experiment exposure before counting conversions */
-        delayHours?: number;
+        /** @description Wait this long after experiment exposure before counting conversions. */
+        delayValue?: number;
+        /** @enum {string} */
+        delayUnit?: "minutes" | "hours" | "days" | "weeks";
         windowValue?: number;
         /** @enum {string} */
-        windowUnit?: "hours" | "days" | "weeks";
+        windowUnit?: "minutes" | "hours" | "days" | "weeks";
       };
       /** @description Controls the regression adjustment (CUPED) settings for the metric */
       regressionAdjustmentSettings: {
@@ -4581,11 +4587,13 @@ export interface operations {
                   windowSettings: {
                     /** @enum {string} */
                     type: "none" | "conversion" | "lookback";
-                    /** @description Wait this many hours after experiment exposure before counting conversions */
-                    delayHours?: number;
+                    /** @description Wait this long after experiment exposure before counting conversions */
+                    delayValue?: number;
+                    /** @enum {string} */
+                    delayUnit?: "minutes" | "hours" | "days" | "weeks";
                     windowValue?: number;
                     /** @enum {string} */
-                    windowUnit?: "hours" | "days" | "weeks";
+                    windowUnit?: "minutes" | "hours" | "days" | "weeks";
                   };
                   /** @description Controls the bayesian prior for the metric. */
                   priorSettings?: {
@@ -4711,11 +4719,21 @@ export interface operations {
             windowSettings?: {
               /** @enum {string} */
               type: "none" | "conversion" | "lookback";
-              /** @description Wait this many hours after experiment exposure before counting conversions */
+              /**
+               * @deprecated 
+               * @description Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+               */
               delayHours?: number;
+              /** @description Wait this long after experiment exposure before counting conversions. */
+              delayValue?: number;
+              /**
+               * @description Default `hours`. 
+               * @enum {string}
+               */
+              delayUnit?: "minutes" | "hours" | "days" | "weeks";
               windowValue?: number;
               /** @enum {string} */
-              windowUnit?: "hours" | "days" | "weeks";
+              windowUnit?: "minutes" | "hours" | "days" | "weeks";
             };
             /**
              * @deprecated 
@@ -4833,11 +4851,13 @@ export interface operations {
                 windowSettings: {
                   /** @enum {string} */
                   type: "none" | "conversion" | "lookback";
-                  /** @description Wait this many hours after experiment exposure before counting conversions */
-                  delayHours?: number;
+                  /** @description Wait this long after experiment exposure before counting conversions */
+                  delayValue?: number;
+                  /** @enum {string} */
+                  delayUnit?: "minutes" | "hours" | "days" | "weeks";
                   windowValue?: number;
                   /** @enum {string} */
-                  windowUnit?: "hours" | "days" | "weeks";
+                  windowUnit?: "minutes" | "hours" | "days" | "weeks";
                 };
                 /** @description Controls the bayesian prior for the metric. */
                 priorSettings?: {
@@ -4951,11 +4971,13 @@ export interface operations {
                 windowSettings: {
                   /** @enum {string} */
                   type: "none" | "conversion" | "lookback";
-                  /** @description Wait this many hours after experiment exposure before counting conversions */
-                  delayHours?: number;
+                  /** @description Wait this long after experiment exposure before counting conversions */
+                  delayValue?: number;
+                  /** @enum {string} */
+                  delayUnit?: "minutes" | "hours" | "days" | "weeks";
                   windowValue?: number;
                   /** @enum {string} */
-                  windowUnit?: "hours" | "days" | "weeks";
+                  windowUnit?: "minutes" | "hours" | "days" | "weeks";
                 };
                 /** @description Controls the bayesian prior for the metric. */
                 priorSettings?: {
@@ -5078,11 +5100,21 @@ export interface operations {
             windowSettings?: {
               /** @enum {string} */
               type: "none" | "conversion" | "lookback";
-              /** @description Wait this many hours after experiment exposure before counting conversions */
+              /**
+               * @deprecated 
+               * @description Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+               */
               delayHours?: number;
+              /** @description Wait this long after experiment exposure before counting conversions. */
+              delayValue?: number;
+              /**
+               * @description Default `hours`. 
+               * @enum {string}
+               */
+              delayUnit?: "minutes" | "hours" | "days" | "weeks";
               windowValue?: number;
               /** @enum {string} */
-              windowUnit?: "hours" | "days" | "weeks";
+              windowUnit?: "minutes" | "hours" | "days" | "weeks";
             };
             /**
              * @deprecated 
@@ -6567,10 +6599,12 @@ export interface operations {
                 tags: (string)[];
                 datasource: string;
                 /** @enum {string} */
-                metricType: "proportion" | "mean" | "quantile" | "ratio";
+                metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
                 numerator: {
                   factTableId: string;
                   column: string;
+                  /** @enum {string} */
+                  aggregation?: "sum" | "max" | "count distinct";
                   /** @description Array of Fact Table Filter Ids */
                   filters: (string)[];
                 };
@@ -6607,11 +6641,13 @@ export interface operations {
                 windowSettings: {
                   /** @enum {string} */
                   type: "none" | "conversion" | "lookback";
-                  /** @description Wait this many hours after experiment exposure before counting conversions */
-                  delayHours?: number;
+                  /** @description Wait this long after experiment exposure before counting conversions. */
+                  delayValue?: number;
+                  /** @enum {string} */
+                  delayUnit?: "minutes" | "hours" | "days" | "weeks";
                   windowValue?: number;
                   /** @enum {string} */
-                  windowUnit?: "hours" | "days" | "weeks";
+                  windowUnit?: "minutes" | "hours" | "days" | "weeks";
                 };
                 /** @description Controls the regression adjustment (CUPED) settings for the metric */
                 regressionAdjustmentSettings: {
@@ -6660,11 +6696,16 @@ export interface operations {
           projects?: (string)[];
           tags?: (string)[];
           /** @enum {string} */
-          metricType: "proportion" | "mean" | "quantile" | "ratio";
+          metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
           numerator: {
             factTableId: string;
             /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
             column?: string;
+            /**
+             * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
+             * @enum {string}
+             */
+            aggregation?: "sum" | "max" | "count distinct";
             /** @description Array of Fact Table Filter Ids */
             filters?: (string)[];
           };
@@ -6673,6 +6714,11 @@ export interface operations {
             factTableId: string;
             /** @description The column name or one of the special values: '$$distinctUsers' or '$$count' */
             column: string;
+            /**
+             * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
+             * @enum {string}
+             */
+            aggregation?: "sum" | "max" | "count distinct";
             /** @description Array of Fact Table Filter Ids */
             filters?: (string)[];
           };
@@ -6703,11 +6749,24 @@ export interface operations {
           windowSettings?: {
             /** @enum {string} */
             type: "none" | "conversion" | "lookback";
-            /** @description Wait this many hours after experiment exposure before counting conversions */
+            /**
+             * @deprecated 
+             * @description Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+             */
             delayHours?: number;
+            /** @description Wait this long after experiment exposure before counting conversions. */
+            delayValue?: number;
+            /**
+             * @description Default `hours`. 
+             * @enum {string}
+             */
+            delayUnit?: "minutes" | "hours" | "days" | "weeks";
             windowValue?: number;
-            /** @enum {string} */
-            windowUnit?: "hours" | "days" | "weeks";
+            /**
+             * @description Default `hours`. 
+             * @enum {string}
+             */
+            windowUnit?: "minutes" | "hours" | "days" | "weeks";
           };
           /** @description Controls the bayesian prior for the metric. If omitted, organization defaults will be used. */
           priorSettings?: {
@@ -6759,10 +6818,12 @@ export interface operations {
               tags: (string)[];
               datasource: string;
               /** @enum {string} */
-              metricType: "proportion" | "mean" | "quantile" | "ratio";
+              metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
               numerator: {
                 factTableId: string;
                 column: string;
+                /** @enum {string} */
+                aggregation?: "sum" | "max" | "count distinct";
                 /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
               };
@@ -6799,11 +6860,13 @@ export interface operations {
               windowSettings: {
                 /** @enum {string} */
                 type: "none" | "conversion" | "lookback";
-                /** @description Wait this many hours after experiment exposure before counting conversions */
-                delayHours?: number;
+                /** @description Wait this long after experiment exposure before counting conversions. */
+                delayValue?: number;
+                /** @enum {string} */
+                delayUnit?: "minutes" | "hours" | "days" | "weeks";
                 windowValue?: number;
                 /** @enum {string} */
-                windowUnit?: "hours" | "days" | "weeks";
+                windowUnit?: "minutes" | "hours" | "days" | "weeks";
               };
               /** @description Controls the regression adjustment (CUPED) settings for the metric */
               regressionAdjustmentSettings: {
@@ -6855,10 +6918,12 @@ export interface operations {
               tags: (string)[];
               datasource: string;
               /** @enum {string} */
-              metricType: "proportion" | "mean" | "quantile" | "ratio";
+              metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
               numerator: {
                 factTableId: string;
                 column: string;
+                /** @enum {string} */
+                aggregation?: "sum" | "max" | "count distinct";
                 /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
               };
@@ -6895,11 +6960,13 @@ export interface operations {
               windowSettings: {
                 /** @enum {string} */
                 type: "none" | "conversion" | "lookback";
-                /** @description Wait this many hours after experiment exposure before counting conversions */
-                delayHours?: number;
+                /** @description Wait this long after experiment exposure before counting conversions. */
+                delayValue?: number;
+                /** @enum {string} */
+                delayUnit?: "minutes" | "hours" | "days" | "weeks";
                 windowValue?: number;
                 /** @enum {string} */
-                windowUnit?: "hours" | "days" | "weeks";
+                windowUnit?: "minutes" | "hours" | "days" | "weeks";
               };
               /** @description Controls the regression adjustment (CUPED) settings for the metric */
               regressionAdjustmentSettings: {
@@ -6947,19 +7014,29 @@ export interface operations {
           projects?: (string)[];
           tags?: (string)[];
           /** @enum {string} */
-          metricType?: "proportion" | "mean" | "quantile" | "ratio";
+          metricType?: "proportion" | "retention" | "mean" | "quantile" | "ratio";
           numerator?: {
             factTableId: string;
             /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
             column?: string;
+            /**
+             * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
+             * @enum {string}
+             */
+            aggregation?: "sum" | "max" | "count distinct";
             /** @description Array of Fact Table Filter Ids */
             filters?: (string)[];
           };
           /** @description Only when metricType is 'ratio' */
           denominator?: {
             factTableId: string;
-            /** @description Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
+            /** @description The column name or one of the special values: '$$distinctUsers' or '$$count' */
             column: string;
+            /**
+             * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
+             * @enum {string}
+             */
+            aggregation?: "sum" | "max" | "count distinct";
             /** @description Array of Fact Table Filter Ids */
             filters?: (string)[];
           };
@@ -6990,11 +7067,24 @@ export interface operations {
           windowSettings?: {
             /** @enum {string} */
             type: "none" | "conversion" | "lookback";
-            /** @description Wait this many hours after experiment exposure before counting conversions */
+            /**
+             * @deprecated 
+             * @description Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+             */
             delayHours?: number;
+            /** @description Wait this long after experiment exposure before counting conversions. */
+            delayValue?: number;
+            /**
+             * @description Default `hours`. 
+             * @enum {string}
+             */
+            delayUnit?: "minutes" | "hours" | "days" | "weeks";
             windowValue?: number;
-            /** @enum {string} */
-            windowUnit?: "hours" | "days" | "weeks";
+            /**
+             * @description Default `hours`. 
+             * @enum {string}
+             */
+            windowUnit?: "minutes" | "hours" | "days" | "weeks";
           };
           /** @description Controls the regression adjustment (CUPED) settings for the metric */
           regressionAdjustmentSettings?: {
@@ -7035,10 +7125,12 @@ export interface operations {
               tags: (string)[];
               datasource: string;
               /** @enum {string} */
-              metricType: "proportion" | "mean" | "quantile" | "ratio";
+              metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
               numerator: {
                 factTableId: string;
                 column: string;
+                /** @enum {string} */
+                aggregation?: "sum" | "max" | "count distinct";
                 /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
               };
@@ -7075,11 +7167,13 @@ export interface operations {
               windowSettings: {
                 /** @enum {string} */
                 type: "none" | "conversion" | "lookback";
-                /** @description Wait this many hours after experiment exposure before counting conversions */
-                delayHours?: number;
+                /** @description Wait this long after experiment exposure before counting conversions. */
+                delayValue?: number;
+                /** @enum {string} */
+                delayUnit?: "minutes" | "hours" | "days" | "weeks";
                 windowValue?: number;
                 /** @enum {string} */
-                windowUnit?: "hours" | "days" | "weeks";
+                windowUnit?: "minutes" | "hours" | "days" | "weeks";
               };
               /** @description Controls the regression adjustment (CUPED) settings for the metric */
               regressionAdjustmentSettings: {
@@ -7190,11 +7284,16 @@ export interface operations {
                 projects?: (string)[];
                 tags?: (string)[];
                 /** @enum {string} */
-                metricType: "proportion" | "mean" | "quantile" | "ratio";
+                metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
                 numerator: {
                   factTableId: string;
                   /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
                   column?: string;
+                  /**
+                   * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
+                   * @enum {string}
+                   */
+                  aggregation?: "sum" | "max" | "count distinct";
                   /** @description Array of Fact Table Filter Ids */
                   filters?: (string)[];
                 };
@@ -7203,6 +7302,11 @@ export interface operations {
                   factTableId: string;
                   /** @description The column name or one of the special values: '$$distinctUsers' or '$$count' */
                   column: string;
+                  /**
+                   * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
+                   * @enum {string}
+                   */
+                  aggregation?: "sum" | "max" | "count distinct";
                   /** @description Array of Fact Table Filter Ids */
                   filters?: (string)[];
                 };
@@ -7233,11 +7337,24 @@ export interface operations {
                 windowSettings?: {
                   /** @enum {string} */
                   type: "none" | "conversion" | "lookback";
-                  /** @description Wait this many hours after experiment exposure before counting conversions */
+                  /**
+                   * @deprecated 
+                   * @description Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+                   */
                   delayHours?: number;
+                  /** @description Wait this long after experiment exposure before counting conversions. */
+                  delayValue?: number;
+                  /**
+                   * @description Default `hours`. 
+                   * @enum {string}
+                   */
+                  delayUnit?: "minutes" | "hours" | "days" | "weeks";
                   windowValue?: number;
-                  /** @enum {string} */
-                  windowUnit?: "hours" | "days" | "weeks";
+                  /**
+                   * @description Default `hours`. 
+                   * @enum {string}
+                   */
+                  windowUnit?: "minutes" | "hours" | "days" | "weeks";
                 };
                 /** @description Controls the bayesian prior for the metric. If omitted, organization defaults will be used. */
                 priorSettings?: {

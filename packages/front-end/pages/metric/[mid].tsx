@@ -1190,8 +1190,8 @@ const MetricPage: FC = () => {
                         <span className="text-gray">{` 
                         of first experiment exposure
                         ${
-                          metric.windowSettings.delayHours
-                            ? " plus the conversion delay"
+                          metric.windowSettings.delayValue
+                            ? " plus the metric delay"
                             : ""
                         }`}</span>
                       </li>
@@ -1220,21 +1220,21 @@ const MetricPage: FC = () => {
                       <li>
                         <span className="text-gray">{`Include all metric data after first experiment exposure
                       ${
-                        metric.windowSettings.delayHours
-                          ? " plus the conversion delay"
+                        metric.windowSettings.delayValue
+                          ? " plus the metric delay"
                           : ""
                       }`}</span>
                       </li>
                     </>
                   )}
-                  {metric.windowSettings.delayHours ? (
+                  {metric.windowSettings.delayValue ? (
                     <>
                       <li className="mt-3 mb-1">
                         <span className="uppercase-title lg">Metric Delay</span>
                       </li>
                       <li className="mt-1">
                         <span className="font-weight-bold">
-                          {metric.windowSettings.delayHours} hours
+                          {`${metric.windowSettings.delayValue} ${metric.windowSettings.delayUnit}`}
                         </span>
                       </li>
                     </>
@@ -1245,12 +1245,19 @@ const MetricPage: FC = () => {
               <RightRailSectionGroup type="custom" empty="">
                 <ul className="right-rail-subsection list-unstyled mb-4">
                   <li className="mt-3 mb-1">
-                    <span className="uppercase-title lg">Thresholds</span>
+                    <span className="uppercase-title lg">
+                      Display Thresholds
+                    </span>
                   </li>
                   <li className="mb-2">
-                    <span className="text-gray">Minimum sample size:</span>{" "}
+                    <span className="text-gray">Minimum metric total:</span>{" "}
                     <span className="font-weight-bold">
-                      {getMinSampleSizeForMetric(metric)}
+                      {getMetricFormatter(metric.type)(
+                        getMinSampleSizeForMetric(metric),
+                        {
+                          currency: displayCurrency,
+                        }
+                      )}
                     </span>
                   </li>
                   <li className="mb-2">

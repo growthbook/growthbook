@@ -69,10 +69,17 @@ export const updateFactTablePropsValidator = z
   })
   .strict();
 
+export const columnAggregationValidator = z.enum([
+  "sum",
+  "max",
+  "count distinct",
+]);
+
 export const columnRefValidator = z
   .object({
     factTableId: z.string(),
     column: z.string(),
+    aggregation: columnAggregationValidator.optional(),
     inlineFilters: z.record(z.string().array()).optional(),
     filters: z.array(z.string()),
     aggregateFilter: z.string().optional(),
@@ -81,7 +88,12 @@ export const columnRefValidator = z
   .strict();
 
 export const cappingTypeValidator = z.enum(["absolute", "percentile", ""]);
-export const conversionWindowUnitValidator = z.enum(["weeks", "days", "hours"]);
+export const conversionWindowUnitValidator = z.enum([
+  "weeks",
+  "days",
+  "hours",
+  "minutes",
+]);
 export const windowTypeValidator = z.enum(["conversion", "lookback", ""]);
 
 export const cappingSettingsValidator = z
@@ -92,9 +104,19 @@ export const cappingSettingsValidator = z
   })
   .strict();
 
+export const legacyWindowSettingsValidator = z.object({
+  type: windowTypeValidator.optional(),
+  delayHours: z.coerce.number().optional(),
+  delayValue: z.coerce.number().optional(),
+  delayUnit: conversionWindowUnitValidator.optional(),
+  windowValue: z.number().optional(),
+  windowUnit: conversionWindowUnitValidator.optional(),
+});
+
 export const windowSettingsValidator = z.object({
   type: windowTypeValidator,
-  delayHours: z.coerce.number(),
+  delayValue: z.coerce.number(),
+  delayUnit: conversionWindowUnitValidator,
   windowValue: z.number(),
   windowUnit: conversionWindowUnitValidator,
 });
@@ -116,6 +138,7 @@ export const metricTypeValidator = z.enum([
   "ratio",
   "mean",
   "proportion",
+  "retention",
   "quantile",
 ]);
 

@@ -2050,13 +2050,26 @@ paths:
                             - conversion
                             - lookback
                         delayHours:
+                          deprecated: true
                           type: number
-                          description: Wait this many hours after experiment exposure before counting conversions
+                          description: Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+                        delayValue:
+                          type: number
+                          description: Wait this long after experiment exposure before counting conversions.
+                        delayUnit:
+                          type: string
+                          description: Default `hours`.
+                          enum:
+                            - minutes
+                            - hours
+                            - days
+                            - weeks
                         windowValue:
                           type: number
                         windowUnit:
                           type: string
                           enum:
+                            - minutes
                             - hours
                             - days
                             - weeks
@@ -2347,13 +2360,26 @@ paths:
                             - conversion
                             - lookback
                         delayHours:
+                          deprecated: true
                           type: number
-                          description: Wait this many hours after experiment exposure before counting conversions
+                          description: Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+                        delayValue:
+                          type: number
+                          description: Wait this long after experiment exposure before counting conversions.
+                        delayUnit:
+                          type: string
+                          description: Default `hours`.
+                          enum:
+                            - minutes
+                            - hours
+                            - days
+                            - weeks
                         windowValue:
                           type: number
                         windowUnit:
                           type: string
                           enum:
+                            - minutes
                             - hours
                             - days
                             - weeks
@@ -3877,6 +3903,7 @@ paths:
                   type: string
                   enum:
                     - proportion
+                    - retention
                     - mean
                     - quantile
                     - ratio
@@ -3890,6 +3917,13 @@ paths:
                     column:
                       type: string
                       description: 'Must be empty for proportion metrics. Otherwise, the column name or one of the special values: ''$$distinctUsers'' or ''$$count'''
+                    aggregation:
+                      type: string
+                      description: 'User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics.'
+                      enum:
+                        - sum
+                        - max
+                        - count distinct
                     filters:
                       type: array
                       description: Array of Fact Table Filter Ids
@@ -3907,6 +3941,13 @@ paths:
                     column:
                       type: string
                       description: 'The column name or one of the special values: ''$$distinctUsers'' or ''$$count'''
+                    aggregation:
+                      type: string
+                      description: 'User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics.'
+                      enum:
+                        - sum
+                        - max
+                        - count distinct
                     filters:
                       type: array
                       description: Array of Fact Table Filter Ids
@@ -3969,13 +4010,27 @@ paths:
                         - conversion
                         - lookback
                     delayHours:
+                      deprecated: true
                       type: number
-                      description: Wait this many hours after experiment exposure before counting conversions
+                      description: Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+                    delayValue:
+                      type: number
+                      description: Wait this long after experiment exposure before counting conversions.
+                    delayUnit:
+                      type: string
+                      description: Default `hours`.
+                      enum:
+                        - minutes
+                        - hours
+                        - days
+                        - weeks
                     windowValue:
                       type: number
                     windowUnit:
                       type: string
+                      description: Default `hours`.
                       enum:
+                        - minutes
                         - hours
                         - days
                         - weeks
@@ -4115,6 +4170,7 @@ paths:
                   type: string
                   enum:
                     - proportion
+                    - retention
                     - mean
                     - quantile
                     - ratio
@@ -4128,6 +4184,13 @@ paths:
                     column:
                       type: string
                       description: 'Must be empty for proportion metrics. Otherwise, the column name or one of the special values: ''$$distinctUsers'' or ''$$count'''
+                    aggregation:
+                      type: string
+                      description: 'User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics.'
+                      enum:
+                        - sum
+                        - max
+                        - count distinct
                     filters:
                       type: array
                       description: Array of Fact Table Filter Ids
@@ -4144,7 +4207,14 @@ paths:
                       type: string
                     column:
                       type: string
-                      description: 'Otherwise, the column name or one of the special values: ''$$distinctUsers'' or ''$$count'''
+                      description: 'The column name or one of the special values: ''$$distinctUsers'' or ''$$count'''
+                    aggregation:
+                      type: string
+                      description: 'User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics.'
+                      enum:
+                        - sum
+                        - max
+                        - count distinct
                     filters:
                       type: array
                       description: Array of Fact Table Filter Ids
@@ -4207,13 +4277,27 @@ paths:
                         - conversion
                         - lookback
                     delayHours:
+                      deprecated: true
                       type: number
-                      description: Wait this many hours after experiment exposure before counting conversions
+                      description: Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+                    delayValue:
+                      type: number
+                      description: Wait this long after experiment exposure before counting conversions.
+                    delayUnit:
+                      type: string
+                      description: Default `hours`.
+                      enum:
+                        - minutes
+                        - hours
+                        - days
+                        - weeks
                     windowValue:
                       type: number
                     windowUnit:
                       type: string
+                      description: Default `hours`.
                       enum:
+                        - minutes
                         - hours
                         - days
                         - weeks
@@ -4724,14 +4808,22 @@ components:
                     - none
                     - conversion
                     - lookback
-                delayHours:
+                delayValue:
                   type: number
-                  description: Wait this many hours after experiment exposure before counting conversions
+                  description: Wait this long after experiment exposure before counting conversions
+                delayUnit:
+                  type: string
+                  enum:
+                    - minutes
+                    - hours
+                    - days
+                    - weeks
                 windowValue:
                   type: number
                 windowUnit:
                   type: string
                   enum:
+                    - minutes
                     - hours
                     - days
                     - weeks
@@ -6229,6 +6321,7 @@ components:
           type: string
           enum:
             - proportion
+            - retention
             - mean
             - quantile
             - ratio
@@ -6243,6 +6336,12 @@ components:
               type: string
             column:
               type: string
+            aggregation:
+              type: string
+              enum:
+                - sum
+                - max
+                - count distinct
             filters:
               type: array
               description: Array of Fact Table Filter Ids
@@ -6320,14 +6419,22 @@ components:
                 - none
                 - conversion
                 - lookback
-            delayHours:
+            delayValue:
               type: number
-              description: Wait this many hours after experiment exposure before counting conversions
+              description: Wait this long after experiment exposure before counting conversions.
+            delayUnit:
+              type: string
+              enum:
+                - minutes
+                - hours
+                - days
+                - weeks
             windowValue:
               type: number
             windowUnit:
               type: string
               enum:
+                - minutes
                 - hours
                 - days
                 - weeks

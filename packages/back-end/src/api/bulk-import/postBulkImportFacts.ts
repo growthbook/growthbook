@@ -198,10 +198,17 @@ export const postBulkImportFacts = createApiRequestHandler(
           data.managedBy = "api";
         }
 
+        const lookupFactTable = async (id: string) =>
+          factTableMap.get(id) || null;
+
         const existing = factMetricMap.get(id);
         // Update existing fact metric
         if (existing) {
-          const changes = getUpdateFactMetricPropsFromBody(data, existing);
+          const changes = await getUpdateFactMetricPropsFromBody(
+            data,
+            existing,
+            lookupFactTable
+          );
 
           const newFactMetric = await req.context.models.factMetrics.update(
             existing,
@@ -213,9 +220,6 @@ export const postBulkImportFacts = createApiRequestHandler(
         }
         // Create new fact metric
         else {
-          const lookupFactTable = async (id: string) =>
-            factTableMap.get(id) || null;
-
           const createProps = await getCreateMetricPropsFromBody(
             data,
             req.organization,

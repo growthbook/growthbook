@@ -130,12 +130,32 @@ export function useSearch<T>({
       filtered = fuse.search(searchTerm).map((item) => item.item);
     }
     if (updateSearchQueryOnChange) {
-      const queryParams = value.length > 0 ? `?q=${encodeURI(value)}` : "";
-      router
-        .replace(router.pathname + queryParams, undefined, {
-          shallow: true,
-        })
-        .then();
+      const searchParams = new URLSearchParams(window.location.search);
+      const currentQ = searchParams.has("q") ? searchParams.get("q") : null;
+
+      const shouldRemoveQ = value.length === 0 && currentQ !== null;
+      const shouldSetQ = value !== currentQ;
+      const shouldUpdateURL = shouldRemoveQ || shouldSetQ;
+
+      if (shouldRemoveQ) {
+        searchParams.delete("q");
+      } else if (shouldSetQ) {
+        searchParams.set("q", value);
+      }
+
+      if (shouldUpdateURL) {
+        router
+          .replace(
+            router.pathname +
+              (searchParams.size > 0 ? `?${searchParams.toString()}` : "") +
+              window.location.hash,
+            undefined,
+            {
+              shallow: true,
+            }
+          )
+          .then();
+      }
     }
 
     // Search term filters

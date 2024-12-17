@@ -3,6 +3,7 @@ import {
   ColumnInterface,
   ColumnRef,
   FactMetricInterface,
+  FactTableColumnType,
   FactTableInterface,
   FactTableMap,
   MetricQuantileSettings,
@@ -162,8 +163,13 @@ export function getMetricTemplateVariables(
 }
 
 export function isBinomialMetric(m: ExperimentMetricInterface) {
-  if (isFactMetric(m)) return m.metricType === "proportion";
+  if (isFactMetric(m))
+    return ["proportion", "retention"].includes(m.metricType);
   return m.type === "binomial";
+}
+
+export function isRetentionMetric(m: ExperimentMetricInterface) {
+  return isFactMetric(m) && m.metricType === "retention";
 }
 
 export function isRatioMetric(
@@ -207,12 +213,36 @@ export function getConversionWindowHours(
   windowSettings: MetricWindowSettings
 ): number {
   const value = windowSettings.windowValue;
+  if (windowSettings.windowUnit === "minutes") return value / 60;
   if (windowSettings.windowUnit === "hours") return value;
   if (windowSettings.windowUnit === "days") return value * 24;
   if (windowSettings.windowUnit === "weeks") return value * 24 * 7;
 
-  // TODO
   return 72;
+}
+
+export function getDelayWindowHours(
+  windowSettings: MetricWindowSettings
+): number {
+  const value = windowSettings.delayValue;
+  if (windowSettings.delayUnit === "minutes") return value / 60;
+  if (windowSettings.delayUnit === "hours") return value;
+  if (windowSettings.delayUnit === "days") return value * 24;
+  if (windowSettings.delayUnit === "weeks") return value * 24 * 7;
+
+  return 0;
+}
+
+export function getSelectedColumnDatatype({
+  factTable,
+  column,
+}: {
+  factTable: FactTableInterface | null;
+  column: string;
+}): FactTableColumnType | undefined {
+  if (!factTable) return undefined;
+  const col = factTable.columns.find((c) => c.column === column);
+  return col?.datatype;
 }
 
 export function getUserIdTypes(

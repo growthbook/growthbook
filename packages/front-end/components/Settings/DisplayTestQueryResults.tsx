@@ -1,9 +1,11 @@
-import React, { useState } from "react";
 import { FaCheck, FaExclamationTriangle } from "react-icons/fa";
-import clsx from "clsx";
 import Code from "@/components/SyntaxHighlighting/Code";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
-import Tab from "@/components/Tabs/Tab";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/Radix/Tabs";
 
 export type Props = {
   results: Record<string, unknown>[];
@@ -34,15 +36,12 @@ export default function DisplayTestQueryResults({
     ? Number(errorLineMatch[1] || errorLineMatch[2])
     : undefined;
 
-  const [tab, setTab] = useState(forceShowSql ? "sql" : "results");
-
   return (
     <>
-      <ControlledTabs
-        className="pt-1 d-flex flex-column h-100"
-        buttonsClassName="px-3"
-        tabContentsClassName={clsx("px-3 pt-3 flex-grow-1 overflow-auto")}
-        navExtra={
+      <Tabs defaultValue={forceShowSql ? "sql" : "results"}>
+        <TabsList>
+          {!forceShowSql && <TabsTrigger value="results">Results</TabsTrigger>}
+          <TabsTrigger value="sql">Rendered SQL</TabsTrigger>
           <div className="flex-grow-1">
             <button
               type="button"
@@ -57,54 +56,50 @@ export default function DisplayTestQueryResults({
               <span aria-hidden="true">×</span>
             </button>
           </div>
-        }
-        active={tab}
-        setActive={(tab) => setTab(tab ?? "results")}
-      >
-        <Tab
-          id="results"
-          display="Results"
-          padding={false}
-          visible={!forceShowSql}
-        >
-          <div className="border p-2 bg-light">
-            <div className="row">
-              <div className="col-auto">
-                <strong>Sample {results?.length} Rows</strong>
-              </div>
-              <div className="col-auto ml-auto">
-                <div className="text-success">
-                  <FaCheck />
-                  <span className="pl-2">Succeeded in {duration}ms</span>
+        </TabsList>
+
+        {!forceShowSql && (
+          <TabsContent value="results">
+            <div className="border mt-2 rounded p-2 bg-light">
+              <div className="row">
+                <div className="col-auto">
+                  <strong>Sample {results?.length} Rows</strong>
+                </div>
+                <div className="col-auto ml-auto">
+                  <div className="text-success">
+                    <FaCheck />
+                    <span className="pl-2">Succeeded in {duration}ms</span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-          <div style={{ width: "100%", overflow: "auto" }} className="mb-3">
-            <table
-              className="table table-bordered table-sm appbox w-100 mb-0"
-              style={{ overflow: "auto" }}
-            >
-              <thead>
-                <tr>
-                  {cols.map((col) => (
-                    <th key={col}>{col}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {results.map((result, i) => (
-                  <tr key={i}>
-                    {Object.values(result).map((val, j) => (
-                      <td key={j}>{JSON.stringify(val)}</td>
+            <div style={{ width: "100%", overflow: "auto" }} className="mb-3">
+              <table
+                className="table table-bordered table-sm appbox w-100 mb-0"
+                style={{ overflow: "auto" }}
+              >
+                <thead>
+                  <tr>
+                    {cols.map((col) => (
+                      <th key={col}>{col}</th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Tab>
-        <Tab id="sql" display="Rendered SQL" padding={false}>
+                </thead>
+                <tbody>
+                  {results.map((result, i) => (
+                    <tr key={i}>
+                      {Object.values(result).map((val, j) => (
+                        <td key={j}>{JSON.stringify(val)}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </TabsContent>
+        )}
+
+        <TabsContent value="sql">
           <div style={{ overflowY: "auto", height: "100%" }}>
             {error ? (
               <div className="alert alert-danger mr-auto">{error}</div>
@@ -123,8 +118,8 @@ export default function DisplayTestQueryResults({
               expandable={expandable}
             />
           </div>
-        </Tab>
-      </ControlledTabs>
+        </TabsContent>
+      </Tabs>
     </>
   );
 }

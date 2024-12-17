@@ -254,3 +254,31 @@
 .rt-TextDisabled {
   color: var(--gray-9);
 }
+
+.rt-TabsContent[data-state="inactive"] {
+  display: none;
+}
+
+.rt-BaseTabListTrigger {
+  color: var(--color-text-mid);
+  font-weight: var(--font-weight-medium);
+
+  &:where(:disabled, [data-disabled]) {
+    color: var(--gray-9);
+  }
+  &:where([data-state="active"], [data-active]) {
+    color: var(--color-text-high);
+  }
+}
+
+// Custom larger size
+.rt-BaseTabList:where(.rt-r-size-3) {
+  font-size: var(--font-size-3);
+  line-height: var(--line-height-2);
+  letter-spacing: var(--letter-spacing-3);
+  --tab-height: var(--space-7);
+  --tab-padding-x: var(--space-2);
+  --tab-inner-padding-x: var(--space-2);
+  --tab-inner-padding-y: var(--space-1);
+  --tab-inner-border-radius: var(--radius-2);
+}
