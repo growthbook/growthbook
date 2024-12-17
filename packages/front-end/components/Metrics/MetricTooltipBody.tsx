@@ -98,6 +98,23 @@ const MetricTooltipBody = ({
     },
     {
       show:
+        (metric.windowSettings.delayValue ?? 0) !== 0 ||
+        metricOverrideFields.includes("delayHours"),
+      label:
+        isFactMetric(metric) && metric.metricType === "retention"
+          ? "Retention Window"
+          : "Metric Delay",
+      body: (
+        <>
+          {`${metric.windowSettings.delayValue} ${metric.windowSettings.delayUnit}`}
+          {metricOverrideFields.includes("delayHours") ? (
+            <small className="text-purple ml-1">(override)</small>
+          ) : null}
+        </>
+      ),
+    },
+    {
+      show:
         (!isNullUndefinedOrEmpty(metric.windowSettings.type) ||
           metricOverrideFields.includes("windowType")) &&
         (metric.windowSettings.windowValue !== 0 ||
@@ -112,23 +129,6 @@ const MetricTooltipBody = ({
             : ""}
           {metricOverrideFields.includes("windowType") ||
           metricOverrideFields.includes("windowHours") ? (
-            <small className="text-purple ml-1">(override)</small>
-          ) : null}
-        </>
-      ),
-    },
-    {
-      show:
-        (metric.windowSettings.delayValue ?? 0) !== 0 ||
-        metricOverrideFields.includes("delayHours"),
-      label:
-        isFactMetric(metric) && metric.metricType === "retention"
-          ? "Retention Window"
-          : "Metric Delay",
-      body: (
-        <>
-          {`${metric.windowSettings.delayValue} ${metric.windowSettings.delayUnit}`}
-          {metricOverrideFields.includes("delayHours") ? (
             <small className="text-purple ml-1">(override)</small>
           ) : null}
         </>
