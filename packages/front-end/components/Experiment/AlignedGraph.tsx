@@ -11,7 +11,7 @@ import { ExperimentMetricInterface } from "shared/experiments";
 import { getExperimentMetricFormatter } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCurrency } from "@/hooks/useCurrency";
-import { SSRExperimentReportPolyfills } from "@/pages/r/[r]";
+import { SSRExperimentReportPolyfills } from "@/hooks/useSSRPolyfills";
 
 interface Props
   extends DetailedHTMLProps<HTMLAttributes<SVGPathElement>, SVGPathElement> {

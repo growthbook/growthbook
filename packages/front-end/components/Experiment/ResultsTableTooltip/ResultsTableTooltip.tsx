@@ -46,7 +46,7 @@ import { capitalizeFirstLetter } from "@/services/utils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { PercentileLabel } from "@/components/Metrics/MetricName";
-import { SSRExperimentReportPolyfills } from "@/pages/r/[r]";
+import { SSRExperimentReportPolyfills } from "@/hooks/useSSRPolyfills";
 
 export const TOOLTIP_WIDTH = 400;
 export const TOOLTIP_HEIGHT = 400; // Used for over/under layout calculation. Actual height may vary.

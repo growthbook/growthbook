@@ -26,7 +26,7 @@ import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Toggle from "@/components/Forms/Toggle";
 import { getMetricResultGroup } from "@/components/Experiment/BreakDownResults";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { SSRExperimentReportPolyfills } from "@/pages/r/[r]";
+import { SSRExperimentReportPolyfills } from "@/hooks/useSSRPolyfills";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
 } from "./ExperimentDateGraph";
