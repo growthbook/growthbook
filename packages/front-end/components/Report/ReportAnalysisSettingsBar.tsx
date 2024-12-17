@@ -73,7 +73,7 @@ export default function ReportAnalysisSettingsBar({
 
   return (
     <>
-      <div className="d-flex justify-content-between">
+      <div className="mb-1 d-flex align-items-center justify-content-between">
         <div className="h3 my-0">Analysis</div>
         <DropdownMenu
           trigger={
