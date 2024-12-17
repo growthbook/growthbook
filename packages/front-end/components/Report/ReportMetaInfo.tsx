@@ -14,7 +14,6 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { useAuth } from "@/services/auth";
 import LinkButton from "@/components/Radix/LinkButton";
 import SplitButton from "@/components/Radix/SplitButton";
-import Badge from "@/components/Radix/Badge";
 import { useUser } from "@/services/UserContext";
 import HelperText from "@/components/Radix/HelperText";
 import Markdown from "@/components/Markdown/Markdown";
@@ -32,6 +31,7 @@ import track from "@/services/track";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import metaDataStyles from "@/components/Radix/Styles/Metadata.module.scss";
 import Metadata from "@/components/Radix/Metadata";
+import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
 
 type ShareLevel = "public" | "organization" | "private";
 type EditLevel = "organization" | "private";
@@ -42,7 +42,6 @@ export default function ReportMetaInfo({
   experiment,
   datasource,
   mutate,
-  canView = true,
   isOwner,
   isAdmin,
   canEdit,
@@ -55,7 +54,6 @@ export default function ReportMetaInfo({
   experiment?: Partial<ExperimentInterfaceStringDates>;
   datasource?: DataSourceInterfaceWithParams;
   mutate?: () => Promise<unknown> | unknown;
-  canView?: boolean;
   isOwner?: boolean;
   isAdmin?: boolean;
   canEdit?: boolean;
@@ -182,28 +180,28 @@ export default function ReportMetaInfo({
     showEditControls,
   ]);
 
-  const shareLinkButton = copySuccess ? (
-    <Button style={{ width: 150 }} icon={<PiCheck />}>
-      Link copied
-    </Button>
-  ) : (
-    <Button
-      icon={<PiLink />}
-      onClick={() => {
-        if (!copySuccess) performCopy(shareableLink);
-        setTimeout(() => setShareModalOpen(false), 810);
-        track("Experiment Report: Click Copy Link", {
-          source: showEditControls ? "private report" : "public report",
-          type: shareLevel,
-          action: "normal button",
-        });
-      }}
-      disabled={shareLevel === "private"}
-      style={{ width: 150 }}
-    >
-      Copy Link
-    </Button>
-  );
+  const shareLinkButton =
+    report.shareLevel !== "public" ? null : copySuccess ? (
+      <Button style={{ width: 150 }} icon={<PiCheck />}>
+        Link copied
+      </Button>
+    ) : (
+      <Button
+        icon={<PiLink />}
+        onClick={() => {
+          if (!copySuccess) performCopy(shareableLink);
+          setTimeout(() => setShareModalOpen(false), 810);
+          track("Experiment Report: Click Copy Link", {
+            source: showEditControls ? "private report" : "public report",
+            type: shareLevel,
+            action: "normal button",
+          });
+        }}
+        style={{ width: 150 }}
+      >
+        Copy Link
+      </Button>
+    );
 
   const shareLinkButtonTiny =
     copySuccess && !shareModalOpen ? (
@@ -245,23 +243,10 @@ export default function ReportMetaInfo({
                     className="d-inline-block ml-2 position-relative"
                     style={{ top: -2 }}
                   >
-                    {report.shareLevel === "private" ? (
-                      <Badge
-                        variant="soft"
-                        color="gray"
-                        label="Private"
-                        radius="full"
-                      />
-                    ) : report.shareLevel === "organization" ? (
-                      <Badge variant="soft" label="Published" radius="full" />
-                    ) : report.shareLevel === "public" ? (
-                      <Badge
-                        variant="soft"
-                        color="orange"
-                        label="Public"
-                        radius="full"
-                      />
-                    ) : null}
+                    <ShareStatusBadge
+                      shareLevel={report.shareLevel}
+                      editLevel={report.editLevel}
+                    />
                   </div>
                 </>
               )}
@@ -321,63 +306,58 @@ export default function ReportMetaInfo({
               />
             </Flex>
           </div>
-          {canView ? (
-            <div className="flex-shrink-0">
-              <div className="d-flex">
-                {showPrivateLink && (
-                  <LinkButton
-                    variant="outline"
-                    href={`/report/${report.id}`}
-                    mr="4"
-                  >
-                    Edit Report
-                  </LinkButton>
-                )}
-                {showEditControls ? (
-                  <div className="d-flex flex-column align-items-end">
-                    {shareLevel === "private" ? (
-                      <Button onClick={() => setShareModalOpen(true)} size="sm">
+          <div className="flex-shrink-0">
+            <div className="d-flex">
+              {showPrivateLink && (
+                <LinkButton
+                  variant="outline"
+                  href={`/report/${report.id}`}
+                  mr="4"
+                >
+                  Edit Report
+                </LinkButton>
+              )}
+              {showEditControls ? (
+                <div className="d-flex flex-column align-items-end">
+                  {shareLevel === "public" ? (
+                    <SplitButton menu={shareLinkButtonTiny}>
+                      <Button onClick={() => setShareModalOpen(true)}>
                         Share...
                       </Button>
-                    ) : (
-                      <SplitButton menu={shareLinkButtonTiny}>
-                        <Button onClick={() => setShareModalOpen(true)}>
-                          Share...
-                        </Button>
-                      </SplitButton>
-                    )}
-                  </div>
-                ) : (
-                  shareLinkButton
-                )}
-                {showEditControls ? (
-                  <ReportResultMoreMenu
-                    report={report}
-                    hasData={hasData}
-                    supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
-                    notebookUrl={`/report/${report.id}/notebook`}
-                    notebookFilename={report.title}
-                    queries={snapshot?.queries}
-                    queryError={snapshot?.error}
-                    results={analysis?.results}
-                    variations={variations}
-                    metrics={
-                      snapshot?.settings
-                        ? getAllMetricIdsFromExperiment(
-                            snapshot.settings,
-                            false
-                          )
-                        : undefined
-                    }
-                    trackingKey={report.title}
-                    dimension={snapshot?.dimension ?? undefined}
-                    setNameModalOpen={canEdit ? setGeneralModalOpen : undefined}
-                    canDelete={canDelete}
-                  />
-                ) : null}
-              </div>
+                    </SplitButton>
+                  ) : (
+                    <Button onClick={() => setShareModalOpen(true)}>
+                      Share...
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                shareLinkButton
+              )}
+              {showEditControls ? (
+                <ReportResultMoreMenu
+                  report={report}
+                  hasData={hasData}
+                  supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
+                  notebookUrl={`/report/${report.id}/notebook`}
+                  notebookFilename={report.title}
+                  queries={snapshot?.queries}
+                  queryError={snapshot?.error}
+                  results={analysis?.results}
+                  variations={variations}
+                  metrics={
+                    snapshot?.settings
+                      ? getAllMetricIdsFromExperiment(snapshot.settings, false)
+                      : undefined
+                  }
+                  trackingKey={report.title}
+                  dimension={snapshot?.dimension ?? undefined}
+                  setNameModalOpen={canEdit ? setGeneralModalOpen : undefined}
+                  canDelete={canDelete}
+                />
+              ) : null}
             </div>
-          ) : null}
+          </div>
         </div>
       </div>
 

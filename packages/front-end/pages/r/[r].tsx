@@ -3,7 +3,6 @@ import {
   SSRExperimentReportData,
 } from "back-end/types/report";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import React, { useEffect, useState } from "react";
 import Head from "next/head";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { truncateString } from "shared/util";
@@ -13,7 +12,6 @@ import ReportResults from "@/components/Report/ReportResults";
 import ReportMetaInfo from "@/components/Report/ReportMetaInfo";
 import { useUser } from "@/services/UserContext";
 import Callout from "@/components/Radix/Callout";
-import Link from "@/components/Radix/Link";
 import useSSRPolyfills from "@/hooks/useSSRPolyfills";
 
 export async function getServerSideProps(context) {
@@ -57,28 +55,11 @@ interface ReportPageProps {
 }
 
 export default function ReportPage(props: ReportPageProps) {
-  const {
-    userId,
-    organization: userOrganization,
-    superAdmin,
-    ready: userReady,
-  } = useUser();
+  const { userId, organization: userOrganization, superAdmin } = useUser();
   const { report, snapshot, experiment, ssrData } = props;
-
-  const [isSsr, setIsSsr] = useState(true);
-  useEffect(() => setIsSsr(false), []);
 
   const isOrgMember =
     (!!userId && report?.organization === userOrganization.id) || !!superAdmin;
-  let canView = report?.shareLevel === "public";
-  if (report?.shareLevel === "organization") {
-    // must be an org member or superAdmin
-    canView = isOrgMember;
-  }
-  if (isSsr) {
-    // initial SSR can render (for openGraph)
-    canView = true;
-  }
 
   const ssrPolyfills = useSSRPolyfills(ssrData);
 
@@ -131,31 +112,17 @@ export default function ReportPage(props: ReportPageProps) {
           <ReportMetaInfo
             report={report}
             experiment={experiment ?? undefined}
-            canView={canView}
             showPrivateLink={isOrgMember}
           />
-
-          {canView ? (
-            <ReportResults
-              report={report}
-              snapshot={snapshot ?? undefined}
-              snapshotError={
-                !snapshot ? new Error("Missing snapshot") : undefined
-              }
-              showDetails={isOrgMember}
-              ssrPolyfills={ssrPolyfills}
-            />
-          ) : (
-            <Callout status="error">
-              This report is not shared publicly.
-              {!userReady && (
-                <>
-                  {" "}
-                  <Link href="/">Log in</Link> to view this link.
-                </>
-              )}
-            </Callout>
-          )}
+          <ReportResults
+            report={report}
+            snapshot={snapshot ?? undefined}
+            snapshotError={
+              !snapshot ? new Error("Missing snapshot") : undefined
+            }
+            showDetails={isOrgMember}
+            ssrPolyfills={ssrPolyfills}
+          />
         </>
       ) : (
         <Callout status="error">This report was not found.</Callout>

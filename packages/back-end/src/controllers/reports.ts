@@ -238,20 +238,18 @@ export async function getReportPublic(
 ) {
   const { tinyid } = req.params;
   const report = await getReportByTinyid(tinyid);
-  if (!report) {
-    throw new Error("Unknown report id");
+  if (!report || report.type !== "experiment-snapshot") {
+    return res.status(404).json({
+      status: 404,
+      message: "Report not found",
+    });
   }
-  if (report.type !== "experiment-snapshot") {
-    throw new Error("Invalid report");
-  }
-  const context = await getContextForAgendaJobByOrgId(report.organization);
-
-  if (report.shareLevel === "private") {
+  if (report.shareLevel !== "public") {
     return res.status(401).json({
       message: "Unauthorized",
     });
   }
-  // "public" and "organization" share levels are handled on the page
+  const context = await getContextForAgendaJobByOrgId(report.organization);
 
   const snapshot =
     report.type === "experiment-snapshot"

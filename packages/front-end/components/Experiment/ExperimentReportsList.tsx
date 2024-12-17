@@ -11,6 +11,7 @@ import { useUser } from "@/services/UserContext";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
 
 export default function ExperimentReportsList({
   experiment,
@@ -45,6 +46,9 @@ export default function ExperimentReportsList({
       const show =
         report.type === "experiment"
           ? report.status === "published"
+          : report.shareLevel === "public" ||
+            report.shareLevel === "organization"
+          ? true
           : isOwner || isAdmin;
       const showDelete = report.type === "experiment" ? isAdmin : canDelete;
       return { report, show, showDelete };
@@ -62,6 +66,7 @@ export default function ExperimentReportsList({
           <tr>
             <th>Title</th>
             <th>Description</th>
+            <th>Status</th>
             <th className="d-none d-md-table-cell">Last Updated </th>
             <th>By</th>
             <th></th>
@@ -72,6 +77,16 @@ export default function ExperimentReportsList({
             const report = filteredReport.report;
             const user = report.userId ? users.get(report.userId) : null;
             const name = user ? user.name : "";
+            const status =
+              report.type === "experiment"
+                ? report.status === "private"
+                  ? "private"
+                  : "organization"
+                : report.shareLevel === "public"
+                ? "public"
+                : report.shareLevel === "private"
+                ? "private"
+                : "organization";
             return (
               <tr key={report.id} className="">
                 <td
@@ -109,6 +124,16 @@ export default function ExperimentReportsList({
                   <Link href={`/report/${report.id}`} className={`text-dark`}>
                     {report.description}
                   </Link>
+                </td>
+                <td>
+                  <ShareStatusBadge
+                    shareLevel={status}
+                    editLevel={
+                      report.type === "experiment-snapshot"
+                        ? report.editLevel
+                        : "organization"
+                    }
+                  />
                 </td>
                 <td
                   title={datetime(report.dateUpdated)}

@@ -113,7 +113,6 @@ export default function ReportPage() {
         experiment={experiment}
         datasource={datasource}
         mutate={mutate}
-        canView={true}
         isOwner={isOwner}
         isAdmin={isAdmin}
         canEdit={canEdit}
