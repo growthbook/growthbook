@@ -657,7 +657,7 @@ export default function ExperimentHeader({
                       >
                         <PiEye style={{ marginRight: "5px" }} size={18} />
                         <span className="pr-5">
-                          {isWatching ? "Watching" : "Not Watching"}
+                          {isWatching ? "Watching" : "Not watching"}
                         </span>
                       </Flex>
                     }
@@ -676,7 +676,7 @@ export default function ExperimentHeader({
                       disabled={!isWatching}
                     >
                       <Flex align="center" justify="between" className="w-100">
-                        <span className="pr-5">Stop Watching</span>
+                        <span className="pr-5">Stop watching</span>
                         {!isWatching ? <PiCheck /> : null}
                       </Flex>
                     </DropdownMenuItem>
@@ -697,7 +697,7 @@ export default function ExperimentHeader({
                     >
                       {usersWatching.length || 0}
                     </IconButton>
-                    {usersWatching.length > 0 ? "View Watchers" : "No Watchers"}
+                    {usersWatching.length > 0 ? "View watchers" : "No watchers"}
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
