@@ -29,9 +29,9 @@ const WatchButton: FC<{
   let text = "";
   if (type === "button") {
     classNames += " btn btn-link";
-    text = isWatching ? "Watching" : "Watch";
+    text = isWatching ? "watching" : "watch";
   } else if (type === "link") {
-    text = isWatching ? "Watching" : "Watch";
+    text = isWatching ? "watching" : "watch";
   }
   if (loading) {
     classNames += " disabled";
