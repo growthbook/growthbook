@@ -44,7 +44,6 @@ export default function EditDescriptionModal({
         mutate();
       })}
     >
-      <label>Description</label>
       <Flex align="center" wrap="wrap" width="auto" mb="2">
         <Box as="div">
           <Text className="pr-1" as="span">
