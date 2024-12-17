@@ -2,14 +2,14 @@ import { ExperimentTemplateInterface } from "back-end/types/experiment";
 import { useMemo } from "react";
 import useApi from "./useApi";
 
-export function useExperiments(
+export function useTemplates(
   project?: string,
   includeArchived: boolean = false
 ) {
   const { data, error, mutate } = useApi<{
     templates: ExperimentTemplateInterface[];
     hasArchived: boolean;
-  }>(`/templates?project=${project || ""}`);
+  }>("/templates");
 
   const templates = useMemo(() => data?.templates || [], [data]);
 
@@ -19,7 +19,7 @@ export function useExperiments(
 
   return {
     loading: !error && !data,
-    experiments: templates,
+    templates: templates,
     templatesMap,
     error: error,
     mutateTemplates: mutate,

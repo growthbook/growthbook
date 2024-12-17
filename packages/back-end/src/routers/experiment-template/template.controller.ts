@@ -45,14 +45,17 @@ export const postTemplate = async (
   >
 ) => {
   const context = getContextFromReq(req);
-  const { template } = req.body;
+  const { userId } = context;
+  const template = req.body;
 
   if (!context.permissions.canCreateExperimentTemplate(template)) {
     context.permissions.throwPermissionError();
   }
-  const { templateMetadata } = req.body.template;
 
-  const doc = await context.models.experimentTemplates.create(template);
+  const doc = await context.models.experimentTemplates.create({
+    ...template,
+    owner: userId,
+  });
 
   res.status(200).json({
     status: 200,

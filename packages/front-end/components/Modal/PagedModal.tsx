@@ -175,6 +175,7 @@ const PagedModal: FC<Props> = (props) => {
   }, [step]);
 
   return (
+    // TODO: Pass nav as a prop so that body can be styled differently
     <Modal
       inline={inline}
       size={size}

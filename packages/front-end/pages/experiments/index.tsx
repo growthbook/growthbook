@@ -46,6 +46,8 @@ import {
   TabsTrigger,
 } from "@/components/Radix/Tabs";
 import Button from "@/components/Radix/Button";
+import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
+import { useTemplates } from "@/hooks/useTemplates";
 
 const NUM_PER_PAGE = 20;
 
@@ -72,6 +74,10 @@ const ExperimentsPage = (): React.ReactElement => {
     getDatasourceById,
   } = useDefinitions();
 
+  const { templates } = useTemplates();
+
+  console.log(templates);
+
   const [tabs, setTabs] = useLocalStorage<string[]>("experiment_tabs", []);
 
   const {
@@ -90,6 +96,7 @@ const ExperimentsPage = (): React.ReactElement => {
   const [openImportExperimentModal, setOpenImportExperimentModal] = useState(
     false
   );
+  const [openTemplateModal, setOpenTemplateModal] = useState(false);
 
   const { getUserDisplay, userId } = useUser();
   const permissionsUtil = usePermissionsUtil();
@@ -332,7 +339,7 @@ const ExperimentsPage = (): React.ReactElement => {
         Create New Experiment
       </DropdownMenuItem>
       {/* TODO: Replace click handler with new callback to open template creation modal */}
-      <DropdownMenuItem onClick={() => setOpenNewExperimentModal(true)}>
+      <DropdownMenuItem onClick={() => setOpenTemplateModal(true)}>
         Create Template
       </DropdownMenuItem>
       <DropdownMenuSeparator />
@@ -638,6 +645,7 @@ const ExperimentsPage = (): React.ReactElement => {
               )}
             </TabsContent>
             <TabsContent value="templates">
+              {/* TODO: Replace me with TemplatesPage component */}
               {false ? (
                 <Box>
                   <table className="appbox table experiment-table gbtable responsive-table">
@@ -681,7 +689,7 @@ const ExperimentsPage = (): React.ReactElement => {
                         Connect Data Source
                       </LinkButton>
                     ) : (
-                      <Button onClick={() => setOpenNewExperimentModal(true)}>
+                      <Button onClick={() => setOpenTemplateModal(true)}>
                         Create Template
                       </Button>
                     )}
@@ -703,6 +711,13 @@ const ExperimentsPage = (): React.ReactElement => {
         <ImportExperimentModal
           onClose={() => setOpenImportExperimentModal(false)}
           source="experiment-list"
+        />
+      )}
+      {openTemplateModal && (
+        <TemplateForm
+          onClose={() => setOpenTemplateModal(false)}
+          source="templates-list"
+          isNewExperiment={true}
         />
       )}
     </>

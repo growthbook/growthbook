@@ -9,6 +9,7 @@ import {
   namespaceValue,
   savedGroupTargeting,
 } from "back-end/src/validators/features";
+import { statsEngines } from "back-end/src/util/constants";
 
 export const experimentTemplateInterface = z
   .object({
@@ -20,15 +21,15 @@ export const experimentTemplateInterface = z
     dateUpdated: z.date(),
 
     templateMetadata: z.object({
-      name: z.string(),
+      name: z.string().optional(),
       description: z.string().optional(),
-      tags: z.array(z.string()),
+      tags: z.array(z.string()).optional(),
     }),
 
-    type: z.enum(experimentType),
+    type: z.enum(["standard"]),
     hypothesis: z.string().optional(),
     description: z.string().optional(),
-    tags: z.array(z.string()),
+    tags: z.array(z.string()).optional(),
 
     datasource: z.string(),
     userIdType: z.string(),
@@ -36,28 +37,23 @@ export const experimentTemplateInterface = z
 
     hashAttribute: z.string().optional(),
     fallbackAttribute: z.string().optional(),
-    hashVersion: z.number().optional(),
     disableStickyBucketing: z.boolean().optional(),
 
     // Advanced
     // Add conversions windows
 
-    goalMetrics: z.array(z.string()),
-    secondaryMetrics: z.array(z.string()),
-    guardrailMetrics: z.array(z.string()),
-    activationMetric: z.string().optional(),
-    metricOverrides: z.array(metricOverride).optional(),
-
-    variations: z.array(variation),
+    goalMetrics: z.array(z.string()).optional(),
+    secondaryMetrics: z.array(z.string()).optional(),
+    guardrailMetrics: z.array(z.string()).optional(),
+    activationMetric: z.string().optional().optional(),
+    statsEngine: z.enum(statsEngines).optional(),
 
     // Located in phases array for ExperimentInterface
     targeting: z.object({
       coverage: z.number(),
       savedGroups: z.array(savedGroupTargeting).optional(),
       prerequisites: z.array(featurePrerequisite).optional(),
-      namespace: namespaceValue,
-      groups: z.array(z.string()),
-      variationWeights: z.array(z.number()),
+      condition: z.string().optional(),
     }),
   })
   .strict();
@@ -65,8 +61,12 @@ export type ExperimentTemplateInterface = z.infer<
   typeof experimentTemplateInterface
 >;
 
-export const createTemplateValidator = z.object({
-  template: experimentTemplateInterface.strict(),
+export const createTemplateValidator = experimentTemplateInterface.omit({
+  id: true,
+  organization: true,
+  owner: true,
+  dateCreated: true,
+  dateUpdated: true,
 });
 export type CreateTemplateProps = z.infer<typeof createTemplateValidator>;
 

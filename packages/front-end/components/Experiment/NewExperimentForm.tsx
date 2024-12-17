@@ -85,7 +85,7 @@ export type NewExperimentFormProps = {
   isNewExperiment?: boolean;
 };
 
-function getDefaultVariations(num: number) {
+export function getDefaultVariations(num: number) {
   // Must have at least 2 variations
   num = Math.max(2, num);
 
@@ -611,7 +611,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         </Page>
 
         {!isBandit && (isNewExperiment || duplicate)
-          ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => {
+          ? ["Overview", "Traffic", "Targeting"].map((p, i) => {
               // skip, custom overview page above
               if (i === 0) return null;
               return (

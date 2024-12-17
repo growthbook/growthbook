@@ -38,14 +38,6 @@ export class ExperimentTemplatesModel extends BaseClass {
     return this.context.permissions.canDeleteExperimentTemplate(doc);
   }
 
-  protected async customValidation(template: ExperimentTemplateInterface) {
-    // TODO: Add any experiment template specific validation here
-    // const barsUsingFoo = await getAllBarsUsingFoo(this.context, existing.id);
-    // if (bars.length > 0) {
-    //   throw new Error("Cannot delete. One or more bars is linking to this foo");
-    // }
-  }
-
   // TODO: Implement this for OpenAPI
   //   public toApiInterface(project: ProjectInterface): ApiProject {
   //     return {
