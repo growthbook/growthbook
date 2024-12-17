@@ -10,7 +10,7 @@ import {
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import React, { RefObject } from "react";
-import { SSRExperimentReportPolyfills } from "@/hooks/useSSRPolyfills";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/components/Radix/Callout";
@@ -37,7 +37,7 @@ export default function ReportResults({
   snapshotError?: Error;
   mutateReport?: () => Promise<unknown> | unknown;
   mutateSnapshot?: () => Promise<unknown> | unknown;
-  ssrPolyfills?: SSRExperimentReportPolyfills;
+  ssrPolyfills?: SSRPolyfills;
   canEdit?: boolean;
   setEditAnalysisOpen?: (o: boolean) => void;
   runQueriesButtonRef?: RefObject<HTMLButtonElement>;

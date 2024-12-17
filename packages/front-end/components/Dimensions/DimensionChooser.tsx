@@ -4,7 +4,7 @@ import { DifferenceType } from "back-end/types/stats";
 import { getExposureQuery } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
-import { SSRExperimentReportPolyfills } from "@/hooks/useSSRPolyfills";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 
 export interface Props {
   value: string;
@@ -23,7 +23,7 @@ export interface Props {
     settings: ExperimentSnapshotAnalysisSettings | null
   ) => void;
   disabled?: boolean;
-  ssrPolyfills?: SSRExperimentReportPolyfills;
+  ssrPolyfills?: SSRPolyfills;
 }
 
 export default function DimensionChooser({

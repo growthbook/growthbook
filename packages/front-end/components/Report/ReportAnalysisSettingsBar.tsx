@@ -4,7 +4,7 @@ import { getSnapshotAnalysis } from "shared/util";
 import { ago, date, datetime, getValidDate } from "shared/dates";
 import React, { RefObject, useEffect, useState } from "react";
 import { PiEye } from "react-icons/pi";
-import { SSRExperimentReportPolyfills } from "@/hooks/useSSRPolyfills";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import RunQueriesButton from "@/components/Queries/RunQueriesButton";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser";
@@ -28,7 +28,7 @@ export default function ReportAnalysisSettingsBar({
   snapshot?: ExperimentSnapshotInterface;
   mutateReport?: () => Promise<unknown> | unknown;
   mutateSnapshot?: () => Promise<unknown> | unknown;
-  ssrPolyfills?: SSRExperimentReportPolyfills;
+  ssrPolyfills?: SSRPolyfills;
   canUpdateReport?: boolean;
   setEditAnalysisOpen?: (o: boolean) => void;
   runQueriesButtonRef?: RefObject<HTMLButtonElement>;

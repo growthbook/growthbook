@@ -11,7 +11,7 @@ import {
 } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { SSRExperimentReportPolyfills } from "@/hooks/useSSRPolyfills";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 
 interface Props
   extends DetailedHTMLProps<
@@ -29,7 +29,7 @@ interface Props
   differenceType: DifferenceType;
   showCI?: boolean;
   className?: string;
-  ssrPolyfills?: SSRExperimentReportPolyfills;
+  ssrPolyfills?: SSRPolyfills;
 }
 
 export default function ChangeColumn({

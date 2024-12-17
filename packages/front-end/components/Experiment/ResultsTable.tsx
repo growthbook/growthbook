@@ -51,7 +51,7 @@ import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
 import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useResultsTableTooltip } from "@/components/Experiment/ResultsTableTooltip/useResultsTableTooltip";
-import { SSRExperimentReportPolyfills } from "@/hooks/useSSRPolyfills";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import AlignedGraph from "./AlignedGraph";
 import ChanceToWinColumn from "./ChanceToWinColumn";
 import MetricValueColumn from "./MetricValueColumn";
@@ -91,7 +91,7 @@ export type ResultsTableProps = {
   noTooltip?: boolean;
   isBandit?: boolean;
   isGoalMetrics?: boolean;
-  ssrPolyfills?: SSRExperimentReportPolyfills;
+  ssrPolyfills?: SSRPolyfills;
 };
 
 const ROW_HEIGHT = 56;
@@ -933,7 +933,7 @@ function drawEmptyRow({
   rowHeight?: number;
   id: string;
   domain: [number, number];
-  ssrPolyfills?: SSRExperimentReportPolyfills;
+  ssrPolyfills?: SSRPolyfills;
 }) {
   return (
     <tr key={key} style={style} className={className}>

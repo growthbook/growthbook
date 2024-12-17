@@ -8,7 +8,7 @@ import {
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
-import { SSRExperimentReportPolyfills } from "@/hooks/useSSRPolyfills";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import AlignedGraph from "./AlignedGraph";
 
 interface Props
@@ -31,7 +31,7 @@ interface Props
   onMouseLeave?: (e: React.MouseEvent<SVGPathElement>) => void;
   onClick?: (e: React.MouseEvent<SVGPathElement, MouseEvent>) => void;
   rowStatus?: string;
-  ssrPolyfills?: SSRExperimentReportPolyfills;
+  ssrPolyfills?: SSRPolyfills;
 }
 
 export default function PercentGraph({

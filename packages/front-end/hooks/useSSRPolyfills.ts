@@ -16,7 +16,7 @@ import {
   METRIC_DEFAULTS,
 } from "@/hooks/useOrganizationMetricDefaults";
 
-export interface SSRExperimentReportPolyfills {
+export interface SSRPolyfills {
   getExperimentMetricById: (id: string) => null | ExperimentMetricInterface;
   metricGroups: MetricGroupInterface[];
   getMetricGroupById: (id: string) => null | MetricGroupInterface;
@@ -32,7 +32,7 @@ export interface SSRExperimentReportPolyfills {
 
 export default function useSSRPolyfills(
   ssrData: SSRExperimentReportData | null
-) {
+): SSRPolyfills {
   const {
     getExperimentMetricById,
     getMetricGroupById,

@@ -42,7 +42,7 @@ import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
 import MetricName, { PercentileLabel } from "@/components/Metrics/MetricName";
-import { SSRExperimentReportPolyfills } from "@/hooks/useSSRPolyfills";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import ConditionalWrapper from "@/components/ConditionalWrapper";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
@@ -83,7 +83,7 @@ const CompactResults: FC<{
   noStickyHeader?: boolean;
   noTooltip?: boolean;
   experimentType?: ExperimentType;
-  ssrPolyfills?: SSRExperimentReportPolyfills;
+  ssrPolyfills?: SSRPolyfills;
   hideDetails?: boolean;
 }> = ({
   editMetrics,

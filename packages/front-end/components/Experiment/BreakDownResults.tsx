@@ -34,7 +34,7 @@ import {
   sortAndFilterMetricsByTags,
 } from "@/components/Experiment/Results";
 import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
-import { SSRExperimentReportPolyfills } from "@/hooks/useSSRPolyfills";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import UsersTable from "./UsersTable";
 
@@ -83,7 +83,7 @@ const BreakDownResults: FC<{
   metricFilter?: ResultsMetricFilters;
   setMetricFilter?: (filter: ResultsMetricFilters) => void;
   isBandit?: boolean;
-  ssrPolyfills?: SSRExperimentReportPolyfills;
+  ssrPolyfills?: SSRPolyfills;
   hideDetails?: boolean;
 }> = ({
   dimensionId,

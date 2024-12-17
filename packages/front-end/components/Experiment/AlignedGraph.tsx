@@ -11,7 +11,7 @@ import { ExperimentMetricInterface } from "shared/experiments";
 import { getExperimentMetricFormatter } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCurrency } from "@/hooks/useCurrency";
-import { SSRExperimentReportPolyfills } from "@/hooks/useSSRPolyfills";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 
 interface Props
   extends DetailedHTMLProps<HTMLAttributes<SVGPathElement>, SVGPathElement> {
@@ -39,7 +39,7 @@ interface Props
   onMouseMove?: (e: React.MouseEvent<SVGPathElement>) => void;
   onMouseLeave?: (e: React.MouseEvent<SVGPathElement>) => void;
   onClick?: (e: React.MouseEvent<SVGPathElement, MouseEvent>) => void;
-  ssrPolyfills?: SSRExperimentReportPolyfills;
+  ssrPolyfills?: SSRPolyfills;
 }
 
 const smallPercentFormatter = new Intl.NumberFormat(undefined, {
