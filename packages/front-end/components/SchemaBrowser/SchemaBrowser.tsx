@@ -152,7 +152,7 @@ export default function SchemaBrowser({
   if (!data) return <LoadingSpinner />;
 
   return (
-    <div className="d-flex flex-column">
+    <div className="d-flex flex-column h-100">
       <SchemaBrowserWrapper
         datasourceName={datasource.name}
         datasourceId={datasource.id}
