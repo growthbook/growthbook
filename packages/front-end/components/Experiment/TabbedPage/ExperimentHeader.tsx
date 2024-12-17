@@ -47,6 +47,7 @@ import {
   DropdownSubMenu,
 } from "@/components/Radix/DropdownMenu";
 import { GBBandit } from "@/components/Icons";
+import { useWatching } from "@/services/WatchProvider";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import ExperimentActionButtons from "./ExperimentActionButtons";
 import ProjectTagBar from "./ProjectTagBar";
@@ -127,7 +128,8 @@ export default function ExperimentHeader({
   const growthbook = useGrowthBook<AppFeatures>();
 
   const { apiCall } = useAuth();
-  const { users, email, hasCommercialFeature } = useUser();
+  const { users, hasCommercialFeature } = useUser();
+  const { watchedExperiments, refreshWatching } = useWatching();
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
@@ -139,10 +141,9 @@ export default function ExperimentHeader({
   const [showSdkForm, setShowSdkForm] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
-  const [watchers, setWatchers] = useState([...usersWatching]);
   const [showBanditModal, setShowBanditModal] = useState(false);
 
-  const isWatching = watchers.includes(email);
+  const isWatching = watchedExperiments.includes(experiment.id);
 
   const tabsRef = useRef<HTMLDivElement>(null);
   const [headerPinned, setHeaderPinned] = useState(false);
@@ -223,12 +224,7 @@ export default function ExperimentHeader({
           method: "POST",
         }
       );
-
-      if (watch) {
-        setWatchers([...watchers, email]);
-      } else {
-        setWatchers(watchers.filter((watcher) => watcher !== email));
-      }
+      refreshWatching();
     } catch (e) {
       console.error(e);
     }
@@ -677,9 +673,12 @@ export default function ExperimentHeader({
                       </Flex>
                     </DropdownMenuItem>
                   </DropdownSubMenu>
-                  <DropdownMenuItem onClick={() => setWatchersModal(true)}>
+                  <DropdownMenuItem
+                    onClick={() => setWatchersModal(true)}
+                    disabled={!usersWatching.length}
+                  >
                     <span className="badge badge-pill badge-info">
-                      {watchers.length}
+                      {usersWatching.length}
                     </span>
                     View watchers
                   </DropdownMenuItem>
