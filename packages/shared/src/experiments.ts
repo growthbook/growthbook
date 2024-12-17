@@ -213,6 +213,7 @@ export function getConversionWindowHours(
   windowSettings: MetricWindowSettings
 ): number {
   const value = windowSettings.windowValue;
+  if (windowSettings.windowUnit === "minutes") return value / 60;
   if (windowSettings.windowUnit === "hours") return value;
   if (windowSettings.windowUnit === "days") return value * 24;
   if (windowSettings.windowUnit === "weeks") return value * 24 * 7;
@@ -224,12 +225,14 @@ export function getDelayWindowHours(
   windowSettings: MetricWindowSettings
 ): number {
   const value = windowSettings.delayValue;
+  if (windowSettings.delayUnit === "minutes") return value / 60;
   if (windowSettings.delayUnit === "hours") return value;
   if (windowSettings.delayUnit === "days") return value * 24;
   if (windowSettings.delayUnit === "weeks") return value * 24 * 7;
 
   return 0;
 }
+
 export function getSelectedColumnDatatype({
   factTable,
   column,

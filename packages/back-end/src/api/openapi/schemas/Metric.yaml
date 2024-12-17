@@ -117,6 +117,7 @@ properties:
             delayUnit:
               type: string
               enum:
+                - "minutes"
                 - "hours"
                 - "days"
                 - "weeks"
@@ -125,6 +126,7 @@ properties:
             windowUnit:
               type: string
               enum:
+                - "minutes"
                 - "hours"
                 - "days"
                 - "weeks"
