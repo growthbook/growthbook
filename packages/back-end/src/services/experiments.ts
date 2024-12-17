@@ -1892,7 +1892,8 @@ export function postMetricApiPayloadToMetricInterface(
     },
     windowSettings: {
       type: DEFAULT_METRIC_WINDOW,
-      delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+      delayValue: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+      delayUnit: "hours",
       windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,
       windowUnit: "hours",
     },
@@ -1938,7 +1939,9 @@ export function postMetricApiPayloadToMetricInterface(
           behavior.windowSettings.type === "none"
             ? ""
             : behavior?.windowSettings?.type ?? DEFAULT_METRIC_WINDOW,
-        delayHours:
+        delayUnit: behavior.windowSettings.delayUnit ?? "hours",
+        delayValue:
+          behavior.windowSettings.delayValue ??
           behavior.windowSettings.delayHours ??
           DEFAULT_METRIC_WINDOW_DELAY_HOURS,
         windowUnit: behavior.windowSettings.windowUnit ?? "hours",
@@ -1948,7 +1951,8 @@ export function postMetricApiPayloadToMetricInterface(
       };
     } else if (typeof behavior.conversionWindowStart !== "undefined") {
       // The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the Conversion Delay
-      metric.windowSettings.delayHours = behavior.conversionWindowStart;
+      metric.windowSettings.delayValue = behavior.conversionWindowStart;
+      metric.windowSettings.delayUnit = "hours";
 
       // The end of a Conversion Window relative to the exposure date, in hours.
       // This is equivalent to the Conversion Delay + Conversion Window Hours settings in the UI. In other words,
@@ -2083,9 +2087,11 @@ export function putMetricApiPayloadToMetricInterface(
           behavior.windowSettings?.type == "none"
             ? ""
             : behavior.windowSettings?.type ?? DEFAULT_METRIC_WINDOW,
-        delayHours:
+        delayValue:
+          behavior.windowSettings?.delayValue ??
           behavior.windowSettings?.delayHours ??
           DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+        delayUnit: behavior.windowSettings?.delayUnit ?? "hours",
         windowValue:
           behavior.windowSettings?.windowValue ??
           DEFAULT_CONVERSION_WINDOW_HOURS,
@@ -2095,7 +2101,8 @@ export function putMetricApiPayloadToMetricInterface(
       // The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the Conversion Delay
       metric.windowSettings = {
         type: DEFAULT_METRIC_WINDOW,
-        delayHours: behavior.conversionWindowStart,
+        delayValue: behavior.conversionWindowStart,
+        delayUnit: "hours",
         windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,
         windowUnit: "hours",
       };
@@ -2255,9 +2262,10 @@ export function toMetricApiInterface(
           }
         : {
             type: DEFAULT_METRIC_WINDOW || "none",
-            delayHours: metric.earlyStart
+            delayValue: metric.earlyStart
               ? -0.5
               : DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+            delayUnit: "hours",
             windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,
             windowUnit: "hours",
           },
