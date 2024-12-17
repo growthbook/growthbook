@@ -106,150 +106,154 @@ export default function ReportResults({
     !analysis?.settings?.dimensions?.length;
 
   return (
-    <div className="bg-white border mb-5">
-      <div className="mb-3">
-        <ReportAnalysisSettingsBar
-          report={report}
-          snapshot={snapshot}
-          mutateReport={mutateReport}
-          mutateSnapshot={mutateSnapshot}
-          ssrPolyfills={ssrPolyfills}
-          canUpdateReport={canEdit}
-          setEditAnalysisOpen={setEditAnalysisOpen}
-          runQueriesButtonRef={runQueriesButtonRef}
-        />
+    <>
+      <ReportAnalysisSettingsBar
+        report={report}
+        snapshot={snapshot}
+        mutateReport={mutateReport}
+        mutateSnapshot={mutateSnapshot}
+        ssrPolyfills={ssrPolyfills}
+        canUpdateReport={canEdit}
+        setEditAnalysisOpen={setEditAnalysisOpen}
+        runQueriesButtonRef={runQueriesButtonRef}
+      />
+      <div className="bg-white border pt-3 mb-5">
+        {snapshotError ? (
+          <div className="m-3">
+            <Callout status="error">
+              Report error
+              {showDetails && (
+                <>: {snapshotError?.message ?? "Unknown error"}</>
+              )}
+              {canEdit && (
+                <div className="mt-2 text-muted">
+                  Try refreshing this report, or click &quot;View Queries&quot;
+                  from the report menu to debug.
+                </div>
+              )}
+            </Callout>
+          </div>
+        ) : snapshot && !analysis ? (
+          <div className="m-3">
+            <Callout status="error">
+              Missing analysis
+              {canEdit && (
+                <div className="mt-2 text-muted">
+                  Try refreshing this report to resolve.
+                </div>
+              )}
+            </Callout>
+          </div>
+        ) : !snapshot ? (
+          <div className="d-flex justify-content-center my-4">
+            <LoadingSpinner />
+          </div>
+        ) : (
+          <>
+            {showDateResults ? (
+              <DateResults
+                goalMetrics={report.experimentAnalysisSettings.goalMetrics}
+                secondaryMetrics={
+                  report.experimentAnalysisSettings.secondaryMetrics
+                }
+                guardrailMetrics={
+                  report.experimentAnalysisSettings.guardrailMetrics
+                }
+                results={analysis?.results ?? []}
+                seriestype={snapshot.dimension ?? ""}
+                variations={variations}
+                statsEngine={
+                  analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE
+                }
+                differenceType={
+                  report?.experimentAnalysisSettings?.differenceType ||
+                  "relative"
+                }
+                ssrPolyfills={ssrPolyfills}
+              />
+            ) : showBreakDownResults ? (
+              <BreakDownResults
+                key={snapshot.dimension}
+                results={analysis?.results ?? []}
+                queryStatusData={queryStatusData}
+                variations={variations}
+                // variationFilter={variationFilter}
+                // baselineRow={baselineRow}
+                goalMetrics={report.experimentAnalysisSettings.goalMetrics}
+                secondaryMetrics={
+                  report.experimentAnalysisSettings.secondaryMetrics
+                }
+                guardrailMetrics={
+                  report.experimentAnalysisSettings.guardrailMetrics
+                }
+                activationMetric={
+                  report.experimentAnalysisSettings.activationMetric
+                }
+                metricOverrides={
+                  report.experimentAnalysisSettings.metricOverrides ?? []
+                }
+                dimensionId={snapshot.dimension ?? ""}
+                startDate={getValidDate(phaseObj.dateStarted).toISOString()}
+                isLatestPhase={phase === phases.length - 1}
+                reportDate={snapshot.dateCreated}
+                status={"stopped"}
+                statsEngine={analysis.settings.statsEngine}
+                pValueCorrection={pValueCorrection}
+                regressionAdjustmentEnabled={
+                  analysis?.settings?.regressionAdjusted
+                }
+                settingsForSnapshotMetrics={settingsForSnapshotMetrics}
+                sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
+                differenceType={
+                  report?.experimentAnalysisSettings?.differenceType ||
+                  "relative"
+                }
+                // metricFilter={metricFilter}
+                // setMetricFilter={setMetricFilter}
+                ssrPolyfills={ssrPolyfills}
+                hideDetails={!showDetails}
+              />
+            ) : showCompactResults ? (
+              <CompactResults
+                variations={variations}
+                multipleExposures={snapshot.multipleExposures || 0}
+                results={analysis.results[0]}
+                queryStatusData={queryStatusData}
+                reportDate={snapshot.dateCreated}
+                startDate={getValidDate(phaseObj.dateStarted).toISOString()}
+                isLatestPhase={phase === phases.length - 1}
+                status={"stopped"}
+                goalMetrics={report.experimentAnalysisSettings.goalMetrics}
+                secondaryMetrics={
+                  report.experimentAnalysisSettings.secondaryMetrics
+                }
+                guardrailMetrics={
+                  report.experimentAnalysisSettings.guardrailMetrics
+                }
+                metricOverrides={
+                  report.experimentAnalysisSettings.metricOverrides ?? []
+                }
+                id={report.id}
+                statsEngine={analysis.settings.statsEngine}
+                pValueCorrection={pValueCorrection} // todo: bake this into snapshot or report
+                regressionAdjustmentEnabled={
+                  report.experimentAnalysisSettings.regressionAdjustmentEnabled
+                }
+                settingsForSnapshotMetrics={settingsForSnapshotMetrics}
+                sequentialTestingEnabled={analysis.settings?.sequentialTesting}
+                differenceType={
+                  report?.experimentAnalysisSettings?.differenceType ||
+                  "relative"
+                }
+                isTabActive={true}
+                experimentType={report.experimentMetadata.type}
+                ssrPolyfills={ssrPolyfills}
+                hideDetails={!showDetails}
+              />
+            ) : null}
+          </>
+        )}
       </div>
-
-      {snapshotError ? (
-        <div className="m-3">
-          <Callout status="error">
-            Report error
-            {showDetails && <>: {snapshotError?.message ?? "Unknown error"}</>}
-            {canEdit && (
-              <div className="mt-2 text-muted">
-                Try refreshing this report, or click &quot;View Queries&quot;
-                from the report menu to debug.
-              </div>
-            )}
-          </Callout>
-        </div>
-      ) : snapshot && !analysis ? (
-        <div className="m-3">
-          <Callout status="error">
-            Missing analysis
-            {canEdit && (
-              <div className="mt-2 text-muted">
-                Try refreshing this report to resolve.
-              </div>
-            )}
-          </Callout>
-        </div>
-      ) : !snapshot ? (
-        <div className="d-flex justify-content-center my-4">
-          <LoadingSpinner />
-        </div>
-      ) : (
-        <>
-          {showDateResults ? (
-            <DateResults
-              goalMetrics={report.experimentAnalysisSettings.goalMetrics}
-              secondaryMetrics={
-                report.experimentAnalysisSettings.secondaryMetrics
-              }
-              guardrailMetrics={
-                report.experimentAnalysisSettings.guardrailMetrics
-              }
-              results={analysis?.results ?? []}
-              seriestype={snapshot.dimension ?? ""}
-              variations={variations}
-              statsEngine={
-                analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE
-              }
-              differenceType={
-                report?.experimentAnalysisSettings?.differenceType || "relative"
-              }
-              ssrPolyfills={ssrPolyfills}
-            />
-          ) : showBreakDownResults ? (
-            <BreakDownResults
-              key={snapshot.dimension}
-              results={analysis?.results ?? []}
-              queryStatusData={queryStatusData}
-              variations={variations}
-              // variationFilter={variationFilter}
-              // baselineRow={baselineRow}
-              goalMetrics={report.experimentAnalysisSettings.goalMetrics}
-              secondaryMetrics={
-                report.experimentAnalysisSettings.secondaryMetrics
-              }
-              guardrailMetrics={
-                report.experimentAnalysisSettings.guardrailMetrics
-              }
-              activationMetric={
-                report.experimentAnalysisSettings.activationMetric
-              }
-              metricOverrides={
-                report.experimentAnalysisSettings.metricOverrides ?? []
-              }
-              dimensionId={snapshot.dimension ?? ""}
-              startDate={getValidDate(phaseObj.dateStarted).toISOString()}
-              isLatestPhase={phase === phases.length - 1}
-              reportDate={snapshot.dateCreated}
-              status={"stopped"}
-              statsEngine={analysis.settings.statsEngine}
-              pValueCorrection={pValueCorrection}
-              regressionAdjustmentEnabled={
-                analysis?.settings?.regressionAdjusted
-              }
-              settingsForSnapshotMetrics={settingsForSnapshotMetrics}
-              sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
-              differenceType={
-                report?.experimentAnalysisSettings?.differenceType || "relative"
-              }
-              // metricFilter={metricFilter}
-              // setMetricFilter={setMetricFilter}
-              ssrPolyfills={ssrPolyfills}
-              hideDetails={!showDetails}
-            />
-          ) : showCompactResults ? (
-            <CompactResults
-              variations={variations}
-              multipleExposures={snapshot.multipleExposures || 0}
-              results={analysis.results[0]}
-              queryStatusData={queryStatusData}
-              reportDate={snapshot.dateCreated}
-              startDate={getValidDate(phaseObj.dateStarted).toISOString()}
-              isLatestPhase={phase === phases.length - 1}
-              status={"stopped"}
-              goalMetrics={report.experimentAnalysisSettings.goalMetrics}
-              secondaryMetrics={
-                report.experimentAnalysisSettings.secondaryMetrics
-              }
-              guardrailMetrics={
-                report.experimentAnalysisSettings.guardrailMetrics
-              }
-              metricOverrides={
-                report.experimentAnalysisSettings.metricOverrides ?? []
-              }
-              id={report.id}
-              statsEngine={analysis.settings.statsEngine}
-              pValueCorrection={pValueCorrection} // todo: bake this into snapshot or report
-              regressionAdjustmentEnabled={
-                report.experimentAnalysisSettings.regressionAdjustmentEnabled
-              }
-              settingsForSnapshotMetrics={settingsForSnapshotMetrics}
-              sequentialTestingEnabled={analysis.settings?.sequentialTesting}
-              differenceType={
-                report?.experimentAnalysisSettings?.differenceType || "relative"
-              }
-              isTabActive={true}
-              experimentType={report.experimentMetadata.type}
-              ssrPolyfills={ssrPolyfills}
-              hideDetails={!showDetails}
-            />
-          ) : null}
-        </>
-      )}
-    </div>
+    </>
   );
 }

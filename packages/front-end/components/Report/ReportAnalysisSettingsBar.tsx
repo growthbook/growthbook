@@ -73,14 +73,61 @@ export default function ReportAnalysisSettingsBar({
 
   return (
     <>
-      <div className="py-2 border-bottom d-flex">
-        <div
-          className="row align-items-center px-3"
-          style={{ gap: "0.5rem 1rem" }}
+      <div className="d-flex justify-content-between">
+        <div className="h4 my-0">Analysis</div>
+        <DropdownMenu
+          trigger={
+            <Button variant="ghost" size="sm">
+              <PiEye className="mr-1" />
+              View details
+            </Button>
+          }
+          menuPlacement="center"
         >
-          <div className="col-auto d-flex align-items-center mr-3">
-            <div className="h4 my-0">Analysis</div>
+          <div style={{ minWidth: 250 }} className="p-2">
+            <h5>Results computed with:</h5>
+            <Metadata
+              label="Engine"
+              value={
+                report?.experimentAnalysisSettings?.statsEngine ===
+                "frequentist"
+                  ? "Frequentist"
+                  : "Bayesian"
+              }
+            />
+            <Metadata
+              label="CUPED"
+              value={
+                report?.experimentAnalysisSettings?.regressionAdjustmentEnabled
+                  ? "Enabled"
+                  : "Disabled"
+              }
+            />
+            <Metadata
+              label="Sequential"
+              value={
+                report?.experimentAnalysisSettings?.sequentialTestingEnabled
+                  ? "Enabled"
+                  : "Disabled"
+              }
+            />
+            <div className="text-right mt-3">
+              <Metadata
+                label="Run date"
+                value={getValidDate(snapshot.runStarted).toLocaleString([], {
+                  year: "numeric",
+                  month: "numeric",
+                  day: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}
+              />
+            </div>
           </div>
+        </DropdownMenu>
+      </div>
+      <div className="py-1 d-flex mb-3">
+        <div className="row align-items-center" style={{ gap: "0.5rem 1rem" }}>
           <div className="col-auto d-flex align-items-end">
             <DimensionChooser
               value={snapshot.dimension ?? ""}
@@ -118,65 +165,9 @@ export default function ReportAnalysisSettingsBar({
               </div>
             </div>
           </div>
-          <div className="col-auto d-flex px-0">
-            <DropdownMenu
-              trigger={
-                <Button variant="ghost" size="sm">
-                  <PiEye className="mr-1" />
-                  More...
-                </Button>
-              }
-              menuPlacement="center"
-            >
-              <div style={{ minWidth: 250 }} className="p-2">
-                <h5>Results computed with:</h5>
-                <Metadata
-                  label="Engine"
-                  value={
-                    report?.experimentAnalysisSettings?.statsEngine ===
-                    "frequentist"
-                      ? "Frequentist"
-                      : "Bayesian"
-                  }
-                />
-                <Metadata
-                  label="CUPED"
-                  value={
-                    report?.experimentAnalysisSettings
-                      ?.regressionAdjustmentEnabled
-                      ? "Enabled"
-                      : "Disabled"
-                  }
-                />
-                <Metadata
-                  label="Sequential"
-                  value={
-                    report?.experimentAnalysisSettings?.sequentialTestingEnabled
-                      ? "Enabled"
-                      : "Disabled"
-                  }
-                />
-                <div className="text-right mt-3">
-                  <Metadata
-                    label="Run date"
-                    value={getValidDate(snapshot.runStarted).toLocaleString(
-                      [],
-                      {
-                        year: "numeric",
-                        month: "numeric",
-                        day: "numeric",
-                        hour: "numeric",
-                        minute: "2-digit",
-                      }
-                    )}
-                  />
-                </div>
-              </div>
-            </DropdownMenu>
-          </div>
         </div>
-        <div className="row flex-grow-1 flex-shrink-0 pt-1 px-3 justify-content-end">
-          <div className="col-auto">
+        <div className="row flex-grow-1 flex-shrink-0 pt-1 px-2 justify-content-end">
+          <div className="col-auto px-0">
             {hasData && snapshot.runStarted ? (
               <div
                 className="text-muted text-right"
@@ -195,7 +186,7 @@ export default function ReportAnalysisSettingsBar({
             )}
           </div>
           {canUpdateReport && mutateReport && mutateSnapshot ? (
-            <div className="col-auto">
+            <div className="col-auto pr-0">
               <RunQueriesButton
                 ref={runQueriesButtonRef}
                 icon="refresh"
@@ -227,11 +218,12 @@ export default function ReportAnalysisSettingsBar({
             </div>
           ) : null}
           {canUpdateReport && setEditAnalysisOpen ? (
-            <div className="col-auto d-flex">
+            <div className="col-auto d-flex pr-0">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
+                ml="2"
                 onClick={() => setEditAnalysisOpen(true)}
               >
                 Edit Analysis
@@ -242,12 +234,12 @@ export default function ReportAnalysisSettingsBar({
       </div>
 
       {refreshError && (
-        <Callout status="error" size="sm" my="2" mx="4">
+        <Callout status="error" size="sm" mb="4">
           <strong>Error refreshing data:</strong> {refreshError}
         </Callout>
       )}
       {!hasMetrics && (
-        <Callout status="info" size="sm" my="2" mx="4">
+        <Callout status="info" size="sm" mb="4">
           Add at least 1 metric to view results.
         </Callout>
       )}

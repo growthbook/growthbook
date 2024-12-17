@@ -192,6 +192,7 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
                 ref={ref}
                 variant="soft"
                 size="sm"
+                ml="2"
                 disabled={status === "running" || disabled}
                 type="button"
                 onClick={async () => {
