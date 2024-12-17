@@ -662,8 +662,8 @@ export default function ExperimentHeader({
                       disabled={isWatching}
                     >
                       <Flex align="center" justify="between" className="w-100">
-                        Watch
-                        {isWatching ? <PiCheck /> : null}
+                        <span className="pr-5">Watch</span>
+                        <span>{isWatching ? <PiCheck /> : null}</span>
                       </Flex>
                     </DropdownMenuItem>
                     <DropdownMenuItem
@@ -671,7 +671,7 @@ export default function ExperimentHeader({
                       disabled={!isWatching}
                     >
                       <Flex align="center" justify="between" className="w-100">
-                        Stop Watching
+                        <span className="pr-5">Stop Watching</span>
                         {!isWatching ? <PiCheck /> : null}
                       </Flex>
                     </DropdownMenuItem>
@@ -694,9 +694,10 @@ export default function ExperimentHeader({
                       <DropdownMenuGroup>
                         <DropdownMenuItem
                           onClick={() => setShowBanditModal(true)}
+                          className="pl-2"
                         >
                           <span className="pr-4">
-                            {!isBandit ? <GBBandit /> : null}
+                            {!isBandit ? <GBBandit className="mr-1" /> : null}
                             Convert to {isBandit ? "Experiment" : "Bandit"}
                           </span>
                         </DropdownMenuItem>
