@@ -234,14 +234,17 @@ export default function ReportMetaInfo({
 
   return (
     <>
-      <div className="mt-1 mb-3">
+      <div className="mb-3">
         <div className="d-flex">
           <div className="flex-1">
-            <div className="d-flex align-items-end mb-3">
-              <h1 className="mb-0">{report.title}</h1>
+            <h1 className="mt-1 mb-3 mr-2">
+              {report.title}
               {showEditControls && (
                 <>
-                  <div className="d-inline-block ml-3 mb-1">
+                  <div
+                    className="d-inline-block ml-2 position-relative"
+                    style={{ top: -2 }}
+                  >
                     {report.shareLevel === "private" ? (
                       <Badge
                         variant="soft"
@@ -262,7 +265,7 @@ export default function ReportMetaInfo({
                   </div>
                 </>
               )}
-            </div>
+            </h1>
 
             <Flex gap="3" mt="2" mb="1">
               {showEditControls && (
@@ -276,6 +279,7 @@ export default function ReportMetaInfo({
                       <Text
                         weight="regular"
                         className={metaDataStyles.valueColor}
+                        ml="1"
                       >
                         {ownerName === "" ? "None" : ownerName}
                       </Text>

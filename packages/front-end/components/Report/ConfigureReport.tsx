@@ -125,20 +125,6 @@ export default function ConfigureReport({
       bodyClassName="px-0 pt-0"
       error={saveError}
     >
-      <form
-        onSubmit={async (e) => {
-          e.preventDefault();
-          if (loading) return;
-          setSaveError("");
-          setLoading(true);
-          try {
-            await submit();
-          } catch (e) {
-            setSaveError(e.message);
-          }
-          setLoading(false);
-        }}
-      >
         <Tabs value={tab} onValueChange={(v) => setTab(v as TabOptions)}>
           <div
             className="position-sticky bg-white pt-1"
@@ -713,7 +699,6 @@ export default function ConfigureReport({
             </TabsContent>
           </div>
         </Tabs>
-      </form>
     </Modal>
   );
 }

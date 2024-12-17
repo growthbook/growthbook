@@ -13,6 +13,7 @@ import Callout from "@/components/Radix/Callout";
 import Button from "@/components/Radix/Button";
 import { DropdownMenu } from "@/components/Radix/DropdownMenu";
 import Metadata from "@/components/Radix/Metadata";
+import Link from "@/components/Radix/Link";
 
 export default function ReportAnalysisSettingsBar({
   report,
@@ -74,13 +75,13 @@ export default function ReportAnalysisSettingsBar({
   return (
     <>
       <div className="mb-1 d-flex align-items-center justify-content-between">
-        <div className="h3 my-0">Analysis</div>
+        <div className="h3 mb-1">Analysis</div>
         <DropdownMenu
           trigger={
-            <Button variant="ghost" size="sm">
+            <Link>
               <PiEye className="mr-1" />
               View details
-            </Button>
+            </Link>
           }
           menuPlacement="center"
         >
@@ -126,7 +127,7 @@ export default function ReportAnalysisSettingsBar({
           </div>
         </DropdownMenu>
       </div>
-      <div className="py-1 d-flex mb-3">
+      <div className="py-1 d-flex mb-2">
         <div className="row align-items-center" style={{ gap: "0.5rem 1rem" }}>
           <div className="col-auto d-flex align-items-end">
             <DimensionChooser
