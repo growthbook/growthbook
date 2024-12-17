@@ -63,7 +63,7 @@ export default function ReportMetaInfo({
 }) {
   const HOST = globalThis?.window?.location?.origin;
   const shareableLink = report.tinyid
-    ? `${HOST}/r/${report.tinyid}`
+    ? `${HOST}/public/r/${report.tinyid}`
     : `${HOST}/report/${report.id}`;
 
   const { apiCall } = useAuth();
