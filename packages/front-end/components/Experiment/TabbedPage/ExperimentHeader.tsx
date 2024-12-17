@@ -65,6 +65,7 @@ export interface Props {
   setWatchersModal: (open: boolean) => void;
   editResult?: () => void;
   safeToEdit: boolean;
+  mutateWatchers: () => void;
   usersWatching: (string | undefined)[];
   checklistItemsRemaining: number | null;
   newPhase?: (() => void) | null;
@@ -114,6 +115,7 @@ export default function ExperimentHeader({
   setWatchersModal,
   safeToEdit,
   usersWatching,
+  mutateWatchers,
   editResult,
   checklistItemsRemaining,
   editTargeting,
@@ -225,6 +227,7 @@ export default function ExperimentHeader({
         }
       );
       refreshWatching();
+      mutateWatchers();
     } catch (e) {
       console.error(e);
     }
