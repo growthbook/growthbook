@@ -655,7 +655,7 @@ export default function ExperimentHeader({
                         align="center"
                         className={isWatching ? "font-weight-bold" : ""}
                       >
-                        <PiEye style={{ marginRight: "12px" }} size={20} />
+                        <PiEye style={{ marginRight: "5px" }} size={18} />
                         <span className="pr-5">
                           {isWatching ? "Watching" : "Not Watching"}
                         </span>
@@ -685,10 +685,19 @@ export default function ExperimentHeader({
                     onClick={() => setWatchersModal(true)}
                     disabled={!usersWatching.length}
                   >
-                    <IconButton color="purple" radius="full" size="1">
+                    <IconButton
+                      style={{
+                        backgroundColor:
+                          usersWatching.length > 0
+                            ? "var(--violet-9)"
+                            : "var(--slate-9)",
+                      }}
+                      radius="full"
+                      size="1"
+                    >
                       {usersWatching.length || 0}
                     </IconButton>
-                    View watchers
+                    {usersWatching.length > 0 ? "View Watchers" : "No Watchers"}
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
@@ -703,7 +712,7 @@ export default function ExperimentHeader({
                         >
                           <span>
                             {!isBandit ? <GBBandit /> : null}
-                            <span style={{ paddingLeft: "9px" }}>
+                            <span style={{ paddingLeft: "1px" }}>
                               Convert to {isBandit ? "Experiment" : "Bandit"}
                             </span>
                           </span>
