@@ -2,9 +2,9 @@
 
 ## DataDog RUM with Feature Flag Data
 
-Integrating DataDog&aps;s Real User Monitoring (RUM) with GrowthBook&aps;s feature flag data lets you quickly identify which experience your users were exposed to and if the changes introduced affect the user experience.
+Integrating DataDog's Real User Monitoring (RUM) with GrowthBook's feature flag data lets you quickly identify which experience your users were exposed to and if the changes introduced affect the user experience.
 
-This guide will cover the initial setup and an advanced example of how to leverage DataDog and GrowthBook&aps;s powerful APIs to create a dynamic system that automatically toggles GrowthBook feature flags based on error thresholds.
+This guide will cover the initial setup and an advanced example of how to leverage DataDog and GrowthBook's powerful APIs to create a dynamic system that automatically toggles GrowthBook feature flags based on error thresholds.
 
 ### Setup
 
@@ -24,19 +24,19 @@ trackingCallback: (experiment, result) => {
 
 ### Advanced example
 
-Now that you&apos;re passing Feature Flag data to DataDog, you can build monitors and alerts when the error rate between Feature Flags variations cross a specific threshold within a pre-defined time period.
+Now that you're passing Feature Flag data to DataDog, you can build monitors and alerts when the error rate between Feature Flags variations cross a specific threshold within a pre-defined time period.
 
 #### 1. Create a DataDog monitor
 
 The beta Feature Flag Tracking feature allows you to see error rates between the various feature flag states.
 
-![Screenshot showing error rates between feature flag variations in DataDog's RUM interface](../../static/images/integrations/datadog/1-view-feature-flags-error-rates-in-data-dog.png)
+![Screenshot showing error rates between feature flag variations in DataDog RUM interface](../../static/images/integrations/datadog/1-view-feature-flags-error-rates-in-data-dog.png)
 
 You can then save the Error rate view to a Dashboard.
 
 ![Screenshot adding feature flags errors per view to a DataDog dashboard](../../static/images/integrations/datadog/2-add-feature-flags-to-dashboard-data-dog.png)
 
-And from the Dashboard, there is a handy “Create Monitor” option that can seed much of the monitor&apos;s search query for you.
+And from the Dashboard, there is a handy “Create Monitor” option that can seed much of the monitor's search query for you.
 
 ![Screenshot showing the "Create Monitor" option in a DataDog dashboard](../../static/images/integrations/datadog/3-create-data-dog-monitor-from-dashboard.png)
 
@@ -46,9 +46,9 @@ This is the out-of-the-box search query created from the Create Monitor link abo
 
 #### 2. Create a DataDog webhook
 
-Once you&apos;ve defined a monitor&apos;s search query, you can then build an alert that uses DataDog&apos;s Webhooks to make a request to the GrowthBook API.
+Once you've defined a monitor's search query, you can then build an alert that uses DataDog's Webhooks to make a request to the GrowthBook API.
 
-Before you can call a [Webhook](https://docs.datadoghq.com/integrations/webhooks/) via a monitor alert, you&apos;ll need to build the Webhook within DataDog.
+Before you can call a [Webhook](https://docs.datadoghq.com/integrations/webhooks/) via a monitor alert, you'll need to build the Webhook within DataDog.
 
 You can do that via the Integrations tab.
 
@@ -62,4 +62,4 @@ Remember to update the Webhook URL with your feature flag ID [as described here]
 
 #### 3. Update the monitor to trigger the webhook
 
-Now that you&apos;ve built the Webhook, you can go back to the monitor alert and instead of emailing a team member, you can configure the alert to call the Webhook.
+Now that you've built the Webhook, you can go back to the monitor alert and instead of emailing a team member, you can configure the alert to call the Webhook.
