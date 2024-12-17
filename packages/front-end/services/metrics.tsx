@@ -28,9 +28,9 @@ import {
   OrganizationSettings,
 } from "back-end/types/organization";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import cloneDeep from "lodash/cloneDeep";
 import { decimalToPercent } from "@/services/utils";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
-import cloneDeep from "lodash/cloneDeep";
 
 export function getInitialInlineFilters(
   factTable: FactTableInterface,
@@ -62,7 +62,6 @@ export function getDefaultFactMetricProps({
   existing?: Partial<FactMetricInterface>;
   initialFactTable?: FactTableInterface;
 }): CreateFactMetricProps {
-
   const defaultWindowSettings: MetricWindowSettings = {
     type: DEFAULT_FACT_METRIC_WINDOW,
     windowUnit: "days",
@@ -101,7 +100,9 @@ export function getDefaultFactMetricProps({
       value: 0,
     },
     quantileSettings: existing?.quantileSettings || null,
-    windowSettings: !!existing?.windowSettings ? cloneDeep<MetricWindowSettings>(existing.windowSettings) : defaultWindowSettings,
+    windowSettings: existing?.windowSettings
+      ? cloneDeep<MetricWindowSettings>(existing.windowSettings)
+      : defaultWindowSettings,
     winRisk: existing?.winRisk ?? DEFAULT_WIN_RISK_THRESHOLD,
     loseRisk: existing?.loseRisk ?? DEFAULT_LOSE_RISK_THRESHOLD,
     minPercentChange:
@@ -136,8 +137,12 @@ export function getDefaultFactMetricProps({
   };
 
   // add back in delay to make UI more intuitive
-  if (defaultProps.metricType === "retention" && defaultProps.windowSettings.type === "conversion") {
-    defaultProps.windowSettings.windowValue += defaultProps.windowSettings.delayValue;
+  if (
+    defaultProps.metricType === "retention" &&
+    defaultProps.windowSettings.type === "conversion"
+  ) {
+    defaultProps.windowSettings.windowValue +=
+      defaultProps.windowSettings.delayValue;
   }
 
   return defaultProps;

@@ -600,26 +600,31 @@ export default function FactMetricPage() {
             <div className="appbox p-3 mb-3">
               {isRetentionMetric(factMetric) ? (
                 <>
-                <em className="font-weight-bold">Retention Window</em>{" - "}{
-                  factMetric.windowSettings.type !== "conversion" ? (
-                    <>Require events to happen{" "}
-                    <strong>
-                      {factMetric.windowSettings.delayValue}{" "}
-                      {factMetric.windowSettings.delayUnit}
-                    </strong>{" "}
-                    after first experiment exposure.
-                  </>) :
-                  (<>Require events to happen between{" "}
-                    <strong>
-                      {factMetric.windowSettings.delayValue}</strong>{" and "}<strong>
-                      {factMetric.windowSettings.delayValue + factMetric.windowSettings.windowValue}{" "}
-                      {factMetric.windowSettings.delayUnit}
-                    </strong>{" "}
-                    after first experiment exposure.
-                  </>
-                  )
-                }
-              </>
+                  <em className="font-weight-bold">Retention Window</em>
+                  {" - "}
+                  {factMetric.windowSettings.type !== "conversion" ? (
+                    <>
+                      Require events to happen{" "}
+                      <strong>
+                        {factMetric.windowSettings.delayValue}{" "}
+                        {factMetric.windowSettings.delayUnit}
+                      </strong>{" "}
+                      after first experiment exposure.
+                    </>
+                  ) : (
+                    <>
+                      Require events to happen between{" "}
+                      <strong>{factMetric.windowSettings.delayValue}</strong>
+                      {" and "}
+                      <strong>
+                        {factMetric.windowSettings.delayValue +
+                          factMetric.windowSettings.windowValue}{" "}
+                        {factMetric.windowSettings.delayUnit}
+                      </strong>{" "}
+                      after first experiment exposure.
+                    </>
+                  )}
+                </>
               ) : factMetric.windowSettings.type === "conversion" ? (
                 <>
                   <em className="font-weight-bold">Conversion Window</em> -
@@ -664,7 +669,8 @@ export default function FactMetricPage() {
               open={() => setEditOpen(true)}
               canOpen={canEdit}
             >
-              {factMetric.windowSettings.delayValue && !isRetentionMetric(factMetric) ? (
+              {factMetric.windowSettings.delayValue &&
+              !isRetentionMetric(factMetric) ? (
                 <RightRailSectionGroup type="custom" empty="" className="mt-3">
                   <ul className="right-rail-subsection list-unstyled mb-4">
                     <li className="mt-3 mb-1">
