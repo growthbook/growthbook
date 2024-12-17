@@ -38,7 +38,6 @@ export default function ExperimentReportsList({
   const { reports } = data;
   const isAdmin = permissionsUtil.canSuperDeleteReport();
 
-  // todo: filter based on permissions / published status
   const filteredReports = reports
     .map((report) => {
       const isOwner = userId === report?.userId || !report?.userId;
@@ -119,7 +118,7 @@ export default function ExperimentReportsList({
                 </td>
                 <td>{name}</td>
                 <td style={{ width: 50 }}>
-                  {report.showDelete ? (
+                  {filteredReport.showDelete ? (
                     <DeleteButton
                       displayName="Custom Report"
                       link={true}
