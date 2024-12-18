@@ -1,5 +1,8 @@
 import cloneDeep from "lodash/cloneDeep";
-import { getConversionWindowHours } from "shared/experiments";
+import {
+  getConversionWindowHours,
+  getDelayWindowHours,
+} from "shared/experiments";
 import { ReqContext } from "back-end/types/organization";
 import {
   DataSourceInterface,
@@ -133,9 +136,8 @@ export default class Mixpanel implements SourceIntegrationInterface {
     });
 
     const hasEarlyStartMetrics =
-      metrics.filter(
-        (m) => m.windowSettings.delayHours && m.windowSettings.delayHours < 0
-      ).length > 0;
+      metrics.filter((m) => getDelayWindowHours(m.windowSettings) < 0).length >
+      0;
 
     const onActivate = `
         ${activationMetric ? "state.activated = true;" : ""}
@@ -145,14 +147,11 @@ export default class Mixpanel implements SourceIntegrationInterface {
             ? ` // Process queued values
         state.queuedEvents.forEach((event) => {
           ${metrics
-            .filter(
-              (m) =>
-                m.windowSettings.delayHours && m.windowSettings.delayHours < 0
-            )
+            .filter((m) => getDelayWindowHours(m.windowSettings) < 0)
             .map(
               (metric, i) => `// Metric - ${metric.name}
           if(isMetric${i}(event) && event.time - state.start > ${
-                (metric.windowSettings.delayHours || 0) * 60 * 60 * 1000
+                getDelayWindowHours(metric.windowSettings) * 60 * 60 * 1000
               }) {
             state.m${i}.push(${this.getMetricValueExpression(metric.column)});
           }`
@@ -683,7 +682,7 @@ function is${name}(event) {
   ) {
     const windowHours = getConversionWindowHours(metric.windowSettings);
     const checks: string[] = [];
-    const start = (metric.windowSettings.delayHours || 0) * 60 * 60 * 1000;
+    const start = getDelayWindowHours(metric.windowSettings) * 60 * 60 * 1000;
     // add conversion delay
     if (start) {
       checks.push(`event.time - ${conversionWindowStart} >= ${start}`);

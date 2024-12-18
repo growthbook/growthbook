@@ -33,6 +33,8 @@ requestBody:
             type: array
             items:
               type: string
+          parent:
+            type: string
 responses:
   "200":
     content:

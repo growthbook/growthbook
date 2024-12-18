@@ -2025,13 +2025,26 @@ paths:
                             - conversion
                             - lookback
                         delayHours:
+                          deprecated: true
                           type: number
-                          description: Wait this many hours after experiment exposure before counting conversions
+                          description: Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+                        delayValue:
+                          type: number
+                          description: Wait this long after experiment exposure before counting conversions.
+                        delayUnit:
+                          type: string
+                          description: Default `hours`.
+                          enum:
+                            - minutes
+                            - hours
+                            - days
+                            - weeks
                         windowValue:
                           type: number
                         windowUnit:
                           type: string
                           enum:
+                            - minutes
                             - hours
                             - days
                             - weeks
@@ -2322,13 +2335,26 @@ paths:
                             - conversion
                             - lookback
                         delayHours:
+                          deprecated: true
                           type: number
-                          description: Wait this many hours after experiment exposure before counting conversions
+                          description: Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+                        delayValue:
+                          type: number
+                          description: Wait this long after experiment exposure before counting conversions.
+                        delayUnit:
+                          type: string
+                          description: Default `hours`.
+                          enum:
+                            - minutes
+                            - hours
+                            - days
+                            - weeks
                         windowValue:
                           type: number
                         windowUnit:
                           type: string
                           enum:
+                            - minutes
                             - hours
                             - days
                             - weeks
@@ -3306,6 +3332,8 @@ paths:
                   type: array
                   items:
                     type: string
+                parent:
+                  type: string
       responses:
         '200':
           content:
@@ -3366,16 +3394,6 @@ paths:
       summary: Deletes a single environment
       parameters:
         - $ref: '#/components/parameters/id'
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                removeAssociatedFeatureRules:
-                  type: boolean
-                  description: Whether to also remove rules from features for the environment to be deleted
       tags:
         - environments
       operationId: deleteEnvironment
@@ -3862,6 +3880,7 @@ paths:
                   type: string
                   enum:
                     - proportion
+                    - retention
                     - mean
                     - quantile
                     - ratio
@@ -3968,13 +3987,27 @@ paths:
                         - conversion
                         - lookback
                     delayHours:
+                      deprecated: true
                       type: number
-                      description: Wait this many hours after experiment exposure before counting conversions
+                      description: Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+                    delayValue:
+                      type: number
+                      description: Wait this long after experiment exposure before counting conversions.
+                    delayUnit:
+                      type: string
+                      description: Default `hours`.
+                      enum:
+                        - minutes
+                        - hours
+                        - days
+                        - weeks
                     windowValue:
                       type: number
                     windowUnit:
                       type: string
+                      description: Default `hours`.
                       enum:
+                        - minutes
                         - hours
                         - days
                         - weeks
@@ -4114,6 +4147,7 @@ paths:
                   type: string
                   enum:
                     - proportion
+                    - retention
                     - mean
                     - quantile
                     - ratio
@@ -4220,13 +4254,27 @@ paths:
                         - conversion
                         - lookback
                     delayHours:
+                      deprecated: true
                       type: number
-                      description: Wait this many hours after experiment exposure before counting conversions
+                      description: Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+                    delayValue:
+                      type: number
+                      description: Wait this long after experiment exposure before counting conversions.
+                    delayUnit:
+                      type: string
+                      description: Default `hours`.
+                      enum:
+                        - minutes
+                        - hours
+                        - days
+                        - weeks
                     windowValue:
                       type: number
                     windowUnit:
                       type: string
+                      description: Default `hours`.
                       enum:
+                        - minutes
                         - hours
                         - days
                         - weeks
@@ -4737,14 +4785,22 @@ components:
                     - none
                     - conversion
                     - lookback
-                delayHours:
+                delayValue:
                   type: number
-                  description: Wait this many hours after experiment exposure before counting conversions
+                  description: Wait this long after experiment exposure before counting conversions
+                delayUnit:
+                  type: string
+                  enum:
+                    - minutes
+                    - hours
+                    - days
+                    - weeks
                 windowValue:
                   type: number
                 windowUnit:
                   type: string
                   enum:
+                    - minutes
                     - hours
                     - days
                     - weeks
@@ -4920,6 +4976,8 @@ components:
           type: array
           items:
             type: string
+        parent:
+          type: string
     Attribute:
       type: object
       required:
@@ -6242,6 +6300,7 @@ components:
           type: string
           enum:
             - proportion
+            - retention
             - mean
             - quantile
             - ratio
@@ -6339,14 +6398,22 @@ components:
                 - none
                 - conversion
                 - lookback
-            delayHours:
+            delayValue:
               type: number
-              description: Wait this many hours after experiment exposure before counting conversions
+              description: Wait this long after experiment exposure before counting conversions.
+            delayUnit:
+              type: string
+              enum:
+                - minutes
+                - hours
+                - days
+                - weeks
             windowValue:
               type: number
             windowUnit:
               type: string
               enum:
+                - minutes
                 - hours
                 - days
                 - weeks

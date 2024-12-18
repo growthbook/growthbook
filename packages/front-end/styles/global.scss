@@ -114,16 +114,6 @@ pre {
   }
 }
 
-#feature-page-tabs,
-#experiment-page-tabs {
-  font-size: 1.2em;
-  .active-tab {
-    color: var(--text-color-primary);
-    background: var(--background-color);
-    border-bottom-color: var(--background-color);
-  }
-}
-
 .power-analysis-params {
   background-color: var(--background-primary-light);
 }
@@ -579,8 +569,10 @@ pre {
     }
   }
   .experiment-tabs {
+    background-color: var(--background-color);
+    // NB: Keep top property in sync with TABS_HEADER_HEIGHT_PX in ExperimentHeader.tsx
     top: 55px;
-    height: 44px;
+    height: 40px;
     margin: 0 -8px -3px;
     transition: 150ms all;
     .header-tabs {
@@ -603,6 +595,11 @@ pre {
         }
       }
       .experiment-date-range {
+        position: absolute;
+        right: 0;
+        height: 100%;
+        display: flex;
+        align-items: center;
         text-align: right;
         font-size: 12px;
         @media (max-width: 750px) {
@@ -620,7 +617,7 @@ pre {
     &.pinned {
       position: sticky;
       z-index: 830;
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+      box-shadow: var(--shadow-3);
       .header-tabs .tab-wrapper {
         overflow: hidden;
       }

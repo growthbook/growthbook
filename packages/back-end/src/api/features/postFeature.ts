@@ -174,11 +174,12 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
       req.context,
       feature.id
     );
-    const revision = await getRevision(
-      feature.organization,
-      feature.id,
-      feature.version
-    );
+    const revision = await getRevision({
+      context: req.context,
+      organization: feature.organization,
+      featureId: feature.id,
+      version: feature.version,
+    });
 
     return {
       feature: getApiFeatureObj({

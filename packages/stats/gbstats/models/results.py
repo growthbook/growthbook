@@ -46,11 +46,46 @@ class BaselineResponse:
 
 
 @dataclass
+class PowerResponse:
+    target_power: Optional[float]
+    new_daily_users: Optional[float]
+    effect_size: Optional[float]
+    end_of_experiment_power: Optional[float]
+    power_additional_users: Optional[float]
+    power_additional_days: Optional[float]
+    power_update_message: Optional[str]
+    power_error: Optional[str]
+
+
+@dataclass
+class LowPowerTableRow:
+    newDailyUsers: float
+    metric: str
+    variation: str
+    effectSize: float
+    power: float
+    additionalDaysNeeded: float
+
+
+@dataclass
+class PowerResult:
+    powerUpdateMessage: str
+    powerError: str
+    daysRemaining: Optional[float]
+    minPower: Optional[float]
+    warning: Optional[bool]
+    lowPowerMetrics: Optional[List[str]]
+    lowPowerTableRows: Optional[List[LowPowerTableRow]]
+    # lowPowerTableRows = Optional[List]
+
+
+@dataclass
 class BaseVariationResponse(BaselineResponse):
     expected: float
     uplift: Uplift
     ci: Tuple[float, float]
     errorMessage: Optional[str]
+    powerResponse: Optional[PowerResponse]
 
 
 @dataclass
@@ -94,6 +129,7 @@ class ExperimentMetricAnalysis:
 class MultipleExperimentMetricAnalysis:
     id: str
     results: List[ExperimentMetricAnalysis]
+    powerResult: Optional[PowerResult]
     banditResult: Optional[BanditResult]
     error: Optional[str]
     traceback: Optional[str]
