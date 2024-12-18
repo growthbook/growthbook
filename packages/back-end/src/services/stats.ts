@@ -67,8 +67,6 @@ export interface AnalysisSettingsForStatsEngine {
   alpha: number;
   max_dimensions: number;
   traffic_percentage: number;
-  // new input
-  // Org level settings for now, maybe we'll make this per experiment/metric later?
   min_duration_days: number;
   max_duration_days: number;
 }
@@ -94,7 +92,7 @@ export interface MetricSettingsForStatsEngine {
   // new input
   // for a given experiment, we can add the same metric to multiple business types
   // so we can have a single metric that is a goal, guardrail and secondary
-  business_metric_type: Array<"guardrail" | "goal" | "secondary">;
+  // business_metric_type: Array<"guardrail" | "goal" | "secondary">;
   statistic_type:
     | "mean"
     | "ratio"
@@ -186,7 +184,11 @@ export function getAnalysisSettingsForStatsEngine(
         ? 9999
         : MAX_DIMENSIONS,
     traffic_percentage: coverage,
+    // TODO: should these be optional or nah? Related to definition in experiment-snapshot.d.ts
+    min_duration_days: settings.experimentMinLengthDays ?? 7,
+    max_duration_days: settings.experimentMaxLengthDays ?? 42,
   };
+
   return analysisData;
 }
 
