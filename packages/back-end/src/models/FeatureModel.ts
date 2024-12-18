@@ -21,13 +21,17 @@ import {
 import { upgradeFeatureInterface } from "back-end/src/util/migrations";
 import { ReqContext } from "back-end/types/organization";
 import {
+  applyEnvironmentInheritance,
   getAffectedSDKPayloadKeys,
   getSDKPayloadKeysByDiff,
 } from "back-end/src/util/features";
 import { EventUser } from "back-end/src/events/event-types";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { logger } from "back-end/src/util/logger";
-import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import {
+  getContextForAgendaJobByOrgId,
+  getEnvironmentIdsFromOrg,
+} from "back-end/src/services/organizations";
 import { ApiReqContext } from "back-end/types/api";
 import { simpleSchemaValidator } from "back-end/src/validators/features";
 import { getChangedApiFeatureEnvironments } from "back-end/src/events/handlers/utils";
@@ -150,8 +154,17 @@ export const FeatureModel = mongoose.model<LegacyFeatureInterface>(
  * Convert the Mongo document to an FeatureInterface, omitting Mongo default fields __v, _id
  * @param doc
  */
-const toInterface = (doc: FeatureDocument): FeatureInterface =>
-  omit(doc.toJSON<FeatureDocument>(), ["__v", "_id"]);
+const toInterface = (
+  doc: FeatureDocument,
+  context: ReqContext | ApiReqContext
+): FeatureInterface => {
+  const featureInterface = omit(doc.toJSON<FeatureDocument>(), ["__v", "_id"]);
+  featureInterface.environmentSettings = applyEnvironmentInheritance(
+    context.org.settings?.environments || [],
+    featureInterface.environmentSettings
+  );
+  return featureInterface;
+};
 
 export async function getAllFeatures(
   context: ReqContext | ApiReqContext,
@@ -169,7 +182,7 @@ export async function getAllFeatures(
   }
 
   const features = (await FeatureModel.find(q)).map((m) =>
-    upgradeFeatureInterface(toInterface(m))
+    upgradeFeatureInterface(toInterface(m, context))
   );
 
   return features.filter((feature) =>
@@ -228,7 +241,9 @@ export async function getAllFeaturesWithLinkedExperiments(
   const experiments = await getExperimentsByIds(context, [...expIds]);
 
   return {
-    features: features.map((m) => upgradeFeatureInterface(toInterface(m))),
+    features: features.map((m) =>
+      upgradeFeatureInterface(toInterface(m, context))
+    ),
     experiments,
   };
 }
@@ -244,15 +259,18 @@ export async function getFeature(
   if (!feature) return null;
 
   return context.permissions.canReadSingleProjectResource(feature.project)
-    ? upgradeFeatureInterface(toInterface(feature))
+    ? upgradeFeatureInterface(toInterface(feature, context))
     : null;
 }
 
-export async function migrateDraft(feature: FeatureInterface) {
+export async function migrateDraft(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface
+) {
   if (!feature.legacyDraft || feature.legacyDraftMigrated) return null;
 
   try {
-    const draft = await createRevisionFromLegacyDraft(feature);
+    const draft = await createRevisionFromLegacyDraft(context, feature);
     await FeatureModel.updateOne(
       {
         organization: feature.organization,
@@ -278,7 +296,7 @@ export async function getFeaturesByIds(
 ): Promise<FeatureInterface[]> {
   const features = (
     await FeatureModel.find({ organization: context.org.id, id: { $in: ids } })
-  ).map((m) => upgradeFeatureInterface(toInterface(m)));
+  ).map((m) => upgradeFeatureInterface(toInterface(m, context)));
 
   return features.filter((feature) =>
     context.permissions.canReadSingleProjectResource(feature.project)
@@ -305,7 +323,8 @@ export async function createFeature(
   await deleteAllRevisionsForFeature(org.id, feature.id);
 
   await createInitialRevision(
-    toInterface(feature),
+    context,
+    toInterface(feature, context),
     context.auditUser,
     getEnvironmentIdsFromOrg(org)
   );
@@ -382,11 +401,12 @@ export const createFeatureEvent = async <
       eventData.data.object.id
     );
 
-    const currentRevision = await getRevision(
-      eventData.data.object.organization,
-      eventData.data.object.id,
-      eventData.data.object.version
-    );
+    const currentRevision = await getRevision({
+      context: eventData.context,
+      organization: eventData.data.object.organization,
+      featureId: eventData.data.object.id,
+      version: eventData.data.object.version,
+    });
 
     const currentApiFeature = getApiFeatureObj({
       feature: eventData.data.object,
@@ -409,11 +429,12 @@ export const createFeatureEvent = async <
         containsSecrets: false,
       } as CreateEventParams<"feature", Event>;
 
-    const previousRevision = await getRevision(
-      eventData.data.previous_object.organization,
-      eventData.data.previous_object.id,
-      eventData.data.previous_object.version
-    );
+    const previousRevision = await getRevision({
+      context: eventData.context,
+      organization: eventData.data.previous_object.organization,
+      featureId: eventData.data.previous_object.id,
+      version: eventData.data.previous_object.version,
+    });
 
     const previousApiFeature = getApiFeatureObj({
       feature: eventData.data.previous_object,
@@ -630,7 +651,16 @@ export async function getScheduledFeaturesToUpdate() {
       $lt: new Date(),
     },
   });
-  return features.map((m) => upgradeFeatureInterface(toInterface(m)));
+  const orgIds = Array.from(new Set(features.map((f) => f.organization)));
+  const jobContextsByOrg: Record<string, ApiReqContext> = {};
+  await Promise.all(
+    orgIds.map(async (orgId) => {
+      jobContextsByOrg[orgId] = await getContextForAgendaJobByOrgId(orgId);
+    })
+  );
+  return features.map((m) =>
+    upgradeFeatureInterface(toInterface(m, jobContextsByOrg[m.organization]))
+  );
 }
 
 export async function archiveFeature(
@@ -775,7 +805,7 @@ export async function removeTagInFeature(
   const query = { organization: context.org.id, tags: tag };
 
   const featureDocs = await FeatureModel.find(query);
-  const features = (featureDocs || []).map(toInterface);
+  const features = (featureDocs || []).map((m) => toInterface(m, context));
 
   await FeatureModel.updateMany(query, {
     $pull: { tags: tag },
@@ -800,7 +830,7 @@ export async function removeProjectFromFeatures(
   const query = { organization: context.org.id, project };
 
   const featureDocs = await FeatureModel.find(query);
-  const features = (featureDocs || []).map(toInterface);
+  const features = (featureDocs || []).map((m) => toInterface(m, context));
 
   await FeatureModel.updateMany(query, { $set: { project: "" } });
 
