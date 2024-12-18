@@ -294,6 +294,7 @@ export async function getFeaturesByIds(
   context: ReqContext | ApiReqContext,
   ids: string[]
 ): Promise<FeatureInterface[]> {
+  if (!ids.length) return [];
   const features = (
     await FeatureModel.find({ organization: context.org.id, id: { $in: ids } })
   ).map((m) => upgradeFeatureInterface(toInterface(m, context)));
