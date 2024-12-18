@@ -119,7 +119,7 @@ export default function ReportResults({
       />
       <div className="bg-white border pt-3 mb-5">
         {snapshotError ? (
-          <div className="m-3">
+          <div className="mx-3 mb-3">
             <Callout status="error">
               Report error
               {showDetails && (
@@ -134,7 +134,7 @@ export default function ReportResults({
             </Callout>
           </div>
         ) : snapshot && !analysis ? (
-          <div className="m-3">
+          <div className="mx-3 mb-3">
             <Callout status="error">
               Missing analysis
               {canEdit && (

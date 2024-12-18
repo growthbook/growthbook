@@ -20,6 +20,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import {
   createExperimentSnapshotModel,
+  findLatestRunningSnapshotByReportId,
   findSnapshotById,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getMetricMap, getMetricsByIds } from "back-end/src/models/MetricModel";
@@ -650,9 +651,18 @@ export async function cancelReport(
   }
 
   if (report.type === "experiment-snapshot") {
-    const snapshot =
-      (await findSnapshotById(report.organization, report.snapshot)) ||
-      undefined;
+    const snapshot = report.snapshot
+      ? (await findLatestRunningSnapshotByReportId(
+          report.organization,
+          report.id
+        )) || undefined
+      : undefined;
+    if (!snapshot) {
+      return res.status(400).json({
+        status: 400,
+        message: "No running query found",
+      });
+    }
 
     const datasourceId = snapshot?.settings?.datasourceId;
     if (!datasourceId) {

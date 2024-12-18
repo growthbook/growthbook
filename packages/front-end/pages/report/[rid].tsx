@@ -133,7 +133,15 @@ export default function ReportPage() {
       <ReportResults
         report={report}
         snapshot={snapshot}
-        snapshotError={snapshotError}
+        snapshotError={
+          snapshotError
+          ? snapshotError
+          : snapshot?.error
+          ? new Error(snapshot.error)
+          : snapshot?.status === "error"
+          ? new Error("Report analysis failed")
+          : undefined
+        }
         mutateReport={mutate}
         mutateSnapshot={mutateSnapshot}
         canEdit={canEdit}

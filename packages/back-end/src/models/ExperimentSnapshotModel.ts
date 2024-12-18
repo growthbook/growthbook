@@ -314,6 +314,26 @@ export async function findRunningSnapshotsByQueryId(ids: string[]) {
   return docs.map((doc) => toInterface(doc));
 }
 
+export async function findLatestRunningSnapshotByReportId(
+  organization: string,
+  report: string
+) {
+  // Only look for match in the past 24 hours to make the query more efficient
+  // Older snapshots should not still be running anyway
+  const earliestDate = new Date();
+  earliestDate.setDate(earliestDate.getDate() - 1);
+
+  const doc = await ExperimentSnapshotModel.findOne({
+    organization,
+    report,
+    status: "running",
+    dateCreated: { $gt: earliestDate },
+    queries: { $elemMatch: { status: "running" } },
+  });
+
+  return doc ? toInterface(doc) : null;
+}
+
 export async function getLatestSnapshot({
   experiment,
   phase,

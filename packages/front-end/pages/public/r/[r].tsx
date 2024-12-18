@@ -118,7 +118,13 @@ export default function ReportPage(props: ReportPageProps) {
             report={report}
             snapshot={snapshot ?? undefined}
             snapshotError={
-              !snapshot ? new Error("Missing snapshot") : undefined
+              !snapshot
+                ? new Error("Missing snapshot")
+                : snapshot.error
+                ? new Error(snapshot.error)
+                : snapshot?.status === "error"
+                ? new Error("Report analysis failed")
+                : undefined
             }
             showDetails={isOrgMember}
             ssrPolyfills={ssrPolyfills}
