@@ -1,7 +1,4 @@
-import {
-  ExperimentInterfaceStringDates,
-  LinkedFeatureInfo,
-} from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { getScopedSettings } from "shared/settings";
 import React, { useMemo, useState } from "react";
 import {
@@ -44,7 +41,7 @@ export interface Props {
   editPhases?: (() => void) | null;
   visualChangesets: VisualChangesetInterface[];
   editTargeting?: (() => void) | null;
-  linkedFeatures: LinkedFeatureInfo[];
+  envs: string[];
   setTab: (tab: ExperimentTab) => void;
   connections: SDKConnectionInterface[];
   isTabActive: boolean;
@@ -61,6 +58,7 @@ export interface Props {
 
 export default function ResultsTab({
   experiment,
+  envs,
   mutate,
   editMetrics,
   editResult,
@@ -207,6 +205,7 @@ export default function ResultsTab({
           <AnalysisForm
             cancel={() => setAnalysisSettingsOpen(false)}
             experiment={experiment}
+            envs={envs}
             mutate={mutate}
             phase={experiment.phases.length - 1}
             editDates={false}
@@ -218,6 +217,7 @@ export default function ResultsTab({
         <div className="mb-2" style={{ overflowX: "initial" }}>
           <AnalysisSettingsSummary
             experiment={experiment}
+            envs={envs}
             mutate={mutate}
             statsEngine={statsEngine}
             editMetrics={editMetrics ?? undefined}
@@ -287,6 +287,7 @@ export default function ResultsTab({
               ) : (
                 <Results
                   experiment={experiment}
+                  envs={envs}
                   mutateExperiment={mutate}
                   editMetrics={editMetrics ?? undefined}
                   editResult={editResult ?? undefined}
