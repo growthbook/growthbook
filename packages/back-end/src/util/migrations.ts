@@ -11,8 +11,8 @@ import { omit } from "lodash";
 import { SavedGroupInterface } from "shared/src/types";
 import {
   ExperimentReportArgs,
+  ExperimentReportInterface,
   LegacyReportInterface,
-  ReportInterface,
 } from "back-end/types/report";
 import { WebhookInterface } from "back-end/types/webhook";
 import { SdkWebHookLogDocument } from "back-end/src/models/SdkWebhookLogModel";
@@ -620,7 +620,9 @@ export function upgradeExperimentDoc(
   return experiment as ExperimentInterface;
 }
 
-export function migrateReport(orig: LegacyReportInterface): ReportInterface {
+export function migrateExperimentReport(
+  orig: LegacyReportInterface
+): ExperimentReportInterface {
   const { args, ...report } = orig;
 
   const {

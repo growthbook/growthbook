@@ -2,7 +2,7 @@ import { Box, Flex, Slider } from "@radix-ui/themes";
 import React, { useEffect, useState } from "react";
 import { FaDownload, FaExternalLinkAlt } from "react-icons/fa";
 import { BsArrowRepeat } from "react-icons/bs";
-import { PiHourglassMedium, PiInfoFill } from "react-icons/pi";
+import { PiCaretDownFill, PiHourglassMedium, PiInfoFill } from "react-icons/pi";
 import HelperText from "@/components/Radix/HelperText";
 import Checkbox from "@/components/Radix/Checkbox";
 import RadioGroup from "@/components/Radix/RadioGroup";
@@ -34,6 +34,7 @@ import {
   TabsContent,
 } from "@/components/Radix/Tabs";
 import DatePicker from "@/components/DatePicker";
+import SplitButton from "@/components/Radix/SplitButton";
 
 export default function DesignSystemPage() {
   const [checked, setChecked] = useState<"indeterminate" | boolean>(false);
@@ -52,7 +53,7 @@ export default function DesignSystemPage() {
   const [activeControlledTab, setActiveControlledTab] = useState("tab1");
 
   return (
-    <div className="pagecontents container-fluid">
+    <div className="pagecontents container-fluid pt-4 pb-3">
       <h1>GrowthBook Design System</h1>
       <p>
         This page is a work in progress to document the GrowthBook design
@@ -174,6 +175,7 @@ export default function DesignSystemPage() {
             )}
           </div>
         </Flex>
+
         <b>LinkButton</b>
         <Flex direction="row" gap="3" className="my-3">
           <LinkButton size={size} variant="ghost" href="https://growthbook.io">
@@ -188,6 +190,29 @@ export default function DesignSystemPage() {
           >
             A disabled link
           </LinkButton>
+        </Flex>
+
+        <b>SplitButton</b>
+        <Flex direction="row" gap="3" className="my-3">
+          <SplitButton
+            menu={
+              <DropdownMenu
+                trigger={
+                  <Button size={size}>
+                    <PiCaretDownFill />
+                  </Button>
+                }
+                menuPlacement="end"
+              >
+                <DropdownMenuItem>Create New Experiment</DropdownMenuItem>
+                <DropdownMenuItem>Import Existing Experiment</DropdownMenuItem>
+              </DropdownMenu>
+            }
+          >
+            <Button size={size} icon={<FaDownload />}>
+              Download
+            </Button>
+          </SplitButton>
         </Flex>
       </div>
 

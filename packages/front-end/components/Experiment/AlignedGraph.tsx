@@ -11,6 +11,7 @@ import { ExperimentMetricInterface } from "shared/experiments";
 import { getExperimentMetricFormatter } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCurrency } from "@/hooks/useCurrency";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 
 interface Props
   extends DetailedHTMLProps<HTMLAttributes<SVGPathElement>, SVGPathElement> {
@@ -38,6 +39,7 @@ interface Props
   onMouseMove?: (e: React.MouseEvent<SVGPathElement>) => void;
   onMouseLeave?: (e: React.MouseEvent<SVGPathElement>) => void;
   onClick?: (e: React.MouseEvent<SVGPathElement, MouseEvent>) => void;
+  ssrPolyfills?: SSRPolyfills;
 }
 
 const smallPercentFormatter = new Intl.NumberFormat(undefined, {
@@ -75,10 +77,16 @@ const AlignedGraph: FC<Props> = ({
   onMouseMove,
   onMouseLeave,
   onClick,
+  ssrPolyfills,
 }) => {
   id = id.replaceAll("%20", "_").replace(/[\W]+/g, "_");
-  const metricDisplayCurrency = useCurrency();
-  const { getFactTableById } = useDefinitions();
+  const _metricDisplayCurrency = useCurrency();
+  const { getFactTableById: _getFactTableById } = useDefinitions();
+
+  const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
+  const metricDisplayCurrency =
+    ssrPolyfills?.useCurrency() || _metricDisplayCurrency;
+
   const metricFormatterOptions = { currency: metricDisplayCurrency };
 
   const axisColor = "var(--text-link-hover-color)";

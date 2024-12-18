@@ -1,42 +1,81 @@
-import { Response } from "express";
+import { Request, Response } from "express";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { getSnapshotAnalysis } from "shared/util";
-import { ReportInterface } from "back-end/types/report";
+import { pick, omit } from "lodash";
+import uniqid from "uniqid";
+import uniq from "lodash/uniq";
+import { expandMetricGroups } from "shared/experiments";
+import {
+  ExperimentReportAnalysisSettings,
+  ExperimentReportInterface,
+  ExperimentSnapshotReportArgs,
+  ExperimentSnapshotReportInterface,
+  ReportInterface,
+  SSRExperimentReportData,
+} from "back-end/types/report";
 import {
   getExperimentById,
   getExperimentsByIds,
 } from "back-end/src/models/ExperimentModel";
-import { findSnapshotById } from "back-end/src/models/ExperimentSnapshotModel";
-import { getMetricMap } from "back-end/src/models/MetricModel";
+import {
+  createExperimentSnapshotModel,
+  findLatestRunningSnapshotByReportId,
+  findSnapshotById,
+} from "back-end/src/models/ExperimentSnapshotModel";
+import { getMetricMap, getMetricsByIds } from "back-end/src/models/MetricModel";
 import {
   createReport,
   deleteReportById,
   getReportById,
+  getReportByUid,
   getReportsByExperimentId,
   getReportsByOrg,
   updateReport,
 } from "back-end/src/models/ReportModel";
-import { ReportQueryRunner } from "back-end/src/queryRunners/ReportQueryRunner";
+import { ExperimentReportQueryRunner } from "back-end/src/queryRunners/ExperimentReportQueryRunner";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { generateReportNotebook } from "back-end/src/services/notebook";
-import { getContextFromReq } from "back-end/src/services/organizations";
-import { reportArgsFromSnapshot } from "back-end/src/services/reports";
+import {
+  getContextForAgendaJobByOrgId,
+  getContextFromReq,
+} from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { getFactTableMap } from "back-end/src/models/FactTableModel";
+import {
+  getFactTableMap,
+  getFactTablesByIds,
+} from "back-end/src/models/FactTableModel";
+import { experimentAnalysisSettings } from "back-end/src/validators/experiments";
+import { FactMetricInterface } from "back-end/types/fact-table";
+import { MetricInterface } from "back-end/types/metric";
+import { OrganizationSettings } from "back-end/types/organization";
+import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
+import { createReportSnapshot } from "back-end/src/services/reports";
+import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 
 export async function postReportFromSnapshot(
-  req: AuthRequest<null, { snapshot: string }>,
+  req: AuthRequest<ExperimentSnapshotReportArgs, { snapshot: string }>,
   res: Response
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
 
-  const snapshot = await findSnapshotById(org.id, req.params.snapshot);
+  const reportArgs = req.body || {};
 
+  const snapshot = await findSnapshotById(org.id, req.params.snapshot);
   if (!snapshot) {
     throw new Error("Invalid snapshot id");
   }
+  // Prepare a new report-specific snapshot
+  snapshot.id = uniqid("snp_");
+  snapshot.type = "report";
+  snapshot.triggeredBy = "manual";
+  if (snapshot?.health?.traffic && !snapshot?.health?.traffic?.dimension) {
+    // fix a weird corruption in the model where formerly-empty Mongoose Map comes back missing:
+    snapshot.health.traffic.dimension = {};
+  }
+
+  // todo: hash dependencies so we can see if settings/inputs are stale
 
   const experiment = await getExperimentById(context, snapshot.experiment);
 
@@ -48,7 +87,7 @@ export async function postReportFromSnapshot(
     context.permissions.throwPermissionError();
   }
 
-  const phase = experiment.phases[snapshot.phase];
+  const phase = experiment.phases?.[snapshot.phase];
   if (!phase) {
     throw new Error("Unknown experiment phase");
   }
@@ -58,24 +97,52 @@ export async function postReportFromSnapshot(
     throw new Error("Missing analysis settings");
   }
 
+  const phaseIndex = snapshot.phase ?? (experiment.phases?.length || 1) - 1;
+  const _experimentAnalysisSettings: ExperimentReportAnalysisSettings = {
+    ...pick(experiment, Object.keys(experimentAnalysisSettings.shape)),
+    trackingKey: experiment.trackingKey || experiment.id,
+    ...pick(reportArgs, [
+      "userIdType",
+      "differenceType",
+      "dimension",
+      "dateStarted",
+      "dateEnded",
+    ]),
+  } as ExperimentReportAnalysisSettings;
+  if (!_experimentAnalysisSettings.dateStarted) {
+    _experimentAnalysisSettings.dateStarted =
+      experiment.phases?.[phaseIndex]?.dateStarted ?? new Date();
+  }
+
   const doc = await createReport(org.id, {
     experimentId: experiment.id,
     userId: req.userId,
     title: `New Report - ${experiment.name}`,
     description: ``,
-    type: "experiment",
-    args: reportArgsFromSnapshot(experiment, snapshot, analysis.settings),
-    results: analysis.results
-      ? {
-          dimensions: analysis.results,
-          unknownVariations: snapshot.unknownVariations || [],
-          multipleExposures: snapshot.multipleExposures || 0,
-        }
-      : undefined,
-    queries: snapshot.queries,
-    runStarted: snapshot.runStarted,
-    error: snapshot.error,
+    type: "experiment-snapshot",
+    snapshot: snapshot.id,
+    experimentMetadata: {
+      type: experiment.type || "standard",
+      phases: experiment.phases.map((phase) =>
+        pick(phase, [
+          "dateStarted",
+          "dateEnded",
+          "name",
+          "variationWeights",
+          "banditEvents",
+          "coverage",
+        ])
+      ),
+      variations: experiment.variations.map((variation) =>
+        omit(variation, ["description", "screenshots"])
+      ),
+    },
+    experimentAnalysisSettings: _experimentAnalysisSettings,
   });
+
+  // Save the snapshot
+  snapshot.report = doc.id;
+  await createExperimentSnapshotModel({ data: snapshot, context });
 
   await req.audit({
     event: "experiment.analysis",
@@ -166,6 +233,145 @@ export async function getReport(
   });
 }
 
+export async function getReportPublic(
+  req: Request<{ uid: string }>,
+  res: Response
+) {
+  const { uid } = req.params;
+  const report = await getReportByUid(uid);
+  if (!report || report.type !== "experiment-snapshot") {
+    return res.status(404).json({
+      status: 404,
+      message: "Report not found",
+    });
+  }
+  if (report.shareLevel !== "public") {
+    return res.status(401).json({
+      message: "Unauthorized",
+    });
+  }
+  const context = await getContextForAgendaJobByOrgId(report.organization);
+
+  const snapshot =
+    report.type === "experiment-snapshot"
+      ? (await findSnapshotById(report.organization, report.snapshot)) ||
+        undefined
+      : undefined;
+
+  const _experiment = report.experimentId
+    ? (await getExperimentById(context, report.experimentId || "")) || undefined
+    : undefined;
+  const experiment = pick(_experiment, ["id", "name", "type"]);
+
+  const metricGroups = await context.models.metricGroups.getAll();
+  const experimentMetricIds = expandMetricGroups(
+    uniq([
+      ...(snapshot?.settings?.goalMetrics ?? []),
+      ...(snapshot?.settings?.secondaryMetrics ?? []),
+      ...(snapshot?.settings?.guardrailMetrics ?? []),
+    ]),
+    metricGroups
+  );
+
+  const metricIds = uniq([
+    ...experimentMetricIds,
+    ...(snapshot?.settings?.activationMetric
+      ? [snapshot?.settings?.activationMetric]
+      : []),
+  ]);
+
+  const metrics: MetricInterface[] = await getMetricsByIds(
+    context,
+    metricIds.filter((m) => m.startsWith("met_"))
+  );
+  const factMetrics: FactMetricInterface[] = await context.models.factMetrics.getByIds(
+    metricIds.filter((m) => m.startsWith("fact__"))
+  );
+
+  const denominatorMetricIds = uniq(
+    metrics
+      .filter((m) => !!m.denominator)
+      .map((m) => m.denominator)
+      .filter((id) => id && !metricIds.includes(id)) as string[]
+  );
+  const denominatorMetrics = await getMetricsByIds(
+    context,
+    denominatorMetricIds
+  );
+
+  const metricMap = [...metrics, ...factMetrics, ...denominatorMetrics].reduce(
+    (map, metric) =>
+      Object.assign(map, {
+        [metric.id]: omit(metric, [
+          "queries",
+          "runStarted",
+          "analysis",
+          "analysisError",
+          "table",
+          "column",
+          "timestampColumn",
+          "conditions",
+          "queryFormat",
+        ]),
+      }),
+    {}
+  );
+
+  let factTableIds: string[] = [];
+  factMetrics.forEach((m) => {
+    if (m?.numerator?.factTableId) factTableIds.push(m.numerator.factTableId);
+    if (m?.denominator?.factTableId)
+      factTableIds.push(m.denominator.factTableId);
+  });
+  factTableIds = uniq(factTableIds);
+  const factTables = await getFactTablesByIds(context, factTableIds);
+  const factTableMap = factTables.reduce(
+    (map, factTable) => Object.assign(map, { [factTable.id]: factTable }),
+    {}
+  );
+
+  const allDimensions = await findDimensionsByOrganization(report.organization);
+  const dimension = allDimensions.find((d) => d.id === snapshot?.dimension);
+  const dimensions = dimension ? [dimension] : [];
+
+  const settingsKeys = [
+    "confidenceLevel",
+    "metricDefaults",
+    "multipleExposureMinPercent",
+    "statsEngine",
+    "pValueThreshold",
+    "pValueCorrection",
+    "regressionAdjustmentEnabled",
+    "regressionAdjustmentDays",
+    "srmThreshold",
+    "attributionModel",
+    "sequentialTestingEnabled",
+    "sequentialTestingTuningParameter",
+    "displayCurrency",
+  ];
+  const orgSettings: OrganizationSettings = pick(
+    context.org.settings,
+    settingsKeys
+  );
+  // todo: consider including experiment's project settings in future? likely not...
+
+  const ssrData: SSRExperimentReportData = {
+    metrics: metricMap,
+    metricGroups: metricGroups,
+    factTables: factTableMap,
+    settings: orgSettings,
+    dimensions,
+  };
+
+  res.status(200).json({
+    status: 200,
+    report,
+    snapshot,
+    experiment,
+    ssrData,
+  });
+}
+
 export async function deleteReport(
   req: AuthRequest<null, { id: string }>,
   res: Response
@@ -208,43 +414,66 @@ export async function refreshReport(
   const context = getContextFromReq(req);
   const { org } = context;
   const report = await getReportById(org.id, req.params.id);
-
-  if (!report) {
-    throw new Error("Unknown report id");
-  }
-
-  const useCache = !req.query["force"];
-
-  const statsEngine = report.args?.statsEngine || DEFAULT_STATS_ENGINE;
-
-  report.args.statsEngine = statsEngine;
-  report.args.regressionAdjustmentEnabled = !!report.args
-    ?.regressionAdjustmentEnabled;
+  if (!report) throw new Error("Unknown report id");
 
   const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
+  const useCache = !req.query["force"];
 
-  const integration = await getIntegrationFromDatasourceId(
-    context,
-    report.args.datasource,
-    true
-  );
-  const queryRunner = new ReportQueryRunner(
-    context,
-    report,
-    integration,
-    useCache
-  );
+  if (report.type === "experiment-snapshot") {
+    const snapshot =
+      (await findSnapshotById(report.organization, report.snapshot)) ||
+      undefined;
 
-  const updatedReport = await queryRunner.startAnalysis({
-    metricMap,
-    factTableMap,
-  });
+    try {
+      const newSnapshot = await createReportSnapshot({
+        report,
+        previousSnapshot: snapshot,
+        context,
+        metricMap,
+        factTableMap,
+      });
 
-  return res.status(200).json({
-    status: 200,
-    updatedReport,
-  });
+      return res.status(200).json({
+        status: 200,
+        snapshot: newSnapshot,
+      });
+    } catch (e) {
+      req.log.error(e, "Failed to create report snapshot");
+      return res.status(400).json({
+        status: 400,
+        message: e.message,
+      });
+    }
+  } else if (report.type === "experiment") {
+    report.args.statsEngine = report.args?.statsEngine || DEFAULT_STATS_ENGINE;
+    report.args.regressionAdjustmentEnabled = !!report.args
+      ?.regressionAdjustmentEnabled;
+
+    const integration = await getIntegrationFromDatasourceId(
+      context,
+      report.args.datasource,
+      true
+    );
+    const queryRunner = new ExperimentReportQueryRunner(
+      context,
+      report,
+      integration,
+      useCache
+    );
+
+    const updatedReport = await queryRunner.startAnalysis({
+      metricMap,
+      factTableMap,
+    });
+
+    return res.status(200).json({
+      status: 200,
+      updatedReport,
+    });
+  }
+
+  throw new Error("Invalid report type");
 }
 
 export async function putReport(
@@ -255,81 +484,158 @@ export async function putReport(
   const { org } = context;
 
   const report = await getReportById(org.id, req.params.id);
-
   if (!report) {
     throw new Error("Unknown report id");
   }
+  if (report.type === "experiment-snapshot") {
+    const data = req.body as ExperimentSnapshotReportInterface;
+    if (!data) {
+      throw new Error("Malformed data");
+    }
+    const updates: Partial<ExperimentSnapshotReportInterface> = {
+      ...pick(data, [
+        "title",
+        "description",
+        "shareLevel",
+        "editLevel",
+        "status",
+        "snapshot",
+      ]),
+    };
+    if (data?.experimentMetadata?.phases) {
+      updates.experimentMetadata = {
+        ...report.experimentMetadata,
+        phases: report.experimentMetadata.phases.map((phase, i) => {
+          if (i === report.experimentMetadata.phases.length - 1) {
+            return {
+              ...phase,
+              ...pick(data.experimentMetadata.phases?.[i] || {}, [
+                "variationWeights",
+                "coverage",
+              ]),
+            };
+          }
+          return phase;
+        }),
+      };
+    }
+    if (data?.experimentMetadata?.variations) {
+      updates.experimentMetadata = updates.experimentMetadata ?? {
+        ...report.experimentMetadata,
+      };
+      updates.experimentMetadata = {
+        ...updates.experimentMetadata,
+        variations: data?.experimentMetadata?.variations,
+      };
+    }
+    if (data?.experimentAnalysisSettings) {
+      updates.experimentAnalysisSettings = {
+        ...report.experimentAnalysisSettings,
+        ...pick(data.experimentAnalysisSettings, [
+          ...Object.keys(experimentAnalysisSettings.shape),
+          "userIdType",
+          "differenceType",
+          "dimension",
+          "dateStarted",
+          "dateEnded",
+        ]),
+      };
+      updates.experimentAnalysisSettings.dateStarted = getValidDate(
+        updates.experimentAnalysisSettings.dateStarted
+      );
+      if (updates.experimentAnalysisSettings.dateEnded) {
+        updates.experimentAnalysisSettings.dateEnded = getValidDate(
+          updates.experimentAnalysisSettings.dateEnded
+        );
+      }
+    }
 
-  const experiment = await getExperimentById(
-    context,
-    report.experimentId || ""
-  );
+    updates.dateUpdated = new Date();
 
-  // Reports don't have projects, but the experiment does, so check the experiment's project for permission if it exists
-  if (!context.permissions.canUpdateReport(experiment || {})) {
-    context.permissions.throwPermissionError();
-  }
-
-  const updates: Partial<ReportInterface> = {};
-  let needsRun = false;
-  if ("args" in req.body) {
-    updates.args = {
-      ...report.args,
-      ...req.body.args,
+    await updateReport(org.id, req.params.id, updates);
+    const updatedReport: ExperimentSnapshotReportInterface = {
+      ...report,
+      ...updates,
     };
 
-    const statsEngine = updates.args?.statsEngine || DEFAULT_STATS_ENGINE;
-
-    updates.args.startDate = getValidDate(updates.args.startDate);
-    if (!updates.args.endDate) {
-      delete updates.args.endDate;
-    } else {
-      updates.args.endDate = getValidDate(updates.args.endDate || new Date());
-    }
-    updates.args.statsEngine = statsEngine;
-    updates.args.regressionAdjustmentEnabled = !!updates.args
-      ?.regressionAdjustmentEnabled;
-    updates.args.settingsForSnapshotMetrics =
-      updates.args?.settingsForSnapshotMetrics || [];
-
-    needsRun = true;
-  }
-  if ("title" in req.body) updates.title = req.body.title;
-  if ("description" in req.body) updates.description = req.body.description;
-  if ("status" in req.body) updates.status = req.body.status;
-
-  await updateReport(org.id, req.params.id, updates);
-
-  const updatedReport: ReportInterface = {
-    ...report,
-    ...updates,
-  };
-  if (needsRun) {
-    const metricMap = await getMetricMap(context);
-    const factTableMap = await getFactTableMap(context);
-
-    const integration = await getIntegrationFromDatasourceId(
-      context,
-      updatedReport.args.datasource,
-      true
-    );
-
-    const queryRunner = new ReportQueryRunner(
-      context,
+    return res.status(200).json({
+      status: 200,
       updatedReport,
-      integration
+    });
+  } else if (report.type === "experiment") {
+    const experiment = await getExperimentById(
+      context,
+      report.experimentId || ""
     );
 
-    await queryRunner.startAnalysis({
-      metricMap,
-      factTableMap,
+    // Reports don't have projects, but the experiment does, so check the experiment's project for permission if it exists
+    if (!context.permissions.canUpdateReport(experiment || {})) {
+      context.permissions.throwPermissionError();
+    }
+
+    const updates: Partial<ExperimentReportInterface> = {};
+    let needsRun = false;
+    if ("args" in req.body) {
+      updates.args = {
+        ...report.args,
+        ...req.body.args,
+      };
+
+      const statsEngine = updates.args?.statsEngine || DEFAULT_STATS_ENGINE;
+
+      updates.args.startDate = getValidDate(updates.args.startDate);
+      if (!updates.args.endDate) {
+        delete updates.args.endDate;
+      } else {
+        updates.args.endDate = getValidDate(updates.args.endDate || new Date());
+      }
+      updates.args.statsEngine = statsEngine;
+      updates.args.regressionAdjustmentEnabled = !!updates.args
+        ?.regressionAdjustmentEnabled;
+      updates.args.settingsForSnapshotMetrics =
+        updates.args?.settingsForSnapshotMetrics || [];
+
+      needsRun = true;
+    }
+    if ("title" in req.body) updates.title = req.body.title;
+    if ("description" in req.body) updates.description = req.body.description;
+    if ("status" in req.body) updates.status = req.body.status;
+
+    await updateReport(org.id, req.params.id, updates);
+
+    const updatedReport: ExperimentReportInterface = {
+      ...report,
+      ...updates,
+    };
+    if (needsRun) {
+      const metricMap = await getMetricMap(context);
+      const factTableMap = await getFactTableMap(context);
+
+      const integration = await getIntegrationFromDatasourceId(
+        context,
+        updatedReport.args.datasource,
+        true
+      );
+
+      const queryRunner = new ExperimentReportQueryRunner(
+        context,
+        updatedReport,
+        integration
+      );
+
+      await queryRunner.startAnalysis({
+        metricMap,
+        factTableMap,
+      });
+    }
+
+    return res.status(200).json({
+      status: 200,
+      updatedReport,
     });
   }
 
-  return res.status(200).json({
-    status: 200,
-    updatedReport,
-  });
+  throw new Error("Invalid report type");
 }
 
 export async function cancelReport(
@@ -344,15 +650,60 @@ export async function cancelReport(
     throw new Error("Could not cancel query");
   }
 
-  const integration = await getIntegrationFromDatasourceId(
-    context,
-    report.args.datasource
-  );
+  if (report.type === "experiment-snapshot") {
+    const snapshot = report.snapshot
+      ? (await findLatestRunningSnapshotByReportId(
+          report.organization,
+          report.id
+        )) || undefined
+      : undefined;
+    if (!snapshot) {
+      return res.status(400).json({
+        status: 400,
+        message: "No running query found",
+      });
+    }
 
-  const queryRunner = new ReportQueryRunner(context, report, integration);
-  await queryRunner.cancelQueries();
+    const datasourceId = snapshot?.settings?.datasourceId;
+    if (!datasourceId) {
+      res.status(403).json({
+        status: 403,
+        message: "Invalid datasource: " + datasourceId,
+      });
+      return;
+    }
 
-  res.status(200).json({ status: 200 });
+    const integration = await getIntegrationFromDatasourceId(
+      context,
+      datasourceId,
+      true
+    );
+
+    const queryRunner = new ExperimentResultsQueryRunner(
+      context,
+      snapshot,
+      integration
+    );
+    await queryRunner.cancelQueries();
+
+    return res.status(200).json({ status: 200 });
+  } else if (report.type === "experiment") {
+    const integration = await getIntegrationFromDatasourceId(
+      context,
+      report.args.datasource
+    );
+
+    const queryRunner = new ExperimentReportQueryRunner(
+      context,
+      report,
+      integration
+    );
+    await queryRunner.cancelQueries();
+
+    return res.status(200).json({ status: 200 });
+  }
+
+  throw new Error("Invalid report type");
 }
 
 export async function postNotebook(

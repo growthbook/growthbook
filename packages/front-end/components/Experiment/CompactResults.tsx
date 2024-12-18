@@ -1,4 +1,4 @@
-import React, { FC, useMemo } from "react";
+import { FC, useMemo } from "react";
 import { MdSwapCalls } from "react-icons/md";
 import {
   ExperimentReportResultDimension,
@@ -42,6 +42,8 @@ import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
 import MetricName, { PercentileLabel } from "@/components/Metrics/MetricName";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import ConditionalWrapper from "@/components/ConditionalWrapper";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
@@ -81,6 +83,8 @@ const CompactResults: FC<{
   noStickyHeader?: boolean;
   noTooltip?: boolean;
   experimentType?: ExperimentType;
+  ssrPolyfills?: SSRPolyfills;
+  hideDetails?: boolean;
 }> = ({
   editMetrics,
   variations,
@@ -112,9 +116,14 @@ const CompactResults: FC<{
   noStickyHeader,
   noTooltip,
   experimentType,
+  ssrPolyfills,
+  hideDetails,
 }) => {
   const { getExperimentMetricById, metricGroups, ready } = useDefinitions();
-  const pValueThreshold = usePValueThreshold();
+
+  const _pValueThreshold = usePValueThreshold();
+  const pValueThreshold =
+    ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
 
   const [totalUsers, variationUsers] = useMemo(() => {
     let totalUsers = 0;
@@ -132,24 +141,35 @@ const CompactResults: FC<{
     expandedSecondaries,
     expandedGuardrails,
   } = useMemo(() => {
-    const expandedGoals = expandMetricGroups(goalMetrics, metricGroups);
+    const expandedGoals = expandMetricGroups(
+      goalMetrics,
+      ssrPolyfills?.metricGroups || metricGroups
+    );
     const expandedSecondaries = expandMetricGroups(
       secondaryMetrics,
-      metricGroups
+      ssrPolyfills?.metricGroups || metricGroups
     );
     const expandedGuardrails = expandMetricGroups(
       guardrailMetrics,
-      metricGroups
+      ssrPolyfills?.metricGroups || metricGroups
     );
 
     return { expandedGoals, expandedSecondaries, expandedGuardrails };
-  }, [goalMetrics, metricGroups, secondaryMetrics, guardrailMetrics]);
+  }, [
+    goalMetrics,
+    metricGroups,
+    ssrPolyfills?.metricGroups,
+    secondaryMetrics,
+    guardrailMetrics,
+  ]);
 
   const allMetricTags = useMemo(() => {
     const allMetricTagsSet: Set<string> = new Set();
     [...expandedGoals, ...expandedSecondaries, ...expandedGuardrails].forEach(
       (metricId) => {
-        const metric = getExperimentMetricById(metricId);
+        const metric =
+          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
+          getExperimentMetricById(metricId);
         metric?.tags?.forEach((tag) => {
           allMetricTagsSet.add(tag);
         });
@@ -160,6 +180,7 @@ const CompactResults: FC<{
     expandedGoals,
     expandedSecondaries,
     expandedGuardrails,
+    ssrPolyfills,
     getExperimentMetricById,
   ]);
 
@@ -168,11 +189,10 @@ const CompactResults: FC<{
       metricId: string,
       resultGroup: "goal" | "secondary" | "guardrail"
     ) {
-      const metric = getExperimentMetricById(metricId);
-
-      if (!metric) {
-        return null;
-      }
+      const metric =
+        ssrPolyfills?.getExperimentMetricById?.(metricId) ||
+        getExperimentMetricById(metricId);
+      if (!metric) return null;
       const { newMetric, overrideFields } = applyMetricOverrides(
         metric,
         metricOverrides
@@ -203,7 +223,7 @@ const CompactResults: FC<{
       };
     }
 
-    if (!results || !results.variations || !ready) return [];
+    if (!results || !results.variations || (!ready && !ssrPolyfills)) return [];
     if (pValueCorrection && statsEngine === "frequentist") {
       // Only include goals in calculation, not secondary or guardrails
       setAdjustedPValuesOnResults([results], expandedGoals, pValueCorrection);
@@ -211,7 +231,11 @@ const CompactResults: FC<{
     }
 
     const metricDefs = expandedGoals
-      .map((metricId) => getExperimentMetricById(metricId))
+      .map(
+        (metricId) =>
+          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
+          getExperimentMetricById(metricId)
+      )
       .filter(isDefined);
     const sortedFilteredMetrics = sortAndFilterMetricsByTags(
       metricDefs,
@@ -219,7 +243,11 @@ const CompactResults: FC<{
     );
 
     const secondaryDefs = expandedSecondaries
-      .map((metricId) => getExperimentMetricById(metricId))
+      .map(
+        (metricId) =>
+          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
+          getExperimentMetricById(metricId)
+      )
       .filter(isDefined);
     const sortedFilteredSecondary = sortAndFilterMetricsByTags(
       secondaryDefs,
@@ -227,7 +255,11 @@ const CompactResults: FC<{
     );
 
     const guardrailDefs = expandedGuardrails
-      .map((metricId) => getExperimentMetricById(metricId))
+      .map(
+        (metricId) =>
+          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
+          getExperimentMetricById(metricId)
+      )
       .filter(isDefined);
     const sortedFilteredGuardrails = sortAndFilterMetricsByTags(
       guardrailDefs,
@@ -255,6 +287,7 @@ const CompactResults: FC<{
     pValueThreshold,
     statsEngine,
     ready,
+    ssrPolyfills,
     getExperimentMetricById,
     metricFilter,
   ]);
@@ -339,7 +372,8 @@ const CompactResults: FC<{
           differenceType={differenceType}
           renderLabelColumn={getRenderLabelColumn(
             regressionAdjustmentEnabled,
-            statsEngine
+            statsEngine,
+            hideDetails
           )}
           metricFilter={
             experimentType !== "multi-armed-bandit" ? metricFilter : undefined
@@ -355,6 +389,7 @@ const CompactResults: FC<{
           noTooltip={noTooltip}
           isBandit={isBandit}
           isGoalMetrics={true}
+          ssrPolyfills={ssrPolyfills}
         />
       ) : null}
 
@@ -381,7 +416,8 @@ const CompactResults: FC<{
             differenceType={differenceType}
             renderLabelColumn={getRenderLabelColumn(
               regressionAdjustmentEnabled,
-              statsEngine
+              statsEngine,
+              hideDetails
             )}
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
@@ -390,6 +426,7 @@ const CompactResults: FC<{
             noStickyHeader={noStickyHeader}
             noTooltip={noTooltip}
             isBandit={isBandit}
+            ssrPolyfills={ssrPolyfills}
           />
         </div>
       ) : null}
@@ -417,7 +454,8 @@ const CompactResults: FC<{
             differenceType={differenceType}
             renderLabelColumn={getRenderLabelColumn(
               regressionAdjustmentEnabled,
-              statsEngine
+              statsEngine,
+              hideDetails
             )}
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
@@ -426,6 +464,7 @@ const CompactResults: FC<{
             noStickyHeader={noStickyHeader}
             noTooltip={noTooltip}
             isBandit={isBandit}
+            ssrPolyfills={ssrPolyfills}
           />
         </div>
       ) : (
@@ -436,7 +475,11 @@ const CompactResults: FC<{
 };
 export default CompactResults;
 
-export function getRenderLabelColumn(regressionAdjustmentEnabled, statsEngine) {
+export function getRenderLabelColumn(
+  regressionAdjustmentEnabled?: boolean,
+  statsEngine?: StatsEngine,
+  hideDetails?: boolean
+) {
   return function renderLabelColumn(
     label: string,
     metric: ExperimentMetricInterface,
@@ -451,6 +494,7 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled, statsEngine) {
             row={row}
             statsEngine={statsEngine}
             reportRegressionAdjustmentEnabled={regressionAdjustmentEnabled}
+            hideDetails={hideDetails}
           />
         }
         tipPosition="right"
@@ -478,13 +522,18 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled, statsEngine) {
                 }
           }
         >
-          <Link
-            href={getMetricLink(metric.id)}
-            className="metriclabel text-dark"
+          <ConditionalWrapper
+            condition={!hideDetails}
+            wrapper={
+              <Link
+                href={getMetricLink(metric.id)}
+                className="metriclabel text-dark"
+              />
+            }
           >
-            <MetricName id={metric.id} disableTooltip />
+            <MetricName metric={metric} disableTooltip />
             <PercentileLabel metric={metric} />
-          </Link>
+          </ConditionalWrapper>
         </span>
       </Tooltip>
     );

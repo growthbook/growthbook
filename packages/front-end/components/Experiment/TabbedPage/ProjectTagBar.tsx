@@ -57,8 +57,8 @@ export default function ProjectTagBar({
         <span>
           {ownerName !== "" && (
             <UserAvatar name={ownerName} size="sm" variant="soft" />
-          )}{" "}
-          <Text weight="regular" className={metaDataStyles.valueColor}>
+          )}
+          <Text weight="regular" className={metaDataStyles.valueColor} ml="1">
             {ownerName === "" ? "None" : ownerName}
           </Text>
           {canEditOwner && updateOwner && (
