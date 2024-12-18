@@ -284,7 +284,7 @@ if (!IS_CLOUD) {
 
 // public shareable reports
 app.get(
-  "/api/report/public/:tinyid",
+  "/api/report/public/:uid",
   cors({
     credentials: false,
     origin: "*",

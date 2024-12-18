@@ -28,7 +28,7 @@ import {
   createReport,
   deleteReportById,
   getReportById,
-  getReportByTinyid,
+  getReportByUid,
   getReportsByExperimentId,
   getReportsByOrg,
   updateReport,
@@ -234,11 +234,11 @@ export async function getReport(
 }
 
 export async function getReportPublic(
-  req: Request<{ tinyid: string }>,
+  req: Request<{ uid: string }>,
   res: Response
 ) {
-  const { tinyid } = req.params;
-  const report = await getReportByTinyid(tinyid);
+  const { uid } = req.params;
+  const report = await getReportByUid(uid);
   if (!report || report.type !== "experiment-snapshot") {
     return res.status(404).json({
       status: 404,

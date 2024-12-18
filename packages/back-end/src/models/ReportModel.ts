@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
+import { v4 as uuidv4 } from "uuid";
 import omit from "lodash/omit";
 import { migrateExperimentReport } from "back-end/src/util/migrations";
 import {
@@ -14,7 +15,7 @@ import { queriesSchema } from "./QueryModel";
 
 const reportSchema = new mongoose.Schema({
   id: String,
-  tinyid: String,
+  uid: String,
   shareLevel: String,
   editLevel: String,
   dateCreated: Date,
@@ -64,27 +65,12 @@ export async function createReport(
   organization: string,
   initialValue: Partial<ExperimentSnapshotReportInterface>
 ): Promise<ExperimentSnapshotReportInterface> {
-  let tries = 0;
-  let size = 6;
-  let collision = false;
-  let tinyid = "";
-  while (tries < 5) {
-    tinyid = makeTinyId(size);
-    collision = !!(await ReportModel.exists({ tinyid }));
-    if (!collision) break;
-    tries++;
-    if (tries >= 3) size++;
-  }
-  if (collision) {
-    throw new Error(`Unable to generate tinyid after ${tries} tries.`);
-  }
-
   const report = await ReportModel.create({
     status: "private",
     ...initialValue,
     organization,
     id: uniqid("rep_"),
-    tinyid,
+    uid: uuidv4().replace(/-/g, ""),
     dateCreated: new Date(),
     dateUpdated: new Date(),
   });
@@ -104,11 +90,11 @@ export async function getReportById(
   return report ? toInterface(report) : null;
 }
 
-export async function getReportByTinyid(
-  tinyid: string
+export async function getReportByUid(
+  uid: string
 ): Promise<ReportInterface | null> {
   const report = await ReportModel.findOne({
-    tinyid,
+    uid,
   });
 
   return report ? toInterface(report) : null;
@@ -182,14 +168,4 @@ export async function deleteReportById(organization: string, id: string) {
     organization,
     id,
   });
-}
-
-function makeTinyId(length: number) {
-  let id = "";
-  const characters =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  for (let i = 0; i < length; i++) {
-    id += characters.charAt(Math.floor(Math.random() * characters.length));
-  }
-  return id;
 }

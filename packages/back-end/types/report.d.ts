@@ -30,7 +30,7 @@ export interface ReportInterfaceBase {
 
 export interface ExperimentSnapshotReportInterface extends ReportInterfaceBase {
   type: "experiment-snapshot";
-  tinyid: string;
+  uid: string;
   shareLevel: "public" | "organization" | "private";
   editLevel: "organization" | "private";
   snapshot: string;
