@@ -17,6 +17,7 @@ import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import Link from "next/link";
 import Collapsible from "react-collapsible";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import WatchButton from "@/components/WatchButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
@@ -31,7 +32,6 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCelebration } from "@/hooks/useCelebration";
-import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -337,37 +337,21 @@ export default function ExperimentHeader({
         )}
         <div className="container-fluid pagecontents position-relative">
           <div className="d-flex align-items-center">
-            <div>
+            <Flex direction="row" align="center">
               <HeaderWithEdit
                 className="h1 mb-0"
                 containerClassName=""
                 edit={
                   canRunExperiment ? () => setEditNameOpen(true) : undefined
                 }
-                editClassName="ml-1"
+                editClassName="ml-1 mr-2"
               >
                 {experiment.name}
               </HeaderWithEdit>
-            </div>
+              <ExperimentStatusIndicator experimentData={experiment} />
+            </Flex>
 
             <div className="ml-auto flex-1"></div>
-
-            <div className="ml-3 d-md-block d-none">
-              {experiment.archived ? (
-                <div className="badge badge-secondary">archived</div>
-              ) : (
-                <ExperimentStatusIndicator
-                  status={experiment.status}
-                  subStatus={
-                    experiment.type === "multi-armed-bandit" &&
-                    experiment.status === "running" &&
-                    experiment.banditStage === "explore"
-                      ? "exploratory"
-                      : undefined
-                  }
-                />
-              )}
-            </div>
 
             {canRunExperiment ? (
               <div className="ml-2 flex-shrink-0">
@@ -377,15 +361,6 @@ export default function ExperimentHeader({
                     editTargeting={editTargeting}
                     isBandit={isBandit}
                   />
-                ) : experiment.status === "stopped" && experiment.results ? (
-                  <div className="experiment-status-widget border d-flex">
-                    <div
-                      className="d-flex"
-                      style={{ height: 30, lineHeight: "30px" }}
-                    >
-                      <ResultsIndicator results={experiment.results} />
-                    </div>
-                  </div>
                 ) : experiment.status === "draft" ? (
                   <Tooltip
                     shouldDisplay={

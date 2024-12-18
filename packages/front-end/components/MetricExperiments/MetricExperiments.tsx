@@ -188,7 +188,10 @@ function MetricExperimentResultTab({
         </td>
         <td>
           <div className="my-1">
-            <ExperimentStatusIndicator status={e.status} />
+            {/* FIXME: How can we get the archived status? */}
+            <ExperimentStatusIndicator
+              experimentData={{ ...e, archived: false }}
+            />
           </div>
         </td>
         <td>{e.users ? formatNumber(e.users) : ""}</td>
