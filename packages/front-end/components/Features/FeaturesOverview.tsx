@@ -174,7 +174,9 @@ export default function FeaturesOverview({
     timeout: 800,
   });
 
-  const experimentsMap = useMemo(() => {
+  const experimentsMap = useMemo<
+    Map<string, ExperimentInterfaceStringDates>
+  >(() => {
     if (!experiments) return new Map();
 
     return new Map<string, ExperimentInterfaceStringDates>(
@@ -953,7 +955,7 @@ export default function FeaturesOverview({
                             setDraftModal(true);
                           }}
                         >
-                          <MdRocketLaunch /> Review and Publish
+                          <MdRocketLaunch /> Review &amp; Publish
                         </a>
                       </Tooltip>
                     </div>
@@ -1292,10 +1294,7 @@ export default function FeaturesOverview({
             version={revision.version}
             close={() => setReviewModal(false)}
             mutate={mutate}
-            onDiscard={() => {
-              // When discarding a draft, switch back to the live version
-              setVersion(feature.version);
-            }}
+            experimentsMap={experimentsMap}
           />
         )}
         {draftModal && revision && (
@@ -1305,10 +1304,7 @@ export default function FeaturesOverview({
             version={revision.version}
             close={() => setDraftModal(false)}
             mutate={mutate}
-            onDiscard={() => {
-              // When discarding a draft, switch back to the live version
-              setVersion(feature.version);
-            }}
+            experimentsMap={experimentsMap}
           />
         )}
         {conflictModal && revision && (
