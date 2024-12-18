@@ -14,7 +14,7 @@ import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import Link from "next/link";
 import Collapsible from "react-collapsible";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import WatchButton from "@/components/WatchButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
@@ -342,11 +342,13 @@ export default function ExperimentHeader({
                 edit={
                   canRunExperiment ? () => setEditNameOpen(true) : undefined
                 }
-                editClassName="ml-1 mr-2"
+                editClassName="ml-1"
               >
                 {experiment.name}
               </HeaderWithEdit>
-              <ExperimentStatusIndicator experimentData={experiment} />
+              <Box ml="2">
+                <ExperimentStatusIndicator experimentData={experiment} />
+              </Box>
             </Flex>
 
             <div className="ml-auto flex-1"></div>
