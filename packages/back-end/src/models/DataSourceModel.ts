@@ -110,6 +110,14 @@ export async function _dangerousGetAllGrowthbookClickhouseDataSources() {
   return docs.map(toInterface);
 }
 
+export async function getGrowthbookDatasource(orgId: string) {
+  const doc: DataSourceDocument | null = await DataSourceModel.findOne({
+    type: "growthbook_clickhouse",
+    organization: orgId,
+  });
+  return doc;
+}
+
 export async function getDataSourceById(
   context: ReqContext | ApiReqContext,
   id: string
