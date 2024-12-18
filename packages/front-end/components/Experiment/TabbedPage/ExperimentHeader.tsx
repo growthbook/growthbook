@@ -15,7 +15,7 @@ import Link from "next/link";
 import Collapsible from "react-collapsible";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { PiCheck, PiEye } from "react-icons/pi";
+import { PiEye } from "react-icons/pi";
 import { Flex, IconButton } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { Tabs, TabsList, TabsTrigger } from "@/components/Radix/Tabs";
@@ -661,22 +661,11 @@ export default function ExperimentHeader({
                     }
                   >
                     <DropdownMenuItem
-                      onClick={async () => await handleWatchUpdates(true)}
-                      disabled={isWatching}
+                      onClick={async () =>
+                        await handleWatchUpdates(!isWatching)
+                      }
                     >
-                      <Flex align="center" justify="between" className="w-100">
-                        <span className="pr-5">Watch</span>
-                        <span>{isWatching ? <PiCheck /> : null}</span>
-                      </Flex>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={async () => await handleWatchUpdates(false)}
-                      disabled={!isWatching}
-                    >
-                      <Flex align="center" justify="between" className="w-100">
-                        <span className="pr-5">Stop watching</span>
-                        {!isWatching ? <PiCheck /> : null}
-                      </Flex>
+                      {isWatching ? "Stop" : "Start"} watching
                     </DropdownMenuItem>
                   </DropdownSubMenu>
                   <DropdownMenuItem
