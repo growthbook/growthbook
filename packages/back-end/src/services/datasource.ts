@@ -187,7 +187,8 @@ export async function testQuery(
 // Return any errors that result when running the query otherwise return undefined
 export async function testQueryValidity(
   integration: SourceIntegrationInterface,
-  query: ExposureQuery
+  query: ExposureQuery,
+  testDays?: number
 ): Promise<string | undefined> {
   // The Mixpanel integration does not support test queries
   if (!integration.getTestValidityQuery || !integration.runTestQuery) {
@@ -203,7 +204,7 @@ export async function testQueryValidity(
     ...(query.hasNameCol ? ["experiment_name", "variation_name"] : []),
   ]);
 
-  const sql = integration.getTestValidityQuery(query.query);
+  const sql = integration.getTestValidityQuery(query.query, testDays);
   try {
     const results = await integration.runTestQuery(sql);
     if (results.results.length === 0) {
