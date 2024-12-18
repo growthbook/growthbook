@@ -12,6 +12,7 @@ import { truncateString } from "shared/util";
 import { v4 as uuidv4 } from "uuid";
 import track, { TrackEventProps } from "@/services/track";
 import ConditionalWrapper from "@/components/ConditionalWrapper";
+import Button from "@/components/Radix/Button";
 import LoadingOverlay from "./LoadingOverlay";
 import Portal from "./Modal/Portal";
 import Tooltip from "./Tooltip/Tooltip";
@@ -62,6 +63,7 @@ type ModalProps = {
   customValidation?: () => Promise<boolean> | boolean;
   increasedElevation?: boolean;
   stickyFooter?: boolean;
+  useRadixButton?: boolean;
 };
 const Modal: FC<ModalProps> = ({
   header = "logo",
@@ -104,6 +106,7 @@ const Modal: FC<ModalProps> = ({
   allowlistedTrackingEventProps = {},
   modalUuid: _modalUuid,
   trackOnSubmit = true,
+  useRadixButton,
 }) => {
   const [modalUuid] = useState(_modalUuid || uuidv4());
   const [loading, setLoading] = useState(false);
@@ -254,17 +257,31 @@ const Modal: FC<ModalProps> = ({
             }
           >
             {close && includeCloseCta ? (
-              <button
-                type="button"
-                className={closeCtaClassName}
-                onClick={async (e) => {
-                  e.preventDefault();
-                  await onClickCloseCta?.();
-                  close();
-                }}
-              >
-                {isSuccess && successMessage ? "Close" : closeCta}
-              </button>
+              <>
+                {useRadixButton ? (
+                  <Button
+                    variant="ghost"
+                    onClick={async () => {
+                      await onClickCloseCta?.();
+                      close();
+                    }}
+                  >
+                    {isSuccess && successMessage ? "Close" : closeCta}
+                  </Button>
+                ) : (
+                  <button
+                    type="button"
+                    className={closeCtaClassName}
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      await onClickCloseCta?.();
+                      close();
+                    }}
+                  >
+                    {isSuccess && successMessage ? "Close" : closeCta}
+                  </button>
+                )}
+              </>
             ) : null}
             {secondaryCTA}
             {submit && !isSuccess ? (
@@ -274,15 +291,21 @@ const Modal: FC<ModalProps> = ({
                 tipPosition="top"
                 className={fullWidthSubmit ? "w-100" : ""}
               >
-                <button
-                  className={`btn btn-${submitColor} ${
-                    fullWidthSubmit ? "w-100" : ""
-                  } ${stickyFooter ? "ml-auto mr-5" : ""}`}
-                  type="submit"
-                  disabled={!ctaEnabled}
-                >
-                  {cta}
-                </button>
+                {useRadixButton ? (
+                  <Button type="submit" disabled={!ctaEnabled} ml="3">
+                    {cta}
+                  </Button>
+                ) : (
+                  <button
+                    className={`btn btn-${submitColor} ${
+                      fullWidthSubmit ? "w-100" : ""
+                    } ${stickyFooter ? "ml-auto mr-5" : ""}`}
+                    type="submit"
+                    disabled={!ctaEnabled}
+                  >
+                    {cta}
+                  </button>
+                )}
               </Tooltip>
             ) : null}
             {tertiaryCTA}

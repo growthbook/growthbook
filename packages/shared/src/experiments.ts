@@ -698,17 +698,23 @@ export function getAllMetricIdsFromExperiment(
     guardrailMetrics?: string[];
     activationMetric?: string | null;
   },
-  includeActivationMetric: boolean = true
+  includeActivationMetric: boolean = true,
+  metricGroups: MetricGroupInterface[] = []
 ) {
   return Array.from(
-    new Set([
-      ...(exp.goalMetrics || []),
-      ...(exp.secondaryMetrics || []),
-      ...(exp.guardrailMetrics || []),
-      ...(includeActivationMetric && exp.activationMetric
-        ? [exp.activationMetric]
-        : []),
-    ])
+    new Set(
+      expandMetricGroups(
+        [
+          ...(exp.goalMetrics || []),
+          ...(exp.secondaryMetrics || []),
+          ...(exp.guardrailMetrics || []),
+          ...(includeActivationMetric && exp.activationMetric
+            ? [exp.activationMetric]
+            : []),
+        ],
+        metricGroups
+      )
+    )
   );
 }
 

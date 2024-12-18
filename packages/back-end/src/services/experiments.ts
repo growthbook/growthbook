@@ -102,7 +102,10 @@ import {
   ApiExperimentResults,
   ApiMetric,
 } from "back-end/types/openapi";
-import { MetricSnapshotSettings } from "back-end/types/report";
+import {
+  ExperimentReportAnalysisSettings,
+  MetricSnapshotSettings,
+} from "back-end/types/report";
 import {
   postExperimentValidator,
   postMetricValidator,
@@ -320,7 +323,7 @@ export async function getManualSnapshotData(
 
 export function getDefaultExperimentAnalysisSettings(
   statsEngine: StatsEngine,
-  experiment: ExperimentInterface,
+  experiment: ExperimentInterface | ExperimentReportAnalysisSettings,
   organization: OrganizationInterface,
   regressionAdjustmentEnabled?: boolean,
   dimension?: string
@@ -373,7 +376,7 @@ export function getAdditionalExperimentAnalysisSettings(
   return additionalAnalyses;
 }
 
-function isJoinableMetric({
+export function isJoinableMetric({
   metricId,
   metricMap,
   factTableMap,

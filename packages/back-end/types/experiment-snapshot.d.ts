@@ -81,6 +81,7 @@ export interface MetricForSnapshot {
     | "type"
   >;
   // Computed settings that take into account overrides
+  // see MetricSnapshotSettings
   computedSettings?: {
     regressionAdjustmentEnabled: boolean;
     regressionAdjustmentAvailable: boolean;
@@ -114,8 +115,8 @@ export interface ExperimentSnapshotAnalysisSettings {
   baselineVariationIndex?: number;
 }
 
-export type SnapshotType = "standard" | "exploratory";
-export type SnapshotTriggeredBy = "schedule" | "manual"; // todo: add "report" type?
+export type SnapshotType = "standard" | "exploratory" | "report";
+export type SnapshotTriggeredBy = "schedule" | "manual";
 
 export interface ExperimentSnapshotAnalysis {
   // Determines which analysis this is
@@ -186,6 +187,7 @@ export interface ExperimentSnapshotInterface {
   settings: ExperimentSnapshotSettings;
   type?: SnapshotType;
   triggeredBy?: SnapshotTriggeredBy;
+  report?: string;
 
   // List of queries that were run as part of this snapshot
   queries: Queries;

@@ -136,7 +136,7 @@ const AsyncQueriesModal: FC<{
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="async-queries"
       close={close}
       header="Queries"
       open={true}

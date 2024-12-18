@@ -11,11 +11,17 @@ import {
   isBinomialMetric,
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
+  getAllMetricSettingsForSnapshot,
+  expandMetricGroups,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
+import uniqid from "uniqid";
+import { getScopedSettings } from "shared/settings";
+import uniq from "lodash/uniq";
 import {
   ExperimentReportArgs,
   ExperimentReportVariation,
+  ExperimentSnapshotReportInterface,
   MetricSnapshotSettings,
 } from "back-end/types/report";
 import {
@@ -29,6 +35,25 @@ import {
   ExperimentSnapshotSettings,
   MetricForSnapshot,
 } from "back-end/types/experiment-snapshot";
+import { ReqContext } from "back-end/types/organization";
+import { ApiReqContext } from "back-end/types/api";
+import { FactTableMap } from "back-end/src/models/FactTableModel";
+import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import {
+  createExperimentSnapshotModel,
+  getLatestSnapshot,
+} from "back-end/src/models/ExperimentSnapshotModel";
+import { getSourceIntegrationObject } from "back-end/src/services/datasource";
+import {
+  getDefaultExperimentAnalysisSettings,
+  isJoinableMetric,
+} from "back-end/src/services/experiments";
+import { MetricInterface } from "back-end/types/metric";
+import { MetricPriorSettings } from "back-end/types/fact-table";
+import { MetricGroupInterface } from "back-end/types/metric-groups";
+import { DataSourceInterface } from "back-end/types/datasource";
 
 export function getReportVariations(
   experiment: ExperimentInterface,
@@ -43,7 +68,7 @@ export function getReportVariations(
   });
 }
 
-function getMetricSnapshotSettingsFromSnapshot(
+export function getMetricSnapshotSettingsFromSnapshot(
   snapshotSettings: ExperimentSnapshotSettings,
   analysisSettings: ExperimentSnapshotAnalysisSettings
 ): MetricSnapshotSettings[] {
@@ -238,5 +263,295 @@ export function getMetricForSnapshot(
       regressionAdjustmentReason:
         metricSnapshotSettings?.regressionAdjustmentReason ?? "",
     },
+  };
+}
+
+export async function createReportSnapshot({
+  report,
+  previousSnapshot: snapshotData,
+  context,
+  useCache = false,
+  metricMap,
+  factTableMap,
+}: {
+  report: ExperimentSnapshotReportInterface;
+  previousSnapshot?: ExperimentSnapshotInterface; // todo: sensible defaults if not provided
+  context: ReqContext | ApiReqContext;
+  useCache?: boolean;
+  metricMap: Map<string, ExperimentMetricInterface>;
+  factTableMap: FactTableMap;
+}): Promise<ExperimentSnapshotInterface> {
+  // todo: new query runner
+  const { org: organization } = context;
+  const experiment = report.experimentId
+    ? await getExperimentById(context, report.experimentId)
+    : null;
+
+  // Prepare the new snapshot model...
+  if (!snapshotData) {
+    // This should "never" happen, but just in case the report's initial snapshot is missing...
+    if (!experiment)
+      throw new Error(
+        "Unable to create snapshot for report: invalid experiment"
+      );
+    snapshotData =
+      (await getLatestSnapshot({
+        experiment: experiment.id,
+        phase: Math.max(experiment.phases.length - 1, 0),
+        type: "standard",
+      })) || undefined;
+    if (!snapshotData)
+      throw new Error("Unable to create snapshot for report: no data");
+  }
+
+  const phaseIndex = snapshotData.phase;
+
+  const project = experiment?.project
+    ? await context.models.projects.getById(experiment.project)
+    : null;
+  const datasource = await getDataSourceById(
+    context,
+    experiment?.datasource || snapshotData?.settings?.datasourceId || ""
+  );
+  if (!datasource) throw new Error("Could not load data source");
+
+  const orgSettings = organization.settings || {};
+  const { settings } = getScopedSettings({
+    organization,
+    project: project ?? undefined,
+    experiment: experiment ?? undefined,
+  });
+  const statsEngine =
+    report.experimentAnalysisSettings.statsEngine || settings.statsEngine.value;
+
+  const metricGroups = await context.models.metricGroups.getAll();
+  const metricIds = getAllMetricIdsFromExperiment(
+    report.experimentAnalysisSettings,
+    false,
+    metricGroups
+  );
+  const allReportMetrics = metricIds.map((m) => metricMap.get(m) || null);
+  const denominatorMetricIds = uniq<string>(
+    allReportMetrics
+      .map((m) => m?.denominator)
+      .filter((d) => d && typeof d === "string") as string[]
+  );
+  const denominatorMetrics = denominatorMetricIds
+    .map((m) => metricMap.get(m) || null)
+    .filter(isDefined) as MetricInterface[];
+
+  const {
+    settingsForSnapshotMetrics,
+    regressionAdjustmentEnabled,
+  } = getAllMetricSettingsForSnapshot({
+    allExperimentMetrics: allReportMetrics,
+    denominatorMetrics,
+    orgSettings,
+    experimentRegressionAdjustmentEnabled:
+      report.experimentAnalysisSettings.regressionAdjustmentEnabled,
+    experimentMetricOverrides:
+      report.experimentAnalysisSettings.metricOverrides,
+    datasourceType: datasource?.type,
+    hasRegressionAdjustmentFeature: true,
+  });
+
+  const analysisSettings = getDefaultExperimentAnalysisSettings(
+    statsEngine,
+    report.experimentAnalysisSettings,
+    organization,
+    regressionAdjustmentEnabled,
+    report.experimentAnalysisSettings.dimension
+  );
+
+  const snapshotSettings = getReportSnapshotSettings({
+    report,
+    analysisSettings,
+    phaseIndex,
+    orgPriorSettings: organization.settings?.metricDefaults?.priorSettings,
+    settingsForSnapshotMetrics,
+    metricMap,
+    factTableMap,
+    metricGroups,
+    datasource,
+  });
+
+  // Fill in and sanitize the model
+  snapshotData = {
+    ...snapshotData,
+    id: uniqid("snp_"),
+    type: "report",
+    report: report.id,
+    triggeredBy: "manual",
+    error: "",
+    runStarted: new Date(),
+    dateCreated: new Date(),
+    status: "running",
+    dimension: report.experimentAnalysisSettings.dimension || null,
+    settings: snapshotSettings,
+    queries: [],
+    unknownVariations: [],
+    multipleExposures: 0,
+    analyses: snapshotData.analyses.map((analysis) => ({
+      ...analysis,
+      dateCreated: new Date(),
+      results: [],
+      status: "running",
+      settings: {
+        ...analysis.settings,
+        ...analysisSettings,
+      },
+    })),
+  };
+  if (
+    snapshotData?.health?.traffic &&
+    !snapshotData?.health?.traffic?.dimension
+  ) {
+    // fix a weird corruption in the model where formerly-empty Mongoose Map comes back missing:
+    snapshotData.health.traffic.dimension = {};
+  }
+
+  const snapshot = await createExperimentSnapshotModel({
+    data: snapshotData,
+    context,
+  });
+
+  const integration = getSourceIntegrationObject(context, datasource, true);
+
+  const queryRunner = new ExperimentResultsQueryRunner(
+    context,
+    snapshot,
+    integration,
+    useCache
+  );
+  await queryRunner.startAnalysis({
+    snapshotSettings: snapshot.settings,
+    variationNames: report.experimentMetadata.variations.map((v) => v.name),
+    metricMap,
+    queryParentId: snapshot.id,
+    factTableMap,
+  });
+
+  return snapshot;
+}
+
+export function getReportSnapshotSettings({
+  report,
+  analysisSettings,
+  phaseIndex,
+  orgPriorSettings,
+  settingsForSnapshotMetrics,
+  metricMap,
+  factTableMap,
+  metricGroups,
+  datasource,
+}: {
+  report: ExperimentSnapshotReportInterface;
+  analysisSettings: ExperimentSnapshotAnalysisSettings;
+  phaseIndex: number;
+  orgPriorSettings: MetricPriorSettings | undefined;
+  settingsForSnapshotMetrics: MetricSnapshotSettings[];
+  metricMap: Map<string, ExperimentMetricInterface>;
+  factTableMap: FactTableMap;
+  metricGroups: MetricGroupInterface[];
+  datasource?: DataSourceInterface;
+}): ExperimentSnapshotSettings {
+  const defaultPriorSettings = orgPriorSettings ?? {
+    override: false,
+    proper: false,
+    mean: 0,
+    stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+  };
+
+  const queries = datasource?.settings?.queries?.exposure || [];
+  const exposureQuery = queries.find(
+    (q) => q.id === report.experimentAnalysisSettings.exposureQueryId
+  );
+
+  // expand metric groups and scrub unjoinable metrics
+  const goalMetrics = expandMetricGroups(
+    report.experimentAnalysisSettings.goalMetrics,
+    metricGroups
+  ).filter((m) =>
+    isJoinableMetric({
+      metricId: m,
+      metricMap,
+      factTableMap,
+      exposureQuery,
+      datasource,
+    })
+  );
+  const secondaryMetrics = expandMetricGroups(
+    report.experimentAnalysisSettings.secondaryMetrics,
+    metricGroups
+  ).filter((m) =>
+    isJoinableMetric({
+      metricId: m,
+      metricMap,
+      factTableMap,
+      exposureQuery,
+      datasource,
+    })
+  );
+  const guardrailMetrics = expandMetricGroups(
+    report.experimentAnalysisSettings.guardrailMetrics,
+    metricGroups
+  ).filter((m) =>
+    isJoinableMetric({
+      metricId: m,
+      metricMap,
+      factTableMap,
+      exposureQuery,
+      datasource,
+    })
+  );
+
+  const metricSettings = expandMetricGroups(
+    getAllMetricIdsFromExperiment(
+      report.experimentAnalysisSettings,
+      true,
+      metricGroups
+    ),
+    metricGroups
+  )
+    .map((m) =>
+      getMetricForSnapshot(
+        m,
+        metricMap,
+        settingsForSnapshotMetrics,
+        report.experimentAnalysisSettings.metricOverrides
+      )
+    )
+    .filter(isDefined);
+
+  const phase = report.experimentMetadata.phases?.[phaseIndex];
+  return {
+    manual: false,
+    activationMetric:
+      report.experimentAnalysisSettings.activationMetric || null,
+    attributionModel:
+      report.experimentAnalysisSettings.attributionModel || "firstExposure",
+    skipPartialData: !!report.experimentAnalysisSettings.skipPartialData,
+    segment: report.experimentAnalysisSettings.segment || "",
+    queryFilter: report.experimentAnalysisSettings.queryFilter || "",
+    datasourceId: report.experimentAnalysisSettings.datasource || "",
+    dimensions: analysisSettings.dimensions.map((id) => ({ id })),
+    startDate:
+      report.experimentAnalysisSettings.dateStarted ||
+      phase?.dateStarted ||
+      report?.dateCreated,
+    endDate: report.experimentAnalysisSettings.dateEnded || new Date(),
+    experimentId: report.experimentAnalysisSettings.trackingKey,
+    goalMetrics,
+    secondaryMetrics,
+    guardrailMetrics,
+    regressionAdjustmentEnabled: !!analysisSettings.regressionAdjusted,
+    defaultMetricPriorSettings: defaultPriorSettings,
+    exposureQueryId: report.experimentAnalysisSettings.exposureQueryId,
+    metricSettings,
+    variations: report.experimentMetadata.variations.map((v, i) => ({
+      id: v.key || i + "",
+      weight: phase?.variationWeights?.[i] || 0,
+    })),
+    coverage: phase?.coverage ?? 1,
   };
 }
