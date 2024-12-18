@@ -22,32 +22,37 @@ const LoggedInPageGuard = ({
     return (
       <div>
         <TopNavLite />
-        <div className="container mt-5">
-          <div className="appbox p-4" style={{ maxWidth: 500, margin: "auto" }}>
-            <h3 className="mb-3">Error Signing In</h3>
-            <div className="alert alert-danger">{error}</div>
-            <div className="d-flex">
-              <Button
-                className="ml-auto"
-                onClick={async () => {
-                  await safeLogout();
-                }}
-                color="danger"
-              >
-                Log Out
-              </Button>
-              <button
-                className="btn btn-link"
-                onClick={(e) => {
-                  e.preventDefault();
-                  window.location.reload();
-                }}
-              >
-                Reload
-              </button>
+        <main className="container">
+          <div className="mt-5 pt-5">
+            <div
+              className="appbox p-4"
+              style={{ maxWidth: 500, margin: "auto" }}
+            >
+              <h3 className="mb-3">Error Signing In</h3>
+              <div className="alert alert-danger">{error}</div>
+              <div className="d-flex">
+                <Button
+                  className="ml-auto"
+                  onClick={async () => {
+                    await safeLogout();
+                  }}
+                  color="danger"
+                >
+                  Log Out
+                </Button>
+                <button
+                  className="btn btn-link"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    window.location.reload();
+                  }}
+                >
+                  Reload
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        </main>
       </div>
     );
   }

@@ -319,7 +319,7 @@ export default function AnalysisSettingsBar({
             <div className="col-auto">
               <ResultMoreMenu
                 experiment={experiment}
-                id={snapshot?.id || ""}
+                snapshotId={snapshot?.id || ""}
                 datasource={datasource}
                 forceRefresh={async () => {
                   await apiCall<{ snapshot: ExperimentSnapshotInterface }>(

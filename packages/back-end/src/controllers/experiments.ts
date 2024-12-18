@@ -450,6 +450,29 @@ export async function getSnapshot(
   });
 }
 
+export async function getSnapshotById(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+
+  const { id } = req.params;
+
+  const snapshot = await findSnapshotById(org.id, id);
+  if (!snapshot) {
+    return res.status(400).json({
+      status: 400,
+      message: "No snapshot found with that id",
+    });
+  }
+
+  res.status(200).json({
+    status: 200,
+    snapshot,
+  });
+}
+
 export async function postSnapshotNotebook(
   req: AuthRequest<null, { id: string }>,
   res: Response
