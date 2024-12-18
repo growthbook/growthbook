@@ -609,7 +609,7 @@ export default function FactMetricPage() {
                   {factMetric.metricType === "retention"
                     ? " plus the retention window"
                     : factMetric.windowSettings.delayValue
-                    ? " plus the conversion delay"
+                    ? " plus the metric delay"
                     : ""}
                   .
                 </>
@@ -630,7 +630,7 @@ export default function FactMetricPage() {
                   {factMetric.metricType === "retention"
                     ? " plus the retention window"
                     : factMetric.windowSettings.delayValue
-                    ? " plus the conversion delay"
+                    ? " plus the metric delay"
                     : ""}
                   .
                 </>
@@ -645,7 +645,7 @@ export default function FactMetricPage() {
               open={() => setEditOpen(true)}
               canOpen={canEdit}
             >
-              {factMetric.windowSettings.delayValue > 0 && (
+              {factMetric.windowSettings.delayValue ? (
                 <RightRailSectionGroup type="custom" empty="" className="mt-3">
                   <ul className="right-rail-subsection list-unstyled mb-4">
                     <li className="mt-3 mb-1">
@@ -662,7 +662,7 @@ export default function FactMetricPage() {
                     </li>
                   </ul>
                 </RightRailSectionGroup>
-              )}
+              ) : null}
 
               <RightRailSectionGroup type="custom" empty="" className="mt-3">
                 <ul className="right-rail-subsection list-unstyled mb-4">

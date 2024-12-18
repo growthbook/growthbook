@@ -1,7 +1,7 @@
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 
-export function MetricDelayHours({ form }) {
+export function MetricDelaySettings({ form }) {
   return (
     <div className="form-group">
       <label>Metric Delay</label>
@@ -26,11 +26,15 @@ export function MetricDelayHours({ form }) {
               onChange={(value) => {
                 form.setValue(
                   "windowSettings.delayUnit",
-                  value as "days" | "hours" | "weeks"
+                  value as "minutes" | "hours" | "days" | "weeks"
                 );
               }}
               sort={false}
               options={[
+                {
+                  label: "Minutes",
+                  value: "minutes",
+                },
                 {
                   label: "Hours",
                   value: "hours",

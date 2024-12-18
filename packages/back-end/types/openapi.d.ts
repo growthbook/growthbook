@@ -375,10 +375,10 @@ export interface components {
           /** @description Wait this long after experiment exposure before counting conversions */
           delayValue?: number;
           /** @enum {string} */
-          delayUnit?: "hours" | "days" | "weeks";
+          delayUnit?: "minutes" | "hours" | "days" | "weeks";
           windowValue?: number;
           /** @enum {string} */
-          windowUnit?: "hours" | "days" | "weeks";
+          windowUnit?: "minutes" | "hours" | "days" | "weeks";
         };
         /** @description Controls the bayesian prior for the metric. */
         priorSettings?: {
@@ -450,6 +450,7 @@ export interface components {
       toggleOnList: boolean;
       defaultState: boolean;
       projects: (string)[];
+      parent?: string;
     };
     Attribute: {
       property: string;
@@ -1464,10 +1465,10 @@ export interface components {
         /** @description Wait this long after experiment exposure before counting conversions. */
         delayValue?: number;
         /** @enum {string} */
-        delayUnit?: "hours" | "days" | "weeks";
+        delayUnit?: "minutes" | "hours" | "days" | "weeks";
         windowValue?: number;
         /** @enum {string} */
-        windowUnit?: "hours" | "days" | "weeks";
+        windowUnit?: "minutes" | "hours" | "days" | "weeks";
       };
       /** @description Controls the regression adjustment (CUPED) settings for the metric */
       regressionAdjustmentSettings: {
@@ -4566,10 +4567,10 @@ export interface operations {
                     /** @description Wait this long after experiment exposure before counting conversions */
                     delayValue?: number;
                     /** @enum {string} */
-                    delayUnit?: "hours" | "days" | "weeks";
+                    delayUnit?: "minutes" | "hours" | "days" | "weeks";
                     windowValue?: number;
                     /** @enum {string} */
-                    windowUnit?: "hours" | "days" | "weeks";
+                    windowUnit?: "minutes" | "hours" | "days" | "weeks";
                   };
                   /** @description Controls the bayesian prior for the metric. */
                   priorSettings?: {
@@ -4706,10 +4707,10 @@ export interface operations {
                * @description Default `hours`. 
                * @enum {string}
                */
-              delayUnit?: "hours" | "days" | "weeks";
+              delayUnit?: "minutes" | "hours" | "days" | "weeks";
               windowValue?: number;
               /** @enum {string} */
-              windowUnit?: "hours" | "days" | "weeks";
+              windowUnit?: "minutes" | "hours" | "days" | "weeks";
             };
             /**
              * @deprecated 
@@ -4830,10 +4831,10 @@ export interface operations {
                   /** @description Wait this long after experiment exposure before counting conversions */
                   delayValue?: number;
                   /** @enum {string} */
-                  delayUnit?: "hours" | "days" | "weeks";
+                  delayUnit?: "minutes" | "hours" | "days" | "weeks";
                   windowValue?: number;
                   /** @enum {string} */
-                  windowUnit?: "hours" | "days" | "weeks";
+                  windowUnit?: "minutes" | "hours" | "days" | "weeks";
                 };
                 /** @description Controls the bayesian prior for the metric. */
                 priorSettings?: {
@@ -4950,10 +4951,10 @@ export interface operations {
                   /** @description Wait this long after experiment exposure before counting conversions */
                   delayValue?: number;
                   /** @enum {string} */
-                  delayUnit?: "hours" | "days" | "weeks";
+                  delayUnit?: "minutes" | "hours" | "days" | "weeks";
                   windowValue?: number;
                   /** @enum {string} */
-                  windowUnit?: "hours" | "days" | "weeks";
+                  windowUnit?: "minutes" | "hours" | "days" | "weeks";
                 };
                 /** @description Controls the bayesian prior for the metric. */
                 priorSettings?: {
@@ -5087,10 +5088,10 @@ export interface operations {
                * @description Default `hours`. 
                * @enum {string}
                */
-              delayUnit?: "hours" | "days" | "weeks";
+              delayUnit?: "minutes" | "hours" | "days" | "weeks";
               windowValue?: number;
               /** @enum {string} */
-              windowUnit?: "hours" | "days" | "weeks";
+              windowUnit?: "minutes" | "hours" | "days" | "weeks";
             };
             /**
              * @deprecated 
@@ -6018,6 +6019,7 @@ export interface operations {
                 toggleOnList: boolean;
                 defaultState: boolean;
                 projects: (string)[];
+                parent?: string;
               })[];
           };
         };
@@ -6038,6 +6040,7 @@ export interface operations {
           /** @description Default state for new features */
           defaultState?: any;
           projects?: (string)[];
+          parent?: string;
         };
       };
     };
@@ -6051,6 +6054,7 @@ export interface operations {
               toggleOnList: boolean;
               defaultState: boolean;
               projects: (string)[];
+              parent?: string;
             };
           };
         };
@@ -6088,6 +6092,7 @@ export interface operations {
               toggleOnList: boolean;
               defaultState: boolean;
               projects: (string)[];
+              parent?: string;
             };
           };
         };
@@ -6620,10 +6625,10 @@ export interface operations {
                   /** @description Wait this long after experiment exposure before counting conversions. */
                   delayValue?: number;
                   /** @enum {string} */
-                  delayUnit?: "hours" | "days" | "weeks";
+                  delayUnit?: "minutes" | "hours" | "days" | "weeks";
                   windowValue?: number;
                   /** @enum {string} */
-                  windowUnit?: "hours" | "days" | "weeks";
+                  windowUnit?: "minutes" | "hours" | "days" | "weeks";
                 };
                 /** @description Controls the regression adjustment (CUPED) settings for the metric */
                 regressionAdjustmentSettings: {
@@ -6736,13 +6741,13 @@ export interface operations {
              * @description Default `hours`. 
              * @enum {string}
              */
-            delayUnit?: "hours" | "days" | "weeks";
+            delayUnit?: "minutes" | "hours" | "days" | "weeks";
             windowValue?: number;
             /**
              * @description Default `hours`. 
              * @enum {string}
              */
-            windowUnit?: "hours" | "days" | "weeks";
+            windowUnit?: "minutes" | "hours" | "days" | "weeks";
           };
           /** @description Controls the bayesian prior for the metric. If omitted, organization defaults will be used. */
           priorSettings?: {
@@ -6839,10 +6844,10 @@ export interface operations {
                 /** @description Wait this long after experiment exposure before counting conversions. */
                 delayValue?: number;
                 /** @enum {string} */
-                delayUnit?: "hours" | "days" | "weeks";
+                delayUnit?: "minutes" | "hours" | "days" | "weeks";
                 windowValue?: number;
                 /** @enum {string} */
-                windowUnit?: "hours" | "days" | "weeks";
+                windowUnit?: "minutes" | "hours" | "days" | "weeks";
               };
               /** @description Controls the regression adjustment (CUPED) settings for the metric */
               regressionAdjustmentSettings: {
@@ -6939,10 +6944,10 @@ export interface operations {
                 /** @description Wait this long after experiment exposure before counting conversions. */
                 delayValue?: number;
                 /** @enum {string} */
-                delayUnit?: "hours" | "days" | "weeks";
+                delayUnit?: "minutes" | "hours" | "days" | "weeks";
                 windowValue?: number;
                 /** @enum {string} */
-                windowUnit?: "hours" | "days" | "weeks";
+                windowUnit?: "minutes" | "hours" | "days" | "weeks";
               };
               /** @description Controls the regression adjustment (CUPED) settings for the metric */
               regressionAdjustmentSettings: {
@@ -7054,13 +7059,13 @@ export interface operations {
              * @description Default `hours`. 
              * @enum {string}
              */
-            delayUnit?: "hours" | "days" | "weeks";
+            delayUnit?: "minutes" | "hours" | "days" | "weeks";
             windowValue?: number;
             /**
              * @description Default `hours`. 
              * @enum {string}
              */
-            windowUnit?: "hours" | "days" | "weeks";
+            windowUnit?: "minutes" | "hours" | "days" | "weeks";
           };
           /** @description Controls the regression adjustment (CUPED) settings for the metric */
           regressionAdjustmentSettings?: {
@@ -7146,10 +7151,10 @@ export interface operations {
                 /** @description Wait this long after experiment exposure before counting conversions. */
                 delayValue?: number;
                 /** @enum {string} */
-                delayUnit?: "hours" | "days" | "weeks";
+                delayUnit?: "minutes" | "hours" | "days" | "weeks";
                 windowValue?: number;
                 /** @enum {string} */
-                windowUnit?: "hours" | "days" | "weeks";
+                windowUnit?: "minutes" | "hours" | "days" | "weeks";
               };
               /** @description Controls the regression adjustment (CUPED) settings for the metric */
               regressionAdjustmentSettings: {
@@ -7324,13 +7329,13 @@ export interface operations {
                    * @description Default `hours`. 
                    * @enum {string}
                    */
-                  delayUnit?: "hours" | "days" | "weeks";
+                  delayUnit?: "minutes" | "hours" | "days" | "weeks";
                   windowValue?: number;
                   /**
                    * @description Default `hours`. 
                    * @enum {string}
                    */
-                  windowUnit?: "hours" | "days" | "weeks";
+                  windowUnit?: "minutes" | "hours" | "days" | "weeks";
                 };
                 /** @description Controls the bayesian prior for the metric. If omitted, organization defaults will be used. */
                 priorSettings?: {

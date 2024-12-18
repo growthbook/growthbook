@@ -2035,6 +2035,7 @@ paths:
                           type: string
                           description: Default `hours`.
                           enum:
+                            - minutes
                             - hours
                             - days
                             - weeks
@@ -2043,6 +2044,7 @@ paths:
                         windowUnit:
                           type: string
                           enum:
+                            - minutes
                             - hours
                             - days
                             - weeks
@@ -2343,6 +2345,7 @@ paths:
                           type: string
                           description: Default `hours`.
                           enum:
+                            - minutes
                             - hours
                             - days
                             - weeks
@@ -2351,6 +2354,7 @@ paths:
                         windowUnit:
                           type: string
                           enum:
+                            - minutes
                             - hours
                             - days
                             - weeks
@@ -3328,6 +3332,8 @@ paths:
                   type: array
                   items:
                     type: string
+                parent:
+                  type: string
       responses:
         '200':
           content:
@@ -3991,6 +3997,7 @@ paths:
                       type: string
                       description: Default `hours`.
                       enum:
+                        - minutes
                         - hours
                         - days
                         - weeks
@@ -4000,6 +4007,7 @@ paths:
                       type: string
                       description: Default `hours`.
                       enum:
+                        - minutes
                         - hours
                         - days
                         - weeks
@@ -4256,6 +4264,7 @@ paths:
                       type: string
                       description: Default `hours`.
                       enum:
+                        - minutes
                         - hours
                         - days
                         - weeks
@@ -4265,6 +4274,7 @@ paths:
                       type: string
                       description: Default `hours`.
                       enum:
+                        - minutes
                         - hours
                         - days
                         - weeks
@@ -4781,6 +4791,7 @@ components:
                 delayUnit:
                   type: string
                   enum:
+                    - minutes
                     - hours
                     - days
                     - weeks
@@ -4789,6 +4800,7 @@ components:
                 windowUnit:
                   type: string
                   enum:
+                    - minutes
                     - hours
                     - days
                     - weeks
@@ -4964,6 +4976,8 @@ components:
           type: array
           items:
             type: string
+        parent:
+          type: string
     Attribute:
       type: object
       required:
@@ -6390,6 +6404,7 @@ components:
             delayUnit:
               type: string
               enum:
+                - minutes
                 - hours
                 - days
                 - weeks
@@ -6398,6 +6413,7 @@ components:
             windowUnit:
               type: string
               enum:
+                - minutes
                 - hours
                 - days
                 - weeks

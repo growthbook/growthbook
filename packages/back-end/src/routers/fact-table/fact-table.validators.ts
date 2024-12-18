@@ -88,7 +88,12 @@ export const columnRefValidator = z
   .strict();
 
 export const cappingTypeValidator = z.enum(["absolute", "percentile", ""]);
-export const conversionWindowUnitValidator = z.enum(["weeks", "days", "hours"]);
+export const conversionWindowUnitValidator = z.enum([
+  "weeks",
+  "days",
+  "hours",
+  "minutes",
+]);
 export const windowTypeValidator = z.enum(["conversion", "lookback", ""]);
 
 export const cappingSettingsValidator = z

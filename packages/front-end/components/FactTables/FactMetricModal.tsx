@@ -64,7 +64,7 @@ import ButtonSelectField from "@/components/Forms/ButtonSelectField";
 import { MetricWindowSettingsForm } from "@/components/Metrics/MetricForm/MetricWindowSettingsForm";
 import { MetricCappingSettingsForm } from "@/components/Metrics/MetricForm/MetricCappingSettingsForm";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
-import { MetricDelayHours } from "@/components/Metrics/MetricForm/MetricDelayHours";
+import { MetricDelaySettings } from "@/components/Metrics/MetricForm/MetricDelaySettings";
 import { MetricPriorSettingsForm } from "@/components/Metrics/MetricForm/MetricPriorSettingsForm";
 import Checkbox from "@/components/Radix/Checkbox";
 import Callout from "@/components/Radix/Callout";
@@ -302,6 +302,10 @@ function RetentionWindowSelector({
               }}
               sort={false}
               options={[
+                {
+                  label: "Minutes",
+                  value: "minutes",
+                },
                 {
                   label: "Hours",
                   value: "hours",
@@ -2151,7 +2155,7 @@ export default function FactMetricModal({
                   <Box py="3">
                     <TabsContent value="query">
                       {type !== "retention" ? (
-                        <MetricDelayHours form={form} />
+                        <MetricDelaySettings form={form} />
                       ) : null}
                       {type !== "quantile" &&
                       type !== "proportion" &&

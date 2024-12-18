@@ -124,7 +124,7 @@ const MetricTooltipBody = ({
       label:
         isFactMetric(metric) && metric.metricType === "retention"
           ? "Retention Window"
-          : "Metric Delay Hours",
+          : "Metric Delay",
       body: (
         <>
           {`${metric.windowSettings.delayValue} ${metric.windowSettings.delayUnit}`}
