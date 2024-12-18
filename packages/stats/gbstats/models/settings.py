@@ -6,6 +6,7 @@ DifferenceType = Literal["relative", "absolute", "scaled"]
 StatsEngine = Literal["bayesian", "frequentist"]
 StatisticType = Literal["ratio", "mean", "mean_ra", "quantile_event", "quantile_unit"]
 MetricType = Literal["binomial", "count", "quantile"]
+BusinessMetricType = Literal["goal", "guardrail", "secondary"]
 
 
 @dataclass
@@ -23,6 +24,9 @@ class AnalysisSettingsForStatsEngine:
     alpha: float = 0.05
     max_dimensions: int = 20
     traffic_percentage: float = 1
+    min_duration_days: float = 7
+    max_duration_days: float = 42
+    new_users_per_day: Optional[float] = None
 
 
 @dataclass
@@ -71,6 +75,8 @@ class MetricSettingsForStatsEngine:
     denominator_metric_type: Optional[MetricType] = None
     covariate_metric_type: Optional[MetricType] = None
     quantile_value: Optional[float] = None
+    min_percent_change: float = 0.01
+    business_metric_type: Optional[List[BusinessMetricType]] = None
 
 
 @dataclass
