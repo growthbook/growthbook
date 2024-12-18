@@ -7,7 +7,6 @@ import { findSnapshotById } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { ExperimentReportArgs } from "back-end/types/report";
 import { getReportById } from "back-end/src/models/ReportModel";
 import { Queries } from "back-end/types/query";
 import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
@@ -18,11 +17,7 @@ import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,
 } from "back-end/types/experiment-snapshot";
-import {
-  getMetricSnapshotSettingsFromSnapshot,
-  getSnapshotSettingsFromReportArgs,
-  reportArgsFromSnapshot,
-} from "./reports";
+import { getSnapshotSettingsFromReportArgs } from "./reports";
 import {
   DataForStatsEngine,
   getAnalysisSettingsForStatsEngine,
@@ -58,68 +53,27 @@ export async function generateReportNotebook(
     throw new Error("Could not find report");
   }
 
-  const snapshot =
-    report.type === "experiment-snapshot"
-      ? (await findSnapshotById(report.organization, report.snapshot)) ||
-        undefined
-      : undefined;
-  const snapshotPhase = snapshot?.phase;
+  if (report.type === "experiment") {
+    // Get metrics
+    const metricMap = await getMetricMap(context);
 
-  const queries =
-    report.type === "experiment-snapshot"
-      ? snapshot?.queries
-      : report.type === "experiment"
-      ? report.queries
-      : undefined;
-
-  if (!queries) {
-    throw new Error("Could not get report queries for notebook");
+    const {
+      snapshotSettings,
+      analysisSettings,
+    } = getSnapshotSettingsFromReportArgs(report.args, metricMap);
+    return generateNotebook({
+      context,
+      queryPointers: report.queries,
+      snapshotSettings,
+      analysisSettings,
+      variationNames: report.args.variations.map((v) => v.name),
+      url: `/report/${report.id}`,
+      name: report.title,
+      description: "",
+    });
+  } else {
+    return generateExperimentNotebook(context, report.snapshot);
   }
-
-  const args =
-    report.type === "experiment"
-      ? report.args
-      : report.type === "experiment-snapshot"
-      ? {
-          // todo: some loose casting here, investigate whether this is stable enough:
-          ...report.experimentAnalysisSettings,
-          variations: report.experimentMetadata?.variations?.map(
-            (variation, i) => ({
-              ...variation,
-              weight:
-                report.experimentMetadata?.phases?.[snapshotPhase || 0]
-                  ?.variationWeights?.[i],
-            })
-          ),
-          coverage:
-            report.experimentMetadata?.phases?.[snapshotPhase || 0]?.coverage ||
-            0,
-          dimensions: snapshot?.settings?.dimensions || [],
-          settingsForSnapshotMetrics: getMetricSnapshotSettingsFromSnapshot(
-            (snapshot?.settings || {}) as ExperimentSnapshotSettings,
-            {
-              ...report.experimentAnalysisSettings,
-              dimensions:
-                snapshot?.settings?.dimensions?.map((d) => d.id) || [],
-            } as ExperimentSnapshotAnalysisSettings
-          ),
-          startDate: report.experimentAnalysisSettings.dateStarted,
-          endDate: report.experimentAnalysisSettings.dateEnded,
-        }
-      : undefined;
-
-  if (!args) {
-    throw new Error("Could not get report args for notebook");
-  }
-
-  return generateNotebook(
-    context,
-    queries,
-    args as ExperimentReportArgs,
-    `/report/${report.id}`,
-    report.title,
-    ""
-  );
 }
 
 export async function generateExperimentNotebook(
@@ -149,26 +103,42 @@ export async function generateExperimentNotebook(
     throw new Error("Experiment must use a datasource");
   }
 
-  return generateNotebook(
+  return generateNotebook({
     context,
-    snapshot.queries,
-    reportArgsFromSnapshot(experiment, snapshot, analysis.settings),
-    `/experiment/${experiment.id}`,
-    experiment.name,
-    experiment.hypothesis || ""
-  );
+    queryPointers: snapshot.queries,
+    snapshotSettings: snapshot.settings,
+    analysisSettings: analysis.settings,
+    variationNames: experiment.variations.map((v) => v.name),
+    url: `/experiment/${experiment.id}`,
+    name: experiment.name,
+    description: experiment.hypothesis || "",
+  });
 }
 
-export async function generateNotebook(
-  context: ReqContext | ApiReqContext,
-  queryPointers: Queries,
-  args: ExperimentReportArgs,
-  url: string,
-  name: string,
-  description: string
-) {
+export async function generateNotebook({
+  context,
+  queryPointers,
+  snapshotSettings,
+  analysisSettings,
+  variationNames,
+  url,
+  name,
+  description,
+}: {
+  context: ReqContext | ApiReqContext;
+  queryPointers: Queries;
+  snapshotSettings: ExperimentSnapshotSettings;
+  analysisSettings: ExperimentSnapshotAnalysisSettings;
+  variationNames: string[];
+  url: string;
+  name: string;
+  description: string;
+}) {
   // Get datasource
-  const datasource = await getDataSourceById(context, args.datasource);
+  const datasource = await getDataSourceById(
+    context,
+    snapshotSettings.datasourceId
+  );
   if (!datasource) {
     throw new Error("Cannot find datasource");
   }
@@ -191,15 +161,16 @@ export async function generateNotebook(
       createdAt = q.createdAt;
     }
   });
-  args.endDate = args.endDate || createdAt;
 
   const phaseLengthDays =
-    Math.max(hoursBetween(args.startDate, args.endDate), 1) / 24;
+    Math.max(
+      hoursBetween(
+        snapshotSettings.startDate,
+        snapshotSettings.endDate || createdAt
+      ),
+      1
+    ) / 24;
 
-  const {
-    snapshotSettings,
-    analysisSettings,
-  } = getSnapshotSettingsFromReportArgs(args, metricMap);
   const { queryResults, metricSettings } = getMetricsAndQueryDataForStatsEngine(
     queries,
     metricMap,
@@ -210,8 +181,11 @@ export async function generateNotebook(
     analyses: [
       getAnalysisSettingsForStatsEngine(
         analysisSettings,
-        args.variations,
-        args.coverage ?? 1,
+        snapshotSettings.variations.map((v, i) => ({
+          ...v,
+          name: variationNames[i] || v.id,
+        })),
+        snapshotSettings.coverage ?? 1,
         phaseLengthDays
       ),
     ],
