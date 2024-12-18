@@ -10,10 +10,11 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  envs: string[];
   mutate: () => void;
 }
 
-export default function AnalysisSettings({ experiment, mutate }: Props) {
+export default function AnalysisSettings({ experiment, mutate, envs }: Props) {
   const {
     getDatasourceById,
     getProjectById,
@@ -84,6 +85,7 @@ export default function AnalysisSettings({ experiment, mutate }: Props) {
           editVariationIds={false}
           editMetrics={true}
           source={"analysis-settings"}
+          envs={envs}
         />
       )}
 
