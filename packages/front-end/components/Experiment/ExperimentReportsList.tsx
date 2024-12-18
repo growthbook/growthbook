@@ -44,12 +44,12 @@ export default function ExperimentReportsList({
       const isOwner = userId === report?.userId || !report?.userId;
       const canDelete = isOwner || isAdmin;
       const show =
-        report.type === "experiment"
+        isOwner || isAdmin
+          ? true
+          : report.type === "experiment"
           ? report.status === "published"
           : report.shareLevel === "public" ||
-            report.shareLevel === "organization"
-          ? true
-          : isOwner || isAdmin;
+            report.shareLevel === "organization";
       const showDelete = report.type === "experiment" ? isAdmin : canDelete;
       return { report, show, showDelete };
     })
