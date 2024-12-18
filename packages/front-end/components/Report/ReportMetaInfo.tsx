@@ -1,5 +1,5 @@
 import { ExperimentSnapshotReportInterface } from "back-end/types/report";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { PiLink, PiCheck } from "react-icons/pi";
 import { Flex, Text } from "@radix-ui/themes";
 import { date } from "shared/dates";
@@ -35,6 +35,7 @@ import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
 
 type ShareLevel = "public" | "organization" | "private";
 type EditLevel = "organization" | "private";
+const saveSettingTimeoutMs = 3000;
 
 export default function ReportMetaInfo({
   report,
@@ -84,6 +85,7 @@ export default function ReportMetaInfo({
   const [saveShareLevelStatus, setSaveShareLevelStatus] = useState<
     null | "loading" | "success" | "fail"
   >(null);
+  const saveShareLevelTimeout = useRef<number | undefined>();
 
   const [editLevel, setEditLevel] = useState<EditLevel>(
     report.editLevel || "organization"
@@ -91,6 +93,7 @@ export default function ReportMetaInfo({
   const [saveEditLevelStatus, setSaveEditLevelStatus] = useState<
     null | "loading" | "success" | "fail"
   >(null);
+  const saveEditLevelTimeout = useRef<number | undefined>();
 
   const generalForm = useForm<Partial<ExperimentSnapshotReportInterface>>({
     defaultValues: {
@@ -117,6 +120,7 @@ export default function ReportMetaInfo({
   useEffect(() => {
     if (report.shareLevel !== shareLevel) {
       setSaveShareLevelStatus("loading");
+      window.clearTimeout(saveShareLevelTimeout.current);
       apiCall<{
         updatedReport: ExperimentSnapshotReportInterface;
       }>(`/report/${report.id}`, {
@@ -126,11 +130,17 @@ export default function ReportMetaInfo({
         .then(() => {
           mutate?.();
           setSaveShareLevelStatus("success");
-          setTimeout(() => setSaveShareLevelStatus(null), 1500);
+          saveShareLevelTimeout.current = window.setTimeout(
+            () => setSaveShareLevelStatus(null),
+            saveSettingTimeoutMs
+          );
         })
         .catch(() => {
           setSaveShareLevelStatus("fail");
-          setTimeout(() => setSaveShareLevelStatus(null), 1500);
+          saveShareLevelTimeout.current = window.setTimeout(
+            () => setSaveShareLevelStatus(null),
+            saveSettingTimeoutMs
+          );
         });
       track("Experiment Report: Set Share Level", {
         source: showEditControls ? "private report" : "public report",
@@ -150,6 +160,7 @@ export default function ReportMetaInfo({
   useEffect(() => {
     if (report.editLevel !== editLevel) {
       setSaveEditLevelStatus("loading");
+      window.clearTimeout(saveEditLevelTimeout.current);
       apiCall<{
         updatedReport: ExperimentSnapshotReportInterface;
       }>(`/report/${report.id}`, {
@@ -159,11 +170,17 @@ export default function ReportMetaInfo({
         .then(() => {
           mutate?.();
           setSaveEditLevelStatus("success");
-          setTimeout(() => setSaveEditLevelStatus(null), 1500);
+          saveEditLevelTimeout.current = window.setTimeout(
+            () => setSaveEditLevelStatus(null),
+            1500
+          );
         })
         .catch(() => {
           setSaveEditLevelStatus("fail");
-          setTimeout(() => setSaveEditLevelStatus(null), 1500);
+          saveEditLevelTimeout.current = window.setTimeout(
+            () => setSaveEditLevelStatus(null),
+            1500
+          );
         });
       track("Experiment Report: Set Edit Level", {
         source: showEditControls ? "private report" : "public report",

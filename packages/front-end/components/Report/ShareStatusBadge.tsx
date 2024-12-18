@@ -37,7 +37,7 @@ export function getShareStatusTooltip({
       : "This report is viewable by anybody with a shared link";
 
   if (editLevel === "organization") {
-    message += ". Anybody in your organization with edit permissions can edit.";
+    message += ". Anybody in your organization with permissions can edit it.";
   } else if (editLevel === "private") {
     if (shareLevel === "private") {
       message = "This report is unlisted — only you can view and edit it";

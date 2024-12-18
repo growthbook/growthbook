@@ -180,7 +180,7 @@ export default function ConfigureReport({
               helpText="Choose the units to display lifts in"
             />
             <div className="d-flex" style={{ gap: "1rem" }}>
-              <div>
+              <div style={{ width: "50%" }}>
                 <DatePicker
                   label="Analysis Start (UTC)"
                   containerClassName="mb-2"
@@ -192,7 +192,6 @@ export default function ConfigureReport({
                     form.watch("experimentAnalysisSettings.dateEnded") ??
                     undefined
                   }
-                  inputWidth={375}
                 />
                 <Button
                   variant="ghost"
@@ -243,14 +242,14 @@ export default function ConfigureReport({
                   </div>
                 ) : null}
               </div>
-              <div>
+              <div style={{ width: "50%" }}>
                 {useToday ? (
                   <Field
                     label="End (UTC)"
                     containerClassName="mb-2"
                     readOnly
                     value="today"
-                    style={{ width: 375, height: 38 }}
+                    style={{ height: 38 }}
                   />
                 ) : (
                   <DatePicker
@@ -266,7 +265,6 @@ export default function ConfigureReport({
                     disableBefore={form.watch(
                       "experimentAnalysisSettings.dateStarted"
                     )}
-                    inputWidth={375}
                   />
                 )}
                 <Checkbox
@@ -318,32 +316,6 @@ export default function ConfigureReport({
               }
             />
             <hr className="my-4" />
-            <MetricSelector
-              datasource={form.watch("experimentAnalysisSettings.datasource")}
-              exposureQueryId={form.watch(
-                "experimentAnalysisSettings.exposureQueryId"
-              )}
-              project={experiment?.project}
-              includeFacts={true}
-              label={
-                <>
-                  Activation Metric{" "}
-                  <MetricsSelectorTooltip onlyBinomial={true} />
-                </>
-              }
-              initialOption="None"
-              onlyBinomial
-              value={
-                form.watch("experimentAnalysisSettings.activationMetric") || ""
-              }
-              onChange={(value) =>
-                form.setValue(
-                  "experimentAnalysisSettings.activationMetric",
-                  value || ""
-                )
-              }
-              helpText="Users must convert on this metric before being included"
-            />
             {datasourceProperties?.separateExperimentResultQueries && (
               <SelectField
                 label={
@@ -423,6 +395,32 @@ export default function ConfigureReport({
               label="Tracking Key"
               {...form.register(`experimentAnalysisSettings.trackingKey`)}
               helpText="Unique identifier for this Experiment, used to track impressions and analyze results"
+            />
+            <MetricSelector
+              datasource={form.watch("experimentAnalysisSettings.datasource")}
+              exposureQueryId={form.watch(
+                "experimentAnalysisSettings.exposureQueryId"
+              )}
+              project={experiment?.project}
+              includeFacts={true}
+              label={
+                <>
+                  Activation Metric{" "}
+                  <MetricsSelectorTooltip onlyBinomial={true} />
+                </>
+              }
+              initialOption="None"
+              onlyBinomial
+              value={
+                form.watch("experimentAnalysisSettings.activationMetric") || ""
+              }
+              onChange={(value) =>
+                form.setValue(
+                  "experimentAnalysisSettings.activationMetric",
+                  value || ""
+                )
+              }
+              helpText="Users must convert on this metric before being included"
             />
             {datasourceProperties?.experimentSegments && (
               <SelectField

@@ -326,13 +326,12 @@ const BreakDownResults: FC<{
             setShowMetricFilter={setShowMetricFilter}
           />
         ) : null}
-        <span className="h3 mb-0">All Metrics</span>
       </div>
       {tables.map((table, i) => {
         const metric = table.metric;
         return (
           <>
-            <h5 className="ml-2 mt-3 position-relative">
+            <h5 className="ml-2 mt-2 position-relative">
               {expandedGoals.includes(metric.id)
                 ? "Goal Metric"
                 : expandedSecondaries.includes(metric.id)

@@ -27,6 +27,7 @@ import Toggle from "@/components/Forms/Toggle";
 import { getMetricResultGroup } from "@/components/Experiment/BreakDownResults";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import Badge from "@/components/Radix/Badge";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
 } from "./ExperimentDateGraph";
@@ -378,7 +379,7 @@ const DateResults: FC<{
           <h3>
             {metric.name}{" "}
             {resultGroup !== "goal" && (
-              <small className="badge badge-secondary">{resultGroup}</small>
+              <Badge color="gray" label={resultGroup} />
             )}
           </h3>
           {!quantileMetricType(metric) || !cumulative ? (
