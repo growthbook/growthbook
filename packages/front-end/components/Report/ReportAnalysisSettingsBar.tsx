@@ -3,6 +3,7 @@ import { ExperimentSnapshotReportInterface } from "back-end/types/report";
 import { getSnapshotAnalysis } from "shared/util";
 import { ago, date, datetime, getValidDate } from "shared/dates";
 import React, { RefObject, useEffect, useState } from "react";
+import { PiEye } from "react-icons/pi";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import RunQueriesButton from "@/components/Queries/RunQueriesButton";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
@@ -10,8 +11,9 @@ import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser
 import { useAuth } from "@/services/auth";
 import Callout from "@/components/Radix/Callout";
 import Button from "@/components/Radix/Button";
+import { DropdownMenu } from "@/components/Radix/DropdownMenu";
 import Metadata from "@/components/Radix/Metadata";
-import Dropdown from "@/components/Dropdown/Dropdown";
+import Link from "@/components/Radix/Link";
 
 export default function ReportAnalysisSettingsBar({
   report,
@@ -72,7 +74,55 @@ export default function ReportAnalysisSettingsBar({
 
   return (
     <>
-      <div className="h3 mb-2">Analysis</div>
+      <div className="mb-1 d-flex align-items-center justify-content-between">
+        <div className="h3 mb-1">Analysis</div>
+        <DropdownMenu
+          trigger={
+            <Link>
+              <PiEye className="mr-1" />
+              View details
+            </Link>
+          }
+          menuPlacement="end"
+        >
+          <div style={{ minWidth: 250 }} className="p-2">
+            <h5>Results computed with:</h5>
+            <Metadata
+              label="Engine"
+              value={
+                report?.experimentAnalysisSettings?.statsEngine ===
+                "frequentist"
+                  ? "Frequentist"
+                  : "Bayesian"
+              }
+            />
+            <Metadata
+              label="CUPED"
+              value={
+                report?.experimentAnalysisSettings?.regressionAdjustmentEnabled
+                  ? "Enabled"
+                  : "Disabled"
+              }
+            />
+            <Metadata
+              label="Sequential"
+              value={
+                report?.experimentAnalysisSettings?.sequentialTestingEnabled
+                  ? "Enabled"
+                  : "Disabled"
+              }
+            />
+            {snapshot.runStarted && (
+              <div className="text-right mt-3">
+                <Metadata
+                  label="Run date"
+                  value={datetime(snapshot.runStarted)}
+                />
+              </div>
+            )}
+          </div>
+        </DropdownMenu>
+      </div>
       <div className="py-1 d-flex mb-2">
         <div className="row align-items-center" style={{ gap: "0.5rem 1rem" }}>
           <div className="col-auto d-flex align-items-end">
@@ -116,66 +166,17 @@ export default function ReportAnalysisSettingsBar({
         <div className="row flex-grow-1 flex-shrink-0 pt-1 px-2 justify-content-end">
           <div className="col-auto px-0">
             {hasData && snapshot.runStarted ? (
-              <div className="hover-highlight rounded">
-                <Dropdown
-                  uuid="report-update-status"
-                  toggle={
-                    <div
-                      className="text-muted text-right mr-1 user-select-none"
-                      style={{ maxWidth: 130, fontSize: "0.7em" }}
-                      title={datetime(snapshot.runStarted)}
-                    >
-                      <div
-                        className="font-weight-bold"
-                        style={{ lineHeight: 1.2 }}
-                      >
-                        last updated
-                      </div>
-                      <div className="d-inline-block" style={{ lineHeight: 1 }}>
-                        {ago(snapshot.runStarted)}
-                      </div>
-                    </div>
-                  }
-                  toggleClassName="rounded"
-                  toggleStyle={{ padding: "4px 6px 2px" }}
-                >
-                  <div className="px-3 py-2" style={{ minWidth: 330 }}>
-                    <h5>Results computed with:</h5>
-                    <Metadata
-                      label="Engine"
-                      value={
-                        report?.experimentAnalysisSettings?.statsEngine ===
-                        "frequentist"
-                          ? "Frequentist"
-                          : "Bayesian"
-                      }
-                    />
-                    <Metadata
-                      label="CUPED"
-                      value={
-                        report?.experimentAnalysisSettings
-                          ?.regressionAdjustmentEnabled
-                          ? "Enabled"
-                          : "Disabled"
-                      }
-                    />
-                    <Metadata
-                      label="Sequential"
-                      value={
-                        report?.experimentAnalysisSettings
-                          ?.sequentialTestingEnabled
-                          ? "Enabled"
-                          : "Disabled"
-                      }
-                    />
-                    <div className="text-right mt-3">
-                      <Metadata
-                        label="Last updated at"
-                        value={datetime(snapshot.runStarted)}
-                      />
-                    </div>
-                  </div>
-                </Dropdown>
+              <div
+                className="text-muted text-right"
+                style={{ width: 130, fontSize: "0.8em" }}
+                title={datetime(snapshot.runStarted)}
+              >
+                <div className="font-weight-bold" style={{ lineHeight: 1.2 }}>
+                  last updated
+                </div>
+                <div className="d-inline-block" style={{ lineHeight: 1 }}>
+                  {ago(snapshot.runStarted)}
+                </div>
               </div>
             ) : null}
           </div>
