@@ -1,7 +1,10 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { getScopedSettings } from "shared/settings";
 import React, { useMemo, useState } from "react";
-import { ReportInterface } from "back-end/types/report";
+import {
+  ExperimentSnapshotReportArgs,
+  ReportInterface,
+} from "back-end/types/report";
 import uniq from "lodash/uniq";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
@@ -18,15 +21,14 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
-import Button from "@/components/Button";
-import { GBAddCircle } from "@/components/Icons";
 import Results, { ResultsMetricFilters } from "@/components/Experiment/Results";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import ExperimentReportsList from "@/components/Experiment/ExperimentReportsList";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { trackReport } from "@/services/track";
 import Callout from "@/components/Radix/Callout";
+import Button from "@/components/Radix/Button";
+import track from "@/services/track";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
 
@@ -88,7 +90,7 @@ export default function ResultsTab({
 
   const router = useRouter();
 
-  const { snapshot, analysis } = useSnapshot();
+  const { snapshot, analysis, dimension } = useSnapshot();
   const permissionsUtil = usePermissionsUtil();
 
   const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
@@ -175,6 +177,19 @@ export default function ResultsTab({
 
   const isBandit = experiment.type === "multi-armed-bandit";
 
+  const datasourceSettings = experiment.datasource
+    ? getDatasourceById(experiment.datasource)?.settings
+    : undefined;
+  const userIdType = datasourceSettings?.queries?.exposure?.find(
+    (e) => e.id === experiment.exposureQueryId
+  )?.userIdType;
+
+  const reportArgs: ExperimentSnapshotReportArgs = {
+    userIdType: userIdType as "user" | "anonymous" | undefined,
+    differenceType,
+    dimension,
+  };
+
   return (
     <div className="mt-3">
       {isBandit && hasResults ? (
@@ -210,6 +225,7 @@ export default function ResultsTab({
             baselineRow={baselineRow}
             setBaselineRow={(b: number) => setBaselineRow(b)}
             setDifferenceType={setDifferenceType}
+            reportArgs={reportArgs}
           />
           {experiment.status === "draft" ? (
             <Callout status="info" mx="3" my="4">
@@ -304,35 +320,36 @@ export default function ResultsTab({
       {snapshot && !isBandit && (
         <div className="bg-white border mt-4">
           <div className="row mx-2 py-3 d-flex align-items-center">
-            <div className="col h3 ml-2 mb-0">Custom Reports</div>
+            <div className="col ml-2">
+              <div className="h3">Custom Reports</div>
+              <div>
+                Create and share an ad-hoc analysis without affecting this
+                experiment.
+              </div>
+            </div>
             <div className="col-auto mr-2">
               {permissionsUtil.canCreateReport(experiment) ? (
                 <Button
-                  className="btn btn-outline-primary float-right"
-                  color="outline-info"
-                  stopPropagation={true}
                   onClick={async () => {
                     const res = await apiCall<{ report: ReportInterface }>(
                       `/experiments/report/${snapshot.id}`,
                       {
                         method: "POST",
+                        body: reportArgs
+                          ? JSON.stringify(reportArgs)
+                          : undefined,
                       }
                     );
                     if (!res.report) {
                       throw new Error("Failed to create report");
                     }
-                    trackReport(
-                      "create",
-                      "ResultsTab",
-                      getDatasourceById(res.report.args.datasource)?.type ||
-                        null,
-                      res.report
-                    );
+                    track("Experiment Report: Create", {
+                      source: "experiment results tab",
+                    });
                     await router.push(`/report/${res.report.id}`);
                   }}
                 >
-                  <GBAddCircle className="pr-1" />
-                  Custom Report
+                  New Custom Report
                 </Button>
               ) : null}
             </div>

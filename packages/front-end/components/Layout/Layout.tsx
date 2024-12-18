@@ -281,6 +281,14 @@ const otherPageTitles = [
     title: "Activity Feed",
   },
   {
+    path: /^reports/,
+    title: "My Reports",
+  },
+  {
+    path: /^account\/personal-access-tokens/,
+    title: "Personal Access Tokens",
+  },
+  {
     path: /^integrations\/vercel/,
     title: "Vercel Integration",
   },

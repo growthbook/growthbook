@@ -18,6 +18,7 @@ import {
   isFactMetric,
   isMetricJoinable,
 } from "shared/experiments";
+import { ExperimentSnapshotReportArgs } from "back-end/types/report";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBEdit } from "@/components/Icons";
@@ -51,6 +52,7 @@ export interface Props {
   baselineRow?: number;
   setBaselineRow?: (baselineRow: number) => void;
   setDifferenceType: (differenceType: DifferenceType) => void;
+  reportArgs?: ExperimentSnapshotReportArgs;
 }
 
 export default function AnalysisSettingsSummary({
@@ -63,6 +65,7 @@ export default function AnalysisSettingsSummary({
   baselineRow,
   setBaselineRow,
   setDifferenceType,
+  reportArgs,
 }: Props) {
   const {
     getDatasourceById,
@@ -499,7 +502,7 @@ export default function AnalysisSettingsSummary({
         <div className="col-auto px-0">
           <ResultMoreMenu
             experiment={experiment}
-            id={snapshot?.id || ""}
+            snapshotId={snapshot?.id || ""}
             datasource={datasource}
             forceRefresh={
               numMetrics > 0
@@ -539,6 +542,7 @@ export default function AnalysisSettingsSummary({
             notebookUrl={`/experiments/notebook/${snapshot?.id}`}
             notebookFilename={experiment.trackingKey}
             generateReport={true}
+            reportArgs={reportArgs}
             queries={
               latest && latest.status !== "error" && latest.queries
                 ? latest.queries

@@ -86,12 +86,14 @@ const MarkdownInput: FC<{
   >;
 
   return (
-    <div className="card">
-      <div className="card-header">
+    <div className="">
+      <div className="px-3 mb-1">
         <ul className="nav nav-tabs card-header-tabs">
           <li className="nav-item">
             <a
-              className={clsx("nav-link", { active: !preview })}
+              className={clsx("nav-link px-3 py-1 link-purple no-underline", {
+                active: !preview,
+              })}
               href="#"
               onClick={(e) => {
                 e.preventDefault();
@@ -103,7 +105,7 @@ const MarkdownInput: FC<{
           </li>
           <li className="nav-item">
             <a
-              className={clsx("nav-link", {
+              className={clsx("nav-link px-3 py-1 link-purple no-underline", {
                 active: preview,
                 disabled: value?.length < 1,
               })}
@@ -118,9 +120,10 @@ const MarkdownInput: FC<{
           </li>
         </ul>
       </div>
-      <div className="card-body pb-2">
-        {preview && <Markdown className="card-text">{value}</Markdown>}
-
+      <div className="py-2">
+        {preview && (
+          <Markdown className="card-text pt-2 border-top">{value}</Markdown>
+        )}
         <div
           className={clsx({
             "d-none": preview,

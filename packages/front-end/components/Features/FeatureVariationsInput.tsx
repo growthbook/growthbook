@@ -51,6 +51,7 @@ export interface Props {
   hideVariations?: boolean;
   showDescriptions?: boolean;
   simple?: boolean;
+  sortableClassName?: string;
 }
 
 export default function FeatureVariationsInput({
@@ -79,6 +80,7 @@ export default function FeatureVariationsInput({
   hideVariations,
   showDescriptions,
   simple,
+  sortableClassName,
 }: Props) {
   const weights = variations.map((v) => v.weight);
   const isEqualWeights = weights.every(
@@ -111,12 +113,13 @@ export default function FeatureVariationsInput({
     ? "Traffic Percentage"
     : "Traffic Percentage & Variation Weights";
 
+  console.log(coverage);
   return (
     <div className="form-group">
       {_label !== null ? <label>{label}</label> : null}
       {simple ? (
         <>
-          {!hideCoverage && coverage !== undefined ? (
+          {!hideCoverage ? (
             <div className="px-3 pt-3 bg-highlight rounded mb-3">
               <label className="mb-0">
                 {coverageLabel} <Tooltip body={coverageTooltip} />
@@ -124,7 +127,11 @@ export default function FeatureVariationsInput({
               <div className="row align-items-center pb-3 mx-1">
                 <div className="col pl-0">
                   <Slider
-                    value={isNaN(coverage) ? [0] : [decimalToPercent(coverage)]}
+                    value={
+                      isNaN(coverage ?? 0)
+                        ? [0]
+                        : [decimalToPercent(coverage ?? 0)]
+                    }
                     min={0}
                     max={100}
                     step={1}
@@ -143,7 +150,11 @@ export default function FeatureVariationsInput({
                   >
                     <Field
                       style={{ width: 95 }}
-                      value={isNaN(coverage) ? "" : decimalToPercent(coverage)}
+                      value={
+                        isNaN(coverage ?? 0)
+                          ? ""
+                          : decimalToPercent(coverage ?? 0)
+                      }
                       onChange={(e) => {
                         let decimal = percentToDecimal(e.target.value);
                         if (decimal > 1) decimal = 1;
@@ -186,7 +197,7 @@ export default function FeatureVariationsInput({
         </>
       ) : (
         <>
-          {!hideCoverage && coverage !== undefined ? (
+          {!hideCoverage ? (
             <div className="px-3 pt-3 bg-highlight rounded mb-3">
               <label className="mb-0">
                 {coverageLabel} <Tooltip body={coverageTooltip} />
@@ -194,7 +205,11 @@ export default function FeatureVariationsInput({
               <div className="row align-items-center pb-3 mx-1">
                 <div className="col pl-0">
                   <Slider
-                    value={isNaN(coverage) ? [0] : [decimalToPercent(coverage)]}
+                    value={
+                      isNaN(coverage ?? 0)
+                        ? [0]
+                        : [decimalToPercent(coverage ?? 0)]
+                    }
                     min={0}
                     max={100}
                     step={1}
@@ -213,7 +228,11 @@ export default function FeatureVariationsInput({
                   >
                     <Field
                       style={{ width: 95 }}
-                      value={isNaN(coverage) ? "" : decimalToPercent(coverage)}
+                      value={
+                        isNaN(coverage ?? 0)
+                          ? ""
+                          : decimalToPercent(coverage ?? 0)
+                      }
                       onChange={(e) => {
                         let decimal = percentToDecimal(e.target.value);
                         if (decimal > 1) decimal = 1;
@@ -342,6 +361,7 @@ export default function FeatureVariationsInput({
                       hideSplit={hideSplits}
                       feature={feature}
                       showDescription={showDescriptions}
+                      className={sortableClassName}
                     />
                   ))}
                 </SortableVariationsList>
