@@ -34,6 +34,8 @@ import {
   TabsContent,
 } from "@/components/Radix/Tabs";
 import DatePicker from "@/components/DatePicker";
+import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
 
 export default function DesignSystemPage() {
   const [checked, setChecked] = useState<"indeterminate" | boolean>(false);
@@ -52,7 +54,7 @@ export default function DesignSystemPage() {
   const [activeControlledTab, setActiveControlledTab] = useState("tab1");
 
   return (
-    <div className="pagecontents container-fluid">
+    <div className="pagecontents container-fluid pb-5">
       <h1>GrowthBook Design System</h1>
       <p>
         This page is a work in progress to document the GrowthBook design
@@ -706,6 +708,62 @@ export default function DesignSystemPage() {
               </Box>
             </Tabs>
           </Box>
+        </Flex>
+      </div>
+
+      <div className="appbox p-3">
+        <h3>ExperimentStatusIndicator</h3>
+        <Flex gap="3">
+          <ExperimentStatusIndicator
+            experimentData={{ archived: false, status: "draft" }}
+          />
+          <ExperimentStatusIndicator
+            experimentData={{ archived: false, status: "running" }}
+          />
+          <ExperimentStatusIndicator
+            experimentData={{ archived: false, status: "stopped" }}
+          />
+          <ExperimentStatusIndicator
+            experimentData={{
+              archived: false,
+              status: "stopped",
+              results: "dnf",
+            }}
+          />
+          <ExperimentStatusIndicator
+            experimentData={{
+              archived: false,
+              status: "stopped",
+              results: "inconclusive",
+            }}
+          />
+          <ExperimentStatusIndicator
+            experimentData={{
+              archived: false,
+              status: "stopped",
+              results: "won",
+            }}
+          />
+          <ExperimentStatusIndicator
+            experimentData={{
+              archived: false,
+              status: "stopped",
+              results: "lost",
+            }}
+          />
+          <ExperimentStatusIndicator
+            experimentData={{ archived: true, status: "running" }}
+          />
+        </Flex>
+      </div>
+
+      <div className="appbox p-3">
+        <h3>ResultsIndicator</h3>
+        <Flex gap="3">
+          <ResultsIndicator results="dnf" />
+          <ResultsIndicator results="inconclusive" />
+          <ResultsIndicator results="won" />
+          <ResultsIndicator results="lost" />
         </Flex>
       </div>
     </div>
