@@ -457,9 +457,9 @@ export default function ReportMetaInfo({
             sort={false}
             disabled={!isOwner && !isAdmin}
             options={[
+              { value: "private", label: "Only me" },
               { value: "organization", label: "Only organization members" },
               { value: "public", label: "Anyone with the link" },
-              { value: "private", label: "Only me" },
             ]}
           />
           <div className="mb-1" style={{ height: 24 }}>
