@@ -89,10 +89,6 @@ export interface MetricSettingsForStatsEngine {
   id: string;
   name: string;
   inverse: boolean;
-  // new input
-  // for a given experiment, we can add the same metric to multiple business types
-  // so we can have a single metric that is a goal, guardrail and secondary
-  // business_metric_type: Array<"guardrail" | "goal" | "secondary">;
   statistic_type:
     | "mean"
     | "ratio"
@@ -107,6 +103,7 @@ export interface MetricSettingsForStatsEngine {
   prior_proper?: boolean;
   prior_mean?: number;
   prior_stddev?: number;
+  business_metric_type?: BusinessMetricTypeForStatsEngine[];
 }
 
 export interface QueryResultsForStatsEngine {
@@ -403,7 +400,28 @@ export function getMetricSettingsForStatsEngine(
     prior_proper: metric.priorSettings.proper,
     prior_mean: metric.priorSettings.mean,
     prior_stddev: metric.priorSettings.stddev,
+    business_metric_type: getBusinessMetricTypeForStatsEngine(
+      metric.id,
+      settings
+    ),
   };
+}
+
+type BusinessMetricTypeForStatsEngine = "goal" | "secondary" | "guardrail";
+
+function getBusinessMetricTypeForStatsEngine(
+  metricId: string,
+  settings: ExperimentSnapshotSettings
+): BusinessMetricTypeForStatsEngine[] {
+  return [
+    settings.goalMetrics.includes(metricId) ? ("goal" as const) : null,
+    settings.secondaryMetrics.includes(metricId)
+      ? ("secondary" as const)
+      : null,
+    settings.guardrailMetrics.includes(metricId)
+      ? ("guardrail" as const)
+      : null,
+  ].filter((m) => m !== null);
 }
 
 export function getMetricsAndQueryDataForStatsEngine(
