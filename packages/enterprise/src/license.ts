@@ -68,7 +68,8 @@ export type CommercialFeature =
   | "metric-populations"
   | "large-saved-groups"
   | "multi-armed-bandits"
-  | "metric-groups";
+  | "metric-groups"
+  | "templates";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -239,6 +240,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "large-saved-groups",
     "multi-armed-bandits",
     "metric-groups",
+    "templates",
   ]),
 };
 

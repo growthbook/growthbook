@@ -11,10 +11,16 @@ import {
   MetricSnapshotSettings,
 } from "back-end/types/report";
 import { MetricDefaults } from "back-end/types/organization";
-import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
+import {
+  ExperimentInterface,
+  ExperimentInterfaceStringDates,
+  ExperimentStatus,
+  ExperimentTemplateInterface,
+  MetricOverride,
+} from "back-end/types/experiment";
 import cloneDeep from "lodash/cloneDeep";
 import { getValidDate } from "shared/dates";
-import { isNil } from "lodash";
+import { isNil, omit } from "lodash";
 import { FactTableInterface } from "back-end/types/fact-table";
 import {
   ExperimentMetricInterface,
@@ -25,6 +31,7 @@ import {
   isSuspiciousUplift,
   quantileMetricType,
   isRatioMetric,
+  getEqualWeights,
 } from "shared/experiments";
 import {
   DEFAULT_LOSE_RISK_THRESHOLD,
@@ -32,6 +39,7 @@ import {
 } from "shared/constants";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getExperimentMetricFormatter } from "@/services/metrics";
+import { getDefaultVariations } from "@/components/Experiment/NewExperimentForm";
 
 export type ExperimentTableRow = {
   label: string;
@@ -652,4 +660,68 @@ export function getEffectLabel(differenceType: DifferenceType): string {
     return "Scaled Impact";
   }
   return "% Change";
+}
+
+export function convertTemplateToExperiment(
+  template: ExperimentTemplateInterface
+): Partial<ExperimentInterfaceStringDates> {
+  const templateWithoutTemplateFields = omit(template, [
+    "id",
+    "organization",
+    "owner",
+    "dateCreated",
+    "dateUpdated",
+    "templateMetadata",
+    "targeting",
+    "projects",
+  ]);
+  return {
+    ...templateWithoutTemplateFields,
+    variations: getDefaultVariations(2),
+    phases: [
+      {
+        dateStarted: new Date().toISOString().substr(0, 16),
+        dateEnded: new Date().toISOString().substr(0, 16),
+        name: "Main",
+        reason: "",
+        variationWeights: getEqualWeights(2),
+        ...template.targeting,
+      },
+    ],
+    templateId: template.id,
+  };
+}
+
+export function convertExperimentToTemplate(
+  experiment: ExperimentInterfaceStringDates
+): Partial<ExperimentTemplateInterface> {
+  const latestPhase = experiment.phases[experiment.phases.length - 1];
+  const template = {
+    templateMetadata: {
+      name: `${experiment.name} template`,
+      description: "",
+      tags: [],
+    },
+    type: "standard" as const,
+    hypothesis: experiment.hypothesis,
+    tags: experiment.tags,
+    datasource: experiment.datasource,
+    userIdType: experiment.userIdType, // TODO: Check if this needs to be removed from ExperimentTemplateInterface
+    exposureQueryId: experiment.exposureQueryId,
+    hashAttribute: experiment.hashAttribute,
+    fallbackAttribute: experiment.fallbackAttribute,
+    disableStickyBucketing: experiment.disableStickyBucketing,
+    goalMetrics: experiment.goalMetrics,
+    secondaryMetrics: experiment.secondaryMetrics,
+    guardrailMetrics: experiment.guardrailMetrics,
+    activationMetric: experiment.activationMetric,
+    statsEngine: experiment.statsEngine,
+    targeting: {
+      coverage: latestPhase.coverage,
+      savedGroups: latestPhase.savedGroups,
+      prerequisites: latestPhase.prerequisites,
+      condition: latestPhase.condition,
+    },
+  };
+  return template;
 }

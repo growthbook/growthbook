@@ -63,6 +63,8 @@ import ExperimentRefNewFields from "@/components/Features/RuleModal/ExperimentRe
 import Callout from "@/components/Radix/Callout";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import DatePicker from "@/components/DatePicker";
+import { useTemplates } from "@/hooks/useTemplates";
+import { convertTemplateToExperiment } from "@/services/experiments";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
 const weekAgo = new Date();
@@ -170,6 +172,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const environments = useEnvironments();
   const { experiments } = useExperiments();
+  const { templates: allTemplates, templatesMap } = useTemplates();
   const envs = environments.map((e) => e.id);
 
   const [
@@ -412,6 +415,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     .filter((p) => permissionsUtils.canViewExperimentModal(p.id))
     .map((p) => ({ value: p.id, label: p.name }));
 
+  const availableTemplates = allTemplates
+    .slice()
+    .sort((a, b) =>
+      a.templateMetadata.name > b.templateMetadata.name ? 1 : -1
+    )
+    .filter((t) => permissionsUtils.canReadMultiProjectResource(t.projects))
+    .map((t) => ({ value: t.id, label: t.templateMetadata.name }));
+
   const allowAllProjects = permissionsUtils.canViewExperimentModal();
 
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
@@ -470,6 +481,36 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 You are creating an experiment under the demo datasource
                 project. This experiment will be deleted when the demo
                 datasource project is deleted.
+              </div>
+            )}
+            {availableTemplates.length >= 1 && (
+              <div className="form-group">
+                <label>Select Template</label>
+                <SelectField
+                  value={form.watch("templateId") ?? ""}
+                  onChange={(t) => {
+                    if (t === "") {
+                      form.setValue("templateId", undefined);
+                      form.reset();
+                      return;
+                    }
+                    form.setValue("templateId", t);
+                    // Convert template to experiment interface shape and reset values
+                    const template = templatesMap.get(t);
+                    if (!template) return;
+
+                    const templateAsExperiment = convertTemplateToExperiment(
+                      template
+                    );
+                    console.log(templateAsExperiment);
+                    form.reset(templateAsExperiment, {
+                      keepDefaultValues: true,
+                    });
+                  }}
+                  name="template"
+                  initialOption={"None"}
+                  options={availableTemplates}
+                />
               </div>
             )}
 

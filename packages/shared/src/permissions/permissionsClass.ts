@@ -323,10 +323,20 @@ export class Permissions {
     );
   };
 
+  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
+  public canViewExperimentTemplateModal = (project?: string): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: project ? [project] : [],
+      },
+      "manageTemplates"
+    );
+  };
+
   public canCreateExperimentTemplate = (
     template: Pick<ExperimentTemplateInterface, "projects">
   ): boolean => {
-    return this.checkProjectFilterPermission(template, "createAnalyses");
+    return this.checkProjectFilterPermission(template, "manageTemplates");
   };
 
   public canUpdateExperimentTemplate = (
@@ -336,14 +346,14 @@ export class Permissions {
     return this.checkProjectFilterUpdatePermission(
       existing,
       updated,
-      "createAnalyses"
+      "manageTemplates"
     );
   };
 
   public canDeleteExperimentTemplate = (
     template: Pick<ExperimentTemplateInterface, "projects">
   ): boolean => {
-    return this.checkProjectFilterPermission(template, "createAnalyses");
+    return this.checkProjectFilterPermission(template, "manageTemplates");
   };
 
   // This is a helper method to use on the frontend to determine whether or not to show certain UI elements

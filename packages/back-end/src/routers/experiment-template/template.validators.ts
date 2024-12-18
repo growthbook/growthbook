@@ -1,12 +1,6 @@
 import { z } from "zod";
 import {
-  experimentType,
-  metricOverride,
-  variation,
-} from "back-end/src/validators/experiments";
-import {
   featurePrerequisite,
-  namespaceValue,
   savedGroupTargeting,
 } from "back-end/src/validators/features";
 import { statsEngines } from "back-end/src/util/constants";
@@ -21,7 +15,7 @@ export const experimentTemplateInterface = z
     dateUpdated: z.date(),
 
     templateMetadata: z.object({
-      name: z.string().optional(),
+      name: z.string(),
       description: z.string().optional(),
       tags: z.array(z.string()).optional(),
     }),
@@ -32,7 +26,7 @@ export const experimentTemplateInterface = z
     tags: z.array(z.string()).optional(),
 
     datasource: z.string(),
-    userIdType: z.string(),
+    userIdType: z.enum(["anonymous", "user"]).optional(),
     exposureQueryId: z.string(),
 
     hashAttribute: z.string().optional(),
@@ -46,14 +40,14 @@ export const experimentTemplateInterface = z
     secondaryMetrics: z.array(z.string()).optional(),
     guardrailMetrics: z.array(z.string()).optional(),
     activationMetric: z.string().optional().optional(),
-    statsEngine: z.enum(statsEngines).optional(),
+    statsEngine: z.enum(statsEngines),
 
     // Located in phases array for ExperimentInterface
     targeting: z.object({
       coverage: z.number(),
       savedGroups: z.array(savedGroupTargeting).optional(),
       prerequisites: z.array(featurePrerequisite).optional(),
-      condition: z.string().optional(),
+      condition: z.string().default("{}"),
     }),
   })
   .strict();
@@ -70,7 +64,6 @@ export const createTemplateValidator = experimentTemplateInterface.omit({
 });
 export type CreateTemplateProps = z.infer<typeof createTemplateValidator>;
 
-// export const updateTemplateValidator = z.object({
-//   template: experimentTemplateInterface.strict(),
-// });
-export type UpdateTemplateProps = z.infer<typeof experimentTemplateInterface>;
+export const updateTemplateValidator = experimentTemplateInterface.partial();
+
+export type UpdateTemplateProps = z.infer<typeof updateTemplateValidator>;

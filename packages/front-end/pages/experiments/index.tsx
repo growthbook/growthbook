@@ -47,7 +47,8 @@ import {
 } from "@/components/Radix/Tabs";
 import Button from "@/components/Radix/Button";
 import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
-import { useTemplates } from "@/hooks/useTemplates";
+import { TemplatesPage } from "@/components/Experiment/Templates/TemplatesPage";
+import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 
 const NUM_PER_PAGE = 20;
 
@@ -64,8 +65,6 @@ export function experimentDate(exp: ExperimentInterfaceStringDates): string {
 }
 
 const ExperimentsPage = (): React.ReactElement => {
-  // const growthbook = useGrowthBook<AppFeatures>();
-
   const {
     ready,
     project,
@@ -73,10 +72,6 @@ const ExperimentsPage = (): React.ReactElement => {
     getProjectById,
     getDatasourceById,
   } = useDefinitions();
-
-  const { templates } = useTemplates();
-
-  console.log(templates);
 
   const [tabs, setTabs] = useLocalStorage<string[]>("experiment_tabs", []);
 
@@ -311,7 +306,10 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const hasExperiments = experiments.length > 0;
 
-  const canAdd = permissionsUtil.canViewExperimentModal(project);
+  const canAddExperiment = permissionsUtil.canViewExperimentModal(project);
+  const canAddTemplate = permissionsUtil.canViewExperimentTemplateModal(
+    project
+  );
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
@@ -335,17 +333,24 @@ const ExperimentsPage = (): React.ReactElement => {
       menuPlacement="end"
       tooltipContent="Add new..."
     >
-      <DropdownMenuItem onClick={() => setOpenNewExperimentModal(true)}>
-        Create New Experiment
-      </DropdownMenuItem>
-      {/* TODO: Replace click handler with new callback to open template creation modal */}
-      <DropdownMenuItem onClick={() => setOpenTemplateModal(true)}>
-        Create Template
-      </DropdownMenuItem>
-      <DropdownMenuSeparator />
-      <DropdownMenuItem onClick={() => setOpenImportExperimentModal(true)}>
-        Import Existing Experiment
-      </DropdownMenuItem>
+      {canAddExperiment && (
+        <DropdownMenuItem onClick={() => setOpenNewExperimentModal(true)}>
+          Create New Experiment
+        </DropdownMenuItem>
+      )}
+      {canAddTemplate && (
+        <DropdownMenuItem onClick={() => setOpenTemplateModal(true)}>
+          Create Template
+        </DropdownMenuItem>
+      )}
+      {canAddExperiment && (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => setOpenImportExperimentModal(true)}>
+            Import Existing Experiment
+          </DropdownMenuItem>
+        </>
+      )}
     </DropdownMenu>
   );
 
@@ -365,7 +370,7 @@ const ExperimentsPage = (): React.ReactElement => {
                 </LinkButton>
               </div>
             )}
-            {canAdd && (
+            {(canAddExperiment || canAddTemplate) && (
               <div className="col-auto">{addExperimentDropdownButton}</div>
             )}
           </div>
@@ -373,7 +378,9 @@ const ExperimentsPage = (): React.ReactElement => {
             <Box mb="5">
               <TabsList>
                 <TabsTrigger value="experiments">Experiments</TabsTrigger>
-                <TabsTrigger value="templates">Templates</TabsTrigger>
+                <TabsTrigger value="templates">
+                  Templates <PaidFeatureBadge type="enterprise" />
+                </TabsTrigger>
               </TabsList>
             </Box>
 
@@ -399,7 +406,7 @@ const ExperimentsPage = (): React.ReactElement => {
                     >
                       Setup Instructions
                     </LinkButton>
-                    {canAdd && addExperimentDropdownButton}
+                    {canAddExperiment && addExperimentDropdownButton}
                   </div>
                 </div>
               ) : (
@@ -645,57 +652,7 @@ const ExperimentsPage = (): React.ReactElement => {
               )}
             </TabsContent>
             <TabsContent value="templates">
-              {/* TODO: Replace me with TemplatesPage component */}
-              {false ? (
-                <Box>
-                  <table className="appbox table experiment-table gbtable responsive-table">
-                    <thead>
-                      <tr>
-                        <th></th>
-                        <SortableTH field="name" className="w-100">
-                          Template Name
-                        </SortableTH>
-                        <SortableTH field="tags">Description</SortableTH>
-                        <SortableTH field="tags">Tags</SortableTH>
-                        {showProjectColumn && (
-                          <SortableTH field="projectName">Project</SortableTH>
-                        )}
-                        <SortableTH field="date">Created</SortableTH>
-                        <SortableTH field="owner">Usage</SortableTH>
-                      </tr>
-                    </thead>
-                    <tbody></tbody>
-                  </table>
-                </Box>
-              ) : (
-                <div className="appbox p-5 text-center">
-                  <h1>Create Reusable Experiment Templates</h1>
-                  <Text size="3">
-                    Save time configuring experiment details, and ensure
-                    consistency across your team and projects.
-                  </Text>
-                  <div className="mt-3">
-                    <LinkButton
-                      external
-                      href="www.growthbook.io"
-                      variant="outline"
-                      mr="4"
-                    >
-                      View Docs
-                    </LinkButton>
-                    {/* Add docs button on left and render either Upgrade Plan or Create Template depending on plan */}
-                    {!true ? (
-                      <LinkButton href="/datasources">
-                        Connect Data Source
-                      </LinkButton>
-                    ) : (
-                      <Button onClick={() => setOpenTemplateModal(true)}>
-                        Create Template
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              )}
+              <TemplatesPage setOpenTemplateModal={setOpenTemplateModal} />
             </TabsContent>
           </Tabs>
         </div>
