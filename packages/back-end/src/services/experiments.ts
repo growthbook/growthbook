@@ -2622,6 +2622,7 @@ export async function getLinkedFeatureInfo(
   const features = await getFeaturesByIds(context, linkedFeatures);
 
   const revisionsByFeatureId = await getFeatureRevisionsByFeatureIds(
+    context,
     context.org.id,
     linkedFeatures
   );

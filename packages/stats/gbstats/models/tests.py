@@ -18,6 +18,7 @@ class BaseConfig:
     traffic_percentage: float = 1
     phase_length_days: float = 1
     total_users: Optional[int] = None
+    alpha: float = 0.05
 
 
 # Results

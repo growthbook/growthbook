@@ -14,7 +14,7 @@ export const apiMetricValidator = z.object({ "id": z.string(), "managedBy": z.en
 
 export const apiProjectValidator = z.object({ "id": z.string(), "name": z.string(), "dateCreated": z.string(), "dateUpdated": z.string(), "description": z.string().optional(), "settings": z.object({ "statsEngine": z.string().optional() }).optional() }).strict()
 
-export const apiEnvironmentValidator = z.object({ "id": z.string(), "description": z.string(), "toggleOnList": z.boolean(), "defaultState": z.boolean(), "projects": z.array(z.string()) }).strict()
+export const apiEnvironmentValidator = z.object({ "id": z.string(), "description": z.string(), "toggleOnList": z.boolean(), "defaultState": z.boolean(), "projects": z.array(z.string()), "parent": z.string().optional() }).strict()
 
 export const apiAttributeValidator = z.object({ "property": z.string(), "datatype": z.enum(["boolean","string","number","secureString","enum","string[]","number[]","secureString[]"]), "description": z.string().optional(), "hashAttribute": z.boolean().optional(), "archived": z.boolean().optional(), "enum": z.string().optional(), "format": z.enum(["","version","date","isoCountryCode"]).optional(), "projects": z.array(z.string()).optional() }).strict()
 
@@ -397,7 +397,7 @@ export const listEnvironmentsValidator = {
 };
 
 export const postEnvironmentValidator = {
-  bodySchema: z.object({ "id": z.string().describe("The ID of the new environment"), "description": z.string().describe("The description of the new environment").optional(), "toggleOnList": z.any().describe("Show toggle on feature list").optional(), "defaultState": z.any().describe("Default state for new features").optional(), "projects": z.array(z.string()).optional() }).strict(),
+  bodySchema: z.object({ "id": z.string().describe("The ID of the new environment"), "description": z.string().describe("The description of the new environment").optional(), "toggleOnList": z.any().describe("Show toggle on feature list").optional(), "defaultState": z.any().describe("Default state for new features").optional(), "projects": z.array(z.string()).optional(), "parent": z.string().optional() }).strict(),
   querySchema: z.never(),
   paramsSchema: z.never(),
 };
