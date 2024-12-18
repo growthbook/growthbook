@@ -50,7 +50,7 @@ export default function ExperimentReportsList({
         : report.shareLevel === "public" ||
           report.shareLevel === "organization";
       const showDelete = report.type === "experiment" ? isAdmin : canDelete;
-      return { report, show, showDelete };
+      return { report, show, showDelete, isOwner };
     })
     .filter((fr) => fr.show);
 
@@ -132,6 +132,7 @@ export default function ExperimentReportsList({
                         ? report.editLevel
                         : "organization"
                     }
+                    isOwner={filteredReport.isOwner}
                   />
                 </td>
                 <td

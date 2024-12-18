@@ -5,12 +5,14 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 export default function ShareStatusBadge({
   shareLevel = "organization",
   editLevel,
+  isOwner = true,
 }: {
   shareLevel?: "public" | "organization" | "private";
   editLevel?: "organization" | "private";
+  isOwner?: boolean;
 }) {
   return (
-    <Tooltip body={getShareStatusTooltip({ shareLevel, editLevel })}>
+    <Tooltip body={getShareStatusTooltip({ shareLevel, editLevel, isOwner })}>
       {shareLevel === "private" ? (
         <Badge variant="soft" color="gray" label="Private" radius="full" />
       ) : shareLevel === "organization" ? (
@@ -25,13 +27,17 @@ export default function ShareStatusBadge({
 export function getShareStatusTooltip({
   shareLevel = "organization",
   editLevel,
+  isOwner = true,
 }: {
   shareLevel?: "public" | "organization" | "private";
   editLevel?: "organization" | "private";
+  isOwner?: boolean;
 }) {
   let message =
     shareLevel === "private"
-      ? "This report is unlisted — only you can view it"
+      ? `This report is unlisted — only ${
+          isOwner ? "you" : "the owner"
+        } can view it`
       : shareLevel === "organization"
       ? "This report is discoverable within your organization"
       : "This report is viewable by anybody with a shared link";
@@ -40,9 +46,11 @@ export function getShareStatusTooltip({
     message += ". Anybody in your organization with permissions can edit it.";
   } else if (editLevel === "private") {
     if (shareLevel === "private") {
-      message = "This report is unlisted — only you can view and edit it";
+      message = `This report is unlisted — only ${
+        isOwner ? "you" : "the owner"
+      } can view and edit it`;
     } else {
-      message += ". Only you can edit it.";
+      message += `. Only ${isOwner ? "you" : "the owner"} can edit it.`;
     }
   }
   return message;

@@ -263,6 +263,7 @@ export default function ReportMetaInfo({
                     <ShareStatusBadge
                       shareLevel={report.shareLevel}
                       editLevel={report.editLevel}
+                      isOwner={isOwner}
                     />
                   </div>
                 </>
