@@ -46,7 +46,7 @@ export class FactMetricModel extends BaseClass {
   public static upgradeFactMetricDoc(
     doc: LegacyFactMetricInterface
   ): FactMetricInterface {
-    const newDoc: FactMetricInterface = { ...doc };
+    const newDoc = { ...doc };
 
     if (doc.windowSettings === undefined) {
       newDoc.windowSettings = {
@@ -54,8 +54,16 @@ export class FactMetricModel extends BaseClass {
         windowValue:
           doc.conversionWindowValue || DEFAULT_CONVERSION_WINDOW_HOURS,
         windowUnit: doc.conversionWindowUnit || "hours",
-        delayHours: doc.conversionDelayHours || 0,
+        delayValue: doc.conversionDelayHours || 0,
+        delayUnit: "hours",
       };
+    } else if (doc.windowSettings.delayValue === undefined) {
+      newDoc.windowSettings = {
+        ...doc.windowSettings,
+        delayValue: doc.windowSettings.delayHours ?? 0,
+        delayUnit: doc.windowSettings.delayUnit ?? "hours",
+      };
+      delete newDoc.windowSettings.delayHours;
     }
 
     if (doc.cappingSettings === undefined) {
@@ -74,7 +82,7 @@ export class FactMetricModel extends BaseClass {
       };
     }
 
-    return newDoc;
+    return newDoc as FactMetricInterface;
   }
 
   protected migrate(legacyDoc: unknown): FactMetricInterface {
@@ -162,8 +170,14 @@ export class FactMetricModel extends BaseClass {
       }
 
       if (!data.quantileSettings) {
-        throw new Error("Must specify `quantileSettings` for Quantile metrics");
+        throw new Error("Must specify `quantileSettings` for quantile metrics");
       }
+    }
+    if (
+      data.metricType === "retention" &&
+      !this.context.hasPremiumFeature("retention-metrics")
+    ) {
+      throw new Error("Retention metrics are a premium feature");
     }
     if (data.loseRisk < data.winRisk) {
       throw new Error(

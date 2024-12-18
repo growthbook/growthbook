@@ -74,7 +74,8 @@ export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
         windowValue:
           (doc.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS) + 0.5,
         windowUnit: "hours",
-        delayHours: -0.5,
+        delayUnit: "hours",
+        delayValue: -0.5,
       };
     } else {
       newDoc.windowSettings = {
@@ -82,9 +83,20 @@ export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
         windowValue:
           doc.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS,
         windowUnit: "hours",
-        delayHours: doc.conversionDelayHours || 0,
+        delayUnit: "hours",
+        delayValue: doc.conversionDelayHours || 0,
       };
     }
+  } else {
+    if (doc.windowSettings.delayValue === undefined) {
+      newDoc.windowSettings = {
+        ...doc.windowSettings,
+        delayValue: doc.windowSettings.delayHours ?? 0,
+        delayUnit: doc.windowSettings.delayUnit ?? "hours",
+      };
+    }
+
+    delete newDoc?.windowSettings?.delayHours;
   }
 
   if (doc.priorSettings === undefined) {
@@ -756,7 +768,8 @@ export function migrateSnapshot(
         computedSettings: {
           windowSettings: {
             type: "conversion",
-            delayHours: 0,
+            delayUnit: "hours",
+            delayValue: 0,
             windowUnit: "hours",
             windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,
           },
@@ -824,6 +837,15 @@ export function migrateSnapshot(
             ...defaultMetricPriorSettings,
             ...m.computedSettings,
           };
+          if (m.computedSettings.windowSettings?.delayValue === undefined) {
+            m.computedSettings.windowSettings = {
+              ...m.computedSettings.windowSettings,
+              // @ts-expect-error To prevent building a full legacy snapshot settings type
+              delayValue: m.computedSettings.windowSettings?.delayHours ?? 0,
+              delayUnit:
+                m.computedSettings.windowSettings?.delayUnit ?? "hours",
+            };
+          }
         }
         return m;
       }

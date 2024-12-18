@@ -203,10 +203,13 @@ export function getMetricForSnapshot(
     },
     computedSettings: {
       windowSettings: {
-        delayHours:
+        delayValue:
           overrides?.delayHours ??
-          metric.windowSettings.delayHours ??
+          metric.windowSettings.delayValue ??
           DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+        delayUnit: overrides?.delayHours
+          ? "hours"
+          : metric.windowSettings.delayUnit ?? "hours",
         type:
           overrides?.windowType ??
           metric.windowSettings.type ??

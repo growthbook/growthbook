@@ -1,5 +1,6 @@
 import type { Response } from "express";
 import { areProjectRolesValid, isRoleValid } from "shared/permissions";
+import { orgHasPremiumFeature } from "enterprise";
 import { TeamInterface } from "back-end/types/team";
 import {
   createTeam,
@@ -48,6 +49,10 @@ export const postTeam = async (
   const context = getContextFromReq(req);
   const { org, userName } = context;
   const { name, description, permissions } = req.body;
+
+  if (!orgHasPremiumFeature(org, "teams")) {
+    throw new Error("Must have a commercial License Key to create a team.");
+  }
 
   if (!context.permissions.canManageTeam()) {
     context.permissions.throwPermissionError();

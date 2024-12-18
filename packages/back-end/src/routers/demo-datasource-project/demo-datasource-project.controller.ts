@@ -70,7 +70,8 @@ const CONVERSION_WINDOW_SETTINGS: MetricWindowSettings = {
   type: "conversion",
   windowUnit: "hours",
   windowValue: 72,
-  delayHours: 0,
+  delayUnit: "hours",
+  delayValue: 0,
 };
 const DENOMINATOR_METRIC_NAME = "Purchases - Number of Orders (72 hour window)";
 const DEMO_METRICS: Pick<
@@ -107,7 +108,8 @@ const DEMO_METRICS: Pick<
     type: "binomial",
     windowSettings: {
       type: "conversion",
-      delayHours: 24,
+      delayValue: 24,
+      delayUnit: "hours",
       windowUnit: "days",
       windowValue: 13,
     },
@@ -121,7 +123,8 @@ const DEMO_METRICS: Pick<
     type: "count",
     windowSettings: {
       type: "conversion",
-      delayHours: 0,
+      delayValue: 0,
+      delayUnit: "hours",
       windowUnit: "days",
       windowValue: 7,
     },

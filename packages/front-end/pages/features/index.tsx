@@ -588,7 +588,7 @@ export default function FeaturesPage() {
           </div>
         </>
       ) : (
-        <Tabs defaultValue="all-features">
+        <Tabs defaultValue="all-features" persistInURL={true}>
           <Box mb="3">
             <TabsList>
               <TabsTrigger value="all-features">All Features</TabsTrigger>

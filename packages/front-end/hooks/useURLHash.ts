@@ -32,7 +32,7 @@ export default function useURLHash<Id extends string>(
     if (validIds === undefined) {
       return urlHash === "" ? undefined : urlHash;
     } else {
-      return validIds.includes(urlHash as Id) ? urlHash : undefined;
+      return validIds.includes(urlHash as Id) ? urlHash : validIds[0];
     }
   });
 

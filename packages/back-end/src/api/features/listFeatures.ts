@@ -33,6 +33,7 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
     );
     //get all feature ids and there version
     const revisions = await getFeatureRevisionsByFeaturesCurrentVersion(
+      req.context,
       filtered
     );
 
