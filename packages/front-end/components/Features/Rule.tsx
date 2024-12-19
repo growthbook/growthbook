@@ -26,6 +26,7 @@ import RolloutSummary from "./RolloutSummary";
 import ExperimentSummary from "./ExperimentSummary";
 import RuleStatusPill from "./RuleStatusPill";
 import ExperimentRefSummary from "./ExperimentRefSummary";
+import FeatureUsageGraph, { useFeatureUsage } from "./FeatureUsageGraph";
 
 interface SortableProps {
   i: number;
@@ -124,6 +125,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       (rule.condition && rule.condition !== "{}") ||
       !!rule.savedGroups?.length ||
       !!rule.prerequisites?.length;
+
+    const { featureUsage } = useFeatureUsage();
 
     if (hideDisabled && ruleDisabled) {
       return null;
@@ -336,6 +339,16 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               />
             )}
           </div>
+
+          {featureUsage && (
+            <div className="ml-auto">
+              <FeatureUsageGraph
+                data={
+                  featureUsage?.environments?.[environment]?.rules?.[rule.id]
+                }
+              />
+            </div>
+          )}
         </div>
       </div>
     );
