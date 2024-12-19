@@ -1,6 +1,6 @@
 import { FC, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { FaAngleRight, FaBars, FaBuilding } from "react-icons/fa";
+import { FaAngleRight, FaBars } from "react-icons/fa";
 import {
   PiPlusBold,
   PiCaretDownFill,
@@ -10,6 +10,7 @@ import {
   PiListChecks,
   PiMoon,
   PiSunDim,
+  PiBuildingFill,
 } from "react-icons/pi";
 import Link from "next/link";
 import Head from "next/head";
@@ -273,7 +274,7 @@ const TopNav: FC<{
     if (organizations && organizations.length === 1) {
       return (
         <div className="top-nav-org-menu mr-2">
-          <FaBuilding className="text-muted mr-1" />
+          <PiBuildingFill className="text-muted mr-1" />
           <span className="d-none d-lg-inline">{orgName}</span>
         </div>
       );
@@ -290,7 +291,7 @@ const TopNav: FC<{
             }}
             style={{ cursor: "pointer" }}
           >
-            <FaBuilding className="text-muted mr-1" />
+            <PiBuildingFill className="text-muted mr-1" />
             <span className="d-none d-lg-inline">
               <OverflowText maxWidth={200}>{orgName}</OverflowText>
             </span>

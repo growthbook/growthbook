@@ -1233,12 +1233,13 @@ export default abstract class SqlIntegration
   //Test the validity of a query as cheaply as possible
   getTestValidityQuery(
     query: string,
+    testDays?: number,
     templateVariables?: TemplateVariables
   ): string {
     return this.getTestQuery({
       query,
       templateVariables,
-      testDays: DEFAULT_TEST_QUERY_DAYS,
+      testDays: testDays ?? DEFAULT_TEST_QUERY_DAYS,
       limit: 1,
     });
   }

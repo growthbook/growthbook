@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { ForwardedRef, forwardRef } from "react";
 import NextLink, { LinkProps as NextLinkProps } from "next/link";
 import {
   Link as RadixLink,
@@ -7,6 +8,7 @@ import {
 import styles from "./RadixOverrides.module.scss";
 
 type RadixProps = Omit<RadixLinkProps, "color" | "href"> & {
+  type?: "submit" | "reset" | "button";
   color?: RadixLinkProps["color"] | "dark";
 };
 
@@ -23,62 +25,68 @@ type ConditionalProps =
     } & NextProps)
   | {
       href?: never;
-      onClick: RadixLinkProps["onClick"];
+      type?: "submit" | "reset" | "button";
+      onClick?: RadixLinkProps["onClick"];
     };
 
-export default function Link({
-  children,
-  className,
-  color,
-  href,
-  ...props
-}: RadixProps & ConditionalProps) {
-  const isCustomDarkColor = color === "dark";
+type Props = RadixProps & ConditionalProps;
 
-  let childrenWrapper: JSX.Element | null = null;
-  let radixProps = props;
+const Link = forwardRef<HTMLAnchorElement, Props>(
+  (
+    { children, className, color, href, type, ...props },
+    ref: ForwardedRef<HTMLAnchorElement>
+  ) => {
+    const isCustomDarkColor = color === "dark";
 
-  if (href === undefined) {
-    childrenWrapper = <button type="button">{children}</button>;
-  } else {
-    const {
-      replace,
-      as,
-      scroll,
-      shallow,
-      prefetch,
-      locale,
-      legacyBehavior,
-      ...rest
-    } = props as NextProps;
-    radixProps = rest;
+    let childrenWrapper: JSX.Element | null;
+    let radixProps = props;
 
-    childrenWrapper = (
-      <NextLink
-        href={href}
-        replace={replace}
-        as={as}
-        scroll={scroll}
-        shallow={shallow}
-        prefetch={prefetch}
-        locale={locale}
-        legacyBehavior={legacyBehavior}
+    if (href === undefined) {
+      childrenWrapper = <button type={type}>{children}</button>;
+    } else {
+      const {
+        replace,
+        as,
+        scroll,
+        shallow,
+        prefetch,
+        locale,
+        legacyBehavior,
+        ...rest
+      } = props as NextProps;
+      radixProps = rest;
+
+      childrenWrapper = (
+        <NextLink
+          href={href}
+          replace={replace}
+          as={as}
+          scroll={scroll}
+          shallow={shallow}
+          prefetch={prefetch}
+          locale={locale}
+          legacyBehavior={legacyBehavior}
+        >
+          {children}
+        </NextLink>
+      );
+    }
+
+    return (
+      <RadixLink
+        ref={ref}
+        className={clsx(styles.link, className, {
+          [styles.darkLink]: isCustomDarkColor,
+        })}
+        color={isCustomDarkColor ? undefined : color}
+        {...radixProps}
+        asChild
       >
-        {children}
-      </NextLink>
+        {childrenWrapper}
+      </RadixLink>
     );
   }
+);
 
-  return (
-    <RadixLink
-      className={clsx(styles.link, className, {
-        [styles.darkLink]: isCustomDarkColor,
-      })}
-      color={isCustomDarkColor ? undefined : color}
-      {...radixProps}
-      asChild
-    >
-      {childrenWrapper}
-    </RadixLink>
-  );
-}
+Link.displayName = "Link";
+export default Link;

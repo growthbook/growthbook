@@ -22,6 +22,8 @@ export interface paths {
     get: operations["getFeature"];
     /** Partially update a feature */
     post: operations["updateFeature"];
+    /** Deletes a single feature */
+    delete: operations["deleteFeature"];
   };
   "/features/{id}/toggle": {
     /** Toggle a feature in one or more environments */
@@ -2699,6 +2701,28 @@ export interface operations {
                 publishedBy: string;
               };
             };
+          };
+        };
+      };
+    };
+  };
+  deleteFeature: {
+    /** Deletes a single feature */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            /**
+             * @description The ID of the deleted feature 
+             * @example feature-123
+             */
+            deletedId?: string;
           };
         };
       };
@@ -7460,6 +7484,7 @@ export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"
 export type PostFeatureResponse = operations["postFeature"]["responses"]["200"]["content"]["application/json"];
 export type GetFeatureResponse = operations["getFeature"]["responses"]["200"]["content"]["application/json"];
 export type UpdateFeatureResponse = operations["updateFeature"]["responses"]["200"]["content"]["application/json"];
+export type DeleteFeatureResponse = operations["deleteFeature"]["responses"]["200"]["content"]["application/json"];
 export type ToggleFeatureResponse = operations["toggleFeature"]["responses"]["200"]["content"]["application/json"];
 export type GetFeatureKeysResponse = operations["getFeatureKeys"]["responses"]["200"]["content"]["application/json"];
 export type ListProjectsResponse = operations["listProjects"]["responses"]["200"]["content"]["application/json"];

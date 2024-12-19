@@ -11,6 +11,7 @@ import useApi from "@/hooks/useApi";
 import Toggle from "@/components/Forms/Toggle";
 import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
+import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
 
 const ReportsPage = (): React.ReactElement => {
   const router = useRouter();
@@ -37,7 +38,15 @@ const ReportsPage = (): React.ReactElement => {
     (r) => ({
       userName: r.userId ? getUserDisplay(r.userId) : "",
       experimentName: r.experimentId ? experimentNames.get(r.experimentId) : "",
-      status: r.status === "private" ? "private" : "published",
+      shareLevel: (r.type === "experiment"
+        ? r.status === "private"
+          ? "private"
+          : "organization"
+        : r.shareLevel === "public"
+        ? "public"
+        : r.shareLevel === "private"
+        ? "private"
+        : "organization") as "public" | "organization" | "private",
     }),
     [experimentNames]
   );
@@ -184,7 +193,16 @@ const ReportsPage = (): React.ReactElement => {
               >
                 {report.description}
               </td>
-              <td>{report.status}</td>
+              <td>
+                <ShareStatusBadge
+                  shareLevel={report.shareLevel}
+                  editLevel={
+                    report.type === "experiment-snapshot"
+                      ? report.editLevel
+                      : "organization"
+                  }
+                />
+              </td>
               <td>{report.experimentName}</td>
               <td>{report.userName}</td>
               <td

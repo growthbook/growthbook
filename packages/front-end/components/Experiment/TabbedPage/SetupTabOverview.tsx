@@ -25,6 +25,7 @@ export interface Props {
   disableEditing?: boolean;
   checklistItemsRemaining: number | null;
   setChecklistItemsRemaining: (value: number | null) => void;
+  envs: string[];
 }
 
 export default function SetupTabOverview({
@@ -37,6 +38,7 @@ export default function SetupTabOverview({
   disableEditing,
   checklistItemsRemaining,
   setChecklistItemsRemaining,
+  envs,
 }: Props) {
   const [showHypothesisModal, setShowHypothesisModal] = useState(false);
   const [showDescriptionModal, setShowDescriptionModal] = useState(false);
@@ -80,6 +82,7 @@ export default function SetupTabOverview({
         {experiment.status === "draft" ? (
           <PreLaunchChecklist
             experiment={experiment}
+            envs={envs}
             mutateExperiment={mutate}
             linkedFeatures={linkedFeatures}
             visualChangesets={visualChangesets}
