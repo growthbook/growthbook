@@ -276,7 +276,11 @@ export async function validateExposureQueriesAndAddMissingIds(
         }
         if (checkValidity) {
           const integration = getSourceIntegrationObject(context, datasource);
-          exposure.error = await testQueryValidity(integration, exposure);
+          exposure.error = await testQueryValidity(
+            integration,
+            exposure,
+            context.org.settings?.testQueryDays
+          );
         }
       })
     );
