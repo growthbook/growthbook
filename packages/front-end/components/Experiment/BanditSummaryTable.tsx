@@ -270,9 +270,9 @@ export default function BanditSummaryTable({
                 <th
                   className="axis-col graph-cell"
                   style={{
-                    width: window.innerWidth < 900 ? graphCellWidth : undefined,
+                    width: (globalThis?.window?.innerWidth ?? 1000) < 900 ? graphCellWidth : undefined,
                     minWidth:
-                      window.innerWidth >= 900 ? graphCellWidth : undefined,
+                      (globalThis?.window?.innerWidth ?? 1000) >= 900 ? graphCellWidth : undefined,
                   }}
                 >
                   <div className="position-relative">

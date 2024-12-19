@@ -16,6 +16,7 @@ interface RedirectLinkedChangesProps {
   experiment: ExperimentInterfaceStringDates;
   canAddChanges: boolean;
   mutate?: () => void;
+  isPublic?: boolean;
 }
 
 interface RedirectProps {
@@ -182,6 +183,7 @@ export default function RedirectLinkedChanges({
   experiment,
   canAddChanges,
   mutate,
+  isPublic,
 }: RedirectLinkedChangesProps) {
   const redirectCount = urlRedirects.length;
 
@@ -193,18 +195,20 @@ export default function RedirectLinkedChanges({
       type="redirects"
       onAddChange={() => setUrlRedirectModal?.(true)}
     >
-      <div>
-        {urlRedirects.map((r, i) => (
-          <div className={i > 0 ? "mt-3" : undefined} key={r.id}>
-            <Redirect
-              urlRedirect={r}
-              experiment={experiment}
-              mutate={mutate}
-              canEdit={canAddChanges}
-            />
-          </div>
-        ))}
-      </div>
+      {!isPublic ? (
+        <>
+          {urlRedirects.map((r, i) => (
+            <div className={i > 0 ? "mt-3" : undefined} key={r.id}>
+              <Redirect
+                urlRedirect={r}
+                experiment={experiment}
+                mutate={mutate}
+                canEdit={canAddChanges}
+              />
+            </div>
+          ))}
+        </>
+      ): null}
     </LinkedChangesContainer>
   );
 }

@@ -11,13 +11,15 @@ export default function VisualLinkedChanges({
   mutate,
   canAddChanges,
   canEditVisualChangesets,
+  isPublic,
 }: {
   setVisualEditorModal?: (b: boolean) => void;
   visualChangesets: VisualChangesetInterface[];
   experiment: ExperimentInterfaceStringDates;
   mutate?: () => void;
   canAddChanges: boolean;
-  canEditVisualChangesets;
+  canEditVisualChangesets: boolean;
+  isPublic?: boolean;
 }) {
   const visualChangeCount = visualChangesets.length;
 
@@ -35,12 +37,14 @@ export default function VisualLinkedChanges({
         });
       }}
     >
-      <VisualChangesetTable
-        experiment={experiment}
-        visualChangesets={visualChangesets}
-        mutate={mutate}
-        canEditVisualChangesets={canEditVisualChangesets}
-      />
+      {!isPublic ? (
+        <VisualChangesetTable
+          experiment={experiment}
+          visualChangesets={visualChangesets}
+          mutate={mutate}
+          canEditVisualChangesets={canEditVisualChangesets}
+        />
+      ): null}
     </LinkedChangesContainer>
   );
 }

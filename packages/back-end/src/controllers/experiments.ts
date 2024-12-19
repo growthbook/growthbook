@@ -1030,6 +1030,7 @@ export async function postExperiment(
     "banditBurnInUnit",
     "customFields",
     "shareLevel",
+    "uid",
   ];
   let changes: Changeset = {};
 

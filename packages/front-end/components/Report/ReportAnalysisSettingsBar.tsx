@@ -51,15 +51,6 @@ export default function ReportAnalysisSettingsBar({
     }
   }, [_snapshot, snapshot]);
 
-  const variations = report.experimentMetadata.variations.map(
-    (variation, i) => ({
-      id: variation.id,
-      name: variation.name,
-      weight:
-        report.experimentMetadata.phases?.[snapshot?.phase || 0]
-          ?.variationWeights?.[i] || 1 / (variations?.length || 2),
-    })
-  );
   const analysis = snapshot
     ? getSnapshotAnalysis(snapshot) ?? undefined
     : undefined;

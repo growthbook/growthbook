@@ -7,7 +7,6 @@ import VariationsTable from "@/components/Experiment/VariationsTable";
 import VisualLinkedChanges from "@/components/Experiment/LinkedChanges/VisualLinkedChanges";
 import FeatureLinkedChanges from "@/components/Experiment/LinkedChanges/FeatureLinkedChanges";
 import RedirectLinkedChanges from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges";
-import TrafficAndTargeting from "@/components/Experiment/TabbedPage/TrafficAndTargeting";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
 import {SSRPolyfills} from "@/hooks/useSSRPolyfills";
 
@@ -24,9 +23,6 @@ export default function PublicExperimentOverview({
   linkedFeatures: LinkedFeatureInfo[];
   ssrPolyfills: SSRPolyfills;
 }) {
-  const phases = experiment?.phases || [];
-  const lastPhaseIndex = phases.length - 1;
-
   const hasLinkedChanges =
     experiment?.hasVisualChangesets ||
     (linkedFeatures?.length ?? 0) > 0 ||
@@ -39,7 +35,7 @@ export default function PublicExperimentOverview({
       <div className="box px-4 py-3 mb-4">
         <h4>Description</h4>
         <Markdown>
-          {experiment?.description}
+          {experiment?.description || "_no description_"}
         </Markdown>
       </div>
 
@@ -67,21 +63,19 @@ export default function PublicExperimentOverview({
             canAddChanges={false}
             canEditVisualChangesets={false}
             experiment={experiment}
+            isPublic={true}
           />
           <FeatureLinkedChanges
             linkedFeatures={linkedFeatures}
             experiment={experiment}
             canAddChanges={false}
+            isPublic={true}
           />
           <RedirectLinkedChanges
             urlRedirects={urlRedirects}
             experiment={experiment}
             canAddChanges={false}
-          />
-
-          <TrafficAndTargeting
-            experiment={experiment}
-            phaseIndex={lastPhaseIndex}
+            isPublic={true}
           />
 
           <AnalysisSettings

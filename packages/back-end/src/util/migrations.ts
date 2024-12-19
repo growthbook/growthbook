@@ -43,6 +43,7 @@ import {
 import { getEnvironments } from "back-end/src/services/organizations";
 import { LegacySavedGroupInterface } from "back-end/types/saved-group";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
+import {v4 as uuidv4} from "uuid";
 
 function roundVariationWeight(num: number): number {
   return Math.round(num * 1000) / 1000;
@@ -619,6 +620,9 @@ export function upgradeExperimentDoc(
 
   if (!("shareLevel" in experiment)) {
     experiment.shareLevel = "organization";
+  }
+  if (!("uid" in experiment)) {
+    experiment.uid = uuidv4().replace(/-/g, "");
   }
 
   return experiment as ExperimentInterface;
