@@ -14,7 +14,7 @@ export default function FeatureLinkedChanges({
   experiment,
   canAddChanges,
 }: {
-  setFeatureModal: (open: boolean) => void;
+  setFeatureModal?: (open: boolean) => void;
   linkedFeatures: LinkedFeatureInfo[];
   experiment: ExperimentInterfaceStringDates;
   canAddChanges: boolean;
@@ -29,7 +29,7 @@ export default function FeatureLinkedChanges({
       type="feature-flag"
       experimentStatus={experiment.status}
       onAddChange={() => {
-        setFeatureModal(true);
+        setFeatureModal?.(true);
         track("Open linked feature modal", {
           source: "linked-changes",
           action: "add",

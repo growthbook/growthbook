@@ -330,7 +330,7 @@ export default function ReportMetaInfo({
                 <LinkButton
                   variant="outline"
                   href={`/report/${report.id}`}
-                  mr="4"
+                  mr={showEditControls ? "4" : "0"}
                 >
                   Edit Report
                 </LinkButton>
