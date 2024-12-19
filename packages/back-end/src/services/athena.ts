@@ -76,6 +76,17 @@ export async function runAthenaQuery(
   const retryWaitTime =
     (parseInt(process.env.ATHENA_RETRY_WAIT_TIME || "60") || 60) * 1000;
 
+  const resultReuseSettings =
+    typeof conn.resultReuseMaxAgeInMinutes === "undefined" ||
+    conn.resultReuseMaxAgeInMinutes === "0"
+      ? {
+          Enabled: false,
+        }
+      : {
+          Enabled: true,
+          MaxAgeInMinutes: parseInt(conn.resultReuseMaxAgeInMinutes),
+        };
+
   const { QueryExecutionId } = await athena.startQueryExecution({
     QueryString: sql,
     QueryExecutionContext: {
@@ -87,6 +98,9 @@ export async function runAthenaQuery(
         EncryptionOption: "SSE_S3",
       },
       OutputLocation: bucketUri,
+    },
+    ResultReuseConfiguration: {
+      ResultReuseByAgeConfiguration: resultReuseSettings,
     },
     WorkGroup: workGroup || "primary",
   });
