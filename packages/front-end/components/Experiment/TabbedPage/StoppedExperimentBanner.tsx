@@ -54,16 +54,11 @@ export default function StoppedExperimentBanner({
         className="d-flex align-items-center p-3"
         style={{ background: "var( --alert-premium-background-gradient-2)" }}
       >
-        <div>
+        <div className="mr-2">
           <h3 className="mb-0">Experiment Stopped</h3>
         </div>
         {experiment.results && (
-          <div
-            style={{ height: 25, lineHeight: "25px" }}
-            className="ml-3 experiment-status-widget"
-          >
-            <ResultsIndicator results={experiment.results} />
-          </div>
+          <ResultsIndicator results={experiment.results} />
         )}
         <div className="flex-1"></div>
         {releasedVariation &&
