@@ -148,7 +148,7 @@ export default function ExperimentImpactTab({
               </div>
             ) : (
               <div className="my-1">
-                <ExperimentStatusIndicator status={e.experiment.status} />
+                <ExperimentStatusIndicator experimentData={e.experiment} />
               </div>
             )}
           </div>
