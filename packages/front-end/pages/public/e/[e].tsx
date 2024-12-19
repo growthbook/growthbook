@@ -20,6 +20,7 @@ import {useLocalStorage} from "@/hooks/useLocalStorage";
 import {ExperimentTab} from "@/components/Experiment/TabbedPage";
 import PublicExperimentOverview from "@/components/Experiment/Public/PublicExperimentOverview";
 import PublicExperimentResults from "@/components/Experiment/Public/PublicExperimentResults";
+import BanditSummaryResultsTab from "@/components/Experiment/TabbedPage/BanditSummaryResultsTab";
 
 export async function getServerSideProps(context) {
   const { e } = context.params;
@@ -217,7 +218,23 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
               ssrPolyfills={ssrPolyfills}
             />
           </div>
-          {/*todo: bandit summary results*/}
+
+          {isBandit ? (
+            <div
+              className={
+                isBandit && tab === "results" ? "d-block" : "d-none d-print-block"
+              }
+            >
+              <BanditSummaryResultsTab
+                experiment={experiment}
+                isTabActive={tab === "results"}
+                ssrSnapshot={snapshot ?? undefined}
+                ssrPolyfills={ssrPolyfills}
+                isPublic={true}
+              />
+            </div>
+          ) : null}
+
           <div
             className={
               (!isBandit && tab === "results") || (isBandit && tab === "explore")
