@@ -317,14 +317,14 @@ export default function ResultsTab({
           )}
         </div>
       </div>
-      {snapshot && !isBandit && (
+      {snapshot && (
         <div className="bg-white border mt-4">
           <div className="row mx-2 py-3 d-flex align-items-center">
             <div className="col ml-2">
               <div className="h3">Custom Reports</div>
               <div>
-                Create and share an ad-hoc analysis without affecting this
-                experiment.
+                Create and share an ad-hoc analysis without affecting this{" "}
+                {isBandit ? "Bandit" : "Experiment"}.
               </div>
             </div>
             <div className="col-auto mr-2">

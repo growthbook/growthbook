@@ -5,6 +5,7 @@ import { ExperimentMetricInterface } from "shared/experiments";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { FactTableInterface } from "back-end/types/fact-table";
 import { DimensionInterface } from "back-end/types/dimension";
+import { ProjectInterface } from "back-end/types/project";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
@@ -22,6 +23,7 @@ export interface SSRPolyfills {
   getMetricGroupById: (id: string) => null | MetricGroupInterface;
   getFactTableById: (id: string) => null | FactTableInterface;
   useOrgSettings: typeof useOrgSettings;
+  getProjectById: (id: string) => null | ProjectInterface;
   useCurrency: typeof useCurrency;
   usePValueThreshold: typeof usePValueThreshold;
   useConfidenceLevels: typeof useConfidenceLevels;
@@ -62,7 +64,7 @@ export default function useSSRPolyfills(
     [getMetricGroupById, metricGroupsSSR]
   );
   const getFactTableByIdSSR = useCallback(
-    (id) => getFactTableById(id) || ssrData?.factTables?.[id] || null,
+    (id: string) => getFactTableById(id) || ssrData?.factTables?.[id] || null,
     [getFactTableById, ssrData?.factTables]
   );
 
@@ -71,7 +73,7 @@ export default function useSSRPolyfills(
     return hasCsrSettings ? orgSettings : ssrData?.settings || {};
   };
   const getProjectByIdSSR = useCallback(
-    (id) => getProjectById(id) || ssrData?.projects?.[id] || null,
+    (id: string) => getProjectById(id) || ssrData?.projects?.[id] || null,
     [getProjectById, ssrData?.projects]
   );
   const useCurrencySSR = () => {

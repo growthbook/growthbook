@@ -6,25 +6,20 @@ import Head from "next/head";
 import {ExperimentInterfaceStringDates, ExperimentPhaseStringDates, LinkedFeatureInfo} from "back-end/types/experiment";
 import { truncateString } from "shared/util";
 import {date, daysBetween} from "shared/dates";
+import React, {useEffect, useRef, useState} from "react";
+import clsx from "clsx";
+import {VisualChangesetInterface} from "back-end/types/visual-changeset";
+import {URLRedirectInterface} from "back-end/types/url-redirect";
 import PageHead from "@/components/Layout/PageHead";
 import { useUser } from "@/services/UserContext";
 import useSSRPolyfills from "@/hooks/useSSRPolyfills";
 import PublicExperimentMetaInfo from "@/components/Experiment/Public/PublicExperimentMetaInfo";
-import Markdown from "@/components/Markdown/Markdown";
-import React, {useEffect, useRef, useState} from "react";
-import clsx from "clsx";
 import {Tabs, TabsList, TabsTrigger} from "@/components/Radix/Tabs";
 import {useScrollPosition} from "@/hooks/useScrollPosition";
 import {useLocalStorage} from "@/hooks/useLocalStorage";
 import {ExperimentTab} from "@/components/Experiment/TabbedPage";
-import VariationsTable from "@/components/Experiment/VariationsTable";
-import {VisualChangesetInterface} from "back-end/types/visual-changeset";
-import {URLRedirectInterface} from "back-end/types/url-redirect";
-import VisualLinkedChanges from "@/components/Experiment/LinkedChanges/VisualLinkedChanges";
-import FeatureLinkedChanges from "@/components/Experiment/LinkedChanges/FeatureLinkedChanges";
-import RedirectLinkedChanges from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges";
-import TrafficAndTargeting from "@/components/Experiment/TabbedPage/TrafficAndTargeting";
-import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
+import PublicExperimentOverview from "@/components/Experiment/Public/PublicExperimentOverview";
+import PublicExperimentResults from "@/components/Experiment/Public/PublicExperimentResults";
 
 export async function getServerSideProps(context) {
   const { e } = context.params;
@@ -89,7 +84,6 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
     (!!userId && experiment?.organization === userOrganization.id) || !!superAdmin;
 
   const ssrPolyfills = useSSRPolyfills(ssrData);
-  console.log(ssrPolyfills)
 
   const [tab, setTab] = useLocalStorage<ExperimentTab>(
     `tabbedPageTab__public__${experiment?.id}`,
@@ -129,11 +123,6 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
   const hasResults = !!analysis?.results?.[0];
   const shouldHideTabs = !experiment ||
     (experiment?.status === "draft" && !hasResults && phases.length === 1);
-
-  const hasLinkedChanges =
-    experiment?.hasVisualChangesets ||
-    (linkedFeatures?.length ?? 0) > 0 ||
-    experiment?.hasURLRedirects;
 
   const isBandit = experiment?.type === "multi-armed-bandit";
 
@@ -220,66 +209,38 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
               tab === "overview" ? "d-block" : "d-none d-print-block"
             )}
           >
-            <h2>Overview</h2>
-
-            <div className="box px-4 py-3 mb-4">
-              <h4>Description</h4>
-              <Markdown>
-                {experiment?.description}
-              </Markdown>
-            </div>
-
-            {experiment?.type !== "multi-armed-bandit" && experiment?.hypothesis ? (
-              <div className="box px-4 py-3 mb-4">
-                <h4>Hypothesis</h4>
-                {experiment?.hypothesis}
-              </div>
-            ) : null}
-
-            <h2>Implementation</h2>
-
-            <div className="box px-2 py-3 mb-4">
-              <h4 className="mx-3">Variations</h4>
-              <VariationsTable
-                experiment={experiment}
-                canEditExperiment={false}
-              />
-            </div>
-
-            {hasLinkedChanges ? (
-              <>
-                <VisualLinkedChanges
-                  visualChangesets={visualChangesets ?? []}
-                  canAddChanges={false}
-                  canEditVisualChangesets={false}
-                  experiment={experiment}
-                />
-                <FeatureLinkedChanges
-                  linkedFeatures={linkedFeatures ?? []}
-                  experiment={experiment}
-                  canAddChanges={false}
-                />
-                <RedirectLinkedChanges
-                  urlRedirects={urlRedirects ?? []}
-                  experiment={experiment}
-                  canAddChanges={false}
-                />
-              </>
-            ) : null}
+            <PublicExperimentOverview
+              experiment={experiment}
+              visualChangesets={visualChangesets ?? []}
+              urlRedirects={urlRedirects ?? []}
+              linkedFeatures={linkedFeatures ?? []}
+              ssrPolyfills={ssrPolyfills}
+            />
           </div>
-
-          <TrafficAndTargeting
-            experiment={experiment}
-            phaseIndex={lastPhaseIndex}
-          />
-
-          <AnalysisSettings
-            experiment={experiment}
-            envs={[]}
-            canEdit={false}
-            ssrPolyfills={ssrPolyfills}
-          />
-
+          {/*todo: bandit summary results*/}
+          <div
+            className={
+              (!isBandit && tab === "results") || (isBandit && tab === "explore")
+                ? "d-block pt-2"
+                : "d-none d-print-block"
+            }
+          >
+            <PublicExperimentResults
+              experiment={experiment}
+              snapshot={snapshot ?? undefined}
+              snapshotError={
+                !snapshot
+                  ? new Error("Missing snapshot")
+                  : snapshot.error
+                    ? new Error(snapshot.error)
+                    : snapshot?.status === "error"
+                      ? new Error("Report analysis failed")
+                      : undefined
+              }
+              ssrPolyfills={ssrPolyfills}
+              isTabActive={(!isBandit && tab === "results") || (isBandit && tab === "explore")}
+            />
+          </div>
         </div>
       ): null}
 

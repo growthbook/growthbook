@@ -18,8 +18,11 @@ export default function PublicExperimentMetaInfo({
 }) {
   const HOST = globalThis?.window?.location?.origin;
   const shareableLink = experiment.uid
-    ? `${HOST}/public/r/${experiment.uid}`
-    : `${HOST}/report/${experiment.id}`;
+    ? `${HOST}/public/e/${experiment.uid}`
+    : `${HOST}/${experiment?.type === "multi-armed-bandit"
+                      ? "bandit"
+                      : "experiment"
+                  }/${experiment.id}`;
 
   const { performCopy, copySuccess } = useCopyToClipboard({
     timeout: 800,
@@ -65,7 +68,7 @@ export default function PublicExperimentMetaInfo({
             </Flex>
           </div>
           <div className="flex-shrink-0">
-            <div className="d-flex align-items-center">
+            <div className="d-flex align-items-center" style={{ height: 40 }}>
               <div className="mr-3">
                 {experiment.archived ? (
                   <div className="badge badge-secondary">archived</div>
@@ -90,7 +93,7 @@ export default function PublicExperimentMetaInfo({
                       ? "bandit"
                       : "experiment"
                   }/${experiment?.id}`}
-                  mr="4"
+                  mr={experiment.shareLevel === "public" ? "4" : "0"}
                 >
                   Edit {
                   experiment?.type === "multi-armed-bandit"

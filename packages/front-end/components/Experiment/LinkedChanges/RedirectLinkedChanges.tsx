@@ -114,7 +114,7 @@ const Redirect = ({
                   await apiCall(`/url-redirects/${urlRedirect.id}`, {
                     method: "DELETE",
                   });
-                  mutate();
+                  mutate?.();
                 }}
               >
                 Remove

@@ -62,7 +62,7 @@ import { DataSourceInterface } from "back-end/types/datasource";
 import { ReqContextClass } from "back-end/src/services/context";
 import { getMetricsByIds } from "back-end/src/models/MetricModel";
 import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
-import {ProjectInterface} from "back-end/src/models/ProjectModel";
+import { ProjectInterface } from "back-end/types/project";
 
 export function getReportVariations(
   experiment: ExperimentInterface,
@@ -673,9 +673,13 @@ export async function generateExperimentReportSSRData({
     settingsKeys
   );
 
-  const projectObj = project ? (await context.models.projects.getById(project) || undefined) : undefined;
-  const _project: Partial<ProjectInterface> | undefined = projectObj ? pick(projectObj, ["name", "id", "settings"]) : undefined;
-  const projectMap = _project ? {[_project.id] : _project} : [];
+  const projectObj = project
+    ? (await context.models.projects.getById(project)) || undefined
+    : undefined;
+  const _project: ProjectInterface | undefined = projectObj
+    ? (pick(projectObj, ["name", "id", "settings"]) as ProjectInterface)
+    : undefined;
+  const projectMap = _project?.id ? { [_project.id]: _project } : {};
 
   return {
     metrics: metricMap,
