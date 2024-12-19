@@ -66,6 +66,22 @@
   }
 }
 
+// Icon Button
+.rt-IconButton {
+  &:where(.rt-r-size-1) {
+    --base-button-height: var(--space-4) !important;
+  }
+  &:where(.rt-r-size-2) {
+    --base-button-height: var(--space-5) !important;
+  }
+  &:where(.rt-r-size-3) {
+    --base-button-height: var(--space-6) !important;
+  }
+  &:where(.rt-r-size-4) {
+    --base-button-height: var(--space-7) !important;
+  }
+}
+
 // Callout
 .rt-CalloutRoot:where(.rt-r-size-1) {
   padding: var(--space-2) var(--space-3) !important;
