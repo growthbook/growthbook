@@ -54,6 +54,12 @@ export default function PublicExperimentMetaInfo({
           <div className="flex-1">
             <h1 className="mt-1 mb-3 mr-2">
               {experiment.name}
+              <div
+                className="d-inline-block ml-2 position-relative"
+                style={{top: -2}}
+              >
+                <ExperimentStatusIndicator experimentData={experiment}/>
+              </div>
             </h1>
 
             <Flex gap="3" mt="2" mb="1">
@@ -69,22 +75,6 @@ export default function PublicExperimentMetaInfo({
           </div>
           <div className="flex-shrink-0">
             <div className="d-flex align-items-center" style={{ height: 40 }}>
-              <div className="mr-3">
-                {experiment.archived ? (
-                  <div className="badge badge-secondary">archived</div>
-                ) : (
-                  <ExperimentStatusIndicator
-                    status={experiment.status}
-                    subStatus={
-                      experiment.type === "multi-armed-bandit" &&
-                      experiment.status === "running" &&
-                      experiment.banditStage === "explore"
-                        ? "exploratory"
-                        : undefined
-                    }
-                  />
-                )}
-              </div>
               {showPrivateLink && (
                 <LinkButton
                   variant="outline"
