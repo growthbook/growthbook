@@ -14,12 +14,14 @@ If your DataDog RUM browser SDK version is below v5.17.0, [enable feature flags 
 
 :::
 
-We can report all feature flag evaluations to DataDog using GrowthBook’s SDK `trackingCallback` function, as shown in the snippet below.
+We can report all feature flag evaluations to DataDog using GrowthBook’s SDK `onFeatureUsage` callback, as shown in the snippet below.
 
-```
-trackingCallback: (experiment, result) => {
-  datadogRum.addFeatureFlagEvaluation(experiment.key, result.key);
-}
+```javascript
+const gb = new GrowthBookClient({
+  onFeatureUsage: (featureKey, result) => {
+    datadogRum.addFeatureFlagEvaluation(featureKey, result.value);
+  }
+});
 ```
 
 ### Advanced example
