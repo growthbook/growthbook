@@ -148,7 +148,12 @@ export default function Implementation({
         phaseIndex={phases.length - 1}
       />
 
-      <AnalysisSettings experiment={experiment} mutate={mutate} envs={envs} />
+      <AnalysisSettings
+        experiment={experiment}
+        mutate={mutate}
+        envs={envs}
+        canEdit={!!editTargeting}
+      />
     </div>
   );
 }

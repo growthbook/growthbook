@@ -617,6 +617,10 @@ export function upgradeExperimentDoc(
     experiment.sequentialTestingTuningParameter = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
   }
 
+  if (!("shareLevel" in experiment)) {
+    experiment.shareLevel = "organization";
+  }
+
   return experiment as ExperimentInterface;
 }
 

@@ -28,7 +28,7 @@ export default function useURLHash<Id extends string>(
 ) {
   const [hash, setHashState] = useState(() => {
     // Get initial hash from URL
-    const urlHash = window.location.hash.slice(1);
+    const urlHash = globalThis?.window?.location?.hash?.slice(1) || "";
     if (validIds === undefined) {
       return urlHash === "" ? undefined : urlHash;
     } else {
@@ -37,6 +37,7 @@ export default function useURLHash<Id extends string>(
   });
 
   const setHashAndURL = (newHash: Id) => {
+    if (!globalThis?.window?.location?.hash) return;
     if (validIds === undefined || validIds.includes(newHash)) {
       window.location.hash = newHash;
     }
@@ -45,14 +46,15 @@ export default function useURLHash<Id extends string>(
   // Listen for URL changes
   useEffect(() => {
     const handler = () => {
-      const newHash = window.location.hash.slice(1);
+      const newHash = globalThis?.window?.location?.hash?.slice(1) || "";
       if (validIds === undefined || validIds.includes(newHash as Id)) {
         setHashState(newHash === "" ? undefined : newHash);
       }
     };
 
-    window.addEventListener("hashchange", handler, false);
-    return () => window.removeEventListener("hashchange", handler, false);
+    globalThis?.window?.addEventListener("hashchange", handler, false);
+    return () =>
+      globalThis?.window?.removeEventListener("hashchange", handler, false);
   }, [validIds]);
 
   return [hash, setHashAndURL] as const;
