@@ -8,14 +8,16 @@ import SortedTags from "@/components/Tags/SortedTags";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useTemplates } from "@/hooks/useTemplates";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useSearch } from "@/services/search";
 import { useUser } from "@/services/UserContext";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 
-export const TemplatesPage = ({ setOpenTemplateModal }) => {
+export const TemplatesPage = ({
+  setOpenTemplateModal,
+  setOpenDuplicateTemplateModal,
+}) => {
   const { ready, project, getProjectById } = useDefinitions();
 
   const { apiCall } = useAuth();
@@ -96,7 +98,7 @@ export const TemplatesPage = ({ setOpenTemplateModal }) => {
                       <button
                         className="dropdown-item"
                         onClick={() => {
-                          setOpenTemplateModal();
+                          setOpenTemplateModal(t);
                         }}
                       >
                         Edit
@@ -106,7 +108,7 @@ export const TemplatesPage = ({ setOpenTemplateModal }) => {
                       <button
                         className="dropdown-item"
                         onClick={() => {
-                          setOpenTemplateModal();
+                          setOpenDuplicateTemplateModal(t);
                         }}
                       >
                         Duplicate
@@ -161,7 +163,7 @@ export const TemplatesPage = ({ setOpenTemplateModal }) => {
             View docs
           </LinkButton>
           {hasTemplatesFeature ? (
-            <Button onClick={() => setOpenTemplateModal(true)}>
+            <Button onClick={() => setOpenTemplateModal({})}>
               Create Template
             </Button>
           ) : (

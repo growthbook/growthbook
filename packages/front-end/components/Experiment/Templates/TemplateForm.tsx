@@ -2,7 +2,6 @@ import { useRouter } from "next/router";
 import { FC, useEffect, useState } from "react";
 import { ExperimentTemplateInterface } from "back-end/types/experiment";
 import { FormProvider, useForm } from "react-hook-form";
-import { getEqualWeights } from "shared/experiments";
 import { validateAndFixCondition } from "shared/util";
 import { kebabCase } from "lodash";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -14,7 +13,6 @@ import { SingleValue, GroupedValue } from "@/components/Forms/SelectField";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useIncrementer } from "@/hooks/useIncrementer";
-import useSDKConnections from "@/hooks/useSDKConnections";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
@@ -22,38 +20,31 @@ import Field from "@/components/Forms/Field";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import TagsInput from "@/components/Tags/TagsInput";
 import ExperimentRefNewFields from "@/components/Features/RuleModal/ExperimentRefNewFields";
-import { getDefaultVariations } from "../NewExperimentForm";
-import { allConnectionsSupportBucketingV2 } from "../HashVersionSelector";
+import { useTemplates } from "@/hooks/useTemplates";
 
 type Props = {
-  initialStep?: number;
   initialValue?: Partial<ExperimentTemplateInterface>;
-  initialNumVariations?: number;
   duplicate?: boolean;
   source: string;
   msg?: string;
   onClose?: () => void;
   onCreate?: (id: string) => void;
-  inline?: boolean;
-  isNewExperiment?: boolean;
+  isNewTemplate?: boolean;
 };
 
 const TemplateForm: FC<Props> = ({
-  initialStep = 0,
   initialValue = {
     type: "standard",
   },
-  initialNumVariations = 2,
   onClose,
   onCreate = null,
   duplicate,
   source,
   msg,
-  inline,
-  isNewExperiment,
+  isNewTemplate,
 }) => {
   const router = useRouter();
-  const [step, setStep] = useState(initialStep || 0);
+  const [step, setStep] = useState(0);
 
   const {
     getDatasourceById,
@@ -71,14 +62,9 @@ const TemplateForm: FC<Props> = ({
   ] = useState(false);
   const canSubmit = !prerequisiteTargetingSdkIssues;
 
-  const settings = useOrgSettings();
+  const { useStickyBucketing, statsEngine: orgStatsEngine } = useOrgSettings();
   const permissionsUtils = usePermissionsUtil();
-
-  const { data: sdkConnectionsData } = useSDKConnections();
-  const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
-    sdkConnectionsData?.connections,
-    project
-  );
+  const { mutateTemplates } = useTemplates();
 
   const [conditionKey, forceConditionRender] = useIncrementer();
 
@@ -90,11 +76,11 @@ const TemplateForm: FC<Props> = ({
     ? "id"
     : hashAttributes[0] || "id";
 
-  const orgStickyBucketing = !!settings.useStickyBucketing;
+  const orgStickyBucketing = !!useStickyBucketing;
 
   const form = useForm<Partial<ExperimentTemplateInterface>>({
     defaultValues: {
-      projects: initialValue?.projects || [project] || [],
+      projects: initialValue?.projects || (project ? [project] : []),
       templateMetadata: {
         name: initialValue?.templateMetadata?.name || "",
         description: initialValue?.templateMetadata?.description || "",
@@ -113,6 +99,7 @@ const TemplateForm: FC<Props> = ({
       goalMetrics: initialValue?.goalMetrics || [],
       secondaryMetrics: initialValue?.secondaryMetrics || [],
       guardrailMetrics: initialValue?.guardrailMetrics || [],
+      statsEngine: initialValue?.statsEngine || orgStatsEngine,
       targeting: {
         coverage: initialValue.targeting?.coverage || 1,
         savedGroups: initialValue.targeting?.savedGroups || [],
@@ -172,10 +159,11 @@ const TemplateForm: FC<Props> = ({
     });
 
     data.tags && refreshTags(data.tags);
+    mutateTemplates();
     if (onCreate) {
       onCreate(res.template.id);
     } else {
-      // router.push(`/experiment/${res.experiment.id}`);
+      router.push(`/experiments#templates`);
     }
   });
 
@@ -198,7 +186,7 @@ const TemplateForm: FC<Props> = ({
     }
   }, [form, exposureQueries, exposureQueryId]);
 
-  let header = isNewExperiment
+  let header = isNewTemplate
     ? "Create Experiment Template"
     : "Edit Experiment Template";
   if (duplicate) {
@@ -224,7 +212,6 @@ const TemplateForm: FC<Props> = ({
         size="lg"
         step={step}
         setStep={setStep}
-        inline={inline}
         backButton={true}
         bodyClassName="px-4"
         navFill
@@ -235,9 +222,9 @@ const TemplateForm: FC<Props> = ({
 
             {currentProjectIsDemo && (
               <div className="alert alert-warning">
-                You are creating an experiment under the demo datasource
-                project. This experiment will be deleted when the demo
-                datasource project is deleted.
+                You are creating a template under the demo datasource project.
+                This template will be deleted when the demo datasource project
+                is deleted.
               </div>
             )}
 
@@ -312,52 +299,46 @@ const TemplateForm: FC<Props> = ({
           </div>
         </Page>
 
-        {isNewExperiment || duplicate
-          ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => {
-              // skip, custom overview page above
-              if (i === 0) return null;
-              return (
-                <Page display={p} key={i}>
-                  <ExperimentRefNewFields
-                    step={i}
-                    source="experiment"
-                    project={project}
-                    environments={envs}
-                    noSchedule={true}
-                    prerequisiteValue={
-                      form.watch("targeting.prerequisites") || []
-                    }
-                    setPrerequisiteValue={(prerequisites) =>
-                      form.setValue("targeting.prerequisites", prerequisites)
-                    }
-                    setPrerequisiteTargetingSdkIssues={
-                      setPrerequisiteTargetingSdkIssues
-                    }
-                    savedGroupValue={form.watch("targeting.savedGroups") || []}
-                    setSavedGroupValue={(savedGroups) =>
-                      form.setValue("targeting.savedGroups", savedGroups)
-                    }
-                    defaultConditionValue={
-                      form.watch("targeting.condition") || ""
-                    }
-                    setConditionValue={(value) =>
-                      form.setValue("targeting.condition", value)
-                    }
-                    conditionKey={conditionKey}
-                    namespaceFormPrefix={"targeting."}
-                    coverage={form.watch("targeting.coverage")}
-                    setCoverage={(coverage) =>
-                      form.setValue("targeting.coverage", coverage)
-                    }
-                    variationValuesAsIds={true}
-                    hideVariationIds={true}
-                    orgStickyBucketing={orgStickyBucketing}
-                    isTemplate
-                  />
-                </Page>
-              );
-            })
-          : null}
+        {["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => {
+          // skip, custom overview page above
+          if (i === 0) return null;
+          return (
+            <Page display={p} key={i}>
+              <ExperimentRefNewFields
+                step={i}
+                source="experiment"
+                project={project}
+                environments={envs}
+                noSchedule={true}
+                prerequisiteValue={form.watch("targeting.prerequisites") || []}
+                setPrerequisiteValue={(prerequisites) =>
+                  form.setValue("targeting.prerequisites", prerequisites)
+                }
+                setPrerequisiteTargetingSdkIssues={
+                  setPrerequisiteTargetingSdkIssues
+                }
+                savedGroupValue={form.watch("targeting.savedGroups") || []}
+                setSavedGroupValue={(savedGroups) =>
+                  form.setValue("targeting.savedGroups", savedGroups)
+                }
+                defaultConditionValue={form.watch("targeting.condition") || ""}
+                setConditionValue={(value) =>
+                  form.setValue("targeting.condition", value)
+                }
+                conditionKey={conditionKey}
+                namespaceFormPrefix={"targeting."}
+                coverage={form.watch("targeting.coverage")}
+                setCoverage={(coverage) =>
+                  form.setValue("targeting.coverage", coverage)
+                }
+                variationValuesAsIds={true}
+                hideVariationIds={true}
+                orgStickyBucketing={orgStickyBucketing}
+                isTemplate
+              />
+            </Page>
+          );
+        })}
       </PagedModal>
     </FormProvider>
   );

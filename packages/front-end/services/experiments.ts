@@ -698,8 +698,8 @@ export function convertExperimentToTemplate(
   const latestPhase = experiment.phases[experiment.phases.length - 1];
   const template = {
     templateMetadata: {
-      name: `${experiment.name} template`,
-      description: "",
+      name: "",
+      description: `Template based on ${experiment.name}`,
       tags: [],
     },
     type: "standard" as const,

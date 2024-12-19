@@ -1,12 +1,18 @@
 import express from "express";
+import { z } from "zod";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawTemplateController from "./template.controller";
-import { createTemplateValidator } from "./template.validators";
+import {
+  createTemplateValidator,
+  updateTemplateValidator,
+} from "./template.validators";
 
 const router = express.Router();
 
 const templateController = wrapController(rawTemplateController);
+
+const templateParams = z.object({ id: z.string() }).strict();
 
 router.get("/", templateController.getTemplates);
 
@@ -18,34 +24,21 @@ router.post(
   templateController.postTemplate
 );
 
-// router.put(
-//   "/:id",
-//   validateRequestMiddleware({
-//     params: z
-//       .object({
-//         id: z.string(),
-//       })
-//       .strict(),
-//     body: z
-//       .object({
-//         name: z.string(),
-//         description: z.string(),
-//       })
-//       .strict(),
-//   }),
-//   templateController.putTemplate
-// );
+router.delete(
+  "/:id",
+  validateRequestMiddleware({
+    params: templateParams,
+  }),
+  templateController.deleteTemplate
+);
 
-// router.delete(
-//   "/:id",
-//   validateRequestMiddleware({
-//     params: z
-//       .object({
-//         id: z.string(),
-//       })
-//       .strict(),
-//   }),
-//   templateController.deleteTemplate
-// );
+router.put(
+  "/:id",
+  validateRequestMiddleware({
+    params: templateParams,
+    body: updateTemplateValidator,
+  }),
+  templateController.putTemplate
+);
 
 export { router as templateRouter };

@@ -42,6 +42,8 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { formatPercent } from "@/services/metrics";
 import { AppFeatures } from "@/types/app-features";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import { convertExperimentToTemplate } from "@/services/experiments";
+import TemplateForm from "../Templates/TemplateForm";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import ExperimentActionButtons from "./ExperimentActionButtons";
 import ProjectTagBar from "./ProjectTagBar";
@@ -131,6 +133,7 @@ export default function ExperimentHeader({
   const { phase, analysis } = useSnapshot();
   const connections = sdkConnections?.connections || [];
   const [showSdkForm, setShowSdkForm] = useState(false);
+  const [showTemplateForm, setShowTemplateForm] = useState(false);
 
   const phases = experiment.phases || [];
   const lastPhaseIndex = phases.length - 1;
@@ -164,6 +167,7 @@ export default function ExperimentHeader({
     }
   }
   const canRunExperiment = canEditExperiment && hasRunExperimentsPermission;
+  const canCreateTemplate = permissionsUtil.canViewExperimentTemplateModal();
   const checklistIncomplete =
     checklistItemsRemaining !== null && checklistItemsRemaining > 0;
 
@@ -328,6 +332,14 @@ export default function ExperimentHeader({
             </div>
           </Modal>
         )}
+        {showTemplateForm && (
+          <TemplateForm
+            onClose={() => setShowTemplateForm(false)}
+            initialValue={convertExperimentToTemplate(experiment)}
+            isNewTemplate
+            source="experiment"
+          />
+        )}
         <div className="container-fluid pagecontents position-relative">
           <div className="d-flex align-items-center">
             <div>
@@ -445,6 +457,14 @@ export default function ExperimentHeader({
                     experiment={experiment}
                     mutate={mutate}
                   />
+                )}
+                {canCreateTemplate && (
+                  <button
+                    className="dropdown-item"
+                    onClick={() => setShowTemplateForm(true)}
+                  >
+                    Convert to Template
+                  </button>
                 )}
                 <WatchButton
                   itemType="experiment"

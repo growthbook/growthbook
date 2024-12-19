@@ -440,6 +440,7 @@ export default function ExperimentRefNewFields({
                 className="mb-4"
                 label={<div>Statistics Engine</div>}
                 value={form.watch("statsEngine") ?? orgStatsEngine}
+                onChange={(v) => form.setValue("statsEngine", v)}
                 allowUndefined={false}
               />
             </div>

@@ -6,8 +6,12 @@ import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
 import { PiCaretDown, PiPlusBold, PiShuffle } from "react-icons/pi";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  ExperimentTemplateInterface,
+} from "back-end/types/experiment";
 import { Box, Text } from "@radix-ui/themes";
+import { isEmpty } from "lodash";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
@@ -88,10 +92,15 @@ const ExperimentsPage = (): React.ReactElement => {
     false
   );
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
+  const [openDuplicateTemplateModal, setOpenDuplicateTemplateModal] = useState<
+    undefined | ExperimentTemplateInterface
+  >(undefined);
   const [openImportExperimentModal, setOpenImportExperimentModal] = useState(
     false
   );
-  const [openTemplateModal, setOpenTemplateModal] = useState(false);
+  const [openTemplateModal, setOpenTemplateModal] = useState<
+    Partial<ExperimentTemplateInterface> | undefined
+  >(undefined);
 
   const { getUserDisplay, userId } = useUser();
   const permissionsUtil = usePermissionsUtil();
@@ -339,7 +348,7 @@ const ExperimentsPage = (): React.ReactElement => {
         </DropdownMenuItem>
       )}
       {canAddTemplate && (
-        <DropdownMenuItem onClick={() => setOpenTemplateModal(true)}>
+        <DropdownMenuItem onClick={() => setOpenTemplateModal({})}>
           Create Template
         </DropdownMenuItem>
       )}
@@ -652,7 +661,10 @@ const ExperimentsPage = (): React.ReactElement => {
               )}
             </TabsContent>
             <TabsContent value="templates">
-              <TemplatesPage setOpenTemplateModal={setOpenTemplateModal} />
+              <TemplatesPage
+                setOpenTemplateModal={setOpenTemplateModal}
+                setOpenDuplicateTemplateModal={setOpenDuplicateTemplateModal}
+              />
             </TabsContent>
           </Tabs>
         </div>
@@ -672,9 +684,19 @@ const ExperimentsPage = (): React.ReactElement => {
       )}
       {openTemplateModal && (
         <TemplateForm
-          onClose={() => setOpenTemplateModal(false)}
+          onClose={() => setOpenTemplateModal(undefined)}
+          initialValue={openTemplateModal}
           source="templates-list"
-          isNewExperiment={true}
+          isNewTemplate={isEmpty(openTemplateModal)}
+        />
+      )}
+      {openDuplicateTemplateModal && (
+        <TemplateForm
+          onClose={() => setOpenDuplicateTemplateModal(undefined)}
+          initialValue={openDuplicateTemplateModal}
+          source="templates-list"
+          isNewTemplate={isEmpty(openTemplateModal)}
+          duplicate
         />
       )}
     </>
