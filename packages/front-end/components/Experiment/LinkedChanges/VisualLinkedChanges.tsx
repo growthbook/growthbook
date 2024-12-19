@@ -1,6 +1,8 @@
 import track from "@/services/track";
 import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
 import LinkedChangesContainer from "@/components/Experiment/LinkedChanges/LinkedChangesContainer";
+import {VisualChangesetInterface} from "back-end/types/visual-changeset";
+import {ExperimentInterfaceStringDates} from "back-end/types/experiment";
 
 export default function VisualLinkedChanges({
   setVisualEditorModal,
@@ -9,6 +11,13 @@ export default function VisualLinkedChanges({
   mutate,
   canAddChanges,
   canEditVisualChangesets,
+}: {
+  setVisualEditorModal?: (b: boolean) => void;
+  visualChangesets: VisualChangesetInterface[];
+  experiment: ExperimentInterfaceStringDates;
+  mutate?: () => void;
+  canAddChanges: boolean;
+  canEditVisualChangesets;
 }) {
   const visualChangeCount = visualChangesets.length;
 
@@ -19,7 +28,7 @@ export default function VisualLinkedChanges({
       changeCount={visualChangeCount}
       experimentStatus={experiment.status}
       onAddChange={() => {
-        setVisualEditorModal(true);
+        setVisualEditorModal?.(true);
         track("Open visual editor modal", {
           source: "visual-editor-ui",
           action: "add",

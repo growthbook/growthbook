@@ -22,7 +22,7 @@ import {
   ExperimentReportArgs,
   ExperimentReportVariation,
   ExperimentSnapshotReportInterface,
-  MetricSnapshotSettings,
+  MetricSnapshotSettings, ExperimentReportSSRData,
 } from "back-end/types/report";
 import {
   ExperimentInterface,
@@ -35,9 +35,9 @@ import {
   ExperimentSnapshotSettings,
   MetricForSnapshot,
 } from "back-end/types/experiment-snapshot";
-import { ReqContext } from "back-end/types/organization";
+import {OrganizationSettings, ReqContext} from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
-import { FactTableMap } from "back-end/src/models/FactTableModel";
+import {FactTableMap, getFactTablesByIds} from "back-end/src/models/FactTableModel";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
@@ -54,6 +54,10 @@ import { MetricInterface } from "back-end/types/metric";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { DataSourceInterface } from "back-end/types/datasource";
+import {ReqContextClass} from "back-end/src/services/context";
+import {getMetricsByIds} from "back-end/src/models/MetricModel";
+import {findDimensionsByOrganization} from "back-end/src/models/DimensionModel";
+import {pick, omit} from "lodash";
 
 export function getReportVariations(
   experiment: ExperimentInterface,
@@ -553,5 +557,130 @@ export function getReportSnapshotSettings({
       weight: phase?.variationWeights?.[i] || 0,
     })),
     coverage: phase?.coverage ?? 1,
+  };
+}
+
+
+
+
+
+
+
+
+
+
+export async function generateExperimentReportSSRData({
+  context,
+  organization,
+  snapshot,
+} : {
+  context: ReqContextClass;
+  organization: string;
+  snapshot?: ExperimentSnapshotInterface;
+}): Promise<ExperimentReportSSRData> {
+  const metricGroups = await context.models.metricGroups.getAll();
+
+  const experimentMetricIds = expandMetricGroups(
+    uniq([
+      ...(snapshot?.settings?.goalMetrics ?? []),
+      ...(snapshot?.settings?.secondaryMetrics ?? []),
+      ...(snapshot?.settings?.guardrailMetrics ?? []),
+    ]),
+    metricGroups
+  );
+
+  const metricIds = uniq([
+    ...experimentMetricIds,
+    ...(snapshot?.settings?.activationMetric
+      ? [snapshot?.settings?.activationMetric]
+      : []),
+  ]);
+
+  const metrics = await getMetricsByIds(
+    context,
+    metricIds.filter((m) => m.startsWith("met_"))
+  );
+
+  const factMetrics = await context.models.factMetrics.getByIds(
+    metricIds.filter((m) => m.startsWith("fact__"))
+  );
+
+  const denominatorMetricIds = uniq(
+    metrics
+      .filter((m) => !!m.denominator)
+      .map((m) => m.denominator)
+      .filter((id) => id && !metricIds.includes(id)) as string[]
+  );
+
+  const denominatorMetrics = await getMetricsByIds(
+    context,
+    denominatorMetricIds
+  );
+
+  const metricMap = [...metrics, ...factMetrics, ...denominatorMetrics].reduce(
+    (map, metric) =>
+      Object.assign(map, {
+        [metric.id]: omit(metric, [
+          "queries",
+          "runStarted",
+          "analysis",
+          "analysisError",
+          "table",
+          "column",
+          "timestampColumn",
+          "conditions",
+          "queryFormat",
+        ]),
+      }),
+    {}
+  );
+
+  let factTableIds: string[] = [];
+  factMetrics.forEach((m) => {
+    if (m?.numerator?.factTableId) factTableIds.push(m.numerator.factTableId);
+    if (m?.denominator?.factTableId)
+      factTableIds.push(m.denominator.factTableId);
+  });
+
+  factTableIds = uniq(factTableIds);
+
+  const factTables = await getFactTablesByIds(context, factTableIds);
+  const factTableMap = factTables.reduce(
+    (map, factTable) => Object.assign(map, { [factTable.id]: factTable }),
+    {}
+  );
+
+  const allDimensions = await findDimensionsByOrganization(organization);
+  const dimension = allDimensions.find((d) => d.id === snapshot?.dimension);
+  const dimensions = dimension ? [dimension] : [];
+
+  const settingsKeys = [
+    "confidenceLevel",
+    "metricDefaults",
+    "multipleExposureMinPercent",
+    "statsEngine",
+    "pValueThreshold",
+    "pValueCorrection",
+    "regressionAdjustmentEnabled",
+    "regressionAdjustmentDays",
+    "srmThreshold",
+    "attributionModel",
+    "sequentialTestingEnabled",
+    "sequentialTestingTuningParameter",
+    "displayCurrency",
+  ];
+
+  const orgSettings: OrganizationSettings = pick(
+    context.org.settings,
+    settingsKeys
+  );
+  // todo: consider including experiment's project settings in future? likely not...
+
+  return {
+    metrics: metricMap,
+    metricGroups,
+    factTables: factTableMap,
+    settings: orgSettings,
+    dimensions,
   };
 }

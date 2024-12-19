@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { DEFAULT_P_VALUE_THRESHOLD } from "shared/constants";
-import { SSRExperimentReportData } from "back-end/types/report";
+import { ExperimentReportSSRData } from "back-end/types/report";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { FactTableInterface } from "back-end/types/fact-table";
@@ -31,7 +31,7 @@ export interface SSRPolyfills {
 }
 
 export default function useSSRPolyfills(
-  ssrData: SSRExperimentReportData | null
+  ssrData: ExperimentReportSSRData | null
 ): SSRPolyfills {
   const {
     getExperimentMetricById,

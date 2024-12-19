@@ -11,10 +11,11 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   envs: string[];
-  mutate: () => void;
+  mutate?: () => void;
+  canEdit: boolean;
 }
 
-export default function AnalysisSettings({ experiment, mutate, envs }: Props) {
+export default function AnalysisSettings({ experiment, mutate, envs, canEdit }: Props) {
   const {
     getDatasourceById,
     getProjectById,
@@ -28,7 +29,7 @@ export default function AnalysisSettings({ experiment, mutate, envs }: Props) {
 
   const project = getProjectById(experiment.project || "");
 
-  const canEditAnalysisSettings = permissionsUtil.canUpdateExperiment(
+  const canEditAnalysisSettings = canEdit && permissionsUtil.canUpdateExperiment(
     experiment,
     {}
   );
@@ -75,7 +76,7 @@ export default function AnalysisSettings({ experiment, mutate, envs }: Props) {
 
   return (
     <>
-      {analysisModal && (
+      {analysisModal && mutate ? (
         <AnalysisForm
           cancel={() => setAnalysisModal(false)}
           experiment={experiment}
@@ -87,7 +88,7 @@ export default function AnalysisSettings({ experiment, mutate, envs }: Props) {
           source={"analysis-settings"}
           envs={envs}
         />
-      )}
+      ) : null}
 
       <div className="box p-4 my-4">
         <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-4">

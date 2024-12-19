@@ -161,7 +161,7 @@ export type LegacyReportInterface = Omit<ExperimentReportInterface, "args"> & {
   };
 };
 
-export type SSRExperimentReportData = {
+export type ExperimentReportSSRData = {
   metrics: Record<string, ExperimentMetricInterface>;
   metricGroups: MetricGroupInterface[];
   factTables: Record<string, FactTableInterface>;

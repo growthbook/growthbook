@@ -11,18 +11,18 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Link from "@/components/Radix/Link";
 
 interface RedirectLinkedChangesProps {
-  setUrlRedirectModal: (boolean) => void;
+  setUrlRedirectModal?: (boolean) => void;
   urlRedirects: URLRedirectInterface[];
   experiment: ExperimentInterfaceStringDates;
   canAddChanges: boolean;
-  mutate: () => void;
+  mutate?: () => void;
 }
 
 interface RedirectProps {
   urlRedirect: URLRedirectInterface;
   experiment: ExperimentInterfaceStringDates;
   canEdit: boolean;
-  mutate: () => void;
+  mutate?: () => void;
 }
 
 function UrlDifferenceRenderer({ url1, url2 }: { url1: string; url2: string }) {
@@ -77,7 +77,7 @@ const Redirect = ({
 
   return (
     <>
-      {editingRedirect ? (
+      {editingRedirect && mutate ? (
         <UrlRedirectModal
           mode="edit"
           experiment={experiment}
@@ -191,7 +191,7 @@ export default function RedirectLinkedChanges({
       changeCount={redirectCount}
       experimentStatus={experiment.status}
       type="redirects"
-      onAddChange={() => setUrlRedirectModal(true)}
+      onAddChange={() => setUrlRedirectModal?.(true)}
     >
       <div>
         {urlRedirects.map((r, i) => (

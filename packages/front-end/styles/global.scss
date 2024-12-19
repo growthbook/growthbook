@@ -567,7 +567,10 @@ pre {
 }
 
 .main.experiment,
-.main.bandit {
+.main.bandit,
+.public.experiment,
+.public.bandit,
+  {
   .experiment-header {
     margin: -4px -8px 0;
     .border {
