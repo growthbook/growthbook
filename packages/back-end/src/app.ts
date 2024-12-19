@@ -282,6 +282,16 @@ if (!IS_CLOUD) {
   );
 }
 
+// public shareable reports
+app.get(
+  "/api/report/public/:uid",
+  cors({
+    credentials: false,
+    origin: "*",
+  }),
+  reportsController.getReportPublic
+);
+
 // Secret API routes (no JWT or CORS)
 app.use(
   "/api/v1",
@@ -467,6 +477,7 @@ app.get(
 );
 app.get("/experiment/:id", experimentsController.getExperiment);
 app.get("/experiment/:id/reports", reportsController.getReportsOnExperiment);
+app.get("/snapshot/:id", experimentsController.getSnapshotById);
 app.post("/snapshot/:id/cancel", experimentsController.cancelSnapshot);
 app.post("/snapshot/:id/analysis", experimentsController.postSnapshotAnalysis);
 app.get("/experiment/:id/snapshot/:phase", experimentsController.getSnapshot);

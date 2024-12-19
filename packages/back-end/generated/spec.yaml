@@ -3357,6 +3357,8 @@ paths:
                   type: array
                   items:
                     type: string
+                parent:
+                  type: string
       responses:
         '200':
           content:
@@ -4999,6 +5001,8 @@ components:
           type: array
           items:
             type: string
+        parent:
+          type: string
     Attribute:
       type: object
       required:

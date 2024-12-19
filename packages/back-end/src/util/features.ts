@@ -5,6 +5,7 @@ import {
 } from "@growthbook/growthbook";
 import { includeExperimentInPayload, isDefined } from "shared/util";
 import { GroupMap } from "shared/src/types";
+import { cloneDeep } from "lodash";
 import {
   FeatureInterface,
   FeatureRule,
@@ -15,6 +16,7 @@ import { FeatureDefinitionWithProject } from "back-end/types/api";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { ExperimentInterface } from "back-end/types/experiment";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { Environment } from "back-end/types/organization";
 import { getCurrentEnabledState } from "./scheduleRules";
 
 function getSavedGroupCondition(
@@ -554,4 +556,29 @@ export function getFeatureDefinition({
   }
 
   return def;
+}
+
+// Populates the values of `environmentRecord` for environment keys which are undefined in the record
+// and have a parent (base) environment to inherit from which is defined.
+export function applyEnvironmentInheritance<T>(
+  environments: Environment[],
+  environmentRecord: Record<string, T>
+): Record<string, T> {
+  const environmentParents = Object.fromEntries(
+    environments.filter((env) => env.parent).map((env) => [env.id, env.parent])
+  );
+  const mutableClone = cloneDeep(environmentRecord);
+  Object.keys(environmentParents).forEach((env) => {
+    if (mutableClone[env]) return;
+    // If no definition for the environment exists, recursively inherit from the parent environments
+    let baseEnv = environmentParents[env];
+    while (baseEnv && typeof mutableClone[baseEnv] === "undefined") {
+      baseEnv = environmentParents[baseEnv];
+    }
+    // If a valid parent was found, copy its value in the record
+    if (baseEnv) {
+      mutableClone[env] = cloneDeep(mutableClone[baseEnv]);
+    }
+  });
+  return mutableClone;
 }

@@ -1041,11 +1041,12 @@ export async function evaluateAllFeatures({
 
     // now loop through all features to eval them:
     for (const feature of features) {
-      const revision = await getRevision(
-        context.org.id,
-        feature.id,
-        parseInt(feature.version.toString())
-      );
+      const revision = await getRevision({
+        context,
+        organization: context.org.id,
+        featureId: feature.id,
+        version: parseInt(feature.version.toString()),
+      });
       if (!revision) {
         if (switchEnv) {
           // change the NODE ENV back
