@@ -44,6 +44,7 @@ interface MetricExperimentData {
   date: string;
   name: string;
   status: ExperimentStatus;
+  archived: boolean;
   statsEngine: StatsEngine;
   variationId: number;
   variationName: string;
@@ -92,6 +93,7 @@ function MetricExperimentResultTab({
         date: experimentDate(e),
         name: e.name,
         status: e.status,
+        archived: e.archived,
         statsEngine: statsEngine,
         variationId: i,
         variationName: v.name,
@@ -188,10 +190,7 @@ function MetricExperimentResultTab({
         </td>
         <td>
           <div className="my-1">
-            {/* FIXME: How can we get the archived status? */}
-            <ExperimentStatusIndicator
-              experimentData={{ ...e, archived: false }}
-            />
+            <ExperimentStatusIndicator experimentData={e} />
           </div>
         </td>
         <td>{e.users ? formatNumber(e.users) : ""}</td>
