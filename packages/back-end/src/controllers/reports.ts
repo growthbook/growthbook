@@ -40,7 +40,10 @@ import {
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { experimentAnalysisSettings } from "back-end/src/validators/experiments";
-import {createReportSnapshot, generateExperimentReportSSRData} from "back-end/src/services/reports";
+import {
+  createReportSnapshot,
+  generateExperimentReportSSRData,
+} from "back-end/src/services/reports";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 
 export async function postReportFromSnapshot(
@@ -254,10 +257,8 @@ export async function getReportPublic(
   const ssrData = await generateExperimentReportSSRData({
     context,
     organization: report.organization,
-    snapshot
+    snapshot,
   });
-
-  console.log({ssrData})
 
   res.status(200).json({
     status: 200,

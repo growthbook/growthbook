@@ -122,6 +122,7 @@ import { OrganizationSettings, ReqContext } from "back-end/types/organization";
 import { CreateURLRedirectProps } from "back-end/types/url-redirect";
 import { logger } from "back-end/src/util/logger";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
+import { generateExperimentReportSSRData } from "back-end/src/services/reports";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
@@ -358,11 +359,12 @@ export async function getExperimentPublic(
   const phase = experiment.phases.length - 1;
   const context = await getContextForAgendaJobByOrgId(experiment.organization);
 
-  const snapshot = await getLatestSnapshot({
-    experiment: experiment.id,
-    phase,
-    type: "standard",
-  });
+  const snapshot =
+    (await getLatestSnapshot({
+      experiment: experiment.id,
+      phase,
+      type: "standard",
+    })) || undefined;
 
   const visualChangesets = await findVisualChangesetsByExperiment(
     experiment.id,
@@ -375,6 +377,13 @@ export async function getExperimentPublic(
 
   const linkedFeatures = await getLinkedFeatureInfo(context, experiment);
 
+  const ssrData = await generateExperimentReportSSRData({
+    context,
+    organization: experiment.organization,
+    project: experiment.project,
+    snapshot,
+  });
+
   res.status(200).json({
     status: 200,
     experiment,
@@ -382,6 +391,7 @@ export async function getExperimentPublic(
     visualChangesets,
     urlRedirects,
     linkedFeatures,
+    ssrData,
   });
 }
 

@@ -40,6 +40,7 @@ export default function useSSRPolyfills(
     metricGroups,
     dimensions,
     getDimensionById,
+    getProjectById,
   } = useDefinitions();
 
   const hasCsrSettings = !!Object.keys(useOrgSettings() || {})?.length;
@@ -69,6 +70,10 @@ export default function useSSRPolyfills(
     const orgSettings = useOrgSettings();
     return hasCsrSettings ? orgSettings : ssrData?.settings || {};
   };
+  const getProjectByIdSSR = useCallback(
+    (id) => getProjectById(id) || ssrData?.projects?.[id] || null,
+    [getProjectById, ssrData?.projects]
+  );
   const useCurrencySSR = () => {
     const currency = useCurrency();
     if (hasCsrSettings) return currency;
@@ -120,6 +125,7 @@ export default function useSSRPolyfills(
     getMetricGroupById: getMetricGroupByIdSSR,
     getFactTableById: getFactTableByIdSSR,
     useOrgSettings: useOrgSettingsSSR,
+    getProjectById: getProjectByIdSSR,
     useCurrency: useCurrencySSR,
     usePValueThreshold: usePValueThresholdSSR,
     useConfidenceLevels: useConfidenceLevelsSSR,

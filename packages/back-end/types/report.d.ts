@@ -14,6 +14,7 @@ import {
 import { SnapshotVariation } from "./experiment-snapshot";
 import { Queries } from "./query";
 import { DifferenceType, StatsEngine } from "./stats";
+import {ProjectInterface} from "back-end/src/models/ProjectModel";
 
 export interface ReportInterfaceBase {
   id: string;
@@ -166,5 +167,6 @@ export type ExperimentReportSSRData = {
   metricGroups: MetricGroupInterface[];
   factTables: Record<string, FactTableInterface>;
   settings: OrganizationSettings;
+  projects: Record<string, Partial<ProjectInterface>>;
   dimensions: DimensionInterface[];
 };

@@ -85,18 +85,11 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
     ssrData
   } = props;
 
-  console.log({
-    experiment,
-    snapshot,
-    visualChangesets,
-    urlRedirects,
-    linkedFeatures,
-    ssrData
-  });
   const isOrgMember =
     (!!userId && experiment?.organization === userOrganization.id) || !!superAdmin;
 
   const ssrPolyfills = useSSRPolyfills(ssrData);
+  console.log(ssrPolyfills)
 
   const [tab, setTab] = useLocalStorage<ExperimentTab>(
     `tabbedPageTab__public__${experiment?.id}`,
@@ -284,45 +277,12 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
             experiment={experiment}
             envs={[]}
             canEdit={false}
+            ssrPolyfills={ssrPolyfills}
           />
 
         </div>
       ): null}
 
-      {/*{report ? (*/}
-      {/*  <>*/}
-      {/*    <ReportMetaInfo*/}
-      {/*      report={report}*/}
-      {/*      experiment={experiment ?? undefined}*/}
-      {/*      canView={canView}*/}
-      {/*      showPrivateLink={isOrgMember}*/}
-      {/*    />*/}
-
-      {/*    {canView ? (*/}
-      {/*      <ReportResults*/}
-      {/*        report={report}*/}
-      {/*        snapshot={snapshot ?? undefined}*/}
-      {/*        snapshotError={*/}
-      {/*          !snapshot ? new Error("Missing snapshot") : undefined*/}
-      {/*        }*/}
-      {/*        showDetails={isOrgMember}*/}
-      {/*        ssrPolyfills={ssrPolyfills}*/}
-      {/*      />*/}
-      {/*    ) : (*/}
-      {/*      <Callout status="error">*/}
-      {/*        This report is not shared publicly.*/}
-      {/*        {!userReady && (*/}
-      {/*          <>*/}
-      {/*            {" "}*/}
-      {/*            <Link href="/">Log in</Link> to view this link.*/}
-      {/*          </>*/}
-      {/*        )}*/}
-      {/*      </Callout>*/}
-      {/*    )}*/}
-      {/*  </>*/}
-      {/*) : (*/}
-      {/*  <Callout status="error">This report was not found.</Callout>*/}
-      {/*)}*/}
     </div>
   );
 }

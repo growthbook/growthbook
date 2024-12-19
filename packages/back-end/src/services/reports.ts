@@ -18,11 +18,13 @@ import { isDefined } from "shared/util";
 import uniqid from "uniqid";
 import { getScopedSettings } from "shared/settings";
 import uniq from "lodash/uniq";
+import { pick, omit } from "lodash";
 import {
   ExperimentReportArgs,
   ExperimentReportVariation,
   ExperimentSnapshotReportInterface,
-  MetricSnapshotSettings, ExperimentReportSSRData,
+  MetricSnapshotSettings,
+  ExperimentReportSSRData,
 } from "back-end/types/report";
 import {
   ExperimentInterface,
@@ -35,9 +37,12 @@ import {
   ExperimentSnapshotSettings,
   MetricForSnapshot,
 } from "back-end/types/experiment-snapshot";
-import {OrganizationSettings, ReqContext} from "back-end/types/organization";
+import { OrganizationSettings, ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
-import {FactTableMap, getFactTablesByIds} from "back-end/src/models/FactTableModel";
+import {
+  FactTableMap,
+  getFactTablesByIds,
+} from "back-end/src/models/FactTableModel";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
@@ -54,10 +59,10 @@ import { MetricInterface } from "back-end/types/metric";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { DataSourceInterface } from "back-end/types/datasource";
-import {ReqContextClass} from "back-end/src/services/context";
-import {getMetricsByIds} from "back-end/src/models/MetricModel";
-import {findDimensionsByOrganization} from "back-end/src/models/DimensionModel";
-import {pick, omit} from "lodash";
+import { ReqContextClass } from "back-end/src/services/context";
+import { getMetricsByIds } from "back-end/src/models/MetricModel";
+import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
+import {ProjectInterface} from "back-end/src/models/ProjectModel";
 
 export function getReportVariations(
   experiment: ExperimentInterface,
@@ -560,22 +565,15 @@ export function getReportSnapshotSettings({
   };
 }
 
-
-
-
-
-
-
-
-
-
 export async function generateExperimentReportSSRData({
   context,
   organization,
+  project,
   snapshot,
-} : {
+}: {
   context: ReqContextClass;
   organization: string;
+  project?: string;
   snapshot?: ExperimentSnapshotInterface;
 }): Promise<ExperimentReportSSRData> {
   const metricGroups = await context.models.metricGroups.getAll();
@@ -674,13 +672,17 @@ export async function generateExperimentReportSSRData({
     context.org.settings,
     settingsKeys
   );
-  // todo: consider including experiment's project settings in future? likely not...
+
+  const projectObj = project ? (await context.models.projects.getById(project) || undefined) : undefined;
+  const _project: Partial<ProjectInterface> | undefined = projectObj ? pick(projectObj, ["name", "id", "settings"]) : undefined;
+  const projectMap = _project ? {[_project.id] : _project} : [];
 
   return {
     metrics: metricMap,
     metricGroups,
     factTables: factTableMap,
     settings: orgSettings,
+    projects: projectMap,
     dimensions,
   };
 }

@@ -7,15 +7,23 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import {SSRPolyfills} from "@/hooks/useSSRPolyfills";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   envs: string[];
   mutate?: () => void;
   canEdit: boolean;
+  ssrPolyfills?: SSRPolyfills;
 }
 
-export default function AnalysisSettings({ experiment, mutate, envs, canEdit }: Props) {
+export default function AnalysisSettings({
+  experiment,
+  mutate,
+  envs,
+  canEdit,
+  ssrPolyfills,
+}: Props) {
   const {
     getDatasourceById,
     getProjectById,
@@ -29,10 +37,8 @@ export default function AnalysisSettings({ experiment, mutate, envs, canEdit }: 
 
   const project = getProjectById(experiment.project || "");
 
-  const canEditAnalysisSettings = canEdit && permissionsUtil.canUpdateExperiment(
-    experiment,
-    {}
-  );
+  const canEditAnalysisSettings =
+    canEdit && permissionsUtil.canUpdateExperiment(experiment, {});
 
   const { settings: scopedSettings } = getScopedSettings({
     organization,
