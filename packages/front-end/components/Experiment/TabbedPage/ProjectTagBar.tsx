@@ -21,6 +21,7 @@ export interface Props {
   canEditOwner?: boolean;
   updateOwner?: (owner: string) => Promise<void>;
   mutate?: () => void;
+  //MKTODO: Update to take in the setShowEditInfoModal
 }
 
 export default function ProjectTagBar({

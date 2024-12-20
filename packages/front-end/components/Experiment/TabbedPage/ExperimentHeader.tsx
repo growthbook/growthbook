@@ -48,6 +48,7 @@ import { useWatching } from "@/services/WatchProvider";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import ExperimentActionButtons from "./ExperimentActionButtons";
 import ProjectTagBar from "./ProjectTagBar";
+import EditExperimentInfoModal from "./EditExperimentInfoModal";
 import { ExperimentTab } from ".";
 
 export interface Props {
@@ -143,6 +144,7 @@ export default function ExperimentHeader({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showBanditModal, setShowBanditModal] = useState(false);
+  const [showEditInfoModal, setShowEditInfoModal] = useState(false);
 
   const isWatching = watchedExperiments.includes(experiment.id);
 
@@ -266,6 +268,13 @@ export default function ExperimentHeader({
   return (
     <>
       <div className={clsx("experiment-header", "px-3", "pt-3")}>
+        {showEditInfoModal ? (
+          <EditExperimentInfoModal
+            experiment={experiment}
+            setShowEditInfoModal={setShowEditInfoModal}
+            mutate={mutate}
+          />
+        ) : null}
         {showSdkForm && (
           <InitialSDKConnectionForm
             close={() => setShowSdkForm(false)}
@@ -539,6 +548,7 @@ export default function ExperimentHeader({
         <div className="container-fluid pagecontents position-relative">
           <div className="d-flex align-items-center">
             <div>
+              {/* //MKTODO: Remove the option to edit this here - it can only be done via the Edit Info Modal */}
               <HeaderWithEdit
                 className="h1 mb-0"
                 containerClassName=""
@@ -636,6 +646,13 @@ export default function ExperimentHeader({
                         Edit status
                       </DropdownMenuItem>
                     )}
+                  {canEditExperiment ? (
+                    <DropdownMenuItem
+                      onClick={() => setShowEditInfoModal(true)}
+                    >
+                      Edit info
+                    </DropdownMenuItem>
+                  ) : null}
                   {editPhases && !isBandit && (
                     <DropdownMenuItem onClick={() => editPhases()}>
                       Edit phases
@@ -736,6 +753,7 @@ export default function ExperimentHeader({
               </DropdownMenu>
             </div>
           </div>
+          {/* //MKTODO: Update ProjectTagBar so you can't do in-line editing if there is a value */}
           <ProjectTagBar
             experiment={experiment}
             editProject={!viewingOldPhase ? editProject : undefined}
