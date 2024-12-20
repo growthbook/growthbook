@@ -348,7 +348,6 @@ export default function AnalysisSettingsBar({
                 editMetrics={editMetrics}
                 notebookUrl={`/experiments/notebook/${snapshot?.id}`}
                 notebookFilename={experiment.trackingKey}
-                generateReport={true}
                 queries={snapshot?.queries}
                 queryError={snapshot?.error}
                 supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
