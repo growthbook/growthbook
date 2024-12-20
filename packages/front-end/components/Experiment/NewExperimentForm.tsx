@@ -318,6 +318,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       throw new Error("Name must not be empty");
     }
 
+    if (!value.templateId && templateRequired) {
+      setStep(0);
+      throw new Error("You must select a template");
+    }
+
     const data = { ...value };
 
     if (data.status !== "stopped" && data.phases?.[0]) {
@@ -363,8 +368,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         }
       }
     }
-
-    console.log({ data });
 
     const body = JSON.stringify(data);
 
@@ -435,6 +438,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const status = form.watch("status");
   const type = form.watch("type");
   const isBandit = type === "multi-armed-bandit";
+
+  const templateRequired =
+    hasCommercialFeature("templates") &&
+    !isBandit &&
+    settings.requireExperimentTemplates;
 
   const { currentProjectIsDemo } = useDemoDataSourceProject();
 
@@ -529,6 +537,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     );
                   }}
                   disabled={!hasCommercialFeature("templates")}
+                  required={templateRequired}
                 />
               </div>
             )}

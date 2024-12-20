@@ -33,9 +33,6 @@ export const experimentTemplateInterface = z
     fallbackAttribute: z.string().optional(),
     disableStickyBucketing: z.boolean().optional(),
 
-    // Advanced
-    // Add conversions windows
-
     goalMetrics: z.array(z.string()).optional(),
     secondaryMetrics: z.array(z.string()).optional(),
     guardrailMetrics: z.array(z.string()).optional(),

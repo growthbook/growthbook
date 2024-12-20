@@ -1,7 +1,9 @@
-import { Box, Text } from "@radix-ui/themes";
+import { Box, Text, Tooltip } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { ExperimentTemplateInterface } from "back-end/types/experiment";
 import { useState } from "react";
+import { useRouter } from "next/router";
+import Link from "@/components/Radix/Link";
 import Button from "@/components/Radix/Button";
 import LinkButton from "@/components/Radix/LinkButton";
 import SortedTags from "@/components/Tags/SortedTags";
@@ -20,6 +22,7 @@ export const TemplatesPage = ({
   setOpenDuplicateTemplateModal,
 }) => {
   const { ready, project, getProjectById } = useDefinitions();
+  const router = useRouter();
 
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
@@ -69,9 +72,28 @@ export const TemplatesPage = ({
         </thead>
         <tbody>
           {allTemplates.map((t) => {
+            const templateUsage = templateExperimentMap[t.id]?.length ?? 0;
             return (
-              <tr key={t.id} className="hover-highlight">
-                <td data-title="Template Name">{t.templateMetadata.name}</td>
+              <tr
+                key={t.id}
+                className="hover-highlight"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (!templateUsage) return;
+                  router.push(`/experiments/template/${t.id}`);
+                }}
+              >
+                <td data-title="Template Name">
+                  {templateUsage ? (
+                    <Link href={`/experiments/template/${t.id}`}>
+                      {t.templateMetadata.name}
+                    </Link>
+                  ) : (
+                    <Tooltip content="This template hasn’t been used to create any experiments yet">
+                      <Text>{t.templateMetadata.name}</Text>
+                    </Tooltip>
+                  )}
+                </td>
                 <td data-title="Description">
                   {t.templateMetadata.description}
                 </td>
@@ -93,10 +115,7 @@ export const TemplatesPage = ({
                   )}
                 </td>
                 <td data-title="Created">{date(t.dateCreated)}</td>
-                <td data-title="Usage">
-                  {templateExperimentMap[t.id]?.length ?? 0}
-                </td>
-                {/* TODO: Implement more menu with edit, duplicate, and delete */}
+                <td data-title="Usage">{templateUsage}</td>
                 <td>
                   <MoreMenu>
                     {canEdit(t) ? (
