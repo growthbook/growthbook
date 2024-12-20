@@ -28,16 +28,15 @@ export default function useURLHash<Id extends string>(
 ) {
   const [hash, setHashState] = useState(() => {
     // Get initial hash from URL
-    const urlHash = globalThis?.window?.location?.hash?.slice(1) || "";
+    const urlHash = globalThis?.window ? window.location.hash.slice(1) : "";
     if (validIds === undefined) {
       return urlHash === "" ? undefined : urlHash;
     } else {
-      return validIds.includes(urlHash as Id) ? urlHash : validIds[0];
+      return validIds.includes(urlHash as Id) ? urlHash : undefined;
     }
   });
 
   const setHashAndURL = (newHash: Id) => {
-    if (!globalThis?.window?.location?.hash) return;
     if (validIds === undefined || validIds.includes(newHash)) {
       window.location.hash = newHash;
     }
@@ -46,15 +45,20 @@ export default function useURLHash<Id extends string>(
   // Listen for URL changes
   useEffect(() => {
     const handler = () => {
-      const newHash = globalThis?.window?.location?.hash?.slice(1) || "";
+      const newHash = window.location.hash.slice(1);
       if (validIds === undefined || validIds.includes(newHash as Id)) {
         setHashState(newHash === "" ? undefined : newHash);
       }
     };
 
-    globalThis?.window?.addEventListener("hashchange", handler, false);
-    return () =>
-      globalThis?.window?.removeEventListener("hashchange", handler, false);
+    if (globalThis?.window) {
+      window.addEventListener("hashchange", handler, false);
+    }
+    return () => {
+      if (globalThis?.window) {
+        window.removeEventListener("hashchange", handler, false);
+      }
+    };
   }, [validIds]);
 
   return [hash, setHashAndURL] as const;
