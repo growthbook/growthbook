@@ -4447,6 +4447,58 @@
       }
     ],
     [
+      "Prerequisite experiment flag in target bucket, evaluate skip dependent flag if not bucketed",
+      {
+        "attributes": {
+          "id": "1234",
+          "memberType": "basic",
+          "country": "USA"
+        },
+        "features": {
+          "parentExperimentFlag": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "key": "experiment",
+                "variations": [0, 1],
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "ranges": [
+                  [0, 0.5],
+                  [0.5, 1.0]
+                ]
+              }
+            ]
+          },
+          "childFlag": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "parentConditions": [
+                  {
+                    "id": "parentExperimentFlag",
+                    "condition": { "value": 0 },
+                    "gate": true
+                  }
+                ]
+              },
+              {
+                "condition": { "memberType": "basic" },
+                "force": "success"
+              }
+            ]
+          }
+        }
+      },
+      "childFlag",
+      {
+        "value": null,
+        "on": false,
+        "off": true,
+        "source": "prerequisite"
+      }
+    ],
+    [
       "Prerequisite cycle detected, break",
       {
         "attributes": {
