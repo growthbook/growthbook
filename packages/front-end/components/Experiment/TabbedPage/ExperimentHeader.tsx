@@ -832,22 +832,26 @@ export default function ExperimentHeader({
                 {permissionsUtil.canCreateReport(experiment) && snapshot ? (
                   <DropdownMenuItem
                     onClick={async () => {
-                      const res = await apiCall<{ report: ReportInterface }>(
-                        `/experiments/report/${snapshot.id}`,
-                        {
-                          method: "POST",
-                          body: reportArgs
-                            ? JSON.stringify(reportArgs)
-                            : undefined,
+                      try {
+                        const res = await apiCall<{ report: ReportInterface }>(
+                          `/experiments/report/${snapshot.id}-1`,
+                          {
+                            method: "POST",
+                            body: reportArgs
+                              ? JSON.stringify(reportArgs)
+                              : undefined,
+                          }
+                        );
+                        if (!res.report) {
+                          throw new Error("Failed to create report");
                         }
-                      );
-                      if (!res.report) {
-                        throw new Error("Failed to create report");
+                        track("Experiment Report: Create", {
+                          source: "experiment more menu",
+                        });
+                        await router.push(`/report/${res.report.id}`);
+                      } catch (e) {
+                        console.error(e);
                       }
-                      track("Experiment Report: Create", {
-                        source: "experiment more menu",
-                      });
-                      await router.push(`/report/${res.report.id}`);
                     }}
                   >
                     Create shareable report
