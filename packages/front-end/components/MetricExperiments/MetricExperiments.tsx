@@ -47,7 +47,7 @@ interface MetricExperimentData {
   date: string;
   name: string;
   status: ExperimentStatus;
-  results: ExperimentResultsType;
+  results?: ExperimentResultsType;
   archived: boolean;
   statsEngine: StatsEngine;
   variationId: number;
