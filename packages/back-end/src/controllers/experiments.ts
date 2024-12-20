@@ -652,6 +652,7 @@ export async function postExperiments(
     banditBurnInValue: data.banditBurnInValue ?? 1,
     banditBurnInUnit: data.banditBurnInUnit ?? "days",
     customFields: data.customFields || undefined,
+    templateId: data.templateId || undefined,
   };
 
   const { settings } = getScopedSettings({

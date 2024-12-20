@@ -66,6 +66,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import DatePicker from "@/components/DatePicker";
 import { useTemplates } from "@/hooks/useTemplates";
 import { convertTemplateToExperiment } from "@/services/experiments";
+import PremiumTooltip from "../Marketing/PremiumTooltip";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
 const weekAgo = new Date();
@@ -293,6 +294,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       banditScheduleUnit: scopedSettings.banditScheduleUnit.value,
       banditBurnInValue: scopedSettings.banditBurnInValue.value,
       banditBurnInUnit: scopedSettings.banditScheduleUnit.value,
+      templateId: initialValue?.templateId || "",
     },
   });
   const [selectedProject, setSelectedProject] = useState(form.watch("project"));
@@ -361,6 +363,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         }
       }
     }
+
+    console.log({ data });
 
     const body = JSON.stringify(data);
 
@@ -484,9 +488,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 datasource project is deleted.
               </div>
             )}
-            {availableTemplates.length >= 1 && (
+            {availableTemplates.length >= 1 && !isBandit && (
               <div className="form-group">
-                <label>Select Template</label>
+                <PremiumTooltip commercialFeature="templates">
+                  <label>Select Template</label>
+                </PremiumTooltip>
                 <SelectField
                   value={form.watch("templateId") ?? ""}
                   onChange={(t) => {
@@ -503,7 +509,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     const templateAsExperiment = convertTemplateToExperiment(
                       template
                     );
-                    console.log(templateAsExperiment);
                     form.reset(templateAsExperiment, {
                       keepDefaultValues: true,
                     });
@@ -523,6 +528,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       </Flex>
                     );
                   }}
+                  disabled={!hasCommercialFeature("templates")}
                 />
               </div>
             )}

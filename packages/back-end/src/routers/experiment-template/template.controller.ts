@@ -25,7 +25,7 @@ export const getTemplates = async (
 
 export type CreateTemplateProps = z.infer<typeof createTemplateValidator>;
 
-// region POST /Templates
+// region POST /templates
 
 type CreateTemplateResponse = {
   status: 200;
@@ -63,6 +63,8 @@ export const postTemplate = async (
     template: doc,
   });
 };
+
+// endregion POST /templates
 
 /**
  * DELETE /Templates/:id

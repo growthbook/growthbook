@@ -27,8 +27,9 @@ export const TemplatesPage = ({
     templates: allTemplates,
     error,
     loading,
+    templateExperimentMap,
     mutateTemplates,
-  } = useTemplates();
+  } = useTemplates(project);
   const permissionsUtil = usePermissionsUtil();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
@@ -92,7 +93,9 @@ export const TemplatesPage = ({
                   )}
                 </td>
                 <td data-title="Created">{date(t.dateCreated)}</td>
-                <td data-title="Usage">0</td>
+                <td data-title="Usage">
+                  {templateExperimentMap[t.id]?.length ?? 0}
+                </td>
                 {/* TODO: Implement more menu with edit, duplicate, and delete */}
                 <td>
                   <MoreMenu>
