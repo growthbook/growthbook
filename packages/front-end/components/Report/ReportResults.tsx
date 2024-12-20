@@ -53,7 +53,8 @@ export default function ReportResults({
       name: variation.name,
       weight:
         report.experimentMetadata.phases?.[snapshot?.phase || 0]
-          ?.variationWeights?.[i] || 1 / (variations?.length || 2),
+          ?.variationWeights?.[i] ||
+        1 / (report.experimentMetadata?.variations?.length || 2),
     })
   );
   const analysis = snapshot
@@ -250,7 +251,13 @@ export default function ReportResults({
                 ssrPolyfills={ssrPolyfills}
                 hideDetails={!showDetails}
               />
-            ) : null}
+            ) : (
+              <div className="mx-3 mb-3">
+                <Callout status="error">
+                  No analysis found for this report
+                </Callout>
+              </div>
+            )}
           </>
         )}
       </div>

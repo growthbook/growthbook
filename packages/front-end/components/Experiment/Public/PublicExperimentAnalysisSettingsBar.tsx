@@ -1,72 +1,35 @@
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import { ExperimentSnapshotReportInterface } from "back-end/types/report";
 import { getSnapshotAnalysis } from "shared/util";
-import { ago, date, datetime, getValidDate } from "shared/dates";
-import React, { RefObject, useEffect, useState } from "react";
+import { ago, date, datetime } from "shared/dates";
 import { PiEye } from "react-icons/pi";
+import {ExperimentInterfaceStringDates} from "back-end/types/experiment";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import RunQueriesButton from "@/components/Queries/RunQueriesButton";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser";
-import { useAuth } from "@/services/auth";
-import Callout from "@/components/Radix/Callout";
-import Button from "@/components/Radix/Button";
 import { DropdownMenu } from "@/components/Radix/DropdownMenu";
 import Metadata from "@/components/Radix/Metadata";
 import Link from "@/components/Radix/Link";
 
-export default function ReportAnalysisSettingsBar({
-  report,
-  snapshot: _snapshot,
-  mutateReport,
-  mutateSnapshot,
+export default function PublicExperimentAnalysisSettingsBar({
+  experiment,
+  snapshot,
   ssrPolyfills,
-  canUpdateReport = false,
-  setEditAnalysisOpen,
-  runQueriesButtonRef,
 }: {
-  report: ExperimentSnapshotReportInterface;
+  experiment: ExperimentInterfaceStringDates;
   snapshot?: ExperimentSnapshotInterface;
-  mutateReport?: () => Promise<unknown> | unknown;
-  mutateSnapshot?: () => Promise<unknown> | unknown;
   ssrPolyfills?: SSRPolyfills;
-  canUpdateReport?: boolean;
-  setEditAnalysisOpen?: (o: boolean) => void;
-  runQueriesButtonRef?: RefObject<HTMLButtonElement>;
 }) {
-  const { apiCall } = useAuth();
-
-  const [refreshError, setRefreshError] = useState("");
-  const [snapshot, setSnapshot] = useState<
-    ExperimentSnapshotInterface | undefined
-  >(_snapshot);
-  useEffect(() => {
-    if (
-      _snapshot &&
-      (!snapshot ||
-        getValidDate(_snapshot?.runStarted) >
-          getValidDate(snapshot?.runStarted))
-    ) {
-      setSnapshot(_snapshot);
-    }
-  }, [_snapshot, snapshot]);
-
   const analysis = snapshot
     ? getSnapshotAnalysis(snapshot) ?? undefined
     : undefined;
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
-  const hasMetrics =
-    report.experimentAnalysisSettings.goalMetrics.length > 0 ||
-    report.experimentAnalysisSettings.secondaryMetrics.length > 0 ||
-    report.experimentAnalysisSettings.guardrailMetrics.length > 0;
 
   if (!snapshot) return null;
 
   return (
     <>
-      <div className="mb-1 d-flex align-items-center justify-content-between">
-        <div className="h3 mb-1">Analysis</div>
+      <div className="mb-1 d-flex align-items-center justify-content-end">
         <DropdownMenu
           trigger={
             <Link>
@@ -81,7 +44,7 @@ export default function ReportAnalysisSettingsBar({
             <Metadata
               label="Engine"
               value={
-                report?.experimentAnalysisSettings?.statsEngine ===
+                analysis?.settings?.statsEngine ===
                 "frequentist"
                   ? "Frequentist"
                   : "Bayesian"
@@ -90,7 +53,7 @@ export default function ReportAnalysisSettingsBar({
             <Metadata
               label="CUPED"
               value={
-                report?.experimentAnalysisSettings?.regressionAdjustmentEnabled
+                snapshot?.settings?.regressionAdjustmentEnabled
                   ? "Enabled"
                   : "Disabled"
               }
@@ -98,7 +61,7 @@ export default function ReportAnalysisSettingsBar({
             <Metadata
               label="Sequential"
               value={
-                report?.experimentAnalysisSettings?.sequentialTestingEnabled
+                analysis?.settings?.sequentialTesting
                   ? "Enabled"
                   : "Disabled"
               }
@@ -122,7 +85,7 @@ export default function ReportAnalysisSettingsBar({
               activationMetric={!!snapshot.settings.activationMetric}
               datasourceId={snapshot.settings.datasourceId}
               exposureQueryId={snapshot.settings.exposureQueryId}
-              userIdType={report?.experimentAnalysisSettings?.userIdType}
+              userIdType={experiment?.userIdType}
               labelClassName="mr-2"
               disabled={true}
               ssrPolyfills={ssrPolyfills}
@@ -131,7 +94,7 @@ export default function ReportAnalysisSettingsBar({
           <div className="col-auto d-flex align-items-end">
             <DifferenceTypeChooser
               differenceType={
-                report?.experimentAnalysisSettings?.differenceType ?? "relative"
+                analysis?.settings?.differenceType ?? "relative"
               }
               disabled={true}
               phase={0}
@@ -171,64 +134,8 @@ export default function ReportAnalysisSettingsBar({
               </div>
             ) : null}
           </div>
-          {canUpdateReport && mutateReport && mutateSnapshot ? (
-            <div className="col-auto pr-0">
-              <RunQueriesButton
-                ref={runQueriesButtonRef}
-                icon="refresh"
-                cta="Refresh"
-                mutate={async () => {
-                  await mutateReport();
-                  await mutateSnapshot();
-                }}
-                model={snapshot}
-                cancelEndpoint={`/report/${report.id}/cancel`}
-                color="outline-primary"
-                useRadixButton={true}
-                onSubmit={async () => {
-                  try {
-                    const res = await apiCall<{
-                      snapshot: ExperimentSnapshotInterface;
-                    }>(`/report/${report.id}/refresh`, {
-                      method: "POST",
-                    });
-                    if (res.snapshot) {
-                      setSnapshot(res.snapshot);
-                    }
-                    setRefreshError("");
-                  } catch (e) {
-                    setRefreshError(e.message);
-                  }
-                }}
-              />
-            </div>
-          ) : null}
-          {canUpdateReport && setEditAnalysisOpen ? (
-            <div className="col-auto d-flex pr-0">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                ml="2"
-                onClick={() => setEditAnalysisOpen(true)}
-              >
-                Edit Analysis
-              </Button>
-            </div>
-          ) : null}
         </div>
       </div>
-
-      {refreshError && (
-        <Callout status="error" size="sm" mb="4">
-          <strong>Error refreshing data:</strong> {refreshError}
-        </Callout>
-      )}
-      {!hasMetrics && (
-        <Callout status="info" size="sm" mb="4">
-          Add at least 1 metric to view results.
-        </Callout>
-      )}
     </>
   );
 }

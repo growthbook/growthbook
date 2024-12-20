@@ -42,6 +42,7 @@ import {
   getAllExperiments,
   getExperimentById,
   getExperimentByTrackingKey,
+  getExperimentByUid,
   getExperimentsByIds,
   getPastExperimentsByDatasource,
   hasArchivedExperiments,
@@ -64,7 +65,10 @@ import {
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { addTagsDiff } from "back-end/src/models/TagModel";
-import { getContextFromReq } from "back-end/src/services/organizations";
+import {
+  getContextForAgendaJobByOrgId,
+  getContextFromReq,
+} from "back-end/src/services/organizations";
 import { removeExperimentFromPresentations } from "back-end/src/services/presentations";
 import {
   createPastExperiments,
@@ -118,6 +122,7 @@ import { OrganizationSettings, ReqContext } from "back-end/types/organization";
 import { CreateURLRedirectProps } from "back-end/types/url-redirect";
 import { logger } from "back-end/src/util/logger";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
+import { generateExperimentReportSSRData } from "back-end/src/services/reports";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
@@ -336,6 +341,63 @@ export async function getExperiment(
     linkedFeatures: linkedFeatureInfo,
     envs,
     idea,
+  });
+}
+
+export async function getExperimentPublic(
+  req: AuthRequest<null, { uid: string }>,
+  res: Response
+) {
+  const { uid } = req.params;
+  const experiment = await getExperimentByUid(uid);
+  if (!experiment) {
+    return res.status(404).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+  }
+  if (experiment.shareLevel !== "public") {
+    return res.status(401).json({
+      message: "Unauthorized",
+    });
+  }
+
+  const context = await getContextForAgendaJobByOrgId(experiment.organization);
+  const phase = experiment.phases.length - 1;
+
+  const snapshot =
+    (await getLatestSnapshot({
+      experiment: experiment.id,
+      phase,
+      type: "standard",
+    })) || undefined;
+
+  const visualChangesets = await findVisualChangesetsByExperiment(
+    experiment.id,
+    experiment.organization
+  );
+
+  const urlRedirects = await context.models.urlRedirects.findByExperiment(
+    experiment.id
+  );
+
+  const linkedFeatures = await getLinkedFeatureInfo(context, experiment);
+
+  const ssrData = await generateExperimentReportSSRData({
+    context,
+    organization: experiment.organization,
+    project: experiment.project,
+    snapshot,
+  });
+
+  res.status(200).json({
+    status: 200,
+    experiment,
+    snapshot,
+    visualChangesets,
+    urlRedirects,
+    linkedFeatures,
+    ssrData,
   });
 }
 
@@ -620,7 +682,7 @@ export async function postExperiments(
 
   const experimentType = data.type ?? "standard";
 
-  const obj: Omit<ExperimentInterface, "id"> = {
+  const obj: Omit<ExperimentInterface, "id" | "uid"> = {
     organization: data.organization,
     archived: false,
     hashAttribute: data.hashAttribute || "",
@@ -688,6 +750,7 @@ export async function postExperiments(
     banditBurnInValue: data.banditBurnInValue ?? 1,
     banditBurnInUnit: data.banditBurnInUnit ?? "days",
     customFields: data.customFields || undefined,
+    shareLevel: data.shareLevel || "organization",
   };
 
   const { settings } = getScopedSettings({
@@ -972,6 +1035,8 @@ export async function postExperiment(
     "banditBurnInValue",
     "banditBurnInUnit",
     "customFields",
+    "shareLevel",
+    "uid",
   ];
   let changes: Changeset = {};
 

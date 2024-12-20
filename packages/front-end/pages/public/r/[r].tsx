@@ -1,6 +1,6 @@
 import {
   ExperimentSnapshotReportInterface,
-  SSRExperimentReportData,
+  ExperimentReportSSRData,
 } from "back-end/types/report";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import Head from "next/head";
@@ -51,7 +51,7 @@ interface ReportPageProps {
   report: ExperimentSnapshotReportInterface | null;
   snapshot: ExperimentSnapshotInterface | null;
   experiment: Partial<ExperimentInterfaceStringDates> | null;
-  ssrData: SSRExperimentReportData | null;
+  ssrData: ExperimentReportSSRData | null;
 }
 
 export default function ReportPage(props: ReportPageProps) {

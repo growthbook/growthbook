@@ -81,6 +81,7 @@ const banditResultObject = {
 
 const experimentSchema = new mongoose.Schema({
   id: String,
+  uid: String,
   trackingKey: String,
   organization: {
     type: String,
@@ -248,6 +249,7 @@ const experimentSchema = new mongoose.Schema({
   banditBurnInValue: Number,
   banditBurnInUnit: String,
   customFields: {},
+  shareLevel: String,
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
@@ -305,6 +307,16 @@ export async function getExperimentById(
   return context.permissions.canReadSingleProjectResource(experiment.project)
     ? experiment
     : null;
+}
+
+export async function getExperimentByUid(
+  uid: string
+): Promise<ExperimentInterface | null> {
+  const doc = await getCollection(COLLECTION).findOne({
+    uid,
+  });
+
+  return doc ? toInterface(doc) : null;
 }
 
 export async function getAllExperiments(
@@ -431,6 +443,7 @@ export async function createExperiment({
 
   const exp = await ExperimentModel.create({
     id: uniqid("exp_"),
+    uid: uuidv4().replace(/-/g, ""),
     // If this is a sample experiment, we'll override the id with data.id
     ...data,
     //set the default phase seed to uuid

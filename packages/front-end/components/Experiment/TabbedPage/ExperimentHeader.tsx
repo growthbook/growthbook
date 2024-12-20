@@ -15,6 +15,12 @@ import Link from "next/link";
 import Collapsible from "react-collapsible";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Box, Flex } from "@radix-ui/themes";
+import { PiCheck, PiLink } from "react-icons/pi";
+import {
+  ExperimentSnapshotReportArgs,
+  ExperimentSnapshotReportInterface,
+  ReportInterface,
+} from "back-end/types/report";
 import { useAuth } from "@/services/auth";
 import WatchButton from "@/components/WatchButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
@@ -37,9 +43,15 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { formatPercent } from "@/services/metrics";
 import { AppFeatures } from "@/types/app-features";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
-import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
-import ExperimentActionButtons from "./ExperimentActionButtons";
+import Button from "@/components/Radix/Button";
+import Callout from "@/components/Radix/Callout";
+import SelectField from "@/components/Forms/SelectField";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import HelperText from "@/components/Radix/HelperText";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import ProjectTagBar from "./ProjectTagBar";
+import ExperimentActionButtons from "./ExperimentActionButtons";
+import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import { ExperimentTab } from ".";
 
 export interface Props {
@@ -92,6 +104,9 @@ const DisabledHealthTabTooltip = ({
 // NB: Keep in sync with .experiment-tabs top property in global.scss
 const TABS_HEADER_HEIGHT_PX = 55;
 
+type ShareLevel = "public" | "organization";
+const SAVE_SETTING_TIMEOUT_MS = 3000;
+
 export default function ExperimentHeader({
   tab,
   setTab,
@@ -126,19 +141,46 @@ export default function ExperimentHeader({
   const dataSource = getDatasourceById(experiment.datasource);
   const startCelebration = useCelebration();
   const { data: sdkConnections } = useSDKConnections();
-  const { phase, analysis } = useSnapshot();
+  const { snapshot, phase, analysis } = useSnapshot();
   const connections = sdkConnections?.connections || [];
+
   const [showSdkForm, setShowSdkForm] = useState(false);
+
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareLevel, setShareLevel] = useState<ShareLevel>(
+    experiment.shareLevel || "organization"
+  );
+  const [saveShareLevelStatus, setSaveShareLevelStatus] = useState<
+    null | "loading" | "success" | "fail"
+  >(null);
+  const saveShareLevelTimeout = useRef<number | undefined>();
+  const { performCopy, copySuccess } = useCopyToClipboard({
+    timeout: 800,
+  });
+  const HOST = globalThis?.window?.location?.origin;
+  const shareableLink = experiment.uid
+    ? `${HOST}/public/e/${experiment.uid}`
+    : `${HOST}/${
+        experiment?.type === "multi-armed-bandit" ? "bandit" : "experiment"
+      }/${experiment.id}`;
+  const datasourceSettings = experiment.datasource
+    ? getDatasourceById(experiment.datasource)?.settings
+    : undefined;
+  const userIdType = datasourceSettings?.queries?.exposure?.find(
+    (e) => e.id === experiment.exposureQueryId
+  )?.userIdType;
+
+  const reportArgs: ExperimentSnapshotReportArgs = {
+    userIdType: userIdType as "user" | "anonymous" | undefined,
+  };
 
   const tabsRef = useRef<HTMLDivElement>(null);
   const [headerPinned, setHeaderPinned] = useState(false);
   const { scrollY } = useScrollPosition();
   useEffect(() => {
     if (!tabsRef.current) return;
-
     const isHeaderSticky =
       tabsRef.current.getBoundingClientRect().top <= TABS_HEADER_HEIGHT_PX;
-
     setHeaderPinned(isHeaderSticky);
   }, [scrollY]);
 
@@ -227,6 +269,68 @@ export default function ExperimentHeader({
       throw e;
     }
   }
+
+  useEffect(() => {
+    if (experiment.shareLevel !== shareLevel) {
+      setSaveShareLevelStatus("loading");
+      window.clearTimeout(saveShareLevelTimeout.current);
+      apiCall<{
+        updatedReport: ExperimentSnapshotReportInterface;
+      }>(`/experiment/${experiment.id}`, {
+        method: "POST",
+        body: JSON.stringify({ shareLevel, uid: experiment.uid }),
+      })
+        .then(() => {
+          mutate?.();
+          setSaveShareLevelStatus("success");
+          saveShareLevelTimeout.current = window.setTimeout(
+            () => setSaveShareLevelStatus(null),
+            SAVE_SETTING_TIMEOUT_MS
+          );
+        })
+        .catch(() => {
+          setSaveShareLevelStatus("fail");
+          saveShareLevelTimeout.current = window.setTimeout(
+            () => setSaveShareLevelStatus(null),
+            SAVE_SETTING_TIMEOUT_MS
+          );
+        });
+      track("Experiment: Set Share Level", {
+        source: "private page",
+        type: shareLevel,
+      });
+    }
+  }, [
+    experiment.id,
+    experiment.uid,
+    experiment.shareLevel,
+    shareLevel,
+    mutate,
+    setSaveShareLevelStatus,
+    apiCall,
+  ]);
+
+  const shareLinkButton =
+    experiment.shareLevel !== "public" ? null : copySuccess ? (
+      <Button style={{ width: 150 }} icon={<PiCheck />}>
+        Link copied
+      </Button>
+    ) : (
+      <Button
+        icon={<PiLink />}
+        onClick={() => {
+          if (!copySuccess) performCopy(shareableLink);
+          setTimeout(() => setShareModalOpen(false), 810);
+          track("Experiment: Click Copy Link", {
+            source: "private page",
+            type: shareLevel,
+          });
+        }}
+        style={{ width: 150 }}
+      >
+        Copy Link
+      </Button>
+    );
 
   return (
     <>
@@ -333,6 +437,64 @@ export default function ExperimentHeader({
             </div>
           </Modal>
         )}
+
+        {shareModalOpen && (
+          <Modal
+            open={true}
+            trackingEventModalType="share-experiment-settings"
+            close={() => setShareModalOpen(false)}
+            closeCta="Close"
+            header={`Share "${experiment.name}"`}
+            useRadixButton={true}
+            secondaryCTA={shareLinkButton}
+          >
+            <div className="mb-3">
+              {shareLevel === "organization" ? (
+                <Callout status="info" size="sm">
+                  This {isBandit ? "Bandit" : "Experiment"} is only viewable
+                  within your organization.
+                </Callout>
+              ) : shareLevel === "public" ? (
+                <>
+                  <Callout status="warning" size="sm">
+                    Anyone with the link can view this{" "}
+                    {isBandit ? "Bandit" : "Experiment"}, even those outside
+                    your organization.
+                  </Callout>
+                </>
+              ) : null}
+            </div>
+
+            <SelectField
+              label="View access"
+              value={shareLevel}
+              onChange={(v: ShareLevel) => setShareLevel(v)}
+              containerClassName="mb-2"
+              sort={false}
+              disabled={!hasUpdatePermissions}
+              options={[
+                { value: "organization", label: "Only organization members" },
+                { value: "public", label: "Anyone with the link" },
+              ]}
+            />
+            <div className="mb-1" style={{ height: 24 }}>
+              {saveShareLevelStatus === "loading" ? (
+                <div className="position-relative" style={{ top: -6 }}>
+                  <LoadingSpinner />
+                </div>
+              ) : saveShareLevelStatus === "success" ? (
+                <HelperText status="success" size="sm">
+                  Sharing status has been updated
+                </HelperText>
+              ) : saveShareLevelStatus === "fail" ? (
+                <HelperText status="error" size="sm">
+                  Unable to update sharing status
+                </HelperText>
+              ) : null}
+            </div>
+          </Modal>
+        )}
+
         <div className="container-fluid pagecontents position-relative">
           <div className="d-flex align-items-center">
             <Flex direction="row" align="center">
@@ -393,7 +555,22 @@ export default function ExperimentHeader({
               </div>
             ) : null}
 
-            <div className="ml-2">
+            <div className="d-flex ml-2 align-items-center">
+              {experiment.status === "stopped" && experiment.results ? (
+                <>
+                  {canEditExperiment ? (
+                    <Button
+                      ml="2"
+                      mr="3"
+                      onClick={() => setShareModalOpen(true)}
+                    >
+                      Share...
+                    </Button>
+                  ) : shareLevel === "public" ? (
+                    <div className="ml-2 mr-3">{shareLinkButton}</div>
+                  ) : null}
+                </>
+              ) : null}
               <MoreMenu>
                 {experiment.status !== "running" && editTargeting && (
                   <button
@@ -428,6 +605,13 @@ export default function ExperimentHeader({
                     mutate={mutate}
                   />
                 )}
+                <button
+                  className="dropdown-item"
+                  onClick={() => setAuditModal(true)}
+                >
+                  Audit log
+                </button>
+                <hr className="mx-4 my-2" />
                 <WatchButton
                   itemType="experiment"
                   item={experiment.id}
@@ -442,12 +626,48 @@ export default function ExperimentHeader({
                     {usersWatching.length}
                   </span>
                 </button>
-                <button
-                  className="dropdown-item"
-                  onClick={() => setAuditModal(true)}
-                >
-                  Audit log
-                </button>
+                {canEditExperiment ||
+                duplicate ||
+                canRunExperiment ||
+                (hasUpdatePermissions &&
+                  experiment.archived &&
+                  permissionsUtil.canCreateReport(experiment) &&
+                  snapshot) ? (
+                  <hr className="mx-4 my-2" />
+                ) : null}
+                {canEditExperiment && (
+                  <button
+                    className="dropdown-item"
+                    onClick={() => setShareModalOpen(true)}
+                  >
+                    Share {isBandit ? "Bandit" : "Experiment"}
+                  </button>
+                )}
+                {permissionsUtil.canCreateReport(experiment) && snapshot ? (
+                  <button
+                    className="dropdown-item"
+                    onClick={async () => {
+                      const res = await apiCall<{ report: ReportInterface }>(
+                        `/experiments/report/${snapshot.id}`,
+                        {
+                          method: "POST",
+                          body: reportArgs
+                            ? JSON.stringify(reportArgs)
+                            : undefined,
+                        }
+                      );
+                      if (!res.report) {
+                        throw new Error("Failed to create report");
+                      }
+                      track("Experiment Report: Create", {
+                        source: "experiment more menu",
+                      });
+                      await router.push(`/report/${res.report.id}`);
+                    }}
+                  >
+                    Create shareable report
+                  </button>
+                ) : null}
                 {duplicate && (
                   <button className="dropdown-item" onClick={duplicate}>
                     Duplicate
