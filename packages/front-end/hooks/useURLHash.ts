@@ -51,8 +51,14 @@ export default function useURLHash<Id extends string>(
       }
     };
 
-    window.addEventListener("hashchange", handler, false);
-    return () => window.removeEventListener("hashchange", handler, false);
+    if (globalThis?.window) {
+      window.addEventListener("hashchange", handler, false);
+    }
+    return () => {
+      if (globalThis?.window) {
+        window.removeEventListener("hashchange", handler, false);
+      }
+    };
   }, [validIds]);
 
   return [hash, setHashAndURL] as const;
