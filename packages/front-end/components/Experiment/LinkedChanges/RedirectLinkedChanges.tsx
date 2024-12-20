@@ -208,7 +208,7 @@ export default function RedirectLinkedChanges({
             </div>
           ))}
         </>
-      ): null}
+      ) : null}
     </LinkedChangesContainer>
   );
 }

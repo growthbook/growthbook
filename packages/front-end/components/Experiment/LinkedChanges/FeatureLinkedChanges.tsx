@@ -52,7 +52,7 @@ export default function FeatureLinkedChanges({
             <LinkedFeatureFlag info={info} experiment={experiment} key={i} />
           ))}
         </>
-      ): null}
+      ) : null}
     </LinkedChangesContainer>
   );
 }

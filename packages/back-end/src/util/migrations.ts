@@ -9,6 +9,7 @@ import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
 import { accountFeatures, getAccountPlan } from "enterprise";
 import { omit } from "lodash";
 import { SavedGroupInterface } from "shared/src/types";
+import { v4 as uuidv4 } from "uuid";
 import {
   ExperimentReportArgs,
   ExperimentReportInterface,
@@ -43,7 +44,6 @@ import {
 import { getEnvironments } from "back-end/src/services/organizations";
 import { LegacySavedGroupInterface } from "back-end/types/saved-group";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
-import {v4 as uuidv4} from "uuid";
 
 function roundVariationWeight(num: number): number {
   return Math.round(num * 1000) / 1000;

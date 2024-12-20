@@ -44,7 +44,7 @@ export default function VisualLinkedChanges({
           mutate={mutate}
           canEditVisualChangesets={canEditVisualChangesets}
         />
-      ): null}
+      ) : null}
     </LinkedChangesContainer>
   );
 }
