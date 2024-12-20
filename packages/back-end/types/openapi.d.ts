@@ -6064,6 +6064,7 @@ export interface operations {
           /** @description Default state for new features */
           defaultState?: any;
           projects?: (string)[];
+          /** @description An environment that the new environment should inherit feature rules from. Requires an enterprise license */
           parent?: string;
         };
       };

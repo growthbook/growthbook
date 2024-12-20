@@ -2,6 +2,7 @@ import isEqual from "lodash/isEqual";
 import {
   ConditionInterface,
   FeatureRule as FeatureDefinitionRule,
+  ParentConditionInterface,
 } from "@growthbook/growthbook";
 import { includeExperimentInPayload, isDefined } from "shared/util";
 import { GroupMap } from "shared/src/types";
@@ -392,6 +393,22 @@ export function getFeatureDefinition({
           );
           if (condition) {
             rule.condition = condition;
+          }
+
+          if (phase?.prerequisites?.length) {
+            rule.parentConditions = phase.prerequisites
+              .map((prerequisite) => {
+                try {
+                  return {
+                    id: prerequisite.id,
+                    condition: JSON.parse(prerequisite.condition),
+                  };
+                } catch (e) {
+                  // do nothing
+                }
+                return null;
+              })
+              .filter(Boolean) as ParentConditionInterface[];
           }
 
           rule.coverage = phase.coverage;
