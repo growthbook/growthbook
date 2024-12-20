@@ -9,7 +9,7 @@ import { useExperiments } from "./useExperiments";
 export function useTemplates(project?: string) {
   const { data, error, mutate } = useApi<{
     templates: ExperimentTemplateInterface[];
-  }>("/templates");
+  }>(`/templates?project=${project || ""}`);
 
   const { experiments, loading: experimentsLoading } = useExperiments(project);
   const templates = useMemo(() => data?.templates || [], [data]);

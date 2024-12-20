@@ -2,7 +2,7 @@ import { Box, Text, Tooltip } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { ExperimentTemplateInterface } from "back-end/types/experiment";
 import { useState } from "react";
-import { useRouter } from "next/router";
+import { omit } from "lodash";
 import Link from "@/components/Radix/Link";
 import Button from "@/components/Radix/Button";
 import LinkButton from "@/components/Radix/LinkButton";
@@ -16,13 +16,13 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import { useAddComputedFields, useSearch } from "@/services/search";
 
 export const TemplatesPage = ({
   setOpenTemplateModal,
   setOpenDuplicateTemplateModal,
 }) => {
   const { ready, project, getProjectById } = useDefinitions();
-  const router = useRouter();
 
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
@@ -38,15 +38,36 @@ export const TemplatesPage = ({
 
   const hasTemplatesFeature = hasCommercialFeature("templates");
   const canCreate = permissionsUtil.canCreateExperimentTemplate({
-    projects: [project],
+    project: project,
   });
   const canEdit = (templ: ExperimentTemplateInterface) =>
     permissionsUtil.canUpdateExperimentTemplate(templ, {});
   const canDelete = (templ: ExperimentTemplateInterface) =>
     permissionsUtil.canDeleteExperimentTemplate(templ);
 
-  const hasTemplates = allTemplates.length > 0;
-  const showProjectColumn = true;
+  const flattenedTemplates = useAddComputedFields(
+    allTemplates,
+    (templ) => {
+      return {
+        ...omit(allTemplates, ["templateMetadata"]),
+        templateName: templ.templateMetadata.name,
+        templateDescription: templ.templateMetadata.description,
+        templateTags: templ.templateMetadata.tags,
+        usage: templateExperimentMap[templ.id]?.length ?? 0,
+      };
+    },
+    []
+  );
+
+  const { items, SortableTH } = useSearch({
+    items: flattenedTemplates,
+    defaultSortField: "templateName",
+    localStorageKey: "templates",
+    searchFields: ["templateName^3", "templateTags", "templateDescription"],
+  });
+
+  const hasTemplates = items.length > 0;
+  const showProjectColumn = items.some((t) => !!t.project);
 
   if (loading || !ready) {
     return <LoadingOverlay />;
@@ -58,63 +79,51 @@ export const TemplatesPage = ({
 
   return hasTemplates ? (
     <Box>
-      <table className="appbox table gbtable responsive-table">
+      <table className="appbox table gbtable table-hover">
         <thead>
           <tr>
-            <th>Template Name</th>
-            <th className="w-100">Description</th>
-            <th>Tags</th>
-            {showProjectColumn && <th>Projects</th>}
-            <th>Created</th>
-            <th>Usage</th>
+            <SortableTH field="templateName">Template Name</SortableTH>
+            <SortableTH field="templateDescription">Description</SortableTH>
+            <SortableTH field="templateTags">Tags</SortableTH>
+            {showProjectColumn && (
+              <SortableTH field="project">Project</SortableTH>
+            )}
+            <SortableTH field="dateCreated">Created</SortableTH>
+            <SortableTH field="usage">Usage</SortableTH>
             <th />
           </tr>
         </thead>
         <tbody>
-          {allTemplates.map((t) => {
-            const templateUsage = templateExperimentMap[t.id]?.length ?? 0;
+          {items.map((t) => {
+            const templateUsage = t.usage;
             return (
-              <tr
-                key={t.id}
-                className="hover-highlight"
-                onClick={(e) => {
-                  e.preventDefault();
-                  if (!templateUsage) return;
-                  router.push(`/experiments/template/${t.id}`);
-                }}
-              >
-                <td data-title="Template Name">
+              <tr key={t.id} className="hover-highlight">
+                <td data-title="Template Name" className="col-2">
                   {templateUsage ? (
                     <Link href={`/experiments/template/${t.id}`}>
-                      {t.templateMetadata.name}
+                      {t.templateName}
                     </Link>
                   ) : (
                     <Tooltip content="This template hasn’t been used to create any experiments yet">
-                      <Text>{t.templateMetadata.name}</Text>
+                      <Text>{t.templateName}</Text>
                     </Tooltip>
                   )}
                 </td>
-                <td data-title="Description">
-                  {t.templateMetadata.description}
+                <td data-title="Description" className="col-3">
+                  {t.templateDescription}
                 </td>
-                <td data-title="Tags" className="table-tags">
+                <td data-title="Tags">
                   <SortedTags
-                    tags={Object.values(t.templateMetadata.tags ?? [])}
+                    tags={Object.values(t.templateTags ?? [])}
                     useFlex={true}
                   />
                 </td>
-                <td className="text-gray">
-                  {t.projects && (
-                    <>
-                      {t.projects
-                        .map((p) => {
-                          return getProjectById(p)?.name || "";
-                        })
-                        ?.join(", ")}
-                    </>
-                  )}
+                <td className="text-gray col-2">
+                  {t.project ? getProjectById(t.project)?.name : ""}
                 </td>
-                <td data-title="Created">{date(t.dateCreated)}</td>
+                <td data-title="Created" className="col-2">
+                  {date(t.dateCreated)}
+                </td>
                 <td data-title="Usage">{templateUsage}</td>
                 <td>
                   <MoreMenu>

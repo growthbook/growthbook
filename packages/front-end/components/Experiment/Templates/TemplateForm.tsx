@@ -9,7 +9,7 @@ import { useAttributeSchema, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
 import track from "@/services/track";
-import { SingleValue, GroupedValue } from "@/components/Forms/SelectField";
+import SelectField, { SingleValue } from "@/components/Forms/SelectField";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useIncrementer } from "@/hooks/useIncrementer";
@@ -17,7 +17,6 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import Field from "@/components/Forms/Field";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
 import TagsInput from "@/components/Tags/TagsInput";
 import ExperimentRefNewFields from "@/components/Features/RuleModal/ExperimentRefNewFields";
 import { useTemplates } from "@/hooks/useTemplates";
@@ -69,7 +68,7 @@ const TemplateForm: FC<Props> = ({
 
   const { useStickyBucketing, statsEngine: orgStatsEngine } = useOrgSettings();
   const permissionsUtils = usePermissionsUtil();
-  const { mutateTemplates } = useTemplates();
+  const { mutateTemplates } = useTemplates(project);
 
   const [conditionKey, forceConditionRender] = useIncrementer();
 
@@ -85,7 +84,7 @@ const TemplateForm: FC<Props> = ({
 
   const form = useForm<TemplateForm>({
     defaultValues: {
-      projects: initialValue?.projects || (project ? [project] : []),
+      project: initialValue?.project || project,
       templateMetadata: {
         name: duplicate
           ? `Copy of ${initialValue?.templateMetadata?.name}`
@@ -179,7 +178,7 @@ const TemplateForm: FC<Props> = ({
     }
   });
 
-  const availableProjects: (SingleValue | GroupedValue)[] = projects
+  const availableProjects: SingleValue[] = projects
     .slice()
     .sort((a, b) => (a.name > b.name ? 1 : -1))
     .filter((p) => permissionsUtils.canViewExperimentModal(p.id))
@@ -250,21 +249,6 @@ const TemplateForm: FC<Props> = ({
               {...nameFieldHandlers}
             />
 
-            {projects.length >= 1 && (
-              <div className="form-group">
-                <label>Available in Project(s)</label>
-                <MultiSelectField
-                  value={form.watch("projects") ?? []}
-                  onChange={(p) => {
-                    form.setValue("projects", p);
-                  }}
-                  name="projects"
-                  initialOption={allowAllProjects ? "All Projects" : undefined}
-                  options={availableProjects}
-                />
-              </div>
-            )}
-
             <Field
               label="Template Description"
               textarea
@@ -285,6 +269,21 @@ const TemplateForm: FC<Props> = ({
             <hr />
 
             <h4 className="my-3">Experiment Details</h4>
+
+            {projects.length >= 1 && (
+              <div className="form-group">
+                <label>Experiment Project</label>
+                <SelectField
+                  value={form.watch("project") ?? ""}
+                  onChange={(p) => {
+                    form.setValue("project", p);
+                  }}
+                  name="project"
+                  initialOption={allowAllProjects ? "All Projects" : undefined}
+                  options={availableProjects}
+                />
+              </div>
+            )}
 
             <Field
               label="Experiment Hypothesis"
@@ -320,7 +319,7 @@ const TemplateForm: FC<Props> = ({
               <ExperimentRefNewFields
                 step={i}
                 source="experiment"
-                project={project}
+                project={form.watch("project")}
                 environments={envs}
                 noSchedule={true}
                 prerequisiteValue={form.watch("targeting.prerequisites") || []}

@@ -114,7 +114,6 @@ export default function FeatureVariationsInput({
     ? "Traffic Percentage"
     : "Traffic Percentage & Variation Weights";
 
-  console.log(coverage);
   return (
     <div className="form-group">
       {_label !== null ? <label>{label}</label> : null}

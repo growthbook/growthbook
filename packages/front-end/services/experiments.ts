@@ -673,7 +673,6 @@ export function convertTemplateToExperiment(
     "dateUpdated",
     "templateMetadata",
     "targeting",
-    "projects",
   ]);
   return {
     ...templateWithoutTemplateFields,
@@ -702,6 +701,7 @@ export function convertExperimentToTemplate(
       description: `Template based on ${experiment.name}`,
       tags: [],
     },
+    project: experiment.project,
     type: "standard" as const,
     hypothesis: experiment.hypothesis,
     tags: experiment.tags,

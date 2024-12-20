@@ -334,26 +334,36 @@ export class Permissions {
   };
 
   public canCreateExperimentTemplate = (
-    template: Pick<ExperimentTemplateInterface, "projects">
+    template: Pick<ExperimentTemplateInterface, "project">
   ): boolean => {
-    return this.checkProjectFilterPermission(template, "manageTemplates");
+    return this.checkProjectFilterPermission(
+      {
+        projects: template.project ? [template.project] : [],
+      },
+      "manageTemplates"
+    );
   };
 
   public canUpdateExperimentTemplate = (
-    existing: Pick<ExperimentTemplateInterface, "projects">,
+    existing: Pick<ExperimentTemplateInterface, "project">,
     updated: UpdateTemplateProps
   ): boolean => {
     return this.checkProjectFilterUpdatePermission(
-      existing,
-      updated,
+      { projects: existing.project ? [existing.project] : [] },
+      "project" in updated ? { projects: [updated.project || ""] } : {},
       "manageTemplates"
     );
   };
 
   public canDeleteExperimentTemplate = (
-    template: Pick<ExperimentTemplateInterface, "projects">
+    template: Pick<ExperimentTemplateInterface, "project">
   ): boolean => {
-    return this.checkProjectFilterPermission(template, "manageTemplates");
+    return this.checkProjectFilterPermission(
+      {
+        projects: template.project ? [template.project] : [],
+      },
+      "manageTemplates"
+    );
   };
 
   // This is a helper method to use on the frontend to determine whether or not to show certain UI elements

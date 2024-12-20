@@ -174,7 +174,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const environments = useEnvironments();
   const { experiments } = useExperiments();
-  const { templates: allTemplates, templatesMap } = useTemplates();
+  const {
+    templates: allTemplates,
+    templatesMap,
+    mutateTemplates: refreshTemplates,
+  } = useTemplates(project);
   const envs = environments.map((e) => e.id);
 
   const [
@@ -410,6 +414,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     refreshWatching();
 
     data.tags && refreshTags(data.tags);
+    data.templateId && refreshTemplates();
     if (onCreate) {
       onCreate(res.experiment.id);
     } else {
@@ -428,7 +433,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     .sort((a, b) =>
       a.templateMetadata.name > b.templateMetadata.name ? 1 : -1
     )
-    .filter((t) => permissionsUtils.canReadMultiProjectResource(t.projects))
+    .filter((t) => permissionsUtils.canViewExperimentTemplateModal(t.project))
     .map((t) => ({ value: t.id, label: t.templateMetadata.name }));
 
   const allowAllProjects = permissionsUtils.canViewExperimentModal();
@@ -537,7 +542,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     );
                   }}
                   disabled={!hasCommercialFeature("templates")}
-                  required={templateRequired}
+                  required={
+                    templateRequired && hasCommercialFeature("templates")
+                  }
                 />
               </div>
             )}

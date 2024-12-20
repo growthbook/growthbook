@@ -11,15 +11,23 @@ import {
 } from "./template.validators";
 
 export const getTemplates = async (
-  req: AuthRequest,
+  req: AuthRequest<unknown, unknown, { project?: string }>,
   res: Response<{ status: 200; templates: ExperimentTemplateInterface[] }>
 ) => {
   const context = getContextFromReq(req);
+  const { project } = req.query;
 
-  const templates = await context.models.experimentTemplates.getAll();
+  const templates = project
+    ? await context.models.experimentTemplates.getByProject(project)
+    : await context.models.experimentTemplates.getAll();
+
+  const filteredTemplates = templates.filter((t) => {
+    return context.permissions.canReadSingleProjectResource(t.project);
+  });
+
   res.status(200).json({
     status: 200,
-    templates,
+    templates: filteredTemplates,
   });
 };
 

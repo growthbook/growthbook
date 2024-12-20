@@ -9,7 +9,7 @@ export const experimentTemplateInterface = z
   .object({
     id: z.string(),
     organization: z.string(),
-    projects: z.array(z.string()).default([]),
+    project: z.string().optional(),
     owner: z.string(),
     dateCreated: z.date(),
     dateUpdated: z.date(),

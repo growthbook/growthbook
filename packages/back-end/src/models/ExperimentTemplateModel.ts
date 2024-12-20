@@ -23,7 +23,7 @@ export class ExperimentTemplatesModel extends BaseClass {
     return this.context.permissions.canCreateExperimentTemplate(doc);
   }
   protected canRead(doc: ExperimentTemplateInterface): boolean {
-    return this.context.hasPermission("readData", doc.projects || []);
+    return this.context.hasPermission("readData", doc.project || "");
   }
   protected canUpdate(
     existing: ExperimentTemplateInterface,
@@ -36,6 +36,10 @@ export class ExperimentTemplatesModel extends BaseClass {
   }
   protected canDelete(doc: ExperimentTemplateInterface): boolean {
     return this.context.permissions.canDeleteExperimentTemplate(doc);
+  }
+
+  public getByProject(project: string) {
+    return this._find({ project: project });
   }
 
   // TODO: Implement this for OpenAPI

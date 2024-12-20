@@ -12,9 +12,14 @@ const router = express.Router();
 
 const templateController = wrapController(rawTemplateController);
 
+const templateQuery = z.object({ project: z.string().optional() }).strict();
 const templateParams = z.object({ id: z.string() }).strict();
 
-router.get("/", templateController.getTemplates);
+router.get(
+  "/",
+  validateRequestMiddleware({ query: templateQuery }),
+  templateController.getTemplates
+);
 
 router.post(
   "/",
