@@ -9,8 +9,6 @@ import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { phaseSummary } from "@/services/utils";
-import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -461,14 +459,12 @@ const ExperimentsPage = (): React.ReactElement => {
                     )}
                     <SortableTH field="tags">Tags</SortableTH>
                     <SortableTH field="ownerName">Owner</SortableTH>
-                    <SortableTH field="status">Status</SortableTH>
                     <SortableTH field="date">Date</SortableTH>
-                    <th>Summary</th>
+                    <SortableTH field="status">Status</SortableTH>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.slice(start, end).map((e) => {
-                    const phase = e.phases?.[e.phases.length - 1];
                     return (
                       <tr key={e.id} className="hover-highlight">
                         <td data-title="Watching status:" className="watching">
@@ -551,15 +547,6 @@ const ExperimentsPage = (): React.ReactElement => {
                         <td className="nowrap" data-title="Owner:">
                           {e.ownerName}
                         </td>
-                        <td className="nowrap" data-title="Status:">
-                          {e.archived ? (
-                            <span className="badge badge-secondary">
-                              archived
-                            </span>
-                          ) : (
-                            <ExperimentStatusIndicator status={e.status} />
-                          )}
-                        </td>
                         <td className="nowrap" title={datetime(e.date)}>
                           {e.tab === "running"
                             ? "started"
@@ -572,16 +559,11 @@ const ExperimentsPage = (): React.ReactElement => {
                             : ""}{" "}
                           {date(e.date)}
                         </td>
-                        <td className="nowrap" data-title="Summary:">
-                          {e.archived ? (
-                            ""
-                          ) : e.status === "running" && phase ? (
-                            phaseSummary(phase, e.type === "multi-armed-bandit")
-                          ) : e.status === "stopped" && e.results ? (
-                            <ResultsIndicator results={e.results} />
-                          ) : (
-                            ""
-                          )}
+                        <td className="nowrap" data-title="Status:">
+                          <ExperimentStatusIndicator
+                            experimentData={e}
+                            labelFormat="detail-only"
+                          />
                         </td>
                       </tr>
                     );

@@ -2,6 +2,7 @@ import { ExperimentMetricInterface } from "shared/experiments";
 import { OrganizationSettings } from "back-end/types/organization";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { DimensionInterface } from "back-end/types/dimension";
+import { ProjectInterface } from "back-end/src/models/ProjectModel";
 import { FactTableInterface, MetricPriorSettings } from "./fact-table";
 import {
   AttributionModel,
@@ -161,10 +162,11 @@ export type LegacyReportInterface = Omit<ExperimentReportInterface, "args"> & {
   };
 };
 
-export type SSRExperimentReportData = {
+export type ExperimentReportSSRData = {
   metrics: Record<string, ExperimentMetricInterface>;
   metricGroups: MetricGroupInterface[];
   factTables: Record<string, FactTableInterface>;
   settings: OrganizationSettings;
+  projects: Record<string, ProjectInterface>;
   dimensions: DimensionInterface[];
 };

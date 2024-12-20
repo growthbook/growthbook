@@ -9,6 +9,7 @@ import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
 import { accountFeatures, getAccountPlan } from "enterprise";
 import { omit } from "lodash";
 import { SavedGroupInterface } from "shared/src/types";
+import { v4 as uuidv4 } from "uuid";
 import {
   ExperimentReportArgs,
   ExperimentReportInterface,
@@ -615,6 +616,13 @@ export function upgradeExperimentDoc(
   }
   if (!("sequentialTestingTuningParameter" in experiment)) {
     experiment.sequentialTestingTuningParameter = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
+  }
+
+  if (!("shareLevel" in experiment)) {
+    experiment.shareLevel = "organization";
+  }
+  if (!("uid" in experiment)) {
+    experiment.uid = uuidv4().replace(/-/g, "");
   }
 
   return experiment as ExperimentInterface;

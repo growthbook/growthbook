@@ -567,7 +567,9 @@ pre {
 }
 
 .main.experiment,
-.main.bandit {
+.main.bandit,
+.public.experiment,
+.public.bandit {
   .experiment-header {
     margin: -4px -8px 0;
     .border {
@@ -577,9 +579,10 @@ pre {
   .experiment-tabs {
     background-color: var(--background-color);
     // NB: Keep top property in sync with TABS_HEADER_HEIGHT_PX in ExperimentHeader.tsx
+    // also, make sure shared reports & shared experiments look good
     top: 55px;
     height: 40px;
-    margin: 0 -8px -3px;
+    margin: 0 -16px -3px;
     transition: 150ms all;
     .header-tabs {
       flex-wrap: nowrap;
@@ -623,9 +626,13 @@ pre {
     &.pinned {
       position: sticky;
       z-index: 830;
-      box-shadow: var(--shadow-3);
+      // ensure no shadow bleeds above component, otherwise noticeable when scrolling quickly
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), 0 4px 4px rgba(0, 0, 0, 0.025);
       .header-tabs .tab-wrapper {
         overflow: hidden;
+      }
+      .rt-BaseTabList {
+        box-shadow: none !important;
       }
     }
   }
@@ -793,12 +800,20 @@ pre {
     transform: translate(0.5px, -0.5px);
   }
 }
-main.main.report,
-main.main.r {
+main.main.report {
   .experiment-results {
     th {
       &.axis-col {
         top: 50px;
+      }
+    }
+  }
+}
+main.main.public {
+  .experiment-results {
+    th {
+      &.axis-col {
+        top: 95px;
       }
     }
   }

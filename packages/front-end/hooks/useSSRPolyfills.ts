@@ -1,10 +1,11 @@
 import { useCallback, useMemo } from "react";
 import { DEFAULT_P_VALUE_THRESHOLD } from "shared/constants";
-import { SSRExperimentReportData } from "back-end/types/report";
+import { ExperimentReportSSRData } from "back-end/types/report";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { FactTableInterface } from "back-end/types/fact-table";
 import { DimensionInterface } from "back-end/types/dimension";
+import { ProjectInterface } from "back-end/types/project";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
@@ -22,6 +23,7 @@ export interface SSRPolyfills {
   getMetricGroupById: (id: string) => null | MetricGroupInterface;
   getFactTableById: (id: string) => null | FactTableInterface;
   useOrgSettings: typeof useOrgSettings;
+  getProjectById: (id: string) => null | ProjectInterface;
   useCurrency: typeof useCurrency;
   usePValueThreshold: typeof usePValueThreshold;
   useConfidenceLevels: typeof useConfidenceLevels;
@@ -31,7 +33,7 @@ export interface SSRPolyfills {
 }
 
 export default function useSSRPolyfills(
-  ssrData: SSRExperimentReportData | null
+  ssrData: ExperimentReportSSRData | null
 ): SSRPolyfills {
   const {
     getExperimentMetricById,
@@ -40,6 +42,7 @@ export default function useSSRPolyfills(
     metricGroups,
     dimensions,
     getDimensionById,
+    getProjectById,
   } = useDefinitions();
 
   const hasCsrSettings = !!Object.keys(useOrgSettings() || {})?.length;
@@ -61,7 +64,7 @@ export default function useSSRPolyfills(
     [getMetricGroupById, metricGroupsSSR]
   );
   const getFactTableByIdSSR = useCallback(
-    (id) => getFactTableById(id) || ssrData?.factTables?.[id] || null,
+    (id: string) => getFactTableById(id) || ssrData?.factTables?.[id] || null,
     [getFactTableById, ssrData?.factTables]
   );
 
@@ -69,6 +72,10 @@ export default function useSSRPolyfills(
     const orgSettings = useOrgSettings();
     return hasCsrSettings ? orgSettings : ssrData?.settings || {};
   };
+  const getProjectByIdSSR = useCallback(
+    (id: string) => getProjectById(id) || ssrData?.projects?.[id] || null,
+    [getProjectById, ssrData?.projects]
+  );
   const useCurrencySSR = () => {
     const currency = useCurrency();
     if (hasCsrSettings) return currency;
@@ -120,6 +127,7 @@ export default function useSSRPolyfills(
     getMetricGroupById: getMetricGroupByIdSSR,
     getFactTableById: getFactTableByIdSSR,
     useOrgSettings: useOrgSettingsSSR,
+    getProjectById: getProjectByIdSSR,
     useCurrency: useCurrencySSR,
     usePValueThreshold: usePValueThresholdSSR,
     useConfidenceLevels: useConfidenceLevelsSSR,

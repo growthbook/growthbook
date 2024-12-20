@@ -110,6 +110,8 @@ export default function ConfigureReport({
     "sequential-testing"
   );
 
+  const isBandit = experiment?.type === "multi-armed-bandit";
+
   return (
     <Modal
       open={true}
@@ -205,7 +207,7 @@ export default function ConfigureReport({
                   }
                 >
                   <div style={{ lineHeight: 1.25 }}>
-                    Use Experiment start date
+                    Use {isBandit ? "Bandit" : "Experiment"} start date
                     <br />
                     <small>
                       {date(experiment?.phases?.[0]?.dateStarted || "")}
