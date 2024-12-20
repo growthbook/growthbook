@@ -58,6 +58,7 @@ export default function AnalysisSettingsBar({
   setBaselineRow,
   differenceType,
   setDifferenceType,
+  envs,
 }: {
   mutateExperiment: () => void;
   setAnalysisSettings: (
@@ -66,6 +67,7 @@ export default function AnalysisSettingsBar({
   editMetrics?: () => void;
   editPhases?: () => void;
   variations: ExperimentReportVariation[];
+  envs: string[];
   alwaysShowPhaseSelector?: boolean;
   regressionAdjustmentAvailable?: boolean;
   regressionAdjustmentEnabled?: boolean;
@@ -117,6 +119,7 @@ export default function AnalysisSettingsBar({
     <div>
       {modalOpen && experiment && (
         <AnalysisForm
+          envs={envs}
           cancel={() => setModalOpen(false)}
           experiment={experiment}
           mutate={mutateExperiment}
@@ -316,7 +319,7 @@ export default function AnalysisSettingsBar({
             <div className="col-auto">
               <ResultMoreMenu
                 experiment={experiment}
-                id={snapshot?.id || ""}
+                snapshotId={snapshot?.id || ""}
                 datasource={datasource}
                 forceRefresh={async () => {
                   await apiCall<{ snapshot: ExperimentSnapshotInterface }>(

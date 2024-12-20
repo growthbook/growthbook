@@ -1,5 +1,6 @@
 import {
   CappingType,
+  LegacyMetricWindowSettings,
   MetricCappingSettings,
   MetricPriorSettings,
   MetricWindowSettings,
@@ -98,7 +99,7 @@ export type LegacyMetricInterface = Omit<
 > & {
   // make new mandatory fields optional
   cappingSettings?: MetricCappingSettings;
-  windowSettings?: MetricWindowSettings;
+  windowSettings?: LegacyMetricWindowSettings;
   priorSettings?: MetricPriorSettings;
 
   // keep old fields around for migration

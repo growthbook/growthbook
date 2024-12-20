@@ -3,15 +3,10 @@ import {
   ExperimentPhaseStringDates,
   LinkedFeatureInfo,
 } from "back-end/types/experiment";
-import { FaAngleRight, FaExclamationTriangle, FaHome } from "react-icons/fa";
-import { PiChartBarHorizontalFill } from "react-icons/pi";
-import { FaHeartPulse, FaMagnifyingGlassChart } from "react-icons/fa6";
+import { FaAngleRight, FaExclamationTriangle } from "react-icons/fa";
 import { useRouter } from "next/router";
-import {
-  experimentHasLiveLinkedChanges,
-  getAffectedEnvsForExperiment,
-} from "shared/util";
-import React, { ReactNode, useState } from "react";
+import { experimentHasLiveLinkedChanges } from "shared/util";
+import React, { ReactNode, useEffect, useRef, useState } from "react";
 import { date, daysBetween } from "shared/dates";
 import { MdRocketLaunch } from "react-icons/md";
 import clsx from "clsx";
@@ -19,13 +14,20 @@ import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import Link from "next/link";
 import Collapsible from "react-collapsible";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { Box, Flex } from "@radix-ui/themes";
+import { PiCheck, PiLink } from "react-icons/pi";
+import {
+  ExperimentSnapshotReportArgs,
+  ExperimentSnapshotReportInterface,
+  ReportInterface,
+} from "back-end/types/report";
 import { useAuth } from "@/services/auth";
 import WatchButton from "@/components/WatchButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import ConfirmButton from "@/components/Modal/ConfirmButton";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import TabButtons from "@/components/Tabs/TabButtons";
-import TabButton from "@/components/Tabs/TabButton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/Radix/Tabs";
+import Avatar from "@/components/Radix/Avatar";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import Modal from "@/components/Modal";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
@@ -33,7 +35,6 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCelebration } from "@/hooks/useCelebration";
-import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -43,16 +44,23 @@ import { formatPercent } from "@/services/metrics";
 import { AppFeatures } from "@/types/app-features";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { convertExperimentToTemplate } from "@/services/experiments";
+import Button from "@/components/Radix/Button";
+import Callout from "@/components/Radix/Callout";
+import SelectField from "@/components/Forms/SelectField";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import HelperText from "@/components/Radix/HelperText";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import TemplateForm from "../Templates/TemplateForm";
-import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
-import ExperimentActionButtons from "./ExperimentActionButtons";
 import ProjectTagBar from "./ProjectTagBar";
+import ExperimentActionButtons from "./ExperimentActionButtons";
+import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import { ExperimentTab } from ".";
 
 export interface Props {
   tab: ExperimentTab;
   setTab: (tab: ExperimentTab) => void;
   experiment: ExperimentInterfaceStringDates;
+  envs: string[];
   mutate: () => void;
   duplicate?: (() => void) | null;
   setEditNameOpen: (open: boolean) => void;
@@ -95,10 +103,17 @@ const DisabledHealthTabTooltip = ({
   );
 };
 
+// NB: Keep in sync with .experiment-tabs top property in global.scss
+const TABS_HEADER_HEIGHT_PX = 55;
+
+type ShareLevel = "public" | "organization";
+const SAVE_SETTING_TIMEOUT_MS = 3000;
+
 export default function ExperimentHeader({
   tab,
   setTab,
   experiment,
+  envs,
   mutate,
   setEditNameOpen,
   duplicate,
@@ -126,15 +141,52 @@ export default function ExperimentHeader({
   const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
   const dataSource = getDatasourceById(experiment.datasource);
-  const { scrollY } = useScrollPosition();
-  const headerPinned = scrollY > 45;
   const startCelebration = useCelebration();
   const { data: sdkConnections } = useSDKConnections();
-  const { phase, analysis } = useSnapshot();
   const { hasCommercialFeature } = useUser();
+  const { snapshot, phase, analysis } = useSnapshot();
   const connections = sdkConnections?.connections || [];
+
   const [showSdkForm, setShowSdkForm] = useState(false);
   const [showTemplateForm, setShowTemplateForm] = useState(false);
+
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareLevel, setShareLevel] = useState<ShareLevel>(
+    experiment.shareLevel || "organization"
+  );
+  const [saveShareLevelStatus, setSaveShareLevelStatus] = useState<
+    null | "loading" | "success" | "fail"
+  >(null);
+  const saveShareLevelTimeout = useRef<number | undefined>();
+  const { performCopy, copySuccess } = useCopyToClipboard({
+    timeout: 800,
+  });
+  const HOST = globalThis?.window?.location?.origin;
+  const shareableLink = experiment.uid
+    ? `${HOST}/public/e/${experiment.uid}`
+    : `${HOST}/${
+        experiment?.type === "multi-armed-bandit" ? "bandit" : "experiment"
+      }/${experiment.id}`;
+  const datasourceSettings = experiment.datasource
+    ? getDatasourceById(experiment.datasource)?.settings
+    : undefined;
+  const userIdType = datasourceSettings?.queries?.exposure?.find(
+    (e) => e.id === experiment.exposureQueryId
+  )?.userIdType;
+
+  const reportArgs: ExperimentSnapshotReportArgs = {
+    userIdType: userIdType as "user" | "anonymous" | undefined,
+  };
+
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const [headerPinned, setHeaderPinned] = useState(false);
+  const { scrollY } = useScrollPosition();
+  useEffect(() => {
+    if (!tabsRef.current) return;
+    const isHeaderSticky =
+      tabsRef.current.getBoundingClientRect().top <= TABS_HEADER_HEIGHT_PX;
+    setHeaderPinned(isHeaderSticky);
+  }, [scrollY]);
 
   const phases = experiment.phases || [];
   const lastPhaseIndex = phases.length - 1;
@@ -149,7 +201,7 @@ export default function ExperimentHeader({
       ? lastPhase?.dateEnded
         ? date(lastPhase.dateEnded ?? "")
         : "now"
-      : new Date();
+      : date(new Date());
   const viewingOldPhase = phases.length > 0 && phase < phases.length - 1;
 
   const [showStartExperiment, setShowStartExperiment] = useState(false);
@@ -161,7 +213,6 @@ export default function ExperimentHeader({
   const canEditExperiment = !experiment.archived && hasUpdatePermissions;
 
   let hasRunExperimentsPermission = true;
-  const envs = getAffectedEnvsForExperiment({ experiment });
   if (envs.length > 0) {
     if (!permissionsUtil.canRunExperiment(experiment, envs)) {
       hasRunExperimentsPermission = false;
@@ -226,13 +277,71 @@ export default function ExperimentHeader({
     }
   }
 
+  useEffect(() => {
+    if (experiment.shareLevel !== shareLevel) {
+      setSaveShareLevelStatus("loading");
+      window.clearTimeout(saveShareLevelTimeout.current);
+      apiCall<{
+        updatedReport: ExperimentSnapshotReportInterface;
+      }>(`/experiment/${experiment.id}`, {
+        method: "POST",
+        body: JSON.stringify({ shareLevel, uid: experiment.uid }),
+      })
+        .then(() => {
+          mutate?.();
+          setSaveShareLevelStatus("success");
+          saveShareLevelTimeout.current = window.setTimeout(
+            () => setSaveShareLevelStatus(null),
+            SAVE_SETTING_TIMEOUT_MS
+          );
+        })
+        .catch(() => {
+          setSaveShareLevelStatus("fail");
+          saveShareLevelTimeout.current = window.setTimeout(
+            () => setSaveShareLevelStatus(null),
+            SAVE_SETTING_TIMEOUT_MS
+          );
+        });
+      track("Experiment: Set Share Level", {
+        source: "private page",
+        type: shareLevel,
+      });
+    }
+  }, [
+    experiment.id,
+    experiment.uid,
+    experiment.shareLevel,
+    shareLevel,
+    mutate,
+    setSaveShareLevelStatus,
+    apiCall,
+  ]);
+
+  const shareLinkButton =
+    experiment.shareLevel !== "public" ? null : copySuccess ? (
+      <Button style={{ width: 150 }} icon={<PiCheck />}>
+        Link copied
+      </Button>
+    ) : (
+      <Button
+        icon={<PiLink />}
+        onClick={() => {
+          if (!copySuccess) performCopy(shareableLink);
+          setTimeout(() => setShareModalOpen(false), 810);
+          track("Experiment: Click Copy Link", {
+            source: "private page",
+            type: shareLevel,
+          });
+        }}
+        style={{ width: 150 }}
+      >
+        Copy Link
+      </Button>
+    );
+
   return (
     <>
-      <div
-        className={clsx("experiment-header", "bg-white", "px-3", "pt-3", {
-          border: shouldHideTabs,
-        })}
-      >
+      <div className={clsx("experiment-header", "px-3", "pt-3")}>
         {showSdkForm && (
           <InitialSDKConnectionForm
             close={() => setShowSdkForm(false)}
@@ -343,9 +452,67 @@ export default function ExperimentHeader({
             source="experiment"
           />
         )}
+
+        {shareModalOpen && (
+          <Modal
+            open={true}
+            trackingEventModalType="share-experiment-settings"
+            close={() => setShareModalOpen(false)}
+            closeCta="Close"
+            header={`Share "${experiment.name}"`}
+            useRadixButton={true}
+            secondaryCTA={shareLinkButton}
+          >
+            <div className="mb-3">
+              {shareLevel === "organization" ? (
+                <Callout status="info" size="sm">
+                  This {isBandit ? "Bandit" : "Experiment"} is only viewable
+                  within your organization.
+                </Callout>
+              ) : shareLevel === "public" ? (
+                <>
+                  <Callout status="warning" size="sm">
+                    Anyone with the link can view this{" "}
+                    {isBandit ? "Bandit" : "Experiment"}, even those outside
+                    your organization.
+                  </Callout>
+                </>
+              ) : null}
+            </div>
+
+            <SelectField
+              label="View access"
+              value={shareLevel}
+              onChange={(v: ShareLevel) => setShareLevel(v)}
+              containerClassName="mb-2"
+              sort={false}
+              disabled={!hasUpdatePermissions}
+              options={[
+                { value: "organization", label: "Only organization members" },
+                { value: "public", label: "Anyone with the link" },
+              ]}
+            />
+            <div className="mb-1" style={{ height: 24 }}>
+              {saveShareLevelStatus === "loading" ? (
+                <div className="position-relative" style={{ top: -6 }}>
+                  <LoadingSpinner />
+                </div>
+              ) : saveShareLevelStatus === "success" ? (
+                <HelperText status="success" size="sm">
+                  Sharing status has been updated
+                </HelperText>
+              ) : saveShareLevelStatus === "fail" ? (
+                <HelperText status="error" size="sm">
+                  Unable to update sharing status
+                </HelperText>
+              ) : null}
+            </div>
+          </Modal>
+        )}
+
         <div className="container-fluid pagecontents position-relative">
           <div className="d-flex align-items-center">
-            <div>
+            <Flex direction="row" align="center">
               <HeaderWithEdit
                 className="h1 mb-0"
                 containerClassName=""
@@ -356,26 +523,12 @@ export default function ExperimentHeader({
               >
                 {experiment.name}
               </HeaderWithEdit>
-            </div>
+              <Box ml="2">
+                <ExperimentStatusIndicator experimentData={experiment} />
+              </Box>
+            </Flex>
 
             <div className="ml-auto flex-1"></div>
-
-            <div className="ml-3 d-md-block d-none">
-              {experiment.archived ? (
-                <div className="badge badge-secondary">archived</div>
-              ) : (
-                <ExperimentStatusIndicator
-                  status={experiment.status}
-                  subStatus={
-                    experiment.type === "multi-armed-bandit" &&
-                    experiment.status === "running" &&
-                    experiment.banditStage === "explore"
-                      ? "exploratory"
-                      : undefined
-                  }
-                />
-              )}
-            </div>
 
             {canRunExperiment ? (
               <div className="ml-2 flex-shrink-0">
@@ -385,15 +538,6 @@ export default function ExperimentHeader({
                     editTargeting={editTargeting}
                     isBandit={isBandit}
                   />
-                ) : experiment.status === "stopped" && experiment.results ? (
-                  <div className="experiment-status-widget border d-flex">
-                    <div
-                      className="d-flex"
-                      style={{ height: 30, lineHeight: "30px" }}
-                    >
-                      <ResultsIndicator results={experiment.results} />
-                    </div>
-                  </div>
                 ) : experiment.status === "draft" ? (
                   <Tooltip
                     shouldDisplay={
@@ -426,7 +570,22 @@ export default function ExperimentHeader({
               </div>
             ) : null}
 
-            <div className="ml-2">
+            <div className="d-flex ml-2 align-items-center">
+              {experiment.status === "stopped" && experiment.results ? (
+                <>
+                  {canEditExperiment ? (
+                    <Button
+                      ml="2"
+                      mr="3"
+                      onClick={() => setShareModalOpen(true)}
+                    >
+                      Share...
+                    </Button>
+                  ) : shareLevel === "public" ? (
+                    <div className="ml-2 mr-3">{shareLinkButton}</div>
+                  ) : null}
+                </>
+              ) : null}
               <MoreMenu>
                 {experiment.status !== "running" && editTargeting && (
                   <button
@@ -469,6 +628,13 @@ export default function ExperimentHeader({
                     Save as template...
                   </button>
                 )}
+                <button
+                  className="dropdown-item"
+                  onClick={() => setAuditModal(true)}
+                >
+                  Audit log
+                </button>
+                <hr className="mx-4 my-2" />
                 <WatchButton
                   itemType="experiment"
                   item={experiment.id}
@@ -483,12 +649,48 @@ export default function ExperimentHeader({
                     {usersWatching.length}
                   </span>
                 </button>
-                <button
-                  className="dropdown-item"
-                  onClick={() => setAuditModal(true)}
-                >
-                  Audit log
-                </button>
+                {canEditExperiment ||
+                duplicate ||
+                canRunExperiment ||
+                (hasUpdatePermissions &&
+                  experiment.archived &&
+                  permissionsUtil.canCreateReport(experiment) &&
+                  snapshot) ? (
+                  <hr className="mx-4 my-2" />
+                ) : null}
+                {canEditExperiment && (
+                  <button
+                    className="dropdown-item"
+                    onClick={() => setShareModalOpen(true)}
+                  >
+                    Share {isBandit ? "Bandit" : "Experiment"}
+                  </button>
+                )}
+                {permissionsUtil.canCreateReport(experiment) && snapshot ? (
+                  <button
+                    className="dropdown-item"
+                    onClick={async () => {
+                      const res = await apiCall<{ report: ReportInterface }>(
+                        `/experiments/report/${snapshot.id}`,
+                        {
+                          method: "POST",
+                          body: reportArgs
+                            ? JSON.stringify(reportArgs)
+                            : undefined,
+                        }
+                      );
+                      if (!res.report) {
+                        throw new Error("Failed to create report");
+                      }
+                      track("Experiment Report: Create", {
+                        source: "experiment more menu",
+                      });
+                      await router.push(`/report/${res.report.id}`);
+                    }}
+                  >
+                    Create shareable report
+                  </button>
+                ) : null}
                 {duplicate && (
                   <button className="dropdown-item" onClick={duplicate}>
                     Duplicate
@@ -598,97 +800,55 @@ export default function ExperimentHeader({
 
       {shouldHideTabs ? null : (
         <div
-          className={clsx(
-            "experiment-tabs bg-white px-3 border-bottom d-print-none",
-            {
-              pinned: headerPinned,
-            }
-          )}
+          className={clsx("experiment-tabs px-3 d-print-none", {
+            pinned: headerPinned,
+          })}
         >
           <div className="container-fluid pagecontents position-relative">
-            <div className="row align-items-center header-tabs">
-              <div
-                className="col-auto pt-2 tab-wrapper"
-                id="experiment-page-tabs"
+            <div className="row header-tabs" ref={tabsRef}>
+              <Tabs
+                value={tab}
+                onValueChange={setTab}
+                style={{ width: "100%" }}
               >
-                <TabButtons className="mb-0 pb-0">
-                  <TabButton
-                    active={tab === "overview"}
-                    display={
-                      <>
-                        <FaHome /> Overview
-                      </>
-                    }
-                    anchor="overview"
-                    onClick={() => setTab("overview")}
-                    newStyle={false}
-                    activeClassName="active-tab"
-                  />
-                  <TabButton
-                    active={tab === "results"}
-                    display={
-                      <>
-                        <PiChartBarHorizontalFill /> Results
-                      </>
-                    }
-                    anchor="results"
-                    onClick={() => setTab("results")}
-                    newStyle={false}
-                    activeClassName="active-tab"
-                    last={false}
-                  />
-                  {isBandit && (
-                    <TabButton
-                      active={tab === "explore"}
-                      display={
-                        <>
-                          <FaMagnifyingGlassChart /> Explore
-                        </>
-                      }
-                      anchor="explore"
-                      onClick={() => setTab("explore")}
-                      newStyle={false}
-                      activeClassName="active-tab"
-                      last={false}
-                    />
-                  )}
+                <TabsList size="3">
+                  <TabsTrigger value="overview">Overview</TabsTrigger>
+                  <TabsTrigger value="results">Results</TabsTrigger>
+                  {isBandit ? (
+                    <TabsTrigger value="explore">Explore</TabsTrigger>
+                  ) : null}
                   {disableHealthTab ? (
                     <DisabledHealthTabTooltip reason="UNSUPPORTED_DATASOURCE">
-                      <span className="nav-item nav-link text-muted">
-                        <FaHeartPulse /> Health
-                      </span>
+                      <TabsTrigger disabled value="health">
+                        Health
+                      </TabsTrigger>
                     </DisabledHealthTabTooltip>
                   ) : (
-                    <TabButton
-                      active={tab === "health"}
-                      display={
-                        <>
-                          <FaHeartPulse /> Health
-                        </>
-                      }
-                      anchor="health"
+                    <TabsTrigger
+                      value="health"
                       onClick={() => {
                         track("Open health tab", { source: "tab-click" });
-                        setTab("health");
                       }}
-                      newStyle={false}
-                      activeClassName="active-tab"
-                      last={true}
-                      notificationCount={healthNotificationCount}
-                    />
+                    >
+                      Health
+                      {healthNotificationCount > 0 ? (
+                        <Avatar size="sm" ml="2" color="red">
+                          {healthNotificationCount}
+                        </Avatar>
+                      ) : null}
+                    </TabsTrigger>
                   )}
-                </TabButtons>
-              </div>
+                </TabsList>
+              </Tabs>
 
-              <div className="flex-1" />
               <div className="col-auto experiment-date-range">
                 {startDate && (
-                  <>
+                  <span>
                     {startDate} — {endDate}{" "}
                     <span className="text-muted">
-                      ({daysBetween(startDate, endDate || new Date())} days)
+                      ({daysBetween(startDate, endDate)} days)
                     </span>
-                  </>
+                  </span>
                 )}
               </div>
             </div>

@@ -22,6 +22,8 @@ export interface paths {
     get: operations["getFeature"];
     /** Partially update a feature */
     post: operations["updateFeature"];
+    /** Deletes a single feature */
+    delete: operations["deleteFeature"];
   };
   "/features/{id}/toggle": {
     /** Toggle a feature in one or more environments */
@@ -372,11 +374,13 @@ export interface components {
         windowSettings: {
           /** @enum {string} */
           type: "none" | "conversion" | "lookback";
-          /** @description Wait this many hours after experiment exposure before counting conversions */
-          delayHours?: number;
+          /** @description Wait this long after experiment exposure before counting conversions */
+          delayValue?: number;
+          /** @enum {string} */
+          delayUnit?: "minutes" | "hours" | "days" | "weeks";
           windowValue?: number;
           /** @enum {string} */
-          windowUnit?: "hours" | "days" | "weeks";
+          windowUnit?: "minutes" | "hours" | "days" | "weeks";
         };
         /** @description Controls the bayesian prior for the metric. */
         priorSettings?: {
@@ -448,6 +452,7 @@ export interface components {
       toggleOnList: boolean;
       defaultState: boolean;
       projects: (string)[];
+      parent?: string;
     };
     Attribute: {
       property: string;
@@ -1417,7 +1422,7 @@ export interface components {
       tags: (string)[];
       datasource: string;
       /** @enum {string} */
-      metricType: "proportion" | "mean" | "quantile" | "ratio";
+      metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
       numerator: {
         factTableId: string;
         column: string;
@@ -1459,11 +1464,13 @@ export interface components {
       windowSettings: {
         /** @enum {string} */
         type: "none" | "conversion" | "lookback";
-        /** @description Wait this many hours after experiment exposure before counting conversions */
-        delayHours?: number;
+        /** @description Wait this long after experiment exposure before counting conversions. */
+        delayValue?: number;
+        /** @enum {string} */
+        delayUnit?: "minutes" | "hours" | "days" | "weeks";
         windowValue?: number;
         /** @enum {string} */
-        windowUnit?: "hours" | "days" | "weeks";
+        windowUnit?: "minutes" | "hours" | "days" | "weeks";
       };
       /** @description Controls the regression adjustment (CUPED) settings for the metric */
       regressionAdjustmentSettings: {
@@ -2694,6 +2701,28 @@ export interface operations {
                 publishedBy: string;
               };
             };
+          };
+        };
+      };
+    };
+  };
+  deleteFeature: {
+    /** Deletes a single feature */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            /**
+             * @description The ID of the deleted feature 
+             * @example feature-123
+             */
+            deletedId?: string;
           };
         };
       };
@@ -4559,11 +4588,13 @@ export interface operations {
                   windowSettings: {
                     /** @enum {string} */
                     type: "none" | "conversion" | "lookback";
-                    /** @description Wait this many hours after experiment exposure before counting conversions */
-                    delayHours?: number;
+                    /** @description Wait this long after experiment exposure before counting conversions */
+                    delayValue?: number;
+                    /** @enum {string} */
+                    delayUnit?: "minutes" | "hours" | "days" | "weeks";
                     windowValue?: number;
                     /** @enum {string} */
-                    windowUnit?: "hours" | "days" | "weeks";
+                    windowUnit?: "minutes" | "hours" | "days" | "weeks";
                   };
                   /** @description Controls the bayesian prior for the metric. */
                   priorSettings?: {
@@ -4689,11 +4720,21 @@ export interface operations {
             windowSettings?: {
               /** @enum {string} */
               type: "none" | "conversion" | "lookback";
-              /** @description Wait this many hours after experiment exposure before counting conversions */
+              /**
+               * @deprecated 
+               * @description Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+               */
               delayHours?: number;
+              /** @description Wait this long after experiment exposure before counting conversions. */
+              delayValue?: number;
+              /**
+               * @description Default `hours`. 
+               * @enum {string}
+               */
+              delayUnit?: "minutes" | "hours" | "days" | "weeks";
               windowValue?: number;
               /** @enum {string} */
-              windowUnit?: "hours" | "days" | "weeks";
+              windowUnit?: "minutes" | "hours" | "days" | "weeks";
             };
             /**
              * @deprecated 
@@ -4811,11 +4852,13 @@ export interface operations {
                 windowSettings: {
                   /** @enum {string} */
                   type: "none" | "conversion" | "lookback";
-                  /** @description Wait this many hours after experiment exposure before counting conversions */
-                  delayHours?: number;
+                  /** @description Wait this long after experiment exposure before counting conversions */
+                  delayValue?: number;
+                  /** @enum {string} */
+                  delayUnit?: "minutes" | "hours" | "days" | "weeks";
                   windowValue?: number;
                   /** @enum {string} */
-                  windowUnit?: "hours" | "days" | "weeks";
+                  windowUnit?: "minutes" | "hours" | "days" | "weeks";
                 };
                 /** @description Controls the bayesian prior for the metric. */
                 priorSettings?: {
@@ -4929,11 +4972,13 @@ export interface operations {
                 windowSettings: {
                   /** @enum {string} */
                   type: "none" | "conversion" | "lookback";
-                  /** @description Wait this many hours after experiment exposure before counting conversions */
-                  delayHours?: number;
+                  /** @description Wait this long after experiment exposure before counting conversions */
+                  delayValue?: number;
+                  /** @enum {string} */
+                  delayUnit?: "minutes" | "hours" | "days" | "weeks";
                   windowValue?: number;
                   /** @enum {string} */
-                  windowUnit?: "hours" | "days" | "weeks";
+                  windowUnit?: "minutes" | "hours" | "days" | "weeks";
                 };
                 /** @description Controls the bayesian prior for the metric. */
                 priorSettings?: {
@@ -5056,11 +5101,21 @@ export interface operations {
             windowSettings?: {
               /** @enum {string} */
               type: "none" | "conversion" | "lookback";
-              /** @description Wait this many hours after experiment exposure before counting conversions */
+              /**
+               * @deprecated 
+               * @description Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+               */
               delayHours?: number;
+              /** @description Wait this long after experiment exposure before counting conversions. */
+              delayValue?: number;
+              /**
+               * @description Default `hours`. 
+               * @enum {string}
+               */
+              delayUnit?: "minutes" | "hours" | "days" | "weeks";
               windowValue?: number;
               /** @enum {string} */
-              windowUnit?: "hours" | "days" | "weeks";
+              windowUnit?: "minutes" | "hours" | "days" | "weeks";
             };
             /**
              * @deprecated 
@@ -5988,6 +6043,7 @@ export interface operations {
                 toggleOnList: boolean;
                 defaultState: boolean;
                 projects: (string)[];
+                parent?: string;
               })[];
           };
         };
@@ -6008,6 +6064,7 @@ export interface operations {
           /** @description Default state for new features */
           defaultState?: any;
           projects?: (string)[];
+          parent?: string;
         };
       };
     };
@@ -6021,6 +6078,7 @@ export interface operations {
               toggleOnList: boolean;
               defaultState: boolean;
               projects: (string)[];
+              parent?: string;
             };
           };
         };
@@ -6058,6 +6116,7 @@ export interface operations {
               toggleOnList: boolean;
               defaultState: boolean;
               projects: (string)[];
+              parent?: string;
             };
           };
         };
@@ -6070,14 +6129,6 @@ export interface operations {
         /** @description The id of the requested resource */
       path: {
         id: string;
-      };
-    };
-    requestBody?: {
-      content: {
-        "application/json": {
-          /** @description Whether to also remove rules from features for the environment to be deleted */
-          removeAssociatedFeatureRules?: boolean;
-        };
       };
     };
     responses: {
@@ -6553,7 +6604,7 @@ export interface operations {
                 tags: (string)[];
                 datasource: string;
                 /** @enum {string} */
-                metricType: "proportion" | "mean" | "quantile" | "ratio";
+                metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
                 numerator: {
                   factTableId: string;
                   column: string;
@@ -6595,11 +6646,13 @@ export interface operations {
                 windowSettings: {
                   /** @enum {string} */
                   type: "none" | "conversion" | "lookback";
-                  /** @description Wait this many hours after experiment exposure before counting conversions */
-                  delayHours?: number;
+                  /** @description Wait this long after experiment exposure before counting conversions. */
+                  delayValue?: number;
+                  /** @enum {string} */
+                  delayUnit?: "minutes" | "hours" | "days" | "weeks";
                   windowValue?: number;
                   /** @enum {string} */
-                  windowUnit?: "hours" | "days" | "weeks";
+                  windowUnit?: "minutes" | "hours" | "days" | "weeks";
                 };
                 /** @description Controls the regression adjustment (CUPED) settings for the metric */
                 regressionAdjustmentSettings: {
@@ -6648,7 +6701,7 @@ export interface operations {
           projects?: (string)[];
           tags?: (string)[];
           /** @enum {string} */
-          metricType: "proportion" | "mean" | "quantile" | "ratio";
+          metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
           numerator: {
             factTableId: string;
             /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
@@ -6701,11 +6754,24 @@ export interface operations {
           windowSettings?: {
             /** @enum {string} */
             type: "none" | "conversion" | "lookback";
-            /** @description Wait this many hours after experiment exposure before counting conversions */
+            /**
+             * @deprecated 
+             * @description Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+             */
             delayHours?: number;
+            /** @description Wait this long after experiment exposure before counting conversions. */
+            delayValue?: number;
+            /**
+             * @description Default `hours`. 
+             * @enum {string}
+             */
+            delayUnit?: "minutes" | "hours" | "days" | "weeks";
             windowValue?: number;
-            /** @enum {string} */
-            windowUnit?: "hours" | "days" | "weeks";
+            /**
+             * @description Default `hours`. 
+             * @enum {string}
+             */
+            windowUnit?: "minutes" | "hours" | "days" | "weeks";
           };
           /** @description Controls the bayesian prior for the metric. If omitted, organization defaults will be used. */
           priorSettings?: {
@@ -6757,7 +6823,7 @@ export interface operations {
               tags: (string)[];
               datasource: string;
               /** @enum {string} */
-              metricType: "proportion" | "mean" | "quantile" | "ratio";
+              metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
               numerator: {
                 factTableId: string;
                 column: string;
@@ -6799,11 +6865,13 @@ export interface operations {
               windowSettings: {
                 /** @enum {string} */
                 type: "none" | "conversion" | "lookback";
-                /** @description Wait this many hours after experiment exposure before counting conversions */
-                delayHours?: number;
+                /** @description Wait this long after experiment exposure before counting conversions. */
+                delayValue?: number;
+                /** @enum {string} */
+                delayUnit?: "minutes" | "hours" | "days" | "weeks";
                 windowValue?: number;
                 /** @enum {string} */
-                windowUnit?: "hours" | "days" | "weeks";
+                windowUnit?: "minutes" | "hours" | "days" | "weeks";
               };
               /** @description Controls the regression adjustment (CUPED) settings for the metric */
               regressionAdjustmentSettings: {
@@ -6855,7 +6923,7 @@ export interface operations {
               tags: (string)[];
               datasource: string;
               /** @enum {string} */
-              metricType: "proportion" | "mean" | "quantile" | "ratio";
+              metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
               numerator: {
                 factTableId: string;
                 column: string;
@@ -6897,11 +6965,13 @@ export interface operations {
               windowSettings: {
                 /** @enum {string} */
                 type: "none" | "conversion" | "lookback";
-                /** @description Wait this many hours after experiment exposure before counting conversions */
-                delayHours?: number;
+                /** @description Wait this long after experiment exposure before counting conversions. */
+                delayValue?: number;
+                /** @enum {string} */
+                delayUnit?: "minutes" | "hours" | "days" | "weeks";
                 windowValue?: number;
                 /** @enum {string} */
-                windowUnit?: "hours" | "days" | "weeks";
+                windowUnit?: "minutes" | "hours" | "days" | "weeks";
               };
               /** @description Controls the regression adjustment (CUPED) settings for the metric */
               regressionAdjustmentSettings: {
@@ -6949,7 +7019,7 @@ export interface operations {
           projects?: (string)[];
           tags?: (string)[];
           /** @enum {string} */
-          metricType?: "proportion" | "mean" | "quantile" | "ratio";
+          metricType?: "proportion" | "retention" | "mean" | "quantile" | "ratio";
           numerator?: {
             factTableId: string;
             /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
@@ -7002,11 +7072,24 @@ export interface operations {
           windowSettings?: {
             /** @enum {string} */
             type: "none" | "conversion" | "lookback";
-            /** @description Wait this many hours after experiment exposure before counting conversions */
+            /**
+             * @deprecated 
+             * @description Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+             */
             delayHours?: number;
+            /** @description Wait this long after experiment exposure before counting conversions. */
+            delayValue?: number;
+            /**
+             * @description Default `hours`. 
+             * @enum {string}
+             */
+            delayUnit?: "minutes" | "hours" | "days" | "weeks";
             windowValue?: number;
-            /** @enum {string} */
-            windowUnit?: "hours" | "days" | "weeks";
+            /**
+             * @description Default `hours`. 
+             * @enum {string}
+             */
+            windowUnit?: "minutes" | "hours" | "days" | "weeks";
           };
           /** @description Controls the regression adjustment (CUPED) settings for the metric */
           regressionAdjustmentSettings?: {
@@ -7047,7 +7130,7 @@ export interface operations {
               tags: (string)[];
               datasource: string;
               /** @enum {string} */
-              metricType: "proportion" | "mean" | "quantile" | "ratio";
+              metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
               numerator: {
                 factTableId: string;
                 column: string;
@@ -7089,11 +7172,13 @@ export interface operations {
               windowSettings: {
                 /** @enum {string} */
                 type: "none" | "conversion" | "lookback";
-                /** @description Wait this many hours after experiment exposure before counting conversions */
-                delayHours?: number;
+                /** @description Wait this long after experiment exposure before counting conversions. */
+                delayValue?: number;
+                /** @enum {string} */
+                delayUnit?: "minutes" | "hours" | "days" | "weeks";
                 windowValue?: number;
                 /** @enum {string} */
-                windowUnit?: "hours" | "days" | "weeks";
+                windowUnit?: "minutes" | "hours" | "days" | "weeks";
               };
               /** @description Controls the regression adjustment (CUPED) settings for the metric */
               regressionAdjustmentSettings: {
@@ -7204,7 +7289,7 @@ export interface operations {
                 projects?: (string)[];
                 tags?: (string)[];
                 /** @enum {string} */
-                metricType: "proportion" | "mean" | "quantile" | "ratio";
+                metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
                 numerator: {
                   factTableId: string;
                   /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
@@ -7257,11 +7342,24 @@ export interface operations {
                 windowSettings?: {
                   /** @enum {string} */
                   type: "none" | "conversion" | "lookback";
-                  /** @description Wait this many hours after experiment exposure before counting conversions */
+                  /**
+                   * @deprecated 
+                   * @description Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+                   */
                   delayHours?: number;
+                  /** @description Wait this long after experiment exposure before counting conversions. */
+                  delayValue?: number;
+                  /**
+                   * @description Default `hours`. 
+                   * @enum {string}
+                   */
+                  delayUnit?: "minutes" | "hours" | "days" | "weeks";
                   windowValue?: number;
-                  /** @enum {string} */
-                  windowUnit?: "hours" | "days" | "weeks";
+                  /**
+                   * @description Default `hours`. 
+                   * @enum {string}
+                   */
+                  windowUnit?: "minutes" | "hours" | "days" | "weeks";
                 };
                 /** @description Controls the bayesian prior for the metric. If omitted, organization defaults will be used. */
                 priorSettings?: {
@@ -7386,6 +7484,7 @@ export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"
 export type PostFeatureResponse = operations["postFeature"]["responses"]["200"]["content"]["application/json"];
 export type GetFeatureResponse = operations["getFeature"]["responses"]["200"]["content"]["application/json"];
 export type UpdateFeatureResponse = operations["updateFeature"]["responses"]["200"]["content"]["application/json"];
+export type DeleteFeatureResponse = operations["deleteFeature"]["responses"]["200"]["content"]["application/json"];
 export type ToggleFeatureResponse = operations["toggleFeature"]["responses"]["200"]["content"]["application/json"];
 export type GetFeatureKeysResponse = operations["getFeatureKeys"]["responses"]["200"]["content"]["application/json"];
 export type ListProjectsResponse = operations["listProjects"]["responses"]["200"]["content"]["application/json"];

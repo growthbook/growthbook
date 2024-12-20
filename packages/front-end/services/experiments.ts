@@ -12,7 +12,6 @@ import {
 } from "back-end/types/report";
 import { MetricDefaults } from "back-end/types/organization";
 import {
-  ExperimentInterface,
   ExperimentInterfaceStringDates,
   ExperimentStatus,
   ExperimentTemplateInterface,
@@ -188,7 +187,8 @@ export function applyMetricOverrides<T extends ExperimentMetricInterface>(
       overrideFields.push("windowHours");
     }
     if (!isNil(metricOverride?.delayHours)) {
-      newMetric.windowSettings.delayHours = metricOverride.delayHours;
+      newMetric.windowSettings.delayUnit = "hours";
+      newMetric.windowSettings.delayValue = metricOverride.delayHours;
       overrideFields.push("delayHours");
     }
     if (!isNil(metricOverride?.winRisk)) {

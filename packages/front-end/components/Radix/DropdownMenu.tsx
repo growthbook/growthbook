@@ -12,25 +12,36 @@ type AllowedChildren = string | React.ReactNode;
 
 type DropdownProps = {
   trigger: React.ReactNode;
+  triggerClassName?: string;
   menuPlacement?: "start" | "center" | "end";
   menuWidth?: "full" | number;
   children: AllowedChildren;
+  color?: RadixDropdownMenu.ContentProps["color"];
   variant?: RadixDropdownMenu.ContentProps["variant"];
   tooltipContent?: string;
+  open?: boolean;
+  onOpenChange?: (o: boolean) => void;
+  disabled?: boolean;
 } & MarginProps;
 
 export function DropdownMenu({
   trigger,
+  triggerClassName,
   menuPlacement = "start",
   menuWidth,
   children,
+  color,
   variant,
   tooltipContent,
+  disabled,
   ...props
 }: DropdownProps) {
   const triggerComponent =
     typeof trigger === "string" ? (
-      <Button icon={<PiCaretDown />} iconPosition="right">
+      <Button
+        icon={disabled ? undefined : <PiCaretDown />}
+        iconPosition="right"
+      >
         {trigger}
       </Button>
     ) : (
@@ -38,23 +49,29 @@ export function DropdownMenu({
     );
 
   return (
-    <RadixDropdownMenu.Root {...props}>
+    <RadixDropdownMenu.Root {...props} modal={false}>
       {tooltipContent ? (
         <Tooltip content={tooltipContent} side="bottom">
-          <RadixDropdownMenu.Trigger>
+          <RadixDropdownMenu.Trigger
+            className={triggerClassName}
+            disabled={disabled}
+          >
             {triggerComponent}
           </RadixDropdownMenu.Trigger>
         </Tooltip>
       ) : (
         <>
-          <RadixDropdownMenu.Trigger>
+          <RadixDropdownMenu.Trigger
+            className={triggerClassName}
+            disabled={disabled}
+          >
             {triggerComponent}
           </RadixDropdownMenu.Trigger>
         </>
       )}
-
       <RadixDropdownMenu.Content
         align={menuPlacement}
+        color={color}
         variant={variant}
         side="bottom"
         className={
@@ -96,7 +113,7 @@ type DropdownItemProps = {
   children: AllowedChildren;
   className?: string;
   disabled?: boolean;
-  onClick?: () => void;
+  onClick?: (event: Event) => void;
   color?: "red" | "default";
   shortcut?: RadixDropdownMenu.ItemProps["shortcut"];
 } & MarginProps;

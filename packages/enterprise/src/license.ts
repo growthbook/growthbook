@@ -63,6 +63,7 @@ export type CommercialFeature =
   | "multiple-sdk-webhooks"
   | "custom-roles"
   | "quantile-metrics"
+  | "retention-metrics"
   | "custom-markdown"
   | "experiment-impact"
   | "metric-populations"
@@ -173,6 +174,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "redirects",
     "multiple-sdk-webhooks",
     "quantile-metrics",
+    "retention-metrics",
     "metric-populations",
     "multi-armed-bandits",
   ]),
@@ -197,6 +199,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "redirects",
     "multiple-sdk-webhooks",
     "quantile-metrics",
+    "retention-metrics",
     "metric-populations",
     "multi-armed-bandits",
   ]),
@@ -233,6 +236,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "redirects",
     "multiple-sdk-webhooks",
     "quantile-metrics",
+    "retention-metrics",
     "custom-roles",
     "custom-markdown",
     "experiment-impact",

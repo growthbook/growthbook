@@ -38,7 +38,7 @@ export async function getUpdateFactMetricPropsFromBody(
       filters: [],
       ...numerator,
       column:
-        metricType === "proportion"
+        metricType === "proportion" || metricType === "retention"
           ? "$$distinctUsers"
           : numerator.column || "$$distinctUsers",
     };
@@ -79,8 +79,14 @@ export async function getUpdateFactMetricPropsFromBody(
   if (windowSettings) {
     updates.windowSettings = {
       type: windowSettings.type === "none" ? "" : windowSettings.type,
-      delayHours:
-        windowSettings.delayHours ?? factMetric.windowSettings.delayHours,
+      delayValue:
+        windowSettings.delayValue ??
+        windowSettings.delayHours ??
+        factMetric.windowSettings.delayValue,
+      delayUnit:
+        windowSettings.delayUnit ??
+        (windowSettings.delayHours ? "hours" : undefined) ??
+        factMetric.windowSettings.delayUnit,
       windowValue:
         windowSettings.windowValue ?? factMetric.windowSettings.windowValue,
       windowUnit:

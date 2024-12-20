@@ -1,6 +1,6 @@
 import { FC } from "react";
 import { isProjectListValidForProject } from "shared/util";
-import { isMetricJoinable } from "shared/experiments";
+import { isBinomialMetric, isMetricJoinable } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField, { SelectFieldProps } from "@/components/Forms/SelectField";
 import MetricName from "@/components/Metrics/MetricName";
@@ -55,7 +55,7 @@ const MetricSelector: FC<
       projects: m.projects || [],
       factTables: [],
       userIdTypes: m.userIdTypes || [],
-      isBinomial: m.type === "binomial" && !m.denominator,
+      isBinomial: isBinomialMetric(m) && !m.denominator,
     })),
     ...(includeFacts
       ? factMetrics.map((m) => ({
@@ -74,7 +74,7 @@ const MetricSelector: FC<
           userIdTypes:
             factTables.find((f) => f.id === m.numerator.factTableId)
               ?.userIdTypes || [],
-          isBinomial: m.metricType === "proportion",
+          isBinomial: isBinomialMetric(m),
         }))
       : []),
   ];
@@ -94,7 +94,7 @@ const MetricSelector: FC<
     .filter((m) => !onlyBinomial || m.isBinomial)
     .filter((m) =>
       userIdType && m.userIdTypes.length
-        ? isMetricJoinable(m.userIdTypes, userIdType)
+        ? isMetricJoinable(m.userIdTypes, userIdType, datasourceSettings)
         : true
     )
     .filter((m) => {

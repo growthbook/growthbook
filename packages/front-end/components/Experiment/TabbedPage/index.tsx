@@ -50,6 +50,7 @@ export interface Props {
   editTags?: (() => void) | null;
   editProject?: (() => void) | null;
   checklistItemsRemaining: number | null;
+  envs: string[];
   setChecklistItemsRemaining: (value: number | null) => void;
   editVariations?: (() => void) | null;
   visualChangesets: VisualChangesetInterface[];
@@ -71,6 +72,7 @@ export default function TabbedPage({
   editTags,
   editVariations,
   visualChangesets,
+  envs,
   urlRedirects,
   editPhases,
   editTargeting,
@@ -247,7 +249,6 @@ export default function TabbedPage({
           experiment={experiment}
           mutate={mutate}
           close={() => setUrlRedirectModal(false)}
-          cta="Add Redirect"
           source={trackSource}
         />
       )}
@@ -270,6 +271,7 @@ export default function TabbedPage({
       {/* TODO: Update Experiment Header props to include redirect and pipe through to StartExperimentBanner */}
       <ExperimentHeader
         experiment={experiment}
+        envs={envs}
         tab={tab}
         setTab={setTabAndScroll}
         mutate={mutate}
@@ -359,6 +361,7 @@ export default function TabbedPage({
             verifiedConnections={verifiedConnections}
             checklistItemsRemaining={checklistItemsRemaining}
             setChecklistItemsRemaining={setChecklistItemsRemaining}
+            envs={envs}
           />
           <Implementation
             experiment={experiment}
@@ -372,6 +375,7 @@ export default function TabbedPage({
             urlRedirects={urlRedirects}
             editTargeting={editTargeting}
             linkedFeatures={linkedFeatures}
+            envs={envs}
           />
           {experiment.status !== "draft" && (
             <div className="mt-3 mb-2 text-center d-print-none">
@@ -416,7 +420,7 @@ export default function TabbedPage({
             editResult={editResult}
             newPhase={newPhase}
             connections={connections}
-            linkedFeatures={linkedFeatures}
+            envs={envs}
             setTab={setTabAndScroll}
             visualChangesets={visualChangesets}
             editTargeting={editTargeting}

@@ -403,7 +403,8 @@ mixpanel.init('YOUR PROJECT TOKEN', {
             <div
               className="border rounded w-100"
               style={{
-                maxHeight: "calc(93vh - 140px)",
+                maxHeight: "calc(91vh - 196px)",
+                overflowY: "scroll",
               }}
             >
               <SchemaBrowser datasource={d} />

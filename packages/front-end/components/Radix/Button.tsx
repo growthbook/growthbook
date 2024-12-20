@@ -1,5 +1,11 @@
 import { Button as RadixButton, ButtonProps, Text } from "@radix-ui/themes";
-import { ForwardedRef, forwardRef, ReactNode, useState } from "react";
+import {
+  CSSProperties,
+  ForwardedRef,
+  forwardRef,
+  ReactNode,
+  useState,
+} from "react";
 import { Responsive } from "@radix-ui/themes/dist/cjs/props";
 import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
 
@@ -18,7 +24,7 @@ export type Props = {
   icon?: ReactNode;
   iconPosition?: "left" | "right";
   children: string | string[] | ReactNode;
-  style?: React.CSSProperties;
+  style?: CSSProperties;
 } & MarginProps &
   Pick<ButtonProps, "title" | "type" | "aria-label">;
 
