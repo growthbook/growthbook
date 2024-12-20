@@ -356,8 +356,14 @@ export async function getExperimentPublic(
       message: "Experiment not found",
     });
   }
-  const phase = experiment.phases.length - 1;
+  if (experiment.shareLevel !== "public") {
+    return res.status(401).json({
+      message: "Unauthorized",
+    });
+  }
+
   const context = await getContextForAgendaJobByOrgId(experiment.organization);
+  const phase = experiment.phases.length - 1;
 
   const snapshot =
     (await getLatestSnapshot({
