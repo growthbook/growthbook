@@ -109,7 +109,8 @@ export default function ReportMetaInfo({
       name: variation.name,
       weight:
         report.experimentMetadata.phases?.[snapshot?.phase || 0]
-          ?.variationWeights?.[i] || 1 / (report.experimentMetadata?.variations?.length || 2),
+          ?.variationWeights?.[i] ||
+        1 / (report.experimentMetadata?.variations?.length || 2),
     })
   );
   const analysis = snapshot
@@ -330,7 +331,7 @@ export default function ReportMetaInfo({
                 <LinkButton
                   variant="outline"
                   href={`/report/${report.id}`}
-                  mr={showEditControls ? "4" : "0"}
+                  mr="4"
                 >
                   Edit Report
                 </LinkButton>
