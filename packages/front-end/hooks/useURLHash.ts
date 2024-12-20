@@ -23,21 +23,19 @@ import { useEffect, useState } from "react";
  * );
  * ```
  */
-export default function useURLHash<Id extends string>(
-  validIds: Id[] | undefined = undefined
-) {
+export default function useURLHash<Id extends string>(validIds: Id[]) {
   const [hash, setHashState] = useState(() => {
     // Get initial hash from URL
-    const urlHash = globalThis?.window ? window.location.hash.slice(1) : "";
-    if (validIds === undefined) {
-      return urlHash === "" ? undefined : urlHash;
-    } else {
-      return validIds.includes(urlHash as Id) ? urlHash : undefined;
-    }
+    const urlHash = globalThis?.window
+      ? window.location.hash.slice(1)
+      : undefined;
+
+    // Defaults to the first value if the hash does not match any values
+    return validIds.includes(urlHash as Id) ? urlHash : validIds[0];
   });
 
   const setHashAndURL = (newHash: Id) => {
-    if (validIds === undefined || validIds.includes(newHash)) {
+    if (validIds.includes(newHash)) {
       window.location.hash = newHash;
     }
   };
@@ -54,6 +52,7 @@ export default function useURLHash<Id extends string>(
     if (globalThis?.window) {
       window.addEventListener("hashchange", handler, false);
     }
+
     return () => {
       if (globalThis?.window) {
         window.removeEventListener("hashchange", handler, false);

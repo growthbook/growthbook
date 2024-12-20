@@ -1,4 +1,6 @@
 import clsx from "clsx";
+import { getChildrenByTypeDeep } from "react-nanny";
+import { isValidElement } from "react";
 import { Tabs as RadixTabs } from "@radix-ui/themes";
 import useURLHash from "@/hooks/useURLHash";
 
@@ -43,7 +45,14 @@ export function Tabs({
 }: TabsProps) {
   let rootProps: React.ComponentProps<typeof RadixTabs.Root> = {};
 
-  const [urlHash, setUrlHash] = useURLHash();
+  const tabsValues = getChildrenByTypeDeep(children, [TabsTrigger])
+    .map((trigger) => {
+      if (!isValidElement(trigger)) return undefined;
+      return trigger.props.value;
+    })
+    .filter((value) => value !== undefined);
+
+  const [urlHash, setUrlHash] = useURLHash(tabsValues);
 
   if (defaultValue && persistInURL) {
     rootProps = {
