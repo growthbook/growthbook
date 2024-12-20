@@ -153,13 +153,18 @@ const TemplateForm: FC<Props> = ({
 
     const body = JSON.stringify(value);
 
-    const res = await apiCall<{ template: ExperimentTemplateInterface }>(
-      "/templates",
-      {
-        method: "POST",
-        body,
-      }
-    );
+    const res = initialValue.id
+      ? await apiCall<{ template: ExperimentTemplateInterface }>(
+          `/templates/${initialValue.id}`,
+          {
+            method: "PUT",
+            body,
+          }
+        )
+      : await apiCall<{ template: ExperimentTemplateInterface }>("/templates", {
+          method: "POST",
+          body,
+        });
 
     track("Create Experiment Template", {
       source,
