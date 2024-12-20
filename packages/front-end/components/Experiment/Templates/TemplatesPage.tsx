@@ -179,7 +179,7 @@ export const TemplatesPage = ({
         <div className="mt-3">
           {/* TODO: Fix docs link once docs are ready */}
           <LinkButton
-            href="https://docs.growthbook.io/features/rules#simulation"
+            href="https://docs.growthbook.io/"
             variant="outline"
             mr="3"
             external={true}
