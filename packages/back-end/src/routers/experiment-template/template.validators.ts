@@ -39,8 +39,10 @@ export const experimentTemplateInterface = z
     goalMetrics: z.array(z.string()).optional(),
     secondaryMetrics: z.array(z.string()).optional(),
     guardrailMetrics: z.array(z.string()).optional(),
-    activationMetric: z.string().optional().optional(),
+    activationMetric: z.string().optional(),
     statsEngine: z.enum(statsEngines),
+    segment: z.string().optional(),
+    skipPartialData: z.boolean().optional(),
 
     // Located in phases array for ExperimentInterface
     targeting: z.object({

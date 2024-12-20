@@ -131,6 +131,7 @@ export default function ExperimentHeader({
   const startCelebration = useCelebration();
   const { data: sdkConnections } = useSDKConnections();
   const { phase, analysis } = useSnapshot();
+  const { hasCommercialFeature } = useUser();
   const connections = sdkConnections?.connections || [];
   const [showSdkForm, setShowSdkForm] = useState(false);
   const [showTemplateForm, setShowTemplateForm] = useState(false);
@@ -167,7 +168,9 @@ export default function ExperimentHeader({
     }
   }
   const canRunExperiment = canEditExperiment && hasRunExperimentsPermission;
-  const canCreateTemplate = permissionsUtil.canViewExperimentTemplateModal();
+  const canCreateTemplate =
+    permissionsUtil.canViewExperimentTemplateModal() &&
+    hasCommercialFeature("templates");
   const checklistIncomplete =
     checklistItemsRemaining !== null && checklistItemsRemaining > 0;
 
@@ -458,12 +461,12 @@ export default function ExperimentHeader({
                     mutate={mutate}
                   />
                 )}
-                {canCreateTemplate && (
+                {canCreateTemplate && !isBandit && (
                   <button
                     className="dropdown-item"
                     onClick={() => setShowTemplateForm(true)}
                   >
-                    Convert to Template
+                    Save as template...
                   </button>
                 )}
                 <WatchButton

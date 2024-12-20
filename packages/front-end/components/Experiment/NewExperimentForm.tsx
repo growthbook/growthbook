@@ -6,7 +6,7 @@ import {
   Variation,
 } from "back-end/types/experiment";
 import { useRouter } from "next/router";
-import { datetime, getValidDate } from "shared/dates";
+import { date, datetime, getValidDate } from "shared/dates";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { OrganizationSettings } from "back-end/types/organization";
 import {
@@ -16,6 +16,7 @@ import {
 import { getScopedSettings } from "shared/settings";
 import { generateTrackingKey, getEqualWeights } from "shared/experiments";
 import { kebabCase } from "lodash";
+import { Flex, Text } from "@radix-ui/themes";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -510,6 +511,18 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   name="template"
                   initialOption={"None"}
                   options={availableTemplates}
+                  formatOptionLabel={(value) => {
+                    const t = templatesMap.get(value.value);
+                    if (!t) return <span>{value.label}</span>;
+                    return (
+                      <Flex as="div" align="baseline">
+                        <Text>{value.label}</Text>
+                        <Text size="1" className="text-muted" ml="auto">
+                          Created {date(t.dateCreated)}
+                        </Text>
+                      </Flex>
+                    );
+                  }}
                 />
               </div>
             )}

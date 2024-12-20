@@ -35,6 +35,8 @@ import Checkbox from "@/components/Radix/Checkbox";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import MetricSelector from "@/components/Experiment/MetricSelector";
+import { MetricsSelectorTooltip } from "@/components/Experiment/MetricsSelector";
 
 export default function ExperimentRefNewFields({
   step,
@@ -108,14 +110,17 @@ export default function ExperimentRefNewFields({
   const form = useFormContext();
 
   const {
-    datasources,
+    segments,
     getDatasourceById,
     getExperimentMetricById,
+    getSegmentById,
+    datasources,
   } = useDefinitions();
 
   const datasource = form.watch("datasource")
     ? getDatasourceById(form.watch("datasource") ?? "")
     : null;
+  const datasourceProperties = datasource?.properties;
 
   const exposureQueries = datasource?.settings?.queries?.exposure;
   const exposureQueryId = form.getValues("exposureQueryId");
@@ -128,6 +133,10 @@ export default function ExperimentRefNewFields({
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
     sdkConnectionsData?.connections,
     project
+  );
+
+  const filteredSegments = segments.filter(
+    (s) => s.datasource === datasource?.id
   );
 
   const settings = useOrgSettings();
@@ -353,6 +362,21 @@ export default function ExperimentRefNewFields({
                   "guardrailMetrics",
                   guardrails.filter(isValidMetric)
                 );
+
+                // If the segment is now invalid
+                const segment = form.watch("segment");
+                if (
+                  segment &&
+                  getSegmentById(segment)?.datasource !== newDatasource
+                ) {
+                  form.setValue("segment", "");
+                }
+
+                // If the activationMetric is now invalid
+                const activationMetric = form.watch("activationMetric");
+                if (activationMetric && !isValidMetric(activationMetric)) {
+                  form.setValue("activationMetric", "");
+                }
               }}
               options={datasources.map((d) => {
                 const isDefaultDataSource = d.id === settings.defaultDataSource;
@@ -436,6 +460,63 @@ export default function ExperimentRefNewFields({
             transitionTime={100}
           >
             <div className="box pt-3 px-3 mt-1">
+              {!!datasource && (
+                <MetricSelector
+                  datasource={form.watch("datasource")}
+                  exposureQueryId={exposureQueryId}
+                  project={project}
+                  includeFacts={true}
+                  labelClassName="font-weight-bold"
+                  label={
+                    <>
+                      Activation Metric{" "}
+                      <MetricsSelectorTooltip onlyBinomial={true} />
+                    </>
+                  }
+                  initialOption="None"
+                  onlyBinomial
+                  value={form.watch("activationMetric")}
+                  onChange={(value) =>
+                    form.setValue("activationMetric", value || "")
+                  }
+                  helpText="Users must convert on this metric before being included"
+                />
+              )}
+              {datasourceProperties?.experimentSegments && (
+                <SelectField
+                  label="Segment"
+                  labelClassName="font-weight-bold"
+                  value={form.watch("segment")}
+                  onChange={(value) => form.setValue("segment", value || "")}
+                  initialOption="None (All Users)"
+                  options={filteredSegments.map((s) => {
+                    return {
+                      label: s.name,
+                      value: s.id,
+                    };
+                  })}
+                  helpText="Only users in this segment will be included"
+                />
+              )}
+              {datasourceProperties?.separateExperimentResultQueries && (
+                <SelectField
+                  label="Metric Conversion Windows"
+                  labelClassName="font-weight-bold"
+                  value={form.watch("skipPartialData")}
+                  onChange={(value) => form.setValue("skipPartialData", value)}
+                  options={[
+                    {
+                      label: "Include In-Progress Conversions",
+                      value: "loose",
+                    },
+                    {
+                      label: "Exclude In-Progress Conversions",
+                      value: "strict",
+                    },
+                  ]}
+                  helpText="For users not enrolled in the experiment long enough to complete conversion window"
+                />
+              )}
               <StatsEngineSelect
                 className="mb-4"
                 label={<div>Statistics Engine</div>}

@@ -13,6 +13,7 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
+import LoadingOverlay from "@/components/LoadingOverlay";
 
 export const TemplatesPage = ({
   setOpenTemplateModal,
@@ -21,7 +22,7 @@ export const TemplatesPage = ({
   const { ready, project, getProjectById } = useDefinitions();
 
   const { apiCall } = useAuth();
-  const { getUserDisplay, userId, hasCommercialFeature } = useUser();
+  const { hasCommercialFeature } = useUser();
   const {
     templates: allTemplates,
     error,
@@ -43,16 +44,17 @@ export const TemplatesPage = ({
   const hasTemplates = allTemplates.length > 0;
   const showProjectColumn = true;
 
-  //   const { items, SortableTH } = useSearch({
-  //     items: allTemplates || [],
-  //     localStorageKey: "templates",
-  //     defaultSortField: "id",
-  //     searchFields: ["id", "description"],
-  //   });
+  if (loading || !ready) {
+    return <LoadingOverlay />;
+  }
+
+  if (error) {
+    return <div className="alert alert-danger">{error.message}</div>;
+  }
 
   return hasTemplates ? (
     <Box>
-      <table className="appbox table experiment-table gbtable responsive-table">
+      <table className="appbox table gbtable responsive-table">
         <thead>
           <tr>
             <th>Template Name</th>

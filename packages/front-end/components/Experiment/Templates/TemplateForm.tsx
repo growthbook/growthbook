@@ -32,6 +32,11 @@ type Props = {
   isNewTemplate?: boolean;
 };
 
+interface TemplateForm
+  extends Omit<ExperimentTemplateInterface, "skipPartialData"> {
+  skipPartialData: string;
+}
+
 const TemplateForm: FC<Props> = ({
   initialValue = {
     type: "standard",
@@ -78,11 +83,13 @@ const TemplateForm: FC<Props> = ({
 
   const orgStickyBucketing = !!useStickyBucketing;
 
-  const form = useForm<Partial<ExperimentTemplateInterface>>({
+  const form = useForm<TemplateForm>({
     defaultValues: {
       projects: initialValue?.projects || (project ? [project] : []),
       templateMetadata: {
-        name: initialValue?.templateMetadata?.name || "",
+        name: duplicate
+          ? `Copy of ${initialValue?.templateMetadata?.name}`
+          : initialValue?.templateMetadata?.name || "",
         description: initialValue?.templateMetadata?.description || "",
         tags: initialValue?.templateMetadata?.tags || [],
       },
@@ -100,6 +107,8 @@ const TemplateForm: FC<Props> = ({
       secondaryMetrics: initialValue?.secondaryMetrics || [],
       guardrailMetrics: initialValue?.guardrailMetrics || [],
       statsEngine: initialValue?.statsEngine || orgStatsEngine,
+      skipPartialData: initialValue.skipPartialData ? "strict" : "loose",
+      segment: initialValue.segment || "",
       targeting: {
         coverage: initialValue.targeting?.coverage || 1,
         savedGroups: initialValue.targeting?.savedGroups || [],
@@ -115,11 +124,15 @@ const TemplateForm: FC<Props> = ({
 
   const { apiCall } = useAuth();
 
-  const onSubmit = form.handleSubmit(async (value) => {
-    // const value = {
-    //   ...rawValue,
-    //   name: rawValue.templateMetadata?.name?.trim(),
-    // };
+  const onSubmit = form.handleSubmit(async (rawValue) => {
+    const value: ExperimentTemplateInterface = {
+      ...rawValue,
+      templateMetadata: {
+        ...rawValue.templateMetadata,
+        name: rawValue.templateMetadata.name?.trim(),
+      },
+      skipPartialData: rawValue.skipPartialData === "strict",
+    };
 
     // Make sure there's an experiment name
     if ((value.templateMetadata?.name?.length ?? 0) < 1) {
@@ -127,12 +140,10 @@ const TemplateForm: FC<Props> = ({
       throw new Error("Template Name must not be empty");
     }
 
-    const data = { ...value };
-
     // Turn phase dates into proper UTC timestamps
-    validateSavedGroupTargeting(data.targeting?.savedGroups);
+    validateSavedGroupTargeting(value.targeting?.savedGroups);
 
-    validateAndFixCondition(data.targeting?.condition, (condition) => {
+    validateAndFixCondition(value.targeting?.condition, (condition) => {
       form.setValue("targeting.condition", condition);
       forceConditionRender();
     });
@@ -141,7 +152,7 @@ const TemplateForm: FC<Props> = ({
       throw new Error("Prerequisite targeting issues must be resolved");
     }
 
-    const body = JSON.stringify(data);
+    const body = JSON.stringify(value);
 
     const res = await apiCall<{ template: ExperimentTemplateInterface }>(
       "/templates",
@@ -153,12 +164,13 @@ const TemplateForm: FC<Props> = ({
 
     track("Create Experiment Template", {
       source,
-      numTags: data.tags?.length || 0,
+      numTags: value.tags?.length || 0,
       numMetrics:
-        (data.goalMetrics?.length || 0) + (data.secondaryMetrics?.length || 0),
+        (value.goalMetrics?.length || 0) +
+        (value.secondaryMetrics?.length || 0),
     });
 
-    data.tags && refreshTags(data.tags);
+    value.tags && refreshTags(value.tags);
     mutateTemplates();
     if (onCreate) {
       onCreate(res.template.id);
@@ -175,16 +187,17 @@ const TemplateForm: FC<Props> = ({
 
   const allowAllProjects = permissionsUtils.canViewExperimentModal();
 
-  const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const exposureQueryId = form.getValues("exposureQueryId");
 
   const { currentProjectIsDemo } = useDemoDataSourceProject();
 
   useEffect(() => {
+    const exposureQueries = datasource?.settings?.queries?.exposure || [];
+
     if (!exposureQueries.find((q) => q.id === exposureQueryId)) {
       form.setValue("exposureQueryId", exposureQueries?.[0]?.id ?? "");
     }
-  }, [form, exposureQueries, exposureQueryId]);
+  }, [form, exposureQueryId, datasource?.settings?.queries?.exposure]);
 
   let header = isNewTemplate
     ? "Create Experiment Template"
@@ -228,7 +241,7 @@ const TemplateForm: FC<Props> = ({
               </div>
             )}
 
-            <h4>Template Details</h4>
+            <h4 className="mb-3">Template Details</h4>
 
             <Field
               label="Template Name"
@@ -259,7 +272,7 @@ const TemplateForm: FC<Props> = ({
               {...form.register("templateMetadata.description")}
               placeholder={"Short human-readable description of the template"}
             />
-            <div className="form-group">
+            <div className="form-group mb-3">
               <label>Template Tags</label>
               <TagsInput
                 value={form.watch("templateMetadata.tags") ?? []}
@@ -271,7 +284,7 @@ const TemplateForm: FC<Props> = ({
 
             <hr />
 
-            <h4>Experiment Details</h4>
+            <h4 className="my-3">Experiment Details</h4>
 
             <Field
               label="Experiment Hypothesis"
