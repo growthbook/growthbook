@@ -834,7 +834,7 @@ export default function ExperimentHeader({
                     onClick={async () => {
                       try {
                         const res = await apiCall<{ report: ReportInterface }>(
-                          `/experiments/report/${snapshot.id}-1`,
+                          `/experiments/report/${snapshot.id}`,
                           {
                             method: "POST",
                             body: reportArgs
