@@ -10,6 +10,7 @@ import {
 } from "back-end/types/report";
 import { ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
+import { logger } from "back-end/src/util/logger";
 import { getAllExperiments } from "./ExperimentModel";
 import { queriesSchema } from "./QueryModel";
 
@@ -57,7 +58,17 @@ const toInterface = (doc: ReportDocument): ReportInterface => {
         "_id",
       ]);
     default:
-      throw new Error("Invalid report type");
+      logger.error(
+        `Invalid report type: [${
+          (doc as ExperimentReportDocument)?.type ?? ""
+        }] (id: ${(doc as ExperimentReportDocument)?.id ?? "unknown"})`
+      );
+      return migrateExperimentReport(
+        omit(
+          (doc as ExperimentReportDocument).toJSON<ExperimentReportDocument>(),
+          ["__v", "_id"]
+        )
+      );
   }
 };
 
