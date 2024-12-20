@@ -12,6 +12,7 @@ interface SdkInfo {
   organization: string;
   client_key: string;
   datasource: string;
+  environment: string;
 }
 
 interface GetDataEnrichmentResponse {
@@ -24,6 +25,7 @@ function sdkInfo(conn: SDKConnectionInterface, datasource: string): SdkInfo {
   return {
     organization: conn.organization,
     client_key: conn.key,
+    environment: conn.environment,
     datasource,
   };
 }
