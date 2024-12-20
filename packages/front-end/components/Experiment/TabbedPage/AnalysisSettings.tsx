@@ -143,7 +143,7 @@ export default function AnalysisSettings({
                 setAnalysisModal(true);
               }}
             >
-              <span className="text-purple">Edit</span>
+              Edit
             </button>
           ) : null}
         </div>

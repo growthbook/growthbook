@@ -110,7 +110,7 @@ export default function SetupTabOverview({
                   className="btn p-0 link-purple"
                   onClick={() => setShowHypothesisModal(true)}
                 >
-                  <span className="text-purple">Edit</span>
+                  Edit
                 </button>
               ) : null}
             </div>
