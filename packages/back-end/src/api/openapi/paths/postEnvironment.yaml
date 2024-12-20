@@ -35,6 +35,7 @@ requestBody:
               type: string
           parent:
             type: string
+            description: An environment that the new environment should inherit feature rules from. Requires an enterprise license
 responses:
   "200":
     content:
