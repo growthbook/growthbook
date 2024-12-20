@@ -231,7 +231,7 @@ export const POLICY_METADATA_MAP: Record<
   SuperDeleteReports: {
     displayName: "Super Delete Reports",
     description:
-      "Delete ad-hoc reports made by other users. Typically assigned to admins only.",
+      "Delete custom reports made by other users. Typically assigned to admins only.",
   },
   DataSourcesFullAccess: {
     displayName: "Data Sources Full Access",

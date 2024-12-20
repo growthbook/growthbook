@@ -276,8 +276,8 @@ export default function AnalysisSettingsBar({
                       <div className="text-left">
                         <p>This is an exploratory analysis.</p>
                         <p>
-                          Ad-hoc analyses do not cause bandit variation weights
-                          to change.
+                          Exploratory analyses do not cause bandit variation
+                          weights to change.
                         </p>
                       </div>
                     }
