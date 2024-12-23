@@ -410,6 +410,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       numMetrics:
         (data.goalMetrics?.length || 0) + (data.secondaryMetrics?.length || 0),
       numVariations: data.variations?.length || 0,
+      createdFromTemplate: !!data.templateId,
     });
     refreshWatching();
 
