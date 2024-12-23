@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   FaDraftingCompass,
   FaExchangeAlt,
@@ -32,26 +32,20 @@ import { PiCheckCircleFill, PiCircleDuotone, PiFileX } from "react-icons/pi";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
-import RuleModal from "@/components/Features/RuleModal/index";
 import ForceSummary from "@/components/Features/ForceSummary";
-import RuleList from "@/components/Features/RuleList";
 import track from "@/services/track";
 import EditDefaultValueModal from "@/components/Features/EditDefaultValueModal";
 import EnvironmentToggle from "@/components/Features/EnvironmentToggle";
 import EditProjectForm from "@/components/Experiment/EditProjectForm";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import {
   getFeatureDefaultValue,
-  getRules,
-  useEnvironmentState,
   useEnvironments,
   getAffectedRevisionEnvs,
   getPrerequisites,
   useFeaturesList,
 } from "@/services/features";
 import AssignmentTester from "@/components/Archetype/AssignmentTester";
-import Tab from "@/components/Tabs/Tab";
 import Modal from "@/components/Modal";
 import DraftModal from "@/components/Features/DraftModal";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
@@ -71,9 +65,7 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import CopyRuleModal from "@/components/Features/CopyRuleModal";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
-import Button from "@/components/Radix/Button";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import PrerequisiteStatusRow, {
@@ -83,6 +75,7 @@ import { PrerequisiteAlerts } from "./PrerequisiteTargetingField";
 import PrerequisiteModal from "./PrerequisiteModal";
 import RequestReviewModal from "./RequestReviewModal";
 import JSONSchemaDescription from "./JSONSchemaDescription";
+import FeatureRules from "./FeatureRules";
 
 export default function FeaturesOverview({
   baseFeature,
@@ -141,17 +134,6 @@ export default function FeaturesOverview({
 
   const [revertIndex, setRevertIndex] = useState(0);
 
-  const [env, setEnv] = useEnvironmentState();
-
-  const [ruleModal, setRuleModal] = useState<{
-    i: number;
-    environment: string;
-    defaultType?: string;
-  } | null>(null);
-  const [copyRuleModal, setCopyRuleModal] = useState<{
-    environment: string;
-    rules: FeatureRule[];
-  } | null>(null);
   const [editCommentModel, setEditCommentModal] = useState(false);
 
   const { apiCall } = useAuth();
@@ -162,25 +144,9 @@ export default function FeaturesOverview({
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envs = environments.map((e) => e.id);
 
-  // Make sure you can't access an invalid env tab, since active env tab is persisted via localStorage
-  useEffect(() => {
-    if (!envs?.length) return;
-    if (!envs.includes(env)) {
-      setEnv(envs[0]);
-    }
-  }, [envs, env, setEnv]);
-
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
     timeout: 800,
   });
-
-  const experimentsMap = useMemo(() => {
-    if (!experiments) return new Map();
-
-    return new Map<string, ExperimentInterfaceStringDates>(
-      experiments.map((exp) => [exp.id, exp])
-    );
-  }, [experiments]);
 
   const mergeResult = useMemo(() => {
     if (!feature || !revision) return null;
@@ -1076,69 +1042,17 @@ export default function FeaturesOverview({
               </p>
 
               <div className="mb-0">
-                <ControlledTabs
-                  setActive={(v) => {
-                    setEnv(v || "");
-                  }}
-                  active={env}
-                  showActiveCount={true}
-                  newStyle={false}
-                  buttonsClassName="px-3 py-2 h4"
-                >
-                  {environments.map((e) => {
-                    const rules = getRules(feature, e.id);
-                    return (
-                      <Tab
-                        key={e.id}
-                        id={e.id}
-                        display={e.id}
-                        count={rules.length}
-                        padding={false}
-                      >
-                        <div className="mb-4 border border-top-0">
-                          {rules.length > 0 ? (
-                            <RuleList
-                              environment={e.id}
-                              feature={feature}
-                              mutate={mutate}
-                              setRuleModal={setRuleModal}
-                              setCopyRuleModal={setCopyRuleModal}
-                              version={currentVersion}
-                              setVersion={setVersion}
-                              locked={isLocked}
-                              experimentsMap={experimentsMap}
-                            />
-                          ) : (
-                            <div className="p-3 bg-white border-bottom">
-                              <em>No rules for this environment yet</em>
-                            </div>
-                          )}
-
-                          {canEditDrafts && !isLocked && (
-                            <div className="p-3 d-flex align-items-center">
-                              <h5 className="ml-0 mb-0">Add Rule to {env}</h5>
-                              <div className="flex-1" />
-                              <Button
-                                onClick={() => {
-                                  setRuleModal({
-                                    environment: env,
-                                    i: getRules(feature, env).length,
-                                  });
-                                  track("Viewed Rule Modal", {
-                                    source: "add-rule",
-                                    type: "force",
-                                  });
-                                }}
-                              >
-                                Add Rule
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      </Tab>
-                    );
-                  })}
-                </ControlledTabs>
+                <FeatureRules
+                  environments={environments}
+                  feature={feature}
+                  isLocked={isLocked}
+                  canEditDrafts={canEditDrafts}
+                  revisions={revisions}
+                  experiments={experiments}
+                  mutate={mutate}
+                  currentVersion={currentVersion}
+                  setVersion={setVersion}
+                />
               </div>
             </>
           )}
@@ -1191,30 +1105,6 @@ export default function FeaturesOverview({
           <EditSchemaModal
             close={() => setEditValidator(false)}
             feature={feature}
-            mutate={mutate}
-          />
-        )}
-        {ruleModal !== null && (
-          <RuleModal
-            feature={feature}
-            close={() => setRuleModal(null)}
-            i={ruleModal.i}
-            environment={ruleModal.environment}
-            mutate={mutate}
-            defaultType={ruleModal.defaultType || ""}
-            version={currentVersion}
-            setVersion={setVersion}
-            revisions={revisions}
-          />
-        )}
-        {copyRuleModal !== null && (
-          <CopyRuleModal
-            feature={feature}
-            environment={copyRuleModal.environment}
-            version={currentVersion}
-            setVersion={setVersion}
-            rules={copyRuleModal.rules}
-            cancel={() => setCopyRuleModal(null)}
             mutate={mutate}
           />
         )}
