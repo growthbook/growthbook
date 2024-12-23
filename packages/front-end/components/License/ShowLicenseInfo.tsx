@@ -61,10 +61,18 @@ const ShowLicenseInfo: FC<{
           </div>
           <div className="col-sm-9">
             <div className="form-group row mb-2">
+              <button
+                className="alert alert-warning py-1 px-2 mb-0 d-none d-md-block mr-1"
+                onClick={(e) => {
+                  e.preventDefault();
+                }}
+              >
+                <div className="badge badge-warning">3</div> days left in trial
+              </button>
+              <AccountPlanNotices />
               <div className="col-sm-12">
                 <strong>Plan type: </strong> {licensePlanText}{" "}
               </div>
-              <AccountPlanNotices />
             </div>
             {showUpgradeButton && (
               <div className="form-group row mb-1">
