@@ -542,9 +542,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     );
                   }}
                   disabled={!hasCommercialFeature("templates")}
-                  required={
-                    templateRequired && hasCommercialFeature("templates")
-                  }
+                  required={templateRequired}
                 />
               </div>
             )}

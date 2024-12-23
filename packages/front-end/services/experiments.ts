@@ -699,7 +699,6 @@ export function convertExperimentToTemplate(
     templateMetadata: {
       name: "",
       description: `Template based on ${experiment.name}`,
-      tags: [],
     },
     project: experiment.project,
     type: "standard" as const,
