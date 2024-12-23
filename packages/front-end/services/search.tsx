@@ -72,6 +72,7 @@ export interface SearchReturn<T> {
     field: keyof T;
     className?: string;
     children: ReactNode;
+    style?: React.CSSProperties;
   }>;
   page: number;
   resetPage: () => void;
@@ -238,10 +239,18 @@ export function useSearch<T>({
       field: keyof T;
       className?: string;
       children: ReactNode;
-    }> = ({ children, field, className = "" }) => {
-      if (isFiltered) return <th className={className}>{children}</th>;
+      style?: React.CSSProperties;
+    }> = ({ children, field, className = "", style }) => {
+      if (isFiltered) {
+        return (
+          <th className={className} style={style}>
+            {children}
+          </th>
+        );
+      }
+
       return (
-        <th className={className}>
+        <th className={className} style={style}>
           <span
             className="cursor-pointer"
             onClick={(e) => {

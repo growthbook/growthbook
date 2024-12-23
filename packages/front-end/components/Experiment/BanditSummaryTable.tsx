@@ -13,6 +13,7 @@ import { TooltipHoverSettings } from "@/components/Experiment/ResultsTableToolti
 import { getExperimentMetricFormatter } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCurrency } from "@/hooks/useCurrency";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import AlignedGraph from "./AlignedGraph";
 
 export const WIN_THRESHOLD_PROBABILITY = 0.95;
@@ -24,6 +25,7 @@ export type BanditSummaryTableProps = {
   metric: ExperimentMetricInterface | null;
   phase: number;
   isTabActive: boolean;
+  ssrPolyfills?: SSRPolyfills;
 };
 
 const numberFormatter = Intl.NumberFormat();
@@ -33,10 +35,14 @@ export default function BanditSummaryTable({
   metric,
   phase,
   isTabActive,
+  ssrPolyfills,
 }: BanditSummaryTableProps) {
-  const { getFactTableById } = useDefinitions();
-  const metricDisplayCurrency = useCurrency();
-  const metricFormatterOptions = { currency: metricDisplayCurrency };
+  const _displayCurrency = useCurrency();
+  const { getFactTableById: _getFactTableById } = useDefinitions();
+
+  const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
+  const displayCurrency = ssrPolyfills?.useCurrency() || _displayCurrency;
+  const metricFormatterOptions = { currency: displayCurrency };
 
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [graphCellWidth, setGraphCellWidth] = useState(800);
@@ -222,6 +228,7 @@ export default function BanditSummaryTable({
           onPointerMove={resetTimeout}
           onClick={resetTimeout}
           onPointerLeave={leaveRow}
+          ssrPolyfills={ssrPolyfills}
         />
       </CSSTransition>
 
@@ -263,9 +270,14 @@ export default function BanditSummaryTable({
                 <th
                   className="axis-col graph-cell"
                   style={{
-                    width: window.innerWidth < 900 ? graphCellWidth : undefined,
+                    width:
+                      (globalThis?.window?.innerWidth ?? 1000) < 900
+                        ? graphCellWidth
+                        : undefined,
                     minWidth:
-                      window.innerWidth >= 900 ? graphCellWidth : undefined,
+                      (globalThis?.window?.innerWidth ?? 1000) >= 900
+                        ? graphCellWidth
+                        : undefined,
                   }}
                 >
                   <div className="position-relative">
@@ -279,6 +291,7 @@ export default function BanditSummaryTable({
                       percent={false}
                       height={45}
                       metricForFormatting={metric}
+                      ssrPolyfills={ssrPolyfills}
                     />
                   </div>
                 </th>
@@ -428,6 +441,7 @@ export default function BanditSummaryTable({
                             offsetY: -8,
                           })
                         }
+                        ssrPolyfills={ssrPolyfills}
                       />
                     </td>
                   </tr>

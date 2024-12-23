@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { getScopedSettings } from "shared/settings";
 import { upperFirst } from "lodash";
 import { expandMetricGroups } from "shared/experiments";
@@ -7,14 +7,26 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import useOrgSettings from "@/hooks/useOrgSettings";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   envs: string[];
-  mutate: () => void;
+  mutate?: () => void;
+  canEdit: boolean;
+  ssrPolyfills?: SSRPolyfills;
+  isPublic?: boolean;
 }
 
-export default function AnalysisSettings({ experiment, mutate, envs }: Props) {
+export default function AnalysisSettings({
+  experiment,
+  mutate,
+  envs,
+  canEdit,
+  ssrPolyfills,
+  isPublic,
+}: Props) {
   const {
     getDatasourceById,
     getProjectById,
@@ -22,19 +34,23 @@ export default function AnalysisSettings({ experiment, mutate, envs }: Props) {
     metricGroups,
   } = useDefinitions();
   const { organization } = useUser();
+  const _settings = useOrgSettings();
+  const settings = ssrPolyfills?.useOrgSettings() || _settings;
   const permissionsUtil = usePermissionsUtil();
 
   const [analysisModal, setAnalysisModal] = useState(false);
 
-  const project = getProjectById(experiment.project || "");
+  const project =
+    ssrPolyfills?.getProjectById(experiment.project || "") ||
+    getProjectById(experiment.project || "");
 
-  const canEditAnalysisSettings = permissionsUtil.canUpdateExperiment(
-    experiment,
-    {}
-  );
+  const canEditAnalysisSettings =
+    canEdit && permissionsUtil.canUpdateExperiment(experiment, {});
 
   const { settings: scopedSettings } = getScopedSettings({
-    organization,
+    organization: organization?.settings
+      ? organization
+      : { settings: settings },
     project: project ?? undefined,
     experiment: experiment,
   });
@@ -49,33 +65,60 @@ export default function AnalysisSettings({ experiment, mutate, envs }: Props) {
 
   const statsEngine = scopedSettings.statsEngine.value;
 
+  const {
+    expandedGoals,
+    expandedSecondaries,
+    expandedGuardrails,
+  } = useMemo(() => {
+    const expandedGoals = expandMetricGroups(
+      experiment.goalMetrics,
+      ssrPolyfills?.metricGroups || metricGroups
+    );
+    const expandedSecondaries = expandMetricGroups(
+      experiment.secondaryMetrics,
+      ssrPolyfills?.metricGroups || metricGroups
+    );
+    const expandedGuardrails = expandMetricGroups(
+      experiment.guardrailMetrics,
+      ssrPolyfills?.metricGroups || metricGroups
+    );
+
+    return { expandedGoals, expandedSecondaries, expandedGuardrails };
+  }, [
+    experiment.goalMetrics,
+    experiment.secondaryMetrics,
+    experiment.guardrailMetrics,
+    metricGroups,
+    ssrPolyfills?.metricGroups,
+  ]);
+
   const goals: string[] = [];
-  expandMetricGroups(experiment.goalMetrics ?? [], metricGroups).forEach(
-    (m) => {
-      const name = getExperimentMetricById(m)?.name;
-      if (name) goals.push(name);
-    }
-  );
+  expandedGoals.forEach((m) => {
+    const name =
+      ssrPolyfills?.getExperimentMetricById?.(m)?.name ||
+      getExperimentMetricById(m)?.name;
+    if (name) goals.push(name);
+  });
   const secondary: string[] = [];
-  expandMetricGroups(experiment.secondaryMetrics ?? [], metricGroups).forEach(
-    (m) => {
-      const name = getExperimentMetricById(m)?.name;
-      if (name) secondary.push(name);
-    }
-  );
+  expandedSecondaries.forEach((m) => {
+    const name =
+      ssrPolyfills?.getExperimentMetricById?.(m)?.name ||
+      getExperimentMetricById(m)?.name;
+    if (name) secondary.push(name);
+  });
   const guardrails: string[] = [];
-  expandMetricGroups(experiment.guardrailMetrics ?? [], metricGroups).forEach(
-    (m) => {
-      const name = getExperimentMetricById(m)?.name;
-      if (name) guardrails.push(name);
-    }
-  );
+  expandedGuardrails.forEach((m) => {
+    const name =
+      ssrPolyfills?.getExperimentMetricById?.(m)?.name ||
+      getExperimentMetricById(m)?.name;
+    if (name) guardrails.push(name);
+  });
 
   const isBandit = experiment.type === "multi-armed-bandit";
 
   return (
     <>
-      {analysisModal && (
+      {analysisModal && mutate ? (
         <AnalysisForm
           cancel={() => setAnalysisModal(false)}
           experiment={experiment}
@@ -87,7 +130,7 @@ export default function AnalysisSettings({ experiment, mutate, envs }: Props) {
           source={"analysis-settings"}
           envs={envs}
         />
-      )}
+      ) : null}
 
       <div className="box p-4 my-4">
         <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-4">
@@ -105,34 +148,38 @@ export default function AnalysisSettings({ experiment, mutate, envs }: Props) {
           ) : null}
         </div>
 
-        <div className="row">
-          <div className="col-4">
-            <div className="h5">Data Source</div>
-            <div>{datasource ? datasource.name : <em>none</em>}</div>
-          </div>
-
-          <div className="col-4">
-            <div className="h5">Experiment Assignment Table</div>
-            <div>{assignmentQuery ? assignmentQuery.name : <em>none</em>}</div>
-          </div>
-
-          {!isBandit && (
+        {!isPublic && (
+          <div className="row">
             <div className="col-4">
-              <div className="h5">Stats Engine</div>
-              <div>{upperFirst(statsEngine)}</div>
+              <div className="h5">Data Source</div>
+              <div>{datasource ? datasource.name : <em>none</em>}</div>
             </div>
-          )}
-          {isBandit && (
+
             <div className="col-4">
-              <div className="h5">CUPED</div>
+              <div className="h5">Experiment Assignment Table</div>
               <div>
-                {experiment.regressionAdjustmentEnabled
-                  ? "Enabled"
-                  : "Disabled"}
+                {assignmentQuery ? assignmentQuery.name : <em>none</em>}
               </div>
             </div>
-          )}
-        </div>
+
+            {!isBandit && (
+              <div className="col-4">
+                <div className="h5">Stats Engine</div>
+                <div>{upperFirst(statsEngine)}</div>
+              </div>
+            )}
+            {isBandit && (
+              <div className="col-4">
+                <div className="h5">CUPED</div>
+                <div>
+                  {experiment.regressionAdjustmentEnabled
+                    ? "Enabled"
+                    : "Disabled"}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="row mt-4">
           <div className="col-4">
