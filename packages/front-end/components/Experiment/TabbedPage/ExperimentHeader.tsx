@@ -256,18 +256,14 @@ export default function ExperimentHeader({
   };
 
   async function handleWatchUpdates(watch: boolean) {
-    try {
-      await apiCall(
-        `/user/${watch ? "watch" : "unwatch"}/experiment/${experiment.id}`,
-        {
-          method: "POST",
-        }
-      );
-      refreshWatching();
-      mutateWatchers();
-    } catch (e) {
-      console.error(e);
-    }
+    await apiCall(
+      `/user-bad/${watch ? "watch" : "unwatch"}/experiment/${experiment.id}`,
+      {
+        method: "POST",
+      }
+    );
+    refreshWatching();
+    mutateWatchers();
   }
 
   async function startExperiment() {
@@ -797,9 +793,7 @@ export default function ExperimentHeader({
                     }
                   >
                     <DropdownMenuItem
-                      onClick={async () =>
-                        await handleWatchUpdates(!isWatching)
-                      }
+                      onClick={() => handleWatchUpdates(!isWatching)}
                     >
                       {isWatching ? "Stop" : "Start"} watching
                     </DropdownMenuItem>
