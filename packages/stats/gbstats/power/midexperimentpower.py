@@ -26,7 +26,7 @@ class MidExperimentPowerConfig(BaseConfig):
 
 
 @dataclass
-class MidExperimentPowerResult:
+class AdditionalSampleSizeNeededResult:
     additional_users: Optional[float]
     update_message: str
     error: Optional[str] = None
@@ -80,9 +80,9 @@ class MidExperimentPower:
         self.sequential = power_config.sequential
         self.sequential_tuning_parameter = power_config.sequential_tuning_parameter
 
-    def calculate_sample_size(self) -> MidExperimentPowerResult:
+    def calculate_sample_size(self) -> AdditionalSampleSizeNeededResult:
         if self.already_significant:
-            return MidExperimentPowerResult(
+            return AdditionalSampleSizeNeededResult(
                 error=None,
                 update_message="already significant",
                 additional_users=0,
@@ -97,7 +97,7 @@ class MidExperimentPower:
                 )
                 daily_traffic = self.pairwise_sample_size / self.phase_length_days
                 self.additional_days = self.additional_users / daily_traffic
-                return MidExperimentPowerResult(
+                return AdditionalSampleSizeNeededResult(
                     error=None,
                     update_message="successful",
                     v_prime=self.sigmahat_2_delta
@@ -106,7 +106,7 @@ class MidExperimentPower:
                     target_power=self.target_power,
                 )
             else:
-                return MidExperimentPowerResult(
+                return AdditionalSampleSizeNeededResult(
                     error=scaling_factor_result.error,
                     update_message="unsuccessful",
                     v_prime=0,
@@ -233,6 +233,62 @@ class MidExperimentPower:
             (self.sigmahat_2_delta / scaling_factor)
             * self.delta_posterior
             / self.sigma_2_posterior
+        )
+        num_3 = m_prime
+        den = np.sqrt(v_prime)
+        num_pos = num_1 - num_2 - num_3
+        num_neg = -num_1 - num_2 - num_3
+        power_pos = float(1 - norm.cdf(num_pos / den))
+        power_neg = float(norm.cdf(num_neg / den))
+        return power_pos + power_neg
+
+    @staticmethod
+    def calculate_power_standalone(
+        scaling_factor: float,
+        m_prime: float,
+        v_prime: float,
+        sequential: bool,
+        alpha: float,
+        sequential_tuning_parameter: float,
+        sigmahat_2_delta: float,
+        pairwise_sample_size: float,
+        sigma_2_posterior: float,
+        delta_posterior: float,
+    ) -> float:
+        """
+        Args:
+            scaling_factor: multipicative factor for sample size.
+            m_prime: postulated effect size.
+            v_prime: postulated variance.
+            sequential: Whether the design is sequential.
+            alpha: Type I error rate.
+            sequential_tuning_parameter: Tuning parameter for sequential design.
+            sigmahat_2_delta: Estimated variance of delta.
+            pairwise_sample_size: Sample size per pairwise comparison.
+            sigma_2_posterior: Posterior variance of the effect size.
+            delta_posterior: Posterior mean of the effect size.
+
+        Returns:
+            power estimate.
+        """
+        if sequential:
+            rho = sequential_rho(alpha, sequential_tuning_parameter)
+            s2 = sigmahat_2_delta * pairwise_sample_size
+            n_total = pairwise_sample_size * (1 + scaling_factor)
+            halfwidth = sequential_interval_halfwidth(s2, n_total, rho, alpha)
+        else:
+            z_star = float(norm.ppf(1 - alpha / 2))
+            v = MidExperimentPower.final_posterior_variance(
+                sigma_2_posterior, sigmahat_2_delta, scaling_factor
+            )
+            s = np.sqrt(v)
+            halfwidth = z_star * s
+        marginal_var = MidExperimentPower.marginal_variance_delta_hat_prime(
+            sigma_2_posterior, sigmahat_2_delta, scaling_factor
+        )
+        num_1 = halfwidth * marginal_var / sigma_2_posterior
+        num_2 = (
+            (sigmahat_2_delta / scaling_factor) * delta_posterior / sigma_2_posterior
         )
         num_3 = m_prime
         den = np.sqrt(v_prime)

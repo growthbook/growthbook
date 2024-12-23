@@ -67,8 +67,7 @@ export interface AnalysisSettingsForStatsEngine {
   alpha: number;
   max_dimensions: number;
   traffic_percentage: number;
-  min_duration_days: number;
-  max_duration_days: number;
+  num_goal_metrics: number;
 }
 
 export interface BanditSettingsForStatsEngine {
@@ -103,7 +102,7 @@ export interface MetricSettingsForStatsEngine {
   prior_proper?: boolean;
   prior_mean?: number;
   prior_stddev?: number;
-  business_metric_type?: BusinessMetricTypeForStatsEngine[];
+  min_percent_change: number;
 }
 
 export interface QueryResultsForStatsEngine {

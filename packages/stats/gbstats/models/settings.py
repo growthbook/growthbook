@@ -24,9 +24,7 @@ class AnalysisSettingsForStatsEngine:
     alpha: float = 0.05
     max_dimensions: int = 20
     traffic_percentage: float = 1
-    min_duration_days: float = 7
-    max_duration_days: float = 42
-    new_users_per_day: Optional[float] = None
+    num_goal_metrics: int = 1
 
 
 @dataclass
@@ -75,8 +73,8 @@ class MetricSettingsForStatsEngine:
     denominator_metric_type: Optional[MetricType] = None
     covariate_metric_type: Optional[MetricType] = None
     quantile_value: Optional[float] = None
-    min_percent_change: float = 0.01
     business_metric_type: Optional[List[BusinessMetricType]] = None
+    min_percent_change: float = 0.01
 
 
 @dataclass

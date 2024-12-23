@@ -47,7 +47,7 @@ from gbstats.models.results import (
     BanditResult,
     SingleVariationResult,
     PowerResponse,
-    PowerResult,
+    #    PowerResult,
 )
 from gbstats.models.settings import (
     AnalysisSettingsForStatsEngine,
@@ -290,12 +290,12 @@ def analyze_metric_df(
             df[f"v{i}_prob_beat_baseline"] = None
             df[f"v{i}_uplift"] = None
             df[f"v{i}_error_message"] = None
+            df[f"v{i}_first_period_pairwise_users"] = None
             df[f"v{i}_effect_size"] = None
-            df[f"v{i}_target_power"] = None
-            df[f"v{i}_new_daily_users"] = None
-            df[f"v{i}_end_of_experiment_power"] = None
+            df[f"v{i}_sigmahat_2_delta"] = None
+            df[f"v{i}_sigma_2_posterior"] = None
+            df[f"v{i}_delta_posterior"] = None
             df[f"v{i}_power_additional_users"] = None
-            df[f"v{i}_power_additional_days"] = None
             df[f"v{i}_power_update_message"] = None
             df[f"v{i}_power_error_message"] = None
 
@@ -328,64 +328,23 @@ def analyze_metric_df(
                 mid_experiment_power = MidExperimentPower(
                     test.stat_a, test.stat_b, res, config, power_config
                 )
-                # I need to know the additional sample size til the end of the experiment
-                # then I need to know the number of days til the end of the experiment
-                if analysis.new_users_per_day and analysis.new_users_per_day > 0:
-                    new_daily_users = analysis.new_users_per_day
-                    print(f"analysis.new_users_per_day: {new_daily_users}")
-                else:
-                    new_daily_users = s["total_users"] / analysis.phase_length_days
-                    print(
-                        [
-                            f"analysis.phase_length_days: {analysis.phase_length_days}",
-                            f"total_users: {s['total_users']}",
-                        ]
-                    )
-                if new_daily_users > 0:
-                    days_remaining = (
-                        analysis.max_duration_days - analysis.phase_length_days
-                    )
-                    new_users_remaining = new_daily_users * days_remaining
-                    if (
-                        new_users_remaining > 0
-                        and mid_experiment_power.pairwise_sample_size > 0
-                    ):
-                        scaling_factor = (
-                            new_users_remaining
-                            / mid_experiment_power.pairwise_sample_size
-                        )
-                        m_prime = metric.min_percent_change * 2
-                        v_prime = mid_experiment_power.v_prime
-                        s[f"v{i}_target_power"] = mid_experiment_power.target_power
-                        s[f"v{i}_new_daily_users"] = new_daily_users
-                        s[f"v{i}_effect_size"] = m_prime
-                        s[
-                            f"v{i}_end_of_experiment_power"
-                        ] = mid_experiment_power.calculate_power(
-                            scaling_factor, m_prime, v_prime
-                        )
-                        mid_experiment_power_result = (
-                            mid_experiment_power.calculate_sample_size()
-                        )
-                        s[
-                            f"v{i}_power_additional_users"
-                        ] = mid_experiment_power_result.additional_users
-
-                        s[f"v{i}_power_additional_days"] = (
-                            s[f"v{i}_power_additional_users"] / new_daily_users
-                        )
-                        s[
-                            f"v{i}_power_update_message"
-                        ] = mid_experiment_power_result.update_message
-                        s[
-                            f"v{i}_power_error_message"
-                        ] = mid_experiment_power_result.error
-                else:
-                    s[f"v{i}_power_update_message"] = "unsuccessful"
-                    s[
-                        f"v{i}_power_error_message"
-                    ] = "new_users_per_day must be greater than 0"
-
+                s[
+                    f"v{i}_first_period_pairwise_users"
+                ] = mid_experiment_power.pairwise_sample_size
+                s[f"v{i}_effect_size"] = mid_experiment_power.m_prime
+                s[f"v{i}_sigmahat_2_delta"] = mid_experiment_power.sigmahat_2_delta
+                s[f"v{i}_sigma_2_posterior"] = mid_experiment_power.sigma_2_posterior
+                s[f"v{i}_delta_posterior"] = mid_experiment_power.delta_posterior
+                mid_experiment_power_result = (
+                    mid_experiment_power.calculate_sample_size()
+                )
+                s[
+                    f"v{i}_power_additional_users"
+                ] = mid_experiment_power_result.additional_users
+                s[
+                    f"v{i}_power_update_message"
+                ] = mid_experiment_power_result.update_message
+                s[f"v{i}_power_error_message"] = mid_experiment_power_result.error
             s["baseline_cr"] = test.stat_a.unadjusted_mean
             s["baseline_mean"] = test.stat_a.unadjusted_mean
             s["baseline_stddev"] = test.stat_a.stddev
@@ -479,14 +438,15 @@ def format_variation_result(
     else:
         # non-baseline variation
         power_response = PowerResponse(
-            target_power=row[f"{prefix}_target_power"],
-            new_daily_users=row[f"{prefix}_new_daily_users"],
-            effect_size=row[f"{prefix}_effect_size"],
-            end_of_experiment_power=row[f"{prefix}_end_of_experiment_power"],
-            power_additional_users=row[f"{prefix}_power_additional_users"],
-            power_additional_days=row[f"{prefix}_power_additional_days"],
-            power_update_message=row[f"{prefix}_power_update_message"],
-            power_error=row[f"{prefix}_power_error_message"],
+            firstPeriodSampleSize=row[f"{prefix}_total_users"],
+            firstPeriodPairwiseSampleSize=row[f"{prefix}_first_period_pairwise_users"],
+            effectSize=row[f"{prefix}_effect_size"],
+            sigmahat2Delta=row[f"{prefix}_sigmahat_2_delta"],
+            sigma2Posterior=row[f"{prefix}_sigma_2_posterior"],
+            deltaPosterior=row[f"{prefix}_delta_posterior"],
+            powerAdditionalUsers=row[f"{prefix}_power_additional_users"],
+            powerUpdateMessage=row[f"{prefix}_power_update_message"],
+            powerError=row[f"{prefix}_power_error_message"],
         )
         frequentist = row[f"{prefix}_p_value"] is not None
         testResult = {
@@ -870,12 +830,9 @@ def process_data_dict(data: Dict[str, Any]) -> DataForStatsEngine:
 
 def process_experiment_results(
     data: Dict[str, Any]
-) -> Tuple[
-    List[ExperimentMetricAnalysis], Optional[PowerResult], Optional[BanditResult]
-]:
+) -> Tuple[List[ExperimentMetricAnalysis], Optional[BanditResult]]:
     d = process_data_dict(data)
     results: List[ExperimentMetricAnalysis] = []
-    power_result: Optional[PowerResult] = None
     bandit_result: Optional[BanditResult] = None
     for query_result in d.query_results:
         for i, metric in enumerate(query_result.metrics):
@@ -927,7 +884,7 @@ def process_experiment_results(
             reweight=d.bandit_settings.reweight,
             current_weights=d.bandit_settings.current_weights,
         )
-    return results, power_result, bandit_result
+    return results, bandit_result
 
 
 def process_multiple_experiment_results(
@@ -937,14 +894,13 @@ def process_multiple_experiment_results(
     for exp_data in data:
         try:
             exp_data_proc = ExperimentDataForStatsEngine(**exp_data)
-            fixed_results, power_result, bandit_result = process_experiment_results(
+            fixed_results, bandit_result = process_experiment_results(
                 exp_data_proc.data
             )
             results.append(
                 MultipleExperimentMetricAnalysis(
                     id=exp_data_proc.id,
                     results=fixed_results,
-                    powerResult=power_result,
                     banditResult=bandit_result,
                     error=None,
                     traceback=None,
@@ -955,7 +911,6 @@ def process_multiple_experiment_results(
                 MultipleExperimentMetricAnalysis(
                     id=exp_data["id"],
                     results=[],
-                    powerResult=None,
                     banditResult=None,
                     error=str(e),
                     traceback=traceback.format_exc(),
