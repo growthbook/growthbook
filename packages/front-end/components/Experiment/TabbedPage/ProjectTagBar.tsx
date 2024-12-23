@@ -63,7 +63,7 @@ export default function ProjectTagBar({
           </Text>
           {canEditOwner && updateOwner && (
             <a
-              className="ml-1 cursor-pointer"
+              className="ml-1 cursor-pointer link-purple"
               onClick={() => setEditOwnerModal(true)}
             >
               <GBEdit />

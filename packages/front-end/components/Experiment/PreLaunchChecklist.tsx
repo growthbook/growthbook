@@ -449,7 +449,7 @@ export function PreLaunchChecklist({
                   href={"/settings?editCheckListModal=true"}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <span className="text-purple">Edit</span>
+                  Edit
                 </Link>
               ) : null}
               <FaAngleRight className="chevron" />
