@@ -2263,7 +2263,6 @@ li.metrics a span img {
   .testname {
     font-weight: 400;
     color: var(--text-color-main);
-
     &:hover {
       text-decoration: none;
     }
@@ -3324,6 +3323,10 @@ input:disabled {
 .main.features {
   .features-header {
     margin: -4px -8px 0;
+  }
+  .featurename {
+    font-weight: 400;
+    color: var(--text-color-main);
   }
 }
 .approval-flow-accepted {
