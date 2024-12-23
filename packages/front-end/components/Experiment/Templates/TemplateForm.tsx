@@ -90,7 +90,6 @@ const TemplateForm: FC<Props> = ({
           ? `Copy of ${initialValue?.templateMetadata?.name}`
           : initialValue?.templateMetadata?.name || "",
         description: initialValue?.templateMetadata?.description || "",
-        tags: initialValue?.templateMetadata?.tags || [],
       },
       type: initialValue?.type ?? "standard",
       hypothesis: initialValue?.hypothesis || "",
@@ -254,30 +253,9 @@ const TemplateForm: FC<Props> = ({
               {...nameFieldHandlers}
             />
 
-            <Field
-              label="Template Description"
-              textarea
-              minRows={1}
-              {...form.register("templateMetadata.description")}
-              placeholder={"Short human-readable description of the template"}
-            />
-            <div className="form-group mb-3">
-              <label>Template Tags</label>
-              <TagsInput
-                value={form.watch("templateMetadata.tags") ?? []}
-                onChange={(tags) =>
-                  form.setValue("templateMetadata.tags", tags)
-                }
-              />
-            </div>
-
-            <hr />
-
-            <h4 className="my-3">Experiment Details</h4>
-
             {projects.length >= 1 && (
               <div className="form-group">
-                <label>Experiment Project</label>
+                <label>Available in Project</label>
                 <SelectField
                   value={form.watch("project") ?? ""}
                   onChange={(p) => {
@@ -289,6 +267,18 @@ const TemplateForm: FC<Props> = ({
                 />
               </div>
             )}
+
+            <Field
+              label="Template Description"
+              textarea
+              minRows={1}
+              {...form.register("templateMetadata.description")}
+              placeholder={"Short human-readable description of the template"}
+            />
+
+            <hr />
+
+            <h4 className="my-3">Experiment Details</h4>
 
             <Field
               label="Experiment Hypothesis"

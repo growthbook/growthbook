@@ -52,7 +52,6 @@ export const TemplatesPage = ({
         ...omit(allTemplates, ["templateMetadata"]),
         templateName: templ.templateMetadata.name,
         templateDescription: templ.templateMetadata.description,
-        templateTags: templ.templateMetadata.tags,
         usage: templateExperimentMap[templ.id]?.length ?? 0,
       };
     },
@@ -63,7 +62,7 @@ export const TemplatesPage = ({
     items: flattenedTemplates,
     defaultSortField: "templateName",
     localStorageKey: "templates",
-    searchFields: ["templateName^3", "templateTags", "templateDescription"],
+    searchFields: ["templateName^3", "tags", "templateDescription"],
   });
 
   const hasTemplates = items.length > 0;
@@ -84,7 +83,7 @@ export const TemplatesPage = ({
           <tr>
             <SortableTH field="templateName">Template Name</SortableTH>
             <SortableTH field="templateDescription">Description</SortableTH>
-            <SortableTH field="templateTags">Tags</SortableTH>
+            <SortableTH field="tags">Tags</SortableTH>
             {showProjectColumn && (
               <SortableTH field="project">Project</SortableTH>
             )}
@@ -114,7 +113,7 @@ export const TemplatesPage = ({
                 </td>
                 <td data-title="Tags">
                   <SortedTags
-                    tags={Object.values(t.templateTags ?? [])}
+                    tags={Object.values(t.tags ?? [])}
                     useFlex={true}
                   />
                 </td>

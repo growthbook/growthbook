@@ -17,7 +17,6 @@ export const experimentTemplateInterface = z
     templateMetadata: z.object({
       name: z.string(),
       description: z.string().optional(),
-      tags: z.array(z.string()).optional(),
     }),
 
     type: z.enum(["standard"]),
