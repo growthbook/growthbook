@@ -430,7 +430,6 @@ export default function LegacyReportPage({
                           ? () => setTab("configuration")
                           : undefined
                       }
-                      generateReport={false}
                       notebookUrl={`/report/${report.id}/notebook`}
                       notebookFilename={report.title}
                       queries={report.queries}

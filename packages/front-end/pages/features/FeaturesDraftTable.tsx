@@ -148,11 +148,7 @@ export default function FeaturesDraftTable({ features }: Props) {
           </div>
         </div>
 
-        <table
-          className={`table gbtable ${
-            items.length > 0 ? "table-hover" : ""
-          } appbox`}
-        >
+        <table className="table gbtable appbox">
           <thead
             className="sticky-top bg-white shadow-sm"
             style={{ top: "56px", zIndex: 900 }}
@@ -177,9 +173,11 @@ export default function FeaturesDraftTable({ features }: Props) {
               return (
                 <tr
                   key={`${featureAndRevision.id}:${featureAndRevision.version}`}
+                  className="hover-highlight"
                 >
-                  <td>
+                  <td className="py-0">
                     <Link
+                      className="featurename d-block p-2"
                       href={`/features/${featureAndRevision.id}?v=${featureAndRevision?.version}`}
                     >
                       {featureAndRevision.id}

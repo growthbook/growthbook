@@ -80,7 +80,7 @@ pre {
   color: colors.$second-blue;
 }
 .text-purple {
-  color: colors.$highlight-purple;
+  color: var(--violet-a11);
 }
 .text-indigo {
   color: colors.$indigo;
@@ -189,19 +189,6 @@ pre {
     colors.$highlight-purple,
     darken(colors.$highlight-purple, 7.5%),
     darken(colors.$highlight-purple, 10%),
-    lighten(colors.$highlight-purple, 5%),
-    lighten(colors.$highlight-purple, 10%),
-    darken(colors.$highlight-purple, 30%)
-  );
-  white-space: nowrap;
-  font-weight: 600;
-}
-
-.btn-primary-darkened {
-  @include button-variant(
-    darken(colors.$highlight-purple, 10%),
-    darken(colors.$highlight-purple, 14%),
-    darken(colors.$highlight-purple, 18%),
     lighten(colors.$highlight-purple, 5%),
     lighten(colors.$highlight-purple, 10%),
     darken(colors.$highlight-purple, 30%)
@@ -953,10 +940,10 @@ main.main.public {
 }
 
 .link-purple {
-  color: colors.$highlight-purple;
+  color: var(--violet-a11);
   text-decoration: none;
   &:hover {
-    color: lighten(colors.$highlight-purple, 5%);
+    color: var(--violet-a10);
     text-decoration: underline;
   }
 }
@@ -2276,7 +2263,6 @@ li.metrics a span img {
   .testname {
     font-weight: 400;
     color: var(--text-color-main);
-
     &:hover {
       text-decoration: none;
     }
@@ -3337,6 +3323,10 @@ input:disabled {
 .main.features {
   .features-header {
     margin: -4px -8px 0;
+  }
+  .featurename {
+    font-weight: 400;
+    color: var(--text-color-main);
   }
 }
 .approval-flow-accepted {

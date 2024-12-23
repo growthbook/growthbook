@@ -70,6 +70,7 @@ export type CommercialFeature =
   | "large-saved-groups"
   | "multi-armed-bandits"
   | "metric-groups"
+  | "environment-inheritance"
   | "templates";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
@@ -244,6 +245,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "large-saved-groups",
     "multi-armed-bandits",
     "metric-groups",
+    "environment-inheritance",
     "templates",
   ]),
 };

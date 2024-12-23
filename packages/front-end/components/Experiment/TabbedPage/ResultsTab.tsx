@@ -323,8 +323,8 @@ export default function ResultsTab({
             <div className="col ml-2">
               <div className="h3">Custom Reports</div>
               <div>
-                Create and share an ad-hoc analysis without affecting this{" "}
-                {isBandit ? "Bandit" : "Experiment"}.
+                Create and share a stand-alone ad-hoc analysis without affecting
+                this {isBandit ? "Bandit" : "Experiment"}.
               </div>
             </div>
             <div className="col-auto mr-2">

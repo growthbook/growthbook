@@ -3,7 +3,6 @@ import { FaFileDownload, FaPencilAlt } from "react-icons/fa";
 import { BiTable } from "react-icons/bi";
 import { Queries } from "back-end/types/query";
 import {
-  ExperimentReportInterface,
   ExperimentReportResultDimension,
   ExperimentReportVariation,
   ExperimentSnapshotReportArgs,
@@ -18,8 +17,7 @@ import Button from "@/components/Button";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { trackReport } from "@/services/track";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import track from "@/services/track";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export default function ResultMoreMenu({
@@ -30,7 +28,6 @@ export default function ResultMoreMenu({
   hasData,
   supportsNotebooks,
   snapshotId,
-  generateReport,
   reportArgs,
   notebookUrl,
   notebookFilename,
@@ -50,7 +47,6 @@ export default function ResultMoreMenu({
   hasData?: boolean;
   supportsNotebooks?: boolean;
   snapshotId?: string;
-  generateReport?: boolean;
   reportArgs?: ExperimentSnapshotReportArgs;
   notebookUrl: string;
   notebookFilename: string;
@@ -66,7 +62,6 @@ export default function ResultMoreMenu({
   const { apiCall } = useAuth();
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
-  const { getDatasourceById } = useDefinitions();
 
   const canEdit = permissionsUtil.canViewExperimentModal(project);
 
@@ -97,7 +92,9 @@ export default function ResultMoreMenu({
             <BsArrowRepeat className="mr-2" /> Re-run All Queries
           </button>
         )}
-      {hasData && queries && generateReport && canEdit && snapshotId ? (
+      {snapshotId &&
+      experiment &&
+      permissionsUtil.canCreateReport(experiment) ? (
         <Button
           className="dropdown-item py-2"
           color="outline-info"
@@ -109,23 +106,16 @@ export default function ResultMoreMenu({
                 body: reportArgs ? JSON.stringify(reportArgs) : undefined,
               }
             );
-
             if (!res.report) {
               throw new Error("Failed to create report");
             }
-            trackReport(
-              "create",
-              "AdhocReportButton",
-              getDatasourceById(
-                (res.report as ExperimentReportInterface).args.datasource
-              )?.type || null,
-              res.report as ExperimentReportInterface
-            );
-
+            track("Experiment Report: Create", {
+              source: "experiment results tab",
+            });
             await router.push(`/report/${res.report.id}`);
           }}
         >
-          <BiTable className="mr-2" style={{ fontSize: "1.2rem" }} /> Ad-hoc
+          <BiTable className="mr-2" style={{ fontSize: "1.2rem" }} /> New Custom
           Report
         </Button>
       ) : null}

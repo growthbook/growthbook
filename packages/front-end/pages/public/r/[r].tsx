@@ -85,7 +85,7 @@ export default function ReportPage(props: ReportPageProps) {
         <title>{report?.title || "Report not found"}</title>
         <meta
           property="og:title"
-          content={report?.title || "Report not found"}
+          content={report?.title ? `Report: ${report.title}` : "Report not found"}
         />
         <meta
           property="og:description"
