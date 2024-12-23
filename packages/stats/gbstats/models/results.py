@@ -47,7 +47,6 @@ class BaselineResponse:
 
 @dataclass
 class PowerResponse:
-    firstPeriodSampleSize: Optional[float]
     firstPeriodPairwiseSampleSize: Optional[float]
     effectSize: Optional[float]
     sigmahat2Delta: Optional[float]

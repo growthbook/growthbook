@@ -47,7 +47,6 @@ from gbstats.models.results import (
     BanditResult,
     SingleVariationResult,
     PowerResponse,
-    #    PowerResult,
 )
 from gbstats.models.settings import (
     AnalysisSettingsForStatsEngine,
@@ -132,7 +131,7 @@ def get_metric_df(
     rows: pd.DataFrame,
     var_id_map: VarIdMap,
     var_names: List[str],
-):
+) -> pd.DataFrame:
     dfc = rows.copy()
     dimensions = {}
     # Each row in the raw SQL result is a dimension/variation combo
@@ -488,7 +487,6 @@ def format_variation_result(
     else:
         # non-baseline variation
         power_response = PowerResponse(
-            firstPeriodSampleSize=row[f"{prefix}_total_users"],
             firstPeriodPairwiseSampleSize=row[f"{prefix}_first_period_pairwise_users"],
             effectSize=row[f"{prefix}_effect_size"],
             sigmahat2Delta=row[f"{prefix}_sigmahat_2_delta"],
