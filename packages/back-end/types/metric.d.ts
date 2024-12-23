@@ -20,6 +20,19 @@ export interface MetricStats {
   mean: number;
 }
 
+// Keep PowerResponse in sync with gbstats
+export interface PowerResponse {
+  firstPeriodSampleSize?: number;
+  firstPeriodPairwiseSampleSize?: number;
+  effectSize?: number;
+  sigmahat2Delta?: number;
+  sigma2Posterior?: number;
+  deltaPosterior?: number;
+  powerAdditionalUsers?: number;
+  powerUpdateMessage?: string;
+  powerError?: string;
+}
+
 export interface LegacyMetricAnalysis {
   createdAt: Date;
   segment?: string;

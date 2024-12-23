@@ -8,6 +8,23 @@ export type DifferenceType = "relative" | "absolute" | "scaled";
 
 export type RiskType = "relative" | "absolute";
 
+// Keep PowerResponse in sync with gbstats
+export interface PowerResponse {
+  firstPeriodSampleSize?: number;
+  firstPeriodPairwiseSampleSize?: number;
+  effectSize?: number;
+  sigmahat2Delta?: number;
+  sigma2Posterior?: number;
+  deltaPosterior?: number;
+  powerUpdateMessage?: string;
+  powerError?: string;
+  endOfExperimentPower?: number; //delete later
+  newDailyUsers?: number; //delete later
+  powerAdditionalUsers?: number; //delete later
+  powerAdditionalDays?: number; //delete later
+  targetPower?: number; //delete later
+}
+
 interface BaseVariationResponse {
   cr: number;
   value: number;
@@ -22,6 +39,7 @@ interface BaseVariationResponse {
   };
   ci?: [number, number];
   errorMessage?: string;
+  powerResponse?: PowerResponse;
 }
 
 interface BayesianVariationResponse extends BaseVariationResponse {
@@ -57,19 +75,6 @@ export type ExperimentMetricAnalysis = {
   analyses: {
     unknownVariations: string[];
     multipleExposures: number;
-    // new output somewhere in here
-    // not sure if here or inside DimensionResponse
-    // not every metric will have powerResult
-    powerResult?: {
-      dailyTraffic: number;
-      variationId: string;
-      effectSize: number;
-      power: string; // or number?
-      // Do we want to have this in the response? or should we have a low/high power threshold in the FE/BE and use the power property?
-      isLowPowered: boolean;
-      // Should likely be in days to provide better flexibility
-      timeRemainingDays: number;
-    };
     dimensions: StatsEngineDimensionResponse[];
   }[];
 }[];
