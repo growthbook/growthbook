@@ -9,11 +9,11 @@ import { Environment } from "back-end/types/organization";
 import RuleModal from "@/components/Features/RuleModal/index";
 import RuleList from "@/components/Features/RuleList";
 import track from "@/services/track";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import { getRules, useEnvironmentState } from "@/services/features";
-import Tab from "@/components/Tabs/Tab";
 import CopyRuleModal from "@/components/Features/CopyRuleModal";
 import Button from "@/components/Radix/Button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../Radix/Tabs";
+import Badge from "../Radix/Badge";
 
 export default function FeatureRules({
   environments,
@@ -64,29 +64,34 @@ export default function FeatureRules({
     );
   }, [experiments]);
 
+  const rulesByEnv = Object.fromEntries(
+    environments.map((e) => {
+      const rules = getRules(feature, e.id);
+      return [e.id, rules];
+    })
+  );
+
   return (
     <>
-      <ControlledTabs
-        setActive={(v) => {
-          setEnv(v || "");
-        }}
-        active={env}
-        showActiveCount={true}
-        newStyle={false}
-        buttonsClassName="px-3 py-2 h4"
-      >
+      <Tabs value={env} onValueChange={setEnv}>
+        <TabsList>
+          {environments.map((e) => (
+            <TabsTrigger value={e.id} key={e.id}>
+              <span className="mr-2">{e.id}</span>
+              <Badge
+                label={rulesByEnv[e.id].length.toString()}
+                radius="full"
+                variant="solid"
+                color="violet"
+              ></Badge>
+            </TabsTrigger>
+          ))}
+        </TabsList>
         {environments.map((e) => {
-          const rules = getRules(feature, e.id);
           return (
-            <Tab
-              key={e.id}
-              id={e.id}
-              display={e.id}
-              count={rules.length}
-              padding={false}
-            >
+            <TabsContent key={e.id} value={e.id}>
               <div className="mb-4 border border-top-0">
-                {rules.length > 0 ? (
+                {rulesByEnv[e.id].length > 0 ? (
                   <RuleList
                     environment={e.id}
                     feature={feature}
@@ -125,10 +130,10 @@ export default function FeatureRules({
                   </div>
                 )}
               </div>
-            </Tab>
+            </TabsContent>
           );
         })}
-      </ControlledTabs>
+      </Tabs>
       {ruleModal !== null && (
         <RuleModal
           feature={feature}
