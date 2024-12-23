@@ -1,7 +1,7 @@
 import { DropdownMenu as RadixDropdownMenu, Text } from "@radix-ui/themes";
 import type { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
 import { PiCaretDown } from "react-icons/pi";
-import React from "react";
+import React, { useState } from "react";
 import Button from "@/components/Radix/Button";
 
 type AllowedChildren = string | React.ReactNode;
@@ -94,7 +94,7 @@ type DropdownItemProps = {
   children: AllowedChildren;
   className?: string;
   disabled?: boolean;
-  onClick?: (event: Event) => void;
+  onClick?: (event: Event) => Promise<void> | void;
   color?: "red" | "default";
   shortcut?: RadixDropdownMenu.ItemProps["shortcut"];
 } & MarginProps;
@@ -110,15 +110,34 @@ export function DropdownMenuItem({
   if (color === "default") {
     color = undefined;
   }
+  const [error, setError] = useState("");
   return (
     <RadixDropdownMenu.Item
       disabled={disabled}
-      onSelect={onClick}
-      color={color}
+      onSelect={async (event) => {
+        if (error) {
+          setError("");
+        }
+        event.preventDefault();
+        if (onClick) {
+          try {
+            await onClick(event);
+            // If this promise is resolved without an error, we need to close
+          } catch (e) {
+            setError(e.message);
+            console.error(e);
+          }
+        }
+      }}
+      color={error ? "red" : color}
       shortcut={shortcut}
       {...props}
     >
-      {children}
+      {error ? (
+        <Text>{`Error: ${error}. See console for more details.`}</Text>
+      ) : (
+        children
+      )}
     </RadixDropdownMenu.Item>
   );
 }

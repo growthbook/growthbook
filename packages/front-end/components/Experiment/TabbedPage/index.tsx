@@ -178,13 +178,13 @@ export default function TabbedPage({
     (connection) => connection.connected
   );
 
-  const watcherIds = useApi<{
+  const { data, mutate: mutateWatchers } = useApi<{
     userIds: string[];
   }>(`/experiment/${experiment.id}/watchers`);
   const { users, organization } = useUser();
 
   // Get name or email of all active users watching this experiment
-  const usersWatching = (watcherIds?.data?.userIds || [])
+  const usersWatching = (data?.userIds || [])
     .map((id) => users.get(id))
     .filter(isDefined)
     .map((u) => u.name || u.email);
@@ -282,6 +282,7 @@ export default function TabbedPage({
         setWatchersModal={setWatchersModal}
         duplicate={duplicate}
         usersWatching={usersWatching}
+        mutateWatchers={mutateWatchers}
         editResult={editResult || undefined}
         editTargeting={editTargeting}
         editProject={editProject}
