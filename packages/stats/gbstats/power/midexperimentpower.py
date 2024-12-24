@@ -23,6 +23,8 @@ class MidExperimentPowerConfig(BaseConfig):
     v_prime: Optional[float] = None
     sequential: bool = False
     sequential_tuning_parameter: float = 5000
+    num_goal_metrics: int = 1
+    num_variations: int = 2
 
 
 @dataclass
@@ -71,7 +73,10 @@ class MidExperimentPower:
         self.traffic_percentage = config.traffic_percentage
         self.phase_length_days = config.phase_length_days
         self.alpha = config.alpha
-        self.z_star = norm.ppf(1 - self.alpha / 2)
+        self.num_comparisons = (
+            power_config.num_variations - 1
+        ) * power_config.num_goal_metrics
+        self.z_star = norm.ppf(1 - self.alpha / (2 * self.num_comparisons))
         self.target_power = power_config.target_power
         self.m_prime = power_config.m_prime
         self.v_prime = (
@@ -219,12 +224,11 @@ class MidExperimentPower:
             n_total = self.pairwise_sample_size * (1 + scaling_factor)
             halfwidth = sequential_interval_halfwidth(s2, n_total, rho, self.alpha)
         else:
-            z_star = float(norm.ppf(1 - self.alpha / 2))
             v = MidExperimentPower.final_posterior_variance(
                 self.sigma_2_posterior, self.sigmahat_2_delta, scaling_factor
             )
             s = np.sqrt(v)
-            halfwidth = z_star * s
+            halfwidth = self.z_star * s
         marginal_var = MidExperimentPower.marginal_variance_delta_hat_prime(
             self.sigma_2_posterior, self.sigmahat_2_delta, scaling_factor
         )
@@ -254,6 +258,8 @@ class MidExperimentPower:
         pairwise_sample_size: float,
         sigma_2_posterior: float,
         delta_posterior: float,
+        num_variations: int,
+        num_goal_metrics: int,
     ) -> float:
         """
         Args:
@@ -277,7 +283,9 @@ class MidExperimentPower:
             n_total = pairwise_sample_size * (1 + scaling_factor)
             halfwidth = sequential_interval_halfwidth(s2, n_total, rho, alpha)
         else:
-            z_star = float(norm.ppf(1 - alpha / 2))
+            z_star = float(
+                norm.ppf(1 - alpha / (2 * (num_variations - 1) * num_goal_metrics))
+            )
             v = MidExperimentPower.final_posterior_variance(
                 sigma_2_posterior, sigmahat_2_delta, scaling_factor
             )

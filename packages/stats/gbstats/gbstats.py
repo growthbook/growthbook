@@ -327,6 +327,8 @@ def analyze_metric_df(
                     v_prime=None,
                     sequential=analysis.sequential_testing_enabled,
                     sequential_tuning_parameter=analysis.sequential_tuning_parameter,
+                    num_variations=num_variations,
+                    num_goal_metrics=analysis.num_goal_metrics,
                 )
                 mid_experiment_power = MidExperimentPower(
                     test.stat_a, test.stat_b, res, config, power_config
