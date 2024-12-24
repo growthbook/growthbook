@@ -1,8 +1,9 @@
-import React, { FC, useState } from "react";
+import React, { FC, Fragment, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
 import { CustomField, CustomFieldSection } from "back-end/types/custom-fields";
 import { FeatureInterface } from "back-end/types/feature";
+import { getMetricLink } from "shared/experiments";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -13,6 +14,8 @@ import {
 import Markdown from "@/components/Markdown/Markdown";
 import Modal from "@/components/Modal";
 import DataList, { DataListItem } from "@/components/Radix/DataList";
+import MetricName from "@/components/Metrics/MetricName";
+import Link from "@/components/Radix/Link";
 import CustomFieldInput from "./CustomFieldInput";
 
 const CustomFieldDisplay: FC<{
@@ -95,6 +98,30 @@ const CustomFieldDisplay: FC<{
       return value;
     }
   };
+  const getMetricValue = (value: string) => {
+    try {
+      const metrics = JSON.parse(value);
+      if (metrics.length > 1) {
+        return metrics.map((v) => (
+          <ul key={v} className="mb-0">
+            <li>
+              <Link color="dark" href={getMetricLink(v)}>
+                <MetricName id={v} disableTooltip />
+              </Link>
+            </li>
+          </ul>
+        ));
+      } else {
+        return (
+          <Link color="dark" href={getMetricLink(metrics[0])} className="mr-2">
+            <MetricName id={metrics[0]} disableTooltip />
+          </Link>
+        );
+      }
+    } catch (e) {
+      return value;
+    }
+  };
   const getDisplayValue = (v: CustomField, cValue: string) => {
     return v.type === "multiselect" ? (
       getMultiSelectValue(cValue)
@@ -106,6 +133,8 @@ const CustomFieldDisplay: FC<{
       <a href={cValue} target="_blank" rel="noreferrer">
         {cValue ?? ""}
       </a>
+    ) : v.type === "metrics" ? (
+      getMetricValue(cValue)
     ) : v.type === "boolean" ? (
       <>{cValue ? "yes" : "no"}</>
     ) : cValue ? (

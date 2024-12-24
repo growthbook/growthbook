@@ -62,6 +62,7 @@ export default function CustomFieldModal({
     "boolean",
     "url",
     "date",
+    "metrics",
   ];
 
   const availableProjects: (SingleValue | GroupedValue)[] = projects
