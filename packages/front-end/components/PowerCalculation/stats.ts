@@ -91,13 +91,37 @@ export function powerStandardError(
   );
 }
 
-export function calculateRho(
+export function sequentialRho(
   alpha: number,
   sequentialTuningParameter: number
 ): number {
   return Math.sqrt(
     (-2 * Math.log(alpha) + Math.log(-2 * Math.log(alpha) + 1)) /
       sequentialTuningParameter
+  );
+}
+
+/* function sequentialIntervalHalfwidth(
+  s2: number,
+  N: number,
+  sequentialTuningParameter: number,
+  alpha: number
+): number {
+  const rho = sequentialRho(alpha, sequentialTuningParameter);
+  const disc = sequentialDiscriminant(N, rho, alpha);
+  return Math.sqrt(s2) * Math.sqrt(disc);
+}
+ */
+export function sequentialDiscriminant(
+  n: number,
+  rho: number,
+  alpha: number
+): number {
+  return (
+    (2 *
+      (n * Math.pow(rho, 2) + 1) *
+      Math.log(Math.sqrt(n * Math.pow(rho, 2) + 1) / alpha)) /
+    Math.pow(n * rho, 2)
   );
 }
 
@@ -108,12 +132,8 @@ export function sequentialPowerSequentialVariance(
   sequentialTuningParameter: number
 ): number {
   const standardErrorSampleMean = Math.sqrt(variance / n);
-  const rho = calculateRho(alpha, sequentialTuningParameter);
-  const partUnderRadical =
-    (2 *
-      (n * Math.pow(rho, 2) + 1) *
-      Math.log(Math.sqrt(n * Math.pow(rho, 2) + 1) / alpha)) /
-    Math.pow(n * rho, 2);
+  const rho = sequentialRho(alpha, sequentialTuningParameter);
+  const partUnderRadical = sequentialDiscriminant(n, rho, alpha);
   const zSequential = Math.sqrt(n) * Math.sqrt(partUnderRadical);
   const zStar = normal.quantile(1.0 - 0.5 * alpha, 0, 1);
   const standardErrorSequential =
@@ -670,3 +690,58 @@ export function findMdeBayesian(
   };
   return mdeResults;
 }
+
+// /*used for calculating power at the end of the experiment*/
+// function finalPosteriorVariance(
+//   sigma2Posterior: number,
+//   sigmahat2Delta: number,
+//   scalingFactor: number
+// ): number {
+//   const precPrior = 1 / sigma2Posterior;
+//   const precData = 1 / (sigmahat2Delta / scalingFactor);
+//   const prec = precPrior + precData;
+//   return 1 / prec;
+// }
+
+// function calculateMidExperimentPower(
+//   firstPeriodSampleSize: number,
+//   secondPeriodSampleSize: number,
+//   minEffectSize: number,
+//   sigmahat2Delta: number,
+//   pairwiseSampleSize: number,
+//   sigma2Posterior: number,
+//   deltaPosterior: number,
+//   sequential: boolean,
+//   alpha: number,
+//   sequentialTuningParameter: number,
+// ): number {
+//   const scalingFactor = secondPeriodSampleSize / firstPeriodSampleSize;
+//   const mPrime = 2 * minEffectSize;
+//   const vPrime = sigmahat2Delta;
+//   let halfwidth = 0;
+//   if (sequential) {
+//     const s2 = sigmahat2Delta * pairwiseSampleSize;
+//     const nTotal = pairwiseSampleSize * (1 + scalingFactor);
+//     halfwidth = sequentialIntervalHalfwidth(s2, nTotal, sequentialTuningParameter, alpha);
+//   } else {
+//     const zStar = normal.quantile(1.0 - 0.5 * alpha, 0, 1);
+//     const v = finalPosteriorVariance(
+//       sigma2Posterior,
+//       sigmahat2Delta,
+//       scalingFactor
+//     );
+//     const s = Math.sqrt(v);
+//     halfwidth = zStar * s;
+//   }
+//   const marginalVar = sigma2Posterior + sigmahat2Delta / scalingFactor;
+//   const num1 = (halfwidth * marginalVar) / sigma2Posterior;
+//   const num2 =
+//     (sigmahat2Delta / scalingFactor) * deltaPosterior / sigma2Posterior;
+//   const num3 = mPrime;
+//   const den = Math.sqrt(vPrime);
+//   const numPos = num1 - num2 - num3;
+//   const numNeg = -num1 - num2 - num3;
+//   const powerPos = 1 - normal.cdf(numPos/den, 0, 1);
+//   const powerNeg = normal.cdf(numNeg / den, 0, 1);
+//   return powerPos + powerNeg;
+// }

@@ -47,9 +47,19 @@ class BaselineResponse:
 
 @dataclass
 class PowerResponse:
-    effect_size: float
-    power: float
-    additional_days_needed: float
+    firstPeriodPairwiseSampleSize: Optional[float]
+    effectSize: Optional[float]
+    sigmahat2Delta: Optional[float]
+    sigma2Posterior: Optional[float]
+    deltaPosterior: Optional[float]
+    powerAdditionalUsers: Optional[float]
+    powerUpdateMessage: Optional[str]
+    powerError: Optional[str]
+    endOfExperimentPower: Optional[float]  # delete later
+    newDailyUsers: Optional[float]  # delete later
+    powerAdditionalUsers: Optional[float]  # delete later
+    powerAdditionalDays: Optional[float]  # delete later
+    targetPower: Optional[float]  # delete later
 
 
 @dataclass
@@ -58,6 +68,7 @@ class BaseVariationResponse(BaselineResponse):
     uplift: Uplift
     ci: Tuple[float, float]
     errorMessage: Optional[str]
+    powerResponse: Optional[PowerResponse]
 
 
 @dataclass

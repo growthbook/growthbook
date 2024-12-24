@@ -113,6 +113,13 @@ export interface ExperimentSnapshotAnalysisSettings {
   pValueCorrection?: null | "holm-bonferroni" | "benjamini-hochberg";
   pValueThreshold?: number;
   baselineVariationIndex?: number;
+  // question: should these be optional?
+  // this settings are also generated in:
+  // - getAnalysisSettingsFromReportArgs
+  // - migrateSnapshot
+  // - postDemoDatasourceProject
+  experimentMinLengthDays?: number;
+  experimentMaxLengthDays?: number;
 }
 
 export type SnapshotType = "standard" | "exploratory" | "report";

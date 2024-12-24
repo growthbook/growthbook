@@ -67,6 +67,7 @@ export interface AnalysisSettingsForStatsEngine {
   alpha: number;
   max_dimensions: number;
   traffic_percentage: number;
+  num_goal_metrics: number;
 }
 
 export interface BanditSettingsForStatsEngine {
@@ -101,6 +102,7 @@ export interface MetricSettingsForStatsEngine {
   prior_proper?: boolean;
   prior_mean?: number;
   prior_stddev?: number;
+  min_percent_change: number;
 }
 
 export interface QueryResultsForStatsEngine {
@@ -178,7 +180,11 @@ export function getAnalysisSettingsForStatsEngine(
         ? 9999
         : MAX_DIMENSIONS,
     traffic_percentage: coverage,
+    // TODO: should these be optional or nah? Related to definition in experiment-snapshot.d.ts
+    min_duration_days: settings.experimentMinLengthDays ?? 7,
+    max_duration_days: settings.experimentMaxLengthDays ?? 42,
   };
+
   return analysisData;
 }
 
@@ -393,7 +399,28 @@ export function getMetricSettingsForStatsEngine(
     prior_proper: metric.priorSettings.proper,
     prior_mean: metric.priorSettings.mean,
     prior_stddev: metric.priorSettings.stddev,
+    business_metric_type: getBusinessMetricTypeForStatsEngine(
+      metric.id,
+      settings
+    ),
   };
+}
+
+type BusinessMetricTypeForStatsEngine = "goal" | "secondary" | "guardrail";
+
+function getBusinessMetricTypeForStatsEngine(
+  metricId: string,
+  settings: ExperimentSnapshotSettings
+): BusinessMetricTypeForStatsEngine[] {
+  return [
+    settings.goalMetrics.includes(metricId) ? ("goal" as const) : null,
+    settings.secondaryMetrics.includes(metricId)
+      ? ("secondary" as const)
+      : null,
+    settings.guardrailMetrics.includes(metricId)
+      ? ("guardrail" as const)
+      : null,
+  ].filter((m) => m !== null);
 }
 
 export function getMetricsAndQueryDataForStatsEngine(

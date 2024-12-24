@@ -8,6 +8,23 @@ export type DifferenceType = "relative" | "absolute" | "scaled";
 
 export type RiskType = "relative" | "absolute";
 
+// Keep PowerResponse in sync with gbstats
+export interface PowerResponse {
+  firstPeriodSampleSize?: number;
+  firstPeriodPairwiseSampleSize?: number;
+  effectSize?: number;
+  sigmahat2Delta?: number;
+  sigma2Posterior?: number;
+  deltaPosterior?: number;
+  powerUpdateMessage?: string;
+  powerError?: string;
+  endOfExperimentPower?: number; //delete later
+  newDailyUsers?: number; //delete later
+  powerAdditionalUsers?: number; //delete later
+  powerAdditionalDays?: number; //delete later
+  targetPower?: number; //delete later
+}
+
 interface BaseVariationResponse {
   cr: number;
   value: number;
@@ -22,6 +39,7 @@ interface BaseVariationResponse {
   };
   ci?: [number, number];
   errorMessage?: string;
+  powerResponse?: PowerResponse;
 }
 
 interface BayesianVariationResponse extends BaseVariationResponse {
