@@ -211,6 +211,25 @@ export default function ExperimentSettings({
             </div>
           </div>
 
+          <div className="d-flex form-group mb-3">
+            <label className="mr-1" htmlFor="toggle-requireExperimentTemplates">
+              <PremiumTooltip commercialFeature="templates">
+                Require Experiment Templates
+              </PremiumTooltip>
+            </label>
+            <Toggle
+              id={"toggle-requireExperimentTemplates"}
+              value={
+                hasCommercialFeature("templates") &&
+                form.watch("requireExperimentTemplates")
+              }
+              setValue={(value) => {
+                form.setValue("requireExperimentTemplates", value);
+              }}
+              disabled={!hasCommercialFeature("templates")}
+            />
+          </div>
+
           <StatsEngineSettings />
 
           <div className="d-flex form-group mb-3">

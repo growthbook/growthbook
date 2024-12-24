@@ -41,6 +41,7 @@ export const POLICIES = [
   "AuditLogsFullAccess",
   "CustomRolesFullAccess",
   "CustomFieldsFullAccess",
+  "TemplatesFullAccess",
 ] as const;
 
 export type Policy = typeof POLICIES[number];
@@ -119,6 +120,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   AuditLogsFullAccess: ["readData", "viewAuditLog"],
   CustomRolesFullAccess: ["readData", "manageTeam", "manageCustomRoles"],
   CustomFieldsFullAccess: ["readData", "manageCustomFields"],
+  TemplatesFullAccess: ["readData", "manageTemplates"],
 };
 
 export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
@@ -140,6 +142,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "ExperimentsFullAccess",
       "VisualEditorFullAccess",
       "SuperDeleteReports",
+      "TemplatesFullAccess",
     ],
   },
   {
@@ -355,6 +358,10 @@ export const POLICY_METADATA_MAP: Record<
     displayName: "Manage Custom Fields",
     description: "Create, edit, and delete custom fields",
   },
+  TemplatesFullAccess: {
+    displayName: "Manage Templates",
+    description: "Create, edit, and delete experiment templates",
+  },
 };
 
 export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
@@ -422,6 +429,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "PresentationsFullAccess",
       "TagsFullAccess",
       "DataSourceConfiguration",
+      "TemplatesFullAccess",
     ],
   },
   experimenter: {
@@ -450,6 +458,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "SavedGroupsFullAccess",
       "TagsFullAccess",
       "DataSourceConfiguration",
+      "TemplatesFullAccess",
     ],
   },
   admin: {
@@ -500,6 +509,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "manageVisualChanges",
   "manageSavedGroups",
   "manageCustomFields",
+  "manageTemplates",
 ] as const;
 
 export const GLOBAL_PERMISSIONS = [

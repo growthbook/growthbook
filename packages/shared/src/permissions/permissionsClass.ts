@@ -15,7 +15,11 @@ import {
   FactTableInterface,
   UpdateFactTableProps,
 } from "back-end/types/fact-table";
-import { ExperimentInterface } from "back-end/types/experiment";
+import {
+  ExperimentInterface,
+  ExperimentTemplateInterface,
+  UpdateTemplateProps,
+} from "back-end/types/experiment";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { UpdateProps } from "back-end/types/models";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
@@ -316,6 +320,49 @@ export class Permissions {
     return this.checkProjectFilterPermission(
       { projects: experiment.project ? [experiment.project] : [] },
       "createAnalyses"
+    );
+  };
+
+  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
+  public canViewExperimentTemplateModal = (project?: string): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: project ? [project] : [],
+      },
+      "manageTemplates"
+    );
+  };
+
+  public canCreateExperimentTemplate = (
+    template: Pick<ExperimentTemplateInterface, "project">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: template.project ? [template.project] : [],
+      },
+      "manageTemplates"
+    );
+  };
+
+  public canUpdateExperimentTemplate = (
+    existing: Pick<ExperimentTemplateInterface, "project">,
+    updated: UpdateTemplateProps
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      { projects: existing.project ? [existing.project] : [] },
+      "project" in updated ? { projects: [updated.project || ""] } : {},
+      "manageTemplates"
+    );
+  };
+
+  public canDeleteExperimentTemplate = (
+    template: Pick<ExperimentTemplateInterface, "project">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: template.project ? [template.project] : [],
+      },
+      "manageTemplates"
     );
   };
 

@@ -32,6 +32,7 @@ import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
 import { SegmentModel } from "back-end/src/models/SegmentModel";
 import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
+import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplateModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -50,6 +51,7 @@ export class ReqContextClass {
     metricAnalysis: MetricAnalysisModel;
     metricGroups: MetricGroupModel;
     segments: SegmentModel;
+    experimentTemplates: ExperimentTemplatesModel;
   };
   private initModels() {
     this.models = {
@@ -60,6 +62,7 @@ export class ReqContextClass {
       metricAnalysis: new MetricAnalysisModel(this),
       metricGroups: new MetricGroupModel(this),
       segments: new SegmentModel(this),
+      experimentTemplates: new ExperimentTemplatesModel(this),
     };
   }
 

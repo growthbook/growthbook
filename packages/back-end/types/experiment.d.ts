@@ -22,6 +22,12 @@ export {
   Variation,
 } from "back-end/src/validators/experiments";
 
+export {
+  ExperimentTemplateInterface,
+  CreateTemplateProps,
+  UpdateTemplateProps,
+} from "back-end/src/routers/experiment-template/template.validators";
+
 export type ExperimentPhaseType = "ramp" | "main" | "holdout";
 
 export type DomChange = {

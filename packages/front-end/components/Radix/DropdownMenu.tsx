@@ -1,4 +1,8 @@
-import { DropdownMenu as RadixDropdownMenu, Text } from "@radix-ui/themes";
+import {
+  DropdownMenu as RadixDropdownMenu,
+  Text,
+  Tooltip,
+} from "@radix-ui/themes";
 import type { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
 import { PiCaretDown } from "react-icons/pi";
 import React from "react";
@@ -14,6 +18,7 @@ type DropdownProps = {
   children: AllowedChildren;
   color?: RadixDropdownMenu.ContentProps["color"];
   variant?: RadixDropdownMenu.ContentProps["variant"];
+  tooltipContent?: string;
   open?: boolean;
   onOpenChange?: (o: boolean) => void;
   disabled?: boolean;
@@ -27,6 +32,7 @@ export function DropdownMenu({
   children,
   color,
   variant,
+  tooltipContent,
   disabled,
   ...props
 }: DropdownProps) {
@@ -44,12 +50,25 @@ export function DropdownMenu({
 
   return (
     <RadixDropdownMenu.Root {...props} modal={false}>
-      <RadixDropdownMenu.Trigger
-        className={triggerClassName}
-        disabled={disabled}
-      >
-        {triggerComponent}
-      </RadixDropdownMenu.Trigger>
+      {tooltipContent ? (
+        <Tooltip content={tooltipContent} side="bottom">
+          <RadixDropdownMenu.Trigger
+            className={triggerClassName}
+            disabled={disabled}
+          >
+            {triggerComponent}
+          </RadixDropdownMenu.Trigger>
+        </Tooltip>
+      ) : (
+        <>
+          <RadixDropdownMenu.Trigger
+            className={triggerClassName}
+            disabled={disabled}
+          >
+            {triggerComponent}
+          </RadixDropdownMenu.Trigger>
+        </>
+      )}
       <RadixDropdownMenu.Content
         align={menuPlacement}
         color={color}

@@ -1,0 +1,49 @@
+import express from "express";
+import { z } from "zod";
+import { wrapController } from "back-end/src/routers/wrapController";
+import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
+import * as rawTemplateController from "./template.controller";
+import {
+  createTemplateValidator,
+  updateTemplateValidator,
+} from "./template.validators";
+
+const router = express.Router();
+
+const templateController = wrapController(rawTemplateController);
+
+const templateQuery = z.object({ project: z.string().optional() }).strict();
+const templateParams = z.object({ id: z.string() }).strict();
+
+router.get(
+  "/",
+  validateRequestMiddleware({ query: templateQuery }),
+  templateController.getTemplates
+);
+
+router.post(
+  "/",
+  validateRequestMiddleware({
+    body: createTemplateValidator,
+  }),
+  templateController.postTemplate
+);
+
+router.delete(
+  "/:id",
+  validateRequestMiddleware({
+    params: templateParams,
+  }),
+  templateController.deleteTemplate
+);
+
+router.put(
+  "/:id",
+  validateRequestMiddleware({
+    params: templateParams,
+    body: updateTemplateValidator,
+  }),
+  templateController.putTemplate
+);
+
+export { router as templateRouter };
