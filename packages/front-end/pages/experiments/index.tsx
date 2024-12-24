@@ -35,6 +35,7 @@ import {
   DropdownMenu,
   DropdownMenuItem,
 } from "@/components/Radix/DropdownMenu";
+import Markdown from "@/components/Markdown/Markdown";
 
 const NUM_PER_PAGE = 20;
 
@@ -311,6 +312,7 @@ const ExperimentsPage = (): React.ReactElement => {
   }
 
   const hasExperiments = experiments.length > 0;
+  const hasDescription = experiments.some((e) => e.description);
 
   const canAdd = permissionsUtil.canViewExperimentModal(project);
 
@@ -470,9 +472,14 @@ const ExperimentsPage = (): React.ReactElement => {
                 <thead>
                   <tr>
                     <th></th>
-                    <SortableTH field="name" className="w-100">
+                    <SortableTH field="name" className="nowrap">
                       Experiment
                     </SortableTH>
+                    {hasDescription && (
+                      <SortableTH field="description" className="">
+                        Description
+                      </SortableTH>
+                    )}
                     {showProjectColumn && (
                       <SortableTH field="projectName">Project</SortableTH>
                     )}
@@ -498,7 +505,10 @@ const ExperimentsPage = (): React.ReactElement => {
                             type="icon"
                           />
                         </td>
-                        <td data-title="Experiment name:" className="p-0">
+                        <td
+                          data-title="Experiment name:"
+                          className="p-0 text-nowrap"
+                        >
                           <Link
                             href={`/experiment/${e.id}`}
                             className="d-block p-2"
@@ -542,6 +552,17 @@ const ExperimentsPage = (): React.ReactElement => {
                             </div>
                           </Link>
                         </td>
+                        {hasDescription && (
+                          <td className="p0 small text-muted">
+                            <Tooltip
+                              body={<Markdown>{e.description || ""}</Markdown>}
+                            >
+                              <Markdown className="text-truncate-lines-2">
+                                {e.description || ""}
+                              </Markdown>
+                            </Tooltip>
+                          </td>
+                        )}
                         {showProjectColumn && (
                           <td className="nowrap" data-title="Project:">
                             {e.projectIsDeReferenced ? (
@@ -562,7 +583,11 @@ const ExperimentsPage = (): React.ReactElement => {
                           </td>
                         )}
 
-                        <td data-title="Tags:" className="table-tags">
+                        <td
+                          data-title="Tags:"
+                          className=""
+                          style={{ minWidth: "20%" }}
+                        >
                           <SortedTags
                             tags={Object.values(e.tags)}
                             useFlex={true}
