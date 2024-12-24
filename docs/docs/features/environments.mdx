@@ -38,11 +38,10 @@ client code.
 
 ## Environment Inheritance
 
-When creating an environment via the API, you can specify a `parent` environment it should inherit from.
-The newly created environment will share the same feature rules as its parent for all features that exist
-at the time of creation. Any changes to feature rules in either the parent or the new environment will
-not be shared and will cause the two environments to diverge. In other words, the new environment is
-a clone or fork of the parent.
+When you create an environment via the API, you can specify a parent environment to inherit from.
+The new environment initially copies all feature rules from its parent. After creation, the environments
+operate independently—changes to feature rules in one environment won't affect the other. Think of
+it like creating a fork or snapshot of the parent environment.
 
 :::note
 
@@ -50,10 +49,7 @@ a clone or fork of the parent.
 
 :::
 
-There are two main usages for Environment Inheritance:
+Common Use Cases
 
-1. After setting up GrowthBook, you decide that you want to add a new environment but you've already
-   created feature rules, e.g. adding "staging" after only having "dev" and "production"
-2. When troubleshooting unexpected behavior with feature rules in production, it can be useful to
-   create an independent environment that you can make changes to safely to help diagnose the cause
-   of the behavior.
+- Adding new environments to an existing setup (e.g., adding "staging" after having "dev" and "production")
+- Troubleshooting production issues by creating an isolated test environment to safely diagnose problems
