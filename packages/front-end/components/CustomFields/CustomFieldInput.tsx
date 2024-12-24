@@ -6,6 +6,7 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Toggle from "@/components/Forms/Toggle";
+import MetricsSelector from "@/components/Experiment/MetricsSelector";
 
 const CustomFieldInput: FC<{
   customFields: CustomField[];
@@ -81,6 +82,7 @@ const CustomFieldInput: FC<{
         ) : (
           <>
             {availableFields.map((v, i) => {
+              console.log("current value", currentCustomFields?.[v.id]);
               return (
                 <div key={i}>
                   {v.type === "boolean" ? (
@@ -129,6 +131,32 @@ const CustomFieldInput: FC<{
                       }}
                       helpText={v.description}
                     />
+                  ) : v.type === "metrics" ? (
+                    <>
+                      <label className="d-block position-relative">
+                        {v.name}
+                        {v.required && (
+                          <span className="text-danger ml-1">*</span>
+                        )}
+                      </label>
+                      <MetricsSelector
+                        selected={
+                          Array.isArray(currentCustomFields?.[v.id])
+                            ? currentCustomFields?.[v.id]
+                            : currentCustomFields?.[v.id]
+                            ? getMultiSelectValue(currentCustomFields?.[v.id])
+                            : v?.defaultValue
+                            ? [v?.defaultValue]
+                            : []
+                        }
+                        onChange={(metricIds) => {
+                          updateCustomField(v.id, JSON.stringify(metricIds));
+                        }}
+                        includeFacts={true}
+                        includeGroups={false}
+                        excludeQuantiles={false}
+                      />
+                    </>
                   ) : v.type === "multiselect" ? (
                     <MultiSelectField
                       label={

@@ -13,6 +13,7 @@ export const customFieldTypes = z.enum([
   "boolean",
   "date",
   "datetime",
+  "metrics",
 ]);
 
 export const customFieldsPropsValidator = z.object({
