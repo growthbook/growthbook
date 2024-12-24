@@ -73,10 +73,10 @@ class MidExperimentPower:
         self.traffic_percentage = config.traffic_percentage
         self.phase_length_days = config.phase_length_days
         self.alpha = config.alpha
-        self.num_comparisons = (
+        self.num_tests = (
             power_config.num_variations - 1
         ) * power_config.num_goal_metrics
-        self.z_star = norm.ppf(1 - self.alpha / (2 * self.num_comparisons))
+        self.z_star = norm.ppf(1 - self.alpha / (2 * self.num_tests))
         self.target_power = power_config.target_power
         self.m_prime = power_config.m_prime
         self.v_prime = (
@@ -222,7 +222,9 @@ class MidExperimentPower:
             rho = sequential_rho(self.alpha, self.sequential_tuning_parameter)
             s2 = self.sigmahat_2_delta * self.pairwise_sample_size
             n_total = self.pairwise_sample_size * (1 + scaling_factor)
-            halfwidth = sequential_interval_halfwidth(s2, n_total, rho, self.alpha)
+            halfwidth = sequential_interval_halfwidth(
+                s2, n_total, rho, self.alpha / self.num_tests
+            )
         else:
             v = MidExperimentPower.final_posterior_variance(
                 self.sigma_2_posterior, self.sigmahat_2_delta, scaling_factor
@@ -246,6 +248,9 @@ class MidExperimentPower:
         power_neg = float(norm.cdf(num_neg / den))
         return power_pos + power_neg
 
+    #################################################
+    # will be deleted later, used for testing purposes
+    #################################################
     @staticmethod
     def calculate_power_standalone(
         scaling_factor: float,
@@ -277,15 +282,16 @@ class MidExperimentPower:
         Returns:
             power estimate.
         """
+        num_tests = (num_variations - 1) * num_goal_metrics
         if sequential:
             rho = sequential_rho(alpha, sequential_tuning_parameter)
             s2 = sigmahat_2_delta * pairwise_sample_size
             n_total = pairwise_sample_size * (1 + scaling_factor)
-            halfwidth = sequential_interval_halfwidth(s2, n_total, rho, alpha)
-        else:
-            z_star = float(
-                norm.ppf(1 - alpha / (2 * (num_variations - 1) * num_goal_metrics))
+            halfwidth = sequential_interval_halfwidth(
+                s2, n_total, rho, alpha / num_tests
             )
+        else:
+            z_star = float(norm.ppf(1 - alpha / (2 * num_tests)))
             v = MidExperimentPower.final_posterior_variance(
                 sigma_2_posterior, sigmahat_2_delta, scaling_factor
             )
