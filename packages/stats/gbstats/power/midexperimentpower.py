@@ -14,6 +14,7 @@ from gbstats.frequentist.tests import (
     sequential_rho,
 )
 from gbstats.models.tests import BaseConfig
+from gbstats.utils import is_statistically_significant
 
 
 @dataclass
@@ -121,10 +122,7 @@ class MidExperimentPower:
 
     @property
     def already_significant(self) -> bool:
-        return (
-            np.abs(self.test_result.uplift.mean) / self.test_result.uplift.stddev
-            > self.z_star
-        )
+        return is_statistically_significant(self.test_result.ci)
 
     @property
     def pairwise_sample_size(self) -> int:
