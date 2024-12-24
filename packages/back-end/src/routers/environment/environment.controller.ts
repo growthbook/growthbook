@@ -1,6 +1,7 @@
 import type { Response } from "express";
 import z from "zod";
 import { isEqual } from "lodash";
+import { DEFAULT_ENVIRONMENT_IDS } from "shared/util";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { triggerSingleSDKWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import {
@@ -268,6 +269,14 @@ export const postEnvironment = async (
       status: 400,
       message: `Environment ${environment.id} already exists`,
     });
+  }
+
+  if (environment.parent && !DEFAULT_ENVIRONMENT_IDS.includes(environment.id)) {
+    throw new Error(
+      `Manual environment inheritance only valid for environments ${DEFAULT_ENVIRONMENT_IDS.join(
+        ", "
+      )}. For programmatic control use the API endpoint instead.`
+    );
   }
 
   const updatedEnvironments = addEnvironmentToOrganizationEnvironments(
