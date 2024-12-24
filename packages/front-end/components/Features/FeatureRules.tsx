@@ -6,14 +6,23 @@ import {
   FeatureRule,
 } from "back-end/src/validators/features";
 import { Environment } from "back-end/types/organization";
+import { Container, Flex } from "@radix-ui/themes";
 import RuleModal from "@/components/Features/RuleModal/index";
 import RuleList from "@/components/Features/RuleList";
 import track from "@/services/track";
 import { getRules, useEnvironmentState } from "@/services/features";
 import CopyRuleModal from "@/components/Features/CopyRuleModal";
 import Button from "@/components/Radix/Button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../Radix/Tabs";
-import Badge from "../Radix/Badge";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/Radix/Tabs";
+import Badge from "@/components/Radix/Badge";
+import Link from "@/components/Radix/Link";
+import EnvironmentDropdown from "../Environments/EnvironmentDropdown";
+import CompareEnvironmentsModal from "./CompareEnvironmentsModal";
 
 export default function FeatureRules({
   environments,
@@ -47,6 +56,10 @@ export default function FeatureRules({
     environment: string;
     rules: FeatureRule[];
   } | null>(null);
+  const [compareEnvModal, setCompareEnvModal] = useState<{
+    sourceEnv?: string;
+    targetEnv?: string;
+  } | null>(null);
 
   // Make sure you can't access an invalid env tab, since active env tab is persisted via localStorage
   useEffect(() => {
@@ -74,19 +87,59 @@ export default function FeatureRules({
   return (
     <>
       <Tabs value={env} onValueChange={setEnv}>
-        <TabsList>
-          {environments.map((e) => (
-            <TabsTrigger value={e.id} key={e.id}>
-              <span className="mr-2">{e.id}</span>
-              <Badge
-                label={rulesByEnv[e.id].length.toString()}
-                radius="full"
-                variant="solid"
-                color="violet"
-              ></Badge>
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        {environments.length < 6 ? (
+          <Container>
+            <Flex align="center" justify="between">
+              <TabsList>
+                {environments.map((e) => (
+                  <TabsTrigger value={e.id} key={e.id}>
+                    <span className="mr-2">{e.id}</span>
+                    <Badge
+                      label={rulesByEnv[e.id].length.toString()}
+                      radius="full"
+                      variant="solid"
+                      color="violet"
+                    ></Badge>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              <Link
+                onClick={() => setCompareEnvModal({ sourceEnv: env })}
+                underline="none"
+              >
+                Compare environments
+              </Link>
+            </Flex>
+          </Container>
+        ) : (
+          <Container mb={"4"}>
+            <Flex align="center">
+              <Container flexGrow="0" width="270px" mr="4">
+                <EnvironmentDropdown
+                  env={env}
+                  setEnv={setEnv}
+                  environments={environments}
+                  formatOptionLabel={({ value }) => (
+                    <Flex justify="between" align="center">
+                      <span>{value}</span>
+                      <Badge
+                        label={`${rulesByEnv[value].length} Rule${
+                          rulesByEnv[value].length === 1 ? "" : "s"
+                        } applied`}
+                      />
+                    </Flex>
+                  )}
+                />
+              </Container>
+              <Link
+                onClick={() => setCompareEnvModal({ sourceEnv: env })}
+                underline="none"
+              >
+                Compare environments
+              </Link>
+            </Flex>
+          </Container>
+        )}
         {environments.map((e) => {
           return (
             <TabsContent key={e.id} value={e.id}>
@@ -155,6 +208,24 @@ export default function FeatureRules({
           setVersion={setVersion}
           rules={copyRuleModal.rules}
           cancel={() => setCopyRuleModal(null)}
+          mutate={mutate}
+        />
+      )}
+      {compareEnvModal !== null && (
+        <CompareEnvironmentsModal
+          feature={feature}
+          sourceEnv={compareEnvModal.sourceEnv}
+          targetEnv={compareEnvModal.targetEnv}
+          setSourceEnv={(sourceEnv) =>
+            setCompareEnvModal({ ...compareEnvModal, sourceEnv })
+          }
+          setTargetEnv={(targetEnv) =>
+            setCompareEnvModal({ ...compareEnvModal, targetEnv })
+          }
+          version={currentVersion}
+          setVersion={setVersion}
+          setEnvironment={setEnv}
+          cancel={() => setCompareEnvModal(null)}
           mutate={mutate}
         />
       )}
