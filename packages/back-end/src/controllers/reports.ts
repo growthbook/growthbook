@@ -104,6 +104,14 @@ export async function postReportFromSnapshot(
     _experimentAnalysisSettings.dateStarted =
       experiment.phases?.[phaseIndex]?.dateStarted ?? new Date();
   }
+  if (
+    !_experimentAnalysisSettings.dateEnded &&
+    experiment?.status === "stopped" &&
+    experiment.phases?.[phaseIndex]?.dateEnded
+  ) {
+    _experimentAnalysisSettings.dateEnded =
+      experiment.phases?.[phaseIndex]?.dateEnded;
+  }
 
   const doc = await createReport(org.id, {
     experimentId: experiment.id,

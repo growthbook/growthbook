@@ -90,6 +90,8 @@ export default function ConfigureReport({
   const experiment = experimentData?.experiment;
 
   const latestPhaseIndex = (experiment?.phases?.length ?? 1) - 1;
+  const experimentEndDate = experiment?.phases?.[latestPhaseIndex]?.dateEnded;
+
   const datasource = experiment?.datasource
     ? getDatasourceById(experiment.datasource)
     : null;
@@ -269,11 +271,41 @@ export default function ConfigureReport({
                     )}
                   />
                 )}
-                <Checkbox
-                  label="Today"
-                  value={useToday}
-                  setValue={(v) => setUseToday(v as boolean)}
-                />
+                <div className="d-flex align-items-center">
+                  {experiment?.status === "stopped" &&
+                  experimentEndDate &&
+                  getValidDate(experimentEndDate) ? (
+                    <div className="flex-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        mt="2"
+                        style={{ height: 45, textAlign: "left" }}
+                        onClick={() => {
+                          form.setValue(
+                            "experimentAnalysisSettings.dateEnded",
+                            getValidDate(experimentEndDate)
+                          );
+                          setUseToday(false);
+                        }}
+                      >
+                        <div style={{ lineHeight: 1.25, padding: "3px 0" }}>
+                          Use {isBandit ? "Bandit" : "Experiment"} end date
+                          <br />
+                          <small>{date(experimentEndDate || "")}</small>
+                        </div>
+                      </Button>
+                    </div>
+                  ) : null}
+                  <div className="d-flex align-items-center mr-2">
+                    <Checkbox
+                      label="Today"
+                      mb="0"
+                      value={useToday}
+                      setValue={(v) => setUseToday(v as boolean)}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </TabsContent>
