@@ -13,6 +13,7 @@ import { v4 as uuidv4 } from "uuid";
 import track, { TrackEventProps } from "@/services/track";
 import ConditionalWrapper from "@/components/ConditionalWrapper";
 import Button from "@/components/Radix/Button";
+import { useKeyPress } from "@/hooks/useKeyPress";
 import LoadingOverlay from "./LoadingOverlay";
 import Portal from "./Modal/Portal";
 import Tooltip from "./Tooltip/Tooltip";
@@ -124,6 +125,10 @@ const Modal: FC<ModalProps> = ({
   useEffect(() => {
     setLoading(externalLoading || false);
   }, [externalLoading]);
+
+  useKeyPress(() => {
+    if (close) close();
+  }, "Escape");
 
   const bodyRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -423,7 +428,6 @@ const Modal: FC<ModalProps> = ({
   if (inline) {
     return modalHtml;
   }
-
   return (
     <Portal>
       <div
