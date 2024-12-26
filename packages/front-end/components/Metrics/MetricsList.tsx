@@ -394,7 +394,7 @@ const MetricsList = (): React.ReactElement => {
           </div>
         )}
         <div className="col-auto">
-          <TagsFilter filter={tagsFilter} items={items} />
+          <TagsFilter filter={tagsFilter} items={filteredMetrics} />
         </div>
       </div>
       <table className="table appbox gbtable table-hover">
