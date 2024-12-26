@@ -22,6 +22,7 @@ import {
   FactTableInterface,
   MetricQuantileSettings,
 } from "back-end/types/fact-table";
+import { PopulationDataQuerySettings } from "back-end/src/queryRunners/PopulationMetricQueryRunner";
 
 export type ExternalIdCallback = (id: string) => Promise<void>;
 
@@ -182,17 +183,28 @@ export interface ExperimentUnitsQueryParams extends ExperimentBaseQueryParams {
   includeIdJoins: boolean;
 }
 
+type UnitsSource = "query" | "table" | "sql";
 export interface ExperimentMetricQueryParams extends ExperimentBaseQueryParams {
   metric: ExperimentMetricInterface;
   denominatorMetrics: ExperimentMetricInterface[];
-  useUnitsTable: boolean;
+  unitsSource: UnitsSource;
+  unitsSql?: string;
 }
 
 export interface ExperimentFactMetricsQueryParams
   extends ExperimentBaseQueryParams {
   metrics: FactMetricInterface[];
-  useUnitsTable: boolean;
+  unitsSource: UnitsSource;
+  unitsSql?: string;
 }
+
+export interface PopulationBaseQueryParams {
+  populationSettings: PopulationDataQuerySettings;
+  factTableMap: FactTableMap;
+  segment: SegmentInterface | null;
+}
+export interface PopulationMetricQueryParams extends ExperimentMetricQueryParams,  PopulationBaseQueryParams {};
+export interface PopulationFactMetricsQueryParams extends ExperimentFactMetricsQueryParams,  PopulationBaseQueryParams {};
 
 export interface ExperimentAggregateUnitsQueryParams
   extends ExperimentBaseQueryParams {
@@ -543,6 +555,8 @@ export interface SourceIntegrationInterface {
     setExternalId: ExternalIdCallback
   ): Promise<DropTableQueryResponse>;
   getMetricValueQuery(params: MetricValueParams): string;
+  getPopulationMetricQuery?(params: PopulationMetricQueryParams): string;
+  getPopulationFactMetricsQuery?(params: PopulationFactMetricsQueryParams): string;
   getExperimentFactMetricsQuery?(
     params: ExperimentFactMetricsQueryParams
   ): string;
@@ -561,6 +575,14 @@ export interface SourceIntegrationInterface {
     query: string,
     setExternalId: ExternalIdCallback
   ): Promise<MetricValueQueryResponse>;
+  runPopulationMetricQuery?(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<ExperimentMetricQueryResponse>;
+  runPopulationFactMetricsQuery?(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<ExperimentFactMetricsQueryResponse>;
   runExperimentMetricQuery(
     query: string,
     setExternalId: ExternalIdCallback

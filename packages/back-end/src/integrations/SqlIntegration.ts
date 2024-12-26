@@ -77,6 +77,8 @@ import {
   TestQueryParams,
   ColumnTopValuesParams,
   ColumnTopValuesResponse,
+  PopulationMetricQueryParams,
+  PopulationFactMetricsQueryParams,
 } from "back-end/src/types/Integration";
 import { DimensionInterface } from "back-end/types/dimension";
 import { SegmentInterface } from "back-end/types/segment";
@@ -100,6 +102,7 @@ import {
 } from "back-end/types/fact-table";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { ReqContextClass } from "back-end/src/services/context";
+import { PopulationDataQuerySettings } from "back-end/src/queryRunners/PopulationMetricQueryRunner";
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;
@@ -481,14 +484,14 @@ export default abstract class SqlIntegration
   }
 
   getMetricValueQuery(params: MetricValueParams): string {
-    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE(
-      [
+    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
+      objects: [
         params.metric.userIdTypes || [],
         params.segment ? [params.segment.userIdType || "user_id"] : [],
       ],
-      params.from,
-      params.to
-    );
+      from: params.from,
+      to: params.to
+    });
 
     // Get rough date filter for metrics to improve performance
     const metricStart = this.getMetricStart(
@@ -615,6 +618,79 @@ export default abstract class SqlIntegration
     );
   }
 
+  getPowerPopulationSourceCTE({
+    settings,
+    factTableMap,
+    segment,
+  }: {
+    settings: PopulationDataQuerySettings;
+    factTableMap: FactTableMap;
+    segment: SegmentInterface | null;
+  }) {
+    switch(settings.sourceType) {
+      case "exposureQuery": {
+        const exposureQuery = this.getExposureQuery(settings.sourceId || "");
+
+        return `
+          __source AS (
+            ${compileSqlTemplate(exposureQuery.query, {
+              startDate: settings.startDate,
+              endDate: settings.endDate ?? undefined,
+            })}
+          )`;
+        }
+      case "segment": {
+        if (segment) {
+          return `
+          __segment as (${this.getSegmentCTE(
+            segment,
+            settings.userIdType,
+            {}, // no id join map needed as id type is segment id type
+            factTableMap,
+            {
+              startDate: settings.startDate,
+              endDate: settings.endDate ?? undefined,
+            }
+          )})`;
+        } else {
+          throw new Error ("Segment not found");
+        }
+      }
+      case "experiment": 
+        throw new Error ("SQL not used for Experiment source type")
+    }
+  }
+
+  getPowerPopulationCTEs({
+    settings,
+    factTableMap,
+    segment,
+  }: {
+    settings: PopulationDataQuerySettings;
+    factTableMap: FactTableMap;
+    segment: SegmentInterface | null;
+  }): string {
+
+     const timestampColumn = "timestamp";
+     // BQ datetime cast for SELECT statements (do not use for where)
+     const timestampDateTimeColumn = this.castUserDateCol(timestampColumn);
+     
+     const firstQuery = this.getPowerPopulationSourceCTE({settings, factTableMap, segment})
+
+    return `
+      ${firstQuery}
+      , __population AS (
+        SELECT
+          ${settings.userIdType}
+          , MIN(${timestampDateTimeColumn}) AS first_timestamp
+        FROM
+          __segment e
+        WHERE
+            date >= ${this.toTimestamp(settings.startDate)}
+            AND date <= ${this.toTimestamp(settings.endDate)}
+      )`;
+  }
+
   getMetricAnalysisPopulationCTEs({
     settings,
     idJoinMap,
@@ -713,12 +789,12 @@ export default abstract class SqlIntegration
       //...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
       //settings.segment ? [settings.segment.userIdType || "user_id"] : [],
     ];
-    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE(
-      idTypeObjects,
-      settings.startDate,
-      settings.endDate ?? undefined,
-      settings.userIdType
-    );
+    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
+      objects: idTypeObjects,
+      from: settings.startDate,
+      to: settings.endDate ?? undefined,
+      forcedBaseIdType: settings.userIdType
+  });
 
     const metricData = this.getMetricData(
       metric,
@@ -1080,6 +1156,15 @@ export default abstract class SqlIntegration
     return quantileData;
   }
 
+  async runPopulationFactMetricsQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<ExperimentFactMetricsQueryResponse> {
+    return this.runExperimentFactMetricsQuery(
+      query,
+      setExternalId
+    )
+  }
   async runExperimentFactMetricsQuery(
     query: string,
     setExternalId: ExternalIdCallback
@@ -1134,6 +1219,15 @@ export default abstract class SqlIntegration
       }),
       statistics: statistics,
     };
+  }
+  async runPopulationMetricQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<ExperimentMetricQueryResponse> {
+    return this.runExperimentMetricQuery(
+      query,
+      setExternalId
+    )
   }
 
   async runExperimentMetricQuery(
@@ -1303,13 +1397,19 @@ export default abstract class SqlIntegration
     return results;
   }
 
-  private getIdentitiesCTE(
+  private getIdentitiesCTE({
+    objects,
+    from,
+    to,
+    forcedBaseIdType,
+    experimentId
+  }:{
     objects: string[][],
     from: Date,
     to?: Date,
     forcedBaseIdType?: string,
     experimentId?: string
-  ) {
+  }) {
     const { baseIdType, joinsRequired } = getBaseIdTypeAndJoins(
       objects,
       forcedBaseIdType
@@ -1640,6 +1740,38 @@ export default abstract class SqlIntegration
     );
   }
 
+  getPopulationMetricQuery(params: PopulationMetricQueryParams): string {
+    const { factTableMap, segment, populationSettings} = params;
+    // dimension date?
+    const populationSQL = this.getPowerPopulationCTEs({
+      settings: populationSettings,
+      factTableMap,
+      segment,
+    });
+
+    return this.getExperimentMetricQuery({
+      ...params,
+      unitsSource: "sql",
+      unitsSql: populationSQL
+    })
+  };
+
+  getPopulationFactMetricQuery(params: PopulationFactMetricsQueryParams): string {
+    const { factTableMap, segment, populationSettings} = params;
+    
+    const populationSQL = this.getPowerPopulationCTEs({
+      settings: populationSettings,
+      factTableMap,
+      segment,
+    });
+
+    return this.getExperimentFactMetricsQuery({
+      ...params,
+      unitsSource: "sql",
+      unitsSql: populationSQL
+    })
+  };
+
   getExperimentUnitsQuery(params: ExperimentUnitsQueryParams): string {
     const {
       settings,
@@ -1662,18 +1794,18 @@ export default abstract class SqlIntegration
     const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
 
     // Get any required identity join queries
-    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE(
-      [
+    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
+      objects: [
         [exposureQuery.userIdType],
         activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
         ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
         segment ? [segment.userIdType || "user_id"] : [],
       ],
-      settings.startDate,
-      settings.endDate,
-      exposureQuery.userIdType,
-      settings.experimentId
-    );
+      from: settings.startDate,
+      to: settings.endDate,
+      forcedBaseIdType: exposureQuery.userIdType,
+      experimentId: settings.experimentId
+    });
 
     // Get date range for experiment
     const startDate: Date = settings.startDate;
@@ -1859,23 +1991,23 @@ export default abstract class SqlIntegration
     const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
 
     // Get any required identity join queries
-    const { baseIdType, idJoinSQL } = this.getIdentitiesCTE(
+    const { baseIdType, idJoinSQL } = this.getIdentitiesCTE({
       // add idTypes usually handled in units query here in the case where
       // we don't have a separate table for the units query
       // then for this query we just need the activation metric for activation
       // dimensions
-      [
+      objects: [
         [exposureQuery.userIdType],
         !useUnitsTable && activationMetric
           ? getUserIdTypes(activationMetric, factTableMap)
           : [],
         !useUnitsTable && segment ? [segment.userIdType || "user_id"] : [],
       ],
-      settings.startDate,
-      settings.endDate,
-      exposureQuery.userIdType,
-      settings.experimentId
-    );
+      from: settings.startDate,
+      to: settings.endDate,
+      forcedBaseIdType: exposureQuery.userIdType,
+      experimentId: settings.experimentId
+    });
 
     return format(
       `-- Traffic Query for Health Tab
@@ -2262,20 +2394,20 @@ export default abstract class SqlIntegration
     ];
     // add idTypes usually handled in units query here in the case where
     // we don't have a separate table for the units query
-    if (!params.useUnitsTable) {
+    if (params.unitsSource === "query") {
       idTypeObjects.push(
         ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
         segment ? [segment.userIdType || "user_id"] : [],
         activationMetric ? getUserIdTypes(activationMetric, factTableMap) : []
       );
     }
-    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE(
-      idTypeObjects,
-      settings.startDate,
-      settings.endDate,
-      exposureQuery.userIdType,
-      settings.experimentId
-    );
+    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
+      objects: idTypeObjects,
+      from: settings.startDate,
+      to: settings.endDate,
+      forcedBaseIdType: exposureQuery.userIdType,
+      experimentId: settings.experimentId
+    });
 
     // Get date range for experiment and analysis
     const startDate: Date = settings.startDate;
@@ -2366,11 +2498,13 @@ export default abstract class SqlIntegration
     WITH
       ${idJoinSQL}
       ${
-        !params.useUnitsTable
+        params.unitsSource === "query"
           ? `${this.getExperimentUnitsQuery({
               ...params,
               includeIdJoins: false,
             })},`
+          : params.unitsSource === "sql"
+          ? params.unitsSql
           : ""
       }
       __distinctUsers AS (
@@ -2409,7 +2543,7 @@ export default abstract class SqlIntegration
             )
             .join("\n")}
         FROM ${
-          params.useUnitsTable
+          params.unitsSource === "table"
             ? `${params.unitsTableFullName}`
             : "__experimentUnits"
         }
@@ -2863,20 +2997,20 @@ export default abstract class SqlIntegration
     ];
     // add idTypes usually handled in units query here in the case where
     // we don't have a separate table for the units query
-    if (!params.useUnitsTable) {
+    if (params.unitsSource === "query") {
       idTypeObjects.push(
         ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
         segment ? [segment.userIdType || "user_id"] : [],
         activationMetric ? getUserIdTypes(activationMetric, factTableMap) : []
       );
     }
-    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE(
-      idTypeObjects,
-      settings.startDate,
-      settings.endDate,
-      exposureQuery.userIdType,
-      settings.experimentId
-    );
+    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
+      objects: idTypeObjects,
+      from: settings.startDate,
+      to: settings.endDate,
+      forcedBaseIdType: exposureQuery.userIdType,
+      experimentId: settings.experimentId
+    });
 
     // Get date range for experiment and analysis
     const startDate: Date = settings.startDate;
@@ -2934,11 +3068,13 @@ export default abstract class SqlIntegration
     WITH
       ${idJoinSQL}
       ${
-        !params.useUnitsTable
+        params.unitsSource === "query"
           ? `${this.getExperimentUnitsQuery({
               ...params,
               includeIdJoins: false,
             })},`
+          : params.unitsSource === "sql"
+          ? params.unitsSql
           : ""
       }
       __distinctUsers AS (
@@ -2962,7 +3098,7 @@ export default abstract class SqlIntegration
               : ""
           }
         FROM ${
-          params.useUnitsTable
+          params.unitsSource === "table"
             ? `${params.unitsTableFullName}`
             : "__experimentUnits"
         }

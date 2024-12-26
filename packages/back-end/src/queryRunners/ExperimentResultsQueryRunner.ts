@@ -98,7 +98,7 @@ export interface GroupedMetrics {
 
 export function getFactMetricGroups(
   metrics: ExperimentMetricInterface[],
-  settings: Pick<ExperimentSnapshotSettings, "skipPartialData">,
+  settings: ExperimentSnapshotSettings,
   integration: SourceIntegrationInterface,
   organization: OrganizationInterface
 ): GroupedMetrics {
@@ -300,7 +300,7 @@ export const startExperimentResultQueries = async (
       metric: m,
       segment: segmentObj,
       settings: snapshotSettings,
-      useUnitsTable: !!unitQuery,
+      unitsSource: !!unitQuery ? "table" : "query",
       unitsTableFullName: unitsTableFullName,
       factTableMap: params.factTableMap,
     };
@@ -324,7 +324,7 @@ export const startExperimentResultQueries = async (
       metrics: m,
       segment: segmentObj,
       settings: snapshotSettings,
-      useUnitsTable: !!unitQuery,
+      unitsSource: !!unitQuery ? "table" : "query",
       unitsTableFullName: unitsTableFullName,
       factTableMap: params.factTableMap,
     };
