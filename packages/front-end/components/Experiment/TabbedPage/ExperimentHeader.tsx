@@ -228,6 +228,12 @@ export default function ExperimentHeader({
   const shouldHideTabs =
     experiment.status === "draft" && !hasResults && phases.length === 1;
 
+  useEffect(() => {
+    if (shouldHideTabs) {
+      setTab("overview");
+    }
+  }, [shouldHideTabs, setTab]);
+
   const getMemberIdFromName = (owner) => {
     let ownerId: string | null = null;
     Array.from(users.entries()).forEach((info) => {
