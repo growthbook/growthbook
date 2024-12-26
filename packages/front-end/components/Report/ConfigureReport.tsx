@@ -91,11 +91,6 @@ export default function ConfigureReport({
 
   const latestPhaseIndex = (experiment?.phases?.length ?? 1) - 1;
   const experimentEndDate = experiment?.phases?.[latestPhaseIndex]?.dateEnded;
-  console.log(
-    experimentEndDate,
-    experiment?.phases?.[latestPhaseIndex],
-    experiment
-  );
 
   const datasource = experiment?.datasource
     ? getDatasourceById(experiment.datasource)
