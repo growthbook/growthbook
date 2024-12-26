@@ -91,6 +91,11 @@ export default function ConfigureReport({
 
   const latestPhaseIndex = (experiment?.phases?.length ?? 1) - 1;
   const experimentEndDate = experiment?.phases?.[latestPhaseIndex]?.dateEnded;
+  console.log(
+    experimentEndDate,
+    experiment?.phases?.[latestPhaseIndex],
+    experiment
+  );
 
   const datasource = experiment?.datasource
     ? getDatasourceById(experiment.datasource)
@@ -271,10 +276,11 @@ export default function ConfigureReport({
                     )}
                   />
                 )}
-                <div className="row align-items-center">
+                <div className="d-flex align-items-center">
                   {experiment?.status === "stopped" &&
+                  experimentEndDate &&
                   getValidDate(experimentEndDate) ? (
-                    <div className="col-auto mt-1">
+                    <div className="flex-1">
                       <Button
                         variant="ghost"
                         size="sm"
@@ -289,16 +295,17 @@ export default function ConfigureReport({
                         }}
                       >
                         <div style={{ lineHeight: 1.25, padding: "3px 0" }}>
-                          Use Experiment end date
+                          Use {isBandit ? "Bandit" : "Experiment"} end date
                           <br />
                           <small>{date(experimentEndDate || "")}</small>
                         </div>
                       </Button>
                     </div>
                   ) : null}
-                  <div className="col-auto">
+                  <div className="d-flex align-items-center mr-2">
                     <Checkbox
                       label="Today"
+                      mb="0"
                       value={useToday}
                       setValue={(v) => setUseToday(v as boolean)}
                     />
