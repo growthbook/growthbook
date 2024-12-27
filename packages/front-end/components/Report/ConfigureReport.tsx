@@ -5,7 +5,7 @@ import {
   AttributionModel,
   ExperimentInterfaceStringDates,
 } from "back-end/types/experiment";
-import { date, getValidDate } from "shared/dates";
+import { getValidDate } from "shared/dates";
 import { DifferenceType } from "back-end/types/stats";
 import { MdInfoOutline } from "react-icons/md";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
@@ -254,11 +254,11 @@ export default function ConfigureReport({
                     Use {isBandit ? "Bandit" : "Experiment"} start date
                     <br />
                     <small>
-                      {date(
+                      {new Date(
                         getValidDate(experiment?.phases?.[0]?.dateStarted)
                           .toISOString()
                           .substr(0, 16)
-                      )}
+                      ).toLocaleDateString()}
                     </small>
                   </div>
                 </Button>
@@ -288,14 +288,14 @@ export default function ConfigureReport({
                         Use latest phase ({latestPhaseIndex + 1}) start date
                         <br />
                         <small>
-                          {date(
+                          {new Date(
                             getValidDate(
                               experiment?.phases?.[latestPhaseIndex]
                                 ?.dateStarted
                             )
                               .toISOString()
                               .substr(0, 16)
-                          )}
+                          ).toLocaleDateString()}
                         </small>
                       </div>
                     </Button>
@@ -357,14 +357,14 @@ export default function ConfigureReport({
                           Use {isBandit ? "Bandit" : "Experiment"} end date
                           <br />
                           <small>
-                            {date(
+                            {new Date(
                               getValidDate(
                                 experiment?.phases?.[latestPhaseIndex]
                                   ?.dateEnded
                               )
                                 .toISOString()
                                 .substr(0, 16)
-                            )}
+                            ).toLocaleDateString()}
                           </small>
                         </div>
                       </Button>
