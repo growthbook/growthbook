@@ -32,5 +32,9 @@ export const validatePayload = async (
       );
   }
 
+  if (parent && !context.hasPremiumFeature("environment-inheritance")) {
+    throw new Error("Environment inheritance requires an enterprise license");
+  }
+
   return { id, projects, description, toggleOnList, defaultState, parent };
 };

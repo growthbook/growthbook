@@ -168,7 +168,7 @@ const CustomFieldDisplay: FC<{
                     setEditModal(true);
                   }}
                 >
-                  <span className="text-purple">Edit</span>
+                  Edit
                 </button>
               </>
             ) : (

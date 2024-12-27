@@ -541,7 +541,6 @@ export default function AnalysisSettingsSummary({
             editMetrics={editMetrics}
             notebookUrl={`/experiments/notebook/${snapshot?.id}`}
             notebookFilename={experiment.trackingKey}
-            generateReport={true}
             reportArgs={reportArgs}
             queries={
               latest && latest.status !== "error" && latest.queries

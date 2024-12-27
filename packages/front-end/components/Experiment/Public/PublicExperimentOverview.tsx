@@ -77,16 +77,16 @@ export default function PublicExperimentOverview({
             canAddChanges={false}
             isPublic={true}
           />
-
-          <AnalysisSettings
-            experiment={experiment}
-            envs={[]}
-            canEdit={false}
-            ssrPolyfills={ssrPolyfills}
-            isPublic={true}
-          />
         </>
       ) : null}
+
+      <AnalysisSettings
+        experiment={experiment}
+        envs={[]}
+        canEdit={false}
+        ssrPolyfills={ssrPolyfills}
+        isPublic={true}
+      />
     </>
   );
 }

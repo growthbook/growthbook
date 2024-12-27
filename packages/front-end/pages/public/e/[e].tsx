@@ -133,7 +133,7 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
         <title>{experiment?.name || "Experiment not found"}</title>
         <meta
           property="og:title"
-          content={experiment?.name || "Experiment not found"}
+          content={experiment?.name ? (`${isBandit ? "Bandit" : "Experiment"}: ${experiment?.name}`) : "Experiment not found"}
         />
         <meta
           property="og:description"
