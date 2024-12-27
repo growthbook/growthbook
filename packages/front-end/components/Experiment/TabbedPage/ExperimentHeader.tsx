@@ -16,7 +16,7 @@ import Collapsible from "react-collapsible";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiCheck, PiEye, PiLink } from "react-icons/pi";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import {
   ExperimentSnapshotReportArgs,
   ExperimentSnapshotReportInterface,
@@ -156,6 +156,11 @@ export default function ExperimentHeader({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showBanditModal, setShowBanditModal] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [loadingWatchStatus, setLoadingWatchStatus] = useState(false);
+  const [loadingShareStatus, setLoadingShareStatus] = useState(false);
+  const [watchError, setWatchError] = useState<string | null>(null);
+  const [shareError, setShareError] = useState<string | null>(null);
 
   const isWatching = watchedExperiments.includes(experiment.id);
 
@@ -262,14 +267,23 @@ export default function ExperimentHeader({
   };
 
   async function handleWatchUpdates(watch: boolean) {
-    await apiCall(
-      `/user-bad/${watch ? "watch" : "unwatch"}/experiment/${experiment.id}`,
-      {
-        method: "POST",
-      }
-    );
-    refreshWatching();
-    mutateWatchers();
+    try {
+      setWatchError(null);
+      setLoadingWatchStatus(true);
+      await apiCall(
+        `/user/${watch ? "watch" : "unwatch"}/experiment/${experiment.id}`,
+        {
+          method: "POST",
+        }
+      );
+      refreshWatching();
+      mutateWatchers();
+      setLoadingWatchStatus(false);
+      setOpen(false);
+    } catch (e) {
+      setWatchError(`Error: ${e.message}. Please try again.`);
+      setLoadingWatchStatus(false);
+    }
   }
 
   async function startExperiment() {
@@ -764,28 +778,63 @@ export default function ExperimentHeader({
                     <BsThreeDotsVertical size={18} />
                   </button>
                 }
+                open={open}
+                onOpenChange={(o) => {
+                  if (o) {
+                    setOpen(true);
+                  }
+
+                  if (!o && (!loadingWatchStatus || !loadingShareStatus)) {
+                    setOpen(false);
+                  }
+
+                  //MKTODO: Clean up this logic
+                  if (!open && !loadingWatchStatus && setWatchError !== null) {
+                    setWatchError(null);
+                  }
+
+                  if (!open && !loadingShareStatus && setShareError !== null) {
+                    setShareError(null);
+                  }
+                }}
                 menuPlacement="end"
               >
                 <DropdownMenuGroup>
                   {canRunExperiment &&
                     !isBandit &&
                     experiment.status !== "draft" && (
-                      <DropdownMenuItem onClick={() => setStatusModal(true)}>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setStatusModal(true);
+                          setOpen(false);
+                        }}
+                      >
                         Edit status
                       </DropdownMenuItem>
                     )}
                   {editPhases && !isBandit && (
-                    <DropdownMenuItem onClick={() => editPhases()}>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        editPhases();
+                        setOpen(false);
+                      }}
+                    >
                       Edit phases
                     </DropdownMenuItem>
                   )}
-                  <DropdownMenuItem onClick={() => setAuditModal(true)}>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setAuditModal(true);
+                      setOpen(false);
+                    }}
+                  >
                     Audit log
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
                   <DropdownSubMenu
+                    //MKTODO: Make this always display on the left side
                     trigger={
                       <Flex
                         align="center"
@@ -799,13 +848,30 @@ export default function ExperimentHeader({
                     }
                   >
                     <DropdownMenuItem
-                      onClick={() => handleWatchUpdates(!isWatching)}
+                      onClick={() => {
+                        handleWatchUpdates(!isWatching);
+                      }}
                     >
-                      {isWatching ? "Stop" : "Start"} watching
+                      {/* MKTODO: Clean up this display logic */}
+                      {/* MKTODO: The Loading... copy flickers so quickly it might not be worth it */}
+                      {watchError ? (
+                        <Text as="span" color="red">
+                          {watchError}
+                        </Text>
+                      ) : loadingWatchStatus ? (
+                        "Loading..."
+                      ) : isWatching ? (
+                        "Stop watching"
+                      ) : (
+                        "Start watching"
+                      )}
                     </DropdownMenuItem>
                   </DropdownSubMenu>
                   <DropdownMenuItem
-                    onClick={() => setWatchersModal(true)}
+                    onClick={() => {
+                      setWatchersModal(true);
+                      setOpen(false);
+                    }}
                     disabled={!usersWatching.length}
                   >
                     <IconButton
@@ -825,7 +891,12 @@ export default function ExperimentHeader({
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 {canEditExperiment && (
-                  <DropdownMenuItem onClick={() => setShareModalOpen(true)}>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setShareModalOpen(true);
+                      setOpen(false);
+                    }}
+                  >
                     Share {isBandit ? "Bandit" : "Experiment"}
                   </DropdownMenuItem>
                 )}
@@ -833,6 +904,8 @@ export default function ExperimentHeader({
                   <DropdownMenuItem
                     onClick={async () => {
                       try {
+                        setShareError(null);
+                        setLoadingShareStatus(true);
                         const res = await apiCall<{ report: ReportInterface }>(
                           `/experiments/report/${snapshot.id}`,
                           {
@@ -848,13 +921,25 @@ export default function ExperimentHeader({
                         track("Experiment Report: Create", {
                           source: "experiment more menu",
                         });
+                        setLoadingShareStatus(false);
                         await router.push(`/report/${res.report.id}`);
                       } catch (e) {
+                        setLoadingShareStatus(false);
+                        setShareError(`Error: ${e.message}. Please try again.`);
                         console.error(e);
                       }
                     }}
                   >
-                    Create shareable report
+                    {/* MKTODO: The Loading... copy flickers so quickly it might not be worth it */}
+                    {shareError ? (
+                      <Text as="span" color="red">
+                        {shareError}
+                      </Text>
+                    ) : loadingShareStatus ? (
+                      "Loading..."
+                    ) : (
+                      "Create shareable report"
+                    )}
                   </DropdownMenuItem>
                 ) : null}
                 {canRunExperiment &&
@@ -863,7 +948,10 @@ export default function ExperimentHeader({
                     <>
                       <DropdownMenuGroup>
                         <DropdownMenuItem
-                          onClick={() => setShowBanditModal(true)}
+                          onClick={() => {
+                            setShowBanditModal(true);
+                            setOpen(false);
+                          }}
                         >
                           Convert to {isBandit ? "Experiment" : "Bandit"}
                         </DropdownMenuItem>
@@ -873,24 +961,42 @@ export default function ExperimentHeader({
                   )}
                 <DropdownMenuGroup>
                   {duplicate && (
-                    <DropdownMenuItem onClick={duplicate}>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setOpen(false);
+                        duplicate();
+                      }}
+                    >
                       Duplicate
                     </DropdownMenuItem>
                   )}
                   {canRunExperiment && (
-                    <DropdownMenuItem onClick={() => setShowArchiveModal(true)}>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setShowArchiveModal(true);
+                        setOpen(false);
+                      }}
+                    >
                       Archive
                     </DropdownMenuItem>
                   )}
                   {hasUpdatePermissions && experiment.archived && (
-                    <DropdownMenuItem onClick={() => setShowArchiveModal(true)}>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setShowArchiveModal(true);
+                        setOpen(false);
+                      }}
+                    >
                       Unarchive
                     </DropdownMenuItem>
                   )}
                   {canDeleteExperiment && (
                     <DropdownMenuItem
                       color="red"
-                      onClick={() => setShowDeleteModal(true)}
+                      onClick={() => {
+                        setShowDeleteModal(true);
+                        setOpen(false);
+                      }}
                     >
                       Delete
                     </DropdownMenuItem>
