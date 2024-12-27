@@ -340,7 +340,7 @@ export default function ExperimentHeader({
 
   return (
     <>
-      <div className={clsx("experiment-header", "px-3", "pt-3")}>
+      <div className={clsx("experiment-header", "pt-3")}>
         {showSdkForm && (
           <InitialSDKConnectionForm
             close={() => setShowSdkForm(false)}
@@ -783,7 +783,7 @@ export default function ExperimentHeader({
 
       {shouldHideTabs ? null : (
         <div
-          className={clsx("experiment-tabs px-3 d-print-none", {
+          className={clsx("experiment-tabs d-print-none", {
             pinned: headerPinned,
           })}
         >
