@@ -405,19 +405,3 @@ class MidExperimentPower:
         prec_data = 1 / (sigmahat_2_delta / scaling_factor)
         prec = prec_prior + prec_data
         return 1 / prec
-
-    @staticmethod
-    def final_posterior_mean(
-        delta_posterior,
-        sigma_2_posterior,
-        deltahat_t_prime,
-        sigmahat_2_delta,
-        scaling_factor,
-    ) -> float:
-        v = MidExperimentPower.final_posterior_variance(
-            sigma_2_posterior, sigmahat_2_delta, scaling_factor
-        )
-        weighted_mean = delta_posterior / sigma_2_posterior + deltahat_t_prime / (
-            sigmahat_2_delta / scaling_factor
-        )
-        return v * weighted_mean
