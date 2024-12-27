@@ -502,51 +502,54 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 datasource project is deleted.
               </div>
             )}
-            {availableTemplates.length >= 1 && !isBandit && (
-              <div className="form-group">
-                <PremiumTooltip commercialFeature="templates">
-                  <label>Select Template</label>
-                </PremiumTooltip>
-                <SelectField
-                  value={form.watch("templateId") ?? ""}
-                  onChange={(t) => {
-                    if (t === "") {
-                      form.setValue("templateId", undefined);
-                      form.reset();
-                      return;
-                    }
-                    form.setValue("templateId", t);
-                    // Convert template to experiment interface shape and reset values
-                    const template = templatesMap.get(t);
-                    if (!template) return;
+            {availableTemplates.length >= 1 &&
+              !isBandit &&
+              !isImport &&
+              !duplicate && (
+                <div className="form-group">
+                  <PremiumTooltip commercialFeature="templates">
+                    <label>Select Template</label>
+                  </PremiumTooltip>
+                  <SelectField
+                    value={form.watch("templateId") ?? ""}
+                    onChange={(t) => {
+                      if (t === "") {
+                        form.setValue("templateId", undefined);
+                        form.reset();
+                        return;
+                      }
+                      form.setValue("templateId", t);
+                      // Convert template to experiment interface shape and reset values
+                      const template = templatesMap.get(t);
+                      if (!template) return;
 
-                    const templateAsExperiment = convertTemplateToExperiment(
-                      template
-                    );
-                    form.reset(templateAsExperiment, {
-                      keepDefaultValues: true,
-                    });
-                  }}
-                  name="template"
-                  initialOption={"None"}
-                  options={availableTemplates}
-                  formatOptionLabel={(value) => {
-                    const t = templatesMap.get(value.value);
-                    if (!t) return <span>{value.label}</span>;
-                    return (
-                      <Flex as="div" align="baseline">
-                        <Text>{value.label}</Text>
-                        <Text size="1" className="text-muted" ml="auto">
-                          Created {date(t.dateCreated)}
-                        </Text>
-                      </Flex>
-                    );
-                  }}
-                  disabled={!hasCommercialFeature("templates")}
-                  required={templateRequired}
-                />
-              </div>
-            )}
+                      const templateAsExperiment = convertTemplateToExperiment(
+                        template
+                      );
+                      form.reset(templateAsExperiment, {
+                        keepDefaultValues: true,
+                      });
+                    }}
+                    name="template"
+                    initialOption={"None"}
+                    options={availableTemplates}
+                    formatOptionLabel={(value) => {
+                      const t = templatesMap.get(value.value);
+                      if (!t) return <span>{value.label}</span>;
+                      return (
+                        <Flex as="div" align="baseline">
+                          <Text>{value.label}</Text>
+                          <Text size="1" className="text-muted" ml="auto">
+                            Created {date(t.dateCreated)}
+                          </Text>
+                        </Flex>
+                      );
+                    }}
+                    disabled={!hasCommercialFeature("templates")}
+                    required={templateRequired}
+                  />
+                </div>
+              )}
 
             <Field
               label={isBandit ? "Bandit Name" : "Experiment Name"}
