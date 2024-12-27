@@ -339,7 +339,7 @@ export default function ConfigureReport({
                         style={{ height: 45, textAlign: "left" }}
                         onClick={() => {
                           form.setValue(
-                            "experimentAnalysisSettings.dateStarted",
+                            "experimentAnalysisSettings.dateEnded",
                             new Date(
                               getValidDate(
                                 experiment?.phases?.[latestPhaseIndex]
