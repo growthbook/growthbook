@@ -4,7 +4,7 @@ import { date, datetime } from "shared/dates";
 import Link from "next/link";
 import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
-import { PiCaretDown, PiPlusBold, PiShuffle } from "react-icons/pi";
+import { PiCaretDown, PiShuffle } from "react-icons/pi";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
   ExperimentInterfaceStringDates,
@@ -353,11 +353,10 @@ const ExperimentsPage = (): React.ReactElement => {
     <DropdownMenu
       trigger={
         <Button icon={<PiCaretDown />} iconPosition="right">
-          <PiPlusBold />
+          Add...
         </Button>
       }
       menuPlacement="end"
-      tooltipContent="Add new..."
     >
       {canAddExperiment && (
         <DropdownMenuItem onClick={() => setOpenNewExperimentModal(true)}>
