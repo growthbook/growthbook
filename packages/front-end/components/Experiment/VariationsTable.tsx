@@ -27,7 +27,6 @@ const ScreenshotCarousel: FC<{
   maxChildHeight,
 }) => {
   const { apiCall } = useAuth();
-
   return (
     <Carousel
       deleteImage={
