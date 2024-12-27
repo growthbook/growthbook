@@ -69,11 +69,13 @@ export default function ConfigureReport({
             .toISOString()
             .substr(0, 16)
         ),
-        dateEnded: new Date(
-          getValidDate(report.experimentAnalysisSettings?.dateEnded ?? "")
-            .toISOString()
-            .substr(0, 16)
-        ),
+        dateEnded: report.experimentAnalysisSettings?.dateEnded
+          ? new Date(
+              getValidDate(report.experimentAnalysisSettings.dateEnded)
+                .toISOString()
+                .substr(0, 16)
+            )
+          : null,
       },
     },
   });
@@ -84,6 +86,7 @@ export default function ConfigureReport({
       value.experimentAnalysisSettings.dateEnded = null;
     }
     const d = new Date();
+    // @ts-expect-error types are good enough for CRUD
     value.experimentAnalysisSettings = {
       ...value.experimentAnalysisSettings,
       dateStarted: new Date(
@@ -91,12 +94,12 @@ export default function ConfigureReport({
           value.experimentAnalysisSettings?.dateStarted ?? ""
         ).getTime() -
           d.getTimezoneOffset() * 60 * 1000
-      ).toISOString(),
+      ),
       dateEnded: value.experimentAnalysisSettings?.dateEnded
         ? new Date(
             getValidDate(value.experimentAnalysisSettings.dateEnded).getTime() -
               d.getTimezoneOffset() * 60 * 1000
-          ).toISOString()
+          )
         : null,
     };
 

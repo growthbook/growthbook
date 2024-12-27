@@ -232,6 +232,7 @@ export default function DatePicker({
                     to: getValidDate(date2),
                   }}
                   onSelect={(daterange: DateRange) => {
+                    if (!daterange) return;
                     setDate(daterange?.from);
                     setDate2?.(daterange?.to);
                     if (daterange?.from)
@@ -252,6 +253,7 @@ export default function DatePicker({
                   mode="single"
                   selected={getValidDate(date)}
                   onSelect={(selectedDate: Date) => {
+                    if (!selectedDate) selectedDate = new Date();
                     setDate(selectedDate);
                     setBufferedDate(format(selectedDate, dateFormat));
                   }}
