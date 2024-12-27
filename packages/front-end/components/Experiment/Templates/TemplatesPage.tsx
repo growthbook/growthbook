@@ -37,11 +37,13 @@ export const TemplatesPage = ({
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const hasTemplatesFeature = hasCommercialFeature("templates");
-  const canCreate = permissionsUtil.canCreateExperimentTemplate({
-    project: project,
-  });
+  const canCreate =
+    permissionsUtil.canCreateExperimentTemplate({
+      project: project,
+    }) && hasTemplatesFeature;
   const canEdit = (templ: ExperimentTemplateInterface) =>
-    permissionsUtil.canUpdateExperimentTemplate(templ, {});
+    permissionsUtil.canUpdateExperimentTemplate(templ, {}) &&
+    hasTemplatesFeature;
   const canDelete = (templ: ExperimentTemplateInterface) =>
     permissionsUtil.canDeleteExperimentTemplate(templ);
 
