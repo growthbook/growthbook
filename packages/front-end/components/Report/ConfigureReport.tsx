@@ -83,6 +83,23 @@ export default function ConfigureReport({
     if (useToday && value.experimentAnalysisSettings) {
       value.experimentAnalysisSettings.dateEnded = null;
     }
+    const d = new Date();
+    value.experimentAnalysisSettings = {
+      ...value.experimentAnalysisSettings,
+      dateStarted: new Date(
+        getValidDate(
+          value.experimentAnalysisSettings?.dateStarted ?? ""
+        ).getTime() -
+          d.getTimezoneOffset() * 60 * 1000
+      ).toISOString(),
+      dateEnded: value.experimentAnalysisSettings?.dateEnded
+        ? new Date(
+            getValidDate(value.experimentAnalysisSettings.dateEnded).getTime() -
+              d.getTimezoneOffset() * 60 * 1000
+          ).toISOString()
+        : null,
+    };
+
     await apiCall<{
       updatedReport: ExperimentSnapshotReportInterface;
     }>(`/report/${report.id}`, {
