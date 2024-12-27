@@ -37,7 +37,7 @@ import { useUser } from "@/services/UserContext";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
-import {useIncrementer} from "@/hooks/useIncrementer";
+import { useIncrementer } from "@/hooks/useIncrementer";
 
 type TabOptions = "overview" | "metrics" | "analysis" | "variations";
 export default function ConfigureReport({
@@ -64,12 +64,16 @@ export default function ConfigureReport({
       ...report,
       experimentAnalysisSettings: {
         ...report.experimentAnalysisSettings,
-        dateStarted: new Date(getValidDate(report.experimentAnalysisSettings?.dateStarted ?? "")
-          .toISOString()
-          .substr(0, 16)),
-        dateEnded: new Date(getValidDate(report.experimentAnalysisSettings?.dateEnded ?? "")
-          .toISOString()
-          .substr(0, 16)),
+        dateStarted: new Date(
+          getValidDate(report.experimentAnalysisSettings?.dateStarted ?? "")
+            .toISOString()
+            .substr(0, 16)
+        ),
+        dateEnded: new Date(
+          getValidDate(report.experimentAnalysisSettings?.dateEnded ?? "")
+            .toISOString()
+            .substr(0, 16)
+        ),
       },
     },
   });
@@ -217,9 +221,11 @@ export default function ConfigureReport({
                   onClick={() => {
                     form.setValue(
                       "experimentAnalysisSettings.dateStarted",
-                      new Date(getValidDate(experiment?.phases?.[0]?.dateStarted)
-                        .toISOString()
-                        .substr(0, 16))
+                      new Date(
+                        getValidDate(experiment?.phases?.[0]?.dateStarted)
+                          .toISOString()
+                          .substr(0, 16)
+                      )
                     );
                     incrementDatePickerKey();
                   }}
@@ -246,9 +252,14 @@ export default function ConfigureReport({
                       onClick={() => {
                         form.setValue(
                           "experimentAnalysisSettings.dateStarted",
-                          new Date(getValidDate(experiment?.phases?.[latestPhaseIndex]?.dateStarted ?? "")
-                            .toISOString()
-                            .substr(0, 16))
+                          new Date(
+                            getValidDate(
+                              experiment?.phases?.[latestPhaseIndex]
+                                ?.dateStarted ?? ""
+                            )
+                              .toISOString()
+                              .substr(0, 16)
+                          )
                         );
                         incrementDatePickerKey();
                       }}
@@ -258,8 +269,10 @@ export default function ConfigureReport({
                         <br />
                         <small>
                           {date(
-                            getValidDate(experiment?.phases?.[latestPhaseIndex]
-                              ?.dateStarted)
+                            getValidDate(
+                              experiment?.phases?.[latestPhaseIndex]
+                                ?.dateStarted
+                            )
                               .toISOString()
                               .substr(0, 16)
                           )}
@@ -307,9 +320,14 @@ export default function ConfigureReport({
                         onClick={() => {
                           form.setValue(
                             "experimentAnalysisSettings.dateStarted",
-                            new Date(getValidDate(experiment?.phases?.[latestPhaseIndex]?.dateEnded)
-                              .toISOString()
-                              .substr(0, 16))
+                            new Date(
+                              getValidDate(
+                                experiment?.phases?.[latestPhaseIndex]
+                                  ?.dateEnded
+                              )
+                                .toISOString()
+                                .substr(0, 16)
+                            )
                           );
                           incrementDatePickerKey();
                           setUseToday(false);
@@ -318,11 +336,16 @@ export default function ConfigureReport({
                         <div style={{ lineHeight: 1.25, padding: "3px 0" }}>
                           Use {isBandit ? "Bandit" : "Experiment"} end date
                           <br />
-                          <small>{date(
-                            getValidDate(experiment?.phases?.[latestPhaseIndex]?.dateEnded)
-                              .toISOString()
-                              .substr(0, 16)
-                          )}</small>
+                          <small>
+                            {date(
+                              getValidDate(
+                                experiment?.phases?.[latestPhaseIndex]
+                                  ?.dateEnded
+                              )
+                                .toISOString()
+                                .substr(0, 16)
+                            )}
+                          </small>
                         </div>
                       </Button>
                     </div>
