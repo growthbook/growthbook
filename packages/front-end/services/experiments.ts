@@ -705,7 +705,6 @@ export function convertExperimentToTemplate(
     hypothesis: experiment.hypothesis,
     tags: experiment.tags,
     datasource: experiment.datasource,
-    userIdType: experiment.userIdType, // TODO: Check if this needs to be removed from ExperimentTemplateInterface
     exposureQueryId: experiment.exposureQueryId,
     hashAttribute: experiment.hashAttribute,
     fallbackAttribute: experiment.fallbackAttribute,

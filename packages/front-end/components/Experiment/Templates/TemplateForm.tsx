@@ -96,7 +96,6 @@ const TemplateForm: FC<Props> = ({
       description: initialValue?.description || "",
       tags: initialValue?.tags || [],
       datasource: initialValue?.datasource || "",
-      userIdType: initialValue?.userIdType || undefined,
       exposureQueryId: initialValue?.exposureQueryId || "",
       activationMetric: initialValue?.activationMetric || "",
       hashAttribute: initialValue?.hashAttribute || hashAttribute,

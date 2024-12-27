@@ -25,7 +25,6 @@ export const experimentTemplateInterface = z
     tags: z.array(z.string()).optional(),
 
     datasource: z.string(),
-    userIdType: z.enum(["anonymous", "user"]).optional(),
     exposureQueryId: z.string(),
 
     hashAttribute: z.string().optional(),
