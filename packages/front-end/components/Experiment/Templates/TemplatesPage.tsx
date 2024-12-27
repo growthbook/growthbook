@@ -117,9 +117,11 @@ export const TemplatesPage = ({
                     useFlex={true}
                   />
                 </td>
-                <td className="text-gray col-2">
-                  {t.project ? getProjectById(t.project)?.name : ""}
-                </td>
+                {showProjectColumn && (
+                  <td className="text-gray col-2">
+                    {t.project ? getProjectById(t.project)?.name : ""}
+                  </td>
+                )}
                 <td data-title="Created" className="col-2">
                   {date(t.dateCreated)}
                 </td>

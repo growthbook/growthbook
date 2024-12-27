@@ -1,5 +1,6 @@
 import type { Response } from "express";
 import { z } from "zod";
+import { orgHasPremiumFeature } from "enterprise";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { EventUserForResponseLocals } from "back-end/src/events/event-types";
@@ -56,6 +57,14 @@ export const postTemplate = async (
   const context = getContextFromReq(req);
   const { userId } = context;
   const template = req.body;
+
+  if (!orgHasPremiumFeature(context.org, "templates")) {
+    return res.status(403).json({
+      status: 403,
+      message:
+        "Organization does not have premium feature: Experiment Templates",
+    });
+  }
 
   if (!context.permissions.canCreateExperimentTemplate(template)) {
     context.permissions.throwPermissionError();
