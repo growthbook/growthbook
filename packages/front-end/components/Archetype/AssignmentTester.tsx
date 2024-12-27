@@ -271,7 +271,7 @@ export default function AssignmentTester({ feature, version, project }: Props) {
   return (
     <>
       <div className="d-flex flex-row align-items-center justify-content-between">
-        <h3 className="mb-0">Test Feature Rules</h3>
+        <h3 className="mb-3">Test Feature Rules</h3>
         <div className="d-flex justify-content-end position-relative mb-1">
           <div className="">
             {hasPrerequisites && (
