@@ -87,8 +87,11 @@ export default function ReportPage() {
     ? permissionsUtil.canViewReportModal(experiment.project)
     : false;
   const isOwner = userId === report?.userId || !report?.userId;
-  const canEdit = isOwner || canUpdateReport;
   const isAdmin = permissionsUtil.canSuperDeleteReport();
+  const canEdit =
+    isOwner ||
+    isAdmin ||
+    (report.editLevel === "organization" && canUpdateReport);
   const canDelete = isOwner || isAdmin;
 
   const isBandit = experiment?.type === "multi-armed-bandit";
