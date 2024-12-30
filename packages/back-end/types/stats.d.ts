@@ -10,18 +10,18 @@ export type RiskType = "relative" | "absolute";
 
 // Keep PowerResponse in sync with gbstats
 export interface PowerResponse {
-  firstPeriodSampleSize?: number;
-  firstPeriodPairwiseSampleSize?: number;
-  effectSize?: number;
+  firstPeriodSampleSize: number; //perhaps delete later, if this is not stored somewhere
+  firstPeriodPairwiseSampleSize: number; //perhaps delete later, if this is not stored somewhere
+  effectSize: number;
   sigmahat2Delta?: number;
   sigma2Posterior?: number;
   deltaPosterior?: number;
-  powerUpdateMessage?: string;
-  powerError?: string;
+  powerUpdateMessage: string;
+  powerError: string;
   endOfExperimentPower?: number; //delete later
   newDailyUsers?: number; //delete later
-  powerAdditionalUsers?: number; //delete later
-  powerAdditionalDays?: number; //delete later
+  powerAdditionalUsers?: number; //delete later, if i move all calculations to FE
+  powerAdditionalDays?: number; //delete later, used for testing only
   targetPower?: number; //delete later
 }
 

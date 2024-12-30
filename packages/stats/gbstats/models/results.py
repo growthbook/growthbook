@@ -55,11 +55,11 @@ class PowerResponse:
     powerAdditionalUsers: Optional[float]
     powerUpdateMessage: Optional[str]
     powerError: Optional[str]
-    endOfExperimentPower: Optional[float]  # delete later
-    newDailyUsers: Optional[float]  # delete later
-    powerAdditionalUsers: Optional[float]  # delete later
-    powerAdditionalDays: Optional[float]  # delete later
-    targetPower: Optional[float]  # delete later
+    endOfExperimentPower: Optional[float]  # delete later, used for testing only
+    newDailyUsers: Optional[float]  # delete later, used for testing only
+    powerAdditionalUsers: Optional[float]  # delete later, used for testing only
+    powerAdditionalDays: Optional[float]  # delete later, used for testing only
+    targetPower: Optional[float]  # delete later, used for testing only
 
 
 @dataclass
