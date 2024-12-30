@@ -2,6 +2,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Table } from "@radix-ui/themes";
+import { PiInfoBold } from "react-icons/pi";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import SRMCard from "@/components/HealthTab/SRMCard";
 import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";
@@ -17,6 +18,7 @@ import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import BanditSRMCard from "@/components/HealthTab/BanditSRMCard";
 import Callout from "@/components/Radix/Callout";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import {
   HealthTabConfigParams,
   HealthTabOnboardingModal,
@@ -306,7 +308,7 @@ type Hey = {
   differenceType: string;
   variationIndex: number;
   metricName: string;
-  effectSize: number | undefined;
+  powerResponse: object | undefined;
 };
 
 function PowerCard({ snapshot }: { snapshot: ExperimentSnapshotInterface }) {
@@ -323,7 +325,7 @@ function PowerCard({ snapshot }: { snapshot: ExperimentSnapshotInterface }) {
           differenceType: a.settings.differenceType,
           variationIndex: i,
           metricName,
-          effectSize: metric.powerResponse?.effectSize,
+          powerResponse: metric.powerResponse,
         });
       });
     });
@@ -336,7 +338,7 @@ function PowerCard({ snapshot }: { snapshot: ExperimentSnapshotInterface }) {
           <Table.ColumnHeaderCell>Difference Type</Table.ColumnHeaderCell>
           <Table.ColumnHeaderCell>Variation Index</Table.ColumnHeaderCell>
           <Table.ColumnHeaderCell>Metric Name</Table.ColumnHeaderCell>
-          <Table.ColumnHeaderCell>Effect Size</Table.ColumnHeaderCell>
+          <Table.ColumnHeaderCell>Power Response</Table.ColumnHeaderCell>
         </Table.Row>
       </Table.Header>
       <Table.Body>
@@ -345,7 +347,15 @@ function PowerCard({ snapshot }: { snapshot: ExperimentSnapshotInterface }) {
             <Table.Cell>{v.differenceType}</Table.Cell>
             <Table.Cell>{v.variationIndex}</Table.Cell>
             <Table.Cell>{v.metricName}</Table.Cell>
-            <Table.Cell>{v.effectSize}</Table.Cell>
+            <Table.Cell>
+              {v.powerResponse ? (
+                <Tooltip body={<>{JSON.stringify(v.powerResponse, null, 2)}</>}>
+                  <PiInfoBold />
+                </Tooltip>
+              ) : (
+                "Not defined"
+              )}
+            </Table.Cell>
           </Table.Row>
         ))}
       </Table.Body>
