@@ -1,6 +1,7 @@
 import { OrganizationSettings } from "back-end/types/organization";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
+import { PowerResponse } from "back-end/types/stats";
 
 export interface MetricParamsBase {
   name: string;
@@ -289,6 +290,63 @@ export type PowerCalculationSuccessResults = {
 
 export type PowerCalculationResults =
   | PowerCalculationSuccessResults
+  | {
+      type: "error";
+      description: string;
+    };
+
+export interface MidExperimentPowerSingleMetricParams {
+  /**
+   * @param newDailyUsers: The number of new daily users.
+   * @param secondPeriodSampleSize: The total sample size across all variations in the second period.
+   * @param sequential Whether the test is sequential.
+   * @param alpha The significance level.
+   * @param sequentialTuningParameter The tuning parameter for the sequential test.
+   * @param numVariations The number of variations.
+   * @param numGoalMetrics The number of goal metrics.
+   * @param response: Array of PowerResponses, not necessarily of length one. In practice, for MidExperimentPowerSingleMetricParams, the length of response is always one.
+   */
+  newDailyUsers: number;
+  secondPeriodSampleSize: number;
+  sequential: boolean;
+  alpha: number;
+  sequentialTuningParameter: number;
+  numVariations: number;
+  numGoalMetrics: number;
+  response: PowerResponse[];
+}
+
+export interface MidExperimentParams
+  extends MidExperimentPowerSingleMetricParams {
+  /**
+   * @param firstPeriodTotalSampleSize The total sample size across all variations in the first period.
+   * @param variationWeights: The weights of the variations.
+   * @param response: Array of PowerResponses, not necessarily of length one.
+   */
+  firstPeriodTotalSampleSize: number;
+  variationWeights: number[];
+}
+
+export type LowPowerTableRow = {
+  newDailyUsers: number;
+  metric: string;
+  variation: string;
+  effectSize: number;
+  power: number;
+  additionalDaysNeeded: number;
+};
+
+export type MidExperimentPowerCalculationSuccessResult = {
+  type: "success";
+  power: number;
+  additionalUsers: number;
+  additionalDays: number;
+  lowPowerWarning: boolean;
+  lowPowerTableRows?: LowPowerTableRow[];
+};
+
+export type MidExperimentPowerCalculationResult =
+  | MidExperimentPowerCalculationSuccessResult
   | {
       type: "error";
       description: string;
