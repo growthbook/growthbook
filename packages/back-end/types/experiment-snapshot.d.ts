@@ -4,7 +4,7 @@ import {
   QueryResultsForStatsEngine,
 } from "back-end/src/services/stats";
 import { QueryLanguage } from "./datasource";
-import { MetricInterface, MetricStats } from "./metric";
+import { MetricInterface, MetricStats, PowerResponse } from "./metric";
 import { DifferenceType, RiskType, StatsEngine } from "./stats";
 import { Queries } from "./query";
 import {
@@ -40,6 +40,7 @@ export interface SnapshotMetric {
   }[];
   chanceToWin?: number;
   errorMessage?: string;
+  powerResponse?: PowerResponse;
 }
 
 export interface SnapshotVariation {
@@ -113,13 +114,7 @@ export interface ExperimentSnapshotAnalysisSettings {
   pValueCorrection?: null | "holm-bonferroni" | "benjamini-hochberg";
   pValueThreshold?: number;
   baselineVariationIndex?: number;
-  // question: should these be optional?
-  // this settings are also generated in:
-  // - getAnalysisSettingsFromReportArgs
-  // - migrateSnapshot
-  // - postDemoDatasourceProject
-  experimentMinLengthDays?: number;
-  experimentMaxLengthDays?: number;
+  numGoalMetrics: number;
 }
 
 export type SnapshotType = "standard" | "exploratory" | "report";

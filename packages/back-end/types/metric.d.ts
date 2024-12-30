@@ -22,6 +22,7 @@ export interface MetricStats {
 
 // Keep PowerResponse in sync with gbstats
 export interface PowerResponse {
+  // firstPeriodSampleSize is not available in the data
   firstPeriodSampleSize?: number;
   firstPeriodPairwiseSampleSize?: number;
   effectSize?: number;
@@ -31,6 +32,12 @@ export interface PowerResponse {
   powerAdditionalUsers?: number;
   powerUpdateMessage?: string;
   powerError?: string;
+
+  // These fields exist in the response from gbstats, should we remove them?
+  // endOfExperimentPower
+  // newDailyUsers
+  // powerAdditionalDays
+  // targetPower
 }
 
 export interface LegacyMetricAnalysis {

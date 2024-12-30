@@ -355,11 +355,12 @@ export function getDefaultExperimentAnalysisSettings(
     differenceType: "relative",
     pValueThreshold:
       organization.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
+    numGoalMetrics: experiment.goalMetrics.length,
     // How to use default values here too?
-    experimentMinLengthDays:
-      organization.settings?.experimentMinLengthDays ?? 7,
-    experimentMaxLengthDays:
-      organization.settings?.experimentMaxLengthDays ?? 42,
+    // experimentMinLengthDays:
+    //   organization.settings?.experimentMinLengthDays ?? 7,
+    // experimentMaxLengthDays:
+    //   organization.settings?.experimentMaxLengthDays ?? 42,
   };
 }
 

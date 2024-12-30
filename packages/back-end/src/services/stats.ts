@@ -84,6 +84,11 @@ export interface BanditSettingsForStatsEngine {
   bandit_weights_seed: number;
 }
 
+export type BusinessMetricTypeForStatsEngine =
+  | "goal"
+  | "secondary"
+  | "guardrail";
+
 export interface MetricSettingsForStatsEngine {
   id: string;
   name: string;
@@ -102,6 +107,7 @@ export interface MetricSettingsForStatsEngine {
   prior_proper?: boolean;
   prior_mean?: number;
   prior_stddev?: number;
+  business_metric_type?: BusinessMetricTypeForStatsEngine[];
   min_percent_change: number;
 }
 
@@ -151,7 +157,7 @@ export function getAnalysisSettingsForStatsEngine(
   variations: ExperimentReportVariation[],
   coverage: number,
   phaseLengthDays: number
-) {
+): AnalysisSettingsForStatsEngine {
   const sortedVariations = putBaselineVariationFirst(
     variations,
     settings.baselineVariationIndex ?? 0
@@ -163,7 +169,7 @@ export function getAnalysisSettingsForStatsEngine(
   const pValueThresholdNumber =
     Number(settings.pValueThreshold) || DEFAULT_P_VALUE_THRESHOLD;
 
-  const analysisData: AnalysisSettingsForStatsEngine = {
+  const analysisData = {
     var_names: sortedVariations.map((v) => v.name),
     var_ids: sortedVariations.map((v) => v.id),
     weights: sortedVariations.map((v) => v.weight * coverage),
@@ -180,9 +186,7 @@ export function getAnalysisSettingsForStatsEngine(
         ? 9999
         : MAX_DIMENSIONS,
     traffic_percentage: coverage,
-    // TODO: should these be optional or nah? Related to definition in experiment-snapshot.d.ts
-    min_duration_days: settings.experimentMinLengthDays ?? 7,
-    max_duration_days: settings.experimentMaxLengthDays ?? 42,
+    num_goal_metrics: settings.numGoalMetrics,
   };
 
   return analysisData;
@@ -216,6 +220,7 @@ async function runStatsEngine(
   statsData: ExperimentDataForStatsEngine[]
 ): Promise<MultipleExperimentMetricAnalysis[]> {
   const escapedStatsData = JSON.stringify(statsData).replace(/\\/g, "\\\\");
+
   const start = Date.now();
   const cpus = os.cpus();
   const result = await promisify(PythonShell.runString)(
@@ -336,6 +341,21 @@ export async function runSnapshotAnalyses(
   return results.flat();
 }
 
+function getBusinessMetricTypeForStatsEngine(
+  metricId: string,
+  settings: ExperimentSnapshotSettings
+): BusinessMetricTypeForStatsEngine[] {
+  return [
+    settings.goalMetrics.includes(metricId) ? ("goal" as const) : null,
+    settings.secondaryMetrics.includes(metricId)
+      ? ("secondary" as const)
+      : null,
+    settings.guardrailMetrics.includes(metricId)
+      ? ("guardrail" as const)
+      : null,
+  ].filter((m) => m !== null);
+}
+
 export function getMetricSettingsForStatsEngine(
   metricDoc: ExperimentMetricInterface,
   metricMap: Map<string, ExperimentMetricInterface>,
@@ -403,24 +423,9 @@ export function getMetricSettingsForStatsEngine(
       metric.id,
       settings
     ),
+    // TODO: How to get a proper default value?
+    min_percent_change: metric.minPercentChange ?? 0.5,
   };
-}
-
-type BusinessMetricTypeForStatsEngine = "goal" | "secondary" | "guardrail";
-
-function getBusinessMetricTypeForStatsEngine(
-  metricId: string,
-  settings: ExperimentSnapshotSettings
-): BusinessMetricTypeForStatsEngine[] {
-  return [
-    settings.goalMetrics.includes(metricId) ? ("goal" as const) : null,
-    settings.secondaryMetrics.includes(metricId)
-      ? ("secondary" as const)
-      : null,
-    settings.guardrailMetrics.includes(metricId)
-      ? ("guardrail" as const)
-      : null,
-  ].filter((m) => m !== null);
 }
 
 export function getMetricsAndQueryDataForStatsEngine(

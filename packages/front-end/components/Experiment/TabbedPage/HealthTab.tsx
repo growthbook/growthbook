@@ -1,6 +1,8 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { Table } from "@radix-ui/themes";
+import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import SRMCard from "@/components/HealthTab/SRMCard";
 import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";
 import { useUser } from "@/services/UserContext";
@@ -257,6 +259,7 @@ export default function HealthTab({
   return (
     <div className="mt-4">
       <IssueTags issues={healthIssues} />
+      <PowerCard snapshot={snapshot} />
       <TrafficCard
         traffic={traffic}
         variations={variations}
@@ -296,5 +299,56 @@ export default function HealthTab({
         </div>
       </div>
     </div>
+  );
+}
+
+type Hey = {
+  differenceType: string;
+  variationIndex: number;
+  metricName: string;
+  effectSize: number | undefined;
+};
+
+function PowerCard({ snapshot }: { snapshot: ExperimentSnapshotInterface }) {
+  const values: Hey[] = [];
+
+  const analyses = snapshot?.analyses;
+  analyses?.forEach((a) => {
+    const results = a.results[0];
+    const variations = results.variations;
+    variations.forEach((v, i) => {
+      const metrics = v.metrics;
+      Object.entries(metrics).forEach(([metricName, metric]) => {
+        values.push({
+          differenceType: a.settings.differenceType,
+          variationIndex: i,
+          metricName,
+          effectSize: metric.powerResponse?.effectSize,
+        });
+      });
+    });
+  });
+
+  return (
+    <Table.Root>
+      <Table.Header>
+        <Table.Row>
+          <Table.ColumnHeaderCell>Difference Type</Table.ColumnHeaderCell>
+          <Table.ColumnHeaderCell>Variation Index</Table.ColumnHeaderCell>
+          <Table.ColumnHeaderCell>Metric Name</Table.ColumnHeaderCell>
+          <Table.ColumnHeaderCell>Effect Size</Table.ColumnHeaderCell>
+        </Table.Row>
+      </Table.Header>
+      <Table.Body>
+        {values.map((v) => (
+          <Table.Row key={v.differenceType + v.variationIndex + v.metricName}>
+            <Table.Cell>{v.differenceType}</Table.Cell>
+            <Table.Cell>{v.variationIndex}</Table.Cell>
+            <Table.Cell>{v.metricName}</Table.Cell>
+            <Table.Cell>{v.effectSize}</Table.Cell>
+          </Table.Row>
+        ))}
+      </Table.Body>
+    </Table.Root>
   );
 }
