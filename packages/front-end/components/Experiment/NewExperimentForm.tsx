@@ -322,7 +322,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       throw new Error("Name must not be empty");
     }
 
-    if (!value.templateId && templateRequired) {
+    if (!value.templateId && templateRequired && !isImport && !duplicate) {
       setStep(0);
       throw new Error("You must select a template");
     }
@@ -448,7 +448,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const templateRequired =
     hasCommercialFeature("templates") &&
     !isBandit &&
-    settings.requireExperimentTemplates;
+    settings.requireExperimentTemplates &&
+    availableTemplates.length >= 1;
 
   const { currentProjectIsDemo } = useDemoDataSourceProject();
 
