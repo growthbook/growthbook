@@ -371,6 +371,7 @@ const ExperimentsPage = (): React.ReactElement => {
           <DropdownMenuItem
             onClick={() => setOpenTemplateModal({})}
             disabled={!hasTemplatesFeature}
+            className="w-100"
           >
             Create Template
           </DropdownMenuItem>
