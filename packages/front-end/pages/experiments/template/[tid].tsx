@@ -51,7 +51,7 @@ const TemplatePage: FC = () => {
           </Text>
         </Box>
 
-        <table className="appbox table gbtable responsive-table">
+        <table className="appbox table gbtable">
           <th>Experiment Name</th>
           <SortableTH field="status">Status</SortableTH>
           <SortableTH field="dateCreated">Created</SortableTH>

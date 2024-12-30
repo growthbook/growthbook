@@ -51,6 +51,7 @@ import Button from "@/components/Radix/Button";
 import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
 import { TemplatesPage } from "@/components/Experiment/Templates/TemplatesPage";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 
 const NUM_PER_PAGE = 20;
 
@@ -117,7 +118,7 @@ const ExperimentsPage = (): React.ReactElement => {
     Partial<ExperimentTemplateInterface> | undefined
   >(undefined);
 
-  const { getUserDisplay, userId } = useUser();
+  const { getUserDisplay, userId, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const settings = useOrgSettings();
 
@@ -332,6 +333,8 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const hasExperiments = experiments.length > 0;
 
+  const hasTemplatesFeature = hasCommercialFeature("templates");
+
   const canAddExperiment = permissionsUtil.canViewExperimentModal(project);
   const canAddTemplate = permissionsUtil.canViewExperimentTemplateModal(
     project
@@ -364,9 +367,14 @@ const ExperimentsPage = (): React.ReactElement => {
         </DropdownMenuItem>
       )}
       {canAddTemplate && (
-        <DropdownMenuItem onClick={() => setOpenTemplateModal({})}>
-          Create Template
-        </DropdownMenuItem>
+        <PremiumTooltip commercialFeature="templates">
+          <DropdownMenuItem
+            onClick={() => setOpenTemplateModal({})}
+            disabled={!hasTemplatesFeature}
+          >
+            Create Template
+          </DropdownMenuItem>
+        </PremiumTooltip>
       )}
       {canAddExperiment && (
         <>
