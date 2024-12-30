@@ -787,21 +787,15 @@ pre {
     transform: translate(0.5px, -0.5px);
   }
 }
-main.main.report {
-  .experiment-results {
-    th {
-      &.axis-col {
-        top: 50px;
-      }
+main.main {
+  &.report {
+    .experiment-results th.axis-col {
+      top: 55px;
     }
   }
-}
-main.main.public {
-  .experiment-results {
-    th {
-      &.axis-col {
-        top: 95px;
-      }
+  &.public.experiment {
+    .experiment-results th.axis-col {
+      top: 95px;
     }
   }
 }
