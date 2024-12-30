@@ -177,11 +177,8 @@ export default function EnvironmentModal({
               form.setValue("parent", value || undefined);
             }}
             options={environments.map((e) => ({ label: e.id, value: e.id }))}
-            isClearable={true}
-            disabled={
-              !!existing.id ||
-              !DEFAULT_ENVIRONMENT_IDS.includes(form.watch("id") || "")
-            }
+            isClearable
+            disabled={!DEFAULT_ENVIRONMENT_IDS.includes(form.watch("id") || "")}
             helpText={
               <>
                 <div>
