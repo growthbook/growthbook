@@ -1,4 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentSnapshotHealth } from "back-end/types/experiment-snapshot";
 import Badge from "@/components/Radix/Badge";
 
 // Examples:
@@ -7,7 +8,7 @@ import Badge from "@/components/Radix/Badge";
 // "detail-only" - "~5 days left"
 type LabelFormat = "full" | "status-only" | "detail-only";
 
-type ExperimentData = Pick<
+type ExperimentData = { health?: ExperimentSnapshotHealth } & Pick<
   ExperimentInterfaceStringDates,
   "status" | "archived" | "results"
 >;
@@ -53,6 +54,19 @@ function getBadgeProps(
   }
 
   if (experimentData.status == "running") {
+    if (experimentData.health?.power?.type === "error") {
+      return [
+        "amber",
+        "solid",
+        "Unhealthy",
+        experimentData.health.power.description,
+      ];
+    }
+
+    if (experimentData.health?.power?.lowPowerWarning) {
+      return ["amber", "solid", "Unhealthy", "Low powered"];
+    }
+
     return ["indigo", "solid", "Running"];
 
     // TODO: Add detail statuses

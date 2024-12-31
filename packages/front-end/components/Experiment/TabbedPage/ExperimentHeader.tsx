@@ -530,7 +530,9 @@ export default function ExperimentHeader({
                 {experiment.name}
               </HeaderWithEdit>
               <Box ml="2">
-                <ExperimentStatusIndicator experimentData={experiment} />
+                <ExperimentStatusIndicator
+                  experimentData={{ ...experiment, health: snapshot?.health }}
+                />
               </Box>
             </Flex>
 
