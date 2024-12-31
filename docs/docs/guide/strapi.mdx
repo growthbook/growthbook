@@ -1,22 +1,22 @@
 ---
-title: "How to Set Up Content A/B Testing with Strapi and GrowthBook: A Complete Guide"
-description: Learn to implement no-code A/B testing by integrating Strapi CMS with GrowthBook. Step-by-step tutorial for content experiments, feature flags, and dynamic testing without developer intervention.
+title: "How to feature flag and A/B test with GrowthBook, Strapi, and Next.js: A Complete Guide"
+description: Learn to implement feature flags and A/B testing by integrating Strapi CMS with GrowthBook. Step-by-step tutorial for content experiments, feature flags, and dynamic testing without developer intervention.
 slug: strapi
 ---
 
-# How to Integrate Strapi CMS with GrowthBook for Content A/B Testing
+# How to Feature Flag and A/B Test with GrowthBook and Strapi
 
-Running experiments with your content is a powerful way to optimize user engagement and conversions. This tutorial shows you how to integrate [Strapi](https://strapi.io/) with [GrowthBook](https://growthbook.io), enabling you to A/B test any content type—from headlines and images to complex components—all while maintaining a clean separation between content and experimentation logic.
+Want to A/B test your content without changing code for every experiment? This tutorial shows you how to integrate [Strapi](https://strapi.io/) with [GrowthBook](https://growthbook.io), enabling you to feature flag and A/B test your content directly from your CMS.
 
-<video src="/videos/guides/strapi-demo.mp4" loop autoPlay style={{width: "100%", aspectRatio: "16/9", marginBlockEnd: "1rem"}}></video>
+<video src="/videos/guides/strapi-demo.mp4" loop autoPlay muted style={{width: "100%", aspectRatio: "16/9", marginBlockEnd: "1rem"}}></video>
 
 In this tutorial, you'll learn how to:
 
-- Configure Strapi to manage experimental content
-- Set up GrowthBook to handle test variations
-- Configure a Next.js frontend to dynamically serve A/B test content
+- Set up content in Strapi for feature flagging and A/B testing
+- Create feature flags and experiments in GrowthBook
+- Configure a Next.js frontend with Strapi and GrowthBook to dynamically serve content
 
-By the end, you'll have a flexible system for testing content variations without compromising your content architecture or development workflow.
+By the end, you'll have a robust system for easily testing content variations with GrowthBook and Strapi!
 
 ## Prerequisites
 
@@ -28,411 +28,179 @@ Before starting, ensure you have:
   - See Strapi's guide and example for [integrating Strapi with Next.js](https://strapi.io/integrations/nextjs-cms).
   - See our guide and example for [integrating GrowthBook with Next.js](https://docs.growthbook.io/guide/nextjs-app-router).
 
-## 1. Build Experiment Content Type in Strapi
+## Create Content in Strapi
 
-To enable A/B testing with GrowthBook, we need to build variation components and an Experimentation Container collection. Let’s do that now.
+This integration is flexible enough that we can use nearly **any Strapi content** with feature flags or A/B tests. The only requirement is to return an array of objects like components.
 
-### Variation Components
+For this tutorial, we'll create create a Product collection with a [Dynamic Zone](https://docs.strapi.io/dev-docs/backend-customization/models#dynamic-zones) field that holds Product Card components. On our frontend, we'll show 3 shoe product cards and use GrowthBook to A/B test which shoe is displayed in the third spot.
 
-Variation components represent the different content you want to test like different headlines or feature images.
+### Product Card Component
 
-For this tutorial, we’ll create a **text** and **image** component, but, by following the same method, you can extend this model to include additional types of content like rich text or custom content types like products.
+First, let's create a Product Card component for the Dynamic Zone. In the **Content-Type Builder**, go to **Components** and create a new component called `productCard`. The fields for this component are up to you, but here's an example:
 
-**Text Component**
+- name
+- description
+- image
+- colors
+- reviews
+- rating
+- price
 
-- In Strapi, go to the **Content-Type Builder** page and click **Create new component**.
-- Use **text** for the **Display name,** create a new category called `variations`, and click **Continue.**
-- Add a **Text** field and call it `text`.
-- Click **Save → Finish.**
+In our frontend, we use these fields to render the Product Card component.
 
-The server will refresh with the new content type.
+The image below shoes the `productCard` component in Strapi and how it's rendered in the frontend.
 
-![Strapi text field](/images/guides/strapi-text-field.png)
-![Strapi text variation](/images/guides/strapi-text-variations.png)
+![Strapi Product Card](/images/guides/strapi-product-card.webp)
 
-**Image Component**
+### Product Collection
 
-- Create a new component
-- Use `image` for the **Display name**, choose **variations** for the category, and click **Continue.**
-- Add a **Media field** and call it `image`. Select the **Single media** option.
-- Click **Save → Finish.**
+Next, create a new collection called **Product**. Add a Dynamic Zone field called `products` that uses the `productCard` component. Dynamic Zones let us create multiple variations of content within a single collection - perfect for A/B testing different versions.
 
-![Strapi single image](/images/guides/strapi-single-image.png)
+We'll create a **Shoes** product collection with 2 `productCard` components that we'll test against each other:
 
-With our components created, let’s build the Experimentation Collection.
+- Control: Quantile running shoe
+- Variation: P-Value training shoe
 
-### Experimentation Collection
+![Strapi Product Collection](/images/guides/strapi-shoes-collection.webp)
 
-The Experimentation Container holds the variation components we just created and enables us to test different content.
+## Create Feature Flags and A/B Tests in GrowthBook
 
-In the content-type builder, click **Create new collection type**. Use `Experimentation Container` for the **Display name** and click **Continue**.
-
-![Strapi experimentation container](/images/guides/strapi-experimentation-container.png)
-
-Add a **Text** field called called `featureFlagId`. This field links your Strapi content to GrowthBook.
-
-![Strapi feature flag ID](/images/guides/strapi-feature-flag-id.png)
-
-Next, add a **Dynamic zone** field and call it `variations`.
-
-![Strapi dynamic zone](/images/guides/strapi-dynamic-zone.png)
-
-Click **Add components** to the zone. Select **Use an existing component** and choose the variation components created above.
-
-![Strapi add components](/images/guides/strapi-add-components-to-zone.png)
-
-Click **Save → Finish**.
-
-### Update Permissions
-
-These new content types are set up but aren’t ready to use yet. To make the content accessible via the API, we need to update permissions.
-
-- Go to **Settings → Roles → Public.**
-- Expand **Experimentation-container** and enable the **find** permission.
-- Click **Save**.
-
-![Strapi permissions](/images/guides/strapi-permissions.png)
-
-Now, your content types are set up and ready to use 🚀
-
-## 2. Create Strapi Content
-
-Our next step is to create the content we want to test. In this example, we’ll test 3 headlines and 2 feature images.
-
-**Headlines**
-
-- Go to the **Content Manager**, select the **Experimentation Container** content type, and click **Create new entry**.
-- Enter `strapi-headline` for the **featureFlagId**.
-- Click **Add a component** and choose **text**.
-- Click on the component and enter “A really exciting headline 🤩” (or any creative headline).
-- Repeat the process until you end up with 3 variations. Then, click **Publish**.
-
-![Create headlines in Strapi](/images/guides/strapi-headlines.png)
-
-**Images**
-
-The process is the same as the above, except use `strapi-images` for the **featureFlagId** and add 2 images instead of text.
-
-Nice. Content is created 😎
-
-## 3. Set Up GrowthBook
-
-For running and analyzing our A/B tests, we’ll use GrowthBook. Log in to your account.
-
-### Create an SDK Connection
-
-To connect GrowthBook to our Next.js frontend, create a new SDK connection.
-
-- Go to **SDK Configuration → SDK Connections** and choose **JavaScript**.
-- Call the connection `Strapi` and click **Save**.
-- Save the **Client Key** for later.
-
-![GrowthBook SDK connection](/images/guides/strapi-sdk-connection.png)
-
-### Feature Flags and A/B Tests
-
-The next step is to create feature flags that correspond with the content created in Strapi. By linking these feature flags to A/B tests, we’ll be able to test our content to see which variations perform the best.
-
-**Create the Feature Flag**
-
-First, let’s create a feature flag for our headline text.
+The next step is to create a feature flag in GrowthBook. With feature flags, we can toggle content on and off, implement advanced targeting, or use the flags to run A/B tests. In this example, we'll create a feature flag for the **Product** collection we just created in Strapi.
 
 - Go to **Features** and click **Add Feature**.
-- Add `strapi-headline` as the **Feature Key**.
-
-:::warning
-It’s essential that the feature key matches the **featureFlagId** defined in Strapi, because we use these values to integrate Strapi and GrowthBook in the frontend.
-:::
-
-- Select a **String** value type. Set the **Default Value** to the first headline defined in Strapi: “A really exciting headline 🤩”
+- Add `shoes` as the **Feature Key**. (This key is used to reference the feature flag in your frontend.)
+- Select **Number** as the value type. Set the **Default Value** to `0`.
 - Click **Create**.
 
-![GrowthBook feature flag](/images/guides/strapi-string-feature-flag-in-strapi.png)
+![Creating a feature flag in GrowthBook](/images/guides/strapi-feature-flag.webp)
 
-**Create the A/B Test**
+### Create the A/B Test
 
-The feature flag is the foundation for our A/B test.
+The feature flag we created in the previous step allows us to easily create an A/B test.
 
-- Click on the **strapi-headline** feature flag.
+- Go to the **shoes** feature flag.
 - Scroll down to **Rules** and click **Add Rule**.
 - Select **Experiment** and click **Next**.
 - Add an experiment name, which can be whatever you want. Other fields are optional.
 - Click **Next**.
 
-![GrowthBook experiment](/images/guides/strapi-hypothesis.png)
+![Creating an experiment in GrowthBook](/images/guides/strapi-growthbook-experiment.webp)
 
-The last part of the experiment setup is to define the variations. Because we want to test 3 different headlines, we need to add an additional variation.
+In this example, we'll test 2 variations, but you can add as many as you like.
 
-:::tip
-It’s important that the order of headlines here matches the order in Strapi, because this identical order ensures that the right variation is served in the frontend. It also makes interpreting experiment results easier.
+Click **Save → Review and Publish** when you're done.
+
+The experiment is now live and ready to be integrated in your frontend.
+
+:::info
+The value of the feature flag directly maps to the object's zero-based index in your Dynamic Zone. For example, if the feature flag value is `0`, then the first `productCard` is served. If the value is `1`, then the second variation is served and so on.
 :::
 
-![GrowthBook variations](/images/guides/strapi-variations-growthbook.png)
+## Integrate Strapi and GrowthBook in Next.js
 
-Click **Save → Review and Publish**.
+So far, we've set up Strapi and GrowthBook separately. Now, it's time to bring them together in our Next.js frontend. Make sure you've already configured your Next.js app to fetch content from Strapi and integrated with GrowthBook (see the [guides for each integration above](#prerequisites)).
 
-Practice makes perfect, so repeat the process for **strapi-images**. For the feature image, use a brief image description for the 2 variations.
+This section walks through how to dynamically serve content based on the A/B experiment created in GrowthBook.
 
-![GrowthBook image feature flag](/images/guides/strapi-image-test.png)
+### Create a Helper Function
 
-Two experiments are now live but not doing much yet. Let’s change that.
+This helper function takes in your Strapi content and returns the correct variation based on GrowthBook's feature flag value, which, in our case, is the result of the A/B test. If the feature flag is toggled off, the function returns `null`.
 
-## 4. Integrate Strapi and GrowthBook in Next.js
+The function takes in three parameters:
 
-So far, we've set up Strapi and GrowthBook separately. Now it's time to bring them together in our Next.js frontend. Your Next.js project should already be configured to fetch content from Strapi and integrate with GrowthBook (see the [guides for each integration above](#prerequisites)).
-
-This section will walk through making it possible to dynamically serve Strapi content based on experiments created in GrowthBook.
-
-While your project structure may differ, it should look something like this:
-
-```
-my-app/
-├── app/
-│   └── page.tsx               # Main page component handling experiment rendering
-├── lib/
-│   ├── types.ts               # TypeScript definitions for Strapi and experiments
-│   ├── strapi.ts              # Strapi API integration helper
-│   ├── growthbookServer.ts    # Server-side GrowthBook configuration
-│   ├── getVariationHelper.ts  # Helper for retrieving correct content variation
-│   └── GrowthbookTracking.tsx # Client-side experiment tracking
-├── middleware.ts              # UUID generation and cookie management
-└── .env
-```
-
-### Strapi Integration
-
-Let’s add some types we’ll need by adding a `lib` folder to the root of the project. Inside the new folder, create a `types.ts` file. (If you're not using TypeScript, skip this part.)
-
-```ts
-// /lib/types.ts
-type Variation = {
-  __component: string;
-  image?: {
-    url: string;
-    width: number;
-    height: number;
-    alternativeText: string;
-  };
-  [key: string]: unknown;
-};
-
-type ExperimentData = {
-  id: number;
-  featureFlagId?: string;
-  variations?: Variation[];
-  [key: string]: unknown;
-};
-
-type StrapiResponse = {
-  data: ExperimentData | ExperimentData[];
-};
-
-export type { Variation, ExperimentData, StrapiResponse };
-```
-
-These types make working with Strapi and GrowthBook content easier.
-
-### GrowthBook Integration
-
-Create a helper to fetch the correct variation from Strapi based on the experiment.
+1. `gb`: Your GrowthBook instance (created as part of your GrowthBook integration into Next.js).
+2. `variations`: The content variations fetched from Strapi, as part of a collections Dynamic Zone.
+3. `featureFlagKey`: The feature [flag key from GrowthBook](#create-feature-flags-and-ab-tests-in-growthbook).
 
 In `lib`, create `getVariationHelper.ts`:
 
 ```tsx
 // /lib/getVariationHelper.ts
-import type { GrowthBook } from "@growthbook/growthbook";
-import type { ExperimentData, StrapiResponse } from "./types";
-
-function isExperimentData(
-  data: ExperimentData
-): data is Required<ExperimentData> {
-  return "featureFlagId" in data && "variations" in data;
-}
+import { type GrowthBook } from "@growthbook/growthbook";
 
 type Props = {
   gb: GrowthBook;
-  growthbookExperiment: StrapiResponse | null;
-  featureFlagId: string;
+  variations: unknown[] | null;
+  featureFlagKey: string;
 };
 
-/**
- * Retrieves the variation for a given feature flag from a GrowthBook experiment.
- *
- * @param {Object} params - The parameters for the function.
- * @param {any} params.gb - The GrowthBook instance used to evaluate the feature flag.
- * @param {any} params.growthbookExperiment - The experiment data containing variations.
- * @param {string} params.featureFlagId - The ID of the feature flag to retrieve the variation for.
- */
-export default function getVariation({
+export default function getVariation<T>({
   gb,
-  growthbookExperiment,
-  featureFlagId,
-}: Props) {
-  if (!growthbookExperiment?.data) {
+  variations,
+  featureFlagKey,
+}: Props): T | null {
+  // Evaluate the featue flag
+  const result = gb.getFeatureValue<number | null>(featureFlagKey, null);
+
+  // If the feature flag is off or variations are empty, return null
+  if (!variations || result === null) {
     return null;
   }
 
-  const experimentData = Array.isArray(growthbookExperiment.data)
-    ? growthbookExperiment.data.find((el) => el.featureFlagId === featureFlagId)
-    : growthbookExperiment.data;
-
-  if (!experimentData || !isExperimentData(experimentData)) {
-    return null;
-  }
-
-  // Evaluate the feature flag in the current context to get the variation index
-  const result = gb.evalFeature(featureFlagId).experimentResult;
-  const variationIndex = result?.variationId;
-
-  if (typeof variationIndex !== "number") {
-    return null;
-  }
-
-  // Retrieve the variation data for the given index
-  const variation = experimentData.variations[variationIndex];
-
-  if (!variation?.__component) {
-    return null;
-  }
-
-  return variation;
+  // Return the variation based on the feature flag value
+  return (variations?.[result] as T) ?? null;
 }
-
 ```
 
 ### Update page.tsx
 
-The last part of the process is to update `app/page.tsx`. The updated code initializes GrowthBook, fetches the Strapi content, and renders the right variation.
+The last part of the process is to update `app/page.tsx` to use the variation returned by the `getVariationHelper`.
 
 ```tsx
 // /app/page.tsx
-import { fetchStrapiContent } from "@/lib/strapi";
-import getVariation from "../lib/growthbookExperiment";
-
 export default async function Home() {
-    /*
-    Ensure you include GrowthBook initialization code. See our Next.js example for details.
-    https://github.com/growthbook/examples/tree/main/next-js/src
-    */
+  // Get the variation for the "shoes" feature flag
+  const variation = getVariation<Card>({
+    gb,
+    variations: shoesToTest,
+    featureFlagKey: "shoes",
+  });
 
-    // Fetch Strapi content, specifying the content type and any additional parameters
-    const experimentContent = await fetchStrapiContent(
-    "experimentation-containers",
-    "populate[variations][populate]=*",
-    );
-
-    // Get the variation for the "strapi-headline" feature flag
-    const variation = getVariation({
-    gb, // Provide your GrowthBook instance
-    growthbookExperiment: experimentContent,
-    featureFlagId: "strapi-headline",
-    });
-
-    const text = variation?.text as string || "Fallback";
-
-    return (
+  return (
     <div className="min-h-screen p-8 font-[family-name:var(--font-geist-sans)] flex items-center justify-center">
-        <main className="flex gap-12 items-center border p-8 py-8 rounded-md w-full">
-        <div>
-            <p className="text-lg text-slate-800 font-semibold">
-            The variation is 👉
-            </p>
-            <p className="text-sm text-slate-600 font-mono">
-            User ID: {id}
-            </p>
+      <main className="flex gap-12 items-center border p-8 py-8 rounded-md w-full">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
+          {/* A default collection of items to always show */}
+          {defaultShoes.map((product: Card) => (
+            <ProductCard key={product.name} product={product} />
+          ))}
+          {/* A single product, dynamically shown based on the A/B test */}
+          <ProductCard product={variation} />
         </div>
-        <div className="rounded-sm p-12 bg-slate-100 flex-1">
-            <p className="text-3xl text-slate-900 font-bold">
-            {text}
-            </p>
-        </div>
-        </main>
-        <GrowthBookTracking data={trackingData} />
+      </main>
+      <GrowthBookTracking data={trackingData} />
     </div>
-    );
+);
 }
 ```
 
-With all that in place, your app renders a different headline based on the user ID:
+Now, the app renders a different product card based on the A/B test result. The control shows the Quantile shoe, and the variation shows the P-Value.
 
-**Headline A**
-![Strapi headline A](/images/guides/strapi-a.png)
+![Control vs Variation product cards in Strapi, GrowthBook, and Next.js](/images/guides/strapi-control-vs-variation.webp)
 
-**Headline B**
-![Strapi headline B](/images/guides/strapi-b.png)
-
-**Headline C**
-![Strapi headline C](/images/guides/strapi-c.png)
-
-### Bonus: Images
-
-Let’s modify `page.tsx` to see how we can show our feature image experiment.
-
-To populate the image data, first change the `featureFlagId` to `strapi-images` :
-
-```tsx
-    const variation = getVariation({
-    gb,
-    growthbookExperiment: experimentContent,
-//    featureFlagId: "strapi-headline",
-		featureFlagId: "strapi-images"
-  });
-```
-
-Next, update the returned data:
-
-```tsx
- // const text = variation?.text as string || "Fallback";
- const image = variation?.image;
-```
-
-Finally, update the JSX to include the image:
-
-```tsx
-/* <p className="text-3xl text-slate-900 font-bold">
-    {text}
-</p> */
-
-<img
-  src={`http://localhost:1337${image?.url}`}
-  alt={image?.alternativeText}
-  width={image?.width}
-  height={image?.height}
-/>
-```
-
-Now, with different users, different variations are rendered:
-
-![just the cutest little puppy](/images/guides/strapi-puppy.png)
-![just the cutest little kitten](/images/guides/strapi-kitten.png)
-
-So, are you team puppy or kitten? No wrong answers here 😊
+:::tip
+To measure the success of your experiments, make sure to track relevant metrics (like clicks or conversions) using your analytics platform. See our guide on [setting up analytics with GrowthBook](https://docs.growthbook.io/app/datasources).
+:::
 
 ## Summary
 
-In this tutorial, you've built a complete A/B testing system that combines the power of Strapi's content management with GrowthBook's experimentation capabilities. Here's what you accomplished:
+In this tutorial, you've built a complete A/B testing system that combines the power of Strapi's content management with GrowthBook's experimentation capabilities!
 
-1. **Content Architecture**
-   - Created a flexible content structure in Strapi using components and dynamic zones.
-   - Designed a system that cleanly separates content from experimentation logic.
-   - Built reusable variation components for different content types.
-2. **Experimentation Setup**
-   - Configured GrowthBook for content experimentation.
-   - Created feature flags that correspond to Strapi content.
-   - Set up A/B tests with multiple variations.
-3. **Frontend Integration**
-   - Created a type-safe helper function for managing variations.
-   - Configured a Next.js application to dynamically serve content variations.
+Here's a recap of what you've learned:
 
-This architecture gives you the flexibility for your entire team to experiment with any content type without having to modify the code. The system is also extensible—you can add new variation types or experiment with more complex content structures.
+- Structure content in Strapi for A/B testing using Dynamic Zones
+- Create and configure feature flags in GrowthBook
+- Build a helper function to dynamically serve content variations
+- Integrate everything in a Next.js frontend
+
+Now you can launch and iterate on content experiments directly from your CMS, without needing developer help for each test.
 
 ## Next Steps
 
 Ready to take your experimentation system further? Here are some ways to build upon what you've learned:
 
-- [Integrate with analytics platforms](https://docs.growthbook.io/app/datasources) like Google Analytics or Segment
-- Add rich text variations using [Strapi's rich text editor](https://github.com/strapi/blocks-react-renderer)
-- Create product variations for e-commerce testing
+- [Integrate with analytics platforms](https://docs.growthbook.io/app/datasources) like Google Analytics or Segment.
+- [Set up advanced targeting](https://docs.growthbook.io/features/targeting) for your experiments and feature flags.
 
 ## Resources
 
@@ -444,89 +212,19 @@ Ready to take your experimentation system further? Here are some ways to build u
 
 ## Troubleshooting
 
-Here are solutions to common issues you might encounter while setting up and running your content experiments:
+1. **Content not updating in frontend**
 
-### Strapi Connection Issues
+   - Check if content is published in Strapi
+   - Verify the Dynamic Zone array indices match your feature flag values
+   - Clear your browser cache and reload
 
-**Issue: Can't access Strapi API endpoint**
+2. **Feature flag not working**
 
-```bash
-Error: Failed to fetch data from Strapi (url=http://localhost:1337/api/experimentation-containers, status=404)
+   - Ensure the feature flag key matches exactly (e.g., "shoes")
+   - Check if the experiment is running in GrowthBook
+   - Verify your GrowthBook SDK connection
 
-```
-
-- Check if Strapi is running (`npm run develop`)
-- Verify the API endpoint permissions in Strapi's admin panel
-- Ensure the collection name matches exactly (case-sensitive)
-
-**Issue: Empty response from Strapi API**
-
-```json
-{ "data": [] }
-
-```
-
-- Verify that you've published your content in Strapi
-- Check if the populate parameter is correct: `populate[variations][populate]=*`
-- Confirm the feature flag IDs match between Strapi and GrowthBook
-
-### GrowthBook Integration
-
-**Issue: Variations not changing**
-
-```
-The same variation appears consistently despite random UUID
-```
-
-- Verify the feature flag is active in GrowthBook
-- Check if the experiment status is "Running"
-- Ensure variation weights are set correctly (default is equal distribution)
-- Clear browser cookies and try again
-
-**Issue: GrowthBook connection failing**
-
-```tsx
-Error: Unable to connect to GrowthBook API
-
-```
-
-- Verify your Client Key is correctly set in .env
-- Check if you've added all required environment variables:
-  - NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY
-- Ensure your GrowthBook account is active
-
-### Next.js Setup
-
-**Issue: Images not loading**
-
-```
-Image src "http://localhost:1337undefined" is invalid
-
-```
-
-- Confirm image URLs include the correct Strapi base URL
-- Check if images are properly uploaded and published in Strapi
-- Verify the image populate query includes all required fields
-
-### Development Workflow
-
-**Issue: Changes not reflecting**
-
-- Clear Next.js cache: `rm -rf .next`
-- Restart the Next.js development server
-- Check if Strapi is in development mode
-
-### Environment Setup
-
-**Issue: Missing environment variables**
-
-```
-Error: Missing required environment variable: NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY
-
-```
-
-- Create an `.env` file in your project root
-- Add all required environment variables
-- Restart your Next.js server after adding variables
-
-Still need help? Join [our Slack](https://slack.growthbook.io/?ref=community-page) for community support
+3. **Helper function returning null**
+   - Confirm variations array is not empty
+   - Check if feature flag is enabled in GrowthBook
+   - Log the feature flag value to verify it's working
