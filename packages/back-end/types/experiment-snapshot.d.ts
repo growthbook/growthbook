@@ -1,12 +1,17 @@
-import { MidExperimentPowerCalculationResult } from "shared/src/power/types";
+import { MidExperimentPowerCalculationResult } from "shared/src/power";
 import { BanditResult } from "back-end/src/validators/experiments";
 import {
   MetricSettingsForStatsEngine,
   QueryResultsForStatsEngine,
 } from "back-end/src/services/stats";
 import { QueryLanguage } from "./datasource";
-import { MetricInterface, MetricStats, PowerResponse } from "./metric";
-import { DifferenceType, RiskType, StatsEngine } from "./stats";
+import { MetricInterface, MetricStats } from "./metric";
+import {
+  DifferenceType,
+  PowerResponseFromStatsEngine,
+  RiskType,
+  StatsEngine,
+} from "./stats";
 import { Queries } from "./query";
 import {
   ExperimentReportResultDimension,
@@ -41,7 +46,8 @@ export interface SnapshotMetric {
   }[];
   chanceToWin?: number;
   errorMessage?: string;
-  powerResponse?: PowerResponse;
+  // FIXME: Should we improve on the type / do more validations?
+  powerResponse?: PowerResponseFromStatsEngine;
 }
 
 export interface SnapshotVariation {
@@ -193,7 +199,6 @@ export interface ExperimentSnapshotInterface {
   report?: string;
 
   // List of queries that were run as part of this snapshot
-  power?: MidExperimentPowerCalculationResult;
   queries: Queries;
 
   // Results
@@ -201,7 +206,6 @@ export interface ExperimentSnapshotInterface {
   multipleExposures: number;
   analyses: ExperimentSnapshotAnalysis[];
   banditResult?: BanditResult;
-
   health?: ExperimentSnapshotHealth;
 }
 

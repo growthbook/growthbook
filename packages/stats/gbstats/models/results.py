@@ -52,7 +52,6 @@ class PowerResponse:
     sigmahat2Delta: Optional[float]
     sigma2Posterior: Optional[float]
     deltaPosterior: Optional[float]
-    powerAdditionalUsers: Optional[float]
     powerUpdateMessage: Optional[str]
     powerError: Optional[str]
     endOfExperimentPower: Optional[float]  # delete later, used for testing only

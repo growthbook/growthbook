@@ -1,8 +1,8 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Table } from "@radix-ui/themes";
-import { PiInfoBold } from "react-icons/pi";
+import { Card, Heading, Separator, Table } from "@radix-ui/themes";
+import { PowerResponseFromStatsEngine } from "back-end/types/stats";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import SRMCard from "@/components/HealthTab/SRMCard";
 import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";
@@ -18,7 +18,6 @@ import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import BanditSRMCard from "@/components/HealthTab/BanditSRMCard";
 import Callout from "@/components/Radix/Callout";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import {
   HealthTabConfigParams,
   HealthTabOnboardingModal,
@@ -304,61 +303,64 @@ export default function HealthTab({
   );
 }
 
-type Hey = {
-  differenceType: string;
-  variationIndex: number;
-  metricName: string;
-  powerResponse: object | undefined;
-};
-
 function PowerCard({ snapshot }: { snapshot: ExperimentSnapshotInterface }) {
-  const values: Hey[] = [];
+  const midPowerResults = snapshot.health?.power;
+  if (!midPowerResults) {
+    return null;
+  }
 
-  const analyses = snapshot?.analyses;
-  analyses?.forEach((a) => {
-    const results = a.results[0];
-    const variations = results.variations;
+  const metricPowerInfo: Array<{
+    variationName: string;
+    metricName: string;
+    powerResponse?: PowerResponseFromStatsEngine | undefined;
+  }> = [];
+  const relativeAnalysis = snapshot.analyses.find(
+    (a) => a.settings.differenceType === "relative"
+  );
+  const variations = relativeAnalysis?.results[0]?.variations;
+  if (variations) {
     variations.forEach((v, i) => {
       const metrics = v.metrics;
       Object.entries(metrics).forEach(([metricName, metric]) => {
-        values.push({
-          differenceType: a.settings.differenceType,
-          variationIndex: i,
+        metricPowerInfo.push({
+          variationName: snapshot.settings.variations[i].id,
           metricName,
           powerResponse: metric.powerResponse,
         });
       });
     });
-  });
+  }
 
   return (
-    <Table.Root>
-      <Table.Header>
-        <Table.Row>
-          <Table.ColumnHeaderCell>Difference Type</Table.ColumnHeaderCell>
-          <Table.ColumnHeaderCell>Variation Index</Table.ColumnHeaderCell>
-          <Table.ColumnHeaderCell>Metric Name</Table.ColumnHeaderCell>
-          <Table.ColumnHeaderCell>Power Response</Table.ColumnHeaderCell>
-        </Table.Row>
-      </Table.Header>
-      <Table.Body>
-        {values.map((v) => (
-          <Table.Row key={v.differenceType + v.variationIndex + v.metricName}>
-            <Table.Cell>{v.differenceType}</Table.Cell>
-            <Table.Cell>{v.variationIndex}</Table.Cell>
-            <Table.Cell>{v.metricName}</Table.Cell>
-            <Table.Cell>
-              {v.powerResponse ? (
-                <Tooltip body={<>{JSON.stringify(v.powerResponse, null, 2)}</>}>
-                  <PiInfoBold />
-                </Tooltip>
-              ) : (
-                "Not defined"
-              )}
-            </Table.Cell>
+    <Card>
+      <Heading as="h3" size="3">
+        MidExperimentPowerCalculationResult
+      </Heading>
+      <pre>{JSON.stringify(midPowerResults, null, 2)}</pre>
+      <Separator size="4" />
+      <Heading as="h3" size="3">
+        Metric power information (relative analysis only)
+      </Heading>
+      <Table.Root>
+        <Table.Header>
+          <Table.Row>
+            <Table.ColumnHeaderCell>Variation</Table.ColumnHeaderCell>
+            <Table.ColumnHeaderCell>Metric</Table.ColumnHeaderCell>
+            <Table.ColumnHeaderCell>Power Response</Table.ColumnHeaderCell>
           </Table.Row>
-        ))}
-      </Table.Body>
-    </Table.Root>
+        </Table.Header>
+        <Table.Body>
+          {metricPowerInfo.map((v) => (
+            <Table.Row key={v.metricName + v.variationName}>
+              <Table.Cell>{v.variationName}</Table.Cell>
+              <Table.Cell>{v.metricName}</Table.Cell>
+              <Table.Cell>
+                <pre>{JSON.stringify(v.powerResponse, null, 2)}</pre>
+              </Table.Cell>
+            </Table.Row>
+          ))}
+        </Table.Body>
+      </Table.Root>
+    </Card>
   );
 }

@@ -356,7 +356,7 @@ export function getDefaultExperimentAnalysisSettings(
     pValueThreshold:
       organization.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
     numGoalMetrics: experiment.goalMetrics.length,
-    // How to use default values here too?
+    // FIXME: Are we still using these?
     // experimentMinLengthDays:
     //   organization.settings?.experimentMinLengthDays ?? 7,
     // experimentMaxLengthDays:

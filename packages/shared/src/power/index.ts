@@ -4,7 +4,7 @@ import normal from "@stdlib/stats/base/dists/normal";
 import { OrganizationSettings } from "back-end/types/organization";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
-import { PowerResponse } from "back-end/types/stats";
+import { PowerResponseFromStatsEngine } from "back-end/types/stats";
 
 export interface MetricParamsBase {
   name: string;
@@ -316,7 +316,9 @@ export interface MidExperimentPowerSingleMetricParams {
   sequentialTuningParameter: number;
   numVariations: number;
   numGoalMetrics: number;
-  response: PowerResponse[];
+  // FIXME: The stats engine expects some fields to be defined, but they are optional from gbstats.
+  // Should we have an intermediate type or update this file to handle undefined?
+  response: PowerResponseFromStatsEngine[];
 }
 
 export interface MidExperimentParams
@@ -1083,7 +1085,7 @@ function calculateMidExperimentPowerSingleMetric(
   params: MidExperimentPowerSingleMetricParams
 ): MidExperimentPowerCalculationResult {
   const response = params.response[0];
-  if (response?.powerError?.length > 0) {
+  if (response?.powerError) {
     return {
       type: "error",
       description: response.powerError,

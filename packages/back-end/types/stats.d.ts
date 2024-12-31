@@ -8,21 +8,20 @@ export type DifferenceType = "relative" | "absolute" | "scaled";
 
 export type RiskType = "relative" | "absolute";
 
-// Keep PowerResponse in sync with gbstats
-export interface PowerResponse {
-  firstPeriodSampleSize?: number; //perhaps delete later, if this is not stored somewhere
-  firstPeriodPairwiseSampleSize?: number; //perhaps delete later, if this is not stored somewhere
-  effectSize: number;
+// Keep in sync with gbstats PowerResponse
+export interface PowerResponseFromStatsEngine {
+  firstPeriodPairwiseSampleSize?: number;
+  effectSize?: number;
   sigmahat2Delta?: number;
   sigma2Posterior?: number;
   deltaPosterior?: number;
-  powerUpdateMessage: string;
-  powerError: string;
-  endOfExperimentPower?: number; //delete later
-  newDailyUsers?: number; //delete later
-  powerAdditionalUsers?: number; //delete later, if i move all calculations to FE
-  powerAdditionalDays?: number; //delete later, used for testing only
-  targetPower?: number; //delete later
+  powerUpdateMessage?: string;
+  powerError?: string;
+  endOfExperimentPower?: number; // delete later, used for testing only
+  newDailyUsers?: number; // delete later, used for testing only
+  powerAdditionalUsers?: number; // delete later, used for testing only
+  powerAdditionalDays?: number; // delete later, used for testing only
+  targetPower?: number; // delete later, used for testing only
 }
 
 interface BaseVariationResponse {
@@ -39,7 +38,8 @@ interface BaseVariationResponse {
   };
   ci?: [number, number];
   errorMessage?: string;
-  powerResponse?: PowerResponse;
+  // TODO: Should we name this `power` only? Or is there a better qualifier?
+  powerResponse?: PowerResponseFromStatsEngine;
 }
 
 interface BayesianVariationResponse extends BaseVariationResponse {

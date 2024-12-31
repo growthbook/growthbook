@@ -7,10 +7,6 @@ import {
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
-import {
-  calculateMidExperimentPower,
-  getAverageExposureOverLastNDays,
-} from "shared/power";
 import chunk from "lodash/chunk";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -28,6 +24,7 @@ import {
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { parseDimensionId } from "back-end/src/services/experiments";
 import {
+  analyzeExperimentPower,
   analyzeExperimentResults,
   analyzeExperimentTraffic,
 } from "back-end/src/services/stats";
@@ -473,46 +470,18 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         traffic: trafficHealth,
       };
 
-      const relativeAnalysis = this.model.analyses[0];
+      // NB: This does not run a SQL query, but does health checks on data from gbstats
+      const relativeAnalysis = this.model.analyses.find(
+        (a) => a.settings.differenceType === "relative"
+      );
       if (relativeAnalysis) {
-        // NB: Order matters here. Not between each metric, but between each variation.
-        const goalMetricsPowerResponses = this.model.settings.goalMetrics.flatMap(
-          (metricId) => {
-            // NB: Slice(1) to skip control variation
-            return (
-              relativeAnalysis.results[0].variations
-                .slice(1)
-                .map((variation) => variation.metrics[metricId].powerResponse)
-                // FIXME: Can it be undefined? In case of an error or something?
-                .filter((it) => it !== undefined)
-            );
-          }
-        );
-
-        // Run mid-experiment power calculation
-        const powerResponse = calculateMidExperimentPower({
-          variationWeights: this.model.settings.variations.map(
-            (it) => it.weight
-          ),
-          numVariations: this.model.settings.variations.length,
-          numGoalMetrics: this.model.settings.goalMetrics.length,
-          response: goalMetricsPowerResponses,
-          firstPeriodTotalSampleSize:
-            result.health.traffic.overall.variationUnits[0],
-          secondPeriodSampleSize:
-            // I believe this is wrong.
-            result.health.traffic.overall.variationUnits[1],
-          newDailyUsers: getAverageExposureOverLastNDays(
-            trafficHealth,
-            14 // FIXME: what should this be?
-          ),
-          // Check with Luke what these values should be
-          sequential: false,
-          alpha: 0.05,
-          sequentialTuningParameter: 0.05,
+        const powerHealth = analyzeExperimentPower({
+          trafficHealth,
+          analysis: relativeAnalysis,
+          goalMetrics: this.model.settings.goalMetrics,
+          variations: this.model.settings.variations,
         });
-
-        result.health.power = powerResponse;
+        result.health.power = powerHealth;
       }
     }
 

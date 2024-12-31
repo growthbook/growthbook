@@ -16,6 +16,11 @@ import {
   isRegressionAdjusted,
   quantileMetricType,
 } from "shared/experiments";
+import {
+  getAverageExposureOverLastNDays,
+  calculateMidExperimentPower,
+  MidExperimentPowerCalculationResult,
+} from "shared/power";
 import { hoursBetween } from "shared/dates";
 import chunk from "lodash/chunk";
 import {
@@ -40,6 +45,7 @@ import { logger } from "back-end/src/util/logger";
 import {
   ExperimentAnalysisParamsContextData,
   ExperimentMetricAnalysisParams,
+  ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,
   ExperimentSnapshotTraffic,
@@ -67,6 +73,7 @@ export interface AnalysisSettingsForStatsEngine {
   alpha: number;
   max_dimensions: number;
   traffic_percentage: number;
+  // TODO: Do we need this or can we infer from MetricSettingsForStatsEngine?
   num_goal_metrics: number;
 }
 
@@ -108,6 +115,7 @@ export interface MetricSettingsForStatsEngine {
   prior_mean?: number;
   prior_stddev?: number;
   business_metric_type?: BusinessMetricTypeForStatsEngine[];
+  // TODO: Check if this can be required or if it needs to be optional
   min_percent_change: number;
 }
 
@@ -220,7 +228,6 @@ async function runStatsEngine(
   statsData: ExperimentDataForStatsEngine[]
 ): Promise<MultipleExperimentMetricAnalysis[]> {
   const escapedStatsData = JSON.stringify(statsData).replace(/\\/g, "\\\\");
-
   const start = Date.now();
   const cpus = os.cpus();
   const result = await promisify(PythonShell.runString)(
@@ -423,8 +430,9 @@ export function getMetricSettingsForStatsEngine(
       metric.id,
       settings
     ),
-    // TODO: How to get a proper default value?
-    min_percent_change: metric.minPercentChange ?? 0.5,
+    // TODO: Check if this is the proper value
+    // FIXME: How to get the default value? likely from organization.settings.metricDefaults.minPercentageChange
+    min_percent_change: metric.minPercentChange || 0,
   };
 }
 
@@ -820,4 +828,51 @@ export function analyzeExperimentTraffic({
     }
   }
   return trafficResults;
+}
+
+export function analyzeExperimentPower({
+  trafficHealth,
+  analysis,
+  goalMetrics,
+  variations,
+}: {
+  trafficHealth: ExperimentSnapshotTraffic;
+  analysis: ExperimentSnapshotAnalysis;
+  goalMetrics: string[];
+  variations: SnapshotSettingsVariation[];
+}): MidExperimentPowerCalculationResult {
+  if (variations.length !== analysis.results[0].variations.length) {
+    throw new Error("Variations and analysis results do not match");
+  }
+
+  // NB: Order matters here. Ignoring control, for each goal metric
+  // the variations should be in the same order as the settings.variations.
+  const goalMetricsPowerResponses = goalMetrics.flatMap((metricId) => {
+    const variationsWithoutControl = analysis.results[0].variations.slice(1);
+    return (
+      variationsWithoutControl
+        .map((variation) => variation.metrics[metricId].powerResponse)
+        // FIXME: Can it be undefined? In case of an error or something?
+        .filter((it) => it !== undefined)
+    );
+  });
+
+  return calculateMidExperimentPower({
+    numVariations: variations.length,
+    variationWeights: variations.map((it) => it.weight),
+
+    numGoalMetrics: goalMetrics.length,
+    response: goalMetricsPowerResponses,
+
+    // FIXME: Ensure these values are correct / dynamic
+    firstPeriodTotalSampleSize: trafficHealth.overall.variationUnits[0],
+    secondPeriodSampleSize: trafficHealth.overall.variationUnits[1],
+    newDailyUsers: getAverageExposureOverLastNDays(
+      trafficHealth,
+      14 // FIXME: what should this be?
+    ),
+    sequential: false,
+    alpha: 0.05,
+    sequentialTuningParameter: 0.05,
+  });
 }
