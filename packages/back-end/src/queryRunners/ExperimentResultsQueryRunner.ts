@@ -7,7 +7,10 @@ import {
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
-import { calculateMidExperimentPower } from "shared/power";
+import {
+  calculateMidExperimentPower,
+  getAverageExposureOverLastNDays,
+} from "shared/power";
 import chunk from "lodash/chunk";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -494,10 +497,16 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
           numVariations: this.model.settings.variations.length,
           numGoalMetrics: this.model.settings.goalMetrics.length,
           response: goalMetricsPowerResponses,
-          // TODO: Make these values dynamic as they should be
-          firstPeriodTotalSampleSize: 1000,
-          secondPeriodSampleSize: 1000,
-          newDailyUsers: 1000,
+          firstPeriodTotalSampleSize:
+            result.health.traffic.overall.variationUnits[0],
+          secondPeriodSampleSize:
+            // I believe this is wrong.
+            result.health.traffic.overall.variationUnits[1],
+          newDailyUsers: getAverageExposureOverLastNDays(
+            trafficHealth,
+            14 // FIXME: what should this be?
+          ),
+          // Check with Luke what these values should be
           sequential: false,
           alpha: 0.05,
           sequentialTuningParameter: 0.05,
