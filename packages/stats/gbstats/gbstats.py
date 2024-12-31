@@ -289,6 +289,7 @@ def analyze_metric_df(
             df[f"v{i}_prob_beat_baseline"] = None
             df[f"v{i}_uplift"] = None
             df[f"v{i}_error_message"] = None
+            df[f"v{i}_decision_making_conditions"] = False
             df[f"v{i}_first_period_pairwise_users"] = None
             df[f"v{i}_effect_size"] = None
             df[f"v{i}_target_power"] = None  # remove later
@@ -315,6 +316,7 @@ def analyze_metric_df(
             res = test.compute_result()
 
             if decision_making_conditions(metric, analysis):
+                s[f"v{i}_decision_making_conditions"] = True
                 config = BaseConfig(
                     difference_type=analysis.difference_type,
                     traffic_percentage=analysis.traffic_percentage,
@@ -488,20 +490,25 @@ def format_variation_result(
         return BaselineResponse(**metricResult)
     else:
         # non-baseline variation
-        power_response = PowerResponse(
-            firstPeriodPairwiseSampleSize=row[f"{prefix}_first_period_pairwise_users"],
-            effectSize=row[f"{prefix}_effect_size"],
-            sigmahat2Delta=row[f"{prefix}_sigmahat_2_delta"],
-            sigma2Posterior=row[f"{prefix}_sigma_2_posterior"],
-            deltaPosterior=row[f"{prefix}_delta_posterior"],
-            powerAdditionalUsers=row[f"{prefix}_power_additional_users"],
-            powerUpdateMessage=row[f"{prefix}_power_update_message"],
-            powerError=row[f"{prefix}_power_error_message"],
-            endOfExperimentPower=row[f"{prefix}_end_of_experiment_power"],
-            targetPower=row[f"{prefix}_target_power"],
-            newDailyUsers=row[f"{prefix}_new_daily_users"],
-            powerAdditionalDays=row[f"{prefix}_power_additional_days"],
-        )
+        if row[f"{prefix}_decision_making_conditions"]:
+            power_response = PowerResponse(
+                firstPeriodPairwiseSampleSize=row[
+                    f"{prefix}_first_period_pairwise_users"
+                ],
+                effectSize=row[f"{prefix}_effect_size"],
+                sigmahat2Delta=row[f"{prefix}_sigmahat_2_delta"],
+                sigma2Posterior=row[f"{prefix}_sigma_2_posterior"],
+                deltaPosterior=row[f"{prefix}_delta_posterior"],
+                powerAdditionalUsers=row[f"{prefix}_power_additional_users"],
+                powerUpdateMessage=row[f"{prefix}_power_update_message"],
+                powerError=row[f"{prefix}_power_error_message"],
+                endOfExperimentPower=row[f"{prefix}_end_of_experiment_power"],
+                targetPower=row[f"{prefix}_target_power"],
+                newDailyUsers=row[f"{prefix}_new_daily_users"],
+                powerAdditionalDays=row[f"{prefix}_power_additional_days"],
+            )
+        else:
+            power_response = None
         frequentist = row[f"{prefix}_p_value"] is not None
         testResult = {
             "expected": row[f"{prefix}_expected"],
