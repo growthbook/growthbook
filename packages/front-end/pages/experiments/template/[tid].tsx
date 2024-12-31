@@ -9,15 +9,23 @@ import PageHead from "@/components/Layout/PageHead";
 import { useSearch } from "@/services/search";
 import Button from "@/components/Radix/Button";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
+import { useUser } from "@/services/UserContext";
 
 const TemplatePage: FC = () => {
   const router = useRouter();
   const { tid } = router.query;
   const { templatesMap, templateExperimentMap } = useTemplates();
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
+  const { hasCommercialFeature, permissionsUtil } = useUser();
 
   const template = templatesMap.get(tid as string);
   const templateExperiments = templateExperimentMap[tid as string] || [];
+
+  const hasTemplatesFeature = hasCommercialFeature("templates");
+  const canCreate =
+    permissionsUtil.canCreateExperimentTemplate({
+      project: template?.project,
+    }) && hasTemplatesFeature;
 
   const { items: experiments, SortableTH } = useSearch({
     items: templateExperiments,
@@ -60,9 +68,11 @@ const TemplatePage: FC = () => {
         <Box mb="5" mt="3">
           <Flex mt="2" mb="1" justify="between" align="center">
             <h1>{template?.templateMetadata.name}</h1>
-            <Button onClick={() => setOpenNewExperimentModal(true)}>
-              Create Experiment
-            </Button>
+            {canCreate && (
+              <Button onClick={() => setOpenNewExperimentModal(true)}>
+                Create Experiment
+              </Button>
+            )}
           </Flex>
           <Text as="p">
             The experiments listed below are using this template. Some fields

@@ -18,10 +18,19 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAddComputedFields, useSearch } from "@/services/search";
 
+interface Props {
+  setOpenTemplateModal: (
+    template: Partial<ExperimentTemplateInterface>
+  ) => void;
+  setOpenDuplicateTemplateModal: (
+    template: ExperimentTemplateInterface
+  ) => void;
+}
+
 export const TemplatesPage = ({
   setOpenTemplateModal,
   setOpenDuplicateTemplateModal,
-}) => {
+}: Props) => {
   const { ready, project, getProjectById } = useDefinitions();
 
   const { apiCall } = useAuth();
@@ -57,7 +66,7 @@ export const TemplatesPage = ({
         usage: templateExperimentMap[templ.id]?.length ?? 0,
       };
     },
-    []
+    [allTemplates, templateExperimentMap]
   );
 
   const { items, SortableTH } = useSearch({
