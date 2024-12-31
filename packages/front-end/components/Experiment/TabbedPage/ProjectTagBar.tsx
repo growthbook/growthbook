@@ -57,13 +57,13 @@ export default function ProjectTagBar({
         <span>
           {ownerName !== "" && (
             <UserAvatar name={ownerName} size="sm" variant="soft" />
-          )}{" "}
-          <Text weight="regular" className={metaDataStyles.valueColor}>
+          )}
+          <Text weight="regular" className={metaDataStyles.valueColor} ml="1">
             {ownerName === "" ? "None" : ownerName}
           </Text>
           {canEditOwner && updateOwner && (
             <a
-              className="ml-1 cursor-pointer"
+              className="ml-1 cursor-pointer link-purple"
               onClick={() => setEditOwnerModal(true)}
             >
               <GBEdit />

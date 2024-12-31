@@ -50,7 +50,7 @@ export default function TrafficAndTargeting({
               {editTargeting &&
               !(isBandit && experiment.status === "running") ? (
                 <button className="btn p-0 link-purple" onClick={editTargeting}>
-                  <span className="text-purple">Edit</span>
+                  Edit
                 </button>
               ) : null}
             </div>
@@ -132,7 +132,7 @@ export default function TrafficAndTargeting({
               {editTargeting &&
               !(isBandit && experiment.status === "running") ? (
                 <button className="btn p-0 link-purple" onClick={editTargeting}>
-                  <span className="text-purple">Edit</span>
+                  Edit
                 </button>
               ) : null}
             </div>

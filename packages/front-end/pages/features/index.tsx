@@ -16,6 +16,7 @@ import {
   StaleFeatureReason,
 } from "shared/util";
 import { FaTriangleExclamation } from "react-icons/fa6";
+import clsx from "clsx";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBAddCircle } from "@/components/Icons";
 import FeatureModal from "@/components/Features/FeatureModal";
@@ -163,7 +164,7 @@ export default function FeaturesPage() {
             </div>
           </div>
 
-          <table className="table gbtable table-hover appbox">
+          <table className="table gbtable appbox">
             <thead
               className="sticky-top bg-white shadow-sm"
               style={{ top: "56px", zIndex: 900 }}
@@ -231,7 +232,9 @@ export default function FeaturesPage() {
                 return (
                   <tr
                     key={feature.id}
-                    className={feature.archived ? "text-muted" : ""}
+                    className={clsx("hover-highlight", {
+                      "text-muted": feature.archived,
+                    })}
                   >
                     <td data-title="Watching status:" className="watching">
                       <WatchButton
@@ -240,10 +243,12 @@ export default function FeaturesPage() {
                         type="icon"
                       />
                     </td>
-                    <td>
+                    <td className="p-0">
                       <Link
                         href={`/features/${feature.id}`}
-                        className={feature.archived ? "text-muted" : ""}
+                        className={clsx("featurename d-block p-2", {
+                          "text-muted": feature.archived,
+                        })}
                       >
                         {feature.id}
                       </Link>

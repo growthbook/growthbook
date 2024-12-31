@@ -9,7 +9,7 @@ import {
 import omit from "lodash/omit";
 import { LegacyMetricInterface } from "back-end/types/metric";
 import {
-  migrateReport,
+  migrateExperimentReport,
   migrateSavedGroup,
   migrateSnapshot,
   upgradeDatasourceObject,
@@ -1177,6 +1177,7 @@ describe("Experiment Migration", () => {
         name: "New Name",
       },
     ],
+    uid: "1234",
   };
 
   const upgraded = {
@@ -1236,6 +1237,8 @@ describe("Experiment Migration", () => {
     ],
     sequentialTestingEnabled: false,
     sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    uid: "1234",
+    shareLevel: "organization",
   };
 
   it("upgrades experiment objects", () => {
@@ -1856,7 +1859,7 @@ describe("Report Migration", () => {
       },
     };
 
-    expect(migrateReport(report)).toEqual({
+    expect(migrateExperimentReport(report)).toEqual({
       ...report,
       args: {
         ...omit(report.args, "metrics"),
@@ -1878,7 +1881,7 @@ describe("Report Migration", () => {
       },
     };
 
-    expect(migrateReport(report)).toEqual({
+    expect(migrateExperimentReport(report)).toEqual({
       ...report,
       args: {
         ...omit(report.args, "metrics", "guardrails"),
@@ -1902,7 +1905,7 @@ describe("Report Migration", () => {
       },
     };
 
-    expect(migrateReport(report)).toEqual({
+    expect(migrateExperimentReport(report)).toEqual({
       ...report,
       args: {
         ...omit(report.args, "metrics", "guardrails"),
@@ -1930,7 +1933,7 @@ describe("Report Migration", () => {
       },
     };
 
-    expect(migrateReport(report)).toEqual({
+    expect(migrateExperimentReport(report)).toEqual({
       ...report,
       args: {
         ...omit(report.args, "metrics", "metricRegressionAdjustmentStatuses"),

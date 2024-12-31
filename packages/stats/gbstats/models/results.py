@@ -46,6 +46,13 @@ class BaselineResponse:
 
 
 @dataclass
+class PowerResponse:
+    effect_size: float
+    power: float
+    additional_days_needed: float
+
+
+@dataclass
 class BaseVariationResponse(BaselineResponse):
     expected: float
     uplift: Uplift
