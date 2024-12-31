@@ -141,3 +141,4 @@ ReportPage.preAuth = true;
 ReportPage.progressiveAuth = true;
 ReportPage.progressiveAuthTopNav = true;
 ReportPage.noLoadingOverlay = true;
+ReportPage.mainClassName = "public report";
