@@ -30,9 +30,11 @@ Before starting, ensure you have:
 
 ## Create Content in Strapi
 
-This integration is flexible enough that we can use nearly **any Strapi content** with feature flags or A/B tests. The only requirement is to return an array of objects like components.
+This integration is flexible enough that we can use nearly **any Strapi content** with feature flags or A/B tests. The only requirement is to return an array of objects (like components).
 
-For this tutorial, we'll create create a Product collection with a [Dynamic Zone](https://docs.strapi.io/dev-docs/backend-customization/models#dynamic-zones) field that holds Product Card components. On our frontend, we'll show 3 shoe product cards and use GrowthBook to A/B test which shoe is displayed in the third spot.
+For this tutorial, we'll create a Product collection with a **Dynamic Zone** field that holds Product Card components. [Dynamic Zones](https://docs.strapi.io/dev-docs/backend-customization/models#dynamic-zones) let us create multiple variations of content within a single collection—perfect for A/B testing different versions. On our frontend, we'll show 3 shoe product cards and use GrowthBook to A/B test which shoe is displayed in the third spot.
+
+![Strapi A/B test example](/images/guides/strapi-ab-test-example.webp)
 
 ### Product Card Component
 
@@ -54,7 +56,7 @@ The image below shoes the `productCard` component in Strapi and how it's rendere
 
 ### Product Collection
 
-Next, create a new collection called **Product**. Add a Dynamic Zone field called `products` that uses the `productCard` component. Dynamic Zones let us create multiple variations of content within a single collection - perfect for A/B testing different versions.
+Next, create a new collection called **Product**. Add a Dynamic Zone field called `products` that uses the `productCard` component.
 
 We'll create a **Shoes** product collection with 2 `productCard` components that we'll test against each other:
 
@@ -65,7 +67,7 @@ We'll create a **Shoes** product collection with 2 `productCard` components that
 
 ## Create Feature Flags and A/B Tests in GrowthBook
 
-The next step is to create a feature flag in GrowthBook. With feature flags, we can toggle content on and off, implement advanced targeting, or use the flags to run A/B tests. In this example, we'll create a feature flag for the **Product** collection we just created in Strapi.
+The next step is to create a feature flag in GrowthBook. With feature flags, we can toggle content on and off, implement advanced targeting, and use the flags to run A/B tests. In this example, we'll set up a feature flag for the **Product** collection we just created in Strapi.
 
 - Go to **Features** and click **Add Feature**.
 - Add `shoes` as the **Feature Key**. (This key is used to reference the feature flag in your frontend.)
@@ -106,16 +108,15 @@ This section walks through how to dynamically serve content based on the A/B exp
 
 This helper function takes in your Strapi content and returns the correct variation based on GrowthBook's feature flag value, which, in our case, is the result of the A/B test. If the feature flag is toggled off, the function returns `null`.
 
-The function takes in three parameters:
+The function takes in 3 parameters:
 
 1. `gb`: Your GrowthBook instance (created as part of your GrowthBook integration into Next.js).
-2. `variations`: The content variations fetched from Strapi, as part of a collections Dynamic Zone.
-3. `featureFlagKey`: The feature [flag key from GrowthBook](#create-feature-flags-and-ab-tests-in-growthbook).
+2. `variations`: The content variations fetched from Strapi.
+3. `featureFlagKey`: The feature flag key from GrowthBook that [we created above](#create-feature-flags-and-ab-tests-in-growthbook).
 
-In `lib`, create `getVariationHelper.ts`:
+In your Next.js app, add the following code:
 
 ```tsx
-// /lib/getVariationHelper.ts
 import { type GrowthBook } from "@growthbook/growthbook";
 
 type Props = {
@@ -144,10 +145,9 @@ export default function getVariation<T>({
 
 ### Update page.tsx
 
-The last part of the process is to update `app/page.tsx` to use the variation returned by the `getVariationHelper`.
+The last part of the process is to update a component to use the variation returned by the `getVariationHelper`.
 
 ```tsx
-// /app/page.tsx
 export default async function Home() {
   // Get the variation for the "shoes" feature flag
   const variation = getVariation<Card>({
@@ -184,20 +184,20 @@ To measure the success of your experiments, make sure to track relevant metrics 
 
 ## Summary
 
-In this tutorial, you've built a complete A/B testing system that combines the power of Strapi's content management with GrowthBook's experimentation capabilities!
+In this tutorial, you built a complete A/B testing system that combines the power of Strapi's content management with GrowthBook's experimentation capabilities 🎉
 
-Here's a recap of what you've learned:
+Here's a recap of what you learned:
 
 - Structure content in Strapi for A/B testing using Dynamic Zones
 - Create and configure feature flags in GrowthBook
 - Build a helper function to dynamically serve content variations
 - Integrate everything in a Next.js frontend
 
-Now you can launch and iterate on content experiments directly from your CMS, without needing developer help for each test.
+Now you can launch and iterate on content experiments directly from your CMS, without needing developer help for each test!
 
 ## Next Steps
 
-Ready to take your experimentation system further? Here are some ways to build upon what you've learned:
+Ready to take your experimentation system further? Here are some ways to build upon what you learned:
 
 - [Integrate with analytics platforms](https://docs.growthbook.io/app/datasources) like Google Analytics or Segment.
 - [Set up advanced targeting](https://docs.growthbook.io/features/targeting) for your experiments and feature flags.
