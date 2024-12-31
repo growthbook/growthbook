@@ -214,6 +214,11 @@ export default function ExperimentRefNewFields({
                     </Flex>
                   );
                 }}
+                helpText={
+                  templateRequired
+                    ? "Your organization requires experiments to be created from a template"
+                    : undefined
+                }
                 disabled={!hasCommercialFeature("templates")}
                 required={templateRequired}
               />

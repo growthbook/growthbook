@@ -313,6 +313,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     : null;
 
   const { apiCall } = useAuth();
+
   const onSubmit = form.handleSubmit(async (rawValue) => {
     const value = { ...rawValue, name: rawValue.name?.trim() };
 
@@ -445,6 +446,19 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const type = form.watch("type");
   const isBandit = type === "multi-armed-bandit";
 
+  // If a template id is provided as an initial value, load the template and convert it to an experiment
+  useEffect(() => {
+    if (initialValue?.templateId && isNewExperiment && !isImport && !isBandit) {
+      const template = templatesMap.get(initialValue.templateId);
+      if (!template) return;
+
+      const templateAsExperiment = convertTemplateToExperiment(template);
+      form.reset(templateAsExperiment, {
+        keepDefaultValues: true,
+      });
+    }
+  }, [initialValue, isNewExperiment, isImport, isBandit]);
+
   const templateRequired =
     hasCommercialFeature("templates") &&
     !isBandit &&
@@ -546,6 +560,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                         </Flex>
                       );
                     }}
+                    helpText={
+                      templateRequired
+                        ? "Your organization requires experiments to be created from a template"
+                        : undefined
+                    }
                     disabled={!hasCommercialFeature("templates")}
                     required={templateRequired}
                   />

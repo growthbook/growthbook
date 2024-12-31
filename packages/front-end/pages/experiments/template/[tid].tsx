@@ -1,17 +1,20 @@
 import { useRouter } from "next/router";
-import { FC } from "react";
-import { Box, Text } from "@radix-ui/themes";
+import { FC, useState } from "react";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { useTemplates } from "@/hooks/useTemplates";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Link from "@/components/Radix/Link";
 import PageHead from "@/components/Layout/PageHead";
 import { useSearch } from "@/services/search";
+import Button from "@/components/Radix/Button";
+import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 
 const TemplatePage: FC = () => {
   const router = useRouter();
   const { tid } = router.query;
   const { templatesMap, templateExperimentMap } = useTemplates();
+  const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
 
   const template = templatesMap.get(tid as string);
   const templateExperiments = templateExperimentMap[tid as string] || [];
@@ -29,6 +32,17 @@ const TemplatePage: FC = () => {
 
   return (
     <>
+      {openNewExperimentModal && (
+        <NewExperimentForm
+          onClose={() => setOpenNewExperimentModal(false)}
+          source="experiment-list"
+          isNewExperiment={true}
+          initialValue={{
+            type: "standard",
+            templateId: tid as string,
+          }}
+        />
+      )}
       <PageHead
         breadcrumb={[
           {
@@ -43,8 +57,13 @@ const TemplatePage: FC = () => {
         ]}
       />
       <div className="container-fluid pagecontents p-3">
-        <Box mb="5">
-          <h1>{template?.templateMetadata.name}</h1>
+        <Box mb="5" mt="3">
+          <Flex mt="2" mb="1" justify="between" align="center">
+            <h1>{template?.templateMetadata.name}</h1>
+            <Button onClick={() => setOpenNewExperimentModal(true)}>
+              Create Experiment
+            </Button>
+          </Flex>
           <Text as="p">
             The experiments listed below are using this template. Some fields
             may have been overridden by users and differ from the template.

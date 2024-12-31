@@ -683,7 +683,7 @@ const ExperimentsPage = (): React.ReactElement => {
       {openNewExperimentModal && (
         <NewExperimentForm
           onClose={() => setOpenNewExperimentModal(false)}
-          source="bandits-list"
+          source="experiment-list"
           isNewExperiment={true}
         />
       )}
