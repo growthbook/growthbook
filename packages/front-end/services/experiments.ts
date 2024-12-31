@@ -10,7 +10,10 @@ import {
   ExperimentReportVariationWithIndex,
   MetricSnapshotSettings,
 } from "back-end/types/report";
-import { MetricDefaults } from "back-end/types/organization";
+import {
+  MetricDefaults,
+  SDKAttributeSchema,
+} from "back-end/types/organization";
 import {
   ExperimentInterfaceStringDates,
   ExperimentStatus,
@@ -39,6 +42,7 @@ import {
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getExperimentMetricFormatter } from "@/services/metrics";
 import { getDefaultVariations } from "@/components/Experiment/NewExperimentForm";
+import { getDefaultRuleValue, NewExperimentRefRule } from "./features";
 
 export type ExperimentTableRow = {
   label: string;
@@ -687,6 +691,37 @@ export function convertTemplateToExperiment(
         ...template.targeting,
       },
     ],
+    templateId: template.id,
+  };
+}
+
+export function convertTemplateToExperimentRule({
+  template,
+  defaultValue,
+  attributeSchema,
+}: {
+  template: ExperimentTemplateInterface;
+  defaultValue: string;
+  attributeSchema?: SDKAttributeSchema;
+}): Partial<NewExperimentRefRule> {
+  const templateWithoutTemplateFields = omit(template, [
+    "id",
+    "organization",
+    "owner",
+    "dateCreated",
+    "dateUpdated",
+    "templateMetadata",
+    "targeting",
+    "type",
+  ]);
+  return {
+    ...(getDefaultRuleValue({
+      defaultValue,
+      attributeSchema,
+      ruleType: "experiment-ref-new",
+    }) as NewExperimentRefRule),
+    ...templateWithoutTemplateFields,
+    ...template.targeting,
     templateId: template.id,
   };
 }

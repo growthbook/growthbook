@@ -9,7 +9,8 @@ import React from "react";
 import { FaAngleRight, FaExclamationTriangle } from "react-icons/fa";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import Collapsible from "react-collapsible";
-import { Tooltip } from "@radix-ui/themes";
+import { Flex, Tooltip, Text } from "@radix-ui/themes";
+import { date } from "shared/dates";
 import Field from "@/components/Forms/Field";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import SelectField from "@/components/Forms/SelectField";
@@ -37,6 +38,11 @@ import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetrics
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import { MetricsSelectorTooltip } from "@/components/Experiment/MetricsSelector";
+import { useTemplates } from "@/hooks/useTemplates";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { convertTemplateToExperimentRule } from "@/services/experiments";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useUser } from "@/services/UserContext";
 
 export default function ExperimentRefNewFields({
   step,
@@ -116,6 +122,17 @@ export default function ExperimentRefNewFields({
     getSegmentById,
     datasources,
   } = useDefinitions();
+  const permissionsUtils = usePermissionsUtil();
+  const { templates: allTemplates, templatesMap } = useTemplates(project);
+  const { hasCommercialFeature } = useUser();
+
+  const availableTemplates = allTemplates
+    .slice()
+    .sort((a, b) =>
+      a.templateMetadata.name > b.templateMetadata.name ? 1 : -1
+    )
+    .filter((t) => permissionsUtils.canViewExperimentTemplateModal(t.project))
+    .map((t) => ({ value: t.id, label: t.templateMetadata.name }));
 
   const datasource = form.watch("datasource")
     ? getDatasourceById(form.watch("datasource") ?? "")
@@ -142,10 +159,66 @@ export default function ExperimentRefNewFields({
   const settings = useOrgSettings();
   const { namespaces, statsEngine: orgStatsEngine } = useOrgSettings();
 
+  const templateRequired =
+    hasCommercialFeature("templates") &&
+    settings.requireExperimentTemplates &&
+    availableTemplates.length >= 1;
+
   return (
     <>
       {step === 0 ? (
         <>
+          {availableTemplates.length >= 1 && (
+            <div className="form-group">
+              <PremiumTooltip commercialFeature="templates">
+                <label>Select Template</label>
+              </PremiumTooltip>
+              <SelectField
+                value={form.watch("templateId") ?? ""}
+                onChange={(t) => {
+                  if (t === "") {
+                    form.setValue("templateId", undefined);
+                    form.reset();
+                    return;
+                  }
+                  form.setValue("templateId", t);
+                  // Convert template to NewExperimentRefRule interface shape and reset values
+                  const template = templatesMap.get(t);
+                  if (!template) return;
+
+                  const templateAsExperimentRule = convertTemplateToExperimentRule(
+                    {
+                      template,
+                      defaultValue: feature
+                        ? getFeatureDefaultValue(feature)
+                        : "",
+                      attributeSchema,
+                    }
+                  );
+                  form.reset(templateAsExperimentRule, {
+                    keepDefaultValues: true,
+                  });
+                }}
+                name="template"
+                initialOption={"None"}
+                options={availableTemplates}
+                formatOptionLabel={(value) => {
+                  const t = templatesMap.get(value.value);
+                  if (!t) return <span>{value.label}</span>;
+                  return (
+                    <Flex as="div" align="baseline">
+                      <Text>{value.label}</Text>
+                      <Text size="1" className="text-muted" ml="auto">
+                        Created {date(t.dateCreated)}
+                      </Text>
+                    </Flex>
+                  );
+                }}
+                disabled={!hasCommercialFeature("templates")}
+                required={templateRequired}
+              />
+            </div>
+          )}
           <Field
             required={true}
             minLength={2}
