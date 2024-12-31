@@ -1,3 +1,4 @@
+import { MidExperimentPowerCalculationResult } from "shared/src/power/types";
 import { BanditResult } from "back-end/src/validators/experiments";
 import {
   MetricSettingsForStatsEngine,
@@ -192,6 +193,7 @@ export interface ExperimentSnapshotInterface {
   report?: string;
 
   // List of queries that were run as part of this snapshot
+  power?: MidExperimentPowerCalculationResult;
   queries: Queries;
 
   // Results
@@ -209,6 +211,7 @@ export interface ExperimentWithSnapshot extends ExperimentInterfaceStringDates {
 
 export interface ExperimentSnapshotHealth {
   traffic: ExperimentSnapshotTraffic;
+  power?: MidExperimentPowerCalculationResult;
 }
 
 export interface ExperimentSnapshotTraffic {

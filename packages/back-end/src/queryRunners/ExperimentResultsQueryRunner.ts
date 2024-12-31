@@ -7,6 +7,7 @@ import {
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
+import { calculateMidExperimentPower } from "shared/power";
 import chunk from "lodash/chunk";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -468,6 +469,42 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       result.health = {
         traffic: trafficHealth,
       };
+
+      const relativeAnalysis = this.model.analyses[0];
+      if (relativeAnalysis) {
+        // NB: Order matters here. Not between each metric, but between each variation.
+        const goalMetricsPowerResponses = this.model.settings.goalMetrics.flatMap(
+          (metricId) => {
+            // NB: Slice(1) to skip control variation
+            return (
+              relativeAnalysis.results[0].variations
+                .slice(1)
+                .map((variation) => variation.metrics[metricId].powerResponse)
+                // FIXME: Can it be undefined? In case of an error or something?
+                .filter((it) => it !== undefined)
+            );
+          }
+        );
+
+        // Run mid-experiment power calculation
+        const powerResponse = calculateMidExperimentPower({
+          variationWeights: this.model.settings.variations.map(
+            (it) => it.weight
+          ),
+          numVariations: this.model.settings.variations.length,
+          numGoalMetrics: this.model.settings.goalMetrics.length,
+          response: goalMetricsPowerResponses,
+          // TODO: Make these values dynamic as they should be
+          firstPeriodTotalSampleSize: 1000,
+          secondPeriodSampleSize: 1000,
+          newDailyUsers: 1000,
+          sequential: false,
+          alpha: 0.05,
+          sequentialTuningParameter: 0.05,
+        });
+
+        result.health.power = powerResponse;
+      }
     }
 
     return result;

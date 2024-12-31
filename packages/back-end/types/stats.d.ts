@@ -10,8 +10,8 @@ export type RiskType = "relative" | "absolute";
 
 // Keep PowerResponse in sync with gbstats
 export interface PowerResponse {
-  firstPeriodSampleSize: number; //perhaps delete later, if this is not stored somewhere
-  firstPeriodPairwiseSampleSize: number; //perhaps delete later, if this is not stored somewhere
+  firstPeriodSampleSize?: number; //perhaps delete later, if this is not stored somewhere
+  firstPeriodPairwiseSampleSize?: number; //perhaps delete later, if this is not stored somewhere
   effectSize: number;
   sigmahat2Delta?: number;
   sigma2Posterior?: number;

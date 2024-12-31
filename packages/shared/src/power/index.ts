@@ -1,5 +1,6 @@
+import { ExperimentSnapshotTraffic } from "back-end/types/experiment-snapshot";
+import { eachDayOfInterval, formatISO, subDays } from "date-fns";
 import normal from "@stdlib/stats/base/dists/normal";
-
 import {
   PowerCalculationParams,
   PowerCalculationResults,
@@ -13,6 +14,24 @@ import {
   MidExperimentParams,
   MidExperimentPowerSingleMetricParams,
 } from "./types";
+
+export function getAverageExposureOverLastNDays(
+  traffic: ExperimentSnapshotTraffic,
+  nDays: number,
+  baseDate = new Date()
+) {
+  const lastNDates = eachDayOfInterval({
+    start: subDays(baseDate, nDays),
+    end: subDays(baseDate, 1),
+  }).map((date) => formatISO(date, { representation: "date" }));
+
+  const totalExposure = traffic.dimension?.dim_exposure_date
+    .filter((dim) => lastNDates.includes(dim.name))
+    .map((dim) => dim.variationUnits.reduce((acc, num) => acc + num, 0))
+    .reduce((acc, num) => acc + num, 0);
+
+  return Math.floor(totalExposure / nDays);
+}
 
 /**
  * delta method for relative difference
