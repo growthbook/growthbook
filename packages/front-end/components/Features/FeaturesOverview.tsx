@@ -11,6 +11,7 @@ import {
   FaLock,
   FaTimes,
 } from "react-icons/fa";
+import { FaBoltLightning, FaPlusMinus } from "react-icons/fa6";
 import { ago, datetime } from "shared/dates";
 import {
   autoMerge,
@@ -23,12 +24,12 @@ import {
 } from "shared/util";
 import { MdHistory, MdRocketLaunch } from "react-icons/md";
 import { BiHide, BiShow } from "react-icons/bi";
-import { FaPlusMinus } from "react-icons/fa6";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import clsx from "clsx";
 import Link from "next/link";
 import { BsClock } from "react-icons/bs";
 import { PiCheckCircleFill, PiCircleDuotone, PiFileX } from "react-icons/pi";
+import { FeatureUsageLookback } from "back-end/src/types/Integration";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
@@ -76,6 +77,8 @@ import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import Button from "@/components/Radix/Button";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
+import SelectField from "@/components/Forms/SelectField";
+import BarChart100 from "@/components/Features/BarChart100";
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";
@@ -83,6 +86,7 @@ import { PrerequisiteAlerts } from "./PrerequisiteTargetingField";
 import PrerequisiteModal from "./PrerequisiteModal";
 import RequestReviewModal from "./RequestReviewModal";
 import JSONSchemaDescription from "./JSONSchemaDescription";
+import FeatureUsageGraph, { useFeatureUsage } from "./FeatureUsageGraph";
 
 export default function FeaturesOverview({
   baseFeature,
@@ -219,6 +223,8 @@ export default function FeaturesOverview({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [feature, features, envsStr]
   );
+
+  const { featureUsage, lookback, setLookback } = useFeatureUsage();
 
   if (!baseFeature || !feature || !revision) {
     return <LoadingOverlay />;
@@ -389,6 +395,68 @@ export default function FeaturesOverview({
         <div className="mt-3">
           <CustomMarkdown page={"feature"} variables={variables} />
         </div>
+
+        {featureUsage && (
+          <div>
+            <div className="row align-items-center">
+              <div className="col-auto">
+                <h3 className="mb-0">Usage Analytics</h3>
+              </div>
+              <div className="col-auto">
+                <SelectField
+                  value={lookback}
+                  onChange={(lookback) => {
+                    setLookback(lookback as FeatureUsageLookback);
+                  }}
+                  options={[
+                    { value: "15minute", label: "Past 15 Minutes" },
+                    { value: "hour", label: "Past Hour" },
+                    { value: "day", label: "Past Day" },
+                    { value: "week", label: "Past Week" },
+                  ]}
+                  sort={false}
+                  formatOptionLabel={(o) => {
+                    if (o.value !== "15minute") return o.label;
+                    return (
+                      <div>
+                        <span className="badge badge-success mr-1">
+                          <FaBoltLightning /> Live
+                        </span>
+                        {o.label}
+                      </div>
+                    );
+                  }}
+                />
+              </div>
+            </div>
+            <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
+              {featureUsage.overall.total === 0 ? (
+                <em>No usage detected in the selected time frame</em>
+              ) : (
+                <div className="row">
+                  <div className="col-12 col-md-4">
+                    <strong>Assigned Values</strong>
+                    <BarChart100 data={featureUsage.values} max={3} />
+                  </div>
+                  <div className="col-12 col-md-4">
+                    <strong>Sources</strong>
+                    <BarChart100 data={featureUsage.sources} max={3} />
+                  </div>
+                  <div className="col-12 col-md-4">
+                    <div className="mb-1">
+                      <strong>Usage Over Time</strong>
+                    </div>
+                    <FeatureUsageGraph
+                      data={featureUsage.overall}
+                      width="auto"
+                      height={80}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         <h3 className="mt-4 mb-3">Enabled Environments</h3>
         <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
           <div className="mb-2">
@@ -1061,10 +1129,19 @@ export default function FeaturesOverview({
             )}
           </h3>
           <div className="appbox mb-4 p-3">
-            <ForceSummary
-              value={getFeatureDefaultValue(feature)}
-              feature={feature}
-            />
+            <div className="d-flex">
+              <div>
+                <ForceSummary
+                  value={getFeatureDefaultValue(feature)}
+                  feature={feature}
+                />
+              </div>
+              {featureUsage && (
+                <div className="ml-auto">
+                  <FeatureUsageGraph data={featureUsage?.defaultValue} />
+                </div>
+              )}
+            </div>
           </div>
 
           {environments.length > 0 && (

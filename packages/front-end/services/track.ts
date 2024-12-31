@@ -80,9 +80,49 @@ const DEVICE_ID_COOKIE = "gb_device_id";
 const SESSION_ID_COOKIE = "gb_session_id";
 const pageIds: Record<string, string> = {};
 
-const dataWareHouseTrack = async (event: DataWarehouseTrackedEvent) => {
+export const dataWareHouseTrackMultipleEventsWithDefaults = async (
+  events: {
+    eventName: string;
+    properties: TrackEventProps;
+  }[]
+) => {
+  const trackedEvents = events.map((event) => ({
+    event_name: event.eventName,
+    properties_json: JSON.stringify(event.properties),
+    device_id: getOrGenerateDeviceId(),
+    page_id: getOrGeneratePageId(),
+    session_id: getOrGenerateSessionId(),
+    sdk_language: "react",
+    sdk_version: growthbook.version,
+    url: getURL(),
+    user_id: getCurrentUser()?.id,
+    context_json: JSON.stringify(growthbook.getAttributes()),
+  }));
+  await dataWareHouseTrack(trackedEvents);
+};
+
+const dataWareHouseTrackWithDefaults = async ({
+  eventName,
+  properties = {},
+}: {
+  eventName: string;
+  properties: TrackEventProps;
+}) => {
+  await dataWareHouseTrackMultipleEventsWithDefaults([
+    { eventName, properties },
+  ]);
+};
+
+const dataWareHouseTrack = async (
+  events: DataWarehouseTrackedEvent | DataWarehouseTrackedEvent[]
+) => {
   if (inTelemetryDebugMode()) {
-    console.log("Telemetry Event - ", event);
+    console.log(
+      "Telemetry Event - ",
+      Array.isArray(events)
+        ? events.map((e) => e.event_name)
+        : events.event_name
+    );
   }
   if (!isTelemetryEnabled()) return;
 
@@ -90,7 +130,7 @@ const dataWareHouseTrack = async (event: DataWarehouseTrackedEvent) => {
   try {
     result = await fetch(`${getIngestorHost()}/track?client_key=${GB_SDK_ID}`, {
       method: "POST",
-      body: JSON.stringify(event),
+      body: JSON.stringify(events),
       headers: {
         Accept: "application/json",
         "Content-Type": "text/plain",
@@ -185,6 +225,17 @@ export function getJitsuClient(): JitsuClient | null {
   return _jitsu;
 }
 
+const getHost = () => {
+  // Mask the hostname and sanitize URLs to avoid leaking private info
+  const isLocalhost = !!location.hostname.match(/(localhost|127\.0\.0\.1)/i);
+  return isLocalhost ? "localhost" : isCloud() ? "cloud" : "self-hosted";
+};
+
+const getURL = () => {
+  const host = getHost();
+  return document.location.protocol + "//" + host + location.pathname;
+};
+
 export default function track(
   event: string,
   props: TrackEventProps = {}
@@ -201,16 +252,13 @@ export default function track(
   const effectiveAccountPlan = currentUser?.effectiveAccountPlan;
   const orgCreationDate = currentUser?.orgCreationDate;
 
-  // Mask the hostname and sanitize URLs to avoid leaking private info
-  const isLocalhost = !!location.hostname.match(/(localhost|127\.0\.0\.1)/i);
-  const host = isLocalhost ? "localhost" : isCloud() ? "cloud" : "self-hosted";
   const trackProps = {
     ...props,
     page_url: location.pathname,
     page_title: "",
     source_ip: "",
-    url: document.location.protocol + "//" + host + location.pathname,
-    doc_host: host,
+    url: getURL(),
+    doc_host: getHost(),
     doc_search: "",
     doc_path: location.pathname,
     referer: document?.referrer?.match(/weblens\.ai/) ? document.referrer : "",
@@ -229,18 +277,7 @@ export default function track(
     org: isCloud() ? org : "",
   };
 
-  void dataWareHouseTrack({
-    event_name: event,
-    properties_json: JSON.stringify(props),
-    device_id: getOrGenerateDeviceId(),
-    page_id: getOrGeneratePageId(),
-    session_id: getOrGenerateSessionId(),
-    sdk_language: "react",
-    sdk_version: growthbook.version,
-    url: trackProps.url,
-    user_id: id,
-    context_json: JSON.stringify(growthbook.getAttributes()),
-  });
+  void dataWareHouseTrackWithDefaults({ eventName: event, properties: props });
 
   const jitsu = getJitsuClient();
   if (jitsu) {
