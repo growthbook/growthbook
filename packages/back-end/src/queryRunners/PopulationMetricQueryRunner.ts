@@ -13,6 +13,8 @@ import {
   Dimension,
   ExperimentFactMetricsQueryParams,
   ExperimentMetricQueryParams,
+  PopulationFactMetricsQueryParams,
+  PopulationMetricQueryParams,
   SourceIntegrationInterface,
 } from "back-end/src/types/Integration";
 import { expandDenominatorMetrics } from "back-end/src/util/sql";
@@ -75,6 +77,8 @@ export const startPopulationDataQueries = async (
     org
   );
 
+  // TODO permissions\
+
   for (const m of singles) {
     const denominatorMetrics: MetricInterface[] = [];
     if (!isFactMetric(m) && m.denominator) {
@@ -87,23 +91,32 @@ export const startPopulationDataQueries = async (
           .filter(Boolean)
       );
     }
-    const queryParams: ExperimentMetricQueryParams = {
+    const queryParams: PopulationMetricQueryParams = {
       activationMetric: null,
       denominatorMetrics,
       dimensions: [dimensionObj],
       metric: m,
-      segment: null,
+      segment: null, // TODO segment
       settings,
       unitsSource: "sql",
       factTableMap: params.factTableMap,
+      populationSettings: params.populationSettings,
     };
+
+    if (
+      !integration.getPopulationMetricQuery ||
+      !integration.runPopulationMetricQuery
+    ) {
+      throw new Error ("Query-based power not supported for this integration.")
+    }
+
     queries.push(
       await startQuery({
         name: m.id,
-        query: integration.getExperimentMetricQuery(queryParams),
+        query: integration.getPopulationMetricQuery(queryParams),
         dependencies: [],
         run: (query, setExternalId) =>
-          integration.runExperimentMetricQuery(query, setExternalId),
+          (integration as SqlIntegration).runPopulationMetricQuery(query, setExternalId),
         process: (rows) => rows,
         queryType: "populationMetric",
       })
@@ -111,19 +124,20 @@ export const startPopulationDataQueries = async (
   }
 
   for (const [i, m] of groups.entries()) {
-    const queryParams: ExperimentFactMetricsQueryParams = {
+    const queryParams: PopulationFactMetricsQueryParams = {
       activationMetric: null,
       dimensions: [dimensionObj],
       metrics: m,
-      segment: null,
+      segment: null, // TODO segment
       settings,
       unitsSource: "sql",
       factTableMap: params.factTableMap,
+      populationSettings: params.populationSettings,
     };
 
     if (
-      !integration.getExperimentFactMetricsQuery ||
-      !integration.runExperimentFactMetricsQuery
+      !integration.getPopulationFactMetricsQuery ||
+      !integration.runPopulationFactMetricsQuery
     ) {
       throw new Error("Integration does not support multi-metric queries");
     }
@@ -131,10 +145,10 @@ export const startPopulationDataQueries = async (
     queries.push(
       await startQuery({
         name: `group_${i}`,
-        query: integration.getExperimentFactMetricsQuery(queryParams),
+        query: integration.getPopulationFactMetricsQuery(queryParams),
         dependencies: [],
         run: (query, setExternalId) =>
-          (integration as SqlIntegration).runExperimentFactMetricsQuery(
+          (integration as SqlIntegration).runPopulationFactMetricsQuery(
             query,
             setExternalId
           ),
