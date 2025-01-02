@@ -3,6 +3,7 @@ import { date } from "shared/dates";
 import { ExperimentTemplateInterface } from "back-end/types/experiment";
 import { useState } from "react";
 import { omit } from "lodash";
+import { useRouter } from "next/router";
 import Link from "@/components/Radix/Link";
 import Button from "@/components/Radix/Button";
 import LinkButton from "@/components/Radix/LinkButton";
@@ -44,6 +45,7 @@ export const TemplatesPage = ({
   } = useTemplates(project);
   const permissionsUtil = usePermissionsUtil();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const router = useRouter();
 
   const hasTemplatesFeature = hasCommercialFeature("templates");
   const canCreate =
@@ -89,7 +91,7 @@ export const TemplatesPage = ({
 
   return hasTemplates ? (
     <Box>
-      <table className="appbox table gbtable table-hover">
+      <table className="appbox table gbtable">
         <thead>
           <tr>
             <SortableTH field="templateName">Template Name</SortableTH>
@@ -107,7 +109,15 @@ export const TemplatesPage = ({
           {items.map((t) => {
             const templateUsage = t.usage;
             return (
-              <tr key={t.id} className="hover-highlight">
+              <tr
+                key={t.id}
+                className="hover-highlight"
+                onClick={(e) => {
+                  e.preventDefault();
+                  router.push(`/experiments/template/${t.id}`);
+                }}
+                style={{ cursor: "pointer" }}
+              >
                 <td data-title="Template Name" className="col-2">
                   <Link href={`/experiments/template/${t.id}`}>
                     {t.templateName}
@@ -131,7 +141,12 @@ export const TemplatesPage = ({
                   {date(t.dateCreated)}
                 </td>
                 <td data-title="Usage">{templateUsage}</td>
-                <td>
+                <td
+                  // style={{ cursor: "initial" }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                  }}
+                >
                   <MoreMenu>
                     {canEdit(t) ? (
                       <button

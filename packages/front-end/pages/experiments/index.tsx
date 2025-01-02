@@ -408,7 +408,7 @@ const ExperimentsPage = (): React.ReactElement => {
               <div className="col-auto">{addExperimentDropdownButton}</div>
             )}
           </div>
-          <Tabs defaultValue="experiments">
+          <Tabs defaultValue="experiments" persistInURL>
             <Box mb="5">
               <TabsList>
                 <TabsTrigger value="experiments">Experiments</TabsTrigger>
