@@ -16,7 +16,7 @@ import Collapsible from "react-collapsible";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiCheck, PiEye, PiLink } from "react-icons/pi";
-import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   ExperimentSnapshotReportArgs,
   ExperimentSnapshotReportInterface,
@@ -157,10 +157,6 @@ export default function ExperimentHeader({
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showBanditModal, setShowBanditModal] = useState(false);
   const [open, setOpen] = useState(false);
-  const [loadingWatchStatus, setLoadingWatchStatus] = useState(false);
-  const [loadingShareStatus, setLoadingShareStatus] = useState(false);
-  const [watchError, setWatchError] = useState<string | null>(null);
-  const [shareError, setShareError] = useState<string | null>(null);
 
   const isWatching = watchedExperiments.includes(experiment.id);
 
@@ -267,23 +263,15 @@ export default function ExperimentHeader({
   };
 
   async function handleWatchUpdates(watch: boolean) {
-    try {
-      setWatchError(null);
-      setLoadingWatchStatus(true);
-      await apiCall(
-        `/user/${watch ? "watch" : "unwatch"}/experiment/${experiment.id}`,
-        {
-          method: "POST",
-        }
-      );
-      refreshWatching();
-      mutateWatchers();
-      setLoadingWatchStatus(false);
-      setOpen(false);
-    } catch (e) {
-      setWatchError(`Error: ${e.message}. Please try again.`);
-      setLoadingWatchStatus(false);
-    }
+    await apiCall(
+      `/user-bad/${watch ? "watch" : "unwatch"}/experiment/${experiment.id}`,
+      {
+        method: "POST",
+      }
+    );
+    refreshWatching();
+    mutateWatchers();
+    setOpen(false);
   }
 
   async function startExperiment() {
@@ -780,17 +768,7 @@ export default function ExperimentHeader({
                 }
                 open={open}
                 onOpenChange={(o) => {
-                  if (o) {
-                    setOpen(true);
-                  }
-
-                  if (!o && (!loadingWatchStatus || !loadingShareStatus)) {
-                    setOpen(false);
-                  }
-
-                  // If there are errors, clear them onOpenChange
-                  setWatchError(null);
-                  setShareError(null);
+                  setOpen(!!o);
                 }}
                 menuPlacement="end"
               >
@@ -842,23 +820,11 @@ export default function ExperimentHeader({
                     }
                   >
                     <DropdownMenuItem
-                      onClick={() => {
-                        handleWatchUpdates(!isWatching);
+                      onClick={async () => {
+                        await handleWatchUpdates(!isWatching);
                       }}
-                      color={watchError ? "red" : "default"}
-                      disabled={loadingWatchStatus}
                     >
-                      {watchError ? (
-                        <Text as="span">{watchError}</Text>
-                      ) : loadingWatchStatus ? (
-                        <Flex as="div" minWidth="99px" justify="center">
-                          <LoadingSpinner />
-                        </Flex>
-                      ) : isWatching ? (
-                        "Stop watching"
-                      ) : (
-                        "Start watching"
-                      )}
+                      {isWatching ? "Stop watching" : "Start watching"}
                     </DropdownMenuItem>
                   </DropdownSubMenu>
                   <DropdownMenuItem
@@ -868,19 +834,24 @@ export default function ExperimentHeader({
                     }}
                     disabled={!usersWatching.length}
                   >
-                    <IconButton
-                      style={{
-                        backgroundColor:
-                          usersWatching.length > 0
-                            ? "var(--violet-9)"
-                            : "var(--slate-9)",
-                      }}
-                      radius="full"
-                      size="1"
-                    >
-                      {usersWatching.length || 0}
-                    </IconButton>
-                    {usersWatching.length > 0 ? "View watchers" : "No watchers"}
+                    <Flex as="div" align="center">
+                      <IconButton
+                        style={{
+                          marginRight: "5px",
+                          backgroundColor:
+                            usersWatching.length > 0
+                              ? "var(--violet-9)"
+                              : "var(--slate-9)",
+                        }}
+                        radius="full"
+                        size="1"
+                      >
+                        {usersWatching.length || 0}
+                      </IconButton>
+                      {usersWatching.length > 0
+                        ? "View watchers"
+                        : "No watchers"}
+                    </Flex>
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
@@ -897,41 +868,25 @@ export default function ExperimentHeader({
                 {permissionsUtil.canCreateReport(experiment) && snapshot ? (
                   <DropdownMenuItem
                     onClick={async () => {
-                      try {
-                        setShareError(null);
-                        setLoadingShareStatus(true);
-                        const res = await apiCall<{ report: ReportInterface }>(
-                          `/experiments/report/${snapshot.id}`,
-                          {
-                            method: "POST",
-                            body: reportArgs
-                              ? JSON.stringify(reportArgs)
-                              : undefined,
-                          }
-                        );
-                        if (!res.report) {
-                          throw new Error("Failed to create report");
+                      const res = await apiCall<{ report: ReportInterface }>(
+                        `/experiments-bad/report/${snapshot.id}`,
+                        {
+                          method: "POST",
+                          body: reportArgs
+                            ? JSON.stringify(reportArgs)
+                            : undefined,
                         }
-                        track("Experiment Report: Create", {
-                          source: "experiment more menu",
-                        });
-                        setLoadingShareStatus(false);
-                        await router.push(`/report/${res.report.id}`);
-                      } catch (e) {
-                        setLoadingShareStatus(false);
-                        setShareError(`Error: ${e.message}. Please try again.`);
-                        console.error(e);
+                      );
+                      if (!res.report) {
+                        throw new Error("Failed to create report");
                       }
+                      track("Experiment Report: Create", {
+                        source: "experiment more menu",
+                      });
+                      await router.push(`/report/${res.report.id}`);
                     }}
-                    color={shareError ? "red" : "default"}
                   >
-                    {shareError ? (
-                      <Text as="span">{shareError}</Text>
-                    ) : loadingShareStatus ? (
-                      <LoadingSpinner />
-                    ) : (
-                      "Create shareable report"
-                    )}
+                    Create shareable report
                   </DropdownMenuItem>
                 ) : null}
                 {canRunExperiment &&

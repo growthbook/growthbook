@@ -1,8 +1,15 @@
-import { DropdownMenu as RadixDropdownMenu, Text } from "@radix-ui/themes";
+import {
+  Box,
+  Flex,
+  DropdownMenu as RadixDropdownMenu,
+  Text,
+} from "@radix-ui/themes";
 import type { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
-import { PiCaretDown } from "react-icons/pi";
+import { PiCaretDown, PiWarningFill } from "react-icons/pi";
 import React, { useState } from "react";
 import Button from "@/components/Radix/Button";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 type AllowedChildren = string | React.ReactNode;
 
@@ -110,15 +117,15 @@ export function DropdownMenuItem({
   if (color === "default") {
     color = undefined;
   }
-  const [error, setError] = useState("");
+  const [error, setError] = useState<null | string>(null);
+  const [loading, setLoading] = useState(false);
   return (
     <RadixDropdownMenu.Item
-      disabled={disabled}
+      disabled={disabled || !!error || !!loading}
       onSelect={async (event) => {
-        if (error) {
-          setError("");
-        }
         event.preventDefault();
+        setError(null);
+        setLoading(true);
         if (onClick) {
           try {
             await onClick(event);
@@ -127,17 +134,27 @@ export function DropdownMenuItem({
             setError(e.message);
             console.error(e);
           }
+          setLoading(false);
         }
       }}
-      color={error ? "red" : color}
+      color={color}
       shortcut={shortcut}
       {...props}
     >
-      {error ? (
-        <Text>{`Error: ${error}. See console for more details.`}</Text>
-      ) : (
-        children
-      )}
+      <Flex as="div" justify="between" align="center">
+        <Box as="span" className={`mr-4 ${loading ? "font-italic" : ""}`}>
+          {children}
+        </Box>
+        <Box width="14px">
+          {loading ? <LoadingSpinner /> : null}
+          {error ? (
+            <Tooltip body={`Error: ${error}. Exit menu and try again.`}>
+              {/* MKTODO: Orange isn't the correct color */}
+              <PiWarningFill color="orange" />
+            </Tooltip>
+          ) : null}
+        </Box>
+      </Flex>
     </RadixDropdownMenu.Item>
   );
 }
