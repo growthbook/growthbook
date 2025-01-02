@@ -2,6 +2,7 @@ import { useRouter } from "next/router";
 import { FC, useState } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { date } from "shared/dates";
+import { ExperimentTemplateInterface } from "back-end/types/experiment";
 import { useTemplates } from "@/hooks/useTemplates";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Link from "@/components/Radix/Link";
@@ -12,23 +13,21 @@ import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import { useUser } from "@/services/UserContext";
 import LinkButton from "@/components/Radix/LinkButton";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
+import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
 
 const TemplatePage: FC = () => {
   const router = useRouter();
   const { tid } = router.query;
   const { templatesMap, templateExperimentMap } = useTemplates();
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
+  const [openTemplateModal, setOpenTemplateModal] = useState<
+    ExperimentTemplateInterface | undefined
+  >(undefined);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const { hasCommercialFeature, permissionsUtil } = useUser();
 
   const template = templatesMap.get(tid as string);
   const templateExperiments = templateExperimentMap[tid as string] || [];
-
-  const hasTemplatesFeature = hasCommercialFeature("templates");
-  const canCreate =
-    permissionsUtil.canCreateExperimentTemplate({
-      project: template?.project,
-    }) && hasTemplatesFeature;
 
   const { items: experiments, SortableTH } = useSearch({
     items: templateExperiments,
@@ -41,6 +40,15 @@ const TemplatePage: FC = () => {
     return <div>Template not found</div>;
   }
 
+  const hasTemplatesFeature = hasCommercialFeature("templates");
+  const canCreate =
+    permissionsUtil.canCreateExperimentTemplate({
+      project: template?.project,
+    }) && hasTemplatesFeature;
+  const canEdit =
+    permissionsUtil.canUpdateExperimentTemplate(template, {}) &&
+    hasTemplatesFeature;
+
   return (
     <>
       {openNewExperimentModal && (
@@ -52,6 +60,14 @@ const TemplatePage: FC = () => {
             type: "standard",
             templateId: tid as string,
           }}
+        />
+      )}
+      {openTemplateModal && (
+        <TemplateForm
+          onClose={() => setOpenTemplateModal(undefined)}
+          initialValue={openTemplateModal}
+          source="templates-list"
+          isNewTemplate={false}
         />
       )}
       <PageHead
@@ -71,11 +87,21 @@ const TemplatePage: FC = () => {
         <Box mb="5" mt="3">
           <Flex mt="2" mb="1" justify="between" align="center">
             <h1>{template?.templateMetadata.name}</h1>
-            {canCreate && (
-              <Button onClick={() => setOpenNewExperimentModal(true)}>
-                Create Experiment
-              </Button>
-            )}
+            <div>
+              {canEdit && (
+                <Button
+                  onClick={() => setOpenTemplateModal(template)}
+                  variant="outline"
+                >
+                  Edit Template
+                </Button>
+              )}
+              {canCreate && (
+                <Button onClick={() => setOpenNewExperimentModal(true)} ml="3">
+                  Create Experiment
+                </Button>
+              )}
+            </div>
           </Flex>
           <Text as="p">
             The experiments listed below are using this template. Some fields
