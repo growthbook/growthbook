@@ -264,7 +264,7 @@ export default function ExperimentHeader({
 
   async function handleWatchUpdates(watch: boolean) {
     await apiCall(
-      `/user-bad/${watch ? "watch" : "unwatch"}/experiment/${experiment.id}`,
+      `/user/${watch ? "watch" : "unwatch"}/experiment/${experiment.id}`,
       {
         method: "POST",
       }
@@ -869,7 +869,7 @@ export default function ExperimentHeader({
                   <DropdownMenuItem
                     onClick={async () => {
                       const res = await apiCall<{ report: ReportInterface }>(
-                        `/experiments-bad/report/${snapshot.id}`,
+                        `/experiments/report/${snapshot.id}`,
                         {
                           method: "POST",
                           body: reportArgs
