@@ -326,6 +326,20 @@ export async function refreshReport(
   const useCache = !req.query["force"];
 
   if (report.type === "experiment-snapshot") {
+    const experiment = await getExperimentById(
+      context,
+      report.experimentId || ""
+    );
+    const isOwner = report.userId === req.userId;
+    const canUpdateReport = context.permissions.canUpdateReport(
+      experiment || {}
+    );
+    if (
+      !(isOwner || (report.editLevel === "organization" && canUpdateReport))
+    ) {
+      context.permissions.throwPermissionError();
+    }
+
     const snapshot =
       (await findSnapshotById(report.organization, report.snapshot)) ||
       undefined;
@@ -393,6 +407,20 @@ export async function putReport(
     throw new Error("Unknown report id");
   }
   if (report.type === "experiment-snapshot") {
+    const experiment = await getExperimentById(
+      context,
+      report.experimentId || ""
+    );
+    const isOwner = report.userId === req.userId;
+    const canUpdateReport = context.permissions.canUpdateReport(
+      experiment || {}
+    );
+    if (
+      !(isOwner || (report.editLevel === "organization" && canUpdateReport))
+    ) {
+      context.permissions.throwPermissionError();
+    }
+
     const data = req.body as ExperimentSnapshotReportInterface;
     if (!data) {
       throw new Error("Malformed data");

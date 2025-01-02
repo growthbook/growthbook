@@ -47,6 +47,7 @@ type ModAppProps = AppProps & {
     progressiveAuth?: boolean;
     progressiveAuthTopNav?: boolean;
     noLoadingOverlay?: boolean;
+    mainClassName?: string;
   };
 };
 
@@ -59,7 +60,9 @@ function App({
   const [error, setError] = useState("");
 
   // hacky:
-  const parts = router.route.substr(1).split("/");
+  const parts = Component.mainClassName
+    ? [Component.mainClassName]
+    : router.route.substr(1).split("/");
 
   const organizationRequired = !Component.noOrganization;
   const preAuth = Component.preAuth || false;

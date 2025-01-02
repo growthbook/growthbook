@@ -5,7 +5,7 @@ import {
   AttributionModel,
   ExperimentInterfaceStringDates,
 } from "back-end/types/experiment";
-import { date, getValidDate } from "shared/dates";
+import { getValidDate } from "shared/dates";
 import { DifferenceType } from "back-end/types/stats";
 import { MdInfoOutline } from "react-icons/md";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
@@ -37,6 +37,7 @@ import { useUser } from "@/services/UserContext";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
+import { useIncrementer } from "@/hooks/useIncrementer";
 
 type TabOptions = "overview" | "metrics" | "analysis" | "variations";
 export default function ConfigureReport({
@@ -56,9 +57,27 @@ export default function ConfigureReport({
   const orgSettings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
   const { apiCall } = useAuth();
+  const [datePickerKey, incrementDatePickerKey] = useIncrementer();
 
   const form = useForm<Partial<ExperimentSnapshotReportInterface>>({
-    defaultValues: report,
+    defaultValues: {
+      ...report,
+      experimentAnalysisSettings: {
+        ...report.experimentAnalysisSettings,
+        dateStarted: new Date(
+          getValidDate(report.experimentAnalysisSettings?.dateStarted ?? "")
+            .toISOString()
+            .substr(0, 16)
+        ),
+        dateEnded: report.experimentAnalysisSettings?.dateEnded
+          ? new Date(
+              getValidDate(report.experimentAnalysisSettings.dateEnded)
+                .toISOString()
+                .substr(0, 16)
+            )
+          : null,
+      },
+    },
   });
   const submit = form.handleSubmit(async (value) => {
     if (!canEdit) return;
@@ -66,6 +85,24 @@ export default function ConfigureReport({
     if (useToday && value.experimentAnalysisSettings) {
       value.experimentAnalysisSettings.dateEnded = null;
     }
+    const d = new Date();
+    // @ts-expect-error types are good enough for CRUD
+    value.experimentAnalysisSettings = {
+      ...value.experimentAnalysisSettings,
+      dateStarted: new Date(
+        getValidDate(
+          value.experimentAnalysisSettings?.dateStarted ?? ""
+        ).getTime() -
+          d.getTimezoneOffset() * 60 * 1000
+      ),
+      dateEnded: value.experimentAnalysisSettings?.dateEnded
+        ? new Date(
+            getValidDate(value.experimentAnalysisSettings.dateEnded).getTime() -
+              d.getTimezoneOffset() * 60 * 1000
+          )
+        : null,
+    };
+
     await apiCall<{
       updatedReport: ExperimentSnapshotReportInterface;
     }>(`/report/${report.id}`, {
@@ -90,7 +127,6 @@ export default function ConfigureReport({
   const experiment = experimentData?.experiment;
 
   const latestPhaseIndex = (experiment?.phases?.length ?? 1) - 1;
-  const experimentEndDate = experiment?.phases?.[latestPhaseIndex]?.dateEnded;
 
   const datasource = experiment?.datasource
     ? getDatasourceById(experiment.datasource)
@@ -186,6 +222,7 @@ export default function ConfigureReport({
             <div className="d-flex" style={{ gap: "1rem" }}>
               <div style={{ width: "50%" }}>
                 <DatePicker
+                  key={`${datePickerKey}_date1`}
                   label="Analysis Start (UTC)"
                   containerClassName="mb-2"
                   date={form.watch("experimentAnalysisSettings.dateStarted")}
@@ -201,18 +238,27 @@ export default function ConfigureReport({
                   variant="ghost"
                   size="sm"
                   style={{ height: 45, textAlign: "left" }}
-                  onClick={() =>
+                  onClick={() => {
                     form.setValue(
                       "experimentAnalysisSettings.dateStarted",
-                      getValidDate(experiment?.phases?.[0]?.dateStarted)
-                    )
-                  }
+                      new Date(
+                        getValidDate(experiment?.phases?.[0]?.dateStarted)
+                          .toISOString()
+                          .substr(0, 16)
+                      )
+                    );
+                    incrementDatePickerKey();
+                  }}
                 >
                   <div style={{ lineHeight: 1.25 }}>
                     Use {isBandit ? "Bandit" : "Experiment"} start date
                     <br />
                     <small>
-                      {date(experiment?.phases?.[0]?.dateStarted || "")}
+                      {new Date(
+                        getValidDate(experiment?.phases?.[0]?.dateStarted)
+                          .toISOString()
+                          .substr(0, 16)
+                      ).toLocaleDateString()}
                     </small>
                   </div>
                 </Button>
@@ -223,23 +269,33 @@ export default function ConfigureReport({
                       size="sm"
                       mt="2"
                       style={{ height: 45, textAlign: "left" }}
-                      onClick={() =>
+                      onClick={() => {
                         form.setValue(
                           "experimentAnalysisSettings.dateStarted",
-                          getValidDate(
-                            experiment?.phases?.[latestPhaseIndex]?.dateStarted
+                          new Date(
+                            getValidDate(
+                              experiment?.phases?.[latestPhaseIndex]
+                                ?.dateStarted ?? ""
+                            )
+                              .toISOString()
+                              .substr(0, 16)
                           )
-                        )
-                      }
+                        );
+                        incrementDatePickerKey();
+                      }}
                     >
                       <div style={{ lineHeight: 1.25, padding: "3px 0" }}>
                         Use latest phase ({latestPhaseIndex + 1}) start date
                         <br />
                         <small>
-                          {date(
-                            experiment?.phases?.[latestPhaseIndex]
-                              ?.dateStarted || ""
-                          )}
+                          {new Date(
+                            getValidDate(
+                              experiment?.phases?.[latestPhaseIndex]
+                                ?.dateStarted
+                            )
+                              .toISOString()
+                              .substr(0, 16)
+                          ).toLocaleDateString()}
                         </small>
                       </div>
                     </Button>
@@ -257,6 +313,7 @@ export default function ConfigureReport({
                   />
                 ) : (
                   <DatePicker
+                    key={`${datePickerKey}_date2`}
                     label="End (UTC)"
                     containerClassName="mb-2"
                     date={
@@ -273,8 +330,7 @@ export default function ConfigureReport({
                 )}
                 <div className="d-flex align-items-center">
                   {experiment?.status === "stopped" &&
-                  experimentEndDate &&
-                  getValidDate(experimentEndDate) ? (
+                  experiment?.phases?.[latestPhaseIndex]?.dateEnded ? (
                     <div className="flex-1">
                       <Button
                         variant="ghost"
@@ -284,15 +340,32 @@ export default function ConfigureReport({
                         onClick={() => {
                           form.setValue(
                             "experimentAnalysisSettings.dateEnded",
-                            getValidDate(experimentEndDate)
+                            new Date(
+                              getValidDate(
+                                experiment?.phases?.[latestPhaseIndex]
+                                  ?.dateEnded
+                              )
+                                .toISOString()
+                                .substr(0, 16)
+                            )
                           );
+                          incrementDatePickerKey();
                           setUseToday(false);
                         }}
                       >
                         <div style={{ lineHeight: 1.25, padding: "3px 0" }}>
                           Use {isBandit ? "Bandit" : "Experiment"} end date
                           <br />
-                          <small>{date(experimentEndDate || "")}</small>
+                          <small>
+                            {new Date(
+                              getValidDate(
+                                experiment?.phases?.[latestPhaseIndex]
+                                  ?.dateEnded
+                              )
+                                .toISOString()
+                                .substr(0, 16)
+                            ).toLocaleDateString()}
+                          </small>
                         </div>
                       </Button>
                     </div>

@@ -269,3 +269,4 @@ PublicExperimentPage.preAuth = true;
 PublicExperimentPage.progressiveAuth = true;
 PublicExperimentPage.progressiveAuthTopNav = true;
 PublicExperimentPage.noLoadingOverlay = true;
+PublicExperimentPage.mainClassName = "public experiment";
