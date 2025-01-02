@@ -301,7 +301,8 @@ def analyze_metric_df(
             df[f"v{i}_power_additional_users"] = None
             df[f"v{i}_power_additional_days"] = None  # remove later
             df[f"v{i}_power_update_message"] = None
-            df[f"v{i}_power_error_message"] = None
+            df[f"v{i}_power_error_message"] = ""
+            df[f"v{i}_power_upper_bound_acheieved"] = None
 
     def analyze_row(s: pd.Series) -> pd.Series:
         s = s.copy()
@@ -352,6 +353,9 @@ def analyze_metric_df(
                     f"v{i}_power_update_message"
                 ] = mid_experiment_power_result.update_message
                 s[f"v{i}_power_error_message"] = mid_experiment_power_result.error
+                s[
+                    f"v{i}_power_upper_bound_achieved"
+                ] = mid_experiment_power_result.upper_bound_achieved
                 ########################################################################################
                 # delete this block later, as it will be calculated in the front end
                 # also, these users_per_day are wrong, as we will be feeding in data from the health tab
@@ -502,6 +506,7 @@ def format_variation_result(
                 powerAdditionalUsers=row[f"{prefix}_power_additional_users"],
                 powerUpdateMessage=row[f"{prefix}_power_update_message"],
                 powerError=row[f"{prefix}_power_error_message"],
+                upperBoundAchieved=row[f"{prefix}_power_upper_bound_achieved"],
                 endOfExperimentPower=row[f"{prefix}_end_of_experiment_power"],
                 targetPower=row[f"{prefix}_target_power"],
                 newDailyUsers=row[f"{prefix}_new_daily_users"],

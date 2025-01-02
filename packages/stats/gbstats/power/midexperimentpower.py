@@ -31,6 +31,7 @@ class MidExperimentPowerConfig(BaseConfig):
 @dataclass
 class AdditionalSampleSizeNeededResult:
     additional_users: Optional[float]
+    upper_bound_achieved: bool
     update_message: str
     error: Optional[str] = None
     target_power: float = 0.8
@@ -40,6 +41,7 @@ class AdditionalSampleSizeNeededResult:
 @dataclass
 class ScalingFactorResult:
     scaling_factor: Optional[float]
+    upper_bound_achieved: bool = False
     converged: bool = False
     error: Optional[str] = None
 
@@ -92,23 +94,51 @@ class MidExperimentPower:
                 error=None,
                 update_message="already significant",
                 additional_users=0,
+                upper_bound_achieved=False,
                 target_power=self.target_power,
                 v_prime=None,
             )
         else:
             scaling_factor_result = self.find_scaling_factor()
-            if scaling_factor_result.converged and scaling_factor_result.scaling_factor:
+            if scaling_factor_result.scaling_factor:
                 self.additional_users = (
                     self.pairwise_sample_size * scaling_factor_result.scaling_factor
                 )
+                ###### delete below me later ##################
                 daily_traffic = self.pairwise_sample_size / self.phase_length_days
                 self.additional_days = self.additional_users / daily_traffic
+                ###### delete above me later ##################
+            else:
+                self.additional_users = None
+                self.additional_days = None
+            if scaling_factor_result.upper_bound_achieved:
+                if scaling_factor_result.scaling_factor:
+                    return AdditionalSampleSizeNeededResult(
+                        error=None,
+                        update_message="successful, upper bound hit",
+                        v_prime=self.sigmahat_2_delta
+                        / scaling_factor_result.scaling_factor,
+                        additional_users=self.additional_users,
+                        upper_bound_achieved=True,
+                        target_power=self.target_power,
+                    )
+                else:
+                    return AdditionalSampleSizeNeededResult(
+                        error=scaling_factor_result.error,
+                        update_message="unsuccessful",
+                        v_prime=0,
+                        additional_users=0,
+                        upper_bound_achieved=True,
+                        target_power=self.target_power,
+                    )
+            if scaling_factor_result.converged and scaling_factor_result.scaling_factor:
                 return AdditionalSampleSizeNeededResult(
                     error=None,
                     update_message="successful",
                     v_prime=self.sigmahat_2_delta
                     / scaling_factor_result.scaling_factor,
                     additional_users=self.additional_users,
+                    upper_bound_achieved=False,
                     target_power=self.target_power,
                 )
             else:
@@ -117,6 +147,7 @@ class MidExperimentPower:
                     update_message="unsuccessful",
                     v_prime=0,
                     additional_users=0,
+                    upper_bound_achieved=False,
                     target_power=self.target_power,
                 )
 
@@ -133,10 +164,14 @@ class MidExperimentPower:
     def max_iters(self) -> int:
         return 100
 
-    # maximum number of iterations for finding the scaling factor
+    # maximum number of iterations for finding the scaling factor: 2 ^ 27 = 134,217,728
     @property
     def max_iters_scaling_factor(self) -> int:
-        return 25
+        return 27
+
+    @property
+    def max_scaling_factor(self) -> float:
+        return 2**self.max_iters_scaling_factor
 
     @property
     def delta_posterior(self) -> float:
@@ -334,6 +369,7 @@ class MidExperimentPower:
             return ScalingFactorResult(
                 converged=False,
                 error="could not find lower bound for scaling factor",
+                upper_bound_achieved=False,
                 scaling_factor=None,
             )
         scaling_factor_upper, converged_upper = self.find_scaling_factor_bound(
@@ -342,9 +378,9 @@ class MidExperimentPower:
         if not converged_upper:
             return ScalingFactorResult(
                 converged=False,
-                error="upper bound for scaling factor is greater than "
-                + str(2**self.max_iters_scaling_factor),
-                scaling_factor=None,
+                error="",
+                upper_bound_achieved=True,
+                scaling_factor=self.max_scaling_factor,
             )
         diff = current_power - 0.8
         iteration = 0
@@ -366,7 +402,10 @@ class MidExperimentPower:
         converged = iteration < self.max_iters - 1
         error = "" if converged else "bisection search did not converge"
         return ScalingFactorResult(
-            converged=converged, error=error, scaling_factor=scaling_factor
+            converged=converged,
+            error=error,
+            scaling_factor=scaling_factor,
+            upper_bound_achieved=False,
         )
 
     @staticmethod

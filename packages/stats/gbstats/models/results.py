@@ -47,18 +47,19 @@ class BaselineResponse:
 
 @dataclass
 class PowerResponse:
-    firstPeriodPairwiseSampleSize: Optional[float]
-    effectSize: Optional[float]
-    sigmahat2Delta: Optional[float]
-    sigma2Posterior: Optional[float]
-    deltaPosterior: Optional[float]
-    powerUpdateMessage: Optional[str]
+    firstPeriodPairwiseSampleSize: float
+    effectSize: float
+    sigmahat2Delta: float
+    sigma2Posterior: float
+    deltaPosterior: float
+    powerUpdateMessage: str
     powerError: Optional[str]
+    upperBoundAchieved: bool
     endOfExperimentPower: Optional[float]  # delete later, used for testing only
     newDailyUsers: Optional[float]  # delete later, used for testing only
     powerAdditionalUsers: Optional[float]  # delete later, used for testing only
     powerAdditionalDays: Optional[float]  # delete later, used for testing only
-    targetPower: Optional[float]  # delete later, used for testing only
+    targetPower: float  # delete later, used for testing only
 
 
 @dataclass
