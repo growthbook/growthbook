@@ -84,9 +84,13 @@ const TemplatePage: FC = () => {
         </Box>
         {experiments.length ? (
           <table className="appbox table gbtable">
-            <th>Experiment Name</th>
-            <SortableTH field="status">Status</SortableTH>
-            <SortableTH field="dateCreated">Created</SortableTH>
+            <thead>
+              <tr>
+                <th>Experiment Name</th>
+                <SortableTH field="status">Status</SortableTH>
+                <SortableTH field="dateCreated">Created</SortableTH>
+              </tr>
+            </thead>
             <tbody>
               {experiments.map((e) => (
                 <tr
@@ -96,6 +100,7 @@ const TemplatePage: FC = () => {
                     event.preventDefault();
                     router.push(`/experiment/${e.id}`);
                   }}
+                  style={{ cursor: "pointer" }}
                 >
                   <td data-title="Experiment Name" className="col-4">
                     <Link href={`/experiment/${e.id}`}>{e.name}</Link>
