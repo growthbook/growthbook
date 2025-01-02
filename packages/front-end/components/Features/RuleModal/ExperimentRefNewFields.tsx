@@ -11,6 +11,7 @@ import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import Collapsible from "react-collapsible";
 import { Flex, Tooltip, Text } from "@radix-ui/themes";
 import { date } from "shared/dates";
+import { isProjectListValidForProject } from "shared/util";
 import Field from "@/components/Forms/Field";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import SelectField from "@/components/Forms/SelectField";
@@ -41,7 +42,6 @@ import { MetricsSelectorTooltip } from "@/components/Experiment/MetricsSelector"
 import { useTemplates } from "@/hooks/useTemplates";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { convertTemplateToExperimentRule } from "@/services/experiments";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
 
 export default function ExperimentRefNewFields({
@@ -122,8 +122,7 @@ export default function ExperimentRefNewFields({
     getSegmentById,
     datasources,
   } = useDefinitions();
-  const permissionsUtils = usePermissionsUtil();
-  const { templates: allTemplates, templatesMap } = useTemplates(project);
+  const { templates: allTemplates, templatesMap } = useTemplates();
   const { hasCommercialFeature } = useUser();
 
   const availableTemplates = allTemplates
@@ -131,7 +130,9 @@ export default function ExperimentRefNewFields({
     .sort((a, b) =>
       a.templateMetadata.name > b.templateMetadata.name ? 1 : -1
     )
-    .filter((t) => permissionsUtils.canViewExperimentTemplateModal(t.project))
+    .filter((t) =>
+      isProjectListValidForProject(t.project ? [t.project] : [], project)
+    )
     .map((t) => ({ value: t.id, label: t.templateMetadata.name }));
 
   const datasource = form.watch("datasource")
