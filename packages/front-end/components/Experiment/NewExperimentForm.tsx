@@ -178,7 +178,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     templates: allTemplates,
     templatesMap,
     mutateTemplates: refreshTemplates,
-  } = useTemplates(project);
+  } = useTemplates();
   const envs = environments.map((e) => e.id);
 
   const [
@@ -435,7 +435,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     .sort((a, b) =>
       a.templateMetadata.name > b.templateMetadata.name ? 1 : -1
     )
-    .filter((t) => permissionsUtils.canViewExperimentTemplateModal(t.project))
+    .filter((t) =>
+      isProjectListValidForProject(t.project ? [t.project] : [], project)
+    )
     .map((t) => ({ value: t.id, label: t.templateMetadata.name }));
 
   const allowAllProjects = permissionsUtils.canViewExperimentModal();
