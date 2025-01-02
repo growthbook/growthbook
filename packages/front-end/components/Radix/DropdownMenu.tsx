@@ -7,6 +7,7 @@ import {
 import type { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
 import { PiCaretDown, PiWarningFill } from "react-icons/pi";
 import React, { useState } from "react";
+import { amber } from "@radix-ui/colors";
 import Button from "@/components/Radix/Button";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -149,8 +150,7 @@ export function DropdownMenuItem({
           {loading ? <LoadingSpinner /> : null}
           {error ? (
             <Tooltip body={`Error: ${error}. Exit menu and try again.`}>
-              {/* MKTODO: Orange isn't the correct color */}
-              <PiWarningFill color="orange" />
+              <PiWarningFill color={amber.amber11} />
             </Tooltip>
           ) : null}
         </Box>
