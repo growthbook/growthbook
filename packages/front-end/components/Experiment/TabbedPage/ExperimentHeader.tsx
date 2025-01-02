@@ -788,14 +788,9 @@ export default function ExperimentHeader({
                     setOpen(false);
                   }
 
-                  //MKTODO: Clean up this logic
-                  if (!open && !loadingWatchStatus && setWatchError !== null) {
-                    setWatchError(null);
-                  }
-
-                  if (!open && !loadingShareStatus && setShareError !== null) {
-                    setShareError(null);
-                  }
+                  // If there are errors, clear them onOpenChange
+                  setWatchError(null);
+                  setShareError(null);
                 }}
                 menuPlacement="end"
               >
@@ -834,7 +829,6 @@ export default function ExperimentHeader({
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
                   <DropdownSubMenu
-                    //MKTODO: Make this always display on the left side
                     trigger={
                       <Flex
                         align="center"
@@ -851,15 +845,15 @@ export default function ExperimentHeader({
                       onClick={() => {
                         handleWatchUpdates(!isWatching);
                       }}
+                      color={watchError ? "red" : "default"}
+                      disabled={loadingWatchStatus}
                     >
-                      {/* MKTODO: Clean up this display logic */}
-                      {/* MKTODO: The Loading... copy flickers so quickly it might not be worth it */}
                       {watchError ? (
-                        <Text as="span" color="red">
-                          {watchError}
-                        </Text>
+                        <Text as="span">{watchError}</Text>
                       ) : loadingWatchStatus ? (
-                        "Loading..."
+                        <Flex as="div" minWidth="99px" justify="center">
+                          <LoadingSpinner />
+                        </Flex>
                       ) : isWatching ? (
                         "Stop watching"
                       ) : (
@@ -929,14 +923,12 @@ export default function ExperimentHeader({
                         console.error(e);
                       }
                     }}
+                    color={shareError ? "red" : "default"}
                   >
-                    {/* MKTODO: The Loading... copy flickers so quickly it might not be worth it */}
                     {shareError ? (
-                      <Text as="span" color="red">
-                        {shareError}
-                      </Text>
+                      <Text as="span">{shareError}</Text>
                     ) : loadingShareStatus ? (
-                      "Loading..."
+                      <LoadingSpinner />
                     ) : (
                       "Create shareable report"
                     )}
