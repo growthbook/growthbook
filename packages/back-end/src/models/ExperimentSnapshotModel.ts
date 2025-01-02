@@ -123,6 +123,26 @@ const experimentSnapshotSchema = new mongoose.Schema({
       },
       error: String,
     },
+    power: {
+      _id: false,
+      type: { type: String },
+      description: String, // FIXME: Is it only for error?
+      power: Number,
+      additionalUsers: Number,
+      additionalDays: Number,
+      lowPowerWarning: Boolean,
+      lowPowerTableRows: [
+        {
+          _id: false,
+          newDailyUsers: Number,
+          metric: String,
+          variation: String,
+          effectSize: Number,
+          power: Number,
+          additionalDaysNeeded: Number,
+        },
+      ],
+    },
   },
   hasRawQueries: Boolean,
   queryFilter: String,

@@ -24,6 +24,7 @@ import {
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { parseDimensionId } from "back-end/src/services/experiments";
 import {
+  analyzeExperimentPower,
   analyzeExperimentResults,
   analyzeExperimentTraffic,
 } from "back-end/src/services/stats";
@@ -468,6 +469,20 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       result.health = {
         traffic: trafficHealth,
       };
+
+      // NB: This does not run a SQL query, but does health checks on data from gbstats
+      const relativeAnalysis = this.model.analyses.find(
+        (a) => a.settings.differenceType === "relative"
+      );
+      if (relativeAnalysis) {
+        const powerHealth = analyzeExperimentPower({
+          trafficHealth,
+          analysis: relativeAnalysis,
+          goalMetrics: this.model.settings.goalMetrics,
+          variations: this.model.settings.variations,
+        });
+        result.health.power = powerHealth;
+      }
     }
 
     return result;

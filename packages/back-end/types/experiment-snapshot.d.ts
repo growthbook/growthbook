@@ -1,3 +1,4 @@
+import { MidExperimentPowerCalculationResult } from "shared/src/power";
 import { BanditResult } from "back-end/src/validators/experiments";
 import {
   MetricSettingsForStatsEngine,
@@ -5,7 +6,12 @@ import {
 } from "back-end/src/services/stats";
 import { QueryLanguage } from "./datasource";
 import { MetricInterface, MetricStats } from "./metric";
-import { DifferenceType, RiskType, StatsEngine } from "./stats";
+import {
+  DifferenceType,
+  PowerResponseFromStatsEngine,
+  RiskType,
+  StatsEngine,
+} from "./stats";
 import { Queries } from "./query";
 import {
   ExperimentReportResultDimension,
@@ -40,6 +46,8 @@ export interface SnapshotMetric {
   }[];
   chanceToWin?: number;
   errorMessage?: string;
+  // FIXME: Should we improve on the type / do more validations?
+  powerResponse?: PowerResponseFromStatsEngine;
 }
 
 export interface SnapshotVariation {
@@ -113,6 +121,7 @@ export interface ExperimentSnapshotAnalysisSettings {
   pValueCorrection?: null | "holm-bonferroni" | "benjamini-hochberg";
   pValueThreshold?: number;
   baselineVariationIndex?: number;
+  numGoalMetrics: number;
 }
 
 export type SnapshotType = "standard" | "exploratory" | "report";
@@ -197,7 +206,6 @@ export interface ExperimentSnapshotInterface {
   multipleExposures: number;
   analyses: ExperimentSnapshotAnalysis[];
   banditResult?: BanditResult;
-
   health?: ExperimentSnapshotHealth;
 }
 
@@ -207,6 +215,7 @@ export interface ExperimentWithSnapshot extends ExperimentInterfaceStringDates {
 
 export interface ExperimentSnapshotHealth {
   traffic: ExperimentSnapshotTraffic;
+  power?: MidExperimentPowerCalculationResult;
 }
 
 export interface ExperimentSnapshotTraffic {

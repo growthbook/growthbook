@@ -14,30 +14,34 @@ from gbstats.frequentist.tests import (
     sequential_rho,
 )
 from gbstats.models.tests import BaseConfig
+from gbstats.utils import is_statistically_significant
 
 
 @dataclass
 class MidExperimentPowerConfig(BaseConfig):
     target_power: float = 0.8
     m_prime: float = 1
-    v_prime: float = 1
+    v_prime: Optional[float] = None
     sequential: bool = False
     sequential_tuning_parameter: float = 5000
+    num_goal_metrics: int = 1
+    num_variations: int = 2
 
 
 @dataclass
-class MidExperimentPowerResult:
-    additional_n: Optional[float]
-    additional_days: Optional[float]
+class AdditionalSampleSizeNeededResult:
+    additional_users: Optional[float]
+    upper_bound_achieved: bool
     update_message: str
     error: Optional[str] = None
     target_power: float = 0.8
-    v_prime: float = 1
+    v_prime: Optional[float] = None
 
 
 @dataclass
 class ScalingFactorResult:
     scaling_factor: Optional[float]
+    upper_bound_achieved: bool = False
     converged: bool = False
     error: Optional[str] = None
 
@@ -72,55 +76,84 @@ class MidExperimentPower:
         self.traffic_percentage = config.traffic_percentage
         self.phase_length_days = config.phase_length_days
         self.alpha = config.alpha
-        self.z_star = norm.ppf(1 - self.alpha / 2)
+        self.num_tests = (
+            power_config.num_variations - 1
+        ) * power_config.num_goal_metrics
+        self.z_star = norm.ppf(1 - self.alpha / (2 * self.num_tests))
         self.target_power = power_config.target_power
         self.m_prime = power_config.m_prime
-        self.v_prime = power_config.v_prime
+        self.v_prime = (
+            power_config.v_prime if power_config.v_prime else self.sigmahat_2_delta
+        )
         self.sequential = power_config.sequential
         self.sequential_tuning_parameter = power_config.sequential_tuning_parameter
 
-    def calculate_sample_size(self) -> MidExperimentPowerResult:
+    def calculate_sample_size(self) -> AdditionalSampleSizeNeededResult:
         if self.already_significant:
-            return MidExperimentPowerResult(
+            return AdditionalSampleSizeNeededResult(
                 error=None,
                 update_message="already significant",
-                additional_n=0,
-                additional_days=0,
+                additional_users=0,
+                upper_bound_achieved=False,
                 target_power=self.target_power,
+                v_prime=None,
             )
         else:
             scaling_factor_result = self.find_scaling_factor()
-            if scaling_factor_result.converged and scaling_factor_result.scaling_factor:
-                self.additional_n = (
+            if scaling_factor_result.scaling_factor:
+                self.additional_users = (
                     self.pairwise_sample_size * scaling_factor_result.scaling_factor
                 )
+                ###### delete below me later ##################
                 daily_traffic = self.pairwise_sample_size / self.phase_length_days
-                self.additional_days = self.additional_n / daily_traffic
-                return MidExperimentPowerResult(
+                self.additional_days = self.additional_users / daily_traffic
+                ###### delete above me later ##################
+            else:
+                self.additional_users = None
+                self.additional_days = None
+            if scaling_factor_result.upper_bound_achieved:
+                if scaling_factor_result.scaling_factor:
+                    return AdditionalSampleSizeNeededResult(
+                        error=None,
+                        update_message="successful, upper bound hit",
+                        v_prime=self.sigmahat_2_delta
+                        / scaling_factor_result.scaling_factor,
+                        additional_users=self.additional_users,
+                        upper_bound_achieved=True,
+                        target_power=self.target_power,
+                    )
+                else:
+                    return AdditionalSampleSizeNeededResult(
+                        error=scaling_factor_result.error,
+                        update_message="unsuccessful",
+                        v_prime=0,
+                        additional_users=0,
+                        upper_bound_achieved=True,
+                        target_power=self.target_power,
+                    )
+            if scaling_factor_result.converged and scaling_factor_result.scaling_factor:
+                return AdditionalSampleSizeNeededResult(
                     error=None,
                     update_message="successful",
                     v_prime=self.sigmahat_2_delta
                     / scaling_factor_result.scaling_factor,
-                    additional_n=self.additional_n,
-                    additional_days=self.additional_days,
+                    additional_users=self.additional_users,
+                    upper_bound_achieved=False,
                     target_power=self.target_power,
                 )
             else:
-                return MidExperimentPowerResult(
+                return AdditionalSampleSizeNeededResult(
                     error=scaling_factor_result.error,
                     update_message="unsuccessful",
                     v_prime=0,
-                    additional_n=0,
-                    additional_days=0,
+                    additional_users=0,
+                    upper_bound_achieved=False,
                     target_power=self.target_power,
                 )
 
     @property
     def already_significant(self) -> bool:
-        return (
-            np.abs(self.test_result.uplift.mean) / self.test_result.uplift.stddev
-            > self.z_star
-        )
+        return is_statistically_significant(self.test_result.ci)
 
     @property
     def pairwise_sample_size(self) -> int:
@@ -131,10 +164,14 @@ class MidExperimentPower:
     def max_iters(self) -> int:
         return 100
 
-    # maximum number of iterations for finding the scaling factor
+    # maximum number of iterations for finding the scaling factor: 2 ^ 27 = 134,217,728
     @property
     def max_iters_scaling_factor(self) -> int:
-        return 25
+        return 27
+
+    @property
+    def max_scaling_factor(self) -> float:
+        return 2**self.max_iters_scaling_factor
 
     @property
     def delta_posterior(self) -> float:
@@ -181,7 +218,9 @@ class MidExperimentPower:
             sequential_tuning_parameter=self.sequential_tuning_parameter,
             n_current=self.pairwise_sample_size,
         )
-        current_power = self.calculate_power(power_params)
+        current_power = self.calculate_power(
+            power_params.scaling_factor, power_params.m_prime, power_params.v_prime
+        )
         converged = False
         multiplier = 2 if upper else 0.5
         iteration = 0
@@ -189,7 +228,9 @@ class MidExperimentPower:
             scaling_factor *= multiplier
             power_params.scaling_factor = scaling_factor
             power_params.v_prime = self.sigmahat_2_delta / scaling_factor
-            current_power = self.calculate_power(power_params)
+            current_power = self.calculate_power(
+                power_params.scaling_factor, power_params.m_prime, power_params.v_prime
+            )
             if upper and current_power > self.target_power:
                 break
             if not upper and current_power < self.target_power:
@@ -198,42 +239,92 @@ class MidExperimentPower:
             converged = True
         return scaling_factor, converged
 
-    @staticmethod
-    def calculate_power(power_params: PowerParams) -> float:
+    def calculate_power(
+        self, scaling_factor: float, m_prime: float, v_prime: float
+    ) -> float:
         """
         Args:
             scaling_factor: multipicative factor for sample size.
-            delta_posterior: posterior mean.
-            sigma_2_posterior: posterior variance.
-            sigmahat_2_delta: frequentist variance.
             m_prime: postulated effect size.
             v_prime: postulated variance.
-            alpha: significance level.
-            sequential: whether to adjust for sequential testing.
-            sequential_tuning_parameter: tuning parameter for sequential testing.
-            n: first period sample size
 
         Returns:
             power estimate.
         """
-        scaling_factor = power_params.scaling_factor
-        delta_posterior = power_params.delta_posterior
-        sigma_2_posterior = power_params.sigma_2_posterior
-        sigmahat_2_delta = power_params.sigmahat_2_delta
-        m_prime = power_params.m_prime
-        v_prime = power_params.v_prime
-        alpha = power_params.alpha
-        sequential = power_params.sequential
-        sequential_tuning_parameter = power_params.sequential_tuning_parameter
-        n_current = power_params.n_current
+        if self.sequential:
+            rho = sequential_rho(self.alpha, self.sequential_tuning_parameter)
+            s2 = self.sigmahat_2_delta * self.pairwise_sample_size
+            n_total = self.pairwise_sample_size * (1 + scaling_factor)
+            halfwidth = sequential_interval_halfwidth(
+                s2, n_total, rho, self.alpha / self.num_tests
+            )
+        else:
+            v = MidExperimentPower.final_posterior_variance(
+                self.sigma_2_posterior, self.sigmahat_2_delta, scaling_factor
+            )
+            s = np.sqrt(v)
+            halfwidth = self.z_star * s
+        marginal_var = MidExperimentPower.marginal_variance_delta_hat_prime(
+            self.sigma_2_posterior, self.sigmahat_2_delta, scaling_factor
+        )
+        num_1 = halfwidth * marginal_var / self.sigma_2_posterior
+        num_2 = (
+            (self.sigmahat_2_delta / scaling_factor)
+            * self.delta_posterior
+            / self.sigma_2_posterior
+        )
+        num_3 = m_prime
+        den = np.sqrt(v_prime)
+        num_pos = num_1 - num_2 - num_3
+        num_neg = -num_1 - num_2 - num_3
+        power_pos = float(1 - norm.cdf(num_pos / den))
+        power_neg = float(norm.cdf(num_neg / den))
+        return power_pos + power_neg
 
+    #################################################
+    # will be deleted later, used for testing purposes
+    #################################################
+    @staticmethod
+    def calculate_power_standalone(
+        scaling_factor: float,
+        m_prime: float,
+        v_prime: float,
+        sequential: bool,
+        alpha: float,
+        sequential_tuning_parameter: float,
+        sigmahat_2_delta: float,
+        pairwise_sample_size: float,
+        sigma_2_posterior: float,
+        delta_posterior: float,
+        num_variations: int,
+        num_goal_metrics: int,
+    ) -> float:
+        """
+        Args:
+            scaling_factor: multipicative factor for sample size.
+            m_prime: postulated effect size.
+            v_prime: postulated variance.
+            sequential: Whether the design is sequential.
+            alpha: Type I error rate.
+            sequential_tuning_parameter: Tuning parameter for sequential design.
+            sigmahat_2_delta: Estimated variance of delta.
+            pairwise_sample_size: Sample size per pairwise comparison.
+            sigma_2_posterior: Posterior variance of the effect size.
+            delta_posterior: Posterior mean of the effect size.
+
+        Returns:
+            power estimate.
+        """
+        num_tests = (num_variations - 1) * num_goal_metrics
         if sequential:
             rho = sequential_rho(alpha, sequential_tuning_parameter)
-            s2 = sigmahat_2_delta * n_current
-            n_total = n_current * (1 + scaling_factor)
-            halfwidth = sequential_interval_halfwidth(s2, n_total, rho, alpha)
+            s2 = sigmahat_2_delta * pairwise_sample_size
+            n_total = pairwise_sample_size * (1 + scaling_factor)
+            halfwidth = sequential_interval_halfwidth(
+                s2, n_total, rho, alpha / num_tests
+            )
         else:
-            z_star = float(norm.ppf(1 - alpha / 2))
+            z_star = float(norm.ppf(1 - alpha / (2 * num_tests)))
             v = MidExperimentPower.final_posterior_variance(
                 sigma_2_posterior, sigmahat_2_delta, scaling_factor
             )
@@ -253,7 +344,6 @@ class MidExperimentPower:
         power_pos = float(1 - norm.cdf(num_pos / den))
         power_neg = float(norm.cdf(num_neg / den))
         return power_pos + power_neg
-        # return power_pos
 
     def find_scaling_factor(self) -> ScalingFactorResult:
         scaling_factor = 1
@@ -269,7 +359,9 @@ class MidExperimentPower:
             sequential_tuning_parameter=self.sequential_tuning_parameter,
             n_current=self.pairwise_sample_size,
         )
-        current_power = self.calculate_power(power_params)
+        current_power = self.calculate_power(
+            power_params.scaling_factor, power_params.m_prime, power_params.v_prime
+        )
         scaling_factor_lower, converged_lower = self.find_scaling_factor_bound(
             upper=False
         )
@@ -277,6 +369,7 @@ class MidExperimentPower:
             return ScalingFactorResult(
                 converged=False,
                 error="could not find lower bound for scaling factor",
+                upper_bound_achieved=False,
                 scaling_factor=None,
             )
         scaling_factor_upper, converged_upper = self.find_scaling_factor_bound(
@@ -285,9 +378,9 @@ class MidExperimentPower:
         if not converged_upper:
             return ScalingFactorResult(
                 converged=False,
-                error="upper bound for scaling factor is greater than "
-                + str(2**self.max_iters_scaling_factor),
-                scaling_factor=None,
+                error="",
+                upper_bound_achieved=True,
+                scaling_factor=self.max_scaling_factor,
             )
         diff = current_power - 0.8
         iteration = 0
@@ -299,7 +392,9 @@ class MidExperimentPower:
             scaling_factor = 0.5 * (scaling_factor_lower + scaling_factor_upper)
             power_params.scaling_factor = scaling_factor
             power_params.v_prime = self.sigmahat_2_delta / scaling_factor
-            current_power = self.calculate_power(power_params)
+            current_power = self.calculate_power(
+                power_params.scaling_factor, power_params.m_prime, power_params.v_prime
+            )
             diff = current_power - 0.8
             if abs(diff) < 1e-3:
                 break
@@ -307,12 +402,15 @@ class MidExperimentPower:
         converged = iteration < self.max_iters - 1
         error = "" if converged else "bisection search did not converge"
         return ScalingFactorResult(
-            converged=converged, error=error, scaling_factor=scaling_factor
+            converged=converged,
+            error=error,
+            scaling_factor=scaling_factor,
+            upper_bound_achieved=False,
         )
 
     @staticmethod
     def marginal_variance_delta_hat_prime(
-        sigma_2_posterior, sigmahat_2_delta, scaling_factor
+        sigma_2_posterior: float, sigmahat_2_delta: float, scaling_factor: float
     ) -> float:
         """
         Calculates the marginal variance of delta hat prime.
@@ -346,19 +444,3 @@ class MidExperimentPower:
         prec_data = 1 / (sigmahat_2_delta / scaling_factor)
         prec = prec_prior + prec_data
         return 1 / prec
-
-    @staticmethod
-    def final_posterior_mean(
-        delta_posterior,
-        sigma_2_posterior,
-        deltahat_t_prime,
-        sigmahat_2_delta,
-        scaling_factor,
-    ) -> float:
-        v = MidExperimentPower.final_posterior_variance(
-            sigma_2_posterior, sigmahat_2_delta, scaling_factor
-        )
-        weighted_mean = delta_posterior / sigma_2_posterior + deltahat_t_prime / (
-            sigmahat_2_delta / scaling_factor
-        )
-        return v * weighted_mean

@@ -146,6 +146,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
       banditScheduleUnit: settings.banditScheduleUnit ?? "days",
       banditBurnInValue: settings.banditBurnInValue ?? 1,
       banditBurnInUnit: settings.banditBurnInUnit ?? "days",
+      experimentMinLengthDays: settings.experimentMinLengthDays ?? 7,
+      experimentMaxLengthDays: settings.experimentMaxLengthDays ?? 42,
+      // before merge: Can we consolidate these with genDefaultSettings / shared package?
     },
   });
   const { apiCall } = useAuth();

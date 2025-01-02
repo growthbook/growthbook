@@ -8,6 +8,16 @@ import {
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
+import {
+  config,
+  isValidPowerCalculationParams,
+  ensureAndReturnPowerCalculationParams,
+  MetricParams,
+  PartialMetricParams,
+  FullModalPowerCalculationParams,
+  PartialPowerCalculationParams,
+  StatsEngineSettings,
+} from "shared/power";
 import { OrganizationSettings } from "back-end/types/organization";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -19,16 +29,6 @@ import Toggle from "@/components/Forms/Toggle";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { ensureAndReturn } from "@/types/utils";
-import {
-  config,
-  isValidPowerCalculationParams,
-  ensureAndReturnPowerCalculationParams,
-  MetricParams,
-  PartialMetricParams,
-  FullModalPowerCalculationParams,
-  PartialPowerCalculationParams,
-  StatsEngineSettings,
-} from "./types";
 
 export type Props = {
   close?: () => void;
