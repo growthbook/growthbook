@@ -23,7 +23,7 @@ const BaseClass = MakeModelClass({
   ],
 });
 
-export class MetricAnalysisModel extends BaseClass {
+export class PopulationDataModel extends BaseClass {
   protected canRead(doc: PopulationDataInterface): boolean {
     // Do I need to prevent reading for any metric used
     // in data

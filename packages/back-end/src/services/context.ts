@@ -32,6 +32,7 @@ import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
 import { SegmentModel } from "back-end/src/models/SegmentModel";
 import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
+import { PopulationDataModel } from "back-end/src/models/PopulationDataModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -48,6 +49,7 @@ export class ReqContextClass {
     projects: ProjectModel;
     urlRedirects: UrlRedirectModel;
     metricAnalysis: MetricAnalysisModel;
+    populationData: PopulationDataModel;
     metricGroups: MetricGroupModel;
     segments: SegmentModel;
   };
@@ -58,6 +60,7 @@ export class ReqContextClass {
       projects: new ProjectModel(this),
       urlRedirects: new UrlRedirectModel(this),
       metricAnalysis: new MetricAnalysisModel(this),
+      populationData: new PopulationDataModel(this),
       metricGroups: new MetricGroupModel(this),
       segments: new SegmentModel(this),
     };

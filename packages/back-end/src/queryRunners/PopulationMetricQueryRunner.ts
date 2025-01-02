@@ -1,7 +1,7 @@
 import {
-  expandMetricGroups,
   ExperimentMetricInterface,
   isFactMetric,
+  isRatioMetric,
 } from "shared/experiments";
 import { ApiReqContext } from "back-end/types/api";
 import { MetricInterface } from "back-end/types/metric";
@@ -11,8 +11,7 @@ import {
 } from "back-end/src/models/ExperimentSnapshotModel";
 import {
   Dimension,
-  ExperimentFactMetricsQueryParams,
-  ExperimentMetricQueryParams,
+  ExperimentFactMetricsQueryResponseRows,
   PopulationFactMetricsQueryParams,
   PopulationMetricQueryParams,
   SourceIntegrationInterface,
@@ -77,7 +76,7 @@ export const startPopulationDataQueries = async (
     org
   );
 
-  // TODO permissions\
+  // TODO permissions
 
   for (const m of singles) {
     const denominatorMetrics: MetricInterface[] = [];
@@ -186,15 +185,100 @@ export class PopulationMetricQueryRunner extends QueryRunner<
   }
 
   async runAnalysis(queryMap: QueryMap): Promise<PopulationDataResult> {
+    const latest = this.getLatestModel();
+
+    const metrics: PopulationDataResult["metrics"] = [];
+    const units: PopulationDataResult["units"] = [];
+
+    queryMap.forEach((query, key) => {
+      // Multi-metric query (refactor with results?)
+      if (key.match(/group_/)) {
+        const rows = query.result as ExperimentFactMetricsQueryResponseRows;
+        if (!rows?.length) return;
+        const metricIds: (string | null)[] = [];
+        for (let i = 0; i < 100; i++) {
+          const prefix = `m${i}_`;
+          if (!rows[0]?.[prefix + "id"]) break;
+
+          const metricId = rows[0][prefix + "id"] as string;
+
+          const metric = this.metricMap.get(metricId);
+          // skip any metrics somehow missing from map
+          if (metric) {
+            metrics.push({
+              metric: metric.id,
+              data: {
+                main_sum: rows.reduce((sum, r) => sum += ((r?.main_sum as number) ?? 0), 0),
+                main_sum_squares: rows.reduce((sum, r) => sum += ((r?.main_sum_squares as number) ?? 0), 0),
+                ...(isRatioMetric(metric) ? {
+                denominator_sum: rows.reduce((sum, r) => sum += ((r?.denominator_sum as number) ?? 0), 0),
+                denominator_sum_squares: rows.reduce((sum, r) => sum += ((r?.denominator_sum_squares as number) ?? 0), 0),
+                main_denominator_sum_product: rows.reduce((sum, r) => sum += ((r?.main_denominator_sum_product as number) ?? 0), 0)
+                } : {}),
+              }
+            })
+              // count units to get max
+            const histogram: { [week: string]: number } = {};
+
+            for (const { date, value } of latest.metrics) {
+              const week = new Date(date).toISOString().slice(0, 10);
+              if (!histogram[week]) {
+              histogram[week] = 0;
+              }
+              histogram[week] += value;
+            }
+
+            const units = Object.keys(histogram).map((week) => ({
+              week,
+              value: histogram[week],
+            }));
+
+            // metricSettings[metricId] = getMetricSettingsForStatsEngine(
+            //   metric,
+            //   metricMap,
+            //   settings
+            // );
+          } else {
+            metricIds.push(null);
+          }
+        }
+        queryResults.push({
+          metrics: metricIds,
+          rows: rows,
+          sql: query.query,
+        });
+        return;
+      }
+       // Single metric query, just return rows as-is
+        const metric = this.metricMap.get(key);
+        if (!metric) return;
+        // metricSettings[key] = getMetricSettingsForStatsEngine(
+        //   metric,
+        //   metricMap,
+        //   settings
+        // );
+        queryResults.push({
+          metrics: [key],
+          rows: (query.result ?? []) as ExperimentMetricQueryResponseRows,
+          sql: query.query,
+        });
+      });
+    
+    // return {
+    //   metrics: latest.metrics,
+    //   units,
+    // };
     
   }
 
   async getLatestModel(): Promise<PopulationDataInterface> {
-    // TODO find
-    const obj = await findSnapshotById(this.model.organization, this.model.id);
-    if (!obj)
-      throw new Error("Could not load population model: " + this.model.id);
-    return obj;
+    const model = await this.context.models.populationData.getById(
+      this.model.id
+    );
+    if (!model) {
+      throw new Error("Population data not found");
+    }
+    return model;
   }
 
   async updateModel({
@@ -223,9 +307,11 @@ export class PopulationMetricQueryRunner extends QueryRunner<
           : "success",
     };
     // side effects?
-    return {
-      ...this.model,
-      ...updates,
-    };
+    const latest = await this.getLatestModel();
+    const updated = await this.context.models.populationData.update(
+      latest,
+      updates
+    );
+    return updated;
   }
 }
