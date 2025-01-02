@@ -38,14 +38,18 @@ client code.
 
 ## Environment Inheritance
 
-When you create an environment via the API, you can specify a parent environment to inherit from.
+When you create an environment you can specify a parent environment to inherit from.
 The new environment initially copies all feature rules from its parent. After creation, the environments
 operate independently—changes to feature rules in one environment won't affect the other. Think of
 it like creating a fork or snapshot of the parent environment.
 
+In the UI, you can only use parent environments for the default environment names:
+`production`, `dev`, `staging`, and `test`. For arbitrary environment inheritance you can use the
+[API endpoint](https://docs.growthbook.io/api#tag/environments/operation/postEnvironment)
+
 :::note
 
-**Environment Inheritance** is a GrowthBook Enterprise feature.
+API-driven **Environment Inheritance** is a GrowthBook Enterprise feature.
 
 :::
 
@@ -53,3 +57,4 @@ Common Use Cases
 
 - Adding new environments to an existing setup (e.g., adding "staging" after having "dev" and "production")
 - Troubleshooting production issues by creating an isolated test environment to safely diagnose problems
+- Creating separate environments on a per-dev or per-PR basis
