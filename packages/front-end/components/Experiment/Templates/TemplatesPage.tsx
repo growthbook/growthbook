@@ -159,10 +159,10 @@ export const TemplatesPage = ({
                         Duplicate
                       </button>
                     ) : null}
-                    <hr />
+                    <hr className="my-1" />
                     {canDelete(t) ? (
                       <DeleteButton
-                        className="dropdown-item"
+                        className="dropdown-item text-danger"
                         displayName="Template"
                         text="Delete"
                         useIcon={false}
