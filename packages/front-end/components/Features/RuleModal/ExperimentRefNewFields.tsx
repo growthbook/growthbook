@@ -121,6 +121,7 @@ export default function ExperimentRefNewFields({
     getExperimentMetricById,
     getSegmentById,
     datasources,
+    project: currentProject,
   } = useDefinitions();
   const { templates: allTemplates, templatesMap } = useTemplates();
   const { hasCommercialFeature } = useUser();
@@ -131,7 +132,7 @@ export default function ExperimentRefNewFields({
       a.templateMetadata.name > b.templateMetadata.name ? 1 : -1
     )
     .filter((t) =>
-      isProjectListValidForProject(t.project ? [t.project] : [], project)
+      isProjectListValidForProject(t.project ? [t.project] : [], currentProject)
     )
     .map((t) => ({ value: t.id, label: t.templateMetadata.name }));
 
