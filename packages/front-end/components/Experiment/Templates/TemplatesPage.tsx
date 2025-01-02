@@ -1,4 +1,4 @@
-import { Box, Text, Tooltip } from "@radix-ui/themes";
+import { Box, Text } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { ExperimentTemplateInterface } from "back-end/types/experiment";
 import { useState } from "react";
@@ -109,15 +109,9 @@ export const TemplatesPage = ({
             return (
               <tr key={t.id} className="hover-highlight">
                 <td data-title="Template Name" className="col-2">
-                  {templateUsage ? (
-                    <Link href={`/experiments/template/${t.id}`}>
-                      {t.templateName}
-                    </Link>
-                  ) : (
-                    <Tooltip content="This template hasn’t been used to create any experiments yet">
-                      <Text>{t.templateName}</Text>
-                    </Tooltip>
-                  )}
+                  <Link href={`/experiments/template/${t.id}`}>
+                    {t.templateName}
+                  </Link>
                 </td>
                 <td data-title="Description" className="col-3">
                   {t.templateDescription}
@@ -207,7 +201,7 @@ export const TemplatesPage = ({
           >
             View docs
           </LinkButton>
-          {hasTemplatesFeature ? (
+          {canCreate ? (
             <Button onClick={() => setOpenTemplateModal({})}>
               Create Template
             </Button>

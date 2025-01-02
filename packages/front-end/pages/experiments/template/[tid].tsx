@@ -10,12 +10,15 @@ import { useSearch } from "@/services/search";
 import Button from "@/components/Radix/Button";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import { useUser } from "@/services/UserContext";
+import LinkButton from "@/components/Radix/LinkButton";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 
 const TemplatePage: FC = () => {
   const router = useRouter();
   const { tid } = router.query;
   const { templatesMap, templateExperimentMap } = useTemplates();
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const { hasCommercialFeature, permissionsUtil } = useUser();
 
   const template = templatesMap.get(tid as string);
@@ -79,32 +82,74 @@ const TemplatePage: FC = () => {
             may have been overridden by users and differ from the template.
           </Text>
         </Box>
-
-        <table className="appbox table gbtable">
-          <th>Experiment Name</th>
-          <SortableTH field="status">Status</SortableTH>
-          <SortableTH field="dateCreated">Created</SortableTH>
-          <tbody>
-            {experiments.map((e) => (
-              <tr
-                key={e.id}
-                className="hover-highlight"
-                onClick={(event) => {
-                  event.preventDefault();
-                  router.push(`/experiment/${e.id}`);
-                }}
-              >
-                <td data-title="Experiment Name" className="col-4">
-                  <Link href={`/experiment/${e.id}`}>{e.name}</Link>
-                </td>
-                <td data-title="Status">
-                  {<ExperimentStatusIndicator experimentData={e} />}
-                </td>
-                <td data-title="Created">{date(e.dateCreated)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {experiments.length ? (
+          <table className="appbox table gbtable">
+            <th>Experiment Name</th>
+            <SortableTH field="status">Status</SortableTH>
+            <SortableTH field="dateCreated">Created</SortableTH>
+            <tbody>
+              {experiments.map((e) => (
+                <tr
+                  key={e.id}
+                  className="hover-highlight"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    router.push(`/experiment/${e.id}`);
+                  }}
+                >
+                  <td data-title="Experiment Name" className="col-4">
+                    <Link href={`/experiment/${e.id}`}>{e.name}</Link>
+                  </td>
+                  <td data-title="Status">
+                    {<ExperimentStatusIndicator experimentData={e} />}
+                  </td>
+                  <td data-title="Created">{date(e.dateCreated)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <>
+            {showUpgradeModal && (
+              <UpgradeModal
+                close={() => setShowUpgradeModal(false)}
+                source="templates"
+                reason="Create experiments from templates"
+              />
+            )}
+            <div className="appbox p-5 text-center">
+              <h1>Create an Experiment from this Template</h1>
+              <Text size="3">
+                Save time configuring experiment details, and ensure consistency
+                across your team and projects.
+              </Text>
+              <div className="mt-3">
+                {/* TODO: Fix docs link once docs are ready */}
+                <LinkButton
+                  href="https://docs.growthbook.io/"
+                  variant="outline"
+                  mr="3"
+                  external={true}
+                >
+                  View docs
+                </LinkButton>
+                {canCreate ? (
+                  <Button onClick={() => setOpenNewExperimentModal(true)}>
+                    Create Experiment
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => {
+                      setShowUpgradeModal(true);
+                    }}
+                  >
+                    Upgrade Plan
+                  </Button>
+                )}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </>
   );
