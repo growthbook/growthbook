@@ -4,6 +4,7 @@ import { ExperimentTemplateInterface } from "back-end/types/experiment";
 import { useState } from "react";
 import { omit } from "lodash";
 import { useRouter } from "next/router";
+import { isProjectListValidForProject } from "shared/util";
 import Link from "@/components/Radix/Link";
 import Button from "@/components/Radix/Button";
 import LinkButton from "@/components/Radix/LinkButton";
@@ -42,7 +43,7 @@ export const TemplatesPage = ({
     loading,
     templateExperimentMap,
     mutateTemplates,
-  } = useTemplates(project);
+  } = useTemplates();
   const permissionsUtil = usePermissionsUtil();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const router = useRouter();
@@ -58,8 +59,14 @@ export const TemplatesPage = ({
   const canDelete = (templ: ExperimentTemplateInterface) =>
     permissionsUtil.canDeleteExperimentTemplate(templ);
 
+  const filteredTemplates = project
+    ? allTemplates.filter((t) =>
+        isProjectListValidForProject(t.project ? [t.project] : [], project)
+      )
+    : allTemplates;
+
   const flattenedTemplates = useAddComputedFields(
-    allTemplates,
+    filteredTemplates,
     (templ) => {
       return {
         ...omit(allTemplates, ["templateMetadata"]),
@@ -102,7 +109,7 @@ export const TemplatesPage = ({
             )}
             <SortableTH field="dateCreated">Created</SortableTH>
             <SortableTH field="usage">Usage</SortableTH>
-            <th />
+            <th style={{ width: 50 }} />
           </tr>
         </thead>
         <tbody>
