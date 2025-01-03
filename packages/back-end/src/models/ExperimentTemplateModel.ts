@@ -38,10 +38,6 @@ export class ExperimentTemplatesModel extends BaseClass {
     return this.context.permissions.canDeleteExperimentTemplate(doc);
   }
 
-  public getByProject(project: string) {
-    return this._find({ project: project });
-  }
-
   // TODO: Implement this for OpenAPI
   //   public toApiInterface(project: ProjectInterface): ApiProject {
   //     return {
