@@ -291,6 +291,15 @@ app.get(
   }),
   reportsController.getReportPublic
 );
+// public shareable experiments
+app.get(
+  "/api/experiment/public/:uid",
+  cors({
+    credentials: false,
+    origin: "*",
+  }),
+  experimentsController.getExperimentPublic
+);
 
 // Secret API routes (no JWT or CORS)
 app.use(

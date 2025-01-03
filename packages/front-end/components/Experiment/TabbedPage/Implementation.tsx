@@ -84,7 +84,7 @@ export default function Implementation({
                 disabled={!safeToEdit}
                 onClick={editVariations}
               >
-                <span className="text-purple">Edit</span>
+                Edit
               </button>
             </Tooltip>
           ) : null}
@@ -148,7 +148,12 @@ export default function Implementation({
         phaseIndex={phases.length - 1}
       />
 
-      <AnalysisSettings experiment={experiment} mutate={mutate} envs={envs} />
+      <AnalysisSettings
+        experiment={experiment}
+        mutate={mutate}
+        envs={envs}
+        canEdit={!!editTargeting}
+      />
     </div>
   );
 }

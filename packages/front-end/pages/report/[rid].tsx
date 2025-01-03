@@ -87,21 +87,28 @@ export default function ReportPage() {
     ? permissionsUtil.canViewReportModal(experiment.project)
     : false;
   const isOwner = userId === report?.userId || !report?.userId;
-  const canEdit = isOwner || canUpdateReport;
   const isAdmin = permissionsUtil.canSuperDeleteReport();
+  const canEdit =
+    isOwner ||
+    isAdmin ||
+    (report.editLevel === "organization" && canUpdateReport);
   const canDelete = isOwner || isAdmin;
+
+  const isBandit = experiment?.type === "multi-armed-bandit";
 
   return (
     <div className="pagecontents container-fluid">
       <PageHead
         breadcrumb={[
           {
-            display: `Experiments`,
-            href: `/experiments`,
+            display: isBandit ? `Bandits` : `Experiments`,
+            href: isBandit ? `/bandits` : `/experiments`,
           },
           {
             display: `${experiment?.name ?? "Report"}`,
-            href: experiment?.id ? `/experiment/${experiment.id}` : undefined,
+            href: experiment?.id
+              ? `/${isBandit ? `bandit` : `experiment`}/${experiment.id}`
+              : undefined,
           },
           { display: report.title },
         ]}

@@ -73,6 +73,7 @@ const docSections = {
   customMarkdown: "/using/growthbook-best-practices#custom-markdown",
   savedGroups: "/features/targeting#saved-groups",
   ga4BigQuery: "/guide/GA4-google-analytics",
+  apiPostEnvironment: "/api#tag/environments/operation/postEnvironment",
 };
 
 export type DocSection = keyof typeof docSections;

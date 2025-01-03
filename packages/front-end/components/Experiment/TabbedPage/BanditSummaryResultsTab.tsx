@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { LiaChartLineSolid } from "react-icons/lia";
 import { TbChartAreaLineFilled } from "react-icons/tb";
 import { BanditEvent } from "back-end/src/validators/experiments";
+import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import BanditSummaryTable from "@/components/Experiment/BanditSummaryTable";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -16,25 +17,39 @@ import Callout from "@/components/Radix/Callout";
 import MultipleExposureWarning from "@/components/Experiment/MultipleExposureWarning";
 import SRMWarning from "@/components/Experiment/SRMWarning";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
-  mutate: () => void;
+  mutate?: () => void;
   isTabActive?: boolean;
+  ssrSnapshot?: ExperimentSnapshotInterface;
+  ssrPolyfills?: SSRPolyfills;
+  isPublic?: boolean;
 }
 
 export default function BanditSummaryResultsTab({
   experiment,
   mutate,
   isTabActive,
+  ssrSnapshot,
+  ssrPolyfills,
+  isPublic,
 }: Props) {
   const { getExperimentMetricById } = useDefinitions();
 
   const [chartMode, setChartMode] = useLocalStorage<
     "values" | "probabilities" | "weights"
-  >(`banditSummaryResultsChartMode__${experiment.id}`, "values");
+  >(
+    `banditSummaryResultsChartMode__${isPublic ? "public__" : ""}${
+      experiment.id
+    }`,
+    "values"
+  );
   const [chartType, setChartType] = useLocalStorage<"area" | "line">(
-    `banditSummaryResultsChartType__${experiment.id}`,
+    `banditSummaryResultsChartType__${isPublic ? "public__" : ""}${
+      experiment.id
+    }`,
     "area"
   );
   const numPhases = experiment.phases.length;
@@ -46,9 +61,12 @@ export default function BanditSummaryResultsTab({
   }, [numPhases, setPhase]);
 
   const mid = experiment?.goalMetrics?.[0];
-  const metric = getExperimentMetricById(mid ?? "");
+  const metric =
+    ssrPolyfills?.getExperimentMetricById?.(mid) ||
+    getExperimentMetricById(mid ?? "");
 
-  const { latest } = useSnapshot();
+  const { latest: _latest } = useSnapshot();
+  const latest = _latest ?? ssrSnapshot;
   const multipleExposures = latest?.multipleExposures;
 
   const phaseObj = experiment.phases[phase];
@@ -75,9 +93,11 @@ export default function BanditSummaryResultsTab({
       <div className="d-flex mt-4 mb-3 align-items-end">
         <h3 className="mb-0">Bandit Leaderboard</h3>
         <div className="flex-1" />
-        <div style={{ marginBottom: -5 }}>
-          <PhaseSelector phase={phase} setPhase={setPhase} isBandit={true} />
-        </div>
+        {!isPublic && (
+          <div style={{ marginBottom: -5 }}>
+            <PhaseSelector phase={phase} setPhase={setPhase} isBandit={true} />
+          </div>
+        )}
       </div>
       <div className="box pt-3">
         {experiment.status === "draft" && (
@@ -108,25 +128,31 @@ export default function BanditSummaryResultsTab({
           </Callout>
         ) : null}
 
-        <div className="mx-3">
-          <SRMWarning
-            srm={event?.banditResult?.srm ?? Infinity}
-            users={users}
-            showWhenHealthy={false}
-            isBandit={true}
-          />
-          <MultipleExposureWarning
-            users={users}
-            multipleExposures={multipleExposures ?? 0}
-          />
-        </div>
+        {!isPublic && (
+          <div className="mx-3">
+            <SRMWarning
+              srm={event?.banditResult?.srm ?? Infinity}
+              users={users}
+              showWhenHealthy={false}
+              isBandit={true}
+            />
+            <MultipleExposureWarning
+              users={users}
+              multipleExposures={multipleExposures ?? 0}
+            />
+          </div>
+        )}
 
         {showVisualizations && (
           <>
             <div className="d-flex mx-3 align-items-center">
               <div className="h4 mb-0">
                 {metric
-                  ? getRenderLabelColumn(false, "bayesian")("", metric)
+                  ? getRenderLabelColumn(
+                      false,
+                      "bayesian",
+                      isPublic
+                    )("", metric)
                   : null}
               </div>
               <div className="flex-1" />
@@ -143,7 +169,11 @@ export default function BanditSummaryResultsTab({
               )}
               {isCurrentPhase && (
                 <div className="d-flex align-items-center">
-                  <BanditUpdateStatus experiment={experiment} mutate={mutate} />
+                  <BanditUpdateStatus
+                    experiment={experiment}
+                    mutate={mutate}
+                    isPublic={isPublic}
+                  />
                 </div>
               )}
             </div>
@@ -152,6 +182,7 @@ export default function BanditSummaryResultsTab({
               metric={metric}
               phase={phase}
               isTabActive={!!isTabActive}
+              ssrPolyfills={ssrPolyfills}
             />
           </>
         )}
@@ -216,6 +247,8 @@ export default function BanditSummaryResultsTab({
               }
               mode={chartMode}
               type={chartMode === "values" ? "line" : chartType}
+              ssrPolyfills={ssrPolyfills}
+              isPublic={isPublic}
             />
           </div>
         </>

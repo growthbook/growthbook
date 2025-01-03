@@ -276,8 +276,8 @@ export default function AnalysisSettingsBar({
                       <div className="text-left">
                         <p>This is an exploratory analysis.</p>
                         <p>
-                          Ad-hoc analyses do not cause bandit variation weights
-                          to change.
+                          Exploratory analyses do not cause bandit variation
+                          weights to change.
                         </p>
                       </div>
                     }
@@ -348,7 +348,6 @@ export default function AnalysisSettingsBar({
                 editMetrics={editMetrics}
                 notebookUrl={`/experiments/notebook/${snapshot?.id}`}
                 notebookFilename={experiment.trackingKey}
-                generateReport={true}
                 queries={snapshot?.queries}
                 queryError={snapshot?.error}
                 supportsNotebooks={!!datasource?.settings?.notebookRunQuery}

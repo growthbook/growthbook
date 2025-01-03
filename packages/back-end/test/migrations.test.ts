@@ -1177,6 +1177,7 @@ describe("Experiment Migration", () => {
         name: "New Name",
       },
     ],
+    uid: "1234",
   };
 
   const upgraded = {
@@ -1236,6 +1237,8 @@ describe("Experiment Migration", () => {
     ],
     sequentialTestingEnabled: false,
     sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    uid: "1234",
+    shareLevel: "organization",
   };
 
   it("upgrades experiment objects", () => {
