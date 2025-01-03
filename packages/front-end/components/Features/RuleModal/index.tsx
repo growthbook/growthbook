@@ -99,7 +99,7 @@ export default function RuleModal({
   const { features } = useFeaturesList();
   const { datasources, project: currentProject } = useDefinitions();
   const { experimentsMap, mutateExperiments } = useExperiments();
-  const { templates: allTemplates } = useTemplates(feature.project);
+  const { templates: allTemplates } = useTemplates();
 
   const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] = useState(
     false

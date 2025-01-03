@@ -6,12 +6,12 @@ import { useMemo } from "react";
 import useApi from "./useApi";
 import { useExperiments } from "./useExperiments";
 
-export function useTemplates(project?: string) {
+export function useTemplates() {
   const { data, error, mutate } = useApi<{
     templates: ExperimentTemplateInterface[];
-  }>(`/templates?project=${project || ""}`);
+  }>("/templates");
 
-  const { experiments, loading: experimentsLoading } = useExperiments(project);
+  const { experiments, loading: experimentsLoading } = useExperiments();
   const templates = useMemo(() => data?.templates || [], [data]);
 
   const templatesMap = useMemo(() => new Map(templates.map((t) => [t.id, t])), [
