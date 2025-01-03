@@ -156,7 +156,7 @@ export default function ExperimentHeader({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showBanditModal, setShowBanditModal] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const isWatching = watchedExperiments.includes(experiment.id);
 
@@ -271,7 +271,7 @@ export default function ExperimentHeader({
     );
     refreshWatching();
     mutateWatchers();
-    setOpen(false);
+    setDropdownOpen(false);
   }
 
   async function startExperiment() {
@@ -766,9 +766,9 @@ export default function ExperimentHeader({
                     <BsThreeDotsVertical size={18} />
                   </button>
                 }
-                open={open}
+                open={dropdownOpen}
                 onOpenChange={(o) => {
-                  setOpen(!!o);
+                  setDropdownOpen(!!o);
                 }}
                 menuPlacement="end"
               >
@@ -779,7 +779,7 @@ export default function ExperimentHeader({
                       <DropdownMenuItem
                         onClick={() => {
                           setStatusModal(true);
-                          setOpen(false);
+                          setDropdownOpen(false);
                         }}
                       >
                         Edit status
@@ -789,7 +789,7 @@ export default function ExperimentHeader({
                     <DropdownMenuItem
                       onClick={() => {
                         editPhases();
-                        setOpen(false);
+                        setDropdownOpen(false);
                       }}
                     >
                       Edit phases
@@ -798,7 +798,7 @@ export default function ExperimentHeader({
                   <DropdownMenuItem
                     onClick={() => {
                       setAuditModal(true);
-                      setOpen(false);
+                      setDropdownOpen(false);
                     }}
                   >
                     Audit log
@@ -830,7 +830,7 @@ export default function ExperimentHeader({
                   <DropdownMenuItem
                     onClick={() => {
                       setWatchersModal(true);
-                      setOpen(false);
+                      setDropdownOpen(false);
                     }}
                     disabled={!usersWatching.length}
                   >
@@ -859,7 +859,7 @@ export default function ExperimentHeader({
                   <DropdownMenuItem
                     onClick={() => {
                       setShareModalOpen(true);
-                      setOpen(false);
+                      setDropdownOpen(false);
                     }}
                   >
                     Share {isBandit ? "Bandit" : "Experiment"}
@@ -897,7 +897,7 @@ export default function ExperimentHeader({
                         <DropdownMenuItem
                           onClick={() => {
                             setShowBanditModal(true);
-                            setOpen(false);
+                            setDropdownOpen(false);
                           }}
                         >
                           Convert to {isBandit ? "Experiment" : "Bandit"}
@@ -910,7 +910,7 @@ export default function ExperimentHeader({
                   {duplicate && (
                     <DropdownMenuItem
                       onClick={() => {
-                        setOpen(false);
+                        setDropdownOpen(false);
                         duplicate();
                       }}
                     >
@@ -921,7 +921,7 @@ export default function ExperimentHeader({
                     <DropdownMenuItem
                       onClick={() => {
                         setShowArchiveModal(true);
-                        setOpen(false);
+                        setDropdownOpen(false);
                       }}
                     >
                       Archive
@@ -931,7 +931,7 @@ export default function ExperimentHeader({
                     <DropdownMenuItem
                       onClick={() => {
                         setShowArchiveModal(true);
-                        setOpen(false);
+                        setDropdownOpen(false);
                       }}
                     >
                       Unarchive
@@ -942,7 +942,7 @@ export default function ExperimentHeader({
                       color="red"
                       onClick={() => {
                         setShowDeleteModal(true);
-                        setOpen(false);
+                        setDropdownOpen(false);
                       }}
                     >
                       Delete
