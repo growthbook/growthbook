@@ -135,7 +135,7 @@ export default function ExperimentRefSummary({
 
   const hasNamespace = phase.namespace && phase.namespace.enabled;
   const namespaceRange = hasNamespace
-    ? phase.namespace.range[1] - phase.namespace.range[0]
+    ? phase.namespace!.range[1] - phase.namespace!.range[0]
     : 1;
   const effectiveCoverage = namespaceRange * (phase.coverage ?? 1);
 
@@ -193,13 +193,13 @@ export default function ExperimentRefSummary({
               <span>in the namespace </span>
               <Link href={`/namespaces`}>
                 <span className="mr-1 border px-2 py-1 bg-light rounded">
-                  {namespaces?.find((n) => n.name === phase.namespace.name)
+                  {namespaces?.find((n) => n.name === phase.namespace!.name)
                     ?.label || (
                     <span
                       className="italic text-danger"
                       title="this namespace is not found"
                     >
-                      <FaExclamationTriangle /> {phase.namespace.name}
+                      <FaExclamationTriangle /> {phase.namespace!.name}
                     </span>
                   )}
                 </span>

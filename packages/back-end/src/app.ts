@@ -120,6 +120,7 @@ import { metricAnalysisRouter } from "./routers/metric-analysis/metric-analysis.
 import { metricGroupRouter } from "./routers/metric-group/metric-group.router";
 import { findOrCreateGeneratedHypothesis } from "./models/GeneratedHypothesis";
 import { getContextFromReq } from "./services/organizations";
+import { templateRouter } from "./routers/experiment-template/template.router";
 
 const app = express();
 
@@ -589,6 +590,9 @@ app.get(
   "/visual-editor/key",
   experimentsController.findOrCreateVisualEditorToken
 );
+
+// Experiment Templates
+app.use("/templates", templateRouter);
 
 // URL Redirects
 app.use("/url-redirects", urlRedirectRouter);

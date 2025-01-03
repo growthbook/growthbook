@@ -6,7 +6,7 @@ import {
   Variation,
 } from "back-end/types/experiment";
 import { useRouter } from "next/router";
-import { datetime, getValidDate } from "shared/dates";
+import { date, datetime, getValidDate } from "shared/dates";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { OrganizationSettings } from "back-end/types/organization";
 import {
@@ -16,6 +16,7 @@ import {
 import { getScopedSettings } from "shared/settings";
 import { generateTrackingKey, getEqualWeights } from "shared/experiments";
 import { kebabCase } from "lodash";
+import { Flex, Text } from "@radix-ui/themes";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -63,6 +64,9 @@ import ExperimentRefNewFields from "@/components/Features/RuleModal/ExperimentRe
 import Callout from "@/components/Radix/Callout";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import DatePicker from "@/components/DatePicker";
+import { useTemplates } from "@/hooks/useTemplates";
+import { convertTemplateToExperiment } from "@/services/experiments";
+import PremiumTooltip from "../Marketing/PremiumTooltip";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
 const weekAgo = new Date();
@@ -85,7 +89,7 @@ export type NewExperimentFormProps = {
   isNewExperiment?: boolean;
 };
 
-function getDefaultVariations(num: number) {
+export function getDefaultVariations(num: number) {
   // Must have at least 2 variations
   num = Math.max(2, num);
 
@@ -170,6 +174,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const environments = useEnvironments();
   const { experiments } = useExperiments();
+  const {
+    templates: allTemplates,
+    templatesMap,
+    mutateTemplates: refreshTemplates,
+  } = useTemplates();
   const envs = environments.map((e) => e.id);
 
   const [
@@ -289,6 +298,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       banditScheduleUnit: scopedSettings.banditScheduleUnit.value,
       banditBurnInValue: scopedSettings.banditBurnInValue.value,
       banditBurnInUnit: scopedSettings.banditScheduleUnit.value,
+      templateId: initialValue?.templateId || "",
     },
   });
   const [selectedProject, setSelectedProject] = useState(form.watch("project"));
@@ -303,6 +313,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     : null;
 
   const { apiCall } = useAuth();
+
   const onSubmit = form.handleSubmit(async (rawValue) => {
     const value = { ...rawValue, name: rawValue.name?.trim() };
 
@@ -310,6 +321,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     if ((value.name?.length ?? 0) < 1) {
       setStep(0);
       throw new Error("Name must not be empty");
+    }
+
+    if (!value.templateId && templateRequired && !isImport && !duplicate) {
+      setStep(0);
+      throw new Error("You must select a template");
     }
 
     const data = { ...value };
@@ -395,10 +411,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       numMetrics:
         (data.goalMetrics?.length || 0) + (data.secondaryMetrics?.length || 0),
       numVariations: data.variations?.length || 0,
+      createdFromTemplate: !!data.templateId,
     });
     refreshWatching();
 
     data.tags && refreshTags(data.tags);
+    data.templateId && refreshTemplates();
     if (onCreate) {
       onCreate(res.experiment.id);
     } else {
@@ -412,6 +430,16 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     .filter((p) => permissionsUtils.canViewExperimentModal(p.id))
     .map((p) => ({ value: p.id, label: p.name }));
 
+  const availableTemplates = allTemplates
+    .slice()
+    .sort((a, b) =>
+      a.templateMetadata.name > b.templateMetadata.name ? 1 : -1
+    )
+    .filter((t) =>
+      isProjectListValidForProject(t.project ? [t.project] : [], project)
+    )
+    .map((t) => ({ value: t.id, label: t.templateMetadata.name }));
+
   const allowAllProjects = permissionsUtils.canViewExperimentModal();
 
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
@@ -419,6 +447,26 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const status = form.watch("status");
   const type = form.watch("type");
   const isBandit = type === "multi-armed-bandit";
+
+  // If a template id is provided as an initial value, load the template and convert it to an experiment
+  useEffect(() => {
+    if (initialValue?.templateId && isNewExperiment && !isImport && !isBandit) {
+      const template = templatesMap.get(initialValue.templateId);
+      if (!template) return;
+
+      const templateAsExperiment = convertTemplateToExperiment(template);
+      form.reset(templateAsExperiment, {
+        keepDefaultValues: true,
+      });
+    }
+  }, [initialValue, isNewExperiment, isImport, isBandit]);
+
+  const templateRequired =
+    hasCommercialFeature("templates") &&
+    !isBandit &&
+    !isImport &&
+    settings.requireExperimentTemplates &&
+    availableTemplates.length >= 1;
 
   const { currentProjectIsDemo } = useDemoDataSourceProject();
 
@@ -472,6 +520,59 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 datasource project is deleted.
               </div>
             )}
+            {availableTemplates.length >= 1 &&
+              !isBandit &&
+              !isImport &&
+              !duplicate && (
+                <div className="form-group">
+                  <PremiumTooltip commercialFeature="templates">
+                    <label>Select Template</label>
+                  </PremiumTooltip>
+                  <SelectField
+                    value={form.watch("templateId") ?? ""}
+                    onChange={(t) => {
+                      if (t === "") {
+                        form.setValue("templateId", undefined);
+                        form.reset();
+                        return;
+                      }
+                      form.setValue("templateId", t);
+                      // Convert template to experiment interface shape and reset values
+                      const template = templatesMap.get(t);
+                      if (!template) return;
+
+                      const templateAsExperiment = convertTemplateToExperiment(
+                        template
+                      );
+                      form.reset(templateAsExperiment, {
+                        keepDefaultValues: true,
+                      });
+                    }}
+                    name="template"
+                    initialOption={"None"}
+                    options={availableTemplates}
+                    formatOptionLabel={(value) => {
+                      const t = templatesMap.get(value.value);
+                      if (!t) return <span>{value.label}</span>;
+                      return (
+                        <Flex as="div" align="baseline">
+                          <Text>{value.label}</Text>
+                          <Text size="1" className="text-muted" ml="auto">
+                            Created {date(t.dateCreated)}
+                          </Text>
+                        </Flex>
+                      );
+                    }}
+                    helpText={
+                      templateRequired
+                        ? "Your organization requires experiments to be created from a template"
+                        : undefined
+                    }
+                    disabled={!hasCommercialFeature("templates")}
+                    required={templateRequired}
+                  />
+                </div>
+              )}
 
             <Field
               label={isBandit ? "Bandit Name" : "Experiment Name"}
