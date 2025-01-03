@@ -3,7 +3,7 @@ import { FC, useEffect, useState } from "react";
 import { ExperimentTemplateInterface } from "back-end/types/experiment";
 import { FormProvider, useForm } from "react-hook-form";
 import { validateAndFixCondition } from "shared/util";
-import { kebabCase } from "lodash";
+import { isEmpty, kebabCase } from "lodash";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAttributeSchema, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
@@ -180,7 +180,7 @@ const TemplateForm: FC<Props> = ({
     mutateTemplates();
     if (onCreate) {
       onCreate(res.template.id);
-    } else {
+    } else if (isEmpty(initialValue) || isNewTemplate) {
       router.push(`/experiments#templates`);
     }
   });
