@@ -119,9 +119,9 @@ In your Next.js app, add the following code:
 ```tsx
 import { type GrowthBook } from "@growthbook/growthbook";
 
-type Props = {
+type Props<T> = {
   gb: GrowthBook;
-  variations: unknown[] | null;
+  variations: T[] | null;
   featureFlagKey: string;
 };
 
@@ -129,7 +129,7 @@ export default function getVariation<T>({
   gb,
   variations,
   featureFlagKey,
-}: Props): T | null {
+}: Props<T>): T | null {
   // Evaluate the featue flag
   const result = gb.getFeatureValue<number | null>(featureFlagKey, null);
 
@@ -139,7 +139,7 @@ export default function getVariation<T>({
   }
 
   // Return the variation based on the feature flag value
-  return (variations?.[result] as T) ?? null;
+  return variations?.[result] ?? null;
 }
 ```
 
