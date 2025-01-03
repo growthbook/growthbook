@@ -75,7 +75,7 @@ export const TemplatesPage = ({
         usage: templateExperimentMap[templ.id]?.length ?? 0,
       };
     },
-    [allTemplates, templateExperimentMap]
+    [templateExperimentMap, allTemplates]
   );
 
   const { items, SortableTH } = useSearch({

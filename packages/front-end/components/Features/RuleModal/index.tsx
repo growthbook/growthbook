@@ -8,7 +8,11 @@ import {
 import React, { useMemo, useState } from "react";
 import uniqId from "uniqid";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { generateVariationId, isFeatureCyclic } from "shared/util";
+import {
+  generateVariationId,
+  isFeatureCyclic,
+  isProjectListValidForProject,
+} from "shared/util";
 import cloneDeep from "lodash/cloneDeep";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { useGrowthBook } from "@growthbook/growthbook-react";
@@ -83,7 +87,7 @@ export default function RuleModal({
   revisions,
 }: Props) {
   const growthbook = useGrowthBook<AppFeatures>();
-  const { hasCommercialFeature, organization, permissionsUtil } = useUser();
+  const { hasCommercialFeature, organization } = useUser();
   const { apiCall } = useAuth();
 
   const attributeSchema = useAttributeSchema(false, feature.project);
@@ -93,7 +97,7 @@ export default function RuleModal({
   const isNewRule = !rule;
 
   const { features } = useFeaturesList();
-  const { datasources } = useDefinitions();
+  const { datasources, project: currentProject } = useDefinitions();
   const { experimentsMap, mutateExperiments } = useExperiments();
   const { templates: allTemplates } = useTemplates(feature.project);
 
@@ -165,9 +169,14 @@ export default function RuleModal({
     sdkConnectionsData?.connections,
     feature.project
   );
-  const availableTemplates = allTemplates.filter((t) =>
-    permissionsUtil.canViewExperimentTemplateModal(t.project)
-  );
+  const availableTemplates = currentProject
+    ? allTemplates.filter((t) =>
+        isProjectListValidForProject(
+          t.project ? [t.project] : [],
+          currentProject
+        )
+      )
+    : allTemplates;
 
   const templateRequired =
     hasCommercialFeature("templates") &&

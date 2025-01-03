@@ -68,7 +68,7 @@ const TemplateForm: FC<Props> = ({
 
   const { useStickyBucketing, statsEngine: orgStatsEngine } = useOrgSettings();
   const permissionsUtils = usePermissionsUtil();
-  const { mutateTemplates } = useTemplates(project);
+  const { mutateTemplates } = useTemplates();
 
   const [conditionKey, forceConditionRender] = useIncrementer();
 
