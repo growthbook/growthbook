@@ -641,9 +641,14 @@ const sidebars = {
       items: [
         {
           type: "doc",
+          id: "guide/strapi",
+          label: "Strapi CMS",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
           id: "guide/contentful",
           label: "Contentful CMS",
-          className: "pill-new",
         },
         { type: "doc", id: "guide/deno-hono", label: "Deno + Hono" },
         {
