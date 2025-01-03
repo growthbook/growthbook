@@ -55,6 +55,7 @@ import SelectField from "@/components/Forms/SelectField";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import HelperText from "@/components/Radix/HelperText";
 import ProjectTagBar from "./ProjectTagBar";
+import EditExperimentInfoModal from "./EditExperimentInfoModal";
 import ExperimentActionButtons from "./ExperimentActionButtons";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import { ExperimentTab } from ".";
@@ -156,6 +157,7 @@ export default function ExperimentHeader({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showBanditModal, setShowBanditModal] = useState(false);
+  const [showEditInfoModal, setShowEditInfoModal] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const isWatching = watchedExperiments.includes(experiment.id);
@@ -371,6 +373,13 @@ export default function ExperimentHeader({
   return (
     <>
       <div className={clsx("experiment-header", "px-3", "pt-3")}>
+        {showEditInfoModal ? (
+          <EditExperimentInfoModal
+            experiment={experiment}
+            setShowEditInfoModal={setShowEditInfoModal}
+            mutate={mutate}
+          />
+        ) : null}
         {showSdkForm && (
           <InitialSDKConnectionForm
             close={() => setShowSdkForm(false)}
@@ -641,7 +650,6 @@ export default function ExperimentHeader({
             </div>
           </Modal>
         )}
-
         {shareModalOpen && (
           <Modal
             open={true}
@@ -698,10 +706,13 @@ export default function ExperimentHeader({
             </div>
           </Modal>
         )}
+      </div>
 
-        <div className="container-fluid pagecontents position-relative">
-          <div className="d-flex align-items-center">
-            <Flex direction="row" align="center">
+      <div className="container-fluid pagecontents position-relative">
+        <div className="d-flex align-items-center">
+          <div>
+            {/* //MKTODO: Remove the option to edit this here - it can only be done via the Edit Info Modal */}
+            <Flex as="div" direction="row" align="center">
               <HeaderWithEdit
                 className="h1 mb-0"
                 containerClassName=""
@@ -716,263 +727,263 @@ export default function ExperimentHeader({
                 <ExperimentStatusIndicator experimentData={experiment} />
               </Box>
             </Flex>
+          </div>
 
-            <div className="ml-auto flex-1"></div>
+          <div className="ml-auto flex-1"></div>
 
-            {canRunExperiment ? (
-              <div className="ml-2 flex-shrink-0">
-                {experiment.status === "running" ? (
-                  <ExperimentActionButtons
-                    editResult={editResult}
-                    editTargeting={editTargeting}
-                    isBandit={isBandit}
-                  />
-                ) : experiment.status === "draft" ? (
-                  <Tooltip
-                    shouldDisplay={
+          {canRunExperiment ? (
+            <div className="ml-2 flex-shrink-0">
+              {experiment.status === "running" ? (
+                <ExperimentActionButtons
+                  editResult={editResult}
+                  editTargeting={editTargeting}
+                  isBandit={isBandit}
+                />
+              ) : experiment.status === "draft" ? (
+                <Tooltip
+                  shouldDisplay={
+                    isBandit &&
+                    !experimentHasLiveLinkedChanges(experiment, linkedFeatures)
+                  }
+                  body="Add at least one live Linked Feature, Visual Editor change, or URL Redirect before starting."
+                >
+                  <button
+                    className="btn btn-teal"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setShowStartExperiment(true);
+                    }}
+                    disabled={
                       isBandit &&
                       !experimentHasLiveLinkedChanges(
                         experiment,
                         linkedFeatures
                       )
                     }
-                    body="Add at least one live Linked Feature, Visual Editor change, or URL Redirect before starting."
                   >
-                    <button
-                      className="btn btn-teal"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setShowStartExperiment(true);
-                      }}
-                      disabled={
-                        isBandit &&
-                        !experimentHasLiveLinkedChanges(
-                          experiment,
-                          linkedFeatures
-                        )
-                      }
-                    >
-                      Start Experiment <MdRocketLaunch />
-                    </button>
-                  </Tooltip>
-                ) : null}
-              </div>
-            ) : null}
-
-            <div className="ml-2">
-              <DropdownMenu
-                trigger={
-                  <button className="btn btn-link text-dark">
-                    <BsThreeDotsVertical size={18} />
+                    Start Experiment <MdRocketLaunch />
                   </button>
-                }
-                open={dropdownOpen}
-                onOpenChange={(o) => {
-                  setDropdownOpen(!!o);
-                }}
-                menuPlacement="end"
-              >
-                <DropdownMenuGroup>
-                  {canRunExperiment &&
-                    !isBandit &&
-                    experiment.status !== "draft" && (
+                </Tooltip>
+              ) : null}
+            </div>
+          ) : null}
+
+          <div className="ml-2">
+            <DropdownMenu
+              trigger={
+                <button className="btn btn-link text-dark">
+                  <BsThreeDotsVertical size={18} />
+                </button>
+              }
+              open={dropdownOpen}
+              onOpenChange={(o) => {
+                setDropdownOpen(!!o);
+              }}
+              menuPlacement="end"
+            >
+              <DropdownMenuGroup>
+                {canRunExperiment &&
+                  !isBandit &&
+                  experiment.status !== "draft" && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setStatusModal(true);
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      Edit status
+                    </DropdownMenuItem>
+                  )}
+                {canEditExperiment ? (
+                  <DropdownMenuItem onClick={() => setShowEditInfoModal(true)}>
+                    Edit info
+                  </DropdownMenuItem>
+                ) : null}
+                {editPhases && !isBandit && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      editPhases();
+                      setDropdownOpen(false);
+                    }}
+                  >
+                    Edit phases
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem
+                  onClick={() => {
+                    setAuditModal(true);
+                    setDropdownOpen(false);
+                  }}
+                >
+                  Audit log
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownSubMenu
+                  trigger={
+                    <Flex
+                      align="center"
+                      className={isWatching ? "font-weight-bold" : ""}
+                    >
+                      <PiEye style={{ marginRight: "5px" }} size={18} />
+                      <span className="pr-5">
+                        {isWatching ? "Watching" : "Not watching"}
+                      </span>
+                    </Flex>
+                  }
+                >
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      await handleWatchUpdates(!isWatching);
+                    }}
+                  >
+                    {isWatching ? "Stop watching" : "Start watching"}
+                  </DropdownMenuItem>
+                </DropdownSubMenu>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setWatchersModal(true);
+                    setDropdownOpen(false);
+                  }}
+                  disabled={!usersWatching.length}
+                >
+                  <Flex as="div" align="center">
+                    <IconButton
+                      style={{
+                        marginRight: "5px",
+                        backgroundColor:
+                          usersWatching.length > 0
+                            ? "var(--violet-9)"
+                            : "var(--slate-9)",
+                      }}
+                      radius="full"
+                      size="1"
+                    >
+                      {usersWatching.length || 0}
+                    </IconButton>
+                    {usersWatching.length > 0 ? "View watchers" : "No watchers"}
+                  </Flex>
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              {canEditExperiment && (
+                <DropdownMenuItem
+                  onClick={() => {
+                    setShareModalOpen(true);
+                    setDropdownOpen(false);
+                  }}
+                >
+                  Share {isBandit ? "Bandit" : "Experiment"}
+                </DropdownMenuItem>
+              )}
+              {permissionsUtil.canCreateReport(experiment) && snapshot ? (
+                <DropdownMenuItem
+                  onClick={async () => {
+                    const res = await apiCall<{ report: ReportInterface }>(
+                      `/experiments/report/${snapshot.id}`,
+                      {
+                        method: "POST",
+                        body: reportArgs
+                          ? JSON.stringify(reportArgs)
+                          : undefined,
+                      }
+                    );
+                    if (!res.report) {
+                      throw new Error("Failed to create report");
+                    }
+                    track("Experiment Report: Create", {
+                      source: "experiment more menu",
+                    });
+                    await router.push(`/report/${res.report.id}`);
+                  }}
+                >
+                  Create shareable report
+                </DropdownMenuItem>
+              ) : null}
+              {canRunExperiment &&
+                growthbook.isOn("bandits") &&
+                experiment.status === "draft" && (
+                  <>
+                    <DropdownMenuGroup>
                       <DropdownMenuItem
                         onClick={() => {
-                          setStatusModal(true);
+                          setShowBanditModal(true);
                           setDropdownOpen(false);
                         }}
                       >
-                        Edit status
+                        Convert to {isBandit ? "Experiment" : "Bandit"}
                       </DropdownMenuItem>
-                    )}
-                  {editPhases && !isBandit && (
-                    <DropdownMenuItem
-                      onClick={() => {
-                        editPhases();
-                        setDropdownOpen(false);
-                      }}
-                    >
-                      Edit phases
-                    </DropdownMenuItem>
-                  )}
+                    </DropdownMenuGroup>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+              <DropdownMenuGroup>
+                {duplicate && (
                   <DropdownMenuItem
                     onClick={() => {
-                      setAuditModal(true);
                       setDropdownOpen(false);
+                      duplicate();
                     }}
                   >
-                    Audit log
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuGroup>
-                  <DropdownSubMenu
-                    trigger={
-                      <Flex
-                        align="center"
-                        className={isWatching ? "font-weight-bold" : ""}
-                      >
-                        <PiEye style={{ marginRight: "5px" }} size={18} />
-                        <span className="pr-5">
-                          {isWatching ? "Watching" : "Not watching"}
-                        </span>
-                      </Flex>
-                    }
-                  >
-                    <DropdownMenuItem
-                      onClick={async () => {
-                        await handleWatchUpdates(!isWatching);
-                      }}
-                    >
-                      {isWatching ? "Stop watching" : "Start watching"}
-                    </DropdownMenuItem>
-                  </DropdownSubMenu>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setWatchersModal(true);
-                      setDropdownOpen(false);
-                    }}
-                    disabled={!usersWatching.length}
-                  >
-                    <Flex as="div" align="center">
-                      <IconButton
-                        style={{
-                          marginRight: "5px",
-                          backgroundColor:
-                            usersWatching.length > 0
-                              ? "var(--violet-9)"
-                              : "var(--slate-9)",
-                        }}
-                        radius="full"
-                        size="1"
-                      >
-                        {usersWatching.length || 0}
-                      </IconButton>
-                      {usersWatching.length > 0
-                        ? "View watchers"
-                        : "No watchers"}
-                    </Flex>
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                {canEditExperiment && (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setShareModalOpen(true);
-                      setDropdownOpen(false);
-                    }}
-                  >
-                    Share {isBandit ? "Bandit" : "Experiment"}
+                    Duplicate
                   </DropdownMenuItem>
                 )}
-                {permissionsUtil.canCreateReport(experiment) && snapshot ? (
+                {canRunExperiment && (
                   <DropdownMenuItem
-                    onClick={async () => {
-                      const res = await apiCall<{ report: ReportInterface }>(
-                        `/experiments/report/${snapshot.id}`,
-                        {
-                          method: "POST",
-                          body: reportArgs
-                            ? JSON.stringify(reportArgs)
-                            : undefined,
-                        }
-                      );
-                      if (!res.report) {
-                        throw new Error("Failed to create report");
-                      }
-                      track("Experiment Report: Create", {
-                        source: "experiment more menu",
-                      });
-                      await router.push(`/report/${res.report.id}`);
+                    onClick={() => {
+                      setShowArchiveModal(true);
+                      setDropdownOpen(false);
                     }}
                   >
-                    Create shareable report
+                    Archive
                   </DropdownMenuItem>
-                ) : null}
-                {canRunExperiment &&
-                  growthbook.isOn("bandits") &&
-                  experiment.status === "draft" && (
-                    <>
-                      <DropdownMenuGroup>
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setShowBanditModal(true);
-                            setDropdownOpen(false);
-                          }}
-                        >
-                          Convert to {isBandit ? "Experiment" : "Bandit"}
-                        </DropdownMenuItem>
-                      </DropdownMenuGroup>
-                      <DropdownMenuSeparator />
-                    </>
-                  )}
-                <DropdownMenuGroup>
-                  {duplicate && (
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setDropdownOpen(false);
-                        duplicate();
-                      }}
-                    >
-                      Duplicate
-                    </DropdownMenuItem>
-                  )}
-                  {canRunExperiment && (
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setShowArchiveModal(true);
-                        setDropdownOpen(false);
-                      }}
-                    >
-                      Archive
-                    </DropdownMenuItem>
-                  )}
-                  {hasUpdatePermissions && experiment.archived && (
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setShowArchiveModal(true);
-                        setDropdownOpen(false);
-                      }}
-                    >
-                      Unarchive
-                    </DropdownMenuItem>
-                  )}
-                  {canDeleteExperiment && (
-                    <DropdownMenuItem
-                      color="red"
-                      onClick={() => {
-                        setShowDeleteModal(true);
-                        setDropdownOpen(false);
-                      }}
-                    >
-                      Delete
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuGroup>
-              </DropdownMenu>
-            </div>
+                )}
+                {hasUpdatePermissions && experiment.archived && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setShowArchiveModal(true);
+                      setDropdownOpen(false);
+                    }}
+                  >
+                    Unarchive
+                  </DropdownMenuItem>
+                )}
+                {canDeleteExperiment && (
+                  <DropdownMenuItem
+                    color="red"
+                    onClick={() => {
+                      setShowDeleteModal(true);
+                      setDropdownOpen(false);
+                    }}
+                  >
+                    Delete
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuGroup>
+            </DropdownMenu>
           </div>
-          <ProjectTagBar
-            experiment={experiment}
-            editProject={!viewingOldPhase ? editProject : undefined}
-            editTags={!viewingOldPhase ? editTags : undefined}
-            canEditOwner={canEditExperiment}
-            updateOwner={async (owner) => {
-              const ownerId = getMemberIdFromName(owner);
-              if (ownerId) {
-                await apiCall(`/experiment/${experiment.id}`, {
-                  method: "POST",
-                  body: JSON.stringify({ owner: ownerId }),
-                });
-              } else {
-                throw new Error("Could not find this user");
-              }
-            }}
-            mutate={mutate}
-          />
         </div>
+        {/* //MKTODO: Update ProjectTagBar so you can't do in-line editing if there is a value */}
+        <ProjectTagBar
+          experiment={experiment}
+          editProject={!viewingOldPhase ? editProject : undefined}
+          editTags={!viewingOldPhase ? editTags : undefined}
+          canEditOwner={canEditExperiment}
+          updateOwner={async (owner) => {
+            const ownerId = getMemberIdFromName(owner);
+            if (ownerId) {
+              await apiCall(`/experiment/${experiment.id}`, {
+                method: "POST",
+                body: JSON.stringify({ owner: ownerId }),
+              });
+            } else {
+              throw new Error("Could not find this user");
+            }
+          }}
+          mutate={mutate}
+        />
       </div>
-
       {shouldHideTabs ? null : (
         <div
           className={clsx("experiment-tabs px-3 d-print-none", {
