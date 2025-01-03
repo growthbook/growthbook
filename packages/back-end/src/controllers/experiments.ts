@@ -750,6 +750,7 @@ export async function postExperiments(
     banditBurnInValue: data.banditBurnInValue ?? 1,
     banditBurnInUnit: data.banditBurnInUnit ?? "days",
     customFields: data.customFields || undefined,
+    templateId: data.templateId || undefined,
     shareLevel: data.shareLevel || "organization",
   };
 

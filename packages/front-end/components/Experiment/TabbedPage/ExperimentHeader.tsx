@@ -43,12 +43,14 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { formatPercent } from "@/services/metrics";
 import { AppFeatures } from "@/types/app-features";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import { convertExperimentToTemplate } from "@/services/experiments";
 import Button from "@/components/Radix/Button";
 import Callout from "@/components/Radix/Callout";
 import SelectField from "@/components/Forms/SelectField";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import HelperText from "@/components/Radix/HelperText";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import TemplateForm from "../Templates/TemplateForm";
 import ProjectTagBar from "./ProjectTagBar";
 import ExperimentActionButtons from "./ExperimentActionButtons";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
@@ -141,10 +143,12 @@ export default function ExperimentHeader({
   const dataSource = getDatasourceById(experiment.datasource);
   const startCelebration = useCelebration();
   const { data: sdkConnections } = useSDKConnections();
+  const { hasCommercialFeature } = useUser();
   const { snapshot, phase, analysis } = useSnapshot();
   const connections = sdkConnections?.connections || [];
 
   const [showSdkForm, setShowSdkForm] = useState(false);
+  const [showTemplateForm, setShowTemplateForm] = useState(false);
 
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareLevel, setShareLevel] = useState<ShareLevel>(
@@ -215,6 +219,9 @@ export default function ExperimentHeader({
     }
   }
   const canRunExperiment = canEditExperiment && hasRunExperimentsPermission;
+  const canCreateTemplate =
+    permissionsUtil.canViewExperimentTemplateModal() &&
+    hasCommercialFeature("templates");
   const checklistIncomplete =
     checklistItemsRemaining !== null && checklistItemsRemaining > 0;
 
@@ -443,6 +450,14 @@ export default function ExperimentHeader({
             </div>
           </Modal>
         )}
+        {showTemplateForm && (
+          <TemplateForm
+            onClose={() => setShowTemplateForm(false)}
+            initialValue={convertExperimentToTemplate(experiment)}
+            isNewTemplate
+            source="experiment"
+          />
+        )}
 
         {shareModalOpen && (
           <Modal
@@ -610,6 +625,14 @@ export default function ExperimentHeader({
                     experiment={experiment}
                     mutate={mutate}
                   />
+                )}
+                {canCreateTemplate && !isBandit && (
+                  <button
+                    className="dropdown-item"
+                    onClick={() => setShowTemplateForm(true)}
+                  >
+                    Save as template...
+                  </button>
                 )}
                 <button
                   className="dropdown-item"
