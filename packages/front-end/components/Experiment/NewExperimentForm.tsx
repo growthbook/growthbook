@@ -464,6 +464,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const templateRequired =
     hasCommercialFeature("templates") &&
     !isBandit &&
+    !isImport &&
     settings.requireExperimentTemplates &&
     availableTemplates.length >= 1;
 
