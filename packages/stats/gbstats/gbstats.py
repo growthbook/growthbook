@@ -291,7 +291,7 @@ def analyze_metric_df(
             df[f"v{i}_error_message"] = None
             df[f"v{i}_decision_making_conditions"] = False
             df[f"v{i}_first_period_pairwise_users"] = None
-            df[f"v{i}_effect_size"] = None
+            df[f"v{i}_min_effect_size"] = None
             df[f"v{i}_target_power"] = None  # remove later
             df[f"v{i}_new_daily_users"] = None  # remove later
             df[f"v{i}_end_of_experiment_power"] = None  # remove later
@@ -299,7 +299,7 @@ def analyze_metric_df(
             df[f"v{i}_sigma_2_posterior"] = None
             df[f"v{i}_delta_posterior"] = None
             df[f"v{i}_power_additional_users"] = None
-            df[f"v{i}_power_additional_days"] = None  # remove later
+            df[f"v{i}_power_scaling_factor"] = None
             df[f"v{i}_power_update_message"] = None
             df[f"v{i}_power_error_message"] = ""
             df[f"v{i}_power_upper_bound_acheieved"] = None
@@ -339,7 +339,7 @@ def analyze_metric_df(
                 s[
                     f"v{i}_first_period_pairwise_users"
                 ] = mid_experiment_power.pairwise_sample_size
-                s[f"v{i}_effect_size"] = mid_experiment_power.m_prime
+                s[f"v{i}_min_percent_change"] = metric.min_percent_change
                 s[f"v{i}_sigmahat_2_delta"] = mid_experiment_power.sigmahat_2_delta
                 s[f"v{i}_sigma_2_posterior"] = mid_experiment_power.sigma_2_posterior
                 s[f"v{i}_delta_posterior"] = mid_experiment_power.delta_posterior
@@ -349,6 +349,9 @@ def analyze_metric_df(
                 s[
                     f"v{i}_power_additional_users"
                 ] = mid_experiment_power_result.additional_users
+                s[
+                    f"v{i}_power_scaling_factor"
+                ] = mid_experiment_power_result.scaling_factor
                 s[
                     f"v{i}_power_update_message"
                 ] = mid_experiment_power_result.update_message
@@ -360,27 +363,20 @@ def analyze_metric_df(
                 # delete this block later, as it will be calculated in the front end
                 # also, these users_per_day are wrong, as we will be feeding in data from the health tab
                 ########################################################################################
-                new_daily_users = 0
-                if (
-                    analysis.phase_length_days
-                    and analysis.phase_length_days > 0
-                    and s["total_users"]
-                    and s["total_users"] > 0
-                ):
-                    new_daily_users = s["total_users"] / analysis.phase_length_days
+                new_daily_users = 3297
                 if new_daily_users > 0:
                     days_remaining = 14
                     new_users_remaining = new_daily_users * days_remaining
+                    new_users_remaining = 3297  # delete this line later
                     # note i use 14 days remaining and the average over the full experimental period to estimate new_daily_users;
                     # when testing this in the FE, use these inputs;
                     if (
                         new_users_remaining > 0
                         and mid_experiment_power.pairwise_sample_size > 0
                     ):
-                        scaling_factor = (
-                            new_users_remaining
-                            / mid_experiment_power.pairwise_sample_size
-                        )
+                        scaling_factor = (s["total_users"] + new_users_remaining) / s[
+                            "total_users"
+                        ]
                         m_prime = metric.min_percent_change * 2
                         v_prime = mid_experiment_power.v_prime
                         s[f"v{i}_target_power"] = mid_experiment_power.target_power
@@ -389,12 +385,6 @@ def analyze_metric_df(
                             f"v{i}_end_of_experiment_power"
                         ] = mid_experiment_power.calculate_power(
                             scaling_factor, m_prime, v_prime
-                        )
-                        mid_experiment_power_result = (
-                            mid_experiment_power.calculate_sample_size()
-                        )
-                        s[f"v{i}_power_additional_days"] = (
-                            s[f"v{i}_power_additional_users"] / new_daily_users
                         )
                 else:
                     s[f"v{i}_power_update_message"] = "unsuccessful"
@@ -499,18 +489,18 @@ def format_variation_result(
                 firstPeriodPairwiseSampleSize=row[
                     f"{prefix}_first_period_pairwise_users"
                 ],
-                effectSize=row[f"{prefix}_effect_size"],
+                minPercentChange=row[f"{prefix}_min_percent_change"],
                 sigmahat2Delta=row[f"{prefix}_sigmahat_2_delta"],
                 sigma2Posterior=row[f"{prefix}_sigma_2_posterior"],
                 deltaPosterior=row[f"{prefix}_delta_posterior"],
-                powerAdditionalUsers=row[f"{prefix}_power_additional_users"],
+                additionalUsers=row[f"{prefix}_power_additional_users"],
+                scalingFactor=row[f"{prefix}_power_scaling_factor"],
                 powerUpdateMessage=row[f"{prefix}_power_update_message"],
                 powerError=row[f"{prefix}_power_error_message"],
                 upperBoundAchieved=row[f"{prefix}_power_upper_bound_achieved"],
                 endOfExperimentPower=row[f"{prefix}_end_of_experiment_power"],
                 targetPower=row[f"{prefix}_target_power"],
                 newDailyUsers=row[f"{prefix}_new_daily_users"],
-                powerAdditionalDays=row[f"{prefix}_power_additional_days"],
             )
         else:
             power_response = None

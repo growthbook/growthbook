@@ -301,6 +301,7 @@ export type PowerCalculationResults =
 export interface MidExperimentPowerSingleMetricParams {
   /**
    * @param newDailyUsers: The number of new daily users.
+   * @param firstPeriodSampleSize The total sample size across all variations in the first period.
    * @param secondPeriodSampleSize: The total sample size across all variations in the second period.
    * @param sequential Whether the test is sequential.
    * @param alpha The significance level.
@@ -309,7 +310,8 @@ export interface MidExperimentPowerSingleMetricParams {
    * @param numGoalMetrics The number of goal metrics.
    * @param response: Array of PowerResponses, not necessarily of length one. In practice, for MidExperimentPowerSingleMetricParams, the length of response is always one.
    */
-  newDailyUsers: number;
+  newDailyUsers: number /*can be removed later, if we want to instead return additional days needed from gbstats*/;
+  firstPeriodSampleSize: number;
   secondPeriodSampleSize: number;
   sequential: boolean;
   alpha: number;
@@ -324,11 +326,8 @@ export interface MidExperimentPowerSingleMetricParams {
 export interface MidExperimentParams
   extends MidExperimentPowerSingleMetricParams {
   /**
-   * @param firstPeriodTotalSampleSize The total sample size across all variations in the first period.
    * @param variationWeights: The weights of the variations.
-   * @param response: Array of PowerResponses, not necessarily of length one.
    */
-  firstPeriodTotalSampleSize: number;
   variationWeights: number[];
 }
 
@@ -1094,9 +1093,9 @@ function calculateMidExperimentPowerSingleMetric(
   const numTests = (params.numVariations - 1) * params.numGoalMetrics;
   const firstPeriodPairwiseSampleSize = response.firstPeriodPairwiseSampleSize;
   const scalingFactor =
-    params.secondPeriodSampleSize / response.firstPeriodSampleSize;
+    (params.secondPeriodSampleSize + params.firstPeriodSampleSize) /
+    params.firstPeriodSampleSize;
   let halfwidth: number;
-
   if (response.sigmahat2Delta == undefined) {
     return {
       type: "error",
@@ -1122,22 +1121,22 @@ function calculateMidExperimentPowerSingleMetric(
       type: "error",
       description: "newDailyUsers is 0.",
     };
-  } else if (response.powerAdditionalUsers == undefined) {
+  } else if (response.additionalUsers == undefined) {
     return {
       type: "error",
       description:
         "Missing powerAdditionalUsers (currently used only for testing).",
     };
-  } else if (response.powerAdditionalDays == undefined) {
+  } else if (response.minPercentChange == undefined) {
     return {
       type: "error",
-      description: "Missing powerAdditionalDays.",
+      description: "Missing minPercentChange.",
     };
   } else {
     const sigmahat2Delta = response.sigmahat2Delta;
     const sigma2Posterior = response.sigma2Posterior;
     const deltaPosterior = response.deltaPosterior;
-    const mPrime = response.effectSize;
+    const mPrime = 2 * response.minPercentChange;
     const vPrime = sigmahat2Delta;
     if (params.sequential) {
       const s2 = sigmahat2Delta * firstPeriodPairwiseSampleSize;
@@ -1173,13 +1172,14 @@ function calculateMidExperimentPowerSingleMetric(
     const powerPos = 1 - normal.cdf(numPos / den, 0, 1);
     const powerNeg = normal.cdf(numNeg / den, 0, 1);
     const totalPower = powerPos + powerNeg;
+    const additionalUsers = Math.ceil(
+      (response.scalingFactor - 1) * params.firstPeriodSampleSize
+    );
     const powerResults: MidExperimentPowerCalculationSuccessResult = {
       type: "success",
       power: totalPower,
-      additionalUsers: response.powerAdditionalUsers,
-      additionalDays: Math.ceil(
-        response.powerAdditionalUsers / response.newDailyUsers
-      ),
+      additionalUsers: additionalUsers,
+      additionalDays: Math.ceil(additionalUsers / response.newDailyUsers),
       lowPowerWarning: totalPower < params.alpha,
     };
     return powerResults;
@@ -1217,11 +1217,10 @@ export function calculateMidExperimentPower(
       const thisProportionOfUsers =
         variationWeights[0] + variationWeights[variation + 1];
       const thisNewDailyUsers = newDailyUsers * thisProportionOfUsers;
-      const thisSecondPeriodSampleSize =
-        secondPeriodSampleSize * thisProportionOfUsers;
       const powerParams: MidExperimentPowerSingleMetricParams = {
         newDailyUsers: thisNewDailyUsers,
-        secondPeriodSampleSize: thisSecondPeriodSampleSize,
+        firstPeriodSampleSize: powerSettings.firstPeriodSampleSize,
+        secondPeriodSampleSize: secondPeriodSampleSize,
         sequential,
         alpha,
         sequentialTuningParameter,
@@ -1245,10 +1244,9 @@ export function calculateMidExperimentPower(
             newDailyUsers: resultsSingleMetric.additionalUsers,
             metric: String(metric),
             variation: String(variation),
-            effectSize: powerResponses[powerIndex].effectSize,
+            effectSize: powerResponses[powerIndex].minPercentChange * 2,
             power: thisPower,
             additionalDaysNeeded: resultsSingleMetric.additionalDays,
-            additionalUsersNeeded: resultsSingleMetric.additionalUsers,
           });
         }
         if (resultsSingleMetric.additionalDays > thisMinDays) {

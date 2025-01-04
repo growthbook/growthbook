@@ -10,18 +10,19 @@ export type RiskType = "relative" | "absolute";
 
 // Keep in sync with gbstats PowerResponse
 export interface PowerResponseFromStatsEngine {
-  firstPeriodPairwiseSampleSize?: number;
-  effectSize?: number;
-  sigmahat2Delta?: number;
-  sigma2Posterior?: number;
-  deltaPosterior?: number;
-  powerUpdateMessage?: string;
-  powerError?: string;
+  firstPeriodPairwiseSampleSize: number;
+  minPercentChange: number;
+  sigmahat2Delta: number;
+  sigma2Posterior: number;
+  deltaPosterior: number;
+  powerUpdateMessage: string;
+  powerError: string;
+  upperBoundAchieved: boolean;
+  scalingFactor: number; 
   endOfExperimentPower?: number; // delete later, used for testing only
   newDailyUsers?: number; // delete later, used for testing only
-  powerAdditionalUsers?: number; // delete later, used for testing only
-  powerAdditionalDays?: number; // delete later, used for testing only
-  targetPower?: number; // delete later, used for testing only
+  additionalUsers?: number; // delete later, used for testing only
+  targetPower: number; // delete later, used for testing only
 }
 
 interface BaseVariationResponse {

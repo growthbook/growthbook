@@ -31,6 +31,7 @@ class MidExperimentPowerConfig(BaseConfig):
 @dataclass
 class AdditionalSampleSizeNeededResult:
     additional_users: Optional[float]
+    scaling_factor: Optional[float]
     upper_bound_achieved: bool
     update_message: str
     error: Optional[str] = None
@@ -55,7 +56,7 @@ class PowerParams:
     m_prime: float = 0  # postulated effect size
     v_prime: float = 1  # postulated variance
     alpha: float = 0.05  # significance level
-    sequential: bool = False  # whether to adjust for sequential testing
+    sequential: bool = False  # whether to adjust for sequential testings
     sequential_tuning_parameter: float = 5000  # tuning parameter for sequential testing
     n_current: int = 1  # first period sample size
 
@@ -74,7 +75,6 @@ class MidExperimentPower:
         self.relative = config.difference_type == "relative"
         self.test_result = test_result
         self.traffic_percentage = config.traffic_percentage
-        self.phase_length_days = config.phase_length_days
         self.alpha = config.alpha
         self.num_tests = (
             power_config.num_variations - 1
@@ -94,6 +94,7 @@ class MidExperimentPower:
                 error=None,
                 update_message="already significant",
                 additional_users=0,
+                scaling_factor=0,
                 upper_bound_achieved=False,
                 target_power=self.target_power,
                 v_prime=None,
@@ -104,13 +105,8 @@ class MidExperimentPower:
                 self.additional_users = (
                     self.pairwise_sample_size * scaling_factor_result.scaling_factor
                 )
-                ###### delete below me later ##################
-                daily_traffic = self.pairwise_sample_size / self.phase_length_days
-                self.additional_days = self.additional_users / daily_traffic
-                ###### delete above me later ##################
             else:
                 self.additional_users = None
-                self.additional_days = None
             if scaling_factor_result.upper_bound_achieved:
                 if scaling_factor_result.scaling_factor:
                     return AdditionalSampleSizeNeededResult(
@@ -119,6 +115,7 @@ class MidExperimentPower:
                         v_prime=self.sigmahat_2_delta
                         / scaling_factor_result.scaling_factor,
                         additional_users=self.additional_users,
+                        scaling_factor=scaling_factor_result.scaling_factor,
                         upper_bound_achieved=True,
                         target_power=self.target_power,
                     )
@@ -126,8 +123,9 @@ class MidExperimentPower:
                     return AdditionalSampleSizeNeededResult(
                         error=scaling_factor_result.error,
                         update_message="unsuccessful",
-                        v_prime=0,
-                        additional_users=0,
+                        v_prime=self.sigmahat_2_delta,
+                        additional_users=None,
+                        scaling_factor=None,
                         upper_bound_achieved=True,
                         target_power=self.target_power,
                     )
@@ -138,6 +136,7 @@ class MidExperimentPower:
                     v_prime=self.sigmahat_2_delta
                     / scaling_factor_result.scaling_factor,
                     additional_users=self.additional_users,
+                    scaling_factor=scaling_factor_result.scaling_factor,
                     upper_bound_achieved=False,
                     target_power=self.target_power,
                 )
@@ -145,8 +144,9 @@ class MidExperimentPower:
                 return AdditionalSampleSizeNeededResult(
                     error=scaling_factor_result.error,
                     update_message="unsuccessful",
-                    v_prime=0,
-                    additional_users=0,
+                    v_prime=self.sigmahat_2_delta,
+                    additional_users=None,
+                    scaling_factor=None,
                     upper_bound_achieved=False,
                     target_power=self.target_power,
                 )
@@ -252,7 +252,9 @@ class MidExperimentPower:
             power estimate.
         """
         if self.sequential:
-            rho = sequential_rho(self.alpha, self.sequential_tuning_parameter)
+            rho = sequential_rho(
+                self.alpha / self.num_tests, self.sequential_tuning_parameter
+            )
             s2 = self.sigmahat_2_delta * self.pairwise_sample_size
             n_total = self.pairwise_sample_size * (1 + scaling_factor)
             halfwidth = sequential_interval_halfwidth(

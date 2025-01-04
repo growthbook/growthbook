@@ -857,22 +857,34 @@ export function analyzeExperimentPower({
     );
   });
 
+  /*make up numbers for testing, assume there are maximum of 21 days left in experiment*/
+  const secondPeriodSampleSize =
+    getAverageExposureOverLastNDays(
+      trafficHealth,
+      7 // FIXME: what should this be? //should be 7, for the last 7 days
+    ) * 21; /*need to pass in number of days left in experiment*/
+  let firstPeriodSampleSize = 0;
+  for (
+    let variation = 0;
+    variation < trafficHealth.overall.variationUnits.length;
+    variation++
+  ) {
+    firstPeriodSampleSize += trafficHealth.overall.variationUnits[variation];
+  }
   return calculateMidExperimentPower({
     numVariations: variations.length,
     variationWeights: variations.map((it) => it.weight),
-
     numGoalMetrics: goalMetrics.length,
     response: goalMetricsPowerResponses,
-
     // FIXME: Ensure these values are correct / dynamic
-    firstPeriodTotalSampleSize: trafficHealth.overall.variationUnits[0],
-    secondPeriodSampleSize: trafficHealth.overall.variationUnits[1],
+    firstPeriodSampleSize: firstPeriodSampleSize /*needs to be total variationUnits summed across all variations (including control)*/,
+    secondPeriodSampleSize: secondPeriodSampleSize /*needs to be expected number of new units added before the end of the experiment; this is average new users over the last 7 days multiplied by number of days til max duration is reached*/,
     newDailyUsers: getAverageExposureOverLastNDays(
       trafficHealth,
-      14 // FIXME: what should this be?
+      14 // FIXME: what should this be? //should be 7, for the last 7 days
     ),
-    sequential: false,
-    alpha: 0.05,
-    sequentialTuningParameter: 0.05,
+    sequential: true /*needs to come from Analysis settings*/,
+    alpha: 0.2 /*needs to come from Analysis settings*/,
+    sequentialTuningParameter: 5000 /*needs to come from Analysis settings*/,
   });
 }
