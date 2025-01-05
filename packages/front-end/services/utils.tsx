@@ -7,9 +7,15 @@ import {
   Context,
   GrowthBook,
 } from "@growthbook/growthbook-react";
+import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
 import Cookies from "js-cookie";
 import { AppFeatures } from "@/types/app-features";
 import track from "@/services/track";
+import {
+  getIngestorHost,
+  inTelemetryDebugMode,
+  isTelemetryEnabled,
+} from "@/services/env";
 
 export const GB_SDK_ID =
   process.env.NODE_ENV === "production"
@@ -29,6 +35,13 @@ export const gbContext: Context = {
   stickyBucketService: new BrowserCookieStickyBucketService({
     jsCookie: Cookies,
   }),
+  plugins: [
+    growthbookTrackingPlugin({
+      ingestorHost: getIngestorHost(),
+      enable: isTelemetryEnabled(),
+      debug: inTelemetryDebugMode(),
+    }),
+  ],
 };
 export const growthbook = new GrowthBook<AppFeatures>(gbContext);
 

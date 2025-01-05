@@ -184,6 +184,17 @@ export type FeatureUsageCallbackWithUser = (
   user: UserContext
 ) => void;
 
+export type EventLogProps = {
+  eventName: string;
+  properties: Record<string, unknown>;
+  attributes: Attributes;
+  url: string;
+};
+
+export type Plugin = (gb: GrowthBook) => void;
+
+export type EventLogger = (props: EventLogProps) => void | Promise<void>;
+
 export type NavigateCallback = (url: string) => void | Promise<void>;
 
 export type ApplyDomChangesCallback = (
@@ -224,7 +235,8 @@ export type Options = {
   /** @deprecated */
   disableDevTools?: boolean;
   trackingCallback?: TrackingCallback;
-  onFeatureUsage?: (key: string, result: FeatureResult<any>) => void;
+  onFeatureUsage?: FeatureUsageCallback;
+  eventLogger?: EventLogger;
   cacheKeyAttributes?: (keyof Attributes)[];
   /** @deprecated */
   user?: {
@@ -253,6 +265,7 @@ export type Options = {
   antiFlickerTimeout?: number;
   applyDomChangesCallback?: ApplyDomChangesCallback;
   savedGroups?: SavedGroupsValues;
+  plugins?: Plugin[];
 };
 
 export type ClientOptions = {
