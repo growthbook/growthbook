@@ -215,6 +215,7 @@ export interface OrganizationSettings {
   banditScheduleUnit?: "hours" | "days";
   banditBurnInValue?: number;
   banditBurnInUnit?: "hours" | "days";
+  requireExperimentTemplates?: boolean;
 }
 
 export interface SubscriptionQuote {

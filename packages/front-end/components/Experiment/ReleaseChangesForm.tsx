@@ -584,8 +584,8 @@ function getRecommendedRolloutData({
 
   // 4. Add to namespace?
   if (
-    data.namespace.enabled &&
-    (!lastPhase.namespace.enabled ||
+    data.namespace?.enabled &&
+    (!lastPhase.namespace?.enabled ||
       data.namespace.name !== lastPhase.namespace?.name)
   ) {
     addToNamespace = true;
@@ -593,8 +593,8 @@ function getRecommendedRolloutData({
 
   // 5. Decrease namespace range?
   if (
-    data.namespace.enabled &&
-    lastPhase.namespace.enabled &&
+    data.namespace?.enabled &&
+    lastPhase.namespace?.enabled &&
     data.namespace.name === lastPhase.namespace.name
   ) {
     const namespaceRange = data.namespace.range ?? [0, 1];

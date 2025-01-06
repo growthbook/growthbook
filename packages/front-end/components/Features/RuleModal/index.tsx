@@ -8,7 +8,11 @@ import {
 import React, { useMemo, useState } from "react";
 import uniqId from "uniqid";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { generateVariationId, isFeatureCyclic } from "shared/util";
+import {
+  generateVariationId,
+  isFeatureCyclic,
+  isProjectListValidForProject,
+} from "shared/util";
 import cloneDeep from "lodash/cloneDeep";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { useGrowthBook } from "@growthbook/growthbook-react";
@@ -49,6 +53,7 @@ import BanditRefFields from "@/components/Features/RuleModal/BanditRefFields";
 import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFields";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import HelperText from "@/components/Radix/HelperText";
+import { useTemplates } from "@/hooks/useTemplates";
 
 export interface Props {
   close: () => void;
@@ -92,8 +97,9 @@ export default function RuleModal({
   const isNewRule = !rule;
 
   const { features } = useFeaturesList();
-  const { datasources } = useDefinitions();
+  const { datasources, project: currentProject } = useDefinitions();
   const { experimentsMap, mutateExperiments } = useExperiments();
+  const { templates: allTemplates } = useTemplates();
 
   const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] = useState(
     false
@@ -163,6 +169,19 @@ export default function RuleModal({
     sdkConnectionsData?.connections,
     feature.project
   );
+  const availableTemplates = currentProject
+    ? allTemplates.filter((t) =>
+        isProjectListValidForProject(
+          t.project ? [t.project] : [],
+          currentProject
+        )
+      )
+    : allTemplates;
+
+  const templateRequired =
+    hasCommercialFeature("templates") &&
+    settings.requireExperimentTemplates &&
+    availableTemplates.length >= 1;
 
   const prerequisites = form.watch("prerequisites") || [];
   const [isCyclic, cyclicFeatureId] = useMemo(() => {
@@ -312,6 +331,11 @@ export default function RuleModal({
           );
         }
 
+        if (!values.templateId && templateRequired) {
+          setStep(0);
+          throw new Error("You must select a template");
+        }
+
         // If we're scheduling this rule, always auto start the experiment so it's not stuck in a 'draft' state
         if (!values.autoStart && values.scheduleRules?.length) {
           values.autoStart = true;
@@ -343,6 +367,7 @@ export default function RuleModal({
         const exp: Partial<ExperimentInterfaceStringDates> = {
           archived: false,
           autoSnapshots: true,
+          // Use template datasource/exposure query id if available
           ...getNewExperimentDatasourceDefaults(
             datasources,
             settings,
