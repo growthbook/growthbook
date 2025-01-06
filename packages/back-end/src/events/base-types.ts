@@ -70,7 +70,7 @@ export const notificationEvents = {
     },
     "info.significance": {
       schema: experimentInfoSignificance,
-      description: `Triggered when a goal metric reaches significance in an experiment (e.g. either above 95% or below 5% chance to win). Be careful using this without Sequential Testing as it can lead to peeking problems.`,
+      description: `Triggered when a goal or guardrail metric reaches significance in an experiment (e.g. either above 95% or below 5% chance to win). Be careful using this without Sequential Testing as it can lead to peeking problems.`,
     },
   },
   user: {

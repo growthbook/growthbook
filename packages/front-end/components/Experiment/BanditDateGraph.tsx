@@ -28,6 +28,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import Callout from "@/components/Radix/Callout";
 import HelperText from "@/components/Radix/HelperText";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import styles from "./ExperimentDateGraph.module.scss";
 
 export interface DataPointVariation {
@@ -57,6 +58,8 @@ export interface BanditDateGraphProps {
   label?: string;
   mode: "values" | "probabilities" | "weights";
   type: "line" | "area";
+  ssrPolyfills?: SSRPolyfills;
+  isPublic?: boolean;
 }
 
 const intPercentFormatter = new Intl.NumberFormat(undefined, {
@@ -90,7 +93,8 @@ const getTooltipContents = (
   metric: ExperimentMetricInterface | null,
   getFactTableById: any,
   metricFormatterOptions: any,
-  showVariations: boolean[]
+  showVariations: boolean[],
+  isPublic?: boolean
 ) => {
   const { d } = data;
   return (
@@ -163,36 +167,38 @@ const getTooltipContents = (
             })}
           </tbody>
         </table>
-      ) : (
+      ) : !isPublic ? (
         <div className="my-2" style={{ minWidth: 300 }}>
           <em>Bandit update failed</em>
         </div>
+      ) : null}
+
+      {!isPublic && (
+        <div style={{ maxWidth: 330 }}>
+          {!!d.reweight && !!d.weightsWereUpdated && (
+            <HelperText status="info" my="2" size="md">
+              Variation weights were recalculated
+            </HelperText>
+          )}
+          {!!d.reweight && !d.weightsWereUpdated && (
+            <HelperText status="warning" my="2" size="md">
+              Variation weights were unable to update
+            </HelperText>
+          )}
+
+          {d.updateMessage && !d.error ? (
+            <Callout status="warning" my="2" size="sm">
+              {d.updateMessage}
+            </Callout>
+          ) : null}
+
+          {d.error ? (
+            <Callout status="error" my="2" size="sm">
+              {d.error}
+            </Callout>
+          ) : null}
+        </div>
       )}
-
-      <div style={{ maxWidth: 330 }}>
-        {!!d.reweight && !!d.weightsWereUpdated && (
-          <HelperText status="info" my="2" size="md">
-            Variation weights were recalculated
-          </HelperText>
-        )}
-        {!!d.reweight && !d.weightsWereUpdated && (
-          <HelperText status="warning" my="2" size="md">
-            Variation weights were unable to update
-          </HelperText>
-        )}
-
-        {d.updateMessage && !d.error ? (
-          <Callout status="warning" my="2" size="sm">
-            {d.updateMessage}
-          </Callout>
-        ) : null}
-
-        {d.error ? (
-          <Callout status="error" my="2" size="sm">
-            {d.error}
-          </Callout>
-        ) : null}
-      </div>
 
       <div className="text-sm-right mt-1 mr-1">
         {datetime(d.date as Date)}
@@ -268,12 +274,17 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
   label,
   mode,
   type,
+  ssrPolyfills,
+  isPublic,
 }) => {
   const formatter = formatNumber;
 
-  const metricDisplayCurrency = useCurrency();
-  const metricFormatterOptions = { currency: metricDisplayCurrency };
-  const { getFactTableById } = useDefinitions();
+  const _displayCurrency = useCurrency();
+  const { getFactTableById: _getFactTableById } = useDefinitions();
+
+  const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
+  const displayCurrency = ssrPolyfills?.useCurrency() || _displayCurrency;
+  const metricFormatterOptions = { currency: displayCurrency };
 
   const variationNames = experiment.variations.map((v) => v.name);
   const { containerRef, containerBounds } = useTooltipInPortal({
@@ -657,7 +668,8 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                   metric,
                   getFactTableById,
                   metricFormatterOptions,
-                  showVariations
+                  showVariations,
+                  isPublic
                 )}
               </TooltipWithBounds>
             )}

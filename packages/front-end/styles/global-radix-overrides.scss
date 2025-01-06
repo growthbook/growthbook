@@ -107,8 +107,8 @@
   .rdp-day {
     padding: 0 !important;
     &.rdp-disabled {
-      background-color: var(--gray-a3);
-      color: var(--gray-9);
+      background-color: var(--sand-a4);
+      color: var(--sand-9);
     }
     .rdp-day_button {
       position: relative;
@@ -137,6 +137,9 @@
   }
   .rdp-range_end .rdp-day_button {
     border-radius: 0 8px 8px 0;
+  }
+  .rdp-range_start.rdp-range_end .rdp-day_button {
+    border-radius: 8px;
   }
   .rdp-selected:not(.rdp-range_middle) {
     .rdp-day_button {

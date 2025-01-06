@@ -16,7 +16,7 @@ export default function ShareStatusBadge({
       {shareLevel === "private" ? (
         <Badge variant="soft" color="gray" label="Private" radius="full" />
       ) : shareLevel === "organization" ? (
-        <Badge variant="soft" label="Published" radius="full" />
+        <Badge variant="soft" color="green" label="Published" radius="full" />
       ) : shareLevel === "public" ? (
         <Badge variant="soft" color="orange" label="Public" radius="full" />
       ) : null}

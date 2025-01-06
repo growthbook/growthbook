@@ -35,7 +35,7 @@ import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
 
 type ShareLevel = "public" | "organization" | "private";
 type EditLevel = "organization" | "private";
-const saveSettingTimeoutMs = 3000;
+const SAVE_SETTING_TIMEOUT_MS = 3000;
 
 export default function ReportMetaInfo({
   report,
@@ -109,7 +109,8 @@ export default function ReportMetaInfo({
       name: variation.name,
       weight:
         report.experimentMetadata.phases?.[snapshot?.phase || 0]
-          ?.variationWeights?.[i] || 1 / (variations?.length || 2),
+          ?.variationWeights?.[i] ||
+        1 / (report.experimentMetadata?.variations?.length || 2),
     })
   );
   const analysis = snapshot
@@ -118,6 +119,8 @@ export default function ReportMetaInfo({
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
 
   useEffect(() => {
+    if (!(isAdmin || isOwner)) return;
+
     if (report.shareLevel !== shareLevel) {
       setSaveShareLevelStatus("loading");
       window.clearTimeout(saveShareLevelTimeout.current);
@@ -132,14 +135,14 @@ export default function ReportMetaInfo({
           setSaveShareLevelStatus("success");
           saveShareLevelTimeout.current = window.setTimeout(
             () => setSaveShareLevelStatus(null),
-            saveSettingTimeoutMs
+            SAVE_SETTING_TIMEOUT_MS
           );
         })
         .catch(() => {
           setSaveShareLevelStatus("fail");
           saveShareLevelTimeout.current = window.setTimeout(
             () => setSaveShareLevelStatus(null),
-            saveSettingTimeoutMs
+            SAVE_SETTING_TIMEOUT_MS
           );
         });
       track("Experiment Report: Set Share Level", {
@@ -152,12 +155,16 @@ export default function ReportMetaInfo({
     report.shareLevel,
     shareLevel,
     mutate,
-    setSaveEditLevelStatus,
+    setSaveShareLevelStatus,
     apiCall,
     showEditControls,
+    isAdmin,
+    isOwner,
   ]);
 
   useEffect(() => {
+    if (!(isAdmin || isOwner)) return;
+
     if (report.editLevel !== editLevel) {
       setSaveEditLevelStatus("loading");
       window.clearTimeout(saveEditLevelTimeout.current);
@@ -195,6 +202,8 @@ export default function ReportMetaInfo({
     setSaveEditLevelStatus,
     apiCall,
     showEditControls,
+    isAdmin,
+    isOwner,
   ]);
 
   const shareLinkButton =
@@ -393,6 +402,8 @@ export default function ReportMetaInfo({
             setGeneralModalOpen(false);
           }}
           submit={generalForm.handleSubmit(async (value) => {
+            if (!canEdit) return;
+
             const { updatedReport } = await apiCall<{
               updatedReport: ExperimentSnapshotReportInterface;
             }>(`/report/${report.id}`, {

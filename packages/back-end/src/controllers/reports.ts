@@ -4,15 +4,12 @@ import { getValidDate } from "shared/dates";
 import { getSnapshotAnalysis } from "shared/util";
 import { pick, omit } from "lodash";
 import uniqid from "uniqid";
-import uniq from "lodash/uniq";
-import { expandMetricGroups } from "shared/experiments";
 import {
   ExperimentReportAnalysisSettings,
   ExperimentReportInterface,
   ExperimentSnapshotReportArgs,
   ExperimentSnapshotReportInterface,
   ReportInterface,
-  SSRExperimentReportData,
 } from "back-end/types/report";
 import {
   getExperimentById,
@@ -23,7 +20,7 @@ import {
   findLatestRunningSnapshotByReportId,
   findSnapshotById,
 } from "back-end/src/models/ExperimentSnapshotModel";
-import { getMetricMap, getMetricsByIds } from "back-end/src/models/MetricModel";
+import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   createReport,
   deleteReportById,
@@ -41,16 +38,12 @@ import {
   getContextFromReq,
 } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import {
-  getFactTableMap,
-  getFactTablesByIds,
-} from "back-end/src/models/FactTableModel";
+import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { experimentAnalysisSettings } from "back-end/src/validators/experiments";
-import { FactMetricInterface } from "back-end/types/fact-table";
-import { MetricInterface } from "back-end/types/metric";
-import { OrganizationSettings } from "back-end/types/organization";
-import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
-import { createReportSnapshot } from "back-end/src/services/reports";
+import {
+  createReportSnapshot,
+  generateExperimentReportSSRData,
+} from "back-end/src/services/reports";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 
 export async function postReportFromSnapshot(
@@ -74,8 +67,6 @@ export async function postReportFromSnapshot(
     // fix a weird corruption in the model where formerly-empty Mongoose Map comes back missing:
     snapshot.health.traffic.dimension = {};
   }
-
-  // todo: hash dependencies so we can see if settings/inputs are stale
 
   const experiment = await getExperimentById(context, snapshot.experiment);
 
@@ -112,6 +103,14 @@ export async function postReportFromSnapshot(
   if (!_experimentAnalysisSettings.dateStarted) {
     _experimentAnalysisSettings.dateStarted =
       experiment.phases?.[phaseIndex]?.dateStarted ?? new Date();
+  }
+  if (
+    !_experimentAnalysisSettings.dateEnded &&
+    experiment?.status === "stopped" &&
+    experiment.phases?.[phaseIndex]?.dateEnded
+  ) {
+    _experimentAnalysisSettings.dateEnded =
+      experiment.phases?.[phaseIndex]?.dateEnded;
   }
 
   const doc = await createReport(org.id, {
@@ -263,105 +262,11 @@ export async function getReportPublic(
     : undefined;
   const experiment = pick(_experiment, ["id", "name", "type"]);
 
-  const metricGroups = await context.models.metricGroups.getAll();
-  const experimentMetricIds = expandMetricGroups(
-    uniq([
-      ...(snapshot?.settings?.goalMetrics ?? []),
-      ...(snapshot?.settings?.secondaryMetrics ?? []),
-      ...(snapshot?.settings?.guardrailMetrics ?? []),
-    ]),
-    metricGroups
-  );
-
-  const metricIds = uniq([
-    ...experimentMetricIds,
-    ...(snapshot?.settings?.activationMetric
-      ? [snapshot?.settings?.activationMetric]
-      : []),
-  ]);
-
-  const metrics: MetricInterface[] = await getMetricsByIds(
+  const ssrData = await generateExperimentReportSSRData({
     context,
-    metricIds.filter((m) => m.startsWith("met_"))
-  );
-  const factMetrics: FactMetricInterface[] = await context.models.factMetrics.getByIds(
-    metricIds.filter((m) => m.startsWith("fact__"))
-  );
-
-  const denominatorMetricIds = uniq(
-    metrics
-      .filter((m) => !!m.denominator)
-      .map((m) => m.denominator)
-      .filter((id) => id && !metricIds.includes(id)) as string[]
-  );
-  const denominatorMetrics = await getMetricsByIds(
-    context,
-    denominatorMetricIds
-  );
-
-  const metricMap = [...metrics, ...factMetrics, ...denominatorMetrics].reduce(
-    (map, metric) =>
-      Object.assign(map, {
-        [metric.id]: omit(metric, [
-          "queries",
-          "runStarted",
-          "analysis",
-          "analysisError",
-          "table",
-          "column",
-          "timestampColumn",
-          "conditions",
-          "queryFormat",
-        ]),
-      }),
-    {}
-  );
-
-  let factTableIds: string[] = [];
-  factMetrics.forEach((m) => {
-    if (m?.numerator?.factTableId) factTableIds.push(m.numerator.factTableId);
-    if (m?.denominator?.factTableId)
-      factTableIds.push(m.denominator.factTableId);
+    organization: report.organization,
+    snapshot,
   });
-  factTableIds = uniq(factTableIds);
-  const factTables = await getFactTablesByIds(context, factTableIds);
-  const factTableMap = factTables.reduce(
-    (map, factTable) => Object.assign(map, { [factTable.id]: factTable }),
-    {}
-  );
-
-  const allDimensions = await findDimensionsByOrganization(report.organization);
-  const dimension = allDimensions.find((d) => d.id === snapshot?.dimension);
-  const dimensions = dimension ? [dimension] : [];
-
-  const settingsKeys = [
-    "confidenceLevel",
-    "metricDefaults",
-    "multipleExposureMinPercent",
-    "statsEngine",
-    "pValueThreshold",
-    "pValueCorrection",
-    "regressionAdjustmentEnabled",
-    "regressionAdjustmentDays",
-    "srmThreshold",
-    "attributionModel",
-    "sequentialTestingEnabled",
-    "sequentialTestingTuningParameter",
-    "displayCurrency",
-  ];
-  const orgSettings: OrganizationSettings = pick(
-    context.org.settings,
-    settingsKeys
-  );
-  // todo: consider including experiment's project settings in future? likely not...
-
-  const ssrData: SSRExperimentReportData = {
-    metrics: metricMap,
-    metricGroups: metricGroups,
-    factTables: factTableMap,
-    settings: orgSettings,
-    dimensions,
-  };
 
   res.status(200).json({
     status: 200,
@@ -421,6 +326,20 @@ export async function refreshReport(
   const useCache = !req.query["force"];
 
   if (report.type === "experiment-snapshot") {
+    const experiment = await getExperimentById(
+      context,
+      report.experimentId || ""
+    );
+    const isOwner = report.userId === req.userId;
+    const canUpdateReport = context.permissions.canUpdateReport(
+      experiment || {}
+    );
+    if (
+      !(isOwner || (report.editLevel === "organization" && canUpdateReport))
+    ) {
+      context.permissions.throwPermissionError();
+    }
+
     const snapshot =
       (await findSnapshotById(report.organization, report.snapshot)) ||
       undefined;
@@ -488,6 +407,20 @@ export async function putReport(
     throw new Error("Unknown report id");
   }
   if (report.type === "experiment-snapshot") {
+    const experiment = await getExperimentById(
+      context,
+      report.experimentId || ""
+    );
+    const isOwner = report.userId === req.userId;
+    const canUpdateReport = context.permissions.canUpdateReport(
+      experiment || {}
+    );
+    if (
+      !(isOwner || (report.editLevel === "organization" && canUpdateReport))
+    ) {
+      context.permissions.throwPermissionError();
+    }
+
     const data = req.body as ExperimentSnapshotReportInterface;
     if (!data) {
       throw new Error("Malformed data");

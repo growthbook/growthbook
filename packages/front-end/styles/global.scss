@@ -80,7 +80,7 @@ pre {
   color: colors.$second-blue;
 }
 .text-purple {
-  color: colors.$highlight-purple;
+  color: var(--violet-a11);
 }
 .text-indigo {
   color: colors.$indigo;
@@ -189,19 +189,6 @@ pre {
     colors.$highlight-purple,
     darken(colors.$highlight-purple, 7.5%),
     darken(colors.$highlight-purple, 10%),
-    lighten(colors.$highlight-purple, 5%),
-    lighten(colors.$highlight-purple, 10%),
-    darken(colors.$highlight-purple, 30%)
-  );
-  white-space: nowrap;
-  font-weight: 600;
-}
-
-.btn-primary-darkened {
-  @include button-variant(
-    darken(colors.$highlight-purple, 10%),
-    darken(colors.$highlight-purple, 14%),
-    darken(colors.$highlight-purple, 18%),
     lighten(colors.$highlight-purple, 5%),
     lighten(colors.$highlight-purple, 10%),
     darken(colors.$highlight-purple, 30%)
@@ -567,7 +554,9 @@ pre {
 }
 
 .main.experiment,
-.main.bandit {
+.main.bandit,
+.public.experiment,
+.public.bandit {
   .experiment-header {
     margin: -4px -8px 0;
     .border {
@@ -577,9 +566,10 @@ pre {
   .experiment-tabs {
     background-color: var(--background-color);
     // NB: Keep top property in sync with TABS_HEADER_HEIGHT_PX in ExperimentHeader.tsx
+    // also, make sure shared reports & shared experiments look good
     top: 55px;
     height: 40px;
-    margin: 0 -8px -3px;
+    margin: 0 -16px -3px;
     transition: 150ms all;
     .header-tabs {
       flex-wrap: nowrap;
@@ -623,9 +613,13 @@ pre {
     &.pinned {
       position: sticky;
       z-index: 830;
-      box-shadow: var(--shadow-3);
+      // ensure no shadow bleeds above component, otherwise noticeable when scrolling quickly
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), 0 4px 4px rgba(0, 0, 0, 0.025);
       .header-tabs .tab-wrapper {
         overflow: hidden;
+      }
+      .rt-BaseTabList {
+        box-shadow: none !important;
       }
     }
   }
@@ -793,13 +787,15 @@ pre {
     transform: translate(0.5px, -0.5px);
   }
 }
-main.main.report,
-main.main.r {
-  .experiment-results {
-    th {
-      &.axis-col {
-        top: 50px;
-      }
+main.main {
+  &.report {
+    .experiment-results th.axis-col {
+      top: 55px;
+    }
+  }
+  &.public.experiment {
+    .experiment-results th.axis-col {
+      top: 95px;
     }
   }
 }
@@ -938,10 +934,10 @@ main.main.r {
 }
 
 .link-purple {
-  color: colors.$highlight-purple;
+  color: var(--violet-a11);
   text-decoration: none;
   &:hover {
-    color: lighten(colors.$highlight-purple, 5%);
+    color: var(--violet-a10);
     text-decoration: underline;
   }
 }
@@ -1220,11 +1216,6 @@ main.main.r {
         width: auto !important;
       }
     }
-  }
-}
-@media only screen and (min-width: 992px) {
-  .paged-modal-default {
-    padding: 0 40px;
   }
 }
 .modal {
@@ -2261,7 +2252,6 @@ li.metrics a span img {
   .testname {
     font-weight: 400;
     color: var(--text-color-main);
-
     &:hover {
       text-decoration: none;
     }
@@ -3322,6 +3312,10 @@ input:disabled {
 .main.features {
   .features-header {
     margin: -4px -8px 0;
+  }
+  .featurename {
+    font-weight: 400;
+    color: var(--text-color-main);
   }
 }
 .approval-flow-accepted {

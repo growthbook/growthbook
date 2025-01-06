@@ -11,18 +11,19 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Link from "@/components/Radix/Link";
 
 interface RedirectLinkedChangesProps {
-  setUrlRedirectModal: (boolean) => void;
+  setUrlRedirectModal?: (boolean) => void;
   urlRedirects: URLRedirectInterface[];
   experiment: ExperimentInterfaceStringDates;
   canAddChanges: boolean;
-  mutate: () => void;
+  mutate?: () => void;
+  isPublic?: boolean;
 }
 
 interface RedirectProps {
   urlRedirect: URLRedirectInterface;
   experiment: ExperimentInterfaceStringDates;
   canEdit: boolean;
-  mutate: () => void;
+  mutate?: () => void;
 }
 
 function UrlDifferenceRenderer({ url1, url2 }: { url1: string; url2: string }) {
@@ -77,7 +78,7 @@ const Redirect = ({
 
   return (
     <>
-      {editingRedirect ? (
+      {editingRedirect && mutate ? (
         <UrlRedirectModal
           mode="edit"
           experiment={experiment}
@@ -114,7 +115,7 @@ const Redirect = ({
                   await apiCall(`/url-redirects/${urlRedirect.id}`, {
                     method: "DELETE",
                   });
-                  mutate();
+                  mutate?.();
                 }}
               >
                 Remove
@@ -182,6 +183,7 @@ export default function RedirectLinkedChanges({
   experiment,
   canAddChanges,
   mutate,
+  isPublic,
 }: RedirectLinkedChangesProps) {
   const redirectCount = urlRedirects.length;
 
@@ -191,20 +193,22 @@ export default function RedirectLinkedChanges({
       changeCount={redirectCount}
       experimentStatus={experiment.status}
       type="redirects"
-      onAddChange={() => setUrlRedirectModal(true)}
+      onAddChange={() => setUrlRedirectModal?.(true)}
     >
-      <div>
-        {urlRedirects.map((r, i) => (
-          <div className={i > 0 ? "mt-3" : undefined} key={r.id}>
-            <Redirect
-              urlRedirect={r}
-              experiment={experiment}
-              mutate={mutate}
-              canEdit={canAddChanges}
-            />
-          </div>
-        ))}
-      </div>
+      {!isPublic ? (
+        <>
+          {urlRedirects.map((r, i) => (
+            <div className={i > 0 ? "mt-3" : undefined} key={r.id}>
+              <Redirect
+                urlRedirect={r}
+                experiment={experiment}
+                mutate={mutate}
+                canEdit={canAddChanges}
+              />
+            </div>
+          ))}
+        </>
+      ) : null}
     </LinkedChangesContainer>
   );
 }
