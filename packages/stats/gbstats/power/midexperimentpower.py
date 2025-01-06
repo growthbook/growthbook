@@ -234,9 +234,9 @@ class MidExperimentPower:
             current_power = self.calculate_power(
                 power_params.scaling_factor, power_params.m_prime, power_params.v_prime
             )
-            if upper and current_power > self.target_power:
+            if upper and current_power > self.adjusted_power:
                 break
-            if not upper and current_power < self.target_power:
+            if not upper and current_power < self.adjusted_power:
                 break
         if iteration < self.max_iters_scaling_factor - 1:
             converged = True
@@ -341,7 +341,21 @@ class MidExperimentPower:
                 break
 
         converged = iteration < self.max_iters - 1
+
         error = "" if converged else "bisection search did not converge"
+
+        if error:
+            raise ValueError(
+                [
+                    current_power,
+                    self.adjusted_power,
+                    diff,
+                    scaling_factor,
+                    scaling_factor_lower,
+                    scaling_factor_upper,
+                ]
+            )
+
         return ScalingFactorResult(
             converged=converged,
             error=error,

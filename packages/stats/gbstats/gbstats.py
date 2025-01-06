@@ -363,11 +363,9 @@ def analyze_metric_df(
                 # delete this block later, as it will be calculated in the front end
                 # also, these users_per_day are wrong, as we will be feeding in data from the health tab
                 ########################################################################################
-                new_daily_users = 3297
+                new_daily_users = 3360
                 if new_daily_users > 0:
-                    days_remaining = 14
-                    new_users_remaining = new_daily_users * days_remaining
-                    new_users_remaining = 3297  # delete this line later
+                    new_users_remaining = 3360  # delete this line later
                     # note i use 14 days remaining and the average over the full experimental period to estimate new_daily_users;
                     # when testing this in the FE, use these inputs;
                     if (
