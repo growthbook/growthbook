@@ -480,6 +480,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
           analysis: relativeAnalysis,
           goalMetrics: this.model.settings.goalMetrics,
           variations: this.model.settings.variations,
+          analysisSettings: relativeAnalysis.settings,
         });
         result.health.power = powerHealth;
       }

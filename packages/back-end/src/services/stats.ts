@@ -116,6 +116,7 @@ export interface MetricSettingsForStatsEngine {
   prior_stddev?: number;
   business_metric_type?: BusinessMetricTypeForStatsEngine[];
   // TODO: Check if this can be required or if it needs to be optional
+  // 0.01 should be sent as
   min_percent_change: number;
 }
 
@@ -830,17 +831,22 @@ export function analyzeExperimentTraffic({
   return trafficResults;
 }
 
+// TODO: Only call this if the experiment has been running for the minExperimentLenghtInDays
 export function analyzeExperimentPower({
   trafficHealth,
   analysis,
   goalMetrics,
   variations,
+  analysisSettings,
 }: {
   trafficHealth: ExperimentSnapshotTraffic;
   analysis: ExperimentSnapshotAnalysis;
   goalMetrics: string[];
   variations: SnapshotSettingsVariation[];
+  analysisSettings: ExperimentSnapshotAnalysisSettings;
 }): MidExperimentPowerCalculationResult {
+  const daysToAverage = 7;
+
   if (variations.length !== analysis.results[0].variations.length) {
     throw new Error("Variations and analysis results do not match");
   }
@@ -857,12 +863,11 @@ export function analyzeExperimentPower({
     );
   });
 
-  /*make up numbers for testing, assume there are maximum of 21 days left in experiment*/
-  const secondPeriodSampleSize =
-    getAverageExposureOverLastNDays(
-      trafficHealth,
-      7 // FIXME: what should this be? //should be 7, for the last 7 days
-    ) * 21; /*need to pass in number of days left in experiment*/
+  const newDailyUsers = getAverageExposureOverLastNDays(
+    trafficHealth,
+    daysToAverage
+  );
+
   let firstPeriodSampleSize = 0;
   for (
     let variation = 0;
@@ -871,6 +876,15 @@ export function analyzeExperimentPower({
   ) {
     firstPeriodSampleSize += trafficHealth.overall.variationUnits[variation];
   }
+
+  // should send daysRemaining instead of secondPeriodSampleSize
+  /*make up numbers for testing, assume there are maximum of 21 days left in experiment*/
+  // If there are no data for said date it will be treated as 0
+  const secondPeriodSampleSize =
+    newDailyUsers * 21; /*need to pass in number of days left in experiment*/
+  // maxExperimentDuration - how long it has been running for
+  // the last phases object has the dateStarted field
+
   return calculateMidExperimentPower({
     numVariations: variations.length,
     variationWeights: variations.map((it) => it.weight),
@@ -879,12 +893,11 @@ export function analyzeExperimentPower({
     // FIXME: Ensure these values are correct / dynamic
     firstPeriodSampleSize: firstPeriodSampleSize /*needs to be total variationUnits summed across all variations (including control)*/,
     secondPeriodSampleSize: secondPeriodSampleSize /*needs to be expected number of new units added before the end of the experiment; this is average new users over the last 7 days multiplied by number of days til max duration is reached*/,
-    newDailyUsers: getAverageExposureOverLastNDays(
-      trafficHealth,
-      14 // FIXME: what should this be? //should be 7, for the last 7 days
-    ),
-    sequential: true /*needs to come from Analysis settings*/,
-    alpha: 0.2 /*needs to come from Analysis settings*/,
-    sequentialTuningParameter: 5000 /*needs to come from Analysis settings*/,
+    newDailyUsers,
+    sequential: analysisSettings.sequentialTesting ?? false,
+    alpha: analysisSettings.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
+    sequentialTuningParameter:
+      analysisSettings.sequentialTestingTuningParameter ??
+      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   });
 }
