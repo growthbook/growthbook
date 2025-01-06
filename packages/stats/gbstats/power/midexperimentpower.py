@@ -76,9 +76,8 @@ class MidExperimentPower:
         self.test_result = test_result
         self.traffic_percentage = config.traffic_percentage
         self.alpha = config.alpha
-        self.num_tests = (
-            power_config.num_variations - 1
-        ) * power_config.num_goal_metrics
+        self.num_goal_metrics = power_config.num_goal_metrics
+        self.num_tests = (power_config.num_variations - 1) * self.num_goal_metrics
         self.z_star = norm.ppf(1 - self.alpha / (2 * self.num_tests))
         self.target_power = power_config.target_power
         self.m_prime = power_config.m_prime
@@ -193,6 +192,10 @@ class MidExperimentPower:
             self.relative,
         )
 
+    @property
+    def adjusted_power(self) -> float:
+        return self.target_power ** (1 / self.num_goal_metrics)
+
     def find_scaling_factor_bound(self, upper=True) -> Tuple[float, bool]:
         """
         Finds the lower bound for the scaling factor.
@@ -283,70 +286,6 @@ class MidExperimentPower:
         power_neg = float(norm.cdf(num_neg / den))
         return power_pos + power_neg
 
-    #################################################
-    # will be deleted later, used for testing purposes
-    #################################################
-    @staticmethod
-    def calculate_power_standalone(
-        scaling_factor: float,
-        m_prime: float,
-        v_prime: float,
-        sequential: bool,
-        alpha: float,
-        sequential_tuning_parameter: float,
-        sigmahat_2_delta: float,
-        pairwise_sample_size: float,
-        sigma_2_posterior: float,
-        delta_posterior: float,
-        num_variations: int,
-        num_goal_metrics: int,
-    ) -> float:
-        """
-        Args:
-            scaling_factor: multipicative factor for sample size.
-            m_prime: postulated effect size.
-            v_prime: postulated variance.
-            sequential: Whether the design is sequential.
-            alpha: Type I error rate.
-            sequential_tuning_parameter: Tuning parameter for sequential design.
-            sigmahat_2_delta: Estimated variance of delta.
-            pairwise_sample_size: Sample size per pairwise comparison.
-            sigma_2_posterior: Posterior variance of the effect size.
-            delta_posterior: Posterior mean of the effect size.
-
-        Returns:
-            power estimate.
-        """
-        num_tests = (num_variations - 1) * num_goal_metrics
-        if sequential:
-            rho = sequential_rho(alpha, sequential_tuning_parameter)
-            s2 = sigmahat_2_delta * pairwise_sample_size
-            n_total = pairwise_sample_size * (1 + scaling_factor)
-            halfwidth = sequential_interval_halfwidth(
-                s2, n_total, rho, alpha / num_tests
-            )
-        else:
-            z_star = float(norm.ppf(1 - alpha / (2 * num_tests)))
-            v = MidExperimentPower.final_posterior_variance(
-                sigma_2_posterior, sigmahat_2_delta, scaling_factor
-            )
-            s = np.sqrt(v)
-            halfwidth = z_star * s
-        marginal_var = MidExperimentPower.marginal_variance_delta_hat_prime(
-            sigma_2_posterior, sigmahat_2_delta, scaling_factor
-        )
-        num_1 = halfwidth * marginal_var / sigma_2_posterior
-        num_2 = (
-            (sigmahat_2_delta / scaling_factor) * delta_posterior / sigma_2_posterior
-        )
-        num_3 = m_prime
-        den = np.sqrt(v_prime)
-        num_pos = num_1 - num_2 - num_3
-        num_neg = -num_1 - num_2 - num_3
-        power_pos = float(1 - norm.cdf(num_pos / den))
-        power_neg = float(norm.cdf(num_neg / den))
-        return power_pos + power_neg
-
     def find_scaling_factor(self) -> ScalingFactorResult:
         scaling_factor = 1
         power_params = PowerParams(
@@ -384,7 +323,7 @@ class MidExperimentPower:
                 upper_bound_achieved=True,
                 scaling_factor=self.max_scaling_factor,
             )
-        diff = current_power - 0.8
+        diff = current_power - self.adjusted_power
         iteration = 0
         for iteration in range(self.max_iters):
             if diff < 0:
@@ -397,7 +336,7 @@ class MidExperimentPower:
             current_power = self.calculate_power(
                 power_params.scaling_factor, power_params.m_prime, power_params.v_prime
             )
-            diff = current_power - 0.8
+            diff = current_power - self.adjusted_power
             if abs(diff) < 1e-3:
                 break
 
