@@ -3,7 +3,6 @@ import { Flex, Text } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { PiWarning } from "react-icons/pi";
 import React, { useState } from "react";
-import { GBEdit } from "@/components/Icons";
 import SortedTags from "@/components/Tags/SortedTags";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -18,7 +17,6 @@ export interface Props {
   experiment: ExperimentInterfaceStringDates;
   editTags?: (() => void) | null;
   editProject?: (() => void) | null;
-  canEditOwner?: boolean;
   updateOwner?: (owner: string) => Promise<void>;
   mutate?: () => void;
   //MKTODO: Update to take in the setShowEditInfoModal
@@ -28,7 +26,6 @@ export default function ProjectTagBar({
   experiment,
   editProject,
   editTags,
-  canEditOwner,
   updateOwner,
   mutate,
 }: Props) {
@@ -62,14 +59,6 @@ export default function ProjectTagBar({
           <Text weight="regular" className={metaDataStyles.valueColor} ml="1">
             {ownerName === "" ? "None" : ownerName}
           </Text>
-          {canEditOwner && updateOwner && (
-            <a
-              className="ml-1 cursor-pointer link-purple"
-              onClick={() => setEditOwnerModal(true)}
-            >
-              <GBEdit />
-            </a>
-          )}
         </span>
         {editOwnerModal && (
           <EditOwnerModal
@@ -136,16 +125,6 @@ export default function ProjectTagBar({
             +Add
           </Link>
         )}
-        {editProject && projectId && (
-          <Link
-            onClick={(e) => {
-              e.preventDefault();
-              editProject();
-            }}
-          >
-            <GBEdit />
-          </Link>
-        )}
       </Flex>
     );
   };
@@ -172,16 +151,6 @@ export default function ProjectTagBar({
             }}
           >
             +Add
-          </Link>
-        )}
-        {editTags && experiment.tags?.length > 0 && (
-          <Link
-            onClick={(e) => {
-              e.preventDefault();
-              editTags();
-            }}
-          >
-            <GBEdit />
           </Link>
         )}
       </Flex>

@@ -25,7 +25,6 @@ import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/Demo
 import { phaseSummary } from "@/services/utils";
 import EditStatusModal from "@/components/Experiment/EditStatusModal";
 import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
-import EditExperimentNameForm from "@/components/Experiment/EditExperimentNameForm";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
@@ -91,7 +90,6 @@ export default function TabbedPage({
 
   const { apiCall } = useAuth();
 
-  const [editNameOpen, setEditNameOpen] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
   const [statusModal, setStatusModal] = useState(false);
   const [watchersModal, setWatchersModal] = useState(false);
@@ -195,13 +193,6 @@ export default function TabbedPage({
   const trackSource = "tabbed-page";
   return (
     <div>
-      {editNameOpen && (
-        <EditExperimentNameForm
-          experiment={experiment}
-          mutate={mutate}
-          cancel={() => setEditNameOpen(false)}
-        />
-      )}
       {auditModal && (
         <Modal
           trackingEventModalType=""
@@ -277,7 +268,6 @@ export default function TabbedPage({
         mutate={mutate}
         safeToEdit={safeToEdit}
         setAuditModal={setAuditModal}
-        setEditNameOpen={setEditNameOpen}
         setStatusModal={setStatusModal}
         setWatchersModal={setWatchersModal}
         duplicate={duplicate}

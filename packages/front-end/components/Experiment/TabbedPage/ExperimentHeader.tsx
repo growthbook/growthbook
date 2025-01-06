@@ -25,7 +25,6 @@ import {
 import { useAuth } from "@/services/auth";
 import { Tabs, TabsList, TabsTrigger } from "@/components/Radix/Tabs";
 import Avatar from "@/components/Radix/Avatar";
-import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import Modal from "@/components/Modal";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -69,7 +68,6 @@ export interface Props {
   envs: string[];
   mutate: () => void;
   duplicate?: (() => void) | null;
-  setEditNameOpen: (open: boolean) => void;
   setStatusModal: (open: boolean) => void;
   setAuditModal: (open: boolean) => void;
   setWatchersModal: (open: boolean) => void;
@@ -122,7 +120,6 @@ export default function ExperimentHeader({
   experiment,
   envs,
   mutate,
-  setEditNameOpen,
   duplicate,
   setAuditModal,
   setStatusModal,
@@ -726,18 +723,8 @@ export default function ExperimentHeader({
       <div className="container-fluid pagecontents position-relative">
         <div className="d-flex align-items-center">
           <div>
-            {/* //MKTODO: Remove the option to edit this here - it can only be done via the Edit Info Modal */}
             <Flex as="div" direction="row" align="center">
-              <HeaderWithEdit
-                className="h1 mb-0"
-                containerClassName=""
-                edit={
-                  canRunExperiment ? () => setEditNameOpen(true) : undefined
-                }
-                editClassName="ml-1"
-              >
-                {experiment.name}
-              </HeaderWithEdit>
+              <h1 className="mb-0">{experiment.name}</h1>
               <Box ml="2">
                 <ExperimentStatusIndicator experimentData={experiment} />
               </Box>
@@ -984,12 +971,10 @@ export default function ExperimentHeader({
             </DropdownMenu>
           </div>
         </div>
-        {/* //MKTODO: Update ProjectTagBar so you can't do in-line editing if there is a value */}
         <ProjectTagBar
           experiment={experiment}
           editProject={!viewingOldPhase ? editProject : undefined}
           editTags={!viewingOldPhase ? editTags : undefined}
-          canEditOwner={canEditExperiment}
           updateOwner={async (owner) => {
             const ownerId = getMemberIdFromName(owner);
             if (ownerId) {
