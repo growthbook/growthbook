@@ -273,7 +273,7 @@ export function generateAutoExperimentsPayload({
             : data.visualChangeset.urlPatterns,
         weights: phase.variationWeights,
         meta: e.variations.map((v) => ({ key: v.key, name: v.name })),
-        filters: phase.namespace.enabled
+        filters: phase?.namespace?.enabled
           ? [
               {
                 attribute: e.hashAttribute,

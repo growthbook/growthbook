@@ -139,6 +139,7 @@ const experimentRule = baseRule
     banditScheduleUnit: z.enum(["hours", "days"]).optional(),
     banditBurnInValue: z.number().optional(),
     banditBurnInUnit: z.enum(["hours", "days"]).optional(),
+    templateId: z.string().optional(),
   })
   .strict();
 
