@@ -3,15 +3,15 @@ import {
   isFactMetric,
   isRatioMetric,
 } from "shared/experiments";
+import { lastMondayString } from "shared/dates";
 import { ApiReqContext } from "back-end/types/api";
 import { MetricInterface } from "back-end/types/metric";
 import { Queries, QueryPointer, QueryStatus } from "back-end/types/query";
-import {
-  findSnapshotById,
-} from "back-end/src/models/ExperimentSnapshotModel";
+import { findSnapshotById } from "back-end/src/models/ExperimentSnapshotModel";
 import {
   Dimension,
   ExperimentFactMetricsQueryResponseRows,
+  ExperimentMetricQueryResponseRows,
   PopulationFactMetricsQueryParams,
   PopulationMetricQueryParams,
   SourceIntegrationInterface,
@@ -19,6 +19,13 @@ import {
 import { expandDenominatorMetrics } from "back-end/src/util/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
+import { getFactMetricGroups } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import {
+  PopulationDataInterface,
+  PopulationDataMetric,
+} from "back-end/types/population-data";
+import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
+import { MetricSnapshotSettings } from "back-end/types/report";
 import {
   QueryRunner,
   QueryMap,
@@ -26,23 +33,23 @@ import {
   RowsType,
   StartQueryParams,
 } from "./QueryRunner";
-import { getFactMetricGroups } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
-import { PopulationDataInterface } from "back-end/types/population-data";
-import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
-import { MetricSnapshotSettings } from "back-end/types/report";
 
 // MOVE
-export type PopulationDataQuerySettings = Pick<PopulationDataInterface,
- "startDate" | "endDate" | "sourceId" | "sourceType" | "userIdType"
- >;
+export type PopulationDataQuerySettings = Pick<
+  PopulationDataInterface,
+  "startDate" | "endDate" | "sourceId" | "sourceType" | "userIdType"
+>;
 export interface PopulationDataQueryParams {
   populationSettings: PopulationDataQuerySettings;
   snapshotSettings: ExperimentSnapshotSettings;
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
-};
+}
 
-export type PopulationDataResult = Pick<PopulationDataInterface, "metrics" | "units">;
+export type PopulationDataResult = Pick<
+  PopulationDataInterface,
+  "metrics" | "units"
+>;
 
 export const startPopulationDataQueries = async (
   context: ApiReqContext,
@@ -52,20 +59,21 @@ export const startPopulationDataQueries = async (
     params: StartQueryParams<RowsType, ProcessedRowsType>
   ) => Promise<QueryPointer>
 ): Promise<Queries> => {
-  const settings = params.snapshotSettings
+  const settings = params.snapshotSettings;
   const metricMap = params.metricMap;
 
   const { org } = context;
 
   // Goal metrics only
-  const selectedMetrics = settings.goalMetrics.map((m) => metricMap.get(m))
+  const selectedMetrics = settings.goalMetrics
+    .map((m) => metricMap.get(m))
     .filter((m) => m) as ExperimentMetricInterface[];
   if (!selectedMetrics.length) {
     throw new Error("Power must have at least 1 metric selected.");
   }
 
   // date or week in SQL?
-  const dimensionObj: Dimension = {type: "date"}
+  const dimensionObj: Dimension = { type: "date" };
 
   const queries: Queries = [];
 
@@ -106,7 +114,7 @@ export const startPopulationDataQueries = async (
       !integration.getPopulationMetricQuery ||
       !integration.runPopulationMetricQuery
     ) {
-      throw new Error ("Query-based power not supported for this integration.")
+      throw new Error("Query-based power not supported for this integration.");
     }
 
     queries.push(
@@ -115,7 +123,10 @@ export const startPopulationDataQueries = async (
         query: integration.getPopulationMetricQuery(queryParams),
         dependencies: [],
         run: (query, setExternalId) =>
-          (integration as SqlIntegration).runPopulationMetricQuery(query, setExternalId),
+          (integration as SqlIntegration).runPopulationMetricQuery(
+            query,
+            setExternalId
+          ),
         process: (rows) => rows,
         queryType: "populationMetric",
       })
@@ -160,6 +171,74 @@ export const startPopulationDataQueries = async (
   return queries;
 };
 
+function readMetricData({
+  metric,
+  rows,
+  prefix,
+}: {
+  metric: ExperimentMetricInterface;
+  rows: Record<string, string | number>[];
+  prefix?: string;
+}): { metric: PopulationDataMetric; units: PopulationDataResult["units"] } {
+  const metricData: PopulationDataMetric = {
+    metric: metric.id,
+    data: {
+      main_sum: rows.reduce(
+        (sum, r) => (sum += (r?.[prefix + "main_sum"] as number) ?? 0),
+        0
+      ),
+      main_sum_squares: rows.reduce(
+        (sum, r) => (sum += (r?.[prefix + "main_sum_squares"] as number) ?? 0),
+        0
+      ),
+      ...(isRatioMetric(metric)
+        ? {
+            denominator_sum: rows.reduce(
+              (sum, r) =>
+                (sum += (r?.[prefix + "denominator_sum"] as number) ?? 0),
+              0
+            ),
+            denominator_sum_squares: rows.reduce(
+              (sum, r) =>
+                (sum +=
+                  (r?.[prefix + "denominator_sum_squares"] as number) ?? 0),
+              0
+            ),
+            main_denominator_sum_product: rows.reduce(
+              (sum, r) =>
+                (sum +=
+                  (r?.[prefix + "main_denominator_sum_product"] as number) ??
+                  0),
+              0
+            ),
+          }
+        : {}),
+    },
+  };
+  // count units to get max
+  const histogram: { [week: string]: number } = {};
+  rows.forEach((r) => {
+    if (r.dimension && r.dimension !== "all") {
+      //  TODO check all
+      const users = (r.users as number) ?? 0;
+      const week = lastMondayString(r.dimension as string);
+      if (!histogram[week]) {
+        histogram[week] = users;
+      }
+      histogram[week] += users;
+    }
+  });
+
+  const units = Object.keys(histogram).map((week) => ({
+    week,
+    count: histogram[week],
+  }));
+  return {
+    metric: metricData,
+    units,
+  };
+}
+
 export class PopulationMetricQueryRunner extends QueryRunner<
   PopulationDataInterface,
   PopulationDataQueryParams,
@@ -185,11 +264,11 @@ export class PopulationMetricQueryRunner extends QueryRunner<
   }
 
   async runAnalysis(queryMap: QueryMap): Promise<PopulationDataResult> {
-    const latest = this.getLatestModel();
+    const latest = this.getLatestModel(); // TODO
 
     const metrics: PopulationDataResult["metrics"] = [];
-    const units: PopulationDataResult["units"] = [];
-
+    let units: PopulationDataResult["units"] = [];
+    const allUnitsMax = 0; // TODO
     queryMap.forEach((query, key) => {
       // Multi-metric query (refactor with results?)
       if (key.match(/group_/)) {
@@ -205,70 +284,44 @@ export class PopulationMetricQueryRunner extends QueryRunner<
           const metric = this.metricMap.get(metricId);
           // skip any metrics somehow missing from map
           if (metric) {
-            metrics.push({
-              metric: metric.id,
-              data: {
-                main_sum: rows.reduce((sum, r) => sum += ((r?.main_sum as number) ?? 0), 0),
-                main_sum_squares: rows.reduce((sum, r) => sum += ((r?.main_sum_squares as number) ?? 0), 0),
-                ...(isRatioMetric(metric) ? {
-                denominator_sum: rows.reduce((sum, r) => sum += ((r?.denominator_sum as number) ?? 0), 0),
-                denominator_sum_squares: rows.reduce((sum, r) => sum += ((r?.denominator_sum_squares as number) ?? 0), 0),
-                main_denominator_sum_product: rows.reduce((sum, r) => sum += ((r?.main_denominator_sum_product as number) ?? 0), 0)
-                } : {}),
-              }
-            })
-              // count units to get max
-            const histogram: { [week: string]: number } = {};
+            const res = readMetricData({ metric, rows, prefix });
+            metrics.push(res.metric);
 
-            for (const { date, value } of latest.metrics) {
-              const week = new Date(date).toISOString().slice(0, 10);
-              if (!histogram[week]) {
-              histogram[week] = 0;
-              }
-              histogram[week] += value;
+            const metricUnitsTotal = res.units.reduce(
+              (sum, u) => (sum += u.count),
+              0
+            );
+            if (metricUnitsTotal > allUnitsMax) {
+              units = res.units;
             }
-
-            const units = Object.keys(histogram).map((week) => ({
-              week,
-              value: histogram[week],
-            }));
-
-            // metricSettings[metricId] = getMetricSettingsForStatsEngine(
-            //   metric,
-            //   metricMap,
-            //   settings
-            // );
-          } else {
-            metricIds.push(null);
           }
         }
-        queryResults.push({
-          metrics: metricIds,
-          rows: rows,
-          sql: query.query,
-        });
         return;
       }
-       // Single metric query, just return rows as-is
-        const metric = this.metricMap.get(key);
-        if (!metric) return;
-        // metricSettings[key] = getMetricSettingsForStatsEngine(
-        //   metric,
-        //   metricMap,
-        //   settings
-        // );
-        queryResults.push({
-          metrics: [key],
-          rows: (query.result ?? []) as ExperimentMetricQueryResponseRows,
-          sql: query.query,
-        });
+      // Single metric query, just return rows as-is
+      const metric = this.metricMap.get(key);
+      if (!metric) return;
+
+      const res = readMetricData({
+        metric,
+        rows: (query.result ?? []) as ExperimentMetricQueryResponseRows,
       });
-    
-    // return {
-    //   metrics: latest.metrics,
-    //   units,
-    // };
-    
+      metrics.push(res.metric);
+
+      const metricUnitsTotal = res.units.reduce(
+        (sum, u) => (sum += u.count),
+        0
+      );
+      if (metricUnitsTotal > allUnitsMax) {
+        units = res.units;
+      }
+    });
+
+    // TODO merge with latest
+    return {
+      metrics,
+      units,
+    };
   }
 
   async getLatestModel(): Promise<PopulationDataInterface> {

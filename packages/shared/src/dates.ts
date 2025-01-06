@@ -37,6 +37,20 @@ export function hoursBetween(start: string | Date, end: string | Date): number {
   return differenceInHours(getValidDate(end), getValidDate(start));
 }
 
+// gets the previous monday as a string date (for "weeks").
+// if date is a monday, returns itself
+// TODO unit test time zones
+export function lastMondayString(dateString: string): string {
+  const date = getValidDate(dateString);
+  const dayOfWeek = date.getDay();
+  const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+
+  const newDate = new Date(date);
+  newDate.setDate(date.getDate() - daysToSubtract);
+
+  return newDate.toISOString().substring(0, 10);
+}
+
 // returns of the format ["'2022-01-05'", "'2022-01-06'"] for
 // ease of use with SQL
 export function dateStringArrayBetweenDates(

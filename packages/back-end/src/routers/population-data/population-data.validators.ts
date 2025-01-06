@@ -2,27 +2,33 @@ import { z } from "zod";
 import { queryPointerValidator } from "back-end/src/validators/queries";
 
 export const populationDataSourceTypeValidator = z.enum([
-"segment", "experiment", "exposureQuery",
+  "segment",
+  "experiment",
+  "exposureQuery",
 ]);
 
 export const populationDataStatusValidator = z.enum([
-  "running",  "success", "error"
-])
+  "running",
+  "success",
+  "error",
+]);
 
 export const populationDataMetricDataValidator = z
-.object({
-  main_sum: z.number(),
-  main_sum_squares: z.number(),
-  denominator_sum: z.number().optional(),
-  denominator_sum_squares: z.number().optional(),
-  main_denominator_sum_product: z.number().optional(),
-}).strict()
+  .object({
+    main_sum: z.number(),
+    main_sum_squares: z.number(),
+    denominator_sum: z.number().optional(),
+    denominator_sum_squares: z.number().optional(),
+    main_denominator_sum_product: z.number().optional(),
+  })
+  .strict();
 
 export const populationDataMetricValidator = z
   .object({
     metric: z.string(),
-    data: populationDataMetricDataValidator
-  }).strict()
+    data: populationDataMetricDataValidator,
+  })
+  .strict();
 
 export const populationDataInterfaceValidator = z
   .object({
@@ -42,6 +48,7 @@ export const populationDataInterfaceValidator = z
     startDate: z.date(),
     endDate: z.date(),
 
+    datasourceId: z.string(),
     sourceType: populationDataSourceTypeValidator,
     sourceId: z.string(),
     userIdType: z.string(),

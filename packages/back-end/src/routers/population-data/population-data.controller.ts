@@ -13,7 +13,16 @@ import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
-import { PopulationDataInterface } from "back-end/types/population-data";
+import { PopulationDataInterface, PopulationDataSourceType } from "back-end/types/population-data";
+
+// move
+type CreatePopulationDataProps = {
+  metrics: string[];
+  datasourceId: string;
+  userIdType: string;
+  sourceId: string;
+  sourceType: PopulationDataSourceType;
+}
 
 export const postPopulationData = async (
   req: AuthRequest<CreatePopulationDataProps>,
@@ -22,61 +31,64 @@ export const postPopulationData = async (
   const data = req.body;
   const context = getContextFromReq(req);
 
-  const metricObj = await getExperimentMetricById(context, data.id);
-  if (!metricObj) {
-    throw new Error("Metric not found");
-  }
+  // metric permissions
 
-  if (!isFactMetric(metricObj)) {
-    throw new Error("Metric is not a fact metric");
-  }
-
-  if (!metricObj.datasource) {
-    return null;
-  }
-
+  // get metrics and validate same datasource
 
   // GET existing, do logic to find metric diffs
+  const today = new Date();
+  const eightWeeksAgo = new Date(today);
+  eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 7 * 8);
+
 
   const settings: ExperimentSnapshotSettings = {
     manual: false,
     dimensions: [],
-    metricSettings: params.metricSettings,
-    goalMetrics: params.metrics,
+    metricSettings: [], // TODO
+    goalMetrics: data.metrics,
     secondaryMetrics: [],
     guardrailMetrics: [],
     activationMetric: null,
-    defaultMetricPriorSettings: {},
+    defaultMetricPriorSettings: {proper: false, mean: 0, stddev: 0, override: false},
     regressionAdjustmentEnabled: false,
     attributionModel: "firstExposure",
     experimentId: "",
     queryFilter: "",
     segment: "",
     skipPartialData: false,
-    datasourceId: ...,
-    exposureQueryId: ...,
-    startDate: ...,
-    endDate: ...,
+    datasourceId: data.datasourceId,
+    exposureQueryId: "", // todo
+    startDate: eightWeeksAgo,
+    endDate: today,
     variations: []
   }
 
 
   const integration = await getIntegrationFromDatasourceId(
     context,
-    metricObj.datasource,
+    data.datasourceId,
     true
   );
-  if (
-    !context.permissions.canRunMetricAnalysisQueries(integration.datasource)
-  ) {
-    context.permissions.throwPermissionError();
-  }
-  if (
-    !context.hasPremiumFeature("metric-populations") &&
-    data.populationType !== "factTable"
-  ) {
-    throw new Error("Custom metric populations are a premium feature");
-  }
+  // if (
+  //   !context.permissions.canRunMetricAnalysisQueries(integration.datasource)
+  // ) {
+  //   context.permissions.throwPermissionError();
+  // }
+  // if (
+  //   !context.hasPremiumFeature("metric-populations") &&
+  //   data.populationType !== "factTable"
+  // ) {
+  //   throw new Error("Custom metric populations are a premium feature");
+  // }
+
+  // base model TODO
+
+  const queryRunner = new PopulationMetricQueryRunner(
+    context,
+    snapshot,
+    integration,
+    true
+  )
   const metricAnalysisSettings: MetricAnalysisSettings = {
     userIdType: data.userIdType,
     lookbackDays: data.lookbackDays,

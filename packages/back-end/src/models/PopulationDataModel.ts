@@ -1,6 +1,6 @@
 import { PopulationDataInterface } from "back-end/types/population-data";
-import { MakeModelClass } from "./BaseModel";
 import { populationDataInterfaceValidator } from "back-end/src/routers/population-data/population-data.validators";
+import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
   schema: populationDataInterfaceValidator,
