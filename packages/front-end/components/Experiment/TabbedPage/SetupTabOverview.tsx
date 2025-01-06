@@ -12,6 +12,7 @@ import { PreLaunchChecklist } from "@/components/Experiment/PreLaunchChecklist";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Markdown from "@/components/Markdown/Markdown";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import EditHypothesisModal from "../EditHypothesisModal";
 import EditDescriptionModal from "../EditDescriptionModal";
 
@@ -42,11 +43,12 @@ export default function SetupTabOverview({
 }: Props) {
   const [showHypothesisModal, setShowHypothesisModal] = useState(false);
   const [showDescriptionModal, setShowDescriptionModal] = useState(false);
-
-  const expandDescription =
+  const [expandDescription, setExpandDescription] = useLocalStorage(
+    `collapse-${experiment.id}-description`,
     localStorage.getItem(`collapse-${experiment.id}-description`) === "true"
       ? false
-      : true;
+      : true
+  );
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -97,15 +99,8 @@ export default function SetupTabOverview({
             open={!experiment.description ? true : expandDescription}
             transitionTime={100}
             triggerDisabled={!experiment.description}
-            onOpening={() =>
-              localStorage.removeItem(`collapse-${experiment.id}-description`)
-            }
-            onClosing={() =>
-              localStorage.setItem(
-                `collapse-${experiment.id}-description`,
-                "true"
-              )
-            }
+            onOpening={() => setExpandDescription(true)}
+            onClosing={() => setExpandDescription(false)}
             trigger={
               <Box
                 as="div"
