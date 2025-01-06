@@ -49,11 +49,13 @@ import {
 } from "@/components/Radix/DropdownMenu";
 import { useWatching } from "@/services/WatchProvider";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import { convertExperimentToTemplate } from "@/services/experiments";
 import Button from "@/components/Radix/Button";
 import Callout from "@/components/Radix/Callout";
 import SelectField from "@/components/Forms/SelectField";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import HelperText from "@/components/Radix/HelperText";
+import TemplateForm from "../Templates/TemplateForm";
 import ProjectTagBar from "./ProjectTagBar";
 import ExperimentActionButtons from "./ExperimentActionButtons";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
@@ -159,6 +161,7 @@ export default function ExperimentHeader({
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const isWatching = watchedExperiments.includes(experiment.id);
+  const [showTemplateForm, setShowTemplateForm] = useState(false);
 
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareLevel, setShareLevel] = useState<ShareLevel>(
@@ -233,6 +236,9 @@ export default function ExperimentHeader({
     }
   }
   const canRunExperiment = canEditExperiment && hasRunExperimentsPermission;
+  const canCreateTemplate =
+    permissionsUtil.canViewExperimentTemplateModal() &&
+    hasCommercialFeature("templates");
   const checklistIncomplete =
     checklistItemsRemaining !== null && checklistItemsRemaining > 0;
 
@@ -641,6 +647,14 @@ export default function ExperimentHeader({
             </div>
           </Modal>
         )}
+        {showTemplateForm && (
+          <TemplateForm
+            onClose={() => setShowTemplateForm(false)}
+            initialValue={convertExperimentToTemplate(experiment)}
+            isNewTemplate
+            source="experiment"
+          />
+        )}
 
         {shareModalOpen && (
           <Modal
@@ -855,6 +869,11 @@ export default function ExperimentHeader({
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
+                {canCreateTemplate && !isBandit && (
+                  <DropdownMenuItem onClick={() => setShowTemplateForm(true)}>
+                    Save as template...
+                  </DropdownMenuItem>
+                )}
                 {canEditExperiment && (
                   <DropdownMenuItem
                     onClick={() => {

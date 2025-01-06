@@ -1218,11 +1218,6 @@ main.main {
     }
   }
 }
-@media only screen and (min-width: 992px) {
-  .paged-modal-default {
-    padding: 0 40px;
-  }
-}
 .modal {
   label:not(.rt-Text) {
     color: var(--text-color-main);
