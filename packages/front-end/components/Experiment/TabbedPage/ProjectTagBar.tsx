@@ -2,7 +2,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { Flex, Text } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { PiWarning } from "react-icons/pi";
-import React, { useState } from "react";
+import React from "react";
 import SortedTags from "@/components/Tags/SortedTags";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -11,23 +11,19 @@ import UserAvatar from "@/components/Avatar/UserAvatar";
 import Metadata from "@/components/Radix/Metadata";
 import metaDataStyles from "@/components/Radix/Styles/Metadata.module.scss";
 import Link from "@/components/Radix/Link";
-import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  setShowEditInfoModal: (value: boolean) => void;
   editTags?: (() => void) | null;
   editProject?: (() => void) | null;
-  updateOwner?: (owner: string) => Promise<void>;
-  mutate?: () => void;
-  //MKTODO: Update to take in the setShowEditInfoModal
 }
 
 export default function ProjectTagBar({
   experiment,
+  setShowEditInfoModal,
   editProject,
   editTags,
-  updateOwner,
-  mutate,
 }: Props) {
   const {
     projects,
@@ -36,8 +32,6 @@ export default function ProjectTagBar({
   } = useDefinitions();
 
   const { getUserDisplay } = useUser();
-
-  const [editOwnerModal, setEditOwnerModal] = useState(false);
   const projectId = experiment.project;
   const project = getProjectById(experiment.project || "");
   const projectName = project?.name || null;
@@ -60,21 +54,6 @@ export default function ProjectTagBar({
             {ownerName === "" ? "None" : ownerName}
           </Text>
         </span>
-        {editOwnerModal && (
-          <EditOwnerModal
-            cancel={() => setEditOwnerModal(false)}
-            owner={ownerName}
-            save={
-              updateOwner ??
-              (async (ownerName) => {
-                throw new Error(
-                  "save method not defined. Not updated to: " + ownerName
-                );
-              })
-            }
-            mutate={mutate ?? (() => {})}
-          />
-        )}
       </>
     );
   };
@@ -119,7 +98,7 @@ export default function ProjectTagBar({
           <Link
             onClick={(e) => {
               e.preventDefault();
-              editProject();
+              setShowEditInfoModal(true);
             }}
           >
             +Add
@@ -147,7 +126,7 @@ export default function ProjectTagBar({
           <Link
             onClick={(e) => {
               e.preventDefault();
-              editTags();
+              setShowEditInfoModal(true);
             }}
           >
             +Add

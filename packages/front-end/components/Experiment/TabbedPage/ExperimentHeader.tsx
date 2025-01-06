@@ -141,7 +141,7 @@ export default function ExperimentHeader({
   const growthbook = useGrowthBook<AppFeatures>();
 
   const { apiCall } = useAuth();
-  const { users, hasCommercialFeature } = useUser();
+  const { hasCommercialFeature } = useUser();
   const { watchedExperiments, refreshWatching } = useWatching();
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
@@ -256,16 +256,6 @@ export default function ExperimentHeader({
       setTab("overview");
     }
   }, [shouldHideTabs, setTab]);
-
-  const getMemberIdFromName = (owner) => {
-    let ownerId: string | null = null;
-    Array.from(users.entries()).forEach((info) => {
-      if (info[1].name === owner) {
-        ownerId = info[1].id;
-      }
-    });
-    return ownerId;
-  };
 
   async function handleWatchUpdates(watch: boolean) {
     await apiCall(
@@ -973,20 +963,9 @@ export default function ExperimentHeader({
         </div>
         <ProjectTagBar
           experiment={experiment}
+          setShowEditInfoModal={setShowEditInfoModal}
           editProject={!viewingOldPhase ? editProject : undefined}
           editTags={!viewingOldPhase ? editTags : undefined}
-          updateOwner={async (owner) => {
-            const ownerId = getMemberIdFromName(owner);
-            if (ownerId) {
-              await apiCall(`/experiment/${experiment.id}`, {
-                method: "POST",
-                body: JSON.stringify({ owner: ownerId }),
-              });
-            } else {
-              throw new Error("Could not find this user");
-            }
-          }}
-          mutate={mutate}
         />
       </div>
       {shouldHideTabs ? null : (
