@@ -1265,7 +1265,7 @@ export function calculateMidExperimentPower(
       minDaysByMetric[metric] = thisMinDays;
       minUsersByMetric[metric] = thisMinUsers;
     }
-    if (Math.max(...maxPowerByMetric) < alpha) {
+    if (Math.max(...maxPowerByMetric) < 0.1) {
       lowPowerTableRows = lowPowerTableRows.concat(lowPowerTableRowsThisMetric);
     }
   }
