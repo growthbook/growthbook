@@ -1,8 +1,10 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { Text } from "@radix-ui/themes";
 import { useForm } from "react-hook-form";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
+import metaDataStyles from "@/components/Radix/Styles/Metadata.module.scss";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useMembers from "@/hooks/useMembers";
 import TagsInput from "@/components/Tags/TagsInput";
@@ -10,6 +12,7 @@ import useProjectOptions from "@/hooks/useProjectOptions";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/components/Radix/Callout";
 import { useAuth } from "@/services/auth";
+import UserAvatar from "@/components/Avatar/UserAvatar";
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -47,7 +50,6 @@ export default function EditExperimentInfoModal({
       size="lg"
       trackingEventModalSource="experiment-more-menu"
       header="Edit Info"
-      //MKTODO: Do I need to do any advanced logic to only pass in fields the user actually changed?
       submit={form.handleSubmit(async (data) => {
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
@@ -63,7 +65,6 @@ export default function EditExperimentInfoModal({
         {...form.register("trackingKey")}
         required
       />
-      {/* MKTODO: Update the design here */}
       <SelectField
         label="Owner"
         options={memberUserNameAndIdOptions.map((member) => {
@@ -72,8 +73,25 @@ export default function EditExperimentInfoModal({
         value={form.watch("owner")}
         comboBox
         onChange={(v) => form.setValue("owner", v)}
+        formatOptionLabel={({ label }) => {
+          return (
+            <>
+              <span>
+                {label !== "" && (
+                  <UserAvatar name={label} size="sm" variant="soft" />
+                )}
+                <Text
+                  weight="regular"
+                  className={metaDataStyles.valueColor}
+                  ml="1"
+                >
+                  {label === "" ? "None" : label}
+                </Text>
+              </span>
+            </>
+          );
+        }}
       />
-      {/* MKTODO: Update the design here */}
       <div className="form-group">
         <label>Tags</label>
         <TagsInput

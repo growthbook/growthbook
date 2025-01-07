@@ -57,6 +57,38 @@ export const TAG_COLORS_MAP: Record<NonNullable<RadixColor>, string> = {
   sky: sky.sky11,
 };
 
+export const TAG_COLORS_BACKGROUND_MAP: Record<
+  NonNullable<RadixColor>,
+  string
+> = {
+  gray: gray.gray5,
+  gold: gold.gold5,
+  bronze: bronze.bronze5,
+  brown: brown.brown5,
+  yellow: yellow.yellow5,
+  amber: amber.amber5,
+  orange: orange.orange5,
+  tomato: tomato.tomato5,
+  red: red.red5,
+  ruby: ruby.ruby5,
+  crimson: crimson.crimson5,
+  pink: pink.pink5,
+  plum: plum.plum5,
+  purple: purple.purple5,
+  violet: violet.violet5,
+  iris: iris.iris5,
+  indigo: indigo.indigo5,
+  blue: blue.blue5,
+  cyan: cyan.cyan5,
+  teal: teal.teal5,
+  jade: jade.jade5,
+  green: green.green5,
+  grass: grass.grass5,
+  lime: lime.lime5,
+  mint: mint.mint5,
+  sky: sky.sky5,
+};
+
 // Function to convert hex to RGB
 function hexToRgb(hex: string) {
   hex = hex.replace(/^#/, "");
