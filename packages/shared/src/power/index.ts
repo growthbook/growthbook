@@ -302,7 +302,7 @@ export interface MidExperimentPowerSingleMetricParams {
   /**
    * @param newDailyUsers: The number of new daily users.
    * @param firstPeriodSampleSize The total sample size across all variations in the first period.
-   * @param secondPeriodSampleSize: The total sample size across all variations in the second period.
+   * @param daysRemaining: The days remaining in the experiment.
    * @param sequential Whether the test is sequential.
    * @param alpha The significance level.
    * @param sequentialTuningParameter The tuning parameter for the sequential test.
@@ -1090,22 +1090,23 @@ function calculateMidExperimentPowerSingleMetric(
       description: response.powerError,
     };
   }
-  if (params.newDailyUsers == 0) {  
+  if (params.newDailyUsers == 0) {
     return {
       type: "error",
       description: "newDailyUsers is 0.",
-    };  
+    };
   }
-  if (params.firstPeriodSampleSize == 0) {  
+  if (params.firstPeriodSampleSize == 0) {
     return {
       type: "error",
       description: "number of users currently in experiment is 0.",
-    };  
+    };
   }
   const numTests = (params.numVariations - 1) * params.numGoalMetrics;
   const firstPeriodPairwiseSampleSize = response.firstPeriodPairwiseSampleSize;
+  const secondPeriodSampleSize = params.daysRemaining * params.newDailyUsers;
   const scalingFactor =
-    (params.secondPeriodSampleSize + params.firstPeriodSampleSize) /
+    (secondPeriodSampleSize + params.firstPeriodSampleSize) /
     params.firstPeriodSampleSize;
   let halfwidth: number;
   if (response.sigmahat2Delta == undefined) {
@@ -1204,7 +1205,7 @@ export function calculateMidExperimentPower(
   const newDailyUsers = powerSettings.newDailyUsers;
   const numGoalMetrics = powerSettings.numGoalMetrics;
   const numVariations = powerSettings.numVariations;
-  const secondPeriodSampleSize = powerSettings.secondPeriodSampleSize;
+  const daysRemaining = powerSettings.daysRemaining;
   const sequential = powerSettings.sequential;
   const alpha = powerSettings.alpha;
   const sequentialTuningParameter = powerSettings.sequentialTuningParameter;
@@ -1232,7 +1233,7 @@ export function calculateMidExperimentPower(
       const powerParams: MidExperimentPowerSingleMetricParams = {
         newDailyUsers: thisNewDailyUsers,
         firstPeriodSampleSize: powerSettings.firstPeriodSampleSize,
-        secondPeriodSampleSize: secondPeriodSampleSize,
+        daysRemaining: daysRemaining,
         sequential,
         alpha,
         sequentialTuningParameter,
