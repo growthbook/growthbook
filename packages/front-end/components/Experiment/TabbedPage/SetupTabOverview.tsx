@@ -7,7 +7,7 @@ import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, ScrollArea } from "@radix-ui/themes";
 import { PreLaunchChecklist } from "@/components/Experiment/PreLaunchChecklist";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -139,16 +139,14 @@ export default function SetupTabOverview({
             }
           >
             {experiment.description ? (
-              <Box
-                as="div"
-                px="5"
-                py="2"
-                maxHeight="491px"
-                overflowY="scroll"
-                className="fade-mask-vertical-1rem"
+              <ScrollArea
+                style={{
+                  maxHeight: "491px",
+                }}
+                className="px-4 py-2 fade-mask-vertical-1rem"
               >
                 <Markdown>{experiment.description}</Markdown>
-              </Box>
+              </ScrollArea>
             ) : (
               <Box as="div" className="font-italic text-muted" px="5" py="2">
                 Add a description to keep your team informed about the purpose
