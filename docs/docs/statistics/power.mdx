@@ -115,6 +115,27 @@ If your organizational default is Bayesian, then Bayesian will be your default p
 
 Your default prior for each metric will be your organizational default. To change a prior for a metric, go to "Settings", and make sure that "Statistics Engine" is toggled to "Bayesian." Then choose "Prior Specification", and update prior means and standard deviations for your metric(s). Remember that these priors are on the relative scale, so a prior mean of 0.1 represents a 10% lift.
 
+## What is mid-experiment power, and what is it used for?
+
+Mid-experiment power calculates the probability of observing a statistically significant result at the end of the experiment, given the data observed so far in the experiment.
+
+GrowthBook uses mid-experiment power estimates for two purposes.  
+First, GrowthBook estimates the number of additional days needed to run the experiment.
+The standard number displayed is the maximum duration minus the current length of your experiment.
+Mid-experiment power estimates the number of additional days needed so that each goal metric has at least 80\% chance of attaining statistical significance.  
+If this number is less than the standard number, we show the estimated number of additional days needed.
+For example, suppose the maximum duration is 6 weeks (which is the default), and the current length of the experiment is 2 weeks.
+Then the standard number of additional days needed is 7 \* (6 - 2) = 28.
+Suppose revenue is your single goal metric, and we estimate that in 7 days you will have at least 80% power for revenue.
+Then the estimated number of additional days displayed is 7.
+
+The second purpose is to warn you if your experiment is low-powered.
+For each goal metric, GrowthBook estimates the probability of observing a statistically significant result at the end of the experiment, given the data observed so far in the experiment.  
+If any of these estimates are less than $2\alpha$, then GrowthBook will display a low power warning on the Health tab.
+If mid-experiment power is low and the cost of running your experiment is high, then you may want to stop the experiment early, as the additional information gained from running the experiment longer may not be worth the cost.
+Alternatively, if some of your goal metrics are not low-powered and the cost of running your experiment is low, then you may want to continue the experiment.
+Mid-experiment power technical details can be found [here](/statistics/midexperiment-power-technical).
+
 ## FAQ
 
 Frequently asked questions:
@@ -132,7 +153,7 @@ For both Bayesian and frequentist engines, we produce two key estimates:
 1. Power - After running the experiment for a given number of weeks and for a hypothesized effect size, what is the probability of a statistically significant result?
 2. Minimum Detectable Effect (MDE) - After running an experiment for a given number of weeks, what is the smallest effect that we can detect as statistically significant 80% of the time?
 
-Each engine arrives at these values differently. Below we describe high-level technical details of our implementation. All technical details can be found [here](/statistics/power-technical).
+Each engine arrives at these values differently. Below we describe high-level technical details of our implementation. All technical details except for mid-experiment power can be found [here](/statistics/power-technical).
 
 ### Frequentist implementation
 
