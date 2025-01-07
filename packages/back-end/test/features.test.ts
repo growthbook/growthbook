@@ -111,7 +111,7 @@ describe("getParsedCondition", () => {
     // Single empty saved group
     expect(
       getParsedCondition(groupMap, "", [{ match: "any", ids: ["empty"] }])
-    ).toBeUndefined();
+    ).toEqual({ empty: { $inGroup: "empty" } });
 
     // No saved groups
     expect(
@@ -147,14 +147,34 @@ describe("getParsedCondition", () => {
       },
     });
 
-    // Only 1 valid saved group
+    // 1 saved group doesn't exist
     expect(
       getParsedCondition(groupMap, "", [
         { match: "any", ids: ["b", "empty", "g"] },
         { match: "all", ids: ["g", "empty"] },
       ])
     ).toEqual({
-      id_b: { $inGroup: "b" },
+      $and: [
+        {
+          $or: [
+            {
+              id_b: {
+                $inGroup: "b",
+              },
+            },
+            {
+              empty: {
+                $inGroup: "empty",
+              },
+            },
+          ],
+        },
+        {
+          empty: {
+            $inGroup: "empty",
+          },
+        },
+      ],
     });
 
     // Condition + a bunch of saved groups
@@ -220,7 +240,7 @@ describe("getParsedCondition", () => {
     groupMap.clear();
   });
 
-  it("ignores empty condition groups", () => {
+  it("ignores empty condition groups and undefined lists, but respects empty list groups", () => {
     groupMap.clear();
     groupMap.set("a", {
       condition: "{}",
@@ -239,9 +259,12 @@ describe("getParsedCondition", () => {
     });
     groupMap.set("e", {
       type: "list",
+      values: undefined,
+      attributeKey: "a",
     });
     groupMap.set("f", {
       type: "list",
+      values: [],
       attributeKey: "a",
     });
     groupMap.set("g", {
@@ -270,7 +293,26 @@ describe("getParsedCondition", () => {
         },
       ])
     ).toEqual({
-      id: 1,
+      $and: [
+        {
+          a: {
+            $inGroup: "f",
+          },
+        },
+        {
+          id: 1,
+        },
+        {
+          a: {
+            $inGroup: "f",
+          },
+        },
+        {
+          a: {
+            $notInGroup: "f",
+          },
+        },
+      ],
     });
 
     expect(
@@ -288,7 +330,13 @@ describe("getParsedCondition", () => {
           ids: ["a", "b", "c", "d", "e", "f", "g"],
         },
       ])
-    ).toEqual(undefined);
+    ).toEqual({
+      $and: [
+        { a: { $inGroup: "f" } },
+        { a: { $inGroup: "f" } },
+        { a: { $notInGroup: "f" } },
+      ],
+    });
 
     groupMap.clear();
   });

@@ -63,9 +63,12 @@ export function getParsedCondition(
       const groupIds = ids.filter((id) => {
         const group = groupMap.get(id);
         if (typeof group === "undefined") return false;
-        // Condition groups must be non-empty
         if (group.type === "condition") {
+          // Condition groups must be non-empty
           if (!group.condition || group.condition === "{}") return false;
+        } else {
+          // List groups must have defined values
+          if (typeof group.values === "undefined") return false;
         }
         return true;
       });
