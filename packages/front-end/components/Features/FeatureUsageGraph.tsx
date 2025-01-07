@@ -71,14 +71,11 @@ export function FeatureUsageProvider({
     if (!featureUsage) return;
     if (lookback !== "15minute") return;
     const hasData = featureUsage.usage?.overall?.total > 0;
-    if (
-      (featureUsageAutoRefreshInterval["withData"] === 0 && hasData) ||
-      (featureUsageAutoRefreshInterval["withoutData"] === 0 && !hasData)
-    )
-      return;
     const interval = hasData
       ? featureUsageAutoRefreshInterval["withData"]
       : featureUsageAutoRefreshInterval["withoutData"];
+
+    if (interval === 0) return;
 
     const timer = setInterval(
       () => {
