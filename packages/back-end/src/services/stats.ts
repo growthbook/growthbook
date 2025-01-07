@@ -833,24 +833,20 @@ export function analyzeExperimentTraffic({
 
 // TODO: Only call this if the experiment has been running for the minExperimentLenghtInDays
 export function analyzeExperimentPower({
+  daysRemaining,
   trafficHealth,
   analysis,
   goalMetrics,
   variations,
   analysisSettings,
 }: {
+  daysRemaining: number;
   trafficHealth: ExperimentSnapshotTraffic;
   analysis: ExperimentSnapshotAnalysis;
   goalMetrics: string[];
   variations: SnapshotSettingsVariation[];
   analysisSettings: ExperimentSnapshotAnalysisSettings;
 }): MidExperimentPowerCalculationResult {
-  const daysToAverage = 7;
-
-  if (variations.length !== analysis.results[0].variations.length) {
-    throw new Error("Variations and analysis results do not match");
-  }
-
   // NB: Order matters here. Ignoring control, for each goal metric
   // the variations should be in the same order as the settings.variations.
   const goalMetricsPowerResponses = goalMetrics.flatMap((metricId) => {
@@ -863,37 +859,29 @@ export function analyzeExperimentPower({
     );
   });
 
+  const daysToAverageOver = 7;
   const newDailyUsers = getAverageExposureOverLastNDays(
     trafficHealth,
-    daysToAverage
+    daysToAverageOver
   );
 
-  let firstPeriodSampleSize = 0;
-  for (
-    let variation = 0;
-    variation < trafficHealth.overall.variationUnits.length;
-    variation++
-  ) {
-    firstPeriodSampleSize += trafficHealth.overall.variationUnits[variation];
-  }
-
-  // should send daysRemaining instead of secondPeriodSampleSize
-  /*make up numbers for testing, assume there are maximum of 21 days left in experiment*/
-  // If there are no data for said date it will be treated as 0
-  const secondPeriodSampleSize =
-    newDailyUsers * 21; /*need to pass in number of days left in experiment*/
-  // maxExperimentDuration - how long it has been running for
-  // the last phases object has the dateStarted field
+  const firstPeriodSampleSize = trafficHealth.overall.variationUnits.reduce(
+    (acc, it) => acc + it,
+    0
+  );
 
   return calculateMidExperimentPower({
     numVariations: variations.length,
     variationWeights: variations.map((it) => it.weight),
+
     numGoalMetrics: goalMetrics.length,
     response: goalMetricsPowerResponses,
-    // FIXME: Ensure these values are correct / dynamic
-    firstPeriodSampleSize: firstPeriodSampleSize /*needs to be total variationUnits summed across all variations (including control)*/,
-    secondPeriodSampleSize: secondPeriodSampleSize /*needs to be expected number of new units added before the end of the experiment; this is average new users over the last 7 days multiplied by number of days til max duration is reached*/,
+
+    firstPeriodSampleSize,
+    daysRemaining: Math.max(daysRemaining, 0),
     newDailyUsers,
+
+    // FIXME: Before falling back to default, check if settings are set on a org-level
     sequential: analysisSettings.sequentialTesting ?? false,
     alpha: analysisSettings.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
     sequentialTuningParameter:

@@ -1,4 +1,5 @@
 import { orgHasPremiumFeature } from "enterprise";
+import { addDays, differenceInDays } from "date-fns";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
@@ -470,19 +471,43 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         traffic: trafficHealth,
       };
 
-      // NB: This does not run a SQL query, but does health checks on data from gbstats
       const relativeAnalysis = this.model.analyses.find(
         (a) => a.settings.differenceType === "relative"
       );
+
       if (relativeAnalysis) {
-        const powerHealth = analyzeExperimentPower({
-          trafficHealth,
-          analysis: relativeAnalysis,
-          goalMetrics: this.model.settings.goalMetrics,
-          variations: this.model.settings.variations,
-          analysisSettings: relativeAnalysis.settings,
-        });
-        result.health.power = powerHealth;
+        // FIXME: How to get these from the settings?
+        const minDays = this.context.org.settings?.experimentMinLengthDays ?? 7;
+        const maxDays =
+          this.context.org.settings?.experimentMaxLengthDays ?? 42;
+
+        const experimentDateStarted = this.model.settings.startDate;
+        const experimentDaysRunning = differenceInDays(
+          new Date(),
+          experimentDateStarted
+        );
+
+        if (experimentDaysRunning > minDays) {
+          const experimentTargetEndDate = addDays(
+            experimentDateStarted,
+            maxDays
+          );
+          const daysRemaining = differenceInDays(
+            experimentTargetEndDate,
+            new Date()
+          );
+
+          // NB: This does not run a SQL query, but it is a health check that depends on the trafficHealth
+          const powerHealth = analyzeExperimentPower({
+            daysRemaining,
+            trafficHealth,
+            analysis: relativeAnalysis,
+            goalMetrics: this.model.settings.goalMetrics,
+            variations: this.model.settings.variations,
+            analysisSettings: relativeAnalysis.settings,
+          });
+          result.health.power = powerHealth;
+        }
       }
     }
 

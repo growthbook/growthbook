@@ -310,9 +310,9 @@ export interface MidExperimentPowerSingleMetricParams {
    * @param numGoalMetrics The number of goal metrics.
    * @param response: Array of PowerResponses, not necessarily of length one. In practice, for MidExperimentPowerSingleMetricParams, the length of response is always one.
    */
-  newDailyUsers: number /*can be removed later, if we want to instead return additional days needed from gbstats*/;
   firstPeriodSampleSize: number;
-  secondPeriodSampleSize: number;
+  newDailyUsers: number /*can be removed later, if we want to instead return additional days needed from gbstats*/;
+  daysRemaining: number;
   sequential: boolean;
   alpha: number;
   sequentialTuningParameter: number;
