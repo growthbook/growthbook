@@ -16,6 +16,10 @@ from gbstats.frequentist.tests import (
 from gbstats.models.tests import BaseConfig
 from gbstats.utils import is_statistically_significant
 
+from gbstats.messages import (
+    ZERO_NEGATIVE_VARIANCE_MESSAGE,
+)
+
 
 @dataclass
 class MidExperimentPowerConfig(BaseConfig):
@@ -87,8 +91,32 @@ class MidExperimentPower:
         self.sequential = power_config.sequential
         self.sequential_tuning_parameter = power_config.sequential_tuning_parameter
 
+    def _has_zero_variance(self) -> bool:
+        """Check if any variance is 0 or negative"""
+        return self.stat_a._has_zero_variance or self.stat_b._has_zero_variance
+
     def calculate_sample_size(self) -> AdditionalSampleSizeNeededResult:
-        if self.already_significant:
+        if self.test_result.error_message:
+            return AdditionalSampleSizeNeededResult(
+                error=self.test_result.error_message,
+                update_message="error in test result",
+                additional_users=0,
+                scaling_factor=0,
+                upper_bound_achieved=False,
+                target_power=self.target_power,
+                v_prime=None,
+            )
+        elif self._has_zero_variance():
+            return AdditionalSampleSizeNeededResult(
+                error=ZERO_NEGATIVE_VARIANCE_MESSAGE,
+                update_message="zero variance",
+                additional_users=0,
+                scaling_factor=0,
+                upper_bound_achieved=False,
+                target_power=self.target_power,
+                v_prime=None,
+            )
+        elif self.already_significant:
             return AdditionalSampleSizeNeededResult(
                 error=None,
                 update_message="already significant",
@@ -182,15 +210,18 @@ class MidExperimentPower:
 
     @property
     def sigmahat_2_delta(self) -> float:
-        return frequentist_variance(
-            self.stat_a.variance,
-            self.stat_a.unadjusted_mean,
-            self.stat_a.n,
-            self.stat_b.variance,
-            self.stat_b.unadjusted_mean,
-            self.stat_b.n,
-            self.relative,
-        )
+        if self._has_zero_variance():
+            return 0
+        else:
+            return frequentist_variance(
+                self.stat_a.variance,
+                self.stat_a.unadjusted_mean,
+                self.stat_a.n,
+                self.stat_b.variance,
+                self.stat_b.unadjusted_mean,
+                self.stat_b.n,
+                self.relative,
+            )
 
     @property
     def adjusted_power(self) -> float:

@@ -306,16 +306,13 @@ def analyze_metric_df(
 
     def analyze_row(s: pd.Series) -> pd.Series:
         s = s.copy()
-
         # Loop through each non-baseline variation and run an analysis
         for i in range(1, num_variations):
-
             # Run analysis of baseline vs variation
             test = get_configured_test(
                 row=s, test_index=i, analysis=analysis, metric=metric
             )
             res = test.compute_result()
-
             if decision_making_conditions(metric, analysis):
                 s[f"v{i}_decision_making_conditions"] = True
                 config = BaseConfig(
@@ -389,7 +386,7 @@ def analyze_metric_df(
                     s[
                         f"v{i}_power_error_message"
                     ] = "new_daily_users must be greater than 0"
-                ########################################################################################
+            ########################################################################################
             s["baseline_cr"] = test.stat_a.unadjusted_mean
             s["baseline_mean"] = test.stat_a.unadjusted_mean
             s["baseline_stddev"] = test.stat_a.stddev

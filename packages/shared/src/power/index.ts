@@ -1090,6 +1090,18 @@ function calculateMidExperimentPowerSingleMetric(
       description: response.powerError,
     };
   }
+  if (params.newDailyUsers == 0) {  
+    return {
+      type: "error",
+      description: "newDailyUsers is 0.",
+    };  
+  }
+  if (params.firstPeriodSampleSize == 0) {  
+    return {
+      type: "error",
+      description: "number of users currently in experiment is 0.",
+    };  
+  }
   const numTests = (params.numVariations - 1) * params.numGoalMetrics;
   const firstPeriodPairwiseSampleSize = response.firstPeriodPairwiseSampleSize;
   const scalingFactor =
