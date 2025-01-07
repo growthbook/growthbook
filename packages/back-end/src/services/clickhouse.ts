@@ -79,6 +79,46 @@ export async function createClickhouseUser(
     query: `CREATE USER ${user} IDENTIFIED WITH sha256_hash BY '${hashedPassword}' DEFAULT DATABASE ${database}`,
   });
 
+  const remainingColumns = `
+    user_id,
+    context_json,
+    url,
+    url_path,
+    url_host,
+    url_query,
+    url_fragment,
+    device_id,
+    page_id,
+    session_id,
+    sdk_language,
+    sdk_version,
+    page_title,
+    utm_source,
+    utm_medium,
+    utm_campaign,
+    utm_term,
+    utm_content,
+    event_uuid,
+    ip,
+    geo_country,
+    geo_city,
+    geo_lat,
+    geo_lon,
+    ua,
+    ua_browser,
+    ua_os,
+    ua_device_type
+  `;
+
+  const eventsMaterializedViewSql = `SELECT 
+    timestamp,
+    client_key,
+    event_name,
+    properties_json,
+    ${remainingColumns}
+FROM ${CLICKHOUSE_MAIN_TABLE} 
+WHERE (organization = '${orgId}') AND (event_name != 'Feature Evaluated')`;
+
   logger.info(`Creating Clickhouse events materialized view ${eventsViewName}`);
   await client.command({
     query: `CREATE MATERIALIZED VIEW ${eventsViewName} 
@@ -86,81 +126,27 @@ ENGINE = MergeTree
 PARTITION BY toYYYYMM(timestamp) 
 ORDER BY timestamp
 DEFINER=CURRENT_USER SQL SECURITY DEFINER
-AS SELECT 
-    timestamp,
-    client_key,
-    event_name,
-    properties_json,
-    user_id,
-    context_json,
-    url,
-    url_path,
-    url_host,
-    url_query,
-    url_fragment,
-    device_id,
-    page_id,
-    session_id,
-    sdk_language,
-    sdk_version,
-    page_title,
-    utm_source,
-    utm_medium,
-    utm_campaign,
-    utm_term,
-    utm_content,
-    event_uuid,
-    ip,
-    geo_country,
-    geo_city,
-    geo_lat,
-    geo_lon,
-    ua,
-    ua_browser,
-    ua_os,
-    ua_device_type
-FROM ${CLICKHOUSE_MAIN_TABLE} 
-WHERE (organization = '${orgId}') AND (event_name != 'feature_usage')`,
+AS ${eventsMaterializedViewSql}`,
   });
 
   logger.info(`Copying existing data to the events materialized view`);
   await client.command({
-    query: `INSERT INTO ${eventsViewName} SELECT
+    query: `INSERT INTO ${eventsViewName} ${eventsMaterializedViewSql}`,
+  });
+
+  const featureUsageMaterializedViewSql = `SELECT
     timestamp,
     client_key,
-    event_name,
-    properties_json,
-    user_id,
-    context_json,
-    url,
-    url_path,
-    url_host,
-    url_query,
-    url_fragment,
-    device_id,
-    page_id,
-    session_id,
-    sdk_language,
-    sdk_version,
-    page_title,
-    utm_source,
-    utm_medium,
-    utm_campaign,
-    utm_term,
-    utm_content,
-    event_uuid,
-    ip,
-    geo_country,
-    geo_city,
-    geo_lat,
-    geo_lon,
-    ua,
-    ua_browser,
-    ua_os,
-    ua_device_type
+    JSONExtractString(properties_json, 'feature') as feature,
+    JSONExtractString(properties_json, 'revision') as revision,
+    JSONExtractString(properties_json, 'env') as env,
+    JSONExtractString(properties_json, 'source') as source,
+    JSONExtractString(properties_json, 'value') as value,
+    JSONExtractString(properties_json, 'ruleId') as ruleId,
+    JSONExtractString(properties_json, 'variationId') as variationId,
+    ${remainingColumns}
 FROM ${CLICKHOUSE_MAIN_TABLE}
-WHERE organization = '${orgId}';`,
-  });
+WHERE (organization = '${orgId}') AND (event_name = 'Feature Evaluated')`;
 
   logger.info(`Creating ${featureUsageViewName} materialized view`);
   await client.command({
@@ -169,90 +155,12 @@ ENGINE = MergeTree
 PARTITION BY toYYYYMM(timestamp)
 ORDER BY timestamp
 DEFINER=CURRENT_USER SQL SECURITY DEFINER
-AS SELECT
-    timestamp,
-    client_key,
-    JSONExtractString(properties_json, 'feature') as feature,
-    JSONExtractString(properties_json, 'revision') as revision,
-    JSONExtractString(properties_json, 'env') as env,
-    JSONExtractString(properties_json, 'source') as source,
-    JSONExtractString(properties_json, 'value') as value,
-    JSONExtractString(properties_json, 'ruleId') as ruleId,
-    JSONExtractString(properties_json, 'variationId') as variationId,
-    user_id,
-    context_json,
-    url,
-    url_path,
-    url_host,
-    url_query,
-    url_fragment,
-    device_id,
-    page_id,
-    session_id,
-    sdk_language,
-    sdk_version,
-    page_title,
-    utm_source,
-    utm_medium,
-    utm_campaign,
-    utm_term,
-    utm_content,
-    event_uuid,
-    ip,
-    geo_country,
-    geo_city,
-    geo_lat,
-    geo_lon,
-    ua,
-    ua_browser,
-    ua_os,
-    ua_device_type
-FROM ${CLICKHOUSE_MAIN_TABLE} 
-WHERE (organization = '${orgId}') AND (event_name = 'feature_usage')`,
+AS ${featureUsageMaterializedViewSql}`,
   });
 
   logger.info(`Copying existing data to the feature usage materialized view`);
   await client.command({
-    query: `INSERT INTO ${featureUsageViewName} SELECT
-    timestamp,
-    client_key,
-    JSONExtractString(properties_json, 'feature') as feature,
-    JSONExtractString(properties_json, 'revision') as revision,
-    JSONExtractString(properties_json, 'env') as env,
-    JSONExtractString(properties_json, 'source') as source,
-    JSONExtractString(properties_json, 'value') as value,
-    JSONExtractString(properties_json, 'ruleId') as ruleId,
-    JSONExtractString(properties_json, 'variationId') as variationId,
-    user_id,
-    context_json,
-    url,
-    url_path,
-    url_host,
-    url_query,
-    url_fragment,
-    device_id,
-    page_id,
-    session_id,
-    sdk_language,
-    sdk_version,
-    page_title,
-    utm_source,
-    utm_medium,
-    utm_campaign,
-    utm_term,
-    utm_content,
-    event_uuid,
-    ip,
-    geo_country,
-    geo_city,
-    geo_lat,
-    geo_lon,
-    ua,
-    ua_browser,
-    ua_os,
-    ua_device_type
-    FROM ${CLICKHOUSE_MAIN_TABLE}
-    WHERE organization = '${orgId}' AND event_name = 'feature_usage';`,
+    query: `INSERT INTO ${featureUsageViewName} ${featureUsageMaterializedViewSql}`,
   });
 
   logger.info(`Granting select permissions on ${database}.* to ${user}`);

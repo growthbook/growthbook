@@ -11,6 +11,7 @@ import { FeatureUsageLookback } from "back-end/src/types/Integration";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { growthbook } from "@/services/utils";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 const formatter = Intl.NumberFormat("en-US", {
   notation: "compact",
@@ -41,7 +42,16 @@ export function FeatureUsageProvider({
     "15minute"
   );
 
-  const useFeatureUsage = growthbook.isOn("feature-usage");
+  const { datasources } = useDefinitions();
+
+  const hasGrowthbookClickhouseDatasource = datasources.find(
+    (ds) => ds.type === "growthbook_clickhouse"
+  )
+    ? true
+    : false;
+
+  const useFeatureUsage =
+    growthbook.isOn("feature-usage") && hasGrowthbookClickhouseDatasource;
 
   const { data: featureUsage, mutate: mutateFeatureUsage } = useApi<{
     usage: FeatureUsageData;
@@ -49,18 +59,41 @@ export function FeatureUsageProvider({
     shouldRun: () => useFeatureUsage,
   });
 
+  const featureUsageAutoRefreshInterval = growthbook.getFeatureValue(
+    "feature-usage-auto-refresh-interval",
+    {
+      withData: 0,
+      withoutData: 0,
+    }
+  );
+
   useEffect(() => {
     if (!featureUsage) return;
     if (lookback !== "15minute") return;
+    const hasData = featureUsage.usage?.overall?.total > 0;
+    if (
+      (featureUsageAutoRefreshInterval["withData"] === 0 && hasData) ||
+      (featureUsageAutoRefreshInterval["withoutData"] === 0 && !hasData)
+    )
+      return;
+    const interval = hasData
+      ? featureUsageAutoRefreshInterval["withData"]
+      : featureUsageAutoRefreshInterval["withoutData"];
+
     const timer = setInterval(
       () => {
         mutateFeatureUsage();
       },
-      // Update slower when there's no data yet
-      featureUsage.usage?.overall?.total ? 2000 : 5000
+      // We might want to update slower when there's no data yet
+      interval
     );
     return () => clearInterval(timer);
-  }, [lookback, featureUsage, mutateFeatureUsage]);
+  }, [
+    lookback,
+    featureUsage,
+    featureUsageAutoRefreshInterval,
+    mutateFeatureUsage,
+  ]);
 
   return (
     <featureUsageContext.Provider

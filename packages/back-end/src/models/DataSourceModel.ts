@@ -110,12 +110,20 @@ export async function _dangerousGetAllGrowthbookClickhouseDataSources() {
   return docs.map(toInterface);
 }
 
-export async function getGrowthbookDatasource(orgId: string) {
+export async function getGrowthbookDatasource(context: ReqContext) {
+  const orgId = context.org.id;
   const doc: DataSourceDocument | null = await DataSourceModel.findOne({
     type: "growthbook_clickhouse",
     organization: orgId,
   });
-  return doc;
+
+  if (!doc) return null;
+
+  const datasource = toInterface(doc);
+
+  return context.permissions.canReadMultiProjectResource(datasource.projects)
+    ? datasource
+    : null;
 }
 
 export async function getDataSourceById(

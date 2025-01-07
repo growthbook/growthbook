@@ -89,7 +89,7 @@ function App({
         };
 
         _rtQueue.push({
-          eventName: "feature_usage",
+          eventName: "Feature Evaluated",
           properties: props,
         });
         if (!_rtTimer) {

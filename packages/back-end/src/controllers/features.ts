@@ -2242,7 +2242,7 @@ export async function getFeatureUsage(
   const environments = getEnvironments(org);
 
   //TODO: handle multiple datasources with feature tracking
-  const ds = await getGrowthbookDatasource(org.id);
+  const ds = await getGrowthbookDatasource(context);
   if (!ds) {
     throw new Error("No tracking datasource configured");
   }

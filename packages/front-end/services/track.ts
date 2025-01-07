@@ -118,10 +118,8 @@ const dataWareHouseTrack = async (
 ) => {
   if (inTelemetryDebugMode()) {
     console.log(
-      "Telemetry Event - ",
-      Array.isArray(events)
-        ? events.map((e) => e.event_name)
-        : events.event_name
+      Array.isArray(events) ? "Telemetry Events - " : "Telemetry Event - ",
+      events
     );
   }
   if (!isTelemetryEnabled()) return;

@@ -58,4 +58,5 @@ export type AppFeatures = {
   "sdk-connections-new-empty-state": boolean;
   "kiosk-greeting": string;
   "feature-usage": boolean;
+  "feature-usage-auto-refresh-interval": Record<string, unknown>;
 };

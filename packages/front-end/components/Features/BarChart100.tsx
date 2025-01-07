@@ -3,6 +3,7 @@ import { BarStackHorizontal } from "@visx/shape";
 import { scaleBand, scaleLinear, scaleOrdinal } from "@visx/scale";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
+import { truncateString } from "shared/util";
 
 const formatter = Intl.NumberFormat("en-US", {
   notation: "compact",
@@ -37,6 +38,8 @@ export default function BarChart100({
     domain: keys,
     range: [purple1, purple2, purple3],
   });
+
+  const maxKeyLength = 20;
 
   return (
     <div>
@@ -104,7 +107,9 @@ export default function BarChart100({
                     }}
                   ></div>
                 </td>
-                <td>{key ? key : <em>unknown</em>}</td>
+                <td title={key.length > maxKeyLength ? key : ""}>
+                  {key ? truncateString(key, maxKeyLength) : <em>unknown</em>}
+                </td>
                 <td>{formatter.format(data[key])}</td>
               </tr>
             ))}

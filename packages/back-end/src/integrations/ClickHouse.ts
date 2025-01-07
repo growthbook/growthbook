@@ -124,10 +124,6 @@ export default class ClickHouse extends SqlIntegration {
       );
     return `table_schema IN ('${this.params.database}')`;
   }
-  escape(value: unknown): string {
-    if (typeof value !== "string") return "NULL";
-    return `'${value.replace(/'/g, "''")}'`;
-  }
 
   async getFeatureUsage(
     feature: string,
@@ -166,7 +162,7 @@ WITH _data as (
   FROM feature_usage
 	WHERE
 	  timestamp > ${this.toTimestamp(start)}
-	  AND feature = ${this.escape(feature)}
+	  AND feature = '${this.escapeStringLiteral(feature)}'
 )
 SELECT
   ts,
@@ -184,7 +180,7 @@ GROUP BY
   source,
   ruleId,
   variationId
-LIMIT 1000
+LIMIT 50
       `);
 
     return {
