@@ -10,6 +10,10 @@ import { migrateSnapshot } from "back-end/src/util/migrations";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
 import { queriesSchema } from "./QueryModel";
 import { Context } from "./BaseModel";
+import {
+  getExperimentById,
+  onExperimentSnapshotUpdate,
+} from "./ExperimentModel";
 
 const experimentSnapshotTrafficObject = {
   _id: false,
@@ -238,6 +242,19 @@ export async function updateSnapshot({
     organization,
   });
   if (!experimentSnapshotModel) throw "Internal error";
+
+  // TODO: Is this possible? An orphan snapshot?
+  const experiment = await getExperimentById(
+    context,
+    experimentSnapshotModel.experiment
+  );
+  if (!experiment) throw "Internal error";
+
+  await onExperimentSnapshotUpdate({
+    context,
+    experiment,
+    snapshot: experimentSnapshotModel,
+  });
 
   await notifyExperimentChange({
     context,

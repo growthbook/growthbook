@@ -651,7 +651,10 @@ const ExperimentsPage = (): React.ReactElement => {
                             </td>
                             <td className="nowrap" data-title="Status:">
                               <ExperimentStatusIndicator
-                                experimentData={e}
+                                experimentData={{
+                                  ...e,
+                                  power: e.analysisSummary?.health?.power,
+                                }}
                                 labelFormat="detail-only"
                               />
                             </td>

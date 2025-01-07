@@ -17,6 +17,7 @@ import { VisualChange } from "back-end/types/visual-changeset";
 import {
   determineNextDate,
   toExperimentApiInterface,
+  updateExperimentBanditSettings,
 } from "back-end/src/services/experiments";
 import { logger } from "back-end/src/util/logger";
 import { upgradeExperimentDoc } from "back-end/src/util/migrations";
@@ -30,6 +31,7 @@ import { FeatureInterface } from "back-end/types/feature";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { ApiReqContext } from "back-end/types/api";
+import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import {
   getCollection,
   removeMongooseFields,
@@ -251,6 +253,20 @@ const experimentSchema = new mongoose.Schema({
   customFields: {},
   templateId: String,
   shareLevel: String,
+  analysisSummary: {
+    _id: false,
+    snapshotId: String,
+    health: {
+      _id: false,
+      power: {
+        _id: false,
+        errorMessage: String,
+        additionalUsersNeeded: Number,
+        additionalDaysNeeded: Number,
+        lowPowerWarning: Boolean,
+      },
+    },
+  },
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
@@ -1552,5 +1568,66 @@ const onExperimentDelete = async (
   const payloadKeys = getPayloadKeys(context, experiment, linkedFeatures);
   refreshSDKPayloadCache(context, payloadKeys).catch((e) => {
     logger.error(e, "Error refreshing SDK payload cache");
+  });
+};
+
+// TODO: How can we avoid a circular dependency between updates?
+export const onExperimentSnapshotUpdate = async ({
+  context,
+  experiment,
+  snapshot,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  snapshot: ExperimentSnapshotInterface;
+}) => {
+  // Do not do anything if still running or error
+  // TODO: Is this true for bandit?
+  if (snapshot.status !== "success") return;
+
+  let changes: Partial<ExperimentInterface> = {};
+
+  if (experiment.type === "multi-armed-bandit") {
+    changes = {
+      ...changes,
+      ...updateExperimentBanditSettings({
+        experiment,
+        snapshot,
+        reweight:
+          snapshot?.banditResult?.reweight &&
+          experiment.banditStage === "exploit",
+        isScheduled: true,
+      }),
+    };
+  }
+
+  // Ensure we track which snapshot we used to generate the summary
+  changes.analysisSummary = {
+    snapshotId: snapshot.id,
+  };
+
+  const snapshotHealthPower = snapshot.health?.power;
+  if (snapshotHealthPower) {
+    if (snapshotHealthPower.type === "error") {
+      changes.analysisSummary.health = {
+        power: {
+          errorMessage: snapshotHealthPower.description,
+        },
+      };
+    } else {
+      changes.analysisSummary.health = {
+        power: {
+          additionalUsersNeeded: snapshotHealthPower.additionalUsers,
+          additionalDaysNeeded: snapshotHealthPower.additionalDays,
+          lowPowerWarning: snapshotHealthPower.lowPowerWarning,
+        },
+      };
+    }
+  }
+
+  await updateExperiment({
+    context,
+    experiment,
+    changes,
   });
 };

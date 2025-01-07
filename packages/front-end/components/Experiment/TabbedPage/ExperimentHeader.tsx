@@ -531,7 +531,24 @@ export default function ExperimentHeader({
               </HeaderWithEdit>
               <Box ml="2">
                 <ExperimentStatusIndicator
-                  experimentData={{ ...experiment, health: snapshot?.health }}
+                  experimentData={{
+                    ...experiment,
+                    // create function to get summary?
+                    power: {
+                      ...(snapshot?.health?.power?.type === "error"
+                        ? {
+                            errorMessage: snapshot?.health?.power?.description,
+                          }
+                        : {
+                            additionalUsersNeeded:
+                              snapshot?.health?.power?.additionalUsers,
+                            additionalDaysNeeded:
+                              snapshot?.health?.power?.additionalDays,
+                            lowPowerWarning:
+                              snapshot?.health?.power?.lowPowerWarning,
+                          }),
+                    },
+                  }}
                 />
               </Box>
             </Flex>
