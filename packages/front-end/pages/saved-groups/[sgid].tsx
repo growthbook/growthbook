@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import { SavedGroupInterface } from "shared/src/types";
 import { ago } from "shared/dates";
 import { FaPlusCircle } from "react-icons/fa";
-import { PiArrowsDownUp, PiWarningFill } from "react-icons/pi";
+import { PiArrowsDownUp, PiInfoFill, PiWarningFill } from "react-icons/pi";
 import { getMatchingRules, isIdListSupportedDatatype } from "shared/util";
 import Link from "next/link";
 import Field from "@/components/Forms/Field";
@@ -480,6 +480,14 @@ export default function EditSavedGroupPage() {
               setCurrentPage(d);
             }}
           />
+        )}
+        {!savedGroup.values?.length && !savedGroup.useEmptyListGroup && (
+          <div className="alert alert-warning mt-2 p-3">
+            <PiInfoFill style={{ marginTop: "-2px" }} /> The default behavior
+            for empty lists has changed. Any rule targeting using this or other
+            legacy empty lists will continue to be ignored, while new lists will
+            be checked even when empty.
+          </div>
         )}
       </div>
     </>

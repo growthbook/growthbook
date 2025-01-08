@@ -314,6 +314,14 @@ describe("getParsedCondition", () => {
         $inGroup: "a",
       },
     });
+
+    expect(
+      getParsedCondition(groupMap, "", [{ match: "none", ids: ["a", "b"] }])
+    ).toEqual({
+      attr: {
+        $notInGroup: "a",
+      },
+    });
     groupMap.clear();
   });
 
