@@ -9,16 +9,16 @@ export type DifferenceType = "relative" | "absolute" | "scaled";
 export type RiskType = "relative" | "absolute";
 
 // Keep in sync with gbstats PowerResponse
-export interface PowerResponseFromStatsEngine {
-  firstPeriodPairwiseSampleSize: number;
+export interface MetricPowerResponseFromStatsEngine {
+  powerError: string;
+  powerUpdateMessage: string;
   minPercentChange: number;
+  firstPeriodPairwiseSampleSize: number;
   sigmahat2Delta: number;
   sigma2Posterior: number;
   deltaPosterior: number;
-  powerUpdateMessage: string;
-  powerError: string;
   upperBoundAchieved: boolean;
-  scalingFactor: number; 
+  scalingFactor: number;
   endOfExperimentPower?: number; // delete later, used for testing only
   newDailyUsers?: number; // delete later, used for testing only
   additionalUsers?: number; // delete later, used for testing only
@@ -39,8 +39,7 @@ interface BaseVariationResponse {
   };
   ci?: [number, number];
   errorMessage?: string;
-  // TODO: Should we name this `power` only? Or is there a better qualifier?
-  powerResponse?: PowerResponseFromStatsEngine;
+  power?: MetricPowerResponseFromStatsEngine;
 }
 
 interface BayesianVariationResponse extends BaseVariationResponse {

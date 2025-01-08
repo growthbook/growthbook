@@ -10,10 +10,7 @@ import { migrateSnapshot } from "back-end/src/util/migrations";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
 import { queriesSchema } from "./QueryModel";
 import { Context } from "./BaseModel";
-import {
-  getExperimentById,
-  onExperimentSnapshotUpdate,
-} from "./ExperimentModel";
+import { getExperimentById } from "./ExperimentModel";
 
 const experimentSnapshotTrafficObject = {
   _id: false,
@@ -130,19 +127,19 @@ const experimentSnapshotSchema = new mongoose.Schema({
     power: {
       _id: false,
       type: { type: String },
-      description: String, // FIXME: Is it only for error?
+      errorMessage: String,
       power: Number,
       additionalUsers: Number,
       additionalDays: Number,
       lowPowerWarning: Boolean,
-      lowPowerTableRows: [
+      lowPowerMetrics: [
         {
           _id: false,
-          newDailyUsers: Number,
           metric: String,
           variation: String,
-          effectSize: Number,
           power: Number,
+          effectSize: Number,
+          newDailyUsers: Number,
           additionalDaysNeeded: Number,
         },
       ],
@@ -243,18 +240,23 @@ export async function updateSnapshot({
   });
   if (!experimentSnapshotModel) throw "Internal error";
 
-  // TODO: Is this possible? An orphan snapshot?
-  const experiment = await getExperimentById(
-    context,
-    experimentSnapshotModel.experiment
-  );
-  if (!experiment) throw "Internal error";
+  if (
+    experimentSnapshotModel.type === "standard" &&
+    experimentSnapshotModel.status !== "running"
+  ) {
+    const experimentModel = await getExperimentById(
+      context,
+      experimentSnapshotModel.experiment
+    );
 
-  await onExperimentSnapshotUpdate({
-    context,
-    experiment,
-    snapshot: experimentSnapshotModel,
-  });
+    if (experimentModel) {
+      await updateExperimentAnalysisSummary({
+        context,
+        experiment: experimentModel,
+        snapshot: experimentSnapshotModel,
+      });
+    }
+  }
 
   await notifyExperimentChange({
     context,

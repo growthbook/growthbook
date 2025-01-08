@@ -232,7 +232,6 @@ export const experimentInterface = z
                 errorMessage: z.string().optional(),
                 additionalUsersNeeded: z.number().optional(),
                 additionalDaysNeeded: z.number().optional(),
-                // TODO: Make this a string enum?
                 lowPowerWarning: z.boolean().optional(),
               })
               .optional(),

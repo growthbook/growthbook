@@ -8,7 +8,7 @@ import { QueryLanguage } from "./datasource";
 import { MetricInterface, MetricStats } from "./metric";
 import {
   DifferenceType,
-  PowerResponseFromStatsEngine,
+  MetricPowerResponseFromStatsEngine,
   RiskType,
   StatsEngine,
 } from "./stats";
@@ -46,8 +46,7 @@ export interface SnapshotMetric {
   }[];
   chanceToWin?: number;
   errorMessage?: string;
-  // FIXME: Should we improve on the type / do more validations?
-  powerResponse?: PowerResponseFromStatsEngine;
+  power?: MetricPowerResponseFromStatsEngine;
 }
 
 export interface SnapshotVariation {

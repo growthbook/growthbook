@@ -20,26 +20,6 @@ export interface MetricStats {
   mean: number;
 }
 
-// DO we need this one?
-// export interface PowerResponse {
-//   // firstPeriodSampleSize is not available in the data
-//   firstPeriodSampleSize: number;
-//   firstPeriodPairwiseSampleSize: number;
-//   effectSize: number;
-//   sigmahat2Delta: number;
-//   sigma2Posterior: number;
-//   deltaPosterior: number;
-//   powerAdditionalUsers: number;
-//   powerUpdateMessage: string;
-//   powerError: string;
-
-//   // These fields exist in the response from gbstats, should we remove them?
-//   // endOfExperimentPower
-//   // newDailyUsers
-//   // powerAdditionalDays
-//   // targetPower
-// }
-
 export interface LegacyMetricAnalysis {
   createdAt: Date;
   segment?: string;

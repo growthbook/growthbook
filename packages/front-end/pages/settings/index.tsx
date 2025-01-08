@@ -149,7 +149,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
       requireExperimentTemplates: settings.requireExperimentTemplates ?? false,
       experimentMinLengthDays: settings.experimentMinLengthDays ?? 7,
       experimentMaxLengthDays: settings.experimentMaxLengthDays ?? 42,
-      // before merge: Can we consolidate these with genDefaultSettings / shared package?
     },
   });
   const { apiCall } = useAuth();

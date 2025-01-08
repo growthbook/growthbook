@@ -73,7 +73,6 @@ export interface AnalysisSettingsForStatsEngine {
   alpha: number;
   max_dimensions: number;
   traffic_percentage: number;
-  // TODO: Do we need this or can we infer from MetricSettingsForStatsEngine?
   num_goal_metrics: number;
 }
 
@@ -115,8 +114,6 @@ export interface MetricSettingsForStatsEngine {
   prior_mean?: number;
   prior_stddev?: number;
   business_metric_type?: BusinessMetricTypeForStatsEngine[];
-  // TODO: Check if this can be required or if it needs to be optional
-  // 0.01 should be sent as
   min_percent_change: number;
 }
 
@@ -427,13 +424,11 @@ export function getMetricSettingsForStatsEngine(
     prior_proper: metric.priorSettings.proper,
     prior_mean: metric.priorSettings.mean,
     prior_stddev: metric.priorSettings.stddev,
+    min_percent_change: metric.minPercentChange || 0.01,
     business_metric_type: getBusinessMetricTypeForStatsEngine(
       metric.id,
       settings
     ),
-    // TODO: Check if this is the proper value
-    // FIXME: How to get the default value? likely from organization.settings.metricDefaults.minPercentageChange
-    min_percent_change: metric.minPercentChange || 0,
   };
 }
 
@@ -831,33 +826,38 @@ export function analyzeExperimentTraffic({
   return trafficResults;
 }
 
-// TODO: Only call this if the experiment has been running for the minExperimentLenghtInDays
+// NB: Should only be called if the experiment has been running for > minExperimentLenghtInDays
 export function analyzeExperimentPower({
-  daysRemaining,
   trafficHealth,
+  targetDaysRemaining,
   analysis,
   goalMetrics,
   variations,
-  analysisSettings,
 }: {
-  daysRemaining: number;
   trafficHealth: ExperimentSnapshotTraffic;
+  targetDaysRemaining: number;
   analysis: ExperimentSnapshotAnalysis;
   goalMetrics: string[];
   variations: SnapshotSettingsVariation[];
-  analysisSettings: ExperimentSnapshotAnalysisSettings;
-}): MidExperimentPowerCalculationResult {
+}): MidExperimentPowerCalculationResult | undefined {
   // NB: Order matters here. Ignoring control, for each goal metric
   // the variations should be in the same order as the settings.variations.
   const goalMetricsPowerResponses = goalMetrics.flatMap((metricId) => {
     const variationsWithoutControl = analysis.results[0].variations.slice(1);
-    return (
-      variationsWithoutControl
-        .map((variation) => variation.metrics[metricId].powerResponse)
-        // FIXME: Can it be undefined? In case of an error or something?
-        .filter((it) => it !== undefined)
+    return variationsWithoutControl.map(
+      (variation) => variation.metrics[metricId].powerResponse
     );
   });
+
+  // FIXME: If any of the goal metrics are missing, we can't calculate overall experiment power (or can we?)
+  if (goalMetricsPowerResponses.some((it) => it === undefined)) {
+    return undefined;
+  }
+
+  // Make the typechecker happy, but the check above should prevent this situation
+  const filteredGoalMetricsPowerResponses = goalMetricsPowerResponses.filter(
+    (it) => it !== undefined
+  );
 
   const daysToAverageOver = 7;
   const newDailyUsers = getAverageExposureOverLastNDays(
@@ -875,17 +875,18 @@ export function analyzeExperimentPower({
     variationWeights: variations.map((it) => it.weight),
 
     numGoalMetrics: goalMetrics.length,
-    response: goalMetricsPowerResponses,
+    response: filteredGoalMetricsPowerResponses,
 
     firstPeriodSampleSize,
-    daysRemaining: Math.max(daysRemaining, 0),
     newDailyUsers,
+    daysRemaining: Math.max(targetDaysRemaining, 0),
 
-    // FIXME: Before falling back to default, check if settings are set on a org-level
-    sequential: analysisSettings.sequentialTesting ?? false,
-    alpha: analysisSettings.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
+    // FIXME: This should be materialized for all analysis, so we should not need to fallback to a default value
+    // Maybe just a typing update?
+    sequential: analysis.settings.sequentialTesting ?? false,
+    alpha: analysis.settings.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
     sequentialTuningParameter:
-      analysisSettings.sequentialTestingTuningParameter ??
+      analysis.settings.sequentialTestingTuningParameter ??
       DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   });
 }

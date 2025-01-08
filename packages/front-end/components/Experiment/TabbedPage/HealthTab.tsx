@@ -2,7 +2,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Card, Heading, Separator, Table } from "@radix-ui/themes";
-import { PowerResponseFromStatsEngine } from "back-end/types/stats";
+import { MetricPowerResponseFromStatsEngine } from "back-end/types/stats";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import SRMCard from "@/components/HealthTab/SRMCard";
 import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";
@@ -312,7 +312,7 @@ function PowerCard({ snapshot }: { snapshot: ExperimentSnapshotInterface }) {
   const metricPowerInfo: Array<{
     variationName: string;
     metricName: string;
-    powerResponse?: PowerResponseFromStatsEngine | undefined;
+    powerResponse?: MetricPowerResponseFromStatsEngine | undefined;
   }> = [];
   const relativeAnalysis = snapshot.analyses.find(
     (a) => a.settings.differenceType === "relative"

@@ -52,32 +52,6 @@ export default function ExperimentSettings({
         <div className="col-sm-9">
           <div className="form-inline flex-column align-items-start mb-3">
             <Field
-              label="Minimum experiment length (in days)"
-              type="number"
-              className="ml-2"
-              containerClassName="mb-3"
-              append="days"
-              min="0"
-              step="1"
-              {...form.register("experimentMinLengthDays", {
-                valueAsNumber: true,
-              })}
-            />
-
-            <Field
-              label="Maximum experiment length (in days)"
-              type="number"
-              className="ml-2"
-              containerClassName="mb-3"
-              append="days"
-              min="0"
-              step="1"
-              {...form.register("experimentMaxLengthDays", {
-                valueAsNumber: true,
-              })}
-            />
-
-            <Field
               label="Minimum experiment length (in days) when importing past
                   experiments"
               type="number"
@@ -326,6 +300,34 @@ export default function ExperimentSettings({
                   valueAsNumber: true,
                   min: 0,
                   max: 1,
+                })}
+              />
+              <h5 className="mt-2 mb-2">
+                Mid-experiment power calculation settings
+              </h5>
+              <Field
+                label="Minimum experiment length"
+                type="number"
+                className="ml-2"
+                containerClassName="mb-3"
+                append="days"
+                min="0"
+                step="1"
+                {...form.register("experimentMinLengthDays", {
+                  valueAsNumber: true,
+                })}
+              />
+
+              <Field
+                label="Maximum experiment length"
+                type="number"
+                className="ml-2"
+                containerClassName="mb-3"
+                append="days"
+                min="0"
+                step="1"
+                {...form.register("experimentMaxLengthDays", {
+                  valueAsNumber: true,
                 })}
               />
             </div>

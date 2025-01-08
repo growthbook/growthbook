@@ -4,7 +4,7 @@ import normal from "@stdlib/stats/base/dists/normal";
 import { OrganizationSettings } from "back-end/types/organization";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
-import { PowerResponseFromStatsEngine } from "back-end/types/stats";
+import { MetricPowerResponseFromStatsEngine } from "back-end/types/stats";
 
 export interface MetricParamsBase {
   name: string;
@@ -324,7 +324,7 @@ export interface MidExperimentPowerSingleMetricParams {
   numGoalMetrics: number;
   // FIXME: The stats engine expects some fields to be defined, but they are optional from gbstats.
   // Should we have an intermediate type or update this file to handle undefined?
-  response: PowerResponseFromStatsEngine[];
+  response: MetricPowerResponseFromStatsEngine[];
 }
 
 export interface MidExperimentParams

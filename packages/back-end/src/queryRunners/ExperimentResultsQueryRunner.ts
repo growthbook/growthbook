@@ -476,37 +476,40 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       );
 
       if (relativeAnalysis) {
-        // FIXME: How to get these from the settings?
-        const minDays = this.context.org.settings?.experimentMinLengthDays ?? 7;
-        const maxDays =
+        // FIXME: We should use DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS and DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS
+        const today = new Date();
+        const experimentStartDate = this.model.settings.startDate;
+        const experimentMinLengthDays =
+          this.context.org.settings?.experimentMinLengthDays ?? 7;
+        const experimentMaxLengthDays =
           this.context.org.settings?.experimentMaxLengthDays ?? 42;
 
-        const experimentDateStarted = this.model.settings.startDate;
         const experimentDaysRunning = differenceInDays(
-          new Date(),
-          experimentDateStarted
+          today,
+          experimentStartDate
         );
 
-        if (experimentDaysRunning > minDays) {
+        const shouldRunPowerAnalysis =
+          experimentDaysRunning > experimentMinLengthDays;
+
+        if (shouldRunPowerAnalysis) {
           const experimentTargetEndDate = addDays(
-            experimentDateStarted,
-            maxDays
+            experimentStartDate,
+            experimentMaxLengthDays
           );
-          const daysRemaining = differenceInDays(
+          const targetDaysRemaining = differenceInDays(
             experimentTargetEndDate,
-            new Date()
+            today
           );
 
           // NB: This does not run a SQL query, but it is a health check that depends on the trafficHealth
-          const powerHealth = analyzeExperimentPower({
-            daysRemaining,
+          result.health.power = analyzeExperimentPower({
             trafficHealth,
+            targetDaysRemaining,
             analysis: relativeAnalysis,
             goalMetrics: this.model.settings.goalMetrics,
             variations: this.model.settings.variations,
-            analysisSettings: relativeAnalysis.settings,
           });
-          result.health.power = powerHealth;
         }
       }
     }

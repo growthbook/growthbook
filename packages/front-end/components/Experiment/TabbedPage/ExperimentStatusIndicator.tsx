@@ -1,32 +1,27 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Badge from "@/components/Radix/Badge";
 
-// Examples:
-// "full" - "Running: ~5 days left"
-// "status-only" - "Running"
-// "detail-only" - "~5 days left"
 type LabelFormat = "full" | "status-only" | "detail-only";
 
-type PowerData = {
-  errorMessage?: string;
-  additionalUsersNeeded?: number;
-  additionalDaysNeeded?: number;
-  lowPowerWarning?: boolean;
-};
-
-type ExperimentData = { power?: PowerData } & Pick<
+type ExperimentData = Pick<
   ExperimentInterfaceStringDates,
-  "status" | "archived" | "results"
+  "status" | "archived" | "results" | "analysisSummary"
 >;
 
 type Props = {
   experimentData: ExperimentData;
   labelFormat?: LabelFormat;
-  // If true we will show the underlying status of the experiment
-  // even if the experiment is archived.
   skipArchived?: boolean;
 };
 
+/**
+ * @param experimentData - Data about the experiment's status, archived state, results and analysis
+ * @param labelFormat - Controls how the status label is formatted:
+ *                     "full" - Shows both status and details (e.g. "Running: ~5 days left")
+ *                     "status-only" - Shows just the status (e.g. "Running")
+ *                     "detail-only" - Shows just the details (e.g. "~5 days left")
+ * @param skipArchived - If true, shows the underlying experiment status even when the experiment is archived
+ */
 export default function ExperimentStatusIndicator({
   experimentData,
   labelFormat = "full",
@@ -60,11 +55,16 @@ function getBadgeProps(
   }
 
   if (experimentData.status == "running") {
-    if (experimentData.power?.errorMessage) {
-      return ["amber", "solid", "Unhealthy", experimentData.power.errorMessage];
+    if (experimentData.analysisSummary?.health?.power?.errorMessage) {
+      return [
+        "amber",
+        "solid",
+        "Unhealthy",
+        experimentData.analysisSummary.health.power.errorMessage,
+      ];
     }
 
-    if (experimentData.power?.lowPowerWarning) {
+    if (experimentData.analysisSummary?.health?.power?.lowPowerWarning) {
       return ["amber", "solid", "Unhealthy", "Low powered"];
     }
 
