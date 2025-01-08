@@ -134,6 +134,15 @@ For each goal metric, GrowthBook estimates the probability of observing a statis
 If any of these estimates are less than $2\alpha$, then GrowthBook will display a low power warning on the Health tab.
 If mid-experiment power is low and the cost of running your experiment is high, then you may want to stop the experiment early, as the additional information gained from running the experiment longer may not be worth the cost.
 Alternatively, if some of your goal metrics are not low-powered and the cost of running your experiment is low, then you may want to continue the experiment.
+
+We emphasize that number of days left is a projection, and power estimates are estimates.  
+These values are predicated upon the following assumptions, which may not hold:
+
+1. there is a constant treatment effect $\Delta$ throughout the experiment, that is equal to two times the minimum effect size for the metric;
+2. average new user traffic counts over the most recent 7 days equals the new user traffic counts going forward; and
+3. the treatment effect estimate for users already in the experiment does not change during the experiment (i.e., logged in users have no additional behavior during the experiment).
+   While these assumptions may not hold, we believe that mid-experiment power estimates can still be useful for providing guidance. For example, if your goal metrics are close to statistical significance, if your treatment continues to affect logged-in users already included in the experiment, then the power estimate provided may be biased low. Alternatively, if new users added over the last 7 days are not representative of new users going forward, then the power estimate provided may be biased high. Pre-experiment power analysis is a tool used to decide whether the experiment should be run, and if so, what the sample size should be. These decisions are based upon the assumption of an effect size which is unknown. Mid-experiment power is similarly based upon assumptions that may not hold, but can still be useful for providing guidance.
+
 Mid-experiment power technical details can be found [here](/statistics/midexperiment-power-technical).
 
 ## FAQ
