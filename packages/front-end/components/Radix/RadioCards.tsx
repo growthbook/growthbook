@@ -1,6 +1,6 @@
 import { Flex, Text, RadioCards as RadixRadioCards } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
-import { ReactElement } from "react";
+import { forwardRef, ReactElement } from "react";
 
 export type RadioOptions = {
   value: string;
@@ -20,18 +20,21 @@ export type Props = {
   setValue: (value: string) => void;
 } & MarginProps;
 
-export default function RadioCards({
-  disabled,
-  columns = "1",
-  width = "auto",
-  options,
-  value,
-  setValue,
-  align,
-  ...containerProps
-}: Props) {
+export default forwardRef<HTMLDivElement, Props>(function RadioCards(
+  {
+    disabled,
+    columns = "1",
+    width = "auto",
+    options,
+    value,
+    setValue,
+    align,
+    ...containerProps
+  }: Props,
+  ref
+) {
   return (
-    <Flex {...containerProps}>
+    <Flex {...containerProps} ref={ref}>
       <Text size="2" color={disabled ? "gray" : undefined} style={{ width }}>
         <RadixRadioCards.Root
           value={value}
@@ -67,4 +70,4 @@ export default function RadioCards({
       </Text>
     </Flex>
   );
-}
+});

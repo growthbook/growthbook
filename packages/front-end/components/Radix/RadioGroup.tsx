@@ -1,6 +1,6 @@
 import { Flex, Text, RadioGroup as RadixRadioGroup } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
-import { ReactElement } from "react";
+import { forwardRef, ReactElement } from "react";
 import HelperText, { getRadixColor } from "@/components/Radix/HelperText";
 
 export type RadioOptions = {
@@ -20,13 +20,10 @@ export type Props = {
   setValue: (value: string) => void;
 } & MarginProps;
 
-export default function RadioGroup({
-  disabled,
-  options,
-  value,
-  setValue,
-  ...containerProps
-}: Props) {
+export default forwardRef<HTMLDivElement, Props>(function RadioGroup(
+  { disabled, options, value, setValue, ...containerProps }: Props,
+  ref
+) {
   // get color for selected option
   const selectedOption = options.find((o) => o.value === value);
   const selectedValue = value;
@@ -35,7 +32,7 @@ export default function RadioGroup({
     : "violet";
 
   return (
-    <Flex {...containerProps}>
+    <Flex {...containerProps} ref={ref}>
       <Flex direction={"column"}>
         <Text size="2" color={disabled ? "gray" : undefined}>
           <RadixRadioGroup.Root
@@ -87,4 +84,4 @@ export default function RadioGroup({
       </Flex>
     </Flex>
   );
-}
+});

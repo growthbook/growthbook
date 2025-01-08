@@ -1,12 +1,12 @@
 import { useMemo, useState, useEffect } from "react";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import {
+  powerMetricWeeks,
   PowerCalculationParams,
   PowerCalculationResults,
   PartialPowerCalculationParams,
   FullModalPowerCalculationParams,
   StatsEngineSettings,
-  powerMetricWeeks,
 } from "shared/power";
 import PowerCalculationSettingsModal from "@/components/PowerCalculation/PowerCalculationSettingsModal";
 import EmptyPowerCalculation from "@/components/PowerCalculation/EmptyPowerCalculation";

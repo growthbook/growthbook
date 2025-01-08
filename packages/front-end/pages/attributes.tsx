@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { Fragment, useMemo, useState } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
 import { SDKAttribute } from "back-end/types/organization";
 import { recursiveWalk } from "shared/util";
@@ -131,7 +131,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
     const numReferences = features.length + experiments.length + groups.length;
 
     return (
-      <tr className={v.archived ? "disabled" : ""} key={i}>
+      <tr className={v.archived ? "disabled" : ""} key={"attr-row-" + i}>
         <td className="text-gray font-weight-bold">
           {v.property}{" "}
           {v.archived && (
@@ -188,7 +188,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                       <div className="mb-2">
                         <ul className="pl-3 mb-0">
                           {features.map((feature, j) => (
-                            <>
+                            <Fragment key={"features-" + j}>
                               {j < MAX_REFERENCES_PER_TYPE ? (
                                 <li
                                   key={"f_" + j}
@@ -204,7 +204,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                                   <em>{features.length - j} more...</em>
                                 </li>
                               ) : null}
-                            </>
+                            </Fragment>
                           ))}
                         </ul>
                       </div>
@@ -218,7 +218,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                       <div className="mb-2">
                         <ul className="pl-3 mb-0">
                           {experiments.map((exp, j) => (
-                            <>
+                            <Fragment key={"exps-" + j}>
                               {j < MAX_REFERENCES_PER_TYPE ? (
                                 <li
                                   key={"e_" + j}
@@ -234,7 +234,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                                   <em>{experiments.length - j} more...</em>
                                 </li>
                               ) : null}
-                            </>
+                            </Fragment>
                           ))}
                         </ul>
                       </div>
@@ -248,7 +248,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                       <div className="mb-2">
                         <ul className="pl-3 mb-0">
                           {groups.map((group, j) => (
-                            <>
+                            <Fragment key={"saved-groups" + j}>
                               {j < MAX_REFERENCES_PER_TYPE ? (
                                 <li
                                   key={"g_" + j}
@@ -264,7 +264,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                                   <em>{groups.length - j} more...</em>
                                 </li>
                               ) : null}
-                            </>
+                            </Fragment>
                           ))}
                         </ul>
                       </div>
