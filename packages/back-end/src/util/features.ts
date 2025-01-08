@@ -26,7 +26,7 @@ function getSavedGroupCondition(
   include: boolean
 ): null | ConditionInterface {
   const group = groupMap.get(groupId);
-  if (typeof group === "undefined") return null;
+  if (!group) return null;
   if (group.type === "condition" && group.condition) {
     try {
       const cond = JSON.parse(group.condition);
@@ -62,11 +62,13 @@ export function getParsedCondition(
     savedGroups.forEach(({ ids, match }) => {
       const groupIds = ids.filter((id) => {
         const group = groupMap.get(id);
-        if (typeof group === "undefined") return false;
+        if (!group) return false;
         if (group.type === "condition") {
           // Condition groups must be non-empty
           if (!group.condition || group.condition === "{}") return false;
         } else {
+          // Legacy list groups must be non-empty
+          if (!group.useEmptyListGroup && !group.values?.length) return false;
           // List groups must have defined values
           if (typeof group.values === "undefined") return false;
         }

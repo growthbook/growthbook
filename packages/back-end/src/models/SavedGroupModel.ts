@@ -32,6 +32,8 @@ const savedGroupSchema = new mongoose.Schema({
   attributeKey: String,
   description: String,
   projects: [String],
+  // Previously, empty saved groups were ignored in the SDK payload, making all $inGroup operations return true
+  useEmptyListGroup: Boolean,
 });
 
 type SavedGroupDocument = mongoose.Document & LegacySavedGroupInterface;
@@ -69,6 +71,7 @@ export async function createSavedGroup(
     organization,
     dateCreated: new Date(),
     dateUpdated: new Date(),
+    useEmptyListGroup: true,
   });
   return toInterface(newGroup);
 }
