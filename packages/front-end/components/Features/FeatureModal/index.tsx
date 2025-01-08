@@ -5,9 +5,9 @@ import {
   FeatureValueType,
 } from "back-end/types/feature";
 import dJSON from "dirty-json";
-
 import React, { ReactElement, useState } from "react";
-import { validateFeatureValue } from "shared/util";
+import { inferSimpleSchemaFromValue, validateFeatureValue } from "shared/util";
+import { EditSimpleSchema } from "@/components/Features/EditSchemaModal";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -120,6 +120,7 @@ const genFormDefaultValues = ({
   return featureToDuplicate
     ? {
         valueType: featureToDuplicate.valueType,
+        jsonSchema: featureToDuplicate.jsonSchema,
         defaultValue: featureToDuplicate.defaultValue,
         description: featureToDuplicate.description,
         id: genDuplicatedKey(featureToDuplicate),
@@ -130,6 +131,7 @@ const genFormDefaultValues = ({
     : {
         valueType: "" as FeatureValueType,
         defaultValue: getDefaultValue("boolean"),
+        jsonSchema: inferSimpleSchemaFromValue("object"),
         description: "",
         id: "",
         project,
@@ -314,7 +316,14 @@ export default function FeatureModal({
           }}
         />
       )}
-
+      {form.watch("valueType") === "custom" && (
+        <div>
+          <EditSimpleSchema
+            schema={form.watch("jsonSchema")}
+            setSchema={(v) => form.setValue("jsonSchema", v)}
+          />
+        </div>
+      )}
       <EnvironmentSelect
         environmentSettings={environmentSettings}
         environments={environments}

@@ -32,6 +32,7 @@ export const featureValueType = [
   "string",
   "number",
   "json",
+  "custom",
 ] as const;
 
 export type FeatureValueType = typeof featureValueType[number];
