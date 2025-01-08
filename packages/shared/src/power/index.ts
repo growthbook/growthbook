@@ -1218,6 +1218,7 @@ export function calculateMidExperimentPower(
   const maxPowerByMetric = new Array(numGoalMetrics).fill(0);
   const minDaysByMetric = new Array(numGoalMetrics).fill(0);
   const minUsersByMetric = new Array(numGoalMetrics).fill(0);
+  const lowPowerThreshold = 0.1;
   let lowPowerTableRows: LowPowerTableRow[] = [];
 
   for (let metric = 0; metric < numGoalMetrics; metric++) {
@@ -1252,7 +1253,7 @@ export function calculateMidExperimentPower(
         if (thisPower > thisMaxPower) {
           thisMaxPower = thisPower;
         }
-        if (thisPower < alpha) {
+        if (thisPower < lowPowerThreshold) {
           lowPowerTableRowsThisMetric.push({
             newDailyUsers: resultsSingleMetric.additionalUsers,
             metric: String(metric),
@@ -1278,7 +1279,7 @@ export function calculateMidExperimentPower(
       minDaysByMetric[metric] = thisMinDays;
       minUsersByMetric[metric] = thisMinUsers;
     }
-    if (Math.max(...maxPowerByMetric) < 0.1) {
+    if (Math.max(...maxPowerByMetric) < lowPowerThreshold) {
       lowPowerTableRows = lowPowerTableRows.concat(lowPowerTableRowsThisMetric);
     }
   }
