@@ -1,13 +1,18 @@
 // react component for metadata that would display like title: data
 
-import { FC } from "react";
+import { forwardRef } from "react";
 import { Flex, Text } from "@radix-ui/themes";
 import styles from "./Styles/Metadata.module.scss";
 
-const Metadata: FC<{
+type Props = {
   label: string;
   value: React.ReactNode | string;
-}> = ({ label, value }) => {
+};
+
+export default forwardRef<HTMLDivElement, Props>(function Metadata(
+  { label, value, ...props },
+  ref
+) {
   const renderLabel = () => {
     return (
       <Text weight="medium" className={styles.labelColor}>
@@ -27,10 +32,9 @@ const Metadata: FC<{
     }
   };
   return (
-    <Flex gap="1">
+    <Flex gap="1" {...props} ref={ref}>
       <span className={styles.titleColor}>{renderLabel()}:</span>
       <span className={styles.dataColor}>{renderValue()}</span>
     </Flex>
   );
-};
-export default Metadata;
+});
