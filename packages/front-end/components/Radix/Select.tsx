@@ -65,9 +65,9 @@ export const SelectItem = forwardRef<
     children: string | string[] | ReactNode;
     disabled?: boolean;
   }
->(function SelectItem({ value, children, disabled = false }, ref) {
+>(function SelectItem({ value, children, disabled = false, ...props }, ref) {
   return (
-    <RadixSelect.Item value={value} disabled={disabled} ref={ref}>
+    <RadixSelect.Item value={value} disabled={disabled} {...props} ref={ref}>
       {children}
     </RadixSelect.Item>
   );

@@ -10,7 +10,7 @@ type Props = {
 };
 
 export default forwardRef<HTMLDivElement, Props>(function Metadata(
-  { label, value },
+  { label, value, ...props },
   ref
 ) {
   const renderLabel = () => {
@@ -32,7 +32,7 @@ export default forwardRef<HTMLDivElement, Props>(function Metadata(
     }
   };
   return (
-    <Flex gap="1" ref={ref}>
+    <Flex gap="1" {...props} ref={ref}>
       <span className={styles.titleColor}>{renderLabel()}:</span>
       <span className={styles.dataColor}>{renderValue()}</span>
     </Flex>
