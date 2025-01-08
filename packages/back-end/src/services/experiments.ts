@@ -39,7 +39,10 @@ import { orgHasPremiumFeature } from "enterprise";
 import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
 import { MetricPriorSettings } from "back-end/types/fact-table";
-import { BanditResult } from "back-end/src/validators/experiments";
+import {
+  BanditResult,
+  ExperimentAnalysisSummary,
+} from "back-end/src/validators/experiments";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { Context } from "back-end/src/models/BaseModel";
@@ -2709,4 +2712,46 @@ export async function getLinkedFeatureInfo(
   });
 
   return linkedFeatureInfo.filter((info) => info.state !== "discarded");
+}
+
+export async function updateExperimentAnalysisSummary({
+  context,
+  experiment,
+  experimentSnapshot,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+  experimentSnapshot: ExperimentSnapshotInterface;
+}) {
+  const analysisSummary: ExperimentAnalysisSummary = {
+    snapshotId: experimentSnapshot.id,
+  };
+
+  const snapshotHealthPower = experimentSnapshot.health?.power;
+
+  if (snapshotHealthPower) {
+    if (snapshotHealthPower.type === "error") {
+      analysisSummary.health = {
+        power: {
+          errorMessage: snapshotHealthPower.description,
+        },
+      };
+    } else {
+      analysisSummary.health = {
+        power: {
+          additionalUsersNeeded: snapshotHealthPower.additionalUsers,
+          additionalDaysNeeded: snapshotHealthPower.additionalDays,
+          lowPowerWarning: snapshotHealthPower.lowPowerWarning,
+        },
+      };
+    }
+  }
+
+  await updateExperiment({
+    context,
+    experiment,
+    changes: {
+      analysisSummary,
+    },
+  });
 }

@@ -7,6 +7,7 @@ import {
   LegacyExperimentSnapshotInterface,
 } from "back-end/types/experiment-snapshot";
 import { migrateSnapshot } from "back-end/src/util/migrations";
+import { updateExperimentAnalysisSummary } from "back-end/src/services/experiments";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
 import { queriesSchema } from "./QueryModel";
 import { Context } from "./BaseModel";
@@ -253,7 +254,7 @@ export async function updateSnapshot({
       await updateExperimentAnalysisSummary({
         context,
         experiment: experimentModel,
-        snapshot: experimentSnapshotModel,
+        experimentSnapshot: experimentSnapshotModel,
       });
     }
   }

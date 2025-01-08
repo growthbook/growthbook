@@ -845,7 +845,7 @@ export function analyzeExperimentPower({
   const goalMetricsPowerResponses = goalMetrics.flatMap((metricId) => {
     const variationsWithoutControl = analysis.results[0].variations.slice(1);
     return variationsWithoutControl.map(
-      (variation) => variation.metrics[metricId].powerResponse
+      (variation) => variation.metrics[metricId].power
     );
   });
 

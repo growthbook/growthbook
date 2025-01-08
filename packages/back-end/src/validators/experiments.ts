@@ -158,6 +158,28 @@ export type ExperimentAnalysisSettings = z.infer<
   typeof experimentAnalysisSettings
 >;
 
+export const experimentAnalysisSummary = z
+  .object({
+    snapshotId: z.string(),
+    health: z
+      .object({
+        power: z
+          .object({
+            errorMessage: z.string().optional(),
+            additionalUsersNeeded: z.number().optional(),
+            additionalDaysNeeded: z.number().optional(),
+            lowPowerWarning: z.boolean().optional(),
+          })
+          .optional(),
+      })
+      .optional(),
+  })
+  .strict()
+  .optional();
+export type ExperimentAnalysisSummary = z.infer<
+  typeof experimentAnalysisSummary
+>;
+
 export const experimentInterface = z
   .object({
     id: z.string(),
@@ -222,23 +244,7 @@ export const experimentInterface = z
     customFields: z.record(z.any()).optional(),
     templateId: z.string().optional(),
     shareLevel: z.enum(["public", "organization"]).optional(),
-    analysisSummary: z
-      .object({
-        snapshotId: z.string(),
-        health: z
-          .object({
-            power: z
-              .object({
-                errorMessage: z.string().optional(),
-                additionalUsersNeeded: z.number().optional(),
-                additionalDaysNeeded: z.number().optional(),
-                lowPowerWarning: z.boolean().optional(),
-              })
-              .optional(),
-          })
-          .optional(),
-      })
-      .optional(),
+    analysisSummary: experimentAnalysisSummary,
   })
   .strict()
   .merge(experimentAnalysisSettings);

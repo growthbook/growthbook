@@ -510,14 +510,14 @@ def format_variation_result(
             return FrequentistVariationResponse(
                 **metricResult,
                 **testResult,
-                powerResponse=power_response,
+                power=power_response,
                 pValue=row[f"{prefix}_p_value"],
             )
         else:
             return BayesianVariationResponse(
                 **metricResult,
                 **testResult,
-                powerResponse=power_response,
+                power=power_response,
                 chanceToWin=row[f"{prefix}_prob_beat_baseline"],
                 risk=row[f"{prefix}_risk"],
                 riskType=row[f"{prefix}_risk_type"],

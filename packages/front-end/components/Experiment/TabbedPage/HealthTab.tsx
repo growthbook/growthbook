@@ -325,7 +325,7 @@ function PowerCard({ snapshot }: { snapshot: ExperimentSnapshotInterface }) {
         metricPowerInfo.push({
           variationName: snapshot.settings.variations[i].id,
           metricName,
-          powerResponse: metric.powerResponse,
+          powerResponse: metric.power,
         });
       });
     });
