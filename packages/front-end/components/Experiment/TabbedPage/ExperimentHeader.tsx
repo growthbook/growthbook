@@ -490,6 +490,7 @@ export default function ExperimentHeader({
             trackingEventModalSource="experiment-more-menu"
             open={true}
             close={() => setShowDeleteModal(false)}
+            cta="Delete"
             submit={async () => {
               try {
                 await apiCall<{ status: number; message?: string }>(
