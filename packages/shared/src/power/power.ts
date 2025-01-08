@@ -227,21 +227,25 @@ export const isValidPowerCalculationParams = (
   Object.keys(v.metrics).every((key) => {
     const params = v.metrics[key];
     if (!params) return false;
+
+    const commonParams = ["effectSize"] as const;
+    const bayesianEngineParams = [
+      "overrideProper",
+      "overridePriorLiftMean",
+      "overridePriorLiftStandardDeviation",
+      "metricProper",
+      "metricPriorLiftMean",
+      "metricPriorLiftStandardDeviation",
+    ] as const;
+    const binomialParams = ["conversionRate"] as const;
+    const meanParams = ["mean", "standardDeviation"] as const;
+
     return ([
-      "effectSize",
-      ...(engineType === "bayesian"
-        ? ([
-            "overrideProper",
-            "overridePriorLiftMean",
-            "overridePriorLiftStandardDeviation",
-            "metricProper",
-            "metricPriorLiftMean",
-            "metricPriorLiftStandardDeviation",
-          ] as const)
-        : []),
-      ...(params.type === "binomial"
-        ? (["conversionRate"] as const)
-        : (["mean", "standardDeviation"] as const)),
+      ...commonParams,
+      ...(engineType === "bayesian" ? bayesianEngineParams : []),
+      // In separate statements to help the type checker.
+      ...(params.type === "binomial" ? binomialParams : []),
+      ...(params.type === "mean" ? meanParams : []),
     ] as const).every((k) => validEntry(k, params[k]));
   });
 
@@ -572,7 +576,7 @@ export function powerMetricWeeks(
     [id: string]: SampleSizeAndRuntime | undefined;
   } = {};
 
-  const metricThresholds = {};
+  const metricThresholds: Record<string, number> = {};
   const weeks: Week[] = [...Array(powerSettings.nWeeks).keys()].map((idx) => ({
     users: (idx + 1) * powerSettings.usersPerWeek,
     metrics: {},
