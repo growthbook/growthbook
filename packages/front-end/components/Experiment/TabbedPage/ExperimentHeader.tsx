@@ -655,7 +655,6 @@ export default function ExperimentHeader({
             source="experiment"
           />
         )}
-
         {shareModalOpen && (
           <Modal
             open={true}
@@ -712,7 +711,6 @@ export default function ExperimentHeader({
             </div>
           </Modal>
         )}
-
         <div className="container-fluid pagecontents position-relative">
           <div className="d-flex align-items-center">
             <Flex direction="row" align="center">
@@ -870,7 +868,12 @@ export default function ExperimentHeader({
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 {canCreateTemplate && !isBandit && (
-                  <DropdownMenuItem onClick={() => setShowTemplateForm(true)}>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setShowTemplateForm(true);
+                      setDropdownOpen(false);
+                    }}
+                  >
                     Save as template...
                   </DropdownMenuItem>
                 )}

@@ -125,9 +125,9 @@ export function DropdownMenuItem({
       disabled={disabled || !!error || !!loading}
       onSelect={async (event) => {
         event.preventDefault();
-        setError(null);
-        setLoading(true);
         if (onClick) {
+          setError(null);
+          setLoading(true);
           try {
             await onClick(event);
             // If this promise is resolved without an error, we need to close
