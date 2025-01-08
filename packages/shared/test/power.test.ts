@@ -1,10 +1,4 @@
 import {
-  MetricParamsMean,
-  MetricParams,
-  PowerCalculationParams,
-} from "@/components/PowerCalculation/types";
-
-import {
   frequentistVariance,
   powerEstFrequentist,
   findMdeFrequentist,
@@ -13,7 +7,10 @@ import {
   calculatePriorVariance,
   powerEstBayesian,
   findMdeBayesian,
-} from "@/components/PowerCalculation/stats";
+  MetricParamsMean,
+  MetricParams,
+  PowerCalculationParams,
+} from "../src/power";
 
 describe("backend", () => {
   it("delta method variance absolute correct", () => {

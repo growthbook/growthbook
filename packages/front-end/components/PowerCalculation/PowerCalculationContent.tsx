@@ -1,15 +1,15 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import clsx from "clsx";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { ensureAndReturn } from "@/types/utils";
-import { GBHeadingArrowLeft } from "@/components/Icons";
 import {
   PowerCalculationParams,
   PowerCalculationResults,
   PowerCalculationSuccessResults,
   StatsEngineSettings,
-} from "./types";
+} from "shared/power";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { ensureAndReturn } from "@/types/utils";
+import { GBHeadingArrowLeft } from "@/components/Icons";
 import PowerCalculationStatsEngineSettingsModal from "./PowerCalculationStatsEngineSettingsModal";
 
 const engineType = {
