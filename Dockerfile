@@ -7,7 +7,7 @@ WORKDIR /usr/local/src/app
 COPY ./packages/stats .
 RUN \
   pip3 install poetry \
-  && poetry install --no-root --no-dev --no-interaction --no-ansi \
+  && poetry install --no-root --without-dev --no-interaction --no-ansi \
   && poetry build \
   && poetry export -f requirements.txt --output requirements.txt
 
