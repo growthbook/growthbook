@@ -260,6 +260,8 @@ Empty lists would previously be ignored in the SDK payloads, causing targeting c
 lists to always evaluate to true. ID Lists created after the behavior was changed will properly use the empty
 list, so rules checking whether a value is in the list will always be false. Lists created before the
 change will preserve the old behavior so as not to break existing features.
+
+To make an ID list with the legacy behavior evaluate to false instead of true for conditions, you can add a single fake value such as "" or "\_" so that the list isn't empty
 :::
 
 :::note
