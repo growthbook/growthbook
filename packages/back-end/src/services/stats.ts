@@ -869,7 +869,6 @@ export function analyzeExperimentPower({
     (acc, it) => acc + it,
     0
   );
-
   return calculateMidExperimentPower({
     numVariations: variations.length,
     variationWeights: variations.map((it) => it.weight),

@@ -360,9 +360,12 @@ def analyze_metric_df(
                 # delete this block later, as it will be calculated in the front end
                 # also, these users_per_day are wrong, as we will be feeding in data from the health tab
                 ########################################################################################
-                new_daily_users = 3360
+                new_daily_users = 106
+                days_remaining = 20
                 if new_daily_users > 0:
-                    new_users_remaining = 3360  # delete this line later
+                    new_users_remaining = (
+                        new_daily_users * days_remaining
+                    )  # delete this line later
                     # note i use 14 days remaining and the average over the full experimental period to estimate new_daily_users;
                     # when testing this in the FE, use these inputs;
                     if (
@@ -381,6 +384,19 @@ def analyze_metric_df(
                         ] = mid_experiment_power.calculate_power(
                             scaling_factor, m_prime, v_prime
                         )
+                        if metric.id == "met_ab8nzwi29lsmce2ph" and i == 2:
+                            # raise ValueError([s["total_users"], new_daily_users, days_remaining, new_users_remaining])
+                            # [70149, 159, 20, 3180]
+                            # firstPeriodSampleSize newDailyUsers daysremaining secondPeriodSampleSize 70149 159 20 2120.1059999999998
+                            pass
+                            # 1.0302241895475153 0.02 0.00006489527261203468 0.0142906409121647
+                            # (1.0453340176203918, 0.02, 6.489527261203468e-05, 0.0160588859549724)
+                            # raise ValueError(
+                            #    scaling_factor, mid_experiment_power.m_prime, mid_experiment_power.v_prime,
+                            #    s[
+                            # f"v{i}_end_of_experiment_power"
+                            # ])
+
                 else:
                     s[f"v{i}_power_update_message"] = "unsuccessful"
                     s[

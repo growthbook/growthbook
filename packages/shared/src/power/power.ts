@@ -322,7 +322,6 @@ export interface MidExperimentPowerSingleMetricParams {
   sequentialTuningParameter: number;
   numVariations: number;
   numGoalMetrics: number;
-  lowPowerThreshold: number;
   // FIXME: The stats engine expects some fields to be defined, but they are optional from gbstats.
   // Should we have an intermediate type or update this file to handle undefined?
   response: MetricPowerResponseFromStatsEngine[];
@@ -1278,7 +1277,6 @@ export function calculateMidExperimentPower(
           sequentialTuningParameter,
           numVariations,
           numGoalMetrics,
-          lowPowerThreshold: lowPowerThreshold,
           response: [thisResponse],
         };
         const resultsSingleMetric = calculateMidExperimentPowerSingle(
