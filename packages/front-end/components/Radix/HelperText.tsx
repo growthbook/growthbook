@@ -1,5 +1,5 @@
 import { Flex, Text, TextProps } from "@radix-ui/themes";
-import { ReactElement } from "react";
+import { forwardRef, ReactElement } from "react";
 import {
   PiCheckCircleFill,
   PiInfoFill,
@@ -63,19 +63,17 @@ export function RadixStatusIcon({
   }
 }
 
-export default function HelperText({
-  children,
-  status,
-  size = "md",
-  ...otherProps
-}: {
-  children: string | string[];
-  status: Status;
-  size?: "sm" | "md";
-} & MarginProps) {
+export default forwardRef<
+  HTMLDivElement,
+  {
+    children: string | string[];
+    status: Status;
+    size?: "sm" | "md";
+  } & MarginProps
+>(function HelperText({ children, status, size = "md", ...otherProps }, ref) {
   return (
     <Text color={getRadixColor(status)} size={getRadixSize(size)}>
-      <Flex gap="1" {...otherProps}>
+      <Flex gap="1" {...otherProps} ref={ref}>
         <div style={{ flex: "0 0 auto", position: "relative", top: -1.5 }}>
           <RadixStatusIcon status={status} size={size} />
         </div>
@@ -83,4 +81,4 @@ export default function HelperText({
       </Flex>
     </Text>
   );
-}
+});

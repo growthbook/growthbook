@@ -77,6 +77,7 @@ export default function ResultMoreMenu({
           queries={queries?.map((q) => q.query) ?? []}
           error={queryError}
           className="dropdown-item py-2"
+          display=" View Queries"
         />
       )}
       {forceRefresh &&

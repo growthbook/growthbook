@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { forwardRef } from "react";
 import { Tabs as RadixTabs } from "@radix-ui/themes";
 import useURLHash from "@/hooks/useURLHash";
 
@@ -33,14 +34,17 @@ type UncontrolledTabsProps = {
 type TabsProps = (ControlledTabsProps | UncontrolledTabsProps) &
   Omit<React.ComponentProps<typeof RadixTabs.Root>, "defaultValue" | "value">;
 
-export function Tabs({
-  children,
-  defaultValue,
-  value,
-  onValueChange,
-  persistInURL = false,
-  ...props
-}: TabsProps) {
+export const Tabs = forwardRef<HTMLDivElement, TabsProps>(function Tabs(
+  {
+    children,
+    defaultValue,
+    value,
+    onValueChange,
+    persistInURL = false,
+    ...props
+  }: TabsProps,
+  ref
+) {
   let rootProps: React.ComponentProps<typeof RadixTabs.Root> = {};
 
   const [urlHash, setUrlHash] = useURLHash();
@@ -65,11 +69,11 @@ export function Tabs({
   }
 
   return (
-    <RadixTabs.Root {...rootProps} {...props}>
+    <RadixTabs.Root {...rootProps} {...props} ref={ref}>
       {children}
     </RadixTabs.Root>
   );
-}
+});
 
 type TabsListProps = Omit<
   React.ComponentProps<typeof RadixTabs.List>,
@@ -78,36 +82,42 @@ type TabsListProps = Omit<
   size?: "1" | "2" | "3";
 };
 
-export function TabsList({
-  children,
-  size = "2",
-  className,
-  ...props
-}: TabsListProps) {
-  const sizeValue = size === "3" ? "2" : size;
-  const classNameValue = size === "3" ? "rt-r-size-3" : "";
+export const TabsList = forwardRef<HTMLDivElement, TabsListProps>(
+  function TabsList({ children, size = "2", className, ...props }, ref) {
+    const sizeValue = size === "3" ? "2" : size;
+    const classNameValue = size === "3" ? "rt-r-size-3" : "";
 
+    return (
+      <RadixTabs.List
+        className={clsx(classNameValue, className)}
+        size={sizeValue}
+        {...props}
+        ref={ref}
+      >
+        {children}
+      </RadixTabs.List>
+    );
+  }
+);
+
+export const TabsTrigger = forwardRef<
+  HTMLButtonElement,
+  React.ComponentProps<typeof RadixTabs.Trigger>
+>(function TabsTrigger({ children, ...props }, ref) {
   return (
-    <RadixTabs.List
-      className={clsx(classNameValue, className)}
-      size={sizeValue}
-      {...props}
-    >
+    <RadixTabs.Trigger {...props} ref={ref}>
       {children}
-    </RadixTabs.List>
+    </RadixTabs.Trigger>
   );
-}
+});
 
-export function TabsTrigger({
-  children,
-  ...props
-}: React.ComponentProps<typeof RadixTabs.Trigger>) {
-  return <RadixTabs.Trigger {...props}>{children}</RadixTabs.Trigger>;
-}
-
-export function TabsContent({
-  children,
-  ...props
-}: React.ComponentProps<typeof RadixTabs.Content>) {
-  return <RadixTabs.Content {...props}>{children}</RadixTabs.Content>;
-}
+export const TabsContent = forwardRef<
+  HTMLDivElement,
+  React.ComponentProps<typeof RadixTabs.Content>
+>(function TabsContent({ children, ...props }, ref) {
+  return (
+    <RadixTabs.Content {...props} ref={ref}>
+      {children}
+    </RadixTabs.Content>
+  );
+});
