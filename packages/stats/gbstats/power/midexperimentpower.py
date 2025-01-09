@@ -18,6 +18,7 @@ from gbstats.utils import is_statistically_significant
 
 from gbstats.messages import (
     ZERO_NEGATIVE_VARIANCE_MESSAGE,
+    BASELINE_VARIATION_ZERO_MESSAGE,
 )
 
 
@@ -95,37 +96,32 @@ class MidExperimentPower:
         """Check if any variance is 0 or negative"""
         return self.stat_a._has_zero_variance or self.stat_b._has_zero_variance
 
+    def _control_mean_zero(self) -> bool:
+        return self.stat_a.mean == 0
+
+    def _default_output(
+        self, error_message: Optional[str] = None, update_message: Optional[str] = None
+    ) -> AdditionalSampleSizeNeededResult:
+        """Return uninformative output when midexperiment power can't be performed."""
+        return AdditionalSampleSizeNeededResult(
+            error=error_message,
+            update_message="error in input",
+            additional_users=0,
+            scaling_factor=0,
+            upper_bound_achieved=False,
+            target_power=self.target_power,
+            v_prime=None,
+        )
+
     def calculate_sample_size(self) -> AdditionalSampleSizeNeededResult:
         if self.test_result.error_message:
-            return AdditionalSampleSizeNeededResult(
-                error=self.test_result.error_message,
-                update_message="error in test result",
-                additional_users=0,
-                scaling_factor=0,
-                upper_bound_achieved=False,
-                target_power=self.target_power,
-                v_prime=None,
-            )
+            return self._default_output(self.test_result.error_message, "unsuccessful")
+        if self._control_mean_zero():
+            return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE, "unsuccessful")
         elif self._has_zero_variance():
-            return AdditionalSampleSizeNeededResult(
-                error=ZERO_NEGATIVE_VARIANCE_MESSAGE,
-                update_message="zero variance",
-                additional_users=0,
-                scaling_factor=0,
-                upper_bound_achieved=False,
-                target_power=self.target_power,
-                v_prime=None,
-            )
+            return self._default_output(ZERO_NEGATIVE_VARIANCE_MESSAGE, "unsuccessful")
         elif self.already_significant:
-            return AdditionalSampleSizeNeededResult(
-                error=None,
-                update_message="already significant",
-                additional_users=0,
-                scaling_factor=0,
-                upper_bound_achieved=False,
-                target_power=self.target_power,
-                v_prime=None,
-            )
+            return self._default_output(None, "already significant")
         else:
             scaling_factor_result = self.find_scaling_factor()
             if scaling_factor_result.scaling_factor:
@@ -210,7 +206,7 @@ class MidExperimentPower:
 
     @property
     def sigmahat_2_delta(self) -> float:
-        if self._has_zero_variance():
+        if self._has_zero_variance() or self._control_mean_zero():
             return 0
         else:
             return frequentist_variance(
