@@ -319,6 +319,12 @@ const sidebars = {
 
         {
           type: "doc",
+          id: "running-experiments/experiment-templates",
+          label: "Experiment Templates",
+        },
+
+        {
+          type: "doc",
           id: "experimentation-analysis/experiment-results",
           label: "Experiment Results",
         },
