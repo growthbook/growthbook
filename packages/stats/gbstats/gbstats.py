@@ -292,9 +292,6 @@ def analyze_metric_df(
             df[f"v{i}_decision_making_conditions"] = False
             df[f"v{i}_first_period_pairwise_users"] = None
             df[f"v{i}_min_effect_size"] = None
-            df[f"v{i}_target_power"] = None  # remove later
-            df[f"v{i}_new_daily_users"] = None  # remove later
-            df[f"v{i}_end_of_experiment_power"] = None  # remove later
             df[f"v{i}_sigmahat_2_delta"] = None
             df[f"v{i}_sigma_2_posterior"] = None
             df[f"v{i}_delta_posterior"] = None
@@ -330,9 +327,13 @@ def analyze_metric_df(
                     num_variations=num_variations,
                     num_goal_metrics=analysis.num_goal_metrics,
                 )
+                # if metric.id == 'met_ab8nzwi29lsmce2op':
+                #    raise ValueError(['jill', test.stat_a, test.stat_b, test.stat_a._has_zero_variance, test.stat_b._has_zero_variance])
+
                 mid_experiment_power = MidExperimentPower(
                     test.stat_a, test.stat_b, res, config, power_config
                 )
+
                 s[
                     f"v{i}_first_period_pairwise_users"
                 ] = mid_experiment_power.pairwise_sample_size
@@ -356,53 +357,6 @@ def analyze_metric_df(
                 s[
                     f"v{i}_power_upper_bound_achieved"
                 ] = mid_experiment_power_result.upper_bound_achieved
-                ########################################################################################
-                # delete this block later, as it will be calculated in the front end
-                # also, these users_per_day are wrong, as we will be feeding in data from the health tab
-                ########################################################################################
-                new_daily_users = 106
-                days_remaining = 20
-                if new_daily_users > 0:
-                    new_users_remaining = (
-                        new_daily_users * days_remaining
-                    )  # delete this line later
-                    # note i use 14 days remaining and the average over the full experimental period to estimate new_daily_users;
-                    # when testing this in the FE, use these inputs;
-                    if (
-                        new_users_remaining > 0
-                        and mid_experiment_power.pairwise_sample_size > 0
-                    ):
-                        scaling_factor = (s["total_users"] + new_users_remaining) / s[
-                            "total_users"
-                        ]
-                        m_prime = metric.min_percent_change * 2
-                        v_prime = mid_experiment_power.v_prime
-                        s[f"v{i}_target_power"] = mid_experiment_power.target_power
-                        s[f"v{i}_new_daily_users"] = new_daily_users
-                        s[
-                            f"v{i}_end_of_experiment_power"
-                        ] = mid_experiment_power.calculate_power(
-                            scaling_factor, m_prime, v_prime
-                        )
-                        if metric.id == "met_ab8nzwi29lsmce2ph" and i == 2:
-                            # raise ValueError([s["total_users"], new_daily_users, days_remaining, new_users_remaining])
-                            # [70149, 159, 20, 3180]
-                            # firstPeriodSampleSize newDailyUsers daysremaining secondPeriodSampleSize 70149 159 20 2120.1059999999998
-                            pass
-                            # 1.0302241895475153 0.02 0.00006489527261203468 0.0142906409121647
-                            # (1.0453340176203918, 0.02, 6.489527261203468e-05, 0.0160588859549724)
-                            # raise ValueError(
-                            #    scaling_factor, mid_experiment_power.m_prime, mid_experiment_power.v_prime,
-                            #    s[
-                            # f"v{i}_end_of_experiment_power"
-                            # ])
-
-                else:
-                    s[f"v{i}_power_update_message"] = "unsuccessful"
-                    s[
-                        f"v{i}_power_error_message"
-                    ] = "new_daily_users must be greater than 0"
-            ########################################################################################
             s["baseline_cr"] = test.stat_a.unadjusted_mean
             s["baseline_mean"] = test.stat_a.unadjusted_mean
             s["baseline_stddev"] = test.stat_a.stddev
@@ -504,14 +458,10 @@ def format_variation_result(
                 sigmahat2Delta=row[f"{prefix}_sigmahat_2_delta"],
                 sigma2Posterior=row[f"{prefix}_sigma_2_posterior"],
                 deltaPosterior=row[f"{prefix}_delta_posterior"],
-                additionalUsers=row[f"{prefix}_power_additional_users"],
                 scalingFactor=row[f"{prefix}_power_scaling_factor"],
                 powerUpdateMessage=row[f"{prefix}_power_update_message"],
                 powerError=row[f"{prefix}_power_error_message"],
                 upperBoundAchieved=row[f"{prefix}_power_upper_bound_achieved"],
-                endOfExperimentPower=row[f"{prefix}_end_of_experiment_power"],
-                targetPower=row[f"{prefix}_target_power"],
-                newDailyUsers=row[f"{prefix}_new_daily_users"],
             )
         else:
             power_response = None
