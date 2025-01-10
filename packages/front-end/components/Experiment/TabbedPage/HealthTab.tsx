@@ -1,9 +1,6 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Card, Heading, Separator, Table } from "@radix-ui/themes";
-import { MetricPowerResponseFromStatsEngine } from "back-end/types/stats";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import SRMCard from "@/components/HealthTab/SRMCard";
 import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";
 import { useUser } from "@/services/UserContext";
@@ -18,6 +15,7 @@ import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import BanditSRMCard from "@/components/HealthTab/BanditSRMCard";
 import Callout from "@/components/Radix/Callout";
+import { PowerCard } from "@/components/HealthTab/PowerCard";
 import {
   HealthTabConfigParams,
   HealthTabOnboardingModal,
@@ -260,12 +258,14 @@ export default function HealthTab({
   return (
     <div className="mt-4">
       <IssueTags issues={healthIssues} />
-      <PowerCard snapshot={snapshot} />
       <TrafficCard
         traffic={traffic}
         variations={variations}
         isBandit={isBandit}
       />
+      {!isBandit ? (
+        <PowerCard snapshot={snapshot} onNotify={handleHealthNotification} />
+      ) : null}
       <div id="balanceCheck" style={{ scrollMarginTop: "100px" }}>
         {!isBandit ? (
           <SRMCard
@@ -300,67 +300,5 @@ export default function HealthTab({
         </div>
       </div>
     </div>
-  );
-}
-
-function PowerCard({ snapshot }: { snapshot: ExperimentSnapshotInterface }) {
-  const midPowerResults = snapshot.health?.power;
-  if (!midPowerResults) {
-    return null;
-  }
-
-  const metricPowerInfo: Array<{
-    variationName: string;
-    metricName: string;
-    powerResponse?: MetricPowerResponseFromStatsEngine | undefined;
-  }> = [];
-  const relativeAnalysis = snapshot.analyses.find(
-    (a) => a.settings.differenceType === "relative"
-  );
-  const variations = relativeAnalysis?.results[0]?.variations;
-  if (variations) {
-    variations.forEach((v, i) => {
-      const metrics = v.metrics;
-      Object.entries(metrics).forEach(([metricName, metric]) => {
-        metricPowerInfo.push({
-          variationName: snapshot.settings.variations[i].id,
-          metricName,
-          powerResponse: metric.power,
-        });
-      });
-    });
-  }
-
-  return (
-    <Card>
-      <Heading as="h3" size="3">
-        MidExperimentPowerCalculationResult
-      </Heading>
-      <pre>{JSON.stringify(midPowerResults, null, 2)}</pre>
-      <Separator size="4" />
-      <Heading as="h3" size="3">
-        Metric power information (relative analysis only)
-      </Heading>
-      <Table.Root>
-        <Table.Header>
-          <Table.Row>
-            <Table.ColumnHeaderCell>Variation</Table.ColumnHeaderCell>
-            <Table.ColumnHeaderCell>Metric</Table.ColumnHeaderCell>
-            <Table.ColumnHeaderCell>Power Response</Table.ColumnHeaderCell>
-          </Table.Row>
-        </Table.Header>
-        <Table.Body>
-          {metricPowerInfo.map((v) => (
-            <Table.Row key={v.metricName + v.variationName}>
-              <Table.Cell>{v.variationName}</Table.Cell>
-              <Table.Cell>{v.metricName}</Table.Cell>
-              <Table.Cell>
-                <pre>{JSON.stringify(v.powerResponse, null, 2)}</pre>
-              </Table.Cell>
-            </Table.Row>
-          ))}
-        </Table.Body>
-      </Table.Root>
-    </Card>
   );
 }

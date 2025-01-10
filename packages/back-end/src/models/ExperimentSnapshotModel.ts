@@ -128,20 +128,21 @@ const experimentSnapshotSchema = new mongoose.Schema({
     power: {
       _id: false,
       type: { type: String },
-      errorMessage: String,
       power: Number,
       additionalUsers: Number,
       additionalDays: Number,
       lowPowerWarning: Boolean,
-      lowPowerMetrics: [
+      metricVariationPowerResults: [
         {
           _id: false,
           metric: String,
           variation: String,
+          calculationSucceeded: Boolean,
+          errorMessage: String,
           power: Number,
+          lowPowerWarning: Boolean,
           effectSize: Number,
-          newDailyUsers: Number,
-          additionalDaysNeeded: Number,
+          additionalDays: Number,
         },
       ],
     },

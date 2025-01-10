@@ -2733,7 +2733,9 @@ export async function updateExperimentAnalysisSummary({
     if (snapshotHealthPower.type === "error") {
       analysisSummary.health = {
         power: {
-          errorMessage: snapshotHealthPower.description,
+          errorMessage: snapshotHealthPower.metricVariationPowerResults.find(
+            (r) => r.errorMessage !== undefined
+          )?.errorMessage,
         },
       };
     } else {
