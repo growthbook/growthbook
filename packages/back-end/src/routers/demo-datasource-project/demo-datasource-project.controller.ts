@@ -269,6 +269,7 @@ export const postDemoDatasourceProject = async (
       | "description"
       | "datasource"
       | "goalMetrics"
+      | "secondaryMetrics"
       | "project"
       | "hypothesis"
       | "exposureQueryId"
@@ -289,7 +290,9 @@ spacing and headings.`,
       owner: ASSET_OWNER,
       datasource: datasource.id,
       project: project.id,
-      goalMetrics: metrics
+      goalMetrics: metrics.slice(0, 1).map((m) => m.id),
+      secondaryMetrics: metrics
+        .slice(1, undefined)
         .map((m) => m.id)
         .concat(ratioMetric ? ratioMetric?.id : []),
       exposureQueryId: "user_id",
