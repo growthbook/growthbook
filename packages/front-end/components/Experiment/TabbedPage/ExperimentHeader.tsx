@@ -926,9 +926,9 @@ export default function ExperimentHeader({
                           Convert to {isBandit ? "Experiment" : "Bandit"}
                         </DropdownMenuItem>
                       </DropdownMenuGroup>
-                      <DropdownMenuSeparator />
                     </>
                   )}
+                <DropdownMenuSeparator />
                 <DropdownMenuGroup>
                   {duplicate && (
                     <DropdownMenuItem
