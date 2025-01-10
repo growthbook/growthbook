@@ -840,19 +840,15 @@ export function analyzeExperimentPower({
   goalMetrics: string[];
   variations: SnapshotSettingsVariation[];
 }): MidExperimentPowerCalculationResult | undefined {
-  const analysisVariationsWithoutControl = analysis.results[0].variations.slice(
-    1
-  );
-  const variationsPowerResponses = analysisVariationsWithoutControl.map(
-    (variation) => ({
-      metrics: Object.fromEntries(
-        goalMetrics.map((metricId) => [
-          metricId,
-          variation.metrics[metricId].power,
-        ])
-      ),
-    })
-  );
+  const analysisVariations = analysis.results[0].variations;
+  const variationsPowerResponses = analysisVariations.map((variation) => ({
+    metrics: Object.fromEntries(
+      goalMetrics.map((metricId) => [
+        metricId,
+        variation.metrics[metricId]?.power,
+      ])
+    ),
+  }));
 
   const daysToAverageOver = 7;
   const newDailyUsers = getAverageExposureOverLastNDays(
