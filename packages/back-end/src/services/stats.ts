@@ -840,23 +840,18 @@ export function analyzeExperimentPower({
   goalMetrics: string[];
   variations: SnapshotSettingsVariation[];
 }): MidExperimentPowerCalculationResult | undefined {
-  // NB: Order matters here. Ignoring control, for each goal metric
-  // the variations should be in the same order as the settings.variations.
-  const goalMetricsPowerResponses = goalMetrics.flatMap((metricId) => {
-    const variationsWithoutControl = analysis.results[0].variations.slice(1);
-    return variationsWithoutControl.map(
-      (variation) => variation.metrics[metricId].power
-    );
-  });
-
-  // FIXME: If any of the goal metrics are missing, we can't calculate overall experiment power (or can we?)
-  if (goalMetricsPowerResponses.some((it) => it === undefined)) {
-    return undefined;
-  }
-
-  // Make the typechecker happy, but the check above should prevent this situation
-  const filteredGoalMetricsPowerResponses = goalMetricsPowerResponses.filter(
-    (it) => it !== undefined
+  const analysisVariationsWithoutControl = analysis.results[0].variations.slice(
+    1
+  );
+  const variationsPowerResponses = analysisVariationsWithoutControl.map(
+    (variation) => ({
+      metrics: Object.fromEntries(
+        goalMetrics.map((metricId) => [
+          metricId,
+          variation.metrics[metricId].power,
+        ])
+      ),
+    })
   );
 
   const daysToAverageOver = 7;
@@ -870,11 +865,10 @@ export function analyzeExperimentPower({
     0
   );
   return calculateMidExperimentPower({
-    numVariations: variations.length,
     variationWeights: variations.map((it) => it.weight),
 
     numGoalMetrics: goalMetrics.length,
-    response: filteredGoalMetricsPowerResponses,
+    variations: variationsPowerResponses,
 
     firstPeriodSampleSize,
     newDailyUsers,

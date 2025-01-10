@@ -293,11 +293,12 @@ export interface MidExperimentPowerMultipleMetricsParams {
   daysRemaining: number;
   firstPeriodSampleSize: number;
   numGoalMetrics: number;
+  newDailyUsers: number;
   variationWeights: number[];
   variations: MidExperimentSingleVariationParams[];
 }
 
-export interface MidExperimentPowerSingleMetricsParams {
+export interface MidExperimentPowerSingleMetricParams {
   sequential: boolean;
   alpha: number;
   sequentialTuningParameter: number;
@@ -305,6 +306,7 @@ export interface MidExperimentPowerSingleMetricsParams {
   firstPeriodSampleSize: number;
   numGoalMetrics: number;
   variationWeights: number[];
+  newDailyUsers: number;
   numVariations: number;
   variation: MidExperimentSingleVariationParams;
 }
@@ -312,7 +314,7 @@ export interface MidExperimentPowerSingleMetricsParams {
 export interface MidExperimentSingleVariationParams {
   // For a single variation, we need to know the power for each metric.
   metrics: {
-    [metricId: string]: MetricPowerResponseFromStatsEngine;
+    [metricId: string]: MetricPowerResponseFromStatsEngine | undefined;
   };
 }
 
@@ -1225,7 +1227,7 @@ function calculateMidExperimentPowerSingle(
 }
 
 export function calculateMidExperimentPower(
-  powerSettings: MidExperimentPowerParams
+  powerSettings: MidExperimentPowerMultipleMetricsParams
 ): MidExperimentPowerCalculationResult {
   const newDailyUsers = powerSettings.newDailyUsers;
   const numGoalMetrics = powerSettings.numGoalMetrics;
