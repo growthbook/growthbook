@@ -374,6 +374,18 @@ export default function ExperimentHeader({
       </Button>
     );
 
+  const showConvertButton =
+    canRunExperiment &&
+    growthbook.isOn("bandits") &&
+    experiment.status === "draft";
+
+  const showShareableReportButton =
+    permissionsUtil.canCreateReport(experiment) && snapshot;
+
+  const showShareButton = canEditExperiment;
+
+  const showSaveAsTemplateButton = canCreateTemplate && !isBandit;
+
   return (
     <>
       <div className={clsx("experiment-header", "px-3", "pt-3")}>
@@ -867,8 +879,14 @@ export default function ExperimentHeader({
                     </Flex>
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                {canCreateTemplate && !isBandit && (
+                {/* Only show the separator if one of the following cases is true to avoid double separators */}
+                {showConvertButton ||
+                showShareableReportButton ||
+                showShareButton ||
+                showSaveAsTemplateButton ? (
+                  <DropdownMenuSeparator />
+                ) : null}
+                {showSaveAsTemplateButton && (
                   <DropdownMenuItem
                     onClick={() => {
                       setShowTemplateForm(true);
@@ -878,7 +896,7 @@ export default function ExperimentHeader({
                     Save as template...
                   </DropdownMenuItem>
                 )}
-                {canEditExperiment && (
+                {showShareButton && (
                   <DropdownMenuItem
                     onClick={() => {
                       setShareModalOpen(true);
@@ -888,7 +906,7 @@ export default function ExperimentHeader({
                     Share {isBandit ? "Bandit" : "Experiment"}
                   </DropdownMenuItem>
                 )}
-                {permissionsUtil.canCreateReport(experiment) && snapshot ? (
+                {showShareableReportButton ? (
                   <DropdownMenuItem
                     onClick={async () => {
                       const res = await apiCall<{ report: ReportInterface }>(
@@ -912,23 +930,27 @@ export default function ExperimentHeader({
                     Create shareable report
                   </DropdownMenuItem>
                 ) : null}
-                {canRunExperiment &&
-                  growthbook.isOn("bandits") &&
-                  experiment.status === "draft" && (
-                    <>
-                      <DropdownMenuGroup>
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setShowBanditModal(true);
-                            setDropdownOpen(false);
-                          }}
-                        >
-                          Convert to {isBandit ? "Experiment" : "Bandit"}
-                        </DropdownMenuItem>
-                      </DropdownMenuGroup>
-                    </>
-                  )}
-                <DropdownMenuSeparator />
+                {showConvertButton && (
+                  <>
+                    <DropdownMenuGroup>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setShowBanditModal(true);
+                          setDropdownOpen(false);
+                        }}
+                      >
+                        Convert to {isBandit ? "Experiment" : "Bandit"}
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
+                  </>
+                )}
+                {/* Only show the separator if one of the following cases is true to avoid double separators */}
+                {duplicate ||
+                canRunExperiment ||
+                canDeleteExperiment ||
+                (hasUpdatePermissions && experiment.archived) ? (
+                  <DropdownMenuSeparator />
+                ) : null}
                 <DropdownMenuGroup>
                   {duplicate && (
                     <DropdownMenuItem
