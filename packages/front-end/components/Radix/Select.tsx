@@ -1,6 +1,6 @@
 import { Select as RadixSelect, Text, Flex } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/cjs/props";
-import { ReactNode } from "react";
+import { forwardRef, ReactNode } from "react";
 import HelperText from "./HelperText";
 
 type SelectProps = {
@@ -14,19 +14,22 @@ type SelectProps = {
   children: React.ReactNode;
 } & MarginProps;
 
-export function Select({
-  label,
-  defaultValue,
-  disabled = false,
-  error,
-  errorLevel = "error",
-  children,
-  value,
-  setValue,
-  ...containerProps
-}: SelectProps) {
+export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
+  {
+    label,
+    defaultValue,
+    disabled = false,
+    error,
+    errorLevel = "error",
+    children,
+    value,
+    setValue,
+    ...containerProps
+  }: SelectProps,
+  ref
+) {
   return (
-    <Flex direction="column" {...containerProps}>
+    <Flex direction="column" {...containerProps} ref={ref}>
       <Text as="label" size="3" weight="medium">
         {label}
       </Text>
@@ -53,24 +56,25 @@ export function Select({
       )}
     </Flex>
   );
-}
+});
 
-export function SelectItem({
-  value,
-  children,
-  disabled = false,
-}: {
-  value: string;
-  children: string | string[] | ReactNode;
-  disabled?: boolean;
-}) {
+export const SelectItem = forwardRef<
+  HTMLDivElement,
+  {
+    value: string;
+    children: string | string[] | ReactNode;
+    disabled?: boolean;
+  }
+>(function SelectItem({ value, children, disabled = false, ...props }, ref) {
   return (
-    <RadixSelect.Item value={value} disabled={disabled}>
+    <RadixSelect.Item value={value} disabled={disabled} {...props} ref={ref}>
       {children}
     </RadixSelect.Item>
   );
-}
+});
 
-export function SelectSeparator() {
-  return <RadixSelect.Separator />;
-}
+export const SelectSeparator = forwardRef<HTMLDivElement>(
+  function SelectSeparator(props, ref) {
+    return <RadixSelect.Separator {...props} ref={ref} />;
+  }
+);

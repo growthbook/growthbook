@@ -17,11 +17,7 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiCheck, PiEye, PiLink } from "react-icons/pi";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import {
-  ExperimentSnapshotReportArgs,
-  ExperimentSnapshotReportInterface,
-  ReportInterface,
-} from "back-end/types/report";
+import { ExperimentSnapshotReportInterface } from "back-end/types/report";
 import { useAuth } from "@/services/auth";
 import { Tabs, TabsList, TabsTrigger } from "@/components/Radix/Tabs";
 import Avatar from "@/components/Radix/Avatar";
@@ -179,16 +175,6 @@ export default function ExperimentHeader({
     : `${HOST}/${
         experiment?.type === "multi-armed-bandit" ? "bandit" : "experiment"
       }/${experiment.id}`;
-  const datasourceSettings = experiment.datasource
-    ? getDatasourceById(experiment.datasource)?.settings
-    : undefined;
-  const userIdType = datasourceSettings?.queries?.exposure?.find(
-    (e) => e.id === experiment.exposureQueryId
-  )?.userIdType;
-
-  const reportArgs: ExperimentSnapshotReportArgs = {
-    userIdType: userIdType as "user" | "anonymous" | undefined,
-  };
 
   const tabsRef = useRef<HTMLDivElement>(null);
   const [headerPinned, setHeaderPinned] = useState(false);
@@ -363,6 +349,18 @@ export default function ExperimentHeader({
       </Button>
     );
 
+  const showConvertButton =
+    canRunExperiment &&
+    growthbook.isOn("bandits") &&
+    experiment.status === "draft";
+
+  const showShareableReportButton =
+    permissionsUtil.canCreateReport(experiment) && snapshot;
+
+  const showShareButton = canEditExperiment;
+
+  const showSaveAsTemplateButton = canCreateTemplate && !isBandit;
+
   return (
     <>
       <div className={clsx("experiment-header", "px-3", "pt-3")}>
@@ -486,6 +484,7 @@ export default function ExperimentHeader({
             trackingEventModalSource="experiment-more-menu"
             open={true}
             close={() => setShowDeleteModal(false)}
+            cta="Delete"
             submit={async () => {
               try {
                 await apiCall<{ status: number; message?: string }>(
@@ -651,7 +650,6 @@ export default function ExperimentHeader({
             source="experiment"
           />
         )}
-
         {shareModalOpen && (
           <Modal
             open={true}
@@ -722,7 +720,6 @@ export default function ExperimentHeader({
           </div>
 
           <div className="ml-auto flex-1"></div>
-
           {canRunExperiment ? (
             <div className="ml-2 flex-shrink-0">
               {experiment.status === "running" ? (
@@ -858,13 +855,24 @@ export default function ExperimentHeader({
                   </Flex>
                 </DropdownMenuItem>
               </DropdownMenuGroup>
-              <DropdownMenuSeparator />
-              {canCreateTemplate && !isBandit && (
-                <DropdownMenuItem onClick={() => setShowTemplateForm(true)}>
+              {/* Only show the separator if one of the following cases is true to avoid double separators */}
+              {showConvertButton ||
+              showShareableReportButton ||
+              showShareButton ||
+              showSaveAsTemplateButton ? (
+                <DropdownMenuSeparator />
+              ) : null}
+              {showSaveAsTemplateButton && (
+                <DropdownMenuItem
+                  onClick={() => {
+                    setShowTemplateForm(true);
+                    setDropdownOpen(false);
+                  }}
+                >
                   Save as template...
                 </DropdownMenuItem>
               )}
-              {canEditExperiment && (
+              {showShareButton && (
                 <DropdownMenuItem
                   onClick={() => {
                     setShareModalOpen(true);
@@ -874,47 +882,36 @@ export default function ExperimentHeader({
                   Share {isBandit ? "Bandit" : "Experiment"}
                 </DropdownMenuItem>
               )}
-              {permissionsUtil.canCreateReport(experiment) && snapshot ? (
+              {showShareableReportButton ? (
                 <DropdownMenuItem
                   onClick={async () => {
-                    const res = await apiCall<{ report: ReportInterface }>(
-                      `/experiments/report/${snapshot.id}`,
-                      {
-                        method: "POST",
-                        body: reportArgs
-                          ? JSON.stringify(reportArgs)
-                          : undefined,
-                      }
-                    );
-                    if (!res.report) {
-                      throw new Error("Failed to create report");
-                    }
-                    track("Experiment Report: Create", {
-                      source: "experiment more menu",
-                    });
-                    await router.push(`/report/${res.report.id}`);
+                    await handleWatchUpdates(!isWatching);
                   }}
                 >
                   Create shareable report
                 </DropdownMenuItem>
               ) : null}
-              {canRunExperiment &&
-                growthbook.isOn("bandits") &&
-                experiment.status === "draft" && (
-                  <>
-                    <DropdownMenuGroup>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setShowBanditModal(true);
-                          setDropdownOpen(false);
-                        }}
-                      >
-                        Convert to {isBandit ? "Experiment" : "Bandit"}
-                      </DropdownMenuItem>
-                    </DropdownMenuGroup>
-                    <DropdownMenuSeparator />
-                  </>
-                )}
+              {showConvertButton && (
+                <>
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setShowBanditModal(true);
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      Convert to {isBandit ? "Experiment" : "Bandit"}
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </>
+              )}
+              {/* Only show the separator if one of the following cases is true to avoid double separators */}
+              {duplicate ||
+              canRunExperiment ||
+              canDeleteExperiment ||
+              (hasUpdatePermissions && experiment.archived) ? (
+                <DropdownMenuSeparator />
+              ) : null}
               <DropdownMenuGroup>
                 {duplicate && (
                   <DropdownMenuItem
@@ -961,13 +958,14 @@ export default function ExperimentHeader({
             </DropdownMenu>
           </div>
         </div>
-        <ProjectTagBar
-          experiment={experiment}
-          setShowEditInfoModal={setShowEditInfoModal}
-          editProject={!viewingOldPhase ? editProject : undefined}
-          editTags={!viewingOldPhase ? editTags : undefined}
-        />
       </div>
+      <ProjectTagBar
+        experiment={experiment}
+        setShowEditInfoModal={setShowEditInfoModal}
+        editProject={!viewingOldPhase ? editProject : undefined}
+        editTags={!viewingOldPhase ? editTags : undefined}
+      />
+      {/* </div> */}
       {shouldHideTabs ? null : (
         <div
           className={clsx("experiment-tabs px-3 d-print-none", {
