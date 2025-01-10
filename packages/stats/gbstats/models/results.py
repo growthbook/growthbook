@@ -56,10 +56,6 @@ class PowerResponse:
     powerError: Optional[str]
     upperBoundAchieved: bool
     scalingFactor: float
-    endOfExperimentPower: Optional[float]  # delete later, used for testing only
-    newDailyUsers: Optional[float]  # delete later, used for testing only
-    additionalUsers: Optional[float]  # delete later, used for testing only
-    targetPower: float  # delete later, used for testing only
 
 
 @dataclass

@@ -19,10 +19,6 @@ export interface MetricPowerResponseFromStatsEngine {
   deltaPosterior: number;
   upperBoundAchieved: boolean;
   scalingFactor: number;
-  endOfExperimentPower?: number; // delete later, used for testing only
-  newDailyUsers?: number; // delete later, used for testing only
-  additionalUsers?: number; // delete later, used for testing only
-  targetPower: number; // delete later, used for testing only
 }
 
 interface BaseVariationResponse {
