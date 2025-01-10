@@ -294,7 +294,6 @@ export interface MidExperimentPowerMultipleMetricsParams {
   firstPeriodSampleSize: number;
   numGoalMetrics: number;
   variationWeights: number[];
-  numVariations: number;
   variations: MidExperimentSingleVariationParams[];
 }
 
