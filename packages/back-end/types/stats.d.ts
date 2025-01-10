@@ -8,6 +8,23 @@ export type DifferenceType = "relative" | "absolute" | "scaled";
 
 export type RiskType = "relative" | "absolute";
 
+// Keep in sync with gbstats PowerResponse
+export interface MetricPowerResponseFromStatsEngine {
+  powerError: string;
+  powerUpdateMessage: string;
+  minPercentChange: number;
+  firstPeriodPairwiseSampleSize: number;
+  sigmahat2Delta: number;
+  sigma2Posterior: number;
+  deltaPosterior: number;
+  upperBoundAchieved: boolean;
+  scalingFactor: number;
+  endOfExperimentPower?: number; // delete later, used for testing only
+  newDailyUsers?: number; // delete later, used for testing only
+  additionalUsers?: number; // delete later, used for testing only
+  targetPower: number; // delete later, used for testing only
+}
+
 interface BaseVariationResponse {
   cr: number;
   value: number;
@@ -22,6 +39,7 @@ interface BaseVariationResponse {
   };
   ci?: [number, number];
   errorMessage?: string;
+  power?: MetricPowerResponseFromStatsEngine;
 }
 
 interface BayesianVariationResponse extends BaseVariationResponse {

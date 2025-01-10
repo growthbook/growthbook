@@ -16,6 +16,11 @@ import {
   isRegressionAdjusted,
   quantileMetricType,
 } from "shared/experiments";
+import {
+  getAverageExposureOverLastNDays,
+  calculateMidExperimentPower,
+  MidExperimentPowerCalculationResult,
+} from "shared/power";
 import { hoursBetween } from "shared/dates";
 import chunk from "lodash/chunk";
 import {
@@ -40,6 +45,7 @@ import { logger } from "back-end/src/util/logger";
 import {
   ExperimentAnalysisParamsContextData,
   ExperimentMetricAnalysisParams,
+  ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,
   ExperimentSnapshotTraffic,
@@ -67,6 +73,7 @@ export interface AnalysisSettingsForStatsEngine {
   alpha: number;
   max_dimensions: number;
   traffic_percentage: number;
+  num_goal_metrics: number;
 }
 
 export interface BanditSettingsForStatsEngine {
@@ -82,6 +89,11 @@ export interface BanditSettingsForStatsEngine {
   decision_metric: string;
   bandit_weights_seed: number;
 }
+
+export type BusinessMetricTypeForStatsEngine =
+  | "goal"
+  | "secondary"
+  | "guardrail";
 
 export interface MetricSettingsForStatsEngine {
   id: string;
@@ -101,6 +113,8 @@ export interface MetricSettingsForStatsEngine {
   prior_proper?: boolean;
   prior_mean?: number;
   prior_stddev?: number;
+  business_metric_type?: BusinessMetricTypeForStatsEngine[];
+  min_percent_change: number;
 }
 
 export interface QueryResultsForStatsEngine {
@@ -149,7 +163,7 @@ export function getAnalysisSettingsForStatsEngine(
   variations: ExperimentReportVariation[],
   coverage: number,
   phaseLengthDays: number
-) {
+): AnalysisSettingsForStatsEngine {
   const sortedVariations = putBaselineVariationFirst(
     variations,
     settings.baselineVariationIndex ?? 0
@@ -161,7 +175,7 @@ export function getAnalysisSettingsForStatsEngine(
   const pValueThresholdNumber =
     Number(settings.pValueThreshold) || DEFAULT_P_VALUE_THRESHOLD;
 
-  const analysisData: AnalysisSettingsForStatsEngine = {
+  const analysisData = {
     var_names: sortedVariations.map((v) => v.name),
     var_ids: sortedVariations.map((v) => v.id),
     weights: sortedVariations.map((v) => v.weight * coverage),
@@ -178,7 +192,9 @@ export function getAnalysisSettingsForStatsEngine(
         ? 9999
         : MAX_DIMENSIONS,
     traffic_percentage: coverage,
+    num_goal_metrics: settings.numGoalMetrics,
   };
+
   return analysisData;
 }
 
@@ -330,6 +346,21 @@ export async function runSnapshotAnalyses(
   return results.flat();
 }
 
+function getBusinessMetricTypeForStatsEngine(
+  metricId: string,
+  settings: ExperimentSnapshotSettings
+): BusinessMetricTypeForStatsEngine[] {
+  return [
+    settings.goalMetrics.includes(metricId) ? ("goal" as const) : null,
+    settings.secondaryMetrics.includes(metricId)
+      ? ("secondary" as const)
+      : null,
+    settings.guardrailMetrics.includes(metricId)
+      ? ("guardrail" as const)
+      : null,
+  ].filter((m) => m !== null);
+}
+
 export function getMetricSettingsForStatsEngine(
   metricDoc: ExperimentMetricInterface,
   metricMap: Map<string, ExperimentMetricInterface>,
@@ -393,6 +424,11 @@ export function getMetricSettingsForStatsEngine(
     prior_proper: metric.priorSettings.proper,
     prior_mean: metric.priorSettings.mean,
     prior_stddev: metric.priorSettings.stddev,
+    min_percent_change: metric.minPercentChange || 0.01,
+    business_metric_type: getBusinessMetricTypeForStatsEngine(
+      metric.id,
+      settings
+    ),
   };
 }
 
@@ -788,4 +824,68 @@ export function analyzeExperimentTraffic({
     }
   }
   return trafficResults;
+}
+
+// NB: Should only be called if the experiment has been running for > minExperimentLenghtInDays
+export function analyzeExperimentPower({
+  trafficHealth,
+  targetDaysRemaining,
+  analysis,
+  goalMetrics,
+  variations,
+}: {
+  trafficHealth: ExperimentSnapshotTraffic;
+  targetDaysRemaining: number;
+  analysis: ExperimentSnapshotAnalysis;
+  goalMetrics: string[];
+  variations: SnapshotSettingsVariation[];
+}): MidExperimentPowerCalculationResult | undefined {
+  // NB: Order matters here. Ignoring control, for each goal metric
+  // the variations should be in the same order as the settings.variations.
+  const goalMetricsPowerResponses = goalMetrics.flatMap((metricId) => {
+    const variationsWithoutControl = analysis.results[0].variations.slice(1);
+    return variationsWithoutControl.map(
+      (variation) => variation.metrics[metricId].power
+    );
+  });
+
+  // FIXME: If any of the goal metrics are missing, we can't calculate overall experiment power (or can we?)
+  if (goalMetricsPowerResponses.some((it) => it === undefined)) {
+    return undefined;
+  }
+
+  // Make the typechecker happy, but the check above should prevent this situation
+  const filteredGoalMetricsPowerResponses = goalMetricsPowerResponses.filter(
+    (it) => it !== undefined
+  );
+
+  const daysToAverageOver = 7;
+  const newDailyUsers = getAverageExposureOverLastNDays(
+    trafficHealth,
+    daysToAverageOver
+  );
+
+  const firstPeriodSampleSize = trafficHealth.overall.variationUnits.reduce(
+    (acc, it) => acc + it,
+    0
+  );
+  return calculateMidExperimentPower({
+    numVariations: variations.length,
+    variationWeights: variations.map((it) => it.weight),
+
+    numGoalMetrics: goalMetrics.length,
+    response: filteredGoalMetricsPowerResponses,
+
+    firstPeriodSampleSize,
+    newDailyUsers,
+    daysRemaining: Math.max(targetDaysRemaining, 0),
+
+    // FIXME: This should be materialized for all analysis, so we should not need to fallback to a default value
+    // Maybe just a typing update?
+    sequential: analysis.settings.sequentialTesting ?? false,
+    alpha: analysis.settings.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
+    sequentialTuningParameter:
+      analysis.settings.sequentialTestingTuningParameter ??
+      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  });
 }

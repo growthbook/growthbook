@@ -251,6 +251,20 @@ const experimentSchema = new mongoose.Schema({
   customFields: {},
   templateId: String,
   shareLevel: String,
+  analysisSummary: {
+    _id: false,
+    snapshotId: String,
+    health: {
+      _id: false,
+      power: {
+        _id: false,
+        errorMessage: String,
+        additionalUsersNeeded: Number,
+        additionalDaysNeeded: Number,
+        lowPowerWarning: Boolean,
+      },
+    },
+  },
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;

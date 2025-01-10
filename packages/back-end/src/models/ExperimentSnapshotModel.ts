@@ -7,9 +7,11 @@ import {
   LegacyExperimentSnapshotInterface,
 } from "back-end/types/experiment-snapshot";
 import { migrateSnapshot } from "back-end/src/util/migrations";
+import { updateExperimentAnalysisSummary } from "back-end/src/services/experiments";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
 import { queriesSchema } from "./QueryModel";
 import { Context } from "./BaseModel";
+import { getExperimentById } from "./ExperimentModel";
 
 const experimentSnapshotTrafficObject = {
   _id: false,
@@ -123,6 +125,27 @@ const experimentSnapshotSchema = new mongoose.Schema({
       },
       error: String,
     },
+    power: {
+      _id: false,
+      type: { type: String },
+      power: Number,
+      additionalUsers: Number,
+      additionalDays: Number,
+      lowPowerWarning: Boolean,
+      metricVariationPowerResults: [
+        {
+          _id: false,
+          metric: String,
+          variation: String,
+          calculationSucceeded: Boolean,
+          errorMessage: String,
+          power: Number,
+          lowPowerWarning: Boolean,
+          effectSize: Number,
+          additionalDays: Number,
+        },
+      ],
+    },
   },
   hasRawQueries: Boolean,
   queryFilter: String,
@@ -218,6 +241,24 @@ export async function updateSnapshot({
     organization,
   });
   if (!experimentSnapshotModel) throw "Internal error";
+
+  if (
+    experimentSnapshotModel.type === "standard" &&
+    experimentSnapshotModel.status !== "running"
+  ) {
+    const experimentModel = await getExperimentById(
+      context,
+      experimentSnapshotModel.experiment
+    );
+
+    if (experimentModel) {
+      await updateExperimentAnalysisSummary({
+        context,
+        experiment: experimentModel,
+        experimentSnapshot: experimentSnapshotModel,
+      });
+    }
+  }
 
   await notifyExperimentChange({
     context,

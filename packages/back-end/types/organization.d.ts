@@ -216,6 +216,8 @@ export interface OrganizationSettings {
   banditBurnInValue?: number;
   banditBurnInUnit?: "hours" | "days";
   requireExperimentTemplates?: boolean;
+  experimentMinLengthDays?: number;
+  experimentMaxLengthDays?: number;
 }
 
 export interface SubscriptionQuote {

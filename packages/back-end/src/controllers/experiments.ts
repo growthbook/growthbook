@@ -1038,6 +1038,7 @@ export async function postExperiment(
     "customFields",
     "shareLevel",
     "uid",
+    "analysisSummary",
   ];
   let changes: Changeset = {};
 

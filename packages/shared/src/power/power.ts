@@ -1,7 +1,10 @@
+import { ExperimentSnapshotTraffic } from "back-end/types/experiment-snapshot";
+import { eachDayOfInterval, formatISO, subDays } from "date-fns";
 import normal from "@stdlib/stats/base/dists/normal";
 import { OrganizationSettings } from "back-end/types/organization";
 import { MetricPriorSettings } from "back-end/types/fact-table";
-import { DEFAULT_PROPER_PRIOR_STDDEV } from "../constants";
+import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
+import { MetricPowerResponseFromStatsEngine } from "back-end/types/stats";
 
 export interface MetricParamsBase {
   name: string;
@@ -299,6 +302,70 @@ export type PowerCalculationResults =
       description: string;
     };
 
+export interface MidExperimentPowerSingleMetricParams {
+  /**
+   * @param newDailyUsers: The number of new daily users.
+   * @param firstPeriodSampleSize The total sample size across all variations in the first period.
+   * @param daysRemaining: The days remaining in the experiment.
+   * @param sequential Whether the test is sequential.
+   * @param alpha The significance level.
+   * @param sequentialTuningParameter The tuning parameter for the sequential test.
+   * @param numVariations The number of variations.
+   * @param numGoalMetrics The number of goal metrics.
+   * @param response: Array of PowerResponses, not necessarily of length one. In practice, for MidExperimentPowerSingleMetricParams, the length of response is always one.
+   */
+  firstPeriodSampleSize: number;
+  newDailyUsers: number /*can be removed later, if we want to instead return additional days needed from gbstats*/;
+  daysRemaining: number;
+  sequential: boolean;
+  alpha: number;
+  sequentialTuningParameter: number;
+  numVariations: number;
+  numGoalMetrics: number;
+  // FIXME: The stats engine expects some fields to be defined, but they are optional from gbstats.
+  // Should we have an intermediate type or update this file to handle undefined?
+  response: MetricPowerResponseFromStatsEngine[];
+}
+
+export interface MidExperimentParams
+  extends MidExperimentPowerSingleMetricParams {
+  /**
+   * @param variationWeights: The weights of the variations.
+   */
+  variationWeights: number[];
+}
+
+export type MetricVariationPowerResult = {
+  newDailyUsers?: number;
+  metric: number;
+  variation: number;
+  effectSize?: number;
+  power?: number;
+  lowPowerWarning?: boolean;
+  additionalDays?: number;
+  calculationSucceeded: boolean;
+  errorMessage?: string;
+};
+
+export type MidExperimentPowerCalculationFailureResult = {
+  type: "error";
+  lowPowerWarning: boolean;
+  metricVariationPowerResults: MetricVariationPowerResult[];
+};
+
+export type MidExperimentPowerCalculationSuccessResult = {
+  type: "success";
+  power: number;
+  additionalUsers: number;
+  additionalDays: number;
+  lowPowerWarning: boolean;
+  metricVariationPowerResults: MetricVariationPowerResult[];
+};
+
+export type MidExperimentPowerCalculationResult =
+  | MidExperimentPowerCalculationSuccessResult
+  | MidExperimentPowerCalculationFailureResult;
+
 /**
  * delta method for relative difference
  *
@@ -381,13 +448,26 @@ export function powerStandardError(
   );
 }
 
-export function calculateRho(
+export function sequentialRho(
   alpha: number,
   sequentialTuningParameter: number
 ): number {
   return Math.sqrt(
     (-2 * Math.log(alpha) + Math.log(-2 * Math.log(alpha) + 1)) /
       sequentialTuningParameter
+  );
+}
+
+export function sequentialDiscriminant(
+  n: number,
+  rho: number,
+  alpha: number
+): number {
+  return (
+    (2 *
+      (n * Math.pow(rho, 2) + 1) *
+      Math.log(Math.sqrt(n * Math.pow(rho, 2) + 1) / alpha)) /
+    Math.pow(n * rho, 2)
   );
 }
 
@@ -398,12 +478,8 @@ export function sequentialPowerSequentialVariance(
   sequentialTuningParameter: number
 ): number {
   const standardErrorSampleMean = Math.sqrt(variance / n);
-  const rho = calculateRho(alpha, sequentialTuningParameter);
-  const partUnderRadical =
-    (2 *
-      (n * Math.pow(rho, 2) + 1) *
-      Math.log(Math.sqrt(n * Math.pow(rho, 2) + 1) / alpha)) /
-    Math.pow(n * rho, 2);
+  const rho = sequentialRho(alpha, sequentialTuningParameter);
+  const partUnderRadical = sequentialDiscriminant(n, rho, alpha);
   const zSequential = Math.sqrt(n) * Math.sqrt(partUnderRadical);
   const zStar = normal.quantile(1.0 - 0.5 * alpha, 0, 1);
   const standardErrorSequential =
@@ -959,4 +1035,312 @@ export function findMdeBayesian(
     description: "MDE achieving power = 0.8 does not exist. ",
   };
   return mdeResults;
+}
+
+/*******************************************
+MidExperimentPower calculations below here
+********************************************/
+/*used for calculating power at the end of the experiment*/
+function finalPosteriorVariance(
+  sigma2Posterior: number,
+  sigmahat2Delta: number,
+  scalingFactor: number
+): number {
+  const precPrior = 1 / sigma2Posterior;
+  const precData = 1 / (sigmahat2Delta / scalingFactor);
+  const prec = precPrior + precData;
+  return 1 / prec;
+}
+
+function sequentialIntervalHalfwidth(
+  s2: number,
+  n: number,
+  sequentialTuningParameter: number,
+  alpha: number
+): number {
+  /**
+   * Calculates the halfwidth of a sequential confidence interval.
+   *
+   * @param s2 The "variance" of the data.  Not really the variance, as it is the sample size times the variance of the effect estimate.
+   * @param n The total sample size.
+   * @param sequentialTuningParameter The tuning parameter for the sequential test.
+   * @param alpha The significance level.
+   * @returns The halfwidth of the sequential interval.
+   */
+  const rho = sequentialRho(alpha, sequentialTuningParameter);
+  const disc = sequentialDiscriminant(n, rho, alpha);
+  return Math.sqrt(s2) * Math.sqrt(disc);
+}
+
+/*calculate mid-experiment power for a single (metric, variation)*/
+function calculateMidExperimentPowerSingle(
+  params: MidExperimentPowerSingleMetricParams,
+  metric: number,
+  variation: number
+): MetricVariationPowerResult {
+  if (params.response == undefined) {
+    return {
+      metric: metric,
+      variation: variation,
+      calculationSucceeded: false,
+      errorMessage: "Missing (metric, variation) power response from gbstats.",
+    };
+  }
+  const response = params.response[0];
+  if (response?.powerError) {
+    return {
+      metric: metric,
+      variation: variation,
+      calculationSucceeded: false,
+      errorMessage: response.powerError,
+    };
+  }
+  if (params.newDailyUsers == 0) {
+    return {
+      metric: metric,
+      variation: variation,
+      calculationSucceeded: false,
+      errorMessage: "newDailyUsers is 0.",
+    };
+  }
+  if (params.firstPeriodSampleSize == 0) {
+    return {
+      metric: metric,
+      variation: variation,
+      calculationSucceeded: false,
+      errorMessage: "number of users currently in experiment is 0.",
+    };
+  }
+  const lowPowerThreshold = 0.1;
+  const numTests = (params.numVariations - 1) * params.numGoalMetrics;
+  const firstPeriodPairwiseSampleSize = response.firstPeriodPairwiseSampleSize;
+  const secondPeriodSampleSize = params.daysRemaining * params.newDailyUsers;
+  const scalingFactor =
+    (secondPeriodSampleSize + params.firstPeriodSampleSize) /
+    params.firstPeriodSampleSize;
+  let halfwidth: number;
+  if (response.sigmahat2Delta == undefined) {
+    return {
+      metric: metric,
+      variation: variation,
+      calculationSucceeded: false,
+      errorMessage: "Missing sigmahat2Delta.",
+    };
+  } else if (response.sigma2Posterior == undefined) {
+    return {
+      metric: metric,
+      variation: variation,
+      calculationSucceeded: false,
+      errorMessage: "Missing sigma2Posterior.",
+    };
+  } else if (response.deltaPosterior == undefined) {
+    return {
+      metric: metric,
+      variation: variation,
+      calculationSucceeded: false,
+      errorMessage: "Missing deltaPosterior.",
+    };
+  } else if (response.newDailyUsers == undefined) {
+    return {
+      metric: metric,
+      variation: variation,
+      calculationSucceeded: false,
+      errorMessage: "Missing newDailyUsers.",
+    };
+  } else if (response.newDailyUsers == 0) {
+    return {
+      metric: metric,
+      variation: variation,
+      calculationSucceeded: false,
+      errorMessage: "newDailyUsers is 0.",
+    };
+  } else if (response.additionalUsers == undefined) {
+    return {
+      metric: metric,
+      variation: variation,
+      calculationSucceeded: false,
+      errorMessage:
+        "Missing powerAdditionalUsers (currently used only for testing).",
+    };
+  } else if (response.minPercentChange == undefined) {
+    return {
+      metric: metric,
+      variation: variation,
+      calculationSucceeded: false,
+      errorMessage: "Missing minPercentChange.",
+    };
+  } else {
+    const sigmahat2Delta = response.sigmahat2Delta;
+    const sigma2Posterior = response.sigma2Posterior;
+    const deltaPosterior = response.deltaPosterior;
+    const mPrime = 2 * response.minPercentChange;
+    const vPrime = sigmahat2Delta;
+    if (params.sequential) {
+      const s2 = sigmahat2Delta * firstPeriodPairwiseSampleSize;
+      const nTotal = firstPeriodPairwiseSampleSize * (1 + scalingFactor);
+      halfwidth = sequentialIntervalHalfwidth(
+        s2,
+        nTotal,
+        params.sequentialTuningParameter,
+        params.alpha / numTests
+      );
+    } else {
+      const zStar = normal.quantile(
+        1.0 - (0.5 * params.alpha) / numTests,
+        0,
+        1
+      );
+      const v = finalPosteriorVariance(
+        sigma2Posterior,
+        sigmahat2Delta,
+        scalingFactor
+      );
+      const s = Math.sqrt(v);
+      halfwidth = zStar * s;
+    }
+    const marginalVar = sigma2Posterior + sigmahat2Delta / scalingFactor;
+    const num1 = (halfwidth * marginalVar) / sigma2Posterior;
+    const num2 =
+      ((sigmahat2Delta / scalingFactor) * deltaPosterior) / sigma2Posterior;
+    const num3 = mPrime;
+    const den = Math.sqrt(vPrime);
+    const numPos = num1 - num2 - num3;
+    const numNeg = -num1 - num2 - num3;
+    const powerPos = 1 - normal.cdf(numPos / den, 0, 1);
+    const powerNeg = normal.cdf(numNeg / den, 0, 1);
+    const totalPower = powerPos + powerNeg;
+    const additionalUsers = Math.ceil(
+      (response.scalingFactor - 1) * params.firstPeriodSampleSize
+    );
+    const powerResults: MetricVariationPowerResult = {
+      newDailyUsers: response.newDailyUsers,
+      metric: metric,
+      variation: variation,
+      effectSize: mPrime,
+      power: totalPower,
+      additionalDays: Math.ceil(additionalUsers / response.newDailyUsers),
+      calculationSucceeded: true,
+      lowPowerWarning: totalPower < lowPowerThreshold,
+      errorMessage: "",
+    };
+    return powerResults;
+  }
+}
+
+export function calculateMidExperimentPower(
+  powerSettings: MidExperimentParams
+): MidExperimentPowerCalculationResult {
+  const newDailyUsers = powerSettings.newDailyUsers;
+  const numGoalMetrics = powerSettings.numGoalMetrics;
+  const numVariations = powerSettings.numVariations;
+  const daysRemaining = powerSettings.daysRemaining;
+  const sequential = powerSettings.sequential;
+  const alpha = powerSettings.alpha;
+  const sequentialTuningParameter = powerSettings.sequentialTuningParameter;
+  const powerResponses = powerSettings.response;
+  const numTests = (numVariations - 1) * numGoalMetrics;
+  const variationWeights = powerSettings.variationWeights;
+  const power = new Array(numTests).fill(0);
+  const additionalDays = new Array(numTests).fill(0);
+  const maxPowerByMetric = new Array(numGoalMetrics).fill(0);
+  const minDaysByMetric = new Array(numGoalMetrics).fill(0);
+  const minUsersByMetric = new Array(numGoalMetrics).fill(0);
+  const lowPowerThreshold = 0.1;
+  const metricVariationPowerArray: MetricVariationPowerResult[] = [];
+  let calculateAdditionalUsers = true;
+  for (let metric = 0; metric < numGoalMetrics; metric++) {
+    let thisMaxPower = 0.0;
+    let thisMinDays = 0;
+    const thisMinUsers = 0;
+    for (let variation = 0; variation < numVariations - 1; variation++) {
+      const powerIndex = metric * (numVariations - 1) + variation;
+      const thisProportionOfUsers =
+        variationWeights[0] + variationWeights[variation + 1];
+      const thisNewDailyUsers = newDailyUsers * thisProportionOfUsers;
+      const thisResponse = powerResponses[powerIndex];
+      if (thisResponse.powerError) {
+        calculateAdditionalUsers = false;
+        metricVariationPowerArray.push({
+          metric: metric,
+          variation: variation,
+          calculationSucceeded: false,
+          effectSize: powerResponses[powerIndex].minPercentChange * 2,
+          errorMessage: thisResponse.powerError,
+        });
+      } else {
+        const powerParams: MidExperimentPowerSingleMetricParams = {
+          newDailyUsers: thisNewDailyUsers,
+          firstPeriodSampleSize: powerSettings.firstPeriodSampleSize,
+          daysRemaining: daysRemaining,
+          sequential,
+          alpha,
+          sequentialTuningParameter,
+          numVariations,
+          numGoalMetrics,
+          response: [thisResponse],
+        };
+        const resultsSingleMetric = calculateMidExperimentPowerSingle(
+          powerParams,
+          metric,
+          variation
+        );
+        metricVariationPowerArray.push(resultsSingleMetric);
+        if (
+          resultsSingleMetric.calculationSucceeded &&
+          resultsSingleMetric.power &&
+          resultsSingleMetric.additionalDays
+        ) {
+          const thisPower = resultsSingleMetric.power;
+          power[powerIndex] = thisPower;
+          additionalDays[powerIndex] = resultsSingleMetric.additionalDays;
+          if (thisPower > thisMaxPower) {
+            thisMaxPower = thisPower;
+          }
+          if (resultsSingleMetric.additionalDays > thisMinDays) {
+            thisMinDays = resultsSingleMetric.additionalDays;
+          }
+        } else {
+          calculateAdditionalUsers = false;
+        }
+        maxPowerByMetric[metric] = thisMaxPower;
+        minDaysByMetric[metric] = thisMinDays;
+        minUsersByMetric[metric] = thisMinUsers;
+      }
+    }
+  }
+  const minPower = Math.min(...maxPowerByMetric);
+  if (calculateAdditionalUsers) {
+    return {
+      type: "success",
+      power: minPower,
+      additionalDays: Math.max(...minDaysByMetric),
+      additionalUsers: Math.max(...minUsersByMetric),
+      lowPowerWarning: minPower < lowPowerThreshold,
+      metricVariationPowerResults: metricVariationPowerArray,
+    };
+  } else {
+    return {
+      type: "error",
+      lowPowerWarning: minPower < lowPowerThreshold,
+      metricVariationPowerResults: metricVariationPowerArray,
+    };
+  }
+}
+
+export function getAverageExposureOverLastNDays(
+  traffic: ExperimentSnapshotTraffic,
+  nDays: number,
+  baseDate = new Date()
+) {
+  const lastNDates = eachDayOfInterval({
+    start: subDays(baseDate, nDays),
+    end: subDays(baseDate, 1),
+  }).map((date) => formatISO(date, { representation: "date" }));
+
+  const totalExposure = traffic.dimension?.dim_exposure_date
+    .filter((dim) => lastNDates.includes(dim.name))
+    .map((dim) => dim.variationUnits.reduce((acc, num) => acc + num, 0))
+    .reduce((acc, num) => acc + num, 0);
+
+  return Math.floor(totalExposure / nDays);
 }

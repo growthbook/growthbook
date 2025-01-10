@@ -157,6 +157,7 @@ export function getAnalysisSettingsFromReportArgs(
     pValueThreshold: args.pValueThreshold,
     differenceType: args.differenceType ?? "relative",
     baselineVariationIndex: 0,
+    numGoalMetrics: args.goalMetrics.length,
   };
 }
 export function getSnapshotSettingsFromReportArgs(
