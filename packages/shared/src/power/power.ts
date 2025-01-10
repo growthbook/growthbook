@@ -286,6 +286,37 @@ export type MDEResults =
       description: string;
     };
 
+export interface MidExperimentPowerMultipleMetricsParams {
+  sequential: boolean;
+  alpha: number;
+  sequentialTuningParameter: number;
+  daysRemaining: number;
+  firstPeriodSampleSize: number;
+  numGoalMetrics: number;
+  variationWeights: number[];
+  numVariations: number;
+  variations: MidExperimentSingleVariationParams[];
+}
+
+export interface MidExperimentPowerSingleMetricsParams {
+  sequential: boolean;
+  alpha: number;
+  sequentialTuningParameter: number;
+  daysRemaining: number;
+  firstPeriodSampleSize: number;
+  numGoalMetrics: number;
+  variationWeights: number[];
+  numVariations: number;
+  variation: MidExperimentSingleVariationParams;
+}
+
+export interface MidExperimentSingleVariationParams {
+  // For a single variation, we need to know the power for each metric.
+  metrics: {
+    [metricId: string]: MetricPowerResponseFromStatsEngine;
+  };
+}
+
 export type PowerCalculationSuccessResults = {
   type: "success";
   sampleSizeAndRuntime: {
@@ -302,42 +333,9 @@ export type PowerCalculationResults =
       description: string;
     };
 
-export interface MidExperimentPowerSingleMetricParams {
-  /**
-   * @param newDailyUsers: The number of new daily users.
-   * @param firstPeriodSampleSize The total sample size across all variations in the first period.
-   * @param daysRemaining: The days remaining in the experiment.
-   * @param sequential Whether the test is sequential.
-   * @param alpha The significance level.
-   * @param sequentialTuningParameter The tuning parameter for the sequential test.
-   * @param numVariations The number of variations.
-   * @param numGoalMetrics The number of goal metrics.
-   * @param response: Array of PowerResponses, not necessarily of length one. In practice, for MidExperimentPowerSingleMetricParams, the length of response is always one.
-   */
-  firstPeriodSampleSize: number;
-  newDailyUsers: number /*can be removed later, if we want to instead return additional days needed from gbstats*/;
-  daysRemaining: number;
-  sequential: boolean;
-  alpha: number;
-  sequentialTuningParameter: number;
-  numVariations: number;
-  numGoalMetrics: number;
-  // FIXME: The stats engine expects some fields to be defined, but they are optional from gbstats.
-  // Should we have an intermediate type or update this file to handle undefined?
-  response: MetricPowerResponseFromStatsEngine[];
-}
-
-export interface MidExperimentParams
-  extends MidExperimentPowerSingleMetricParams {
-  /**
-   * @param variationWeights: The weights of the variations.
-   */
-  variationWeights: number[];
-}
-
 export type MetricVariationPowerResult = {
   newDailyUsers?: number;
-  metric: number;
+  metricId: string;
   variation: number;
   effectSize?: number;
   power?: number;
@@ -1228,7 +1226,7 @@ function calculateMidExperimentPowerSingle(
 }
 
 export function calculateMidExperimentPower(
-  powerSettings: MidExperimentParams
+  powerSettings: MidExperimentPowerParams
 ): MidExperimentPowerCalculationResult {
   const newDailyUsers = powerSettings.newDailyUsers;
   const numGoalMetrics = powerSettings.numGoalMetrics;
