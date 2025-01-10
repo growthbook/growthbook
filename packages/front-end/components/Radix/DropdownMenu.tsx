@@ -1,8 +1,16 @@
-import { DropdownMenu as RadixDropdownMenu, Text } from "@radix-ui/themes";
+import {
+  Box,
+  Flex,
+  DropdownMenu as RadixDropdownMenu,
+  Text,
+} from "@radix-ui/themes";
 import type { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
-import { PiCaretDown } from "react-icons/pi";
-import React from "react";
+import { PiCaretDown, PiWarningFill } from "react-icons/pi";
+import React, { useState } from "react";
+import { amber } from "@radix-ui/colors";
 import Button from "@/components/Radix/Button";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 type AllowedChildren = string | React.ReactNode;
 
@@ -94,7 +102,7 @@ type DropdownItemProps = {
   children: AllowedChildren;
   className?: string;
   disabled?: boolean;
-  onClick?: (event: Event) => void;
+  onClick?: (event: Event) => Promise<void> | void;
   color?: "red" | "default";
   shortcut?: RadixDropdownMenu.ItemProps["shortcut"];
 } & MarginProps;
@@ -110,15 +118,43 @@ export function DropdownMenuItem({
   if (color === "default") {
     color = undefined;
   }
+  const [error, setError] = useState<null | string>(null);
+  const [loading, setLoading] = useState(false);
   return (
     <RadixDropdownMenu.Item
-      disabled={disabled}
-      onSelect={onClick}
+      disabled={disabled || !!error || !!loading}
+      onSelect={async (event) => {
+        event.preventDefault();
+        if (onClick) {
+          setError(null);
+          setLoading(true);
+          try {
+            await onClick(event);
+            // If this promise is resolved without an error, we need to close
+          } catch (e) {
+            setError(e.message);
+            console.error(e);
+          }
+          setLoading(false);
+        }
+      }}
       color={color}
       shortcut={shortcut}
       {...props}
     >
-      {children}
+      <Flex as="div" justify="between" align="center">
+        <Box as="span" className={`mr-4 ${loading ? "font-italic" : ""}`}>
+          {children}
+        </Box>
+        <Box width="14px">
+          {loading ? <LoadingSpinner /> : null}
+          {error ? (
+            <Tooltip body={`Error: ${error}. Exit menu and try again.`}>
+              <PiWarningFill color={amber.amber11} />
+            </Tooltip>
+          ) : null}
+        </Box>
+      </Flex>
     </RadixDropdownMenu.Item>
   );
 }

@@ -214,9 +214,8 @@ export const TemplatesPage = ({
           across your team and projects.
         </Text>
         <div className="mt-3">
-          {/* TODO: Fix docs link once docs are ready */}
           <LinkButton
-            href="https://docs.growthbook.io/"
+            href="https://docs.growthbook.io/running-experiments/experiment-templates"
             variant="outline"
             mr="3"
             external={true}
