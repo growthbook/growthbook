@@ -18,11 +18,19 @@ router.post(
 );
 
 router.post(
-  "/metric-analysis/:id/cancel",
+  "/population-data/:id/cancel",
   validateRequestMiddleware({
     params: z.object({ id: z.string() }).strict(),
   }),
   populationDataController.cancelPopulationData
+);
+
+router.get(
+  "/population-data/:id/",
+  validateRequestMiddleware({
+    params: z.object({ id: z.string().nullable() }).strict(),
+  }),
+  populationDataController.getPopulationData
 );
 
 export { router as populationDataRouter };

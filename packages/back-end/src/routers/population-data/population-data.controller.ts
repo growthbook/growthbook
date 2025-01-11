@@ -24,7 +24,7 @@ type CreatePopulationDataProps = z.infer<
 
 export const postPopulationData = async (
   req: AuthRequest<CreatePopulationDataProps>,
-  res: Response<{ status: 200; metricAnalysis: PopulationDataInterface }>
+  res: Response<{ status: 200; populationData: PopulationDataInterface }>
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
@@ -130,7 +130,36 @@ export const postPopulationData = async (
 
   res.status(200).json({
     status: 200,
-    metricAnalysis: queryRunner.model,
+    populationData: queryRunner.model,
+  });
+};
+
+export const getPopulationData = async (
+  req: AuthRequest<null, { id: string | null }>,
+  res: Response<{ status: 200; populationData: PopulationDataInterface | null }>
+) => {
+  const context = getContextFromReq(req);
+
+  // TODO don't do round trip to db for this
+  if (req.params.id === null) {
+    res.status(200).json({
+      status: 200,
+      populationData: null,
+    });
+    return;
+  }
+
+  const populationData = await context.models.populationData.getById(
+    req.params.id
+  );
+
+  if (!populationData) {
+    throw new Error("PopulationData not found");
+  }
+
+  res.status(200).json({
+    status: 200,
+    populationData,
   });
 };
 

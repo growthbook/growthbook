@@ -29,6 +29,10 @@ import {
   PartialPowerCalculationParams,
   StatsEngineSettings,
 } from "./types";
+import { useAuth } from "@/services/auth";
+import useApi from "@/hooks/useApi";
+import { PopulationDataInterface } from "back-end/types/population-data";
+import RunQueriesButton from "@/components/Queries/RunQueriesButton";
 
 export type Props = {
   close?: () => void;
@@ -64,6 +68,211 @@ const defaultValue = (
   if (settingsDefault !== undefined) return settingsDefault;
 
   return defaultValue;
+};
+
+
+const QueryStep = ({
+  form,
+  close,
+  onNext,
+}: {
+  form: Form;
+  close?: () => void;
+  onNext: () => void;
+}) => {
+  const {
+    metrics: appMetrics,
+    factMetrics: appFactMetrics,
+    getExperimentMetricById,
+  } = useDefinitions();
+
+  const { apiCall } = useAuth();
+
+  const [populationDataId, setPopulationDataId] = useState<string | null>(null);
+
+  const { data, mutate } = useApi<{
+      populationData: PopulationDataInterface | null;
+  }>(`/population-data/${populationDataId}`);
+  
+  const populationData = data?.populationData;
+  const settings = useOrgSettings();
+
+  // combine both metrics and remove ratio and quntile metrics
+  const allAppMetrics: ExperimentMetricInterface[] = [
+    ...appMetrics,
+    ...appFactMetrics,
+  ].filter((m) => {
+    const denominator =
+      m.denominator && !isFactMetric(m)
+        ? getExperimentMetricById(m.denominator) ?? undefined
+        : undefined;
+    const isQuantileMetric = quantileMetricType(m) !== "";
+    return !isRatioMetric(m, denominator) && !isQuantileMetric;
+  });
+  const usersPerWeek = form.watch("usersPerWeek");
+  const metrics = form.watch("metrics");
+
+  const selectedMetrics = Object.keys(metrics);
+
+  const isUsersPerDayInvalid = usersPerWeek !== undefined && usersPerWeek <= 0;
+  const isNextDisabled =
+    !selectedMetrics.length ||
+    usersPerWeek === undefined ||
+    isNaN(usersPerWeek) ||
+    isUsersPerDayInvalid;
+
+  const field = (
+    key: keyof typeof config,
+    metric: ExperimentMetricInterface
+  ) => ({
+    [key]: defaultValue(config[key], metric.priorSettings, settings),
+  });
+
+  return (
+    <Modal
+      trackingEventModalType=""
+      open
+      size="lg"
+      header="New Calculation"
+      close={close}
+      includeCloseCta={false}
+      cta="Next >"
+      secondaryCTA={
+        <button
+          disabled={isNextDisabled}
+          onClick={onNext}
+          className="btn btn-primary"
+        >
+          Next &gt;
+        </button>
+      }
+    >
+      <MultiSelectField
+        labelClassName="d-flex"
+        label={
+          <>
+            <span className="mr-auto font-weight-bold">
+              Select Metrics{" "}
+              <Tooltip
+                body={"Ratio and quantile metrics cannot be selected."}
+              />
+            </span>{" "}
+            Limit 5
+          </>
+        }
+        sort={false}
+        value={selectedMetrics}
+        options={allAppMetrics.map(({ name: label, id: value }) => ({
+          label,
+          value,
+        }))}
+        isOptionDisabled={() => 5 <= selectedMetrics.length}
+        onChange={(value: string[]) => {
+          form.setValue(
+            "metrics",
+            value.reduce((result, id) => {
+              const metric = ensureAndReturn(
+                allAppMetrics.find((m) => m.id === id)
+              );
+
+              return {
+                ...result,
+                [id]: metrics[id] || {
+                  name: metric.name,
+                  ...field("effectSize", metric),
+                  ...(isBinomialMetric(metric)
+                    ? { type: "binomial", ...field("conversionRate", metric) }
+                    : {
+                        type: "mean",
+                        ...field("mean", metric),
+                        ...field("standardDeviation", metric),
+                        standardDeviation: undefined,
+                      }),
+                  ...field("overrideMetricLevelSettings", metric),
+                  ...field("overrideProper", metric),
+                  ...field("overridePriorLiftMean", metric),
+                  ...field("overridePriorLiftStandardDeviation", metric),
+                  ...field("metricProper", metric),
+                  ...field("metricPriorLiftMean", metric),
+                  ...field("metricPriorLiftStandardDeviation", metric),
+                },
+              };
+            }, {})
+          );
+        }}
+      />
+      <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            //setError(null);
+            try {
+              // track("MetricAnalysis_Update", {
+              //   type: factMetric.metricType,
+              //   populationType: data.populationType,
+              //   days: data.lookbackDays,
+              // });
+              const metrics = Object.keys(form.getValues("metrics"));
+              const datasourceId = "ds_2s1by2213lormx6hi";
+              const sourceType = "segment";
+              const sourceId = "seg_2s1bx1grolyiy0obt";
+              const res = await apiCall<{ populationData: PopulationDataInterface }>(`/population-data`, {
+                method: "POST",
+                body: JSON.stringify({
+                  metrics,
+                  datasourceId,
+                  sourceType,
+                  sourceId,
+                  userIdType: "user_id"
+                }),
+              });
+              setPopulationDataId(res.populationData.id);
+              mutate();
+            } catch (e) {
+              //setError(e.message);
+            }
+          }}
+        >
+          <RunQueriesButton
+            icon="refresh"
+            cta={"Run Analysis"}
+            mutate={mutate}
+            model={
+              populationData ?? {
+                queries: [],
+                runStarted: new Date(),
+              }
+            }
+            cancelEndpoint={`/population-data/${populationData?.id}/cancel`}
+            color="outline-primary"
+          />
+        </form>
+
+      <Field
+        label={
+          <div>
+            <span className="font-weight-bold mr-1">
+              Estimated Users Per Week
+            </span>
+            <Tooltip
+              popperClassName="text-left"
+              body="Total users across all variations"
+              tipPosition="right"
+            />
+          </div>
+        }
+        type="number"
+        {...form.register("usersPerWeek", {
+          valueAsNumber: true,
+        })}
+        className={isUsersPerDayInvalid ? "border border-danger" : undefined}
+        helpText={
+          isUsersPerDayInvalid ? (
+            <div className="text-danger">Must be greater than 0</div>
+          ) : undefined
+        }
+      />
+    </Modal>
+  );
 };
 
 const SelectStep = ({
@@ -505,13 +714,13 @@ const SetParamsStep = ({
   );
 };
 
-export default function PowerCalculationModal({
+export default function PowerCalculationSettingsModal({
   close,
   onSuccess,
   statsEngineSettings,
   params,
 }: Props) {
-  const [step, setStep] = useState<"select" | "set-params">("select");
+  const [step, setStep] = useState<"query" | "select" | "set-params">("query");
   const settings = useOrgSettings();
 
   const form = useForm<PartialPowerCalculationParams>({
@@ -559,6 +768,13 @@ export default function PowerCalculationModal({
 
   return (
     <>
+      {step === "query" && (
+        <QueryStep
+          form={form}
+          close={close}
+          onNext={() => setStep("set-params")}
+        />
+      )}
       {step === "select" && (
         <SelectStep
           form={form}
