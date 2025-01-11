@@ -1,28 +1,26 @@
+import { z } from "zod";
 import type { Response } from "express";
-import { isFactMetric } from "shared/experiments";
-import { getValidDate } from "shared/dates";
 import {
-  CreateMetricAnalysisProps,
-  MetricAnalysisInterface,
-  MetricAnalysisSettings,
-} from "back-end/types/metric-analysis";
-import { createMetricAnalysis } from "back-end/src/services/metric-analysis";
-import { MetricAnalysisQueryRunner } from "back-end/src/queryRunners/MetricAnalysisQueryRunner";
-import { getExperimentMetricById } from "back-end/src/services/experiments";
-import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
+  getIntegrationFromDatasourceId,
+  getSourceIntegrationObject,
+} from "back-end/src/services/datasource";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
-import { PopulationDataInterface, PopulationDataSourceType } from "back-end/types/population-data";
+import { PopulationDataInterface } from "back-end/types/population-data";
+import {
+  PopulationDataQueryRunner,
+  PopulationDataQuerySettings,
+} from "back-end/src/queryRunners/PopulationDataQueryRunner";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { getMetricMap } from "back-end/src/models/MetricModel";
+import { getFactTableMap } from "back-end/src/models/FactTableModel";
+import { createPopulationDataPropsValidator } from "back-end/src/routers/population-data/population-data.validators";
 
 // move
-type CreatePopulationDataProps = {
-  metrics: string[];
-  datasourceId: string;
-  userIdType: string;
-  sourceId: string;
-  sourceType: PopulationDataSourceType;
-}
+type CreatePopulationDataProps = z.infer<
+  typeof createPopulationDataPropsValidator
+>;
 
 export const postPopulationData = async (
   req: AuthRequest<CreatePopulationDataProps>,
@@ -40,8 +38,7 @@ export const postPopulationData = async (
   const eightWeeksAgo = new Date(today);
   eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 7 * 8);
 
-
-  const settings: ExperimentSnapshotSettings = {
+  const snapshotSettings: ExperimentSnapshotSettings = {
     manual: false,
     dimensions: [],
     metricSettings: [], // TODO
@@ -49,7 +46,12 @@ export const postPopulationData = async (
     secondaryMetrics: [],
     guardrailMetrics: [],
     activationMetric: null,
-    defaultMetricPriorSettings: {proper: false, mean: 0, stddev: 0, override: false},
+    defaultMetricPriorSettings: {
+      proper: false,
+      mean: 0,
+      stddev: 0,
+      override: false,
+    },
     regressionAdjustmentEnabled: false,
     attributionModel: "firstExposure",
     experimentId: "",
@@ -60,9 +62,8 @@ export const postPopulationData = async (
     exposureQueryId: "", // todo
     startDate: eightWeeksAgo,
     endDate: today,
-    variations: []
-  }
-
+    variations: [],
+  };
 
   const integration = await getIntegrationFromDatasourceId(
     context,
@@ -83,103 +84,93 @@ export const postPopulationData = async (
 
   // base model TODO
 
-  const queryRunner = new PopulationMetricQueryRunner(
+  const populationSettings: PopulationDataQuerySettings = {
+    startDate: eightWeeksAgo,
+    endDate: today,
+    userIdType: data.userIdType,
+    sourceType: data.sourceType,
+    sourceId: data.sourceId,
+  };
+
+  const model = await context.models.populationData.create({
+    ...populationSettings,
+
+    datasourceId: data.datasourceId,
+    queries: [],
+    runStarted: null,
+    status: "running",
+
+    // TODO
+    units: [],
+    metrics: [],
+  });
+  const queryRunner = new PopulationDataQueryRunner(
     context,
-    snapshot,
+    model,
     integration,
     true
-  )
-  const metricAnalysisSettings: MetricAnalysisSettings = {
-    userIdType: data.userIdType,
-    lookbackDays: data.lookbackDays,
-    startDate: getValidDate(data.startDate),
-    endDate: getValidDate(data.endDate),
-    populationType: data.populationType,
-    populationId: data.populationId ?? null,
-  };
-  const metricAnalysis = await createMetricAnalysis(
-    context,
-    metricObj,
-    metricAnalysisSettings,
-    data.source,
-    !data.force
   );
 
-  const model = metricAnalysis.model;
-  res.status(200).json({
-    status: 200,
-    metricAnalysis: model,
-  });
-};
+  const metricMap = await getMetricMap(context);
+  const factTableMap = await getFactTableMap(context);
 
-export const getMetricAnalysis = async (
-  req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200; metricAnalysis: MetricAnalysisInterface }>
-) => {
-  const context = getContextFromReq(req);
-
-  const metricAnalysis = await context.models.metricAnalysis.getById(
-    req.params.id
-  );
-
-  if (!metricAnalysis) {
-    throw new Error("Metric analysis not found");
-  }
+  await queryRunner
+    .startAnalysis({
+      populationSettings,
+      snapshotSettings,
+      metricMap,
+      factTableMap,
+    })
+    .catch((e) => {
+      context.models.populationData.updateById(model.id, {
+        status: "error",
+        error: e.message,
+      });
+    });
 
   res.status(200).json({
     status: 200,
-    metricAnalysis,
+    metricAnalysis: queryRunner.model,
   });
 };
 
-export async function cancelMetricAnalysis(
+export async function cancelPopulationData(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
   const context = getContextFromReq(req);
 
-  const metricAnalysis = await context.models.metricAnalysis.getById(
+  const populationData = await context.models.populationData.getById(
     req.params.id
   );
 
-  if (!metricAnalysis) {
+  if (!populationData) {
     throw new Error("Could not cancel query");
   }
 
-  const metric = await getExperimentMetricById(context, metricAnalysis.metric);
-
-  if (!metric?.datasource) {
-    throw new Error("Could not cancel query, datasource not found");
-  }
-  const integration = await getIntegrationFromDatasourceId(
+  const datasource = await getDataSourceById(
     context,
-    metric.datasource
+    populationData.datasourceId
   );
 
-  const queryRunner = new MetricAnalysisQueryRunner(
+  if (!datasource) {
+    throw new Error("Could not cancel query, datasource not found");
+  }
+
+  const integration = await getSourceIntegrationObject(
+    // ask about decryption
     context,
-    metricAnalysis,
+    datasource
+  );
+
+  const queryRunner = new PopulationDataQueryRunner(
+    context,
+    populationData,
     integration
   );
   await queryRunner.cancelQueries();
 
   res.status(200).json({
     status: 200,
-  });
-}
-
-export async function getLatestMetricAnalysis(
-  req: AuthRequest<null, { metricid: string }>,
-  res: Response<{ status: 200; metricAnalysis: MetricAnalysisInterface | null }>
-) {
-  const context = getContextFromReq(req);
-
-  const metricAnalysis = await context.models.metricAnalysis.findLatestByMetric(
-    req.params.metricid
-  );
-
-  res.status(200).json({
-    status: 200,
-    metricAnalysis,
   });
 }

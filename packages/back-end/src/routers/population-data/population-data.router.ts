@@ -2,19 +2,19 @@ import express from "express";
 import { z } from "zod";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
-import { createMetricAnalysisPropsValidator } from "./metric-analysis.validators";
-import * as rawMetricAnalysisController from "./metric-analysis.controller";
+import { createPopulationDataPropsValidator } from "./population-data.validators";
+import * as rawPopulationDataController from "./population-data.controller";
 
 const router = express.Router();
 
-const metricAnalysisController = wrapController(rawMetricAnalysisController);
+const populationDataController = wrapController(rawPopulationDataController);
 
 router.post(
-  "/metric-analysis",
+  "/population-data",
   validateRequestMiddleware({
-    body: createMetricAnalysisPropsValidator,
+    body: createPopulationDataPropsValidator,
   }),
-  metricAnalysisController.postMetricAnalysis
+  populationDataController.postPopulationData
 );
 
 router.post(
@@ -22,15 +22,7 @@ router.post(
   validateRequestMiddleware({
     params: z.object({ id: z.string() }).strict(),
   }),
-  metricAnalysisController.cancelMetricAnalysis
+  populationDataController.cancelPopulationData
 );
 
-router.get(
-  "/metric-analysis/metric/:metricid/",
-  validateRequestMiddleware({
-    params: z.object({ metricid: z.string() }).strict(),
-  }),
-  metricAnalysisController.getLatestMetricAnalysis
-);
-
-export { router as metricAnalysisRouter };
+export { router as populationDataRouter };

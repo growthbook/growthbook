@@ -7,7 +7,6 @@ import { lastMondayString } from "shared/dates";
 import { ApiReqContext } from "back-end/types/api";
 import { MetricInterface } from "back-end/types/metric";
 import { Queries, QueryPointer, QueryStatus } from "back-end/types/query";
-import { findSnapshotById } from "back-end/src/models/ExperimentSnapshotModel";
 import {
   Dimension,
   ExperimentFactMetricsQueryResponseRows,
@@ -25,7 +24,6 @@ import {
   PopulationDataMetric,
 } from "back-end/types/population-data";
 import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
-import { MetricSnapshotSettings } from "back-end/types/report";
 import {
   QueryRunner,
   QueryMap,
@@ -239,7 +237,7 @@ function readMetricData({
   };
 }
 
-export class PopulationMetricQueryRunner extends QueryRunner<
+export class PopulationDataQueryRunner extends QueryRunner<
   PopulationDataInterface,
   PopulationDataQueryParams,
   PopulationDataResult
@@ -264,7 +262,7 @@ export class PopulationMetricQueryRunner extends QueryRunner<
   }
 
   async runAnalysis(queryMap: QueryMap): Promise<PopulationDataResult> {
-    const latest = this.getLatestModel(); // TODO
+    // const latest = this.getLatestModel(); TODO
 
     const metrics: PopulationDataResult["metrics"] = [];
     let units: PopulationDataResult["units"] = [];
@@ -274,7 +272,6 @@ export class PopulationMetricQueryRunner extends QueryRunner<
       if (key.match(/group_/)) {
         const rows = query.result as ExperimentFactMetricsQueryResponseRows;
         if (!rows?.length) return;
-        const metricIds: (string | null)[] = [];
         for (let i = 0; i < 100; i++) {
           const prefix = `m${i}_`;
           if (!rows[0]?.[prefix + "id"]) break;

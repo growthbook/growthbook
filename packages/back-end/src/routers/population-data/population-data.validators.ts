@@ -13,6 +13,16 @@ export const populationDataStatusValidator = z.enum([
   "error",
 ]);
 
+export const createPopulationDataPropsValidator = z
+  .object({
+    metrics: z.array(z.string()),
+    datasourceId: z.string(),
+    sourceType: populationDataSourceTypeValidator,
+    sourceId: z.string(),
+    userIdType: z.string(),
+  })
+  .strict();
+
 export const populationDataMetricDataValidator = z
   .object({
     main_sum: z.number(),

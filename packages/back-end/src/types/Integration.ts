@@ -22,7 +22,7 @@ import {
   FactTableInterface,
   MetricQuantileSettings,
 } from "back-end/types/fact-table";
-import { PopulationDataQuerySettings } from "back-end/src/queryRunners/PopulationMetricQueryRunner";
+import { PopulationDataQuerySettings } from "back-end/src/queryRunners/PopulationDataQueryRunner";
 
 export type ExternalIdCallback = (id: string) => Promise<void>;
 
@@ -203,8 +203,12 @@ export interface PopulationBaseQueryParams {
   factTableMap: FactTableMap;
   segment: SegmentInterface | null;
 }
-export interface PopulationMetricQueryParams extends ExperimentMetricQueryParams,  PopulationBaseQueryParams {};
-export interface PopulationFactMetricsQueryParams extends ExperimentFactMetricsQueryParams,  PopulationBaseQueryParams {};
+export interface PopulationMetricQueryParams
+  extends ExperimentMetricQueryParams,
+    PopulationBaseQueryParams {}
+export interface PopulationFactMetricsQueryParams
+  extends ExperimentFactMetricsQueryParams,
+    PopulationBaseQueryParams {}
 
 export interface ExperimentAggregateUnitsQueryParams
   extends ExperimentBaseQueryParams {
@@ -556,7 +560,9 @@ export interface SourceIntegrationInterface {
   ): Promise<DropTableQueryResponse>;
   getMetricValueQuery(params: MetricValueParams): string;
   getPopulationMetricQuery?(params: PopulationMetricQueryParams): string;
-  getPopulationFactMetricsQuery?(params: PopulationFactMetricsQueryParams): string;
+  getPopulationFactMetricsQuery?(
+    params: PopulationFactMetricsQueryParams
+  ): string;
   getExperimentFactMetricsQuery?(
     params: ExperimentFactMetricsQueryParams
   ): string;

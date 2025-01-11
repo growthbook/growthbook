@@ -102,7 +102,7 @@ import {
 } from "back-end/types/fact-table";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { ReqContextClass } from "back-end/src/services/context";
-import { PopulationDataQuerySettings } from "back-end/src/queryRunners/PopulationMetricQueryRunner";
+import { PopulationDataQuerySettings } from "back-end/src/queryRunners/PopulationDataQueryRunner";
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;
@@ -490,7 +490,7 @@ export default abstract class SqlIntegration
         params.segment ? [params.segment.userIdType || "user_id"] : [],
       ],
       from: params.from,
-      to: params.to
+      to: params.to,
     });
 
     // Get rough date filter for metrics to improve performance
@@ -627,7 +627,7 @@ export default abstract class SqlIntegration
     factTableMap: FactTableMap;
     segment: SegmentInterface | null;
   }) {
-    switch(settings.sourceType) {
+    switch (settings.sourceType) {
       case "exposureQuery": {
         const exposureQuery = this.getExposureQuery(settings.sourceId || "");
 
@@ -638,7 +638,7 @@ export default abstract class SqlIntegration
               endDate: settings.endDate ?? undefined,
             })}
           )`;
-        }
+      }
       case "segment": {
         if (segment) {
           return `
@@ -653,11 +653,11 @@ export default abstract class SqlIntegration
             }
           )})`;
         } else {
-          throw new Error ("Segment not found");
+          throw new Error("Segment not found");
         }
       }
-      case "experiment": 
-        throw new Error ("SQL not used for Experiment source type")
+      case "experiment":
+        throw new Error("SQL not used for Experiment source type");
     }
   }
 
@@ -670,12 +670,15 @@ export default abstract class SqlIntegration
     factTableMap: FactTableMap;
     segment: SegmentInterface | null;
   }): string {
+    const timestampColumn = "timestamp";
+    // BQ datetime cast for SELECT statements (do not use for where)
+    const timestampDateTimeColumn = this.castUserDateCol(timestampColumn);
 
-     const timestampColumn = "timestamp";
-     // BQ datetime cast for SELECT statements (do not use for where)
-     const timestampDateTimeColumn = this.castUserDateCol(timestampColumn);
-     
-     const firstQuery = this.getPowerPopulationSourceCTE({settings, factTableMap, segment})
+    const firstQuery = this.getPowerPopulationSourceCTE({
+      settings,
+      factTableMap,
+      segment,
+    });
 
     return `
       ${firstQuery}
@@ -793,8 +796,8 @@ export default abstract class SqlIntegration
       objects: idTypeObjects,
       from: settings.startDate,
       to: settings.endDate ?? undefined,
-      forcedBaseIdType: settings.userIdType
-  });
+      forcedBaseIdType: settings.userIdType,
+    });
 
     const metricData = this.getMetricData(
       metric,
@@ -1160,10 +1163,7 @@ export default abstract class SqlIntegration
     query: string,
     setExternalId: ExternalIdCallback
   ): Promise<ExperimentFactMetricsQueryResponse> {
-    return this.runExperimentFactMetricsQuery(
-      query,
-      setExternalId
-    )
+    return this.runExperimentFactMetricsQuery(query, setExternalId);
   }
   async runExperimentFactMetricsQuery(
     query: string,
@@ -1224,10 +1224,7 @@ export default abstract class SqlIntegration
     query: string,
     setExternalId: ExternalIdCallback
   ): Promise<ExperimentMetricQueryResponse> {
-    return this.runExperimentMetricQuery(
-      query,
-      setExternalId
-    )
+    return this.runExperimentMetricQuery(query, setExternalId);
   }
 
   async runExperimentMetricQuery(
@@ -1402,13 +1399,13 @@ export default abstract class SqlIntegration
     from,
     to,
     forcedBaseIdType,
-    experimentId
-  }:{
-    objects: string[][],
-    from: Date,
-    to?: Date,
-    forcedBaseIdType?: string,
-    experimentId?: string
+    experimentId,
+  }: {
+    objects: string[][];
+    from: Date;
+    to?: Date;
+    forcedBaseIdType?: string;
+    experimentId?: string;
   }) {
     const { baseIdType, joinsRequired } = getBaseIdTypeAndJoins(
       objects,
@@ -1741,7 +1738,7 @@ export default abstract class SqlIntegration
   }
 
   getPopulationMetricQuery(params: PopulationMetricQueryParams): string {
-    const { factTableMap, segment, populationSettings} = params;
+    const { factTableMap, segment, populationSettings } = params;
     // dimension date?
     const populationSQL = this.getPowerPopulationCTEs({
       settings: populationSettings,
@@ -1752,13 +1749,15 @@ export default abstract class SqlIntegration
     return this.getExperimentMetricQuery({
       ...params,
       unitsSource: "sql",
-      unitsSql: populationSQL
-    })
-  };
+      unitsSql: populationSQL,
+    });
+  }
 
-  getPopulationFactMetricQuery(params: PopulationFactMetricsQueryParams): string {
-    const { factTableMap, segment, populationSettings} = params;
-    
+  getPopulationFactMetricQuery(
+    params: PopulationFactMetricsQueryParams
+  ): string {
+    const { factTableMap, segment, populationSettings } = params;
+
     const populationSQL = this.getPowerPopulationCTEs({
       settings: populationSettings,
       factTableMap,
@@ -1768,9 +1767,9 @@ export default abstract class SqlIntegration
     return this.getExperimentFactMetricsQuery({
       ...params,
       unitsSource: "sql",
-      unitsSql: populationSQL
-    })
-  };
+      unitsSql: populationSQL,
+    });
+  }
 
   getExperimentUnitsQuery(params: ExperimentUnitsQueryParams): string {
     const {
@@ -1804,7 +1803,7 @@ export default abstract class SqlIntegration
       from: settings.startDate,
       to: settings.endDate,
       forcedBaseIdType: exposureQuery.userIdType,
-      experimentId: settings.experimentId
+      experimentId: settings.experimentId,
     });
 
     // Get date range for experiment
@@ -2006,7 +2005,7 @@ export default abstract class SqlIntegration
       from: settings.startDate,
       to: settings.endDate,
       forcedBaseIdType: exposureQuery.userIdType,
-      experimentId: settings.experimentId
+      experimentId: settings.experimentId,
     });
 
     return format(
@@ -2406,7 +2405,7 @@ export default abstract class SqlIntegration
       from: settings.startDate,
       to: settings.endDate,
       forcedBaseIdType: exposureQuery.userIdType,
-      experimentId: settings.experimentId
+      experimentId: settings.experimentId,
     });
 
     // Get date range for experiment and analysis
@@ -3009,7 +3008,7 @@ export default abstract class SqlIntegration
       from: settings.startDate,
       to: settings.endDate,
       forcedBaseIdType: exposureQuery.userIdType,
-      experimentId: settings.experimentId
+      experimentId: settings.experimentId,
     });
 
     // Get date range for experiment and analysis
