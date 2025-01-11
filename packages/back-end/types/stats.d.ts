@@ -9,7 +9,7 @@ export type DifferenceType = "relative" | "absolute" | "scaled";
 export type RiskType = "relative" | "absolute";
 
 // Keep in sync with gbstats PowerResponse
-export interface MetricPowerResponseFromStatsEngine {
+export interface MetricVariationPowerResponseFromStatsEngine {
   powerError: string;
   powerUpdateMessage: string;
   minPercentChange: number;
@@ -35,7 +35,7 @@ interface BaseVariationResponse {
   };
   ci?: [number, number];
   errorMessage?: string;
-  power?: MetricPowerResponseFromStatsEngine;
+  power?: MetricVariationPowerResponseFromStatsEngine;
 }
 
 interface BayesianVariationResponse extends BaseVariationResponse {

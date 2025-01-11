@@ -250,7 +250,6 @@ print(json.dumps({
 }, allow_nan=False))`,
     {}
   );
-
   try {
     const parsed: {
       results: MultipleExperimentMetricAnalysis[];
@@ -861,21 +860,16 @@ export function analyzeExperimentPower({
     0
   );
   return calculateMidExperimentPower({
-    variationWeights: variations.map((it) => it.weight),
-
-    numGoalMetrics: goalMetrics.length,
-    variations: variationsPowerResponses,
-
-    firstPeriodSampleSize,
-    newDailyUsers,
-    daysRemaining: Math.max(targetDaysRemaining, 0),
-
-    // FIXME: This should be materialized for all analysis, so we should not need to fallback to a default value
-    // Maybe just a typing update?
+    sequentialTuningParameter:
+    analysis.settings.sequentialTestingTuningParameter ??
+    DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     sequential: analysis.settings.sequentialTesting ?? false,
     alpha: analysis.settings.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
-    sequentialTuningParameter:
-      analysis.settings.sequentialTestingTuningParameter ??
-      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    daysRemaining: Math.max(targetDaysRemaining, 0),
+    firstPeriodSampleSize: firstPeriodSampleSize,
+    newDailyUsers: newDailyUsers,
+    numGoalMetrics: goalMetrics.length,
+    variationWeights: variations.map((it) => it.weight),
+    variations: variationsPowerResponses,
   });
 }
