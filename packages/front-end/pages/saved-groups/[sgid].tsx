@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import { SavedGroupInterface } from "shared/src/types";
 import { ago } from "shared/dates";
 import { FaPlusCircle } from "react-icons/fa";
-import { PiArrowsDownUp, PiInfoFill, PiWarningFill } from "react-icons/pi";
+import { PiArrowsDownUp, PiWarningFill } from "react-icons/pi";
 import { getMatchingRules, isIdListSupportedDatatype } from "shared/util";
 import Link from "next/link";
 import Field from "@/components/Forms/Field";
@@ -27,6 +27,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import { DocLink } from "@/components/DocLink";
+import Callout from "@/components/Radix/Callout";
 
 const NUM_PER_PAGE = 10;
 
@@ -483,12 +484,11 @@ export default function EditSavedGroupPage() {
           />
         )}
         {!savedGroup.values?.length && !savedGroup.useEmptyListGroup && (
-          <div className="alert alert-warning mt-2 p-3">
-            <PiInfoFill style={{ marginTop: "-2px" }} /> Warning: This saved
-            group has legacy behavior when empty and will be completely ignored
-            when used for targeting.{" "}
+          <Callout status="info">
+            This saved group has legacy behavior when empty and will be
+            completely ignored when used for targeting.{" "}
             <DocLink docSection="idLists">Learn More</DocLink>
-          </div>
+          </Callout>
         )}
       </div>
     </>
