@@ -1,15 +1,15 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useForm, UseFormReturn } from "react-hook-form";
 import clsx from "clsx";
 import {
   ExperimentMetricInterface,
   isBinomialMetric,
-  isFactMetric,
-  isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
 import { OrganizationSettings } from "back-end/types/organization";
 import { MetricPriorSettings } from "back-end/types/fact-table";
+import { PopulationDataInterface } from "back-end/types/population-data";
+import { meanVarianceFromSums, ratioVarianceFromSums } from "shared/util";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -19,6 +19,11 @@ import Toggle from "@/components/Forms/Toggle";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { ensureAndReturn } from "@/types/utils";
+import { useAuth } from "@/services/auth";
+import RunQueriesButton from "@/components/Queries/RunQueriesButton";
+import SelectField from "@/components/Forms/SelectField";
+import HelperText from "@/components/Radix/HelperText";
+import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import {
   config,
   isValidPowerCalculationParams,
@@ -29,10 +34,6 @@ import {
   PartialPowerCalculationParams,
   StatsEngineSettings,
 } from "./types";
-import { useAuth } from "@/services/auth";
-import useApi from "@/hooks/useApi";
-import { PopulationDataInterface } from "back-end/types/population-data";
-import RunQueriesButton from "@/components/Queries/RunQueriesButton";
 
 export type Props = {
   close?: () => void;
@@ -70,211 +71,6 @@ const defaultValue = (
   return defaultValue;
 };
 
-
-const QueryStep = ({
-  form,
-  close,
-  onNext,
-}: {
-  form: Form;
-  close?: () => void;
-  onNext: () => void;
-}) => {
-  const {
-    metrics: appMetrics,
-    factMetrics: appFactMetrics,
-    getExperimentMetricById,
-  } = useDefinitions();
-
-  const { apiCall } = useAuth();
-
-  const [populationDataId, setPopulationDataId] = useState<string | null>(null);
-
-  const { data, mutate } = useApi<{
-      populationData: PopulationDataInterface | null;
-  }>(`/population-data/${populationDataId}`);
-  
-  const populationData = data?.populationData;
-  const settings = useOrgSettings();
-
-  // combine both metrics and remove ratio and quntile metrics
-  const allAppMetrics: ExperimentMetricInterface[] = [
-    ...appMetrics,
-    ...appFactMetrics,
-  ].filter((m) => {
-    const denominator =
-      m.denominator && !isFactMetric(m)
-        ? getExperimentMetricById(m.denominator) ?? undefined
-        : undefined;
-    const isQuantileMetric = quantileMetricType(m) !== "";
-    return !isRatioMetric(m, denominator) && !isQuantileMetric;
-  });
-  const usersPerWeek = form.watch("usersPerWeek");
-  const metrics = form.watch("metrics");
-
-  const selectedMetrics = Object.keys(metrics);
-
-  const isUsersPerDayInvalid = usersPerWeek !== undefined && usersPerWeek <= 0;
-  const isNextDisabled =
-    !selectedMetrics.length ||
-    usersPerWeek === undefined ||
-    isNaN(usersPerWeek) ||
-    isUsersPerDayInvalid;
-
-  const field = (
-    key: keyof typeof config,
-    metric: ExperimentMetricInterface
-  ) => ({
-    [key]: defaultValue(config[key], metric.priorSettings, settings),
-  });
-
-  return (
-    <Modal
-      trackingEventModalType=""
-      open
-      size="lg"
-      header="New Calculation"
-      close={close}
-      includeCloseCta={false}
-      cta="Next >"
-      secondaryCTA={
-        <button
-          disabled={isNextDisabled}
-          onClick={onNext}
-          className="btn btn-primary"
-        >
-          Next &gt;
-        </button>
-      }
-    >
-      <MultiSelectField
-        labelClassName="d-flex"
-        label={
-          <>
-            <span className="mr-auto font-weight-bold">
-              Select Metrics{" "}
-              <Tooltip
-                body={"Ratio and quantile metrics cannot be selected."}
-              />
-            </span>{" "}
-            Limit 5
-          </>
-        }
-        sort={false}
-        value={selectedMetrics}
-        options={allAppMetrics.map(({ name: label, id: value }) => ({
-          label,
-          value,
-        }))}
-        isOptionDisabled={() => 5 <= selectedMetrics.length}
-        onChange={(value: string[]) => {
-          form.setValue(
-            "metrics",
-            value.reduce((result, id) => {
-              const metric = ensureAndReturn(
-                allAppMetrics.find((m) => m.id === id)
-              );
-
-              return {
-                ...result,
-                [id]: metrics[id] || {
-                  name: metric.name,
-                  ...field("effectSize", metric),
-                  ...(isBinomialMetric(metric)
-                    ? { type: "binomial", ...field("conversionRate", metric) }
-                    : {
-                        type: "mean",
-                        ...field("mean", metric),
-                        ...field("standardDeviation", metric),
-                        standardDeviation: undefined,
-                      }),
-                  ...field("overrideMetricLevelSettings", metric),
-                  ...field("overrideProper", metric),
-                  ...field("overridePriorLiftMean", metric),
-                  ...field("overridePriorLiftStandardDeviation", metric),
-                  ...field("metricProper", metric),
-                  ...field("metricPriorLiftMean", metric),
-                  ...field("metricPriorLiftStandardDeviation", metric),
-                },
-              };
-            }, {})
-          );
-        }}
-      />
-      <form
-          onSubmit={async (e) => {
-            e.preventDefault();
-            //setError(null);
-            try {
-              // track("MetricAnalysis_Update", {
-              //   type: factMetric.metricType,
-              //   populationType: data.populationType,
-              //   days: data.lookbackDays,
-              // });
-              const metrics = Object.keys(form.getValues("metrics"));
-              const datasourceId = "ds_2s1by2213lormx6hi";
-              const sourceType = "segment";
-              const sourceId = "seg_2s1bx1grolyiy0obt";
-              const res = await apiCall<{ populationData: PopulationDataInterface }>(`/population-data`, {
-                method: "POST",
-                body: JSON.stringify({
-                  metrics,
-                  datasourceId,
-                  sourceType,
-                  sourceId,
-                  userIdType: "user_id"
-                }),
-              });
-              setPopulationDataId(res.populationData.id);
-              mutate();
-            } catch (e) {
-              //setError(e.message);
-            }
-          }}
-        >
-          <RunQueriesButton
-            icon="refresh"
-            cta={"Run Analysis"}
-            mutate={mutate}
-            model={
-              populationData ?? {
-                queries: [],
-                runStarted: new Date(),
-              }
-            }
-            cancelEndpoint={`/population-data/${populationData?.id}/cancel`}
-            color="outline-primary"
-          />
-        </form>
-
-      <Field
-        label={
-          <div>
-            <span className="font-weight-bold mr-1">
-              Estimated Users Per Week
-            </span>
-            <Tooltip
-              popperClassName="text-left"
-              body="Total users across all variations"
-              tipPosition="right"
-            />
-          </div>
-        }
-        type="number"
-        {...form.register("usersPerWeek", {
-          valueAsNumber: true,
-        })}
-        className={isUsersPerDayInvalid ? "border border-danger" : undefined}
-        helpText={
-          isUsersPerDayInvalid ? (
-            <div className="text-danger">Must be greater than 0</div>
-          ) : undefined
-        }
-      />
-    </Modal>
-  );
-};
-
 const SelectStep = ({
   form,
   close,
@@ -287,7 +83,7 @@ const SelectStep = ({
   const {
     metrics: appMetrics,
     factMetrics: appFactMetrics,
-    getExperimentMetricById,
+    segments: appSegments,
   } = useDefinitions();
 
   const settings = useOrgSettings();
@@ -297,24 +93,26 @@ const SelectStep = ({
     ...appMetrics,
     ...appFactMetrics,
   ].filter((m) => {
-    const denominator =
-      m.denominator && !isFactMetric(m)
-        ? getExperimentMetricById(m.denominator) ?? undefined
-        : undefined;
     const isQuantileMetric = quantileMetricType(m) !== "";
-    return !isRatioMetric(m, denominator) && !isQuantileMetric;
+    return !isQuantileMetric;
   });
-  const usersPerWeek = form.watch("usersPerWeek");
   const metrics = form.watch("metrics");
-
   const selectedMetrics = Object.keys(metrics);
 
-  const isUsersPerDayInvalid = usersPerWeek !== undefined && usersPerWeek <= 0;
-  const isNextDisabled =
-    !selectedMetrics.length ||
-    usersPerWeek === undefined ||
-    isNaN(usersPerWeek) ||
-    isUsersPerDayInvalid;
+  const selectedDatasources = allAppMetrics
+    .filter((m) => selectedMetrics.includes(m.id))
+    .map((m) => m.datasource);
+
+  const metricDataSource = form.getValues("metricDataSource") ?? "";
+
+  const isNextDisabled = !selectedMetrics.length && metricDataSource === "";
+
+  const availableSegments = appSegments
+    .filter((s) => selectedDatasources.includes(s.datasource))
+    .map((s) => ({
+      label: `Segment: ${s.name}`,
+      value: s.id,
+    }));
 
   const field = (
     key: keyof typeof config,
@@ -348,11 +146,8 @@ const SelectStep = ({
           <>
             <span className="mr-auto font-weight-bold">
               Select Metrics{" "}
-              <Tooltip
-                body={"Ratio and quantile metrics cannot be selected."}
-              />
-            </span>{" "}
-            Limit 5
+              <Tooltip body={"Quantile metrics cannot be selected."} />
+            </span>
           </>
         }
         sort={false}
@@ -396,31 +191,50 @@ const SelectStep = ({
           );
         }}
       />
-
-      <Field
+      {selectedMetrics.length === 5 && (
+        <HelperText status="info" mb="3">
+          Limit 5 metrics
+        </HelperText>
+      )}
+      <SelectField
         label={
-          <div>
-            <span className="font-weight-bold mr-1">
-              Estimated Users Per Week
+          <>
+            <span className="mr-auto font-weight-bold">
+              Source of Metric Data{" "}
+              <Tooltip
+                body={
+                  "Use a Segment to simulate an experiment with real traffic and metric data, or manually enter metric values. Only Segments that share identifier types and datasources with selected metrics will be available."
+                }
+              />
             </span>
-            <Tooltip
-              popperClassName="text-left"
-              body="Total users across all variations"
-              tipPosition="right"
-            />
-          </div>
+          </>
         }
-        type="number"
-        {...form.register("usersPerWeek", {
-          valueAsNumber: true,
-        })}
-        className={isUsersPerDayInvalid ? "border border-danger" : undefined}
-        helpText={
-          isUsersPerDayInvalid ? (
-            <div className="text-danger">Must be greater than 0</div>
-          ) : undefined
+        value={
+          metricDataSource === "manual"
+            ? "manual"
+            : form.getValues("metricDataSourceId") ?? ""
         }
+        options={[
+          { options: availableSegments, label: "Automatic Query-Based Power" },
+          {
+            options: [{ value: "manual", label: "Manual Entry" }],
+            label: "Manual",
+          },
+        ]}
+        onChange={(value) => {
+          if (value !== "manual") {
+            form.setValue("metricDataSource", "query");
+            form.setValue("metricDataSourceId", value);
+            form.setValue(
+              "metricDataSourceName",
+              availableSegments.find((s) => s.value === value)?.label
+            );
+          } else {
+            form.setValue("metricDataSource", "manual");
+          }
+        }}
       />
+      {/* Identifier type selector goes here */}
     </Modal>
   );
 };
@@ -568,14 +382,250 @@ const InputField = ({
   );
 };
 
+const PopulationDataQueryInput = ({
+  form,
+  engineType,
+}: {
+  form: Form;
+  engineType: "bayesian" | "frequentist";
+}) => {
+  const { apiCall } = useAuth();
+
+  const [populationDataId, setPopulationDataId] = useState<string | null>(null);
+  const [data, setData] = useState<PopulationDataInterface | null>(null);
+  const metrics = form.getValues("metrics");
+  const metricIds = Object.keys(metrics);
+
+  const metricDataSourceId = form.watch("metricDataSourceId");
+
+  const getData = useCallback(async () => {
+    const path = populationDataId
+      ? `/population-data/${populationDataId}`
+      : `/population-data/source/${metricDataSourceId}`;
+    const res = await apiCall<{
+      populationData: PopulationDataInterface | null;
+    }>(path);
+    setData(res.populationData);
+  }, [apiCall, metricDataSourceId, populationDataId]);
+
+  useEffect(() => {
+    getData();
+  }, [getData]);
+
+  // todo reset data if refresh errors?
+  const populationData = data; // TODO
+  const canRunPopulationQuery = true; // TODO
+
+  // get datasource
+  const datasourceId = "ds_2s1by2213lormx6hi";
+
+  useEffect(() => {
+    if (populationData?.status === "success") {
+      const newMetrics = populationData.metrics.reduce((result, m) => {
+        const oldMetric = metrics[m.metric];
+        if (!oldMetric) return result;
+
+        // build metric TODO BETTER
+        const isRatioMetric =
+          m.data.denominator_sum ||
+          m.data.denominator_sum_squares ||
+          m.data.main_denominator_sum_product;
+
+        if (isRatioMetric && m.type === "ratio") {
+          // TODO
+          const mean = m.data.main_sum / (m.data.denominator_sum ?? 0);
+          const standardDeviation = ratioVarianceFromSums({
+            numerator_sum: m.data.main_sum,
+            numerator_sum_squares: m.data.main_sum_squares,
+            denominator_sum: m.data.denominator_sum ?? 0,
+            denominator_sum_squares: m.data.denominator_sum_squares ?? 0,
+            numerator_denominator_sum_product:
+              m.data.main_denominator_sum_product ?? 0,
+            n: m.data.count,
+          });
+          return {
+            ...result,
+            [m.metric]: {
+              ...oldMetric,
+              ...{
+                mean,
+                standardDeviation,
+              },
+            },
+          };
+        } else if (m.type === "binomial") {
+          const mean = m.data.main_sum / m.data.count;
+          return {
+            ...result,
+            [m.metric]: {
+              ...oldMetric,
+              ...{
+                conversionRate: mean,
+              },
+            },
+          };
+        } else {
+          const mean = m.data.main_sum / m.data.count;
+          const standardDeviation = meanVarianceFromSums(
+            m.data.main_sum,
+            m.data.main_sum_squares,
+            m.data.count
+          );
+          return {
+            ...result,
+            [m.metric]: {
+              ...oldMetric,
+              ...{
+                mean,
+                standardDeviation,
+              },
+            },
+          };
+        }
+      }, metrics);
+      form.setValue("metrics", newMetrics);
+
+      form.setValue(
+        "usersPerWeek",
+        Math.round(
+          populationData.units.reduce((r, u) => {
+            return r + u.count;
+          }, 0) / populationData.units.length
+        )
+      ); // change to 8
+    }
+  }, [populationData, form, metrics]);
+
+  if (!metricDataSourceId) return null; // TODO error
+
+  // TODO add url sharing and save populationId + metric
+  // TODO permissions check
+  // TODO identifier type check
+  return (
+    <>
+      {" "}
+      <div className="ml-2 row">
+        <div className="col-auto">
+          Compute metric values using last 8 weeks of data from{" "}
+          <strong>{form.watch("metricDataSourceName")}</strong>.
+        </div>
+        <div style={{ flex: 1 }} />
+        <div className="col-auto">
+          {canRunPopulationQuery && (
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                try {
+                  // track("MetricAnalysis_Update", {
+                  //   type: factMetric.metricType,
+                  //   populationType: data.populationType,
+                  //   days: data.lookbackDays,
+                  // });
+                  const sourceType =
+                    form.watch("metricDataSourceType") ?? "segment";
+                  const res = await apiCall<{
+                    populationData: PopulationDataInterface;
+                  }>(`/population-data`, {
+                    method: "POST",
+                    body: JSON.stringify({
+                      metrics: metricIds,
+                      datasourceId,
+                      sourceType,
+                      sourceId: metricDataSourceId,
+                      userIdType: "user_id",
+                    }),
+                  });
+                  setPopulationDataId(res.populationData.id);
+                  //setPopulationDataId(res.populationData.id);
+                  await getData();
+                } catch (e) {
+                  //setError(e.message);
+                }
+              }}
+            >
+              <RunQueriesButton
+                icon="refresh"
+                cta={
+                  populationData?.status === "success"
+                    ? "Refresh Data"
+                    : "Compute Metric Values"
+                }
+                mutate={getData}
+                model={
+                  populationData ?? {
+                    queries: [],
+                    runStarted: new Date(),
+                  }
+                }
+                cancelEndpoint={`/population-data/${populationData?.id}/cancel`}
+                color="outline-primary"
+              />
+            </form>
+          )}
+        </div>
+        <div className="col-auto">
+          <ViewAsyncQueriesButton
+            queries={populationData?.queries?.map((q) => q.query) ?? []}
+            error={populationData?.error}
+            hideQueryCount={true}
+            display={""}
+          />
+        </div>{" "}
+        {/* error and classname */}
+      </div>
+      {populationData?.status === "success" && (
+        <>
+          <div className="ml-2 mt-4">
+            <div className="mb-2">
+              Greyed out values below pre-filled from query results.
+            </div>
+            <Field
+              label={
+                <div>
+                  <span className="font-weight-bold mr-1">
+                    Estimated Users Per Week
+                  </span>
+                  <Tooltip
+                    popperClassName="text-left"
+                    body="Total users across all variations"
+                    tipPosition="right"
+                  />
+                </div>
+              }
+              type="number"
+              {...form.register("usersPerWeek", {
+                valueAsNumber: true,
+              })}
+              disabled={true}
+            />
+          </div>
+          <div className="ml-2">
+            {metricIds.map((metricId) => (
+              <MetricParamsInput
+                key={metricId}
+                metricId={metricId}
+                engineType={engineType}
+                form={form}
+                disableValue={true}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </>
+  );
+};
+
 const MetricParamsInput = ({
   form,
   metricId,
   engineType,
+  disableValue,
 }: {
   form: Form;
   metricId: string;
   engineType: "bayesian" | "frequentist";
+  disableValue: boolean;
 }) => {
   const metrics = form.watch("metrics");
   // eslint-disable-next-line
@@ -604,6 +654,11 @@ const MetricParamsInput = ({
               entry={entry}
               form={form}
               metricId={metricId}
+              disabled={
+                ["mean", "standardDeviation", "conversionRate"].includes(entry)
+                  ? disableValue
+                  : false
+              }
             />
           ))}
       </div>
@@ -649,6 +704,65 @@ const MetricParamsInput = ({
   );
 };
 
+const ManualDataInput = ({
+  form,
+  engineType,
+}: {
+  form: Form;
+  engineType: "bayesian" | "frequentist";
+}) => {
+  const metrics = form.watch("metrics");
+  const metricIds = Object.keys(metrics);
+
+  const usersPerWeek = form.watch("usersPerWeek");
+  const isUsersPerDayInvalid = usersPerWeek !== undefined && usersPerWeek <= 0;
+
+  return (
+    <>
+      <div className="ml-2">
+        <Field
+          label={
+            <div>
+              <span className="font-weight-bold mr-1">
+                Estimated Users Per Week
+              </span>
+              <Tooltip
+                popperClassName="text-left"
+                body="Total users across all variations"
+                tipPosition="right"
+              />
+            </div>
+          }
+          type="number"
+          {...form.register("usersPerWeek", {
+            valueAsNumber: true,
+          })}
+          className={isUsersPerDayInvalid ? "border border-danger" : undefined}
+          helpText={
+            isUsersPerDayInvalid ? (
+              <div className="text-danger">Must be greater than 0</div>
+            ) : undefined
+          }
+        />
+      </div>
+
+      <div className="ml-2">
+        <p>Customize metric details for calculating experiment duration.</p>
+
+        {metricIds.map((metricId) => (
+          <MetricParamsInput
+            key={metricId}
+            metricId={metricId}
+            engineType={engineType}
+            form={form}
+            disableValue={false}
+          />
+        ))}
+      </div>
+    </>
+  );
+};
+
 const SetParamsStep = ({
   form,
   close,
@@ -662,9 +776,6 @@ const SetParamsStep = ({
   onSubmit: (_: FullModalPowerCalculationParams) => void;
   engineType: "bayesian" | "frequentist";
 }) => {
-  const metrics = form.watch("metrics");
-  const metricIds = Object.keys(metrics);
-
   return (
     <Modal
       trackingEventModalType=""
@@ -698,18 +809,12 @@ const SetParamsStep = ({
         </button>
       }
     >
-      <div className="ml-2">
-        <p>Customize metric details for calculating experiment duration.</p>
-
-        {metricIds.map((metricId) => (
-          <MetricParamsInput
-            key={metricId}
-            metricId={metricId}
-            engineType={engineType}
-            form={form}
-          />
-        ))}
-      </div>
+      {form.watch("metricDataSource") === "query" ? (
+        <PopulationDataQueryInput form={form} engineType={engineType} />
+      ) : null}
+      {form.watch("metricDataSource") === "manual" ? (
+        <ManualDataInput form={form} engineType={engineType} />
+      ) : null}
     </Modal>
   );
 };
@@ -720,7 +825,7 @@ export default function PowerCalculationSettingsModal({
   statsEngineSettings,
   params,
 }: Props) {
-  const [step, setStep] = useState<"query" | "select" | "set-params">("query");
+  const [step, setStep] = useState<"select" | "set-params">("select");
   const settings = useOrgSettings();
 
   const form = useForm<PartialPowerCalculationParams>({
@@ -768,13 +873,6 @@ export default function PowerCalculationSettingsModal({
 
   return (
     <>
-      {step === "query" && (
-        <QueryStep
-          form={form}
-          close={close}
-          onNext={() => setStep("set-params")}
-        />
-      )}
       {step === "select" && (
         <SelectStep
           form={form}

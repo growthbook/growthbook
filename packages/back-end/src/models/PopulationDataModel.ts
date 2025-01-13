@@ -45,4 +45,12 @@ export class PopulationDataModel extends BaseClass {
   protected canDelete(doc: PopulationDataInterface): boolean {
     return this.canCreate(doc);
   }
+
+  public async getLatestBySourceId(sourceId: string, onlySuccess = true) {
+    const populationData = await this._find(
+      { sourceId, ...(onlySuccess ? { status: "success" } : {}) },
+      { sort: { dateCreated: -1 }, limit: 1 }
+    );
+    return populationData[0] ? populationData[0] : null;
+  }
 }

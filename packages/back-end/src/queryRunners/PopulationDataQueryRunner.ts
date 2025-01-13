@@ -1,5 +1,6 @@
 import {
   ExperimentMetricInterface,
+  isBinomialMetric,
   isFactMetric,
   isRatioMetric,
 } from "shared/experiments";
@@ -24,6 +25,7 @@ import {
   PopulationDataMetric,
 } from "back-end/types/population-data";
 import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
+import { SegmentInterface } from "back-end/types/segment";
 import {
   QueryRunner,
   QueryMap,
@@ -84,6 +86,19 @@ export const startPopulationDataQueries = async (
 
   // TODO permissions
 
+  let segment: SegmentInterface | null = null;
+  if (
+    params.populationSettings.sourceType === "segment" &&
+    params.populationSettings.sourceId
+  ) {
+    segment = await context.models.segments.getById(
+      params.populationSettings.sourceId
+    );
+    if (!segment) {
+      throw new Error("Segment not found");
+    }
+  }
+
   for (const m of singles) {
     const denominatorMetrics: MetricInterface[] = [];
     if (!isFactMetric(m) && m.denominator) {
@@ -101,7 +116,7 @@ export const startPopulationDataQueries = async (
       denominatorMetrics,
       dimensions: [dimensionObj],
       metric: m,
-      segment: null, // TODO segment
+      segment: segment,
       settings,
       unitsSource: "sql",
       factTableMap: params.factTableMap,
@@ -136,7 +151,7 @@ export const startPopulationDataQueries = async (
       activationMetric: null,
       dimensions: [dimensionObj],
       metrics: m,
-      segment: null, // TODO segment
+      segment: segment,
       settings,
       unitsSource: "sql",
       factTableMap: params.factTableMap,
@@ -180,6 +195,11 @@ function readMetricData({
 }): { metric: PopulationDataMetric; units: PopulationDataResult["units"] } {
   const metricData: PopulationDataMetric = {
     metric: metric.id,
+    type: isBinomialMetric(metric)
+      ? "binomial"
+      : isRatioMetric(metric)
+      ? "ratio"
+      : "mean", // TODO fix ratio denom
     data: {
       main_sum: rows.reduce(
         (sum, r) => (sum += (r?.[prefix + "main_sum"] as number) ?? 0),
@@ -189,7 +209,8 @@ function readMetricData({
         (sum, r) => (sum += (r?.[prefix + "main_sum_squares"] as number) ?? 0),
         0
       ),
-      ...(isRatioMetric(metric)
+      count: rows.reduce((sum, r) => (sum += (r?.["count"] as number) ?? 0), 0),
+      ...(isRatioMetric(metric) // denom
         ? {
             denominator_sum: rows.reduce(
               (sum, r) =>

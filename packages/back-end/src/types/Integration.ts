@@ -189,6 +189,7 @@ export interface ExperimentMetricQueryParams extends ExperimentBaseQueryParams {
   denominatorMetrics: ExperimentMetricInterface[];
   unitsSource: UnitsSource;
   unitsSql?: string;
+  forcedUserIdType?: string;
 }
 
 export interface ExperimentFactMetricsQueryParams
@@ -196,6 +197,7 @@ export interface ExperimentFactMetricsQueryParams
   metrics: FactMetricInterface[];
   unitsSource: UnitsSource;
   unitsSql?: string;
+  forcedUserIdType?: string;
 }
 
 export interface PopulationBaseQueryParams {

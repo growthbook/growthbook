@@ -33,4 +33,12 @@ router.get(
   populationDataController.getPopulationData
 );
 
+router.get(
+  "/population-data/source/:sourceId/",
+  validateRequestMiddleware({
+    params: z.object({ sourceId: z.string() }).strict(),
+  }),
+  populationDataController.getPopulationDataBySourceId
+);
+
 export { router as populationDataRouter };

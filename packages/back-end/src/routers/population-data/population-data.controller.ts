@@ -36,7 +36,7 @@ export const postPopulationData = async (
   // GET existing, do logic to find metric diffs
   const today = new Date();
   const eightWeeksAgo = new Date(today);
-  eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 7 * 8);
+  eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 7 * 520); // change to 7 * 8
 
   const snapshotSettings: ExperimentSnapshotSettings = {
     manual: false,
@@ -151,6 +151,26 @@ export const getPopulationData = async (
 
   const populationData = await context.models.populationData.getById(
     req.params.id
+  );
+
+  if (!populationData) {
+    throw new Error("PopulationData not found");
+  }
+
+  res.status(200).json({
+    status: 200,
+    populationData,
+  });
+};
+
+export const getPopulationDataBySourceId = async (
+  req: AuthRequest<null, { sourceId: string }>,
+  res: Response<{ status: 200; populationData: PopulationDataInterface | null }>
+) => {
+  const context = getContextFromReq(req);
+
+  const populationData = await context.models.populationData.getLatestBySourceId(
+    req.params.sourceId
   );
 
   if (!populationData) {

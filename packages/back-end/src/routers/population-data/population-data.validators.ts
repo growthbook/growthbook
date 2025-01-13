@@ -30,12 +30,14 @@ export const populationDataMetricDataValidator = z
     denominator_sum: z.number().optional(),
     denominator_sum_squares: z.number().optional(),
     main_denominator_sum_product: z.number().optional(),
+    count: z.number(),
   })
   .strict();
 
 export const populationDataMetricValidator = z
   .object({
     metric: z.string(),
+    type: z.enum(["mean", "ratio", "binomial"]),
     data: populationDataMetricDataValidator,
   })
   .strict();

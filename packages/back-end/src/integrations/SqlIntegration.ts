@@ -670,7 +670,8 @@ export default abstract class SqlIntegration
     factTableMap: FactTableMap;
     segment: SegmentInterface | null;
   }): string {
-    const timestampColumn = "timestamp";
+    const timestampColumn =
+      settings.sourceType === "segment" ? "date" : "timestamp";
     // BQ datetime cast for SELECT statements (do not use for where)
     const timestampDateTimeColumn = this.castUserDateCol(timestampColumn);
 
@@ -682,16 +683,18 @@ export default abstract class SqlIntegration
 
     return `
       ${firstQuery}
-      , __population AS (
+      , __experimentUnits AS (
         SELECT
           ${settings.userIdType}
-          , MIN(${timestampDateTimeColumn}) AS first_timestamp
+          , MIN(${timestampDateTimeColumn}) AS first_exposure_timestamp
+          , '' as variation
         FROM
           __segment e
         WHERE
             date >= ${this.toTimestamp(settings.startDate)}
             AND date <= ${this.toTimestamp(settings.endDate)}
-      )`;
+        GROUP BY ${settings.userIdType}
+      ),`;
   }
 
   getMetricAnalysisPopulationCTEs({
@@ -1750,10 +1753,11 @@ export default abstract class SqlIntegration
       ...params,
       unitsSource: "sql",
       unitsSql: populationSQL,
+      forcedUserIdType: params.populationSettings.userIdType,
     });
   }
 
-  getPopulationFactMetricQuery(
+  getPopulationFactMetricsQuery(
     params: PopulationFactMetricsQueryParams
   ): string {
     const { factTableMap, segment, populationSettings } = params;
@@ -1768,6 +1772,7 @@ export default abstract class SqlIntegration
       ...params,
       unitsSource: "sql",
       unitsSql: populationSQL,
+      forcedUserIdType: params.populationSettings.userIdType,
     });
   }
 
@@ -2364,7 +2369,9 @@ export default abstract class SqlIntegration
       throw new Error("Could not find fact table");
     }
 
-    const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
+    const userIdType =
+      params.forcedUserIdType ??
+      this.getExposureQuery(settings.exposureQueryId || "").userIdType;
 
     const metricData = metrics.map((metric, i) =>
       this.getMetricData(metric, settings, activationMetric, `m${i}`)
@@ -2387,10 +2394,7 @@ export default abstract class SqlIntegration
     );
 
     // Get any required identity join queries
-    const idTypeObjects = [
-      [exposureQuery.userIdType],
-      factTable.userIdTypes || [],
-    ];
+    const idTypeObjects = [[userIdType], factTable.userIdTypes || []];
     // add idTypes usually handled in units query here in the case where
     // we don't have a separate table for the units query
     if (params.unitsSource === "query") {
@@ -2404,7 +2408,7 @@ export default abstract class SqlIntegration
       objects: idTypeObjects,
       from: settings.startDate,
       to: settings.endDate,
-      forcedBaseIdType: exposureQuery.userIdType,
+      forcedBaseIdType: userIdType,
       experimentId: settings.experimentId,
     });
 
@@ -2898,7 +2902,10 @@ export default abstract class SqlIntegration
       activationMetric
     );
 
-    const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
+    // TODO simplify inputs here
+    const userIdType =
+      params.forcedUserIdType ??
+      this.getExposureQuery(settings.exposureQueryId || "").userIdType;
 
     const denominator = denominatorMetrics[denominatorMetrics.length - 1];
     // If the denominator is a binomial, it's just acting as a filter
@@ -2990,7 +2997,7 @@ export default abstract class SqlIntegration
 
     // Get any required identity join queries
     const idTypeObjects = [
-      [exposureQuery.userIdType],
+      [userIdType],
       getUserIdTypes(metric, factTableMap),
       ...denominatorMetrics.map((m) => getUserIdTypes(m, factTableMap, true)),
     ];
@@ -3007,7 +3014,7 @@ export default abstract class SqlIntegration
       objects: idTypeObjects,
       from: settings.startDate,
       to: settings.endDate,
-      forcedBaseIdType: exposureQuery.userIdType,
+      forcedBaseIdType: userIdType,
       experimentId: settings.experimentId,
     });
 

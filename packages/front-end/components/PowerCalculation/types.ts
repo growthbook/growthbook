@@ -37,9 +37,14 @@ export interface PowerCalculationParams {
   nVariations: number;
   nWeeks: number;
   alpha: number;
-  usersPerWeek: number;
+  usersPerWeek: number; // TODO extend to per week
   targetPower: number;
   statsEngineSettings: StatsEngineSettings;
+  // TODO make object
+  metricDataSource: "manual" | "query";
+  metricDataSourceType?: "segment";
+  metricDataSourceName?: string;
+  metricDataSourceId?: string;
 }
 
 export type FullModalPowerCalculationParams = Omit<
@@ -101,7 +106,7 @@ export const config = checkConfig({
     minValue: 0,
   },
   effectSize: {
-    title: "Effect Size",
+    title: "Expected Effect Size",
     type: "percent",
     tooltip:
       "This is the relative effect size that you anticipate for your experiment. Setting this allows us to compute the number of weeks needed to reliably detect an effect of this size or larger.",
