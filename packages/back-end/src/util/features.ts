@@ -61,13 +61,16 @@ export function getParsedCondition(
   if (savedGroups) {
     savedGroups.forEach(({ ids, match }) => {
       const groupIds = ids.filter((id) => {
-        // Must either have at least 1 value or be a non-empty condition
         const group = groupMap.get(id);
         if (!group) return false;
         if (group.type === "condition") {
+          // Condition groups must be non-empty
           if (!group.condition || group.condition === "{}") return false;
         } else {
-          if (!group.values?.length) return false;
+          // Legacy list groups must be non-empty
+          if (!group.useEmptyListGroup && !group.values?.length) return false;
+          // List groups must have defined values
+          if (typeof group.values === "undefined") return false;
         }
         return true;
       });
