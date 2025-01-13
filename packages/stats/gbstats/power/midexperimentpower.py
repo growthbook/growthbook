@@ -105,7 +105,7 @@ class MidExperimentPower:
         """Return uninformative output when midexperiment power can't be performed."""
         return AdditionalSampleSizeNeededResult(
             error=error_message,
-            update_message="error in input",
+            update_message=update_message if update_message else "error in input",
             additional_users=0,
             scaling_factor=0,
             upper_bound_achieved=False,

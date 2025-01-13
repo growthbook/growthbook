@@ -327,9 +327,6 @@ def analyze_metric_df(
                     num_variations=num_variations,
                     num_goal_metrics=analysis.num_goal_metrics,
                 )
-                # if metric.id == 'met_ab8nzwi29lsmce2op':
-                #    raise ValueError(['jill', test.stat_a, test.stat_b, test.stat_a._has_zero_variance, test.stat_b._has_zero_variance])
-
                 mid_experiment_power = MidExperimentPower(
                     test.stat_a, test.stat_b, res, config, power_config
                 )

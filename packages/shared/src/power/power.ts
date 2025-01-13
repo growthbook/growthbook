@@ -1240,7 +1240,7 @@ export function calculateMidExperimentPower(
 
   for (let variation = 1; variation < numVariations; variation++) {
     const thisProportionOfUsers =
-      variationWeights[0] + variationWeights[variation + 1];
+      variationWeights[0] + variationWeights[variation];
     const thisNewDailyUsers = newDailyUsers * thisProportionOfUsers;
     const thisVariation = variations[variation];
     let minPowerWithinVariation = 1.0;
@@ -1258,6 +1258,19 @@ export function calculateMidExperimentPower(
           calculationSucceeded: false,
           effectSize: variationMetricData.minPercentChange * 2,
           errorMessage: variationMetricData.powerError,
+        });
+      } else if (
+        variationMetricData.powerUpdateMessage === "already significant"
+      ) {
+        metricVariationPowerArray.push({
+          newDailyUsers: thisNewDailyUsers,
+          metricId: metricId,
+          variation: variation,
+          effectSize: variationMetricData.minPercentChange * 2,
+          power: 1,
+          lowPowerWarning: false,
+          additionalDays: 0,
+          calculationSucceeded: true,
         });
       } else {
         const powerParams: MidExperimentPowerParamsSingle = {
