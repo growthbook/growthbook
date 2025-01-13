@@ -8,7 +8,7 @@ import { QueryLanguage } from "./datasource";
 import { MetricInterface, MetricStats } from "./metric";
 import {
   DifferenceType,
-  MetricPowerResponseFromStatsEngine,
+  MetricVariationPowerResponseFromStatsEngine,
   RiskType,
   StatsEngine,
 } from "./stats";
@@ -46,7 +46,7 @@ export interface SnapshotMetric {
   }[];
   chanceToWin?: number;
   errorMessage?: string;
-  power?: MetricPowerResponseFromStatsEngine;
+  power?: MetricVariationPowerResponseFromStatsEngine;
 }
 
 export interface SnapshotVariation {

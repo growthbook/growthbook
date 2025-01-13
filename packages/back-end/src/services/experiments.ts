@@ -2741,7 +2741,6 @@ export async function updateExperimentAnalysisSummary({
     } else {
       analysisSummary.health = {
         power: {
-          additionalUsersNeeded: snapshotHealthPower.additionalUsers,
           additionalDaysNeeded: snapshotHealthPower.additionalDays,
           lowPowerWarning: snapshotHealthPower.lowPowerWarning,
         },

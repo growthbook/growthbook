@@ -301,7 +301,7 @@ export interface MidExperimentPowerParams {
 export interface MidExperimentSingleVariationParams {
   // For a single variation, we need to know the power for each metric.
   metrics: {
-    [metricId: string]: MetricVariationPowerResponseFromStatsEngine;
+    [metricId: string]: MetricVariationPowerResponseFromStatsEngine | undefined;
   };
 }
 
@@ -315,7 +315,7 @@ export interface MidExperimentPowerParamsSingle {
   numGoalMetrics: number;
   variationWeights: number[];
   numVariations: number;
-  variation: MetricVariationPowerResponseFromStatsEngine;
+  variation: MetricVariationPowerResponseFromStatsEngine | undefined;
 }
 
 export type PowerCalculationSuccessResults = {
@@ -1248,7 +1248,9 @@ export function calculateMidExperimentPower(
     for (const [metricId, variationMetricData] of Object.entries(
       thisVariation.metrics
     )) {
-      if (variationMetricData.powerError) {
+      if (variationMetricData === undefined) {
+        calculateAdditionalDays = false;
+      } else if (variationMetricData.powerError) {
         calculateAdditionalDays = false;
         metricVariationPowerArray.push({
           metricId: metricId,

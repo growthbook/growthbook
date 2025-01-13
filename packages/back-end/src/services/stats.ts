@@ -859,10 +859,11 @@ export function analyzeExperimentPower({
     (acc, it) => acc + it,
     0
   );
+
   return calculateMidExperimentPower({
     sequentialTuningParameter:
-    analysis.settings.sequentialTestingTuningParameter ??
-    DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+      analysis.settings.sequentialTestingTuningParameter ??
+      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     sequential: analysis.settings.sequentialTesting ?? false,
     alpha: analysis.settings.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
     daysRemaining: Math.max(targetDaysRemaining, 0),

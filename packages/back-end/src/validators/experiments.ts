@@ -166,7 +166,6 @@ export const experimentAnalysisSummary = z
         power: z
           .object({
             errorMessage: z.string().optional(),
-            additionalUsersNeeded: z.number().optional(),
             additionalDaysNeeded: z.number().optional(),
             lowPowerWarning: z.boolean().optional(),
           })

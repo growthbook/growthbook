@@ -259,7 +259,6 @@ const experimentSchema = new mongoose.Schema({
       power: {
         _id: false,
         errorMessage: String,
-        additionalUsersNeeded: Number,
         additionalDaysNeeded: Number,
         lowPowerWarning: Boolean,
       },

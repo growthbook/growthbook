@@ -43,8 +43,8 @@ export function PowerCard({
         </>
       ) : null}
       {midPowerResults.metricVariationPowerResults.map((r) => (
-        <div key={r.metric}>
-          {r.metric}-{r.variation}-{r.power}-{r.effectSize}-{r.additionalDays}-
+        <div key={`${r.variation}-${r.metricId}`}>
+          {r.variation}-{r.power}-{r.effectSize}-{r.additionalDays}-
           {r.calculationSucceeded ? "Succeeded" : "Failed"}-
           {r.errorMessage ? r.errorMessage : "No error"}-
           {r.lowPowerWarning ? "Low Powered" : "Not low Powered"}-
