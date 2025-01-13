@@ -11,18 +11,17 @@ import UserAvatar from "@/components/Avatar/UserAvatar";
 import Metadata from "@/components/Radix/Metadata";
 import metaDataStyles from "@/components/Radix/Styles/Metadata.module.scss";
 import Link from "@/components/Radix/Link";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   setShowEditInfoModal: (value: boolean) => void;
   editTags?: (() => void) | null;
-  editProject?: (() => void) | null;
 }
 
 export default function ProjectTagBar({
   experiment,
   setShowEditInfoModal,
-  editProject,
   editTags,
 }: Props) {
   const {
@@ -36,6 +35,10 @@ export default function ProjectTagBar({
   const project = getProjectById(experiment.project || "");
   const projectName = project?.name || null;
   const projectIsDeReferenced = projectId && !projectName;
+
+  const permissionsUtil = usePermissionsUtil();
+  const canUpdateExperimentProject = (project) =>
+    permissionsUtil.canUpdateExperiment({ project }, {});
 
   const trackingKey = experiment.trackingKey;
 
@@ -94,7 +97,7 @@ export default function ProjectTagBar({
     return (
       <Flex gap="1">
         {RenderToolTipsAndValue()}
-        {editProject && !projectId && (
+        {canUpdateExperimentProject(project) && !projectId && (
           <Link
             onClick={(e) => {
               e.preventDefault();
@@ -104,6 +107,7 @@ export default function ProjectTagBar({
             +Add
           </Link>
         )}
+        {!canUpdateExperimentProject(project) && !projectId && "None"}
       </Flex>
     );
   };
