@@ -47,7 +47,6 @@ export interface Props {
   mutate: () => void;
   duplicate?: (() => void) | null;
   editTags?: (() => void) | null;
-  editProject?: (() => void) | null;
   checklistItemsRemaining: number | null;
   envs: string[];
   setChecklistItemsRemaining: (value: number | null) => void;
@@ -67,7 +66,6 @@ export default function TabbedPage({
   linkedFeatures,
   mutate,
   duplicate,
-  editProject,
   editTags,
   editVariations,
   visualChangesets,
@@ -275,7 +273,6 @@ export default function TabbedPage({
         mutateWatchers={mutateWatchers}
         editResult={editResult || undefined}
         editTargeting={editTargeting}
-        editProject={editProject}
         editTags={editTags}
         newPhase={newPhase}
         editPhases={editPhases}

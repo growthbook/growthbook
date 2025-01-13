@@ -79,7 +79,6 @@ export interface Props {
   newPhase?: (() => void) | null;
   editTargeting?: (() => void) | null;
   editPhases?: (() => void) | null;
-  editProject?: (() => void) | null;
   editTags?: (() => void) | null;
   healthNotificationCount: number;
   verifiedConnections: SDKConnectionInterface[];
@@ -132,7 +131,6 @@ export default function ExperimentHeader({
   editTargeting,
   newPhase,
   editPhases,
-  editProject,
   editTags,
   healthNotificationCount,
   verifiedConnections,
@@ -986,7 +984,6 @@ export default function ExperimentHeader({
         <ProjectTagBar
           experiment={experiment}
           setShowEditInfoModal={setShowEditInfoModal}
-          editProject={!viewingOldPhase ? editProject : undefined}
           editTags={!viewingOldPhase ? editTags : undefined}
         />
       </div>
