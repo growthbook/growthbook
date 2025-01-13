@@ -28,9 +28,9 @@ export default function EditExperimentInfoModal({
   const { apiCall } = useAuth();
   const { memberUserNameAndIdOptions } = useMembers();
   const permissionsUtil = usePermissionsUtil();
-  const canUpdateProjects = (project) =>
+  const canUpdateExperimentProject = (project) =>
     permissionsUtil.canUpdateExperiment({ project }, {});
-  const initialProjectOption = canUpdateProjects("") ? "None" : "";
+  const initialProjectOption = canUpdateExperimentProject("") ? "None" : "";
 
   const form = useForm({
     defaultValues: {
@@ -112,9 +112,8 @@ export default function EditExperimentInfoModal({
         }
         value={form.watch("project")}
         onChange={(v) => form.setValue("project", v)}
-        //MKTODO: Validate this permission logic
         options={useProjectOptions(
-          (project) => canUpdateProjects(project),
+          (project) => canUpdateExperimentProject(project),
           experiment.project ? [experiment.project] : []
         )}
         initialOption={initialProjectOption}
