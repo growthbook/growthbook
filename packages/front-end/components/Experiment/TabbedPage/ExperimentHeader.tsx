@@ -17,7 +17,11 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiCheck, PiEye, PiLink } from "react-icons/pi";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { ExperimentSnapshotReportInterface } from "back-end/types/report";
+import {
+  ExperimentSnapshotReportArgs,
+  ExperimentSnapshotReportInterface,
+  ReportInterface,
+} from "back-end/types/report";
 import { useAuth } from "@/services/auth";
 import { Tabs, TabsList, TabsTrigger } from "@/components/Radix/Tabs";
 import Avatar from "@/components/Radix/Avatar";
@@ -175,7 +179,16 @@ export default function ExperimentHeader({
     : `${HOST}/${
         experiment?.type === "multi-armed-bandit" ? "bandit" : "experiment"
       }/${experiment.id}`;
+  const datasourceSettings = experiment.datasource
+    ? getDatasourceById(experiment.datasource)?.settings
+    : undefined;
+  const userIdType = datasourceSettings?.queries?.exposure?.find(
+    (e) => e.id === experiment.exposureQueryId
+  )?.userIdType;
 
+  const reportArgs: ExperimentSnapshotReportArgs = {
+    userIdType: userIdType as "user" | "anonymous" | undefined,
+  };
   const tabsRef = useRef<HTMLDivElement>(null);
   const [headerPinned, setHeaderPinned] = useState(false);
   const { scrollY } = useScrollPosition();
@@ -885,7 +898,22 @@ export default function ExperimentHeader({
               {showShareableReportButton ? (
                 <DropdownMenuItem
                   onClick={async () => {
-                    await handleWatchUpdates(!isWatching);
+                    const res = await apiCall<{ report: ReportInterface }>(
+                      `/experiments/report/${snapshot.id}`,
+                      {
+                        method: "POST",
+                        body: reportArgs
+                          ? JSON.stringify(reportArgs)
+                          : undefined,
+                      }
+                    );
+                    if (!res.report) {
+                      throw new Error("Failed to create report");
+                    }
+                    track("Experiment Report: Create", {
+                      source: "experiment more menu",
+                    });
+                    await router.push(`/report/${res.report.id}`);
                   }}
                 >
                   Create shareable report
@@ -965,7 +993,6 @@ export default function ExperimentHeader({
         editProject={!viewingOldPhase ? editProject : undefined}
         editTags={!viewingOldPhase ? editTags : undefined}
       />
-      {/* </div> */}
       {shouldHideTabs ? null : (
         <div
           className={clsx("experiment-tabs px-3 d-print-none", {
