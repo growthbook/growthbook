@@ -15,6 +15,10 @@ export type Option = SingleValue | GroupedValue;
 export function isSingleValue(option: Option): option is SingleValue {
   return typeof (option as SingleValue).value === "string";
 }
+export type FormatOptionLabelType = (
+  value: SingleValue,
+  meta: FormatOptionLabelMeta<SingleValue>
+) => ReactNode;
 
 export type SelectFieldProps = Omit<
   FieldProps,
@@ -28,10 +32,7 @@ export type SelectFieldProps = Omit<
   sort?: boolean;
   createable?: boolean;
   formatCreateLabel?: (value: string) => string;
-  formatOptionLabel?: (
-    value: SingleValue,
-    meta: FormatOptionLabelMeta<SingleValue>
-  ) => ReactNode;
+  formatOptionLabel?: FormatOptionLabelType;
   formatGroupLabel?: (value: GroupedValue) => ReactNode;
   isSearchable?: boolean;
   isClearable?: boolean;

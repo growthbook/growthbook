@@ -1,12 +1,13 @@
 import { FeatureInterface } from "back-end/types/feature";
 import { filterEnvironmentsByFeature } from "shared/util";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
-import { useThemeContext } from "@radix-ui/themes";
+import { Flex, useThemeContext } from "@radix-ui/themes";
 import { getRules, useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import EnvironmentDropdown from "@/components/Environments/EnvironmentDropdown";
+import Badge from "@/components/Radix/Badge";
 
 export interface Props {
   feature: FeatureInterface;
@@ -74,6 +75,7 @@ export default function CompareEnvironmentsModal({
       close={cancel}
       submit={submit}
       cta="Overwrite Target Rules"
+      ctaEnabled={!!sourceEnv && !!targetEnv}
       size="lg"
     >
       <div>
@@ -86,14 +88,32 @@ export default function CompareEnvironmentsModal({
         env={sourceEnv}
         setEnv={setSourceEnv}
         environments={environments}
-        rulesByEnv={rulesByEnv}
+        formatOptionLabel={({ value }) => (
+          <Flex justify="between" align="center">
+            <span>{value}</span>
+            <Badge
+              label={`${rulesByEnv[value].length} Rule${
+                rulesByEnv[value].length === 1 ? "" : "s"
+              } applied`}
+            />
+          </Flex>
+        )}
       />
       <EnvironmentDropdown
         label="Select Target Environment"
         env={targetEnv}
         setEnv={setTargetEnv}
         environments={environments.filter((env) => env.id !== sourceEnv)}
-        rulesByEnv={rulesByEnv}
+        formatOptionLabel={({ value }) => (
+          <Flex justify="between" align="center">
+            <span>{value}</span>
+            <Badge
+              label={`${rulesByEnv[value].length} Rule${
+                rulesByEnv[value].length === 1 ? "" : "s"
+              } applied`}
+            />
+          </Flex>
+        )}
       />
 
       {sourceEnv && targetEnv && sourceEnv !== targetEnv && (

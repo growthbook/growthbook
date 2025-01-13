@@ -119,7 +119,16 @@ export default function FeatureRules({
                   env={env}
                   setEnv={setEnv}
                   environments={environments}
-                  rulesByEnv={rulesByEnv}
+                  formatOptionLabel={({ value }) => (
+                    <Flex justify="between" align="center">
+                      <span>{value}</span>
+                      <Badge
+                        label={`${rulesByEnv[value].length} Rule${
+                          rulesByEnv[value].length === 1 ? "" : "s"
+                        } applied`}
+                      />
+                    </Flex>
+                  )}
                 />
               </Container>
               <Link
