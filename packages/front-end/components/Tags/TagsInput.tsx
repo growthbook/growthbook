@@ -87,6 +87,14 @@ const TagsInput: FC<{
         },
       };
     },
+    control: (styles, { isFocused }) => {
+      return {
+        ...styles,
+        boxShadow: `0px 0px 0px 1px ${
+          isFocused ? "var(--violet-8)" : undefined
+        }`,
+      };
+    },
     multiValue: (styles, { data }) => {
       return {
         ...styles,
