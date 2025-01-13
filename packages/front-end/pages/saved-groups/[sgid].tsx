@@ -26,6 +26,7 @@ import LargeSavedGroupPerformanceWarning, {
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
+import { DocLink } from "@/components/DocLink";
 
 const NUM_PER_PAGE = 10;
 
@@ -483,10 +484,10 @@ export default function EditSavedGroupPage() {
         )}
         {!savedGroup.values?.length && !savedGroup.useEmptyListGroup && (
           <div className="alert alert-warning mt-2 p-3">
-            <PiInfoFill style={{ marginTop: "-2px" }} /> The default behavior
-            for empty lists has changed. Any rule targeting using this or other
-            legacy empty lists will continue to be ignored, while new lists will
-            be checked even when empty.
+            <PiInfoFill style={{ marginTop: "-2px" }} /> Warning: This saved
+            group has legacy behavior when empty and will be completely ignored
+            when used for targeting.{" "}
+            <DocLink docSection="idLists">Learn More</DocLink>
           </div>
         )}
       </div>
