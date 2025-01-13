@@ -723,15 +723,12 @@ export default function ExperimentHeader({
 
       <div className="container-fluid pagecontents position-relative">
         <div className="d-flex align-items-center">
-          <div>
-            <Flex as="div" direction="row" align="center">
-              <h1 className="mb-0">{experiment.name}</h1>
-              <Box ml="2">
-                <ExperimentStatusIndicator experimentData={experiment} />
-              </Box>
-            </Flex>
-          </div>
-
+          <Flex direction="row" align="center">
+            <h1 className="mb-0">{experiment.name}</h1>
+            <Box ml="2">
+              <ExperimentStatusIndicator experimentData={experiment} />
+            </Box>
+          </Flex>
           <div className="ml-auto flex-1"></div>
           {canRunExperiment ? (
             <div className="ml-2 flex-shrink-0">
@@ -986,13 +983,13 @@ export default function ExperimentHeader({
             </DropdownMenu>
           </div>
         </div>
+        <ProjectTagBar
+          experiment={experiment}
+          setShowEditInfoModal={setShowEditInfoModal}
+          editProject={!viewingOldPhase ? editProject : undefined}
+          editTags={!viewingOldPhase ? editTags : undefined}
+        />
       </div>
-      <ProjectTagBar
-        experiment={experiment}
-        setShowEditInfoModal={setShowEditInfoModal}
-        editProject={!viewingOldPhase ? editProject : undefined}
-        editTags={!viewingOldPhase ? editTags : undefined}
-      />
       {shouldHideTabs ? null : (
         <div
           className={clsx("experiment-tabs px-3 d-print-none", {

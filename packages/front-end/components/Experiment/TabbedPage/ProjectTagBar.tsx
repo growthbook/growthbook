@@ -136,7 +136,7 @@ export default function ProjectTagBar({
     );
   };
   return (
-    <div className="pb-3 pagecontents container-fluid">
+    <div className="pb-3">
       <Flex gap="3" mt="2" mb="1">
         {renderProject()}
         <Metadata label="Experiment Key" value={trackingKey || "None"} />
