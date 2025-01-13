@@ -103,7 +103,9 @@ export const ReactSelectProps = {
       return {
         ...styles,
         backgroundColor: "var(--surface-background-color)",
-        boxShadow: `0px 0px 0px 1px ${isFocused ? "var(--violet-8)" : "000"}`,
+        boxShadow: `0px 0px 0px 1px ${
+          isFocused ? "var(--violet-8)" : undefined
+        }`,
       };
     },
     menu: (styles) => {

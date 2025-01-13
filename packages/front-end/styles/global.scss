@@ -3169,6 +3169,10 @@ td.disabled {
     }
   }
 }
+.form-control:focus {
+  border-color: var(--border-color-200);
+  box-shadow: 0px 0px 0px 1px var(--violet-8);
+}
 .form-control:disabled {
   cursor: not-allowed;
   background-color: var(--disabled-background) !important;
