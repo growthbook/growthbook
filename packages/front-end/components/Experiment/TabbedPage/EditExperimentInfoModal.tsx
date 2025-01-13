@@ -102,8 +102,9 @@ export default function EditExperimentInfoModal({
       <SelectField
         label={
           <>
-            Projects{" "}
+            Project
             <Tooltip
+              className="pl-1"
               body={
                 "The dropdown below has been filtered to only include projects where you have permission to update Experiments"
               }
