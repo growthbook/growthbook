@@ -21,6 +21,8 @@ import { featureHasEnvironment } from "./features";
 export * from "./features";
 export * from "./saved-groups";
 
+export const DEFAULT_ENVIRONMENT_IDS = ["production", "dev", "staging", "test"];
+
 export function getAffectedEnvsForExperiment({
   experiment,
   orgEnvironments,

@@ -55,7 +55,7 @@ export const experimentPhase = z
     condition: z.string(),
     savedGroups: z.array(savedGroupTargeting).optional(),
     prerequisites: z.array(featurePrerequisite).optional(),
-    namespace: namespaceValue,
+    namespace: namespaceValue.optional(),
     seed: z.string().optional(),
     variationWeights: z.array(z.number()),
     banditEvents: z.array(banditEvent).optional(),
@@ -220,6 +220,7 @@ export const experimentInterface = z
     banditBurnInValue: z.number().optional(),
     banditBurnInUnit: z.enum(["hours", "days"]).optional(),
     customFields: z.record(z.any()).optional(),
+    templateId: z.string().optional(),
     shareLevel: z.enum(["public", "organization"]).optional(),
   })
   .strict()

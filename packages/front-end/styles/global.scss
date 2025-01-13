@@ -787,21 +787,15 @@ pre {
     transform: translate(0.5px, -0.5px);
   }
 }
-main.main.report {
-  .experiment-results {
-    th {
-      &.axis-col {
-        top: 50px;
-      }
+main.main {
+  &.report {
+    .experiment-results th.axis-col {
+      top: 55px;
     }
   }
-}
-main.main.public {
-  .experiment-results {
-    th {
-      &.axis-col {
-        top: 95px;
-      }
+  &.public.experiment {
+    .experiment-results th.axis-col {
+      top: 95px;
     }
   }
 }
@@ -1222,11 +1216,6 @@ main.main.public {
         width: auto !important;
       }
     }
-  }
-}
-@media only screen and (min-width: 992px) {
-  .paged-modal-default {
-    padding: 0 40px;
   }
 }
 .modal {
@@ -3179,6 +3168,10 @@ td.disabled {
       }
     }
   }
+}
+.form-control:focus {
+  border-color: var(--border-color-200);
+  box-shadow: 0px 0px 0px 1px var(--violet-8);
 }
 .form-control:disabled {
   cursor: not-allowed;

@@ -1,6 +1,6 @@
 ---
-title: Experiment Results
-description: Analyze your experiment results from your data source.
+title: Understanding Experiment Results
+description: Learn how to analyze A/B test results, share insights, and make data-driven decisions. Includes statistical analysis, health checks, custom reports, and best practices for interpreting experiment data.
 slug: /app/experiment-results
 ---
 
@@ -173,3 +173,60 @@ Your health tab shows dimension breakdowns only for Experiment Dimensions which 
 When setting up the health tab, you will be prompted to configure your Experiment Dimensions to have pre-defined slices that can be used in the health tab. This is optional, but we require pre-defined slices for your experiment dimensions to compute dimension traffic and health checks so that we can run only one additional query per analysis and get reliable results.
 
 If you want to refresh your dimension slices or change your dimension definitions, you should do so via the Data Source page for the related data source. You can read more about that [here](/app/dimensions#experiment-dimensions).
+
+## Sharing Experiment Insights
+
+Share insights for A/B tests or bandits in 2 ways: Share the full experiment or create a custom report. 
+
+![Overflow menu with sharing options highlighted](/images/reports-share-menu.webp)
+
+### Sharing a Full Experiment
+
+Share a live view of your experiment that automatically updates with the latest data. Viewers can explore the experiment details, variations, and metrics without making changes.
+
+![Share experiment modal](/images/reports-share-modal.webp)
+
+To share an experiment:
+
+- Go to the experiment page
+- Click the overflow menu (⋮)
+- Select **Share Experiment**
+- Choose **View access**
+  - **Only organization members:** Available to anyone in your organization
+  - **Anyone with the link:** Available via public link
+
+:::tip
+Changing access from **Anyone with the link** to **Only organization members** will invalidate existing public links.
+:::
+
+### Creating a Custom Report
+
+Create point-in-time snapshots to capture specific analyses or time periods. Custom reports are ideal for documenting important findings or sharing focused analyses.
+
+To create a shareable custom report:
+
+- Go to the experiment page
+- Click the overflow menu (⋮)
+- Click **Create shareable report**
+- Click **Edit Analysis** to customize content
+- To edit report name and description, click the overflow menu (⋮) → **Edit Name & Description**
+- Click **Share**
+- Choose **View access**
+  - **Only me**: Private report visible only to you.
+  - **Only organization members**: Visible to your organization.
+- **Edit access**: Allow specific organization members to modify the report
+
+Reports can be manually updated to reflect current data or any specific date range.
+
+### Managing Custom Reports
+
+Access your reports from the **Custom Reports** section in the experiment's **Results** tab.
+
+![Manage custom reports via the Results tab](/images/reports-list.webp)
+
+From here you can:
+
+- View existing reports
+- Edit report contents
+- Manage sharing permissions
+- Delete reports

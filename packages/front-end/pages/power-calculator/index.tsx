@@ -1,19 +1,17 @@
 import { useMemo, useState, useEffect } from "react";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
-import PowerCalculationSettingsModal from "@/components/PowerCalculation/PowerCalculationSettingsModal";
-import EmptyPowerCalculation from "@/components/PowerCalculation/EmptyPowerCalculation";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import PowerCalculationContent from "@/components/PowerCalculation/PowerCalculationContent";
-
 import {
+  powerMetricWeeks,
   PowerCalculationParams,
   PowerCalculationResults,
   PartialPowerCalculationParams,
   FullModalPowerCalculationParams,
   StatsEngineSettings,
-} from "@/components/PowerCalculation/types";
-
-import { powerMetricWeeks } from "@/components/PowerCalculation/stats";
+} from "shared/power";
+import PowerCalculationSettingsModal from "@/components/PowerCalculation/PowerCalculationSettingsModal";
+import EmptyPowerCalculation from "@/components/PowerCalculation/EmptyPowerCalculation";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import PowerCalculationContent from "@/components/PowerCalculation/PowerCalculationContent";
 import track from "@/services/track";
 
 const WEEKS = 9;

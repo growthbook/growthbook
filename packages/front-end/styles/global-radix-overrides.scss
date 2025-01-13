@@ -66,6 +66,22 @@
   }
 }
 
+// Icon Button
+.rt-IconButton {
+  &:where(.rt-r-size-1) {
+    --base-button-height: var(--space-4) !important;
+  }
+  &:where(.rt-r-size-2) {
+    --base-button-height: var(--space-5) !important;
+  }
+  &:where(.rt-r-size-3) {
+    --base-button-height: var(--space-6) !important;
+  }
+  &:where(.rt-r-size-4) {
+    --base-button-height: var(--space-7) !important;
+  }
+}
+
 // Callout
 .rt-CalloutRoot:where(.rt-r-size-1) {
   padding: var(--space-2) var(--space-3) !important;
@@ -107,8 +123,8 @@
   .rdp-day {
     padding: 0 !important;
     &.rdp-disabled {
-      background-color: var(--gray-a3);
-      color: var(--gray-9);
+      background-color: var(--sand-a4);
+      color: var(--sand-9);
     }
     .rdp-day_button {
       position: relative;
@@ -137,6 +153,9 @@
   }
   .rdp-range_end .rdp-day_button {
     border-radius: 0 8px 8px 0;
+  }
+  .rdp-range_start.rdp-range_end .rdp-day_button {
+    border-radius: 8px;
   }
   .rdp-selected:not(.rdp-range_middle) {
     .rdp-day_button {

@@ -27,6 +27,7 @@ export type SelectFieldProps = Omit<
   onChange: (value: string) => void;
   sort?: boolean;
   createable?: boolean;
+  formatCreateLabel?: (value: string) => string;
   formatOptionLabel?: (
     value: SingleValue,
     meta: FormatOptionLabelMeta<SingleValue>
@@ -98,10 +99,13 @@ export const ReactSelectProps = {
         color: "var(--form-multivalue-text-color)",
       };
     },
-    control: (styles) => {
+    control: (styles, { isFocused }) => {
       return {
         ...styles,
         backgroundColor: "var(--surface-background-color)",
+        boxShadow: `0px 0px 0px 1px ${
+          isFocused ? "var(--violet-8)" : undefined
+        }`,
       };
     },
     menu: (styles) => {
@@ -147,6 +151,7 @@ const SelectField: FC<SelectFieldProps> = ({
   style,
   className,
   createable = false,
+  formatCreateLabel,
   formatOptionLabel,
   formatGroupLabel,
   isSearchable = true,
@@ -214,6 +219,11 @@ const SelectField: FC<SelectFieldProps> = ({
                 placeholder={placeholder}
                 inputValue={inputValue}
                 options={sorted}
+                formatCreateLabel={formatCreateLabel}
+                isValidNewOption={(value) => {
+                  if (!otherProps.pattern) return true;
+                  return new RegExp(otherProps.pattern).test(value);
+                }}
                 autoFocus={autoFocus}
                 onChange={(selected: { value: string }) => {
                   onChange(selected?.value || "");

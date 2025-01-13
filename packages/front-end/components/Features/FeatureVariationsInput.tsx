@@ -28,8 +28,8 @@ import SortableVariationsList from "./SortableVariationsList";
 export interface Props {
   valueType?: FeatureValueType;
   defaultValue?: string;
-  variations: SortableVariation[];
-  setWeight: (i: number, weight: number) => void;
+  variations?: SortableVariation[];
+  setWeight?: (i: number, weight: number) => void;
   setVariations?: (variations: SortableVariation[]) => void;
   coverage?: number;
   setCoverage?: (coverage: number) => void;
@@ -82,12 +82,12 @@ export default function FeatureVariationsInput({
   simple,
   sortableClassName,
 }: Props) {
-  const weights = variations.map((v) => v.weight);
-  const isEqualWeights = weights.every(
+  const weights = variations?.map((v) => v.weight) || [];
+  const isEqualWeights = weights?.every(
     (w) => Math.abs(w - weights[0]) < 0.0001
   );
 
-  const idsMatchIndexes = variations.every((v, i) => v.value === i + "");
+  const idsMatchIndexes = variations?.every((v, i) => v.value === i + "");
 
   const [editingSplits, setEditingSplits] = useState(startEditingSplits);
   const [editingIds, setEditingIds] = useState(
@@ -98,6 +98,7 @@ export default function FeatureVariationsInput({
   );
 
   const setEqualWeights = () => {
+    if (!variations || !setWeight) return;
     getEqualWeights(variations.length).forEach((w, i) => {
       setWeight(i, w);
     });
@@ -113,7 +114,6 @@ export default function FeatureVariationsInput({
     ? "Traffic Percentage"
     : "Traffic Percentage & Variation Weights";
 
-  console.log(coverage);
   return (
     <div className="form-group">
       {_label !== null ? <label>{label}</label> : null}
@@ -338,36 +338,40 @@ export default function FeatureVariationsInput({
                 </tr>
               </thead>
               <tbody>
-                <SortableVariationsList
-                  valuesAsIds={idsMatchIndexes}
-                  variations={variations}
-                  setVariations={!disableVariations ? setVariations : undefined}
-                >
-                  {variations.map((variation, i) => (
-                    <SortableFeatureVariationRow
-                      i={i}
-                      key={variation.id}
-                      variation={variation}
-                      variations={variations}
-                      setVariations={
-                        !disableVariations ? setVariations : undefined
-                      }
-                      setWeight={!disableVariations ? setWeight : undefined}
-                      customSplit={editingSplits}
-                      valueType={valueType}
-                      valueAsId={valueAsId}
-                      hideVariationIds={hideVariationIds}
-                      hideValueField={hideValueField || !editingIds}
-                      hideSplit={hideSplits}
-                      feature={feature}
-                      showDescription={showDescriptions}
-                      className={sortableClassName}
-                    />
-                  ))}
-                </SortableVariationsList>
+                {variations && (
+                  <SortableVariationsList
+                    valuesAsIds={idsMatchIndexes}
+                    variations={variations}
+                    setVariations={
+                      !disableVariations ? setVariations : undefined
+                    }
+                  >
+                    {variations.map((variation, i) => (
+                      <SortableFeatureVariationRow
+                        i={i}
+                        key={variation.id}
+                        variation={variation}
+                        variations={variations}
+                        setVariations={
+                          !disableVariations ? setVariations : undefined
+                        }
+                        setWeight={!disableVariations ? setWeight : undefined}
+                        customSplit={editingSplits}
+                        valueType={valueType}
+                        valueAsId={valueAsId}
+                        hideVariationIds={hideVariationIds}
+                        hideValueField={hideValueField || !editingIds}
+                        hideSplit={hideSplits}
+                        feature={feature}
+                        showDescription={showDescriptions}
+                        className={sortableClassName}
+                      />
+                    ))}
+                  </SortableVariationsList>
+                )}
               </tbody>
               <tfoot>
-                {!disableVariations && (
+                {!disableVariations && variations && setWeight && (
                   <tr>
                     <td colSpan={10}>
                       <div className="row">
@@ -428,7 +432,7 @@ export default function FeatureVariationsInput({
                   </tr>
                 )}
 
-                {showPreview && coverage !== undefined ? (
+                {showPreview && coverage !== undefined && variations ? (
                   <tr>
                     <td colSpan={10} className="px-0 border-0">
                       <div className="box pt-3 px-3">

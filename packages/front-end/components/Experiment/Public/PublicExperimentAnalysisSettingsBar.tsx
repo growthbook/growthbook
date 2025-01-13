@@ -58,14 +58,16 @@ export default function PublicExperimentAnalysisSettingsBar({
                   : "Disabled"
               }
             />
-            <Metadata
-              label="Sequential"
-              value={
-                analysis?.settings?.sequentialTesting
-                  ? "Enabled"
-                  : "Disabled"
-              }
-            />
+            {analysis?.settings?.statsEngine === "frequentist" && (
+              <Metadata
+                label="Sequential"
+                value={
+                  analysis?.settings?.sequentialTesting
+                    ? "Enabled"
+                    : "Disabled"
+                }
+              />
+            )}
             {snapshot.runStarted && (
               <div className="text-right mt-3">
                 <Metadata
