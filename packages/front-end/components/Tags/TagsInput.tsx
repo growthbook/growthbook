@@ -61,7 +61,7 @@ const TagsInput: FC<{
 
   const tagStyles: StylesConfig<ColorOption, true> = {
     option: (styles, { data, isDisabled }) => {
-      const displayColor = (data.color as RadixColor) ?? "#029dd1";
+      const displayColor = data.color ?? "#029dd1";
       return {
         ...styles,
         color: isDisabled ? "#ccc" : "#000",
@@ -111,7 +111,8 @@ const TagsInput: FC<{
         ...styles,
         color: data.color as RadixColor,
         ":hover": {
-          backgroundColor: "data.color as RadixColor",
+          backgroundColor: data.color + "cc",
+          color: "#ffffff",
         },
       };
     },
