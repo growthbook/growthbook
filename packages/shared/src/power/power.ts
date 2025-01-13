@@ -1312,7 +1312,7 @@ export function calculateMidExperimentPower(
     minPowerByVariation[variation] = minPowerWithinVariation;
     maxDaysByVariation[variation] = maxDaysWithinVariation;
   }
-  const maxPower = Math.max(...minPowerByVariation);
+  const maxPower = Math.max(...minPowerByVariation.slice(1));
   const lowPowerWarning = maxPower < lowPowerThreshold;
   if (calculateAdditionalDays) {
     return {
