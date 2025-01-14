@@ -10,11 +10,11 @@ import {
 import clsx from "clsx";
 import { truncateString } from "shared/util";
 import { v4 as uuidv4 } from "uuid";
+import { AlertDialog, Flex } from "@radix-ui/themes";
 import track, { TrackEventProps } from "@/services/track";
 import ConditionalWrapper from "@/components/ConditionalWrapper";
 import Button from "@/components/Radix/Button";
 import LoadingOverlay from "./LoadingOverlay";
-import Portal from "./Modal/Portal";
 import Tooltip from "./Tooltip/Tooltip";
 import { DocLink, DocSection } from "./DocLink";
 
@@ -112,6 +112,7 @@ const Modal: FC<ModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [show, setShow] = useState<boolean>(open);
 
   if (inline) {
     size = "fill";
@@ -143,9 +144,18 @@ const Modal: FC<ModalProps> = ({
     }, 70);
   }, [open, autoFocusSelector]);
 
+  // Do I need to separate this out so it's
   const contents = (
-    <div
-      className={`modal-content ${className}`}
+    // <div
+    //   className={`modal-content ${className}`}
+    //   style={{
+    //     height: sizeY === "max" ? "93vh" : "",
+    //     maxHeight: sizeY ? "" : size === "fill" ? "" : "93vh",
+    //   }}
+    // >
+    <AlertDialog.Content
+      maxHeight="93vh"
+      // do the max width here
       style={{
         height: sizeY === "max" ? "93vh" : "",
         maxHeight: sizeY ? "" : size === "fill" ? "" : "93vh",
@@ -153,42 +163,49 @@ const Modal: FC<ModalProps> = ({
     >
       {loading && <LoadingOverlay />}
       {header ? (
-        <div className="modal-header">
-          <div>
-            <h4 className="modal-title">
-              {header === "logo" ? (
-                <img
-                  alt="GrowthBook"
-                  src="/logo/growthbook-logo.png"
-                  style={{ height: 40 }}
-                />
-              ) : (
-                header
-              )}
-              {docSection && (
-                <DocLink docSection={docSection}>
-                  <Tooltip body="View Documentation" className="ml-1 w-4 h-4" />
-                </DocLink>
-              )}
-            </h4>
-            {subHeader ? <div className="mt-1">{subHeader}</div> : null}
-          </div>
-          {close && (
-            <button
-              type="button"
-              className="close"
-              onClick={(e) => {
-                e.preventDefault();
-                close();
-              }}
-              aria-label="Close"
-            >
-              <span aria-hidden="true">×</span>
-            </button>
-          )}
-        </div>
+        <AlertDialog.Title>
+          <Flex as="div" justify="between">
+            {/* <div className="modal-header"> */}
+            <div>
+              <h4 className="modal-title">
+                {header === "logo" ? (
+                  <img
+                    alt="GrowthBook"
+                    src="/logo/growthbook-logo.png"
+                    style={{ height: 40 }}
+                  />
+                ) : (
+                  header
+                )}
+                {docSection && (
+                  <DocLink docSection={docSection}>
+                    <Tooltip
+                      body="View Documentation"
+                      className="ml-1 w-4 h-4"
+                    />
+                  </DocLink>
+                )}
+              </h4>
+              {subHeader ? <div className="mt-1">{subHeader}</div> : null}
+            </div>
+            {close && (
+              <button
+                type="button"
+                className="close"
+                onClick={(e) => {
+                  e.preventDefault();
+                  close();
+                }}
+                aria-label="Close"
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            )}
+            {/* </div> */}
+          </Flex>
+        </AlertDialog.Title>
       ) : (
-        <>
+        <AlertDialog.Title>
           {close && (
             <button
               type="button"
@@ -202,27 +219,29 @@ const Modal: FC<ModalProps> = ({
               <span aria-hidden="true">&times;</span>
             </button>
           )}
-        </>
+        </AlertDialog.Title>
       )}
-      <div
-        className={`modal-body ${bodyClassName}`}
-        ref={bodyRef}
-        style={
-          overflowAuto
-            ? {
-                overflowY: "auto",
-                scrollBehavior: "smooth",
-                marginBottom: stickyFooter ? "100px" : undefined,
-              }
-            : {}
-        }
-      >
-        {isSuccess ? (
-          <div className="alert alert-success">{successMessage}</div>
-        ) : (
-          children
-        )}
-      </div>
+      <AlertDialog.Description>
+        <div
+          // className={`modal-body ${bodyClassName}`}
+          ref={bodyRef}
+          style={
+            overflowAuto
+              ? {
+                  overflowY: "auto",
+                  scrollBehavior: "smooth",
+                  marginBottom: stickyFooter ? "100px" : undefined,
+                }
+              : {}
+          }
+        >
+          {isSuccess ? (
+            <div className="alert alert-success">{successMessage}</div>
+          ) : (
+            children
+          )}
+        </div>
+      </AlertDialog.Description>
       {submit ||
       secondaryCTA ||
       tertiaryCTA ||
@@ -257,7 +276,7 @@ const Modal: FC<ModalProps> = ({
             }
           >
             {close && includeCloseCta ? (
-              <>
+              <AlertDialog.Cancel>
                 {useRadixButton ? (
                   <Button
                     variant="ghost"
@@ -281,38 +300,41 @@ const Modal: FC<ModalProps> = ({
                     {isSuccess && successMessage ? "Close" : closeCta}
                   </button>
                 )}
-              </>
+              </AlertDialog.Cancel>
             ) : null}
             {secondaryCTA}
             {submit && !isSuccess ? (
-              <Tooltip
-                body={disabledMessage || ""}
-                shouldDisplay={!ctaEnabled && !!disabledMessage}
-                tipPosition="top"
-                className={fullWidthSubmit ? "w-100" : ""}
-              >
-                {useRadixButton ? (
-                  <Button type="submit" disabled={!ctaEnabled} ml="3">
-                    {cta}
-                  </Button>
-                ) : (
-                  <button
-                    className={`btn btn-${submitColor} ${
-                      fullWidthSubmit ? "w-100" : ""
-                    } ${stickyFooter ? "ml-auto mr-5" : ""}`}
-                    type="submit"
-                    disabled={!ctaEnabled}
-                  >
-                    {cta}
-                  </button>
-                )}
-              </Tooltip>
+              <AlertDialog.Action>
+                <Tooltip
+                  body={disabledMessage || ""}
+                  shouldDisplay={!ctaEnabled && !!disabledMessage}
+                  tipPosition="top"
+                  className={fullWidthSubmit ? "w-100" : ""}
+                >
+                  {useRadixButton ? (
+                    <Button type="submit" disabled={!ctaEnabled} ml="3">
+                      {cta}
+                    </Button>
+                  ) : (
+                    <button
+                      className={`btn btn-${submitColor} ${
+                        fullWidthSubmit ? "w-100" : ""
+                      } ${stickyFooter ? "ml-auto mr-5" : ""}`}
+                      type="submit"
+                      disabled={!ctaEnabled}
+                    >
+                      {cta}
+                    </button>
+                  )}
+                </Tooltip>
+              </AlertDialog.Action>
             ) : null}
             {tertiaryCTA}
           </ConditionalWrapper>
         </div>
       ) : null}
-    </div>
+      {/* </div> */}
+    </AlertDialog.Content>
   );
 
   const overlayStyle: CSSProperties = solidOverlay
@@ -364,6 +386,7 @@ const Modal: FC<ModalProps> = ({
     >
       <div
         className={`modal-dialog modal-${size}`}
+        //MKTODO: Replicate this within the AlertDialog.Content tag
         style={
           size === "max"
             ? { width: "95vw", maxWidth: 1400, margin: "2vh auto" }
@@ -425,17 +448,29 @@ const Modal: FC<ModalProps> = ({
   }
 
   return (
-    <Portal>
-      <div
-        className={clsx("modal-backdrop fade", {
-          show: open,
-          "d-none": !open,
-          "bg-dark": solidOverlay,
-        })}
-        style={overlayStyle}
-      />
+    // <Portal>
+    //   <div
+    //     className={clsx("modal-backdrop fade", {
+    //       show: open,
+    //       "d-none": !open,
+    //       "bg-dark": solidOverlay,
+    //     })}
+    //     style={overlayStyle}
+    //   />
+    //   {modalHtml}
+    // </Portal>
+    <AlertDialog.Root
+      open={show}
+      //MKTODO: This needs work
+      onOpenChange={(o) => setShow(!o)}
+      // onOpenChange={(o) => {
+      //   if (!o) {
+      //     close;
+      //   }
+      // }}
+    >
       {modalHtml}
-    </Portal>
+    </AlertDialog.Root>
   );
 };
 
