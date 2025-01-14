@@ -158,6 +158,26 @@ export type ExperimentAnalysisSettings = z.infer<
   typeof experimentAnalysisSettings
 >;
 
+export const experimentAnalysisSummary = z
+  .object({
+    snapshotId: z.string(),
+    health: z
+      .object({
+        multipleExposures: z
+          .object({
+            usersWithMultipleExposures: z.number(),
+            totalUsers: z.number(),
+          })
+          .optional(),
+      })
+      .optional(),
+  })
+  .strict()
+  .optional();
+export type ExperimentAnalysisSummary = z.infer<
+  typeof experimentAnalysisSummary
+>;
+
 export const experimentInterface = z
   .object({
     id: z.string(),
@@ -222,6 +242,7 @@ export const experimentInterface = z
     customFields: z.record(z.any()).optional(),
     templateId: z.string().optional(),
     shareLevel: z.enum(["public", "organization"]).optional(),
+    analysisSummary: experimentAnalysisSummary,
   })
   .strict()
   .merge(experimentAnalysisSettings);
