@@ -5,11 +5,14 @@ import {
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import React, { ReactElement, useEffect, useMemo, useState } from "react";
-import { FaAngleRight, FaCheck } from "react-icons/fa";
+import { FaAngleRight } from "react-icons/fa";
 import { experimentHasLiveLinkedChanges, hasVisualChanges } from "shared/util";
 import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
 import Link from "next/link";
 import Collapsible from "react-collapsible";
+import { Flex, IconButton } from "@radix-ui/themes";
+import Checkbox from "@/components/Radix/Checkbox";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
@@ -58,7 +61,15 @@ export function PreLaunchChecklist({
   const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const [showSdkForm, setShowSdkForm] = useState(false);
-  const [updatingChecklist, setUpdatingChecklist] = useState(false);
+  const [updatingChecklistItem, setUpdatingChecklistItem] = useState<string>(
+    ""
+  );
+  const [expandChecklist, setExpandChecklist] = useLocalStorage(
+    `collapse-${experiment.id}-checklist`,
+    localStorage.getItem(`collapse-${experiment.id}-checklist`) === "true"
+      ? false
+      : true
+  );
   const showEditChecklistLink =
     hasCommercialFeature("custom-launch-checklist") &&
     permissionsUtil.canManageOrgSettings();
@@ -136,7 +147,7 @@ export function PreLaunchChecklist({
           {openSetupTab &&
           ((isBandit && !hasLiveLinkedChanges) ||
             (!isBandit && hasLinkedChanges)) ? (
-            <a className="a" role="button" onClick={openSetupTab}>
+            <a className="a link-purple " role="button" onClick={openSetupTab}>
               Linked Feature or Visual Editor change
             </a>
           ) : (
@@ -158,7 +169,7 @@ export function PreLaunchChecklist({
           <>
             {canEditExperiment ? (
               <a
-                className="a"
+                className="a link-purple"
                 role="button"
                 onClick={() => setAnalysisModal(true)}
               >
@@ -192,7 +203,7 @@ export function PreLaunchChecklist({
           <>
             Publish and enable all{" "}
             {openSetupTab ? (
-              <a className="a" role="button" onClick={openSetupTab}>
+              <a className="a link-purple" role="button" onClick={openSetupTab}>
                 Linked Feature
               </a>
             ) : (
@@ -214,7 +225,7 @@ export function PreLaunchChecklist({
           <>
             Add changes in the{" "}
             {openSetupTab ? (
-              <a className="a" role="button" onClick={openSetupTab}>
+              <a className="a link-purple" role="button" onClick={openSetupTab}>
                 Visual Editor
               </a>
             ) : (
@@ -235,7 +246,7 @@ export function PreLaunchChecklist({
         <>
           {editTargeting ? (
             <a
-              className="a"
+              className="a link-purple"
               role="button"
               onClick={() => {
                 editTargeting();
@@ -260,8 +271,11 @@ export function PreLaunchChecklist({
         status: usingStickyBucketing ? "complete" : "incomplete",
         display: (
           <>
-            <Link href="/settings">Enable Sticky Bucketing</Link> for your
-            organization and verify it is implemented properly in your codebase.
+            <Link className="link-purple" href="/settings">
+              Enable Sticky Bucketing
+            </Link>{" "}
+            for your organization and verify it is implemented properly in your
+            codebase.
           </>
         ),
       });
@@ -305,7 +319,12 @@ export function PreLaunchChecklist({
               ? "complete"
               : "incomplete",
             display: item.url ? (
-              <a href={item.url} target="_blank" rel="noreferrer">
+              <a
+                href={item.url}
+                target="_blank"
+                rel="noreferrer"
+                className="link-purple"
+              >
                 {item.task}
               </a>
             ) : (
@@ -344,7 +363,7 @@ export function PreLaunchChecklist({
 
   async function updateTaskStatus(checked: boolean, key: string | undefined) {
     if (!key) return;
-    setUpdatingChecklist(true);
+    setUpdatingChecklistItem(key);
     const updatedManualChecklistStatus = Array.isArray(
       experiment.manualLaunchChecklist
     )
@@ -373,11 +392,11 @@ export function PreLaunchChecklist({
           checklist: updatedManualChecklistStatus,
         }),
       });
+      await mutateExperiment();
     } catch (e) {
-      setUpdatingChecklist(false);
+      setUpdatingChecklistItem("");
     }
-    setUpdatingChecklist(false);
-    mutateExperiment();
+    setUpdatingChecklistItem("");
   }
 
   useEffect(() => {
@@ -419,28 +438,28 @@ export function PreLaunchChecklist({
 
       <div className="box my-3">
         <Collapsible
-          open={true}
+          open={expandChecklist}
           transitionTime={100}
+          onOpening={() => setExpandChecklist(true)}
+          onClosing={() => setExpandChecklist(false)}
           trigger={
             <div className="d-flex flex-row align-items-center justify-content-between text-dark px-4">
               <h4 className="m-0 py-3">
-                Pre-Launch Checklist{" "}
-                {data && checklistItemsRemaining !== null ? (
-                  <span
-                    className={`badge rounded-circle p-1 ${
-                      checklistItemsRemaining === 0
-                        ? "badge-success"
-                        : "badge-warning"
-                    } mx-2 my-0`}
-                    style={{ minWidth: 22 }}
-                  >
-                    {checklistItemsRemaining === 0 ? (
-                      <FaCheck size={10} />
-                    ) : (
-                      checklistItemsRemaining
-                    )}
-                  </span>
-                ) : null}
+                <Flex as="div" align="center">
+                  Pre-Launch Checklist{" "}
+                  {data && checklistItemsRemaining !== null ? (
+                    <IconButton
+                      color={checklistItemsRemaining === 0 ? "green" : "amber"}
+                      className="ml-2"
+                      radius="full"
+                      size="2"
+                    >
+                      {checklistItemsRemaining === 0
+                        ? "Check"
+                        : checklistItemsRemaining}
+                    </IconButton>
+                  ) : null}
+                </Flex>
               </h4>
               <div className="flex-1" />
               {showEditChecklistLink ? (
@@ -475,31 +494,43 @@ export function PreLaunchChecklist({
                         body="GrowthBook calculates the completion of this task automatically."
                         shouldDisplay={item.type === "auto"}
                       >
-                        <input
-                          type="checkbox"
-                          disabled={
-                            !canEditExperiment ||
-                            (item.type === "manual" && updatingChecklist) ||
-                            (item.type === "auto" &&
-                              item.status === "incomplete")
-                          }
-                          className="ml-0 pl-0 mr-2 "
-                          checked={item.status === "complete"}
-                          onChange={async (e) => {
-                            updateTaskStatus(e.target.checked, item.key);
-                          }}
-                        />
+                        <Flex as="div" align="baseline">
+                          <Checkbox
+                            label={
+                              <span
+                                style={{
+                                  textDecoration:
+                                    item.status === "complete"
+                                      ? "line-through"
+                                      : "none",
+                                }}
+                              >
+                                {item.display}
+                              </span>
+                            }
+                            weight="regular"
+                            disable={
+                              !canEditExperiment ||
+                              updatingChecklistItem === item.key ||
+                              (item.type === "auto" &&
+                                item.status === "incomplete")
+                                ? "checkbox"
+                                : undefined
+                            }
+                            value={item.status === "complete"}
+                            setValue={async () => {
+                              console.log("item.status", item.status);
+                              await updateTaskStatus(
+                                item.status === "incomplete" ? true : false,
+                                item.key
+                              );
+                            }}
+                          />
+                          {updatingChecklistItem === item.key ? (
+                            <LoadingSpinner className="ml-1" />
+                          ) : null}
+                        </Flex>
                       </Tooltip>
-                      <span
-                        style={{
-                          textDecoration:
-                            item.status === "complete"
-                              ? "line-through"
-                              : "none",
-                        }}
-                      >
-                        {item.display}
-                      </span>
                     </div>
                   </li>
                 ))}

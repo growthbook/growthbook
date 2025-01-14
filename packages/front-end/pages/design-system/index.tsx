@@ -356,12 +356,20 @@ export default function DesignSystemPage() {
             error="This is an error message"
           />
           <Checkbox
-            label="Disabled"
+            label="All Disabled"
             value={checked}
             setValue={(v) => {
               setChecked(v);
             }}
-            disabled
+            disable="all"
+          />
+          <Checkbox
+            label="Only Checkbox Disabled"
+            value={checked}
+            setValue={(v) => {
+              setChecked(v);
+            }}
+            disable="checkbox"
           />
         </Flex>
       </div>

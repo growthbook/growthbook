@@ -76,7 +76,7 @@ export default function ScheduleInputs(props: Props) {
             ]);
           }
         }}
-        disabled={!canScheduleFeatureFlags}
+        disable={!canScheduleFeatureFlags ? "all" : undefined}
       />
       {rules.length > 0 && props.scheduleToggleEnabled && (
         <div className="box mb-3 bg-light pt-2 px-3">

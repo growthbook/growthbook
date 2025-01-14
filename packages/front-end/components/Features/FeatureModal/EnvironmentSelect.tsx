@@ -65,8 +65,10 @@ const EnvironmentSelect: FC<{
         >
           {environments.map((env) => (
             <Checkbox
-              disabled={
-                !permissionsUtil.canPublishFeature({ project }, [env.id])
+              disable={
+                permissionsUtil.canPublishFeature({ project }, [env.id])
+                  ? "all"
+                  : undefined
               }
               disabledMessage="You don't have permission to create features in this environment."
               value={environmentSettings[env.id].enabled}
