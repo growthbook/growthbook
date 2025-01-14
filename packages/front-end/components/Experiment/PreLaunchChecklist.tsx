@@ -5,7 +5,7 @@ import {
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import React, { ReactElement, useEffect, useMemo, useState } from "react";
-import { FaAngleRight } from "react-icons/fa";
+import { FaAngleRight, FaCheck } from "react-icons/fa";
 import { experimentHasLiveLinkedChanges, hasVisualChanges } from "shared/util";
 import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
 import Link from "next/link";
@@ -454,9 +454,11 @@ export function PreLaunchChecklist({
                       radius="full"
                       size="2"
                     >
-                      {checklistItemsRemaining === 0
-                        ? "Check"
-                        : checklistItemsRemaining}
+                      {checklistItemsRemaining === 0 ? (
+                        <FaCheck size="10" />
+                      ) : (
+                        checklistItemsRemaining
+                      )}
                     </IconButton>
                   ) : null}
                 </Flex>
