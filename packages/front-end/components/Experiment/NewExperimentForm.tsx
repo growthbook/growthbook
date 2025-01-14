@@ -176,7 +176,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const environments = useEnvironments();
   const { experiments } = useExperiments();
-
   const envs = environments.map((e) => e.id);
 
   const [
