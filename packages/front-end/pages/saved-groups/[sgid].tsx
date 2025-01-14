@@ -4,8 +4,12 @@ import { SavedGroupInterface } from "shared/src/types";
 import { ago } from "shared/dates";
 import { FaPlusCircle } from "react-icons/fa";
 import { PiArrowsDownUp, PiWarningFill } from "react-icons/pi";
-import { getMatchingRules, isIdListSupportedDatatype } from "shared/util";
+import {
+  featuresReferencingSavedGroups,
+  isIdListSupportedDatatype,
+} from "shared/util";
 import Link from "next/link";
+import { FeatureInterface } from "back-end/types/feature";
 import Field from "@/components/Forms/Field";
 import PageHead from "@/components/Layout/PageHead";
 import Pagination from "@/components/Pagination";
@@ -90,29 +94,18 @@ export default function EditSavedGroupPage() {
     [mutate, savedGroup]
   );
 
-  const featuresReferencingSavedGroup = useMemo(() => {
-    const featuresReferencingSavedGroup: Set<string> = new Set();
-    if (!savedGroup) return featuresReferencingSavedGroup;
-    features.forEach((feature) => {
-      const matches = getMatchingRules(
-        feature,
-        (rule) =>
-          rule.condition?.includes(savedGroup.id) ||
-          rule.savedGroups?.some((g) => g.ids.includes(savedGroup.id)) ||
-          false,
-        environments.map((e) => e.id)
-      );
-
-      if (matches.length > 0) {
-        featuresReferencingSavedGroup.add(feature.id);
-      }
-    });
-    return featuresReferencingSavedGroup;
+  const referencingFeatures = useMemo(() => {
+    if (!savedGroup) return [] as FeatureInterface[];
+    return featuresReferencingSavedGroups({
+      savedGroups: [savedGroup],
+      features,
+      environments,
+    })[savedGroup.id];
   }, [savedGroup, features, environments]);
 
   const getConfirmationContent = useMemo(() => {
-    return getSavedGroupMessage(featuresReferencingSavedGroup);
-  }, [featuresReferencingSavedGroup]);
+    return getSavedGroupMessage(referencingFeatures);
+  }, [referencingFeatures]);
 
   const attr = (attributeSchema || []).find(
     (attr) => attr.property === savedGroup?.attributeKey
@@ -257,7 +250,7 @@ export default function EditSavedGroupPage() {
               text="Delete"
               title="Delete this Saved Group"
               getConfirmationContent={getConfirmationContent}
-              canDelete={(featuresReferencingSavedGroup?.size || 0) === 0}
+              canDelete={(referencingFeatures?.length || 0) === 0}
               onClick={async () => {
                 await apiCall(`/saved-groups/${savedGroup.id}`, {
                   method: "DELETE",
