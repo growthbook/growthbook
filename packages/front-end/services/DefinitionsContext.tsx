@@ -303,7 +303,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       _factTablesIncludingArchived: allFactTables,
       factMetrics: activeFactMetrics,
       _factMetricsIncludingArchived: allFactMetrics,
-      templates: templates,
+      templates,
       setProject,
       getMetricById,
       getDatasourceById,
