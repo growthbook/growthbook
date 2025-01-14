@@ -1,14 +1,11 @@
 import { FC } from "react";
 import { StylesConfig } from "react-select";
 import { TagInterface } from "back-end/types/tag";
+import * as radixColors from "@radix-ui/colors";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import {
-  findClosestRadixColor,
-  TAG_COLORS_BACKGROUND_MAP,
-  TAG_COLORS_MAP,
-} from "@/services/tags";
+import { findClosestRadixColor, TAG_COLORS_MAP } from "@/services/tags";
 import { RadixColor } from "@/components/Radix/HelperText";
 
 export interface ColorOption {
@@ -94,10 +91,11 @@ const TagsInput: FC<{
     },
     multiValue: (styles, { data }) => {
       const color = findClosestRadixColor(data.color) || "#029dd1";
+      const radixColorObj = radixColors[color];
       return {
         ...styles,
         borderRadius: 4,
-        backgroundColor: TAG_COLORS_BACKGROUND_MAP[color],
+        backgroundColor: radixColorObj[`${color}5`],
       };
     },
     multiValueLabel: (styles, { data }) => {
