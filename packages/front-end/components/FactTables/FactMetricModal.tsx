@@ -1124,10 +1124,18 @@ function FieldMappingModal({
   const stringColumns = new Set<string>();
 
   if (numerator.column && !numerator.column.startsWith("$$")) {
-    numericColumns.add(numerator.column);
+    if (numerator.aggregation === "count distinct") {
+      stringColumns.add(numerator.column);
+    } else {
+      numericColumns.add(numerator.column);
+    }
   }
   if (denominator?.column && !denominator.column.startsWith("$$")) {
-    numericColumns.add(denominator.column);
+    if (denominator.aggregation === "count distinct") {
+      stringColumns.add(denominator.column);
+    } else {
+      numericColumns.add(denominator.column);
+    }
   }
   if (
     numerator.aggregateFilterColumn &&
@@ -1183,6 +1191,9 @@ function FieldMappingModal({
         if (numerator.column && numerator.column in numericColumnMap) {
           (data.numerator as ColumnRef).column =
             numericColumnMap[numerator.column];
+        } else if (numerator.column && numerator.column in stringColumnMap) {
+          (data.numerator as ColumnRef).column =
+            stringColumnMap[numerator.column];
         }
         if (
           numerator.aggregateFilterColumn &&
@@ -1207,6 +1218,9 @@ function FieldMappingModal({
           if (denominator.column in numericColumnMap) {
             (data.denominator as ColumnRef).column =
               numericColumnMap[denominator.column];
+          } else if (denominator.column in stringColumnMap) {
+            (data.denominator as ColumnRef).column =
+              stringColumnMap[denominator.column];
           }
           if (denominator.inlineFilters) {
             const newInlineFilters: Record<string, string[]> = {};

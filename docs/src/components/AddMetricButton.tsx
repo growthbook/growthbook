@@ -9,6 +9,7 @@ export interface MetricData {
   numerator: {
     column?: string;
     inlineFilters?: Record<string, string[]>;
+    aggregation?: "sum" | "max" | "count distinct";
     aggregateFilter?: string;
     aggregateFilterColumn?: string;
   };
