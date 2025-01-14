@@ -2,11 +2,13 @@ import { useMemo, useState } from "react";
 import { ago } from "shared/dates";
 import { SavedGroupInterface } from "shared/src/types";
 import {
+  experimentsReferencingSavedGroups,
   featuresReferencingSavedGroups,
   isProjectListValidForProject,
   truncateString,
 } from "shared/util";
 import { FaMagnifyingGlass } from "react-icons/fa6";
+import { isEmpty } from "lodash";
 import { useAuth } from "@/services/auth";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useSearch } from "@/services/search";
@@ -20,6 +22,7 @@ import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
+import { useExperiments } from "@/hooks/useExperiments";
 import SavedGroupForm from "./SavedGroupForm";
 
 export interface Props {
@@ -55,9 +58,9 @@ export default function ConditionGroups({ groups, mutate }: Props) {
     : conditionGroups;
 
   const { features } = useFeaturesList(false);
+  const { experiments } = useExperiments();
 
   // Get a list of feature ids for every saved group
-  // TODO: also get experiments
   const referencingFeaturesByGroup = useMemo(
     () =>
       featuresReferencingSavedGroups({
@@ -66,6 +69,15 @@ export default function ConditionGroups({ groups, mutate }: Props) {
         environments,
       }),
     [filteredConditionGroups, environments, features]
+  );
+
+  const referencingExperimentsByGroup = useMemo(
+    () =>
+      experimentsReferencingSavedGroups({
+        savedGroups: filteredConditionGroups,
+        experiments,
+      }),
+    [filteredConditionGroups, experiments]
   );
 
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
@@ -197,11 +209,12 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                                   mutate();
                                 }}
                                 getConfirmationContent={getSavedGroupMessage(
-                                  referencingFeaturesByGroup[s.id]
+                                  referencingFeaturesByGroup[s.id],
+                                  referencingExperimentsByGroup[s.id]
                                 )}
                                 canDelete={
-                                  (referencingFeaturesByGroup[s.id]?.length ||
-                                    0) === 0
+                                  isEmpty(referencingFeaturesByGroup[s.id]) &&
+                                  isEmpty(referencingExperimentsByGroup[s.id])
                                 }
                               />
                             ) : null}

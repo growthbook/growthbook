@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { ago } from "shared/dates";
 import {
+  experimentsReferencingSavedGroups,
   featuresReferencingSavedGroups,
   isProjectListValidForProject,
   truncateString,
@@ -9,6 +10,7 @@ import Link from "next/link";
 import { SavedGroupInterface } from "shared/src/types";
 import { FaMagnifyingGlass } from "react-icons/fa6";
 import { PiInfoFill } from "react-icons/pi";
+import { isEmpty } from "lodash";
 import { useAuth } from "@/services/auth";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useSearch } from "@/services/search";
@@ -25,6 +27,7 @@ import LargeSavedGroupPerformanceWarning, {
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
+import { useExperiments } from "@/hooks/useExperiments";
 import SavedGroupForm from "./SavedGroupForm";
 
 export interface Props {
@@ -58,6 +61,7 @@ export default function IdLists({ groups, mutate }: Props) {
     : idLists;
 
   const { features } = useFeaturesList(false);
+  const { experiments } = useExperiments();
 
   const environments = useEnvironments();
 
@@ -69,7 +73,6 @@ export default function IdLists({ groups, mutate }: Props) {
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
 
   // Get a list of feature ids for every saved group
-  // TODO: also get experiments
   const referencingFeaturesByGroup = useMemo(
     () =>
       featuresReferencingSavedGroups({
@@ -78,6 +81,14 @@ export default function IdLists({ groups, mutate }: Props) {
         environments,
       }),
     [filteredIdLists, environments, features]
+  );
+  const referencingExperimentsByGroup = useMemo(
+    () =>
+      experimentsReferencingSavedGroups({
+        savedGroups: filteredIdLists,
+        experiments,
+      }),
+    [filteredIdLists, experiments]
   );
 
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
@@ -238,11 +249,12 @@ export default function IdLists({ groups, mutate }: Props) {
                                     mutate();
                                   }}
                                   getConfirmationContent={getSavedGroupMessage(
-                                    referencingFeaturesByGroup[s.id]
+                                    referencingFeaturesByGroup[s.id],
+                                    referencingExperimentsByGroup[s.id]
                                   )}
                                   canDelete={
-                                    (referencingFeaturesByGroup[s.id]?.length ||
-                                      0) === 0
+                                    isEmpty(referencingFeaturesByGroup[s.id]) &&
+                                    isEmpty(referencingExperimentsByGroup[s.id])
                                   }
                                 />
                               ) : null}

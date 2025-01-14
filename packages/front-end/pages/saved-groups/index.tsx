@@ -3,6 +3,11 @@ import Link from "next/link";
 import { SavedGroupInterface } from "shared/src/types";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { FeatureInterface } from "back-end/types/feature";
+import {
+  ExperimentInterface,
+  ExperimentInterfaceStringDates,
+} from "back-end/types/experiment";
+import { isEmpty } from "lodash";
 import IdLists from "@/components/SavedGroups/IdLists";
 import ConditionGroups from "@/components/SavedGroups/ConditionGroups";
 import { useUser } from "@/services/UserContext";
@@ -21,23 +26,32 @@ import {
 } from "@/components/Radix/Tabs";
 
 export const getSavedGroupMessage = (
-  featuresUsingSavedGroups: FeatureInterface[]
+  featuresUsingSavedGroups?: FeatureInterface[],
+  experimentsUsingSavedGroups?: Array<
+    ExperimentInterface | ExperimentInterfaceStringDates
+  >
 ) => {
   return async () => {
-    if (featuresUsingSavedGroups.length > 0) {
+    if (
+      !isEmpty(featuresUsingSavedGroups) ||
+      !isEmpty(experimentsUsingSavedGroups)
+    ) {
       return (
         <div>
           <p className="alert alert-danger">
             <strong>Whoops!</strong> Before you can delete this saved group, you
-            will need to update the feature
-            {featuresUsingSavedGroups.length > 1 && "s"} listed below by
-            removing any targeting conditions that rely on this saved group.
+            will need to update the item
+            {(featuresUsingSavedGroups?.length || 0) +
+              (experimentsUsingSavedGroups?.length || 0) >
+              1 && "s"}{" "}
+            listed below by removing any targeting conditions that rely on this
+            saved group.
           </p>
           <ul
             className="border rounded bg-light pt-3 pb-3 overflow-auto"
             style={{ maxHeight: "200px" }}
           >
-            {featuresUsingSavedGroups.map((feature) => {
+            {(featuresUsingSavedGroups || []).map((feature) => {
               return (
                 <li key={feature.id}>
                   <div className="d-flex">
@@ -46,6 +60,21 @@ export const getSavedGroupMessage = (
                       className="btn btn-link pt-1 pb-1"
                     >
                       {feature.id}
+                    </Link>
+                  </div>
+                </li>
+              );
+            })}
+
+            {(experimentsUsingSavedGroups || []).map((experiment) => {
+              return (
+                <li key={experiment.id}>
+                  <div className="d-flex">
+                    <Link
+                      href={`/experiment/${experiment.id}`}
+                      className="btn btn-link pt-1 pb-1"
+                    >
+                      {experiment.name}
                     </Link>
                   </div>
                 </li>

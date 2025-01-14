@@ -367,3 +367,32 @@ export function featuresReferencingSavedGroups({
   });
   return referenceMap;
 }
+
+export function experimentsReferencingSavedGroups({
+  savedGroups,
+  experiments,
+}: {
+  savedGroups: SavedGroupInterface[];
+  experiments: Array<ExperimentInterface | ExperimentInterfaceStringDates>;
+}) {
+  const referenceMap: Record<
+    string,
+    Array<ExperimentInterface | ExperimentInterfaceStringDates>
+  > = {};
+  savedGroups.forEach((savedGroup) => {
+    experiments.forEach((experiment) => {
+      const matchingPhases = experiment.phases.filter(
+        (phase) =>
+          phase.condition?.includes(savedGroup.id) ||
+          phase.savedGroups?.some((g) => g.ids.includes(savedGroup.id)) ||
+          false
+      );
+
+      if (matchingPhases.length > 0) {
+        referenceMap[savedGroup.id] ||= [];
+        referenceMap[savedGroup.id].push(experiment);
+      }
+    });
+  });
+  return referenceMap;
+}

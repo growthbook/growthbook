@@ -5,11 +5,14 @@ import { ago } from "shared/dates";
 import { FaPlusCircle } from "react-icons/fa";
 import { PiArrowsDownUp, PiWarningFill } from "react-icons/pi";
 import {
+  experimentsReferencingSavedGroups,
   featuresReferencingSavedGroups,
   isIdListSupportedDatatype,
 } from "shared/util";
 import Link from "next/link";
 import { FeatureInterface } from "back-end/types/feature";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { isEmpty } from "lodash";
 import Field from "@/components/Forms/Field";
 import PageHead from "@/components/Layout/PageHead";
 import Pagination from "@/components/Pagination";
@@ -32,6 +35,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import { DocLink } from "@/components/DocLink";
 import Callout from "@/components/Radix/Callout";
+import { useExperiments } from "@/hooks/useExperiments";
 
 const NUM_PER_PAGE = 10;
 
@@ -43,6 +47,7 @@ export default function EditSavedGroupPage() {
   );
   const savedGroup = data?.savedGroup;
   const { features } = useFeaturesList(false);
+  const { experiments } = useExperiments();
   const environments = useEnvironments();
   const [sortNewestFirst, setSortNewestFirst] = useState<boolean>(true);
   const [addItems, setAddItems] = useState<boolean>(false);
@@ -103,9 +108,17 @@ export default function EditSavedGroupPage() {
     })[savedGroup.id];
   }, [savedGroup, features, environments]);
 
+  const referencingExperiments = useMemo(() => {
+    if (!savedGroup) return [] as ExperimentInterfaceStringDates[];
+    return experimentsReferencingSavedGroups({
+      savedGroups: [savedGroup],
+      experiments,
+    })[savedGroup.id];
+  }, [savedGroup, experiments]);
+
   const getConfirmationContent = useMemo(() => {
-    return getSavedGroupMessage(referencingFeatures);
-  }, [referencingFeatures]);
+    return getSavedGroupMessage(referencingFeatures, referencingExperiments);
+  }, [referencingFeatures, referencingExperiments]);
 
   const attr = (attributeSchema || []).find(
     (attr) => attr.property === savedGroup?.attributeKey
@@ -250,7 +263,9 @@ export default function EditSavedGroupPage() {
               text="Delete"
               title="Delete this Saved Group"
               getConfirmationContent={getConfirmationContent}
-              canDelete={(referencingFeatures?.length || 0) === 0}
+              canDelete={
+                isEmpty(referencingFeatures) && isEmpty(referencingExperiments)
+              }
               onClick={async () => {
                 await apiCall(`/saved-groups/${savedGroup.id}`, {
                   method: "DELETE",
