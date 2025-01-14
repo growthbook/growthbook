@@ -49,6 +49,7 @@ SELECT
   -- Event type
   event_name,
   -- Context
+  event_value, -- e.g. the page view path
   geo.country,
   device.category as device_category
 FROM
@@ -113,6 +114,24 @@ WHERE
   numerator: {
     column:"$$count",
     inlineFilters: {event_name:["page_view"]}
+  }
+}}/>
+
+#### Unique Page Views per User
+
+1. Select `Mean` as the metric type
+2. Choose `page_view` as the event type
+3. Select `event_value` as the column
+4. Select `COUNT DISTINCT` as the aggregation
+
+<AddMetricButton data={{
+  name: "Unique Page Views per User",
+  description: "Average number of unique pages viewed by user",
+  metricType: "mean",
+  numerator: {
+    column: "event_value",
+    inlineFilters: {event_name:["page_view"]},
+    aggregation: "count distinct"
   }
 }}/>
 
