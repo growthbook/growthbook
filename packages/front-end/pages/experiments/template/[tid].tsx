@@ -3,7 +3,6 @@ import { FC, useState } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { ExperimentTemplateInterface } from "back-end/types/experiment";
-import { useTemplates } from "@/hooks/useTemplates";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Link from "@/components/Radix/Link";
 import PageHead from "@/components/Layout/PageHead";
@@ -14,11 +13,12 @@ import { useUser } from "@/services/UserContext";
 import LinkButton from "@/components/Radix/LinkButton";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 const TemplatePage: FC = () => {
   const router = useRouter();
   const { tid } = router.query;
-  const { templatesMap, templateExperimentMap } = useTemplates();
+  const { getTemplateById, getTemplateExperimentsById } = useDefinitions();
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
   const [openTemplateModal, setOpenTemplateModal] = useState<
     ExperimentTemplateInterface | undefined
@@ -26,8 +26,8 @@ const TemplatePage: FC = () => {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const { hasCommercialFeature, permissionsUtil } = useUser();
 
-  const template = templatesMap.get(tid as string);
-  const templateExperiments = templateExperimentMap[tid as string] || [];
+  const template = getTemplateById(tid as string);
+  const templateExperiments = getTemplateExperimentsById(tid as string) || [];
 
   const { items: experiments, SortableTH } = useSearch({
     items: templateExperiments,

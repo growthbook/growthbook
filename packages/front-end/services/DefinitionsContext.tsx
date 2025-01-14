@@ -21,9 +21,14 @@ import { ExperimentMetricInterface, isFactMetricId } from "shared/experiments";
 import { SavedGroupInterface } from "shared/src/types";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { CustomField } from "back-end/types/custom-fields";
+import {
+  ExperimentInterfaceStringDates,
+  ExperimentTemplateInterface,
+} from "back-end/types/experiment";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import { useExperiments } from "@/hooks/useExperiments";
 import { findClosestRadixColor } from "./tags";
 
 type Definitions = {
@@ -41,6 +46,7 @@ type Definitions = {
   _factTablesIncludingArchived: FactTableInterface[];
   factMetrics: FactMetricInterface[];
   _factMetricsIncludingArchived: FactMetricInterface[];
+  templates: ExperimentTemplateInterface[];
 };
 
 type DefinitionContextValue = Definitions & {
@@ -61,6 +67,10 @@ type DefinitionContextValue = Definitions & {
   getFactMetricById: (id: string) => null | FactMetricInterface;
   getExperimentMetricById: (id: string) => null | ExperimentMetricInterface;
   getMetricGroupById: (id: string) => null | MetricGroupInterface;
+  getTemplateById: (id: string) => null | ExperimentTemplateInterface;
+  getTemplateExperimentsById: (
+    id: string
+  ) => null | ExperimentInterfaceStringDates[];
 };
 
 const defaultValue: DefinitionContextValue = {
@@ -89,6 +99,7 @@ const defaultValue: DefinitionContextValue = {
   _factTablesIncludingArchived: [],
   factMetrics: [],
   _factMetricsIncludingArchived: [],
+  templates: [],
   getMetricById: () => null,
   getDatasourceById: () => null,
   getDimensionById: () => null,
@@ -100,6 +111,8 @@ const defaultValue: DefinitionContextValue = {
   getFactMetricById: () => null,
   getExperimentMetricById: () => null,
   getMetricGroupById: () => null,
+  getTemplateById: () => null,
+  getTemplateExperimentsById: () => null,
 };
 
 export const DefinitionsContext = createContext<DefinitionContextValue>(
@@ -221,6 +234,15 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     });
   }, [data?.tags]);
 
+  const templates = useMemo(() => {
+    if (!data || !data.templates) {
+      return [];
+    }
+    return data.templates;
+  }, [data?.templates]);
+
+  const { experiments, mutateExperiments } = useExperiments();
+
   const getMetricById = useGetById(data?.metrics);
   const getDatasourceById = useGetById(data?.datasources);
   const getDimensionById = useGetById(data?.dimensions);
@@ -231,6 +253,18 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   const getFactTableById = useGetById(data?.factTables);
   const getFactMetricById = useGetById(data?.factMetrics);
   const getMetricGroupById = useGetById(data?.metricGroups);
+  const getTemplateById = useGetById(data?.templates);
+
+  const getTemplateExperimentsById = useMemo(() => {
+    const map = new Map<string, ExperimentInterfaceStringDates[]>();
+    experiments.forEach((e) => {
+      if (!e.templateId) return;
+      map.set(e.templateId, [...(map.get(e.templateId) ?? []), e]);
+    });
+    return (id: string) => {
+      return map.get(id) || null;
+    };
+  }, [experiments]);
 
   const getExperimentMetricById = useCallback(
     (id: string) => {
@@ -269,6 +303,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       _factTablesIncludingArchived: allFactTables,
       factMetrics: activeFactMetrics,
       _factMetricsIncludingArchived: allFactMetrics,
+      templates: templates,
       setProject,
       getMetricById,
       getDatasourceById,
@@ -281,6 +316,8 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       getFactMetricById,
       getExperimentMetricById,
       getMetricGroupById,
+      getTemplateById,
+      getTemplateExperimentsById,
       refreshTags: async (tags) => {
         const existingTags = data.tags.map((t) => t.id);
         const newTags = tags.filter((t) => !existingTags.includes(t));
@@ -303,6 +340,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       },
       mutateDefinitions: async (changes) => {
         await mutate(Object.assign({ ...data }, changes), true);
+        await mutateExperiments();
       },
     };
   }

@@ -19,7 +19,6 @@ import Page from "@/components/Modal/Page";
 import Field from "@/components/Forms/Field";
 import TagsInput from "@/components/Tags/TagsInput";
 import ExperimentRefNewFields from "@/components/Features/RuleModal/ExperimentRefNewFields";
-import { useTemplates } from "@/hooks/useTemplates";
 import {
   filterCustomFieldsForSectionAndProject,
   useCustomFields,
@@ -61,6 +60,7 @@ const TemplateForm: FC<Props> = ({
     refreshTags,
     project,
     projects,
+    mutateDefinitions,
   } = useDefinitions();
   const { hasCommercialFeature } = useUser();
 
@@ -75,7 +75,6 @@ const TemplateForm: FC<Props> = ({
 
   const { useStickyBucketing, statsEngine: orgStatsEngine } = useOrgSettings();
   const permissionsUtils = usePermissionsUtil();
-  const { mutateTemplates } = useTemplates();
 
   const [conditionKey, forceConditionRender] = useIncrementer();
 
@@ -191,7 +190,7 @@ const TemplateForm: FC<Props> = ({
     });
 
     value.tags && refreshTags(value.tags);
-    mutateTemplates();
+    mutateDefinitions();
     if (onCreate) {
       onCreate(res.template.id);
     } else if (isEmpty(initialValue) || isNewTemplate) {
