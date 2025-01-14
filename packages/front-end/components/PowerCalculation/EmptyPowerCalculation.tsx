@@ -8,9 +8,6 @@ export default function EmptyPowerCalculation({
       <div className="row mb-4">
         <div className="col">
           <div className="d-flex justify-space-between align-items-center">
-            <span className="badge badge-purple text-uppercase mr-2">
-              Alpha
-            </span>
             <h1>Power Calculator</h1>
           </div>
         </div>

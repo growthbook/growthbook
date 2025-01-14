@@ -178,7 +178,7 @@ const MetricLabel = ({
   <>
     <div className="font-weight-bold">{name}</div>
     <div className="small">
-      Effect Size {percentFormatter(effectSize, { digits: 1 })}
+      Effect Size {percentFormatter(effectSize, { digits: 4 })}
     </div>
   </>
 );
@@ -248,7 +248,7 @@ const SampleSizeAndRuntime = ({
                             {type === "binomial" ? "Proportion" : "Mean"}
                           </div>
                         </td>
-                        <td>{percentFormatter(effectSize, { digits: 1 })}</td>
+                        <td>{percentFormatter(effectSize, { digits: 4 })}</td>
                         <td>
                           {target
                             ? `${formatWeeks({
@@ -590,9 +590,6 @@ export default function PowerCalculationContent({
       <div className="row mb-4">
         <div className="col">
           <div className="d-flex justify-space-between align-items-center">
-            <span className="badge badge-purple text-uppercase mr-2">
-              Alpha
-            </span>
             <h1>Power Calculator</h1>
           </div>
         </div>

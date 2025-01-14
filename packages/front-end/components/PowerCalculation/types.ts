@@ -1,6 +1,7 @@
 import { OrganizationSettings } from "back-end/types/organization";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
+import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 
 export interface MetricParamsBase {
   name: string;
@@ -32,6 +33,7 @@ export interface StatsEngineSettings {
   sequentialTesting: false | number;
 }
 
+// using this to jam a lot of data around the modal now
 export interface PowerCalculationParams {
   metrics: { [id: string]: MetricParams };
   nVariations: number;
@@ -41,10 +43,12 @@ export interface PowerCalculationParams {
   targetPower: number;
   statsEngineSettings: StatsEngineSettings;
   // TODO make object
-  metricDataSource: "manual" | "query";
+  metricValuesSource: "manual" | "query" | "experiment";
   metricDataSourceType?: "segment";
   metricDataSourceName?: string;
   metricDataSourceId?: string;
+  snapshot?: ExperimentSnapshotInterface;
+  selectedDatasource?: string;
 }
 
 export type FullModalPowerCalculationParams = Omit<

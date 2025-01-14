@@ -3,13 +3,14 @@ import { useForm, UseFormReturn } from "react-hook-form";
 import clsx from "clsx";
 import {
   ExperimentMetricInterface,
+  getAllMetricIdsFromExperiment,
   isBinomialMetric,
   quantileMetricType,
 } from "shared/experiments";
 import { OrganizationSettings } from "back-end/types/organization";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import { PopulationDataInterface } from "back-end/types/population-data";
-import { meanVarianceFromSums, ratioVarianceFromSums } from "shared/util";
+import { getSnapshotAnalysis, meanVarianceFromSums, ratioVarianceFromSums } from "shared/util";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -34,6 +35,9 @@ import {
   PartialPowerCalculationParams,
   StatsEngineSettings,
 } from "./types";
+import { useExperiments } from "@/hooks/useExperiments";
+import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { EXPOSURE_DATE_DIMENSION_NAME } from "shared/constants";
 
 export type Props = {
   close?: () => void;
@@ -84,35 +88,58 @@ const SelectStep = ({
     metrics: appMetrics,
     factMetrics: appFactMetrics,
     segments: appSegments,
+    project,
   } = useDefinitions();
+
+  const {
+    experiments: appExperiments,
+    error: experimentsError,
+    loading: experimentsLoading,
+  } = useExperiments(project, false, "standard");
 
   const settings = useOrgSettings();
 
-  // combine both metrics and remove ratio and quntile metrics
+  const selectedDatasource = form.watch("selectedDatasource");
+  // only allow metrics from the same datasource in an analysis
+  // combine both metrics and remove quantile metrics
   const allAppMetrics: ExperimentMetricInterface[] = [
     ...appMetrics,
     ...appFactMetrics,
   ].filter((m) => {
     const isQuantileMetric = quantileMetricType(m) !== "";
-    return !isQuantileMetric;
+    const inSelectedDatasource = selectedDatasource ? m.datasource === selectedDatasource : true;
+    return !isQuantileMetric && inSelectedDatasource;
   });
   const metrics = form.watch("metrics");
   const selectedMetrics = Object.keys(metrics);
 
-  const selectedDatasources = allAppMetrics
-    .filter((m) => selectedMetrics.includes(m.id))
-    .map((m) => m.datasource);
 
-  const metricDataSource = form.getValues("metricDataSource") ?? "";
+  const metricValuesSource = form.getValues("metricValuesSource") ?? "";
 
-  const isNextDisabled = !selectedMetrics.length && metricDataSource === "";
+  const isNextDisabled = !selectedMetrics.length && metricValuesSource === "";
 
   const availableSegments = appSegments
-    .filter((s) => selectedDatasources.includes(s.datasource))
+    .filter((s) => !selectedDatasource || s.datasource === selectedDatasource)
     .map((s) => ({
       label: `Segment: ${s.name}`,
       value: s.id,
     }));
+  console.log(selectedDatasource);
+  const availableExperiments = appExperiments
+    .filter((e) => {
+      if (!selectedDatasource || e.status === "draft") return false;
+      const allExpMetrics = getAllMetricIdsFromExperiment(e);
+      const hasDatasource = !selectedDatasource || e.datasource === selectedDatasource;
+      if (!hasDatasource) return false;
+      const hasMetrics = selectedMetrics.every((m) => allExpMetrics.includes(m));
+      return hasMetrics;
+    })
+    .map((e) => ({
+      label: `Experiment: ${e.name}`,
+      value: e.id,
+    }));
+
+  // TODO onNext validate that experiemnt has results
 
   const field = (
     key: keyof typeof config,
@@ -164,6 +191,7 @@ const SelectStep = ({
               const metric = ensureAndReturn(
                 allAppMetrics.find((m) => m.id === id)
               );
+              if (!selectedDatasource) form.setValue("selectedDatasource", metric.datasource);
 
               return {
                 ...result,
@@ -210,12 +238,13 @@ const SelectStep = ({
           </>
         }
         value={
-          metricDataSource === "manual"
+          metricValuesSource === "manual"
             ? "manual"
             : form.getValues("metricDataSourceId") ?? ""
         }
         options={[
-          { options: availableSegments, label: "Automatic Query-Based Power" },
+          { options: availableSegments, label: "Automatic Query-Based" },
+          { options: availableExperiments, label: "Automatic Past Experiment Data" },
           {
             options: [{ value: "manual", label: "Manual Entry" }],
             label: "Manual",
@@ -223,14 +252,22 @@ const SelectStep = ({
         ]}
         onChange={(value) => {
           if (value !== "manual") {
-            form.setValue("metricDataSource", "query");
             form.setValue("metricDataSourceId", value);
-            form.setValue(
-              "metricDataSourceName",
-              availableSegments.find((s) => s.value === value)?.label
-            );
+            if (value.startsWith("exp")) {
+              form.setValue("metricValuesSource", "experiment");
+              form.setValue(
+                "metricDataSourceName",
+                availableExperiments.find((s) => s.value === value)?.label
+              );
+            } else {
+              form.setValue("metricValuesSource", "query");
+              form.setValue(
+                "metricDataSourceName",
+                availableSegments.find((s) => s.value === value)?.label
+              );
+            }
           } else {
-            form.setValue("metricDataSource", "manual");
+            form.setValue("metricValuesSource", "manual");
           }
         }}
       />
@@ -616,6 +653,73 @@ const PopulationDataQueryInput = ({
   );
 };
 
+// consolidate with experiment
+const ExperimentDataInput = ({
+  form,
+  engineType,
+}: {
+  form: Form;
+  engineType: "bayesian" | "frequentist";
+}) => {
+
+  const metrics = form.getValues("metrics");
+  const metricIds = Object.keys(metrics);
+
+  const metricDataSourceId = form.watch("metricDataSourceId");
+  const snapshot = form.watch("snapshot")
+
+  if (!metricDataSourceId) return null; // TODO error
+
+  useEffect(() => {
+  
+  }, [snapshot, getSnapshotAnalysis, EXPOSURE_DATE_DIMENSION_NAME, form]);
+
+  console.log(metrics);
+  if (!snapshot) return null; // TODO
+  // TODO add url sharing and save populationId + metric
+  // TODO permissions check
+  // TODO identifier type check
+  return (
+    <>
+      <div className="ml-2">
+        <div className="mb-2">
+          Greyed out values below pre-filled from <strong>{form.watch("metricDataSourceName")}</strong>.
+        </div>
+        <Field
+          label={
+            <div>
+              <span className="font-weight-bold mr-1">
+                Estimated Users Per Week
+              </span>
+              <Tooltip
+                popperClassName="text-left"
+                body="Total users across all variations"
+                tipPosition="right"
+              />
+            </div>
+          }
+          type="number"
+          {...form.register("usersPerWeek", {
+            valueAsNumber: true,
+          })}
+          disabled={true}
+        />
+      </div>
+      <div className="ml-2">
+        {metricIds.map((metricId) => (
+          <MetricParamsInput
+            key={metricId}
+            metricId={metricId}
+            engineType={engineType}
+            form={form}
+            disableValue={true}
+          />
+        ))}
+      </div>
+    </>
+  );
+};
+
 const MetricParamsInput = ({
   form,
   metricId,
@@ -809,10 +913,13 @@ const SetParamsStep = ({
         </button>
       }
     >
-      {form.watch("metricDataSource") === "query" ? (
+      {form.watch("metricValuesSource") === "query" ? (
         <PopulationDataQueryInput form={form} engineType={engineType} />
       ) : null}
-      {form.watch("metricDataSource") === "manual" ? (
+      {form.watch("metricValuesSource") === "experiment" ? (
+        <ExperimentDataInput form={form} engineType={engineType} />
+      ) : null}
+      {form.watch("metricValuesSource") === "manual" ? (
         <ManualDataInput form={form} engineType={engineType} />
       ) : null}
     </Modal>
@@ -827,12 +934,14 @@ export default function PowerCalculationSettingsModal({
 }: Props) {
   const [step, setStep] = useState<"select" | "set-params">("select");
   const settings = useOrgSettings();
+  const { apiCall } = useAuth();
 
   const form = useForm<PartialPowerCalculationParams>({
     defaultValues: params,
   });
 
   const metrics = form.watch("metrics");
+  const metricIds = Object.keys(metrics);
   const defaultValues = Object.keys(config).reduce(
     (defaultValues, key) =>
       config[key].metricType
@@ -877,7 +986,53 @@ export default function PowerCalculationSettingsModal({
         <SelectStep
           form={form}
           close={close}
-          onNext={() => setStep("set-params")}
+          onNext={async () => {
+            if (form.watch("metricValuesSource") === "experiment") {
+              const experiment = form.watch("metricDataSourceId");
+              const { snapshot } = await apiCall<{
+                snapshot: ExperimentSnapshotInterface;
+              }>(
+                `/experiment/${experiment}/snapshot/0/?type=standard`
+              );
+              if (snapshot) {
+                const analysis = getSnapshotAnalysis(snapshot);
+                // use control for mean and variance
+                // use total traffic for traffic
+                const units = snapshot.health?.traffic.overall.variationUnits.reduce((result, v) => v + result, 0) ?? 0;
+                // TODO get length from experiment
+                const length = (snapshot.health?.traffic.dimension?.[EXPOSURE_DATE_DIMENSION_NAME]?.length ?? 7) / 7;
+                let newMetrics = {};
+                analysis?.results?.[0]?.variations?.forEach((v, i) => {
+                  if (i === 0) {
+                    metricIds.forEach((metricId) => {
+                      console.log(v.metrics[metricId]);
+                      const mean = v.metrics[metricId].stats?.mean;
+                      console.log(mean);
+                      const standardDeviation = v.metrics[metricId].stats?.stddev;
+                      newMetrics = {
+                        ...newMetrics,
+                        [metricId]: {
+                          ...metrics[metricId],
+                          mean,
+                          conversionRate: mean,
+                          standardDeviation,
+                        },
+                      }
+                    });
+                  }
+                });
+                form.setValue("metrics", newMetrics);
+          
+                form.setValue(
+                  "usersPerWeek",
+                  Math.round(units / length)
+                );
+              }
+            }
+            // throw error
+            setStep("set-params")
+            
+          }}
         />
       )}
       {step === "set-params" && (

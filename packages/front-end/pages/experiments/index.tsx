@@ -329,13 +329,11 @@ const ExperimentsPage = (): React.ReactElement => {
               <h1>Experiments</h1>
             </div>
             <div style={{ flex: 1 }} />
-            {settings.powerCalculatorEnabled && (
               <div className="col-auto">
                 <LinkButton variant="outline" href="/power-calculator">
                   Power Calculator
                 </LinkButton>
               </div>
-            )}
             {canAdd && (
               <div className="col-auto">{addExperimentDropdownButton}</div>
             )}

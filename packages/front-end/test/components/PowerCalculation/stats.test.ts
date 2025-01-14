@@ -188,7 +188,7 @@ describe("backend", () => {
         type: "frequentist",
         sequentialTesting: false,
       },
-      metricDataSource: "manual",
+      metricValuesSource: "manual",
     };
     const powerSettingsBayesian: PowerCalculationParams = {
       usersPerWeek: usersPerWeek,
@@ -201,7 +201,7 @@ describe("backend", () => {
         type: "bayesian",
         sequentialTesting: false,
       },
-      metricDataSource: "manual",
+      metricValuesSource: "manual",
     };
     const powerSolution = [
       0.073,
@@ -372,7 +372,7 @@ describe("backend", () => {
         type: "frequentist",
         sequentialTesting: 5000,
       },
-      metricDataSource: "manual",
+      metricValuesSource: "manual",
     };
     const powerSolution = [
       0.05936,

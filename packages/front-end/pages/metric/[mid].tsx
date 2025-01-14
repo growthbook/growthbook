@@ -180,7 +180,7 @@ const MetricPage: FC = () => {
     metricName: metric.name,
     tags: metric.tags || [],
     metricType: metric.type,
-    metricDatasource: datasource?.name || "",
+    metricValuesSource: datasource?.name || "",
   };
 
   const getMetricUsage = (metric: MetricInterface) => {
