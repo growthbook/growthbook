@@ -48,9 +48,8 @@ SELECT
   user_pseudo_id as anonymous_id,
   -- Event type
   event_name,
-  -- Event value (e.g. page view path)
-  event_value,
   -- Context
+  event_value, -- e.g. the page view path
   geo.country,
   device.category as device_category
 FROM
@@ -185,7 +184,7 @@ SELECT
 FROM orders
 ```
 
-Because this is a modeled table just for orders, we can select event-specific columns like `order_id`, `num_items`, `grand_total`, and `shipping_type`. These columns will help us build out a rich set of metrics. This is one of the big benefits over using a raw events table directly where the columns you select need to be more generic and work across a wide range of different events.
+Because this is a modeled table just for orders, we can select event-specific columns like `num_items`, `grand_total`, and `shipping_type`. These columns will help us build out a rich set of metrics. This is one of the big benefits over using a raw events table directly where the columns you select need to be more generic and work across a wide range of different events.
 
 Similar to raw event tables, you can optionally add a WHERE clause on dates for faster/cheaper queries:
 
