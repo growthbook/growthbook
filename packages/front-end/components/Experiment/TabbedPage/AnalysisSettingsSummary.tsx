@@ -223,7 +223,7 @@ export default function AnalysisSettingsSummary({
     tooltip: ds ? "Data Source" : "",
   });
 
-  if (assignmentQuery) {
+  if (assignmentQuery && ds?.type !== "mixpanel") {
     items.push({
       value: assignmentQuery.name,
       icon: <FaTable className="mr-1" />,

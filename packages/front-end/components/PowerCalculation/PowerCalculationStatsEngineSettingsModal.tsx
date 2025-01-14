@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
+import { StatsEngineSettings } from "shared/power";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
 import RadioGroup from "@/components/Radix/RadioGroup";
-import { StatsEngineSettings } from "./types";
 
 type StatsEngineWithSequential = "bayesian" | "frequentist" | "sequential";
 

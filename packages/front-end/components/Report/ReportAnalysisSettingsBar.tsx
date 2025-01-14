@@ -81,8 +81,7 @@ export default function ReportAnalysisSettingsBar({
             <Metadata
               label="Engine"
               value={
-                report?.experimentAnalysisSettings?.statsEngine ===
-                "frequentist"
+                analysis?.settings?.statsEngine === "frequentist"
                   ? "Frequentist"
                   : "Bayesian"
               }
@@ -90,19 +89,17 @@ export default function ReportAnalysisSettingsBar({
             <Metadata
               label="CUPED"
               value={
-                report?.experimentAnalysisSettings?.regressionAdjustmentEnabled
-                  ? "Enabled"
-                  : "Disabled"
+                analysis?.settings?.regressionAdjusted ? "Enabled" : "Disabled"
               }
             />
-            <Metadata
-              label="Sequential"
-              value={
-                report?.experimentAnalysisSettings?.sequentialTestingEnabled
-                  ? "Enabled"
-                  : "Disabled"
-              }
-            />
+            {analysis?.settings?.statsEngine === "frequentist" && (
+              <Metadata
+                label="Sequential"
+                value={
+                  analysis?.settings?.sequentialTesting ? "Enabled" : "Disabled"
+                }
+              />
+            )}
             {snapshot.runStarted && (
               <div className="text-right mt-3">
                 <Metadata
