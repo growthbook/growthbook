@@ -1540,8 +1540,6 @@ export default function FactMetricModal({
     form.setValue("datasource", datasource);
   };
 
-  console.log(defaultValues);
-
   if (fromTemplate && !form.watch("numerator").factTableId) {
     return (
       <FieldMappingModal
