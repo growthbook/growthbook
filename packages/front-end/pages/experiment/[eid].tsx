@@ -16,7 +16,6 @@ import StopExperimentForm from "@/components/Experiment/StopExperimentForm";
 import EditVariationsForm from "@/components/Experiment/EditVariationsForm";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
-import EditProjectForm from "@/components/Experiment/EditProjectForm";
 import { useAuth } from "@/services/auth";
 import SnapshotProvider from "@/components/Experiment/SnapshotProvider";
 import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
@@ -26,7 +25,6 @@ import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Tooltip from "@/components/Tooltip/Tooltip";
 
 const ExperimentPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -38,7 +36,6 @@ const ExperimentPage = (): ReactElement => {
   const [variationsModalOpen, setVariationsModalOpen] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [tagsModalOpen, setTagsModalOpen] = useState(false);
-  const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [phaseModalOpen, setPhaseModalOpen] = useState(false);
   const [editPhasesOpen, setEditPhasesOpen] = useState(false);
   const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
@@ -103,7 +100,6 @@ const ExperimentPage = (): ReactElement => {
     ? () => setDuplicateModalOpen(true)
     : null;
   const editTags = canEditExperiment ? () => setTagsModalOpen(true) : null;
-  const editProject = canRunExperiment ? () => setProjectModalOpen(true) : null;
   const newPhase = canRunExperiment ? () => setPhaseModalOpen(true) : null;
   const editPhases = canRunExperiment ? () => setEditPhasesOpen(true) : null;
   const editPhase = canRunExperiment
@@ -172,39 +168,6 @@ const ExperimentPage = (): ReactElement => {
           source="eid"
         />
       )}
-      {projectModalOpen && (
-        <EditProjectForm
-          label={
-            <>
-              Projects{" "}
-              <Tooltip
-                body={
-                  "The dropdown below has been filtered to only include projects where you have permission to update Experiments"
-                }
-              />
-            </>
-          }
-          cancel={() => setProjectModalOpen(false)}
-          permissionRequired={(project) =>
-            permissionsUtil.canUpdateExperiment({ project }, {})
-          }
-          mutate={mutate}
-          current={experiment.project}
-          apiEndpoint={`/experiment/${experiment.id}`}
-          additionalMessage={
-            experiment.status !== "draft" &&
-            (experiment.linkedFeatures?.length ||
-              experiment.hasVisualChangesets ||
-              experiment.hasURLRedirects) ? (
-              <div className="alert alert-danger">
-                Changing the project may prevent your linked Feature Flags,
-                Visual Changes, and URL Redirects from being sent to users.
-              </div>
-            ) : null
-          }
-          source="eid"
-        />
-      )}
       {phaseModalOpen && (
         <NewPhaseForm
           close={() => setPhaseModalOpen(false)}
@@ -264,7 +227,6 @@ const ExperimentPage = (): ReactElement => {
             editResult={editResult}
             editVariations={editVariations}
             duplicate={duplicate}
-            editProject={editProject}
             editTags={editTags}
             newPhase={newPhase}
             editPhases={editPhases}

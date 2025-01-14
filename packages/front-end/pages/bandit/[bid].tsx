@@ -103,7 +103,6 @@ const BanditExperimentPage = (): ReactElement => {
     ? () => setDuplicateModalOpen(true)
     : null;
   const editTags = canEditExperiment ? () => setTagsModalOpen(true) : null;
-  const editProject = canRunExperiment ? () => setProjectModalOpen(true) : null;
   const newPhase = canRunExperiment ? () => setPhaseModalOpen(true) : null;
   const editPhases = canRunExperiment ? () => setEditPhasesOpen(true) : null;
   const editPhase = canRunExperiment
@@ -279,7 +278,6 @@ const BanditExperimentPage = (): ReactElement => {
             editResult={editResult}
             editVariations={editVariations}
             duplicate={duplicate}
-            editProject={editProject}
             editTags={editTags}
             newPhase={newPhase}
             editPhases={editPhases}

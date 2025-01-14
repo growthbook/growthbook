@@ -2,8 +2,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { Flex, Text } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { PiWarning } from "react-icons/pi";
-import React, { useState } from "react";
-import { GBEdit } from "@/components/Icons";
+import React from "react";
 import SortedTags from "@/components/Tags/SortedTags";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -12,24 +11,21 @@ import UserAvatar from "@/components/Avatar/UserAvatar";
 import Metadata from "@/components/Radix/Metadata";
 import metaDataStyles from "@/components/Radix/Styles/Metadata.module.scss";
 import Link from "@/components/Radix/Link";
-import EditOwnerModal from "@/components/Owner/EditOwnerModal";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { FocusSelector } from "./EditExperimentInfoModal";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  setShowEditInfoModal: (value: boolean) => void;
+  setEditInfoFocusSelector: (value: FocusSelector) => void;
   editTags?: (() => void) | null;
-  editProject?: (() => void) | null;
-  canEditOwner?: boolean;
-  updateOwner?: (owner: string) => Promise<void>;
-  mutate?: () => void;
 }
 
 export default function ProjectTagBar({
   experiment,
-  editProject,
+  setShowEditInfoModal,
+  setEditInfoFocusSelector,
   editTags,
-  canEditOwner,
-  updateOwner,
-  mutate,
 }: Props) {
   const {
     projects,
@@ -38,12 +34,14 @@ export default function ProjectTagBar({
   } = useDefinitions();
 
   const { getUserDisplay } = useUser();
-
-  const [editOwnerModal, setEditOwnerModal] = useState(false);
   const projectId = experiment.project;
   const project = getProjectById(experiment.project || "");
   const projectName = project?.name || null;
   const projectIsDeReferenced = projectId && !projectName;
+
+  const permissionsUtil = usePermissionsUtil();
+  const canUpdateExperimentProject = (project) =>
+    permissionsUtil.canUpdateExperiment({ project }, {});
 
   const trackingKey = experiment.trackingKey;
 
@@ -61,30 +59,7 @@ export default function ProjectTagBar({
           <Text weight="regular" className={metaDataStyles.valueColor} ml="1">
             {ownerName === "" ? "None" : ownerName}
           </Text>
-          {canEditOwner && updateOwner && (
-            <a
-              className="ml-1 cursor-pointer link-purple"
-              onClick={() => setEditOwnerModal(true)}
-            >
-              <GBEdit />
-            </a>
-          )}
         </span>
-        {editOwnerModal && (
-          <EditOwnerModal
-            cancel={() => setEditOwnerModal(false)}
-            owner={ownerName}
-            save={
-              updateOwner ??
-              (async (ownerName) => {
-                throw new Error(
-                  "save method not defined. Not updated to: " + ownerName
-                );
-              })
-            }
-            mutate={mutate ?? (() => {})}
-          />
-        )}
       </>
     );
   };
@@ -125,26 +100,18 @@ export default function ProjectTagBar({
     return (
       <Flex gap="1">
         {RenderToolTipsAndValue()}
-        {editProject && !projectId && (
+        {canUpdateExperimentProject(project) && !projectId && (
           <Link
             onClick={(e) => {
               e.preventDefault();
-              editProject();
+              setEditInfoFocusSelector("project");
+              setShowEditInfoModal(true);
             }}
           >
             +Add
           </Link>
         )}
-        {editProject && projectId && (
-          <Link
-            onClick={(e) => {
-              e.preventDefault();
-              editProject();
-            }}
-          >
-            <GBEdit />
-          </Link>
-        )}
+        {!canUpdateExperimentProject(project) && !projectId && "None"}
       </Flex>
     );
   };
@@ -167,20 +134,11 @@ export default function ProjectTagBar({
           <Link
             onClick={(e) => {
               e.preventDefault();
-              editTags();
+              setEditInfoFocusSelector("tags");
+              setShowEditInfoModal(true);
             }}
           >
             +Add
-          </Link>
-        )}
-        {editTags && experiment.tags?.length > 0 && (
-          <Link
-            onClick={(e) => {
-              e.preventDefault();
-              editTags();
-            }}
-          >
-            <GBEdit />
           </Link>
         )}
       </Flex>

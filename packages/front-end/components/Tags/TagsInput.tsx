@@ -1,11 +1,12 @@
 import { FC } from "react";
 import { StylesConfig } from "react-select";
 import { TagInterface } from "back-end/types/tag";
+import * as radixColors from "@radix-ui/colors";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { TAG_COLORS_MAP } from "@/services/tags";
-import { isLight } from "./Tag";
+import { findClosestRadixColor, TAG_COLORS_MAP } from "@/services/tags";
+import { RadixColor } from "@/components/Radix/HelperText";
 
 export interface ColorOption {
   readonly value: string;
@@ -56,24 +57,17 @@ const TagsInput: FC<{
   });
 
   const tagStyles: StylesConfig<ColorOption, true> = {
-    option: (styles, { data, isDisabled, isFocused, isSelected }) => {
+    option: (styles, { data, isDisabled }) => {
       const displayColor = data.color ?? "#029dd1";
       return {
         ...styles,
-        backgroundColor: isDisabled
-          ? undefined
-          : isSelected
-          ? displayColor + "20"
-          : isFocused
-          ? displayColor + "25"
-          : displayColor + "00",
         color: isDisabled ? "#ccc" : "#000",
         cursor: isDisabled ? "not-allowed" : "default",
         alignItems: "center",
         display: "flex",
         // add a colored dot:
         ":before": {
-          backgroundColor: data.color,
+          backgroundColor: data.color as RadixColor,
           borderRadius: 10,
           content: '" "',
           display: "block",
@@ -96,24 +90,30 @@ const TagsInput: FC<{
       };
     },
     multiValue: (styles, { data }) => {
+      const color = findClosestRadixColor(data.color) || "#029dd1";
+      const radixColorObj = radixColors[color];
       return {
         ...styles,
         borderRadius: 4,
-        backgroundColor: data.color,
-        color: isLight(data.color) ? "#000000" : "#ffffff",
+        backgroundColor: radixColorObj[`${color}5`],
       };
     },
-    multiValueLabel: (styles, { data }) => ({
-      ...styles,
-      color: isLight(data.color) ? "#000000" : "#ffffff",
-    }),
-    multiValueRemove: (styles, { data }) => ({
-      ...styles,
-      color: isLight(data.color) ? "#000000" : "#ffffff",
-      ":hover": {
-        backgroundColor: data.color + "cc",
-      },
-    }),
+    multiValueLabel: (styles, { data }) => {
+      return {
+        ...styles,
+        color: data.color as RadixColor,
+      };
+    },
+    multiValueRemove: (styles, { data }) => {
+      return {
+        ...styles,
+        color: data.color as RadixColor,
+        ":hover": {
+          backgroundColor: data.color + "cc",
+          color: "#ffffff",
+        },
+      };
+    },
   };
 
   return (
