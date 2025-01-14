@@ -56,7 +56,9 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import HelperText from "@/components/Radix/HelperText";
 import TemplateForm from "../Templates/TemplateForm";
 import ProjectTagBar from "./ProjectTagBar";
-import EditExperimentInfoModal from "./EditExperimentInfoModal";
+import EditExperimentInfoModal, {
+  FocusSelector,
+} from "./EditExperimentInfoModal";
 import ExperimentActionButtons from "./ExperimentActionButtons";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import { ExperimentTab } from ".";
@@ -155,6 +157,10 @@ export default function ExperimentHeader({
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showBanditModal, setShowBanditModal] = useState(false);
   const [showEditInfoModal, setShowEditInfoModal] = useState(false);
+  const [
+    editInfoFocusSelector,
+    setEditInfoFocusSelector,
+  ] = useState<FocusSelector>("name");
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const isWatching = watchedExperiments.includes(experiment.id);
@@ -380,6 +386,7 @@ export default function ExperimentHeader({
             experiment={experiment}
             setShowEditInfoModal={setShowEditInfoModal}
             mutate={mutate}
+            focusSelector={editInfoFocusSelector}
           />
         ) : null}
         {showSdkForm && (
@@ -792,7 +799,12 @@ export default function ExperimentHeader({
                     </DropdownMenuItem>
                   )}
                 {canEditExperiment ? (
-                  <DropdownMenuItem onClick={() => setShowEditInfoModal(true)}>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setEditInfoFocusSelector("name");
+                      setShowEditInfoModal(true);
+                    }}
+                  >
                     Edit info
                   </DropdownMenuItem>
                 ) : null}
@@ -984,6 +996,7 @@ export default function ExperimentHeader({
         <ProjectTagBar
           experiment={experiment}
           setShowEditInfoModal={setShowEditInfoModal}
+          setEditInfoFocusSelector={setEditInfoFocusSelector}
           editTags={!viewingOldPhase ? editTags : undefined}
         />
       </div>

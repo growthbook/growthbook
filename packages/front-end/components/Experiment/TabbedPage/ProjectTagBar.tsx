@@ -12,16 +12,19 @@ import Metadata from "@/components/Radix/Metadata";
 import metaDataStyles from "@/components/Radix/Styles/Metadata.module.scss";
 import Link from "@/components/Radix/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { FocusSelector } from "./EditExperimentInfoModal";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   setShowEditInfoModal: (value: boolean) => void;
+  setEditInfoFocusSelector: (value: FocusSelector) => void;
   editTags?: (() => void) | null;
 }
 
 export default function ProjectTagBar({
   experiment,
   setShowEditInfoModal,
+  setEditInfoFocusSelector,
   editTags,
 }: Props) {
   const {
@@ -101,6 +104,7 @@ export default function ProjectTagBar({
           <Link
             onClick={(e) => {
               e.preventDefault();
+              setEditInfoFocusSelector("project");
               setShowEditInfoModal(true);
             }}
           >
@@ -130,6 +134,7 @@ export default function ProjectTagBar({
           <Link
             onClick={(e) => {
               e.preventDefault();
+              setEditInfoFocusSelector("tags");
               setShowEditInfoModal(true);
             }}
           >

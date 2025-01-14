@@ -14,16 +14,20 @@ import Callout from "@/components/Radix/Callout";
 import { useAuth } from "@/services/auth";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 
+export type FocusSelector = "project" | "tags" | "name";
+
 interface Props {
   experiment: ExperimentInterfaceStringDates;
   setShowEditInfoModal: (value: boolean) => void;
   mutate: () => void;
+  focusSelector?: FocusSelector;
 }
 
 export default function EditExperimentInfoModal({
   experiment,
   setShowEditInfoModal,
   mutate,
+  focusSelector = "name",
 }: Props) {
   const { apiCall } = useAuth();
   const { memberUserNameAndIdOptions } = useMembers();
@@ -49,6 +53,8 @@ export default function EditExperimentInfoModal({
       trackingEventModalType="edit-experiment-info"
       size="lg"
       trackingEventModalSource="experiment-more-menu"
+      // if this is undefined, the Modal component sets the value to the first enabled input field
+      autoFocusSelector=""
       header="Edit Info"
       submit={form.handleSubmit(async (data) => {
         await apiCall(`/experiment/${experiment.id}`, {
@@ -58,7 +64,12 @@ export default function EditExperimentInfoModal({
         mutate();
       })}
     >
-      <Field label="Experiment Name" {...form.register("name")} required />
+      <Field
+        autoFocus={focusSelector === "name"}
+        label="Experiment Name"
+        {...form.register("name")}
+        required
+      />
       <Field
         disabled={experiment.status !== "draft"}
         label="Experiment Key"
@@ -95,6 +106,7 @@ export default function EditExperimentInfoModal({
       <div className="form-group">
         <label>Tags</label>
         <TagsInput
+          autoFocus={focusSelector === "tags"}
           value={form.watch("tags") ?? []}
           onChange={(tags) => form.setValue("tags", tags)}
         />
@@ -111,6 +123,7 @@ export default function EditExperimentInfoModal({
             />
           </>
         }
+        autoFocus={focusSelector === "project"}
         value={form.watch("project")}
         onChange={(v) => form.setValue("project", v)}
         options={useProjectOptions(
