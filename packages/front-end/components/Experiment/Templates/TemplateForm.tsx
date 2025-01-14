@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import { FC, useEffect, useState } from "react";
+import React, { FC, useEffect, useState } from "react";
 import { ExperimentTemplateInterface } from "back-end/types/experiment";
 import { FormProvider, useForm } from "react-hook-form";
 import { validateAndFixCondition } from "shared/util";
@@ -20,6 +20,12 @@ import Field from "@/components/Forms/Field";
 import TagsInput from "@/components/Tags/TagsInput";
 import ExperimentRefNewFields from "@/components/Features/RuleModal/ExperimentRefNewFields";
 import { useTemplates } from "@/hooks/useTemplates";
+import {
+  filterCustomFieldsForSectionAndProject,
+  useCustomFields,
+} from "@/hooks/useCustomFields";
+import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
+import { useUser } from "@/services/UserContext";
 
 type Props = {
   initialValue?: Partial<ExperimentTemplateInterface>;
@@ -56,6 +62,7 @@ const TemplateForm: FC<Props> = ({
     project,
     projects,
   } = useDefinitions();
+  const { hasCommercialFeature } = useUser();
 
   const environments = useEnvironments();
   const envs = environments.map((e) => e.id);
@@ -95,6 +102,7 @@ const TemplateForm: FC<Props> = ({
       hypothesis: initialValue?.hypothesis || "",
       description: initialValue?.description || "",
       tags: initialValue?.tags || [],
+      customFields: initialValue?.customFields || {},
       datasource: initialValue?.datasource || "",
       exposureQueryId: initialValue?.exposureQueryId || "",
       activationMetric: initialValue?.activationMetric || "",
@@ -114,6 +122,12 @@ const TemplateForm: FC<Props> = ({
       },
     },
   });
+
+  const customFields = filterCustomFieldsForSectionAndProject(
+    useCustomFields(),
+    "experiment",
+    form.watch("project")
+  );
 
   const datasource = form.watch("datasource")
     ? getDatasourceById(form.watch("datasource") ?? "")
@@ -306,6 +320,17 @@ const TemplateForm: FC<Props> = ({
                 onChange={(tags) => form.setValue("tags", tags)}
               />
             </div>
+
+            {hasCommercialFeature("custom-metadata") && !!customFields?.length && (
+              <div className="form-group">
+                <CustomFieldInput
+                  customFields={customFields}
+                  form={form}
+                  section={"experiment"}
+                  project={form.watch("project")}
+                />
+              </div>
+            )}
           </div>
         </Page>
 

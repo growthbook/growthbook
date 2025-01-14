@@ -26,6 +26,8 @@ import LargeSavedGroupPerformanceWarning, {
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
+import { DocLink } from "@/components/DocLink";
+import Callout from "@/components/Radix/Callout";
 
 const NUM_PER_PAGE = 10;
 
@@ -480,6 +482,13 @@ export default function EditSavedGroupPage() {
               setCurrentPage(d);
             }}
           />
+        )}
+        {!savedGroup.values?.length && !savedGroup.useEmptyListGroup && (
+          <Callout status="info">
+            This saved group has legacy behavior when empty and will be
+            completely ignored when used for targeting.{" "}
+            <DocLink docSection="idLists">Learn More</DocLink>
+          </Callout>
         )}
       </div>
     </>

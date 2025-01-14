@@ -74,6 +74,7 @@ const docSections = {
   savedGroups: "/features/targeting#saved-groups",
   ga4BigQuery: "/guide/GA4-google-analytics",
   apiPostEnvironment: "/api#tag/environments/operation/postEnvironment",
+  idLists: "/features/targeting#id-lists",
 };
 
 export type DocSection = keyof typeof docSections;
