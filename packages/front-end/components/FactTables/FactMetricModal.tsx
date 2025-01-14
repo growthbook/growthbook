@@ -1588,6 +1588,7 @@ export default function FactMetricModal({
           values.numerator.column !== "$$distinctUsers"
         ) {
           values.numerator.column = "$$distinctUsers";
+          values.numerator.aggregation = undefined;
         }
 
         if (values.cappingSettings?.type) {
