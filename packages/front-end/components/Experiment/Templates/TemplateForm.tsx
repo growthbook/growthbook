@@ -123,7 +123,6 @@ const TemplateForm: FC<Props> = ({
     },
   });
 
-  const [selectedProject, setSelectedProject] = useState(form.watch("project"));
   const customFields = filterCustomFieldsForSectionAndProject(
     useCustomFields(),
     "experiment",
@@ -278,7 +277,6 @@ const TemplateForm: FC<Props> = ({
                   value={form.watch("project") ?? ""}
                   onChange={(p) => {
                     form.setValue("project", p);
-                    setSelectedProject(p);
                   }}
                   name="project"
                   initialOption={allowAllProjects ? "All Projects" : undefined}
@@ -329,7 +327,7 @@ const TemplateForm: FC<Props> = ({
                   customFields={customFields}
                   form={form}
                   section={"experiment"}
-                  project={selectedProject}
+                  project={form.watch("project")}
                 />
               </div>
             )}

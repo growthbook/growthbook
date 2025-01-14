@@ -301,6 +301,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       templateId: initialValue?.templateId || "",
     },
   });
+
   const [selectedProject, setSelectedProject] = useState(form.watch("project"));
   const customFields = filterCustomFieldsForSectionAndProject(
     useCustomFields(),
@@ -450,16 +451,22 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   // If a template id is provided as an initial value, load the template and convert it to an experiment
   useEffect(() => {
-    if (initialValue?.templateId && isNewExperiment && !isImport && !isBandit) {
+    if (
+      initialValue?.templateId &&
+      initialValue?.templateId !== form.watch("templateId") &&
+      isNewExperiment &&
+      !isImport &&
+      !isBandit
+    ) {
       const template = templatesMap.get(initialValue.templateId);
       if (!template) return;
-
       const templateAsExperiment = convertTemplateToExperiment(template);
       form.reset(templateAsExperiment, {
         keepDefaultValues: true,
       });
     }
-  }, [initialValue, isNewExperiment, isImport, isBandit]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const templateRequired =
     hasCommercialFeature("templates") &&
