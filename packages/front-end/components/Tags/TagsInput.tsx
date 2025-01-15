@@ -1,7 +1,6 @@
 import { FC } from "react";
 import { StylesConfig } from "react-select";
 import { TagInterface } from "back-end/types/tag";
-import * as radixColors from "@radix-ui/colors";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -91,17 +90,17 @@ const TagsInput: FC<{
     },
     multiValue: (styles, { data }) => {
       const color = findClosestRadixColor(data.color) || "#029dd1";
-      const radixColorObj = radixColors[color];
       return {
         ...styles,
         borderRadius: 4,
-        backgroundColor: radixColorObj[`${color}5`],
+        backgroundColor: `var(--${color}-5)`,
       };
     },
     multiValueLabel: (styles, { data }) => {
+      const color = findClosestRadixColor(data.color) || "#029dd1";
       return {
         ...styles,
-        color: data.color as RadixColor,
+        color: `var(--${color}-11)`,
       };
     },
     multiValueRemove: (styles, { data }) => {
