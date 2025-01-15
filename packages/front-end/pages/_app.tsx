@@ -30,6 +30,10 @@ import GuidedGetStartedBar from "@/components/Layout/GuidedGetStartedBar";
 import LayoutLite from "@/components/Layout/LayoutLite";
 import { UserContextProvider } from "@/services/UserContext";
 import { growthbook, gbContext } from "@/services/utils";
+import {
+  dataWareHouseTrackMultipleEventsWithDefaults,
+  TrackEventProps,
+} from "@/services/track";
 
 // Make useLayoutEffect isomorphic (for SSR)
 if (typeof window === "undefined") React.useLayoutEffect = React.useEffect;
@@ -88,12 +92,22 @@ function App({
   useEffect(() => {
     if (!ready) return;
     if (isTelemetryEnabled()) {
-      let _rtQueue: { key: string; on: boolean }[] = [];
+      let _rtQueue: { eventName: string; properties: TrackEventProps }[] = [];
       let _rtTimer = 0;
       gbContext.onFeatureUsage = (key, res) => {
+        const props = {
+          feature: key,
+          revision: "",
+          env: "production",
+          source: res.source,
+          value: res.value,
+          ruleId: res.source === "defaultValue" ? "$default" : res.ruleId || "",
+          variationId: res.experimentResult?.key || "",
+        };
+
         _rtQueue.push({
-          key,
-          on: res.on,
+          eventName: "Feature Evaluated",
+          properties: props,
         });
         if (!_rtTimer) {
           _rtTimer = window.setTimeout(() => {
@@ -101,21 +115,7 @@ function App({
             _rtTimer = 0;
             const q = [_rtQueue];
             _rtQueue = [];
-
-            window
-              .fetch(
-                `https://rt.growthbook.io/?key=key_prod_cb40dfcb0eb98e44&events=${encodeURIComponent(
-                  JSON.stringify(q)
-                )}`,
-
-                {
-                  cache: "no-cache",
-                  mode: "no-cors",
-                }
-              )
-              .catch(() => {
-                // TODO: retry in case of network errors?
-              });
+            dataWareHouseTrackMultipleEventsWithDefaults(q[0]);
           }, 2000);
         }
       };
