@@ -68,7 +68,7 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
         size="2"
         className={clsx("rt-CheckboxItem", {
           "rt-TextDisabled": disable === "all",
-          disabled: disable === "all",
+          disabled: !!disable,
         })}
         {...containerProps}
       >
