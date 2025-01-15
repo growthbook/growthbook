@@ -79,6 +79,7 @@ export default function BanditSummaryResultsTab({
   const users = experiment.variations.map(
     (_, i) => event?.banditResult?.singleVariationResults?.[i]?.users ?? 0
   );
+  const totalUsers = users.reduce((acc, cur) => acc + cur, 0);
 
   if (!metric) {
     return (
@@ -137,7 +138,7 @@ export default function BanditSummaryResultsTab({
               isBandit={true}
             />
             <MultipleExposureWarning
-              users={users}
+              totalUsers={totalUsers}
               multipleExposures={multipleExposures ?? 0}
             />
           </div>

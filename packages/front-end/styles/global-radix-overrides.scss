@@ -345,3 +345,8 @@
   --tab-inner-padding-y: var(--space-1);
   --tab-inner-border-radius: var(--radius-2);
 }
+
+// Tooltip
+p.rt-TooltipText {
+  margin-bottom: 0;
+}

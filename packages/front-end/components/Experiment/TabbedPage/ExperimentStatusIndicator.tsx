@@ -1,48 +1,61 @@
+import { Tooltip } from "@radix-ui/themes";
+import { getMultipleExposureHealthData } from "shared/health";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Badge from "@/components/Radix/Badge";
 
-// Examples:
-// "full" - "Running: ~5 days left"
-// "status-only" - "Running"
-// "detail-only" - "~5 days left"
 type LabelFormat = "full" | "status-only" | "detail-only";
 
 type ExperimentData = Pick<
   ExperimentInterfaceStringDates,
-  "status" | "archived" | "results"
+  "status" | "archived" | "results" | "analysisSummary"
 >;
 
-type Props = {
-  experimentData: ExperimentData;
-  labelFormat?: LabelFormat;
-  // If true we will show the underlying status of the experiment
-  // even if the experiment is archived.
-  skipArchived?: boolean;
-};
-
+/**
+ * Component that displays the status of an experiment with an appropriate badge
+ *
+ * @param experimentData - Experiment data containing status, archived flag, results and analysis summary
+ * @param labelFormat - Controls what parts of the status label to show:
+ *                     - "full": Shows both status and detail (e.g. "Running - 5 days left")
+ *                     - "status-only": Shows just the status (e.g. "Running")
+ *                     - "detail-only": Shows just the detail if available (e.g. "5 days left")
+ * @param skipArchived - If true, shows the underlying experiment status even if archived
+ * @returns A Badge component with appropriate color, variant and label based on experiment state
+ */
 export default function ExperimentStatusIndicator({
   experimentData,
   labelFormat = "full",
   skipArchived = false,
-}: Props) {
-  const [color, variant, status, detailedStatus] = getBadgeProps(
-    experimentData,
-    skipArchived
-  );
+}: {
+  experimentData: ExperimentData;
+  labelFormat?: LabelFormat;
+  skipArchived?: boolean;
+}) {
+  const [
+    color,
+    variant,
+    status,
+    detailedStatus,
+    tooltip,
+  ] = getStatusIndicatorData(experimentData, skipArchived);
 
   const label = getFormattedLabel(labelFormat, status, detailedStatus);
 
-  return <Badge color={color} variant={variant} radius="full" label={label} />;
+  const badge = (
+    <Badge color={color} variant={variant} radius="full" label={label} />
+  );
+
+  return tooltip ? <Tooltip content={tooltip}>{badge}</Tooltip> : badge;
 }
 
-function getBadgeProps(
+function getStatusIndicatorData(
   experimentData: ExperimentData,
   skipArchived: boolean
 ): [
   React.ComponentProps<typeof Badge>["color"],
   React.ComponentProps<typeof Badge>["variant"],
-  string, // formattedStatus
-  string? // detailedStatus if applicable
+  string, // status
+  string?, // detailedStatus
+  string? // tooltip
 ] {
   if (!skipArchived && experimentData.archived) {
     return ["gold", "soft", "Archived"];
@@ -50,6 +63,25 @@ function getBadgeProps(
 
   if (experimentData.status === "draft") {
     return ["indigo", "soft", "Draft"];
+  }
+
+  const multipleExposuresHealthData = getMultipleExposureHealthData({
+    multipleExposureCount:
+      experimentData.analysisSummary?.health?.multipleExposures
+        ?.usersWithMultipleExposures || 0,
+    totalUnitCount:
+      experimentData.analysisSummary?.health?.multipleExposures?.totalUsers ||
+      0,
+  });
+
+  if (multipleExposuresHealthData.status === "unhealthy") {
+    return [
+      "amber",
+      "solid",
+      "Unhealthy",
+      undefined,
+      "Multiple exposures detected",
+    ];
   }
 
   if (experimentData.status == "running") {

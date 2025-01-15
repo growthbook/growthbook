@@ -1,5 +1,6 @@
 import { includeExperimentInPayload, getSnapshotAnalysis } from "shared/util";
 import { getMetricResultStatus } from "shared/experiments";
+import { getMultipleExposureHealthData } from "shared/health";
 import { StatsEngine } from "back-end/types/stats";
 import { Context } from "back-end/src/models/BaseModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
@@ -121,8 +122,6 @@ export const notifyAutoUpdate = ({
       }),
   });
 
-export const MINIMUM_MULTIPLE_EXPOSURES_PERCENT = 0.01;
-
 export const notifyMultipleExposures = async ({
   context,
   experiment,
@@ -134,16 +133,17 @@ export const notifyMultipleExposures = async ({
   results: ExperimentReportResultDimension;
   snapshot: ExperimentSnapshotDocument;
 }) => {
-  const totalsUsers = results.variations.reduce(
+  const totalUsers = results.variations.reduce(
     (totalUsersCount, { users }) => totalUsersCount + users,
     0
   );
-  const percent = snapshot.multipleExposures / totalsUsers;
-  const multipleExposureMinPercent =
-    context.org.settings?.multipleExposureMinPercent ??
-    MINIMUM_MULTIPLE_EXPOSURES_PERCENT;
+  const multipleExposureHealth = getMultipleExposureHealthData({
+    multipleExposureCount: snapshot.multipleExposures,
+    totalUnitCount: totalUsers,
+    minPercentThreshold: context.org.settings?.multipleExposureMinPercent,
+  });
 
-  const triggered = multipleExposureMinPercent < percent;
+  const triggered = multipleExposureHealth.status === "unhealthy";
 
   await memoizeNotification({
     context,
@@ -163,7 +163,7 @@ export const notifyMultipleExposures = async ({
             experimentId: experiment.id,
             experimentName: experiment.name,
             usersCount: snapshot.multipleExposures,
-            percent,
+            percent: multipleExposureHealth.rawPercent,
           },
         },
       });

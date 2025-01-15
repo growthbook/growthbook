@@ -40,3 +40,7 @@ export const AUTOMATIC_DIMENSION_OTHER_NAME = "__Other__";
 // export const variant_3 = "#e83e8c";
 
 export const GROWTHBOOK_SECURE_ATTRIBUTE_SALT = "eg8amUur5GunJXCfgjwB";
+
+// Health
+export const DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_COUNT = 10;
+export const DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_PERCENT = 0.01;
