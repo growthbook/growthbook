@@ -781,6 +781,17 @@ export default function ExperimentHeader({
                     </button>
                   </Tooltip>
                 ) : null}
+                {experiment.status === "stopped" && experiment.results ? (
+                  <>
+                    {canEditExperiment ? (
+                      <Button onClick={() => setShareModalOpen(true)}>
+                        Share...
+                      </Button>
+                    ) : shareLevel === "public" ? (
+                      shareLinkButton
+                    ) : null}
+                  </>
+                ) : null}
               </div>
             ) : null}
 
