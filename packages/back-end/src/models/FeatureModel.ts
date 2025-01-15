@@ -799,6 +799,31 @@ export async function editFeatureRule(
   );
 }
 
+export async function copyFeatureEnvironmentRules(
+  revision: FeatureRevisionInterface,
+  sourceEnv: string,
+  targetEnv: string,
+  user: EventUser,
+  resetReview: boolean
+) {
+  const changes = {
+    rules: revision.rules || {},
+    status: revision.status,
+  };
+  changes.rules[targetEnv] = changes.rules[sourceEnv] || [];
+  await updateRevision(
+    revision,
+    changes,
+    {
+      user,
+      action: "copy rules",
+      subject: `from ${sourceEnv} to ${targetEnv}`,
+      value: JSON.stringify(changes.rules[sourceEnv]),
+    },
+    resetReview
+  );
+}
+
 export async function removeTagInFeature(
   context: ReqContext | ApiReqContext,
   tag: string
