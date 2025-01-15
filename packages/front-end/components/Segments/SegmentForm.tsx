@@ -3,7 +3,6 @@ import { SegmentInterface } from "back-end/types/segment";
 import { useForm } from "react-hook-form";
 import { FaArrowRight, FaExternalLinkAlt } from "react-icons/fa";
 import { isProjectListValidForProject } from "shared/util";
-import { Text } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import { validateSQL } from "@/services/datasources";
@@ -15,10 +14,9 @@ import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Code from "@/components/SyntaxHighlighting/Code";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import metaDataStyles from "@/components/Radix/Styles/Metadata.module.scss";
 import MultiSelectField from "../Forms/MultiSelectField";
 import Tooltip from "../Tooltip/Tooltip";
-import UserAvatar from "../Avatar/UserAvatar";
+import SelectOwner from "../Owner/SelectOwner";
 import FactSegmentForm from "./FactSegmentForm";
 
 export type CursorData = {
@@ -184,33 +182,10 @@ const SegmentForm: FC<{
           </div>
         ) : null}
         <Field label="Name" required {...form.register("name")} />
-        <SelectField
-          label="Owner"
-          options={memberUsernameOptions.map((member) => ({
-            value: member.value,
-            label: member.display,
-          }))}
-          comboBox
+        <SelectOwner
+          resourceType="segment"
           value={form.watch("owner")}
           onChange={(v) => form.setValue("owner", v)}
-          formatOptionLabel={({ label }) => {
-            return (
-              <>
-                <span>
-                  {label !== "" && (
-                    <UserAvatar name={label} size="sm" variant="soft" />
-                  )}
-                  <Text
-                    weight="regular"
-                    className={metaDataStyles.valueColor}
-                    ml="1"
-                  >
-                    {label === "" ? "None" : label}
-                  </Text>
-                </span>
-              </>
-            );
-          }}
         />
         <Field label="Description" {...form.register("description")} textarea />
         <SelectField

@@ -1176,6 +1176,7 @@ export default function FeaturesOverview({
         )}
         {editOwnerModal && (
           <EditOwnerModal
+            resourceType="feature"
             cancel={() => setEditOwnerModal(false)}
             owner={feature.owner}
             save={async (owner) => {
