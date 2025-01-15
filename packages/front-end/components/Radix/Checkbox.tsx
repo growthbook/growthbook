@@ -19,7 +19,7 @@ export function getRadixSize(size: Size): Responsive<"2" | "3"> {
 
 export type Props = {
   label: string | ReactElement;
-  disabled?: boolean;
+  disable?: "all" | "checkbox";
   disabledMessage?: string;
   value: boolean | "indeterminate";
   size?: Size;
@@ -33,7 +33,7 @@ export type Props = {
 export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
   {
     label,
-    disabled,
+    disable,
     disabledMessage,
     value,
     size = "md",
@@ -51,7 +51,7 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
   const TooltipWrapper = ({ children }) =>
     disabledMessage ? (
       <Tooltip
-        body={disabled ? disabledMessage : ""}
+        body={disable ? disabledMessage : ""}
         popperStyle={{ wordBreak: "normal" }}
       >
         {children}
@@ -67,8 +67,8 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
         as="label"
         size="2"
         className={clsx("rt-CheckboxItem", {
-          "rt-TextDisabled": disabled,
-          disabled: disabled,
+          "rt-TextDisabled": disable === "all",
+          disabled: disable === "all",
         })}
         {...containerProps}
       >
@@ -76,7 +76,7 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
           <RadixCheckbox
             checked={value}
             onCheckedChange={(v) => setValue(v)}
-            disabled={disabled}
+            disabled={disable === "checkbox"}
             color={checkboxColor}
             size={getRadixSize(size)}
           />

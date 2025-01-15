@@ -2207,7 +2207,11 @@ export default function FactMetricModal({
                                   v === true
                                 )
                               }
-                              disabled={!hasRegressionAdjustmentFeature}
+                              disable={
+                                !hasRegressionAdjustmentFeature
+                                  ? "all"
+                                  : undefined
+                              }
                             />
                             <div
                               style={{
