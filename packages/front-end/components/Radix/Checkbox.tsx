@@ -76,7 +76,7 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
           <RadixCheckbox
             checked={value}
             onCheckedChange={(v) => setValue(v)}
-            disabled={disable === "checkbox"}
+            disabled={!!disable}
             color={checkboxColor}
             size={getRadixSize(size)}
           />
