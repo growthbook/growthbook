@@ -25,7 +25,6 @@ import {
 import { useAuth } from "@/services/auth";
 import { Tabs, TabsList, TabsTrigger } from "@/components/Radix/Tabs";
 import Avatar from "@/components/Radix/Avatar";
-import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import Modal from "@/components/Modal";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -57,6 +56,9 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import HelperText from "@/components/Radix/HelperText";
 import TemplateForm from "../Templates/TemplateForm";
 import ProjectTagBar from "./ProjectTagBar";
+import EditExperimentInfoModal, {
+  FocusSelector,
+} from "./EditExperimentInfoModal";
 import ExperimentActionButtons from "./ExperimentActionButtons";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import { ExperimentTab } from ".";
@@ -68,7 +70,6 @@ export interface Props {
   envs: string[];
   mutate: () => void;
   duplicate?: (() => void) | null;
-  setEditNameOpen: (open: boolean) => void;
   setStatusModal: (open: boolean) => void;
   setAuditModal: (open: boolean) => void;
   setWatchersModal: (open: boolean) => void;
@@ -80,7 +81,6 @@ export interface Props {
   newPhase?: (() => void) | null;
   editTargeting?: (() => void) | null;
   editPhases?: (() => void) | null;
-  editProject?: (() => void) | null;
   editTags?: (() => void) | null;
   healthNotificationCount: number;
   verifiedConnections: SDKConnectionInterface[];
@@ -121,7 +121,6 @@ export default function ExperimentHeader({
   experiment,
   envs,
   mutate,
-  setEditNameOpen,
   duplicate,
   setAuditModal,
   setStatusModal,
@@ -134,7 +133,6 @@ export default function ExperimentHeader({
   editTargeting,
   newPhase,
   editPhases,
-  editProject,
   editTags,
   healthNotificationCount,
   verifiedConnections,
@@ -143,7 +141,7 @@ export default function ExperimentHeader({
   const growthbook = useGrowthBook<AppFeatures>();
 
   const { apiCall } = useAuth();
-  const { users, hasCommercialFeature } = useUser();
+  const { hasCommercialFeature } = useUser();
   const { watchedExperiments, refreshWatching } = useWatching();
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
@@ -158,6 +156,11 @@ export default function ExperimentHeader({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showBanditModal, setShowBanditModal] = useState(false);
+  const [showEditInfoModal, setShowEditInfoModal] = useState(false);
+  const [
+    editInfoFocusSelector,
+    setEditInfoFocusSelector,
+  ] = useState<FocusSelector>("name");
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const isWatching = watchedExperiments.includes(experiment.id);
@@ -190,7 +193,6 @@ export default function ExperimentHeader({
   const reportArgs: ExperimentSnapshotReportArgs = {
     userIdType: userIdType as "user" | "anonymous" | undefined,
   };
-
   const tabsRef = useRef<HTMLDivElement>(null);
   const [headerPinned, setHeaderPinned] = useState(false);
   const { scrollY } = useScrollPosition();
@@ -257,16 +259,6 @@ export default function ExperimentHeader({
       setTab("overview");
     }
   }, [shouldHideTabs, setTab]);
-
-  const getMemberIdFromName = (owner) => {
-    let ownerId: string | null = null;
-    Array.from(users.entries()).forEach((info) => {
-      if (info[1].name === owner) {
-        ownerId = info[1].id;
-      }
-    });
-    return ownerId;
-  };
 
   async function handleWatchUpdates(watch: boolean) {
     await apiCall(
@@ -389,6 +381,14 @@ export default function ExperimentHeader({
   return (
     <>
       <div className={clsx("experiment-header", "px-3", "pt-3")}>
+        {showEditInfoModal ? (
+          <EditExperimentInfoModal
+            experiment={experiment}
+            setShowEditInfoModal={setShowEditInfoModal}
+            mutate={mutate}
+            focusSelector={editInfoFocusSelector}
+          />
+        ) : null}
         {showSdkForm && (
           <InitialSDKConnectionForm
             close={() => setShowSdkForm(false)}
@@ -724,311 +724,292 @@ export default function ExperimentHeader({
             </div>
           </Modal>
         )}
-        <div className="container-fluid pagecontents position-relative">
-          <div className="d-flex align-items-center">
-            <Flex direction="row" align="center">
-              <HeaderWithEdit
-                className="h1 mb-0"
-                containerClassName=""
-                edit={
-                  canRunExperiment ? () => setEditNameOpen(true) : undefined
-                }
-                editClassName="ml-1"
-              >
-                {experiment.name}
-              </HeaderWithEdit>
-              <Box ml="2">
-                <ExperimentStatusIndicator experimentData={experiment} />
-              </Box>
-            </Flex>
+      </div>
 
-            <div className="ml-auto flex-1"></div>
-
-            {canRunExperiment ? (
-              <div className="ml-2 flex-shrink-0">
-                {experiment.status === "running" ? (
-                  <ExperimentActionButtons
-                    editResult={editResult}
-                    editTargeting={editTargeting}
-                    isBandit={isBandit}
-                  />
-                ) : experiment.status === "draft" ? (
-                  <Tooltip
-                    shouldDisplay={
+      <div className="container-fluid pagecontents position-relative">
+        <div className="d-flex align-items-center">
+          <Flex direction="row" align="center">
+            <h1 className="mb-0">{experiment.name}</h1>
+            <Box ml="2">
+              <ExperimentStatusIndicator experimentData={experiment} />
+            </Box>
+          </Flex>
+          <div className="ml-auto flex-1"></div>
+          {canRunExperiment ? (
+            <div className="ml-2 flex-shrink-0">
+              {experiment.status === "running" ? (
+                <ExperimentActionButtons
+                  editResult={editResult}
+                  editTargeting={editTargeting}
+                  isBandit={isBandit}
+                />
+              ) : experiment.status === "draft" ? (
+                <Tooltip
+                  shouldDisplay={
+                    isBandit &&
+                    !experimentHasLiveLinkedChanges(experiment, linkedFeatures)
+                  }
+                  body="Add at least one live Linked Feature, Visual Editor change, or URL Redirect before starting."
+                >
+                  <button
+                    className="btn btn-teal"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setShowStartExperiment(true);
+                    }}
+                    disabled={
                       isBandit &&
                       !experimentHasLiveLinkedChanges(
                         experiment,
                         linkedFeatures
                       )
                     }
-                    body="Add at least one live Linked Feature, Visual Editor change, or URL Redirect before starting."
                   >
-                    <button
-                      className="btn btn-teal"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setShowStartExperiment(true);
-                      }}
-                      disabled={
-                        isBandit &&
-                        !experimentHasLiveLinkedChanges(
-                          experiment,
-                          linkedFeatures
-                        )
-                      }
-                    >
-                      Start Experiment <MdRocketLaunch />
-                    </button>
-                  </Tooltip>
-                ) : null}
-                {experiment.status === "stopped" && experiment.results ? (
-                  <>
-                    {canEditExperiment ? (
-                      <Button onClick={() => setShareModalOpen(true)}>
-                        Share...
-                      </Button>
-                    ) : shareLevel === "public" ? (
-                      shareLinkButton
-                    ) : null}
-                  </>
-                ) : null}
-              </div>
-            ) : null}
-
-            <div className="ml-2">
-              <DropdownMenu
-                trigger={
-                  <button className="btn btn-link text-dark">
-                    <BsThreeDotsVertical size={18} />
+                    Start Experiment <MdRocketLaunch />
                   </button>
-                }
-                open={dropdownOpen}
-                onOpenChange={(o) => {
-                  setDropdownOpen(!!o);
-                }}
-                menuPlacement="end"
-              >
-                <DropdownMenuGroup>
-                  {canRunExperiment &&
-                    !isBandit &&
-                    experiment.status !== "draft" && (
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setStatusModal(true);
-                          setDropdownOpen(false);
-                        }}
-                      >
-                        Edit status
-                      </DropdownMenuItem>
-                    )}
-                  {editPhases && !isBandit && (
+                </Tooltip>
+              ) : null}
+              {experiment.status === "stopped" && experiment.results ? (
+                <>
+                  {canEditExperiment ? (
+                    <Button onClick={() => setShareModalOpen(true)}>
+                      Share...
+                    </Button>
+                  ) : shareLevel === "public" ? (
+                    shareLinkButton
+                  ) : null}
+                </>
+              ) : null}
+            </div>
+          ) : null}
+          <div className="ml-2">
+            <DropdownMenu
+              trigger={
+                <button className="btn btn-link text-dark">
+                  <BsThreeDotsVertical size={18} />
+                </button>
+              }
+              open={dropdownOpen}
+              onOpenChange={(o) => {
+                setDropdownOpen(!!o);
+              }}
+              menuPlacement="end"
+            >
+              <DropdownMenuGroup>
+                {canRunExperiment &&
+                  !isBandit &&
+                  experiment.status !== "draft" && (
                     <DropdownMenuItem
                       onClick={() => {
-                        editPhases();
+                        setStatusModal(true);
                         setDropdownOpen(false);
                       }}
                     >
-                      Edit phases
+                      Edit status
                     </DropdownMenuItem>
                   )}
+                {canEditExperiment ? (
                   <DropdownMenuItem
                     onClick={() => {
-                      setAuditModal(true);
-                      setDropdownOpen(false);
+                      setEditInfoFocusSelector("name");
+                      setShowEditInfoModal(true);
                     }}
                   >
-                    Audit log
+                    Edit info
                   </DropdownMenuItem>
-                </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuGroup>
-                  <DropdownSubMenu
-                    trigger={
-                      <Flex
-                        align="center"
-                        className={isWatching ? "font-weight-bold" : ""}
-                      >
-                        <PiEye style={{ marginRight: "5px" }} size={18} />
-                        <span className="pr-5">
-                          {isWatching ? "Watching" : "Not watching"}
-                        </span>
-                      </Flex>
-                    }
-                  >
-                    <DropdownMenuItem
-                      onClick={async () => {
-                        await handleWatchUpdates(!isWatching);
-                      }}
-                    >
-                      {isWatching ? "Stop watching" : "Start watching"}
-                    </DropdownMenuItem>
-                  </DropdownSubMenu>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setWatchersModal(true);
-                      setDropdownOpen(false);
-                    }}
-                    disabled={!usersWatching.length}
-                  >
-                    <Flex as="div" align="center">
-                      <IconButton
-                        style={{
-                          marginRight: "5px",
-                          backgroundColor:
-                            usersWatching.length > 0
-                              ? "var(--violet-9)"
-                              : "var(--slate-9)",
-                        }}
-                        radius="full"
-                        size="1"
-                      >
-                        {usersWatching.length || 0}
-                      </IconButton>
-                      {usersWatching.length > 0
-                        ? "View watchers"
-                        : "No watchers"}
-                    </Flex>
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-                {/* Only show the separator if one of the following cases is true to avoid double separators */}
-                {showConvertButton ||
-                showShareableReportButton ||
-                showShareButton ||
-                showSaveAsTemplateButton ? (
-                  <DropdownMenuSeparator />
                 ) : null}
-                {showSaveAsTemplateButton && (
+                {editPhases && !isBandit && (
                   <DropdownMenuItem
                     onClick={() => {
-                      setShowTemplateForm(true);
+                      editPhases();
                       setDropdownOpen(false);
                     }}
                   >
-                    Save as template...
+                    Edit phases
                   </DropdownMenuItem>
                 )}
-                {showShareButton && (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setShareModalOpen(true);
-                      setDropdownOpen(false);
-                    }}
-                  >
-                    Share {isBandit ? "Bandit" : "Experiment"}
-                  </DropdownMenuItem>
-                )}
-                {showShareableReportButton ? (
+                <DropdownMenuItem
+                  onClick={() => {
+                    setAuditModal(true);
+                    setDropdownOpen(false);
+                  }}
+                >
+                  Audit log
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownSubMenu
+                  trigger={
+                    <Flex
+                      align="center"
+                      className={isWatching ? "font-weight-bold" : ""}
+                    >
+                      <PiEye style={{ marginRight: "5px" }} size={18} />
+                      <span className="pr-5">
+                        {isWatching ? "Watching" : "Not watching"}
+                      </span>
+                    </Flex>
+                  }
+                >
                   <DropdownMenuItem
                     onClick={async () => {
-                      const res = await apiCall<{ report: ReportInterface }>(
-                        `/experiments/report/${snapshot.id}`,
-                        {
-                          method: "POST",
-                          body: reportArgs
-                            ? JSON.stringify(reportArgs)
-                            : undefined,
-                        }
-                      );
-                      if (!res.report) {
-                        throw new Error("Failed to create report");
-                      }
-                      track("Experiment Report: Create", {
-                        source: "experiment more menu",
-                      });
-                      await router.push(`/report/${res.report.id}`);
+                      await handleWatchUpdates(!isWatching);
                     }}
                   >
-                    Create shareable report
+                    {isWatching ? "Stop watching" : "Start watching"}
                   </DropdownMenuItem>
-                ) : null}
-                {showConvertButton && (
-                  <>
-                    <DropdownMenuGroup>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setShowBanditModal(true);
-                          setDropdownOpen(false);
-                        }}
-                      >
-                        Convert to {isBandit ? "Experiment" : "Bandit"}
-                      </DropdownMenuItem>
-                    </DropdownMenuGroup>
-                  </>
+                </DropdownSubMenu>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setWatchersModal(true);
+                    setDropdownOpen(false);
+                  }}
+                  disabled={!usersWatching.length}
+                >
+                  <Flex as="div" align="center">
+                    <IconButton
+                      style={{
+                        marginRight: "5px",
+                        backgroundColor:
+                          usersWatching.length > 0
+                            ? "var(--violet-9)"
+                            : "var(--slate-9)",
+                      }}
+                      radius="full"
+                      size="1"
+                    >
+                      {usersWatching.length || 0}
+                    </IconButton>
+                    {usersWatching.length > 0 ? "View watchers" : "No watchers"}
+                  </Flex>
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              {/* Only show the separator if one of the following cases is true to avoid double separators */}
+              {showConvertButton ||
+              showShareableReportButton ||
+              showShareButton ||
+              showSaveAsTemplateButton ? (
+                <DropdownMenuSeparator />
+              ) : null}
+              {showSaveAsTemplateButton && (
+                <DropdownMenuItem
+                  onClick={() => {
+                    setShowTemplateForm(true);
+                    setDropdownOpen(false);
+                  }}
+                >
+                  Save as template...
+                </DropdownMenuItem>
+              )}
+              {showShareButton && (
+                <DropdownMenuItem
+                  onClick={() => {
+                    setShareModalOpen(true);
+                    setDropdownOpen(false);
+                  }}
+                >
+                  Share {isBandit ? "Bandit" : "Experiment"}
+                </DropdownMenuItem>
+              )}
+              {showShareableReportButton ? (
+                <DropdownMenuItem
+                  onClick={async () => {
+                    const res = await apiCall<{ report: ReportInterface }>(
+                      `/experiments/report/${snapshot.id}`,
+                      {
+                        method: "POST",
+                        body: reportArgs
+                          ? JSON.stringify(reportArgs)
+                          : undefined,
+                      }
+                    );
+                    if (!res.report) {
+                      throw new Error("Failed to create report");
+                    }
+                    track("Experiment Report: Create", {
+                      source: "experiment more menu",
+                    });
+                    await router.push(`/report/${res.report.id}`);
+                  }}
+                >
+                  Create shareable report
+                </DropdownMenuItem>
+              ) : null}
+              {showConvertButton && (
+                <>
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setShowBanditModal(true);
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      Convert to {isBandit ? "Experiment" : "Bandit"}
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </>
+              )}
+              {/* Only show the separator if one of the following cases is true to avoid double separators */}
+              {duplicate ||
+              canRunExperiment ||
+              canDeleteExperiment ||
+              (hasUpdatePermissions && experiment.archived) ? (
+                <DropdownMenuSeparator />
+              ) : null}
+              <DropdownMenuGroup>
+                {duplicate && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      duplicate();
+                    }}
+                  >
+                    Duplicate
+                  </DropdownMenuItem>
                 )}
-                {/* Only show the separator if one of the following cases is true to avoid double separators */}
-                {duplicate ||
-                canRunExperiment ||
-                canDeleteExperiment ||
-                (hasUpdatePermissions && experiment.archived) ? (
-                  <DropdownMenuSeparator />
-                ) : null}
-                <DropdownMenuGroup>
-                  {duplicate && (
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setDropdownOpen(false);
-                        duplicate();
-                      }}
-                    >
-                      Duplicate
-                    </DropdownMenuItem>
-                  )}
-                  {canRunExperiment && (
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setShowArchiveModal(true);
-                        setDropdownOpen(false);
-                      }}
-                    >
-                      Archive
-                    </DropdownMenuItem>
-                  )}
-                  {hasUpdatePermissions && experiment.archived && (
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setShowArchiveModal(true);
-                        setDropdownOpen(false);
-                      }}
-                    >
-                      Unarchive
-                    </DropdownMenuItem>
-                  )}
-                  {canDeleteExperiment && (
-                    <DropdownMenuItem
-                      color="red"
-                      onClick={() => {
-                        setShowDeleteModal(true);
-                        setDropdownOpen(false);
-                      }}
-                    >
-                      Delete
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuGroup>
-              </DropdownMenu>
-            </div>
+                {canRunExperiment && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setShowArchiveModal(true);
+                      setDropdownOpen(false);
+                    }}
+                  >
+                    Archive
+                  </DropdownMenuItem>
+                )}
+                {hasUpdatePermissions && experiment.archived && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setShowArchiveModal(true);
+                      setDropdownOpen(false);
+                    }}
+                  >
+                    Unarchive
+                  </DropdownMenuItem>
+                )}
+                {canDeleteExperiment && (
+                  <DropdownMenuItem
+                    color="red"
+                    onClick={() => {
+                      setShowDeleteModal(true);
+                      setDropdownOpen(false);
+                    }}
+                  >
+                    Delete
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuGroup>
+            </DropdownMenu>
           </div>
-          <ProjectTagBar
-            experiment={experiment}
-            editProject={!viewingOldPhase ? editProject : undefined}
-            editTags={!viewingOldPhase ? editTags : undefined}
-            canEditOwner={canEditExperiment}
-            updateOwner={async (owner) => {
-              const ownerId = getMemberIdFromName(owner);
-              if (ownerId) {
-                await apiCall(`/experiment/${experiment.id}`, {
-                  method: "POST",
-                  body: JSON.stringify({ owner: ownerId }),
-                });
-              } else {
-                throw new Error("Could not find this user");
-              }
-            }}
-            mutate={mutate}
-          />
         </div>
+        <ProjectTagBar
+          experiment={experiment}
+          setShowEditInfoModal={setShowEditInfoModal}
+          setEditInfoFocusSelector={setEditInfoFocusSelector}
+          editTags={!viewingOldPhase ? editTags : undefined}
+        />
       </div>
-
       {shouldHideTabs ? null : (
         <div
           className={clsx("experiment-tabs px-3 d-print-none", {
