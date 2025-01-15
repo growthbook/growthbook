@@ -18,7 +18,6 @@ export interface MetricVariationPowerResponseFromStatsEngine {
   sigma2Posterior: number;
   deltaPosterior: number;
   upperBoundAchieved: boolean;
-  scalingFactor: number;
 }
 
 interface BaseVariationResponse {

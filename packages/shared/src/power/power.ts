@@ -313,7 +313,6 @@ export interface MidExperimentPowerParamsSingle {
   firstPeriodSampleSize: number;
   newDailyUsers: number;
   numGoalMetrics: number;
-  variationWeights: number[];
   numVariations: number;
   variation: MetricVariationPowerResponseFromStatsEngine | undefined;
 }
@@ -1071,7 +1070,7 @@ function sequentialIntervalHalfwidth(
 }
 
 /*calculate mid-experiment power for a single (metric, variation)*/
-function calculateMidExperimentPowerSingle(
+export function calculateMidExperimentPowerSingle(
   params: MidExperimentPowerParamsSingle,
   metricId: string,
   variation: number
@@ -1158,8 +1157,7 @@ function calculateMidExperimentPowerSingle(
       response.firstPeriodPairwiseSampleSize;
     const secondPeriodSampleSize = params.daysRemaining * params.newDailyUsers;
     const scalingFactor =
-      (secondPeriodSampleSize + params.firstPeriodSampleSize) /
-      params.firstPeriodSampleSize;
+      secondPeriodSampleSize / params.firstPeriodSampleSize;
     let halfwidth: number;
 
     const sigmahat2Delta = response.sigmahat2Delta;
@@ -1169,7 +1167,7 @@ function calculateMidExperimentPowerSingle(
     const vPrime = sigmahat2Delta;
     if (params.sequential) {
       const s2 = sigmahat2Delta * firstPeriodPairwiseSampleSize;
-      const nTotal = firstPeriodPairwiseSampleSize * (1 + scalingFactor);
+      const nTotal = firstPeriodPairwiseSampleSize * (scalingFactor + 1);
       halfwidth = sequentialIntervalHalfwidth(
         s2,
         nTotal,
@@ -1202,7 +1200,7 @@ function calculateMidExperimentPowerSingle(
     const powerNeg = normal.cdf(numNeg / den, 0, 1);
     const totalPower = powerPos + powerNeg;
     const additionalUsers = Math.ceil(
-      (response.scalingFactor - 1) * params.firstPeriodSampleSize
+      scalingFactor * params.firstPeriodSampleSize
     );
     const powerResults: MetricVariationPowerResult = {
       newDailyUsers: params.newDailyUsers,
@@ -1281,7 +1279,6 @@ export function calculateMidExperimentPower(
           firstPeriodSampleSize: firstPeriodSampleSize,
           newDailyUsers: thisNewDailyUsers,
           numGoalMetrics,
-          variationWeights,
           numVariations,
           variation: variationMetricData,
         };
