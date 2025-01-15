@@ -91,6 +91,7 @@ const ExperimentsPage = (): React.ReactElement => {
     getExperimentMetricById,
     getProjectById,
     getDatasourceById,
+    getSavedGroupById,
   } = useDefinitions();
 
   const [tabs, setTabs] = useLocalStorage<string[]>("experiment_tabs", []);
@@ -131,6 +132,9 @@ const ExperimentsPage = (): React.ReactElement => {
       const projectName = projectId ? getProjectById(projectId)?.name : "";
       const projectIsDeReferenced = projectId && !projectName;
       const statusSortOrder = getExperimentStatusSortOrder(exp);
+      const lastPhase = exp.phases?.[exp.phases?.length - 1] || {};
+      const rawSavedGroup = lastPhase?.savedGroups || [];
+      const savedGroupIds = rawSavedGroup.map((g) => g.ids).flat();
 
       return {
         ownerName: getUserDisplay(exp.owner, false) || "",
@@ -138,6 +142,9 @@ const ExperimentsPage = (): React.ReactElement => {
           .map((m) => getExperimentMetricById(m)?.name)
           .filter(Boolean),
         datasource: getDatasourceById(exp.datasource)?.name || "",
+        savedGroups: savedGroupIds.map(
+          (id) => getSavedGroupById(id)?.groupName
+        ),
         projectId,
         projectName,
         projectIsDeReferenced,
@@ -248,6 +255,7 @@ const ExperimentsPage = (): React.ReactElement => {
         ...item.metricNames,
         ...getAllMetricIdsFromExperiment(item),
       ],
+      savedgroup: (item) => item.savedGroups || [],
       goal: (item) => [...item.metricNames, ...item.goalMetrics],
     },
     filterResults,

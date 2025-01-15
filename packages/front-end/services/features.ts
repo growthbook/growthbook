@@ -120,19 +120,41 @@ export function useFeatureSearch({
   localStorageKey?: string;
 }) {
   const { getUserDisplay } = useUser();
-  const { getProjectById } = useDefinitions();
+  const { getProjectById, getSavedGroupById } = useDefinitions();
   const features = useAddComputedFields(
     allFeatures,
     (f) => {
       const projectId = f.project;
       const projectName = projectId ? getProjectById(projectId)?.name : "";
       const projectIsDeReferenced = projectId && !projectName;
+      const savedGroupsRules = getMatchingRules(
+        f,
+        (fr) => {
+          return !!fr?.savedGroups?.length || false;
+        },
+        environments.map((e) => e.id)
+      );
+      const savedGroupIds: string[] = [];
+      savedGroupsRules.forEach((r) => {
+        r?.rule?.savedGroups?.forEach((sg) => {
+          if (sg?.ids.length) {
+            sg.ids.forEach((id) => {
+              if (!savedGroupIds.includes(id)) {
+                savedGroupIds.push(id);
+              }
+            });
+          }
+        });
+      });
 
       return {
         ...f,
         projectId,
         projectName,
         projectIsDeReferenced,
+        savedGroups: savedGroupIds.map(
+          (id) => getSavedGroupById(id)?.groupName
+        ),
         ownerName: getUserDisplay(f.owner, false) || "",
       };
     },
@@ -193,6 +215,7 @@ export function useFeatureSearch({
       created: (item) => new Date(item.dateCreated),
       updated: (item) => new Date(item.dateUpdated),
       experiment: (item) => item.linkedExperiments || [],
+      savedgroup: (item: ComputedFeatureInterface) => item.savedGroups || [],
       version: (item) => item.version,
       revision: (item) => item.version,
       owner: (item) => item.owner,
