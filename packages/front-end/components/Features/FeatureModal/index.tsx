@@ -28,6 +28,8 @@ import {
 import { useUser } from "@/services/UserContext";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useProjectOptions from "@/hooks/useProjectOptions";
+import SelectField from "@/components/Forms/SelectField";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";
@@ -160,6 +162,13 @@ export default function FeatureModal({
   });
 
   const form = useForm({ defaultValues });
+
+  const projectOptions = useProjectOptions(
+    (project) => permissionsUtil.canCreateFeature({ project }),
+    project ? [project] : []
+  );
+  const selectedProject = form.watch("project");
+  const { projectId } = useDemoDataSourceProject();
 
   const customFields = filterCustomFieldsForSectionAndProject(
     useCustomFields(),
@@ -357,6 +366,22 @@ export default function FeatureModal({
           released to users.
         </div>
       )}
+      {projectId === selectedProject && (
+        <div className="alert alert-warning">
+          You are creating a feature under the demo datasource project.
+        </div>
+      )}
+      <SelectField
+        label="Project"
+        value={selectedProject || project}
+        onChange={(v) => {
+          form.setValue("project", v);
+        }}
+        placeholder="Select Project"
+        options={projectOptions}
+        required={false}
+        sort={false}
+      />
     </Modal>
   );
 }
