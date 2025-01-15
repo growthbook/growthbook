@@ -1,6 +1,7 @@
 import { useForm } from "react-hook-form";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { SegmentInterface } from "back-end/types/segment";
+import { Text } from "@radix-ui/themes";
 import { GBArrowLeft } from "@/components/Icons";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
@@ -13,6 +14,8 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import metaDataStyles from "@/components/Radix/Styles/Metadata.module.scss";
+import UserAvatar from "../Avatar/UserAvatar";
 
 type Props = {
   goBack: () => void;
@@ -48,13 +51,17 @@ export default function FactSegmentForm({
     uniqueDatasourcesWithFactTables.includes(filteredDs.id)
   );
 
+  const currentOwner = memberUsernameOptions.find(
+    (member) => member.display === current?.owner
+  );
+
   const form = useForm({
     defaultValues: {
       name: current?.name || "",
       datasource:
         (current?.id ? current?.datasource : datasourceOptions[0]?.id) || "",
       userIdType: current?.userIdType || "user_id",
-      owner: current?.owner || "",
+      owner: currentOwner?.display || "",
       description: current?.description || "",
       factTableId: current?.factTableId || "",
       filters: current?.filters || [],
@@ -149,11 +156,33 @@ export default function FactSegmentForm({
           </div>
         ) : null}
         <Field label="Name" required {...form.register("name")} />
-        <Field
+        <SelectField
           label="Owner"
-          options={memberUsernameOptions}
+          options={memberUsernameOptions.map((member) => ({
+            value: member.value,
+            label: member.display,
+          }))}
           comboBox
-          {...form.register("owner")}
+          value={form.watch("owner")}
+          onChange={(v) => form.setValue("owner", v)}
+          formatOptionLabel={({ label }) => {
+            return (
+              <>
+                <span>
+                  {label !== "" && (
+                    <UserAvatar name={label} size="sm" variant="soft" />
+                  )}
+                  <Text
+                    weight="regular"
+                    className={metaDataStyles.valueColor}
+                    ml="1"
+                  >
+                    {label === "" ? "None" : label}
+                  </Text>
+                </span>
+              </>
+            );
+          }}
         />
         <Field label="Description" {...form.register("description")} textarea />
         <SelectField

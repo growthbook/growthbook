@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { DimensionInterface } from "back-end/types/dimension";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { isProjectListValidForProject } from "shared/util";
+import { Text } from "@radix-ui/themes";
 import { validateSQL } from "@/services/datasources";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -12,6 +13,8 @@ import SelectField from "@/components/Forms/SelectField";
 import useMembers from "@/hooks/useMembers";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Code from "@/components/SyntaxHighlighting/Code";
+import metaDataStyles from "@/components/Radix/Styles/Metadata.module.scss";
+import UserAvatar from "../Avatar/UserAvatar";
 
 const DimensionForm: FC<{
   close: () => void;
@@ -32,6 +35,10 @@ const DimensionForm: FC<{
       isProjectListValidForProject(d.projects, project)
   );
 
+  const currentOwner = memberUsernameOptions.find(
+    (member) => member.display === current.owner
+  );
+
   const form = useForm({
     defaultValues: {
       name: current.name || "",
@@ -40,7 +47,7 @@ const DimensionForm: FC<{
       datasource:
         (current.id ? current.datasource : validDatasources[0]?.id) || "",
       userIdType: current.userIdType || "user_id",
-      owner: current.owner || "",
+      owner: currentOwner?.display || "",
     },
   });
   const [sqlOpen, setSqlOpen] = useState(false);
@@ -93,11 +100,33 @@ const DimensionForm: FC<{
         })}
       >
         <Field label="Name" required {...form.register("name")} />
-        <Field
+        <SelectField
           label="Owner"
-          options={memberUsernameOptions}
+          options={memberUsernameOptions.map((member) => ({
+            value: member.value,
+            label: member.display,
+          }))}
           comboBox
-          {...form.register("owner")}
+          value={form.watch("owner")}
+          onChange={(v) => form.setValue("owner", v)}
+          formatOptionLabel={({ label }) => {
+            return (
+              <>
+                <span>
+                  {label !== "" && (
+                    <UserAvatar name={label} size="sm" variant="soft" />
+                  )}
+                  <Text
+                    weight="regular"
+                    className={metaDataStyles.valueColor}
+                    ml="1"
+                  >
+                    {label === "" ? "None" : label}
+                  </Text>
+                </span>
+              </>
+            );
+          }}
         />
         <Field label="Description" textarea {...form.register("description")} />
         <SelectField
