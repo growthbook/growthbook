@@ -240,10 +240,9 @@ export class RedisStickyBucketService extends StickyBucketService {
     attributes: Record<string, string>
   ): Promise<Record<StickyAttributeKey, StickyAssignmentsDocument>> {
     const docs: Record<StickyAttributeKey, StickyAssignmentsDocument> = {};
-    const keys = Object.entries(
-      attributes
-    ).map(([attributeName, attributeValue]) =>
-      this.getKey(attributeName, attributeValue)
+    const keys = Object.entries(attributes).map(
+      ([attributeName, attributeValue]) =>
+        this.getKey(attributeName, attributeValue)
     );
     if (!this.redis) return docs;
     await this.redis.mget(...keys).then((values) => {

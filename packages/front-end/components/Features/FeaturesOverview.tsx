@@ -227,15 +227,13 @@ export default function FeaturesOverview({
     prereqStates &&
     Object.values(prereqStates).some((s) => s.state === "conditional");
 
-  const hasPrerequisitesCommercialFeature = hasCommercialFeature(
-    "prerequisites"
-  );
+  const hasPrerequisitesCommercialFeature =
+    hasCommercialFeature("prerequisites");
 
   const currentVersion = version || baseFeature.version;
 
-  const { jsonSchema, validationEnabled, schemaDateUpdated } = getValidation(
-    feature
-  );
+  const { jsonSchema, validationEnabled, schemaDateUpdated } =
+    getValidation(feature);
   const baseVersion = revision?.baseVersion || feature.version;
   const baseRevision = revisions.find((r) => r.version === baseVersion);
   let requireReviews = false;

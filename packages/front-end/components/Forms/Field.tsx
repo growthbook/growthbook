@@ -126,7 +126,7 @@ const Field = forwardRef(
     } else if (textarea) {
       component = (
         <TextareaAutosize
-          {...((otherProps as unknown) as TextareaAutosizeProps)}
+          {...(otherProps as unknown as TextareaAutosizeProps)}
           ref={ref}
           id={fieldId}
           className={cn}
@@ -155,7 +155,7 @@ const Field = forwardRef(
     } else if (options || optionGroups) {
       component = (
         <select
-          {...((otherProps as unknown) as DetailedHTMLProps<
+          {...(otherProps as unknown as DetailedHTMLProps<
             SelectHTMLAttributes<HTMLSelectElement>,
             HTMLSelectElement
           >)}

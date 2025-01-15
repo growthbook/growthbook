@@ -10,9 +10,8 @@ export default class Snowflake extends SqlIntegration {
   params!: SnowflakeConnectionParams;
   requiresSchema = false;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<SnowflakeConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<SnowflakeConnectionParams>(encryptedParams);
   }
   isWritingTablesSupported(): boolean {
     return true;

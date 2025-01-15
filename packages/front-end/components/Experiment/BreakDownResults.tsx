@@ -105,35 +105,28 @@ const BreakDownResults: FC<{
 }) => {
   const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
 
-  const {
-    getDimensionById,
-    getExperimentMetricById,
-    metricGroups,
-    ready,
-  } = useDefinitions();
+  const { getDimensionById, getExperimentMetricById, metricGroups, ready } =
+    useDefinitions();
   const pValueThreshold = usePValueThreshold();
 
   const dimension = useMemo(() => {
     return getDimensionById(dimensionId)?.name || "Dimension";
   }, [getDimensionById, dimensionId]);
 
-  const {
-    expandedGoals,
-    expandedSecondaries,
-    expandedGuardrails,
-  } = useMemo(() => {
-    const expandedGoals = expandMetricGroups(goalMetrics, metricGroups);
-    const expandedSecondaries = expandMetricGroups(
-      secondaryMetrics,
-      metricGroups
-    );
-    const expandedGuardrails = expandMetricGroups(
-      guardrailMetrics,
-      metricGroups
-    );
+  const { expandedGoals, expandedSecondaries, expandedGuardrails } =
+    useMemo(() => {
+      const expandedGoals = expandMetricGroups(goalMetrics, metricGroups);
+      const expandedSecondaries = expandMetricGroups(
+        secondaryMetrics,
+        metricGroups
+      );
+      const expandedGuardrails = expandMetricGroups(
+        guardrailMetrics,
+        metricGroups
+      );
 
-    return { expandedGoals, expandedSecondaries, expandedGuardrails };
-  }, [goalMetrics, metricGroups, secondaryMetrics, guardrailMetrics]);
+      return { expandedGoals, expandedSecondaries, expandedGuardrails };
+    }, [goalMetrics, metricGroups, secondaryMetrics, guardrailMetrics]);
 
   const allMetricTags = useMemo(() => {
     const allMetricTagsSet: Set<string> = new Set();

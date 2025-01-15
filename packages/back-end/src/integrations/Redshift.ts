@@ -8,9 +8,8 @@ import SqlIntegration from "./SqlIntegration";
 export default class Redshift extends SqlIntegration {
   params!: PostgresConnectionParams;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<PostgresConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<PostgresConnectionParams>(encryptedParams);
   }
   getFormatDialect(): FormatDialect {
     return "redshift";

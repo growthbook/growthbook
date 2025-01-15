@@ -238,10 +238,8 @@ export const VisualChangesetTable: FC<Props> = ({
   const { hasCommercialFeature } = useUser();
   const hasVisualEditorFeature = hasCommercialFeature("visual-editor");
 
-  const [
-    editingVisualChangeset,
-    setEditingVisualChangeset,
-  ] = useState<VisualChangesetInterface | null>(null);
+  const [editingVisualChangeset, setEditingVisualChangeset] =
+    useState<VisualChangesetInterface | null>(null);
 
   const [editingVisualChange, setEditingVisualChange] = useState<{
     visualChangeset: VisualChangesetInterface;

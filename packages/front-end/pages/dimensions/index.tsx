@@ -31,10 +31,8 @@ const DimensionsPage: FC = () => {
   const canEditDimension = permissionsUtil.canUpdateDimension();
   const canDeleteDimension = permissionsUtil.canDeleteDimension();
 
-  const [
-    dimensionForm,
-    setDimensionForm,
-  ] = useState<null | Partial<DimensionInterface>>(null);
+  const [dimensionForm, setDimensionForm] =
+    useState<null | Partial<DimensionInterface>>(null);
 
   const { apiCall } = useAuth();
 

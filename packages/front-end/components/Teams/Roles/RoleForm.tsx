@@ -173,9 +173,8 @@ export default function RoleForm({
                               if (!checked) {
                                 currentPolicies.push(policy);
                               } else {
-                                const indexToRemove = currentPolicies.indexOf(
-                                  policy
-                                );
+                                const indexToRemove =
+                                  currentPolicies.indexOf(policy);
                                 currentPolicies.splice(indexToRemove, 1);
                               }
                               form.setValue("policies", currentPolicies);

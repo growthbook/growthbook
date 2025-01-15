@@ -40,7 +40,7 @@ import StoppedExperimentBanner from "./StoppedExperimentBanner";
 import HealthTab from "./HealthTab";
 
 const experimentTabs = ["overview", "results", "explore", "health"] as const;
-export type ExperimentTab = typeof experimentTabs[number];
+export type ExperimentTab = (typeof experimentTabs)[number];
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -100,9 +100,8 @@ export default function TabbedPage({
 
   // Results tab filters
   const [baselineRow, setBaselineRow] = useState<number>(0);
-  const [differenceType, setDifferenceType] = useState<DifferenceType>(
-    "relative"
-  );
+  const [differenceType, setDifferenceType] =
+    useState<DifferenceType>("relative");
   const [variationFilter, setVariationFilter] = useState<number[]>([]);
   const [metricFilter, setMetricFilter] = useLocalStorage<ResultsMetricFilters>(
     `experiment-page__${experiment.id}__metric_filter`,

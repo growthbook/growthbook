@@ -216,17 +216,11 @@ export function useCombinedMetrics({
 const MetricsList = (): React.ReactElement => {
   const [modalData, setModalData] = useState<MetricModalState | null>(null);
 
-  const [
-    showAutoGenerateMetricsModal,
-    setShowAutoGenerateMetricsModal,
-  ] = useState(false);
+  const [showAutoGenerateMetricsModal, setShowAutoGenerateMetricsModal] =
+    useState(false);
 
-  const {
-    getDatasourceById,
-    mutateDefinitions,
-    project,
-    ready,
-  } = useDefinitions();
+  const { getDatasourceById, mutateDefinitions, project, ready } =
+    useDefinitions();
   const { getUserDisplay } = useUser();
 
   const router = useRouter();
@@ -283,6 +277,7 @@ const MetricsList = (): React.ReactElement => {
 
   const {
     items,
+    unpaginatedItems,
     searchInputProps,
     isFiltered,
     SortableTH,
@@ -394,7 +389,7 @@ const MetricsList = (): React.ReactElement => {
           </div>
         )}
         <div className="col-auto">
-          <TagsFilter filter={tagsFilter} items={items} />
+          <TagsFilter filter={tagsFilter} items={unpaginatedItems} />
         </div>
       </div>
       <table className="table appbox gbtable table-hover">

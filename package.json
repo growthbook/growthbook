@@ -38,6 +38,8 @@
   "devDependencies": {
     "@next/eslint-plugin-next": "^12.2.3",
     "@types/eslint": "^8.4.5",
+    "@types/express-unless": "^2.0.3",
+    "@types/lz4": "^0.6.4",
     "@typescript-eslint/eslint-plugin": "^6.19.1",
     "@typescript-eslint/parser": "^6.19.1",
     "eslint": "^8.20.0",

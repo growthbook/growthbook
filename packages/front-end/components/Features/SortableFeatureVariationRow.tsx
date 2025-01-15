@@ -229,13 +229,8 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
 VariationRow.displayName = "VariationRow";
 
 export function SortableFeatureVariationRow(props: SortableProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({ id: props.variation.id });
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({ id: props.variation.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),

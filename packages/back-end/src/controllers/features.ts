@@ -1856,11 +1856,8 @@ export async function postFeatureEvaluate(
   const { id, version } = req.params;
   const context = getContextFromReq(req);
   const { org } = context;
-  const {
-    attributes,
-    scrubPrerequisites,
-    skipRulesWithPrerequisites,
-  } = req.body;
+  const { attributes, scrubPrerequisites, skipRulesWithPrerequisites } =
+    req.body;
 
   const feature = await getFeature(context, id);
   if (!feature) {

@@ -55,10 +55,8 @@ export default function EditSqlModal({
   templateVariables,
   setTemplateVariables,
 }: Props) {
-  const [
-    testQueryResults,
-    setTestQueryResults,
-  ] = useState<TestQueryResults | null>(null);
+  const [testQueryResults, setTestQueryResults] =
+    useState<TestQueryResults | null>(null);
   const [testQueryBeforeSaving, setTestQueryBeforeSaving] = useState(true);
   const form = useForm({
     defaultValues: {

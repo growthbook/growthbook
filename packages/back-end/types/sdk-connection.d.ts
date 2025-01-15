@@ -46,7 +46,7 @@ export type CreateSDKConnectionParams = {
 
 import { sdkLanguages } from "back-end/src/util/constants";
 
-export type SDKLanguage = typeof sdkLanguages[number];
+export type SDKLanguage = (typeof sdkLanguages)[number];
 
 export interface SDKConnectionInterface {
   id: string;

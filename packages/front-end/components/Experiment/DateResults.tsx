@@ -56,12 +56,8 @@ const DateResults: FC<{
   statsEngine,
   differenceType,
 }) => {
-  const {
-    getExperimentMetricById,
-    getFactTableById,
-    metricGroups,
-    ready,
-  } = useDefinitions();
+  const { getExperimentMetricById, getFactTableById, metricGroups, ready } =
+    useDefinitions();
 
   const pValueThreshold = usePValueThreshold();
   const { ciUpper, ciLower } = useConfidenceLevels();
@@ -101,23 +97,20 @@ const DateResults: FC<{
     });
   }, [results, cumulative, variations]);
 
-  const {
-    expandedGoals,
-    expandedSecondaries,
-    expandedGuardrails,
-  } = useMemo(() => {
-    const expandedGoals = expandMetricGroups(goalMetrics, metricGroups);
-    const expandedSecondaries = expandMetricGroups(
-      secondaryMetrics,
-      metricGroups
-    );
-    const expandedGuardrails = expandMetricGroups(
-      guardrailMetrics,
-      metricGroups
-    );
+  const { expandedGoals, expandedSecondaries, expandedGuardrails } =
+    useMemo(() => {
+      const expandedGoals = expandMetricGroups(goalMetrics, metricGroups);
+      const expandedSecondaries = expandMetricGroups(
+        secondaryMetrics,
+        metricGroups
+      );
+      const expandedGuardrails = expandMetricGroups(
+        guardrailMetrics,
+        metricGroups
+      );
 
-    return { expandedGoals, expandedSecondaries, expandedGuardrails };
-  }, [goalMetrics, metricGroups, secondaryMetrics, guardrailMetrics]);
+      return { expandedGoals, expandedSecondaries, expandedGuardrails };
+    }, [goalMetrics, metricGroups, secondaryMetrics, guardrailMetrics]);
 
   // Data for the metric graphs
   const metricSections = useMemo<Metric[]>(() => {

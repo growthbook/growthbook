@@ -122,6 +122,8 @@ const ExperimentPage = (): ReactElement => {
       linkedFeatures.map((f) => f.feature)
     );
 
+  console.log(metricsModalOpen);
+
   return (
     <div>
       {metricsModalOpen && (

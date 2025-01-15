@@ -14,9 +14,8 @@ export default class Presto extends SqlIntegration {
   params!: PrestoConnectionParams;
   requiresSchema = false;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<PrestoConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<PrestoConnectionParams>(encryptedParams);
   }
   getFormatDialect(): FormatDialect {
     return "trino";

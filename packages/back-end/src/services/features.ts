@@ -193,8 +193,8 @@ export function generateAutoExperimentsPayload({
     ...newVisualExperiments,
   ];
 
-  const sdkExperiments: Array<AutoExperimentWithProject | null> = sortedAutoExperiments.map(
-    (data) => {
+  const sdkExperiments: Array<AutoExperimentWithProject | null> =
+    sortedAutoExperiments.map((data) => {
       const { experiment: e } = data;
       if (e.status === "stopped" && e.excludeFromPayload) return null;
 
@@ -302,8 +302,7 @@ export function generateAutoExperimentsPayload({
       }
 
       return exp;
-    }
-  );
+    });
   return sdkExperiments.filter(isValidSDKExperiment);
 }
 
@@ -1539,15 +1538,13 @@ export const reduceFeaturesWithPrerequisites = (
       i++
     ) {
       const rule = feature.environmentSettings[environment].rules[i];
-      const {
-        removeRule,
-        newPrerequisites,
-      } = getInlinePrerequisitesReductionInfo(
-        rule.prerequisites || [],
-        featuresMap,
-        environment,
-        prereqStateCache
-      );
+      const { removeRule, newPrerequisites } =
+        getInlinePrerequisitesReductionInfo(
+          rule.prerequisites || [],
+          featuresMap,
+          environment,
+          prereqStateCache
+        );
       if (!removeRule) {
         rule.prerequisites = newPrerequisites;
         newFeatureRules.push(rule);
@@ -1580,15 +1577,13 @@ export const reduceExperimentsWithPrerequisites = <
     if (!phase) continue;
     const newData = cloneDeep(data);
 
-    const {
-      removeRule,
-      newPrerequisites,
-    } = getInlinePrerequisitesReductionInfo(
-      phase.prerequisites || [],
-      featuresMap,
-      environment,
-      prereqStateCache
-    );
+    const { removeRule, newPrerequisites } =
+      getInlinePrerequisitesReductionInfo(
+        phase.prerequisites || [],
+        featuresMap,
+        environment,
+        prereqStateCache
+      );
     if (!removeRule) {
       newData.experiment.phases[phaseIndex].prerequisites = newPrerequisites;
       newExperiments.push(newData);

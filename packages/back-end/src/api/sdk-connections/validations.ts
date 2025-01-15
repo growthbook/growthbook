@@ -11,7 +11,7 @@ const capabilityParams = [
   ["redirects", "includeRedirectExperiments"],
 ] as const;
 
-type CababilitiesParamKey = typeof capabilityParams[number][1];
+type CababilitiesParamKey = (typeof capabilityParams)[number][1];
 type CababilitiesParams = { [k in CababilitiesParamKey]?: boolean };
 
 const premiumFeatures = [
@@ -23,8 +23,8 @@ const premiumFeatures = [
   ["cloud-proxy", "proxyEnabled"],
 ] as const;
 
-type PremiumFeatureName = typeof premiumFeatures[number][0];
-type PremiumFeatureParam = typeof premiumFeatures[number][1];
+type PremiumFeatureName = (typeof premiumFeatures)[number][0];
+type PremiumFeatureParam = (typeof premiumFeatures)[number][1];
 type PremiumFeatures = { [k in PremiumFeatureParam]?: boolean };
 
 const premiumOverrides: {

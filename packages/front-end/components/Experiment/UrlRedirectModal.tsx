@@ -20,9 +20,10 @@ import Toggle from "@/components/Forms/Toggle";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 import { DocLink } from "@/components/DocLink";
 
-function validateUrl(
-  urlString: string
-): { isValid: boolean; message?: string } {
+function validateUrl(urlString: string): {
+  isValid: boolean;
+  message?: string;
+} {
   try {
     const url = new URL(urlString);
     if (url.pathname.includes("*")) {

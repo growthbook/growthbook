@@ -89,14 +89,8 @@ export const ChecklistItem = forwardRef<HTMLDivElement, ChecklistItemProps>(
 );
 
 function SortableChecklistItem(props: SortableProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    active,
-  } = useSortable({ id: props.item.task });
+  const { attributes, listeners, setNodeRef, transform, transition, active } =
+    useSortable({ id: props.item.task });
 
   const style = {
     transform: CSS.Transform.toString(transform),

@@ -7,9 +7,10 @@ import { EditDataSourcePipeline } from "./EditDataSourcePipeline";
 
 type DataSourcePipelineProps = DataSourceQueryEditingModalBaseProps;
 
-export function dataSourcePathNames(
-  dataSourceType: DataSourceType
-): { databaseName: string; schemaName: string } {
+export function dataSourcePathNames(dataSourceType: DataSourceType): {
+  databaseName: string;
+  schemaName: string;
+} {
   let databaseName = "database";
   let schemaName = "schema";
   if (dataSourceType === "bigquery") {

@@ -95,9 +95,8 @@ export default function RuleModal({
   const { datasources } = useDefinitions();
   const { experimentsMap, mutateExperiments } = useExperiments();
 
-  const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] = useState(
-    false
-  );
+  const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] =
+    useState(false);
 
   const settings = useOrgSettings();
   const { settings: scopedSettings } = getScopedSettings({ organization });
@@ -113,16 +112,12 @@ export default function RuleModal({
   };
 
   // Overview Page
-  const [newRuleOverviewPage, setNewRuleOverviewPage] = useState<boolean>(
-    isNewRule
-  );
-  const [
-    overviewRadioSelectorRuleType,
-    setOverviewRadioSelectorRuleType,
-  ] = useState<RadioSelectorRuleType>("");
-  const [overviewRuleType, setOverviewRuleType] = useState<OverviewRuleType>(
-    ""
-  );
+  const [newRuleOverviewPage, setNewRuleOverviewPage] =
+    useState<boolean>(isNewRule);
+  const [overviewRadioSelectorRuleType, setOverviewRadioSelectorRuleType] =
+    useState<RadioSelectorRuleType>("");
+  const [overviewRuleType, setOverviewRuleType] =
+    useState<OverviewRuleType>("");
 
   // Paged modal
   const [step, setStep] = useState(0);
@@ -134,9 +129,8 @@ export default function RuleModal({
   const defaultHasSchedule = (defaultValues.scheduleRules || []).some(
     (scheduleRule) => scheduleRule.timestamp !== null
   );
-  const [scheduleToggleEnabled, setScheduleToggleEnabled] = useState(
-    defaultHasSchedule
-  );
+  const [scheduleToggleEnabled, setScheduleToggleEnabled] =
+    useState(defaultHasSchedule);
 
   const orgStickyBucketing = !!settings.useStickyBucketing;
   const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
@@ -191,10 +185,8 @@ export default function RuleModal({
     i,
   ]);
 
-  const [
-    prerequisiteTargetingSdkIssues,
-    setPrerequisiteTargetingSdkIssues,
-  ] = useState(false);
+  const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
+    useState(false);
   const canSubmit = useMemo(() => {
     return !isCyclic && !prerequisiteTargetingSdkIssues;
   }, [isCyclic, prerequisiteTargetingSdkIssues]);

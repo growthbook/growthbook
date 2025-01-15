@@ -145,26 +145,19 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const router = useRouter();
   const [step, setStep] = useState(initialStep || 0);
-  const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] = useState(
-    false
-  );
+  const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] =
+    useState(false);
   const [autoRefreshResults, setAutoRefreshResults] = useState(true);
 
-  const {
-    datasources,
-    getDatasourceById,
-    refreshTags,
-    project,
-  } = useDefinitions();
+  const { datasources, getDatasourceById, refreshTags, project } =
+    useDefinitions();
 
   const environments = useEnvironments();
   const { experiments } = useExperiments();
   const envs = environments.map((e) => e.id);
 
-  const [
-    prerequisiteTargetingSdkIssues,
-    setPrerequisiteTargetingSdkIssues,
-  ] = useState(false);
+  const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
+    useState(false);
   const canSubmit = !prerequisiteTargetingSdkIssues;
 
   const settings = useOrgSettings();

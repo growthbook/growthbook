@@ -8,6 +8,7 @@ import dJSON from "dirty-json";
 
 import React, { ReactElement, useState } from "react";
 import { validateFeatureValue } from "shared/util";
+import useProjectOptions from "@/hooks/useProjectOptions";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -22,6 +23,7 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import SelectField from "@/components/Forms/SelectField";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";
@@ -153,6 +155,12 @@ export default function FeatureModal({
   });
 
   const form = useForm({ defaultValues });
+  const projectOptions = useProjectOptions(
+    (project) => permissionsUtil.canCreateFeature({ project }),
+    project ? [project] : []
+  );
+  const selectedProject = form.watch("project");
+  const { projectId } = useDemoDataSourceProject();
 
   const [showTags, setShowTags] = useState(!!featureToDuplicate?.tags?.length);
   const [showDescription, setShowDescription] = useState(
@@ -334,6 +342,22 @@ export default function FeatureModal({
           </div>
         </>
       )}
+      {projectId === selectedProject && (
+        <div className="alert alert-warning">
+          You are creating a feature under the demo datasource project.
+        </div>
+      )}
+      <SelectField
+        label="Project"
+        value={selectedProject || project}
+        onChange={(v) => {
+          form.setValue("project", v);
+        }}
+        placeholder="Select Project"
+        options={projectOptions}
+        required={false}
+        sort={false}
+      />
     </Modal>
   );
 }

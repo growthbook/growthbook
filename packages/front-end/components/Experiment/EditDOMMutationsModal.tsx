@@ -10,9 +10,8 @@ const EditDOMMutatonsModal: FC<{
   close: () => void;
   onSave: (newVisualChange: VisualChange) => void;
 }> = ({ experiment, close, visualChange, onSave }) => {
-  const [newVisualChange, setNewVisualChange] = useState<VisualChange>(
-    visualChange
-  );
+  const [newVisualChange, setNewVisualChange] =
+    useState<VisualChange>(visualChange);
 
   const [newDOMMutationStr, setNewDOMMutationStr] = useState(
     visualChange.domMutations.map((m) => JSON.stringify(m))

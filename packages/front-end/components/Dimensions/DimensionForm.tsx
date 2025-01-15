@@ -19,12 +19,8 @@ const DimensionForm: FC<{
 }> = ({ close, current }) => {
   const { apiCall } = useAuth();
   const { memberUsernameOptions } = useMembers();
-  const {
-    getDatasourceById,
-    datasources,
-    mutateDefinitions,
-    project,
-  } = useDefinitions();
+  const { getDatasourceById, datasources, mutateDefinitions, project } =
+    useDefinitions();
 
   const validDatasources = datasources.filter(
     (d) =>

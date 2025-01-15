@@ -425,16 +425,14 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   }
 
   async runAnalysis(queryMap: QueryMap): Promise<SnapshotResult> {
-    const {
-      results: analysesResults,
-      banditResult,
-    } = await analyzeExperimentResults({
-      queryData: queryMap,
-      snapshotSettings: this.model.settings,
-      analysisSettings: this.model.analyses.map((a) => a.settings),
-      variationNames: this.variationNames,
-      metricMap: this.metricMap,
-    });
+    const { results: analysesResults, banditResult } =
+      await analyzeExperimentResults({
+        queryData: queryMap,
+        snapshotSettings: this.model.settings,
+        analysisSettings: this.model.analyses.map((a) => a.settings),
+        variationNames: this.variationNames,
+        metricMap: this.metricMap,
+      });
 
     const result: SnapshotResult = {
       analyses: this.model.analyses,

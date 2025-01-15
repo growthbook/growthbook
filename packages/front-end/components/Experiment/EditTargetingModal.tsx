@@ -82,10 +82,8 @@ export default function EditTargetingModal({
 
   const isBandit = experiment.type === "multi-armed-bandit";
 
-  const [
-    prerequisiteTargetingSdkIssues,
-    setPrerequisiteTargetingSdkIssues,
-  ] = useState(false);
+  const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
+    useState(false);
   const canSubmit = !prerequisiteTargetingSdkIssues;
 
   const lastPhase: ExperimentPhaseStringDates | undefined =

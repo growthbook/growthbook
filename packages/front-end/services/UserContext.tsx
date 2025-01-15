@@ -200,7 +200,11 @@ export function getCurrentUser() {
 export function UserContextProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, orgId, setOrganizations } = useAuth();
 
-  const { data, mutate: mutateUser, error } = useApi<UserResponse>(`/user`, {
+  const {
+    data,
+    mutate: mutateUser,
+    error,
+  } = useApi<UserResponse>(`/user`, {
     shouldRun: () => isAuthenticated,
     orgScoped: false,
   });

@@ -26,10 +26,8 @@ export default function InitialSDKConnectionForm({
   const { data, error, mutate } = useSDKConnections();
   const connections = data?.connections;
 
-  const [
-    currentConnection,
-    setCurrentConnection,
-  ] = useState<SDKConnectionInterface | null>(null);
+  const [currentConnection, setCurrentConnection] =
+    useState<SDKConnectionInterface | null>(null);
 
   useEffect(() => {
     setCurrentConnection(() => {

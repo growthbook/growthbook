@@ -9,9 +9,8 @@ export default class Mssql extends SqlIntegration {
   params!: MssqlConnectionParams;
   requiresSchema = false;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<MssqlConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<MssqlConnectionParams>(encryptedParams);
   }
   getFormatDialect(): FormatDialect {
     return "tsql";

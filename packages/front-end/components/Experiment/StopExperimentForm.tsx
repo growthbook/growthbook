@@ -156,25 +156,26 @@ const StopExperimentForm: FC<{
             { label: "Inconclusive", value: "inconclusive" },
           ]}
         />
-        {form.watch("results") === "won" && experiment.variations.length > 2 && (
-          <SelectField
-            label="Winner"
-            containerClassName="col-lg"
-            value={form.watch("winner") + ""}
-            onChange={(v) => {
-              form.setValue("winner", parseInt(v) || 0);
+        {form.watch("results") === "won" &&
+          experiment.variations.length > 2 && (
+            <SelectField
+              label="Winner"
+              containerClassName="col-lg"
+              value={form.watch("winner") + ""}
+              onChange={(v) => {
+                form.setValue("winner", parseInt(v) || 0);
 
-              form.setValue(
-                "releasedVariationId",
-                experiment.variations[parseInt(v)]?.id ||
-                  form.watch("releasedVariationId")
-              );
-            }}
-            options={experiment.variations.slice(1).map((v, i) => {
-              return { value: i + 1 + "", label: v.name };
-            })}
-          />
-        )}
+                form.setValue(
+                  "releasedVariationId",
+                  experiment.variations[parseInt(v)]?.id ||
+                    form.watch("releasedVariationId")
+                );
+              }}
+              options={experiment.variations.slice(1).map((v, i) => {
+                return { value: i + 1 + "", label: v.name };
+              })}
+            />
+          )}
       </div>
       {hasLinkedChanges && (
         <>

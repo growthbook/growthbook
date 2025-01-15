@@ -12,11 +12,8 @@ const ViewSampleDataButton = ({
 }: {
   resource?: "experiment" | "feature";
 }) => {
-  const {
-    demoExperimentId,
-    demoFeatureId,
-    exists,
-  } = useDemoDataSourceProject();
+  const { demoExperimentId, demoFeatureId, exists } =
+    useDemoDataSourceProject();
   const router = useRouter();
   const { apiCall } = useAuth();
 

@@ -21,7 +21,7 @@ export function policiesSupportEnvLimit(policies: Policy[]): boolean {
   return policies.some((policy) =>
     POLICY_PERMISSION_MAP[policy]?.some((permission) =>
       ENV_SCOPED_PERMISSIONS.includes(
-        permission as typeof ENV_SCOPED_PERMISSIONS[number]
+        permission as (typeof ENV_SCOPED_PERMISSIONS)[number]
       )
     )
   );

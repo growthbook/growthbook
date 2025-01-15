@@ -44,10 +44,8 @@ export default function FactMetricList({ factTable }: Props) {
   const { apiCall } = useAuth();
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const {
-    _factMetricsIncludingArchived: factMetrics,
-    mutateDefinitions,
-  } = useDefinitions();
+  const { _factMetricsIncludingArchived: factMetrics, mutateDefinitions } =
+    useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -68,30 +66,22 @@ export default function FactMetricList({ factTable }: Props) {
   const canDelete = (factMetric: FactMetricInterface) =>
     permissionsUtil.canDeleteFactMetric(factMetric) && !factMetric.managedBy;
 
-  const {
-    items,
-    searchInputProps,
-    isFiltered,
-    SortableTH,
-    clear,
-    pagination,
-  } = useSearch({
-    items: showArchived ? metrics : metrics.filter((m) => !m.archived) || [],
-    defaultSortField: "name",
-    localStorageKey: "factmetrics",
-    searchFields: ["name^3", "description"],
-    pageSize: 10,
-  });
+  const { items, searchInputProps, isFiltered, SortableTH, clear, pagination } =
+    useSearch({
+      items: showArchived ? metrics : metrics.filter((m) => !m.archived) || [],
+      defaultSortField: "name",
+      localStorageKey: "factmetrics",
+      searchFields: ["name^3", "description"],
+      pageSize: 10,
+    });
 
   const canCreateMetrics = permissionsUtil.canCreateFactMetric({
     projects: factTable.projects,
   });
 
   const recommendedMetrics = getRecommendedFactMetrics(factTable, metrics);
-  const [
-    showRecommendedMetricsModal,
-    setShowRecommendedMetricsModal,
-  ] = useState(false);
+  const [showRecommendedMetricsModal, setShowRecommendedMetricsModal] =
+    useState(false);
 
   return (
     <>

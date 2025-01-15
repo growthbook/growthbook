@@ -97,20 +97,17 @@ function MetricExperimentResultTab({
         variationName: v.name,
       };
       if (!bandits && baseline && variationResults[i]) {
-        const {
-          significant,
-          resultsStatus,
-          directionalStatus,
-        } = getMetricResultStatus({
-          metric: metric,
-          metricDefaults,
-          baseline: baseline,
-          stats: variationResults[i],
-          ciLower,
-          ciUpper,
-          pValueThreshold,
-          statsEngine,
-        });
+        const { significant, resultsStatus, directionalStatus } =
+          getMetricResultStatus({
+            metric: metric,
+            metricDefaults,
+            baseline: baseline,
+            stats: variationResults[i],
+            ciLower,
+            ciUpper,
+            pValueThreshold,
+            statsEngine,
+          });
         expVariationData = {
           ...expVariationData,
           variationResults: variationResults[i],

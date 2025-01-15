@@ -24,7 +24,8 @@ export type ApiFeatureEnvSettings = NonNullable<
   z.infer<typeof postFeatureValidator.bodySchema>["environments"]
 >;
 
-export type ApiFeatureEnvSettingsRules = ApiFeatureEnvSettings[keyof ApiFeatureEnvSettings]["rules"];
+export type ApiFeatureEnvSettingsRules =
+  ApiFeatureEnvSettings[keyof ApiFeatureEnvSettings]["rules"];
 
 export const validateEnvKeys = (
   orgEnvKeys: string[],

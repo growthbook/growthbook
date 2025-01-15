@@ -83,9 +83,8 @@ export async function deleteDemoDatasource(
   apiCall: AuthContextValue["apiCall"]
 ) {
   if (!orgId) throw new Error("Missing organization id");
-  const demoDataSourceProjectId = getDemoDatasourceProjectIdForOrganization(
-    orgId
-  );
+  const demoDataSourceProjectId =
+    getDemoDatasourceProjectIdForOrganization(orgId);
   await apiCall(
     `/projects/${demoDataSourceProjectId}?deleteExperiments=1&deleteFeatures=1&deleteMetrics=1&deleteSlackIntegrations=1&deleteDataSources=1`,
     {

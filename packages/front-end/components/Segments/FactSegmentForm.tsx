@@ -27,12 +27,8 @@ export default function FactSegmentForm({
 }: Props) {
   const { apiCall } = useAuth();
   const { memberUsernameOptions } = useMembers();
-  const {
-    getDatasourceById,
-    factTables,
-    getFactTableById,
-    mutateDefinitions,
-  } = useDefinitions();
+  const { getDatasourceById, factTables, getFactTableById, mutateDefinitions } =
+    useDefinitions();
 
   // Build a list of unique data source ids that have atleast 1 fact table built on it
   const uniqueDatasourcesWithFactTables = Array.from(

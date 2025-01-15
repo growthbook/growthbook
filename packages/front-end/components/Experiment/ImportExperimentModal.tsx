@@ -25,12 +25,10 @@ const ImportExperimentModal: FC<{
 }) => {
   const settings = useOrgSettings();
   const { datasources, project } = useDefinitions();
-  const [
-    selected,
-    setSelected,
-  ] = useState<null | Partial<ExperimentInterfaceStringDates>>(
-    initialValue ?? null
-  );
+  const [selected, setSelected] =
+    useState<null | Partial<ExperimentInterfaceStringDates>>(
+      initialValue ?? null
+    );
   const [error, setError] = useState<string | null>(null);
   const [importModal, setImportModal] = useState<boolean>(importMode);
   const [datasourceId, setDatasourceId] = useState(() => {

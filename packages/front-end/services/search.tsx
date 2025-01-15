@@ -33,7 +33,7 @@ export type SearchFields<T> = (
 
 const searchTermOperators = [">", "<", "^", "=", "~", ""] as const;
 
-export type SearchTermFilterOperator = typeof searchTermOperators[number];
+export type SearchTermFilterOperator = (typeof searchTermOperators)[number];
 
 export interface SearchProps<T> {
   items: T[];
@@ -62,6 +62,7 @@ export interface SearchProps<T> {
 
 export interface SearchReturn<T> {
   items: T[];
+  unpaginatedItems: T[];
   isFiltered: boolean;
   clear: () => void;
   searchInputProps: {
@@ -264,6 +265,7 @@ export function useSearch<T>({
 
   return {
     items: paginated,
+    unpaginatedItems: sorted,
     isFiltered,
     clear,
     searchInputProps: {

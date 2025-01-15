@@ -1128,7 +1128,8 @@ describe("Experiment Migration", () => {
       },
     ],
     sequentialTestingEnabled: false,
-    sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    sequentialTestingTuningParameter:
+      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   };
 
   it("upgrades experiment objects", () => {

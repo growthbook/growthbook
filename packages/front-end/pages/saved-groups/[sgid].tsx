@@ -68,10 +68,8 @@ export default function EditSavedGroupPage() {
     unsupportedConnections,
   } = useLargeSavedGroupSupport();
 
-  const [
-    savedGroupForm,
-    setSavedGroupForm,
-  ] = useState<null | Partial<SavedGroupInterface>>(null);
+  const [savedGroupForm, setSavedGroupForm] =
+    useState<null | Partial<SavedGroupInterface>>(null);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
 

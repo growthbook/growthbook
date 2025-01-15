@@ -62,13 +62,8 @@ export function MetricModal({
 }
 
 export function NewMetricModal({ close, source, datasource }: NewMetricProps) {
-  const {
-    factMetrics,
-    metrics,
-    factTables,
-    project,
-    getDatasourceById,
-  } = useDefinitions();
+  const { factMetrics, metrics, factTables, project, getDatasourceById } =
+    useDefinitions();
 
   const filteredFactMetrics = factMetrics
     .filter((f) => !datasource || f.datasource === datasource)

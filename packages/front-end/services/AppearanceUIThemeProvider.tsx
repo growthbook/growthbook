@@ -51,10 +51,8 @@ export const useAppearanceUITheme = (): AppearanceUIThemeContextType =>
 export const AppearanceUIThemeProvider: FC<PropsWithChildren> = ({
   children,
 }) => {
-  const [
-    preferredTheme,
-    setPreferredTheme,
-  ] = useState<PreferredAppearanceUITheme>("system");
+  const [preferredTheme, setPreferredTheme] =
+    useState<PreferredAppearanceUITheme>("system");
 
   const [systemTheme, setSystemTheme] = useState<AppearanceUITheme>("light");
 

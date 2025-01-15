@@ -21,7 +21,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 
 const featureTabs = ["overview", "stats"] as const;
-export type FeatureTab = typeof featureTabs[number];
+export type FeatureTab = (typeof featureTabs)[number];
 
 export default function FeaturePage() {
   const router = useRouter();

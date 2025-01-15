@@ -50,9 +50,8 @@ export default function SDKConnectionPage() {
 
   const permissionsUtil = usePermissionsUtil();
 
-  const connection:
-    | SDKConnectionInterface
-    | undefined = data?.connections?.find((conn) => conn.id === sdkid);
+  const connection: SDKConnectionInterface | undefined =
+    data?.connections?.find((conn) => conn.id === sdkid);
   const environment = environments.find(
     (e) => e.id === connection?.environment
   );

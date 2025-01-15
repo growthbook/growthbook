@@ -26,12 +26,8 @@ export function useBanditSummaryTooltip({
   probabilities: number[];
   regressionAdjustmentEnabled?: boolean;
 }) {
-  const {
-    showTooltip,
-    hideTooltip,
-    tooltipOpen,
-    tooltipData,
-  } = useTooltip<TooltipData>();
+  const { showTooltip, hideTooltip, tooltipOpen, tooltipData } =
+    useTooltip<TooltipData>();
 
   const { containerRef, containerBounds } = useTooltipInPortal({
     scroll: true,

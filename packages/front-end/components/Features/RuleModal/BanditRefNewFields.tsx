@@ -94,11 +94,8 @@ export default function BanditRefNewFields({
     "regression-adjustment"
   );
 
-  const {
-    datasources,
-    getDatasourceById,
-    getExperimentMetricById,
-  } = useDefinitions();
+  const { datasources, getDatasourceById, getExperimentMetricById } =
+    useDefinitions();
 
   const datasource = form.watch("datasource")
     ? getDatasourceById(form.watch("datasource") ?? "")

@@ -76,9 +76,8 @@ const ExperimentsPage = (): React.ReactElement => {
     false
   );
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
-  const [openImportExperimentModal, setOpenImportExperimentModal] = useState(
-    false
-  );
+  const [openImportExperimentModal, setOpenImportExperimentModal] =
+    useState(false);
 
   const { getUserDisplay, userId } = useUser();
   const permissionsUtil = usePermissionsUtil();

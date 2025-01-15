@@ -123,11 +123,10 @@ export class EventWebHookNotifier implements Notifier {
         }
 
         case "raw": {
-          const legacyPayload:
-            | LegacyNotificationEvent
-            | undefined = event.version
-            ? getLegacyMessageForNotificationEvent(event.data)
-            : event.data;
+          const legacyPayload: LegacyNotificationEvent | undefined =
+            event.version
+              ? getLegacyMessageForNotificationEvent(event.data)
+              : event.data;
           return legacyPayload;
         }
 

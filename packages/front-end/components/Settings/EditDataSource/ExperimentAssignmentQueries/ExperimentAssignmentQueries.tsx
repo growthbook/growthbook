@@ -18,12 +18,9 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
 type UIMode = "view" | "edit" | "add" | "dimension";
-export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> = ({
-  dataSource,
-  onSave,
-  onCancel,
-  canEdit = true,
-}) => {
+export const ExperimentAssignmentQueries: FC<
+  ExperimentAssignmentQueriesProps
+> = ({ dataSource, onSave, onCancel, canEdit = true }) => {
   const router = useRouter();
   let intitialOpenIndexes: boolean[] = [];
   if (router.query.openAll === "1") {
@@ -34,9 +31,8 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
 
   const [uiMode, setUiMode] = useState<UIMode>("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
-  const [openIndexes, setOpenIndexes] = useState<boolean[]>(
-    intitialOpenIndexes
-  );
+  const [openIndexes, setOpenIndexes] =
+    useState<boolean[]>(intitialOpenIndexes);
 
   const permissionsUtil = usePermissionsUtil();
   canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);

@@ -186,9 +186,8 @@ export function powerEstFrequentist(
     : normal.quantile(1.0 - alpha, 0, 1);
 
   let standardError = 0;
-  const sequentialTuningParameter = getSequentialTuningParameter(
-    sequentialTesting
-  );
+  const sequentialTuningParameter =
+    getSequentialTuningParameter(sequentialTesting);
   if (sequentialTuningParameter > 0) {
     standardError = sequentialPowerStandardError(
       metric,
@@ -244,9 +243,8 @@ export function findMdeFrequentist(
     normal.quantile(1.0 - power, 0, 1);
   const m = getMetricMean(metric);
   let v = getMetricVariance(metric);
-  const sequentialTuningParameter = getSequentialTuningParameter(
-    sequentialTesting
-  );
+  const sequentialTuningParameter =
+    getSequentialTuningParameter(sequentialTesting);
   if (sequentialTuningParameter > 0) {
     v = sequentialPowerSequentialVariance(
       getMetricVariance(metric),

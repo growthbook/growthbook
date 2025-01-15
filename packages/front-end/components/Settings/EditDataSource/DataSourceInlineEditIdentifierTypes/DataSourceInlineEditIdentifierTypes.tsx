@@ -11,23 +11,22 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
-type DataSourceInlineEditIdentifierTypesProps = DataSourceQueryEditingModalBaseProps;
+type DataSourceInlineEditIdentifierTypesProps =
+  DataSourceQueryEditingModalBaseProps;
 
-export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentifierTypesProps> = ({
-  dataSource,
-  onSave,
-  onCancel,
-  canEdit = true,
-}) => {
+export const DataSourceInlineEditIdentifierTypes: FC<
+  DataSourceInlineEditIdentifierTypesProps
+> = ({ dataSource, onSave, onCancel, canEdit = true }) => {
   const [uiMode, setUiMode] = useState<"view" | "edit" | "add">("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
 
   const permissionsUtil = usePermissionsUtil();
   canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
 
-  const userIdTypes = useMemo(() => dataSource.settings?.userIdTypes || [], [
-    dataSource.settings?.userIdTypes,
-  ]);
+  const userIdTypes = useMemo(
+    () => dataSource.settings?.userIdTypes || [],
+    [dataSource.settings?.userIdTypes]
+  );
 
   const recordEditing = useMemo((): null | UserIdType => {
     return userIdTypes[editingIndex] || null;

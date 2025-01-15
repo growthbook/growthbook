@@ -5,10 +5,8 @@ import ImportExperimentList from "@/components/Experiment/ImportExperimentList";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 
 const ImportPage: FC = () => {
-  const [
-    create,
-    setCreate,
-  ] = useState<null | Partial<ExperimentInterfaceStringDates>>(null);
+  const [create, setCreate] =
+    useState<null | Partial<ExperimentInterfaceStringDates>>(null);
   const router = useRouter();
   const { id } = router.query;
   const importId = Array.isArray(id) ? id[0] : id;

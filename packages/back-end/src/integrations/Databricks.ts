@@ -11,9 +11,8 @@ export default class Databricks extends SqlIntegration {
   requiresDatabase = true;
   requiresSchema = false;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<DatabricksConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<DatabricksConnectionParams>(encryptedParams);
   }
   isWritingTablesSupported(): boolean {
     return true;

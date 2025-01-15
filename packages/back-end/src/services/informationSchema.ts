@@ -266,10 +266,8 @@ export async function updateDatasourceInformationSchema(
     error: null,
   });
 
-  const {
-    informationSchema: updatedInformationSchema,
-    refreshMS,
-  } = await generateInformationSchema(context, datasource);
+  const { informationSchema: updatedInformationSchema, refreshMS } =
+    await generateInformationSchema(context, datasource);
 
   const mergedInformationSchema = await mergeStaleInformationSchemaWithUpdate(
     informationSchema.databases,

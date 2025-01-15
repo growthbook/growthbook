@@ -15,9 +15,8 @@ export default class Athena extends SqlIntegration {
   params!: AthenaConnectionParams;
   requiresSchema = false;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<AthenaConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<AthenaConnectionParams>(encryptedParams);
   }
   getFormatDialect(): FormatDialect {
     return "trino";

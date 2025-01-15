@@ -18,14 +18,8 @@ export default function BooleanSelect(
     HTMLSelectElement
   >
 ) {
-  const {
-    name,
-    control,
-    className,
-    falseLabel,
-    trueLabel,
-    ...passThrough
-  } = props;
+  const { name, control, className, falseLabel, trueLabel, ...passThrough } =
+    props;
 
   return (
     <Controller

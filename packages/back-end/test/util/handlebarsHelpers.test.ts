@@ -12,9 +12,8 @@ type HandlebarsCompileFunction = (
   options?: HelperOptions
 ) => string;
 
-const compile: (
-  template: string
-) => HandlebarsTemplateDelegate = Handlebars.compile.bind(Handlebars);
+const compile: (template: string) => HandlebarsTemplateDelegate =
+  Handlebars.compile.bind(Handlebars);
 
 describe("camelcase", () => {
   it("should return an empty string if undefined", () => {

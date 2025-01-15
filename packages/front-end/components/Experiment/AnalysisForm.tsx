@@ -81,9 +81,8 @@ const AnalysisForm: FC<{
   const orgSettings = useOrgSettings();
 
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
-  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] = useState(
-    false
-  );
+  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] =
+    useState(false);
   const [upgradeModal, setUpgradeModal] = useState(false);
 
   const pid = experiment?.project;
@@ -97,9 +96,8 @@ const AnalysisForm: FC<{
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment"
   );
-  const hasSequentialTestingFeature = hasCommercialFeature(
-    "sequential-testing"
-  );
+  const hasSequentialTestingFeature =
+    hasCommercialFeature("sequential-testing");
 
   let canRunExperiment = !experiment.archived;
   const envs = getAffectedEnvsForExperiment({ experiment });
@@ -171,10 +169,8 @@ const AnalysisForm: FC<{
     },
   });
 
-  const [
-    usingSequentialTestingDefault,
-    setUsingSequentialTestingDefault,
-  ] = useState(experiment.sequentialTestingEnabled === undefined);
+  const [usingSequentialTestingDefault, setUsingSequentialTestingDefault] =
+    useState(experiment.sequentialTestingEnabled === undefined);
   const setSequentialTestingToDefault = useCallback(
     (enable: boolean) => {
       if (enable) {
@@ -265,7 +261,8 @@ const AnalysisForm: FC<{
         }
         if (usingSequentialTestingDefault) {
           // User checked the org default checkbox; ignore form values
-          body.sequentialTestingEnabled = !!orgSettings.sequentialTestingEnabled;
+          body.sequentialTestingEnabled =
+            !!orgSettings.sequentialTestingEnabled;
           body.sequentialTestingTuningParameter =
             orgSettings.sequentialTestingTuningParameter ??
             DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
@@ -418,8 +415,9 @@ const AnalysisForm: FC<{
               };
             })}
             formatOptionLabel={({ label, value }) => {
-              const userIdType = exposureQueries?.find((e) => e.id === value)
-                ?.userIdType;
+              const userIdType = exposureQueries?.find(
+                (e) => e.id === value
+              )?.userIdType;
               return (
                 <>
                   {label}
@@ -786,7 +784,7 @@ const AnalysisForm: FC<{
                 <MetricsOverridesSelector
                   experiment={experiment}
                   form={
-                    (form as unknown) as UseFormReturn<EditMetricsFormInterface>
+                    form as unknown as UseFormReturn<EditMetricsFormInterface>
                   }
                   disabled={!hasOverrideMetricsFeature}
                   setHasMetricOverrideRiskError={(v: boolean) =>

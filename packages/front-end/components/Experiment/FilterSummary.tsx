@@ -22,11 +22,8 @@ const FilterSummary: FC<{
     snapshot.settings.segment ||
     snapshot.settings.queryFilter ||
     snapshot.settings.activationMetric;
-  const {
-    getSegmentById,
-    getExperimentMetricById,
-    getDatasourceById,
-  } = useDefinitions();
+  const { getSegmentById, getExperimentMetricById, getDatasourceById } =
+    useDefinitions();
   const datasource = getDatasourceById(experiment.datasource);
 
   return (

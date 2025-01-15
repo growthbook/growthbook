@@ -33,10 +33,8 @@ export interface Props {
 }
 
 export default function IdLists({ groups, mutate }: Props) {
-  const [
-    savedGroupForm,
-    setSavedGroupForm,
-  ] = useState<null | Partial<SavedGroupInterface>>(null);
+  const [savedGroupForm, setSavedGroupForm] =
+    useState<null | Partial<SavedGroupInterface>>(null);
   const { project } = useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();

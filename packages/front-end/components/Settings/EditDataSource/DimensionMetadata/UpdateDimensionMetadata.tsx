@@ -64,12 +64,9 @@ type UpdateDimensionMetadataModalProps = {
   onSave: (exposureQuery: ExposureQuery) => void;
 };
 
-export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps> = ({
-  exposureQuery,
-  dataSource,
-  close,
-  onSave,
-}) => {
+export const UpdateDimensionMetadataModal: FC<
+  UpdateDimensionMetadataModalProps
+> = ({ exposureQuery, dataSource, close, onSave }) => {
   const { apiCall } = useAuth();
   const [id, setId] = useState<string | null>(
     exposureQuery.dimensionSlicesId || null

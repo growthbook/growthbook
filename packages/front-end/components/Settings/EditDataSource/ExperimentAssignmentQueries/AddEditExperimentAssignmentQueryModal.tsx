@@ -24,13 +24,9 @@ type EditExperimentAssignmentQueryProps = {
   onCancel: () => void;
 };
 
-export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQueryProps> = ({
-  exposureQuery,
-  dataSource,
-  mode,
-  onSave,
-  onCancel,
-}) => {
+export const AddEditExperimentAssignmentQueryModal: FC<
+  EditExperimentAssignmentQueryProps
+> = ({ exposureQuery, dataSource, mode, onSave, onCancel }) => {
   const [showAdvancedMode, setShowAdvancedMode] = useState(false);
   const [uiMode, setUiMode] = useState<"view" | "sql" | "dimension">("view");
   const modalTitle =
@@ -97,9 +93,10 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
     ]);
   }, [userEnteredUserIdType, userEnteredDimensions, userEnteredHasNameCol]);
 
-  const identityTypes = useMemo(() => dataSource.settings.userIdTypes || [], [
-    dataSource.settings.userIdTypes,
-  ]);
+  const identityTypes = useMemo(
+    () => dataSource.settings.userIdTypes || [],
+    [dataSource.settings.userIdTypes]
+  );
 
   const saveEnabled = !!userEnteredUserIdType && !!userEnteredQuery;
 

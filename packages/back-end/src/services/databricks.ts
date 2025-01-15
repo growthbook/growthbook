@@ -48,9 +48,9 @@ export async function runDatabricksQuery<T>(
             // This is required to have the results returned immediately
             maxRows: 1000,
           });
-          const result = ((await queryOperation.fetchAll({
+          const result = (await queryOperation.fetchAll({
             progress: false,
-          })) as unknown) as Promise<T[]>;
+          })) as unknown as Promise<T[]>;
 
           // As soon as we have the reuslt, return it
           if (!finished) {

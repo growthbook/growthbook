@@ -28,22 +28,16 @@ export default function UpgradeModal({ close, source }: Props) {
   const [showSHProTrial, setShowSHProTrial] = useState(false);
   const [showSHProTrialSuccess, setShowSHProTrialSuccess] = useState(false);
   const [showSHEnterpriseTrial, setShowSHEnterpriseTrial] = useState(false);
-  const [
-    showSHEnterpriseTrialSuccess,
-    setShowSHEnterpriseTrialSuccess,
-  ] = useState(false);
+  const [showSHEnterpriseTrialSuccess, setShowSHEnterpriseTrialSuccess] =
+    useState(false);
 
-  const [showCloudEnterpriseTrial, setShowCloudEnterpriseTrial] = useState(
-    false
-  );
-  const [
-    showCloudEnterpriseTrialSuccess,
-    setShowCloudEnterpriseTrialSuccess,
-  ] = useState(false);
+  const [showCloudEnterpriseTrial, setShowCloudEnterpriseTrial] =
+    useState(false);
+  const [showCloudEnterpriseTrialSuccess, setShowCloudEnterpriseTrialSuccess] =
+    useState(false);
   const [showCloudProTrial, setShowCloudProTrial] = useState(false);
-  const [showCloudProTrialSuccess, setShowCloudProTrialSuccess] = useState(
-    false
-  );
+  const [showCloudProTrialSuccess, setShowCloudProTrialSuccess] =
+    useState(false);
 
   const { name, email, accountPlan, license, effectiveAccountPlan } = useUser();
 

@@ -127,23 +127,20 @@ const CompactResults: FC<{
     return [totalUsers, variationUsers];
   }, [results]);
 
-  const {
-    expandedGoals,
-    expandedSecondaries,
-    expandedGuardrails,
-  } = useMemo(() => {
-    const expandedGoals = expandMetricGroups(goalMetrics, metricGroups);
-    const expandedSecondaries = expandMetricGroups(
-      secondaryMetrics,
-      metricGroups
-    );
-    const expandedGuardrails = expandMetricGroups(
-      guardrailMetrics,
-      metricGroups
-    );
+  const { expandedGoals, expandedSecondaries, expandedGuardrails } =
+    useMemo(() => {
+      const expandedGoals = expandMetricGroups(goalMetrics, metricGroups);
+      const expandedSecondaries = expandMetricGroups(
+        secondaryMetrics,
+        metricGroups
+      );
+      const expandedGuardrails = expandMetricGroups(
+        guardrailMetrics,
+        metricGroups
+      );
 
-    return { expandedGoals, expandedSecondaries, expandedGuardrails };
-  }, [goalMetrics, metricGroups, secondaryMetrics, guardrailMetrics]);
+      return { expandedGoals, expandedSecondaries, expandedGuardrails };
+    }, [goalMetrics, metricGroups, secondaryMetrics, guardrailMetrics]);
 
   const allMetricTags = useMemo(() => {
     const allMetricTagsSet: Set<string> = new Set();

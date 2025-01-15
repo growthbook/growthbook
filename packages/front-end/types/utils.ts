@@ -17,9 +17,7 @@ export type PartialOn<
 > =
   | ({
       [k in Key]: Extract<O[k], Type>;
-    } &
-      Partial<Omit<O, Key>>)
+    } & Partial<Omit<O, Key>>)
   | ({
       [k in Key]: Exclude<O[k], Type>;
-    } &
-      Omit<O, Key>);
+    } & Omit<O, Key>);

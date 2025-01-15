@@ -144,10 +144,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       throw new Error("Error refreshing experiment, could not find datasource");
     }
 
-    const {
-      regressionAdjustmentEnabled,
-      settingsForSnapshotMetrics,
-    } = await getSettingsForSnapshotMetrics(context, experiment);
+    const { regressionAdjustmentEnabled, settingsForSnapshotMetrics } =
+      await getSettingsForSnapshotMetrics(context, experiment);
 
     const analysisSettings = getDefaultExperimentAnalysisSettings(
       experiment.statsEngine || scopedSettings.statsEngine.value,
@@ -179,9 +177,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       context,
       phaseIndex: experiment.phases.length - 1,
       defaultAnalysisSettings: analysisSettings,
-      additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
-        analysisSettings
-      ),
+      additionalAnalysisSettings:
+        getAdditionalExperimentAnalysisSettings(analysisSettings),
       settingsForSnapshotMetrics: settingsForSnapshotMetrics || [],
       metricMap,
       factTableMap,

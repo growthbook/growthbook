@@ -42,7 +42,7 @@ export const POLICIES = [
   "CustomRolesFullAccess",
 ] as const;
 
-export type Policy = typeof POLICIES[number];
+export type Policy = (typeof POLICIES)[number];
 
 export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   ReadData: ["readData"],

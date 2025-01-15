@@ -46,10 +46,10 @@ const AuditModel = mongoose.model<AuditInterface>("Audit", auditSchema);
  * @param doc
  */
 const toInterface = (doc: AuditDocument): AuditInterface => {
-  return (omit(doc.toJSON<AuditDocument>(), [
+  return omit(doc.toJSON<AuditDocument>(), [
     "__v",
     "_id",
-  ]) as unknown) as AuditInterface;
+  ]) as unknown as AuditInterface;
 };
 
 export async function insertAudit(

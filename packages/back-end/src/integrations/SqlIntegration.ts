@@ -104,26 +104,8 @@ export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;
 export const TEST_QUERY_SQL = "SELECT 1";
 
 const N_STAR_VALUES = [
-  100,
-  200,
-  400,
-  800,
-  1600,
-  3200,
-  6400,
-  12800,
-  25600,
-  51200,
-  102400,
-  204800,
-  409600,
-  819200,
-  1638400,
-  3276800,
-  6553600,
-  13107200,
-  26214400,
-  52428800,
+  100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600, 51200, 102400, 204800,
+  409600, 819200, 1638400, 3276800, 6553600, 13107200, 26214400, 52428800,
 ];
 
 const supportedEventTrackers: Record<AutoFactTableSchemas, true> = {
@@ -133,7 +115,8 @@ const supportedEventTrackers: Record<AutoFactTableSchemas, true> = {
 };
 
 export default abstract class SqlIntegration
-  implements SourceIntegrationInterface {
+  implements SourceIntegrationInterface
+{
   datasource: DataSourceInterface;
   context: ReqContext;
   decryptionError: boolean;
@@ -1575,9 +1558,8 @@ export default abstract class SqlIntegration
   ): null | ExperimentMetricInterface {
     let activationMetric: null | ExperimentMetricInterface = null;
     if (activationMetricDoc) {
-      activationMetric = cloneDeep<ExperimentMetricInterface>(
-        activationMetricDoc
-      );
+      activationMetric =
+        cloneDeep<ExperimentMetricInterface>(activationMetricDoc);
       applyMetricOverrides(activationMetric, settings);
     }
     return activationMetric;
@@ -1794,13 +1776,8 @@ export default abstract class SqlIntegration
   getExperimentAggregateUnitsQuery(
     params: ExperimentAggregateUnitsQueryParams
   ): string {
-    const {
-      activationMetric,
-      segment,
-      settings,
-      factTableMap,
-      useUnitsTable,
-    } = params;
+    const { activationMetric, segment, settings, factTableMap, useUnitsTable } =
+      params;
 
     // unitDimensions not supported yet
     const { experimentDimensions } = this.processDimensions(

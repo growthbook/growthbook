@@ -16,12 +16,10 @@ import { roleToPermissionMap } from "back-end/src/util/organization.util";
 jest.mock("back-end/src/services/datasource");
 jest.mock("back-end/src/init/config");
 
-const mockedTestQueryValidity: jest.MockedFunction<
-  typeof testQueryValidity
-> = testQueryValidity as jest.MockedFunction<typeof testQueryValidity>;
-const mockedUsingFileConfig: jest.MockedFunction<
-  typeof usingFileConfig
-> = usingFileConfig as jest.MockedFunction<typeof usingFileConfig>;
+const mockedTestQueryValidity: jest.MockedFunction<typeof testQueryValidity> =
+  testQueryValidity as jest.MockedFunction<typeof testQueryValidity>;
+const mockedUsingFileConfig: jest.MockedFunction<typeof usingFileConfig> =
+  usingFileConfig as jest.MockedFunction<typeof usingFileConfig>;
 
 describe("dataSourceModel", () => {
   const datasource: DataSourceInterface = {
@@ -80,7 +78,7 @@ describe("dataSourceModel", () => {
       projects: {},
     }),
   };
-  const context = (partialContext as unknown) as ReqContext;
+  const context = partialContext as unknown as ReqContext;
 
   beforeEach(() => {
     jest.clearAllMocks();

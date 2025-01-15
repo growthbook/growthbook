@@ -296,9 +296,8 @@ export default function FeatureVariationsInput({
                                 const newValues = [
                                   ...variations,
                                   {
-                                    value: getDefaultVariationValue(
-                                      defaultValue
-                                    ),
+                                    value:
+                                      getDefaultVariationValue(defaultValue),
                                     name: "",
                                     weight: 0,
                                     id: generateVariationId(),

@@ -127,8 +127,8 @@ const Revisionlog: React.ForwardRefRenderFunction<MutateLog, Props> = (
     if (!data) return [];
     const logs = [...data.log];
     logs.sort((a, b) =>
-      ((b.timestamp as unknown) as string).localeCompare(
-        (a.timestamp as unknown) as string
+      (b.timestamp as unknown as string).localeCompare(
+        a.timestamp as unknown as string
       )
     );
 

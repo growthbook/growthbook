@@ -190,10 +190,8 @@ const DateGraph: FC<DateGraphProps> = ({
   const metricFormatter = formatter ?? getMetricFormatter(type);
   const formatterOptions = { currency: displayCurrency };
 
-  const [
-    highlightExp,
-    setHighlightExp,
-  ] = useState<null | ExperimentDisplayData>(null);
+  const [highlightExp, setHighlightExp] =
+    useState<null | ExperimentDisplayData>(null);
 
   const data = useMemo(() => {
     let sortedDates = cloneDeep(dates).sort(

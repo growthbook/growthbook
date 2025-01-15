@@ -99,9 +99,8 @@ const defaultValue: DefinitionContextValue = {
   getMetricGroupById: () => null,
 };
 
-export const DefinitionsContext = createContext<DefinitionContextValue>(
-  defaultValue
-);
+export const DefinitionsContext =
+  createContext<DefinitionContextValue>(defaultValue);
 
 interface IndexableItem {
   id: string;

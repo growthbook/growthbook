@@ -1868,9 +1868,8 @@ export class GrowthBook<
   public async refreshStickyBuckets(data?: FeatureApiResponse) {
     if (this._ctx.stickyBucketService) {
       const attributes = this._getStickyBucketAttributes(data);
-      this._ctx.stickyBucketAssignmentDocs = await this._ctx.stickyBucketService.getAllAssignments(
-        attributes
-      );
+      this._ctx.stickyBucketAssignmentDocs =
+        await this._ctx.stickyBucketService.getAllAssignments(attributes);
     }
   }
 
@@ -1879,15 +1878,12 @@ export class GrowthBook<
     expFallbackAttribute?: string
   ): StickyAssignments {
     if (!this._ctx.stickyBucketAssignmentDocs) return {};
-    const { hashAttribute, hashValue } = this._getHashAttribute(
-      expHashAttribute
-    );
+    const { hashAttribute, hashValue } =
+      this._getHashAttribute(expHashAttribute);
     const hashKey = `${hashAttribute}||${toString(hashValue)}`;
 
-    const {
-      hashAttribute: fallbackAttribute,
-      hashValue: fallbackValue,
-    } = this._getHashAttribute(expFallbackAttribute);
+    const { hashAttribute: fallbackAttribute, hashValue: fallbackValue } =
+      this._getHashAttribute(expFallbackAttribute);
     const fallbackKey = fallbackValue
       ? `${fallbackAttribute}||${toString(fallbackValue)}`
       : null;
@@ -1972,9 +1968,8 @@ export class GrowthBook<
     data?: FeatureApiResponse
   ): Record<string, string> {
     const attributes: Record<string, string> = {};
-    this._ctx.stickyBucketIdentifierAttributes = this._deriveStickyBucketIdentifierAttributes(
-      data
-    );
+    this._ctx.stickyBucketIdentifierAttributes =
+      this._deriveStickyBucketIdentifierAttributes(data);
     this._ctx.stickyBucketIdentifierAttributes.forEach((attr) => {
       const { hashValue } = this._getHashAttribute(attr);
       attributes[attr] = toString(hashValue);

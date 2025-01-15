@@ -40,10 +40,7 @@ type UpdateArchetypeProps = Omit<
 >;
 
 const toInterface = (doc: ArchetypeDocument): ArchetypeInterface =>
-  omit(
-    doc.toJSON<ArchetypeDocument>({ flattenMaps: true }),
-    ["__v", "_id"]
-  );
+  omit(doc.toJSON<ArchetypeDocument>({ flattenMaps: true }), ["__v", "_id"]);
 
 export function parseArchetypeString(list: string) {
   const values = list

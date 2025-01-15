@@ -218,8 +218,8 @@ export async function refreshReport(
   const statsEngine = report.args?.statsEngine || DEFAULT_STATS_ENGINE;
 
   report.args.statsEngine = statsEngine;
-  report.args.regressionAdjustmentEnabled = !!report.args
-    ?.regressionAdjustmentEnabled;
+  report.args.regressionAdjustmentEnabled =
+    !!report.args?.regressionAdjustmentEnabled;
 
   const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
@@ -287,8 +287,8 @@ export async function putReport(
       updates.args.endDate = getValidDate(updates.args.endDate || new Date());
     }
     updates.args.statsEngine = statsEngine;
-    updates.args.regressionAdjustmentEnabled = !!updates.args
-      ?.regressionAdjustmentEnabled;
+    updates.args.regressionAdjustmentEnabled =
+      !!updates.args?.regressionAdjustmentEnabled;
     updates.args.settingsForSnapshotMetrics =
       updates.args?.settingsForSnapshotMetrics || [];
 

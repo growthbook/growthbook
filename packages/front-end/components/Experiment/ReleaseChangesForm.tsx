@@ -448,12 +448,14 @@ function ImpactTooltips({
           </div>
         )}
 
-        {!isBandit && variationHopping && releasePlan !== "same-phase-sticky" && (
-          <div className="alert mt-2 mb-0 alert-info">
-            <BsLightbulb /> You may be able to use Sticky Bucketing to prevent
-            variation hopping.
-          </div>
-        )}
+        {!isBandit &&
+          variationHopping &&
+          releasePlan !== "same-phase-sticky" && (
+            <div className="alert mt-2 mb-0 alert-info">
+              <BsLightbulb /> You may be able to use Sticky Bucketing to prevent
+              variation hopping.
+            </div>
+          )}
       </div>
 
       {!isBandit &&

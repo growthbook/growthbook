@@ -11,9 +11,8 @@ export default class Mysql extends SqlIntegration {
   requiresDatabase = false;
   requiresSchema = false;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<MysqlConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<MysqlConnectionParams>(encryptedParams);
   }
   getFormatDialect(): FormatDialect {
     return "mysql";

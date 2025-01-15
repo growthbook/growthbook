@@ -27,20 +27,14 @@ export default function FactFilterList({ factTable }: Props) {
 
   const permissionsUtil = usePermissionsUtil();
 
-  const {
-    items,
-    searchInputProps,
-    isFiltered,
-    SortableTH,
-    clear,
-    pagination,
-  } = useSearch({
-    items: factTable?.filters || [],
-    defaultSortField: "name",
-    localStorageKey: "factFilters",
-    searchFields: ["name^3", "description", "value^2"],
-    pageSize: 10,
-  });
+  const { items, searchInputProps, isFiltered, SortableTH, clear, pagination } =
+    useSearch({
+      items: factTable?.filters || [],
+      defaultSortField: "name",
+      localStorageKey: "factFilters",
+      searchFields: ["name^3", "description", "value^2"],
+      pageSize: 10,
+    });
 
   const canAddAndEdit = permissionsUtil.canCreateAndUpdateFactFilter(factTable);
   const canDelete = permissionsUtil.canDeleteFactFilter(factTable);

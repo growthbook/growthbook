@@ -174,7 +174,7 @@ export const WebhookIcon = ({
 }: {
   style: React.CSSProperties;
   className?: string;
-  type: typeof legacyEventWebHookPayloadTypes[number];
+  type: (typeof legacyEventWebHookPayloadTypes)[number];
 }) => {
   let invalidType: never;
 

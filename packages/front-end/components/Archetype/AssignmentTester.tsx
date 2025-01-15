@@ -29,13 +29,10 @@ export default function AssignmentTester({ feature, version, project }: Props) {
   const [formValues, setFormValues] = useState({});
   const [results, setResults] = useState<null | FeatureTestResult[]>(null);
   const [expandResults, setExpandResults] = useState<number[]>([]);
-  const [
-    openArchetypeModal,
-    setOpenArchetypeModal,
-  ] = useState<null | Partial<ArchetypeInterface>>(null);
-  const [skipRulesWithPrerequisites, setSkipRulesWithPrerequisites] = useState(
-    false
-  );
+  const [openArchetypeModal, setOpenArchetypeModal] =
+    useState<null | Partial<ArchetypeInterface>>(null);
+  const [skipRulesWithPrerequisites, setSkipRulesWithPrerequisites] =
+    useState(false);
 
   const { data, mutate: mutateData } = useArchetype({
     feature,

@@ -48,11 +48,8 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
   );
   const [failedInvites, setFailedInvites] = useState<InviteResult[]>([]);
   const { apiCall } = useAuth();
-  const {
-    freeSeats,
-    canSubscribe,
-    activeAndInvitedUsers,
-  } = useStripeSubscription();
+  const { freeSeats, canSubscribe, activeAndInvitedUsers } =
+    useStripeSubscription();
   const [showUpgradeModal, setShowUpgradeModal] = useState(
     isCloud() && canSubscribe && activeAndInvitedUsers >= freeSeats
       ? "Whoops! You reached your free seat limit."

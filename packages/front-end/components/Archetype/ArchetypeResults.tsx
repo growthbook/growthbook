@@ -24,19 +24,16 @@ const ArchetypeResults: FC<{
   const { apiCall } = useAuth();
   const { project } = useDefinitions();
   const enableAdvDebug = false;
-  const [showExpandedResults, setShowExpandedResults] = useState<boolean>(
-    false
-  );
+  const [showExpandedResults, setShowExpandedResults] =
+    useState<boolean>(false);
   const [showExpandedResultsId, setShowExpandedResultsId] = useState<
     string | null
   >(null);
   const [showExpandedResultsEnv, setShowExpandedResultsEnv] = useState<
     string | null
   >(null);
-  const [
-    editArchetype,
-    setEditArchetype,
-  ] = useState<Partial<ArchetypeInterface> | null>(null);
+  const [editArchetype, setEditArchetype] =
+    useState<Partial<ArchetypeInterface> | null>(null);
 
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);

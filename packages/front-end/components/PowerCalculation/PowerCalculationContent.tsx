@@ -57,10 +57,8 @@ const AnalysisSettings = ({
     number | undefined
   >(params.nVariations);
 
-  const [
-    showStatsEngineSettingsModal,
-    setShowStatsEngineSettingsModal,
-  ] = useState(false);
+  const [showStatsEngineSettingsModal, setShowStatsEngineSettingsModal] =
+    useState(false);
 
   const isValidCurrentVariations =
     currentVariations &&

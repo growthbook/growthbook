@@ -37,10 +37,8 @@ const SegmentPage: FC = () => {
     canStoreSegmentsInMongo = true;
   }
 
-  const [
-    segmentForm,
-    setSegmentForm,
-  ] = useState<null | Partial<SegmentInterface>>(null);
+  const [segmentForm, setSegmentForm] =
+    useState<null | Partial<SegmentInterface>>(null);
 
   const { apiCall } = useAuth();
 

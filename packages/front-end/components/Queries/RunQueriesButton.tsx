@@ -91,8 +91,9 @@ const RunQueriesButton: FC<{
   // eslint-disable-next-line
   const [_, setCounter] = useState(0);
 
-  const numFinished = model.queries.filter((q) => q.status === "succeeded")
-    .length;
+  const numFinished = model.queries.filter(
+    (q) => q.status === "succeeded"
+  ).length;
   const numQueries = model.queries.length;
 
   const { status } = getQueryStatus(model.queries || []);

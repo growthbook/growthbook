@@ -32,28 +32,26 @@ export const getDataEnrichment = createApiRequestHandler({
   bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: z.never(),
-})(
-  async (req): Promise<GetDataEnrichmentResponse> => {
-    // Must be a super-user to make cross-org mongo queries
-    await validateIsSuperUserRequest(req);
+})(async (req): Promise<GetDataEnrichmentResponse> => {
+  // Must be a super-user to make cross-org mongo queries
+  await validateIsSuperUserRequest(req);
 
-    const dataSources = await _dangerousGetAllGrowthbookClickhouseDataSources();
-    const dataSourcesByOrgId = Object.fromEntries(
-      dataSources.map((ds) => [ds.organization, ds.id])
-    );
-    const sdkConnections = await _dangerousGetSdkConnectionsAcrossMultipleOrgs(
-      Object.keys(dataSourcesByOrgId)
-    );
-    const sdkData = Object.fromEntries(
-      sdkConnections.map((conn) => [
-        conn.key,
-        sdkInfo(conn, dataSourcesByOrgId[conn.organization]),
-      ])
-    );
+  const dataSources = await _dangerousGetAllGrowthbookClickhouseDataSources();
+  const dataSourcesByOrgId = Object.fromEntries(
+    dataSources.map((ds) => [ds.organization, ds.id])
+  );
+  const sdkConnections = await _dangerousGetSdkConnectionsAcrossMultipleOrgs(
+    Object.keys(dataSourcesByOrgId)
+  );
+  const sdkData = Object.fromEntries(
+    sdkConnections.map((conn) => [
+      conn.key,
+      sdkInfo(conn, dataSourcesByOrgId[conn.organization]),
+    ])
+  );
 
-    return { sdkData };
-  }
-);
+  return { sdkData };
+});
 
 const router = Router();
 

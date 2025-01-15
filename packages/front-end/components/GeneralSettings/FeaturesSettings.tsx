@@ -12,10 +12,8 @@ import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
 export default function FeaturesSettings() {
-  const [
-    codeRefsBranchesToFilterStr,
-    setCodeRefsBranchesToFilterStr,
-  ] = useState<string>("");
+  const [codeRefsBranchesToFilterStr, setCodeRefsBranchesToFilterStr] =
+    useState<string>("");
 
   const { hasCommercialFeature } = useUser();
   const environments = useEnvironments();

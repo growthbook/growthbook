@@ -54,20 +54,14 @@ function hasChanges(
 const GeneralSettingsPage = (): React.ReactElement => {
   const growthbook = useGrowthBook<AppFeatures>();
 
-  const {
-    refreshOrganization,
-    settings,
-    organization,
-    hasCommercialFeature,
-  } = useUser();
+  const { refreshOrganization, settings, organization, hasCommercialFeature } =
+    useUser();
   const [saveMsg, setSaveMsg] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [originalValue, setOriginalValue] = useState<OrganizationSettings>({});
   const [cronString, setCronString] = useState("");
-  const [
-    codeRefsBranchesToFilterStr,
-    setCodeRefsBranchesToFilterStr,
-  ] = useState<string>("");
+  const [codeRefsBranchesToFilterStr, setCodeRefsBranchesToFilterStr] =
+    useState<string>("");
   const displayCurrency = useCurrency();
 
   const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
@@ -113,7 +107,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       regressionAdjustmentEnabled: DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
       regressionAdjustmentDays: DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
       sequentialTestingEnabled: false,
-      sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+      sequentialTestingTuningParameter:
+        DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
       powerCalculatorEnabled: false,
       attributionModel: "firstExposure",
       displayCurrency,

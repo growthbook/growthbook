@@ -1225,13 +1225,8 @@ export async function createSnapshotAnalyses(
 export async function createSnapshotAnalysis(
   params: SnapshotAnalysisParams
 ): Promise<void> {
-  const {
-    snapshot,
-    analysisSettings,
-    organization,
-    experiment,
-    metricMap,
-  } = params;
+  const { snapshot, analysisSettings, organization, experiment, metricMap } =
+    params;
   // check if analysis is possible
   if (!isAnalysisAllowed(snapshot.settings, analysisSettings)) {
     throw new Error("Analysis not allowed with this snapshot");
@@ -2406,9 +2401,10 @@ export function postExperimentApiPayloadToInterface(
     previewURL: "",
     targetURLRegex: "",
     ideaSource: "",
-    sequentialTestingEnabled: !!organization?.settings
-      ?.sequentialTestingEnabled,
-    sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    sequentialTestingEnabled:
+      !!organization?.settings?.sequentialTestingEnabled,
+    sequentialTestingTuningParameter:
+      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     regressionAdjustmentEnabled:
       payload.regressionAdjustmentEnabled ??
       !!organization?.settings?.regressionAdjustmentEnabled,
