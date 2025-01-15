@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { ago } from "shared/dates";
 import {
-  getMatchingRules,
+  experimentsReferencingSavedGroups,
+  featuresReferencingSavedGroups,
   isProjectListValidForProject,
   truncateString,
 } from "shared/util";
@@ -9,6 +10,7 @@ import Link from "next/link";
 import { SavedGroupInterface } from "shared/src/types";
 import { FaMagnifyingGlass } from "react-icons/fa6";
 import { PiInfoFill } from "react-icons/pi";
+import { isEmpty } from "lodash";
 import { useAuth } from "@/services/auth";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useSearch } from "@/services/search";
@@ -25,6 +27,7 @@ import LargeSavedGroupPerformanceWarning, {
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
+import { useExperiments } from "@/hooks/useExperiments";
 import SavedGroupForm from "./SavedGroupForm";
 
 export interface Props {
@@ -58,6 +61,7 @@ export default function IdLists({ groups, mutate }: Props) {
     : idLists;
 
   const { features } = useFeaturesList(false);
+  const { experiments } = useExperiments();
 
   const environments = useEnvironments();
 
@@ -69,29 +73,23 @@ export default function IdLists({ groups, mutate }: Props) {
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
 
   // Get a list of feature ids for every saved group
-  // TODO: also get experiments
-  const savedGroupFeatureIds = useMemo(() => {
-    const map: Record<string, Set<string>> = {};
-
-    features.forEach((feature) => {
-      filteredIdLists.forEach((group) => {
-        const matches = getMatchingRules(
-          feature,
-          (rule) =>
-            rule.condition?.includes(group.id) ||
-            rule.savedGroups?.some((g) => g.ids.includes(group.id)) ||
-            false,
-          environments.map((e) => e.id)
-        );
-
-        if (matches.length > 0) {
-          map[group.id] = map[group.id] || new Set();
-          map[group.id].add(feature.id);
-        }
-      });
-    });
-    return map;
-  }, [filteredIdLists, environments, features]);
+  const referencingFeaturesByGroup = useMemo(
+    () =>
+      featuresReferencingSavedGroups({
+        savedGroups: filteredIdLists,
+        features,
+        environments,
+      }),
+    [filteredIdLists, environments, features]
+  );
+  const referencingExperimentsByGroup = useMemo(
+    () =>
+      experimentsReferencingSavedGroups({
+        savedGroups: filteredIdLists,
+        experiments,
+      }),
+    [filteredIdLists, experiments]
+  );
 
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
     items: filteredIdLists,
@@ -251,11 +249,12 @@ export default function IdLists({ groups, mutate }: Props) {
                                     mutate();
                                   }}
                                   getConfirmationContent={getSavedGroupMessage(
-                                    savedGroupFeatureIds[s.id]
+                                    referencingFeaturesByGroup[s.id],
+                                    referencingExperimentsByGroup[s.id]
                                   )}
                                   canDelete={
-                                    (savedGroupFeatureIds[s.id]?.size || 0) ===
-                                    0
+                                    isEmpty(referencingFeaturesByGroup[s.id]) &&
+                                    isEmpty(referencingExperimentsByGroup[s.id])
                                   }
                                 />
                               ) : null}

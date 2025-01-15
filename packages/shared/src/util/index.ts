@@ -16,6 +16,7 @@ import { ExperimentReportVariation } from "back-end/types/report";
 import { VisualChange } from "back-end/types/visual-changeset";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { Environment } from "back-end/types/organization";
+import { SavedGroupInterface } from "../types";
 import { featureHasEnvironment } from "./features";
 
 export * from "./features";
@@ -335,4 +336,63 @@ export function formatByteSizeString(numBytes: number, decimalPlaces = 1) {
     " " +
     sizes[i]
   );
+}
+
+export function featuresReferencingSavedGroups({
+  savedGroups,
+  features,
+  environments,
+}: {
+  savedGroups: SavedGroupInterface[];
+  features: FeatureInterface[];
+  environments: Environment[];
+}): Record<string, FeatureInterface[]> {
+  const referenceMap: Record<string, FeatureInterface[]> = {};
+  features.forEach((feature) => {
+    savedGroups.forEach((savedGroup) => {
+      const matches = getMatchingRules(
+        feature,
+        (rule) =>
+          rule.condition?.includes(savedGroup.id) ||
+          rule.savedGroups?.some((g) => g.ids.includes(savedGroup.id)) ||
+          false,
+        environments.map((e) => e.id)
+      );
+
+      if (matches.length > 0) {
+        referenceMap[savedGroup.id] ||= [];
+        referenceMap[savedGroup.id].push(feature);
+      }
+    });
+  });
+  return referenceMap;
+}
+
+export function experimentsReferencingSavedGroups({
+  savedGroups,
+  experiments,
+}: {
+  savedGroups: SavedGroupInterface[];
+  experiments: Array<ExperimentInterface | ExperimentInterfaceStringDates>;
+}) {
+  const referenceMap: Record<
+    string,
+    Array<ExperimentInterface | ExperimentInterfaceStringDates>
+  > = {};
+  savedGroups.forEach((savedGroup) => {
+    experiments.forEach((experiment) => {
+      const matchingPhases = experiment.phases.filter(
+        (phase) =>
+          phase.condition?.includes(savedGroup.id) ||
+          phase.savedGroups?.some((g) => g.ids.includes(savedGroup.id)) ||
+          false
+      );
+
+      if (matchingPhases.length > 0) {
+        referenceMap[savedGroup.id] ||= [];
+        referenceMap[savedGroup.id].push(experiment);
+      }
+    });
+  });
+  return referenceMap;
 }
