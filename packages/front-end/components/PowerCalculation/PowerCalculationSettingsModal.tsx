@@ -75,6 +75,46 @@ const defaultValue = (
   return defaultValue;
 };
 
+const SelectSourceStep = ({
+  form,
+  close,
+  onNext,
+}: {
+  form: Form;
+  close?: () => void;
+  onNext: () => void;
+}) => {
+  return (
+    <Modal
+      trackingEventModalType=""
+      open
+      size="lg"
+      header="New Calculation"
+      close={close}
+      includeCloseCta={false}
+      cta="Next >"
+      secondaryCTA={
+        <button
+          onClick={onNext} // TODO reset form
+          className="btn btn-primary"
+          disabled={!form.watch("metrics")}
+        >
+          Next &gt;
+        </button>
+      }
+    >
+      <p>
+        The power calculator uses a Fact Table, Segment, or Past Experiment to serve as the basis for estimating the power of your future experiment.
+        
+        It is used to estimate how many new users will enter your experiment each week, as well as the characteristics of your metric(s) that determine how big of an effect
+        you can reliably detect.
+
+        Pick the population source that best represents the users you are targeting with your experiment.
+      </p>
+    </Modal>
+  );
+}
+
 const SelectStep = ({
   form,
   close,
@@ -932,7 +972,7 @@ export default function PowerCalculationSettingsModal({
   statsEngineSettings,
   params,
 }: Props) {
-  const [step, setStep] = useState<"select" | "set-params">("select");
+  const [step, setStep] = useState<"source" | "select" | "set-params">("select");
   const settings = useOrgSettings();
   const { apiCall } = useAuth();
 
@@ -982,6 +1022,13 @@ export default function PowerCalculationSettingsModal({
 
   return (
     <>
+      {step === "source" && (
+        <SelectSourceStep
+          form={form}
+          close={close}
+          onNext={() => setStep("select")}
+        />
+      )}
       {step === "select" && (
         <SelectStep
           form={form}
