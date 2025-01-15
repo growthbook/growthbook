@@ -93,7 +93,7 @@ const TagsInput: FC<{
       return {
         ...styles,
         borderRadius: 4,
-        backgroundColor: `var(--${color}-5)`,
+        backgroundColor: `var(--${color}-a3)`,
       };
     },
     multiValueLabel: (styles, { data }) => {
