@@ -23,6 +23,7 @@ import { FeatureUsageRecords } from "back-end/types/realtime";
 import cloneDeep from "lodash/cloneDeep";
 import {
   featureHasEnvironment,
+  featuresReferencingSavedGroups,
   generateVariationId,
   getMatchingRules,
   validateAndFixCondition,
@@ -30,6 +31,7 @@ import {
 } from "shared/util";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import isEqual from "lodash/isEqual";
+import { SavedGroupInterface } from "shared/src/types";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
@@ -120,45 +122,47 @@ export function useFeatureSearch({
   localStorageKey?: string;
 }) {
   const { getUserDisplay } = useUser();
-  const { getProjectById, getSavedGroupById } = useDefinitions();
+  const { getProjectById, getSavedGroupById, savedGroups } = useDefinitions();
+  const savedGroupReferencesByFeature = useMemo(() => {
+    const savedGroupReferencesByGroup = featuresReferencingSavedGroups({
+      savedGroups,
+      features: allFeatures,
+      environments,
+    });
+    // Invert the map from groupId->featureList to featureId->groupList
+    const savedGroupReferencesByFeature: Record<
+      string,
+      SavedGroupInterface[]
+    > = {};
+    Object.keys(savedGroupReferencesByGroup).forEach((groupId) => {
+      const savedGroup = getSavedGroupById(groupId);
+      if (!savedGroup) return;
+      savedGroupReferencesByGroup[groupId].forEach((referencingFeature) => {
+        savedGroupReferencesByFeature[referencingFeature.id] ||= [];
+        savedGroupReferencesByFeature[referencingFeature.id].push(savedGroup);
+      });
+    });
+    return savedGroupReferencesByFeature;
+  }, [savedGroups, allFeatures, environments]);
+
   const features = useAddComputedFields(
     allFeatures,
     (f) => {
       const projectId = f.project;
       const projectName = projectId ? getProjectById(projectId)?.name : "";
       const projectIsDeReferenced = projectId && !projectName;
-      const savedGroupsRules = getMatchingRules(
-        f,
-        (fr) => {
-          return !!fr?.savedGroups?.length || false;
-        },
-        environments.map((e) => e.id)
-      );
-      const savedGroupIds: string[] = [];
-      savedGroupsRules.forEach((r) => {
-        r?.rule?.savedGroups?.forEach((sg) => {
-          if (sg?.ids.length) {
-            sg.ids.forEach((id) => {
-              if (!savedGroupIds.includes(id)) {
-                savedGroupIds.push(id);
-              }
-            });
-          }
-        });
-      });
-
       return {
         ...f,
         projectId,
         projectName,
         projectIsDeReferenced,
-        savedGroups: savedGroupIds.map(
-          (id) => getSavedGroupById(id)?.groupName
+        savedGroups: (savedGroupReferencesByFeature[f.id] || []).map(
+          (grp) => grp.groupName
         ),
         ownerName: getUserDisplay(f.owner, false) || "",
       };
     },
-    [getProjectById]
+    [getProjectById, savedGroupReferencesByFeature]
   );
   return useSearch({
     items: features,
