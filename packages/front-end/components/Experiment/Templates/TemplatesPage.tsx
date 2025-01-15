@@ -10,7 +10,6 @@ import Button from "@/components/Radix/Button";
 import LinkButton from "@/components/Radix/LinkButton";
 import SortedTags from "@/components/Tags/SortedTags";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useTemplates } from "@/hooks/useTemplates";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
@@ -33,17 +32,18 @@ export const TemplatesPage = ({
   setOpenTemplateModal,
   setOpenDuplicateTemplateModal,
 }: Props) => {
-  const { ready, project, getProjectById } = useDefinitions();
+  const {
+    ready,
+    project,
+    getProjectById,
+    templates: allTemplates,
+    getTemplateExperimentsById,
+    error,
+    mutateDefinitions,
+  } = useDefinitions();
 
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
-  const {
-    templates: allTemplates,
-    error,
-    loading,
-    templateExperimentMap,
-    mutateTemplates,
-  } = useTemplates();
   const permissionsUtil = usePermissionsUtil();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const router = useRouter();
@@ -72,10 +72,10 @@ export const TemplatesPage = ({
         ...omit(allTemplates, ["templateMetadata"]),
         templateName: templ.templateMetadata.name,
         templateDescription: templ.templateMetadata.description,
-        usage: templateExperimentMap[templ.id]?.length ?? 0,
+        usage: getTemplateExperimentsById(templ.id)?.length ?? 0,
       };
     },
-    [templateExperimentMap, allTemplates]
+    [allTemplates]
   );
 
   const { items, SortableTH } = useSearch({
@@ -88,12 +88,12 @@ export const TemplatesPage = ({
   const hasTemplates = items.length > 0;
   const showProjectColumn = items.some((t) => !!t.project);
 
-  if (loading || !ready) {
+  if (!ready) {
     return <LoadingOverlay />;
   }
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <div className="alert alert-danger">{error}</div>;
   }
 
   return hasTemplates ? (
@@ -186,7 +186,7 @@ export const TemplatesPage = ({
                           await apiCall(`/templates/${t.id}`, {
                             method: "DELETE",
                           });
-                          await mutateTemplates();
+                          await mutateDefinitions();
                         }}
                       />
                     ) : null}

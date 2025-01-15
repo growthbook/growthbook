@@ -39,7 +39,6 @@ import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetrics
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import { MetricsSelectorTooltip } from "@/components/Experiment/MetricsSelector";
-import { useTemplates } from "@/hooks/useTemplates";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { convertTemplateToExperimentRule } from "@/services/experiments";
 import { useUser } from "@/services/UserContext";
@@ -122,8 +121,9 @@ export default function ExperimentRefNewFields({
     getSegmentById,
     datasources,
     project: currentProject,
+    templates: allTemplates,
+    getTemplateById,
   } = useDefinitions();
-  const { templates: allTemplates, templatesMap } = useTemplates();
   const { hasCommercialFeature } = useUser();
 
   const availableTemplates = allTemplates
@@ -185,7 +185,7 @@ export default function ExperimentRefNewFields({
                   }
                   form.setValue("templateId", t);
                   // Convert template to NewExperimentRefRule interface shape and reset values
-                  const template = templatesMap.get(t);
+                  const template = getTemplateById(t);
                   if (!template) return;
 
                   const templateAsExperimentRule = convertTemplateToExperimentRule(
@@ -205,7 +205,7 @@ export default function ExperimentRefNewFields({
                 initialOption={"None"}
                 options={availableTemplates}
                 formatOptionLabel={(value) => {
-                  const t = templatesMap.get(value.value);
+                  const t = getTemplateById(value.value);
                   if (!t) return <span>{value.label}</span>;
                   return (
                     <Flex as="div" align="baseline">

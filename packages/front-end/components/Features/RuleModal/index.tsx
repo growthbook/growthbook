@@ -53,7 +53,6 @@ import BanditRefFields from "@/components/Features/RuleModal/BanditRefFields";
 import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFields";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import HelperText from "@/components/Radix/HelperText";
-import { useTemplates } from "@/hooks/useTemplates";
 
 export interface Props {
   close: () => void;
@@ -97,9 +96,12 @@ export default function RuleModal({
   const isNewRule = !rule;
 
   const { features } = useFeaturesList();
-  const { datasources, project: currentProject } = useDefinitions();
+  const {
+    datasources,
+    project: currentProject,
+    templates: allTemplates,
+  } = useDefinitions();
   const { experimentsMap, mutateExperiments } = useExperiments();
-  const { templates: allTemplates } = useTemplates();
 
   const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] = useState(
     false

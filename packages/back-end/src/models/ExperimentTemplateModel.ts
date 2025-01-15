@@ -23,7 +23,7 @@ export class ExperimentTemplatesModel extends BaseClass {
     return this.context.permissions.canCreateExperimentTemplate(doc);
   }
   protected canRead(doc: ExperimentTemplateInterface): boolean {
-    return this.context.hasPermission("readData", doc.project || "");
+    return this.context.permissions.canReadSingleProjectResource(doc.project);
   }
   protected canUpdate(
     existing: ExperimentTemplateInterface,

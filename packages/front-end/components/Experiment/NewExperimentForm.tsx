@@ -64,7 +64,6 @@ import ExperimentRefNewFields from "@/components/Features/RuleModal/ExperimentRe
 import Callout from "@/components/Radix/Callout";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import DatePicker from "@/components/DatePicker";
-import { useTemplates } from "@/hooks/useTemplates";
 import { convertTemplateToExperiment } from "@/services/experiments";
 import PremiumTooltip from "../Marketing/PremiumTooltip";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
@@ -170,15 +169,13 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     refreshTags,
     project,
     projects,
+    templates: allTemplates,
+    getTemplateById,
+    mutateDefinitions: mutate,
   } = useDefinitions();
 
   const environments = useEnvironments();
   const { experiments } = useExperiments();
-  const {
-    templates: allTemplates,
-    templatesMap,
-    mutateTemplates: refreshTemplates,
-  } = useTemplates();
   const envs = environments.map((e) => e.id);
 
   const [
@@ -417,7 +414,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     refreshWatching();
 
     data.tags && refreshTags(data.tags);
-    data.templateId && refreshTemplates();
+    data.templateId && mutate();
     if (onCreate) {
       onCreate(res.experiment.id);
     } else {
@@ -451,14 +448,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   // If a template id is provided as an initial value, load the template and convert it to an experiment
   useEffect(() => {
-    if (
-      initialValue?.templateId &&
-      initialValue?.templateId !== form.watch("templateId") &&
-      isNewExperiment &&
-      !isImport &&
-      !isBandit
-    ) {
-      const template = templatesMap.get(initialValue.templateId);
+    if (initialValue?.templateId && isNewExperiment && !isImport && !isBandit) {
+      const template = getTemplateById(initialValue.templateId);
       if (!template) return;
       const templateAsExperiment = convertTemplateToExperiment(template);
       form.reset(templateAsExperiment, {
@@ -545,7 +536,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       }
                       form.setValue("templateId", t);
                       // Convert template to experiment interface shape and reset values
-                      const template = templatesMap.get(t);
+                      const template = getTemplateById(t);
                       if (!template) return;
 
                       const templateAsExperiment = convertTemplateToExperiment(
@@ -559,7 +550,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     initialOption={"None"}
                     options={availableTemplates}
                     formatOptionLabel={(value) => {
-                      const t = templatesMap.get(value.value);
+                      const t = getTemplateById(value.value);
                       if (!t) return <span>{value.label}</span>;
                       return (
                         <Flex as="div" align="baseline">
