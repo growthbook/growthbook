@@ -168,6 +168,10 @@ GrowthBook automatically does data quality checks on all experiments and shows t
 
 This page shows experiment exposure over time, and also all the other health checks we do.
 
+### Little traffic in experiment
+
+Experiment Traffic Over Time shows how many users are in the experiment at a given timepoint. If traffic is too low, please see our [troubleshooting guide](/kb/experiments/troubleshooting-experiments#problem-1-no-or-little-traffic-flowing-into-the-experiment).
+
 ### Sample Ratio Mismatch (SRM)
 
 Every experiment automatically checks for a Sample Ratio Mismatch and will warn you if found.
@@ -182,13 +186,13 @@ experiment health page.
 
 Like the warning says, you shouldn't trust the results since they are likely misleading. Instead, find and
 fix the source of the bug and restart the experiment. You can find more information about potential sources
-of the problems in our [troubleshooting guide](/kb/experiments/troubleshooting-experiments).
+of the problems in our [troubleshooting guide](/kb/experiments/troubleshooting-experiments#problem-2-srm-errors-traffic-imbalance-in-the-experiment).
 
 ### Multiple Exposures
 
 We also automatically check each experiment to make sure that too many users have not been
 exposed to multiple variations of a single experiment. This can happen if the hashing attribute is
-different from the assignment id used in the report, or for implementation problems.
+different from the assignment id used in the report, or for implementation problems. Please see our [troubleshooting guide](/kb/experiments/troubleshooting-experiments#problem-3-multiple-exposures).
 
 ### Minimum Data Thresholds
 

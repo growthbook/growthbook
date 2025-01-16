@@ -654,6 +654,7 @@ const MetricForm: FC<MetricFormProps> = ({
       >
         <Page
           display="Basic Info"
+          enabled
           validate={async () => {
             validateBasicInfo(form.getValues());
             if (allowAutomaticSqlReset) {
@@ -795,6 +796,7 @@ const MetricForm: FC<MetricFormProps> = ({
         </Page>
         <Page
           display="Query Settings"
+          enabled
           validate={async () => {
             validateQuerySettings(
               datasourceSettingsSupport,
