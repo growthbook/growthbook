@@ -37,14 +37,15 @@ export default function PremiumTooltip({
     : true;
   console.log(fullCommercialFeaturesMap);
 
-  const planLevelText = !commercialFeature || !fullCommercialFeaturesMap
-    ? undefined
-    : fullCommercialFeaturesMap["pro"].includes(commercialFeature)
-    ? "a Pro"
-    : fullCommercialFeaturesMap["enterprise"].includes(commercialFeature)
-    ? "an Enterprise"
-    : "a Premium";
-  const tooltipText = premiumText ?? `This is a ${planLevelText} feature`;
+  const planLevelText =
+    !commercialFeature || !fullCommercialFeaturesMap
+      ? undefined
+      : fullCommercialFeaturesMap["pro"].includes(commercialFeature)
+      ? "a Pro"
+      : fullCommercialFeaturesMap["enterprise"].includes(commercialFeature)
+      ? "an Enterprise"
+      : "a Premium";
+  const tooltipText = premiumText ?? `This is ${planLevelText} feature`;
   return (
     <Tooltip
       shouldDisplay={!!body || !hasFeature}
