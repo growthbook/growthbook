@@ -22,7 +22,7 @@ export default function PremiumTooltip({
   commercialFeature,
   children,
   body = null,
-  premiumText = "This is a premium feature",
+  premiumText,
   tipMinWidth,
   tipPosition = "top",
   className = "",
@@ -31,11 +31,19 @@ export default function PremiumTooltip({
   usePortal,
   ...otherProps
 }: Props) {
-  const { hasCommercialFeature } = useUser();
+  const { accountFeaturesMap, hasCommercialFeature } = useUser();
   const hasFeature = commercialFeature
     ? hasCommercialFeature(commercialFeature)
     : true;
 
+  const planLevelText = !commercialFeature
+    ? undefined
+    : accountFeaturesMap["pro"].has(commercialFeature)
+    ? "a Pro"
+    : accountFeaturesMap["enterprise"].has(commercialFeature)
+    ? "an Enterprise"
+    : "a Premium";
+  const tooltipText = premiumText ?? `This is a ${planLevelText} feature`;
   return (
     <Tooltip
       shouldDisplay={!!body || !hasFeature}
@@ -49,7 +57,7 @@ export default function PremiumTooltip({
               )}
             >
               <GBPremiumBadge className="mr-1" />
-              {premiumText}
+              {tooltipText}
             </p>
           )}
           {body}

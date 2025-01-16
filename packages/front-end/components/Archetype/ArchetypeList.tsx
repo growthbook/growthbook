@@ -52,7 +52,7 @@ export const ArchetypeList: FC<{
             <h2>Create Reusable Archetypes</h2>
             <p>
               Archetypes are named sets of attributes that help you test your
-              features. Archetypes are a premium feature.
+              features. Archetypes are a Pro feature.
             </p>
             <div className="mt-3">
               <LinkButton
@@ -68,7 +68,7 @@ export const ArchetypeList: FC<{
                   setShowUpgradeModal(true);
                 }}
               >
-                Upgrade Plan
+                Upgrade to Pro
               </Button>
             </div>
           </div>
