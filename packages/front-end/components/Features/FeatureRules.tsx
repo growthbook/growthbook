@@ -91,6 +91,7 @@ export default function FeatureRules({
           <Container>
             <Flex align="center" justify="between">
               <TabsList>
+                <Flex overflow="scroll">
                 {environments.map((e) => (
                   <TabsTrigger value={e.id} key={e.id}>
                     <span className="mr-2">{e.id}</span>
@@ -102,6 +103,7 @@ export default function FeatureRules({
                     ></Badge>
                   </TabsTrigger>
                 ))}
+                </Flex>
               </TabsList>
               <Link
                 onClick={() => setCompareEnvModal({ sourceEnv: env })}

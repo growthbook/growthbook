@@ -219,6 +219,7 @@ export default function FixConflictsModal({
     >
       <Page
         display="Fix Conflicts"
+        enabled
         validate={async () => {
           if (!mergeResult?.success) {
             throw new Error("Please resolve all conflicts first");
