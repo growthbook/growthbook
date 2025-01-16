@@ -1,7 +1,6 @@
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import React from "react";
-import { PiInfoFill } from "react-icons/pi";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useUser } from "@/services/UserContext";
 import Link from "../Radix/Link";
@@ -56,21 +55,16 @@ export default function LargeSavedGroupPerformanceWarning({
 }: LargeSavedGroupSupportWarningProps) {
   if (!hasLargeSavedGroupFeature) {
     return (
-      <div className="alert alert-info-gb-purple mt-2 p-3">
-        <PiInfoFill /> Performance improvements for Saved Groups are available
-        with an Enterprise plan.
+      <Callout status="info">
+        Performance improvements for Saved Groups are available with an
+        Enterprise plan.
         {openUpgradeModal && (
           <>
             {" "}
-            <span
-              className="underline cursor-pointer"
-              onClick={openUpgradeModal}
-            >
-              Upgrade &gt;
-            </span>
+            <Link onClick={openUpgradeModal}>Upgrade &gt;</Link>
           </>
         )}
-      </div>
+      </Callout>
     );
   }
   if (unsupportedConnections.length === 0) return <></>;
