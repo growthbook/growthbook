@@ -235,7 +235,7 @@ export class GrowthBookClient<
       user: userContext,
       global: this._getGlobalContext(),
       stack: {
-        evaluatedFeatures: new Set(),
+        evaluatedFeatures: {},
       },
     };
   }

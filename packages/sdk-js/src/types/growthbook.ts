@@ -329,7 +329,7 @@ export type UserContext = {
 
 export type StackContext = {
   id?: string;
-  evaluatedFeatures: Set<string>;
+  evaluatedFeatures: Record<string, number>;
 };
 
 export type EvalContext = {

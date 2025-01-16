@@ -4544,6 +4544,56 @@
       }
     ],
     [
+      "Multiple references to same prerequisite, do not break",
+      {
+        "attributes": {
+          "id": "123",
+          "browser": "edge"
+        },
+        "features": {
+          "childFlag": {
+            "defaultValue": true,
+            "rules": [
+              {
+                "condition": {
+                  "browser": "safari"
+                },
+                "parentConditions": [
+                  {
+                    "id": "parentFlag",
+                    "condition": { "value": true }
+                  }
+                ],
+                "force": "C"
+              },
+              {
+                "condition": {
+                  "browser": { "$ne": "safari" }
+                },
+                "parentConditions": [
+                  {
+                    "id": "parentFlag",
+                    "condition": { "value": true }
+                  }
+                ],
+                "force": "T"
+              }
+            ]
+          },
+          "parentFlag": {
+            "defaultValue": true
+          }
+        }
+      },
+      "childFlag",
+      {
+        "value": "T",
+        "on": true,
+        "off": false,
+        "source": "force"
+      }
+    ],
+    [
       "SavedGroups correctly pulled from context for force rule",
       {
         "attributes": {

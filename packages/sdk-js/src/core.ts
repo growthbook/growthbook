@@ -62,7 +62,8 @@ export function evalFeature<V = unknown>(
   id: string,
   ctx: EvalContext
 ): FeatureResult<V | null> {
-  if (ctx.stack.evaluatedFeatures.has(id)) {
+  const evalDepth = ctx.stack.evaluatedFeatures[id] || 0;
+  if (evalDepth > 50) {
     process.env.NODE_ENV !== "production" &&
       ctx.global.log(
         `evalFeature: circular dependency detected: ${ctx.stack.id} -> ${id}`,
@@ -73,7 +74,7 @@ export function evalFeature<V = unknown>(
       );
     return getFeatureResult(ctx, id, null, "cyclicPrerequisite");
   }
-  ctx.stack.evaluatedFeatures.add(id);
+  ctx.stack.evaluatedFeatures[id] = evalDepth + 1;
   ctx.stack.id = id;
 
   // Global override
