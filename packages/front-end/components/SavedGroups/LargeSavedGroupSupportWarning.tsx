@@ -1,10 +1,11 @@
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
-import Link from "next/link";
 import React from "react";
 import { PiInfoFill } from "react-icons/pi";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useUser } from "@/services/UserContext";
+import Link from "../Radix/Link";
+import Callout from "../Radix/Callout";
 
 interface LargeSavedGroupSupport {
   hasLargeSavedGroupFeature: boolean;
@@ -49,10 +50,8 @@ type LargeSavedGroupSupportWarningProps = LargeSavedGroupSupport & {
 };
 
 export default function LargeSavedGroupPerformanceWarning({
-  style,
   openUpgradeModal,
   hasLargeSavedGroupFeature,
-  supportedConnections,
   unsupportedConnections,
 }: LargeSavedGroupSupportWarningProps) {
   if (!hasLargeSavedGroupFeature) {
@@ -76,20 +75,10 @@ export default function LargeSavedGroupPerformanceWarning({
   }
   if (unsupportedConnections.length === 0) return <></>;
 
-  const ContainerTag = style === "text" ? "p" : "div";
-  const containerClassName =
-    style === "text" ? `text-warning-muted` : `alert alert-warning mt-2 p-3`;
-
-  const copy = `${
-    supportedConnections.length > 0 ? "Some of your" : "Your"
-  } SDK connections don't have "Pass Saved Groups by reference" enabled, which may affect SDK performance.`;
-
   return (
-    <ContainerTag className={containerClassName}>
-      <PiInfoFill /> {copy}{" "}
-      <Link className="text-warning-muted underline" href="/sdks">
-        View SDKs &gt;
-      </Link>
-    </ContainerTag>
+    <Callout status="warning" mb="3">
+      Enable &quot;Pass Saved Groups by reference&quot; to improve SDK
+      performance. <Link href="/sdks">View SDKs</Link>
+    </Callout>
   );
 }
