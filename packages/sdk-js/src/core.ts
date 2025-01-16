@@ -62,8 +62,7 @@ export function evalFeature<V = unknown>(
   id: string,
   ctx: EvalContext
 ): FeatureResult<V | null> {
-  const evalDepth = ctx.stack.evaluatedFeatures[id] || 0;
-  if (evalDepth > 50) {
+  if (ctx.stack.evaluatedFeatures.has(id)) {
     process.env.NODE_ENV !== "production" &&
       ctx.global.log(
         `evalFeature: circular dependency detected: ${ctx.stack.id} -> ${id}`,
@@ -74,7 +73,7 @@ export function evalFeature<V = unknown>(
       );
     return getFeatureResult(ctx, id, null, "cyclicPrerequisite");
   }
-  ctx.stack.evaluatedFeatures[id] = evalDepth + 1;
+  ctx.stack.evaluatedFeatures.add(id);
   ctx.stack.id = id;
 
   // Global override
@@ -100,10 +99,12 @@ export function evalFeature<V = unknown>(
 
   // Loop through the rules
   if (feature.rules) {
+    const evaluatedFeatures = new Set(ctx.stack.evaluatedFeatures);
     rules: for (const rule of feature.rules) {
       // If there are prerequisite flag(s), evaluate them
       if (rule.parentConditions) {
         for (const parentCondition of rule.parentConditions) {
+          ctx.stack.evaluatedFeatures = new Set(evaluatedFeatures);
           const parentResult = evalFeature(parentCondition.id, ctx);
           // break out for cyclic prerequisites
           if (parentResult.source === "cyclicPrerequisite") {
@@ -466,7 +467,9 @@ export function runExperiment<T>(
 
     // 8.05. Exclude if prerequisites are not met
     if (experiment.parentConditions) {
+      const evaluatedFeatures = new Set(ctx.stack.evaluatedFeatures);
       for (const parentCondition of experiment.parentConditions) {
+        ctx.stack.evaluatedFeatures = new Set(evaluatedFeatures);
         const parentResult = evalFeature(parentCondition.id, ctx);
         // break out for cyclic prerequisites
         if (parentResult.source === "cyclicPrerequisite") {

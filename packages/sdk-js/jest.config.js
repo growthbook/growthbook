@@ -2,4 +2,7 @@
 module.exports = {
   preset: "ts-jest",
   testEnvironment: "jsdom",
+  errorOnDeprecated: true,
+  verbose: true,
+  forceExit: false,
 };

@@ -4555,6 +4555,20 @@
             "defaultValue": true,
             "rules": [
               {
+                "parentConditions": [
+                  {
+                    "id": "parentFlag",
+                    "condition": { "$ne": false },
+                    "gate": true
+                  },
+                  {
+                    "id": "parentFlag",
+                    "condition": { "value": true },
+                    "gate": true
+                  }
+                ]
+              },
+              {
                 "condition": {
                   "browser": "safari"
                 },
