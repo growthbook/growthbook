@@ -838,7 +838,7 @@ function mergeOverrides<T>(
     if (typeof experiment.url === "string") {
       experiment.url = getUrlRegExp(
         // eslint-disable-next-line
-          experiment.url as any
+        experiment.url as any
       );
     }
   }

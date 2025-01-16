@@ -103,8 +103,10 @@ export class GrowthBook<
 
   private _payload: FeatureApiResponse | undefined;
   private _decryptedPayload: FeatureApiResponse | undefined;
+  private _destroyCallbacks: (() => void)[];
 
   private _autoExperimentsAllowed: boolean;
+  private _destroyed?: boolean;
 
   constructor(options?: Options) {
     options = options || {};
@@ -127,6 +129,7 @@ export class GrowthBook<
     this._redirectedUrl = "";
     this._deferredTrackingCalls = new Map();
     this._autoExperimentsAllowed = !options.disableExperimentsOnLoad;
+    this._destroyCallbacks = [];
 
     this.log = this.log.bind(this);
     this._track = this._track.bind(this);
@@ -529,7 +532,27 @@ export class GrowthBook<
     return new Map(this._assigned);
   }
 
+  public onDestroy(cb: () => void) {
+    this._destroyCallbacks.push(cb);
+  }
+
+  public isDestroyed() {
+    return !!this._destroyed;
+  }
+
   public destroy() {
+    this._destroyed = true;
+
+    // Custom callbacks
+    // Do this first in case it needs access to the below data that is cleared
+    this._destroyCallbacks.forEach((cb) => {
+      try {
+        cb();
+      } catch (e) {
+        console.error(e);
+      }
+    });
+
     // Release references to save memory
     this._subscriptions.clear();
     this._assigned.clear();
@@ -537,6 +560,7 @@ export class GrowthBook<
     this._completedChangeIds.clear();
     this._deferredTrackingCalls.clear();
     this._trackedFeatures = {};
+    this._destroyCallbacks = [];
     this._payload = undefined;
     this._saveStickyBucketAssignmentDoc = undefined;
     unsubscribe(this);
@@ -950,6 +974,10 @@ export class GrowthBook<
     properties: Record<string, unknown>,
     internal: boolean
   ) {
+    if (this._destroyed) {
+      console.error("Cannot log event to destroyed GrowthBook instance");
+      return;
+    }
     if (this._options.eventLogger) {
       try {
         await this._options.eventLogger({

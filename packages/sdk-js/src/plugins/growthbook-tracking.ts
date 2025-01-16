@@ -4,6 +4,20 @@ import type { GrowthBook } from "../GrowthBook";
 
 const SDK_VERSION = loadSDKVersion();
 
+type GlobalTrackedEvent = {
+  eventName: string;
+  properties: Record<string, unknown>;
+};
+declare global {
+  interface Window {
+    gbEvents?:
+      | (GlobalTrackedEvent | string)[]
+      | {
+          push: (event: GlobalTrackedEvent | string) => void;
+        };
+  }
+}
+
 type EventPayload = {
   event_name: string;
   properties_json: Record<string, unknown>;
@@ -62,6 +76,7 @@ async function track({
   clientKey: string;
   ingestorHost?: string;
 }) {
+  if (!events.length) return;
   const data: EventPayload[] = events.map(
     ({ eventName, properties, attributes, url }) => {
       const { nonIdAttributes, ids } = parseAttributes(attributes || {});
@@ -103,13 +118,11 @@ async function track({
 }
 
 export function growthbookTrackingPlugin({
-  useQueue = true,
   queueFlushInterval = 100,
   ingestorHost,
   enable = true,
   debug,
 }: {
-  useQueue?: boolean;
   queueFlushInterval?: number;
   ingestorHost?: string;
   enable?: boolean;
@@ -121,37 +134,70 @@ export function growthbookTrackingPlugin({
       throw new Error("clientKey must be specified to use event logging");
     }
 
-    // TODO: Listen for dataLayer events and log them in GrowthBook
-
-    if (!useQueue) {
-      gb.setEventLogger(async (event) => {
-        debug && console.log("Logging event", event);
-        if (!enable) return;
-
-        await track({ clientKey, events: [event], ingestorHost });
-      });
-      return;
-    }
-
     let _q: EventLogProps[] = [];
+    let timer: NodeJS.Timeout | null = null;
+    const flush = async () => {
+      const events = _q;
+      _q = [];
+      events.length && (await track({ clientKey, events, ingestorHost }));
+      timer && clearTimeout(timer);
+      timer = null;
+    };
+
     let promise: Promise<void> | null = null;
     gb.setEventLogger(async (event) => {
-      debug && console.log("Logging event", event);
+      debug && console.log("Logging event to GrowthBook", event);
       if (!enable) return;
-
       _q.push(event);
+      // Only one in-progress promise at a time
       if (!promise) {
         promise = new Promise((resolve, reject) => {
-          setTimeout(() => {
-            track({ clientKey, events: _q, ingestorHost })
-              .then(resolve)
-              .catch(reject);
+          // Flush the queue after a delay
+          timer = setTimeout(() => {
+            flush().then(resolve).catch(reject);
             promise = null;
-            _q = [];
           }, queueFlushInterval);
         });
       }
       await promise;
+    });
+
+    // Listen on window.gbEvents.push if in a browser
+    // This makes it easier to integrate with Segment, GTM, etc.
+    if (typeof window !== "undefined") {
+      const prevEvents = Array.isArray(window.gbEvents) ? window.gbEvents : [];
+      window.gbEvents = {
+        push: (event: GlobalTrackedEvent | string) => {
+          if (gb.isDestroyed()) {
+            // If trying to log and the instance has been destroyed, switch back to just an array
+            // This will let the next GrowthBook instance pick it up
+            window.gbEvents = [event];
+            return;
+          }
+          if (typeof event === "string") {
+            gb.logEvent(event);
+          } else if (event) {
+            gb.logEvent(event.eventName, event.properties);
+          }
+        },
+      };
+      for (const event of prevEvents) {
+        window.gbEvents.push(event);
+      }
+    }
+
+    // Flush the queue on page unload
+    if (typeof document !== "undefined" && document.visibilityState) {
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "hidden") {
+          flush().catch(console.error);
+        }
+      });
+    }
+
+    // Flush the queue when the growthbook instance is destroyed
+    gb.onDestroy(() => {
+      flush().catch(console.error);
     });
   };
 }
