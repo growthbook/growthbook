@@ -166,7 +166,7 @@ export const IdListItemInput: FC<{
           {rawTextMode ? (
             <Field
               containerClassName="mb-0"
-              label="List Values to include"
+              label="List values to include"
               labelClassName="font-weight-bold"
               required
               textarea
