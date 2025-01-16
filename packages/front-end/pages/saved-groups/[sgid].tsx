@@ -77,7 +77,6 @@ export default function EditSavedGroupPage() {
 
   const {
     hasLargeSavedGroupFeature,
-    supportedConnections,
     unsupportedConnections,
   } = useLargeSavedGroupSupport();
 
@@ -305,9 +304,7 @@ export default function EditSavedGroupPage() {
         )}
         <hr />
         <LargeSavedGroupPerformanceWarning
-          style="banner"
           hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
-          supportedConnections={supportedConnections}
           unsupportedConnections={unsupportedConnections}
           openUpgradeModal={() => setUpgradeModal(true)}
         />

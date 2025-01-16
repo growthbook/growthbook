@@ -34,7 +34,6 @@ export const IdListItemInput: FC<{
   const [fileErrorMessage, setFileErrorMessage] = useState("");
 
   const {
-    supportedConnections,
     unsupportedConnections,
     hasLargeSavedGroupFeature,
   } = useLargeSavedGroupSupport();
@@ -49,10 +48,8 @@ export const IdListItemInput: FC<{
   return (
     <>
       <LargeSavedGroupPerformanceWarning
-        style="banner"
         openUpgradeModal={openUpgradeModal}
         hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
-        supportedConnections={supportedConnections}
         unsupportedConnections={unsupportedConnections}
       />
       <label className="form-group font-weight-bold">

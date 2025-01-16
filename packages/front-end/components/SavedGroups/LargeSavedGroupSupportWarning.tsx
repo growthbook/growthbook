@@ -8,7 +8,6 @@ import Callout from "../Radix/Callout";
 
 interface LargeSavedGroupSupport {
   hasLargeSavedGroupFeature: boolean;
-  supportedConnections: SDKConnectionInterface[];
   unsupportedConnections: SDKConnectionInterface[];
 }
 
@@ -22,29 +21,24 @@ export function useLargeSavedGroupSupport(
     (conn) =>
       conn.projects.length === 0 || conn.projects.includes(project || "")
   );
-  const supportedConnections: SDKConnectionInterface[] = [];
   const unsupportedConnections: SDKConnectionInterface[] = [];
   const hasLargeSavedGroupFeature = hasCommercialFeature("large-saved-groups");
 
   (connections || []).forEach((conn) => {
     if (
-      getConnectionSDKCapabilities(conn).includes("savedGroupReferences") &&
-      conn.savedGroupReferencesEnabled
+      !getConnectionSDKCapabilities(conn).includes("savedGroupReferences") ||
+      !conn.savedGroupReferencesEnabled
     ) {
-      supportedConnections.push(conn);
-    } else {
       unsupportedConnections.push(conn);
     }
   });
   return {
     hasLargeSavedGroupFeature,
-    supportedConnections,
     unsupportedConnections,
   };
 }
 
 type LargeSavedGroupSupportWarningProps = LargeSavedGroupSupport & {
-  style: "banner" | "text";
   openUpgradeModal?: () => void;
 };
 
