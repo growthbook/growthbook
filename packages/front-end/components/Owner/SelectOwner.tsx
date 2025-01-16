@@ -29,14 +29,13 @@ export default function SelectOwner({
 }: Props) {
   const { memberUsernameOptions, memberUserNameAndIdOptions } = useMembers();
 
-  const resourcesWithOwnerAsIdField = [
+  // Some resources store the owner by name and some by id, so check which one it is
+  const ownerIdentifierType = [
     "experiment",
     "experimentTemplate",
     "factTable",
     "archetype",
-  ];
-  // Some resources store the owner by name and some by id, so check which one it is
-  const ownerIdentifierType = resourcesWithOwnerAsIdField.includes(resourceType)
+  ].includes(resourceType)
     ? "id"
     : "name";
 
