@@ -6,6 +6,7 @@ import {
   FeatureRule,
 } from "back-end/src/validators/features";
 import { Environment } from "back-end/types/organization";
+import { Flex } from "@radix-ui/themes";
 import RuleModal from "@/components/Features/RuleModal/index";
 import RuleList from "@/components/Features/RuleList";
 import track from "@/services/track";
@@ -75,17 +76,19 @@ export default function FeatureRules({
     <>
       <Tabs value={env} onValueChange={setEnv}>
         <TabsList>
-          {environments.map((e) => (
-            <TabsTrigger value={e.id} key={e.id}>
-              <span className="mr-2">{e.id}</span>
-              <Badge
-                label={rulesByEnv[e.id].length.toString()}
-                radius="full"
-                variant="solid"
-                color="violet"
-              ></Badge>
-            </TabsTrigger>
-          ))}
+          <Flex overflow="scroll">
+            {environments.map((e) => (
+              <TabsTrigger value={e.id} key={e.id}>
+                <span className="mr-2">{e.id}</span>
+                <Badge
+                  label={rulesByEnv[e.id].length.toString()}
+                  radius="full"
+                  variant="solid"
+                  color="violet"
+                ></Badge>
+              </TabsTrigger>
+            ))}
+          </Flex>
         </TabsList>
         {environments.map((e) => {
           return (
