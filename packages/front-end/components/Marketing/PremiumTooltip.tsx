@@ -31,16 +31,17 @@ export default function PremiumTooltip({
   usePortal,
   ...otherProps
 }: Props) {
-  const { accountFeaturesMap, hasCommercialFeature } = useUser();
+  const { hasCommercialFeature, fullCommercialFeaturesMap } = useUser();
   const hasFeature = commercialFeature
     ? hasCommercialFeature(commercialFeature)
     : true;
+  console.log(fullCommercialFeaturesMap);
 
-  const planLevelText = !commercialFeature
+  const planLevelText = !commercialFeature || !fullCommercialFeaturesMap
     ? undefined
-    : accountFeaturesMap["pro"].has(commercialFeature)
+    : fullCommercialFeaturesMap["pro"].includes(commercialFeature)
     ? "a Pro"
-    : accountFeaturesMap["enterprise"].has(commercialFeature)
+    : fullCommercialFeaturesMap["enterprise"].includes(commercialFeature)
     ? "an Enterprise"
     : "a Premium";
   const tooltipText = premiumText ?? `This is a ${planLevelText} feature`;
