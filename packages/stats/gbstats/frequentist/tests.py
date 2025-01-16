@@ -197,6 +197,15 @@ class TTest(BaseABTest):
             return self._default_output(error_str)
 
 
+def one_sided_confidence_interval(
+    point_estimate: float, halfwidth: float, lesser: bool = True
+) -> List[float]:
+    if lesser:
+        return [-np.inf, point_estimate + halfwidth]
+    else:
+        return [point_estimate - halfwidth, np.inf]
+
+
 class TwoSidedTTest(TTest):
     @property
     def p_value(self) -> float:
@@ -204,8 +213,8 @@ class TwoSidedTTest(TTest):
 
     @property
     def confidence_interval(self) -> List[float]:
-        width: float = t.ppf(1 - self.alpha / 2, self.dof) * np.sqrt(self.variance)
-        return [self.point_estimate - width, self.point_estimate + width]
+        halfwidth: float = t.ppf(1 - self.alpha / 2, self.dof) * np.sqrt(self.variance)
+        return [self.point_estimate - halfwidth, self.point_estimate + halfwidth]
 
 
 class OneSidedTreatmentGreaterTTest(TTest):
@@ -215,8 +224,10 @@ class OneSidedTreatmentGreaterTTest(TTest):
 
     @property
     def confidence_interval(self) -> List[float]:
-        width: float = t.ppf(1 - self.alpha, self.dof) * np.sqrt(self.variance)
-        return [self.point_estimate - width, np.inf]
+        halfwidth: float = t.ppf(1 - self.alpha, self.dof) * np.sqrt(self.variance)
+        return one_sided_confidence_interval(
+            self.point_estimate, halfwidth, lesser=False
+        )
 
 
 class OneSidedTreatmentLesserTTest(TTest):
@@ -226,8 +237,10 @@ class OneSidedTreatmentLesserTTest(TTest):
 
     @property
     def confidence_interval(self) -> List[float]:
-        width: float = t.ppf(1 - self.alpha, self.dof) * np.sqrt(self.variance)
-        return [-np.inf, self.point_estimate - width]
+        halfwidth: float = t.ppf(1 - self.alpha, self.dof) * np.sqrt(self.variance)
+        return one_sided_confidence_interval(
+            self.point_estimate, halfwidth, lesser=True
+        )
 
 
 def sequential_rho(alpha, sequential_tuning_parameter) -> float:
@@ -239,6 +252,7 @@ def sequential_rho(alpha, sequential_tuning_parameter) -> float:
 
 
 def sequential_interval_halfwidth(s2, N, rho, alpha) -> float:
+    # eq 9 in Waudby-Smith et al. 2023 https://arxiv.org/pdf/2103.06476v7.pdf
     return np.sqrt(s2) * np.sqrt(
         (
             (2 * (N * np.power(rho, 2) + 1))
@@ -248,7 +262,7 @@ def sequential_interval_halfwidth(s2, N, rho, alpha) -> float:
     )
 
 
-class SequentialTwoSidedTTest(TTest):
+class SequentialTTest(TTest):
     def __init__(
         self,
         stat_a: TestStatistic,
@@ -262,13 +276,8 @@ class SequentialTwoSidedTTest(TTest):
         super().__init__(stat_a, stat_b, FrequentistConfig(**config_dict))
 
     @property
-    def confidence_interval(self) -> List[float]:
-        # eq 9 in Waudby-Smith et al. 2023 https://arxiv.org/pdf/2103.06476v7.pdf
-        N = self.stat_a.n + self.stat_b.n
-        rho = self.rho
-        s2 = self.variance * N
-        halfwidth: float = sequential_interval_halfwidth(s2, N, rho, self.alpha)
-        return [self.point_estimate - halfwidth, self.point_estimate + halfwidth]
+    def n(self) -> float:
+        return self.stat_a.n + self.stat_b.n
 
     @property
     def rho(self) -> float:
@@ -276,11 +285,29 @@ class SequentialTwoSidedTTest(TTest):
         return sequential_rho(self.alpha, self.sequential_tuning_parameter)
 
     @property
+    def halfwidth(self) -> float:
+        # eq 9 in Waudby-Smith et al. 2023 https://arxiv.org/pdf/2103.06476v7.pdf
+        s2 = self.variance * self.n
+        return sequential_interval_halfwidth(s2, self.n, self.rho, self.alpha)
+
+
+class SequentialTwoSidedTTest(SequentialTTest):
+    @property
+    def confidence_interval(self) -> List[float]:
+        return [
+            self.point_estimate - self.halfwidth,
+            self.point_estimate + self.halfwidth,
+        ]
+
+    @property
     def p_value(self) -> float:
         # eq 155 in https://arxiv.org/pdf/2103.06476v7.pdf
-        N = self.stat_a.n + self.stat_b.n
         # slight reparameterization for this quantity below
-        st2 = np.power(self.point_estimate - self.test_value, 2) * N / (self.variance)
-        tr2p1 = N * np.power(self.rho, 2) + 1
+        st2 = (
+            np.power(self.point_estimate - self.test_value, 2)
+            * self.n
+            / (self.variance)
+        )
+        tr2p1 = self.n * np.power(self.rho, 2) + 1
         evalue = np.exp(np.power(self.rho, 2) * st2 / (2 * tr2p1)) / np.sqrt(tr2p1)
         return min(1 / evalue, 1)
