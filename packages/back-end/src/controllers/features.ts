@@ -34,6 +34,7 @@ import {
   addLinkedExperiment,
   applyRevisionChanges,
   archiveFeature,
+  copyFeatureEnvironmentRules,
   createFeature,
   deleteFeature,
   editFeatureRule,
@@ -2477,5 +2478,66 @@ export async function deletePrerequisite(
 
   res.status(200).json({
     status: 200,
+  });
+}
+
+export async function postCopyEnvironmentRules(
+  req: AuthRequest<
+    { sourceEnv: string; targetEnv: string },
+    { id: string; version: string }
+  >,
+  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { id, version } = req.params;
+  const { sourceEnv, targetEnv } = req.body;
+
+  const feature = await getFeature(context, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  const allEnvironments = getEnvironments(context.org);
+  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+  const environmentIds = environments.map((e) => e.id);
+
+  if (
+    !environmentIds.includes(sourceEnv) ||
+    !environmentIds.includes(targetEnv)
+  ) {
+    throw new Error("Invalid environment");
+  }
+
+  if (sourceEnv === targetEnv) {
+    throw new Error("Source and target environments should be different");
+  }
+
+  if (
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  const revision = await getDraftRevision(context, feature, parseInt(version));
+  const resetReview = resetReviewOnChange({
+    feature,
+    changedEnvironments: [targetEnv],
+    defaultValueChanged: false,
+    settings: org?.settings,
+  });
+
+  await copyFeatureEnvironmentRules(
+    revision,
+    sourceEnv,
+    targetEnv,
+    res.locals.eventAudit,
+    resetReview
+  );
+
+  res.status(200).json({
+    status: 200,
+    version: revision.version,
   });
 }
