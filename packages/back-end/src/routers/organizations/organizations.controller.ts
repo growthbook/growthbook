@@ -750,7 +750,10 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     licenseError: getLicenseError(org),
     commercialFeatures: [...accountFeatures[getEffectiveAccountPlan(org)]],
     fullCommercialFeaturesMap: Object.fromEntries(
-      Object.entries(accountFeatures).map(([plan, features]) => [plan, Array.from(features)])
+      Object.entries(accountFeatures).map(([plan, features]) => [
+        plan,
+        Array.from(features),
+      ])
     ),
     roles: getRoles(org),
     members: expandedMembers,
