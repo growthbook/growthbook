@@ -1,5 +1,5 @@
 import { FeatureInterface } from "back-end/types/feature";
-import { filterEnvironmentsByFeature } from "shared/util";
+import { filterEnvironmentsByFeature, truncateString } from "shared/util";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { Flex, useThemeContext } from "@radix-ui/themes";
 import { getRules, useEnvironments } from "@/services/features";
@@ -90,7 +90,7 @@ export default function CompareEnvironmentsModal({
         environments={environments}
         formatOptionLabel={({ value }) => (
           <Flex justify="between" align="center">
-            <span>{value}</span>
+            <span>{truncateString(value, 50)}</span>
             <Badge
               label={`${rulesByEnv[value].length} Rule${
                 rulesByEnv[value].length === 1 ? "" : "s"

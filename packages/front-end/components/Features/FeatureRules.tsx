@@ -7,6 +7,7 @@ import {
 } from "back-end/src/validators/features";
 import { Environment } from "back-end/types/organization";
 import { Container, Flex } from "@radix-ui/themes";
+import { truncateString } from "shared/util";
 import RuleModal from "@/components/Features/RuleModal/index";
 import RuleList from "@/components/Features/RuleList";
 import track from "@/services/track";
@@ -92,17 +93,17 @@ export default function FeatureRules({
             <Flex align="center" justify="between">
               <TabsList>
                 <Flex overflow="scroll">
-                {environments.map((e) => (
-                  <TabsTrigger value={e.id} key={e.id}>
-                    <span className="mr-2">{e.id}</span>
-                    <Badge
-                      label={rulesByEnv[e.id].length.toString()}
-                      radius="full"
-                      variant="solid"
-                      color="violet"
-                    ></Badge>
-                  </TabsTrigger>
-                ))}
+                  {environments.map((e) => (
+                    <TabsTrigger value={e.id} key={e.id}>
+                      <span className="mr-2">{e.id}</span>
+                      <Badge
+                        label={rulesByEnv[e.id].length.toString()}
+                        radius="full"
+                        variant="solid"
+                        color="violet"
+                      ></Badge>
+                    </TabsTrigger>
+                  ))}
                 </Flex>
               </TabsList>
               <Link
@@ -123,7 +124,7 @@ export default function FeatureRules({
                   environments={environments}
                   formatOptionLabel={({ value }) => (
                     <Flex justify="between" align="center">
-                      <span>{value}</span>
+                      <span>{truncateString(value, 50)}</span>
                       <Badge
                         label={`${rulesByEnv[value].length} Rule${
                           rulesByEnv[value].length === 1 ? "" : "s"
