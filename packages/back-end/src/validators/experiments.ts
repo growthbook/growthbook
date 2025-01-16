@@ -163,6 +163,7 @@ export const experimentAnalysisSummary = z
     snapshotId: z.string(),
     health: z
       .object({
+        srm: z.number().optional(),
         multipleExposures: z
           .object({
             usersWithMultipleExposures: z.number(),

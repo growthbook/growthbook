@@ -1,6 +1,7 @@
 import {
   DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_COUNT,
   DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_PERCENT,
+  DEFAULT_SRM_MIN_COUNT_PER_VARIATION,
 } from "../constants";
 
 type MultipleExposureHealthStatus =
@@ -62,5 +63,30 @@ export const getMultipleExposureHealthData = ({
       status: "healthy",
       ...data,
     };
+  }
+};
+
+export type SRMHealthStatus = "not-enough-traffic" | "healthy" | "unhealthy";
+
+export const getSRMHealthData = ({
+  srm,
+  numVariations,
+  srmThreshold,
+  totalUsers,
+}: {
+  srm: number;
+  numVariations: number;
+  srmThreshold: number;
+  totalUsers: number;
+}): SRMHealthStatus => {
+  // TODO: Add Bandit check and use DEFAULT_BANDIT_SRM_MIN_COUNT_PER_VARIATION
+  const totalMinCount = DEFAULT_SRM_MIN_COUNT_PER_VARIATION * numVariations;
+
+  if (totalUsers < totalMinCount) {
+    return "not-enough-traffic";
+  } else if (srm < srmThreshold) {
+    return "unhealthy";
+  } else {
+    return "healthy";
   }
 };

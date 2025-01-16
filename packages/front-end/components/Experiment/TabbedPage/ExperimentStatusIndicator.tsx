@@ -65,6 +65,15 @@ function getStatusIndicatorData(
     return ["indigo", "soft", "Draft"];
   }
 
+  const experimentSRM = experimentData.analysisSummary?.health?.srm;
+  if (experimentSRM) {
+    // FIXME: Use SRM health check
+    const srmHealthData = experimentSRM < 0.001 ? "unhealthy" : "healthy";
+    if (srmHealthData === "unhealthy") {
+      return ["amber", "solid", "Unhealthy", undefined, "SRM"];
+    }
+  }
+
   const multipleExposuresHealthData = getMultipleExposureHealthData({
     multipleExposureCount:
       experimentData.analysisSummary?.health?.multipleExposures

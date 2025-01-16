@@ -256,6 +256,7 @@ const experimentSchema = new mongoose.Schema({
     snapshotId: String,
     health: {
       _id: false,
+      srm: Number,
       multipleExposures: {
         _id: false,
         usersWithMultipleExposures: Number,

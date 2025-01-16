@@ -2726,13 +2726,16 @@ export async function updateExperimentAnalysisSummary({
     snapshotId: experimentSnapshot.id,
   };
 
-  const totalUsers = experimentSnapshot.health?.traffic?.overall?.variationUnits?.reduce(
+  const overallTraffic = experimentSnapshot.health?.traffic?.overall;
+
+  const totalUsers = overallTraffic?.variationUnits?.reduce(
     (acc, a) => acc + a,
     0
   );
 
-  if (totalUsers) {
+  if (overallTraffic && totalUsers) {
     analysisSummary.health = {
+      srm: overallTraffic.srm,
       multipleExposures: {
         usersWithMultipleExposures: experimentSnapshot.multipleExposures,
         totalUsers,
