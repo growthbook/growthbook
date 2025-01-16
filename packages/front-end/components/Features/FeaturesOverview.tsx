@@ -475,7 +475,7 @@ export default function FeaturesOverview({
                 environments.map((en) => (
                   <div key={en.id} className="flex items-center p-2">
                     <label
-                      className="font-bold mr-2 mb-0"
+                      className="font-weight-bold mr-2 mb-0"
                       htmlFor={`${en.id}_toggle`}
                     >
                       {en.id}:{" "}
