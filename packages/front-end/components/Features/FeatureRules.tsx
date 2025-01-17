@@ -89,7 +89,7 @@ export default function FeatureRules({
     <>
       <Tabs value={env} onValueChange={setEnv}>
         {environments.length < 6 ? (
-          <Container>
+          <Container maxWidth="100%">
             <Flex align="center" justify="between">
               <TabsList>
                 <Flex overflow="scroll">
@@ -115,7 +115,7 @@ export default function FeatureRules({
             </Flex>
           </Container>
         ) : (
-          <Container mb={"4"}>
+          <Container mb={"4"} maxWidth="100%">
             <Flex align="center">
               <Container flexGrow="0" width="270px" mr="4">
                 <EnvironmentDropdown
@@ -160,7 +160,7 @@ export default function FeatureRules({
                     experimentsMap={experimentsMap}
                   />
                 ) : (
-                  <div className="p-3 bg-white border-bottom">
+                  <div className="p-3 bg-white border-bottom border-top">
                     <em>No rules for this environment yet</em>
                   </div>
                 )}
