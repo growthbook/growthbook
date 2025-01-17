@@ -332,3 +332,48 @@ class SequentialTwoSidedTTest(SequentialTTest):
         tr2p1 = self.n * np.power(self.rho, 2) + 1
         evalue = np.exp(np.power(self.rho, 2) * st2 / (2 * tr2p1)) / np.sqrt(tr2p1)
         return min(1 / evalue, 1)
+
+
+class SequentialOneSidedTreatmentLesserTTest(SequentialTTest):
+    @property
+    def lesser(self) -> bool:
+        return True
+
+    @property
+    def rho(self) -> float:
+        # eq 161 in https://arxiv.org/pdf/2103.06476v7.pdf
+        return sequential_rho(2 * self.alpha, self.sequential_tuning_parameter)
+
+    @property
+    def halfwidth(self) -> float:
+        # eq 9 in Waudby-Smith et al. 2023 https://arxiv.org/pdf/2103.06476v7.pdf
+        s2 = self.variance * self.n
+        return sequential_interval_halfwidth(
+            s2, self.n, self.sequential_tuning_parameter, 2 * self.alpha
+        )
+
+    @property
+    def confidence_interval(self) -> List[float]:
+        return one_sided_confidence_interval(
+            self.point_estimate, self.halfwidth, lesser=self.lesser
+        )
+
+    @property
+    def p_value(self) -> float:
+        # eq 155 in https://arxiv.org/pdf/2103.06476v7.pdf
+        # slight reparameterization for this quantity below
+        st2 = (
+            np.power(self.point_estimate - self.test_value, 2)
+            * self.n
+            / (self.variance)
+        )
+        tr2p1 = self.n * np.power(self.rho, 2) + 1
+        evalue = np.exp(np.power(self.rho, 2) * st2 / (2 * tr2p1)) / np.sqrt(tr2p1)
+        pvalue_greater = min(1 / evalue, 1)
+        return pvalue_greater if not self.lesser else 1 - pvalue_greater
+
+
+class SequentialOneSidedTreatmentGreaterTTest(SequentialOneSidedTreatmentLesserTTest):
+    @property
+    def lesser(self) -> bool:
+        return False
