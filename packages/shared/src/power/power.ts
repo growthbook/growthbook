@@ -338,7 +338,7 @@ export type MetricVariationPowerResult = {
   metricId: string;
   variation: number;
   effectSize?: number;
-  power?: number;
+  power: number | undefined;
   lowPowerWarning?: boolean;
   additionalDays?: number;
   calculationSucceeded: boolean;
@@ -1069,6 +1069,20 @@ function sequentialIntervalHalfwidth(
   return Math.sqrt(s2) * Math.sqrt(disc);
 }
 
+function calculateMidExperimentPowerSingleError(
+  metricId: string,
+  variation: number,
+  errorMessage: string
+): MetricVariationPowerResult {
+  return {
+    metricId: metricId,
+    variation: variation,
+    calculationSucceeded: false,
+    power: undefined,
+    errorMessage: errorMessage,
+  };
+}
+
 /*calculate mid-experiment power for a single (metric, variation)*/
 export function calculateMidExperimentPowerSingle(
   params: MidExperimentPowerParamsSingle,
@@ -1076,145 +1090,133 @@ export function calculateMidExperimentPowerSingle(
   variation: number
 ): MetricVariationPowerResult {
   if (params.variation == undefined) {
-    return {
-      metricId: metricId,
-      variation: variation,
-      calculationSucceeded: false,
-      errorMessage: "Missing (metric, variation) power response from gbstats.",
-    };
+    return calculateMidExperimentPowerSingleError(
+      metricId,
+      variation,
+      "Missing variation."
+    );
   }
   const response = params.variation;
   if (response?.powerError) {
-    return {
-      metricId: metricId,
-      variation: variation,
-      calculationSucceeded: false,
-      errorMessage: response.powerError,
-    };
+    return calculateMidExperimentPowerSingleError(
+      metricId,
+      variation,
+      response.powerError
+    );
   }
   if (params.newDailyUsers == 0) {
-    return {
-      metricId: metricId,
-      variation: variation,
-      calculationSucceeded: false,
-      errorMessage: "newDailyUsers is 0.",
-    };
+    return calculateMidExperimentPowerSingleError(
+      metricId,
+      variation,
+      "newDailyUsers is 0."
+    );
   }
   if (params.firstPeriodSampleSize == 0) {
-    return {
-      metricId: metricId,
-      variation: variation,
-      calculationSucceeded: false,
-      errorMessage: "number of users currently in experiment is 0.",
-    };
+    return calculateMidExperimentPowerSingleError(
+      metricId,
+      variation,
+      "number of users currently in experiment is 0."
+    );
   }
   if (response.sigmahat2Delta == undefined) {
-    return {
-      metricId: metricId,
-      variation: variation,
-      calculationSucceeded: false,
-      errorMessage: "Missing sigmahat2Delta.",
-    };
-  } else if (response.sigma2Posterior == undefined) {
-    return {
-      metricId: metricId,
-      variation: variation,
-      calculationSucceeded: false,
-      errorMessage: "Missing sigma2Posterior.",
-    };
-  } else if (response.deltaPosterior == undefined) {
-    return {
-      metricId: metricId,
-      variation: variation,
-      calculationSucceeded: false,
-      errorMessage: "Missing deltaPosterior.",
-    };
-  } else if (params.newDailyUsers == undefined) {
-    return {
-      metricId: metricId,
-      variation: variation,
-      calculationSucceeded: false,
-      errorMessage: "Missing newDailyUsers.",
-    };
-  } else if (params.newDailyUsers == 0) {
-    return {
-      metricId: metricId,
-      variation: variation,
-      calculationSucceeded: false,
-      errorMessage: "newDailyUsers is 0.",
-    };
-  } else if (response.minPercentChange == undefined) {
-    return {
-      metricId: metricId,
-      variation: variation,
-      calculationSucceeded: false,
-      errorMessage: "Missing minPercentChange.",
-    };
-  } else {
-    const lowPowerThreshold = 0.1;
-    const numTests = (params.numVariations - 1) * params.numGoalMetrics;
-    const firstPeriodPairwiseSampleSize =
-      response.firstPeriodPairwiseSampleSize;
-    const secondPeriodSampleSize = params.daysRemaining * params.newDailyUsers;
-    const scalingFactor =
-      secondPeriodSampleSize / params.firstPeriodSampleSize;
-    let halfwidth: number;
-
-    const sigmahat2Delta = response.sigmahat2Delta;
-    const sigma2Posterior = response.sigma2Posterior;
-    const deltaPosterior = response.deltaPosterior;
-    const mPrime = 2 * response.minPercentChange;
-    const vPrime = sigmahat2Delta;
-    if (params.sequential) {
-      const s2 = sigmahat2Delta * firstPeriodPairwiseSampleSize;
-      const nTotal = firstPeriodPairwiseSampleSize * (scalingFactor + 1);
-      halfwidth = sequentialIntervalHalfwidth(
-        s2,
-        nTotal,
-        params.sequentialTuningParameter,
-        params.alpha / numTests
-      );
-    } else {
-      const zStar = normal.quantile(
-        1.0 - (0.5 * params.alpha) / numTests,
-        0,
-        1
-      );
-      const v = finalPosteriorVariance(
-        sigma2Posterior,
-        sigmahat2Delta,
-        scalingFactor
-      );
-      const s = Math.sqrt(v);
-      halfwidth = zStar * s;
-    }
-    const marginalVar = sigma2Posterior + sigmahat2Delta / scalingFactor;
-    const num1 = (halfwidth * marginalVar) / sigma2Posterior;
-    const num2 =
-      ((sigmahat2Delta / scalingFactor) * deltaPosterior) / sigma2Posterior;
-    const num3 = mPrime;
-    const den = Math.sqrt(vPrime);
-    const numPos = num1 - num2 - num3;
-    const numNeg = -num1 - num2 - num3;
-    const powerPos = 1 - normal.cdf(numPos / den, 0, 1);
-    const powerNeg = normal.cdf(numNeg / den, 0, 1);
-    const totalPower = powerPos + powerNeg;
-    const additionalUsers = Math.ceil(
-      scalingFactor * params.firstPeriodSampleSize
+    return calculateMidExperimentPowerSingleError(
+      metricId,
+      variation,
+      "Missing sigmahat2Delta."
     );
-    const powerResults: MetricVariationPowerResult = {
-      newDailyUsers: params.newDailyUsers,
-      metricId: metricId,
-      variation: variation,
-      effectSize: mPrime,
-      power: totalPower,
-      additionalDays: Math.ceil(additionalUsers / params.newDailyUsers),
-      calculationSucceeded: true,
-      lowPowerWarning: totalPower < lowPowerThreshold,
-      errorMessage: "",
-    };
-    return powerResults;
   }
+  if (response.sigma2Posterior == undefined) {
+    return calculateMidExperimentPowerSingleError(
+      metricId,
+      variation,
+      "Missing sigma2Posterior."
+    );
+  }
+  if (response.deltaPosterior == undefined) {
+    return calculateMidExperimentPowerSingleError(
+      metricId,
+      variation,
+      "Missing deltaPosterior."
+    );
+  }
+  if (params.newDailyUsers == undefined) {
+    return calculateMidExperimentPowerSingleError(
+      metricId,
+      variation,
+      "Missing newDailyUsers."
+    );
+  }
+  if (params.newDailyUsers == 0) {
+    return calculateMidExperimentPowerSingleError(
+      metricId,
+      variation,
+      "newDailyUsers is 0."
+    );
+  }
+  if (response.minPercentChange == undefined) {
+    return calculateMidExperimentPowerSingleError(
+      metricId,
+      variation,
+      "Missing minPercentChange."
+    );
+  }
+  const lowPowerThreshold = 0.1;
+  const numTests = (params.numVariations - 1) * params.numGoalMetrics;
+  const firstPeriodPairwiseSampleSize = response.firstPeriodPairwiseSampleSize;
+  const secondPeriodSampleSize = params.daysRemaining * params.newDailyUsers;
+  const scalingFactor = secondPeriodSampleSize / params.firstPeriodSampleSize;
+  let halfwidth: number;
+
+  const sigmahat2Delta = response.sigmahat2Delta;
+  const sigma2Posterior = response.sigma2Posterior;
+  const deltaPosterior = response.deltaPosterior;
+  const mPrime = 2 * response.minPercentChange;
+  const vPrime = sigmahat2Delta;
+  if (params.sequential) {
+    const s2 = sigmahat2Delta * firstPeriodPairwiseSampleSize;
+    const nTotal = firstPeriodPairwiseSampleSize * (scalingFactor + 1);
+    halfwidth = sequentialIntervalHalfwidth(
+      s2,
+      nTotal,
+      params.sequentialTuningParameter,
+      params.alpha / numTests
+    );
+  } else {
+    const zStar = normal.quantile(1.0 - (0.5 * params.alpha) / numTests, 0, 1);
+    const v = finalPosteriorVariance(
+      sigma2Posterior,
+      sigmahat2Delta,
+      scalingFactor
+    );
+    const s = Math.sqrt(v);
+    halfwidth = zStar * s;
+  }
+  const marginalVar = sigma2Posterior + sigmahat2Delta / scalingFactor;
+  const num1 = (halfwidth * marginalVar) / sigma2Posterior;
+  const num2 =
+    ((sigmahat2Delta / scalingFactor) * deltaPosterior) / sigma2Posterior;
+  const num3 = mPrime;
+  const den = Math.sqrt(vPrime);
+  const numPos = num1 - num2 - num3;
+  const numNeg = -num1 - num2 - num3;
+  const powerPos = 1 - normal.cdf(numPos / den, 0, 1);
+  const powerNeg = normal.cdf(numNeg / den, 0, 1);
+  const totalPower = powerPos + powerNeg;
+  const additionalUsers = Math.ceil(
+    scalingFactor * params.firstPeriodSampleSize
+  );
+  const powerResults: MetricVariationPowerResult = {
+    newDailyUsers: params.newDailyUsers,
+    metricId: metricId,
+    variation: variation,
+    effectSize: mPrime,
+    power: totalPower,
+    additionalDays: Math.ceil(additionalUsers / params.newDailyUsers),
+    calculationSucceeded: true,
+    lowPowerWarning: totalPower < lowPowerThreshold,
+    errorMessage: "",
+  };
+  return powerResults;
 }
 
 export function calculateMidExperimentPower(
@@ -1254,6 +1256,7 @@ export function calculateMidExperimentPower(
           metricId: metricId,
           variation: variation,
           calculationSucceeded: false,
+          power: undefined,
           effectSize: variationMetricData.minPercentChange * 2,
           errorMessage: variationMetricData.powerError,
         });
