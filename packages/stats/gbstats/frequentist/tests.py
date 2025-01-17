@@ -206,6 +206,12 @@ def one_sided_confidence_interval(
         return [point_estimate - halfwidth, np.inf]
 
 
+def two_sided_confidence_interval(
+    point_estimate: float, halfwidth: float
+) -> List[float]:
+    return [point_estimate - halfwidth, point_estimate + halfwidth]
+
+
 class TwoSidedTTest(TTest):
     @property
     def p_value(self) -> float:
@@ -214,7 +220,7 @@ class TwoSidedTTest(TTest):
     @property
     def confidence_interval(self) -> List[float]:
         halfwidth: float = t.ppf(1 - self.alpha / 2, self.dof) * np.sqrt(self.variance)
-        return [self.point_estimate - halfwidth, self.point_estimate + halfwidth]
+        return two_sided_confidence_interval(self.point_estimate, halfwidth)
 
 
 class OneSidedTreatmentGreaterTTest(TTest):
@@ -251,13 +257,14 @@ def sequential_rho(alpha, sequential_tuning_parameter) -> float:
     )
 
 
-def sequential_interval_halfwidth(s2, N, rho, alpha) -> float:
+def sequential_interval_halfwidth(s2, n, sequential_tuning_parameter, alpha) -> float:
+    rho = sequential_rho(alpha, sequential_tuning_parameter)
     # eq 9 in Waudby-Smith et al. 2023 https://arxiv.org/pdf/2103.06476v7.pdf
     return np.sqrt(s2) * np.sqrt(
         (
-            (2 * (N * np.power(rho, 2) + 1))
-            * np.log(np.sqrt(N * np.power(rho, 2) + 1) / alpha)
-            / (np.power(N * rho, 2))
+            (2 * (n * np.power(rho, 2) + 1))
+            * np.log(np.sqrt(n * np.power(rho, 2) + 1) / alpha)
+            / (np.power(n * rho, 2))
         )
     )
 
@@ -280,6 +287,23 @@ class SequentialTTest(TTest):
         return self.stat_a.n + self.stat_b.n
 
     @property
+    @abstractmethod
+    def rho(self) -> float:
+        pass
+
+    @property
+    @abstractmethod
+    def halfwidth(self) -> float:
+        pass
+
+    @property
+    @abstractmethod
+    def p_value(self) -> float:
+        pass
+
+
+class SequentialTwoSidedTTest(SequentialTTest):
+    @property
     def rho(self) -> float:
         # eq 161 in https://arxiv.org/pdf/2103.06476v7.pdf
         return sequential_rho(self.alpha, self.sequential_tuning_parameter)
@@ -288,16 +312,13 @@ class SequentialTTest(TTest):
     def halfwidth(self) -> float:
         # eq 9 in Waudby-Smith et al. 2023 https://arxiv.org/pdf/2103.06476v7.pdf
         s2 = self.variance * self.n
-        return sequential_interval_halfwidth(s2, self.n, self.rho, self.alpha)
+        return sequential_interval_halfwidth(
+            s2, self.n, self.sequential_tuning_parameter, self.alpha
+        )
 
-
-class SequentialTwoSidedTTest(SequentialTTest):
     @property
     def confidence_interval(self) -> List[float]:
-        return [
-            self.point_estimate - self.halfwidth,
-            self.point_estimate + self.halfwidth,
-        ]
+        return two_sided_confidence_interval(self.point_estimate, self.halfwidth)
 
     @property
     def p_value(self) -> float:
