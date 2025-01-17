@@ -18,6 +18,9 @@ import type {
   AutoExperiment,
   TrackingCallbackWithUser,
   Attributes,
+  TrackingCallback,
+  EventLogger,
+  EventProperties,
 } from "./types/growthbook";
 import { loadSDKVersion } from "./util";
 import {
@@ -52,6 +55,7 @@ export class GrowthBookClient<
   private _experiments: AutoExperiment[];
   private _payload: FeatureApiResponse | undefined;
   private _decryptedPayload: FeatureApiResponse | undefined;
+  private _destroyed?: boolean;
 
   constructor(options?: ClientOptions) {
     options = options || {};
@@ -198,6 +202,7 @@ export class GrowthBookClient<
   }
 
   public destroy() {
+    this._destroyed = true;
     unsubscribe(this);
 
     // Release references to save memory
@@ -206,6 +211,25 @@ export class GrowthBookClient<
     this._decryptedPayload = undefined;
     this._payload = undefined;
     this._options = {};
+  }
+
+  public isDestroyed() {
+    return !!this._destroyed;
+  }
+
+  public setEventLogger(logger: EventLogger) {
+    this._options.eventLogger = logger;
+  }
+
+  public logEvent(
+    eventName: string,
+    properties: EventProperties,
+    userContext: UserContext
+  ) {
+    if (this._options.eventLogger) {
+      const ctx = this._getEvalContext(userContext);
+      this._options.eventLogger(eventName, properties, ctx.user);
+    }
   }
 
   public runInlineExperiment<T>(
@@ -360,5 +384,25 @@ export class UserScopedGrowthBook<
     K extends string & keyof AppFeatures = string
   >(id: K): FeatureResult<V | null> {
     return this._gb.evalFeature(id, this._userContext);
+  }
+
+  public logEvent(eventName: string, properties?: EventProperties) {
+    this._gb.logEvent(eventName, properties || {}, this._userContext);
+  }
+
+  public setTrackingCallback(cb: TrackingCallback) {
+    this._userContext.trackingCallback = cb;
+  }
+  public getClientKey() {
+    return this._gb.getClientKey();
+  }
+  public setURL(url: string) {
+    this._userContext.url = url;
+  }
+  public updateAttributes(attributes: Attributes) {
+    this._userContext.attributes = {
+      ...this._userContext.attributes,
+      ...attributes,
+    };
   }
 }

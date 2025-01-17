@@ -3,6 +3,7 @@ import {
   CacheSettings,
   Options as Context,
   FeatureApiResponse,
+  Plugin,
   TrackingCallback,
 } from "./types/growthbook";
 import { GrowthBook } from "./GrowthBook";
@@ -126,7 +127,7 @@ if (
   });
 }
 
-const plugins: ((gb: GrowthBook) => void)[] = [
+const plugins: Plugin[] = [
   autoAttributesPlugin({ ...windowContext, ...dataContext }),
 ];
 

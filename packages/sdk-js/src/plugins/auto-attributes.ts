@@ -1,5 +1,9 @@
 import type { Attributes } from "../types/growthbook";
 import type { GrowthBook } from "../GrowthBook";
+import type {
+  UserScopedGrowthBook,
+  GrowthBookClient,
+} from "../GrowthBookClient";
 
 export type AutoAttributeSettings = {
   uuidCookieName?: string;
@@ -87,7 +91,12 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
     return attributes;
   }
 
-  return (gb: GrowthBook) => {
+  return (gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient) => {
+    // Only works for instances with user attributes
+    if ("createScopedInstance" in gb) {
+      return;
+    }
+
     // Set initial attributes
     gb.setURL(location.href);
     gb.updateAttributes(getAttributes());

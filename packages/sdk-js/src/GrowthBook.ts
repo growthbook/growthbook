@@ -57,9 +57,6 @@ const isBrowser =
 
 const SDK_VERSION = loadSDKVersion();
 
-export const EVENT_FEATURE_EVALUATED = "Feature Evaluated";
-export const EVENT_EXPERIMENT_VIEWED = "Experiment Viewed";
-
 export class GrowthBook<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   AppFeatures extends Record<string, any> = Record<string, any>
@@ -662,6 +659,7 @@ export class GrowthBook<
         this._subscriptions.size > 0 ? this._fireSubscriptions : undefined,
       recordChangeId: this._recordChangedId,
       saveDeferredTrack: this._saveDeferredTrack,
+      eventLogger: this._options.eventLogger,
     };
   }
 
@@ -866,17 +864,6 @@ export class GrowthBook<
         // Ignore feature usage callback errors
       }
     }
-    this._eventLog(
-      EVENT_FEATURE_EVALUATED,
-      {
-        feature: key,
-        source: res.source,
-        value: res.value,
-        ruleId: res.source === "defaultValue" ? "$default" : res.ruleId || "",
-        variationId: res.experimentResult ? res.experimentResult.key : "",
-      },
-      true
-    );
   }
 
   public isOn<K extends string & keyof AppFeatures = string>(key: K): boolean {
@@ -966,30 +953,21 @@ export class GrowthBook<
     eventName: string,
     properties?: Record<string, unknown>
   ) {
-    await this._eventLog(eventName, properties || {}, false);
-  }
-
-  private async _eventLog(
-    eventName: string,
-    properties: Record<string, unknown>,
-    internal: boolean
-  ) {
     if (this._destroyed) {
       console.error("Cannot log event to destroyed GrowthBook instance");
       return;
     }
     if (this._options.eventLogger) {
       try {
-        await this._options.eventLogger({
+        await this._options.eventLogger(
           eventName,
-          properties,
-          attributes: this.getAttributes(),
-          url: this._getContextUrl(),
-        });
+          properties || {},
+          this._getUserContext()
+        );
       } catch (e) {
         console.error(e);
       }
-    } else if (!internal) {
+    } else {
       console.error("No event logger configured");
     }
   }
@@ -1029,17 +1007,6 @@ export class GrowthBook<
         console.error(e);
       }
     }
-
-    await this._eventLog(
-      EVENT_EXPERIMENT_VIEWED,
-      {
-        experimentId: experiment.key,
-        variationId: result.key,
-        hashAttribute: result.hashAttribute,
-        hashValue: result.hashValue,
-      },
-      true
-    );
   }
 
   private _getContextUrl() {

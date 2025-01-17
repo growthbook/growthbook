@@ -45,7 +45,7 @@ import {
 import useApi from "@/hooks/useApi";
 import { useAuth, UserOrganizations } from "@/services/auth";
 import { getJitsuClient, trackPageView } from "@/services/track";
-import { growthbook } from "@/services/utils";
+import { getOrGeneratePageId, growthbook } from "@/services/utils";
 
 type OrgSettingsResponse = {
   organization: OrganizationInterface;
@@ -314,6 +314,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     growthbook.updateAttributes({
       anonymous_id,
       id: data?.userId || "",
+      user_id: data?.userId || "",
       superAdmin: data?.superAdmin || false,
       cloud: isCloud(),
       multiOrg: isMultiOrg(),
@@ -346,6 +347,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     growthbook.setURL(window.location.href);
     growthbook.updateAttributes({
       url: router?.pathname || "",
+      page_id: getOrGeneratePageId(),
     });
   }, [router?.pathname]);
 

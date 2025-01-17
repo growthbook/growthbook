@@ -1,5 +1,9 @@
 import type { TrackingCallback } from "../types/growthbook";
 import type { GrowthBook } from "../GrowthBook";
+import type {
+  GrowthBookClient,
+  UserScopedGrowthBook,
+} from "../GrowthBookClient";
 
 export type Trackers = "gtag" | "gtm" | "segment";
 
@@ -15,7 +19,7 @@ export function thirdPartyTrackingPlugin({
     throw new Error("thirdPartyTrackingPlugin only works in the browser");
   }
 
-  return (gb: GrowthBook) => {
+  return (gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient) => {
     gb.setTrackingCallback(async (e, r) => {
       const promises: Promise<unknown>[] = [];
       const eventParams = { experiment_id: e.key, variation_id: r.key };
