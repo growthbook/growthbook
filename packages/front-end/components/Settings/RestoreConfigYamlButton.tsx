@@ -269,6 +269,7 @@ export default function RestoreConfigYamlButton({
         >
           <Page
             display="Select File"
+            enabled
             validate={async () => {
               const { config } = form.getValues();
               const json = load(config);
