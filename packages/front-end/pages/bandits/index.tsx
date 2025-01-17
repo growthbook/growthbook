@@ -210,7 +210,7 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const orgStickyBucketing = !!settings.useStickyBucketing;
   const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
-  const hasMultiArmedBanditFeature = !hasCommercialFeature(
+  const hasMultiArmedBanditFeature = hasCommercialFeature(
     "multi-armed-bandits"
   );
 

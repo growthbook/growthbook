@@ -41,7 +41,7 @@ const PaidFeatureBadge = ({
           color: "#FFFFFF",
         }}
       >
-        PAID
+        Paid
       </span>
     </Tooltip>
   );
