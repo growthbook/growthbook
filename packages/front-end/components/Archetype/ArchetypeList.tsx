@@ -27,7 +27,11 @@ export const ArchetypeList: FC<{
   ] = useState<Partial<ArchetypeInterface> | null>(null);
   const permissionsUtil = usePermissionsUtil();
   const { project, getProjectById } = useDefinitions();
-  const { getUserDisplay, hasCommercialFeature, commercialFeatureLowestPlan} = useUser();
+  const {
+    getUserDisplay,
+    hasCommercialFeature,
+    commercialFeatureLowestPlan,
+  } = useUser();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const hasArchetypeFeature = hasCommercialFeature("archetypes");
@@ -35,7 +39,7 @@ export const ArchetypeList: FC<{
     projects: [project],
   });
 
-  const archetypePlanLevel = commercialFeatureLowestPlan?.['archetypes'];
+  const archetypePlanLevel = commercialFeatureLowestPlan?.["archetypes"];
 
   const { apiCall } = useAuth();
 
@@ -55,7 +59,8 @@ export const ArchetypeList: FC<{
             <h2>Create Reusable Archetypes</h2>
             <p>
               Archetypes are named sets of attributes that help you test your
-              features. Archetypes are a {planNameFromAccountPlan(archetypePlanLevel)} feature.
+              features. Archetypes are a{" "}
+              {planNameFromAccountPlan(archetypePlanLevel)} feature.
             </p>
             <div className="mt-3">
               <LinkButton
@@ -71,7 +76,7 @@ export const ArchetypeList: FC<{
                   setShowUpgradeModal(true);
                 }}
               >
-                Upgrade to Pro
+                Upgrade to {planNameFromAccountPlan(archetypePlanLevel)}
               </Button>
             </div>
           </div>
