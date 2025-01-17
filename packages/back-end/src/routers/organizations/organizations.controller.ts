@@ -4,6 +4,7 @@ import { freeEmailDomains } from "free-email-domains-typescript";
 import {
   accountFeatures,
   getAccountPlan,
+  getCdnUsageByOrganization,
   getEffectiveAccountPlan,
   getLicense,
   getLicenseError,
@@ -739,7 +740,14 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   );
   const seatsInUse = getNumberOfUniqueMembersAndInvites(org);
 
+  // Fetch Org usage data here (maybe last 3 months or 6 months?)
+  const usage = await getCdnUsageByOrganization(org.id);
+  // calculate % usage (need to know plan )
+  // add messages if/when usage is at 85%/95%/100%
+
   const watch = await getWatchedByUser(org.id, userId);
+
+  const orgMessages = messages || [];
 
   return res.status(200).json({
     status: 200,
@@ -781,7 +789,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       },
       autoApproveMembers: org.autoApproveMembers,
       members: org.members,
-      messages: messages || [],
+      messages: orgMessages,
       pendingMembers: org.pendingMembers,
       getStartedChecklistItems: org.getStartedChecklistItems,
       setupEventTracker,
