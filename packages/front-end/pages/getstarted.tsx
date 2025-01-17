@@ -144,9 +144,9 @@ const GetStartedPage = (): React.ReactElement => {
                 />
 
                 <OverviewCard
-                  imgUrl="/images/get-started/thumbnails/3.3-release.svg"
+                  imgUrl="/images/get-started/thumbnails/3.4-release.webp"
                   hoverText="View Blog Post"
-                  href="https://blog.growthbook.io/growthbook-version-3-3/"
+                  href="https://blog.growthbook.io/growthbook-version-3-4/"
                   type="link"
                 />
               </Flex>
