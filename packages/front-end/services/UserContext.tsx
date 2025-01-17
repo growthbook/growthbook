@@ -56,7 +56,7 @@ type OrgSettingsResponse = {
   enterpriseSSO: SSOConnectionInterface | null;
   accountPlan: AccountPlan;
   effectiveAccountPlan: AccountPlan;
-  fullCommercialFeaturesMap: Record<AccountPlan, CommercialFeature[]>;
+  commercialFeatureLowestPlan?: Partial<Record<CommercialFeature, AccountPlan>>;
   licenseError: string;
   commercialFeatures: CommercialFeature[];
   license: LicenseInterface;
@@ -132,7 +132,7 @@ export interface UserContextValue {
   teams?: Team[];
   error?: string;
   hasCommercialFeature: (feature: CommercialFeature) => boolean;
-  fullCommercialFeaturesMap?: Record<AccountPlan, CommercialFeature[]>;
+  commercialFeatureLowestPlan?: Partial<Record<CommercialFeature, AccountPlan>>;
   permissionsUtil: Permissions;
   quote: SubscriptionQuote | null;
   watching: {
@@ -483,7 +483,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         enterpriseSSO: currentOrg?.enterpriseSSO || undefined,
         accountPlan: currentOrg?.accountPlan,
         effectiveAccountPlan: currentOrg?.effectiveAccountPlan,
-        fullCommercialFeaturesMap: currentOrg?.fullCommercialFeaturesMap,
+        commercialFeatureLowestPlan: currentOrg?.commercialFeatureLowestPlan,
         licenseError: currentOrg?.licenseError || "",
         commercialFeatures: currentOrg?.commercialFeatures || [],
         apiKeys: currentOrg?.apiKeys || [],

@@ -4,6 +4,7 @@ import clsx from "clsx";
 import { useUser } from "@/services/UserContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBPremiumBadge } from "@/components/Icons";
+import { planNameFromAccountPlan } from "@/services/utils";
 
 interface Props extends HTMLAttributes<HTMLDivElement> {
   commercialFeature?: CommercialFeature;
@@ -31,21 +32,16 @@ export default function PremiumTooltip({
   usePortal,
   ...otherProps
 }: Props) {
-  const { hasCommercialFeature, fullCommercialFeaturesMap } = useUser();
+  const { hasCommercialFeature, commercialFeatureLowestPlan } = useUser();
   const hasFeature = commercialFeature
     ? hasCommercialFeature(commercialFeature)
     : true;
-  console.log(fullCommercialFeaturesMap);
 
-  const planLevelText =
-    !commercialFeature || !fullCommercialFeaturesMap
-      ? undefined
-      : fullCommercialFeaturesMap["pro"].includes(commercialFeature)
-      ? "a Pro"
-      : fullCommercialFeaturesMap["enterprise"].includes(commercialFeature)
-      ? "an Enterprise"
-      : "a Premium";
+  const lowestPlanLevel = commercialFeature ? commercialFeatureLowestPlan?.[commercialFeature] : undefined;
+  const planLevelText = `${lowestPlanLevel === "enterprise" ? "an" : "a"} ${planNameFromAccountPlan(lowestPlanLevel)}`
+
   const tooltipText = premiumText ?? `This is ${planLevelText} feature`;
+  
   return (
     <Tooltip
       shouldDisplay={!!body || !hasFeature}
