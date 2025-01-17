@@ -1,10 +1,15 @@
+import { CommercialFeature } from "enterprise";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import { planNameFromAccountPlan } from "@/services/utils";
-import { CommercialFeature } from "enterprise";
 
-const PaidFeatureBadge = ({ commercialFeature, premiumText }: { commercialFeature?: CommercialFeature, premiumText?: string }) => {
-
+const PaidFeatureBadge = ({
+  commercialFeature,
+  premiumText,
+}: {
+  commercialFeature?: CommercialFeature;
+  premiumText?: string;
+}) => {
   const { hasCommercialFeature, commercialFeatureLowestPlan } = useUser();
   const hasFeature = commercialFeature
     ? hasCommercialFeature(commercialFeature)
@@ -14,20 +19,24 @@ const PaidFeatureBadge = ({ commercialFeature, premiumText }: { commercialFeatur
     return null;
   }
 
-  const lowestPlanLevel = commercialFeature ? commercialFeatureLowestPlan?.[commercialFeature] : undefined;
-  const planLevelText = `${lowestPlanLevel === "enterprise" ? "an" : "a"} ${planNameFromAccountPlan(lowestPlanLevel)}`
+  const lowestPlanLevel = commercialFeature
+    ? commercialFeatureLowestPlan?.[commercialFeature]
+    : undefined;
+  const planLevelText = `${
+    lowestPlanLevel === "enterprise" ? "an" : "a"
+  } ${planNameFromAccountPlan(lowestPlanLevel)}`;
 
   const tooltipText = premiumText ?? `This is ${planLevelText} feature`;
 
   return (
-    <Tooltip
-      body={tooltipText}
-      tipPosition="top"
-    >
+    <Tooltip body={tooltipText} tipPosition="top">
       <span
         className="badge ml-2"
         style={{
-          backgroundColor: lowestPlanLevel === "pro" || lowestPlanLevel === "pro_sso" ? "#978365" : "#050549",
+          backgroundColor:
+            lowestPlanLevel === "pro" || lowestPlanLevel === "pro_sso"
+              ? "#978365"
+              : "#050549",
           color: "#FFFFFF",
         }}
       >

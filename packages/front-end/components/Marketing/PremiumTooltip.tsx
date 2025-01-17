@@ -37,11 +37,15 @@ export default function PremiumTooltip({
     ? hasCommercialFeature(commercialFeature)
     : true;
 
-  const lowestPlanLevel = commercialFeature ? commercialFeatureLowestPlan?.[commercialFeature] : undefined;
-  const planLevelText = `${lowestPlanLevel === "enterprise" ? "an" : "a"} ${planNameFromAccountPlan(lowestPlanLevel)}`
+  const lowestPlanLevel = commercialFeature
+    ? commercialFeatureLowestPlan?.[commercialFeature]
+    : undefined;
+  const planLevelText = `${
+    lowestPlanLevel === "enterprise" ? "an" : "a"
+  } ${planNameFromAccountPlan(lowestPlanLevel)}`;
 
   const tooltipText = premiumText ?? `This is ${planLevelText} feature`;
-  
+
   return (
     <Tooltip
       shouldDisplay={!!body || !hasFeature}
