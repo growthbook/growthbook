@@ -264,7 +264,11 @@ export default function HealthTab({
         isBandit={isBandit}
       />
       {!isBandit ? (
-        <PowerCard snapshot={snapshot} onNotify={handleHealthNotification} />
+        <PowerCard
+          experiment={experiment}
+          snapshot={snapshot}
+          onNotify={handleHealthNotification}
+        />
       ) : null}
       <div id="balanceCheck" style={{ scrollMarginTop: "100px" }}>
         {!isBandit ? (

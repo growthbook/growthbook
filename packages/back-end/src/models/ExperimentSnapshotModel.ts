@@ -135,8 +135,8 @@ const experimentSnapshotSchema = new mongoose.Schema({
       metricVariationPowerResults: [
         {
           _id: false,
-          metric: String,
-          variation: String,
+          metricId: String,
+          variation: Number,
           calculationSucceeded: Boolean,
           errorMessage: String,
           power: Number,
