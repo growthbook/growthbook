@@ -47,7 +47,7 @@ const Button = forwardRef<HTMLButtonElement, Props>(
       onClick,
       color = "violet",
       variant = "solid",
-      size = "md",
+      size = "sm",
       disabled,
       loading: _externalLoading,
       setError,
