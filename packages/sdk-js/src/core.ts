@@ -99,10 +99,12 @@ export function evalFeature<V = unknown>(
 
   // Loop through the rules
   if (feature.rules) {
+    const evaluatedFeatures = new Set(ctx.stack.evaluatedFeatures);
     rules: for (const rule of feature.rules) {
       // If there are prerequisite flag(s), evaluate them
       if (rule.parentConditions) {
         for (const parentCondition of rule.parentConditions) {
+          ctx.stack.evaluatedFeatures = new Set(evaluatedFeatures);
           const parentResult = evalFeature(parentCondition.id, ctx);
           // break out for cyclic prerequisites
           if (parentResult.source === "cyclicPrerequisite") {
@@ -465,7 +467,9 @@ export function runExperiment<T>(
 
     // 8.05. Exclude if prerequisites are not met
     if (experiment.parentConditions) {
+      const evaluatedFeatures = new Set(ctx.stack.evaluatedFeatures);
       for (const parentCondition of experiment.parentConditions) {
+        ctx.stack.evaluatedFeatures = new Set(evaluatedFeatures);
         const parentResult = evalFeature(parentCondition.id, ctx);
         // break out for cyclic prerequisites
         if (parentResult.source === "cyclicPrerequisite") {
