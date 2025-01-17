@@ -10,7 +10,7 @@ import { Container, Text } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import RadioGroup from "@/components/Radix/RadioGroup";
-import Link from "../Radix/Link";
+import Link from "@/components/Radix/Link";
 import LargeSavedGroupPerformanceWarning, {
   useLargeSavedGroupSupport,
 } from "./LargeSavedGroupSupportWarning";
