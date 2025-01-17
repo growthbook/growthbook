@@ -1,3 +1,4 @@
+import { gold, indigo } from "@radix-ui/colors";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 
@@ -14,9 +15,9 @@ const PaidFeatureBadge = ({ type }: { type: "pro" | "enterprise" }) => {
       tipPosition="top"
     >
       <span
-        className="badge ml-2"
+        className="badge ml-2 "
         style={{
-          backgroundColor: type === "pro" ? "#978365" : "#050549",
+          backgroundColor: type === "pro" ? gold.gold9 : indigo.indigo9,
           color: "#FFFFFF",
         }}
       >
