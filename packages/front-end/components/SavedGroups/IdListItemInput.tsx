@@ -118,9 +118,12 @@ export const IdListItemInput: FC<{
                         return;
                       }
                       const newValues = str
+                        // Convert newlines to commas, then replace duplicate delimiters
+                        .replaceAll(/\n/g, ",")
+                        .replaceAll(/,,/g, ",")
                         // Remove trailing delimiters to prevent adding an empty value
-                        .replace(/[,\n]$/, "")
-                        .split(/[,\n]/);
+                        .replace(/,$/, "")
+                        .split(",");
                       setFileName(file.name);
                       setValues(newValues);
                       setNumValuesToImport(newValues.length);
