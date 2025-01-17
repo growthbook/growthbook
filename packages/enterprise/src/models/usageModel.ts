@@ -23,7 +23,7 @@ const organizationCdnUsageSchema = new mongoose.Schema({
   cdnUsages: [Map],
 });
 
-const COLLECTION_NAME = "newOrganizationCdnUsages";
+const COLLECTION_NAME = "OrganizationCdnUsages";
 
 const licenseDb = mongoose.connection.useDb("licenses");
 
