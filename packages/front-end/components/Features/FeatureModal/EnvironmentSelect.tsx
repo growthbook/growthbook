@@ -1,4 +1,4 @@
-import { FC, useMemo } from "react";
+import { FC, ReactNode, useMemo } from "react";
 import { Environment } from "back-end/types/organization";
 import { FeatureEnvironment } from "back-end/types/feature";
 import { Container, Grid, Text } from "@radix-ui/themes";
