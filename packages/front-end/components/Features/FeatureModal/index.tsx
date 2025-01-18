@@ -17,6 +17,7 @@ import {
   getDefaultValue,
   useEnvironments,
 } from "@/services/features";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { useWatching } from "@/services/WatchProvider";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
@@ -164,11 +165,13 @@ export default function FeatureModal({
   const form = useForm({ defaultValues });
 
   const projectOptions = useProjectOptions(
-    (project) => permissionsUtil.canCreateFeature({ project }),
+    (project) =>
+      permissionsUtil.canCreateFeature({ project }) &&
+      permissionsUtil.canManageFeatureDrafts({ project }),
     project ? [project] : []
   );
   const selectedProject = form.watch("project");
-  const { projectId } = useDemoDataSourceProject();
+  const { projectId: demoProjectId } = useDemoDataSourceProject();
 
   const customFields = filterCustomFieldsForSectionAndProject(
     useCustomFields(),
@@ -366,21 +369,29 @@ export default function FeatureModal({
           released to users.
         </div>
       )}
-      {projectId === selectedProject && (
+      {selectedProject === demoProjectId && (
         <div className="alert alert-warning">
           You are creating a feature under the demo datasource project.
         </div>
       )}
       <SelectField
-        label="Project"
-        value={selectedProject || project}
+        label={
+          <>
+            {" "}
+            Projects{" "}
+            <Tooltip
+              body={
+                "The dropdown below has been filtered to only include projects where you have permission to update Features"
+              }
+            />{" "}
+          </>
+        }
+        value={selectedProject || ""}
         onChange={(v) => {
           form.setValue("project", v);
         }}
-        placeholder="Select Project"
+        initialOption="None"
         options={projectOptions}
-        required={false}
-        sort={false}
       />
     </Modal>
   );
