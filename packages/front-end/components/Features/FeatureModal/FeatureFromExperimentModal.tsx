@@ -9,12 +9,11 @@ import {
 import dJSON from "dirty-json";
 import { ReactElement, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import Link from "next/link";
-import { FaExternalLinkAlt } from "react-icons/fa";
 import {
   filterEnvironmentsByExperiment,
   validateFeatureValue,
 } from "shared/util";
+import { Grid } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -27,10 +26,11 @@ import {
   useFeaturesList,
 } from "@/services/features";
 import { useWatching } from "@/services/WatchProvider";
-import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import SelectField from "@/components/Forms/SelectField";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Field from "@/components/Forms/Field";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";
@@ -225,14 +225,17 @@ export default function FeatureFromExperimentModal({
     );
   }
 
+  const isBandit = experiment.type === "multi-armed-bandit";
+
   return (
     <Modal
       trackingEventModalType="feature-from-experiment"
       trackingEventModalSource={source}
       open
       size="lg"
+      bodyClassName="px-4"
       inline={inline}
-      header={"Add Feature Flag to Experiment"}
+      header="Add Feature Flag to Experiment"
       cta={cta}
       close={close}
       ctaEnabled={ctaEnabled}
@@ -248,6 +251,16 @@ export default function FeatureFromExperimentModal({
 
         if (!featureToCreate) {
           throw new Error("Invalid feature selected");
+        }
+
+        const appliedEnvironments: string[] = [];
+        for (const env in environmentSettings) {
+          if (environmentSettings[env].enabled) {
+            appliedEnvironments.push(env);
+          }
+        }
+        if (existing && !appliedEnvironments.length) {
+          throw new Error("You must select at least one environment");
         }
 
         let hasChanges = false;
@@ -295,7 +308,8 @@ export default function FeatureFromExperimentModal({
             {
               method: "POST",
               body: JSON.stringify({
-                rule: rule,
+                rule,
+                appliedEnvironments,
               }),
             }
           );
@@ -352,7 +366,7 @@ export default function FeatureFromExperimentModal({
         }}
       />
 
-      {!existing && (
+      {!existing ? (
         <>
           <FeatureKeyField keyField={form.register("id")} />
 
@@ -375,14 +389,14 @@ export default function FeatureFromExperimentModal({
           )}
 
           {showDescription ? (
-            <div className="form-group">
-              <label>Description</label>
-              <MarkdownInput
-                value={form.watch("description") || ""}
-                setValue={(value) => form.setValue("description", value)}
-                autofocus={true}
-              />
-            </div>
+            <Field
+              containerClassName="mb-4"
+              label="Description"
+              textarea
+              minRows={1}
+              {...form.register("description")}
+              placeholder="Short human-readable description of the feature"
+            />
           ) : (
             <a
               href="#"
@@ -396,13 +410,6 @@ export default function FeatureFromExperimentModal({
             </a>
           )}
 
-          <ValueTypeField
-            value={valueType}
-            onChange={(val) => {
-              updateValuesOnTypeChange(val);
-            }}
-          />
-
           <EnvironmentSelect
             environmentSettings={environmentSettings}
             environments={environments}
@@ -411,48 +418,75 @@ export default function FeatureFromExperimentModal({
               form.setValue("environmentSettings", environmentSettings);
             }}
           />
-        </>
-      )}
 
-      {existing && (
-        <div className="alert alert-info">
-          A rule will be added to the bottom of every environment in a new draft
-          revision. For more control over placement, you can add Experiment
-          rules directly from the{" "}
-          <Link href={`/features/${existing}`}>
-            Feature page
-            <FaExternalLinkAlt />
-          </Link>{" "}
-          instead.
-        </div>
+          <ValueTypeField
+            value={valueType}
+            onChange={(val) => {
+              updateValuesOnTypeChange(val);
+            }}
+          />
+        </>
+      ) : (
+        <EnvironmentSelect
+          label={`Apply ${
+            isBandit ? "Bandit" : "Experiment"
+          } rule to environments`}
+          environmentSettings={environmentSettings}
+          environments={environments}
+          setValue={(env, on) => {
+            environmentSettings[env.id].enabled = on;
+            form.setValue("environmentSettings", environmentSettings);
+          }}
+        />
       )}
 
       <div className="form-group">
-        <label>Variation Values</label>
-        <div className="mb-3 bg-light border p-3">
-          {experiment.variations.map((v, i) => (
-            <FeatureValueField
-              key={v.id}
-              label={v.name}
-              id={v.id}
-              value={form.watch(`variations.${i}.value`) || ""}
-              setValue={(v) => form.setValue(`variations.${i}.value`, v)}
-              valueType={form.watch("valueType")}
-            />
-          ))}
+        <label>Variation &amp; Fallback Values</label>
+        <div className="mt-2">
+          <Grid
+            columns={{
+              initial: ["string", "json"].includes(form.watch("valueType"))
+                ? "1"
+                : "2",
+              md: ["string", "json"].includes(form.watch("valueType"))
+                ? "1"
+                : "4",
+            }}
+            flow="row"
+            style={{ wordBreak: "break-all" }}
+            gapX="1rem"
+          >
+            {experiment.variations.map((v, i) => (
+              <FeatureValueField
+                key={v.id}
+                label={v.name}
+                id={v.id}
+                value={form.watch(`variations.${i}.value`) || ""}
+                setValue={(v) => form.setValue(`variations.${i}.value`, v)}
+                valueType={form.watch("valueType")}
+              />
+            ))}
+
+            {!existing && (
+              <FeatureValueField
+                label={
+                  <>
+                    Fallback value
+                    <Tooltip
+                      body="For users not included in the experiment"
+                      className="ml-1"
+                    />
+                  </>
+                }
+                id="defaultValue"
+                value={form.watch("defaultValue")}
+                setValue={(v) => form.setValue("defaultValue", v)}
+                valueType={valueType}
+              />
+            )}
+          </Grid>
         </div>
       </div>
-
-      {!existing && (
-        <FeatureValueField
-          label={"Fallback value"}
-          id="defaultValue"
-          value={form.watch("defaultValue")}
-          setValue={(v) => form.setValue("defaultValue", v)}
-          valueType={valueType}
-          helpText="For users not included in the experiment"
-        />
-      )}
     </Modal>
   );
 }

@@ -1242,13 +1242,16 @@ export async function postFeatureSync(
 }
 
 export async function postFeatureExperimentRefRule(
-  req: AuthRequest<{ rule: ExperimentRefRule }, { id: string }>,
+  req: AuthRequest<
+    { rule: ExperimentRefRule; appliedEnvironments: string[] },
+    { id: string }
+  >,
   res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
 ) {
   const context = getContextFromReq(req);
   const { environments, org } = context;
   const { id } = req.params;
-  const { rule } = req.body;
+  const { rule, appliedEnvironments } = req.body;
 
   if (
     rule.type !== "experiment-ref" ||
@@ -1295,6 +1298,8 @@ export async function postFeatureExperimentRefRule(
     rules: {},
   };
   environments.forEach((env) => {
+    if (!appliedEnvironments.includes(env)) return;
+
     const envRule = {
       ...rule,
       id: generateRuleId(),
