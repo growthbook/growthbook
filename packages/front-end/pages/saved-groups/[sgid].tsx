@@ -13,6 +13,7 @@ import Link from "next/link";
 import { FeatureInterface } from "back-end/types/feature";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { isEmpty } from "lodash";
+import { Container, Flex } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import PageHead from "@/components/Layout/PageHead";
 import Pagination from "@/components/Pagination";
@@ -36,6 +37,7 @@ import ProjectBadges from "@/components/ProjectBadges";
 import { DocLink } from "@/components/DocLink";
 import Callout from "@/components/Radix/Callout";
 import { useExperiments } from "@/hooks/useExperiments";
+import Button from "@/components/Radix/Button";
 
 const NUM_PER_PAGE = 10;
 
@@ -75,7 +77,6 @@ export default function EditSavedGroupPage() {
 
   const {
     hasLargeSavedGroupFeature,
-    supportedConnections,
     unsupportedConnections,
   } = useLargeSavedGroupSupport();
 
@@ -159,14 +160,18 @@ export default function EditSavedGroupPage() {
       )}
       {addItems && (
         <Modal
-          trackingEventModalType="edit-saved-group-add-items"
+          trackingEventModalType={`edit-saved-group-${importOperation}-items`}
           close={() => {
             setAddItems(false);
             setItemsToAdd([]);
           }}
           open={addItems}
           size="lg"
-          header="Add Items to List"
+          header={
+            importOperation === "append"
+              ? "Add List Items"
+              : "Overwrite List Contents"
+          }
           cta="Save"
           ctaEnabled={itemsToAdd.length > 0}
           submit={async () => {
@@ -196,39 +201,6 @@ export default function EditSavedGroupPage() {
             <div className="form-group">
               Updating this list will automatically update any associated
               Features and Experiments.
-            </div>
-            <label className="form-group font-weight-bold">Choose one:</label>
-            <div className="row ml-0 mr-0 form-group">
-              <div className="form-check-inline mr-5">
-                <input
-                  type="radio"
-                  id="replaceItems"
-                  checked={importOperation === "replace"}
-                  readOnly={true}
-                  className="mr-1"
-                  onChange={() => {
-                    setImportOperation("replace");
-                  }}
-                />
-                <label className="m-0 cursor-pointer" htmlFor="replaceItems">
-                  Replace all items
-                </label>
-              </div>
-              <div className="form-check-inline">
-                <input
-                  type="radio"
-                  id="appendItems"
-                  checked={importOperation === "append"}
-                  readOnly={true}
-                  className="mr-1"
-                  onChange={() => {
-                    setImportOperation("append");
-                  }}
-                />
-                <label className="m-0 cursor-pointer" htmlFor="appendItems">
-                  Append new items to list
-                </label>
-              </div>
             </div>
             <IdListItemInput
               values={itemsToAdd}
@@ -332,9 +304,7 @@ export default function EditSavedGroupPage() {
         )}
         <hr />
         <LargeSavedGroupPerformanceWarning
-          style="banner"
           hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
-          supportedConnections={supportedConnections}
           unsupportedConnections={unsupportedConnections}
           openUpgradeModal={() => setUpgradeModal(true)}
         />
@@ -349,22 +319,32 @@ export default function EditSavedGroupPage() {
               }}
             />
           </div>
-          <div className="">
-            <button
-              className="btn btn-outline-primary"
-              onClick={(e) => {
-                e.preventDefault();
+          <Flex>
+            <Container mr="4">
+              <Button
+                variant="ghost"
+                color="red"
+                onClick={() => {
+                  setImportOperation("replace");
+                  setAddItems(true);
+                }}
+              >
+                Overwrite list
+              </Button>
+            </Container>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setImportOperation("append");
                 setAddItems(true);
               }}
             >
-              <div className="row align-items-center m-0 p-1">
-                <span className="mr-1 lh-full">
-                  <FaPlusCircle />
-                </span>
-                <span className="lh-full">Edit List Items</span>
-              </div>
-            </button>
-          </div>
+              <span className="mr-1 lh-full">
+                <FaPlusCircle />
+              </span>
+              <span className="lh-full">Add items</span>
+            </Button>
+          </Flex>
         </div>
         <h4>ID List Items</h4>
         <div className="row m-0 mb-3 align-items-center justify-content-between">
@@ -415,7 +395,9 @@ export default function EditSavedGroupPage() {
             >
               <PiArrowsDownUp className="mr-1 lh-full align-middle" />
               <span className="lh-full align-middle">
-                {sortNewestFirst ? "Newest" : "Oldest"}
+                {sortNewestFirst
+                  ? "Most Recently Added"
+                  : "Least Recently Added"}
               </span>
             </div>
           </div>
