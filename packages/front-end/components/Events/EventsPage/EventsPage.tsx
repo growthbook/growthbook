@@ -62,25 +62,24 @@ export const EventsPage: FC<EventsPageProps> = ({
   return (
     <div className="container py-4">
       <div className="row">
-        <div className="col-6">
+        <div className="col">
           <h1>Events</h1>
         </div>
 
-        <div className="col-6 text-right">
-          <PremiumTooltip commercialFeature="audit-logging">
-            {shouldShowExportButton
-              ? ""
-              : "Exporting events is available to Enterprise customers"}
-          </PremiumTooltip>
-
-          <Button
-            onClick={performDownload}
-            disabled={isDownloading || !shouldShowExportButton}
-            ml="3"
-            icon={<FaDownload />}
+        <div className="col-auto text-right align-items-end">
+          <PremiumTooltip
+            commercialFeature="audit-logging"
+            premiumText="Exporting events is available to Enterprise customers"
           >
-            Export All
-          </Button>
+            <Button
+              onClick={performDownload}
+              disabled={isDownloading || !shouldShowExportButton}
+              ml="3"
+              icon={<FaDownload />}
+            >
+              Export All
+            </Button>
+          </PremiumTooltip>
         </div>
       </div>
 
@@ -227,7 +226,7 @@ export const EventsPageContainer = () => {
           }}
         />
       </div>
-      <div>
+      <div className="">
         <DatePicker
           date={fromDate}
           setDate={setFromDate}
@@ -235,6 +234,7 @@ export const EventsPageContainer = () => {
           label="From"
           precision="date"
           containerClassName=""
+          inputWidth="170px"
         />
       </div>
       <div>
@@ -245,6 +245,7 @@ export const EventsPageContainer = () => {
           label="To"
           precision="date"
           containerClassName=""
+          inputWidth="170px"
         />
       </div>
       {hasFilters && (

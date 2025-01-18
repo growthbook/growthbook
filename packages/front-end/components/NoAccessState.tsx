@@ -4,6 +4,7 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import LinkButton from "@/components/Radix/LinkButton";
 import Button from "@/components/Radix/Button";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
+import { useUser } from "@/services/UserContext";
 
 interface Props {
   h1?: string;
@@ -23,12 +24,24 @@ const NoAccessState: FC<Props> = ({
   reason,
 }) => {
   const [upgradeModal, setUpgradeModal] = useState(false);
+  const { hasCommercialFeature, commercialFeatureLowestPlan } = useUser();
+  const hasFeature = commercialFeature
+    ? hasCommercialFeature(commercialFeature)
+    : true;
 
+  if (hasFeature) {
+    return null;
+  }
+
+  const lowestPlanLevel = commercialFeature
+    ? commercialFeatureLowestPlan?.[commercialFeature]
+    : undefined;
   return (
     <>
       {h1 && (
         <div className="mb-4 mt-3 d-flex align-items-center">
-          <h1 className="mb-0">{h1}</h1> <PaidFeatureBadge type="pro" />
+          <h1 className="mb-0">{h1}</h1>{" "}
+          <PaidFeatureBadge commercialFeature={commercialFeature} />
         </div>
       )}
       <div className="mb-5">
@@ -54,7 +67,12 @@ const NoAccessState: FC<Props> = ({
                     setUpgradeModal(true);
                   }}
                 >
-                  Upgrade to Pro
+                  Upgrade to{" "}
+                  {lowestPlanLevel === "enterprise"
+                    ? "Enterprise"
+                    : lowestPlanLevel === "pro"
+                    ? "Pro"
+                    : "access"}
                 </Button>
               </div>
             </div>
