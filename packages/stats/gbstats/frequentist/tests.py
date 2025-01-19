@@ -32,7 +32,7 @@ class SequentialConfig(FrequentistConfig):
 # Results
 @dataclass
 class FrequentistTestResult(TestResult):
-    p_value: float
+    p_value: Optional[float] = None
     error_message: Optional[str] = None
 
 
@@ -269,6 +269,17 @@ def sequential_interval_halfwidth(s2, n, sequential_tuning_parameter, alpha) -> 
     )
 
 
+def sequential_interval_halfwidth_one_sided(
+    s2, n, sequential_tuning_parameter, alpha
+) -> float:
+    rho = sequential_rho(alpha, sequential_tuning_parameter)
+    # eq 134 in https://arxiv.org/pdf/2103.06476v7.pdf
+    part_1 = s2
+    part_2 = 2 * (n * np.power(rho, 2) + 1) / (np.power(n * rho, 2))
+    part_3 = np.log(1 + np.sqrt(n * np.power(rho, 2) + 1) / (2 * alpha))
+    return np.sqrt(part_1 * part_2 * part_3)
+
+
 class SequentialTTest(TTest):
     def __init__(
         self,
@@ -294,11 +305,6 @@ class SequentialTTest(TTest):
     @property
     @abstractmethod
     def halfwidth(self) -> float:
-        pass
-
-    @property
-    @abstractmethod
-    def p_value(self) -> float:
         pass
 
 
@@ -336,20 +342,30 @@ class SequentialTwoSidedTTest(SequentialTTest):
 
 class SequentialOneSidedTreatmentLesserTTest(SequentialTTest):
     @property
+    def scaling_factor(self) -> float:
+        return 1
+
+    @property
     def lesser(self) -> bool:
         return True
 
     @property
     def rho(self) -> float:
         # eq 161 in https://arxiv.org/pdf/2103.06476v7.pdf
-        return sequential_rho(2 * self.alpha, self.sequential_tuning_parameter)
+        # return sequential_rho(2 * self.alpha, self.sequential_tuning_parameter)
+        return sequential_rho(
+            self.scaling_factor * self.alpha, self.sequential_tuning_parameter
+        )
 
     @property
     def halfwidth(self) -> float:
         # eq 9 in Waudby-Smith et al. 2023 https://arxiv.org/pdf/2103.06476v7.pdf
         s2 = self.variance * self.n
-        return sequential_interval_halfwidth(
-            s2, self.n, self.sequential_tuning_parameter, 2 * self.alpha
+        return sequential_interval_halfwidth_one_sided(
+            s2,
+            self.n,
+            self.sequential_tuning_parameter,
+            self.scaling_factor * self.alpha,
         )
 
     @property
@@ -360,17 +376,7 @@ class SequentialOneSidedTreatmentLesserTTest(SequentialTTest):
 
     @property
     def p_value(self) -> float:
-        # eq 155 in https://arxiv.org/pdf/2103.06476v7.pdf
-        # slight reparameterization for this quantity below
-        st2 = (
-            np.power(self.point_estimate - self.test_value, 2)
-            * self.n
-            / (self.variance)
-        )
-        tr2p1 = self.n * np.power(self.rho, 2) + 1
-        evalue = np.exp(np.power(self.rho, 2) * st2 / (2 * tr2p1)) / np.sqrt(tr2p1)
-        pvalue_greater = min(1 / evalue, 1)
-        return pvalue_greater if not self.lesser else 1 - pvalue_greater
+        return 0.5
 
 
 class SequentialOneSidedTreatmentGreaterTTest(SequentialOneSidedTreatmentLesserTTest):
