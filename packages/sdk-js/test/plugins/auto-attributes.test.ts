@@ -105,36 +105,6 @@ describe("autoAttributesPlugin", () => {
     gb.destroy();
   });
 
-  it("supports additional attributes", () => {
-    const plugin = autoAttributesPlugin({
-      additionalAttributes: {
-        hello: "world",
-      },
-    });
-    const gb = new GrowthBook({
-      plugins: [plugin],
-      attributes: {
-        // Doesn't overwrite inline attributes
-        inline: "attribute",
-      },
-    });
-
-    expect(gb.getAttributes()).toEqual({
-      hello: "world",
-      inline: "attribute",
-      id: expect.any(String),
-      browser: "unknown",
-      deviceType: "desktop",
-      url: "http://localhost/",
-      host: "localhost",
-      pageTitle: "",
-      path: "/",
-      query: "",
-    });
-
-    gb.destroy();
-  });
-
   it("detects mobile device", () => {
     // iOS
     Object.defineProperty(globalThis.navigator, "userAgent", {

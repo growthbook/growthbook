@@ -19,6 +19,9 @@ import {
   isTelemetryEnabled,
 } from "@/services/env";
 
+const DEVICE_ID_COOKIE = "gb_device_id";
+const SESSION_ID_COOKIE = "gb_session_id";
+
 export const GB_SDK_ID =
   process.env.NODE_ENV === "production"
     ? "sdk-ueFMOgZ2daLa0M"
@@ -226,8 +229,6 @@ export function capitalizeWords(string): string {
     .join(" ");
 }
 
-const DEVICE_ID_COOKIE = "gb_device_id";
-const SESSION_ID_COOKIE = "gb_session_id";
 const pageIds: Record<string, string> = {};
 
 function getOrGenerateDeviceId() {
