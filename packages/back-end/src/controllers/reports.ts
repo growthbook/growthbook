@@ -91,6 +91,7 @@ export async function postReportFromSnapshot(
   const phaseIndex = snapshot.phase ?? (experiment.phases?.length || 1) - 1;
   const _experimentAnalysisSettings: ExperimentReportAnalysisSettings = {
     ...pick(experiment, Object.keys(experimentAnalysisSettings.shape)),
+    statsEngine: analysis.settings.statsEngine,
     trackingKey: experiment.trackingKey || experiment.id,
     ...pick(reportArgs, [
       "userIdType",

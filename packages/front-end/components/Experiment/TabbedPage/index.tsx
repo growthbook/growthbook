@@ -25,7 +25,6 @@ import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/Demo
 import { phaseSummary } from "@/services/utils";
 import EditStatusModal from "@/components/Experiment/EditStatusModal";
 import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
-import EditExperimentNameForm from "@/components/Experiment/EditExperimentNameForm";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
@@ -48,7 +47,6 @@ export interface Props {
   mutate: () => void;
   duplicate?: (() => void) | null;
   editTags?: (() => void) | null;
-  editProject?: (() => void) | null;
   checklistItemsRemaining: number | null;
   envs: string[];
   setChecklistItemsRemaining: (value: number | null) => void;
@@ -68,7 +66,6 @@ export default function TabbedPage({
   linkedFeatures,
   mutate,
   duplicate,
-  editProject,
   editTags,
   editVariations,
   visualChangesets,
@@ -91,7 +88,6 @@ export default function TabbedPage({
 
   const { apiCall } = useAuth();
 
-  const [editNameOpen, setEditNameOpen] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
   const [statusModal, setStatusModal] = useState(false);
   const [watchersModal, setWatchersModal] = useState(false);
@@ -178,13 +174,13 @@ export default function TabbedPage({
     (connection) => connection.connected
   );
 
-  const watcherIds = useApi<{
+  const { data, mutate: mutateWatchers } = useApi<{
     userIds: string[];
   }>(`/experiment/${experiment.id}/watchers`);
   const { users, organization } = useUser();
 
   // Get name or email of all active users watching this experiment
-  const usersWatching = (watcherIds?.data?.userIds || [])
+  const usersWatching = (data?.userIds || [])
     .map((id) => users.get(id))
     .filter(isDefined)
     .map((u) => u.name || u.email);
@@ -195,13 +191,6 @@ export default function TabbedPage({
   const trackSource = "tabbed-page";
   return (
     <div>
-      {editNameOpen && (
-        <EditExperimentNameForm
-          experiment={experiment}
-          mutate={mutate}
-          cancel={() => setEditNameOpen(false)}
-        />
-      )}
       {auditModal && (
         <Modal
           trackingEventModalType=""
@@ -277,14 +266,13 @@ export default function TabbedPage({
         mutate={mutate}
         safeToEdit={safeToEdit}
         setAuditModal={setAuditModal}
-        setEditNameOpen={setEditNameOpen}
         setStatusModal={setStatusModal}
         setWatchersModal={setWatchersModal}
         duplicate={duplicate}
         usersWatching={usersWatching}
+        mutateWatchers={mutateWatchers}
         editResult={editResult || undefined}
         editTargeting={editTargeting}
-        editProject={editProject}
         editTags={editTags}
         newPhase={newPhase}
         editPhases={editPhases}

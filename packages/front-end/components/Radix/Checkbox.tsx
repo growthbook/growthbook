@@ -1,7 +1,7 @@
 import { Flex, Text, Checkbox as RadixCheckbox } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
 import clsx from "clsx";
-import { ReactElement } from "react";
+import { forwardRef, ReactElement } from "react";
 import { Responsive } from "@radix-ui/themes/dist/cjs/props";
 import HelperText, { getRadixColor } from "@/components/Radix/HelperText";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -30,19 +30,22 @@ export type Props = {
   setValue: (value: boolean | "indeterminate") => void;
 } & MarginProps;
 
-export default function Checkbox({
-  label,
-  disabled,
-  disabledMessage,
-  value,
-  size = "md",
-  setValue,
-  description,
-  error,
-  errorLevel = "error",
-  weight = "bold",
-  ...containerProps
-}: Props) {
+export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
+  {
+    label,
+    disabled,
+    disabledMessage,
+    value,
+    size = "md",
+    setValue,
+    description,
+    error,
+    errorLevel = "error",
+    weight = "bold",
+    ...containerProps
+  }: Props,
+  ref
+) {
   const checkboxColor = error ? getRadixColor(errorLevel) : "violet";
 
   const TooltipWrapper = ({ children }) =>
@@ -60,6 +63,7 @@ export default function Checkbox({
   return (
     <TooltipWrapper>
       <Text
+        ref={ref}
         as="label"
         size="2"
         className={clsx("rt-CheckboxItem", {
@@ -85,4 +89,4 @@ export default function Checkbox({
       </Text>
     </TooltipWrapper>
   );
-}
+});

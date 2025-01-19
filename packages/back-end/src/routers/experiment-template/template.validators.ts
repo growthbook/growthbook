@@ -23,6 +23,7 @@ export const experimentTemplateInterface = z
     hypothesis: z.string().optional(),
     description: z.string().optional(),
     tags: z.array(z.string()).optional(),
+    customFields: z.record(z.string(), z.string()).optional(),
 
     datasource: z.string(),
     exposureQueryId: z.string(),

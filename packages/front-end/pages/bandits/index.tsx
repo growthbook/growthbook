@@ -261,7 +261,6 @@ const ExperimentsPage = (): React.ReactElement => {
               <div className="col-auto">
                 <PremiumTooltip
                   tipPosition="left"
-                  popperStyle={{ top: 15 }}
                   body={
                     hasStickyBucketFeature && !orgStickyBucketing
                       ? "Enable Sticky Bucketing in your organization settings to run a Bandit"

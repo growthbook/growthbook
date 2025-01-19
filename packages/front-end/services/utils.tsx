@@ -10,6 +10,7 @@ import {
 import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
 import Cookies from "js-cookie";
 import { v4 as uuidv4 } from "uuid";
+import { AccountPlan } from "enterprise";
 import { AppFeatures } from "@/types/app-features";
 import track from "@/services/track";
 import {
@@ -263,4 +264,25 @@ function getOrGenerateSessionId() {
     sameSite: "strict",
   });
   return sessionId;
+}
+
+// Used to describe account plan in text
+export function planNameFromAccountPlan(accountPlan?: AccountPlan) {
+  if (!accountPlan) {
+    return "Premium";
+  }
+
+  if (accountPlan === "pro_sso" || accountPlan === "pro") {
+    return "Pro";
+  }
+
+  if (accountPlan === "oss" || accountPlan === "starter") {
+    return "Starter";
+  }
+
+  if (accountPlan === "enterprise") {
+    return "Enterprise";
+  }
+
+  return capitalizeFirstLetter(accountPlan);
 }
