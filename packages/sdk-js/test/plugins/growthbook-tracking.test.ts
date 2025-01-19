@@ -115,4 +115,67 @@ describe("growthbookTrackingPlugin", () => {
 
     gb.destroy();
   });
+
+  it("Skips logging duplicate events", async () => {
+    const plugin = growthbookTrackingPlugin();
+
+    const gb = new GrowthBook({
+      clientKey: "test",
+      plugins: [plugin],
+      url: "http://localhost:3000",
+      attributes: {
+        foo: "bar",
+      },
+    });
+
+    gb.logEvent("test");
+    gb.logEvent("test");
+    gb.logEvent("test2");
+
+    await sleep(150);
+    let body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.length).toBe(2);
+    expect(body[0].event_name).toBe("test");
+    expect(body[1].event_name).toBe("test2");
+
+    // Also skips events with duplicate properties
+    gb.logEvent("test", { foo: "bar" });
+    gb.logEvent("test", { foo: "bar" });
+    gb.logEvent("test", { foo: "baz" });
+
+    await sleep(150);
+    body = JSON.parse(fetchMock.mock.calls[1][1].body);
+    expect(body.length).toBe(2);
+    expect(body[0].event_name).toBe("test");
+    expect(body[0].properties_json).toEqual({ foo: "bar" });
+    expect(body[1].event_name).toBe("test");
+    expect(body[1].properties_json).toEqual({ foo: "baz" });
+
+    // Skips the fetch entirely if there are no new events to log
+    gb.logEvent("test");
+    await sleep(150);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    // If the growthbook attributes change, it should not be considered a duplicate
+    gb.updateAttributes({ foo: "baz" });
+    gb.logEvent("test");
+    gb.logEvent("test");
+
+    await sleep(150);
+    body = JSON.parse(fetchMock.mock.calls[2][1].body);
+    expect(body.length).toBe(1);
+    expect(body[0].event_name).toBe("test");
+
+    // If the growthbook url changes, it should not be considered a duplicate
+    gb.setURL("http://localhost:3001");
+    gb.logEvent("test");
+    gb.logEvent("test");
+
+    await sleep(150);
+    body = JSON.parse(fetchMock.mock.calls[3][1].body);
+    expect(body.length).toBe(1);
+    expect(body[0].event_name).toBe("test");
+
+    gb.destroy();
+  });
 });

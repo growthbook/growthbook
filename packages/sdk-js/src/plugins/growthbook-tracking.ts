@@ -157,18 +157,23 @@ export function growthbookTrackingPlugin({
   ingestorHost,
   enable = true,
   debug,
+  dedupeCacheSize = 1000,
 }: {
   // TODO: add option to allow filtering out certain attributes that contain PII
   queueFlushInterval?: number;
   ingestorHost?: string;
   enable?: boolean;
   debug?: boolean;
+  dedupeCacheSize?: number;
 } = {}) {
   return (gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient) => {
     const clientKey = gb.getClientKey();
     if (!clientKey) {
       throw new Error("clientKey must be specified to use event logging");
     }
+
+    // LRU cache for events to avoid duplicates
+    const eventCache = new Set<string>();
 
     if ("setEventLogger" in gb) {
       let _q: EventData[] = [];
@@ -183,14 +188,32 @@ export function growthbookTrackingPlugin({
 
       let promise: Promise<void> | null = null;
       gb.setEventLogger(async (eventName, properties, userContext) => {
-        debug && console.log("Logging event to GrowthBook", event);
-        if (!enable) return;
-        _q.push({
+        const data = {
           eventName,
           properties,
           attributes: userContext.attributes || {},
           url: userContext.url || "",
-        });
+        };
+        const k = JSON.stringify(data);
+        // Duplicate event fired recently, move to end of LRU cache and skip
+        if (eventCache.has(k)) {
+          eventCache.delete(k);
+          eventCache.add(k);
+          debug && console.log("Skip logging duplicate event", data);
+          return;
+        }
+        eventCache.add(k);
+        // If the cache is too big, remove the oldest item
+        if (eventCache.size > dedupeCacheSize) {
+          const oldest = eventCache.values().next().value;
+          oldest && eventCache.delete(oldest);
+        }
+
+        debug && console.log("Logging event to GrowthBook", data);
+        if (!enable) return;
+
+        _q.push(data);
+
         // Only one in-progress promise at a time
         if (!promise) {
           promise = new Promise((resolve, reject) => {
