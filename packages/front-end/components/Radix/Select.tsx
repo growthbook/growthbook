@@ -1,5 +1,5 @@
 import { Select as RadixSelect, Text, Flex } from "@radix-ui/themes";
-import { MarginProps } from "@radix-ui/themes/dist/cjs/props";
+import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { forwardRef, ReactNode } from "react";
 import HelperText from "./HelperText";
 

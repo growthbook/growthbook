@@ -1,6 +1,6 @@
 import { forwardRef } from "react";
 import { Badge as RadixBadge, Text } from "@radix-ui/themes";
-import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
+import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { RadixColor } from "@/components/Radix/HelperText";
 
 type Props = {
