@@ -26,7 +26,6 @@ import type {
   GlobalContext,
   UserContext,
   StickyAssignmentsDocument,
-  FeatureUsageCallback,
   EventLogger,
 } from "./types/growthbook";
 import {
@@ -941,10 +940,6 @@ export class GrowthBook<
     this.fireDeferredTrackingCalls();
   }
 
-  public setOnFeatureUsage(callback: FeatureUsageCallback) {
-    this._options.onFeatureUsage = callback;
-  }
-
   public setEventLogger(logger: EventLogger) {
     this._options.eventLogger = logger;
   }
@@ -992,7 +987,7 @@ export class GrowthBook<
   }
 
   private async _track<T>(experiment: Experiment<T>, result: Result<T>) {
-    if (!this._options.trackingCallback && !this._options.eventLogger) return;
+    if (!this._options.trackingCallback) return;
 
     const k = this._getTrackKey(experiment, result);
 
@@ -1000,12 +995,10 @@ export class GrowthBook<
     if (this._trackedExperiments.has(k)) return;
     this._trackedExperiments.add(k);
 
-    if (this._options.trackingCallback) {
-      try {
-        await this._options.trackingCallback(experiment, result);
-      } catch (e) {
-        console.error(e);
-      }
+    try {
+      await this._options.trackingCallback(experiment, result);
+    } catch (e) {
+      console.error(e);
     }
   }
 

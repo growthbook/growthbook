@@ -21,6 +21,7 @@ import type {
   TrackingCallback,
   EventLogger,
   EventProperties,
+  Plugin,
 } from "./types/growthbook";
 import { loadSDKVersion } from "./util";
 import {
@@ -69,6 +70,12 @@ export class GrowthBookClient<
     this._experiments = [];
 
     this.log = this.log.bind(this);
+
+    if (options.plugins) {
+      for (const plugin of options.plugins) {
+        plugin(this);
+      }
+    }
   }
 
   public async setPayload(payload: FeatureApiResponse): Promise<void> {
@@ -344,7 +351,7 @@ export class GrowthBookClient<
   }
 
   public createScopedInstance(userContext: UserContext) {
-    return new UserScopedGrowthBook(this, userContext);
+    return new UserScopedGrowthBook(this, userContext, this._options.plugins);
   }
 }
 
@@ -355,9 +362,19 @@ export class UserScopedGrowthBook<
   private _gb: GrowthBookClient;
   private _userContext: UserContext;
 
-  constructor(gb: GrowthBookClient<AppFeatures>, userContext: UserContext) {
+  constructor(
+    gb: GrowthBookClient<AppFeatures>,
+    userContext: UserContext,
+    plugins?: Plugin[]
+  ) {
     this._gb = gb;
     this._userContext = userContext;
+
+    if (plugins) {
+      for (const plugin of plugins) {
+        plugin(this);
+      }
+    }
   }
 
   public runInlineExperiment<T>(experiment: Experiment<T>): Result<T> {

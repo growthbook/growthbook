@@ -1,4 +1,3 @@
-import type { Attributes } from "../types/growthbook";
 import type { GrowthBook } from "../GrowthBook";
 import type {
   UserScopedGrowthBook,
@@ -9,9 +8,7 @@ export type AutoAttributeSettings = {
   uuidCookieName?: string;
   uuidKey?: string;
   uuid?: string;
-  persistUuidOnLoad?: boolean;
-  noAutoCookies?: boolean;
-  additionalAttributes?: Attributes;
+  uuidAutoPersist?: boolean;
 };
 
 export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
@@ -26,7 +23,7 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
   function persistUUID() {
     setCookie(COOKIE_NAME, uuid);
   }
-  function getUUID(persist = true) {
+  function getUUID() {
     // Already stored in memory, return
     if (uuid) return uuid;
 
@@ -34,12 +31,8 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
     uuid = getCookie(COOKIE_NAME);
     if (uuid) return uuid;
 
-    // Generate a new UUID and optionally persist it in a cookie
+    // Generate a new UUID
     uuid = genUUID();
-    if (persist) {
-      persistUUID();
-    }
-
     return uuid;
   }
 
@@ -49,8 +42,6 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
   });
 
   function getAutoAttributes(settings: AutoAttributeSettings) {
-    const useCookies = settings.noAutoCookies == null;
-
     const ua = navigator.userAgent;
 
     const browser = ua.match(/Edg/)
@@ -63,8 +54,10 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
       ? "safari"
       : "unknown";
 
-    const _uuid = getUUID(useCookies);
-    if (settings.persistUuidOnLoad && useCookies) {
+    const _uuid = getUUID();
+
+    // If a uuid is provided, default persist to false, otherwise default to true
+    if (settings.uuidAutoPersist ?? !settings.uuid) {
       persistUUID();
     }
 
@@ -82,15 +75,6 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
     };
   }
 
-  function getAttributes() {
-    // Merge auto attributes and user-supplied attributes
-    const attributes = getAutoAttributes(settings);
-    if (settings.additionalAttributes) {
-      Object.assign(attributes, settings.additionalAttributes);
-    }
-    return attributes;
-  }
-
   return (gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient) => {
     // Only works for instances with user attributes
     if ("createScopedInstance" in gb) {
@@ -99,7 +83,7 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
 
     // Set initial attributes
     gb.setURL(location.href);
-    gb.updateAttributes(getAttributes());
+    gb.updateAttributes(getAutoAttributes(settings));
 
     // Poll for URL changes and update GrowthBook
     let currentUrl = location.href;
@@ -107,7 +91,7 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
       if (location.href !== currentUrl) {
         currentUrl = location.href;
         gb.setURL(currentUrl);
-        gb.updateAttributes(getAttributes());
+        gb.updateAttributes(getAutoAttributes(settings));
       }
     }, 500);
 
@@ -117,7 +101,7 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
         currentUrl = location.href;
         gb.setURL(currentUrl);
       }
-      gb.updateAttributes(getAttributes());
+      gb.updateAttributes(getAutoAttributes(settings));
     });
   };
 }

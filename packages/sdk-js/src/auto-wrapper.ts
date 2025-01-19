@@ -127,8 +127,14 @@ if (
   });
 }
 
+const uuid = dataContext.uuid || windowContext.uuid;
 const plugins: Plugin[] = [
-  autoAttributesPlugin({ ...windowContext, ...dataContext }),
+  autoAttributesPlugin({
+    uuid,
+    uuidCookieName: dataContext.uuidCookieName || windowContext.uuidCookieName,
+    uuidKey: dataContext.uuidKey || windowContext.uuidKey,
+    uuidAutoPersist: !uuid && !dataContext.noAutoCookies,
+  }),
 ];
 
 const tracking = dataContext.tracking || "gtag,gtm,segment";
