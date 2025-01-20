@@ -178,4 +178,67 @@ describe("growthbookTrackingPlugin", () => {
 
     gb.destroy();
   });
+
+  it("Picks up events logged to window.gbEvents", async () => {
+    // Events logged before the plugin
+    window.gbEvents = [];
+    window.gbEvents.push("test");
+    window.gbEvents.push({
+      eventName: "test2",
+      properties: { hello: "world" },
+    });
+
+    const plugin = growthbookTrackingPlugin();
+
+    const gb = new GrowthBook({
+      clientKey: "test",
+      plugins: [plugin],
+      url: "http://localhost:3000",
+      attributes: {
+        foo: "bar",
+      },
+    });
+
+    await sleep(150);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.length).toBe(2);
+    expect(body[0].event_name).toBe("test");
+    expect(body[1].event_name).toBe("test2");
+    expect(body[1].properties_json).toEqual({ hello: "world" });
+
+    // Picks up events after the plugin is initialized
+    window.gbEvents.push("test3");
+    await sleep(150);
+    const body2 = JSON.parse(fetchMock.mock.calls[1][1].body);
+    expect(body2.length).toBe(1);
+    expect(body2[0].event_name).toBe("test3");
+
+    // A new GrowthBook instance does not pick up the events that have already been fired
+    const gb2 = new GrowthBook({
+      clientKey: "test2",
+      plugins: [plugin],
+      url: "http://localhost:3000",
+      attributes: {
+        foo: "bar",
+      },
+    });
+
+    await sleep(150);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    // New events will now be routed to the new instance
+    // De-duped by plugin instance, so same event name should still be fired
+    window.gbEvents.push("test");
+    await sleep(150);
+
+    expect(fetchMock.mock.calls[2][0]).toBe(
+      "https://us1.gb-ingest.com/track?client_key=test2"
+    );
+    const body3 = JSON.parse(fetchMock.mock.calls[2][1].body);
+    expect(body3.length).toBe(1);
+    expect(body3[0].event_name).toBe("test");
+
+    gb.destroy();
+    gb2.destroy();
+  });
 });

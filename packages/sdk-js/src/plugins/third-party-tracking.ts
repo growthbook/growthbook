@@ -13,7 +13,7 @@ export function thirdPartyTrackingPlugin({
 }: {
   additionalCallback?: TrackingCallback;
   trackers?: Trackers[];
-}) {
+} = {}) {
   // Browser only
   if (typeof window === "undefined") {
     throw new Error("thirdPartyTrackingPlugin only works in the browser");

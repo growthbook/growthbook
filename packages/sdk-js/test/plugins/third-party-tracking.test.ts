@@ -3,13 +3,11 @@ import { thirdPartyTrackingPlugin } from "../../src/plugins/third-party-tracking
 
 declare global {
   interface Window {
-    // eslint-disable-next-line
-    dataLayer?: any[];
+    dataLayer?: unknown[];
     analytics?: {
       track?: (name: string, props?: Record<string, unknown>) => void;
     };
-    // eslint-disable-next-line
-    gtag?: (...args: any) => void;
+    gtag?: (...args: unknown[]) => void;
   }
 }
 
@@ -127,6 +125,30 @@ describe("thirdPartyTrackingPlugin", () => {
     });
 
     delete window.analytics;
+    gb.destroy();
+  });
+
+  it("Fails silently if trackers don't exist", () => {
+    delete window.dataLayer;
+
+    const plugin = thirdPartyTrackingPlugin();
+
+    const gb = new GrowthBook({
+      plugins: [plugin],
+      attributes: {
+        id: "123",
+      },
+    });
+
+    const exp: Experiment<boolean> = {
+      key: "my-experiment",
+      variations: [false, true],
+    };
+    gb.run(exp);
+
+    // Expect window.dataLayer to not have been created
+    expect(window.dataLayer).toBeUndefined();
+
     gb.destroy();
   });
 });
