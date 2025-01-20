@@ -40,13 +40,11 @@ declare global {
       | Array<(gb: GrowthBook) => void>
       | { push: (cb: (gb: GrowthBook) => void) => void };
     growthbook_config?: WindowContext;
-    // eslint-disable-next-line
-    dataLayer?: any[];
+    dataLayer?: unknown[];
     analytics?: {
       track?: (name: string, props?: Record<string, unknown>) => void;
     };
-    // eslint-disable-next-line
-    gtag?: (...args: any) => void;
+    gtag?: (...args: unknown[]) => void;
   }
 }
 

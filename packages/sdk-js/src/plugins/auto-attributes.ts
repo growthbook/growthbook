@@ -142,30 +142,34 @@ function getUtmAttributes() {
     if (existing) {
       utms = JSON.parse(existing);
     }
-
-    // Add utm params from querystring
-    if (location.search) {
-      const params = new URLSearchParams(location.search);
-      let hasChanges = false;
-      ["source", "medium", "campaign", "term", "content"].forEach((k) => {
-        // Querystring is in snake_case
-        const param = `utm_${k}`;
-        // Attribute keys are camelCase
-        const attr = `utm` + k[0].toUpperCase() + k.slice(1);
-
-        if (params.has(param)) {
-          utms[attr] = params.get(param) || "";
-          hasChanges = true;
-        }
-      });
-
-      // Write back to sessionStorage
-      if (hasChanges) {
-        sessionStorage.setItem("utm_params", JSON.stringify(utms));
-      }
-    }
   } catch (e) {
     // Do nothing if sessionStorage is disabled (e.g. incognito window)
+  }
+
+  // Add utm params from querystring
+  if (location.search) {
+    const params = new URLSearchParams(location.search);
+    let hasChanges = false;
+    ["source", "medium", "campaign", "term", "content"].forEach((k) => {
+      // Querystring is in snake_case
+      const param = `utm_${k}`;
+      // Attribute keys are camelCase
+      const attr = `utm` + k[0].toUpperCase() + k.slice(1);
+
+      if (params.has(param)) {
+        utms[attr] = params.get(param) || "";
+        hasChanges = true;
+      }
+    });
+
+    // Write back to sessionStorage
+    if (hasChanges) {
+      try {
+        sessionStorage.setItem("utm_params", JSON.stringify(utms));
+      } catch (e) {
+        // Do nothing if sessionStorage is disabled (e.g. incognito window)
+      }
+    }
   }
 
   return utms;

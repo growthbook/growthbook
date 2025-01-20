@@ -32,10 +32,14 @@ export const gbContext: Context = {
   clientKey: GB_SDK_ID,
   enableDevMode: true,
   trackingCallback: (experiment, result) => {
-    track("Experiment Viewed", {
-      experimentId: experiment.key,
-      variationId: result.variationId,
-    });
+    track(
+      "Experiment Viewed",
+      {
+        experimentId: experiment.key,
+        variationId: result.key,
+      },
+      true
+    );
   },
   stickyBucketService: new BrowserCookieStickyBucketService({
     jsCookie: Cookies,
