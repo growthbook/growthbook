@@ -441,7 +441,7 @@ export default function TabbedPage({
       </div>
 
       <div
-        className="bg-white mt-4 px-4 border-top"
+        className="bg-white mt-4 px-4 border-top pb-3"
         style={{ marginLeft: -8, marginRight: -8 }}
       >
         <div className="pt-2 pt-4 pb-5 container pagecontents">

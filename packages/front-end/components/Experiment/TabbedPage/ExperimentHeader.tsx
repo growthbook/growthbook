@@ -785,9 +785,9 @@ export default function ExperimentHeader({
           <div className="ml-2">
             <DropdownMenu
               trigger={
-                <button className="btn btn-link text-dark">
+                <div className="dropdown-circle ml-2">
                   <BsThreeDotsVertical size={18} />
-                </button>
+                </div>
               }
               open={dropdownOpen}
               onOpenChange={(o) => {
