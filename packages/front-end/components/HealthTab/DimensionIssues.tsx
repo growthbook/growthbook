@@ -6,6 +6,11 @@ import {
   ExposureQuery,
 } from "back-end/types/datasource";
 import { getSRMHealthData, SRMHealthStatus } from "shared/health";
+import {
+  DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
+  DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+  DEFAULT_SRM_THRESHOLD,
+} from "shared/constants";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import VariationUsersTable from "@/components/Experiment/TabbedPage/VariationUsersTable";
@@ -45,7 +50,8 @@ export function transformDimensionData(
     [dimension: string]: ExperimentSnapshotTrafficDimension[];
   },
   variations: ExperimentReportVariation[],
-  srmThreshold: number
+  srmThreshold: number,
+  isBandit: boolean
 ): DimensionWithIssues[] {
   return Object.entries(dimensionData).flatMap(
     ([dimensionName, dimensionSlices]) => {
@@ -62,9 +68,12 @@ export function transformDimensionData(
         return (
           getSRMHealthData({
             srm: item.srm,
-            numVariations: variations.length,
+            numOfVariations: variations.length,
             srmThreshold,
-            totalUsers: totalDimUsers,
+            totalUsersCount: totalDimUsers,
+            minUsersPerVariation: isBandit
+              ? DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION
+              : DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
           }) !== "healthy"
         );
       });
@@ -94,12 +103,13 @@ export const DimensionIssues = ({
   const [modalOpen, setModalOpen] = useState(false);
   const [setupModalOpen, setSetupModalOpen] = useState(false);
 
-  const srmThreshold = settings.srmThreshold ?? 0.01;
+  const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
   const availableDimensions = transformDimensionData(
     dimensionData,
     variations,
-    srmThreshold
+    srmThreshold,
+    !!isBandit
   ).sort((a, b) => b.issues.length - a.issues.length);
 
   const [selectedDimension, setSelectedDimension] = useState(
@@ -115,8 +125,11 @@ export const DimensionIssues = ({
       const health = getSRMHealthData({
         srm: d.srm,
         srmThreshold,
-        numVariations: variations.length,
-        totalUsers: totalDimUsers,
+        numOfVariations: variations.length,
+        totalUsersCount: totalDimUsers,
+        minUsersPerVariation: isBandit
+          ? DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION
+          : DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
       });
 
       return {
@@ -139,7 +152,13 @@ export const DimensionIssues = ({
     );
 
     return [dimensionSlicesWithIssues, dimensionSlicesWithHealth];
-  }, [dimensionData, selectedDimension, srmThreshold, variations]);
+  }, [
+    dimensionData,
+    selectedDimension,
+    srmThreshold,
+    variations.length,
+    isBandit,
+  ]);
 
   const areDimensionsAvailable = !!availableDimensions.length;
 
@@ -195,9 +214,7 @@ export const DimensionIssues = ({
                     helpText={`${numberFormatter.format(
                       d.totalUsers
                     )} total units`}
-                    status={
-                      d.health === "unhealthy" ? "Issues detected" : "healthy"
-                    }
+                    status={d.health}
                     key={d.name}
                   >
                     <div className="mt-4">

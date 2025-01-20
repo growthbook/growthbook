@@ -39,7 +39,7 @@ export default function TrafficCard({
 }: {
   traffic: ExperimentSnapshotTraffic;
   variations: ExperimentReportVariation[];
-  isBandit?: boolean;
+  isBandit: boolean;
 }) {
   const [cumulative, setCumulative] = useState(true);
   const { settings } = useUser();
@@ -51,7 +51,8 @@ export default function TrafficCard({
   const availableDimensions = transformDimensionData(
     traffic.dimension,
     variations,
-    srmThreshold
+    srmThreshold,
+    isBandit
   );
 
   const [selectedDimension, setSelectedDimension] = useState<string>("");

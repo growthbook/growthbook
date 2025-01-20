@@ -2736,10 +2736,8 @@ export async function updateExperimentAnalysisSummary({
   if (overallTraffic && totalUsers) {
     analysisSummary.health = {
       srm: overallTraffic.srm,
-      multipleExposures: {
-        usersWithMultipleExposures: experimentSnapshot.multipleExposures,
-        totalUsers,
-      },
+      multipleExposures: experimentSnapshot.multipleExposures,
+      totalUsers,
     };
   }
 

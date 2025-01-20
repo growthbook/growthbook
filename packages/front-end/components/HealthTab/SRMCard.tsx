@@ -2,7 +2,10 @@ import { ExperimentSnapshotTraffic } from "back-end/types/experiment-snapshot";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { useEffect, useLayoutEffect, useMemo } from "react";
 import { getSRMHealthData } from "shared/health";
-import { DEFAULT_SRM_THRESHOLD } from "shared/constants";
+import {
+  DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+  DEFAULT_SRM_THRESHOLD,
+} from "shared/constants";
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
@@ -28,6 +31,7 @@ interface Props {
 
 export const EXPERIMENT_DIMENSION_PREFIX = "dim_exp_";
 
+// NB: If this is for a Bandit experiment, we should use BanditSRMCard
 export default function SRMCard({
   traffic,
   variations,
@@ -47,10 +51,11 @@ export default function SRMCard({
       getSRMHealthData({
         srm: traffic.overall.srm,
         srmThreshold,
-        numVariations: variations.length,
-        totalUsers,
+        numOfVariations: variations.length,
+        totalUsersCount: totalUsers,
+        minUsersPerVariation: DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
       }),
-    [traffic.overall.srm, srmThreshold, variations, totalUsers]
+    [traffic.overall.srm, srmThreshold, variations.length, totalUsers]
   );
 
   function onResize() {
@@ -69,7 +74,6 @@ export default function SRMCard({
 
   useEffect(() => {
     if (srmHealth === "unhealthy") {
-      console.log("unhealthy");
       onNotify({ label: "Experiment Balance", value: "balanceCheck" });
     }
   }, [traffic, srmHealth, onNotify]);
@@ -102,16 +106,7 @@ export default function SRMCard({
             }}
           >
             <h2 className="d-inline">Experiment Balance Check</h2>{" "}
-            {/* <p className="d-inline text-muted">{helpText}</p> */}
-            {srmHealth !== "healthy" && (
-              <StatusBadge
-                status={
-                  srmHealth === "unhealthy"
-                    ? "Issues detected"
-                    : "Not enough traffic"
-                }
-              />
-            )}
+            {srmHealth !== "healthy" && <StatusBadge status={srmHealth} />}
             <p className="mt-1">
               Shows actual unit split compared to percent selected for the
               experiment

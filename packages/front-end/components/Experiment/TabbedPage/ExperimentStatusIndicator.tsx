@@ -1,13 +1,21 @@
 import { Tooltip } from "@radix-ui/themes";
-import { getMultipleExposureHealthData } from "shared/health";
+import {
+  DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_COUNT,
+  DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
+  DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+  DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
+  DEFAULT_SRM_THRESHOLD,
+} from "shared/constants";
+import { getMultipleExposureHealthData, getSRMHealthData } from "shared/health";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Badge from "@/components/Radix/Badge";
+import useOrgSettings from "@/hooks/useOrgSettings";
 
 type LabelFormat = "full" | "status-only" | "detail-only";
 
 type ExperimentData = Pick<
   ExperimentInterfaceStringDates,
-  "status" | "archived" | "results" | "analysisSummary"
+  "type" | "variations" | "status" | "archived" | "results" | "analysisSummary"
 >;
 
 /**
@@ -30,13 +38,21 @@ export default function ExperimentStatusIndicator({
   labelFormat?: LabelFormat;
   skipArchived?: boolean;
 }) {
+  const settings = useOrgSettings();
+  const healthSettings = {
+    srmThreshold: settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD,
+    multipleExposureMinPercent:
+      settings.multipleExposureMinPercent ??
+      DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
+  };
+
   const [
     color,
     variant,
     status,
     detailedStatus,
     tooltip,
-  ] = getStatusIndicatorData(experimentData, skipArchived);
+  ] = getStatusIndicatorData(experimentData, skipArchived, healthSettings);
 
   const label = getFormattedLabel(labelFormat, status, detailedStatus);
 
@@ -49,7 +65,11 @@ export default function ExperimentStatusIndicator({
 
 function getStatusIndicatorData(
   experimentData: ExperimentData,
-  skipArchived: boolean
+  skipArchived: boolean,
+  healthSettings: {
+    srmThreshold: number;
+    multipleExposureMinPercent: number;
+  }
 ): [
   React.ComponentProps<typeof Badge>["color"],
   React.ComponentProps<typeof Badge>["variant"],
@@ -65,31 +85,43 @@ function getStatusIndicatorData(
     return ["indigo", "soft", "Draft"];
   }
 
-  const experimentSRM = experimentData.analysisSummary?.health?.srm;
-  if (experimentSRM) {
-    // FIXME: Use SRM health check
-    const srmHealthData = experimentSRM < 0.001 ? "unhealthy" : "healthy";
+  const unhealthyStatuses: string[] = [];
+  const healthSummary = experimentData.analysisSummary?.health;
+  if (healthSummary) {
+    const srmHealthData = getSRMHealthData({
+      srm: healthSummary.srm,
+      srmThreshold: healthSettings.srmThreshold,
+      totalUsersCount: healthSummary.totalUsers,
+      numOfVariations: experimentData.variations.length,
+      minUsersPerVariation:
+        experimentData.type === "multi-armed-bandit"
+          ? DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION
+          : DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+    });
+
     if (srmHealthData === "unhealthy") {
-      return ["amber", "solid", "Unhealthy", undefined, "SRM"];
+      unhealthyStatuses.push("SRM");
+    }
+
+    const multipleExposuresHealthData = getMultipleExposureHealthData({
+      multipleExposuresCount: healthSummary.multipleExposures,
+      totalUsersCount: healthSummary.totalUsers,
+      minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_COUNT,
+      minPercentThreshold: healthSettings.multipleExposureMinPercent,
+    });
+
+    if (multipleExposuresHealthData.status === "unhealthy") {
+      unhealthyStatuses.push("Multiple exposures");
     }
   }
 
-  const multipleExposuresHealthData = getMultipleExposureHealthData({
-    multipleExposureCount:
-      experimentData.analysisSummary?.health?.multipleExposures
-        ?.usersWithMultipleExposures || 0,
-    totalUnitCount:
-      experimentData.analysisSummary?.health?.multipleExposures?.totalUsers ||
-      0,
-  });
-
-  if (multipleExposuresHealthData.status === "unhealthy") {
+  if (unhealthyStatuses.length > 0) {
     return [
       "amber",
       "solid",
       "Unhealthy",
       undefined,
-      "Multiple exposures detected",
+      unhealthyStatuses.join(", "),
     ];
   }
 
@@ -98,7 +130,6 @@ function getStatusIndicatorData(
 
     // TODO: Add detail statuses
     // return ["indigo", "solid", "Running", "~5 days left"];
-    // return ["amber", "solid", "Running", "Unhealthy"];
     // return ["amber", "soft", "Running", "Rollback now"];
     // return ["amber", "soft", "Running", "Ship now"];
     // return ["amber", "soft", "Running", "Discuss results"];

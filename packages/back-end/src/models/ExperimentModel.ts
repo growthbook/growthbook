@@ -257,11 +257,8 @@ const experimentSchema = new mongoose.Schema({
     health: {
       _id: false,
       srm: Number,
-      multipleExposures: {
-        _id: false,
-        usersWithMultipleExposures: Number,
-        totalUsers: Number,
-      },
+      multipleExposures: Number,
+      totalUsers: Number,
     },
   },
 });

@@ -1,4 +1,9 @@
+import {
+  DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
+  DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_COUNT,
+} from "shared/constants";
 import { getMultipleExposureHealthData } from "shared/health";
+import useOrgSettings from "@/hooks/useOrgSettings";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -13,12 +18,18 @@ export default function MultipleExposureWarning({
   multipleExposures: number;
   totalUsers: number;
 }) {
-  const healthData = getMultipleExposureHealthData({
-    multipleExposureCount: multipleExposures,
-    totalUnitCount: totalUsers,
+  const settings = useOrgSettings();
+
+  const multipleExposureHealth = getMultipleExposureHealthData({
+    multipleExposuresCount: multipleExposures,
+    totalUsersCount: totalUsers,
+    minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_COUNT,
+    minPercentThreshold:
+      settings?.multipleExposureMinPercent ??
+      DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
   });
 
-  if (healthData.status === "healthy") {
+  if (multipleExposureHealth.status !== "unhealthy") {
     return null;
   }
 
@@ -26,9 +37,9 @@ export default function MultipleExposureWarning({
     <div className="alert alert-warning">
       <strong>Multiple Exposures Warning</strong>.{" "}
       {numberFormatter.format(multipleExposures)} users (
-      {percentFormatter.format(healthData.rawPercent)}) saw multiple variations
-      and were automatically removed from results. Check for bugs in your
-      implementation, event tracking, or data pipeline.
+      {percentFormatter.format(multipleExposureHealth.rawDecimal)}) saw multiple
+      variations and were automatically removed from results. Check for bugs in
+      your implementation, event tracking, or data pipeline.
     </div>
   );
 }

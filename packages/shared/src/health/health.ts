@@ -1,56 +1,47 @@
-import {
-  DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_COUNT,
-  DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_PERCENT,
-  DEFAULT_SRM_MIN_COUNT_PER_VARIATION,
-} from "../constants";
-
 type MultipleExposureHealthStatus =
   | "not-enough-traffic"
   | "healthy"
   | "unhealthy";
 
+export type SRMHealthStatus = "not-enough-traffic" | "healthy" | "unhealthy";
+
 type MultipleExposureHealthData = {
   status: MultipleExposureHealthStatus;
-  rawPercent: number;
+  rawDecimal: number;
 };
 
 /**
  * Returns the health status for Multiple Exposures in an experiment
  *
- * @param multipleExposureCount - Number of units exposed to multiple variations
- * @param totalUnitCount - Total number of units exposed to any variation
+ * @param multipleExposuresCount - Number of users exposed to multiple variations
+ * @param totalUsersCount - Total number of users exposed to any variation
  * @param minCountThreshold - Minimum number of multiple exposures required to be considered significant
  * @param minPercentThreshold - Minimum percentage of multiple exposures required to be considered unhealthy
  */
 export const getMultipleExposureHealthData = ({
-  multipleExposureCount,
-  totalUnitCount,
+  multipleExposuresCount,
+  totalUsersCount,
   minCountThreshold,
   minPercentThreshold,
 }: {
-  multipleExposureCount: number;
-  totalUnitCount: number;
-  minCountThreshold?: number;
-  minPercentThreshold?: number;
+  multipleExposuresCount: number;
+  totalUsersCount: number;
+  minCountThreshold: number;
+  minPercentThreshold: number;
 }): MultipleExposureHealthData => {
-  const multipleExposurePercent = multipleExposureCount / totalUnitCount;
+  const multipleExposureDecimal = multipleExposuresCount / totalUsersCount;
 
-  const hasEnoughData =
-    multipleExposureCount >=
-    (minCountThreshold || DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_COUNT);
+  const hasEnoughData = multipleExposuresCount >= minCountThreshold;
 
-  const isUnhealthy =
-    multipleExposurePercent >=
-    (minPercentThreshold || DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_PERCENT);
+  const isUnhealthy = multipleExposureDecimal >= minPercentThreshold;
 
   const data = {
-    rawPercent: multipleExposurePercent,
+    rawDecimal: multipleExposureDecimal,
   };
 
   if (!hasEnoughData) {
-    // TODO: The previous logic from MultipleExposuresCard returned "healthy" but maybe we should return "not-enough-traffic" ?
     return {
-      status: "healthy",
+      status: "not-enough-traffic",
       ...data,
     };
   } else if (isUnhealthy) {
@@ -66,23 +57,32 @@ export const getMultipleExposureHealthData = ({
   }
 };
 
-export type SRMHealthStatus = "not-enough-traffic" | "healthy" | "unhealthy";
-
+/**
+ * Returns the health status for Sample Ratio Mismatch (SRM) in an experiment
+ *
+ * @param srm - The SRM p-value calculated for the experiment
+ * @param numOfVariations - Number of variations in the experiment
+ * @param totalUsersCount - Total number of users across all variations
+ * @param srmThreshold - P-value threshold below which SRM is considered unhealthy
+ * @param minUsersPerVariation - Minimum number of users required per variation
+ * @returns SRMHealthStatus - The health status: 'healthy', 'unhealthy', or 'not-enough-traffic'
+ */
 export const getSRMHealthData = ({
   srm,
-  numVariations,
+  numOfVariations,
+  totalUsersCount,
   srmThreshold,
-  totalUsers,
+  minUsersPerVariation,
 }: {
   srm: number;
-  numVariations: number;
+  numOfVariations: number;
+  totalUsersCount: number;
   srmThreshold: number;
-  totalUsers: number;
+  minUsersPerVariation: number;
 }): SRMHealthStatus => {
-  // TODO: Add Bandit check and use DEFAULT_BANDIT_SRM_MIN_COUNT_PER_VARIATION
-  const totalMinCount = DEFAULT_SRM_MIN_COUNT_PER_VARIATION * numVariations;
+  const minUsersCount = numOfVariations * minUsersPerVariation;
 
-  if (totalUsers < totalMinCount) {
+  if (totalUsersCount < minUsersCount) {
     return "not-enough-traffic";
   } else if (srm < srmThreshold) {
     return "unhealthy";

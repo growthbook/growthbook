@@ -1,6 +1,9 @@
 import { useEffect, useMemo } from "react";
 import { getMultipleExposureHealthData } from "shared/health";
-import { DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_PERCENT } from "shared/constants";
+import {
+  DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_COUNT,
+  DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
+} from "shared/constants";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { StatusBadge } from "./StatusBadge";
@@ -23,16 +26,17 @@ export default function MultipleExposuresCard({ totalUsers, onNotify }: Props) {
 
   const minPercentThreshold =
     settings?.multipleExposureMinPercent ??
-    DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_PERCENT;
+    DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD;
 
   const health = useMemo(
     () =>
       getMultipleExposureHealthData({
-        multipleExposureCount: snapshot?.multipleExposures ?? 0,
-        totalUnitCount: totalUsers,
+        multipleExposuresCount: snapshot?.multipleExposures ?? 0,
+        totalUsersCount: totalUsers,
+        minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_COUNT,
         minPercentThreshold,
       }),
-    [snapshot, totalUsers, minPercentThreshold]
+    [snapshot?.multipleExposures, totalUsers, minPercentThreshold]
   );
 
   useEffect(() => {
@@ -41,14 +45,16 @@ export default function MultipleExposuresCard({ totalUsers, onNotify }: Props) {
     }
   }, [snapshot, health, onNotify]);
 
-  if (!snapshot) return null;
+  if (!snapshot || health.status === "not-enough-traffic") {
+    return null;
+  }
 
   const { multipleExposures } = snapshot;
 
   return (
     <div className="appbox p-3">
       <h2 className="d-inline">Multiple Exposures Check</h2>{" "}
-      {health.status !== "healthy" && <StatusBadge status="Issues detected" />}
+      {health.status !== "healthy" && <StatusBadge status={health.status} />}
       <p className="mt-1">
         Detects whether units have been exposed to multiple variations
       </p>
@@ -71,7 +77,7 @@ export default function MultipleExposuresCard({ totalUsers, onNotify }: Props) {
             <div className="alert alert-warning mb-0">
               <strong>Multiple Exposures Warning</strong>.{" "}
               {numberFormatter.format(multipleExposures)} users (
-              {percentFormatter.format(health.rawPercent)}) saw multiple
+              {percentFormatter.format(health.rawDecimal)}) saw multiple
               variations and were automatically removed from results. Check for
               bugs in your implementation, event tracking, or data pipeline.
             </div>

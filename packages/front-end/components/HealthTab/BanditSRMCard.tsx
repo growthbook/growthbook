@@ -1,10 +1,14 @@
 import { BanditEvent } from "back-end/src/validators/experiments";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
 } from "back-end/types/experiment";
 import { getSRMHealthData } from "shared/health";
+import {
+  DEFAULT_SRM_THRESHOLD,
+  DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
+} from "shared/constants";
 import { useUser } from "@/services/UserContext";
 import BanditSRMGraph from "@/components/HealthTab/BanditSRMGraph";
 import ButtonSelectField from "@/components/Forms/ButtonSelectField";
@@ -22,7 +26,7 @@ interface Props {
 export default function BanditSRMCard({ experiment, phase, onNotify }: Props) {
   const { settings } = useUser();
 
-  const srmThreshold = settings.srmThreshold ?? 0.01;
+  const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
   const banditEvents: BanditEvent[] = phase?.banditEvents ?? [];
   const currentEvent = banditEvents?.[banditEvents.length - 1];
@@ -35,12 +39,17 @@ export default function BanditSRMCard({ experiment, phase, onNotify }: Props) {
 
   const [chartMode, setChartMode] = useState<"weights" | "users">("users");
 
-  const overallHealth = getSRMHealthData({
-    srm: srm ?? Infinity, // TODO: Should the default be Infinity in case of missing data?
-    srmThreshold,
-    numVariations: experiment.variations.length,
-    totalUsers,
-  });
+  const overallHealth = useMemo(
+    () =>
+      getSRMHealthData({
+        srm: srm ?? Infinity,
+        srmThreshold,
+        numOfVariations: experiment.variations.length,
+        totalUsersCount: totalUsers,
+        minUsersPerVariation: DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
+      }),
+    [srm, srmThreshold, experiment.variations.length, totalUsers]
+  );
 
   useEffect(() => {
     if (overallHealth === "unhealthy") {
@@ -62,13 +71,7 @@ export default function BanditSRMCard({ experiment, phase, onNotify }: Props) {
         <div className="col-12">
           <h2 className="d-inline">Experiment Balance Check</h2>{" "}
           {overallHealth !== "healthy" && (
-            <StatusBadge
-              status={
-                overallHealth === "not-enough-traffic"
-                  ? "Not enough traffic"
-                  : "Issues detected"
-              }
-            />
+            <StatusBadge status={overallHealth} />
           )}
           <p className="mt-1">
             Shows actual unit split compared to percent selected for the
@@ -107,7 +110,7 @@ export default function BanditSRMCard({ experiment, phase, onNotify }: Props) {
                   {srm !== undefined ? pValueFormatter(srm, 4) : <em>n/a</em>}
                 </div>
                 <SRMWarning
-                  srm={srm !== undefined ? srm : Infinity}
+                  srm={srm ?? Infinity}
                   users={users}
                   showWhenHealthy
                   isBandit={true}
