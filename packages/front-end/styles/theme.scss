@@ -153,8 +153,8 @@
 
   --form-input-group-background: #{colors.$gray-800};
   --form-input-group-color: #{colors.$gray6};
-  --form-multivalue-background-color: #{colors.$highlight-purple-light};
-  --form-multivalue-text-color: #{colors.$black};
+  --form-multivalue-background-color: #{darken(colors.$highlight-purple, 30%)};
+  --form-multivalue-text-color: #{colors.$gray4};
   --form-switch-background: #{colors.$gray-800};
   --form-switch-background-active: #{colors.$highlight-purple};
 

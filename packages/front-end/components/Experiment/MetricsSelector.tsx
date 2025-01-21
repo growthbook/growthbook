@@ -199,6 +199,7 @@ const MetricsSelector: FC<{
 
   const selector = !forceSingleMetric ? (
     <MultiSelectField
+      style={{ color: "red" }}
       value={selected}
       onChange={onChange}
       options={filteredOptions.map((m) => {
