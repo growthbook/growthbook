@@ -39,6 +39,8 @@ import { useExperiments } from "@/hooks/useExperiments";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { EXPOSURE_DATE_DIMENSION_NAME } from "shared/constants";
 import RadioGroup from "@/components/Radix/RadioGroup";
+import { FaUnlock } from "react-icons/fa";
+import { BsArrowRepeat } from "react-icons/bs";
 
 export type Props = {
   close?: () => void;
@@ -499,6 +501,7 @@ const PopulationDataQueryInput = ({
 
   const [populationDataId, setPopulationDataId] = useState<string | null>(null);
   const [data, setData] = useState<PopulationDataInterface | null>(null);
+  const [metricsEditable, setMetricsEditable] = useState<boolean>(false);
   const metrics = form.getValues("metrics");
   const metricIds = Object.keys(metrics);
 
@@ -684,7 +687,46 @@ const PopulationDataQueryInput = ({
         <>
           <div className="ml-2 mt-4">
             <div className="mb-2">
-              Greyed out values below pre-filled from query results.
+              Metric values below pre-filled from query results.
+              {metricsEditable ? ( <Tooltip
+                            body="Reset to query values"
+                            usePortal={true}
+                            tipPosition="top"
+                          >
+                            <a
+                              role="button"
+                              className="ml-1 mb-0"
+                              onClick={() => {
+                                setMetricsEditable(false);
+                                // TODO reset values
+                              }}
+                            >
+                              <BsArrowRepeat
+                                className="text-purple"
+                                size={15}
+                              />
+                            </a>
+                          </Tooltip>) : ( <Tooltip
+                            body="Customize values"
+                            usePortal={true}
+                            tipPosition="top"
+                          >
+                            <a
+                              role="button"
+                              className="ml-1 mb-0"
+                              onClick={() => {
+                                setMetricsEditable(true);
+                              }}
+                            >
+                              <FaUnlock
+                                className="text-purple"
+                                size={15}
+                              />
+                            </a>
+                          </Tooltip>
+
+              )}
+             
             </div>
             <Field
               label={
@@ -703,7 +745,7 @@ const PopulationDataQueryInput = ({
               {...form.register("usersPerWeek", {
                 valueAsNumber: true,
               })}
-              disabled={true}
+              disabled={!metricsEditable}
             />
           </div>
           <div className="ml-2">
@@ -713,7 +755,7 @@ const PopulationDataQueryInput = ({
                 metricId={metricId}
                 engineType={engineType}
                 form={form}
-                disableValue={true}
+                disableValue={!metricsEditable}
               />
             ))}
           </div>
