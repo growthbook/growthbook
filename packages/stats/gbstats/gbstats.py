@@ -20,6 +20,14 @@ from gbstats.bayesian.bandits import (
     BanditConfig,
     get_error_bandit_result,
 )
+
+from gbstats.power.midexperimentpower import (
+    MidExperimentPower,
+    MidExperimentPowerConfig,
+)
+
+from gbstats.models.tests import BaseConfig
+
 from gbstats.frequentist.tests import (
     FrequentistConfig,
     FrequentistTestResult,
@@ -38,6 +46,7 @@ from gbstats.models.results import (
     MultipleExperimentMetricAnalysis,
     BanditResult,
     SingleVariationResult,
+    PowerResponse,
 )
 from gbstats.models.settings import (
     AnalysisSettingsForStatsEngine,
@@ -122,7 +131,7 @@ def get_metric_df(
     rows: pd.DataFrame,
     var_id_map: VarIdMap,
     var_names: List[str],
-):
+) -> pd.DataFrame:
     dfc = rows.copy()
     dimensions = {}
     # Each row in the raw SQL result is a dimension/variation combo
@@ -244,6 +253,15 @@ def get_configured_test(
         )
 
 
+def decision_making_conditions(metric, analysis):
+    return (
+        metric.business_metric_type
+        and "goal" in metric.business_metric_type
+        and analysis.difference_type == "relative"
+        and analysis.dimension == ""
+    )
+
+
 # Run A/B test analysis for each variation and dimension
 def analyze_metric_df(
     df: pd.DataFrame,
@@ -271,18 +289,71 @@ def analyze_metric_df(
             df[f"v{i}_prob_beat_baseline"] = None
             df[f"v{i}_uplift"] = None
             df[f"v{i}_error_message"] = None
+            df[f"v{i}_decision_making_conditions"] = False
+            df[f"v{i}_first_period_pairwise_users"] = None
+            df[f"v{i}_min_effect_size"] = None
+            df[f"v{i}_sigmahat_2_delta"] = None
+            df[f"v{i}_sigma_2_posterior"] = None
+            df[f"v{i}_delta_posterior"] = None
+            df[f"v{i}_power_additional_users"] = None
+            df[f"v{i}_power_scaling_factor"] = None
+            df[f"v{i}_power_update_message"] = None
+            df[f"v{i}_power_error_message"] = ""
+            df[f"v{i}_power_upper_bound_acheieved"] = None
 
     def analyze_row(s: pd.Series) -> pd.Series:
         s = s.copy()
-
         # Loop through each non-baseline variation and run an analysis
         for i in range(1, num_variations):
-
             # Run analysis of baseline vs variation
             test = get_configured_test(
                 row=s, test_index=i, analysis=analysis, metric=metric
             )
             res = test.compute_result()
+            if decision_making_conditions(metric, analysis):
+                s[f"v{i}_decision_making_conditions"] = True
+                config = BaseConfig(
+                    difference_type=analysis.difference_type,
+                    traffic_percentage=analysis.traffic_percentage,
+                    phase_length_days=analysis.phase_length_days,
+                    total_users=s["total_users"],
+                    alpha=analysis.alpha,
+                )
+                power_config = MidExperimentPowerConfig(
+                    m_prime=2 * metric.min_percent_change,
+                    v_prime=None,
+                    sequential=analysis.sequential_testing_enabled,
+                    sequential_tuning_parameter=analysis.sequential_tuning_parameter,
+                    num_variations=num_variations,
+                    num_goal_metrics=analysis.num_goal_metrics,
+                )
+                mid_experiment_power = MidExperimentPower(
+                    test.stat_a, test.stat_b, res, config, power_config
+                )
+
+                s[
+                    f"v{i}_first_period_pairwise_users"
+                ] = mid_experiment_power.pairwise_sample_size
+                s[f"v{i}_min_percent_change"] = metric.min_percent_change
+                s[f"v{i}_sigmahat_2_delta"] = mid_experiment_power.sigmahat_2_delta
+                s[f"v{i}_sigma_2_posterior"] = mid_experiment_power.sigma_2_posterior
+                s[f"v{i}_delta_posterior"] = mid_experiment_power.delta_posterior
+                mid_experiment_power_result = (
+                    mid_experiment_power.calculate_sample_size()
+                )
+                s[
+                    f"v{i}_power_additional_users"
+                ] = mid_experiment_power_result.additional_users
+                s[
+                    f"v{i}_power_scaling_factor"
+                ] = mid_experiment_power_result.scaling_factor
+                s[
+                    f"v{i}_power_update_message"
+                ] = mid_experiment_power_result.update_message
+                s[f"v{i}_power_error_message"] = mid_experiment_power_result.error
+                s[
+                    f"v{i}_power_upper_bound_achieved"
+                ] = mid_experiment_power_result.upper_bound_achieved
             s["baseline_cr"] = test.stat_a.unadjusted_mean
             s["baseline_mean"] = test.stat_a.unadjusted_mean
             s["baseline_stddev"] = test.stat_a.stddev
@@ -375,6 +446,22 @@ def format_variation_result(
         return BaselineResponse(**metricResult)
     else:
         # non-baseline variation
+        if row[f"{prefix}_decision_making_conditions"]:
+            power_response = PowerResponse(
+                firstPeriodPairwiseSampleSize=row[
+                    f"{prefix}_first_period_pairwise_users"
+                ],
+                minPercentChange=row[f"{prefix}_min_percent_change"],
+                sigmahat2Delta=row[f"{prefix}_sigmahat_2_delta"],
+                sigma2Posterior=row[f"{prefix}_sigma_2_posterior"],
+                deltaPosterior=row[f"{prefix}_delta_posterior"],
+                scalingFactor=row[f"{prefix}_power_scaling_factor"],
+                powerUpdateMessage=row[f"{prefix}_power_update_message"],
+                powerError=row[f"{prefix}_power_error_message"],
+                upperBoundAchieved=row[f"{prefix}_power_upper_bound_achieved"],
+            )
+        else:
+            power_response = None
         frequentist = row[f"{prefix}_p_value"] is not None
         testResult = {
             "expected": row[f"{prefix}_expected"],
@@ -386,12 +473,14 @@ def format_variation_result(
             return FrequentistVariationResponse(
                 **metricResult,
                 **testResult,
+                power=power_response,
                 pValue=row[f"{prefix}_p_value"],
             )
         else:
             return BayesianVariationResponse(
                 **metricResult,
                 **testResult,
+                power=power_response,
                 chanceToWin=row[f"{prefix}_prob_beat_baseline"],
                 risk=row[f"{prefix}_risk"],
                 riskType=row[f"{prefix}_risk_type"],
@@ -505,7 +594,6 @@ def process_analysis(
 
     # Convert raw SQL result into a dataframe of dimensions
     df = get_metric_df(rows=rows, var_id_map=var_id_map, var_names=var_names)
-
     # Limit to the top X dimensions with the most users
     # not possible to just re-sum for quantile metrics,
     # so we throw away "other" dimension
@@ -558,7 +646,6 @@ def process_single_metric(
     # Detect any variations that are not in the returned metric rows
     all_var_ids: Set[str] = set([v for a in analyses for v in a.var_ids])
     unknown_var_ids = detect_unknown_variations(rows=pdrows, var_ids=all_var_ids)
-
     results = [
         format_results(
             process_analysis(
@@ -594,7 +681,6 @@ def create_bandit_statistics(
     for i in range(0, num_variations):
         prefix = f"v{i}" if i > 0 else "baseline"
         stat = variation_statistic_from_metric_row(row=s, prefix=prefix, metric=metric)
-
         # recast proportion metrics in case they slipped through
         # for bandits we weight by period; iid data over periods no longer holds
         if isinstance(stat, ProportionStatistic):
@@ -765,10 +851,11 @@ def process_experiment_results(
     for query_result in d.query_results:
         for i, metric in enumerate(query_result.metrics):
             if metric in d.metrics:
+                this_metric = d.metrics[metric]
                 rows = filter_query_rows(query_result.rows, i)
                 if len(rows):
                     if d.bandit_settings:
-                        metric_settings_bandit = copy.deepcopy(d.metrics[metric])
+                        metric_settings_bandit = copy.deepcopy(this_metric)
                         # when using multi-period data, binomial is no longer iid and variance is wrong
                         if metric_settings_bandit.main_metric_type == "binomial":
                             metric_settings_bandit.main_metric_type = "count"
@@ -794,13 +881,14 @@ def process_experiment_results(
                             )
                         )
                     else:
-                        results.append(
-                            process_single_metric(
-                                rows=rows,
-                                metric=d.metrics[metric],
-                                analyses=d.analyses,
-                            )
+                        result = process_single_metric(
+                            rows=rows,
+                            metric=this_metric,
+                            analyses=d.analyses,
                         )
+                        results.append(result)
+                        # need the result specific to relative inference
+
     if d.bandit_settings and bandit_result is None:
         bandit_result = get_error_bandit_result(
             single_variation_results=None,

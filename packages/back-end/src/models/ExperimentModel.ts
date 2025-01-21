@@ -259,6 +259,12 @@ const experimentSchema = new mongoose.Schema({
       srm: Number,
       multipleExposures: Number,
       totalUsers: Number,
+      power: {
+        _id: false,
+        lowPowerWarning: Boolean,
+        errorMessage: String,
+        additionalDaysNeeded: Number,
+      },
     },
   },
 });

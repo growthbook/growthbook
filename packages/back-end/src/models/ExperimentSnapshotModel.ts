@@ -7,8 +7,11 @@ import {
   LegacyExperimentSnapshotInterface,
 } from "back-end/types/experiment-snapshot";
 import { migrateSnapshot } from "back-end/src/util/migrations";
+import {
+  updateExperimentAnalysisSummary,
+  updateExperimentAnalysisSummary,
+} from "back-end/src/services/experiments";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
-import { updateExperimentAnalysisSummary } from "back-end/src/services/experiments";
 import { queriesSchema } from "./QueryModel";
 import { Context } from "./BaseModel";
 import { getExperimentById } from "./ExperimentModel";
@@ -124,6 +127,27 @@ const experimentSnapshotSchema = new mongoose.Schema({
         of: [experimentSnapshotTrafficObject],
       },
       error: String,
+    },
+    power: {
+      _id: false,
+      type: { type: String },
+      power: Number,
+      additionalUsers: Number,
+      additionalDays: Number,
+      lowPowerWarning: Boolean,
+      metricVariationPowerResults: [
+        {
+          _id: false,
+          metricId: String,
+          variation: Number,
+          calculationSucceeded: Boolean,
+          errorMessage: String,
+          power: Number,
+          lowPowerWarning: Boolean,
+          effectSize: Number,
+          additionalDays: Number,
+        },
+      ],
     },
   },
   hasRawQueries: Boolean,

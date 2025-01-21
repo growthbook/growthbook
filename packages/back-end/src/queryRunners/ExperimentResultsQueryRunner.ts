@@ -1,4 +1,5 @@
 import { orgHasPremiumFeature } from "enterprise";
+import { addDays, differenceInDays } from "date-fns";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
@@ -24,6 +25,7 @@ import {
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { parseDimensionId } from "back-end/src/services/experiments";
 import {
+  analyzeExperimentPower,
   analyzeExperimentResults,
   analyzeExperimentTraffic,
 } from "back-end/src/services/stats";
@@ -468,6 +470,48 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       result.health = {
         traffic: trafficHealth,
       };
+
+      const relativeAnalysis = this.model.analyses.find(
+        (a) => a.settings.differenceType === "relative"
+      );
+
+      if (relativeAnalysis) {
+        // FIXME: We should use DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS and DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS
+        const today = new Date();
+        const experimentStartDate = this.model.settings.startDate;
+        const experimentMinLengthDays =
+          this.context.org.settings?.experimentMinLengthDays ?? 7;
+        const experimentMaxLengthDays =
+          this.context.org.settings?.experimentMaxLengthDays ?? 42;
+
+        const experimentDaysRunning = differenceInDays(
+          today,
+          experimentStartDate
+        );
+
+        const shouldRunPowerAnalysis =
+          experimentDaysRunning > experimentMinLengthDays;
+
+        if (shouldRunPowerAnalysis) {
+          const experimentTargetEndDate = addDays(
+            experimentStartDate,
+            experimentMaxLengthDays
+          );
+          const targetDaysRemaining = differenceInDays(
+            experimentTargetEndDate,
+            today
+          );
+
+          // NB: This does not run a SQL query, but it is a health check that depends on the trafficHealth
+          result.health.power = analyzeExperimentPower({
+            trafficHealth,
+            targetDaysRemaining,
+            analysis: relativeAnalysis,
+            goalMetrics: this.model.settings.goalMetrics,
+            variations: this.model.settings.variations,
+          });
+        }
+      }
     }
 
     return result;

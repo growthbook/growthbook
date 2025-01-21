@@ -166,6 +166,13 @@ export const experimentAnalysisSummary = z
         srm: z.number(),
         multipleExposures: z.number(),
         totalUsers: z.number(),
+        power: z
+          .object({
+            errorMessage: z.string().optional(),
+            additionalDaysNeeded: z.number().optional(),
+            lowPowerWarning: z.boolean().optional(),
+          })
+          .optional(),
       })
       .optional(),
   })

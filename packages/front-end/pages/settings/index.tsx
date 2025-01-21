@@ -146,6 +146,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       banditBurnInValue: settings.banditBurnInValue ?? 1,
       banditBurnInUnit: settings.banditBurnInUnit ?? "days",
       requireExperimentTemplates: settings.requireExperimentTemplates ?? false,
+      experimentMinLengthDays: settings.experimentMinLengthDays ?? 7,
+      experimentMaxLengthDays: settings.experimentMaxLengthDays ?? 42,
     },
   });
   const { apiCall } = useAuth();

@@ -16,6 +16,11 @@ import {
   isRegressionAdjusted,
   quantileMetricType,
 } from "shared/experiments";
+import {
+  getAverageExposureOverLastNDays,
+  calculateMidExperimentPower,
+  MidExperimentPowerCalculationResult,
+} from "shared/power";
 import { hoursBetween } from "shared/dates";
 import chunk from "lodash/chunk";
 import {
@@ -40,6 +45,7 @@ import { logger } from "back-end/src/util/logger";
 import {
   ExperimentAnalysisParamsContextData,
   ExperimentMetricAnalysisParams,
+  ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,
   ExperimentSnapshotTraffic,
@@ -67,6 +73,7 @@ export interface AnalysisSettingsForStatsEngine {
   alpha: number;
   max_dimensions: number;
   traffic_percentage: number;
+  num_goal_metrics: number;
 }
 
 export interface BanditSettingsForStatsEngine {
@@ -82,6 +89,11 @@ export interface BanditSettingsForStatsEngine {
   decision_metric: string;
   bandit_weights_seed: number;
 }
+
+export type BusinessMetricTypeForStatsEngine =
+  | "goal"
+  | "secondary"
+  | "guardrail";
 
 export interface MetricSettingsForStatsEngine {
   id: string;
@@ -101,6 +113,8 @@ export interface MetricSettingsForStatsEngine {
   prior_proper?: boolean;
   prior_mean?: number;
   prior_stddev?: number;
+  business_metric_type?: BusinessMetricTypeForStatsEngine[];
+  min_percent_change: number;
 }
 
 export interface QueryResultsForStatsEngine {
@@ -149,7 +163,7 @@ export function getAnalysisSettingsForStatsEngine(
   variations: ExperimentReportVariation[],
   coverage: number,
   phaseLengthDays: number
-) {
+): AnalysisSettingsForStatsEngine {
   const sortedVariations = putBaselineVariationFirst(
     variations,
     settings.baselineVariationIndex ?? 0
@@ -161,7 +175,7 @@ export function getAnalysisSettingsForStatsEngine(
   const pValueThresholdNumber =
     Number(settings.pValueThreshold) || DEFAULT_P_VALUE_THRESHOLD;
 
-  const analysisData: AnalysisSettingsForStatsEngine = {
+  const analysisData = {
     var_names: sortedVariations.map((v) => v.name),
     var_ids: sortedVariations.map((v) => v.id),
     weights: sortedVariations.map((v) => v.weight * coverage),
@@ -178,7 +192,9 @@ export function getAnalysisSettingsForStatsEngine(
         ? 9999
         : MAX_DIMENSIONS,
     traffic_percentage: coverage,
+    num_goal_metrics: settings.numGoalMetrics,
   };
+
   return analysisData;
 }
 
@@ -234,7 +250,6 @@ print(json.dumps({
 }, allow_nan=False))`,
     {}
   );
-
   try {
     const parsed: {
       results: MultipleExperimentMetricAnalysis[];
@@ -330,6 +345,21 @@ export async function runSnapshotAnalyses(
   return results.flat();
 }
 
+function getBusinessMetricTypeForStatsEngine(
+  metricId: string,
+  settings: ExperimentSnapshotSettings
+): BusinessMetricTypeForStatsEngine[] {
+  return [
+    settings.goalMetrics.includes(metricId) ? ("goal" as const) : null,
+    settings.secondaryMetrics.includes(metricId)
+      ? ("secondary" as const)
+      : null,
+    settings.guardrailMetrics.includes(metricId)
+      ? ("guardrail" as const)
+      : null,
+  ].filter((m) => m !== null);
+}
+
 export function getMetricSettingsForStatsEngine(
   metricDoc: ExperimentMetricInterface,
   metricMap: Map<string, ExperimentMetricInterface>,
@@ -393,6 +423,11 @@ export function getMetricSettingsForStatsEngine(
     prior_proper: metric.priorSettings.proper,
     prior_mean: metric.priorSettings.mean,
     prior_stddev: metric.priorSettings.stddev,
+    min_percent_change: metric.minPercentChange || 0.01,
+    business_metric_type: getBusinessMetricTypeForStatsEngine(
+      metric.id,
+      settings
+    ),
   };
 }
 
@@ -788,4 +823,54 @@ export function analyzeExperimentTraffic({
     }
   }
   return trafficResults;
+}
+
+// NB: Should only be called if the experiment has been running for > minExperimentLenghtInDays
+export function analyzeExperimentPower({
+  trafficHealth,
+  targetDaysRemaining,
+  analysis,
+  goalMetrics,
+  variations,
+}: {
+  trafficHealth: ExperimentSnapshotTraffic;
+  targetDaysRemaining: number;
+  analysis: ExperimentSnapshotAnalysis;
+  goalMetrics: string[];
+  variations: SnapshotSettingsVariation[];
+}): MidExperimentPowerCalculationResult | undefined {
+  const analysisVariations = analysis.results[0].variations;
+  const variationsPowerResponses = analysisVariations.map((variation) => ({
+    metrics: Object.fromEntries(
+      goalMetrics.map((metricId) => [
+        metricId,
+        variation.metrics[metricId]?.power,
+      ])
+    ),
+  }));
+
+  const daysToAverageOver = 7;
+  const newDailyUsers = getAverageExposureOverLastNDays(
+    trafficHealth,
+    daysToAverageOver
+  );
+
+  const firstPeriodSampleSize = trafficHealth.overall.variationUnits.reduce(
+    (acc, it) => acc + it,
+    0
+  );
+
+  return calculateMidExperimentPower({
+    sequentialTuningParameter:
+      analysis.settings.sequentialTestingTuningParameter ??
+      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    sequential: analysis.settings.sequentialTesting ?? false,
+    alpha: analysis.settings.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
+    daysRemaining: Math.max(targetDaysRemaining, 0),
+    firstPeriodSampleSize: firstPeriodSampleSize,
+    newDailyUsers: newDailyUsers,
+    numGoalMetrics: goalMetrics.length,
+    variationWeights: variations.map((it) => it.weight),
+    variations: variationsPowerResponses,
+  });
 }

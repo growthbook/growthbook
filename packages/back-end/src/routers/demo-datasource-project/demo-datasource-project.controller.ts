@@ -259,6 +259,10 @@ export const postDemoDatasourceProject = async (
         })
       : undefined;
 
+    const goalMetrics = metrics
+      .map((m) => m.id)
+      .concat(ratioMetric ? ratioMetric?.id : []);
+
     // Create experiment
     const experimentStartDate = new Date();
     experimentStartDate.setDate(experimentStartDate.getDate() - 30);
@@ -416,6 +420,7 @@ spacing and headings.`,
       dimensions: [],
       pValueThreshold:
         org.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
+      numGoalMetrics: goalMetrics.length,
     };
 
     const metricMap = await getMetricMap(context);

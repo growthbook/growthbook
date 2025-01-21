@@ -126,6 +126,19 @@ function getStatusIndicatorData(
   }
 
   if (experimentData.status == "running") {
+    if (experimentData.analysisSummary?.health?.power?.errorMessage) {
+      return [
+        "amber",
+        "solid",
+        "Unhealthy",
+        experimentData.analysisSummary.health.power.errorMessage,
+      ];
+    }
+
+    if (experimentData.analysisSummary?.health?.power?.lowPowerWarning) {
+      return ["amber", "solid", "Unhealthy", "Low powered"];
+    }
+
     return ["indigo", "solid", "Running"];
 
     // TODO: Add detail statuses

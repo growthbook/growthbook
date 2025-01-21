@@ -47,9 +47,15 @@ class BaselineResponse:
 
 @dataclass
 class PowerResponse:
-    effect_size: float
-    power: float
-    additional_days_needed: float
+    firstPeriodPairwiseSampleSize: float
+    minPercentChange: float
+    sigmahat2Delta: float
+    sigma2Posterior: float
+    deltaPosterior: float
+    powerUpdateMessage: str
+    powerError: Optional[str]
+    upperBoundAchieved: bool
+    scalingFactor: float
 
 
 @dataclass
@@ -58,6 +64,7 @@ class BaseVariationResponse(BaselineResponse):
     uplift: Uplift
     ci: Tuple[float, float]
     errorMessage: Optional[str]
+    power: Optional[PowerResponse]
 
 
 @dataclass

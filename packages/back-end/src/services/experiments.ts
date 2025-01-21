@@ -358,6 +358,7 @@ export function getDefaultExperimentAnalysisSettings(
     differenceType: "relative",
     pValueThreshold:
       organization.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
+    numGoalMetrics: experiment.goalMetrics.length,
   };
 }
 
@@ -2727,6 +2728,7 @@ export async function updateExperimentAnalysisSummary({
   };
 
   const overallTraffic = experimentSnapshot.health?.traffic?.overall;
+  const snapshotHealthPower = experimentSnapshot.health?.power;
 
   const totalUsers = overallTraffic?.variationUnits?.reduce(
     (acc, a) => acc + a,
@@ -2737,8 +2739,23 @@ export async function updateExperimentAnalysisSummary({
     analysisSummary.health = {
       srm: overallTraffic.srm,
       multipleExposures: experimentSnapshot.multipleExposures,
-      totalUsers,
+      totalUsers: totalUsers,
     };
+
+    if (snapshotHealthPower) {
+      if (snapshotHealthPower.type === "error") {
+        analysisSummary.health.power = {
+          errorMessage: snapshotHealthPower.metricVariationPowerResults.find(
+            (r) => r.errorMessage !== undefined
+          )?.errorMessage,
+        };
+      } else {
+        analysisSummary.health.power = {
+          additionalDaysNeeded: snapshotHealthPower.additionalDays,
+          lowPowerWarning: snapshotHealthPower.lowPowerWarning,
+        };
+      }
+    }
   }
 
   await updateExperiment({
