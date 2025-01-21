@@ -10,7 +10,11 @@ import { Container, Flex, Text } from "@radix-ui/themes";
 import RuleModal from "@/components/Features/RuleModal/index";
 import RuleList from "@/components/Features/RuleList";
 import track from "@/services/track";
-import { getRules, useEnvironmentState } from "@/services/features";
+import {
+  getRules,
+  isRuleDisabled,
+  useEnvironmentState,
+} from "@/services/features";
 import CopyRuleModal from "@/components/Features/CopyRuleModal";
 import Button from "@/components/Radix/Button";
 import {
@@ -77,9 +81,16 @@ export default function FeatureRules({
     );
   }, [experiments]);
 
+  let couldShowHideToggle = false;
   const rulesByEnv = Object.fromEntries(
     environments.map((e) => {
       const rules = getRules(feature, e.id);
+      const disabledRules = rules.filter((r) =>
+        isRuleDisabled(r, experimentsMap)
+      );
+      if (rules.length > 3 && disabledRules.length) {
+        couldShowHideToggle = true;
+      }
       return [e.id, rules];
     })
   );
@@ -113,6 +124,11 @@ export default function FeatureRules({
                 onClick={() => setCompareEnvModal({ sourceEnv: env })}
                 underline="none"
                 wrap="nowrap"
+                style={
+                  couldShowHideToggle
+                    ? { position: "relative", top: "-15px" }
+                    : {}
+                }
               >
                 Compare environments
               </Link>
@@ -165,6 +181,7 @@ export default function FeatureRules({
                     setVersion={setVersion}
                     locked={isLocked}
                     experimentsMap={experimentsMap}
+                    showDisabledToggle={couldShowHideToggle}
                   />
                 ) : (
                   <div className="p-3 bg-white border-bottom border-top">

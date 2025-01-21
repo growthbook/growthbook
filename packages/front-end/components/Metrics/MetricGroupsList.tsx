@@ -3,7 +3,6 @@ import { FaArchive, FaExclamationTriangle } from "react-icons/fa";
 import router from "next/router";
 import { date } from "shared/dates";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
-import { GBPremiumBadge } from "@/components/Icons";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -14,6 +13,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import ConfirmModal from "@/components/ConfirmModal";
 import { useUser } from "@/services/UserContext";
 import Button from "@/components/Radix/Button";
+import PremiumEmptyState from "@/components/PremiumEmptyState";
 
 const MetricGroupsList: FC = () => {
   const [openModal, setOpenModal] = useState(false);
@@ -52,21 +52,14 @@ const MetricGroupsList: FC = () => {
 
   if (!hasGroupsFeature) {
     return (
-      <div className="appbox p-5 text-center">
-        <h2>Streamline Metric Usage in Experiments</h2>
-        <p>
-          Create groups of metrics that can be ordered and added to experiments
-        </p>
-        <div className="alert alert-premium mt-3 p-3 p-4 text-center">
-          <GBPremiumBadge
-            className="text-premium"
-            shouldDisplay={true}
-            prependsText={true}
-          />
-          <span className="ml-2 text-premium font-weight-bold">
-            Metric groups are a premium part of our Enterprise plan
-          </span>
-        </div>
+      <div>
+        <PremiumEmptyState
+          title="Organize Your Experiment Metrics"
+          description="Create reusable groups of metrics that can be ordered and added to experiments"
+          commercialFeature="metric-groups"
+          reason="No Access Metric Groups"
+          learnMoreLink="https://docs.growthbook.io/app/metrics#metric-groups"
+        />
       </div>
     );
   }

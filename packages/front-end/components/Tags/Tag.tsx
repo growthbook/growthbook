@@ -35,7 +35,8 @@ export default function Tag({ tag, color, description, skipMargin }: Props) {
       label={tag}
       color={tagColor as RadixColor}
       variant="soft"
-      ml={skipMargin ? undefined : "2"}
+      mr={skipMargin ? undefined : "2"}
+      mb={skipMargin ? undefined : "1"}
     />
   );
 }

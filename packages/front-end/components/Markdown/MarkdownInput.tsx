@@ -89,7 +89,7 @@ const MarkdownInput: FC<{
     <div className="">
       <div className="px-3 mb-1">
         <ul className="nav nav-tabs card-header-tabs">
-          <li className="nav-item">
+          <li className="nav-item" style={!preview ? { zIndex: 100 } : {}}>
             <a
               className={clsx("nav-link px-3 py-1 link-purple no-underline", {
                 active: !preview,

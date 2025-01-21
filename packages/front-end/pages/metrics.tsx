@@ -3,7 +3,6 @@ import { isProjectListValidForProject } from "shared/util";
 import { Box } from "@radix-ui/themes";
 import MetricsList from "@/components/Metrics/MetricsList";
 import MetricGroupsList from "@/components/Metrics/MetricGroupsList";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LinkButton from "@/components/Radix/LinkButton";
 import { NewMetricModal } from "@/components/FactTables/NewMetricModal";
@@ -15,6 +14,7 @@ import {
   TabsContent,
 } from "@/components/Radix/Tabs";
 import CreateMetricFromTemplate from "@/components/FactTables/CreateMetricFromTemplate";
+import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 
 const MetricsPage = (): React.ReactElement => {
   const { metrics, factMetrics, datasources, project } = useDefinitions();
@@ -58,9 +58,8 @@ const MetricsPage = (): React.ReactElement => {
           <TabsList>
             <TabsTrigger value="metrics">Individual Metrics</TabsTrigger>
             <TabsTrigger value="metricgroups">
-              <PremiumTooltip commercialFeature="metric-groups">
-                Metric Groups
-              </PremiumTooltip>
+              Metric Groups{" "}
+              <PaidFeatureBadge commercialFeature="metric-groups" />
             </TabsTrigger>
           </TabsList>
           <Box pt="4">

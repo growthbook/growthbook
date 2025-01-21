@@ -558,7 +558,6 @@ pre {
 .public.experiment,
 .public.bandit {
   .experiment-header {
-    margin: -4px -8px 0;
     .border {
       border-bottom: 1px solid var(--border-color-200);
     }
@@ -569,7 +568,6 @@ pre {
     // also, make sure shared reports & shared experiments look good
     top: 55px;
     height: 40px;
-    margin: 0 -16px -3px;
     transition: 150ms all;
     .header-tabs {
       flex-wrap: nowrap;
@@ -899,6 +897,10 @@ main.main {
     }
   }
 }
+.dark .bg-white textarea.form-control,
+.dark .tab-content input.form-control {
+  background-color: var(--black-a3);
+}
 
 .hover-show {
   .show-target {
@@ -1156,6 +1158,14 @@ main.main {
       font-weight: bold;
     }
   }
+}
+.dropdown-circle {
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 1);
+  padding: 7px 9px;
+}
+.dark .dropdown-circle {
+  background-color: rgba(255, 255, 255, 0.1);
 }
 .shiftdown-1 {
   position: relative;
@@ -3314,9 +3324,6 @@ input:disabled {
 @import "./components/demo-datasource-banner";
 
 .main.features {
-  .features-header {
-    margin: -4px -8px 0;
-  }
   .featurename {
     font-weight: 400;
     color: var(--text-color-main);
