@@ -4,10 +4,11 @@ import { freeEmailDomains } from "free-email-domains-typescript";
 import {
   accountFeatures,
   getAccountPlan,
-  getCdnUsageByOrganization,
+  // getCdnUsageByOrganization,
   getEffectiveAccountPlan,
   getLicense,
   getLicenseError,
+  getLowestPlanPerFeature,
   licenseInit,
 } from "enterprise";
 import { experimentHasLinkedChanges } from "shared/util";
@@ -741,13 +742,14 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   const seatsInUse = getNumberOfUniqueMembersAndInvites(org);
 
   // Fetch Org usage data here (maybe last 3 months or 6 months?)
-  const usage = await getCdnUsageByOrganization(org.id);
+  // const usage = await getCdnUsageByOrganization(org.id);
   // calculate % usage (need to know plan )
   // add messages if/when usage is at 85%/95%/100%
 
   const watch = await getWatchedByUser(org.id, userId);
 
   const orgMessages = messages || [];
+  const commercialFeatureLowestPlan = getLowestPlanPerFeature(accountFeatures);
 
   return res.status(200).json({
     status: 200,
@@ -757,6 +759,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     effectiveAccountPlan: getEffectiveAccountPlan(org),
     licenseError: getLicenseError(org),
     commercialFeatures: [...accountFeatures[getEffectiveAccountPlan(org)]],
+    commercialFeatureLowestPlan: commercialFeatureLowestPlan,
     roles: getRoles(org),
     members: expandedMembers,
     currentUserPermissions,

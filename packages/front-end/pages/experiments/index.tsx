@@ -421,7 +421,7 @@ const ExperimentsPage = (): React.ReactElement => {
               <TabsList>
                 <TabsTrigger value="experiments">Experiments</TabsTrigger>
                 <TabsTrigger value="templates">
-                  Templates <PaidFeatureBadge type="enterprise" />
+                  Templates <PaidFeatureBadge commercialFeature="templates" />
                 </TabsTrigger>
               </TabsList>
             </Box>
