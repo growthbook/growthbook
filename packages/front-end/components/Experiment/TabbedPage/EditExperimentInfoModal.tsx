@@ -1,18 +1,15 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { Text } from "@radix-ui/themes";
 import { useForm } from "react-hook-form";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import metaDataStyles from "@/components/Radix/Styles/Metadata.module.scss";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import useMembers from "@/hooks/useMembers";
 import TagsInput from "@/components/Tags/TagsInput";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/components/Radix/Callout";
 import { useAuth } from "@/services/auth";
-import UserAvatar from "@/components/Avatar/UserAvatar";
+import SelectOwner from "@/components/Owner/SelectOwner";
 
 export type FocusSelector = "project" | "tags" | "name";
 
@@ -30,7 +27,6 @@ export default function EditExperimentInfoModal({
   focusSelector = "name",
 }: Props) {
   const { apiCall } = useAuth();
-  const { memberUserNameAndIdOptions } = useMembers();
   const permissionsUtil = usePermissionsUtil();
   const canUpdateExperimentProject = (project) =>
     permissionsUtil.canUpdateExperiment({ project }, {});
@@ -76,32 +72,10 @@ export default function EditExperimentInfoModal({
         {...form.register("trackingKey")}
         required
       />
-      <SelectField
-        label="Owner"
-        options={memberUserNameAndIdOptions.map((member) => {
-          return { label: member.display, value: member.value };
-        })}
+      <SelectOwner
+        resourceType="experiment"
         value={form.watch("owner")}
-        comboBox
         onChange={(v) => form.setValue("owner", v)}
-        formatOptionLabel={({ label }) => {
-          return (
-            <>
-              <span>
-                {label !== "" && (
-                  <UserAvatar name={label} size="sm" variant="soft" />
-                )}
-                <Text
-                  weight="regular"
-                  className={metaDataStyles.valueColor}
-                  ml="1"
-                >
-                  {label === "" ? "None" : label}
-                </Text>
-              </span>
-            </>
-          );
-        }}
       />
       <div className="form-group">
         <label>Tags</label>
