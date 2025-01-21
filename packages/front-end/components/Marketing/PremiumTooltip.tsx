@@ -4,6 +4,7 @@ import clsx from "clsx";
 import { useUser } from "@/services/UserContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBPremiumBadge } from "@/components/Icons";
+import { planNameFromAccountPlan } from "@/services/utils";
 
 interface Props extends HTMLAttributes<HTMLDivElement> {
   commercialFeature?: CommercialFeature;
@@ -22,7 +23,7 @@ export default function PremiumTooltip({
   commercialFeature,
   children,
   body = null,
-  premiumText = "This is a premium feature",
+  premiumText,
   tipMinWidth,
   tipPosition = "top",
   className = "",
@@ -31,10 +32,19 @@ export default function PremiumTooltip({
   usePortal,
   ...otherProps
 }: Props) {
-  const { hasCommercialFeature } = useUser();
+  const { hasCommercialFeature, commercialFeatureLowestPlan } = useUser();
   const hasFeature = commercialFeature
     ? hasCommercialFeature(commercialFeature)
     : true;
+
+  const lowestPlanLevel = commercialFeature
+    ? commercialFeatureLowestPlan?.[commercialFeature]
+    : undefined;
+  const planLevelText = `${
+    lowestPlanLevel === "enterprise" ? "an" : "a"
+  } ${planNameFromAccountPlan(lowestPlanLevel)}`;
+
+  const tooltipText = premiumText ?? `This is ${planLevelText} feature`;
 
   return (
     <Tooltip
@@ -49,7 +59,7 @@ export default function PremiumTooltip({
               )}
             >
               <GBPremiumBadge className="mr-1" />
-              {premiumText}
+              {tooltipText}
             </p>
           )}
           {body}

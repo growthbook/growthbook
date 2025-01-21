@@ -14,6 +14,7 @@ import Button from "@/components/Radix/Button";
 import { useUser } from "@/services/UserContext";
 import LinkButton from "@/components/Radix/LinkButton";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
+import { planNameFromAccountPlan } from "@/services/utils";
 
 export const ArchetypeList: FC<{
   archetypes: ArchetypeInterface[];
@@ -26,13 +27,19 @@ export const ArchetypeList: FC<{
   ] = useState<Partial<ArchetypeInterface> | null>(null);
   const permissionsUtil = usePermissionsUtil();
   const { project, getProjectById } = useDefinitions();
-  const { getUserDisplay, hasCommercialFeature } = useUser();
+  const {
+    getUserDisplay,
+    hasCommercialFeature,
+    commercialFeatureLowestPlan,
+  } = useUser();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const hasArchetypeFeature = hasCommercialFeature("archetypes");
   const canCreateGlobal = permissionsUtil.canCreateArchetype({
     projects: [project],
   });
+
+  const archetypePlanLevel = commercialFeatureLowestPlan?.["archetypes"];
 
   const { apiCall } = useAuth();
 
@@ -52,7 +59,8 @@ export const ArchetypeList: FC<{
             <h2>Create Reusable Archetypes</h2>
             <p>
               Archetypes are named sets of attributes that help you test your
-              features. Archetypes are a premium feature.
+              features. Archetypes are a{" "}
+              {planNameFromAccountPlan(archetypePlanLevel)} feature.
             </p>
             <div className="mt-3">
               <LinkButton
@@ -68,7 +76,7 @@ export const ArchetypeList: FC<{
                   setShowUpgradeModal(true);
                 }}
               >
-                Upgrade Plan
+                Upgrade to {planNameFromAccountPlan(archetypePlanLevel)}
               </Button>
             </div>
           </div>
