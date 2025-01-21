@@ -132,13 +132,15 @@ const FeatureAttributesPage = (): React.ReactElement => {
 
     return (
       <tr className={v.archived ? "disabled" : ""} key={"attr-row-" + i}>
-        <td className="text-gray font-weight-bold">
+        <td className="text-gray font-weight-bold" style={{ width: "17%" }}>
           {v.property}{" "}
           {v.archived && (
             <span className="badge badge-secondary ml-2">archived</span>
           )}
         </td>
-        <td className="text-gray">{v.description}</td>
+        <td className="text-gray" style={{ width: "38%" }}>
+          {v.description}
+        </td>
         <td
           className="text-gray"
           style={{ maxWidth: "20vw", wordWrap: "break-word" }}
@@ -151,14 +153,14 @@ const FeatureAttributesPage = (): React.ReactElement => {
             </p>
           )}
         </td>
-        <td className="col-2">
+        <td className="">
           <ProjectBadges
             resourceType="attribute"
             projectIds={(v.projects || []).length > 0 ? v.projects : undefined}
             className="badge-ellipsis short align-middle"
           />
         </td>
-        <td className="text-gray col-2">
+        <td className="text-gray">
           <Tooltip
             tipPosition="bottom"
             state={showReferences === i}
@@ -416,7 +418,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
               ) : (
                 <>
                   <tr>
-                    <td colSpan={3} className="text-center text-gray">
+                    <td colSpan={7} className="text-center text-gray">
                       <em>No attributes defined.</em>
                     </td>
                   </tr>

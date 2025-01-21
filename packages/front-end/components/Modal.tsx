@@ -259,15 +259,17 @@ const Modal: FC<ModalProps> = ({
             {close && includeCloseCta ? (
               <>
                 {useRadixButton ? (
-                  <Button
-                    variant="ghost"
-                    onClick={async () => {
-                      await onClickCloseCta?.();
-                      close();
-                    }}
-                  >
-                    {isSuccess && successMessage ? "Close" : closeCta}
-                  </Button>
+                  <div className="mr-1">
+                    <Button
+                      variant="ghost"
+                      onClick={async () => {
+                        await onClickCloseCta?.();
+                        close();
+                      }}
+                    >
+                      {isSuccess && successMessage ? "Close" : closeCta}
+                    </Button>
+                  </div>
                 ) : (
                   <button
                     type="button"
