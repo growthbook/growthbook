@@ -377,190 +377,194 @@ export default function AnalysisSettingsSummary({
             ))}
           </div>
         </div>
-        <div className="flex-1" />
-
+        <div className="col flex-1" />
         <div className="col-auto">
-          {hasData &&
-            (outdated && status !== "running" ? (
-              <OutdatedBadge reasons={reasons} />
-            ) : (
-              <QueriesLastRun
-                status={status}
-                dateCreated={snapshot?.dateCreated}
-              />
-            ))}
-        </div>
-
-        {(!ds || permissionsUtil.canRunExperimentQueries(ds)) &&
-          numMetrics > 0 && (
+          <div className="row align-items-center justify-content-end">
             <div className="col-auto">
-              {experiment.datasource && latest && latest.queries?.length > 0 ? (
-                <RunQueriesButton
-                  cta="Update"
-                  cancelEndpoint={`/snapshot/${latest.id}/cancel`}
-                  mutate={mutateSnapshot}
-                  model={latest}
-                  icon="refresh"
-                  color="outline-primary"
-                  resetFilters={async () => {
-                    // todo: remove baseline resetter (here and below) once refactored.
-                    if (baselineRow !== 0) {
-                      setBaselineRow?.(0);
-                      setVariationFilter?.([]);
-                    }
-                    setDifferenceType("relative");
-                    experiment.type === "multi-armed-bandit"
-                      ? setSnapshotType("exploratory")
-                      : setSnapshotType(undefined);
-                  }}
-                  onSubmit={async () => {
-                    await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
-                      `/experiment/${experiment.id}/snapshot`,
-                      {
-                        method: "POST",
-                        body: JSON.stringify({
-                          phase,
-                          dimension,
-                        }),
-                      }
-                    )
-                      .then((res) => {
-                        trackSnapshot(
-                          "create",
-                          "RunQueriesButton",
-                          datasource?.type || null,
-                          res.snapshot
-                        );
-
-                        setAnalysisSettings(null);
-                        mutateSnapshot();
-                        setRefreshError("");
-                      })
-                      .catch((e) => {
-                        setRefreshError(e.message);
-                      });
-                  }}
-                />
-              ) : (
-                <RefreshSnapshotButton
-                  mutate={mutateSnapshot}
-                  phase={phase}
-                  experiment={experiment}
-                  lastAnalysis={analysis}
-                  dimension={dimension}
-                  setAnalysisSettings={setAnalysisSettings}
-                  resetFilters={() => {
-                    if (baselineRow !== 0) {
-                      setBaselineRow?.(0);
-                      setVariationFilter?.([]);
-                    }
-                    setDifferenceType("relative");
-                    experiment.type === "multi-armed-bandit"
-                      ? setSnapshotType("exploratory")
-                      : setSnapshotType(undefined);
-                  }}
-                />
-              )}
+              {hasData &&
+                (outdated && status !== "running" ? (
+                  <OutdatedBadge reasons={reasons} />
+                ) : (
+                  <QueriesLastRun
+                    status={status}
+                    dateCreated={snapshot?.dateCreated}
+                  />
+                ))}
             </div>
-          )}
 
-        {ds &&
-          permissionsUtil.canRunExperimentQueries(ds) &&
-          latest &&
-          (status === "failed" || status === "partially-succeeded") && (
-            <div className="col-auto pl-1">
-              <ViewAsyncQueriesButton
-                queries={latest.queries.map((q) => q.query)}
-                error={latest.error}
-                color={clsx(
-                  {
-                    "outline-danger":
-                      status === "failed" || status === "partially-succeeded",
-                  },
-                  " "
-                )}
-                display={null}
-                status={status}
-                icon={
-                  <span
-                    className="position-relative pr-2"
-                    style={{ marginRight: 6 }}
-                  >
-                    <span className="text-main">
-                      <FaDatabase />
-                    </span>
-                    <FaExclamationTriangle
-                      className="position-absolute"
-                      style={{
-                        top: -6,
-                        right: -4,
-                      }}
-                    />
-                  </span>
-                }
-                condensed={true}
-              />
-            </div>
-          )}
-
-        <div className="col-auto px-0">
-          <ResultMoreMenu
-            experiment={experiment}
-            snapshotId={snapshot?.id || ""}
-            datasource={datasource}
-            forceRefresh={
-              numMetrics > 0
-                ? async () => {
-                    await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
-                      `/experiment/${experiment.id}/snapshot?force=true`,
-                      {
-                        method: "POST",
-                        body: JSON.stringify({
-                          phase,
-                          dimension,
-                        }),
-                      }
-                    )
-                      .then((res) => {
-                        setAnalysisSettings(null);
+            {(!ds || permissionsUtil.canRunExperimentQueries(ds)) &&
+              numMetrics > 0 && (
+                <div className="col-auto">
+                  {experiment.datasource &&
+                  latest &&
+                  latest.queries?.length > 0 ? (
+                    <RunQueriesButton
+                      cta="Update"
+                      cancelEndpoint={`/snapshot/${latest.id}/cancel`}
+                      mutate={mutateSnapshot}
+                      model={latest}
+                      icon="refresh"
+                      color="outline-primary"
+                      resetFilters={async () => {
+                        // todo: remove baseline resetter (here and below) once refactored.
                         if (baselineRow !== 0) {
                           setBaselineRow?.(0);
                           setVariationFilter?.([]);
                         }
                         setDifferenceType("relative");
-                        trackSnapshot(
-                          "create",
-                          "ForceRerunQueriesButton",
-                          datasource?.type || null,
-                          res.snapshot
-                        );
-                        mutateSnapshot();
-                      })
-                      .catch((e) => {
-                        console.error(e);
-                      });
-                  }
-                : undefined
-            }
-            editMetrics={editMetrics}
-            notebookUrl={`/experiments/notebook/${snapshot?.id}`}
-            notebookFilename={experiment.trackingKey}
-            reportArgs={reportArgs}
-            queries={
-              latest && latest.status !== "error" && latest.queries
-                ? latest.queries
-                : snapshot?.queries
-            }
-            queryError={snapshot?.error}
-            supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
-            hasData={hasData}
-            metrics={getAllMetricIdsFromExperiment(experiment, false)}
-            results={analysis?.results}
-            variations={variations}
-            trackingKey={experiment.trackingKey}
-            dimension={dimension}
-            project={experiment.project}
-          />
+                        experiment.type === "multi-armed-bandit"
+                          ? setSnapshotType("exploratory")
+                          : setSnapshotType(undefined);
+                      }}
+                      onSubmit={async () => {
+                        await apiCall<{
+                          snapshot: ExperimentSnapshotInterface;
+                        }>(`/experiment/${experiment.id}/snapshot`, {
+                          method: "POST",
+                          body: JSON.stringify({
+                            phase,
+                            dimension,
+                          }),
+                        })
+                          .then((res) => {
+                            trackSnapshot(
+                              "create",
+                              "RunQueriesButton",
+                              datasource?.type || null,
+                              res.snapshot
+                            );
+
+                            setAnalysisSettings(null);
+                            mutateSnapshot();
+                            setRefreshError("");
+                          })
+                          .catch((e) => {
+                            setRefreshError(e.message);
+                          });
+                      }}
+                    />
+                  ) : (
+                    <RefreshSnapshotButton
+                      mutate={mutateSnapshot}
+                      phase={phase}
+                      experiment={experiment}
+                      lastAnalysis={analysis}
+                      dimension={dimension}
+                      setAnalysisSettings={setAnalysisSettings}
+                      resetFilters={() => {
+                        if (baselineRow !== 0) {
+                          setBaselineRow?.(0);
+                          setVariationFilter?.([]);
+                        }
+                        setDifferenceType("relative");
+                        experiment.type === "multi-armed-bandit"
+                          ? setSnapshotType("exploratory")
+                          : setSnapshotType(undefined);
+                      }}
+                    />
+                  )}
+                </div>
+              )}
+
+            {ds &&
+              permissionsUtil.canRunExperimentQueries(ds) &&
+              latest &&
+              (status === "failed" || status === "partially-succeeded") && (
+                <div className="col-auto pl-1">
+                  <ViewAsyncQueriesButton
+                    queries={latest.queries.map((q) => q.query)}
+                    error={latest.error}
+                    color={clsx(
+                      {
+                        "outline-danger":
+                          status === "failed" ||
+                          status === "partially-succeeded",
+                      },
+                      " "
+                    )}
+                    display={null}
+                    status={status}
+                    icon={
+                      <span
+                        className="position-relative pr-2"
+                        style={{ marginRight: 6 }}
+                      >
+                        <span className="text-main">
+                          <FaDatabase />
+                        </span>
+                        <FaExclamationTriangle
+                          className="position-absolute"
+                          style={{
+                            top: -6,
+                            right: -4,
+                          }}
+                        />
+                      </span>
+                    }
+                    condensed={true}
+                  />
+                </div>
+              )}
+
+            <div className="col-auto px-0">
+              <ResultMoreMenu
+                experiment={experiment}
+                snapshotId={snapshot?.id || ""}
+                datasource={datasource}
+                forceRefresh={
+                  numMetrics > 0
+                    ? async () => {
+                        await apiCall<{
+                          snapshot: ExperimentSnapshotInterface;
+                        }>(`/experiment/${experiment.id}/snapshot?force=true`, {
+                          method: "POST",
+                          body: JSON.stringify({
+                            phase,
+                            dimension,
+                          }),
+                        })
+                          .then((res) => {
+                            setAnalysisSettings(null);
+                            if (baselineRow !== 0) {
+                              setBaselineRow?.(0);
+                              setVariationFilter?.([]);
+                            }
+                            setDifferenceType("relative");
+                            trackSnapshot(
+                              "create",
+                              "ForceRerunQueriesButton",
+                              datasource?.type || null,
+                              res.snapshot
+                            );
+                            mutateSnapshot();
+                          })
+                          .catch((e) => {
+                            console.error(e);
+                          });
+                      }
+                    : undefined
+                }
+                editMetrics={editMetrics}
+                notebookUrl={`/experiments/notebook/${snapshot?.id}`}
+                notebookFilename={experiment.trackingKey}
+                reportArgs={reportArgs}
+                queries={
+                  latest && latest.status !== "error" && latest.queries
+                    ? latest.queries
+                    : snapshot?.queries
+                }
+                queryError={snapshot?.error}
+                supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
+                hasData={hasData}
+                metrics={getAllMetricIdsFromExperiment(experiment, false)}
+                results={analysis?.results}
+                variations={variations}
+                trackingKey={experiment.trackingKey}
+                dimension={dimension}
+                project={experiment.project}
+              />
+            </div>
+          </div>
         </div>
       </div>
       {refreshError && (

@@ -190,7 +190,7 @@ export default function TabbedPage({
   const isBandit = experiment.type === "multi-armed-bandit";
   const trackSource = "tabbed-page";
   return (
-    <div className="">
+    <div>
       <div className="container-fluid pagecontents">
         {auditModal && (
           <Modal
@@ -259,29 +259,31 @@ export default function TabbedPage({
           />
         )}
         {/* TODO: Update Experiment Header props to include redirect and pipe through to StartExperimentBanner */}
-        <ExperimentHeader
-          experiment={experiment}
-          envs={envs}
-          tab={tab}
-          setTab={setTabAndScroll}
-          mutate={mutate}
-          safeToEdit={safeToEdit}
-          setAuditModal={setAuditModal}
-          setStatusModal={setStatusModal}
-          setWatchersModal={setWatchersModal}
-          duplicate={duplicate}
-          usersWatching={usersWatching}
-          mutateWatchers={mutateWatchers}
-          editResult={editResult || undefined}
-          editTargeting={editTargeting}
-          editTags={editTags}
-          newPhase={newPhase}
-          editPhases={editPhases}
-          healthNotificationCount={healthNotificationCount}
-          checklistItemsRemaining={checklistItemsRemaining}
-          verifiedConnections={verifiedConnections}
-          linkedFeatures={linkedFeatures}
-        />
+      </div>
+      <ExperimentHeader
+        experiment={experiment}
+        envs={envs}
+        tab={tab}
+        setTab={setTabAndScroll}
+        mutate={mutate}
+        safeToEdit={safeToEdit}
+        setAuditModal={setAuditModal}
+        setStatusModal={setStatusModal}
+        setWatchersModal={setWatchersModal}
+        duplicate={duplicate}
+        usersWatching={usersWatching}
+        mutateWatchers={mutateWatchers}
+        editResult={editResult || undefined}
+        editTargeting={editTargeting}
+        editTags={editTags}
+        newPhase={newPhase}
+        editPhases={editPhases}
+        healthNotificationCount={healthNotificationCount}
+        checklistItemsRemaining={checklistItemsRemaining}
+        verifiedConnections={verifiedConnections}
+        linkedFeatures={linkedFeatures}
+      />
+      <div className="container-fluid pagecontents">
         <div className="">
           {experiment.project ===
             getDemoDatasourceProjectIdForOrganization(organization.id) && (
@@ -394,56 +396,53 @@ export default function TabbedPage({
               />
             </div>
           ) : null}
-          <div
-            className={
-              // todo: standardize explore & results tabs across experiment types
-              (!isBandit && tab === "results") ||
-              (isBandit && tab === "explore")
-                ? "d-block pt-2"
-                : "d-none d-print-block"
-            }
-          >
-            {/* TODO: Update ResultsTab props to include redirect and pipe through to StartExperimentBanner */}
-            <ResultsTab
-              experiment={experiment}
-              mutate={mutate}
-              editMetrics={editMetrics}
-              editPhases={editPhases}
-              editResult={editResult}
-              newPhase={newPhase}
-              connections={connections}
-              envs={envs}
-              setTab={setTabAndScroll}
-              visualChangesets={visualChangesets}
-              editTargeting={editTargeting}
-              isTabActive={tab === "results"}
-              safeToEdit={safeToEdit}
-              baselineRow={baselineRow}
-              setBaselineRow={setBaselineRow}
-              differenceType={differenceType}
-              setDifferenceType={setDifferenceType}
-              variationFilter={variationFilter}
-              setVariationFilter={setVariationFilter}
-              metricFilter={metricFilter}
-              setMetricFilter={setMetricFilter}
-            />
-          </div>
-          <div
-            className={
-              tab === "health" ? "d-block pt-2" : "d-none d-print-block"
-            }
-          >
-            <HealthTab
-              experiment={experiment}
-              onHealthNotify={handleIncrementHealthNotifications}
-              onSnapshotUpdate={handleSnapshotChange}
-              resetResultsSettings={() => {
-                setBaselineRow(0);
-                setDifferenceType("relative");
-                setVariationFilter([]);
-              }}
-            />
-          </div>
+        </div>
+        <div
+          className={
+            // todo: standardize explore & results tabs across experiment types
+            (!isBandit && tab === "results") || (isBandit && tab === "explore")
+              ? "d-block pt-2"
+              : "d-none d-print-block"
+          }
+        >
+          {/* TODO: Update ResultsTab props to include redirect and pipe through to StartExperimentBanner */}
+          <ResultsTab
+            experiment={experiment}
+            mutate={mutate}
+            editMetrics={editMetrics}
+            editPhases={editPhases}
+            editResult={editResult}
+            newPhase={newPhase}
+            connections={connections}
+            envs={envs}
+            setTab={setTabAndScroll}
+            visualChangesets={visualChangesets}
+            editTargeting={editTargeting}
+            isTabActive={tab === "results"}
+            safeToEdit={safeToEdit}
+            baselineRow={baselineRow}
+            setBaselineRow={setBaselineRow}
+            differenceType={differenceType}
+            setDifferenceType={setDifferenceType}
+            variationFilter={variationFilter}
+            setVariationFilter={setVariationFilter}
+            metricFilter={metricFilter}
+            setMetricFilter={setMetricFilter}
+          />
+        </div>
+        <div
+          className={tab === "health" ? "d-block pt-2" : "d-none d-print-block"}
+        >
+          <HealthTab
+            experiment={experiment}
+            onHealthNotify={handleIncrementHealthNotifications}
+            onSnapshotUpdate={handleSnapshotChange}
+            resetResultsSettings={() => {
+              setBaselineRow(0);
+              setDifferenceType("relative");
+              setVariationFilter([]);
+            }}
+          />
         </div>
       </div>
 
