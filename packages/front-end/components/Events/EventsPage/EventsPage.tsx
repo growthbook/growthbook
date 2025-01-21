@@ -226,26 +226,24 @@ export const EventsPageContainer = () => {
           }}
         />
       </div>
-      <div className="">
+      <div className="d-inline-flex align-items-center">
+        <label className="mb-0 mr-2">From</label>
         <DatePicker
           date={fromDate}
           setDate={setFromDate}
           scheduleEndDate={toDate}
-          label="From"
           precision="date"
           containerClassName=""
-          inputWidth="170px"
         />
       </div>
-      <div>
+      <div className="d-inline-flex align-items-center">
+        <label className="mb-0 mr-2">To</label>
         <DatePicker
           date={toDate}
           setDate={setToDate}
           scheduleStartDate={fromDate}
-          label="To"
           precision="date"
           containerClassName=""
-          inputWidth="170px"
         />
       </div>
       {hasFilters && (

@@ -20,7 +20,7 @@ type Props = {
   label?: ReactNode;
   label2?: ReactNode;
   helpText?: ReactNode;
-  inputWidth?: string | number;
+  inputWidth?: number;
   precision?: "datetime" | "date";
   disableBefore?: Date | string;
   disableAfter?: Date | string;
@@ -145,17 +145,9 @@ export default function DatePicker({
         }}
       >
         <Popover.Trigger asChild>
-          <Flex
-            gap="1rem"
-            display={inputWidth ? "inline-flex" : "flex"}
-            align="center"
-            justify="center"
-          >
-            <div
-              style={{ width: inputWidth || "100%", minHeight: 38 }}
-              className="d-flex justify-content-between align-items-center"
-            >
-              {label ? <label className="mb-0 mr-2">{label}</label> : null}
+          <Flex gap="1rem" display={inputWidth ? "inline-flex" : "flex"}>
+            <div style={{ width: inputWidth || "100%", minHeight: 38 }}>
+              {label ? <label>{label}</label> : null}
               <div
                 className="form-control p-0"
                 style={{
