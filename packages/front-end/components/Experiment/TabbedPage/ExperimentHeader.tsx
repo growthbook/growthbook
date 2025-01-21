@@ -346,7 +346,7 @@ export default function ExperimentHeader({
 
   const shareLinkButton =
     experiment.shareLevel !== "public" ? null : copySuccess ? (
-      <Button style={{ width: 150 }} icon={<PiCheck />}>
+      <Button style={{ width: 130 }} icon={<PiCheck />}>
         Link copied
       </Button>
     ) : (
@@ -360,7 +360,7 @@ export default function ExperimentHeader({
             type: shareLevel,
           });
         }}
-        style={{ width: 150 }}
+        style={{ width: 130 }}
       >
         Copy Link
       </Button>
@@ -785,9 +785,15 @@ export default function ExperimentHeader({
           <div className="ml-2">
             <DropdownMenu
               trigger={
-                <div className="dropdown-circle ml-2">
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  radius="full"
+                  size="3"
+                  highContrast
+                >
                   <BsThreeDotsVertical size={18} />
-                </div>
+                </IconButton>
               }
               open={dropdownOpen}
               onOpenChange={(o) => {
