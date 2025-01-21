@@ -25,10 +25,7 @@ export const ArchetypeList: FC<{
   ] = useState<Partial<ArchetypeInterface> | null>(null);
   const permissionsUtil = usePermissionsUtil();
   const { project, getProjectById } = useDefinitions();
-  const {
-    getUserDisplay,
-    hasCommercialFeature,
-  } = useUser();
+  const { getUserDisplay, hasCommercialFeature } = useUser();
 
   const hasArchetypeFeature = hasCommercialFeature("archetypes");
   const canCreateGlobal = permissionsUtil.canCreateArchetype({
