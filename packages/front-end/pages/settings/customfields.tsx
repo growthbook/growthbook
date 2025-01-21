@@ -14,7 +14,7 @@ const CustomFieldsPage = (): React.ReactElement => {
           title="Custom Fields"
           description="Custom fields allow you to add additional meta data to
                   experiments and feature flags that can be required or
-                  optional. Custom fields are part of our enterprise plan."
+                  optional."
           commercialFeature="custom-metadata"
           reason="Custom Fields landing page no access"
           learnMoreLink="https://docs.growthbook.io/using/growthbook-best-practices#custom-fields"
