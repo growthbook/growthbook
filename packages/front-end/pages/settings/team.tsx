@@ -15,7 +15,7 @@ import RoleList from "@/components/Teams/Roles/RoleList";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/components/Radix/Button";
 import LinkButton from "@/components/Radix/LinkButton";
-import NoAccessState from "@/components/NoAccessState";
+import PremiumEmptyState from "@/components/PremiumEmptyState";
 
 const TeamPage: FC = () => {
   const { refreshOrganization, hasCommercialFeature } = useUser();
@@ -85,7 +85,7 @@ const TeamPage: FC = () => {
             {hasTeamsFeature ? (
               <TeamsList />
             ) : (
-              <NoAccessState
+              <PremiumEmptyState
                 title="Teams"
                 description="Create groups of GrowthBook users to organize and manage permissions centrally"
                 commercialFeature="teams"
@@ -124,7 +124,7 @@ const TeamPage: FC = () => {
             {hasCustomRolesFeature ? (
               <RoleList />
             ) : (
-              <NoAccessState
+              <PremiumEmptyState
                 title="Custom Roles"
                 description="Custom roles allows you to adjust permissions and assign those roles to members or teams"
                 commercialFeature="custom-roles"

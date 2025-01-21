@@ -338,7 +338,7 @@ export default function TabbedPage({
             )}
           <div
             className={clsx(
-              "pt-3 where",
+              "pt-3",
               tab === "overview" ? "d-block" : "d-none d-print-block"
             )}
           >

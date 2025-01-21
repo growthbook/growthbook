@@ -31,7 +31,7 @@ import Button from "@/components/Radix/Button";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import LinkButton from "@/components/Radix/LinkButton";
-import NoAccessState from "@/components/NoAccessState";
+import PremiumEmptyState from "@/components/PremiumEmptyState";
 
 const NUM_PER_PAGE = 20;
 
@@ -249,7 +249,7 @@ const ExperimentsPage = (): React.ReactElement => {
   if (!hasMultiArmedBanditFeature) {
     return (
       <div className="contents container-fluid pagecontents">
-        <NoAccessState
+        <PremiumEmptyState
           h1="Bandits"
           title="Run Adaptive Experiments with Bandits"
           description="Bandits automatically guide more traffic to better variants."

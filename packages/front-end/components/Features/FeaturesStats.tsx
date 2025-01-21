@@ -8,7 +8,7 @@ import { useUser } from "@/services/UserContext";
 import Button from "@/components/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import NoAccessState from "@/components/NoAccessState";
+import PremiumEmptyState from "@/components/PremiumEmptyState";
 
 const generatePlatformUrl = (
   platformUrl: string,
@@ -50,7 +50,7 @@ export default function FeaturesStats({
     return (
       <>
         <div className="contents container-fluid pagecontents">
-          <NoAccessState
+          <PremiumEmptyState
             title="Enable Code References"
             description="Quickly see instances of feature flags being leveraged in your
               codebase, with direct links from GrowthBook to the platform of

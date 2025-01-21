@@ -19,7 +19,7 @@ import { useAuth } from "@/services/auth";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAddComputedFields, useSearch } from "@/services/search";
-import NoAccessState from "@/components/NoAccessState";
+import PremiumEmptyState from "@/components/PremiumEmptyState";
 
 interface Props {
   setOpenTemplateModal: (
@@ -100,7 +100,7 @@ export const TemplatesPage = ({
   if (!hasTemplatesFeature) {
     return (
       <>
-        <NoAccessState
+        <PremiumEmptyState
           title="Create Reusable Experiment Templates"
           description="Save time configuring experiment details, and ensure consistency
             across your team and projects."

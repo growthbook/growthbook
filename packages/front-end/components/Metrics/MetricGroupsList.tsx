@@ -13,7 +13,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import ConfirmModal from "@/components/ConfirmModal";
 import { useUser } from "@/services/UserContext";
 import Button from "@/components/Radix/Button";
-import NoAccessState from "@/components/NoAccessState";
+import PremiumEmptyState from "@/components/PremiumEmptyState";
 
 const MetricGroupsList: FC = () => {
   const [openModal, setOpenModal] = useState(false);
@@ -53,7 +53,7 @@ const MetricGroupsList: FC = () => {
   if (!hasGroupsFeature) {
     return (
       <div>
-        <NoAccessState
+        <PremiumEmptyState
           title="Organize Your Experiment Metrics"
           description="Create reusable groups of metrics that can be ordered and added to experiments"
           commercialFeature="metric-groups"

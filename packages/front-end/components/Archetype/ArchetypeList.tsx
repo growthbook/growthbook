@@ -12,7 +12,7 @@ import ArchetypeAttributesModal from "@/components/Archetype/ArchetypeAttributes
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/components/Radix/Button";
 import { useUser } from "@/services/UserContext";
-import NoAccessState from "@/components/NoAccessState";
+import PremiumEmptyState from "@/components/PremiumEmptyState";
 
 export const ArchetypeList: FC<{
   archetypes: ArchetypeInterface[];
@@ -44,7 +44,7 @@ export const ArchetypeList: FC<{
   if (!hasArchetypeFeature) {
     return (
       <div className="mb-3">
-        <NoAccessState
+        <PremiumEmptyState
           title="Create Reusable Archetypes"
           description="Archetypes are named sets of attributes that help you test your features."
           commercialFeature="archetypes"

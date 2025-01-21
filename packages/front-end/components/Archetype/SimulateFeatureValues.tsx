@@ -38,7 +38,7 @@ import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/components/Radix/Button";
 import { useUser } from "@/services/UserContext";
-import NoAccessState from "@/components/NoAccessState";
+import PremiumEmptyState from "@/components/PremiumEmptyState";
 
 export const SimulateFeatureValues: FC<{
   archetypes: ArchetypeInterface[];
@@ -450,7 +450,7 @@ export const SimulateFeatureValues: FC<{
   if (!hasSimulateFeature) {
     return (
       <div className="mb-3">
-        <NoAccessState
+        <PremiumEmptyState
           title="Simulate feature/experiment states for Users"
           description=" For any set of attributes or archetype, simulate what feature
               values they have or would receive. Simulation is a premium

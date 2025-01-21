@@ -15,7 +15,7 @@ interface Props {
   reason: string;
 }
 
-const NoAccessState: FC<Props> = ({
+const PremiumEmptyState: FC<Props> = ({
   title,
   description,
   h1 = "",
@@ -90,4 +90,4 @@ const NoAccessState: FC<Props> = ({
   );
 };
 
-export default NoAccessState;
+export default PremiumEmptyState;
