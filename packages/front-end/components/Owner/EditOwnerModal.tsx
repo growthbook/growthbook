@@ -8,16 +8,7 @@ const EditOwnerModal: FC<{
   save: (ownerName: string) => Promise<void>;
   cancel: () => void;
   mutate: () => void;
-  resourceType:
-    | "dimension"
-    | "feature"
-    | "experiment"
-    | "segment"
-    | "factSegment"
-    | "savedGroup"
-    | "metric"
-    | "factMetric"
-    | "factTable";
+  resourceType: React.ComponentProps<typeof SelectOwner>["resourceType"];
 }> = ({ owner, save, cancel, mutate, resourceType }) => {
   const form = useForm({
     defaultValues: {
