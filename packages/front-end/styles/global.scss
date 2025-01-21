@@ -899,6 +899,10 @@ main.main {
     }
   }
 }
+.dark .bg-white textarea.form-control,
+.dark .tab-content input.form-control {
+  background-color: var(--black-a3);
+}
 
 .hover-show {
   .show-target {
