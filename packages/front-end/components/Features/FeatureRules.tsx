@@ -103,7 +103,7 @@ export default function FeatureRules({
           <Container maxWidth="100%">
             <Flex align="center" justify="between">
               <TabsList>
-                <Flex overflow="scroll">
+                <Flex overflow="auto">
                   {environments.map((e) => (
                     <TabsTrigger value={e.id} key={e.id}>
                       <span className="mr-2">{e.id}</span>

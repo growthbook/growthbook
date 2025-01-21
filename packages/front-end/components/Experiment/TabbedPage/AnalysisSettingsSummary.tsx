@@ -323,56 +323,60 @@ export default function AnalysisSettingsSummary({
           source={"analysis-settings-summary"}
         />
       )}
-      <div className="row align-items-center text-muted">
+      <div className="row align-items-center justify-content-end">
         <div className="col-auto">
-          {!(isBandit && experiment.status === "running") &&
-          canEditAnalysisSettings ? (
-            <div className="cursor-pointer">
-              <Link
-                onClick={(e) => {
-                  e.preventDefault();
-                  setAnalysisModal(true);
-                }}
-              >
-                <span className="text-dark">Analysis Settings</span>
-                <GBEdit className="ml-2" />
-              </Link>
-            </div>
-          ) : (
-            <span>Analysis Settings</span>
-          )}
-        </div>
-        {items.map((item, i) => (
-          <Tooltip
-            body={
-              item.tooltip && item.noTransform ? (
-                <div>{item.tooltip}</div>
-              ) : item.tooltip ? (
-                <div className="text-center">
-                  <strong>{item.tooltip}:</strong>
-                  <div>{item.value}</div>
+          <div className="row align-items-center text-muted">
+            <div className="col-auto">
+              {!(isBandit && experiment.status === "running") &&
+              canEditAnalysisSettings ? (
+                <div className="cursor-pointer">
+                  <Link
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setAnalysisModal(true);
+                    }}
+                  >
+                    <span className="text-dark">Analysis Settings</span>
+                    <GBEdit className="ml-2" />
+                  </Link>
                 </div>
               ) : (
-                ""
-              )
-            }
-            key={i}
-          >
-            <div
-              key={i}
-              className={`col-auto px-3 ${i > 0 ? "border-left" : ""}`}
-            >
-              <div style={{ cursor: "default" }}>
-                {item.icon ? <>{item.icon} </> : null}
-                {item.noTransform ? (
-                  item.value
-                ) : (
-                  <OverflowText maxWidth={150}>{item.value}</OverflowText>
-                )}
-              </div>
+                <span>Analysis Settings</span>
+              )}
             </div>
-          </Tooltip>
-        ))}
+            {items.map((item, i) => (
+              <Tooltip
+                body={
+                  item.tooltip && item.noTransform ? (
+                    <div>{item.tooltip}</div>
+                  ) : item.tooltip ? (
+                    <div className="text-center">
+                      <strong>{item.tooltip}:</strong>
+                      <div>{item.value}</div>
+                    </div>
+                  ) : (
+                    ""
+                  )
+                }
+                key={i}
+              >
+                <div
+                  key={i}
+                  className={`col-auto px-3 ${i > 0 ? "border-left" : ""}`}
+                >
+                  <div style={{ cursor: "default" }}>
+                    {item.icon ? <>{item.icon} </> : null}
+                    {item.noTransform ? (
+                      item.value
+                    ) : (
+                      <OverflowText maxWidth={150}>{item.value}</OverflowText>
+                    )}
+                  </div>
+                </div>
+              </Tooltip>
+            ))}
+          </div>
+        </div>
         <div className="flex-1" />
 
         <div className="col-auto">

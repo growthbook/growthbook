@@ -726,7 +726,7 @@ export default function ExperimentHeader({
         )}
       </div>
 
-      <div className="container-fluid pagecontents position-relative">
+      <div className="position-relative">
         <div className="d-flex align-items-center">
           <Flex direction="row" align="center">
             <h1 className="mb-0">{experiment.name}</h1>
@@ -1012,12 +1012,12 @@ export default function ExperimentHeader({
       </div>
       {shouldHideTabs ? null : (
         <div
-          className={clsx("experiment-tabs px-3 d-print-none", {
+          className={clsx("experiment-tabs d-print-none", {
             pinned: headerPinned,
           })}
         >
-          <div className="container-fluid pagecontents position-relative">
-            <div className="row header-tabs" ref={tabsRef}>
+          <div className="position-relative">
+            <div className="d-flex header-tabs" ref={tabsRef}>
               <Tabs
                 value={tab}
                 onValueChange={setTab}

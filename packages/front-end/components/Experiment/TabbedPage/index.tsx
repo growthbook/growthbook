@@ -190,260 +190,264 @@ export default function TabbedPage({
   const isBandit = experiment.type === "multi-armed-bandit";
   const trackSource = "tabbed-page";
   return (
-    <div>
-      {auditModal && (
-        <Modal
-          trackingEventModalType=""
-          open={true}
-          header="Audit Log"
-          close={() => setAuditModal(false)}
-          size="lg"
-          closeCta="Close"
-        >
-          <HistoryTable type="experiment" id={experiment.id} />
-        </Modal>
-      )}
-      {watchersModal && (
-        <Modal
-          trackingEventModalType=""
-          open={true}
-          header="Experiment Watchers"
-          close={() => setWatchersModal(false)}
-          closeCta="Close"
-        >
-          <ul>
-            {usersWatching.map((u, i) => (
-              <li key={i}>{u}</li>
-            ))}
-          </ul>
-        </Modal>
-      )}
-      {visualEditorModal && (
-        <VisualChangesetModal
-          mode="add"
+    <div className="">
+      <div className="container-fluid pagecontents">
+        {auditModal && (
+          <Modal
+            trackingEventModalType=""
+            open={true}
+            header="Audit Log"
+            close={() => setAuditModal(false)}
+            size="lg"
+            closeCta="Close"
+          >
+            <HistoryTable type="experiment" id={experiment.id} />
+          </Modal>
+        )}
+        {watchersModal && (
+          <Modal
+            trackingEventModalType=""
+            open={true}
+            header="Experiment Watchers"
+            close={() => setWatchersModal(false)}
+            closeCta="Close"
+          >
+            <ul>
+              {usersWatching.map((u, i) => (
+                <li key={i}>{u}</li>
+              ))}
+            </ul>
+          </Modal>
+        )}
+        {visualEditorModal && (
+          <VisualChangesetModal
+            mode="add"
+            experiment={experiment}
+            mutate={mutate}
+            close={() => setVisualEditorModal(false)}
+            onCreate={async (vc) => {
+              // Try to immediately open the visual editor
+              await openVisualEditor(vc, apiCall);
+            }}
+            cta="Open Visual Editor"
+            source={trackSource}
+          />
+        )}
+        {urlRedirectModal && (
+          <UrlRedirectModal
+            mode="add"
+            experiment={experiment}
+            mutate={mutate}
+            close={() => setUrlRedirectModal(false)}
+            source={trackSource}
+          />
+        )}
+        {statusModal && (
+          <EditStatusModal
+            experiment={experiment}
+            close={() => setStatusModal(false)}
+            mutate={mutate}
+            source={trackSource}
+          />
+        )}
+        {featureModal && (
+          <FeatureFromExperimentModal
+            experiment={experiment}
+            close={() => setFeatureModal(false)}
+            mutate={mutate}
+            source={trackSource}
+          />
+        )}
+        {/* TODO: Update Experiment Header props to include redirect and pipe through to StartExperimentBanner */}
+        <ExperimentHeader
           experiment={experiment}
+          envs={envs}
+          tab={tab}
+          setTab={setTabAndScroll}
           mutate={mutate}
-          close={() => setVisualEditorModal(false)}
-          onCreate={async (vc) => {
-            // Try to immediately open the visual editor
-            await openVisualEditor(vc, apiCall);
-          }}
-          cta="Open Visual Editor"
-          source={trackSource}
+          safeToEdit={safeToEdit}
+          setAuditModal={setAuditModal}
+          setStatusModal={setStatusModal}
+          setWatchersModal={setWatchersModal}
+          duplicate={duplicate}
+          usersWatching={usersWatching}
+          mutateWatchers={mutateWatchers}
+          editResult={editResult || undefined}
+          editTargeting={editTargeting}
+          editTags={editTags}
+          newPhase={newPhase}
+          editPhases={editPhases}
+          healthNotificationCount={healthNotificationCount}
+          checklistItemsRemaining={checklistItemsRemaining}
+          verifiedConnections={verifiedConnections}
+          linkedFeatures={linkedFeatures}
         />
-      )}
-      {urlRedirectModal && (
-        <UrlRedirectModal
-          mode="add"
-          experiment={experiment}
-          mutate={mutate}
-          close={() => setUrlRedirectModal(false)}
-          source={trackSource}
-        />
-      )}
-      {statusModal && (
-        <EditStatusModal
-          experiment={experiment}
-          close={() => setStatusModal(false)}
-          mutate={mutate}
-          source={trackSource}
-        />
-      )}
-      {featureModal && (
-        <FeatureFromExperimentModal
-          experiment={experiment}
-          close={() => setFeatureModal(false)}
-          mutate={mutate}
-          source={trackSource}
-        />
-      )}
-      {/* TODO: Update Experiment Header props to include redirect and pipe through to StartExperimentBanner */}
-      <ExperimentHeader
-        experiment={experiment}
-        envs={envs}
-        tab={tab}
-        setTab={setTabAndScroll}
-        mutate={mutate}
-        safeToEdit={safeToEdit}
-        setAuditModal={setAuditModal}
-        setStatusModal={setStatusModal}
-        setWatchersModal={setWatchersModal}
-        duplicate={duplicate}
-        usersWatching={usersWatching}
-        mutateWatchers={mutateWatchers}
-        editResult={editResult || undefined}
-        editTargeting={editTargeting}
-        editTags={editTags}
-        newPhase={newPhase}
-        editPhases={editPhases}
-        healthNotificationCount={healthNotificationCount}
-        checklistItemsRemaining={checklistItemsRemaining}
-        verifiedConnections={verifiedConnections}
-        linkedFeatures={linkedFeatures}
-      />
-      <div className="container pagecontents pb-4 px-3">
-        {experiment.project ===
-          getDemoDatasourceProjectIdForOrganization(organization.id) && (
-          <div className="alert alert-info mb-3 d-flex align-items-center mt-3">
-            <div className="flex-1">
-              This experiment is part of our sample dataset. You can safely
-              delete this once you are done exploring.
+        <div className="">
+          {experiment.project ===
+            getDemoDatasourceProjectIdForOrganization(organization.id) && (
+            <div className="alert alert-info mb-3 d-flex align-items-center mt-3">
+              <div className="flex-1">
+                This experiment is part of our sample dataset. You can safely
+                delete this once you are done exploring.
+              </div>
+              <div style={{ width: 180 }} className="ml-2">
+                <DeleteDemoDatasourceButton
+                  onDelete={() => router.push("/experiments")}
+                  source="experiment"
+                />
+              </div>
             </div>
-            <div style={{ width: 180 }} className="ml-2">
-              <DeleteDemoDatasourceButton
-                onDelete={() => router.push("/experiments")}
-                source="experiment"
+          )}
+          <div className="mt-3">
+            <CustomMarkdown page={"experiment"} variables={variables} />
+          </div>
+
+          {experiment.status === "stopped" && (
+            <div className="pt-3">
+              <StoppedExperimentBanner
+                experiment={experiment}
+                linkedFeatures={linkedFeatures}
+                mutate={mutate}
+                editResult={editResult || undefined}
               />
             </div>
-          </div>
-        )}
-        <div className="mt-3">
-          <CustomMarkdown page={"experiment"} variables={variables} />
-        </div>
-
-        {experiment.status === "stopped" && (
-          <div className="pt-3">
-            <StoppedExperimentBanner
+          )}
+          {viewingOldPhase &&
+            ((!isBandit && tab === "results") ||
+              (isBandit && tab === "explore")) && (
+              <div className="alert alert-warning mt-3">
+                <div>
+                  You are viewing the results of a previous experiment phase.{" "}
+                  <a
+                    role="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setPhase(experiment.phases.length - 1);
+                    }}
+                  >
+                    Switch to the latest phase
+                  </a>
+                </div>
+                <div className="mt-1">
+                  <strong>Phase settings:</strong>{" "}
+                  {phaseSummary(experiment?.phases?.[phase])}
+                </div>
+              </div>
+            )}
+          <div
+            className={clsx(
+              "pt-3 where",
+              tab === "overview" ? "d-block" : "d-none d-print-block"
+            )}
+          >
+            <SetupTabOverview
               experiment={experiment}
-              linkedFeatures={linkedFeatures}
               mutate={mutate}
-              editResult={editResult || undefined}
+              disableEditing={viewingOldPhase}
+              linkedFeatures={linkedFeatures}
+              visualChangesets={visualChangesets}
+              editTargeting={editTargeting}
+              verifiedConnections={verifiedConnections}
+              checklistItemsRemaining={checklistItemsRemaining}
+              setChecklistItemsRemaining={setChecklistItemsRemaining}
+              envs={envs}
             />
-          </div>
-        )}
-        {viewingOldPhase &&
-          ((!isBandit && tab === "results") ||
-            (isBandit && tab === "explore")) && (
-            <div className="alert alert-warning mt-3">
-              <div>
-                You are viewing the results of a previous experiment phase.{" "}
-                <a
-                  role="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setPhase(experiment.phases.length - 1);
-                  }}
+            <Implementation
+              experiment={experiment}
+              mutate={mutate}
+              safeToEdit={safeToEdit}
+              editVariations={editVariations}
+              setFeatureModal={setFeatureModal}
+              setVisualEditorModal={setVisualEditorModal}
+              setUrlRedirectModal={setUrlRedirectModal}
+              visualChangesets={visualChangesets}
+              urlRedirects={urlRedirects}
+              editTargeting={editTargeting}
+              linkedFeatures={linkedFeatures}
+              envs={envs}
+            />
+            {experiment.status !== "draft" && (
+              <div className="mt-3 mb-2 text-center d-print-none">
+                <Button
+                  onClick={() => setTabAndScroll("results")}
+                  size="md"
+                  icon={<FaChartBar />}
                 >
-                  Switch to the latest phase
-                </a>
+                  View Results
+                </Button>
               </div>
-              <div className="mt-1">
-                <strong>Phase settings:</strong>{" "}
-                {phaseSummary(experiment?.phases?.[phase])}
-              </div>
+            )}
+          </div>
+          {isBandit ? (
+            <div
+              className={
+                // todo: standardize explore & results tabs across experiment types
+                isBandit && tab === "results"
+                  ? "d-block"
+                  : "d-none d-print-block"
+              }
+            >
+              <BanditSummaryResultsTab
+                experiment={experiment}
+                mutate={mutate}
+                isTabActive={tab === "results"}
+              />
             </div>
-          )}
-        <div
-          className={clsx(
-            "pt-3",
-            tab === "overview" ? "d-block" : "d-none d-print-block"
-          )}
-        >
-          <SetupTabOverview
-            experiment={experiment}
-            mutate={mutate}
-            disableEditing={viewingOldPhase}
-            linkedFeatures={linkedFeatures}
-            visualChangesets={visualChangesets}
-            editTargeting={editTargeting}
-            verifiedConnections={verifiedConnections}
-            checklistItemsRemaining={checklistItemsRemaining}
-            setChecklistItemsRemaining={setChecklistItemsRemaining}
-            envs={envs}
-          />
-          <Implementation
-            experiment={experiment}
-            mutate={mutate}
-            safeToEdit={safeToEdit}
-            editVariations={editVariations}
-            setFeatureModal={setFeatureModal}
-            setVisualEditorModal={setVisualEditorModal}
-            setUrlRedirectModal={setUrlRedirectModal}
-            visualChangesets={visualChangesets}
-            urlRedirects={urlRedirects}
-            editTargeting={editTargeting}
-            linkedFeatures={linkedFeatures}
-            envs={envs}
-          />
-          {experiment.status !== "draft" && (
-            <div className="mt-3 mb-2 text-center d-print-none">
-              <Button
-                onClick={() => setTabAndScroll("results")}
-                size="lg"
-                icon={<FaChartBar />}
-              >
-                View Results
-              </Button>
-            </div>
-          )}
-        </div>
-        {isBandit ? (
+          ) : null}
           <div
             className={
               // todo: standardize explore & results tabs across experiment types
-              isBandit && tab === "results" ? "d-block" : "d-none d-print-block"
+              (!isBandit && tab === "results") ||
+              (isBandit && tab === "explore")
+                ? "d-block pt-2"
+                : "d-none d-print-block"
             }
           >
-            <BanditSummaryResultsTab
+            {/* TODO: Update ResultsTab props to include redirect and pipe through to StartExperimentBanner */}
+            <ResultsTab
               experiment={experiment}
               mutate={mutate}
+              editMetrics={editMetrics}
+              editPhases={editPhases}
+              editResult={editResult}
+              newPhase={newPhase}
+              connections={connections}
+              envs={envs}
+              setTab={setTabAndScroll}
+              visualChangesets={visualChangesets}
+              editTargeting={editTargeting}
               isTabActive={tab === "results"}
+              safeToEdit={safeToEdit}
+              baselineRow={baselineRow}
+              setBaselineRow={setBaselineRow}
+              differenceType={differenceType}
+              setDifferenceType={setDifferenceType}
+              variationFilter={variationFilter}
+              setVariationFilter={setVariationFilter}
+              metricFilter={metricFilter}
+              setMetricFilter={setMetricFilter}
             />
           </div>
-        ) : null}
-        <div
-          className={
-            // todo: standardize explore & results tabs across experiment types
-            (!isBandit && tab === "results") || (isBandit && tab === "explore")
-              ? "d-block pt-2"
-              : "d-none d-print-block"
-          }
-        >
-          {/* TODO: Update ResultsTab props to include redirect and pipe through to StartExperimentBanner */}
-          <ResultsTab
-            experiment={experiment}
-            mutate={mutate}
-            editMetrics={editMetrics}
-            editPhases={editPhases}
-            editResult={editResult}
-            newPhase={newPhase}
-            connections={connections}
-            envs={envs}
-            setTab={setTabAndScroll}
-            visualChangesets={visualChangesets}
-            editTargeting={editTargeting}
-            isTabActive={tab === "results"}
-            safeToEdit={safeToEdit}
-            baselineRow={baselineRow}
-            setBaselineRow={setBaselineRow}
-            differenceType={differenceType}
-            setDifferenceType={setDifferenceType}
-            variationFilter={variationFilter}
-            setVariationFilter={setVariationFilter}
-            metricFilter={metricFilter}
-            setMetricFilter={setMetricFilter}
-          />
-        </div>
-        <div
-          className={tab === "health" ? "d-block pt-2" : "d-none d-print-block"}
-        >
-          <HealthTab
-            experiment={experiment}
-            onHealthNotify={handleIncrementHealthNotifications}
-            onSnapshotUpdate={handleSnapshotChange}
-            resetResultsSettings={() => {
-              setBaselineRow(0);
-              setDifferenceType("relative");
-              setVariationFilter([]);
-            }}
-          />
+          <div
+            className={
+              tab === "health" ? "d-block pt-2" : "d-none d-print-block"
+            }
+          >
+            <HealthTab
+              experiment={experiment}
+              onHealthNotify={handleIncrementHealthNotifications}
+              onSnapshotUpdate={handleSnapshotChange}
+              resetResultsSettings={() => {
+                setBaselineRow(0);
+                setDifferenceType("relative");
+                setVariationFilter([]);
+              }}
+            />
+          </div>
         </div>
       </div>
 
-      <div
-        className="bg-white mt-4 px-4 border-top pb-3"
-        style={{ marginLeft: -8, marginRight: -8 }}
-      >
+      <div className="bg-white mt-4 px-4 border-top pb-3">
         <div className="pt-2 pt-4 pb-5 container pagecontents">
           <div className="h3 mb-4">Comments</div>
           <DiscussionThread
