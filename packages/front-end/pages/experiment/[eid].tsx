@@ -215,7 +215,7 @@ const ExperimentPage = (): ReactElement => {
         ]}
       />
 
-      <div className="">
+      <div>
         <SnapshotProvider experiment={experiment}>
           <TabbedPage
             experiment={experiment}
