@@ -43,10 +43,10 @@ export interface PowerCalculationParams {
   targetPower: number;
   statsEngineSettings: StatsEngineSettings;
   // TODO make object
-  metricValuesSource: "manual" | "query" | "experiment";
-  metricDataSourceType?: "segment";
-  metricDataSourceName?: string;
-  metricDataSourceId?: string;
+  metricValuesSource: "manual" | "segment" | "experiment" | "factTable";
+  metricValuesSourceName?: string;
+  metricValuesSourceId?: string;
+  metricValuesIdentifierType?: string;
   snapshot?: ExperimentSnapshotInterface;
   selectedDatasource?: string;
 }

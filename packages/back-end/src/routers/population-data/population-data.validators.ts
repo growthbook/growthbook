@@ -3,8 +3,7 @@ import { queryPointerValidator } from "back-end/src/validators/queries";
 
 export const populationDataSourceTypeValidator = z.enum([
   "segment",
-  "experiment",
-  "exposureQuery",
+  "factTable",
 ]);
 
 export const populationDataStatusValidator = z.enum([

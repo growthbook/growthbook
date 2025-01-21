@@ -628,21 +628,10 @@ export default abstract class SqlIntegration
     segment: SegmentInterface | null;
   }) {
     switch (settings.sourceType) {
-      case "exposureQuery": {
-        const exposureQuery = this.getExposureQuery(settings.sourceId || "");
-
-        return `
-          __source AS (
-            ${compileSqlTemplate(exposureQuery.query, {
-              startDate: settings.startDate,
-              endDate: settings.endDate ?? undefined,
-            })}
-          )`;
-      }
       case "segment": {
         if (segment) {
           return `
-          __segment as (${this.getSegmentCTE(
+          __source AS (${this.getSegmentCTE(
             segment,
             settings.userIdType,
             {}, // no id join map needed as id type is segment id type
@@ -656,8 +645,28 @@ export default abstract class SqlIntegration
           throw new Error("Segment not found");
         }
       }
-      case "experiment":
-        throw new Error("SQL not used for Experiment source type");
+      case "factTable": {
+        // TODO test with eventName template variable??
+        const factTable = factTableMap.get(settings.sourceId);
+        if (factTable) {
+          const sql = factTable.sql;
+          return compileSqlTemplate(`
+          __source AS (
+            SELECT
+              ${settings.userIdType}
+              , timestamp
+            FROM (
+              ${sql}
+            )
+          )`,
+          {
+            startDate: settings.startDate,
+            endDate: settings.endDate ?? undefined,
+          });
+        } else {
+          throw new Error("Fact Table not found");
+        }
+      }
     }
   }
 
@@ -689,10 +698,10 @@ export default abstract class SqlIntegration
           , MIN(${timestampDateTimeColumn}) AS first_exposure_timestamp
           , '' as variation
         FROM
-          __segment e
+          __source
         WHERE
-            date >= ${this.toTimestamp(settings.startDate)}
-            AND date <= ${this.toTimestamp(settings.endDate)}
+            ${timestampColumn} >= ${this.toTimestamp(settings.startDate)}
+            AND ${timestampColumn} <= ${this.toTimestamp(settings.endDate)}
         GROUP BY ${settings.userIdType}
       ),`;
   }

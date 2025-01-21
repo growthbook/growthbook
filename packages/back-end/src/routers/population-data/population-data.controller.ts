@@ -174,7 +174,11 @@ export const getPopulationDataBySourceId = async (
   );
 
   if (!populationData) {
-    throw new Error("PopulationData not found");
+    res.status(200).json({
+      status: 200,
+      populationData: null,
+    });
+    return;
   }
 
   res.status(200).json({
