@@ -366,7 +366,7 @@ export default function ExperimentRefNewFields({
             </div>
           )}
 
-          {!isTemplate && (
+          {!isTemplate && source === "rule" ? (
             <>
               <hr />
               <div className="mt-4 mb-3">
@@ -405,7 +405,7 @@ export default function ExperimentRefNewFields({
                 ) : null}
               </div>
             </>
-          )}
+          ) : null}
         </>
       ) : null}
       {step === 3 ? (

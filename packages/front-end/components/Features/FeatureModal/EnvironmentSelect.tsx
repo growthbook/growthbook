@@ -1,4 +1,4 @@
-import { FC, useMemo } from "react";
+import { FC, ReactNode, useMemo } from "react";
 import { Environment } from "back-end/types/organization";
 import { FeatureEnvironment } from "back-end/types/feature";
 import { Container, Grid, Text } from "@radix-ui/themes";
@@ -7,10 +7,16 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Checkbox from "@/components/Radix/Checkbox";
 
 const EnvironmentSelect: FC<{
+  label?: string | ReactNode;
   environmentSettings: Record<string, FeatureEnvironment>;
   environments: Environment[];
   setValue: (env: Environment, enabled: boolean) => void;
-}> = ({ environmentSettings, environments, setValue }) => {
+}> = ({
+  label = "Enabled Environments",
+  environmentSettings,
+  environments,
+  setValue,
+}) => {
   const permissionsUtil = usePermissionsUtil();
   const { project } = useDefinitions();
   const environmentsUserCanAccess = useMemo(() => {
@@ -29,14 +35,16 @@ const EnvironmentSelect: FC<{
   return (
     <div className="form-group">
       <Container
-        p="5"
+        px="4"
+        pt="4"
+        pb="3"
         style={{
           background: "var(--color-background)",
           borderRadius: "var(--radius-2)",
         }}
       >
         <Text as="label" weight="bold" mb="4">
-          Enabled Environments
+          {label}
         </Text>
         <div>
           <Checkbox
@@ -54,7 +62,7 @@ const EnvironmentSelect: FC<{
             }
             label="Select All"
             weight="bold"
-            mb="5"
+            mb="4"
           />
         </div>
         <Grid
@@ -74,7 +82,6 @@ const EnvironmentSelect: FC<{
               label={env.id}
               key={env.id}
               weight="regular"
-              mb="4"
               mr="2"
             />
           ))}
