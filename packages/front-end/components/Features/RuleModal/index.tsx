@@ -636,9 +636,6 @@ export default function RuleModal({
                           usePortal={true}
                         >
                           Bandit
-                          <span className="mr-auto badge badge-purple text-uppercase ml-2">
-                            Beta
-                          </span>
                         </PremiumTooltip>
                       ),
                       description: (

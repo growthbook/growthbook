@@ -153,8 +153,8 @@
 
   --form-input-group-background: #{colors.$gray-800};
   --form-input-group-color: #{colors.$gray6};
-  --form-multivalue-background-color: #{colors.$highlight-purple-light};
-  --form-multivalue-text-color: #{colors.$black};
+  --form-multivalue-background-color: #{darken(colors.$highlight-purple, 30%)};
+  --form-multivalue-text-color: #{colors.$gray4};
   --form-switch-background: #{colors.$gray-800};
   --form-switch-background-active: #{colors.$highlight-purple};
 
@@ -191,9 +191,9 @@
 
   --custom-markdown-border: #{colors.$highlight-purple-light};
 
-  --border-color-100: #616161;
-  --border-color-200: #424242;
-  --border-color-300: #424242;
+  --border-color-100: #383838;
+  --border-color-200: #323232;
+  --border-color-300: #3b3b3b;
 
   --diff-removed-background: #{rgba(#721c24, 0.35)};
   --diff-removed-background-highlight: #721c24;

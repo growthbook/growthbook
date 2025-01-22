@@ -143,17 +143,19 @@ export function DropdownMenuItem({
       {...props}
     >
       <Flex as="div" justify="between" align="center">
-        <Box as="span" className={`mr-4 ${loading ? "font-italic" : ""}`}>
+        <Box as="span" className={`mr-2 ${loading ? "font-italic" : ""}`}>
           {children}
         </Box>
-        <Box width="14px">
-          {loading ? <LoadingSpinner /> : null}
-          {error ? (
-            <Tooltip body={`Error: ${error}. Exit menu and try again.`}>
-              <PiWarningFill color={amber.amber11} />
-            </Tooltip>
-          ) : null}
-        </Box>
+        {loading || error ? (
+          <Box width="14px" className="ml-4">
+            {loading ? <LoadingSpinner /> : null}
+            {error ? (
+              <Tooltip body={`Error: ${error}. Exit menu and try again.`}>
+                <PiWarningFill color={amber.amber11} />
+              </Tooltip>
+            ) : null}
+          </Box>
+        ) : null}
       </Flex>
     </RadixDropdownMenu.Item>
   );

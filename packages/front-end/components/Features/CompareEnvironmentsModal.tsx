@@ -1,7 +1,7 @@
 import { FeatureInterface } from "back-end/types/feature";
-import { filterEnvironmentsByFeature, truncateString } from "shared/util";
+import { filterEnvironmentsByFeature } from "shared/util";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
-import { Flex, useThemeContext } from "@radix-ui/themes";
+import { Flex, useThemeContext, Text } from "@radix-ui/themes";
 import { getRules, useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
@@ -90,11 +90,14 @@ export default function CompareEnvironmentsModal({
         environments={environments}
         formatOptionLabel={({ value }) => (
           <Flex justify="between" align="center">
-            <span>{truncateString(value, 50)}</span>
+            <Flex maxWidth="calc(100% - 130px)">
+              <Text truncate>{value}</Text>
+            </Flex>
             <Badge
               label={`${rulesByEnv[value].length} Rule${
                 rulesByEnv[value].length === 1 ? "" : "s"
               } applied`}
+              ml="2"
             />
           </Flex>
         )}
@@ -106,11 +109,14 @@ export default function CompareEnvironmentsModal({
         environments={environments.filter((env) => env.id !== sourceEnv)}
         formatOptionLabel={({ value }) => (
           <Flex justify="between" align="center">
-            <span>{value}</span>
+            <Flex maxWidth="calc(100% - 130px)">
+              <Text truncate>{value}</Text>
+            </Flex>
             <Badge
               label={`${rulesByEnv[value].length} Rule${
                 rulesByEnv[value].length === 1 ? "" : "s"
               } applied`}
+              ml="2"
             />
           </Flex>
         )}
