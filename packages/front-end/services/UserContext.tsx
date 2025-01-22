@@ -16,6 +16,7 @@ import type {
   AccountPlan,
   CommercialFeature,
   LicenseInterface,
+  OrganizationCdnUsageInterface,
 } from "enterprise";
 import { SSOConnectionInterface } from "back-end/types/sso-connection";
 import { useRouter } from "next/router";
@@ -55,6 +56,7 @@ type OrgSettingsResponse = {
   apiKeys: ApiKeyInterface[];
   enterpriseSSO: SSOConnectionInterface | null;
   accountPlan: AccountPlan;
+  cdnUsage?: OrganizationCdnUsageInterface;
   effectiveAccountPlan: AccountPlan;
   commercialFeatureLowestPlan?: Partial<Record<CommercialFeature, AccountPlan>>;
   licenseError: string;
@@ -121,6 +123,7 @@ export interface UserContextValue {
   permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
   settings: OrganizationSettings;
   enterpriseSSO?: SSOConnectionInterface;
+  cdnUsage?: OrganizationCdnUsageInterface;
   accountPlan?: AccountPlan;
   effectiveAccountPlan?: AccountPlan;
   licenseError: string;
@@ -481,6 +484,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         settings: currentOrg?.organization?.settings || {},
         license: currentOrg?.license,
         enterpriseSSO: currentOrg?.enterpriseSSO || undefined,
+        cdnUsage: currentOrg?.cdnUsage,
         accountPlan: currentOrg?.accountPlan,
         effectiveAccountPlan: currentOrg?.effectiveAccountPlan,
         commercialFeatureLowestPlan: currentOrg?.commercialFeatureLowestPlan,

@@ -25,6 +25,7 @@ import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { UsageCallout } from "@/components/Usage/UsageCallout";
 
 const ExperimentPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -216,6 +217,9 @@ const ExperimentPage = (): ReactElement => {
       />
 
       <div className="container-fluid">
+        <div className="pt-3 px-2">
+          <UsageCallout />
+        </div>
         <SnapshotProvider experiment={experiment}>
           <TabbedPage
             experiment={experiment}

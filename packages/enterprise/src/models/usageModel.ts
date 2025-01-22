@@ -1,16 +1,6 @@
 import mongoose from "mongoose";
-
-type CdnUsage = {
-  hits: number;
-  bandwidth: number;
-};
-
-type CdnUsages = Record<string, CdnUsage>;
-
-interface OrganizationCdnUsageInterface {
-  orgId: string;
-  cdnUsages: CdnUsages;
-}
+import omit from "lodash/omit";
+import { OrganizationCdnUsageInterface } from "../usage";
 
 type OrganizationCdnUsageDocument = mongoose.Document &
   OrganizationCdnUsageInterface;
@@ -20,18 +10,28 @@ const organizationCdnUsageSchema = new mongoose.Schema({
     type: String,
     unique: true,
   },
-  cdnUsages: [Map],
 });
 
-const COLLECTION_NAME = "OrganizationCdnUsages";
+const COLLECTION_NAME = "newOrganizationCdnUsages";
 
+// MKTODO: should I use the { useCache: true } argument here? Docs - https://mongoosejs.com/docs/api/connection.html#Connection.prototype.useDb()
 const licenseDb = mongoose.connection.useDb("licenses");
 
-const usageModel = licenseDb.model(COLLECTION_NAME, organizationCdnUsageSchema);
+const UsageModel = licenseDb.model<OrganizationCdnUsageDocument>(
+  COLLECTION_NAME,
+  organizationCdnUsageSchema
+);
+
+export function toInterface(
+  doc: OrganizationCdnUsageDocument
+): OrganizationCdnUsageInterface {
+  const ret = doc.toJSON<OrganizationCdnUsageDocument>();
+  return omit(ret, ["__v", "_id"]);
+}
 
 export async function getCdnUsageByOrg(
   orgId: string
-): Promise<OrganizationCdnUsageDocument | null> {
-  // Do we want to limit the amount of months we're looking up?
-  return usageModel.findOne({ orgId });
+): Promise<OrganizationCdnUsageInterface | null> {
+  const doc = await UsageModel.findOne({ orgId });
+  return doc ? toInterface(doc) : null;
 }

@@ -24,6 +24,7 @@ import {
 import { inferDocUrl } from "@/components/DocLink";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { AppFeatures } from "@/types/app-features";
+import UsageProgressBar from "@/components/Usage/UsageProgressBar";
 import ProjectSelector from "./ProjectSelector";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import TopNav from "./TopNav";
@@ -490,6 +491,7 @@ const Layout = (): React.ReactElement => {
           </div>
         </div>
         <div style={{ flex: 1 }} />
+        <UsageProgressBar />
         <div className="p-3">
           {showUpgradeButton && (
             <button

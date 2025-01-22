@@ -39,6 +39,7 @@ import TagsFilter, {
   filterByTags,
   useTagsFilter,
 } from "@/components/Tags/TagsFilter";
+import { UsageCallout } from "@/components/Usage/UsageCallout";
 import SortedTags from "@/components/Tags/SortedTags";
 import Toggle from "@/components/Forms/Toggle";
 import WatchButton from "@/components/WatchButton";
@@ -499,6 +500,7 @@ export default function FeaturesPage() {
 
   return (
     <div className="contents container pagecontents">
+      <UsageCallout />
       {modalOpen && (
         <FeatureModal
           cta={featureToDuplicate ? "Duplicate" : "Create"}

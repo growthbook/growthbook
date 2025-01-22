@@ -1,5 +1,6 @@
 import { useFeature } from "@growthbook/growthbook-react";
 import { getValidDate } from "shared/dates";
+import { meterUsage } from "enterprise";
 import { useUser } from "@/services/UserContext";
 
 export default function useStripeSubscription() {
@@ -52,6 +53,10 @@ export default function useStripeSubscription() {
     trialEnd = getValidDate(trialEnd * 1000);
   }
 
+  //MKTODO: Add logic to calculate currentUsage
+  // currentUsage is equal to the highest current meter (e.g. if hits is at 80% and bandwidth is at 60%, currentUsage is 80%)
+  // but we need to calculate it
+
   const canSubscribe = () => {
     if (disableSelfServeBilling) return false;
 
@@ -74,6 +79,20 @@ export default function useStripeSubscription() {
     return true;
   };
 
+  //MKTODO: This is just mocked data for development
+  const usage: meterUsage[] = [
+    { meter: "hits", usage: 70000, limit: 1000000, percentUsed: 0.95 },
+    { meter: "bandwidth", usage: 3.12, limit: 5, percentUsed: 0.624 },
+  ];
+
+  let maxMeter: meterUsage | null = null;
+
+  for (const meter of usage) {
+    if (!maxMeter || meter.percentUsed > maxMeter.percentUsed) {
+      maxMeter = meter;
+    }
+  }
+
   return {
     freeSeats,
     quote: quote,
@@ -89,5 +108,7 @@ export default function useStripeSubscription() {
     showSeatOverageBanner,
     loading: !quote || !organization,
     canSubscribe: canSubscribe(),
+    usage,
+    maxMeter,
   };
 }

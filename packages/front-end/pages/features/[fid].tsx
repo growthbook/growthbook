@@ -14,6 +14,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import useApi from "@/hooks/useApi";
 import PageHead from "@/components/Layout/PageHead";
 import FeaturesHeader from "@/components/Features/FeaturesHeader";
+import { UsageCallout } from "@/components/Usage/UsageCallout";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeaturesOverview from "@/components/Features/FeaturesOverview";
 import FeaturesStats from "@/components/Features/FeaturesStats";
@@ -189,6 +190,9 @@ export default function FeaturePage() {
           { display: feature.id },
         ]}
       />
+      <div className="px-3 pt-3">
+        <UsageCallout />
+      </div>
       <FeaturesHeader
         feature={feature}
         features={features}

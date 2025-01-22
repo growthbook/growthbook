@@ -291,6 +291,8 @@ export function isActiveSubscriptionStatus(
   return ["active", "trialing", "past_due"].includes(status || "");
 }
 
+//MKTODO: Build a getPlanUsageLimits method that can be used to determine what hits/bandwidth limits an org has
+
 // This returns the actual plan the organzation is on.  If you would prefer to know
 // what plan the organization is effectively on (taking into account downgrades)
 // use getEffectiveAccountPlan() instead.

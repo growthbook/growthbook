@@ -251,6 +251,8 @@ export interface VercelConnection {
 export type OrganizationMessage = {
   message: string;
   level: "info" | "danger" | "warning";
+  cta?: string;
+  link?: string;
 };
 
 export interface OrganizationInterface {

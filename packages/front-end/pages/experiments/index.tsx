@@ -52,6 +52,7 @@ import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
 import { TemplatesPage } from "@/components/Experiment/Templates/TemplatesPage";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { UsageCallout } from "@/components/Usage/UsageCallout";
 
 const NUM_PER_PAGE = 20;
 
@@ -399,6 +400,7 @@ const ExperimentsPage = (): React.ReactElement => {
   return (
     <>
       <div className="contents experiments container-fluid pagecontents">
+        <UsageCallout />
         <div className="mb-3">
           <div className="filters md-form row mb-3 align-items-center">
             <div className="col-auto">

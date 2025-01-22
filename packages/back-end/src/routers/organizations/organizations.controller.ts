@@ -4,7 +4,7 @@ import { freeEmailDomains } from "free-email-domains-typescript";
 import {
   accountFeatures,
   getAccountPlan,
-  // getCdnUsageByOrganization,
+  getCdnUsageByOrganization,
   getEffectiveAccountPlan,
   getLicense,
   getLicenseError,
@@ -713,7 +713,6 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   const filteredInvites = context.permissions.canManageTeam()
     ? invites
     : invites.map((i) => ({ email: i.email }));
-
   // Some other global org data needed by the front-end
   const apiKeys = await getAllApiKeysByOrganization(context);
   const enterpriseSSO = isEnterpriseSSO(req.loginMethod)
@@ -741,8 +740,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   );
   const seatsInUse = getNumberOfUniqueMembersAndInvites(org);
 
-  // Fetch Org usage data here (maybe last 3 months or 6 months?)
-  // const usage = await getCdnUsageByOrganization(org.id);
+  const cdnUsage = await getCdnUsageByOrganization(org.id);
   // calculate % usage (need to know plan )
   // add messages if/when usage is at 85%/95%/100%
 
@@ -764,6 +762,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     members: expandedMembers,
     currentUserPermissions,
     teams: teamsWithMembers,
+    cdnUsage,
     license,
     watching: {
       experiments: watch?.experiments || [],
