@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm, UseFormReturn } from "react-hook-form";
 import clsx from "clsx";
 import {
@@ -10,7 +10,13 @@ import {
 import { OrganizationSettings } from "back-end/types/organization";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import { PopulationDataInterface } from "back-end/types/population-data";
-import { getSnapshotAnalysis, meanVarianceFromSums, ratioVarianceFromSums } from "shared/util";
+import {
+  getSnapshotAnalysis,
+  meanVarianceFromSums,
+  ratioVarianceFromSums,
+} from "shared/util";
+import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { EXPOSURE_DATE_DIMENSION_NAME } from "shared/constants";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -25,6 +31,11 @@ import RunQueriesButton from "@/components/Queries/RunQueriesButton";
 import SelectField from "@/components/Forms/SelectField";
 import HelperText from "@/components/Radix/HelperText";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
+import { useExperiments } from "@/hooks/useExperiments";
+import RadioGroup from "@/components/Radix/RadioGroup";
+import useApi from "@/hooks/useApi";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import Callout from "@/components/Radix/Callout";
 import {
   config,
   isValidPowerCalculationParams,
@@ -35,15 +46,6 @@ import {
   PartialPowerCalculationParams,
   StatsEngineSettings,
 } from "./types";
-import { useExperiments } from "@/hooks/useExperiments";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import { EXPOSURE_DATE_DIMENSION_NAME } from "shared/constants";
-import RadioGroup from "@/components/Radix/RadioGroup";
-import { FaUnlock } from "react-icons/fa";
-import { BsArrowRepeat } from "react-icons/bs";
-import md5 from "md5";
-import useApi from "@/hooks/useApi";
-import { cloneDeep } from "lodash";
 
 export type Props = {
   close?: () => void;
@@ -100,16 +102,20 @@ const SelectStep = ({
   } = useDefinitions();
 
   // only load data on command when type is selected
-  const {
-    experiments: appExperiments,
-    error: experimentsError,
-    loading: experimentsLoading,
-  } = useExperiments(project, false, "standard");
+  const { experiments: appExperiments } = useExperiments(
+    project,
+    false,
+    "standard"
+  );
   const settings = useOrgSettings();
 
   const selectedDatasource = form.watch("selectedDatasource");
-  const [availableMetrics, setAvailableMetrics] = useState<string[] | null>(null);
-  const [availablePopulations, setAvailablePopulations] = useState<{label: string, value: string}[]>([]);
+  const [availableMetrics, setAvailableMetrics] = useState<string[] | null>(
+    null
+  );
+  const [availablePopulations, setAvailablePopulations] = useState<
+    { label: string; value: string }[]
+  >([]);
   const [identifiers, setIdentifiers] = useState<string[]>([]);
 
   // only allow metrics from the same datasource in an analysis
@@ -123,47 +129,55 @@ const SelectStep = ({
     if (availableMetrics !== null) {
       inList = availableMetrics.includes(m.id);
     }
-    const inDatasource = !selectedDatasource || m.datasource === selectedDatasource;
+    const inDatasource =
+      !selectedDatasource || m.datasource === selectedDatasource;
     return !isQuantileMetric && inList && inDatasource;
   }); // identifier type joinable
 
-
   const metrics = form.watch("metrics");
   const selectedMetrics = Object.keys(metrics);
-
 
   const metricValuesSource = form.watch("metricValuesSource") ?? "factTable";
   const metricValuesSourceId = form.watch("metricValuesSourceId");
   console.log(metricValuesSourceId);
 
-  
-  const isNextDisabled = !selectedMetrics.length && metricValuesSourceId === "";
+  const isNextDisabled = !selectedMetrics.length && metricValuesSourceId !== "";
 
   // TODO onNext validate that experiment has results
   const availableExperiments = appExperiments
-  .map((exp) => {
+    .map((exp) => {
+      const datasource = datasources.find((d) => d.id === exp.datasource);
+      const exposureQuery = datasource?.settings?.queries?.exposure?.find(
+        (e) => e.id === exp.exposureQueryId
+      );
 
-    const datasource = datasources.find((d) => d.id === exp.datasource);
-    const exposureQuery = datasource?.settings?.queries?.exposure?.find((e) => (e.id === exp.exposureQueryId));
-
-    return {
-      ...exp,
-      exposureQueryUserIdType: exposureQuery?.userIdType,
-      allMetrics: getAllMetricIdsFromExperiment(exp)
-    }
-  })
-  .filter((e) => {
-    if (e.status === "draft" || !e.exposureQueryUserIdType || e.allMetrics.length === 0) return false;
-    return true;
-  });
+      return {
+        ...exp,
+        exposureQueryUserIdType: exposureQuery?.userIdType,
+        allMetrics: getAllMetricIdsFromExperiment(exp),
+      };
+    })
+    .filter((e) => {
+      if (
+        e.status === "draft" ||
+        !e.exposureQueryUserIdType ||
+        e.allMetrics.length === 0
+      )
+        return false;
+      return true;
+    });
   const availableSegments = appSegments;
   const availableFactTables = appFactTables;
 
   useEffect(() => {
     switch (metricValuesSource) {
-      case "factTable":
-        setAvailablePopulations(availableFactTables.map((p) => ({label: p.name, value: p.id})));
-        const factTable = availableFactTables.find((f) => f.id === metricValuesSourceId);
+      case "factTable": {
+        setAvailablePopulations(
+          availableFactTables.map((p) => ({ label: p.name, value: p.id }))
+        );
+        const factTable = availableFactTables.find(
+          (f) => f.id === metricValuesSourceId
+        );
         setAvailableMetrics(null);
         if (factTable) {
           form.setValue("metricValuesSourceName", factTable.name);
@@ -172,9 +186,14 @@ const SelectStep = ({
           setIdentifiers(factTable.userIdTypes);
         }
         break;
-      case "segment":
-        setAvailablePopulations(availableSegments.map((p) => ({label: p.name, value: p.id})));
-        const segment = availableSegments.find((s) => s.id === metricValuesSourceId);
+      }
+      case "segment": {
+        setAvailablePopulations(
+          availableSegments.map((p) => ({ label: p.name, value: p.id }))
+        );
+        const segment = availableSegments.find(
+          (s) => s.id === metricValuesSourceId
+        );
         setAvailableMetrics(null);
         if (segment) {
           form.setValue("metricValuesSourceName", segment.name);
@@ -183,26 +202,42 @@ const SelectStep = ({
           setIdentifiers([segment.userIdType]);
         }
         break;
-      case "experiment":
-        setAvailablePopulations(availableExperiments.map((p) => ({label: p.name, value: p.id})));
-        const experiment = availableExperiments.find((e) => e.id === metricValuesSourceId);
+      }
+      case "experiment": {
+        setAvailablePopulations(
+          availableExperiments.map((p) => ({ label: p.name, value: p.id }))
+        );
+        const experiment = availableExperiments.find(
+          (e) => e.id === metricValuesSourceId
+        );
         if (experiment) {
           form.setValue("metricValuesSourceName", experiment.name);
           form.setValue("selectedDatasource", experiment.datasource);
-          form.setValue("metricValuesIdentifierType", experiment.exposureQueryUserIdType);
+          form.setValue(
+            "metricValuesIdentifierType",
+            experiment.exposureQueryUserIdType
+          );
           setAvailableMetrics(experiment.allMetrics);
-          setIdentifiers(experiment.exposureQueryUserIdType ? [experiment.exposureQueryUserIdType] : []);
+          setIdentifiers(
+            experiment.exposureQueryUserIdType
+              ? [experiment.exposureQueryUserIdType]
+              : []
+          );
         }
         break;
-      default:
+      }
+      default: {
         setAvailablePopulations([]);
         break;
-    };
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    // availableExperiments, availableSegments, availableFactTables, form
-    metricValuesSource, metricValuesSourceId, setAvailablePopulations, setAvailableMetrics
-  ])
-
+    metricValuesSource,
+    metricValuesSourceId,
+    setAvailablePopulations,
+    setAvailableMetrics,
+  ]);
 
   const field = (
     key: keyof typeof config,
@@ -210,11 +245,6 @@ const SelectStep = ({
   ) => ({
     [key]: defaultValue(config[key], metric.priorSettings, settings),
   });
-
-  console.log(metricValuesSourceId);
-  console.log(form.watch("metricValuesIdentifierType"))
-  console.log(availablePopulations);
-
 
   return (
     <Modal
@@ -236,135 +266,154 @@ const SelectStep = ({
       }
     >
       <>
-      <p>
-        Pick the population that best represents the users you are targeting with your experiment.
-      </p>
-      <label className="mr-auto font-weight-bold">
-        Population Type{" "}
-        <Tooltip
-          body={
-            "The power calculator uses a Fact Table, Segment, or Past Experiment to serve as the basis for estimating the power of your future experiment. It is used to estimate how many new users will enter your experiment each week, as well as the characteristics of your metric(s) that determine how big of an effect you can reliably detect."
-          }
-        />
-      </label>
-      <RadioGroup
-        value={metricValuesSource}
-        options={[
-          { value: "factTable", label: "Fact Table" },
-          { value: "segment", label: "Segment" },
-          { value: "experiment", label: "Past Experiment" },
-          //{ value: "manual", label: "Manual Entry" },
-        ]}
-        setValue={(value) => {
-          if (value !== metricValuesSource) {
-            form.setValue("metricValuesSourceId", undefined);
-            form.setValue("metricValuesSourceName", undefined);
-            form.setValue("metrics", {});
-            form.setValue("metricValuesSource", value as FullModalPowerCalculationParams["metricValuesSource"]);
-            form.setValue("metricValuesIdentifierType", undefined);
-          }
-        }}
-        mb="2"
-      />
-      <SelectField
-        label={
-          <>
-            <span className="mr-auto font-weight-bold">
-              {metricValuesSource === "factTable" ? "Fact Table" : metricValuesSource === "experiment" ? "Experiment" : "Segment"}
-            </span>
-          </>
-        }
-        value={metricValuesSourceId ?? ""}
-        options={availablePopulations}
-        onChange={(value) => form.setValue("metricValuesSourceId", value)}
-        className="mb-2"
-        forceUndefinedValueToNull={true}
-      />
-      <SelectField
-        label={
-          <>
-            <span className="mr-auto font-weight-bold">
-              Identifier Type
-            </span>
-          </>
-        }
-        disabled={identifiers.length <= 1}
-        value={form.watch("metricValuesIdentifierType") ?? ""}
-        options={identifiers.map((i) => ({label: i, value: i}))}
-        onChange={(value) => form.setValue("metricValuesIdentifierType", value)}
-        forceUndefinedValueToNull={true}
-      />
-      
-      <hr />
-
-      <p>Pick the key metrics for which you want to estimate power.</p>
-      <MultiSelectField
-        labelClassName="d-flex"
-        label={
-          <>
-            <span className="mr-auto font-weight-bold">
-              Select Metrics{" "}
-              <Tooltip body={<>
-                {metricValuesSource === "experiment" ? <p>
-                  Only metrics analyzed with this experiment can be selected.
-                  </p> : <p>
-                  Only metrics that are in the same datasource and share an identifier type with your population can be selected.
-                  </p>}
-                  <p>Quantile metrics cannot be selected.
-
-                  </p></>} />
-            </span>
-          </>
-        }
-        sort={false}
-        value={selectedMetrics}
-        options={allAppMetrics.map(({ name: label, id: value }) => ({
-          label,
-          value,
-        }))}
-        isOptionDisabled={() => 5 <= selectedMetrics.length}
-        disabled={!metricValuesSourceId}
-        onChange={(value: string[]) => {
-          form.setValue(
-            "metrics",
-            value.reduce((result, id) => {
-              const metric = ensureAndReturn(
-                allAppMetrics.find((m) => m.id === id)
+        <p>
+          Pick the population that best represents the users you are targeting
+          with your experiment.
+        </p>
+        <label className="mr-auto font-weight-bold">
+          Population Type{" "}
+          <Tooltip
+            body={
+              "The power calculator uses a Fact Table, Segment, or Past Experiment to serve as the basis for estimating the power of your future experiment. It is used to estimate how many new users will enter your experiment each week, as well as the characteristics of your metric(s) that determine how big of an effect you can reliably detect."
+            }
+          />
+        </label>
+        <RadioGroup
+          value={metricValuesSource}
+          options={[
+            { value: "factTable", label: "Fact Table" },
+            { value: "segment", label: "Segment" },
+            { value: "experiment", label: "Past Experiment" },
+            //{ value: "manual", label: "Manual Entry" },
+          ]}
+          setValue={(value) => {
+            if (value !== metricValuesSource) {
+              form.setValue("metricValuesSourceId", undefined);
+              form.setValue("metricValuesSourceName", undefined);
+              form.setValue("metrics", {});
+              form.setValue(
+                "metricValuesSource",
+                value as FullModalPowerCalculationParams["metricValuesSource"]
               );
-              if (!selectedDatasource) form.setValue("selectedDatasource", metric.datasource);
+              form.setValue("metricValuesIdentifierType", undefined);
+            }
+          }}
+          mb="2"
+        />
+        <SelectField
+          label={
+            <>
+              <span className="mr-auto font-weight-bold">
+                {metricValuesSource === "factTable"
+                  ? "Fact Table"
+                  : metricValuesSource === "experiment"
+                  ? "Experiment"
+                  : "Segment"}
+              </span>
+            </>
+          }
+          value={metricValuesSourceId ?? ""}
+          options={availablePopulations}
+          onChange={(value) => form.setValue("metricValuesSourceId", value)}
+          className="mb-2"
+          forceUndefinedValueToNull={true}
+        />
+        <SelectField
+          label={
+            <>
+              <span className="mr-auto font-weight-bold">Identifier Type</span>
+            </>
+          }
+          disabled={identifiers.length <= 1}
+          value={form.watch("metricValuesIdentifierType") ?? ""}
+          options={identifiers.map((i) => ({ label: i, value: i }))}
+          onChange={(value) =>
+            form.setValue("metricValuesIdentifierType", value)
+          }
+          forceUndefinedValueToNull={true}
+        />
 
-              return {
-                ...result,
-                [id]: metrics[id] || {
-                  name: metric.name,
-                  ...field("effectSize", metric),
-                  ...(isBinomialMetric(metric)
-                    ? { type: "binomial", ...field("conversionRate", metric) }
-                    : {
-                        type: "mean",
-                        ...field("mean", metric),
-                        ...field("standardDeviation", metric),
-                        standardDeviation: undefined,
-                      }),
-                  ...field("overrideMetricLevelSettings", metric),
-                  ...field("overrideProper", metric),
-                  ...field("overridePriorLiftMean", metric),
-                  ...field("overridePriorLiftStandardDeviation", metric),
-                  ...field("metricProper", metric),
-                  ...field("metricPriorLiftMean", metric),
-                  ...field("metricPriorLiftStandardDeviation", metric),
-                },
-              };
-            }, {})
-          );
-        }}
-      />
-      {selectedMetrics.length === 5 && (
-        <HelperText status="info" mb="3">
-          Limit 5 metrics
-        </HelperText>
-      )}
-    </>
+        <hr />
+
+        <p>Pick the key metrics for which you want to estimate power.</p>
+        <MultiSelectField
+          labelClassName="d-flex"
+          label={
+            <>
+              <span className="mr-auto font-weight-bold">
+                Select Metrics{" "}
+                <Tooltip
+                  body={
+                    <>
+                      {metricValuesSource === "experiment" ? (
+                        <p>
+                          Only metrics analyzed with this experiment can be
+                          selected.
+                        </p>
+                      ) : (
+                        <p>
+                          Only metrics that are in the same datasource and share
+                          an identifier type with your population can be
+                          selected.
+                        </p>
+                      )}
+                      <p>Quantile metrics cannot be selected.</p>
+                    </>
+                  }
+                />
+              </span>
+            </>
+          }
+          sort={false}
+          value={selectedMetrics}
+          options={allAppMetrics.map(({ name: label, id: value }) => ({
+            label,
+            value,
+          }))}
+          isOptionDisabled={() => 5 <= selectedMetrics.length}
+          disabled={!metricValuesSourceId}
+          onChange={(value: string[]) => {
+            form.setValue(
+              "metrics",
+              value.reduce((result, id) => {
+                const metric = ensureAndReturn(
+                  allAppMetrics.find((m) => m.id === id)
+                );
+                if (!selectedDatasource)
+                  form.setValue("selectedDatasource", metric.datasource);
+
+                return {
+                  ...result,
+                  [id]: metrics[id] || {
+                    name: metric.name,
+                    ...field("effectSize", metric),
+                    ...(isBinomialMetric(metric)
+                      ? { type: "binomial", ...field("conversionRate", metric) }
+                      : {
+                          type: "mean",
+                          ...field("mean", metric),
+                          ...field("standardDeviation", metric),
+                          standardDeviation: undefined,
+                        }),
+                    ...field("overrideMetricLevelSettings", metric),
+                    ...field("overrideProper", metric),
+                    ...field("overridePriorLiftMean", metric),
+                    ...field("overridePriorLiftStandardDeviation", metric),
+                    ...field("metricProper", metric),
+                    ...field("metricPriorLiftMean", metric),
+                    ...field("metricPriorLiftStandardDeviation", metric),
+                  },
+                };
+              }, {})
+            );
+          }}
+        />
+        {selectedMetrics.length === 5 && (
+          <HelperText status="info" mb="3">
+            Limit 5 metrics
+          </HelperText>
+        )}
+      </>
     </Modal>
   );
 };
@@ -429,6 +478,7 @@ const InputField = ({
   const metrics = form.watch("metrics");
   const params = ensureAndReturn(metrics[metricId]);
   const entryValue = isNaN(params[entry]) ? undefined : params[entry];
+  console.log(entryValue);
   const { title, tooltip, ...c } = config[entry];
 
   const isKeyInvalid = (() => {
@@ -525,114 +575,113 @@ const PopulationDataQueryInput = ({
   //const [data, setData] = useState<PopulationDataInterface | null>(null);
   const metrics = form.getValues("metrics");
   const metricIds = Object.keys(metrics);
-  console.log(metrics);
 
   const metricValuesSourceId = form.watch("metricValuesSourceId");
 
   const { data, error, mutate } = useApi<{
     populationData: PopulationDataInterface | null;
-  }>(populationDataId
-    ? `/population-data/${populationDataId}`
-    : `/population-data/source/${metricValuesSourceId}`);
-  
+  }>(
+    populationDataId
+      ? `/population-data/${populationDataId}`
+      : `/population-data/source/${metricValuesSourceId}`
+  );
+
   // todo reset data if refresh errors?
   const populationData = data?.populationData; // TODO
   const canRunPopulationQuery = true; // TODO
 
   // get datasource
   const datasourceId = form.watch("selectedDatasource");
-  // TODO handle 0s or other illegitimate values
 
   useEffect(() => {
-  if (populationData?.status === "success") {
-    const newMetrics = populationData.metrics.reduce((result, m) => {
-      const oldMetric = metrics[m.metric];
-      if (!oldMetric) return result;
+    if (populationData?.status === "success") {
+      const newMetrics = populationData.metrics.reduce((result, m) => {
+        const oldMetric = metrics[m.metric];
+        if (!oldMetric) return result;
 
-      // build metric TODO BETTER
-      const isRatioMetric =
-        m.data.denominator_sum ||
-        m.data.denominator_sum_squares ||
-        m.data.main_denominator_sum_product;
+        const isRatioMetric =
+          m.data.denominator_sum ||
+          m.data.denominator_sum_squares ||
+          m.data.main_denominator_sum_product;
 
-      if (isRatioMetric && m.type === "ratio") {
-        // TODO
-        const mean = m.data.main_sum / (m.data.denominator_sum ?? 0);
-        const standardDeviation = ratioVarianceFromSums({
-          numerator_sum: m.data.main_sum,
-          numerator_sum_squares: m.data.main_sum_squares,
-          denominator_sum: m.data.denominator_sum ?? 0,
-          denominator_sum_squares: m.data.denominator_sum_squares ?? 0,
-          numerator_denominator_sum_product:
-            m.data.main_denominator_sum_product ?? 0,
-          n: m.data.count,
-        });
-        return {
-          ...result,
-          [m.metric]: {
-            ...oldMetric,
-            ...{
-              mean,
-              standardDeviation,
+        if (isRatioMetric && m.type === "ratio") {
+          const mean = m.data.main_sum / (m.data.denominator_sum ?? 0);
+          const standardDeviation = ratioVarianceFromSums({
+            numerator_sum: m.data.main_sum,
+            numerator_sum_squares: m.data.main_sum_squares,
+            denominator_sum: m.data.denominator_sum ?? 0,
+            denominator_sum_squares: m.data.denominator_sum_squares ?? 0,
+            numerator_denominator_sum_product:
+              m.data.main_denominator_sum_product ?? 0,
+            n: m.data.count,
+          });
+          return {
+            ...result,
+            [m.metric]: {
+              ...oldMetric,
+              ...{
+                mean,
+                standardDeviation,
+              },
             },
-          },
-        };
-      } else if (m.type === "binomial") {
-        const mean = m.data.main_sum / m.data.count;
-        return {
-          ...result,
-          [m.metric]: {
-            ...oldMetric,
-            ...{
-              conversionRate: mean,
+          };
+        } else if (m.type === "binomial") {
+          const mean = m.data.main_sum / m.data.count;
+          return {
+            ...result,
+            [m.metric]: {
+              ...oldMetric,
+              ...{
+                conversionRate: mean,
+              },
             },
-          },
-        };
-      } else {
-        console.log(m.data);
-        const mean = m.data.main_sum / m.data.count;
-        const standardDeviation = meanVarianceFromSums(
-          m.data.main_sum,
-          m.data.main_sum_squares,
-          m.data.count
-        );
-        return {
-          ...result,
-          [m.metric]: {
-            ...oldMetric,
-            ...{
-              mean,
-              standardDeviation,
+          };
+        } else {
+          console.log(m.data);
+          const mean = m.data.main_sum / m.data.count;
+          const standardDeviation = meanVarianceFromSums(
+            m.data.main_sum,
+            m.data.main_sum_squares,
+            m.data.count
+          );
+          return {
+            ...result,
+            [m.metric]: {
+              ...oldMetric,
+              ...{
+                mean,
+                standardDeviation,
+              },
             },
-          },
-        };
-      }
-    }, metrics);
-    console.log(newMetrics);
-    form.setValue("metrics", newMetrics);
-    form.setValue("dataMetrics", newMetrics);
+          };
+        }
+      }, metrics);
 
-    form.setValue(
-      "usersPerWeek",
-      Math.round(
-        populationData.units.reduce((r, u) => {
-          return r + u.count;
-        }, 0) / populationData.units.length
-      )
-    ); // change to 8
-  }
-  }, [populationData])
+      form.setValue("metrics", newMetrics);
+      form.setValue("dataMetrics", newMetrics);
 
-  if (!metricValuesSourceId) return null; // TODO error
+      form.setValue(
+        "usersPerWeek",
+        Math.round(
+          populationData.units.reduce((r, u) => {
+            return r + u.count;
+          }, 0) / populationData.units.length
+        )
+      ); // change to 8
+    } else if (populationData?.status === "error") {
+      form.setValue("dataMetrics", {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [populationData]);
+
+  if (!metricValuesSourceId) return null;
 
   // TODO add url sharing and save populationId + metric
-  // TODO permissions check
-  // TODO identifier type check
   return (
     <>
       {" "}
-      <div className="ml-2 row">
-        <div className="col-auto">
+      <div className="ml-2 row align-items-center">
+        <div className="col-auto pl-0">
           Compute metric values using last 8 weeks of data from{" "}
           <strong>{form.watch("metricValuesSourceName")}</strong>.
         </div>
@@ -650,8 +699,9 @@ const PopulationDataQueryInput = ({
                   // });
                   const sourceType =
                     form.watch("metricValuesSource") ?? "segment";
-                    console.log(form.watch("metricValuesSource"));
-                  const idType = form.watch("metricValuesIdentifierType") ?? "user_id";
+
+                  const idType =
+                    form.watch("metricValuesIdentifierType") ?? "user_id";
                   const res = await apiCall<{
                     populationData: PopulationDataInterface;
                   }>(`/population-data`, {
@@ -664,7 +714,7 @@ const PopulationDataQueryInput = ({
                       userIdType: idType,
                     }),
                   });
-                  console.log(res);
+
                   setPopulationDataId(res.populationData.id);
                   mutate();
                 } catch (e) {
@@ -693,31 +743,85 @@ const PopulationDataQueryInput = ({
           )}
         </div>
         <div className="col-auto">
-          <ViewAsyncQueriesButton
-            queries={populationData?.queries?.map((q) => q.query) ?? []}
-            error={populationData?.error}
-            hideQueryCount={true}
-            display={""}
-          />
+          <MoreMenu autoCloseOnClick={false}>
+            <ViewAsyncQueriesButton
+              queries={populationData?.queries?.map((q) => q.query) ?? []}
+              error={populationData?.error}
+              className="dropdown-item py-2"
+            />
+          </MoreMenu>
         </div>{" "}
-        {/* error and classname */}
       </div>
-      {populationData?.status === "success" && (<DataInput form={form} engineType={engineType}/>)}
+      {populationData?.status === "error" || error ? (
+        <>
+          {populationData?.status === "error" ? (
+            <Callout status={"error"} mt={"2"}>
+              Queries failed.{" "}
+              <ViewAsyncQueriesButton
+                queries={populationData?.queries?.map((q) => q.query) ?? []}
+                error={populationData?.error}
+                icon={null}
+                hideQueryCount={true}
+              />
+              <br />
+              You can manually enter values if you prefer.
+            </Callout>
+          ) : error ? (
+            <Callout status={"error"} mt={"2"}>
+              Error starting queries: {error.message}
+              <br />
+              You can manually enter values if you prefer.
+            </Callout>
+          ) : null}
+          <hr />
+          <DataInput
+            form={form}
+            engineType={engineType}
+            hasPrefilledData={false}
+          />
+        </>
+      ) : null}
+      {populationData?.status === "success" && (
+        <>
+          <hr />
+          <DataInput form={form} engineType={engineType} />
+        </>
+      )}
     </>
   );
 };
 
-const DataInput = ({form, engineType}: {form: Form, engineType: "bayesian" | "frequentist"}) => {
-  
-  const [metricsEditable, setMetricsEditable] = useState<boolean>(false);
+const DataInput = ({
+  form,
+  engineType,
+  hasPrefilledData = true,
+}: {
+  form: Form;
+  engineType: "bayesian" | "frequentist";
+  hasPrefilledData?: boolean;
+}) => {
+  const [metricsEditable, setMetricsEditable] = useState<boolean>(
+    !hasPrefilledData
+  );
   const metrics = form.getValues("metrics");
   const metricIds = Object.keys(metrics);
 
-  return (<>
-          <div className="ml-2 mt-4">
-            <div className="mb-2">
-              Metric values below pre-filled from {form.getValues("metricValuesSource") === "experiment" ? "past experiment data." : "query data."}
-              {metricsEditable ? ( <Tooltip
+  return (
+    <>
+      <div className="ml-2 mt-4">
+        {hasPrefilledData ? (
+          <div className="mb-2">
+            Metric values below pre-filled from{" "}
+            {form.getValues("metricValuesSource") === "experiment" ? (
+              <>
+                from experiment:{" "}
+                <strong>{form.getValues("metricValuesSourceName")}.</strong>
+              </>
+            ) : (
+              "query data."
+            )}
+            {metricsEditable ? (
+              <Tooltip
                 body="Reset to query values"
                 usePortal={true}
                 tipPosition="top"
@@ -738,17 +842,19 @@ const DataInput = ({form, engineType}: {form: Form, engineType: "bayesian" | "fr
                               ...oldMetricValues,
                               // don't override effect size
                               effectSize: m.effectSize,
-                              overrideMetricLevelSettings: m.overrideMetricLevelSettings,
+                              overrideMetricLevelSettings:
+                                m.overrideMetricLevelSettings,
                               overridePriorLiftMean: m.overridePriorLiftMean,
-                              overridePriorLiftStandardDeviation: m.overridePriorLiftStandardDeviation,
+                              overridePriorLiftStandardDeviation:
+                                m.overridePriorLiftStandardDeviation,
                               overrideProper: m.overrideProper,
-                            }
+                            },
                           };
                         } else {
-                            dataMetrics = {
+                          dataMetrics = {
                             ...dataMetrics,
-                            [id]: m
-                          }
+                            [id]: m,
+                          };
                         }
                       }
                       form.setValue("metrics", dataMetrics);
@@ -758,75 +864,53 @@ const DataInput = ({form, engineType}: {form: Form, engineType: "bayesian" | "fr
                 >
                   Reset to data values.
                 </a>
-              </Tooltip>) : (
-                <a
-                  role="button"
-                  className="ml-1 mb-0"
-                  onClick={() => {
-                    setMetricsEditable(true);
-                  }}
-                >
-
-Customize values.
-                </a>
-
-              )}
-             
-            </div>
-            <Field
-              label={
-                <div>
-                  <span className="font-weight-bold mr-1">
-                    Estimated Users Per Week
-                  </span>
-                  <Tooltip
-                    popperClassName="text-left"
-                    body="Total users across all variations"
-                    tipPosition="right"
-                  />
-                </div>
-              }
-              type="number"
-              {...form.register("usersPerWeek", {
-                valueAsNumber: true,
-              })}
-              disabled={!metricsEditable}
-            />
+              </Tooltip>
+            ) : (
+              <a
+                role="button"
+                className="ml-1 mb-0"
+                onClick={() => {
+                  setMetricsEditable(true);
+                }}
+              >
+                Customize values.
+              </a>
+            )}
           </div>
-          <div className="ml-2">
-            {metricIds.map((metricId) => (
-              <MetricParamsInput
-                key={metricId}
-                metricId={metricId}
-                engineType={engineType}
-                form={form}
-                disableValue={!metricsEditable}
+        ) : null}
+        <Field
+          label={
+            <div>
+              <span className="font-weight-bold mr-1">
+                Estimated Users Per Week
+              </span>
+              <Tooltip
+                popperClassName="text-left"
+                body="Total users across all variations"
+                tipPosition="right"
               />
-            ))}
-          </div>
-        </>);
-}
-
-// consolidate with experiment
-const ExperimentDataInput = ({
-  form,
-  engineType,
-}: {
-  form: Form;
-  engineType: "bayesian" | "frequentist";
-}) => {
-
-  const metrics = form.getValues("metrics");
-  const metricIds = Object.keys(metrics);
-
-  const metricValuesSourceId = form.watch("metricValuesSourceId");
-
-  if (!metricValuesSourceId) return null; // TODO error
-  
-  // TODO add url sharing and save populationId + metric
-  // TODO permissions check
-  // TODO identifier type check
-  return <DataInput form={form} engineType={engineType} />;
+            </div>
+          }
+          type="number"
+          {...form.register("usersPerWeek", {
+            valueAsNumber: true,
+          })}
+          disabled={!metricsEditable}
+        />
+      </div>
+      <div className="ml-2">
+        {metricIds.map((metricId) => (
+          <MetricParamsInput
+            key={metricId}
+            metricId={metricId}
+            engineType={engineType}
+            form={form}
+            disableValue={!metricsEditable}
+          />
+        ))}
+      </div>
+    </>
+  );
 };
 
 const MetricParamsInput = ({
@@ -852,7 +936,6 @@ const MetricParamsInput = ({
       "overridePriorLiftStandardDeviation",
     ].includes(entity);
   };
-  console.log(params);
 
   return (
     <div className="card gsbox mb-3 pt-3 pl-3 pr-3 pb-1 mb-2 power-analysis-params">
@@ -864,7 +947,7 @@ const MetricParamsInput = ({
           )
           .map((entry: keyof Omit<MetricParams, "name" | "type">) => (
             <InputField
-              key={`${name}-${entry}`}
+              key={`${name}-${entry}-${disableValue}`}
               entry={entry}
               form={form}
               metricId={metricId}
@@ -1023,11 +1106,12 @@ const SetParamsStep = ({
         </button>
       }
     >
-      {form.watch("metricValuesSource") === "segment"  || form.watch("metricValuesSource") === "factTable" ? (
+      {form.watch("metricValuesSource") === "segment" ||
+      form.watch("metricValuesSource") === "factTable" ? (
         <PopulationDataQueryInput form={form} engineType={engineType} />
       ) : null}
       {form.watch("metricValuesSource") === "experiment" ? (
-        <ExperimentDataInput form={form} engineType={engineType} />
+        <DataInput form={form} engineType={engineType} />
       ) : null}
       {form.watch("metricValuesSource") === "manual" ? (
         <ManualDataInput form={form} engineType={engineType} />
@@ -1042,7 +1126,9 @@ export default function PowerCalculationSettingsModal({
   statsEngineSettings,
   params,
 }: Props) {
-  const [step, setStep] = useState<"source" | "select" | "set-params">("select");
+  const [step, setStep] = useState<"source" | "select" | "set-params">(
+    "select"
+  );
   const settings = useOrgSettings();
   const { apiCall } = useAuth();
 
@@ -1101,16 +1187,21 @@ export default function PowerCalculationSettingsModal({
               const experiment = form.watch("metricValuesSourceId");
               const { snapshot } = await apiCall<{
                 snapshot: ExperimentSnapshotInterface;
-              }>(
-                `/experiment/${experiment}/snapshot/0/?type=standard`
-              );
+              }>(`/experiment/${experiment}/snapshot/0/?type=standard`);
               if (snapshot) {
                 const analysis = getSnapshotAnalysis(snapshot);
                 // use control for mean and variance
                 // use total traffic for traffic
-                const units = snapshot.health?.traffic.overall.variationUnits.reduce((result, v) => v + result, 0) ?? 0;
+                const units =
+                  snapshot.health?.traffic.overall.variationUnits.reduce(
+                    (result, v) => v + result,
+                    0
+                  ) ?? 0;
                 // TODO get length from experiment
-                const length = (snapshot.health?.traffic.dimension?.[EXPOSURE_DATE_DIMENSION_NAME]?.length ?? 7) / 7;
+                const length =
+                  (snapshot.health?.traffic.dimension?.[
+                    EXPOSURE_DATE_DIMENSION_NAME
+                  ]?.length ?? 7) / 7;
                 let newMetrics = {};
                 let totalUnits = 0;
                 console.log(snapshot.health);
@@ -1122,7 +1213,8 @@ export default function PowerCalculationSettingsModal({
                       console.log(v.metrics[metricId]);
                       const mean = v.metrics[metricId].stats?.mean;
                       console.log(mean);
-                      const standardDeviation = v.metrics[metricId].stats?.stddev;
+                      const standardDeviation =
+                        v.metrics[metricId].stats?.stddev;
                       newMetrics = {
                         ...newMetrics,
                         [metricId]: {
@@ -1131,7 +1223,7 @@ export default function PowerCalculationSettingsModal({
                           conversionRate: mean,
                           standardDeviation,
                         },
-                      }
+                      };
                     });
                   }
                   if (!units) {
@@ -1141,7 +1233,7 @@ export default function PowerCalculationSettingsModal({
 
                 // must have units
                 form.setValue("metrics", newMetrics);
-          
+
                 form.setValue(
                   "usersPerWeek",
                   Math.round((units || totalUnits) / length)
@@ -1149,8 +1241,7 @@ export default function PowerCalculationSettingsModal({
               }
             }
             // throw error
-            setStep("set-params")
-            
+            setStep("set-params");
           }}
         />
       )}

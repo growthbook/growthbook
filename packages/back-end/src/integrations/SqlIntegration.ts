@@ -650,7 +650,6 @@ export default abstract class SqlIntegration
         const factTable = factTableMap.get(settings.sourceId);
         if (factTable) {
           const sql = factTable.sql;
-          console.log(sql);
           return compileSqlTemplate(
             `
           __source AS (
@@ -664,7 +663,7 @@ export default abstract class SqlIntegration
             {
               startDate: settings.startDate,
               endDate: settings.endDate ?? undefined,
-              templateVariables: {eventName: factTable.eventName}
+              templateVariables: { eventName: factTable.eventName },
             }
           );
         } else {

@@ -25,17 +25,14 @@ const BaseClass = MakeModelClass({
 
 export class PopulationDataModel extends BaseClass {
   protected canRead(doc: PopulationDataInterface): boolean {
-    // Do I need to prevent reading for any metric used
-    // in data
-    const { metric } = this.getForeignRefs(doc);
+    const { datasource } = this.getForeignRefs(doc);
     return this.context.permissions.canReadMultiProjectResource(
-      metric?.projects || []
+      datasource?.projects || []
     );
   }
   protected canCreate(doc: PopulationDataInterface): boolean {
-    // TODO
     const { datasource } = this.getForeignRefs(doc);
-    return this.context.permissions.canCreateMetricAnalysis({
+    return this.context.permissions.canRunPopulationDataQueries({
       projects: datasource?.projects || [],
     });
   }

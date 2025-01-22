@@ -187,7 +187,7 @@ export const startPopulationDataQueries = async (
 function readMetricData({
   metric,
   rows,
-  metricPrefix
+  metricPrefix,
 }: {
   metric: ExperimentMetricInterface;
   rows: Record<string, string | number>[];
@@ -319,7 +319,6 @@ export class PopulationDataQueryRunner extends QueryRunner<
       // Single metric query, just return rows as-is
       const metric = this.metricMap.get(key);
       if (!metric) return;
-      console.log('here')
 
       const res = readMetricData({
         metric,
