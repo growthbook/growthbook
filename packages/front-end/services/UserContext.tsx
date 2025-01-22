@@ -337,7 +337,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       orgDateCreated: currentOrg?.organization?.dateCreated
         ? getValidDate(currentOrg.organization.dateCreated).toISOString()
         : "",
-      accountPlan: currentOrg?.effectiveAccountPlan || "unknown",
+      accountPlan: currentOrg?.effectiveAccountPlan || "loading",
       hasLicenseKey: !!currentOrg?.organization?.licenseKey,
       freeSeats: currentOrg?.organization?.freeSeats || 3,
       discountCode: currentOrg?.organization?.discountCode || "",

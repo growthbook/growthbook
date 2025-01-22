@@ -156,25 +156,52 @@ describe("growthbookTrackingPlugin", () => {
     await sleep(150);
     expect(fetchMock).toHaveBeenCalledTimes(2);
 
-    // If the growthbook attributes change, it should not be considered a duplicate
+    // De-dupe ignores url and attribute changes by default
     gb.updateAttributes({ foo: "baz" });
-    gb.logEvent("test");
-    gb.logEvent("test");
-
-    await sleep(150);
-    body = JSON.parse(fetchMock.mock.calls[2][1].body);
-    expect(body.length).toBe(1);
-    expect(body[0].event_name).toBe("test");
-
-    // If the growthbook url changes, it should not be considered a duplicate
     gb.setURL("http://localhost:3001");
     gb.logEvent("test");
-    gb.logEvent("test");
-
     await sleep(150);
-    body = JSON.parse(fetchMock.mock.calls[3][1].body);
-    expect(body.length).toBe(1);
-    expect(body[0].event_name).toBe("test");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    gb.destroy();
+  });
+
+  it("uses key attributes when de-duping events", async () => {
+    const plugin = growthbookTrackingPlugin({
+      dedupeKeyAttributes: ["foo"],
+    });
+
+    const gb = new GrowthBook({
+      clientKey: "test",
+      plugins: [plugin],
+      url: "http://localhost:3000",
+      attributes: {
+        foo: "bar",
+        bar: "baz",
+      },
+    });
+
+    gb.logEvent("test");
+    await sleep(150);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // If a key attribute changes, it should not be considered a duplicate
+    gb.updateAttributes({ foo: "baz" });
+    gb.logEvent("test");
+    await sleep(150);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    // If a non-key attribute changes, it should be considered a duplicate
+    gb.updateAttributes({ bar: "qux" });
+    gb.logEvent("test");
+    await sleep(150);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    // If a key attribute changes back, it should be considered a duplicate again
+    gb.updateAttributes({ foo: "bar" });
+    gb.logEvent("test");
+    await sleep(150);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
 
     gb.destroy();
   });

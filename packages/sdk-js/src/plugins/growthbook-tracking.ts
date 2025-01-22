@@ -158,6 +158,8 @@ export function growthbookTrackingPlugin({
   enable = true,
   debug,
   dedupeCacheSize = 1000,
+  dedupeKeyAttributes = [],
+  eventFilter,
 }: {
   // TODO: add option to allow filtering out certain attributes that contain PII
   queueFlushInterval?: number;
@@ -165,6 +167,8 @@ export function growthbookTrackingPlugin({
   enable?: boolean;
   debug?: boolean;
   dedupeCacheSize?: number;
+  dedupeKeyAttributes?: string[];
+  eventFilter?: (event: EventData) => boolean;
 } = {}) {
   return (gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient) => {
     const clientKey = gb.getClientKey();
@@ -188,18 +192,32 @@ export function growthbookTrackingPlugin({
 
       let promise: Promise<void> | null = null;
       gb.setEventLogger(async (eventName, properties, userContext) => {
-        const data = {
+        const data: EventData = {
           eventName,
           properties,
           attributes: userContext.attributes || {},
           url: userContext.url || "",
         };
-        const k = JSON.stringify(data);
+
+        // Skip logging if the event is being filtered
+        if (eventFilter && !eventFilter(data)) {
+          return;
+        }
+
+        // Build the key for de-duping
+        const dedupeKeyData: Record<string, unknown> = {
+          eventName,
+          properties,
+        };
+        for (const key of dedupeKeyAttributes) {
+          dedupeKeyData["attr:" + key] = data.attributes[key];
+        }
+
+        const k = JSON.stringify(dedupeKeyData);
         // Duplicate event fired recently, move to end of LRU cache and skip
         if (eventCache.has(k)) {
           eventCache.delete(k);
           eventCache.add(k);
-          debug && console.log("Skip logging duplicate event", data);
           return;
         }
         eventCache.add(k);

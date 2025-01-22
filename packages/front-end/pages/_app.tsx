@@ -8,6 +8,7 @@ import { AppProps } from "next/app";
 import Head from "next/head";
 import React, { useEffect, useState } from "react";
 import { GrowthBookProvider } from "@growthbook/growthbook-react";
+import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
 import { Inter } from "next/font/google";
 import { OrganizationMessagesContainer } from "@/components/OrganizationMessages/OrganizationMessages";
 import { DemoDataSourceGlobalBannerContainer } from "@/components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner";
@@ -19,7 +20,12 @@ import {
   DefinitionsGuard,
   DefinitionsProvider,
 } from "@/services/DefinitionsContext";
-import { initEnv, isTelemetryEnabled } from "@/services/env";
+import {
+  getIngestorHost,
+  initEnv,
+  inTelemetryDebugMode,
+  isTelemetryEnabled,
+} from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import "diff2html/bundles/css/diff2html.min.css";
 import Layout from "@/components/Layout/Layout";
@@ -84,6 +90,22 @@ function App({
         console.error(e.message);
       });
   }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    growthbookTrackingPlugin({
+      ingestorHost: getIngestorHost(),
+      enable: isTelemetryEnabled(),
+      debug: inTelemetryDebugMode(),
+      eventFilter: (event) => {
+        // Wait for account plan to load before sending events
+        // When the plan does load, the app will re-render, so no events will be lost
+        if (event.attributes.accountPlan === "loading") return false;
+        return true;
+      },
+      dedupeKeyAttributes: ["id", "organizationId"],
+    })(growthbook);
+  }, [ready]);
 
   useEffect(() => {
     if (!ready) return;

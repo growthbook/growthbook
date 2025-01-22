@@ -7,20 +7,15 @@ import {
   Context,
   GrowthBook,
 } from "@growthbook/growthbook-react";
-import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
 import Cookies from "js-cookie";
 import { v4 as uuidv4 } from "uuid";
 import { AccountPlan } from "enterprise";
 import { AppFeatures } from "@/types/app-features";
 import track from "@/services/track";
-import {
-  getIngestorHost,
-  inTelemetryDebugMode,
-  isTelemetryEnabled,
-} from "@/services/env";
 
 const DEVICE_ID_COOKIE = "gb_device_id";
 const SESSION_ID_COOKIE = "gb_session_id";
+const pageIds: Record<string, string> = {};
 
 export const GB_SDK_ID =
   process.env.NODE_ENV === "production"
@@ -44,13 +39,6 @@ export const gbContext: Context = {
   stickyBucketService: new BrowserCookieStickyBucketService({
     jsCookie: Cookies,
   }),
-  plugins: [
-    growthbookTrackingPlugin({
-      ingestorHost: getIngestorHost(),
-      enable: isTelemetryEnabled(),
-      debug: inTelemetryDebugMode(),
-    }),
-  ],
   attributes: {
     session_id: getOrGenerateSessionId(),
     device_id: getOrGenerateDeviceId(),
@@ -232,8 +220,6 @@ export function capitalizeWords(string): string {
     .map((word) => capitalizeFirstLetter(word))
     .join(" ");
 }
-
-const pageIds: Record<string, string> = {};
 
 function getOrGenerateDeviceId() {
   const deviceId = Cookies.get(DEVICE_ID_COOKIE) || uuidv4();
