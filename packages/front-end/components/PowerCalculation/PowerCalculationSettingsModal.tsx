@@ -41,6 +41,9 @@ import { EXPOSURE_DATE_DIMENSION_NAME } from "shared/constants";
 import RadioGroup from "@/components/Radix/RadioGroup";
 import { FaUnlock } from "react-icons/fa";
 import { BsArrowRepeat } from "react-icons/bs";
+import md5 from "md5";
+import useApi from "@/hooks/useApi";
+import { cloneDeep } from "lodash";
 
 export type Props = {
   close?: () => void;
@@ -105,8 +108,9 @@ const SelectStep = ({
   const settings = useOrgSettings();
 
   const selectedDatasource = form.watch("selectedDatasource");
-  const [availableMetrics, setAvailableMetrics] = useState<string[] | null>(null)
+  const [availableMetrics, setAvailableMetrics] = useState<string[] | null>(null);
   const [availablePopulations, setAvailablePopulations] = useState<{label: string, value: string}[]>([]);
+  const [identifiers, setIdentifiers] = useState<string[]>([]);
 
   // only allow metrics from the same datasource in an analysis
   // combine both metrics and remove quantile metrics
@@ -122,6 +126,8 @@ const SelectStep = ({
     const inDatasource = !selectedDatasource || m.datasource === selectedDatasource;
     return !isQuantileMetric && inList && inDatasource;
   }); // identifier type joinable
+
+
   const metrics = form.watch("metrics");
   const selectedMetrics = Object.keys(metrics);
 
@@ -129,12 +135,11 @@ const SelectStep = ({
   const metricValuesSource = form.watch("metricValuesSource") ?? "factTable";
   const metricValuesSourceId = form.watch("metricValuesSourceId");
   console.log(metricValuesSourceId);
+
   
   const isNextDisabled = !selectedMetrics.length && metricValuesSourceId === "";
 
   // TODO onNext validate that experiment has results
-
-
   const availableExperiments = appExperiments
   .map((exp) => {
 
@@ -154,7 +159,50 @@ const SelectStep = ({
   const availableSegments = appSegments;
   const availableFactTables = appFactTables;
 
-  const [identifiers, setIdentifiers] = useState<string[]>([]);
+  useEffect(() => {
+    switch (metricValuesSource) {
+      case "factTable":
+        setAvailablePopulations(availableFactTables.map((p) => ({label: p.name, value: p.id})));
+        const factTable = availableFactTables.find((f) => f.id === metricValuesSourceId);
+        setAvailableMetrics(null);
+        if (factTable) {
+          form.setValue("metricValuesSourceName", factTable.name);
+          form.setValue("selectedDatasource", factTable.datasource);
+          form.setValue("metricValuesIdentifierType", factTable.userIdTypes[0]);
+          setIdentifiers(factTable.userIdTypes);
+        }
+        break;
+      case "segment":
+        setAvailablePopulations(availableSegments.map((p) => ({label: p.name, value: p.id})));
+        const segment = availableSegments.find((s) => s.id === metricValuesSourceId);
+        setAvailableMetrics(null);
+        if (segment) {
+          form.setValue("metricValuesSourceName", segment.name);
+          form.setValue("selectedDatasource", segment.datasource);
+          form.setValue("metricValuesIdentifierType", segment.userIdType);
+          setIdentifiers([segment.userIdType]);
+        }
+        break;
+      case "experiment":
+        setAvailablePopulations(availableExperiments.map((p) => ({label: p.name, value: p.id})));
+        const experiment = availableExperiments.find((e) => e.id === metricValuesSourceId);
+        if (experiment) {
+          form.setValue("metricValuesSourceName", experiment.name);
+          form.setValue("selectedDatasource", experiment.datasource);
+          form.setValue("metricValuesIdentifierType", experiment.exposureQueryUserIdType);
+          setAvailableMetrics(experiment.allMetrics);
+          setIdentifiers(experiment.exposureQueryUserIdType ? [experiment.exposureQueryUserIdType] : []);
+        }
+        break;
+      default:
+        setAvailablePopulations([]);
+        break;
+    };
+  }, [
+    // availableExperiments, availableSegments, availableFactTables, form
+    metricValuesSource, metricValuesSourceId, setAvailablePopulations, setAvailableMetrics
+  ])
+
 
   const field = (
     key: keyof typeof config,
@@ -162,6 +210,11 @@ const SelectStep = ({
   ) => ({
     [key]: defaultValue(config[key], metric.priorSettings, settings),
   });
+
+  console.log(metricValuesSourceId);
+  console.log(form.watch("metricValuesIdentifierType"))
+  console.log(availablePopulations);
+
 
   return (
     <Modal
@@ -204,9 +257,6 @@ const SelectStep = ({
         ]}
         setValue={(value) => {
           if (value !== metricValuesSource) {
-            console.log(availablePopulations);
-            setAvailablePopulations((value === "segment" ? availableSegments : value === "experiment" ? availableExperiments : availableFactTables).map((p) => ({label: p.name, value: p.id})));
-            
             form.setValue("metricValuesSourceId", undefined);
             form.setValue("metricValuesSourceName", undefined);
             form.setValue("metrics", {});
@@ -226,35 +276,7 @@ const SelectStep = ({
         }
         value={metricValuesSourceId ?? ""}
         options={availablePopulations}
-        onChange={(value) => {
-          form.setValue("metricValuesSourceId", value);
-          if (metricValuesSource === "experiment") {
-            const experiment = availableExperiments.find((e) => e.id === value);
-            if (experiment) {
-              form.setValue("metricValuesSourceName", experiment.name);
-              form.setValue("selectedDatasource", experiment.datasource);
-              form.setValue("metricValuesIdentifierType", experiment.exposureQueryUserIdType);
-              setIdentifiers([experiment.exposureQueryUserIdType ?? ""]);
-              setAvailableMetrics(experiment.allMetrics)
-            }
-          } else if (metricValuesSource === "segment") {
-            const segment = availableSegments.find((s) => s.id === value);
-            if (segment) {
-              form.setValue("metricValuesSourceName", segment.name);
-              form.setValue("selectedDatasource", segment.datasource);
-              form.setValue("metricValuesIdentifierType", segment.userIdType);
-              setIdentifiers([segment.userIdType]);
-            }
-          } else if (metricValuesSource === "factTable") {
-            const factTable = availableFactTables.find((f) => f.id === value);
-            if (factTable) {
-              form.setValue("metricValuesSourceName", factTable.name);
-              form.setValue("selectedDatasource", factTable.datasource);
-              form.setValue("metricValuesIdentifierType", factTable.userIdTypes[0]);
-              setIdentifiers(factTable.userIdTypes);
-            }
-          }
-        }}
+        onChange={(value) => form.setValue("metricValuesSourceId", value)}
         className="mb-2"
         forceUndefinedValueToNull={true}
       />
@@ -301,7 +323,7 @@ const SelectStep = ({
           value,
         }))}
         isOptionDisabled={() => 5 <= selectedMetrics.length}
-  //      disabled={!metricValuesSourceId}
+        disabled={!metricValuesSourceId}
         onChange={(value: string[]) => {
           form.setValue(
             "metrics",
@@ -500,35 +522,28 @@ const PopulationDataQueryInput = ({
   const { apiCall } = useAuth();
 
   const [populationDataId, setPopulationDataId] = useState<string | null>(null);
-  const [data, setData] = useState<PopulationDataInterface | null>(null);
-  const [metricsEditable, setMetricsEditable] = useState<boolean>(false);
+  //const [data, setData] = useState<PopulationDataInterface | null>(null);
   const metrics = form.getValues("metrics");
   const metricIds = Object.keys(metrics);
+  console.log(metrics);
 
   const metricValuesSourceId = form.watch("metricValuesSourceId");
 
-  const getData = useCallback(async () => {
-    const path = populationDataId
-      ? `/population-data/${populationDataId}`
-      : `/population-data/source/${metricValuesSourceId}`;
-    const res = await apiCall<{
-      populationData: PopulationDataInterface | null;
-    }>(path);
-    setData(res.populationData);
-  }, [apiCall, metricValuesSourceId, populationDataId]);
-
-  useEffect(() => {
-    getData();
-  }, [getData]);
-
+  const { data, error, mutate } = useApi<{
+    populationData: PopulationDataInterface | null;
+  }>(populationDataId
+    ? `/population-data/${populationDataId}`
+    : `/population-data/source/${metricValuesSourceId}`);
+  
   // todo reset data if refresh errors?
-  const populationData = data; // TODO
+  const populationData = data?.populationData; // TODO
   const canRunPopulationQuery = true; // TODO
 
   // get datasource
   const datasourceId = form.watch("selectedDatasource");
   // TODO handle 0s or other illegitimate values
 
+  useEffect(() => {
   if (populationData?.status === "success") {
     const newMetrics = populationData.metrics.reduce((result, m) => {
       const oldMetric = metrics[m.metric];
@@ -574,6 +589,7 @@ const PopulationDataQueryInput = ({
           },
         };
       } else {
+        console.log(m.data);
         const mean = m.data.main_sum / m.data.count;
         const standardDeviation = meanVarianceFromSums(
           m.data.main_sum,
@@ -592,7 +608,9 @@ const PopulationDataQueryInput = ({
         };
       }
     }, metrics);
+    console.log(newMetrics);
     form.setValue("metrics", newMetrics);
+    form.setValue("dataMetrics", newMetrics);
 
     form.setValue(
       "usersPerWeek",
@@ -603,6 +621,7 @@ const PopulationDataQueryInput = ({
       )
     ); // change to 8
   }
+  }, [populationData])
 
   if (!metricValuesSourceId) return null; // TODO error
 
@@ -645,9 +664,9 @@ const PopulationDataQueryInput = ({
                       userIdType: idType,
                     }),
                   });
+                  console.log(res);
                   setPopulationDataId(res.populationData.id);
-                  //setPopulationDataId(res.populationData.id);
-                  await getData();
+                  mutate();
                 } catch (e) {
                   //setError(e.message);
                 }
@@ -660,7 +679,7 @@ const PopulationDataQueryInput = ({
                     ? "Refresh Data"
                     : "Compute Metric Values"
                 }
-                mutate={getData}
+                mutate={mutate}
                 model={
                   populationData ?? {
                     queries: [],
@@ -683,47 +702,73 @@ const PopulationDataQueryInput = ({
         </div>{" "}
         {/* error and classname */}
       </div>
-      {populationData?.status === "success" && (
-        <>
+      {populationData?.status === "success" && (<DataInput form={form} engineType={engineType}/>)}
+    </>
+  );
+};
+
+const DataInput = ({form, engineType}: {form: Form, engineType: "bayesian" | "frequentist"}) => {
+  
+  const [metricsEditable, setMetricsEditable] = useState<boolean>(false);
+  const metrics = form.getValues("metrics");
+  const metricIds = Object.keys(metrics);
+
+  return (<>
           <div className="ml-2 mt-4">
             <div className="mb-2">
-              Metric values below pre-filled from query results.
+              Metric values below pre-filled from {form.getValues("metricValuesSource") === "experiment" ? "past experiment data." : "query data."}
               {metricsEditable ? ( <Tooltip
-                            body="Reset to query values"
-                            usePortal={true}
-                            tipPosition="top"
-                          >
-                            <a
-                              role="button"
-                              className="ml-1 mb-0"
-                              onClick={() => {
-                                setMetricsEditable(false);
-                                // TODO reset values
-                              }}
-                            >
-                              <BsArrowRepeat
-                                className="text-purple"
-                                size={15}
-                              />
-                            </a>
-                          </Tooltip>) : ( <Tooltip
-                            body="Customize values"
-                            usePortal={true}
-                            tipPosition="top"
-                          >
-                            <a
-                              role="button"
-                              className="ml-1 mb-0"
-                              onClick={() => {
-                                setMetricsEditable(true);
-                              }}
-                            >
-                              <FaUnlock
-                                className="text-purple"
-                                size={15}
-                              />
-                            </a>
-                          </Tooltip>
+                body="Reset to query values"
+                usePortal={true}
+                tipPosition="top"
+              >
+                <a
+                  role="button"
+                  className="ml-1 mb-0"
+                  onClick={() => {
+                    const metricsReset = form.getValues("dataMetrics");
+                    if (metricsReset) {
+                      let dataMetrics = {};
+                      for (const [id, m] of Object.entries(metrics)) {
+                        const oldMetricValues = metricsReset[id];
+                        if (oldMetricValues) {
+                          dataMetrics = {
+                            ...dataMetrics,
+                            [id]: {
+                              ...oldMetricValues,
+                              // don't override effect size
+                              effectSize: m.effectSize,
+                              overrideMetricLevelSettings: m.overrideMetricLevelSettings,
+                              overridePriorLiftMean: m.overridePriorLiftMean,
+                              overridePriorLiftStandardDeviation: m.overridePriorLiftStandardDeviation,
+                              overrideProper: m.overrideProper,
+                            }
+                          };
+                        } else {
+                            dataMetrics = {
+                            ...dataMetrics,
+                            [id]: m
+                          }
+                        }
+                      }
+                      form.setValue("metrics", dataMetrics);
+                      setMetricsEditable(false);
+                    }
+                  }}
+                >
+                  Reset to data values.
+                </a>
+              </Tooltip>) : (
+                <a
+                  role="button"
+                  className="ml-1 mb-0"
+                  onClick={() => {
+                    setMetricsEditable(true);
+                  }}
+                >
+
+Customize values.
+                </a>
 
               )}
              
@@ -759,11 +804,8 @@ const PopulationDataQueryInput = ({
               />
             ))}
           </div>
-        </>
-      )}
-    </>
-  );
-};
+        </>);
+}
 
 // consolidate with experiment
 const ExperimentDataInput = ({
@@ -784,45 +826,7 @@ const ExperimentDataInput = ({
   // TODO add url sharing and save populationId + metric
   // TODO permissions check
   // TODO identifier type check
-  return (
-    <>
-      <div className="ml-2">
-        <div className="mb-2">
-          Greyed out values below pre-filled from <strong>{form.watch("metricValuesSourceName")}</strong>.
-        </div>
-        <Field
-          label={
-            <div>
-              <span className="font-weight-bold mr-1">
-                Estimated Users Per Week
-              </span>
-              <Tooltip
-                popperClassName="text-left"
-                body="Total users across all variations"
-                tipPosition="right"
-              />
-            </div>
-          }
-          type="number"
-          {...form.register("usersPerWeek", {
-            valueAsNumber: true,
-          })}
-          disabled={true}
-        />
-      </div>
-      <div className="ml-2">
-        {metricIds.map((metricId) => (
-          <MetricParamsInput
-            key={metricId}
-            metricId={metricId}
-            engineType={engineType}
-            form={form}
-            disableValue={true}
-          />
-        ))}
-      </div>
-    </>
-  );
+  return <DataInput form={form} engineType={engineType} />;
 };
 
 const MetricParamsInput = ({
@@ -848,6 +852,7 @@ const MetricParamsInput = ({
       "overridePriorLiftStandardDeviation",
     ].includes(entity);
   };
+  console.log(params);
 
   return (
     <div className="card gsbox mb-3 pt-3 pl-3 pr-3 pb-1 mb-2 power-analysis-params">

@@ -4,6 +4,8 @@ import clsx from "clsx";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { ensureAndReturn } from "@/types/utils";
 import { GBHeadingArrowLeft } from "@/components/Icons";
+import Button from "@/components/Radix/Button";
+import Callout from "@/components/Radix/Callout";
 import {
   PowerCalculationParams,
   PowerCalculationResults,
@@ -11,8 +13,6 @@ import {
   StatsEngineSettings,
 } from "./types";
 import PowerCalculationStatsEngineSettingsModal from "./PowerCalculationStatsEngineSettingsModal";
-import Button from "@/components/Radix/Button";
-import Callout from "@/components/Radix/Callout";
 
 const engineType = {
   frequentist: "Frequentist",
@@ -119,10 +119,9 @@ const AnalysisSettings = ({
                 onChange={(e) => {
                   setCurrentVariations(
                     e.target.value !== "" ? Number(e.target.value) : undefined
-                  )
-                  updateVariations(ensureAndReturn(currentVariations))
-                }
-                }
+                  );
+                  updateVariations(ensureAndReturn(currentVariations));
+                }}
               />
             </div>
             <small
@@ -138,13 +137,13 @@ const AnalysisSettings = ({
           </div>
         </div>
 
-      {results.type === "error" ? (
-      <div className="row pt-4 pl-4 pr-4 pb-4">
-        <Callout  status="error">
-          Computation failed: {results.description}
-        </Callout>
-        </div>
-      ): null}
+        {results.type === "error" ? (
+          <div className="row pt-4 pl-4 pr-4 pb-4">
+            <Callout status="error">
+              Computation failed: {results.description}
+            </Callout>
+          </div>
+        ) : null}
       </div>
     </>
   );
@@ -172,7 +171,6 @@ const SampleSizeAndRuntime = ({
   params: PowerCalculationParams;
   results: PowerCalculationSuccessResults;
 }) => {
-
   const sampleSizeAndRuntime = results.sampleSizeAndRuntime;
   const [selectedRow, setSelectedRow] = useState(
     Object.keys(sampleSizeAndRuntime)[0]
@@ -277,7 +275,7 @@ const SampleSizeAndRuntime = ({
                   )}
                 </p>
               </div>
-            </div> 
+            </div>
           </div>
           {/* <div className="alert alert-info w-75 mt-2">
                 <span className="font-weight-bold">
@@ -594,10 +592,7 @@ export default function PowerCalculationContent({
           experiment duration.
         </div>
         <div className="col-auto pr-0">
-          <Button
-            variant={"outline"}
-            onClick={edit}
-          >
+          <Button variant={"outline"} onClick={edit}>
             Edit
           </Button>
         </div>
@@ -607,7 +602,6 @@ export default function PowerCalculationContent({
             icon={<GBHeadingArrowLeft />}
             ml={"1"}
           >
-            
             New Calculation
           </Button>
         </div>
@@ -620,10 +614,7 @@ export default function PowerCalculationContent({
       />
       {results.type !== "error" && (
         <>
-          <SampleSizeAndRuntime
-            params={params}
-            results={results}
-          />
+          <SampleSizeAndRuntime params={params} results={results} />
           <PowerOverTime params={params} results={results} />
           <MinimumDetectableEffect params={params} results={results} />
         </>

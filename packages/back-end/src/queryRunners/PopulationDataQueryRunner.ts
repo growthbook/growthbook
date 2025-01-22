@@ -187,12 +187,13 @@ export const startPopulationDataQueries = async (
 function readMetricData({
   metric,
   rows,
-  prefix,
+  metricPrefix
 }: {
   metric: ExperimentMetricInterface;
   rows: Record<string, string | number>[];
-  prefix?: string;
+  metricPrefix?: string;
 }): { metric: PopulationDataMetric; units: PopulationDataResult["units"] } {
+  const prefix = metricPrefix ?? "";
   const metricData: PopulationDataMetric = {
     metric: metric.id,
     type: isBinomialMetric(metric)
@@ -298,11 +299,10 @@ export class PopulationDataQueryRunner extends QueryRunner<
           if (!rows[0]?.[prefix + "id"]) break;
 
           const metricId = rows[0][prefix + "id"] as string;
-
           const metric = this.metricMap.get(metricId);
           // skip any metrics somehow missing from map
           if (metric) {
-            const res = readMetricData({ metric, rows, prefix });
+            const res = readMetricData({ metric, rows, metricPrefix: prefix });
             metrics.push(res.metric);
 
             const metricUnitsTotal = res.units.reduce(
@@ -319,6 +319,7 @@ export class PopulationDataQueryRunner extends QueryRunner<
       // Single metric query, just return rows as-is
       const metric = this.metricMap.get(key);
       if (!metric) return;
+      console.log('here')
 
       const res = readMetricData({
         metric,

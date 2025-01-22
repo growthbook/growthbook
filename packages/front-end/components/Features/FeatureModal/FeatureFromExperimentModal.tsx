@@ -405,14 +405,14 @@ export default function FeatureFromExperimentModal({
         </>
       )}
 
-        <EnvironmentSelect
-          environmentSettings={environmentSettings}
-          environments={environments}
-          setValue={(env, on) => {
-            environmentSettings[env.id].enabled = on;
-            form.setValue("environmentSettings", environmentSettings);
-          }}
-        />
+      <EnvironmentSelect
+        environmentSettings={environmentSettings}
+        environments={environments}
+        setValue={(env, on) => {
+          environmentSettings[env.id].enabled = on;
+          form.setValue("environmentSettings", environmentSettings);
+        }}
+      />
 
       <div className="form-group">
         <label>Variation Values</label>

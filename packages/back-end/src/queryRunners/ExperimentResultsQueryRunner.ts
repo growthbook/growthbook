@@ -300,7 +300,7 @@ export const startExperimentResultQueries = async (
       metric: m,
       segment: segmentObj,
       settings: snapshotSettings,
-      unitsSource: !!unitQuery ? "table" : "query",
+      unitsSource: unitQuery ? "table" : "query",
       unitsTableFullName: unitsTableFullName,
       factTableMap: params.factTableMap,
     };
@@ -324,7 +324,7 @@ export const startExperimentResultQueries = async (
       metrics: m,
       segment: segmentObj,
       settings: snapshotSettings,
-      unitsSource: !!unitQuery ? "table" : "query",
+      unitsSource: unitQuery ? "table" : "query",
       unitsTableFullName: unitsTableFullName,
       factTableMap: params.factTableMap,
     };

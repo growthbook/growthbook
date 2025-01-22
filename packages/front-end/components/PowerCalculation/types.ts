@@ -73,6 +73,9 @@ export type PartialPowerCalculationParams = Partial<
   metrics: {
     [id: string]: PartialMetricParams;
   };
+  dataMetrics?: {
+    [id: string]: PartialMetricParams;
+  };
 };
 
 type Config = {

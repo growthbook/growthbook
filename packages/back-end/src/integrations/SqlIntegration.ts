@@ -650,7 +650,9 @@ export default abstract class SqlIntegration
         const factTable = factTableMap.get(settings.sourceId);
         if (factTable) {
           const sql = factTable.sql;
-          return compileSqlTemplate(`
+          console.log(sql);
+          return compileSqlTemplate(
+            `
           __source AS (
             SELECT
               ${settings.userIdType}
@@ -659,10 +661,12 @@ export default abstract class SqlIntegration
               ${sql}
             )
           )`,
-          {
-            startDate: settings.startDate,
-            endDate: settings.endDate ?? undefined,
-          });
+            {
+              startDate: settings.startDate,
+              endDate: settings.endDate ?? undefined,
+              templateVariables: {eventName: factTable.eventName}
+            }
+          );
         } else {
           throw new Error("Fact Table not found");
         }

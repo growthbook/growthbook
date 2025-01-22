@@ -36,7 +36,7 @@ export type SelectFieldProps = Omit<
   isClearable?: boolean;
   onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
   isOptionDisabled?: (_: Option) => boolean;
-  forceUndefinedValueToNull?: boolean
+  forceUndefinedValueToNull?: boolean;
 };
 
 export function useSelectOptions(
@@ -275,7 +275,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 }}
                 onBlur={onBlur}
                 autoFocus={autoFocus}
-                value={forceUndefinedValueToNull ? (selected ?? null) : selected}
+                value={forceUndefinedValueToNull ? selected ?? null : selected}
                 placeholder={initialOption ?? placeholder}
                 formatOptionLabel={formatOptionLabel}
                 formatGroupLabel={formatGroupLabel}
