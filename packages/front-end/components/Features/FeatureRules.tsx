@@ -6,12 +6,15 @@ import {
   FeatureRule,
 } from "back-end/src/validators/features";
 import { Environment } from "back-end/types/organization";
-import { Container, Flex } from "@radix-ui/themes";
-import { truncateString } from "shared/util";
+import { Container, Flex, Text } from "@radix-ui/themes";
 import RuleModal from "@/components/Features/RuleModal/index";
 import RuleList from "@/components/Features/RuleList";
 import track from "@/services/track";
-import { getRules, useEnvironmentState } from "@/services/features";
+import {
+  getRules,
+  isRuleDisabled,
+  useEnvironmentState,
+} from "@/services/features";
 import CopyRuleModal from "@/components/Features/CopyRuleModal";
 import Button from "@/components/Radix/Button";
 import {
@@ -78,9 +81,16 @@ export default function FeatureRules({
     );
   }, [experiments]);
 
+  let couldShowHideToggle = false;
   const rulesByEnv = Object.fromEntries(
     environments.map((e) => {
       const rules = getRules(feature, e.id);
+      const disabledRules = rules.filter((r) =>
+        isRuleDisabled(r, experimentsMap)
+      );
+      if (rules.length > 3 && disabledRules.length) {
+        couldShowHideToggle = true;
+      }
       return [e.id, rules];
     })
   );
@@ -92,11 +102,14 @@ export default function FeatureRules({
           <Container maxWidth="100%">
             <Flex align="center" justify="between">
               <TabsList>
-                <Flex overflow="scroll">
+                <Flex wrap="wrap" overflow="hidden">
                   {environments.map((e) => (
                     <TabsTrigger value={e.id} key={e.id}>
-                      <span className="mr-2">{e.id}</span>
+                      <Flex maxWidth="220px">
+                        <Text truncate>{e.id}</Text>
+                      </Flex>
                       <Badge
+                        ml="2"
                         label={rulesByEnv[e.id].length.toString()}
                         radius="full"
                         variant="solid"
@@ -107,8 +120,15 @@ export default function FeatureRules({
                 </Flex>
               </TabsList>
               <Link
+                ml="2"
                 onClick={() => setCompareEnvModal({ sourceEnv: env })}
                 underline="none"
+                wrap="nowrap"
+                style={
+                  couldShowHideToggle
+                    ? { position: "relative", top: "-15px" }
+                    : {}
+                }
               >
                 Compare environments
               </Link>
@@ -124,11 +144,14 @@ export default function FeatureRules({
                   environments={environments}
                   formatOptionLabel={({ value }) => (
                     <Flex justify="between" align="center">
-                      <span>{truncateString(value, 50)}</span>
+                      <Flex maxWidth="270px">
+                        <Text truncate>{value}</Text>
+                      </Flex>
                       <Badge
                         label={`${rulesByEnv[value].length} Rule${
                           rulesByEnv[value].length === 1 ? "" : "s"
                         } applied`}
+                        ml="2"
                       />
                     </Flex>
                   )}
@@ -158,6 +181,7 @@ export default function FeatureRules({
                     setVersion={setVersion}
                     locked={isLocked}
                     experimentsMap={experimentsMap}
+                    showDisabledToggle={couldShowHideToggle}
                   />
                 ) : (
                   <div className="p-3 bg-white border-bottom border-top">

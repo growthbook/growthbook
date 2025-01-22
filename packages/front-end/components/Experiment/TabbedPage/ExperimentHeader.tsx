@@ -346,7 +346,7 @@ export default function ExperimentHeader({
 
   const shareLinkButton =
     experiment.shareLevel !== "public" ? null : copySuccess ? (
-      <Button style={{ width: 150 }} icon={<PiCheck />}>
+      <Button style={{ width: 130 }} icon={<PiCheck />}>
         Link copied
       </Button>
     ) : (
@@ -360,7 +360,7 @@ export default function ExperimentHeader({
             type: shareLevel,
           });
         }}
-        style={{ width: 150 }}
+        style={{ width: 130 }}
       >
         Copy Link
       </Button>
@@ -785,9 +785,15 @@ export default function ExperimentHeader({
           <div className="ml-2">
             <DropdownMenu
               trigger={
-                <button className="btn btn-link text-dark">
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  radius="full"
+                  size="3"
+                  highContrast
+                >
                   <BsThreeDotsVertical size={18} />
-                </button>
+                </IconButton>
               }
               open={dropdownOpen}
               onOpenChange={(o) => {
@@ -1012,12 +1018,12 @@ export default function ExperimentHeader({
       </div>
       {shouldHideTabs ? null : (
         <div
-          className={clsx("experiment-tabs px-3 d-print-none", {
+          className={clsx("experiment-tabs d-print-none", {
             pinned: headerPinned,
           })}
         >
-          <div className="container-fluid pagecontents position-relative">
-            <div className="row header-tabs" ref={tabsRef}>
+          <div className="position-relative container-fluid pagecontents">
+            <div className="d-flex header-tabs" ref={tabsRef}>
               <Tabs
                 value={tab}
                 onValueChange={setTab}
