@@ -46,13 +46,13 @@ export default function ExperimentStatusIndicator({
       DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
   };
 
-  const [
+  const {
     color,
     variant,
     status,
     detailedStatus,
     tooltip,
-  ] = getStatusIndicatorData(experimentData, skipArchived, healthSettings);
+  } = getStatusIndicatorData(experimentData, skipArchived, healthSettings);
 
   const label = getFormattedLabel(labelFormat, status, detailedStatus);
 
@@ -70,19 +70,27 @@ function getStatusIndicatorData(
     srmThreshold: number;
     multipleExposureMinPercent: number;
   }
-): [
-  React.ComponentProps<typeof Badge>["color"],
-  React.ComponentProps<typeof Badge>["variant"],
-  string, // status
-  string?, // detailedStatus
-  string? // tooltip
-] {
+): {
+  color: React.ComponentProps<typeof Badge>["color"];
+  variant: React.ComponentProps<typeof Badge>["variant"];
+  status: string;
+  detailedStatus?: string;
+  tooltip?: string;
+} {
   if (!skipArchived && experimentData.archived) {
-    return ["gold", "soft", "Archived"];
+    return {
+      color: "gold",
+      variant: "soft",
+      status: "Archived",
+    };
   }
 
   if (experimentData.status === "draft") {
-    return ["indigo", "soft", "Draft"];
+    return {
+      color: "indigo",
+      variant: "soft",
+      status: "Draft",
+    };
   }
 
   if (experimentData.status == "running") {
@@ -117,16 +125,20 @@ function getStatusIndicatorData(
     }
 
     if (unhealthyStatuses.length > 0) {
-      return [
-        "amber",
-        "solid",
-        "Running",
-        "Unhealthy",
-        unhealthyStatuses.join(", "),
-      ];
+      return {
+        color: "amber",
+        variant: "solid",
+        status: "Running",
+        detailedStatus: "Unhealthy",
+        tooltip: unhealthyStatuses.join(", "),
+      };
     }
 
-    return ["indigo", "solid", "Running"];
+    return {
+      color: "indigo",
+      variant: "solid",
+      status: "Running",
+    };
 
     // TODO: Add detail statuses
     // return ["indigo", "solid", "Running", "~5 days left"];
@@ -138,15 +150,40 @@ function getStatusIndicatorData(
   if (experimentData.status === "stopped") {
     switch (experimentData.results) {
       case "won":
-        return ["gray", "soft", "Stopped", "Won"];
+        return {
+          color: "gray",
+          variant: "soft",
+          status: "Stopped",
+          detailedStatus: "Won",
+        };
       case "lost":
-        return ["gray", "soft", "Stopped", "Lost"];
+        return {
+          color: "gray",
+          variant: "soft",
+          status: "Stopped",
+          detailedStatus: "Lost",
+        };
       case "inconclusive":
-        return ["gray", "soft", "Stopped", "Inconclusive"];
+        return {
+          color: "gray",
+          variant: "soft",
+          status: "Stopped",
+          detailedStatus: "Inconclusive",
+        };
       case "dnf":
-        return ["gray", "soft", "Stopped", "Didn't finish"];
+        return {
+          color: "gray",
+          variant: "soft",
+          status: "Stopped",
+          detailedStatus: "Didn't finish",
+        };
       default:
-        return ["gray", "soft", "Stopped", "Awaiting decision"];
+        return {
+          color: "gray",
+          variant: "soft",
+          status: "Stopped",
+          detailedStatus: "Awaiting decision",
+        };
     }
   }
 
