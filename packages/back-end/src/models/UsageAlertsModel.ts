@@ -15,11 +15,11 @@ const usageAlertSchema = new mongoose.Schema({
     type: String,
     unique: true,
   },
-  percentUsed: Number,
-  orgId: string,
-  timeframeEnd: Date,
-  meterName: string,
-  dateAdded: Date,
+  percentUsed: { type: Number, required: true },
+  orgId: { type: String, required: true },
+  timeframeEnd: { type: Date, required: true },
+  meterName: { type: String, required: true },
+  dateAdded: { type: Date, required: true },
 });
 
 type UsageAlertDocument = mongoose.Document & UsageAlertInterface;
