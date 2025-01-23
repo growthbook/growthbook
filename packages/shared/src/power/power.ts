@@ -1,7 +1,6 @@
 import normal from "@stdlib/stats/base/dists/normal";
 import { OrganizationSettings } from "back-end/types/organization";
 import { MetricPriorSettings } from "back-end/types/fact-table";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "../constants";
 
 export interface MetricParamsBase {
@@ -48,7 +47,7 @@ export interface PowerCalculationParams {
   metricValuesSourceName?: string;
   metricValuesSourceId?: string;
   metricValuesIdentifierType?: string;
-  snapshot?: ExperimentSnapshotInterface;
+  metricValuesPopulationId?: string;
   selectedDatasource?: string;
 }
 

@@ -39,7 +39,7 @@ import Toggle from "@/components/Forms/Toggle";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { ensureAndReturn } from "@/types/utils";
-import { useAuth } from "@/services/auth";
+import { AuthContextValue, useAuth } from "@/services/auth";
 import RunQueriesButton from "@/components/Queries/RunQueriesButton";
 import SelectField from "@/components/Forms/SelectField";
 import HelperText from "@/components/Radix/HelperText";
@@ -48,7 +48,12 @@ import { useExperiments } from "@/hooks/useExperiments";
 import RadioGroup from "@/components/Radix/RadioGroup";
 import useApi from "@/hooks/useApi";
 import Callout from "@/components/Radix/Callout";
-import { DropdownMenu } from "@/components/Radix/DropdownMenu";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+} from "@/components/Radix/DropdownMenu";
+import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
+import { useUser } from "@/services/UserContext";
 
 export type PowerModalPages = "select" | "set-params";
 
@@ -145,7 +150,6 @@ const SelectStep = ({
 
   const metricValuesSource = form.watch("metricValuesSource") ?? "factTable";
   const metricValuesSourceId = form.watch("metricValuesSourceId");
-  console.log(metricValuesSourceId);
 
   const isNextDisabled = !selectedMetrics.length && metricValuesSourceId !== "";
 
@@ -501,7 +505,6 @@ const InputField = ({
   const metrics = form.watch("metrics");
   const params = ensureAndReturn(metrics[metricId]);
   const entryValue = isNaN(params[entry]) ? undefined : params[entry];
-  console.log(entryValue);
   const { title, tooltip, ...c } = config[entry];
 
   const isKeyInvalid = (() => {
@@ -544,6 +547,7 @@ const InputField = ({
       <div className="text-danger">{helpText}</div>
     ) : undefined,
   };
+
 
   return (
     <div className={`col-4 ${className}`}>
@@ -593,104 +597,37 @@ const PopulationDataQueryInput = ({
   engineType: "bayesian" | "frequentist";
 }) => {
   const { apiCall } = useAuth();
+  const { permissionsUtil } = useUser();
+  const { getDatasourceById } = useDefinitions();
 
-  const [populationDataId, setPopulationDataId] = useState<string | null>(null);
-  //const [data, setData] = useState<PopulationDataInterface | null>(null);
-  const metrics = form.getValues("metrics");
-  const metricIds = Object.keys(metrics);
+  const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
+  const [queryModalOpen, setQueryModalOpen] = useState<boolean>(false);
 
   const metricValuesSourceId = form.watch("metricValuesSourceId");
+  const datasource = form.watch("selectedDatasource");
+  const metricValuesPopulationId = form.watch("metricValuesPopulationId");
+  const datasourceProjects = datasource
+    ? getDatasourceById(datasource)?.projects
+    : [];
 
-  const { data, error, mutate } = useApi<{
-    populationData: PopulationDataInterface | null;
-  }>(
-    populationDataId
-      ? `/population-data/${populationDataId}`
-      : `/population-data/source/${metricValuesSourceId}`
-  );
+  const canRunPopulationQuery = permissionsUtil.canRunPopulationDataQueries({
+    projects: datasourceProjects ?? [],
+  });
+
+  const { data, error: getError, mutate } = useApi<{
+    populationData: PopulationDataInterface;
+  }>(`/population-data/${metricValuesPopulationId}`, {
+    shouldRun: () => !!metricValuesPopulationId,
+  });
+
+  const [error, setError] = useState<string | undefined>(getError?.message);
 
   // todo reset data if refresh errors?
   const populationData = data?.populationData; // TODO
-  const canRunPopulationQuery = true; // TODO
-
-  // get datasource
-  const datasourceId = form.watch("selectedDatasource");
 
   useEffect(() => {
     if (populationData?.status === "success") {
-      const newMetrics = populationData.metrics.reduce((result, m) => {
-        const oldMetric = metrics[m.metric];
-        if (!oldMetric) return result;
-
-        const isRatioMetric =
-          m.data.denominator_sum ||
-          m.data.denominator_sum_squares ||
-          m.data.main_denominator_sum_product;
-
-        if (isRatioMetric && m.type === "ratio") {
-          const mean = m.data.main_sum / (m.data.denominator_sum ?? 0);
-          const standardDeviation = ratioVarianceFromSums({
-            numerator_sum: m.data.main_sum,
-            numerator_sum_squares: m.data.main_sum_squares,
-            denominator_sum: m.data.denominator_sum ?? 0,
-            denominator_sum_squares: m.data.denominator_sum_squares ?? 0,
-            numerator_denominator_sum_product:
-              m.data.main_denominator_sum_product ?? 0,
-            n: m.data.count,
-          });
-          return {
-            ...result,
-            [m.metric]: {
-              ...oldMetric,
-              ...{
-                mean,
-                standardDeviation,
-              },
-            },
-          };
-        } else if (m.type === "binomial") {
-          const mean = m.data.main_sum / m.data.count;
-          return {
-            ...result,
-            [m.metric]: {
-              ...oldMetric,
-              ...{
-                conversionRate: mean,
-              },
-            },
-          };
-        } else {
-          console.log(m.data);
-          const mean = m.data.main_sum / m.data.count;
-          const standardDeviation = meanVarianceFromSums(
-            m.data.main_sum,
-            m.data.main_sum_squares,
-            m.data.count
-          );
-          return {
-            ...result,
-            [m.metric]: {
-              ...oldMetric,
-              ...{
-                mean,
-                standardDeviation,
-              },
-            },
-          };
-        }
-      }, metrics);
-
-      form.setValue("metrics", newMetrics);
-      form.setValue("dataMetrics", newMetrics);
-
-      form.setValue(
-        "usersPerWeek",
-        Math.round(
-          populationData.units.reduce((r, u) => {
-            return r + u.count;
-          }, 0) / populationData.units.length
-        )
-      ); // change to 8
+      setMetricDataFromPopulationData({ populationData, form });
     } else if (populationData?.status === "error") {
       form.setValue("dataMetrics", {});
     }
@@ -702,7 +639,13 @@ const PopulationDataQueryInput = ({
   // TODO add url sharing and save populationId + metric
   return (
     <>
-      {" "}
+      {queryModalOpen ? (
+        <AsyncQueriesModal
+          queries={populationData?.queries?.map((q) => q.query) ?? []}
+          error={populationData?.error}
+          close={() => setQueryModalOpen(false)}
+        />
+      ) : null}
       <div className="ml-2 row align-items-center">
         <div className="col-auto pl-0">
           Compute metric values using last 8 weeks of data from{" "}
@@ -715,33 +658,14 @@ const PopulationDataQueryInput = ({
               onSubmit={async (e) => {
                 e.preventDefault();
                 try {
-                  // track("MetricAnalysis_Update", {
-                  //   type: factMetric.metricType,
-                  //   populationType: data.populationType,
-                  //   days: data.lookbackDays,
-                  // });
-                  const sourceType =
-                    form.watch("metricValuesSource") ?? "segment";
-
-                  const idType =
-                    form.watch("metricValuesIdentifierType") ?? "user_id";
-                  const res = await apiCall<{
-                    populationData: PopulationDataInterface;
-                  }>(`/population-data`, {
-                    method: "POST",
-                    body: JSON.stringify({
-                      metrics: metricIds,
-                      datasourceId,
-                      sourceType,
-                      sourceId: metricValuesSourceId,
-                      userIdType: idType,
-                    }),
-                  });
-
-                  setPopulationDataId(res.populationData.id);
+                  const res = await postPopulationData({ form, apiCall });
+                  form.setValue(
+                    "metricValuesPopulationId",
+                    res.populationData?.id
+                  );
                   mutate();
                 } catch (e) {
-                  //setError(e.message);
+                  setError(e.message);
                 }
               }}
             >
@@ -750,7 +674,7 @@ const PopulationDataQueryInput = ({
                 cta={
                   populationData?.status === "success"
                     ? "Refresh Data"
-                    : "Compute Metric Values"
+                    : "Get Data"
                 }
                 mutate={mutate}
                 model={
@@ -778,35 +702,44 @@ const PopulationDataQueryInput = ({
                 <BsThreeDotsVertical size={18} />
               </IconButton>
             }
+            open={dropdownOpen}
+            onOpenChange={(o) => {
+              setDropdownOpen(!!o);
+            }}
             menuPlacement="end"
           >
-            <ViewAsyncQueriesButton
-              queries={populationData?.queries?.map((q) => q.query) ?? []}
-              error={populationData?.error}
-              className="dropdown-item py-2"
-            />
+            <DropdownMenuItem
+              onClick={() => {
+                setQueryModalOpen(true);
+                setDropdownOpen(false);
+              }}
+            >
+              View Queries
+            </DropdownMenuItem>
           </DropdownMenu>
-        </div>{" "}
+        </div>
       </div>
       {populationData?.status === "error" || error ? (
         <>
           {populationData?.status === "error" ? (
             <Callout status={"error"} mt={"2"}>
-              Queries failed.{" "}
+              Queries failed. Investigate the issue, pick a different population
+              and/or metric, or enter values manually.
+              <br />
               <ViewAsyncQueriesButton
                 queries={populationData?.queries?.map((q) => q.query) ?? []}
                 error={populationData?.error}
                 icon={null}
                 hideQueryCount={true}
+                className="btn btn-link p-0 pt-1"
               />
-              <br />
-              You can manually enter values if you prefer.
             </Callout>
           ) : error ? (
             <Callout status={"error"} mt={"2"}>
-              Error starting queries: {error.message}
+              Error starting queries: Try a different population and/or metric
+              or enter values manually.
               <br />
-              You can manually enter values if you prefer.
+              {error}
             </Callout>
           ) : null}
           <hr />
@@ -1156,6 +1089,121 @@ const SetParamsStep = ({
   );
 };
 
+async function postPopulationData({
+  form,
+  apiCall,
+}: {
+  form: Form;
+  apiCall: AuthContextValue["apiCall"];
+}): Promise<{ populationData?: PopulationDataInterface }> {
+  const sourceType = form.watch("metricValuesSource") ?? "segment";
+  const metrics = Object.keys(form.watch("metrics"));
+  const userIdType = form.watch("metricValuesIdentifierType") ?? "user_id";
+  const datasourceId = form.watch("selectedDatasource");
+  const sourceId = form.watch("metricValuesSourceId");
+  const res = await apiCall<{
+    populationData: PopulationDataInterface;
+  }>(`/population-data`, {
+    method: "POST",
+    body: JSON.stringify({
+      metrics,
+      datasourceId,
+      sourceType,
+      sourceId,
+      userIdType,
+    }),
+  });
+  return res;
+}
+
+function setMetricDataFromPopulationData({
+  populationData,
+  form,
+}: {
+  populationData: PopulationDataInterface;
+  form: Form;
+}) {
+
+  const metrics = form.watch("metrics");
+
+  if (populationData?.status !== "success") return;
+
+  const newMetrics = populationData.metrics.reduce((result, m) => {
+    const oldMetric = metrics[m.metric];
+    if (!oldMetric) return result;
+
+    const isRatioMetric =
+      m.data.denominator_sum ||
+      m.data.denominator_sum_squares ||
+      m.data.main_denominator_sum_product;
+
+    if (isRatioMetric && m.type === "ratio") {
+      const mean = m.data.main_sum / (m.data.denominator_sum ?? 0);
+      const standardDeviation = ratioVarianceFromSums({
+        numerator_sum: m.data.main_sum,
+        numerator_sum_squares: m.data.main_sum_squares,
+        denominator_sum: m.data.denominator_sum ?? 0,
+        denominator_sum_squares: m.data.denominator_sum_squares ?? 0,
+        numerator_denominator_sum_product:
+          m.data.main_denominator_sum_product ?? 0,
+        n: m.data.count,
+      });
+      return {
+        ...result,
+        [m.metric]: {
+          ...oldMetric,
+          ...{
+            mean,
+            standardDeviation,
+          },
+        },
+      };
+    } else if (m.type === "binomial") {
+      console.log(m.data);
+      const mean = m.data.main_sum / m.data.count;
+      console.log(mean);
+      return {
+        ...result,
+        [m.metric]: {
+          ...oldMetric,
+          ...{
+            conversionRate: mean,
+          },
+        },
+      };
+    } else {
+      const mean = m.data.main_sum / m.data.count;
+      const standardDeviation = meanVarianceFromSums(
+        m.data.main_sum,
+        m.data.main_sum_squares,
+        m.data.count
+      );
+      return {
+        ...result,
+        [m.metric]: {
+          ...oldMetric,
+          ...{
+            mean,
+            standardDeviation,
+          },
+        },
+      };
+    }
+  }, metrics);
+
+  form.setValue("metrics", newMetrics);
+  form.setValue("dataMetrics", newMetrics);
+
+  form.setValue(
+    "usersPerWeek",
+    Math.round(
+      populationData.units.reduce((r, u) => {
+        return r + u.count;
+      }, 0) / populationData.units.length
+    )
+  );
+}
+
 export default function PowerCalculationSettingsModal({
   close,
   onSuccess,
@@ -1163,9 +1211,10 @@ export default function PowerCalculationSettingsModal({
   params,
   startPage,
 }: Props) {
-  const [step, setStep] = useState<PowerModalPages>(startPage);
   const settings = useOrgSettings();
   const { apiCall } = useAuth();
+
+  const [step, setStep] = useState<PowerModalPages>(startPage);
 
   const form = useForm<PartialPowerCalculationParams>({
     defaultValues: params,
@@ -1239,15 +1288,12 @@ export default function PowerCalculationSettingsModal({
                   ]?.length ?? 7) / 7;
                 let newMetrics = {};
                 let totalUnits = 0;
-                console.log(snapshot.health);
+
                 analysis?.results?.[0]?.variations?.forEach((v, i) => {
-                  console.log(v);
                   // use control only for metric mean and variance
                   if (i === 0) {
                     metricIds.forEach((metricId) => {
-                      console.log(v.metrics[metricId]);
                       const mean = v.metrics[metricId].stats?.mean;
-                      console.log(mean);
                       const standardDeviation =
                         v.metrics[metricId].stats?.stddev;
                       newMetrics = {
@@ -1266,13 +1312,23 @@ export default function PowerCalculationSettingsModal({
                   }
                 });
 
-                // must have units
                 form.setValue("metrics", newMetrics);
+                form.setValue("dataMetrics", newMetrics);
 
                 form.setValue(
                   "usersPerWeek",
                   Math.round((units || totalUnits) / length)
                 );
+              }
+            } else {
+              const res = await postPopulationData({ form, apiCall });
+              form.setValue("metricValuesPopulationId", res.populationData?.id);
+              // sets it if data already exists, otherwise starts running on next page
+              if (res.populationData?.status === "success") {
+                setMetricDataFromPopulationData({
+                  populationData: res.populationData,
+                  form,
+                });
               }
             }
             // throw error

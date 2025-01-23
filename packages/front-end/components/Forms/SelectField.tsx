@@ -75,7 +75,6 @@ export function useSelectOptions(
       clone.unshift(o);
       m.set("", o);
     }
-    console.log(m);
     return [m, clone] as const;
   }, [options, initialOption]);
 }

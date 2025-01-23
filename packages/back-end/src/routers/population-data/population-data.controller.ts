@@ -135,19 +135,10 @@ export const postPopulationData = async (
 };
 
 export const getPopulationData = async (
-  req: AuthRequest<null, { id: string | null }>,
+  req: AuthRequest<null, { id: string }>,
   res: Response<{ status: 200; populationData: PopulationDataInterface | null }>
 ) => {
   const context = getContextFromReq(req);
-
-  // TODO don't do round trip to db for this
-  if (req.params.id === null) {
-    res.status(200).json({
-      status: 200,
-      populationData: null,
-    });
-    return;
-  }
 
   const populationData = await context.models.populationData.getById(
     req.params.id
@@ -172,6 +163,8 @@ export const getPopulationDataBySourceId = async (
   const populationData = await context.models.populationData.getLatestBySourceId(
     req.params.sourceId
   );
+
+  // TODO: What to do when stale?
 
   if (!populationData) {
     res.status(200).json({
