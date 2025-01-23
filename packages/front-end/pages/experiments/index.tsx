@@ -379,7 +379,6 @@ const ExperimentsPage = (): React.ReactElement => {
           <DropdownMenuItem
             onClick={() => setOpenTemplateModal({})}
             disabled={!hasTemplatesFeature}
-            className="w-100"
           >
             Create Template
           </DropdownMenuItem>
@@ -658,10 +657,7 @@ const ExperimentsPage = (): React.ReactElement => {
                               {date(e.date)}
                             </td>
                             <td className="nowrap" data-title="Status:">
-                              <ExperimentStatusIndicator
-                                experimentData={e}
-                                labelFormat="detail-only"
-                              />
+                              <ExperimentStatusIndicator experimentData={e} />
                             </td>
                           </tr>
                         );

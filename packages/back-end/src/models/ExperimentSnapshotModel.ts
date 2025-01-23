@@ -242,7 +242,7 @@ export async function updateSnapshot({
 
   const shouldUpdateExperimentAnalysisSummary =
     experimentSnapshotModel.type === "standard" &&
-    experimentSnapshotModel.status !== "running";
+    experimentSnapshotModel.status === "success";
 
   if (shouldUpdateExperimentAnalysisSummary) {
     const experimentModel = await getExperimentById(
@@ -250,7 +250,11 @@ export async function updateSnapshot({
       experimentSnapshotModel.experiment
     );
 
-    if (experimentModel) {
+    const isLatestPhase = experimentModel
+      ? experimentSnapshotModel.phase === experimentModel.phases.length - 1
+      : false;
+
+    if (experimentModel && isLatestPhase) {
       await updateExperimentAnalysisSummary({
         context,
         experiment: experimentModel,

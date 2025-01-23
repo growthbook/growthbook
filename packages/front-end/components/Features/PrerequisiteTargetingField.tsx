@@ -221,12 +221,14 @@ export default function PrerequisiteTargetingField({
 
   return (
     <div className="form-group my-4">
-      <PremiumTooltip
-        commercialFeature="prerequisite-targeting"
-        premiumText="Prerequisite targeting is available for Enterprise customers"
-      >
-        <label>Target by Prerequisite Features</label>
-      </PremiumTooltip>
+      <div className="mb-2">
+        <PremiumTooltip
+          commercialFeature="prerequisite-targeting"
+          premiumText="Prerequisite targeting is available for Enterprise customers"
+        >
+          <label className="mb-0">Target by Prerequisite Features</label>
+        </PremiumTooltip>
+      </div>
       {value.length > 0 ? (
         <>
           {value.map((v, i) => {

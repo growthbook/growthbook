@@ -400,6 +400,7 @@ export default function FactMetricPage() {
       )}
       {editOwnerModal && (
         <EditOwnerModal
+          resourceType="factMetric"
           cancel={() => setEditOwnerModal(false)}
           owner={factMetric.owner}
           save={async (owner) => {

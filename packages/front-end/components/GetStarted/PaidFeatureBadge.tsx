@@ -1,14 +1,19 @@
 import { CommercialFeature } from "enterprise";
+import React from "react";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import { planNameFromAccountPlan } from "@/services/utils";
+import { RadixColor } from "@/components/Radix/HelperText";
+import Badge from "@/components/Radix/Badge";
 
 const PaidFeatureBadge = ({
   commercialFeature,
   premiumText,
+  useTip = true,
 }: {
   commercialFeature?: CommercialFeature;
-  premiumText?: string;
+  premiumText?: string | JSX.Element;
+  useTip?: boolean;
 }) => {
   const { hasCommercialFeature, commercialFeatureLowestPlan } = useUser();
   const hasFeature = commercialFeature
@@ -27,21 +32,36 @@ const PaidFeatureBadge = ({
   } ${planNameFromAccountPlan(lowestPlanLevel)}`;
 
   const tooltipText = premiumText ?? `This is ${planLevelText} feature`;
+  const badgeColor =
+    lowestPlanLevel === "pro" || lowestPlanLevel === "pro_sso"
+      ? "gold"
+      : "indigo";
+
+  const badge = (
+    <Badge
+      label={
+        lowestPlanLevel === "pro"
+          ? "Pro"
+          : lowestPlanLevel === "enterprise"
+          ? "Enterprise"
+          : "Paid"
+      }
+      color={badgeColor as RadixColor}
+      variant="soft"
+      radius="full"
+      ml="2"
+      mr="2"
+      style={{ backgroundColor: "var(--accent-9)", color: "#fff" }}
+    />
+  );
+
+  if (!useTip) {
+    return badge;
+  }
 
   return (
     <Tooltip body={tooltipText} tipPosition="top">
-      <span
-        className="badge ml-2"
-        style={{
-          backgroundColor:
-            lowestPlanLevel === "pro" || lowestPlanLevel === "pro_sso"
-              ? "#978365"
-              : "#050549",
-          color: "#FFFFFF",
-        }}
-      >
-        PAID
-      </span>
+      {badge}
     </Tooltip>
   );
 };

@@ -36,6 +36,7 @@ export default function RuleList({
   setVersion,
   locked,
   experimentsMap,
+  showDisabledToggle,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -53,6 +54,7 @@ export default function RuleList({
   setVersion: (version: number) => void;
   locked: boolean;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
+  showDisabledToggle?: boolean;
 }) {
   const { apiCall } = useAuth();
   const [hideDisabled, setHideDisabled] = useLocalStorage(
@@ -75,8 +77,7 @@ export default function RuleList({
   );
 
   const disabledRules = items.filter((r) => isRuleDisabled(r, experimentsMap));
-  const showInactiveToggle =
-    (items.length > 3 && disabledRules.length) || hideDisabled;
+  const showInactiveToggle = showDisabledToggle;
 
   if (!items.length) {
     return (
@@ -154,7 +155,10 @@ export default function RuleList({
       }}
     >
       {showInactiveToggle ? (
-        <div className="d-flex justify-content-end pt-2 pr-3">
+        <div
+          className="position-absolute d-flex justify-content-end"
+          style={{ top: "-22px", right: 0 }}
+        >
           <label className="mb-0">
             <input
               type="checkbox"
@@ -187,7 +191,7 @@ export default function RuleList({
             setVersion={setVersion}
             locked={locked}
             experimentsMap={experimentsMap}
-            hideDisabled={hideDisabled}
+            hideDisabled={showInactiveToggle ? hideDisabled : false}
           />
         ))}
       </SortableContext>

@@ -98,6 +98,7 @@ export default function FactTablePage() {
       )}
       {editOwnerModal && (
         <EditOwnerModal
+          resourceType="factTable"
           cancel={() => setEditOwnerModal(false)}
           owner={factTable.owner}
           save={async (owner) => {

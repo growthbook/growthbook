@@ -266,7 +266,7 @@ const BanditExperimentPage = (): ReactElement => {
         ]}
       />
 
-      <div className="container-fluid">
+      <div>
         <SnapshotProvider experiment={experiment}>
           <TabbedPage
             experiment={experiment}
