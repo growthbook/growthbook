@@ -54,8 +54,7 @@ class PowerResponse:
     deltaPosterior: Optional[float]
     powerUpdateMessage: str
     powerError: Optional[str]
-    upperBoundAchieved: bool
-    scalingFactor: float
+    upperBoundAchieved: Optional[bool]
 
 
 @dataclass

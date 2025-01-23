@@ -17,7 +17,7 @@ export interface MetricVariationPowerResponseFromStatsEngine {
   sigmahat2Delta?: number;
   sigma2Posterior?: number;
   deltaPosterior?: number;
-  upperBoundAchieved: boolean;
+  upperBoundAchieved?: boolean;
 }
 
 interface BaseVariationResponse {
