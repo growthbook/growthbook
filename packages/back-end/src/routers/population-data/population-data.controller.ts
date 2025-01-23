@@ -29,14 +29,33 @@ export const postPopulationData = async (
   const data = req.body;
   const context = getContextFromReq(req);
 
-  // metric permissions
-
   // get metrics and validate same datasource
 
   // GET existing, do logic to find metric diffs
   const today = new Date();
   const eightWeeksAgo = new Date(today);
-  eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 7 * 520); // change to 7 * 8
+  eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 7 * 520); // TODO change to 7 * 8
+
+  const integration = await getIntegrationFromDatasourceId(
+    context,
+    data.datasourceId,
+    true
+  );
+
+  if (
+    !context.permissions.canRunPopulationDataQueries(integration.datasource)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+  if (!context.hasPremiumFeature("query-based-power")) {
+    throw new Error("Query-based power calculations are a pro feature");
+  }
+
+  // see if one exists from the last 3 days
+  const populationData = await context.models.populationData.getRecentUsingSettings(
+    data.sourceId,
+    data.userIdType
+  );
 
   const snapshotSettings: ExperimentSnapshotSettings = {
     manual: false,
@@ -59,30 +78,28 @@ export const postPopulationData = async (
     segment: "",
     skipPartialData: false,
     datasourceId: data.datasourceId,
-    exposureQueryId: "", // todo
+    exposureQueryId: "",
     startDate: eightWeeksAgo,
     endDate: today,
     variations: [],
   };
 
-  const integration = await getIntegrationFromDatasourceId(
-    context,
-    data.datasourceId,
-    true
-  );
-  // if (
-  //   !context.permissions.canRunMetricAnalysisQueries(integration.datasource)
-  // ) {
-  //   context.permissions.throwPermissionError();
-  // }
-  // if (
-  //   !context.hasPremiumFeature("metric-populations") &&
-  //   data.populationType !== "factTable"
-  // ) {
-  //   throw new Error("Custom metric populations are a premium feature");
-  // }
-
-  // base model TODO
+  // TODO hash metric and datasource to validate cache
+  // OR had full refresh
+  if (populationData && populationData.datasourceId === data.datasourceId) {
+    const populationMetrics = populationData.metrics.map((m) => m.metric);
+    // only ask for new metrics
+    snapshotSettings.goalMetrics = data.metrics.filter(
+      (m) => !populationMetrics.includes(m)
+    );
+    if (snapshotSettings.goalMetrics.length === 0) {
+      return res.status(200).json({
+        status: 200,
+        populationData,
+      });
+    }
+    // TODO: incrementally add metrics
+  }
 
   const populationSettings: PopulationDataQuerySettings = {
     startDate: eightWeeksAgo,
@@ -146,32 +163,6 @@ export const getPopulationData = async (
 
   if (!populationData) {
     throw new Error("PopulationData not found");
-  }
-
-  res.status(200).json({
-    status: 200,
-    populationData,
-  });
-};
-
-export const getPopulationDataBySourceId = async (
-  req: AuthRequest<null, { sourceId: string }>,
-  res: Response<{ status: 200; populationData: PopulationDataInterface | null }>
-) => {
-  const context = getContextFromReq(req);
-
-  const populationData = await context.models.populationData.getLatestBySourceId(
-    req.params.sourceId
-  );
-
-  // TODO: What to do when stale?
-
-  if (!populationData) {
-    res.status(200).json({
-      status: 200,
-      populationData: null,
-    });
-    return;
   }
 
   res.status(200).json({

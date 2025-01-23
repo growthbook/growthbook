@@ -38,6 +38,7 @@ export const populationDataMetricValidator = z
     metric: z.string(),
     type: z.enum(["mean", "ratio", "binomial"]),
     data: populationDataMetricDataValidator,
+    metricHash: z.string(),
   })
   .strict();
 

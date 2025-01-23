@@ -43,9 +43,22 @@ export class PopulationDataModel extends BaseClass {
     return this.canCreate(doc);
   }
 
-  public async getLatestBySourceId(sourceId: string, onlySuccess = true) {
+  public async getRecentUsingSettings(
+    sourceId: string,
+    userIdType: string,
+    onlySuccess = true
+  ) {
+    // end date in the last week
+    const lastWeek = new Date();
+    lastWeek.setDate(lastWeek.getDate() - 7);
+
     const populationData = await this._find(
-      { sourceId, ...(onlySuccess ? { status: "success" } : {}) },
+      {
+        sourceId,
+        userIdType,
+        endDate: { $gte: lastWeek },
+        ...(onlySuccess ? { status: "success" } : {}),
+      },
       { sort: { dateCreated: -1 }, limit: 1 }
     );
     return populationData[0] ? populationData[0] : null;

@@ -111,7 +111,6 @@ const SelectStep = ({
     factTables: appFactTables,
     datasources,
   } = useDefinitions();
-
   // only load data on command when type is selected
   const { experiments: appExperiments } = useExperiments(
     project,
@@ -311,7 +310,6 @@ const SelectStep = ({
             { value: "factTable", label: "Fact Table" },
             { value: "segment", label: "Segment" },
             { value: "experiment", label: "Past Experiment" },
-            //{ value: "manual", label: "Manual Entry" },
           ]}
           setValue={(value) => {
             if (value !== metricValuesSource) {
@@ -359,7 +357,6 @@ const SelectStep = ({
           }
           forceUndefinedValueToNull={true}
         />
-
         <hr />
 
         <p>Pick the key metrics for which you want to estimate power.</p>
@@ -547,7 +544,6 @@ const InputField = ({
       <div className="text-danger">{helpText}</div>
     ) : undefined,
   };
-
 
   return (
     <div className={`col-4 ${className}`}>
@@ -970,65 +966,6 @@ const MetricParamsInput = ({
   );
 };
 
-const ManualDataInput = ({
-  form,
-  engineType,
-}: {
-  form: Form;
-  engineType: "bayesian" | "frequentist";
-}) => {
-  const metrics = form.watch("metrics");
-  const metricIds = Object.keys(metrics);
-
-  const usersPerWeek = form.watch("usersPerWeek");
-  const isUsersPerDayInvalid = usersPerWeek !== undefined && usersPerWeek <= 0;
-
-  return (
-    <>
-      <div className="ml-2">
-        <Field
-          label={
-            <div>
-              <span className="font-weight-bold mr-1">
-                Estimated Users Per Week
-              </span>
-              <Tooltip
-                popperClassName="text-left"
-                body="Total users across all variations"
-                tipPosition="right"
-              />
-            </div>
-          }
-          type="number"
-          {...form.register("usersPerWeek", {
-            valueAsNumber: true,
-          })}
-          className={isUsersPerDayInvalid ? "border border-danger" : undefined}
-          helpText={
-            isUsersPerDayInvalid ? (
-              <div className="text-danger">Must be greater than 0</div>
-            ) : undefined
-          }
-        />
-      </div>
-
-      <div className="ml-2">
-        <p>Customize metric details for calculating experiment duration.</p>
-
-        {metricIds.map((metricId) => (
-          <MetricParamsInput
-            key={metricId}
-            metricId={metricId}
-            engineType={engineType}
-            form={form}
-            disableValue={false}
-          />
-        ))}
-      </div>
-    </>
-  );
-};
-
 const SetParamsStep = ({
   form,
   close,
@@ -1082,9 +1019,6 @@ const SetParamsStep = ({
       {form.watch("metricValuesSource") === "experiment" ? (
         <DataInput form={form} engineType={engineType} />
       ) : null}
-      {form.watch("metricValuesSource") === "manual" ? (
-        <ManualDataInput form={form} engineType={engineType} />
-      ) : null}
     </Modal>
   );
 };
@@ -1123,7 +1057,6 @@ function setMetricDataFromPopulationData({
   populationData: PopulationDataInterface;
   form: Form;
 }) {
-
   const metrics = form.watch("metrics");
 
   if (populationData?.status !== "success") return;

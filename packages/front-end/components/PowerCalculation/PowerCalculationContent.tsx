@@ -12,6 +12,8 @@ import Button from "@/components/Radix/Button";
 import Callout from "@/components/Radix/Callout";
 import { ensureAndReturn } from "@/types/utils";
 import { GBHeadingArrowLeft } from "@/components/Icons";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { useUser } from "@/services/UserContext";
 import PowerCalculationStatsEngineSettingsModal from "./PowerCalculationStatsEngineSettingsModal";
 
 const engineType = {
@@ -577,6 +579,9 @@ export default function PowerCalculationContent({
   edit: () => void;
   newCalculation: () => void;
 }) {
+  const { hasCommercialFeature } = useUser();
+  const hasQueryPower = hasCommercialFeature("query-based-power");
+
   return (
     <div className="contents container pagecontents ml-1 pr-4">
       <div className="row mb-4">
@@ -592,18 +597,21 @@ export default function PowerCalculationContent({
           experiment duration.
         </div>
         <div className="col-auto pr-0">
-          <Button variant={"outline"} onClick={edit}>
+          <Button variant={"outline"} onClick={edit} disabled={!hasQueryPower}>
             Edit
           </Button>
         </div>
         <div className="col-auto">
-          <Button
-            onClick={() => newCalculation()}
-            icon={<GBHeadingArrowLeft />}
-            ml={"1"}
-          >
-            New Calculation
-          </Button>
+          <PremiumTooltip commercialFeature={"query-based-power"}>
+            <Button
+              onClick={() => newCalculation()}
+              icon={<GBHeadingArrowLeft />}
+              ml={"1"}
+              disabled={!hasQueryPower}
+            >
+              New Calculation
+            </Button>
+          </PremiumTooltip>
         </div>
       </div>
       <AnalysisSettings
