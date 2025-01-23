@@ -646,7 +646,6 @@ export default abstract class SqlIntegration
         }
       }
       case "factTable": {
-        // TODO test with eventName template variable??
         const factTable = factTableMap.get(settings.sourceId);
         if (factTable) {
           const sql = factTable.sql;

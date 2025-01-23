@@ -8,7 +8,7 @@ import {
   FullModalPowerCalculationParams,
   StatsEngineSettings,
 } from "shared/power";
-import PowerCalculationSettingsModal from "@/components/PowerCalculation/PowerCalculationSettingsModal";
+import PowerCalculationSettingsModal, { PowerModalPages } from "@/components/PowerCalculation/PowerCalculationSettingsModal";
 import EmptyPowerCalculation from "@/components/PowerCalculation/EmptyPowerCalculation";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PowerCalculationContent from "@/components/PowerCalculation/PowerCalculationContent";
@@ -39,7 +39,7 @@ const PowerCalculationPage = (): React.ReactElement => {
     ? JSON.parse(initialJSONParams)
     : INITIAL_PAGE_SETTINGS;
 
-  const [showModal, setShowModal] = useState(false);
+  const [showModal, setShowModal] = useState<PowerModalPages | null>(null);
 
   const [powerCalculationParams, setPowerCalculationParams] = useState<
     FullModalPowerCalculationParams | undefined
@@ -111,7 +111,7 @@ const PowerCalculationPage = (): React.ReactElement => {
     <div className="contents power-calculator container-fluid pagecontents">
       {showModal && (
         <PowerCalculationSettingsModal
-          close={() => setShowModal(false)}
+          close={() => setShowModal(null)}
           onSuccess={(p) => {
             track("power-calculation-settings-update", {
               numMetrics: p.metrics.length,
@@ -126,14 +126,15 @@ const PowerCalculationPage = (): React.ReactElement => {
             setSettingsModalParams(p);
             setPowerCalculationParams(p);
             setStatsEngineSettings(modalStatsEngineSettings);
-            setShowModal(false);
+            setShowModal(null);
           }}
           statsEngineSettings={modalStatsEngineSettings}
           params={settingsModalParams}
+          startPage={showModal ?? "select"}
         />
       )}
       {finalParams === undefined && (
-        <EmptyPowerCalculation showModal={() => setShowModal(true)} />
+        <EmptyPowerCalculation showModal={() => setShowModal("select")} />
       )}
       {results && finalParams && powerCalculationParams && (
         <PowerCalculationContent
@@ -142,14 +143,14 @@ const PowerCalculationPage = (): React.ReactElement => {
           edit={() => {
             setSettingsModalParams(powerCalculationParams);
             setModalStatsEngineSettings(statsEngineSettings);
-            setShowModal(true);
+            setShowModal("set-params");
           }}
           updateVariations={setVariations}
           updateStatsEngineSettings={setStatsEngineSettings}
           newCalculation={() => {
             setModalStatsEngineSettings(defaultStatsEngineSettings);
             setSettingsModalParams(INITIAL_FORM_PARAMS);
-            setShowModal(true);
+            setShowModal("select");
           }}
         />
       )}

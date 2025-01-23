@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm, UseFormReturn } from "react-hook-form";
 import clsx from "clsx";
 import {
@@ -22,11 +22,14 @@ import { MetricPriorSettings } from "back-end/types/fact-table";
 import { PopulationDataInterface } from "back-end/types/population-data";
 import {
   getSnapshotAnalysis,
+  isProjectListValidForProject,
   meanVarianceFromSums,
   ratioVarianceFromSums,
 } from "shared/util";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { EXPOSURE_DATE_DIMENSION_NAME } from "shared/constants";
+import { IconButton } from "@radix-ui/themes";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -44,14 +47,17 @@ import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton"
 import { useExperiments } from "@/hooks/useExperiments";
 import RadioGroup from "@/components/Radix/RadioGroup";
 import useApi from "@/hooks/useApi";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Callout from "@/components/Radix/Callout";
+import { DropdownMenu } from "@/components/Radix/DropdownMenu";
+
+export type PowerModalPages = "select" | "set-params";
 
 export type Props = {
   close?: () => void;
   onSuccess: (_: FullModalPowerCalculationParams) => void;
   params: PartialPowerCalculationParams;
   statsEngineSettings: StatsEngineSettings;
+  startPage: PowerModalPages;
 };
 
 type Form = UseFormReturn<PartialPowerCalculationParams>;
@@ -144,30 +150,47 @@ const SelectStep = ({
   const isNextDisabled = !selectedMetrics.length && metricValuesSourceId !== "";
 
   // TODO onNext validate that experiment has results
-  const availableExperiments = appExperiments
-    .map((exp) => {
-      const datasource = datasources.find((d) => d.id === exp.datasource);
-      const exposureQuery = datasource?.settings?.queries?.exposure?.find(
-        (e) => e.id === exp.exposureQueryId
-      );
+  const availableExperiments = useMemo(
+    () =>
+      appExperiments
+        .map((exp) => {
+          const datasource = datasources.find((d) => d.id === exp.datasource);
+          const exposureQuery = datasource?.settings?.queries?.exposure?.find(
+            (e) => e.id === exp.exposureQueryId
+          );
 
-      return {
-        ...exp,
-        exposureQueryUserIdType: exposureQuery?.userIdType,
-        allMetrics: getAllMetricIdsFromExperiment(exp),
-      };
-    })
-    .filter((e) => {
-      if (
-        e.status === "draft" ||
-        !e.exposureQueryUserIdType ||
-        e.allMetrics.length === 0
-      )
-        return false;
-      return true;
-    });
-  const availableSegments = appSegments;
-  const availableFactTables = appFactTables;
+          return {
+            ...exp,
+            exposureQueryUserIdType: exposureQuery?.userIdType,
+            allMetrics: getAllMetricIdsFromExperiment(exp),
+          };
+        })
+        .filter((e) => {
+          if (
+            e.status === "draft" ||
+            !e.exposureQueryUserIdType ||
+            e.allMetrics.length === 0
+          )
+            return false;
+          return true;
+        }),
+    [appExperiments, datasources]
+  );
+
+  const availableSegments = useMemo(
+    () =>
+      appSegments.filter((s) =>
+        isProjectListValidForProject(s.projects, project)
+      ),
+    [appSegments, project]
+  );
+  const availableFactTables = useMemo(
+    () =>
+      appFactTables.filter((ft) =>
+        isProjectListValidForProject(ft.projects, project)
+      ),
+    [appFactTables, project]
+  );
 
   useEffect(() => {
     switch (metricValuesSource) {
@@ -742,14 +765,27 @@ const PopulationDataQueryInput = ({
             </form>
           )}
         </div>
-        <div className="col-auto">
-          <MoreMenu autoCloseOnClick={false}>
+        <div className="col-auto pl-0">
+          <DropdownMenu
+            trigger={
+              <IconButton
+                variant="ghost"
+                color="gray"
+                radius="full"
+                size="2"
+                highContrast
+              >
+                <BsThreeDotsVertical size={18} />
+              </IconButton>
+            }
+            menuPlacement="end"
+          >
             <ViewAsyncQueriesButton
               queries={populationData?.queries?.map((q) => q.query) ?? []}
               error={populationData?.error}
               className="dropdown-item py-2"
             />
-          </MoreMenu>
+          </DropdownMenu>
         </div>{" "}
       </div>
       {populationData?.status === "error" || error ? (
@@ -1125,10 +1161,9 @@ export default function PowerCalculationSettingsModal({
   onSuccess,
   statsEngineSettings,
   params,
+  startPage,
 }: Props) {
-  const [step, setStep] = useState<"source" | "select" | "set-params">(
-    "select"
-  );
+  const [step, setStep] = useState<PowerModalPages>(startPage);
   const settings = useOrgSettings();
   const { apiCall } = useAuth();
 
