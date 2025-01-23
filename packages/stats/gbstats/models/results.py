@@ -47,11 +47,11 @@ class BaselineResponse:
 
 @dataclass
 class PowerResponse:
-    firstPeriodPairwiseSampleSize: float
+    firstPeriodPairwiseSampleSize: Optional[float]
     minPercentChange: float
-    sigmahat2Delta: float
-    sigma2Posterior: float
-    deltaPosterior: float
+    sigmahat2Delta: Optional[float]
+    sigma2Posterior: Optional[float]
+    deltaPosterior: Optional[float]
     powerUpdateMessage: str
     powerError: Optional[str]
     upperBoundAchieved: bool

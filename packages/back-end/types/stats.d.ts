@@ -14,9 +14,9 @@ export interface MetricVariationPowerResponseFromStatsEngine {
   powerUpdateMessage: string;
   minPercentChange: number;
   firstPeriodPairwiseSampleSize: number;
-  sigmahat2Delta: number;
-  sigma2Posterior: number;
-  deltaPosterior: number;
+  sigmahat2Delta?: number;
+  sigma2Posterior?: number;
+  deltaPosterior?: number;
   upperBoundAchieved: boolean;
 }
 
