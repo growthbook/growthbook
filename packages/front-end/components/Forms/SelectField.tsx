@@ -166,7 +166,7 @@ const SelectField: FC<SelectFieldProps> = ({
   isClearable = false,
   onPaste,
   isOptionDisabled,
-  // TODO do this for errbody
+  // forces re-render when input is undefined
   forceUndefinedValueToNull = false,
   ...otherProps
 }) => {

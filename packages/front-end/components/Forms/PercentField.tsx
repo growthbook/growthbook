@@ -23,13 +23,14 @@ export default function PercentField({
   onChange,
   ...fieldProps
 }: Props) {
-
-  const [actualValue, setActualValue] = useState<number | undefined>(validateValue(value));
+  const [actualValue, setActualValue] = useState<number | undefined>(
+    validateValue(value)
+  );
 
   useEffect(() => {
-    setActualValue(validateValue(value))
-  }, [value, setActualValue])
-  
+    setActualValue(validateValue(value));
+  }, [value, setActualValue]);
+
   return (
     <Field
       type="number"

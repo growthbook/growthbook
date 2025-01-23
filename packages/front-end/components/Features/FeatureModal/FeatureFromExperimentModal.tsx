@@ -402,17 +402,30 @@ export default function FeatureFromExperimentModal({
               updateValuesOnTypeChange(val);
             }}
           />
+
+          <EnvironmentSelect
+            environmentSettings={environmentSettings}
+            environments={environments}
+            setValue={(env, on) => {
+              environmentSettings[env.id].enabled = on;
+              form.setValue("environmentSettings", environmentSettings);
+            }}
+          />
         </>
       )}
 
-      <EnvironmentSelect
-        environmentSettings={environmentSettings}
-        environments={environments}
-        setValue={(env, on) => {
-          environmentSettings[env.id].enabled = on;
-          form.setValue("environmentSettings", environmentSettings);
-        }}
-      />
+      {existing && (
+        <div className="alert alert-info">
+          A rule will be added to the bottom of every environment in a new draft
+          revision. For more control over placement, you can add Experiment
+          rules directly from the{" "}
+          <Link href={`/features/${existing}`}>
+            Feature page
+            <FaExternalLinkAlt />
+          </Link>{" "}
+          instead.
+        </div>
+      )}
 
       <div className="form-group">
         <label>Variation Values</label>

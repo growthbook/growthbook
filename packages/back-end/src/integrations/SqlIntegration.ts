@@ -2914,7 +2914,6 @@ export default abstract class SqlIntegration
       activationMetric
     );
 
-    // TODO simplify inputs here
     const userIdType =
       params.forcedUserIdType ??
       this.getExposureQuery(settings.exposureQueryId || "").userIdType;
