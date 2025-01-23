@@ -38,39 +38,35 @@ export function PowerCard({
 
   const content = !hasMidExperimentPowerFeature ? (
     <Callout status="info">
-      You can read more about this feature in our{" "}
+      Learn more in our{" "}
       <Link target="_blank" href="https://docs.growthbook.io/statistics/power">
-        Power Analysis documentation
+        Power Analysis docs
       </Link>
       .
     </Callout>
   ) : !isLowPowered ? (
     <Callout status="success">
-      Your experiment is healthy and will likely be statistically significant
-      before the experiment duration.
+      Your experiment is healthy. Conclusive results are likely before the
+      anticipated experiment duration.
     </Callout>
   ) : (
     <>
       <Callout status="warning" mb="2">
-        Your experiment is low-powered and will likely not be statistically
-        significant before the configured end date.
+        Your experiment is low-powered. Conclusive results are unlikely by the
+        anticipated experiment duration.
       </Callout>
       <ul>
         {phase.coverage === 1 ? (
           <li>
-            Consider increasing the traffic percentage for this experiment which
-            is currently at {phase.coverage * 100}%.
+            Consider increasing the traffic percentage above{" "}
+            {phase.coverage * 100}%
           </li>
         ) : null}
         {snapshot.settings.variations.length > 2 ? (
-          <li>
-            Consider reducing the number of variations for this experiment.
-          </li>
+          <li>Consider reducing the number of variations</li>
         ) : null}
         {snapshot.settings.goalMetrics.length > 3 ? (
-          <li>
-            Consider reducing the number of goal metrics for this experiment.
-          </li>
+          <li>Consider reducing the number of goal metrics</li>
         ) : null}
       </ul>
     </>
@@ -86,8 +82,8 @@ export function PowerCard({
           ) : null}
         </PremiumTooltip>
         <p className="mt-1">
-          Shows the likelihood of your experiment being statistically
-          significant before the experiment duration.
+          Shows the likelihood of conclusive results before the experiment
+          duration
         </p>
         <Separator size="4" my="3" />
         {content}
