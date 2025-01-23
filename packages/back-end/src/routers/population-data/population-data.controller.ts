@@ -17,7 +17,6 @@ import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { createPopulationDataPropsValidator } from "back-end/src/routers/population-data/population-data.validators";
 
-// move
 type CreatePopulationDataProps = z.infer<
   typeof createPopulationDataPropsValidator
 >;
@@ -98,7 +97,7 @@ export const postPopulationData = async (
         populationData,
       });
     }
-    // TODO: incrementally add metrics
+    // TODO: incrementally do an update
   }
 
   const populationSettings: PopulationDataQuerySettings = {
@@ -194,11 +193,7 @@ export async function cancelPopulationData(
     throw new Error("Could not cancel query, datasource not found");
   }
 
-  const integration = await getSourceIntegrationObject(
-    // ask about decryption
-    context,
-    datasource
-  );
+  const integration = await getSourceIntegrationObject(context, datasource);
 
   const queryRunner = new PopulationDataQueryRunner(
     context,
