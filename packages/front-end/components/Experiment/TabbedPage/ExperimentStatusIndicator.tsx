@@ -131,6 +131,19 @@ function getStatusIndicatorData(
       ) {
         unhealthyStatuses.push("Low powered");
       }
+
+      if (
+        powerSummary &&
+        powerSummary.type === "success" &&
+        !powerSummary.isLowPowered
+      ) {
+        return {
+          color: "indigo",
+          variant: "solid",
+          status: "Running",
+          detailedStatus: `${powerSummary.additionalDaysNeeded} days left`,
+        };
+      }
     }
 
     if (unhealthyStatuses.length > 0) {
