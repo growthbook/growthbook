@@ -135,11 +135,11 @@ export function calculateMidExperimentPowerSingle(
     );
   }
   const response = params.variation;
-  if (response?.powerError) {
+  if (response?.errorMessage) {
     return calculateMidExperimentPowerSingleError(
       metricId,
       variation,
-      response.powerError
+      response.errorMessage
     );
   }
   if (response.sigmahat2Delta === undefined) {
@@ -257,18 +257,16 @@ export function calculateMidExperimentPower(
     )) {
       if (variationMetricData === undefined) {
         calculateAdditionalDays = false;
-      } else if (variationMetricData.powerError) {
+      } else if (variationMetricData.status === "unsuccessful") {
         calculateAdditionalDays = false;
         metricVariationPowerArray.push({
           metricId: metricId,
           variation: variation,
           power: undefined,
           effectSize: variationMetricData.minPercentChange * 2,
-          errorMessage: variationMetricData.powerError,
+          errorMessage: variationMetricData.errorMessage,
         });
-      } else if (
-        variationMetricData.powerUpdateMessage === "already significant"
-      ) {
+      } else if (variationMetricData.status === "already significant") {
         metricVariationPowerArray.push({
           metricId: metricId,
           variation: variation,

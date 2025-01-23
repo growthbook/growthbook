@@ -37,9 +37,9 @@ interface FrequentistVariationResponse extends BaseVariationResponse {
 
 // Keep in sync with gbstats PowerResponse
 export interface MetricPowerResponseFromStatsEngine {
-  powerUpdateMessage: string;
+  status: string;
+  errorMessage?: string;
   minPercentChange: number;
-  powerError?: string;
   firstPeriodPairwiseSampleSize?: number;
   sigmahat2Delta?: number;
   sigma2Posterior?: number;

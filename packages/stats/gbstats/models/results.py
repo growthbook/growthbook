@@ -47,9 +47,9 @@ class BaselineResponse:
 
 @dataclass
 class PowerResponse:
-    powerUpdateMessage: str
+    status: str
+    errorMessage: Optional[str]
     minPercentChange: float
-    powerError: Optional[str]
     firstPeriodPairwiseSampleSize: Optional[float]
     sigmahat2Delta: Optional[float]
     sigma2Posterior: Optional[float]

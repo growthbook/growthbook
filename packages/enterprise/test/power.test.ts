@@ -51,8 +51,7 @@ describe("getAverageExposureOverLastNDays", () => {
 
 it("midExperimentPowerFreq", () => {
   const gbstatsResponse: MetricPowerResponseFromStatsEngine = {
-    powerError: "",
-    powerUpdateMessage: "successful",
+    status: "successful",
     minPercentChange: 0.5,
     firstPeriodPairwiseSampleSize: 200,
     sigmahat2Delta: 1.8660831272105123,
@@ -90,8 +89,7 @@ it("midExperimentPowerFreq", () => {
 
 it("midExperimentPowerSeq", () => {
   const gbstatsResponse: MetricPowerResponseFromStatsEngine = {
-    powerError: "",
-    powerUpdateMessage: "successful",
+    status: "successful",
     minPercentChange: 0.5,
     firstPeriodPairwiseSampleSize: 2000,
     sigmahat2Delta: 0.1952289663558246,
@@ -129,8 +127,7 @@ it("midExperimentPowerSeq", () => {
 
 it("midExperimentPowerBayesian", () => {
   const gbstatsResponse: MetricPowerResponseFromStatsEngine = {
-    powerError: "",
-    powerUpdateMessage: "successful",
+    status: "successful",
     minPercentChange: 0.5 * 0.6709561916494536,
     firstPeriodPairwiseSampleSize: 200,
     sigmahat2Delta: 1.8660831272105123,

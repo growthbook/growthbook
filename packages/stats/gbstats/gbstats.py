@@ -295,9 +295,9 @@ def analyze_metric_df(
             df[f"v{i}_sigmahat_2_delta"] = None
             df[f"v{i}_sigma_2_posterior"] = None
             df[f"v{i}_delta_posterior"] = None
+            df[f"v{i}_power_status"] = None
+            df[f"v{i}_power_error_message"] = None
             df[f"v{i}_power_additional_users"] = None
-            df[f"v{i}_power_update_message"] = None
-            df[f"v{i}_power_error_message"] = ""
             df[f"v{i}_power_upper_bound_acheieved"] = None
 
     def analyze_row(s: pd.Series) -> pd.Series:
@@ -346,9 +346,7 @@ def analyze_metric_df(
                 s[
                     f"v{i}_power_scaling_factor"
                 ] = mid_experiment_power_result.scaling_factor
-                s[
-                    f"v{i}_power_update_message"
-                ] = mid_experiment_power_result.update_message
+                s[f"v{i}_power_status"] = mid_experiment_power_result.update_message
                 s[f"v{i}_power_error_message"] = mid_experiment_power_result.error
                 s[
                     f"v{i}_power_upper_bound_achieved"
@@ -447,6 +445,8 @@ def format_variation_result(
         # non-baseline variation
         if row[f"{prefix}_decision_making_conditions"]:
             power_response = PowerResponse(
+                status=row[f"{prefix}_power_status"],
+                errorMessage=row[f"{prefix}_power_error_message"],
                 firstPeriodPairwiseSampleSize=row[
                     f"{prefix}_first_period_pairwise_users"
                 ],
@@ -454,8 +454,6 @@ def format_variation_result(
                 sigmahat2Delta=row[f"{prefix}_sigmahat_2_delta"],
                 sigma2Posterior=row[f"{prefix}_sigma_2_posterior"],
                 deltaPosterior=row[f"{prefix}_delta_posterior"],
-                powerUpdateMessage=row[f"{prefix}_power_update_message"],
-                powerError=row[f"{prefix}_power_error_message"],
                 upperBoundAchieved=row[f"{prefix}_power_upper_bound_achieved"],
             )
         else:
