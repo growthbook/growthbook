@@ -35,12 +35,14 @@ export default function ResultsDownloadButton({
   variations,
   trackingKey,
   dimension,
+  noIcon,
 }: {
   results: ExperimentReportResultDimension[];
   metrics?: string[];
   variations?: ExperimentReportVariation[];
   trackingKey?: string;
   dimension?: string;
+  noIcon?: boolean;
 }) {
   const { getExperimentMetricById, getDimensionById, ready } = useDefinitions();
   const { metricDefaults } = useOrganizationMetricDefaults();
@@ -148,7 +150,12 @@ export default function ResultsDownloadButton({
           : "results.csv"
       }
     >
-      <FaFileExport className="mr-2" /> Export CSV
+      {!noIcon ? (
+        <>
+          <FaFileExport className="mr-2" />{" "}
+        </>
+      ) : null}
+      Export CSV
     </a>
   );
 }

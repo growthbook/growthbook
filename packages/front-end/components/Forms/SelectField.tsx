@@ -15,6 +15,10 @@ export type Option = SingleValue | GroupedValue;
 export function isSingleValue(option: Option): option is SingleValue {
   return typeof (option as SingleValue).value === "string";
 }
+export type FormatOptionLabelType = (
+  value: SingleValue,
+  meta: FormatOptionLabelMeta<SingleValue>
+) => ReactNode;
 
 export type SelectFieldProps = Omit<
   FieldProps,
@@ -27,10 +31,8 @@ export type SelectFieldProps = Omit<
   onChange: (value: string) => void;
   sort?: boolean;
   createable?: boolean;
-  formatOptionLabel?: (
-    value: SingleValue,
-    meta: FormatOptionLabelMeta<SingleValue>
-  ) => ReactNode;
+  formatCreateLabel?: (value: string) => string;
+  formatOptionLabel?: FormatOptionLabelType;
   formatGroupLabel?: (value: GroupedValue) => ReactNode;
   isSearchable?: boolean;
   isClearable?: boolean;
@@ -91,6 +93,13 @@ export const ReactSelectProps = {
       return {
         ...styles,
         backgroundColor: "var(--form-multivalue-background-color)",
+        color: "var(--form-multivalue-text-color) !important",
+      };
+    },
+    multiValueLabel: (styles) => {
+      return {
+        ...styles,
+        color: "var(--form-multivalue-text-color)",
       };
     },
     multiValueRemove: (styles) => {
@@ -99,10 +108,13 @@ export const ReactSelectProps = {
         color: "var(--form-multivalue-text-color)",
       };
     },
-    control: (styles) => {
+    control: (styles, { isFocused }) => {
       return {
         ...styles,
         backgroundColor: "var(--surface-background-color)",
+        boxShadow: `0px 0px 0px 1px ${
+          isFocused ? "var(--violet-8)" : undefined
+        }`,
       };
     },
     menu: (styles) => {
@@ -148,6 +160,7 @@ const SelectField: FC<SelectFieldProps> = ({
   style,
   className,
   createable = false,
+  formatCreateLabel,
   formatOptionLabel,
   formatGroupLabel,
   isSearchable = true,
@@ -217,6 +230,11 @@ const SelectField: FC<SelectFieldProps> = ({
                 placeholder={placeholder}
                 inputValue={inputValue}
                 options={sorted}
+                formatCreateLabel={formatCreateLabel}
+                isValidNewOption={(value) => {
+                  if (!otherProps.pattern) return true;
+                  return new RegExp(otherProps.pattern).test(value);
+                }}
                 autoFocus={autoFocus}
                 onChange={(selected: { value: string }) => {
                   onChange(selected?.value || "");

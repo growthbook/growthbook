@@ -2,9 +2,11 @@ import isEqual from "lodash/isEqual";
 import {
   ConditionInterface,
   FeatureRule as FeatureDefinitionRule,
+  ParentConditionInterface,
 } from "@growthbook/growthbook";
 import { includeExperimentInPayload, isDefined } from "shared/util";
 import { GroupMap } from "shared/src/types";
+import { cloneDeep } from "lodash";
 import {
   FeatureInterface,
   FeatureRule,
@@ -15,6 +17,7 @@ import { FeatureDefinitionWithProject } from "back-end/types/api";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { ExperimentInterface } from "back-end/types/experiment";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { Environment } from "back-end/types/organization";
 import { getCurrentEnabledState } from "./scheduleRules";
 
 function getSavedGroupCondition(
@@ -58,13 +61,16 @@ export function getParsedCondition(
   if (savedGroups) {
     savedGroups.forEach(({ ids, match }) => {
       const groupIds = ids.filter((id) => {
-        // Must either have at least 1 value or be a non-empty condition
         const group = groupMap.get(id);
         if (!group) return false;
         if (group.type === "condition") {
+          // Condition groups must be non-empty
           if (!group.condition || group.condition === "{}") return false;
         } else {
-          if (!group.values?.length) return false;
+          // Legacy list groups must be non-empty
+          if (!group.useEmptyListGroup && !group.values?.length) return false;
+          // List groups must have defined values
+          if (typeof group.values === "undefined") return false;
         }
         return true;
       });
@@ -392,6 +398,22 @@ export function getFeatureDefinition({
             rule.condition = condition;
           }
 
+          if (phase?.prerequisites?.length) {
+            rule.parentConditions = phase.prerequisites
+              .map((prerequisite) => {
+                try {
+                  return {
+                    id: prerequisite.id,
+                    condition: JSON.parse(prerequisite.condition),
+                  };
+                } catch (e) {
+                  // do nothing
+                }
+                return null;
+              })
+              .filter(Boolean) as ParentConditionInterface[];
+          }
+
           rule.coverage = phase.coverage;
 
           if (exp.hashAttribute) {
@@ -554,4 +576,29 @@ export function getFeatureDefinition({
   }
 
   return def;
+}
+
+// Populates the values of `environmentRecord` for environment keys which are undefined in the record
+// and have a parent (base) environment to inherit from which is defined.
+export function applyEnvironmentInheritance<T>(
+  environments: Environment[],
+  environmentRecord: Record<string, T>
+): Record<string, T> {
+  const environmentParents = Object.fromEntries(
+    environments.filter((env) => env.parent).map((env) => [env.id, env.parent])
+  );
+  const mutableClone = cloneDeep(environmentRecord);
+  Object.keys(environmentParents).forEach((env) => {
+    if (mutableClone[env]) return;
+    // If no definition for the environment exists, recursively inherit from the parent environments
+    let baseEnv = environmentParents[env];
+    while (baseEnv && typeof mutableClone[baseEnv] === "undefined") {
+      baseEnv = environmentParents[baseEnv];
+    }
+    // If a valid parent was found, copy its value in the record
+    if (baseEnv) {
+      mutableClone[env] = cloneDeep(mutableClone[baseEnv]);
+    }
+  });
+  return mutableClone;
 }

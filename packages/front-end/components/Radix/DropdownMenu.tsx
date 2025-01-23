@@ -1,30 +1,49 @@
-import { DropdownMenu as RadixDropdownMenu, Text } from "@radix-ui/themes";
+import {
+  Box,
+  Flex,
+  DropdownMenu as RadixDropdownMenu,
+  Text,
+} from "@radix-ui/themes";
 import type { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
-import { PiCaretDown } from "react-icons/pi";
-import React from "react";
+import { PiCaretDown, PiWarningFill } from "react-icons/pi";
+import React, { useState } from "react";
+import { amber } from "@radix-ui/colors";
 import Button from "@/components/Radix/Button";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 type AllowedChildren = string | React.ReactNode;
 
 type DropdownProps = {
   trigger: React.ReactNode;
+  triggerClassName?: string;
   menuPlacement?: "start" | "center" | "end";
   menuWidth?: "full" | number;
   children: AllowedChildren;
+  color?: RadixDropdownMenu.ContentProps["color"];
   variant?: RadixDropdownMenu.ContentProps["variant"];
+  open?: boolean;
+  onOpenChange?: (o: boolean) => void;
+  disabled?: boolean;
 } & MarginProps;
 
 export function DropdownMenu({
   trigger,
+  triggerClassName,
   menuPlacement = "start",
   menuWidth,
   children,
+  color,
   variant,
+  disabled,
   ...props
 }: DropdownProps) {
   const triggerComponent =
     typeof trigger === "string" ? (
-      <Button icon={<PiCaretDown />} iconPosition="right">
+      <Button
+        icon={disabled ? undefined : <PiCaretDown />}
+        iconPosition="right"
+      >
         {trigger}
       </Button>
     ) : (
@@ -32,10 +51,16 @@ export function DropdownMenu({
     );
 
   return (
-    <RadixDropdownMenu.Root {...props}>
-      <RadixDropdownMenu.Trigger>{triggerComponent}</RadixDropdownMenu.Trigger>
+    <RadixDropdownMenu.Root {...props} modal={false}>
+      <RadixDropdownMenu.Trigger
+        className={triggerClassName}
+        disabled={disabled}
+      >
+        {triggerComponent}
+      </RadixDropdownMenu.Trigger>
       <RadixDropdownMenu.Content
         align={menuPlacement}
+        color={color}
         variant={variant}
         side="bottom"
         className={
@@ -77,7 +102,7 @@ type DropdownItemProps = {
   children: AllowedChildren;
   className?: string;
   disabled?: boolean;
-  onClick?: () => void;
+  onClick?: (event: Event) => Promise<void> | void;
   color?: "red" | "default";
   shortcut?: RadixDropdownMenu.ItemProps["shortcut"];
 } & MarginProps;
@@ -93,15 +118,45 @@ export function DropdownMenuItem({
   if (color === "default") {
     color = undefined;
   }
+  const [error, setError] = useState<null | string>(null);
+  const [loading, setLoading] = useState(false);
   return (
     <RadixDropdownMenu.Item
-      disabled={disabled}
-      onSelect={onClick}
+      disabled={disabled || !!error || !!loading}
+      onSelect={async (event) => {
+        event.preventDefault();
+        if (onClick) {
+          setError(null);
+          setLoading(true);
+          try {
+            await onClick(event);
+            // If this promise is resolved without an error, we need to close
+          } catch (e) {
+            setError(e.message);
+            console.error(e);
+          }
+          setLoading(false);
+        }
+      }}
       color={color}
       shortcut={shortcut}
       {...props}
     >
-      {children}
+      <Flex as="div" justify="between" align="center">
+        <Box as="span" className={`mr-2 ${loading ? "font-italic" : ""}`}>
+          {children}
+        </Box>
+        {loading || error ? (
+          <Box width="14px" className="ml-4">
+            {loading ? <LoadingSpinner /> : null}
+            {error ? (
+              <Tooltip body={`Error: ${error}. Exit menu and try again.`}>
+                <PiWarningFill color={amber.amber11} />
+              </Tooltip>
+            ) : null}
+          </Box>
+        ) : null}
+      </Flex>
     </RadixDropdownMenu.Item>
   );
 }

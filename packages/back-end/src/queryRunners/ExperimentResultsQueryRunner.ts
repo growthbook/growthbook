@@ -44,6 +44,7 @@ import { OrganizationInterface } from "back-end/types/organization";
 import { FactMetricInterface } from "back-end/types/fact-table";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { BanditResult } from "back-end/types/stats";
+import { updateReport } from "back-end/src/models/ReportModel";
 import {
   QueryRunner,
   QueryMap,
@@ -464,7 +465,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         error: healthQuery.error,
         variations: this.model.settings.variations,
       });
-      result.health = { traffic: trafficHealth };
+      result.health = {
+        traffic: trafficHealth,
+      };
     }
 
     return result;
@@ -508,6 +511,14 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       updates,
       context: this.context,
     });
+    if (
+      this.model.report &&
+      ["failed", "partially-succeeded", "succeeded"].includes(status)
+    ) {
+      await updateReport(this.model.organization, this.model.report, {
+        snapshot: this.model.id,
+      });
+    }
     return {
       ...this.model,
       ...updates,

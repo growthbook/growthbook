@@ -38,6 +38,7 @@ describe("EventWebHookNotifier", () => {
         body: '"the payload"',
         headers: {
           "Content-Type": "application/json",
+          "User-Agent": "GrowthBook Webhook",
           "X-GrowthBook-Signature": "some-signature",
         },
         method: "POST",
@@ -77,6 +78,7 @@ describe("EventWebHookNotifier", () => {
         body: '"the payload"',
         headers: {
           "Content-Type": "application/json",
+          "User-Agent": "GrowthBook Webhook",
           "X-GrowthBook-Signature": "some-signature",
         },
         method: "POST",
@@ -112,6 +114,7 @@ describe("EventWebHookNotifier", () => {
         body: '"the payload"',
         headers: {
           "Content-Type": "application/json",
+          "User-Agent": "GrowthBook Webhook",
           "X-GrowthBook-Signature": "some-signature",
         },
         method: "PATCH",
@@ -148,6 +151,7 @@ describe("EventWebHookNotifier", () => {
         body: '"the payload"',
         headers: {
           "Content-Type": "application/json",
+          "User-Agent": "GrowthBook Webhook",
           "X-GrowthBook-Signature": "some-signature",
           foo: "bar",
         },

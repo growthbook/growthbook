@@ -7,6 +7,16 @@ import {
   isBinomialMetric,
   quantileMetricType,
 } from "shared/experiments";
+import {
+  config,
+  isValidPowerCalculationParams,
+  ensureAndReturnPowerCalculationParams,
+  MetricParams,
+  PartialMetricParams,
+  FullModalPowerCalculationParams,
+  PartialPowerCalculationParams,
+  StatsEngineSettings,
+} from "shared/power";
 import { OrganizationSettings } from "back-end/types/organization";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import { PopulationDataInterface } from "back-end/types/population-data";
@@ -36,16 +46,6 @@ import RadioGroup from "@/components/Radix/RadioGroup";
 import useApi from "@/hooks/useApi";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Callout from "@/components/Radix/Callout";
-import {
-  config,
-  isValidPowerCalculationParams,
-  ensureAndReturnPowerCalculationParams,
-  MetricParams,
-  PartialMetricParams,
-  FullModalPowerCalculationParams,
-  PartialPowerCalculationParams,
-  StatsEngineSettings,
-} from "./types";
 
 export type Props = {
   close?: () => void;

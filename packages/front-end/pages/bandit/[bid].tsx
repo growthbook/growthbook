@@ -7,10 +7,7 @@ import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
 import React, { ReactElement, useEffect, useState } from "react";
 import { IdeaInterface } from "back-end/types/idea";
-import {
-  getAffectedEnvsForExperiment,
-  includeExperimentInPayload,
-} from "shared/util";
+import { includeExperimentInPayload } from "shared/util";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
@@ -55,6 +52,7 @@ const BanditExperimentPage = (): ReactElement => {
     idea?: IdeaInterface;
     visualChangesets: VisualChangesetInterface[];
     linkedFeatures: LinkedFeatureInfo[];
+    envs: string[];
     urlRedirects: URLRedirectInterface[];
   }>(`/experiment/${bid}`);
 
@@ -88,9 +86,8 @@ const BanditExperimentPage = (): ReactElement => {
     !experiment.archived;
 
   let canRunExperiment = !experiment.archived;
-  const envs = getAffectedEnvsForExperiment({ experiment });
-  if (envs.length > 0) {
-    if (!permissionsUtil.canRunExperiment(experiment, envs)) {
+  if (data.envs.length > 0) {
+    if (!permissionsUtil.canRunExperiment(experiment, data.envs)) {
       canRunExperiment = false;
     }
   }
@@ -106,7 +103,6 @@ const BanditExperimentPage = (): ReactElement => {
     ? () => setDuplicateModalOpen(true)
     : null;
   const editTags = canEditExperiment ? () => setTagsModalOpen(true) : null;
-  const editProject = canRunExperiment ? () => setProjectModalOpen(true) : null;
   const newPhase = canRunExperiment ? () => setPhaseModalOpen(true) : null;
   const editPhases = canRunExperiment ? () => setEditPhasesOpen(true) : null;
   const editPhase = canRunExperiment
@@ -270,7 +266,7 @@ const BanditExperimentPage = (): ReactElement => {
         ]}
       />
 
-      <div className="container-fluid">
+      <div>
         <SnapshotProvider experiment={experiment}>
           <TabbedPage
             experiment={experiment}
@@ -282,11 +278,11 @@ const BanditExperimentPage = (): ReactElement => {
             editResult={editResult}
             editVariations={editVariations}
             duplicate={duplicate}
-            editProject={editProject}
             editTags={editTags}
             newPhase={newPhase}
             editPhases={editPhases}
             editPhase={editPhase}
+            envs={data.envs}
             editTargeting={editTargeting}
             checklistItemsRemaining={checklistItemsRemaining}
             setChecklistItemsRemaining={setChecklistItemsRemaining}

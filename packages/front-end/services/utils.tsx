@@ -8,6 +8,7 @@ import {
   GrowthBook,
 } from "@growthbook/growthbook-react";
 import Cookies from "js-cookie";
+import { AccountPlan } from "enterprise";
 import { AppFeatures } from "@/types/app-features";
 import track from "@/services/track";
 
@@ -204,4 +205,25 @@ export function capitalizeWords(string): string {
     .split(" ")
     .map((word) => capitalizeFirstLetter(word))
     .join(" ");
+}
+
+// Used to describe account plan in text
+export function planNameFromAccountPlan(accountPlan?: AccountPlan) {
+  if (!accountPlan) {
+    return "Premium";
+  }
+
+  if (accountPlan === "pro_sso" || accountPlan === "pro") {
+    return "Pro";
+  }
+
+  if (accountPlan === "oss" || accountPlan === "starter") {
+    return "Starter";
+  }
+
+  if (accountPlan === "enterprise") {
+    return "Enterprise";
+  }
+
+  return capitalizeFirstLetter(accountPlan);
 }

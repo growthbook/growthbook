@@ -1,7 +1,7 @@
 import { Avatar as RadixAvatar, AvatarProps } from "@radix-ui/themes";
 import { Responsive } from "@radix-ui/themes/dist/cjs/props";
 import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
-import { ReactNode } from "react";
+import { forwardRef, ReactNode } from "react";
 import styles from "./RadixOverrides.module.scss";
 
 export type Size = "sm" | "md" | "lg";
@@ -25,17 +25,21 @@ export type Props = {
   children: NonNullable<ReactNode>;
 } & MarginProps;
 
-export default function Avatar({
-  size = "md",
-  color = "violet",
-  variant = "solid",
-  radius = "full",
-  children,
-  ...otherProps
-}: Props) {
+export default forwardRef<HTMLImageElement, Props>(function Avatar(
+  {
+    size = "md",
+    color = "violet",
+    variant = "solid",
+    radius = "full",
+    children,
+    ...otherProps
+  }: Props,
+  ref
+) {
   return (
     <RadixAvatar
       {...otherProps}
+      ref={ref}
       className={styles.avatar}
       size={getRadixSize(size)}
       color={color}
@@ -44,4 +48,4 @@ export default function Avatar({
       fallback={children}
     />
   );
-}
+});

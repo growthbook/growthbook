@@ -293,6 +293,38 @@ describe("getParsedCondition", () => {
     groupMap.clear();
   });
 
+  it("includes empty list groups only when the flag is set", () => {
+    groupMap.clear();
+    groupMap.set("a", {
+      values: [],
+      type: "list",
+      attributeKey: "attr",
+      useEmptyListGroup: true,
+    });
+    groupMap.set("b", {
+      values: [],
+      type: "list",
+      attributeKey: "attr",
+    });
+
+    expect(
+      getParsedCondition(groupMap, "", [{ match: "all", ids: ["a", "b"] }])
+    ).toEqual({
+      attr: {
+        $inGroup: "a",
+      },
+    });
+
+    expect(
+      getParsedCondition(groupMap, "", [{ match: "none", ids: ["a", "b"] }])
+    ).toEqual({
+      attr: {
+        $notInGroup: "a",
+      },
+    });
+    groupMap.clear();
+  });
+
   it("works with condition groups", () => {
     groupMap.clear();
     groupMap.set("a", {

@@ -4447,6 +4447,58 @@
       }
     ],
     [
+      "Prerequisite experiment flag in target bucket, evaluate skip dependent flag if not bucketed",
+      {
+        "attributes": {
+          "id": "1234",
+          "memberType": "basic",
+          "country": "USA"
+        },
+        "features": {
+          "parentExperimentFlag": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "key": "experiment",
+                "variations": [0, 1],
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "ranges": [
+                  [0, 0.5],
+                  [0.5, 1.0]
+                ]
+              }
+            ]
+          },
+          "childFlag": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "parentConditions": [
+                  {
+                    "id": "parentExperimentFlag",
+                    "condition": { "value": 0 },
+                    "gate": true
+                  }
+                ]
+              },
+              {
+                "condition": { "memberType": "basic" },
+                "force": "success"
+              }
+            ]
+          }
+        }
+      },
+      "childFlag",
+      {
+        "value": null,
+        "on": false,
+        "off": true,
+        "source": "prerequisite"
+      }
+    ],
+    [
       "Prerequisite cycle detected, break",
       {
         "attributes": {
@@ -4489,6 +4541,70 @@
         "on": false,
         "off": true,
         "source": "cyclicPrerequisite"
+      }
+    ],
+    [
+      "Multiple references to same prerequisite, do not break",
+      {
+        "attributes": {
+          "id": "123",
+          "browser": "edge"
+        },
+        "features": {
+          "childFlag": {
+            "defaultValue": true,
+            "rules": [
+              {
+                "parentConditions": [
+                  {
+                    "id": "parentFlag",
+                    "condition": { "$ne": false },
+                    "gate": true
+                  },
+                  {
+                    "id": "parentFlag",
+                    "condition": { "value": true },
+                    "gate": true
+                  }
+                ]
+              },
+              {
+                "condition": {
+                  "browser": "safari"
+                },
+                "parentConditions": [
+                  {
+                    "id": "parentFlag",
+                    "condition": { "value": true }
+                  }
+                ],
+                "force": "C"
+              },
+              {
+                "condition": {
+                  "browser": { "$ne": "safari" }
+                },
+                "parentConditions": [
+                  {
+                    "id": "parentFlag",
+                    "condition": { "value": true }
+                  }
+                ],
+                "force": "T"
+              }
+            ]
+          },
+          "parentFlag": {
+            "defaultValue": true
+          }
+        }
+      },
+      "childFlag",
+      {
+        "value": "T",
+        "on": true,
+        "off": false,
+        "source": "force"
       }
     ],
     [

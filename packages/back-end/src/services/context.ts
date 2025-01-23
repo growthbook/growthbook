@@ -33,6 +33,7 @@ import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceMode
 import { SegmentModel } from "back-end/src/models/SegmentModel";
 import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
 import { PopulationDataModel } from "back-end/src/models/PopulationDataModel";
+import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplateModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -52,6 +53,7 @@ export class ReqContextClass {
     populationData: PopulationDataModel;
     metricGroups: MetricGroupModel;
     segments: SegmentModel;
+    experimentTemplates: ExperimentTemplatesModel;
   };
   private initModels() {
     this.models = {
@@ -63,6 +65,7 @@ export class ReqContextClass {
       populationData: new PopulationDataModel(this),
       metricGroups: new MetricGroupModel(this),
       segments: new SegmentModel(this),
+      experimentTemplates: new ExperimentTemplatesModel(this),
     };
   }
 

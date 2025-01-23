@@ -13,13 +13,20 @@ export {
   ExperimentStatus,
   ExperimentType,
   ExperimentPhase,
-  banditStageType,
+  BanditStageType,
+  ExperimentAnalysisSettings,
   ExperimentInterface,
   ExperimentNotification,
   ExperimentResultsType,
   Screenshot,
   Variation,
 } from "back-end/src/validators/experiments";
+
+export {
+  ExperimentTemplateInterface,
+  CreateTemplateProps,
+  UpdateTemplateProps,
+} from "back-end/src/routers/experiment-template/template.validators";
 
 export type ExperimentPhaseType = "ramp" | "main" | "holdout";
 

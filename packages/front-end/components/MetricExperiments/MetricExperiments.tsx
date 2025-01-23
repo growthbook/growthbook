@@ -13,7 +13,10 @@ import {
   ExperimentWithSnapshot,
   SnapshotMetric,
 } from "back-end/types/experiment-snapshot";
-import { ExperimentStatus } from "back-end/types/experiment";
+import {
+  ExperimentResultsType,
+  ExperimentStatus,
+} from "back-end/types/experiment";
 import useApi from "@/hooks/useApi";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import ChangeColumn from "@/components/Experiment/ChangeColumn";
@@ -44,6 +47,8 @@ interface MetricExperimentData {
   date: string;
   name: string;
   status: ExperimentStatus;
+  results?: ExperimentResultsType;
+  archived: boolean;
   statsEngine: StatsEngine;
   variationId: number;
   variationName: string;
@@ -92,6 +97,8 @@ function MetricExperimentResultTab({
         date: experimentDate(e),
         name: e.name,
         status: e.status,
+        results: e.results,
+        archived: e.archived,
         statsEngine: statsEngine,
         variationId: i,
         variationName: v.name,
@@ -188,7 +195,7 @@ function MetricExperimentResultTab({
         </td>
         <td>
           <div className="my-1">
-            <ExperimentStatusIndicator status={e.status} />
+            <ExperimentStatusIndicator experimentData={e} />
           </div>
         </td>
         <td>{e.users ? formatNumber(e.users) : ""}</td>

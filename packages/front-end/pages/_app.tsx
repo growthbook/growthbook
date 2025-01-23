@@ -6,14 +6,14 @@ import "@/styles/global.scss";
 
 import { AppProps } from "next/app";
 import Head from "next/head";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { GrowthBookProvider } from "@growthbook/growthbook-react";
 import { Inter } from "next/font/google";
 import { OrganizationMessagesContainer } from "@/components/OrganizationMessages/OrganizationMessages";
 import { DemoDataSourceGlobalBannerContainer } from "@/components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner";
 import { PageHeadProvider } from "@/components/Layout/PageHead";
 import { RadixTheme } from "@/services/RadixTheme";
-import { AuthProvider } from "@/services/auth";
+import { AuthProvider, useAuth } from "@/services/auth";
 import ProtectedPage from "@/components/ProtectedPage";
 import {
   DefinitionsGuard,
@@ -28,17 +28,26 @@ import TopNavLite from "@/components/Layout/TopNavLite";
 import GetStartedProvider from "@/services/GetStartedProvider";
 import GuidedGetStartedBar from "@/components/Layout/GuidedGetStartedBar";
 import LayoutLite from "@/components/Layout/LayoutLite";
+import { UserContextProvider } from "@/services/UserContext";
 import { growthbook, gbContext } from "@/services/utils";
+
+// Make useLayoutEffect isomorphic (for SSR)
+if (typeof window === "undefined") React.useLayoutEffect = React.useEffect;
 
 // If loading a variable font, you don't need to specify the font weight
 const inter = Inter({ subsets: ["latin"] });
 
 type ModAppProps = AppProps & {
   Component: {
+    envReady?: boolean;
     noOrganization?: boolean;
-    preAuth?: boolean;
     liteLayout?: boolean;
+    preAuth?: boolean;
     preAuthTopNav?: boolean;
+    progressiveAuth?: boolean;
+    progressiveAuthTopNav?: boolean;
+    noLoadingOverlay?: boolean;
+    mainClassName?: string;
   };
 };
 
@@ -51,12 +60,19 @@ function App({
   const [error, setError] = useState("");
 
   // hacky:
-  const parts = router.route.substr(1).split("/");
+  const parts = Component.mainClassName
+    ? [Component.mainClassName]
+    : router.route.substr(1).split("/");
 
   const organizationRequired = !Component.noOrganization;
   const preAuth = Component.preAuth || false;
+  const progressiveAuth = Component.progressiveAuth || false;
   const preAuthTopNav = Component.preAuthTopNav || false;
+  const progressiveAuthTopNav = Component.progressiveAuthTopNav || false;
   const liteLayout = Component.liteLayout || false;
+  const noLoadingOverlay = Component.noLoadingOverlay || false;
+
+  const { orgId } = useAuth();
 
   useEffect(() => {
     initEnv()
@@ -65,6 +81,7 @@ function App({
       })
       .catch((e) => {
         setError(e.message);
+        console.error(e.message);
       });
   }, []);
 
@@ -113,17 +130,45 @@ function App({
   }, []);
 
   const renderPreAuth = () => {
-    if (preAuthTopNav) {
+    if (!ready || !progressiveAuth) {
       return (
-        <>
-          <TopNavLite />
-          <main className="container mt-5">
-            <Component {...pageProps} />
-          </main>
-        </>
+        <PageHeadProvider>
+          {preAuthTopNav ? (
+            <>
+              <TopNavLite />
+              <main className="container">
+                <Component {...{ ...pageProps, envReady: ready }} />
+              </main>
+            </>
+          ) : (
+            <Component {...{ ...pageProps, envReady: ready }} />
+          )}
+        </PageHeadProvider>
       );
     }
-    return <Component {...pageProps} />;
+
+    return (
+      <AuthProvider exitOnNoAuth={!(preAuth || progressiveAuth)}>
+        <GrowthBookProvider growthbook={growthbook}>
+          <UserContextProvider key={orgId}>
+            <DefinitionsProvider>
+              <PageHeadProvider>
+                {preAuthTopNav || progressiveAuthTopNav ? (
+                  <>
+                    <TopNavLite />
+                    <main className={`main lite ${parts[0]}`}>
+                      <Component {...{ ...pageProps, envReady: ready }} />
+                    </main>
+                  </>
+                ) : (
+                  <Component {...{ ...pageProps, envReady: ready }} />
+                )}
+              </PageHeadProvider>
+            </DefinitionsProvider>
+          </UserContextProvider>
+        </GrowthBookProvider>
+      </AuthProvider>
+    );
   };
 
   return (
@@ -138,17 +183,22 @@ function App({
         }
         .radix-themes {
           --default-font-family: ${inter.style.fontFamily};
+          --font-weight-medium: 600;
+        }
+        .radix-themes[data-is-root-theme="true"] {
+          min-height: 100%;
+          height: 100vh;
         }
       `}</style>
       <Head>
         <title>GrowthBook</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
-      {ready ? (
+      {ready || noLoadingOverlay ? (
         <AppearanceUIThemeProvider>
           <RadixTheme>
             <div id="portal-root" />
-            {preAuth ? (
+            {preAuth || progressiveAuth ? (
               renderPreAuth()
             ) : (
               <PageHeadProvider>
@@ -164,7 +214,9 @@ function App({
                               <OrganizationMessagesContainer />
                               <DemoDataSourceGlobalBannerContainer />
                               <DefinitionsGuard>
-                                <Component {...pageProps} />
+                                <Component
+                                  {...{ ...pageProps, envReady: ready }}
+                                />
                               </DefinitionsGuard>
                             </main>
                           </DefinitionsProvider>
@@ -172,8 +224,8 @@ function App({
                       ) : (
                         <div>
                           <TopNavLite />
-                          <main className="container mt-5">
-                            <Component {...pageProps} />
+                          <main className="container">
+                            <Component {...{ ...pageProps, envReady: ready }} />
                           </main>
                         </div>
                       )}
@@ -185,7 +237,7 @@ function App({
           </RadixTheme>
         </AppearanceUIThemeProvider>
       ) : error ? (
-        <div className="container mt-3">
+        <div className="container">
           <div className="alert alert-danger">
             Error Initializing GrowthBook: {error}
           </div>

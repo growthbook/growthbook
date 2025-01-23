@@ -121,6 +121,7 @@ import { metricAnalysisRouter } from "./routers/metric-analysis/metric-analysis.
 import { metricGroupRouter } from "./routers/metric-group/metric-group.router";
 import { findOrCreateGeneratedHypothesis } from "./models/GeneratedHypothesis";
 import { getContextFromReq } from "./services/organizations";
+import { templateRouter } from "./routers/experiment-template/template.router";
 
 const app = express();
 
@@ -282,6 +283,25 @@ if (!IS_CLOUD) {
     (req, res) => res.send(200)
   );
 }
+
+// public shareable reports
+app.get(
+  "/api/report/public/:uid",
+  cors({
+    credentials: false,
+    origin: "*",
+  }),
+  reportsController.getReportPublic
+);
+// public shareable experiments
+app.get(
+  "/api/experiment/public/:uid",
+  cors({
+    credentials: false,
+    origin: "*",
+  }),
+  experimentsController.getExperimentPublic
+);
 
 // Secret API routes (no JWT or CORS)
 app.use(
@@ -471,6 +491,7 @@ app.get(
 );
 app.get("/experiment/:id", experimentsController.getExperiment);
 app.get("/experiment/:id/reports", reportsController.getReportsOnExperiment);
+app.get("/snapshot/:id", experimentsController.getSnapshotById);
 app.post("/snapshot/:id/cancel", experimentsController.cancelSnapshot);
 app.post("/snapshot/:id/analysis", experimentsController.postSnapshotAnalysis);
 app.get("/experiment/:id/snapshot/:phase", experimentsController.getSnapshot);
@@ -574,6 +595,9 @@ app.get(
   experimentsController.findOrCreateVisualEditorToken
 );
 
+// Experiment Templates
+app.use("/templates", templateRouter);
+
 // URL Redirects
 app.use("/url-redirects", urlRedirectRouter);
 
@@ -657,6 +681,10 @@ app.post(
 app.post(
   "/feature/:id/:version/comment",
   featuresController.postFeatureReviewOrComment
+);
+app.post(
+  "/feature/:id/:version/copyEnvironment",
+  featuresController.postCopyEnvironmentRules
 );
 
 app.get("/revision/feature", featuresController.getDraftandReviewRevisions);

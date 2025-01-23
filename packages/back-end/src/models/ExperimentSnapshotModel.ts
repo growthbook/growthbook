@@ -50,6 +50,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
   phase: Number,
   type: { type: String },
   triggeredBy: String,
+  report: String,
   dateCreated: Date,
   runStarted: Date,
   manual: Boolean,
@@ -313,6 +314,26 @@ export async function findRunningSnapshotsByQueryId(ids: string[]) {
   return docs.map((doc) => toInterface(doc));
 }
 
+export async function findLatestRunningSnapshotByReportId(
+  organization: string,
+  report: string
+) {
+  // Only look for match in the past 24 hours to make the query more efficient
+  // Older snapshots should not still be running anyway
+  const earliestDate = new Date();
+  earliestDate.setDate(earliestDate.getDate() - 1);
+
+  const doc = await ExperimentSnapshotModel.findOne({
+    organization,
+    report,
+    status: "running",
+    dateCreated: { $gt: earliestDate },
+    queries: { $elemMatch: { status: "running" } },
+  });
+
+  return doc ? toInterface(doc) : null;
+}
+
 export async function getLatestSnapshot({
   experiment,
   phase,
@@ -335,6 +356,9 @@ export async function getLatestSnapshot({
   };
   if (type) {
     query.type = type;
+  } else {
+    // never include report types unless specifically looking for them
+    query.type = { $ne: "report" };
   }
 
   // First try getting new snapshots that have a `status` field
@@ -440,9 +464,7 @@ export async function createExperimentSnapshotModel({
   context: Context;
 }): Promise<ExperimentSnapshotInterface> {
   const created = await ExperimentSnapshotModel.create(data);
-
   await notifyExperimentChange({ context, snapshot: created });
-
   return toInterface(created);
 }
 

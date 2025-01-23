@@ -15,24 +15,70 @@ import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { VisualChange } from "back-end/types/visual-changeset";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { Environment } from "back-end/types/organization";
+import { SavedGroupInterface } from "../types";
+import { featureHasEnvironment } from "./features";
 
 export * from "./features";
 export * from "./saved-groups";
 
+export const DEFAULT_ENVIRONMENT_IDS = ["production", "dev", "staging", "test"];
+
 export function getAffectedEnvsForExperiment({
   experiment,
+  orgEnvironments,
+  linkedFeatures,
 }: {
   experiment: ExperimentInterface | ExperimentInterfaceStringDates;
+  orgEnvironments: Environment[];
+  linkedFeatures?: FeatureInterface[];
 }): string[] {
-  // Visual changesets are not environment-scoped, so it affects all of them
-  if (experiment.hasVisualChangesets || experiment.hasURLRedirects)
-    return ["__ALL__"];
-
-  // TODO: get actual environments for linked feature flags. We are being overly conservative here
-  if (experiment.linkedFeatures && experiment.linkedFeatures.length > 0) {
-    return ["__ALL__"];
+  if (!orgEnvironments.length) {
+    return [];
   }
+  // Visual changesets are not environment-scoped, so it affects all of them
+  // Also fallback to all envs if linkedFeatures is undefined, but the experiment does actually have linked features
+  if (
+    experiment.hasVisualChangesets ||
+    experiment.hasURLRedirects ||
+    (!linkedFeatures && !!experiment.linkedFeatures?.length)
+  )
+    return ["__ALL__"];
 
+  if (linkedFeatures?.length) {
+    const envs = new Set<string>();
+    const orgEnvIds = orgEnvironments.map((e) => e.id);
+    linkedFeatures.forEach((linkedFeature) => {
+      const matches = getMatchingRules(
+        linkedFeature,
+        (rule) =>
+          (rule.type === "experiment-ref" &&
+            rule.enabled &&
+            rule.experimentId === experiment.id) ||
+          false,
+        orgEnvIds,
+        undefined,
+        // the boolean below skips environments if they are disabled on the feature
+        true
+      );
+
+      // if we find any matching rules get the environments that are affected
+      if (matches.length) {
+        matches.forEach((match) => {
+          const env = orgEnvironments.find(
+            (env) => env.id === match.environmentId
+          );
+
+          if (env) {
+            if (featureHasEnvironment(linkedFeature, env)) {
+              envs.add(match.environmentId);
+            }
+          }
+        });
+      }
+    });
+    return Array.from(envs);
+  }
   return [];
 }
 
@@ -182,7 +228,8 @@ export function getMatchingRules(
   feature: FeatureInterface,
   filter: (rule: FeatureRule) => boolean,
   environments: string[],
-  revision?: FeatureRevisionInterface
+  revision?: FeatureRevisionInterface,
+  omitDisabledEnvironments: boolean = false
 ): MatchingRule[] {
   const matches: MatchingRule[] = [];
 
@@ -190,6 +237,8 @@ export function getMatchingRules(
     Object.entries(feature.environmentSettings).forEach(
       ([environmentId, settings]) => {
         if (!isValidEnvironment(environmentId, environments)) return;
+
+        if (omitDisabledEnvironments && !settings.enabled) return;
 
         const rules = revision ? revision.rules[environmentId] : settings.rules;
 
@@ -343,4 +392,63 @@ export function ratioVarianceFromSums({
       (Math.pow(numerator_mean, 2) * denominator_variance) /
         Math.pow(denominator_mean, 4)
   );
+}
+
+export function featuresReferencingSavedGroups({
+  savedGroups,
+  features,
+  environments,
+}: {
+  savedGroups: SavedGroupInterface[];
+  features: FeatureInterface[];
+  environments: Environment[];
+}): Record<string, FeatureInterface[]> {
+  const referenceMap: Record<string, FeatureInterface[]> = {};
+  features.forEach((feature) => {
+    savedGroups.forEach((savedGroup) => {
+      const matches = getMatchingRules(
+        feature,
+        (rule) =>
+          rule.condition?.includes(savedGroup.id) ||
+          rule.savedGroups?.some((g) => g.ids.includes(savedGroup.id)) ||
+          false,
+        environments.map((e) => e.id)
+      );
+
+      if (matches.length > 0) {
+        referenceMap[savedGroup.id] ||= [];
+        referenceMap[savedGroup.id].push(feature);
+      }
+    });
+  });
+  return referenceMap;
+}
+
+export function experimentsReferencingSavedGroups({
+  savedGroups,
+  experiments,
+}: {
+  savedGroups: SavedGroupInterface[];
+  experiments: Array<ExperimentInterface | ExperimentInterfaceStringDates>;
+}) {
+  const referenceMap: Record<
+    string,
+    Array<ExperimentInterface | ExperimentInterfaceStringDates>
+  > = {};
+  savedGroups.forEach((savedGroup) => {
+    experiments.forEach((experiment) => {
+      const matchingPhases = experiment.phases.filter(
+        (phase) =>
+          phase.condition?.includes(savedGroup.id) ||
+          phase.savedGroups?.some((g) => g.ids.includes(savedGroup.id)) ||
+          false
+      );
+
+      if (matchingPhases.length > 0) {
+        referenceMap[savedGroup.id] ||= [];
+        referenceMap[savedGroup.id].push(experiment);
+      }
+    });
+  });
+  return referenceMap;
 }

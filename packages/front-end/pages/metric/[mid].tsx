@@ -349,6 +349,7 @@ const MetricPage: FC = () => {
       )}
       {editOwnerModal && (
         <EditOwnerModal
+          resourceType="metric"
           cancel={() => setEditOwnerModal(false)}
           owner={metric.owner}
           save={async (owner) => {

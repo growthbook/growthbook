@@ -543,6 +543,7 @@ export interface SourceIntegrationInterface {
   getInformationSchema?(): Promise<InformationSchema[]>;
   getTestValidityQuery?(
     query: string,
+    testDays?: number,
     templateVariables?: TemplateVariables
   ): string;
   getTestQuery?(params: TestQueryParams): string;

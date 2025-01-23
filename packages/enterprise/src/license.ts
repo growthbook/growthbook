@@ -69,7 +69,9 @@ export type CommercialFeature =
   | "metric-populations"
   | "large-saved-groups"
   | "multi-armed-bandits"
-  | "metric-groups";
+  | "metric-groups"
+  | "environment-inheritance"
+  | "templates";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -243,6 +245,8 @@ export const accountFeatures: CommercialFeaturesMap = {
     "large-saved-groups",
     "multi-armed-bandits",
     "metric-groups",
+    "environment-inheritance",
+    "templates",
   ]),
 };
 
@@ -256,6 +260,30 @@ type MinimalOrganization = {
     status: Stripe.Subscription.Status;
   };
 };
+
+export function getLowestPlanPerFeature(
+  accountFeatures: CommercialFeaturesMap
+): Partial<Record<CommercialFeature, AccountPlan>> {
+  const lowestPlanPerFeature: Partial<
+    Record<CommercialFeature, AccountPlan>
+  > = {};
+
+  // evaluate in order from highest to lowest plan
+  const plansFromHighToLow: AccountPlan[] = [
+    "enterprise",
+    "pro_sso",
+    "pro",
+    "starter",
+    "oss",
+  ];
+  plansFromHighToLow.forEach((accountPlan) => {
+    accountFeatures[accountPlan].forEach((feature) => {
+      lowestPlanPerFeature[feature] = accountPlan;
+    });
+  });
+
+  return lowestPlanPerFeature;
+}
 
 export function isActiveSubscriptionStatus(
   status?: Stripe.Subscription.Status

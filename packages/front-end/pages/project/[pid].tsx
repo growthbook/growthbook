@@ -143,7 +143,8 @@ const ProjectPage: FC = () => {
           </div>
           <div className="ml-1">
             <a
-              href="#"
+              role="button"
+              className="link-purple"
               onClick={(e) => {
                 e.preventDefault();
                 setModalOpen(p);
