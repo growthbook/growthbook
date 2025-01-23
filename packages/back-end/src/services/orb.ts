@@ -1,10 +1,11 @@
 import Orb from "orb-billing";
 import { addUsageAlert } from "back-end/src/models/UsageAlertsModel";
+import { ORB_API_KEY } from "back-end/src/util/secrets";
 import { getOrganizationById } from "./organizations";
 
 export const orb = new Orb({
   //MKTODO: Use an env variable here
-  apiKey: "a8bd87fc57af07857e5aac028d762f9d6a16a22cf0f23f023cddd9ea342cef2c",
+  apiKey: ORB_API_KEY,
 });
 
 export async function addUsageWarning(payload: any) {
