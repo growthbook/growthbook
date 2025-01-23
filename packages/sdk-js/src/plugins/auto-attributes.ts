@@ -11,6 +11,32 @@ export type AutoAttributeSettings = {
   uuidAutoPersist?: boolean;
 };
 
+function getBrowserDevice(ua: string): { browser: string; deviceType: string } {
+  const browser = ua.match(/Edg/)
+    ? "edge"
+    : ua.match(/Chrome/)
+    ? "chrome"
+    : ua.match(/Firefox/)
+    ? "firefox"
+    : ua.match(/Safari/)
+    ? "safari"
+    : "unknown";
+
+  const deviceType = ua.match(/Mobi/) ? "mobile" : "desktop";
+
+  return { browser, deviceType };
+}
+
+function getURLAttributes(url: URL | Location | undefined) {
+  if (!url) return {};
+  return {
+    url: url.href,
+    path: url.pathname,
+    host: url.host,
+    query: url.search,
+  };
+}
+
 export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
   // Browser only
   if (typeof window === "undefined") {
@@ -32,7 +58,7 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
     if (uuid) return uuid;
 
     // Generate a new UUID
-    uuid = genUUID();
+    uuid = genUUID(window.crypto);
     return uuid;
   }
 
@@ -44,16 +70,6 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
   function getAutoAttributes(settings: AutoAttributeSettings) {
     const ua = navigator.userAgent;
 
-    const browser = ua.match(/Edg/)
-      ? "edge"
-      : ua.match(/Chrome/)
-      ? "chrome"
-      : ua.match(/Firefox/)
-      ? "firefox"
-      : ua.match(/Safari/)
-      ? "safari"
-      : "unknown";
-
     const _uuid = getUUID();
 
     // If a uuid is provided, default persist to false, otherwise default to true
@@ -61,17 +77,15 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
       persistUUID();
     }
 
+    const url = location;
+
     return {
       ...getDataLayerVariables(),
       [uuidKey]: _uuid,
-      url: location.href,
-      path: location.pathname,
-      host: location.host,
-      query: location.search,
-      pageTitle: document && document.title,
-      deviceType: ua.match(/Mobi/) ? "mobile" : "desktop",
-      browser,
-      ...getUtmAttributes(),
+      ...getURLAttributes(url),
+      pageTitle: document.title,
+      ...getBrowserDevice(ua),
+      ...getUtmAttributes(url),
     };
   }
 
@@ -82,11 +96,12 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
     }
 
     // Set initial attributes
-    gb.setURL(location.href);
-    gb.updateAttributes(getAutoAttributes(settings));
+    const attributes = getAutoAttributes(settings);
+    attributes.url && gb.setURL(attributes.url);
+    gb.updateAttributes(attributes);
 
     // Poll for URL changes and update GrowthBook
-    let currentUrl = location.href;
+    let currentUrl = attributes.url;
     setInterval(() => {
       if (location.href !== currentUrl) {
         currentUrl = location.href;
@@ -120,11 +135,11 @@ function getCookie(name: string): string {
 }
 
 // Use the browsers crypto.randomUUID if set to generate a UUID
-function genUUID() {
-  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+function genUUID(crypto?: Crypto) {
+  if (crypto && crypto.randomUUID) return crypto.randomUUID();
   return ("" + 1e7 + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) => {
     const n =
-      window.crypto && crypto.getRandomValues
+      crypto && crypto.getRandomValues
         ? crypto.getRandomValues(new Uint8Array(1))[0]
         : Math.floor(Math.random() * 256);
     return (
@@ -134,7 +149,7 @@ function genUUID() {
   });
 }
 
-function getUtmAttributes() {
+function getUtmAttributes(url: URL | Location | undefined) {
   // Store utm- params in sessionStorage for future page loads
   let utms: Record<string, string> = {};
   try {
@@ -147,8 +162,8 @@ function getUtmAttributes() {
   }
 
   // Add utm params from querystring
-  if (location.search) {
-    const params = new URLSearchParams(location.search);
+  if (url && url.search) {
+    const params = new URLSearchParams(url.search);
     let hasChanges = false;
     ["source", "medium", "campaign", "term", "content"].forEach((k) => {
       // Querystring is in snake_case
@@ -176,7 +191,14 @@ function getUtmAttributes() {
 }
 
 function getDataLayerVariables() {
-  if (!window.dataLayer || !window.dataLayer.forEach) return {};
+  if (
+    typeof window === "undefined" ||
+    !window.dataLayer ||
+    !window.dataLayer.forEach
+  ) {
+    return {};
+  }
+
   const obj: Record<string, unknown> = {};
   window.dataLayer.forEach((item: unknown) => {
     // Skip empty and non-object entries

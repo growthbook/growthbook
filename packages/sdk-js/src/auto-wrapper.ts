@@ -129,9 +129,9 @@ const uuid = dataContext.uuid || windowContext.uuid;
 const plugins: Plugin[] = [
   autoAttributesPlugin({
     uuid,
-    uuidCookieName: dataContext.uuidCookieName || windowContext.uuidCookieName,
-    uuidKey: dataContext.uuidKey || windowContext.uuidKey,
-    uuidAutoPersist: !uuid && !dataContext.noAutoCookies,
+    uuidCookieName: windowContext.uuidCookieName || dataContext.uuidCookieName,
+    uuidKey: windowContext.uuidKey || dataContext.uuidKey,
+    uuidAutoPersist: !uuid && dataContext.noAutoCookies == null,
   }),
 ];
 
