@@ -263,13 +263,6 @@ export default function HealthTab({
         variations={variations}
         isBandit={isBandit}
       />
-      {!isBandit ? (
-        <PowerCard
-          experiment={experiment}
-          snapshot={snapshot}
-          onNotify={handleHealthNotification}
-        />
-      ) : null}
       <div id="balanceCheck" style={{ scrollMarginTop: "100px" }}>
         {!isBandit ? (
           <SRMCard
@@ -303,6 +296,14 @@ export default function HealthTab({
           />
         </div>
       </div>
+
+      {!isBandit ? (
+        <PowerCard
+          experiment={experiment}
+          snapshot={snapshot}
+          onNotify={handleHealthNotification}
+        />
+      ) : null}
     </div>
   );
 }

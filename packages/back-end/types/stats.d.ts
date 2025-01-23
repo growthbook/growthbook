@@ -8,18 +8,6 @@ export type DifferenceType = "relative" | "absolute" | "scaled";
 
 export type RiskType = "relative" | "absolute";
 
-// Keep in sync with gbstats PowerResponse
-export interface MetricVariationPowerResponseFromStatsEngine {
-  powerError: string;
-  powerUpdateMessage: string;
-  minPercentChange: number;
-  firstPeriodPairwiseSampleSize: number;
-  sigmahat2Delta: number;
-  sigma2Posterior: number;
-  deltaPosterior: number;
-  upperBoundAchieved: boolean;
-}
-
 interface BaseVariationResponse {
   cr: number;
   value: number;
@@ -34,7 +22,7 @@ interface BaseVariationResponse {
   };
   ci?: [number, number];
   errorMessage?: string;
-  power?: MetricVariationPowerResponseFromStatsEngine;
+  power?: MetricPowerResponseFromStatsEngine;
 }
 
 interface BayesianVariationResponse extends BaseVariationResponse {
@@ -45,6 +33,18 @@ interface BayesianVariationResponse extends BaseVariationResponse {
 
 interface FrequentistVariationResponse extends BaseVariationResponse {
   pValue?: number;
+}
+
+// Keep in sync with gbstats PowerResponse
+export interface MetricPowerResponseFromStatsEngine {
+  powerUpdateMessage: string;
+  minPercentChange: number;
+  powerError?: string;
+  firstPeriodPairwiseSampleSize?: number;
+  sigmahat2Delta?: number;
+  sigma2Posterior?: number;
+  deltaPosterior?: number;
+  upperBoundAchieved?: boolean;
 }
 
 interface BaseDimensionResponse {

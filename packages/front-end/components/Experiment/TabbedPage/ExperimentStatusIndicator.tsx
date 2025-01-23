@@ -85,58 +85,54 @@ function getStatusIndicatorData(
     return ["indigo", "soft", "Draft"];
   }
 
-  const unhealthyStatuses: string[] = [];
-  const healthSummary = experimentData.analysisSummary?.health;
-  if (healthSummary) {
-    const srmHealthData = getSRMHealthData({
-      srm: healthSummary.srm,
-      srmThreshold: healthSettings.srmThreshold,
-      totalUsersCount: healthSummary.totalUsers,
-      numOfVariations: experimentData.variations.length,
-      minUsersPerVariation:
-        experimentData.type === "multi-armed-bandit"
-          ? DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION
-          : DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
-    });
+  if (experimentData.status === "running") {
+    const unhealthyStatuses: string[] = [];
+    const healthSummary = experimentData.analysisSummary?.health;
+    if (healthSummary) {
+      const srmHealthData = getSRMHealthData({
+        srm: healthSummary.srm,
+        srmThreshold: healthSettings.srmThreshold,
+        totalUsersCount: healthSummary.totalUsers,
+        numOfVariations: experimentData.variations.length,
+        minUsersPerVariation:
+          experimentData.type === "multi-armed-bandit"
+            ? DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION
+            : DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+      });
 
-    if (srmHealthData === "unhealthy") {
-      unhealthyStatuses.push("SRM");
+      if (srmHealthData === "unhealthy") {
+        unhealthyStatuses.push("SRM");
+      }
+
+      const multipleExposuresHealthData = getMultipleExposureHealthData({
+        multipleExposuresCount: healthSummary.multipleExposures,
+        totalUsersCount: healthSummary.totalUsers,
+        minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_COUNT,
+        minPercentThreshold: healthSettings.multipleExposureMinPercent,
+      });
+
+      if (multipleExposuresHealthData.status === "unhealthy") {
+        unhealthyStatuses.push("Multiple exposures");
+      }
+
+      const powerSummary = healthSummary.power;
+      if (
+        powerSummary &&
+        powerSummary.type === "success" &&
+        powerSummary.isLowPowered
+      ) {
+        unhealthyStatuses.push("Low powered");
+      }
     }
 
-    const multipleExposuresHealthData = getMultipleExposureHealthData({
-      multipleExposuresCount: healthSummary.multipleExposures,
-      totalUsersCount: healthSummary.totalUsers,
-      minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_COUNT,
-      minPercentThreshold: healthSettings.multipleExposureMinPercent,
-    });
-
-    if (multipleExposuresHealthData.status === "unhealthy") {
-      unhealthyStatuses.push("Multiple exposures");
-    }
-  }
-
-  if (unhealthyStatuses.length > 0) {
-    return [
-      "amber",
-      "solid",
-      "Unhealthy",
-      undefined,
-      unhealthyStatuses.join(", "),
-    ];
-  }
-
-  if (experimentData.status == "running") {
-    if (experimentData.analysisSummary?.health?.power?.errorMessage) {
+    if (unhealthyStatuses.length > 0) {
       return [
         "amber",
         "solid",
         "Unhealthy",
-        experimentData.analysisSummary.health.power.errorMessage,
+        undefined,
+        unhealthyStatuses.join(", "),
       ];
-    }
-
-    if (experimentData.analysisSummary?.health?.power?.lowPowerWarning) {
-      return ["amber", "solid", "Unhealthy", "Low powered"];
     }
 
     return ["indigo", "solid", "Running"];

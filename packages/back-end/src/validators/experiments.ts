@@ -167,11 +167,17 @@ export const experimentAnalysisSummary = z
         multipleExposures: z.number(),
         totalUsers: z.number(),
         power: z
-          .object({
-            errorMessage: z.string().optional(),
-            additionalDaysNeeded: z.number().optional(),
-            lowPowerWarning: z.boolean().optional(),
-          })
+          .discriminatedUnion("type", [
+            z.object({
+              type: z.literal("error"),
+              errorMessage: z.string(),
+            }),
+            z.object({
+              type: z.literal("success"),
+              isLowPowered: z.boolean(),
+              additionalDaysNeeded: z.number(),
+            }),
+          ])
           .optional(),
       })
       .optional(),

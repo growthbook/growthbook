@@ -1,9 +1,11 @@
 import { useEffect } from "react";
-import { Separator, Table } from "@radix-ui/themes";
+import { Separator } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import Link from "@/components/Radix/Link";
 import Callout from "@/components/Radix/Callout";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { IssueValue } from "./IssueTags";
 import { StatusBadge } from "./StatusBadge";
 
@@ -16,95 +18,80 @@ export function PowerCard({
   snapshot: ExperimentSnapshotInterface;
   onNotify: (issue: IssueValue) => void;
 }) {
-  const midPowerResults = snapshot.health?.power;
+  const { hasCommercialFeature } = useUser();
+  const snapshotPower = snapshot.health?.power;
+  const hasMidExperimentPowerFeature = hasCommercialFeature(
+    "mid-experiment-power"
+  );
 
-  const { getExperimentMetricById } = useDefinitions();
+  const isLowPowered = snapshotPower?.isLowPowered ?? false;
+  const phase = experiment.phases[snapshot.phase];
 
   useEffect(() => {
-    if (midPowerResults?.lowPowerWarning) {
+    if (isLowPowered) {
       onNotify({
-        label: "Low Powered",
+        label: "Low powered",
         value: "power-card",
       });
     }
-  }, [midPowerResults, onNotify]);
+  }, [isLowPowered, onNotify]);
 
-  if (!midPowerResults) {
-    return null;
-  }
-
-  console.log(midPowerResults);
-
-  const metrics = Object.fromEntries(
-    midPowerResults.metricVariationPowerResults.map((results) => [
-      results.metricId,
-      getExperimentMetricById(results.metricId),
-    ])
+  const content = !hasMidExperimentPowerFeature ? (
+    <Callout status="info">
+      You can read more about this feature in our{" "}
+      <Link target="_blank" href="https://docs.growthbook.io/statistics/power">
+        Power Analysis documentation
+      </Link>
+      .
+    </Callout>
+  ) : !isLowPowered ? (
+    <Callout status="success">
+      Your experiment is healthy and will likely be statistically significant
+      before the experiment duration.
+    </Callout>
+  ) : (
+    <>
+      <Callout status="warning" mb="2">
+        Your experiment is low-powered and will likely not be statistically
+        significant before the configured end date.
+      </Callout>
+      <ul>
+        {phase.coverage === 1 ? (
+          <li>
+            Consider increasing the traffic percentage for this experiment which
+            is currently at {phase.coverage * 100}%.
+          </li>
+        ) : null}
+        {snapshot.settings.variations.length > 2 ? (
+          <li>
+            Consider reducing the number of variations for this experiment.
+          </li>
+        ) : null}
+        {snapshot.settings.goalMetrics.length > 3 ? (
+          <li>
+            Consider reducing the number of goal metrics for this experiment.
+          </li>
+        ) : null}
+      </ul>
+    </>
   );
 
-  console.log(metrics);
-
-  const isLowPower = true;
-
   return (
-    <div className="appbox container-fluid my-4 pl-3 py-3">
-      <h2 className="d-inline">Experiment Power</h2>{" "}
-      {midPowerResults?.lowPowerWarning ? (
-        <StatusBadge status="Issues detected" />
-      ) : null}
-      <p className="mt-1">
-        Show the likelihood of your experiment being statistically significant
-        before the experiment duration.
-      </p>
-      <Separator size="4" my="3" />
-      {!isLowPower ? (
-        <Callout status="info">
-          Your experiment is healthy and will likely be statistically
+    <div id="power-card" style={{ scrollMarginTop: "100px" }}>
+      <div className="appbox container-fluid my-4 pl-3 py-3">
+        <PremiumTooltip commercialFeature="mid-experiment-power">
+          <h2 className="d-flex">Experiment Power</h2>{" "}
+          {hasMidExperimentPowerFeature && isLowPowered ? (
+            <StatusBadge status="unhealthy" />
+          ) : null}
+        </PremiumTooltip>
+        <p className="mt-1">
+          Shows the likelihood of your experiment being statistically
           significant before the experiment duration.
-        </Callout>
-      ) : (
-        <>
-          <Callout status="warning" mb="2">
-            Your experiment is low-powered and will likely not be statistically
-            significant before the configured end date.
-          </Callout>
-          <Table.Root variant="surface">
-            <Table.Header>
-              <Table.Row>
-                <Table.ColumnHeaderCell>Variation</Table.ColumnHeaderCell>
-                <Table.ColumnHeaderCell>Goal Metric</Table.ColumnHeaderCell>
-                <Table.ColumnHeaderCell>
-                  Additional Days Needed
-                </Table.ColumnHeaderCell>
-                <Table.ColumnHeaderCell>Message</Table.ColumnHeaderCell>
-              </Table.Row>
-            </Table.Header>
-            <Table.Body>
-              {midPowerResults.metricVariationPowerResults.map((r) => {
-                const variationName = experiment.variations[r.variation].name;
-                const metricName = metrics[r.metricId]?.name;
-
-                return (
-                  <Table.Row key={`${r.variation}-${r.metricId}`}>
-                    <Table.Cell>{variationName}</Table.Cell>
-                    <Table.Cell>{metricName}</Table.Cell>
-                    <Table.Cell>{r.additionalDays}</Table.Cell>
-                    <Table.Cell>
-                      It is unlikely that this metric will be statistically
-                      significant for the an effect size of{" "}
-                      {r.effectSize?.toFixed(2)} before the experiment duration.
-                    </Table.Cell>
-                  </Table.Row>
-                );
-              })}
-            </Table.Body>
-          </Table.Root>
-          <div className="mt-3">
-            You can increase the power of your experiment by increasing the
-            experiment duration (or increasing the exposure for more users).
-          </div>
-        </>
-      )}
+        </p>
+        <Separator size="4" my="3" />
+        {content}
+      </div>
     </div>
   );
 }

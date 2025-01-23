@@ -306,6 +306,7 @@ export default function ExperimentSettings({
                 Mid-experiment power calculation settings
               </h5>
               <Field
+                disabled={!hasCommercialFeature("mid-experiment-power")}
                 label="Minimum experiment length"
                 type="number"
                 className="ml-2"
@@ -319,6 +320,7 @@ export default function ExperimentSettings({
               />
 
               <Field
+                disabled={!hasCommercialFeature("mid-experiment-power")}
                 label="Maximum experiment length"
                 type="number"
                 className="ml-2"

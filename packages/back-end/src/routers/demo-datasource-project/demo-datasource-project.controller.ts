@@ -259,7 +259,10 @@ export const postDemoDatasourceProject = async (
         })
       : undefined;
 
-    const goalMetrics = metrics
+    const goalMetrics = metrics.slice(0, 1).map((m) => m.id);
+
+    const secondaryMetrics = metrics
+      .slice(1, undefined)
       .map((m) => m.id)
       .concat(ratioMetric ? ratioMetric?.id : []);
 
@@ -294,11 +297,8 @@ spacing and headings.`,
       owner: ASSET_OWNER,
       datasource: datasource.id,
       project: project.id,
-      goalMetrics: metrics.slice(0, 1).map((m) => m.id),
-      secondaryMetrics: metrics
-        .slice(1, undefined)
-        .map((m) => m.id)
-        .concat(ratioMetric ? ratioMetric?.id : []),
+      goalMetrics,
+      secondaryMetrics,
       exposureQueryId: "user_id",
       status: "running",
       tags: DEMO_TAGS,

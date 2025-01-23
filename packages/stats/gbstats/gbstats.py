@@ -296,7 +296,6 @@ def analyze_metric_df(
             df[f"v{i}_sigma_2_posterior"] = None
             df[f"v{i}_delta_posterior"] = None
             df[f"v{i}_power_additional_users"] = None
-            df[f"v{i}_power_scaling_factor"] = None
             df[f"v{i}_power_update_message"] = None
             df[f"v{i}_power_error_message"] = ""
             df[f"v{i}_power_upper_bound_acheieved"] = None
@@ -455,7 +454,6 @@ def format_variation_result(
                 sigmahat2Delta=row[f"{prefix}_sigmahat_2_delta"],
                 sigma2Posterior=row[f"{prefix}_sigma_2_posterior"],
                 deltaPosterior=row[f"{prefix}_delta_posterior"],
-                scalingFactor=row[f"{prefix}_power_scaling_factor"],
                 powerUpdateMessage=row[f"{prefix}_power_update_message"],
                 powerError=row[f"{prefix}_power_error_message"],
                 upperBoundAchieved=row[f"{prefix}_power_upper_bound_achieved"],

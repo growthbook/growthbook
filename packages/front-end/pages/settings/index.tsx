@@ -10,6 +10,8 @@ import {
   DEFAULT_STATS_ENGINE,
   DEFAULT_TEST_QUERY_DAYS,
   DEFAULT_SRM_THRESHOLD,
+  DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
+  DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
 } from "shared/constants";
 import { OrganizationSettings } from "back-end/types/organization";
 import Link from "next/link";
@@ -146,8 +148,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
       banditBurnInValue: settings.banditBurnInValue ?? 1,
       banditBurnInUnit: settings.banditBurnInUnit ?? "days",
       requireExperimentTemplates: settings.requireExperimentTemplates ?? false,
-      experimentMinLengthDays: settings.experimentMinLengthDays ?? 7,
-      experimentMaxLengthDays: settings.experimentMaxLengthDays ?? 42,
+      experimentMinLengthDays:
+        settings.experimentMinLengthDays ?? DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
+      experimentMaxLengthDays:
+        settings.experimentMaxLengthDays ?? DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
     },
   });
   const { apiCall } = useAuth();

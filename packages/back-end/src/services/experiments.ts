@@ -2742,19 +2742,22 @@ export async function updateExperimentAnalysisSummary({
       totalUsers: totalUsers,
     };
 
-    if (snapshotHealthPower) {
-      if (snapshotHealthPower.type === "error") {
-        analysisSummary.health.power = {
-          errorMessage: snapshotHealthPower.metricVariationPowerResults.find(
-            (r) => r.errorMessage !== undefined
-          )?.errorMessage,
-        };
-      } else {
-        analysisSummary.health.power = {
-          additionalDaysNeeded: snapshotHealthPower.additionalDays,
-          lowPowerWarning: snapshotHealthPower.lowPowerWarning,
-        };
-      }
+    if (snapshotHealthPower?.type === "error") {
+      const errorMessage = snapshotHealthPower.metricVariationPowerResults.find(
+        (r) => r.errorMessage !== undefined
+      )?.errorMessage;
+
+      analysisSummary.health.power = {
+        type: "error",
+        errorMessage:
+          errorMessage ?? "An error occurred while calculating power",
+      };
+    } else if (snapshotHealthPower?.type === "success") {
+      analysisSummary.health.power = {
+        type: "success",
+        isLowPowered: snapshotHealthPower.isLowPowered,
+        additionalDaysNeeded: snapshotHealthPower.additionalDaysNeeded,
+      };
     }
   }
 

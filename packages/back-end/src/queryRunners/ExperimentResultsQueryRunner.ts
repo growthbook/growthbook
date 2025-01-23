@@ -1,4 +1,4 @@
-import { orgHasPremiumFeature } from "enterprise";
+import { analyzeExperimentPower, orgHasPremiumFeature } from "enterprise";
 import { addDays, differenceInDays } from "date-fns";
 import {
   expandMetricGroups,
@@ -8,6 +8,10 @@ import {
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
+import {
+  DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
+  DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
+} from "shared/constants";
 import chunk from "lodash/chunk";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -25,7 +29,6 @@ import {
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { parseDimensionId } from "back-end/src/services/experiments";
 import {
-  analyzeExperimentPower,
   analyzeExperimentResults,
   analyzeExperimentTraffic,
 } from "back-end/src/services/stats";
@@ -467,6 +470,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         error: healthQuery.error,
         variations: this.model.settings.variations,
       });
+
       result.health = {
         traffic: trafficHealth,
       };
@@ -475,24 +479,29 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         (a) => a.settings.differenceType === "relative"
       );
 
-      if (relativeAnalysis) {
-        // FIXME: We should use DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS and DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS
+      const isEligibleForPowerAnalysis =
+        this.model.settings.banditSettings === undefined &&
+        relativeAnalysis &&
+        orgHasPremiumFeature(this.context.org, "mid-experiment-power");
+
+      if (isEligibleForPowerAnalysis) {
         const today = new Date();
         const experimentStartDate = this.model.settings.startDate;
-        const experimentMinLengthDays =
-          this.context.org.settings?.experimentMinLengthDays ?? 7;
-        const experimentMaxLengthDays =
-          this.context.org.settings?.experimentMaxLengthDays ?? 42;
-
         const experimentDaysRunning = differenceInDays(
           today,
           experimentStartDate
         );
+        const experimentMinLengthDays =
+          this.context.org.settings?.experimentMinLengthDays ??
+          DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS;
 
         const shouldRunPowerAnalysis =
           experimentDaysRunning > experimentMinLengthDays;
 
         if (shouldRunPowerAnalysis) {
+          const experimentMaxLengthDays =
+            this.context.org.settings?.experimentMaxLengthDays ??
+            DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS;
           const experimentTargetEndDate = addDays(
             experimentStartDate,
             experimentMaxLengthDays
@@ -508,7 +517,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
             targetDaysRemaining,
             analysis: relativeAnalysis,
             goalMetrics: this.model.settings.goalMetrics,
-            variations: this.model.settings.variations,
+            variationsSettings: this.model.settings.variations,
           });
         }
       }

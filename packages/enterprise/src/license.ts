@@ -71,7 +71,8 @@ export type CommercialFeature =
   | "multi-armed-bandits"
   | "metric-groups"
   | "environment-inheritance"
-  | "templates";
+  | "templates"
+  | "mid-experiment-power";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -178,6 +179,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "retention-metrics",
     "metric-populations",
     "multi-armed-bandits",
+    "mid-experiment-power",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -203,6 +205,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "retention-metrics",
     "metric-populations",
     "multi-armed-bandits",
+    "mid-experiment-power",
   ]),
   enterprise: new Set<CommercialFeature>([
     "scim",
@@ -247,6 +250,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "metric-groups",
     "environment-inheritance",
     "templates",
+    "mid-experiment-power",
   ]),
 };
 
