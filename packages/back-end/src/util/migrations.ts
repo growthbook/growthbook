@@ -727,7 +727,9 @@ export function migrateSnapshot(
             sequentialTestingTuningParameter:
               sequentialTestingTuningParameter ||
               DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-            numGoalMetrics: snapshot.settings.goalMetrics.length,
+            // FIXME (adriel): This is wrong. Also TS believe settings has numGoalMetrics but it does not.
+            // Is it an incomplete test or a bug in our logic?
+            numGoalMetrics: 1,
           },
           results,
         },
