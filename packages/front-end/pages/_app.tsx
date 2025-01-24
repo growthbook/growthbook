@@ -35,7 +35,7 @@ import GetStartedProvider from "@/services/GetStartedProvider";
 import GuidedGetStartedBar from "@/components/Layout/GuidedGetStartedBar";
 import LayoutLite from "@/components/Layout/LayoutLite";
 import { UserContextProvider } from "@/services/UserContext";
-import { growthbook, gbContext } from "@/services/utils";
+import { growthbook } from "@/services/utils";
 
 // Make useLayoutEffect isomorphic (for SSR)
 if (typeof window === "undefined") React.useLayoutEffect = React.useEffect;
@@ -105,43 +105,6 @@ function App({
       },
       dedupeKeyAttributes: ["id", "organizationId"],
     })(growthbook);
-  }, [ready]);
-
-  useEffect(() => {
-    if (!ready) return;
-    if (isTelemetryEnabled()) {
-      let _rtQueue: { key: string; on: boolean }[] = [];
-      let _rtTimer = 0;
-      gbContext.onFeatureUsage = (key, res) => {
-        _rtQueue.push({
-          key,
-          on: res.on,
-        });
-        if (!_rtTimer) {
-          _rtTimer = window.setTimeout(() => {
-            // Reset the queue
-            _rtTimer = 0;
-            const q = [_rtQueue];
-            _rtQueue = [];
-
-            window
-              .fetch(
-                `https://rt.growthbook.io/?key=key_prod_cb40dfcb0eb98e44&events=${encodeURIComponent(
-                  JSON.stringify(q)
-                )}`,
-
-                {
-                  cache: "no-cache",
-                  mode: "no-cors",
-                }
-              )
-              .catch(() => {
-                // TODO: retry in case of network errors?
-              });
-          }, 2000);
-        }
-      };
-    }
   }, [ready]);
 
   useEffect(() => {
