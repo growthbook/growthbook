@@ -35,6 +35,7 @@ import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
+import { WebhookEvent } from "back-end/src/types/Orb";
 
 function withLicenseServerErrorHandling<T>(
   fn: (req: AuthRequest<T>, res: Response) => Promise<void>
@@ -246,11 +247,11 @@ export async function postSubscriptionWebhook(req: Request, res: Response) {
   console.log("hit the postSubscriptionWebhook endpoint successfully");
   // Validate webhook came from Orb
   //MKTODO: Add type safety to payload
-  const payload: any = orb.webhooks.unwrap(
+  const payload = orb.webhooks.unwrap(
     req.body,
     req.headers,
     "mmmqyzbeH37_n1VwPOQkqEXjNYdNFGEShOVhUmp3AYk" //MKTODO: Use env variable
-  );
+  ) as WebhookEvent;
   console.log(payload);
 
   if (!payload) {
