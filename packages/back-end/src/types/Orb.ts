@@ -214,7 +214,7 @@ interface CreditNoteMarkedAsVoidEvent extends CreditNoteEvent {
 }
 
 // Usage and balance events
-interface SubscriptionUsageExceededEvent extends SubscriptionEvent {
+export interface SubscriptionUsageExceededEvent extends SubscriptionEvent {
   type: "subscription.usage_exceeded";
   properties: {
     billable_metric_id: string;
