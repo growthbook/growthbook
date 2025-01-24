@@ -37,7 +37,6 @@ function getURLAttributes(url: URL | Location | undefined) {
   };
 }
 
-let persistListenerAdded = false;
 export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
   // Browser only
   if (typeof window === "undefined") {
@@ -64,12 +63,9 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
   }
 
   // Listen for a custom event to persist the UUID cookie
-  if (!persistListenerAdded) {
-    document.addEventListener("growthbookpersist", () => {
-      persistUUID();
-    });
-    persistListenerAdded = true;
-  }
+  document.addEventListener("growthbookpersist", () => {
+    persistUUID();
+  });
 
   function getAutoAttributes(settings: AutoAttributeSettings) {
     const ua = navigator.userAgent;
