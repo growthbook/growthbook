@@ -1,0 +1,90 @@
+# Cluster Experiments
+
+Many times it is important to experiment at a group level rather than at an individual level. For example:
+
+- You have business-to-business software company and want to randomize at the business level so that everyone
+  the company gets the same experience, but analyze how it changes the behavior of users.
+- You work for a education technology where you can only randomize at some geographic level (say school district)
+  constraints, but you want to look at the impact at the student level.
+
+In all of these instances, you generally have an cluster of units, each of which nests another set of units.
+
+DIAGRAM
+
+To provide a concrete example, we will use Organizations that nest Users where your goal is to randomize at the Organization level but
+analyze User level behavior.
+
+## How to run a Cluster Experiment
+
+Handling randomizing at the organization level and analyzing at the user level is possible in GrowthBook using Fact Tables
+and our robust statistics engine.
+
+You will need:
+
+1. To create a [Fact Table](/app/metrics#fact-tables) that has both `organization_id` and `user_id` as columns.
+2. Create `Ratio` metrics where the denominator is the `COUNT DISTINCT` of the smaller unit, the `user_id`, and the numerator is your metric of interest.
+3. Create an Experiment where you randomize on the `organization_id`
+4. Analyze your Experiment with the Experiment Assignment Query for your `organization_id`
+
+:::caution
+
+There must be a 1-to-many relationship between `organization_id` and `user_id`. Users must nest within organizations. Otherwise users could
+end up in both experiment conditions which could cause some bias in your results.
+
+:::
+
+### 0. Pre-requisites
+
+Ensure you have `organization_id` set up as Identifier Types on your Datasource page.
+
+Ensure you are ready to randomize at the `organization_id` level by creating an Attribute for `organization_id`, if GrowthBook
+is handling the randomization.
+
+### 1. Set up a Fact Table with both identifier types
+
+You will need to create a version of your user-level metrics that has a custom denominator: the distinct count of users.
+
+To do so, you need to create a [Fact Table](/app/metrics#fact-tables) that has both `organization_id` and `user_id` as columns,
+along with whatever other columns you need to create your metrics of interest. You can of course use multiple fact tables with this
+configuration if you prefer.
+
+<img src="/images/cluster-experiments/cluster-fact-table.png" alt="Fact Table example with organization and user ids, along with timestamp, event, and value columns" width="500" />
+
+Here we have the identifiers, an `event` column that describes what kind of event the row pertains to, and a numeric `value` column
+that is the value of the event.
+
+:::info
+
+You should define your Fact Table so that it will include at least one event for all `user_id` that will be exposed to your
+experiment so that the metric denominator includes all relevant units in each cluster.
+
+:::
+
+### 2. Set up your Metrics
+
+With this fact table you can create a series of Ratio metrics, all of which have the `COUNT DISTINCT` of `user_id` as the denominator.
+
+In the following example, we have a User Revenue metric, where we sum the value of all purchases across all users, and then `COUNT DISTINCT` the number of `user_id` in the
+denominator. Note in this example we are not filtering the denominator to just users who made a purchase so that our denominator includes all users that made any
+event in this period.
+
+<img src="/images/cluster-experiments/cluster-fact-metric.png" alt="An example ratio fact metric with the sum of purchase values in the numerator and the distinct count of user ids in the denominator." width="650" />
+
+You should also feel free to create proportion-style ratio metrics, where your numerator is a `COUNT DISTINCT` of `user_id` that did some particular event while the denominator is
+a `COUNT DISTINCT` of `user_id` that logged any event.
+
+These metrics will be aggregated by each variation and our statistics engine will use the [Delta Method](https://docs.growthbook.io/statistics/details#ratio-metrics) to appropriately account for the
+fact that you are randomizing at a different level than you are analyzing.
+
+### 3. Create your Experiment at the Organization level
+
+All that is left to do is create your experiment where you randomize at the `organization_id` level. The following screenshot shows an example of that.
+
+<img src="/images/cluster-experiments/cluster-hash.png" alt="Setting organization_id as the hash attribute." width="400" />
+
+Then you want to make sure you pick the Experiment Assignment Table that has your `organization_id` mapping. If you do not have one, you may need to
+set it up in your Datasource to ensure that GrowthBook knows the mapping between `organization_id` and experiment and variation assignments.
+
+<img src="/images/cluster-experiments/cluster-query.png" alt="Setting organization_id as the hash attribute." width="400" />
+
+Add the metrics you created and analyze as usual!
