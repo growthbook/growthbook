@@ -116,7 +116,7 @@ class TTest(BaseABTest):
 
     @property
     @abstractmethod
-    def p_value(self) -> float:
+    def p_value(self) -> float | None:
         pass
 
     @property
@@ -342,10 +342,6 @@ class SequentialTwoSidedTTest(SequentialTTest):
 
 class SequentialOneSidedTreatmentLesserTTest(SequentialTTest):
     @property
-    def scaling_factor(self) -> float:
-        return 1
-
-    @property
     def lesser(self) -> bool:
         return True
 
@@ -353,9 +349,7 @@ class SequentialOneSidedTreatmentLesserTTest(SequentialTTest):
     def rho(self) -> float:
         # eq 161 in https://arxiv.org/pdf/2103.06476v7.pdf
         # return sequential_rho(2 * self.alpha, self.sequential_tuning_parameter)
-        return sequential_rho(
-            self.scaling_factor * self.alpha, self.sequential_tuning_parameter
-        )
+        return sequential_rho(self.alpha, self.sequential_tuning_parameter)
 
     @property
     def halfwidth(self) -> float:
@@ -365,7 +359,7 @@ class SequentialOneSidedTreatmentLesserTTest(SequentialTTest):
             s2,
             self.n,
             self.sequential_tuning_parameter,
-            self.scaling_factor * self.alpha,
+            self.alpha,
         )
 
     @property
@@ -375,8 +369,82 @@ class SequentialOneSidedTreatmentLesserTTest(SequentialTTest):
         )
 
     @property
-    def p_value(self) -> float:
-        return 0.5
+    def p_value(self) -> float | None:
+        difference_type = (
+            "relative" if self.relative else "scaled" if self.scaled else "absolute"
+        )
+        tol = 1e-6
+        max_iters = 100
+        min_alpha = 1e-5
+        max_alpha = 0.5
+        this_config = SequentialConfig(difference_type=difference_type, alpha=min_alpha)
+        this_test = (
+            SequentialOneSidedTreatmentLesserTTest
+            if self.lesser
+            else SequentialOneSidedTreatmentGreaterTTest
+        )
+        ci_index = 1 if self.lesser else 0
+        this_ci_small = this_test(
+            self.stat_a, self.stat_b, this_config
+        ).confidence_interval
+        # smaller alpha => bigger confidence interval;
+        print(["min_alpha", "this_ci_small"])
+        print([min_alpha, this_ci_small])
+        if self.lesser:
+            if this_ci_small[ci_index] < 0:
+                print("returning min alpha")
+                return min_alpha
+            this_config.alpha = max_alpha
+            # bigger alpha => smaller confidence interval;
+            this_ci_big = this_test(
+                self.stat_a, self.stat_b, this_config
+            ).confidence_interval
+            print(["max_alpha", "this_ci_big"])
+            print([max_alpha, this_ci_big])
+            if this_ci_big[ci_index] > 0:
+                print("returning max alpha")
+                return max_alpha
+        else:
+            if this_ci_small[ci_index] > 0:
+                print("returning min alpha")
+                return min_alpha
+            this_config.alpha = max_alpha
+            # bigger alpha => smaller confidence interval;
+            this_ci_big = this_test(
+                self.stat_a, self.stat_b, this_config
+            ).confidence_interval
+            if this_ci_big[ci_index] < 0:
+                print("returning max alpha")
+                return max_alpha
+        iters = 0
+        this_alpha = 0.5 * (min_alpha + max_alpha)
+        diff = 0
+        for _ in range(max_iters):
+            this_config.alpha = this_alpha
+            this_ci = this_test(
+                self.stat_a, self.stat_b, this_config
+            ).confidence_interval
+            diff = this_ci[ci_index] - 0
+            if self.lesser:
+                if diff > 0:
+                    min_alpha = this_alpha
+                else:
+                    max_alpha = this_alpha
+            else:
+                if diff < 0:
+                    min_alpha = this_alpha
+                else:
+                    max_alpha = this_alpha
+            this_alpha = 0.5 * (min_alpha + max_alpha)
+            if abs(diff) < tol:
+                break
+        converged = abs(diff) < tol and iters != max_iters
+        if converged:
+            print(["converged", this_alpha])
+            return this_alpha
+        else:
+            print(["not converged", this_alpha])
+            return None
 
 
 class SequentialOneSidedTreatmentGreaterTTest(SequentialOneSidedTreatmentLesserTTest):
