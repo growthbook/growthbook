@@ -1,4 +1,4 @@
-import { GrowthBook } from "../../src";
+import { GrowthBook, GrowthBookClient } from "../../src";
 import { autoAttributesPlugin } from "../../src/plugins/auto-attributes";
 
 declare global {
@@ -317,6 +317,27 @@ describe("autoAttributesPlugin", () => {
     // Trigger persist
     document.dispatchEvent(new Event("growthbookpersist"));
     expect(getCookie("gbuuid")).toBe(uuid);
+
+    gb.destroy();
+  });
+
+  it("works with GrowthBookClient and user-scoped instances", () => {
+    const plugin = autoAttributesPlugin();
+    const gb = new GrowthBookClient({
+      plugins: [plugin],
+    });
+
+    // Auto-attributes are not set on the global instance
+    expect(gb.getGlobalAttributes()).toEqual({});
+
+    // Auto-attributes are set on the user-scoped instance
+    const userContext = { attributes: { bar: "456" } };
+    gb.createScopedInstance(userContext);
+    expect(userContext.attributes).toEqual({
+      bar: "456",
+      id: expect.any(String),
+      ...baseAttributes,
+    });
 
     gb.destroy();
   });

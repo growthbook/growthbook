@@ -1,5 +1,5 @@
 import { growthbookTrackingPlugin } from "../../src/plugins/growthbook-tracking";
-import { GrowthBook } from "../../src";
+import { GrowthBook, GrowthBookClient } from "../../src";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -267,5 +267,43 @@ describe("growthbookTrackingPlugin", () => {
 
     gb.destroy();
     gb2.destroy();
+  });
+
+  it("works for GrowthBookClient and user-scoped instances", async () => {
+    const plugin = growthbookTrackingPlugin({
+      dedupeKeyAttributes: ["id"],
+    });
+
+    const gb = new GrowthBookClient({
+      clientKey: "test",
+      plugins: [plugin],
+    });
+
+    const userContext = { attributes: { id: "123" } };
+
+    // Global logged event with user context
+    gb.logEvent("test", {}, userContext);
+
+    await sleep(150);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // De-dupe
+    gb.logEvent("test", {}, userContext);
+    await sleep(150);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // User-scoped logged event
+    const gb2 = gb.createScopedInstance({ attributes: { id: "456" } });
+    gb2.logEvent("test");
+
+    await sleep(150);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    // De-dupe
+    gb2.logEvent("test");
+    await sleep(150);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    gb.destroy();
   });
 });

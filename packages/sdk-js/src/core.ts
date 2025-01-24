@@ -737,23 +737,18 @@ function getFeatureResult<T>(
   // Track the usage of this feature in real-time
   if (source !== "override") {
     if (ctx.global.onFeatureUsage) {
-      try {
-        ctx.global.onFeatureUsage(key, ret, ctx.user);
-      } catch (e) {
-        // Ignore feature usage errors
-      }
+      const cb = ctx.global.onFeatureUsage;
+      safeCall(() => cb(key, ret, ctx.user));
     }
     if (ctx.user.onFeatureUsage) {
-      try {
-        ctx.user.onFeatureUsage(key, ret);
-      } catch (e) {
-        // Ignore feature usage errors
-      }
+      const cb = ctx.user.onFeatureUsage;
+      safeCall(() => cb(key, ret));
     }
 
     if (ctx.global.eventLogger) {
-      try {
-        ctx.global.eventLogger(
+      const cb = ctx.global.eventLogger;
+      safeCall(() =>
+        cb(
           EVENT_FEATURE_EVALUATED,
           {
             feature: key,
@@ -764,10 +759,8 @@ function getFeatureResult<T>(
             variationId: ret.experimentResult ? ret.experimentResult.key : "",
           },
           ctx.user
-        );
-      } catch (e) {
-        // Ignore event logger errors
-      }
+        )
+      );
     }
   }
 

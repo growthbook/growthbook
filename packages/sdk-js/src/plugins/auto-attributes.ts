@@ -37,6 +37,7 @@ function getURLAttributes(url: URL | Location | undefined) {
   };
 }
 
+let persistListenerAdded = false;
 export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
   // Browser only
   if (typeof window === "undefined") {
@@ -63,9 +64,12 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
   }
 
   // Listen for a custom event to persist the UUID cookie
-  document.addEventListener("growthbookpersist", () => {
-    persistUUID();
-  });
+  if (!persistListenerAdded) {
+    document.addEventListener("growthbookpersist", () => {
+      persistUUID();
+    });
+    persistListenerAdded = true;
+  }
 
   function getAutoAttributes(settings: AutoAttributeSettings) {
     const ua = navigator.userAgent;
@@ -102,7 +106,7 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
 
     // Poll for URL changes and update GrowthBook
     let currentUrl = attributes.url;
-    setInterval(() => {
+    const intervalTimer = setInterval(() => {
       if (location.href !== currentUrl) {
         currentUrl = location.href;
         gb.setURL(currentUrl);
@@ -111,13 +115,21 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
     }, 500);
 
     // Listen for a custom event to update URL and attributes
-    document.addEventListener("growthbookrefresh", () => {
+    const refreshListener = () => {
       if (location.href !== currentUrl) {
         currentUrl = location.href;
         gb.setURL(currentUrl);
       }
       gb.updateAttributes(getAutoAttributes(settings));
-    });
+    };
+    document.addEventListener("growthbookrefresh", refreshListener);
+
+    if ("onDestroy" in gb) {
+      gb.onDestroy(() => {
+        clearInterval(intervalTimer);
+        document.removeEventListener("growthbookrefresh", refreshListener);
+      });
+    }
   };
 }
 
