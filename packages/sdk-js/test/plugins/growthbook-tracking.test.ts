@@ -94,19 +94,29 @@ describe("growthbookTrackingPlugin", () => {
       clientKey: "test",
       plugins: [plugin],
       url: "http://localhost:3000",
+      attributes: {
+        id: "123",
+        foo: "bar",
+      },
     });
 
     // Mock console.log
     const log = jest.spyOn(console, "log").mockImplementation(() => {});
 
-    gb.logEvent("test");
+    gb.logEvent("test", { bar: "baz" });
 
     // Should have been logged to console
     expect(log).toHaveBeenCalledWith("Logging event to GrowthBook", {
-      eventName: "test",
-      attributes: {},
-      properties: {},
+      context_json: { foo: "bar" },
+      device_id: "123",
+      event_name: "test",
+      page_id: null,
+      properties_json: { bar: "baz" },
+      sdk_language: "js",
+      sdk_version: "",
+      session_id: null,
       url: "http://localhost:3000",
+      user_id: null,
     });
 
     // Should NOT have been sent to the server

@@ -102,36 +102,40 @@ type EventData = {
   url: string;
 };
 
+function getEventPayload({
+  eventName,
+  properties,
+  attributes,
+  url,
+}: EventData): EventPayload {
+  const { nested, topLevel } = parseAttributes(attributes || {});
+
+  return {
+    event_name: eventName,
+    properties_json: properties || {},
+    ...topLevel,
+    sdk_language: "js",
+    sdk_version: SDK_VERSION,
+    url: url,
+    context_json: nested,
+  };
+}
+
 async function track({
   clientKey,
   ingestorHost,
   events,
 }: {
-  events: EventData[];
+  events: EventPayload[];
   clientKey: string;
   ingestorHost?: string;
 }) {
   if (!events.length) return;
-  const data: EventPayload[] = events.map(
-    ({ eventName, properties, attributes, url }) => {
-      const { nested, topLevel } = parseAttributes(attributes || {});
-
-      return {
-        event_name: eventName,
-        properties_json: properties || {},
-        ...topLevel,
-        sdk_language: "js",
-        sdk_version: SDK_VERSION,
-        url: url,
-        context_json: nested,
-      };
-    }
-  );
 
   const endpoint = `${
     ingestorHost || "https://us1.gb-ingest.com"
   }/track?client_key=${clientKey}`;
-  const body = JSON.stringify(data);
+  const body = JSON.stringify(events);
 
   try {
     if (typeof navigator !== "undefined" && "sendBeacon" in navigator) {
@@ -180,7 +184,7 @@ export function growthbookTrackingPlugin({
     const eventCache = new Set<string>();
 
     if ("setEventLogger" in gb) {
-      let _q: EventData[] = [];
+      let _q: EventPayload[] = [];
       let timer: NodeJS.Timeout | null = null;
       const flush = async () => {
         const events = _q;
@@ -227,10 +231,16 @@ export function growthbookTrackingPlugin({
           oldest && eventCache.delete(oldest);
         }
 
-        debug && console.log("Logging event to GrowthBook", data);
+        const payload = getEventPayload(data);
+
+        debug &&
+          console.log(
+            "Logging event to GrowthBook",
+            JSON.parse(JSON.stringify(payload))
+          );
         if (!enable) return;
 
-        _q.push(data);
+        _q.push(payload);
 
         // Only one in-progress promise at a time
         if (!promise) {
