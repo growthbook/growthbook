@@ -271,7 +271,7 @@ export default function FeaturesPage() {
                       </td>
                     )}
                     <td>
-                      <SortedTags tags={feature?.tags || []} />
+                      <SortedTags tags={feature?.tags || []} useFlex={true} />
                     </td>
                     {toggleEnvs.map((en) => (
                       <td key={en.id} className="position-relative text-center">

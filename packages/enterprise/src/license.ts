@@ -261,6 +261,30 @@ type MinimalOrganization = {
   };
 };
 
+export function getLowestPlanPerFeature(
+  accountFeatures: CommercialFeaturesMap
+): Partial<Record<CommercialFeature, AccountPlan>> {
+  const lowestPlanPerFeature: Partial<
+    Record<CommercialFeature, AccountPlan>
+  > = {};
+
+  // evaluate in order from highest to lowest plan
+  const plansFromHighToLow: AccountPlan[] = [
+    "enterprise",
+    "pro_sso",
+    "pro",
+    "starter",
+    "oss",
+  ];
+  plansFromHighToLow.forEach((accountPlan) => {
+    accountFeatures[accountPlan].forEach((feature) => {
+      lowestPlanPerFeature[feature] = accountPlan;
+    });
+  });
+
+  return lowestPlanPerFeature;
+}
+
 export function isActiveSubscriptionStatus(
   status?: Stripe.Subscription.Status
 ) {

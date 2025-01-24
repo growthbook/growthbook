@@ -12,8 +12,7 @@ import ArchetypeAttributesModal from "@/components/Archetype/ArchetypeAttributes
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/components/Radix/Button";
 import { useUser } from "@/services/UserContext";
-import LinkButton from "@/components/Radix/LinkButton";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
+import PremiumEmptyState from "@/components/PremiumEmptyState";
 
 export const ArchetypeList: FC<{
   archetypes: ArchetypeInterface[];
@@ -27,13 +26,11 @@ export const ArchetypeList: FC<{
   const permissionsUtil = usePermissionsUtil();
   const { project, getProjectById } = useDefinitions();
   const { getUserDisplay, hasCommercialFeature } = useUser();
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const hasArchetypeFeature = hasCommercialFeature("archetypes");
   const canCreateGlobal = permissionsUtil.canCreateArchetype({
     projects: [project],
   });
-
   const { apiCall } = useAuth();
 
   if (archetypeErrors) {
@@ -47,39 +44,13 @@ export const ArchetypeList: FC<{
   if (!hasArchetypeFeature) {
     return (
       <div className="mb-3">
-        <div className="appbox p-5 text-center">
-          <div className="py-2">
-            <h2>Create Reusable Archetypes</h2>
-            <p>
-              Archetypes are named sets of attributes that help you test your
-              features. Archetypes are a premium feature.
-            </p>
-            <div className="mt-3">
-              <LinkButton
-                href="https://docs.growthbook.io/features/rules#archetype"
-                variant="outline"
-                mr="3"
-                external={true}
-              >
-                View docs
-              </LinkButton>
-              <Button
-                onClick={() => {
-                  setShowUpgradeModal(true);
-                }}
-              >
-                Upgrade Plan
-              </Button>
-            </div>
-          </div>
-        </div>
-        {showUpgradeModal && (
-          <UpgradeModal
-            close={() => setShowUpgradeModal(false)}
-            source="archetypes"
-            reason="Create reusable archetypes"
-          />
-        )}
+        <PremiumEmptyState
+          title="Create Reusable Archetypes"
+          description="Archetypes are named sets of attributes that help you test your features."
+          commercialFeature="archetypes"
+          reason="Archetypes landing page no access"
+          learnMoreLink="https://docs.growthbook.io/features/rules#archetype"
+        />
       </div>
     );
   }

@@ -7,6 +7,7 @@ import {
   getEffectiveAccountPlan,
   getLicense,
   getLicenseError,
+  getLowestPlanPerFeature,
   licenseInit,
 } from "enterprise";
 import { experimentHasLinkedChanges } from "shared/util";
@@ -741,6 +742,8 @@ export async function getOrganization(req: AuthRequest, res: Response) {
 
   const watch = await getWatchedByUser(org.id, userId);
 
+  const commercialFeatureLowestPlan = getLowestPlanPerFeature(accountFeatures);
+
   return res.status(200).json({
     status: 200,
     apiKeys,
@@ -749,6 +752,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     effectiveAccountPlan: getEffectiveAccountPlan(org),
     licenseError: getLicenseError(org),
     commercialFeatures: [...accountFeatures[getEffectiveAccountPlan(org)]],
+    commercialFeatureLowestPlan: commercialFeatureLowestPlan,
     roles: getRoles(org),
     members: expandedMembers,
     currentUserPermissions,

@@ -60,7 +60,7 @@ const MoreMenu: FC<{
             variant="ghost"
             color="gray"
             radius="full"
-            size="4"
+            size="3"
             highContrast
             ref={refs.setReference}
             onClick={() => {
