@@ -375,14 +375,14 @@ const ExperimentsPage = (): React.ReactElement => {
         </DropdownMenuItem>
       )}
       {canAddTemplate && (
-        <PremiumTooltip commercialFeature="templates">
-          <DropdownMenuItem
-            onClick={() => setOpenTemplateModal({})}
-            disabled={!hasTemplatesFeature}
-          >
+        <DropdownMenuItem
+          onClick={() => setOpenTemplateModal({})}
+          disabled={!hasTemplatesFeature}
+        >
+          <PremiumTooltip commercialFeature="templates">
             Create Template
-          </DropdownMenuItem>
-        </PremiumTooltip>
+          </PremiumTooltip>
+        </DropdownMenuItem>
       )}
       {canAddExperiment && (
         <>
