@@ -8,6 +8,12 @@ export const orb = new Orb({
   apiKey: ORB_API_KEY,
 });
 
+function findMaxFreeThreshold(priceData: Orb.Prices.Price.TieredPrice) {
+  return priceData.tiered_config.tiers.find(
+    (tier) => tier.first_unit === 0.0 && tier.unit_amount === "0.00"
+  )?.last_unit;
+}
+
 export async function addUsageWarning(payload: SubscriptionUsageExceededEvent) {
   const orgId = payload.subscription.customer.external_customer_id;
   // Validate this is an org within GB
@@ -23,7 +29,7 @@ export async function addUsageWarning(payload: SubscriptionUsageExceededEvent) {
     (price) =>
       price.billable_metric?.id === payload.properties.billable_metric_id &&
       price.price_type === "usage_price"
-  ) as Orb.Prices.Price.TieredPrice; // I'm not sure why I'm having to cast this
+  );
 
   if (!priceData)
     throw new Error(
@@ -31,9 +37,9 @@ export async function addUsageWarning(payload: SubscriptionUsageExceededEvent) {
     );
 
   // Then, we need to get the max units allowed in the free tier to calculate percentUsed
-  const maxFreeThreshold = priceData.tiered_config.tiers.find(
-    (tier) => tier.first_unit === 0.0 && tier.unit_amount === "0.00"
-  )?.last_unit;
+  const maxFreeThreshold = findMaxFreeThreshold(
+    priceData as Orb.Prices.Price.TieredPrice
+  );
 
   if (!maxFreeThreshold) {
     // This is the last tier and doesn't have a maximum threshold

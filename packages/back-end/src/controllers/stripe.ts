@@ -12,6 +12,7 @@ import {
 import { MongoServerError } from "mongodb";
 import {
   APP_ORIGIN,
+  ORB_API_KEY,
   STRIPE_PRICE,
   STRIPE_WEBHOOK_SECRET,
 } from "back-end/src/util/secrets";
@@ -244,45 +245,40 @@ export const postSubscriptionSuccess = withLicenseServerErrorHandling(
 );
 
 export async function postSubscriptionWebhook(req: Request, res: Response) {
-  console.log("hit the postSubscriptionWebhook endpoint successfully");
   // Validate webhook came from Orb
-  //MKTODO: Add type safety to payload
-  const payload = orb.webhooks.unwrap(
-    req.body,
-    req.headers,
-    "mmmqyzbeH37_n1VwPOQkqEXjNYdNFGEShOVhUmp3AYk" //MKTODO: Use env variable
-  ) as WebhookEvent;
-  console.log(payload);
 
-  if (!payload) {
-    return res.status(400).send("Unable to verify webhook credentials");
+  let payload: WebhookEvent;
+  try {
+    payload = orb.webhooks.unwrap(
+      req.body,
+      req.headers,
+      ORB_API_KEY
+    ) as WebhookEvent;
+  } catch (e) {
+    req.log.error(e, "Invalid webhook signature");
+    return res.status(403).send("Invalid webhook signature");
   }
 
   try {
-    //MKTODO: Figure out how we want to handle duplicate webhook requests (by Id?)
-
     switch (payload.type) {
       case "subscription.usage_exceeded":
         {
-          // Create a helper function in services/orb to handle this
-          console.log("alert_config", payload.alert_configuration);
-          console.log("plan Data", payload.alert_configuration.plan);
-          console.log("metric Data", payload.alert_configuration.metric);
-          console.log("thresholds", payload.alert_configuration.thresholds);
-          console.log("subscription.id", payload.subscription.id);
           await addUsageWarning(payload);
         }
         break;
+      default:
+        req.log.info("Unhandled webhook type:", payload.type);
     }
   } catch (e) {
     if (e instanceof MongoServerError && e.code === 11000) {
       // Duplicate event detected
-      console.log("Duplicate webhook event detected. Skipping:", payload.id);
+      req.log.error("Duplicate webhook event detected. Skipping:", payload.id);
     } else {
       req.log.error(e, "Webhook error");
       return res.status(400).send(`Webhook Error: ${e.message}`);
     }
   }
+  req.log.info("Successfully processed webhook:", payload.id);
   return res.status(200).send("Ok");
 }
 
