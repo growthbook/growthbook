@@ -457,15 +457,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       const templateAsExperiment = convertTemplateToExperiment(template);
 
       if (templateAsExperiment.skipPartialData === true) {
-        // @ts-ignore Mangled types
+        // @ts-expect-error Mangled types
         templateAsExperiment.skipPartialData = "strict";
-      }
-      else if (templateAsExperiment.skipPartialData === false) {
-        // @ts-ignore Mangled types
+      } else if (templateAsExperiment.skipPartialData === false) {
+        // @ts-expect-error Mangled types
         templateAsExperiment.skipPartialData = "loose";
       }
 
-      console.log({templateAsExperiment})
+      console.log({ templateAsExperiment });
 
       form.reset(templateAsExperiment, {
         keepDefaultValues: true,
@@ -725,12 +724,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         </Page>
 
         {!isBandit && (isNewExperiment || duplicate)
-          ? [
-            "Overview",
-            "Traffic",
-            "Targeting",
-            "Metrics",
-          ].map((p, i) => {
+          ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => {
               // skip, custom overview page above
               if (i === 0) return null;
               return (
@@ -807,12 +801,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           : null}
 
         {isBandit && (isNewExperiment || duplicate)
-          ? [
-              "Overview",
-              "Traffic",
-              "Targeting",
-              "Metrics",
-            ].map((p, i) => {
+          ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => {
               // skip, custom overview page above
               if (i === 0) return null;
               return (
@@ -1021,17 +1010,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           </Page>
         ) : null}
 
-        {/*todo: remove this entirely:*/}
         {!(isNewExperiment || duplicate) ? (
-          <Page
-            display={
-              <>
-                Analysis
-                <br />
-                Settings
-              </>
-            }
-          >
+          <Page display="Metrics">
             <div className="px-2" style={{ minHeight: 350 }}>
               {(!isImport || fromFeature) && (
                 <SelectField

@@ -12,6 +12,7 @@ import Collapsible from "react-collapsible";
 import { Flex, Tooltip, Text } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
+import { PiCaretRightFill } from "react-icons/pi";
 import Field from "@/components/Forms/Field";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import SelectField from "@/components/Forms/SelectField";
@@ -43,7 +44,6 @@ import { useTemplates } from "@/hooks/useTemplates";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { convertTemplateToExperimentRule } from "@/services/experiments";
 import { useUser } from "@/services/UserContext";
-import {PiCaretRightFill} from "react-icons/pi";
 
 export default function ExperimentRefNewFields({
   step,
@@ -201,8 +201,6 @@ export default function ExperimentRefNewFields({
                   form.reset(templateAsExperimentRule, {
                     keepDefaultValues: true,
                   });
-                  console.log({template, templateAsExperimentRule, form: form.getValues()})
-
                 }}
                 name="template"
                 initialOption={"None"}
@@ -430,7 +428,10 @@ export default function ExperimentRefNewFields({
 
                 // If the segment is now invalid
                 const segment = form.watch("segment");
-                if (segment && getSegmentById(segment)?.datasource !== newDatasource) {
+                if (
+                  segment &&
+                  getSegmentById(segment)?.datasource !== newDatasource
+                ) {
                   form.setValue("segment", "");
                 }
 
@@ -534,7 +535,7 @@ export default function ExperimentRefNewFields({
                   label={
                     <>
                       Activation Metric{" "}
-                      <MetricsSelectorTooltip onlyBinomial={true}/>
+                      <MetricsSelectorTooltip onlyBinomial={true} />
                     </>
                   }
                   initialOption="None"
