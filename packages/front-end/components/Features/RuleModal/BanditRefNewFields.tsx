@@ -155,7 +155,7 @@ export default function BanditRefNewFields({
         <>
           <div className="mb-4">
             <SelectField
-              label="Assign value based on attribute"
+              label="Assign Variation by Attribute"
               containerClassName="flex-1"
               options={attributeSchema
                 .filter((s) => !hasHashAttributes || s.hashAttribute)

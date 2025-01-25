@@ -464,8 +464,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         templateAsExperiment.skipPartialData = "loose";
       }
 
-      console.log({ templateAsExperiment });
-
       form.reset(templateAsExperiment, {
         keepDefaultValues: true,
       });
