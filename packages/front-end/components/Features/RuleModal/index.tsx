@@ -364,11 +364,11 @@ export default function RuleModal({
           }
         }
 
-        // @ts-ignore Mangled types when coming from a feature rule
+        // @ts-expect-error Mangled types when coming from a feature rule
         if (values.skipPartialData === "strict") {
           values.skipPartialData = true;
         }
-        // @ts-ignore Mangled types when coming from a feature rule
+        // @ts-expect-error Mangled types when coming from a feature rule
         else if (values.skipPartialData === "loose") {
           values.skipPartialData = false;
         }
@@ -895,12 +895,7 @@ export default function RuleModal({
           : null}
 
         {ruleType === "experiment-ref-new" && experimentType === "bandit"
-          ? [
-              "Overview",
-              "Traffic",
-              "Targeting",
-              "Metrics",
-            ].map((p, i) => (
+          ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => (
               <Page display={p} key={i}>
                 <BanditRefNewFields
                   step={i}
