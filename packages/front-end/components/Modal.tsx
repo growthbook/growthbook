@@ -238,7 +238,7 @@ const Modal: FC<ModalProps> = ({
             </>
           ) : null}
           {error && (
-            <div className="alert alert-danger mr-auto">
+            <div className="alert alert-danger mr-auto" style={{ maxWidth: "65%" }}>
               {error
                 .split("\n")
                 .filter((v) => !!v.trim())

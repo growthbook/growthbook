@@ -455,6 +455,18 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       const template = templatesMap.get(initialValue.templateId);
       if (!template) return;
       const templateAsExperiment = convertTemplateToExperiment(template);
+
+      if (templateAsExperiment.skipPartialData === true) {
+        // @ts-ignore Mangled types
+        templateAsExperiment.skipPartialData = "strict";
+      }
+      else if (templateAsExperiment.skipPartialData === false) {
+        // @ts-ignore Mangled types
+        templateAsExperiment.skipPartialData = "loose";
+      }
+
+      console.log({templateAsExperiment})
+
       form.reset(templateAsExperiment, {
         keepDefaultValues: true,
       });
@@ -713,7 +725,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         </Page>
 
         {!isBandit && (isNewExperiment || duplicate)
-          ? ["Overview", "Traffic", "Targeting"].map((p, i) => {
+          ? [
+            "Overview",
+            "Traffic",
+            "Targeting",
+            "Metrics",
+          ].map((p, i) => {
               // skip, custom overview page above
               if (i === 0) return null;
               return (
@@ -794,11 +811,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               "Overview",
               "Traffic",
               "Targeting",
-              <>
-                Analysis
-                <br />
-                Settings
-              </>,
+              "Metrics",
             ].map((p, i) => {
               // skip, custom overview page above
               if (i === 0) return null;
@@ -1008,6 +1021,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           </Page>
         ) : null}
 
+        {/*todo: remove this entirely:*/}
         {!(isNewExperiment || duplicate) ? (
           <Page
             display={
@@ -1099,7 +1113,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             </div>
 
             {isImport && (
-              <div className="form-group">
+              <div className="form-group ml-2">
                 <Toggle
                   id="auto_refresh_results"
                   label="Auto Refresh Results"
