@@ -29,6 +29,9 @@ import clsx from "clsx";
 import Link from "next/link";
 import { BsClock } from "react-icons/bs";
 import { PiCheckCircleFill, PiCircleDuotone, PiFileX } from "react-icons/pi";
+import { Box, Flex, Grid, Heading, Switch } from "@radix-ui/themes";
+import { RxListBullet } from "react-icons/rx";
+import Button from "@/components/Radix/Button";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
@@ -44,6 +47,8 @@ import {
   getAffectedRevisionEnvs,
   getPrerequisites,
   useFeaturesList,
+  getRules,
+  isRuleDisabled,
 } from "@/services/features";
 import AssignmentTester from "@/components/Archetype/AssignmentTester";
 import Modal from "@/components/Modal";
@@ -68,6 +73,8 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
+import Callout from "@/components/Radix/Callout";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";
@@ -125,6 +132,10 @@ export default function FeaturesOverview({
   const [reviewModal, setReviewModal] = useState(false);
   const [conflictModal, setConflictModal] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [hideDisabled, setHideDisabled] = useLocalStorage(
+    `hide-disabled-rules`,
+    false
+  );
   const [logModal, setLogModal] = useState(false);
   const [prerequisiteModal, setPrerequisiteModal] = useState<{
     i: number;
@@ -186,6 +197,12 @@ export default function FeaturesOverview({
     [feature, features, envsStr]
   );
 
+  const experimentsMap = useMemo(() => {
+    if (!experiments) return new Map();
+    return new Map<string, ExperimentInterfaceStringDates>(
+      experiments.map((exp) => [exp.id, exp])
+    );
+  }, [experiments]);
   if (!baseFeature || !feature || !revision) {
     return <LoadingOverlay />;
   }
@@ -259,6 +276,17 @@ export default function FeaturesOverview({
   const canEdit = permissionsUtil.canViewFeatureModal(projectId);
   const canEditDrafts = permissionsUtil.canManageFeatureDrafts(feature);
 
+  // loop through each environment and see if there are any rules or disabled rules
+  let hasRules = false;
+  let hasDisabledRules = false;
+  environments?.forEach((e) => {
+    const r = getRules(feature, e.id) || [];
+    if (r.length > 0) hasRules = true;
+    if (r.filter((r) => isRuleDisabled(r, experimentsMap))) {
+      hasDisabledRules = true;
+    }
+  });
+
   const variables = {
     featureKey: feature.id,
     featureType: feature.valueType,
@@ -309,6 +337,201 @@ export default function FeaturesOverview({
       <>
         <MdRocketLaunch /> Request Approval to Publish
       </>
+    );
+  };
+
+  const renderRevisionCTA = () => {
+    const actions: JSX.Element[] = [];
+
+    if (canEditDrafts) {
+      if (isLocked && !isLive) {
+        actions.push(
+          <Button
+            variant="ghost"
+            color="red"
+            onClick={() => setRevertIndex(revision.version)}
+            title="Create a new Draft based on this revision"
+          >
+            Revert to this version
+          </Button>
+        );
+      } else if (revision.version > 1 && isLive) {
+        actions.push(
+          <Button
+            variant="ghost"
+            color="red"
+            onClick={() => {
+              const previousRevision = revisions
+                .filter(
+                  (r) => r.status === "published" && r.version < feature.version
+                )
+                .sort((a, b) => b.version - a.version)[0];
+              if (previousRevision) {
+                setRevertIndex(previousRevision.version);
+              }
+            }}
+            title="Create a new Draft based on this revision"
+          >
+            Revert to Previous
+          </Button>
+        );
+      }
+
+      if (drafts.length > 0 && isLocked && !isDraft) {
+        actions.push(
+          <Button
+            variant="outline"
+            onClick={() => {
+              setVersion(drafts[0].version);
+            }}
+          >
+            View active draft
+          </Button>
+        );
+      }
+
+      if (isDraft) {
+        actions.push(
+          <Button
+            variant="ghost"
+            color="red"
+            onClick={() => {
+              setConfirmDiscard(true);
+            }}
+          >
+            Discard draft
+          </Button>
+        );
+
+        if (mergeResult?.success) {
+          if (requireReviews) {
+            // requires a review
+            actions.push(
+              <Tooltip
+                body={
+                  !revisionHasChanges
+                    ? "Draft is identical to the live version. Make changes first before requesting review"
+                    : ""
+                }
+              >
+                <Button
+                  disabled={!revisionHasChanges}
+                  onClick={() => {
+                    setReviewModal(true);
+                  }}
+                >
+                  {renderDraftBannerCopy()}
+                </Button>
+              </Tooltip>
+            );
+          } else {
+            // no review is required
+            actions.push(
+              <Tooltip
+                body={
+                  !revisionHasChanges
+                    ? "Draft is identical to the live version. Make changes first before publishing"
+                    : !hasDraftPublishPermission
+                    ? "You do not have permission to publish this draft."
+                    : ""
+                }
+              >
+                <Button
+                  disabled={!revisionHasChanges}
+                  onClick={() => {
+                    setDraftModal(true);
+                  }}
+                >
+                  Review &amp; Publish
+                </Button>
+              </Tooltip>
+            );
+          }
+        } else {
+          // merging was not a success (!mergeResult.success)
+          if (mergeResult) {
+            actions.push(
+              <Tooltip body="There have been new conflicting changes published since this draft was created that must be resolved before you can publish">
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setConflictModal(true);
+                  }}
+                >
+                  Fix conflicts
+                </Button>
+              </Tooltip>
+            );
+          }
+        }
+      }
+    }
+
+    return (
+      <>
+        {actions.map((el, i) => (
+          <Box key={"cta-" + i} ml="5">
+            {el}
+          </Box>
+        ))}
+      </>
+    );
+  };
+
+  const renderRevisionInfo = () => {
+    return (
+      <Flex align="center" justify="between">
+        <Flex align="center" gap="3">
+          <Box>
+            <span className="text-muted">
+              {isDraft ? "Draft r" : "R"}evision created by
+            </span>{" "}
+            <EventUser user={revision.createdBy} display="name" />{" "}
+            <span className="text-muted">on</span>{" "}
+            {datetime(revision.dateCreated)}
+          </Box>
+          <Flex align="center" gap="2">
+            <span className="text-muted">Revision Comment:</span>{" "}
+            {revision.comment || <em>None</em>}
+            {canEditDrafts && (
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setEditCommentModal(true);
+                }}
+              >
+                <GBEdit />
+              </Button>
+            )}
+          </Flex>
+        </Flex>
+        <Flex align="center" justify="between" gap="3">
+          {revision.status === "published" && revision.datePublished && (
+            <Box>
+              <span className="text-muted">Published on</span>{" "}
+              {datetime(revision.datePublished)}
+            </Box>
+          )}
+          {revision.status === "draft" && (
+            <Box>
+              <span className="text-muted">Last updated</span>{" "}
+              {ago(revision.dateUpdated)}
+            </Box>
+          )}
+          <Box>
+            {renderStatusCopy()}
+            <Button
+              title="View log"
+              variant="ghost"
+              onClick={() => {
+                setLogModal(true);
+              }}
+            >
+              <RxListBullet />
+            </Button>
+          </Box>
+        </Flex>
+      </Flex>
     );
   };
 
@@ -718,6 +941,143 @@ export default function FeaturesOverview({
 
         {revision && (
           <>
+            <Box>
+              <Heading as="h3" size="5" mb="3">
+                Rules &amp; Values
+              </Heading>
+              <Grid columns="2" gap="4">
+                <Flex
+                  align="center"
+                  flexGrow="1"
+                  width="100%"
+                  justify="between"
+                >
+                  <Box width="100%">
+                    <RevisionDropdown
+                      feature={feature}
+                      version={currentVersion}
+                      setVersion={setVersion}
+                      revisions={revisions || []}
+                    />
+                  </Box>
+                  <Box mx="6">
+                    <a
+                      title="Copy a link to this revision"
+                      href={`/features/${fid}?v=${version}`}
+                      className="position-relative"
+                      onClick={(e) => {
+                        if (!copySupported) return;
+
+                        e.preventDefault();
+                        const url =
+                          window.location.href.replace(/[?#].*/, "") +
+                          `?v=${version}`;
+                        performCopy(url);
+                      }}
+                    >
+                      <FaLink />
+                      {copySuccess ? (
+                        <SimpleTooltip position="right">
+                          Copied to clipboard!
+                        </SimpleTooltip>
+                      ) : null}
+                    </a>
+                  </Box>
+                </Flex>
+                <Flex align="center" justify="end">
+                  {renderRevisionCTA()}
+                </Flex>
+              </Grid>
+            </Box>
+            <Box className="appbox nobg" mt="4" p="4">
+              {isPendingReview && (
+                <Box>
+                  <Callout status="info" mb="3">
+                    This draft is pending approval. Review and approve changes
+                    to enable publishing.
+                  </Callout>
+                </Box>
+              )}
+
+              {renderRevisionInfo()}
+
+              <Box className="appbox" mt="4" p="5" pl="6" pr="5">
+                <Flex align="center" justify="between">
+                  <Heading as="h3" size="4" mb="0">
+                    Default Value
+                  </Heading>
+                  {canEdit && !isLocked && canEditDrafts && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEdit(true)}
+                    >
+                      Edit
+                    </Button>
+                  )}
+                </Flex>
+                <Box mt="2" mb="1">
+                  <ForceSummary
+                    value={getFeatureDefaultValue(feature)}
+                    feature={feature}
+                  />
+                </Box>
+              </Box>
+              <Box className="appbox" mt="4" p="5" px="6">
+                <Flex align="center" justify="between" mb="2">
+                  <Flex>
+                    <Heading as="h3" size="4" mb="0" mr="1">
+                      Rules
+                    </Heading>
+                    <Tooltip
+                      body="Add powerful logic on top of your feature. The first rule
+                      that matches will be applied and override the Default
+                      Value."
+                    />
+                  </Flex>
+                  <label className="font-weight-semibold">
+                    <Switch
+                      mr="1"
+                      disabled={!hasDisabledRules}
+                      checked={!hideDisabled}
+                      onCheckedChange={(state) => setHideDisabled(!state)}
+                    />{" "}
+                    Show disabled
+                  </label>
+                </Flex>
+                {environments.length > 0 ? (
+                  <>
+                    {!hasRules && (
+                      <p>
+                        Add powerful logic on top of your feature. The first
+                        rule that matches will be applied and override the
+                        Default Value.
+                      </p>
+                    )}
+
+                    <FeatureRules
+                      environments={environments}
+                      feature={feature}
+                      isLocked={isLocked}
+                      canEditDrafts={canEditDrafts}
+                      revisions={revisions}
+                      experimentsMap={experimentsMap}
+                      mutate={mutate}
+                      currentVersion={currentVersion}
+                      setVersion={setVersion}
+                      hideDisabled={hideDisabled}
+                    />
+                  </>
+                ) : (
+                  <p>
+                    You need at least one environment to add rules. Add powerful
+                    logic on top of your feature. The first rule that matches
+                    will be applied and override the Default Value.
+                  </p>
+                )}
+              </Box>
+            </Box>
+
             <div className="row mb-2 align-items-center">
               <div className="col-auto">
                 <h3 className="mb-0">Rules and Values</h3>
@@ -1048,10 +1408,11 @@ export default function FeaturesOverview({
                   isLocked={isLocked}
                   canEditDrafts={canEditDrafts}
                   revisions={revisions}
-                  experiments={experiments}
+                  experimentsMap={experimentsMap}
                   mutate={mutate}
                   currentVersion={currentVersion}
                   setVersion={setVersion}
+                  hideDisabled={hideDisabled}
                 />
               </div>
             </>

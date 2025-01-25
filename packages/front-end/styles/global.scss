@@ -1262,7 +1262,7 @@ main.main {
 
 .box,
 .appbox {
-  background-color: var(--surface-background-color);
+  background-color: var(--color-panel-solid);
   border: 1px solid var(--border-color-200);
   margin-bottom: 1em;
   border-radius: 5px;
@@ -1270,6 +1270,9 @@ main.main {
     overflow-x: auto;
   }
 
+  &.nobg {
+    background-color: initial;
+  }
   td {
     vertical-align: middle;
   }

@@ -18,12 +18,14 @@ const MoreMenu: FC<{
   zIndex?: number;
   children: ReactNode;
   useRadix?: boolean;
+  size?: number;
 }> = ({
   children,
   autoCloseOnClick = true,
   className = "",
   zIndex = 1020,
   useRadix,
+  size = 18,
 }) => {
   const [open, setOpen] = useState(false);
   const [id] = useState(() => uniqId("more_menu_"));
@@ -67,7 +69,7 @@ const MoreMenu: FC<{
               setOpen(!open);
             }}
           >
-            <BsThreeDotsVertical size={18} />
+            <BsThreeDotsVertical size={size} />
           </IconButton>
         </div>
       ) : (
