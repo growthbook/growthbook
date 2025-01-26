@@ -170,13 +170,9 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                             <ProjectBadges
                               resourceType="saved group"
                               projectIds={s.projects}
-                              className="badge-ellipsis short align-middle"
                             />
                           ) : (
-                            <ProjectBadges
-                              resourceType="saved group"
-                              className="badge-ellipsis short align-middle"
-                            />
+                            <ProjectBadges resourceType="saved group" />
                           )}
                         </td>
                         <td>{s.owner}</td>

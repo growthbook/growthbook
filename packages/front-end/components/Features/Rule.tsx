@@ -138,7 +138,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     return (
       <Box {...props} ref={ref}>
         <Box mt="3">
-          <Card data-radius="4px">
+          <Card>
             <div
               style={{
                 position: "absolute",

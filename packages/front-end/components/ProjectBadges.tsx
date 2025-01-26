@@ -1,8 +1,7 @@
-import clsx from "clsx";
 import { FaExclamationTriangle, FaInfoCircle } from "react-icons/fa";
 import React from "react";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Badge from "@/components/Badge";
+import Badge from "@/components/Radix/Badge";
 import Tooltip from "./Tooltip/Tooltip";
 
 export interface Props {
@@ -21,7 +20,6 @@ export interface Props {
   invalidProjectIds?: string[];
   invalidProjectMessage?: string;
   sort?: boolean;
-  className?: string;
   skipMargin?: boolean;
 }
 
@@ -31,20 +29,21 @@ export default function ProjectBadges({
   invalidProjectIds = [],
   invalidProjectMessage = "This project is invalid",
   sort = true,
-  className = "badge-ellipsis short",
   skipMargin = false,
 }: Props) {
   const { projects, project } = useDefinitions();
   if (!projectIds) {
     return (
       <Badge
-        content="All projects"
+        label="All projects"
         key="All projects"
-        className={clsx(
-          !project ? "badge-primary bg-purple" : "badge-gray",
-          className
-        )}
-        skipMargin={true}
+        color={!project ? "purple" : "gray"}
+        style={{
+          maxWidth: "120px",
+          overflow: "hidden",
+          whiteSpace: "nowrap",
+          textOverflow: "ellipsis",
+        }}
       />
     );
   }
@@ -70,7 +69,7 @@ export default function ProjectBadges({
         if (!p?.name) return;
         return (
           <Badge
-            content={
+            label={
               invalidProjectIds.includes(p.id) ? (
                 <Tooltip
                   popperClassName="text-left"
@@ -87,11 +86,8 @@ export default function ProjectBadges({
               )
             }
             key={p.name}
-            className={clsx(
-              project === p?.id ? "badge-primary bg-purple" : "badge-gray",
-              className
-            )}
-            skipMargin={skipMargin || i === 0}
+            color={project === p?.id ? "purple" : "gray"}
+            ml={skipMargin || i === 0 ? "0" : "2"}
           />
         );
       })}

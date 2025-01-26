@@ -274,13 +274,9 @@ const SegmentPage: FC = () => {
                           <ProjectBadges
                             resourceType="segment"
                             projectIds={s.projects}
-                            className="badge-ellipsis short align-middle"
                           />
                         ) : (
-                          <ProjectBadges
-                            resourceType="segment"
-                            className="badge-ellipsis short align-middle"
-                          />
+                          <ProjectBadges resourceType="segment" />
                         )}
                       </td>
                       <td className="d-none d-sm-table-cell">

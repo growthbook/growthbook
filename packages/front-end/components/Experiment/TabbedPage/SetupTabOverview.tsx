@@ -183,7 +183,6 @@ export default function SetupTabOverview({
           </div>
         )}
         <CustomFieldDisplay
-          addBox={true}
           target={experiment}
           canEdit={canEditExperiment}
           mutate={mutate}
