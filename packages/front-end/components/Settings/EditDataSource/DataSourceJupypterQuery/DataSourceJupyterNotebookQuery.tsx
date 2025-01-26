@@ -29,7 +29,7 @@ export const DataSourceJupyterNotebookQuery: FC<DataSourceJupyterNotebookQueryPr
 
   return (
     <Box>
-      <Flex align="start" justify="between">
+      <Flex align="start" justify="between" mb="2">
         <Box>
           <Heading size="4" mb="0">
             Jupyter Notebook Query Runner

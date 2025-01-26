@@ -71,7 +71,7 @@ export default function DataSourceMetrics({
       ) : null}
       <Flex align="center" justify="between">
         <Box>
-          <Flex align="center" gap="3">
+          <Flex align="center" gap="3" mb="3">
             <Heading as="h4" size="4" mb="0">
               Metrics
             </Heading>

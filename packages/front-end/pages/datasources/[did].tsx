@@ -259,7 +259,7 @@ const DataSourcePage: FC = () => {
           </Callout>
         </Box>
       )}
-      <Box mt="4">
+      <Box mt="4" mb="4">
         {supportsEvents && (
           <>
             <div className="my-5">
