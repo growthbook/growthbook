@@ -5,6 +5,7 @@ import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/Edit
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/components/Radix/Button";
 import { EditDataSourcePipeline } from "./EditDataSourcePipeline";
+import Badge from "@/components/Radix/Badge";
 
 type DataSourcePipelineProps = DataSourceQueryEditingModalBaseProps;
 
@@ -40,10 +41,11 @@ export default function DataSourcePipeline({
 
   return (
     <Box>
-      <Flex align="center" justify="between" mb="3">
+      <Flex align="center" justify="start" mb="3" gap="3">
         <Heading as="h3" size="4" mb="0">
           Data Pipeline Settings
         </Heading>
+        <Badge label="Beta" color="teal" />
       </Flex>
       <p>
         Configure how GrowthBook can use write permissions to your Data Source

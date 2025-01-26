@@ -6,7 +6,7 @@ import {
   FeatureRule,
 } from "back-end/src/validators/features";
 import { Environment } from "back-end/types/organization";
-import { Box, Container, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Container, Flex, Text } from "@radix-ui/themes";
 import RuleModal from "@/components/Features/RuleModal/index";
 import RuleList from "@/components/Features/RuleList";
 import track from "@/services/track";
@@ -173,11 +173,7 @@ export default function FeatureRules({
                 )}
 
                 {canEditDrafts && !isLocked && (
-                  <Flex pt="6" justify="center" align="center">
-                    <Heading as="h5" mb="0" size="3">
-                      Add Rule to {env}
-                    </Heading>
-                    <div className="flex-1" />
+                  <Flex pt="4" justify="end" align="center">
                     <Button
                       onClick={() => {
                         setRuleModal({
