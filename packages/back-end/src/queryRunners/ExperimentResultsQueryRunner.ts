@@ -11,6 +11,7 @@ import {
 import {
   DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
   DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
+  DEFAULT_MID_EXPERIMENT_POWER_CALCULATION_ENABLED,
 } from "shared/constants";
 import chunk from "lodash/chunk";
 import { ApiReqContext } from "back-end/types/api";
@@ -482,7 +483,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       const isEligibleForPowerAnalysis =
         this.model.settings.banditSettings === undefined &&
         relativeAnalysis &&
-        orgHasPremiumFeature(this.context.org, "mid-experiment-power");
+        orgHasPremiumFeature(this.context.org, "mid-experiment-power") &&
+        (this.context.org.settings?.midExperimentPowerEnabled ||
+          DEFAULT_MID_EXPERIMENT_POWER_CALCULATION_ENABLED);
 
       if (isEligibleForPowerAnalysis) {
         const today = new Date();

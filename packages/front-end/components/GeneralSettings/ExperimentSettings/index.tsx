@@ -230,6 +230,40 @@ export default function ExperimentSettings({
             />
           </div>
 
+          <div className="mb-4 form-group flex-column align-items-start">
+            <h4>Default Experiment Runtime</h4>
+
+            <div className="flex-column">
+              <label className="mb-1">Minimum runtime</label>
+              <Field
+                style={{ maxWidth: "100px" }}
+                type="number"
+                containerClassName="mb-3"
+                append="days"
+                min="0"
+                max={form.watch("experimentMaxLengthDays")}
+                step="1"
+                {...form.register("experimentMinLengthDays", {
+                  valueAsNumber: true,
+                  max: form.watch("experimentMaxLengthDays"),
+                })}
+              />
+
+              <label className="mb-1">Maximum runtime</label>
+              <Field
+                style={{ maxWidth: "100px" }}
+                type="number"
+                containerClassName="mb-3"
+                append="days"
+                min="0"
+                step="1"
+                {...form.register("experimentMaxLengthDays", {
+                  valueAsNumber: true,
+                })}
+              />
+            </div>
+          </div>
+
           <StatsEngineSettings />
 
           <div className="d-flex form-group mb-3">
@@ -302,36 +336,37 @@ export default function ExperimentSettings({
                   max: 1,
                 })}
               />
-              <h5 className="mt-2 mb-2">
-                Mid-experiment power calculation settings
-              </h5>
-              <Field
-                disabled={!hasCommercialFeature("mid-experiment-power")}
-                label="Minimum experiment length"
-                type="number"
-                className="ml-2"
-                containerClassName="mb-3"
-                append="days"
-                min="0"
-                step="1"
-                {...form.register("experimentMinLengthDays", {
-                  valueAsNumber: true,
-                })}
-              />
 
-              <Field
-                disabled={!hasCommercialFeature("mid-experiment-power")}
-                label="Maximum experiment length"
-                type="number"
-                className="ml-2"
-                containerClassName="mb-3"
-                append="days"
-                min="0"
-                step="1"
-                {...form.register("experimentMaxLengthDays", {
-                  valueAsNumber: true,
-                })}
-              />
+              <div className="form-group mb-3">
+                <label className="mr-1" htmlFor="toggle-midExperimentPower">
+                  <PremiumTooltip
+                    commercialFeature="mid-experiment-power"
+                    body={
+                      <>
+                        <p>
+                          If enabled we will calculate the power of the
+                          experiment when the Results are refreshed and display
+                          the status as Unhealthy if the power is too low.
+                        </p>
+                      </>
+                    }
+                  >
+                    Mid-experiment Power Calculation
+                    <MdInfoOutline className="text-info" />
+                  </PremiumTooltip>
+                </label>
+                <Toggle
+                  id={"toggle-midExperimentPower"}
+                  value={
+                    hasCommercialFeature("mid-experiment-power") &&
+                    !form.watch("midExperimentPowerEnabled")
+                  }
+                  setValue={(value) => {
+                    form.setValue("midExperimentPowerEnabled", !value);
+                  }}
+                  disabled={!hasCommercialFeature("mid-experiment-power")}
+                />
+              </div>
             </div>
           </div>
 

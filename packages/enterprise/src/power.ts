@@ -351,7 +351,7 @@ export function getAverageExposureOverLastNDays(
   return Math.floor(totalExposure / nDays);
 }
 
-// NB: Should only be called if the experiment has been running for > settings.minExperimentLenghtInDays
+// NB: Should only be called if the experiment has been running for > settings.experimentMinLengthDays
 export function analyzeExperimentPower({
   trafficHealth,
   targetDaysRemaining,

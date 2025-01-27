@@ -12,6 +12,7 @@ import {
   DEFAULT_SRM_THRESHOLD,
   DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
   DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
+  DEFAULT_MID_EXPERIMENT_POWER_CALCULATION_ENABLED,
 } from "shared/constants";
 import { OrganizationSettings } from "back-end/types/organization";
 import Link from "next/link";
@@ -152,6 +153,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.experimentMinLengthDays ?? DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
       experimentMaxLengthDays:
         settings.experimentMaxLengthDays ?? DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
+      midExperimentPowerEnabled:
+        settings.midExperimentPowerEnabled ??
+        DEFAULT_MID_EXPERIMENT_POWER_CALCULATION_ENABLED,
     },
   });
   const { apiCall } = useAuth();

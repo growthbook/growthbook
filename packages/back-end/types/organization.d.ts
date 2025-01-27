@@ -218,6 +218,7 @@ export interface OrganizationSettings {
   requireExperimentTemplates?: boolean;
   experimentMinLengthDays?: number;
   experimentMaxLengthDays?: number;
+  midExperimentPowerEnabled?: boolean;
 }
 
 export interface SubscriptionQuote {
