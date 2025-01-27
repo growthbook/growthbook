@@ -266,7 +266,7 @@ export default function FeaturesHeader({
                       displayName="Feature"
                       onClick={async () => {
                         await apiCall(`/feature/${feature.id}`, {
-                          method: "DELETE"
+                          method: "DELETE",
                         });
                         await router.push("/features");
                       }}
