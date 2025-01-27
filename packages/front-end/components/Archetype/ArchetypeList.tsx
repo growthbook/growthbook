@@ -121,7 +121,7 @@ export const ArchetypeList: FC<{
                           <>
                             <Code
                               code={JSON.stringify(
-                                JSON.parse(archetype.attributes),
+                                JSON.parse(archetype.attributes || "{}"),
                                 null,
                                 2
                               )}

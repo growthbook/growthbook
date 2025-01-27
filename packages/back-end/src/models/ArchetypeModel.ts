@@ -2,6 +2,7 @@ import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
 import { ArchetypeInterface } from "back-end/types/archetype";
+import { ApiArchetype } from "back-end/types/openapi";
 
 const archetypeSchema = new mongoose.Schema({
   id: {
@@ -134,4 +135,20 @@ export async function deleteArchetypeById(id: string, organization: string) {
     id,
     organization,
   });
+}
+
+export function toArchetypeApiInterface(
+  archetype: ArchetypeInterface
+): ApiArchetype {
+  return {
+    id: archetype.id,
+    dateCreated: archetype.dateCreated?.toISOString() || "",
+    dateUpdated: archetype.dateUpdated?.toISOString() || "",
+    name: archetype.name,
+    description: archetype.description,
+    owner: archetype.owner || "",
+    isPublic: archetype.isPublic,
+    attributes: archetype.attributes,
+    projects: archetype.projects || [],
+  };
 }
