@@ -9,6 +9,7 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
   DEFAULT_TEST_QUERY_DAYS,
+  DEFAULT_SRM_THRESHOLD,
 } from "shared/constants";
 import { OrganizationSettings } from "back-end/types/organization";
 import Link from "next/link";
@@ -34,8 +35,6 @@ import DatasourceSettings from "@/components/GeneralSettings/DatasourceSettings"
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import HelperText from "@/components/Radix/HelperText";
 import { AppFeatures } from "@/types/app-features";
-
-export const DEFAULT_SRM_THRESHOLD = 0.001;
 
 export const ConnectSettingsForm = ({ children }) => {
   const methods = useFormContext();
