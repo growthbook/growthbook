@@ -27,7 +27,6 @@ import {
   ratioVarianceFromSums,
 } from "shared/util";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import { EXPOSURE_DATE_DIMENSION_NAME } from "shared/constants";
 import { IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -54,6 +53,8 @@ import {
 } from "@/components/Radix/DropdownMenu";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import { useUser } from "@/services/UserContext";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { daysBetween } from "shared/dates";
 
 export type PowerModalPages = "select" | "set-params";
 
@@ -98,10 +99,12 @@ const SelectStep = ({
   form,
   close,
   onNext,
+  experiments,
 }: {
   form: Form;
   close?: () => void;
   onNext: () => void;
+  experiments: ExperimentInterfaceStringDates[],
 }) => {
   const {
     metrics: appMetrics,
@@ -111,13 +114,10 @@ const SelectStep = ({
     factTables: appFactTables,
     datasources,
   } = useDefinitions();
-  // only load data on command when type is selected
-  const { experiments: appExperiments } = useExperiments(
-    project,
-    false,
-    "standard"
-  );
   const settings = useOrgSettings();
+  const { hasCommercialFeature } = useUser();
+
+  const hasHistoricalPower = hasCommercialFeature("historical-power");
 
   const selectedDatasource = form.watch("selectedDatasource");
   const [availableMetrics, setAvailableMetrics] = useState<string[] | null>(
@@ -147,15 +147,17 @@ const SelectStep = ({
   const metrics = form.watch("metrics");
   const selectedMetrics = Object.keys(metrics);
 
-  const metricValuesSource = form.watch("metricValuesSource") ?? "factTable";
+  const metricValuesSource = form.watch("metricValuesSource") ?? (hasHistoricalPower ? "factTable" : "manual");
   const metricValuesSourceId = form.watch("metricValuesSourceId");
 
-  const isNextDisabled = !selectedMetrics.length && metricValuesSourceId !== "";
+  const isNextDisabled = !selectedMetrics.length && (
+    metricValuesSourceId !== "" || metricValuesSource === "manual"
+  ) && (hasHistoricalPower || metricValuesSource === "manual");
 
   // TODO onNext validate that experiment has results
   const availableExperiments = useMemo(
     () =>
-      appExperiments
+      experiments
         .map((exp) => {
           const datasource = datasources.find((d) => d.id === exp.datasource);
           const exposureQuery = datasource?.settings?.queries?.exposure?.find(
@@ -177,7 +179,7 @@ const SelectStep = ({
             return false;
           return true;
         }),
-    [appExperiments, datasources]
+    [experiments, datasources]
   );
 
   const availableSegments = useMemo(
@@ -296,6 +298,7 @@ const SelectStep = ({
           Pick the population that best represents the users you are targeting
           with your experiment.
         </p>
+        {!hasHistoricalPower ? <Callout status={"info"} mb="2">Using fact tables, segments, or past experiments is a pro feature.</Callout>  : null}
         <label className="mr-auto font-weight-bold">
           Population Type{" "}
           <Tooltip
@@ -307,9 +310,10 @@ const SelectStep = ({
         <RadioGroup
           value={metricValuesSource}
           options={[
-            { value: "factTable", label: "Fact Table" },
-            { value: "segment", label: "Segment" },
-            { value: "experiment", label: "Past Experiment" },
+            { value: "factTable", label: "Fact Table", disabled: !hasHistoricalPower },
+            { value: "segment", label: "Segment", disabled: !hasHistoricalPower },
+            { value: "experiment", label: "Past Experiment", disabled: !hasHistoricalPower },
+            { value: "manual", label: "Manual" },
           ]}
           setValue={(value) => {
             if (value !== metricValuesSource) {
@@ -325,6 +329,7 @@ const SelectStep = ({
           }}
           mb="2"
         />
+        {metricValuesSource !== "manual" ? (<>
         <SelectField
           label={
             <>
@@ -356,7 +361,7 @@ const SelectStep = ({
             form.setValue("metricValuesIdentifierType", value)
           }
           forceUndefinedValueToNull={true}
-        />
+        /></>) : null}
         <hr />
 
         <p>Pick the key metrics for which you want to estimate power.</p>
@@ -374,13 +379,13 @@ const SelectStep = ({
                           Only metrics analyzed with this experiment can be
                           selected.
                         </p>
-                      ) : (
+                      ) : metricValuesSource !== "manual" ? (
                         <p>
                           Only metrics that are in the same datasource and share
                           an identifier type with your population can be
                           selected.
                         </p>
-                      )}
+                      ) : null}
                       <p>Quantile metrics cannot be selected.</p>
                     </>
                   }
@@ -395,7 +400,7 @@ const SelectStep = ({
             value,
           }))}
           isOptionDisabled={() => 5 <= selectedMetrics.length}
-          disabled={!metricValuesSourceId}
+          disabled={!metricValuesSourceId && metricValuesSource !== "manual"}
           onChange={(value: string[]) => {
             form.setValue(
               "metrics",
@@ -966,6 +971,65 @@ const MetricParamsInput = ({
   );
 };
 
+const ManualDataInput = ({
+  form,
+  engineType,
+}: {
+  form: Form;
+  engineType: "bayesian" | "frequentist";
+}) => {
+  const metrics = form.watch("metrics");
+  const metricIds = Object.keys(metrics);
+
+  const usersPerWeek = form.watch("usersPerWeek");
+  const isUsersPerDayInvalid = usersPerWeek !== undefined && usersPerWeek <= 0;
+
+  return (
+    <>
+      <div className="ml-2">
+        <Field
+          label={
+            <div>
+              <span className="font-weight-bold mr-1">
+                Estimated Users Per Week
+              </span>
+              <Tooltip
+                popperClassName="text-left"
+                body="Total users across all variations"
+                tipPosition="right"
+              />
+            </div>
+          }
+          type="number"
+          {...form.register("usersPerWeek", {
+            valueAsNumber: true,
+          })}
+          className={isUsersPerDayInvalid ? "border border-danger" : undefined}
+          helpText={
+            isUsersPerDayInvalid ? (
+              <div className="text-danger">Must be greater than 0</div>
+            ) : undefined
+          }
+        />
+      </div>
+
+      <div className="ml-2">
+        <p>Customize metric details for calculating experiment duration.</p>
+
+        {metricIds.map((metricId) => (
+          <MetricParamsInput
+            key={metricId}
+            metricId={metricId}
+            engineType={engineType}
+            form={form}
+            disableValue={false}
+          />
+        ))}
+      </div>
+    </>
+  );
+};
+
 const SetParamsStep = ({
   form,
   close,
@@ -1018,6 +1082,9 @@ const SetParamsStep = ({
       ) : null}
       {form.watch("metricValuesSource") === "experiment" ? (
         <DataInput form={form} engineType={engineType} />
+      ) : null}
+      {form.watch("metricValuesSource") === "manual" ? (
+        <ManualDataInput form={form} engineType={engineType} />
       ) : null}
     </Modal>
   );
@@ -1092,9 +1159,7 @@ function setMetricDataFromPopulationData({
         },
       };
     } else if (m.type === "binomial") {
-      console.log(m.data);
       const mean = m.data.main_sum / m.data.count;
-      console.log(mean);
       return {
         ...result,
         [m.metric]: {
@@ -1145,6 +1210,12 @@ export default function PowerCalculationSettingsModal({
   startPage,
 }: Props) {
   const settings = useOrgSettings();
+  const {project} = useDefinitions();
+  const { experiments } = useExperiments(
+    project,
+    false,
+    "standard"
+  );
   const { apiCall } = useAuth();
 
   const [step, setStep] = useState<PowerModalPages>(startPage);
@@ -1198,62 +1269,67 @@ export default function PowerCalculationSettingsModal({
       {step === "select" && (
         <SelectStep
           form={form}
+          experiments={experiments}
           close={close}
           onNext={async () => {
             if (form.watch("metricValuesSource") === "experiment") {
-              const experiment = form.watch("metricValuesSourceId");
-              const { snapshot } = await apiCall<{
-                snapshot: ExperimentSnapshotInterface;
-              }>(`/experiment/${experiment}/snapshot/0/?type=standard`);
-              if (snapshot) {
-                const analysis = getSnapshotAnalysis(snapshot);
-                // use control for mean and variance
-                // use total traffic for traffic
-                const units =
-                  snapshot.health?.traffic.overall.variationUnits.reduce(
-                    (result, v) => v + result,
-                    0
-                  ) ?? 0;
-                // TODO get length from experiment
-                const length =
-                  (snapshot.health?.traffic.dimension?.[
-                    EXPOSURE_DATE_DIMENSION_NAME
-                  ]?.length ?? 7) / 7;
-                let newMetrics = {};
-                let totalUnits = 0;
+              const experimentId = form.watch("metricValuesSourceId");
+              const experiment = experiments.find((e) => e.id === experimentId);
 
-                analysis?.results?.[0]?.variations?.forEach((v, i) => {
-                  // use control only for metric mean and variance
-                  if (i === 0) {
-                    metricIds.forEach((metricId) => {
-                      const mean = v.metrics[metricId].stats?.mean;
-                      const standardDeviation =
-                        v.metrics[metricId].stats?.stddev;
-                      newMetrics = {
-                        ...newMetrics,
-                        [metricId]: {
-                          ...metrics[metricId],
-                          mean,
-                          conversionRate: mean,
-                          standardDeviation,
-                        },
-                      };
-                    });
-                  }
-                  if (!units) {
-                    totalUnits += v.users;
-                  }
-                });
+              if (experiment) {
+                const phase = experiment.phases.length - 1;
+                const { snapshot } = await apiCall<{
+                  snapshot: ExperimentSnapshotInterface;
+                }>(`/experiment/${experiment}/snapshot/${phase}/?type=standard`);
+                if (snapshot) {
+                  const analysis = getSnapshotAnalysis(snapshot);
 
-                form.setValue("metrics", newMetrics);
-                form.setValue("dataMetrics", newMetrics);
-
-                form.setValue(
-                  "usersPerWeek",
-                  Math.round((units || totalUnits) / length)
-                );
+                  // use total traffic for traffic
+                  const units =
+                    snapshot.health?.traffic.overall.variationUnits.reduce(
+                      (result, v) => v + result,
+                      0
+                    ) ?? 0;
+  
+                  const experimentPhase = experiment.phases[phase];
+                  const phaseLength = daysBetween(experimentPhase.dateStarted ?? new Date(), experimentPhase.dateEnded ?? new Date());
+                  const lengthWeeks = phaseLength / 7;
+                  let newMetrics = {};
+                  let totalUnits = 0;
+  
+                  analysis?.results?.[0]?.variations?.forEach((v, i) => {
+                    // use control only for metric mean and variance
+                    if (i === 0) {
+                      metricIds.forEach((metricId) => {
+                        const mean = v.metrics[metricId].stats?.mean;
+                        const standardDeviation =
+                          v.metrics[metricId].stats?.stddev;
+                        newMetrics = {
+                          ...newMetrics,
+                          [metricId]: {
+                            ...metrics[metricId],
+                            mean,
+                            conversionRate: mean,
+                            standardDeviation,
+                          },
+                        };
+                      });
+                    }
+                    if (!units) {
+                      totalUnits += v.users;
+                    }
+                  });
+  
+                  form.setValue("metrics", newMetrics);
+                  form.setValue("dataMetrics", newMetrics);
+  
+                  form.setValue(
+                    "usersPerWeek",
+                    Math.round((units || totalUnits) / lengthWeeks)
+                  );
+                }
               }
-            } else {
+            } else if (form.watch("metricValuesSource") !== "manual") {
               const res = await postPopulationData({ form, apiCall });
               form.setValue("metricValuesPopulationId", res.populationData?.id);
               // sets it if data already exists, otherwise starts running on next page
@@ -1264,7 +1340,6 @@ export default function PowerCalculationSettingsModal({
                 });
               }
             }
-            // throw error
             setStep("set-params");
           }}
         />

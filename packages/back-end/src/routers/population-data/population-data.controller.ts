@@ -28,12 +28,10 @@ export const postPopulationData = async (
   const data = req.body;
   const context = getContextFromReq(req);
 
-  // get metrics and validate same datasource
-
-  // GET existing, do logic to find metric diffs
   const today = new Date();
+  // TODO customizable lookback window
   const eightWeeksAgo = new Date(today);
-  eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 7 * 520); // TODO change to 7 * 8
+  eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 7 * 8); 
 
   const integration = await getIntegrationFromDatasourceId(
     context,
@@ -46,7 +44,7 @@ export const postPopulationData = async (
   ) {
     context.permissions.throwPermissionError();
   }
-  if (!context.hasPremiumFeature("query-based-power")) {
+  if (!context.hasPremiumFeature("historical-power")) {
     throw new Error("Query-based power calculations are a pro feature");
   }
 
@@ -83,8 +81,8 @@ export const postPopulationData = async (
     variations: [],
   };
 
-  // TODO hash metric and datasource to validate cache
-  // OR had full refresh
+  // TODO hash metric and datasource to validate cache and let force refresh override
+  // TODO incrementally update metrics
   if (populationData && populationData.datasourceId === data.datasourceId) {
     const populationMetrics = populationData.metrics.map((m) => m.metric);
     // only ask for new metrics
@@ -116,7 +114,6 @@ export const postPopulationData = async (
     runStarted: null,
     status: "running",
 
-    // TODO
     units: [],
     metrics: [],
   });
