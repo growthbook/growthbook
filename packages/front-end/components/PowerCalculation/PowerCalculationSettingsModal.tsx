@@ -29,6 +29,8 @@ import {
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { daysBetween } from "shared/dates";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -53,8 +55,7 @@ import {
 } from "@/components/Radix/DropdownMenu";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import { useUser } from "@/services/UserContext";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { daysBetween } from "shared/dates";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 
 export type PowerModalPages = "select" | "set-params";
 
@@ -104,7 +105,7 @@ const SelectStep = ({
   form: Form;
   close?: () => void;
   onNext: () => void;
-  experiments: ExperimentInterfaceStringDates[],
+  experiments: ExperimentInterfaceStringDates[];
 }) => {
   const {
     metrics: appMetrics,
@@ -147,12 +148,15 @@ const SelectStep = ({
   const metrics = form.watch("metrics");
   const selectedMetrics = Object.keys(metrics);
 
-  const metricValuesSource = form.watch("metricValuesSource") ?? (hasHistoricalPower ? "factTable" : "manual");
+  const metricValuesSource =
+    form.watch("metricValuesSource") ??
+    (hasHistoricalPower ? "factTable" : "manual");
   const metricValuesSourceId = form.watch("metricValuesSourceId");
 
-  const isNextDisabled = !selectedMetrics.length && (
-    metricValuesSourceId !== "" || metricValuesSource === "manual"
-  ) && (hasHistoricalPower || metricValuesSource === "manual");
+  const isNextDisabled =
+    !selectedMetrics.length &&
+    (metricValuesSourceId !== "" || metricValuesSource === "manual") &&
+    (hasHistoricalPower || metricValuesSource === "manual");
 
   // TODO onNext validate that experiment has results
   const availableExperiments = useMemo(
@@ -295,25 +299,46 @@ const SelectStep = ({
     >
       <>
         <p>
+          Estimate the power of your future experiment based on user traffic and
+          selected key metrics. Use <strong>Fact Tables</strong>,{" "}
+          <strong>Segments</strong>, or <strong>Past Experiments</strong> to
+          automatically calculate expected traffic and metric values to more
+          reliably estimate power.
+        </p>
+        <div className="d-flex">
+          <label className="font-weight-bold">Population Type</label>
+          <PremiumTooltip
+            premiumText={
+              "Automated calculations based on Fact Tables, Segments, and Past Experiments are only available on the Pro or Enterprise plans."
+            }
+            commercialFeature="historical-power"
+          >
+            <></>
+          </PremiumTooltip>
+        </div>
+        <div className="mb-2">
           Pick the population that best represents the users you are targeting
           with your experiment.
-        </p>
-        {!hasHistoricalPower ? <Callout status={"info"} mb="2">Using fact tables, segments, or past experiments is a pro feature.</Callout>  : null}
-        <label className="mr-auto font-weight-bold">
-          Population Type{" "}
-          <Tooltip
-            body={
-              "The power calculator uses a Fact Table, Segment, or Past Experiment to serve as the basis for estimating the power of your future experiment. It is used to estimate how many new users will enter your experiment each week, as well as the characteristics of your metric(s) that determine how big of an effect you can reliably detect."
-            }
-          />
-        </label>
+        </div>
         <RadioGroup
           value={metricValuesSource}
           options={[
-            { value: "factTable", label: "Fact Table", disabled: !hasHistoricalPower },
-            { value: "segment", label: "Segment", disabled: !hasHistoricalPower },
-            { value: "experiment", label: "Past Experiment", disabled: !hasHistoricalPower },
-            { value: "manual", label: "Manual" },
+            {
+              value: "factTable",
+              label: "Fact table",
+              disabled: !hasHistoricalPower,
+            },
+            {
+              value: "segment",
+              label: "Segment",
+              disabled: !hasHistoricalPower,
+            },
+            {
+              value: "experiment",
+              label: "Past experiment",
+              disabled: !hasHistoricalPower,
+            },
+            { value: "manual", label: "Enter values manually" },
           ]}
           setValue={(value) => {
             if (value !== metricValuesSource) {
@@ -329,70 +354,71 @@ const SelectStep = ({
           }}
           mb="2"
         />
-        {metricValuesSource !== "manual" ? (<>
-        <SelectField
-          label={
-            <>
-              <span className="mr-auto font-weight-bold">
-                {metricValuesSource === "factTable"
-                  ? "Fact Table"
-                  : metricValuesSource === "experiment"
-                  ? "Experiment"
-                  : "Segment"}
-              </span>
-            </>
-          }
-          value={metricValuesSourceId ?? ""}
-          options={availablePopulations}
-          onChange={(value) => form.setValue("metricValuesSourceId", value)}
-          className="mb-2"
-          forceUndefinedValueToNull={true}
-        />
-        <SelectField
-          label={
-            <>
-              <span className="mr-auto font-weight-bold">Identifier Type</span>
-            </>
-          }
-          disabled={identifiers.length <= 1}
-          value={form.watch("metricValuesIdentifierType") ?? ""}
-          options={identifiers.map((i) => ({ label: i, value: i }))}
-          onChange={(value) =>
-            form.setValue("metricValuesIdentifierType", value)
-          }
-          forceUndefinedValueToNull={true}
-        /></>) : null}
+        {metricValuesSource !== "manual" ? (
+          <>
+            <SelectField
+              label={
+                <>
+                  <span className="mr-auto font-weight-bold">
+                    {metricValuesSource === "factTable"
+                      ? "Fact Table"
+                      : metricValuesSource === "experiment"
+                      ? "Experiment"
+                      : "Segment"}
+                  </span>
+                </>
+              }
+              value={metricValuesSourceId ?? ""}
+              options={availablePopulations}
+              onChange={(value) => form.setValue("metricValuesSourceId", value)}
+              className="mb-2"
+              forceUndefinedValueToNull={true}
+            />
+            <SelectField
+              label={
+                <>
+                  <span className="mr-auto font-weight-bold">
+                    Identifier Type
+                  </span>
+                </>
+              }
+              disabled={identifiers.length <= 1}
+              value={form.watch("metricValuesIdentifierType") ?? ""}
+              options={identifiers.map((i) => ({ label: i, value: i }))}
+              onChange={(value) =>
+                form.setValue("metricValuesIdentifierType", value)
+              }
+              forceUndefinedValueToNull={true}
+            />
+          </>
+        ) : null}
         <hr />
+        <label className="mr-auto font-weight-bold">
+          {" "}
+          Select Metrics{" "}
+          <Tooltip
+            body={
+              <>
+                {metricValuesSource === "experiment" ? (
+                  <p>
+                    Only metrics analyzed with this experiment can be selected.
+                  </p>
+                ) : metricValuesSource !== "manual" ? (
+                  <p>
+                    Only metrics that are in the same datasource and share an
+                    identifier type with your population can be selected.
+                  </p>
+                ) : null}
+                <p>Quantile metrics cannot be selected.</p>
+              </>
+            }
+          />
+        </label>
+        <div className="mb-2">
+          Pick the key metrics for which you want to estimate power.
+        </div>
 
-        <p>Pick the key metrics for which you want to estimate power.</p>
         <MultiSelectField
-          labelClassName="d-flex"
-          label={
-            <>
-              <span className="mr-auto font-weight-bold">
-                Select Metrics{" "}
-                <Tooltip
-                  body={
-                    <>
-                      {metricValuesSource === "experiment" ? (
-                        <p>
-                          Only metrics analyzed with this experiment can be
-                          selected.
-                        </p>
-                      ) : metricValuesSource !== "manual" ? (
-                        <p>
-                          Only metrics that are in the same datasource and share
-                          an identifier type with your population can be
-                          selected.
-                        </p>
-                      ) : null}
-                      <p>Quantile metrics cannot be selected.</p>
-                    </>
-                  }
-                />
-              </span>
-            </>
-          }
           sort={false}
           value={selectedMetrics}
           options={allAppMetrics.map(({ name: label, id: value }) => ({
@@ -1210,12 +1236,8 @@ export default function PowerCalculationSettingsModal({
   startPage,
 }: Props) {
   const settings = useOrgSettings();
-  const {project} = useDefinitions();
-  const { experiments } = useExperiments(
-    project,
-    false,
-    "standard"
-  );
+  const { project } = useDefinitions();
+  const { experiments } = useExperiments(project, false, "standard");
   const { apiCall } = useAuth();
 
   const [step, setStep] = useState<PowerModalPages>(startPage);
@@ -1280,7 +1302,9 @@ export default function PowerCalculationSettingsModal({
                 const phase = experiment.phases.length - 1;
                 const { snapshot } = await apiCall<{
                   snapshot: ExperimentSnapshotInterface;
-                }>(`/experiment/${experiment}/snapshot/${phase}/?type=standard`);
+                }>(
+                  `/experiment/${experiment}/snapshot/${phase}/?type=standard`
+                );
                 if (snapshot) {
                   const analysis = getSnapshotAnalysis(snapshot);
 
@@ -1290,13 +1314,16 @@ export default function PowerCalculationSettingsModal({
                       (result, v) => v + result,
                       0
                     ) ?? 0;
-  
+
                   const experimentPhase = experiment.phases[phase];
-                  const phaseLength = daysBetween(experimentPhase.dateStarted ?? new Date(), experimentPhase.dateEnded ?? new Date());
+                  const phaseLength = daysBetween(
+                    experimentPhase.dateStarted ?? new Date(),
+                    experimentPhase.dateEnded ?? new Date()
+                  );
                   const lengthWeeks = phaseLength / 7;
                   let newMetrics = {};
                   let totalUnits = 0;
-  
+
                   analysis?.results?.[0]?.variations?.forEach((v, i) => {
                     // use control only for metric mean and variance
                     if (i === 0) {
@@ -1319,10 +1346,10 @@ export default function PowerCalculationSettingsModal({
                       totalUnits += v.users;
                     }
                   });
-  
+
                   form.setValue("metrics", newMetrics);
                   form.setValue("dataMetrics", newMetrics);
-  
+
                   form.setValue(
                     "usersPerWeek",
                     Math.round((units || totalUnits) / lengthWeeks)
