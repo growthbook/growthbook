@@ -353,15 +353,14 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
           <NorthStarMetricSettings />
 
-          <div className="bg-white p-3 border position-relative">
-            <ExperimentSettings
-              cronString={cronString}
-              updateCronString={updateCronString}
-            />
+          <ExperimentSettings
+            cronString={cronString}
+            updateCronString={updateCronString}
+          />
 
+          <div className="bg-white p-3 border position-relative">
             {growthbook.isOn("bandits") && (
               <>
-                <div className="divider border-bottom mb-3 mt-3" />
                 <BanditSettings page="org-settings" />
               </>
             )}
