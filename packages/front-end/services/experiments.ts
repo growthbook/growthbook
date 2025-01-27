@@ -714,6 +714,12 @@ export function convertTemplateToExperimentRule({
     "targeting",
     "type",
   ]);
+  if ("skipPartialData" in templateWithoutTemplateFields) {
+    // @ts-expect-error Mangled types
+    templateWithoutTemplateFields.skipPartialData = templateWithoutTemplateFields.skipPartialData
+      ? "strict"
+      : "loose";
+  }
   return {
     ...(getDefaultRuleValue({
       defaultValue,

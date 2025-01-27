@@ -141,7 +141,7 @@ function getStatusIndicatorData(
           color: "indigo",
           variant: "solid",
           status: "Running",
-          detailedStatus: `${powerSummary.additionalDaysNeeded} days left`,
+          detailedStatus: `~${powerSummary.additionalDaysNeeded} days left`,
         };
       }
     }

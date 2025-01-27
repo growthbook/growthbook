@@ -91,7 +91,7 @@ export default function BanditSummaryResultsTab({
 
   return (
     <>
-      <div className="d-flex mt-4 mb-3 align-items-end">
+      <div className="d-flex mt-2 mb-3 align-items-end">
         <h3 className="mb-0">Bandit Leaderboard</h3>
         <div className="flex-1" />
         {!isPublic && (

@@ -222,7 +222,7 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
           {isBandit ? (
             <div
               className={
-                isBandit && tab === "results" ? "d-block" : "d-none d-print-block"
+                isBandit && tab === "results" ? "d-block mt-4" : "d-none d-print-block"
               }
             >
               <BanditSummaryResultsTab
