@@ -28,10 +28,11 @@ export default function PhaseSelector({
     experiment,
   } = useSnapshot();
 
+  // Include all phases in the dropdown
   const phaseOptions =
     (phases ?? experiment?.phases)?.map((phase, i) => ({
-      label: i + "",
-      value: i + "",
+      label: `${i + 1}: ${phase.name || "Phase"}`,
+      value: i.toString(),
     })) || [];
 
   function formatPhase({ value, label }: { value: string; label: string }) {
