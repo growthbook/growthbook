@@ -251,6 +251,16 @@ const experimentSchema = new mongoose.Schema({
   customFields: {},
   templateId: String,
   shareLevel: String,
+  analysisSummary: {
+    _id: false,
+    snapshotId: String,
+    health: {
+      _id: false,
+      srm: Number,
+      multipleExposures: Number,
+      totalUsers: Number,
+    },
+  },
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
