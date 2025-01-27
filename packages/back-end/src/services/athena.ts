@@ -76,16 +76,18 @@ export async function runAthenaQuery(
   const retryWaitTime =
     (parseInt(process.env.ATHENA_RETRY_WAIT_TIME || "60") || 60) * 1000;
 
-  const resultReuseSettings =
-    typeof conn.resultReuseMaxAgeInMinutes === "undefined" ||
-    conn.resultReuseMaxAgeInMinutes === "0"
-      ? {
-          Enabled: false,
-        }
-      : {
-          Enabled: true,
-          MaxAgeInMinutes: parseInt(conn.resultReuseMaxAgeInMinutes),
-        };
+  const resultReuseMaxAgeInMinutes = conn.resultReuseMaxAgeInMinutes
+    ? parseInt(conn.resultReuseMaxAgeInMinutes)
+    : undefined;
+  // Skipped when parsed setting is 0, NaN, or not present
+  const resultReuseSettings = !resultReuseMaxAgeInMinutes
+    ? {
+        Enabled: false,
+      }
+    : {
+        Enabled: true,
+        MaxAgeInMinutes: resultReuseMaxAgeInMinutes,
+      };
 
   const { QueryExecutionId } = await athena.startQueryExecution({
     QueryString: sql,
