@@ -723,7 +723,11 @@ export default function ExperimentHeader({
       )}
 
       <div
-        className={clsx("position-relative experiment-header", "px-3", "pt-3")}
+        className={clsx(
+          "container-fluid pagecontents position-relative experiment-header",
+          "px-3",
+          "pt-3"
+        )}
       >
         <div className="d-flex align-items-center">
           <Flex direction="row" align="center">
