@@ -23,7 +23,6 @@ Running a cluster experiment at the organization level while analyzing at the us
 Before setting up your cluster experiment, ensure you have the following:
 
 - `organization_id` must be set up as an Identifier Type on your **Data Source** page.
-
 - If GrowthBook is handling randomization, create an Attribute `organization_id`.
 
 ### 1. Set up a Fact Table with both identifier types
@@ -44,7 +43,7 @@ There must be a one-to-many relationship between `organization_id` and `user_id`
 
 The screenshot above shows:
 
-- `user_id` and `organization_id` identifiers
+- `user_id` and `organization_id` identifiers.
 - An `event` column that represents the event you are interested in measuring.
 - A numeric `value` column that represents the value of the event.
 
@@ -65,7 +64,7 @@ In the following example, we have a User Revenue metric:
 
 Note that we are not filtering the denominator to just users who made a purchase—instead, our denominator includes all users that had any event in this period.
 
-![An example ratio fact metric with the sum of purchase values in the numerator and the distinct count of user ids in the denominator.](/images/cluster-experiments/cluster-fact-metric.png)
+![An example ratio fact metric with the sum of purchase values in the numerator and the distinct count of user ids in the denominator.](/images/cluster-experiments/cluster-metric.png)
 
 You can also create proportion-style ratio metrics:
 
@@ -77,8 +76,6 @@ These metrics are aggregated by each variation, and our statistics engine uses t
 ### 3. Create your Experiment at the Organization level
 
 All that is left to do is create your experiment where you randomize at the `organization_id` level. The following screenshot shows an example of that.
-
-<img src="/images/cluster-experiments/cluster-hash.png" alt="Setting organization_id as the hash attribute." width="400" />
 
 ![Setting organization_id as the hash attribute.](/images/cluster-experiments/cluster-hash.png)
 
