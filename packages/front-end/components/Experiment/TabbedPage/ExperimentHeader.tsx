@@ -722,9 +722,7 @@ export default function ExperimentHeader({
         </Modal>
       )}
 
-      <div
-        className={clsx("position-relative experiment-header", "px-3", "pt-3")}
-      >
+      <div className="container-fluid pagecontents position-relative experiment-header px-3 pt-3">
         <div className="d-flex align-items-center">
           <Flex direction="row" align="center">
             <h1 className="mb-0">{experiment.name}</h1>
