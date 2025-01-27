@@ -380,353 +380,351 @@ export default function ExperimentHeader({
 
   return (
     <>
-      <div className={clsx("experiment-header", "px-3", "pt-3")}>
-        {showEditInfoModal ? (
-          <EditExperimentInfoModal
-            experiment={experiment}
-            setShowEditInfoModal={setShowEditInfoModal}
-            mutate={mutate}
-            focusSelector={editInfoFocusSelector}
-          />
-        ) : null}
-        {showSdkForm && (
-          <InitialSDKConnectionForm
-            close={() => setShowSdkForm(false)}
-            includeCheck={true}
-            cta="Continue"
-            goToNextStep={() => {
-              setShowSdkForm(false);
-            }}
-          />
-        )}
-        {showBanditModal ? (
-          <Modal
-            open={true}
-            close={() => setShowBanditModal(false)}
-            trackingEventModalType=""
-            size="lg"
-            trackingEventModalSource="experiment-more-menu"
-            header={`Convert to ${isBandit ? "Experiment" : "Bandit"}`}
-            submit={async () => {
-              if (!isBandit && !hasMultiArmedBanditFeature) return;
-              try {
-                await apiCall(`/experiment/${experiment.id}`, {
-                  method: "POST",
-                  body: JSON.stringify({
-                    type: !isBandit ? "multi-armed-bandit" : "standard",
-                  }),
-                });
-                mutate();
-              } catch (e) {
-                console.error(e);
-              }
-            }}
-            cta={
-              isBandit ? (
-                "Convert"
-              ) : (
-                <PremiumTooltip
-                  body={null}
-                  commercialFeature="multi-armed-bandits"
-                  usePortal={true}
-                >
-                  Convert
-                </PremiumTooltip>
-              )
+      {showEditInfoModal ? (
+        <EditExperimentInfoModal
+          experiment={experiment}
+          setShowEditInfoModal={setShowEditInfoModal}
+          mutate={mutate}
+          focusSelector={editInfoFocusSelector}
+        />
+      ) : null}
+      {showSdkForm && (
+        <InitialSDKConnectionForm
+          close={() => setShowSdkForm(false)}
+          includeCheck={true}
+          cta="Continue"
+          goToNextStep={() => {
+            setShowSdkForm(false);
+          }}
+        />
+      )}
+      {showBanditModal ? (
+        <Modal
+          open={true}
+          close={() => setShowBanditModal(false)}
+          trackingEventModalType=""
+          size="lg"
+          trackingEventModalSource="experiment-more-menu"
+          header={`Convert to ${isBandit ? "Experiment" : "Bandit"}`}
+          submit={async () => {
+            if (!isBandit && !hasMultiArmedBanditFeature) return;
+            try {
+              await apiCall(`/experiment/${experiment.id}`, {
+                method: "POST",
+                body: JSON.stringify({
+                  type: !isBandit ? "multi-armed-bandit" : "standard",
+                }),
+              });
+              mutate();
+            } catch (e) {
+              console.error(e);
             }
-            ctaEnabled={isBandit || hasMultiArmedBanditFeature}
-          >
-            <div>
-              <p>
-                Are you sure you want to convert this{" "}
-                {!isBandit ? "Experiment" : "Bandit"} to a{" "}
-                <strong>{isBandit ? "Experiment" : "Bandit"}</strong>?
-              </p>
-              {!isBandit && experiment.goalMetrics.length > 0 && (
-                <div className="alert alert-warning">
-                  <Collapsible
-                    trigger={
-                      <div>
-                        <FaExclamationTriangle className="mr-2" />
-                        Some of your experiment settings may be altered. More
-                        info <FaAngleRight className="chevron" />
-                      </div>
-                    }
-                    transitionTime={100}
-                  >
-                    <ul className="ml-0 pl-3 mt-3">
-                      <li>
-                        A <strong>single decision metric</strong> will be
-                        automatically assigned. You may change this before
-                        running the experiment.
-                      </li>
-                      <li>
-                        Experiment variations will begin with{" "}
-                        <strong>equal weights</strong> (
-                        {experiment.variations
-                          .map((_, i) =>
-                            i < 3
-                              ? formatPercent(
-                                  1 / (experiment.variations.length ?? 2)
-                                )
-                              : i === 3
-                              ? "..."
-                              : null
-                          )
-                          .filter(Boolean)
-                          .join(", ")}
-                        ).
-                      </li>
-                      <li>
-                        The stats engine will be locked to{" "}
-                        <strong>Bayesian</strong>.
-                      </li>
-                      <li>
-                        Any <strong>Activation Metric</strong>,{" "}
-                        <strong>Segments</strong>,{" "}
-                        <strong>Conversion Window overrides</strong>,{" "}
-                        <strong>Custom SQL Filters</strong>, or{" "}
-                        <strong>Metric Overrides</strong> will be removed.
-                      </li>
-                    </ul>
-                  </Collapsible>
-                </div>
-              )}
-            </div>
-          </Modal>
-        ) : null}
-        {showDeleteModal ? (
-          <Modal
-            header="Delete Experiment"
-            trackingEventModalType="delete-experiment"
-            trackingEventModalSource="experiment-more-menu"
-            open={true}
-            close={() => setShowDeleteModal(false)}
-            cta="Delete"
-            submit={async () => {
-              try {
-                await apiCall<{ status: number; message?: string }>(
-                  `/experiment/${experiment.id}`,
-                  {
-                    method: "DELETE",
-                    body: JSON.stringify({ id: experiment.id }),
+          }}
+          cta={
+            isBandit ? (
+              "Convert"
+            ) : (
+              <PremiumTooltip
+                body={null}
+                commercialFeature="multi-armed-bandits"
+                usePortal={true}
+              >
+                Convert
+              </PremiumTooltip>
+            )
+          }
+          ctaEnabled={isBandit || hasMultiArmedBanditFeature}
+        >
+          <div>
+            <p>
+              Are you sure you want to convert this{" "}
+              {!isBandit ? "Experiment" : "Bandit"} to a{" "}
+              <strong>{isBandit ? "Experiment" : "Bandit"}</strong>?
+            </p>
+            {!isBandit && experiment.goalMetrics.length > 0 && (
+              <div className="alert alert-warning">
+                <Collapsible
+                  trigger={
+                    <div>
+                      <FaExclamationTriangle className="mr-2" />
+                      Some of your experiment settings may be altered. More info{" "}
+                      <FaAngleRight className="chevron" />
+                    </div>
                   }
-                );
-                router.push(isBandit ? "/bandits" : "/experiments");
-              } catch (e) {
-                console.error(e);
-              }
-            }}
-          >
-            <div>
-              <p>Are you sure you want to delete this experiment?</p>
-              {!safeToEdit ? (
-                <div className="alert alert-danger">
-                  This will immediately stop all linked Feature Flags and Visual
-                  Changes from running
-                </div>
-              ) : null}
-            </div>
-          </Modal>
-        ) : null}
-        {showArchiveModal ? (
-          <Modal
-            header={`${
-              experiment.archived ? "Unarchive" : "Archive"
-            } Experiment`}
-            trackingEventModalType="archive-experiment"
-            trackingEventModalSource="experiment-more-menu"
-            open={true}
-            cta={experiment.archived ? "Unarchive" : "Archive"}
-            close={() => setShowArchiveModal(false)}
-            submit={async () => {
-              try {
-                await apiCall(
-                  `/experiment/${experiment.id}/${
-                    experiment.archived ? "unarchive" : "archive"
-                  }`,
-                  {
-                    method: "POST",
-                  }
-                );
-                mutate();
-              } catch (e) {
-                console.error(e);
-              }
-            }}
-          >
-            <div>
-              <p>{`Are you sure you want to ${
-                experiment.archived ? "unarchive" : "archive"
-              } this experiment?`}</p>
-              {!safeToEdit && !experiment.archived ? (
-                <div className="alert alert-danger">
-                  This will immediately stop all linked Feature Flags and Visual
-                  Changes from running
-                </div>
-              ) : null}
-            </div>
-          </Modal>
-        ) : null}
-        {showStartExperiment && experiment.status === "draft" && (
-          <Modal
-            trackingEventModalType="start-experiment"
-            trackingEventModalSource={
-              checklistIncomplete || !verifiedConnections.length
-                ? "incomplete-checklist"
-                : "complete-checklist"
-            }
-            open={true}
-            size="md"
-            closeCta={
-              checklistIncomplete || !verifiedConnections.length
-                ? "Close"
-                : "Start Immediately"
-            }
-            closeCtaClassName="btn btn-primary"
-            onClickCloseCta={
-              checklistIncomplete || !verifiedConnections.length
-                ? () => setShowStartExperiment(false)
-                : async () => startExperiment()
-            }
-            secondaryCTA={
-              checklistIncomplete || !verifiedConnections.length ? (
-                <button
-                  className="btn btn-link text-decoration-none"
-                  onClick={async () => startExperiment()}
+                  transitionTime={100}
                 >
-                  <span
-                    style={{
-                      color: "var(--text-color-primary)",
-                    }}
-                  >
-                    Start Anyway
-                  </span>
-                </button>
-              ) : (
-                <button
-                  className="btn btn-link text-decoration-none"
-                  onClick={() => setShowStartExperiment(false)}
-                >
-                  <span
-                    style={{
-                      color: "var(--text-color-primary)",
-                    }}
-                  >
-                    Cancel
-                  </span>
-                </button>
-              )
-            }
-            close={() => setShowStartExperiment(false)}
-            header="Start Experiment"
-          >
-            <div className="p-2">
-              {checklistIncomplete ? (
-                <div className="alert alert-warning">
-                  You have{" "}
-                  <strong>
-                    {checklistItemsRemaining} task
-                    {checklistItemsRemaining > 1 ? "s " : " "}
-                  </strong>
-                  left to complete. Review the Pre-Launch Checklist before
-                  starting this experiment.
-                </div>
-              ) : null}
-              {!verifiedConnections.length ? (
-                <div className="alert alert-warning">
-                  You haven&apos;t integrated GrowthBook into your app.{" "}
-                  {connections.length > 0 ? (
-                    <Link href="/sdks">Manage SDK Connections</Link>
-                  ) : (
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setShowStartExperiment(false);
-                        setShowSdkForm(true);
-                      }}
-                    >
-                      Add SDK Connection
-                    </a>
-                  )}
-                </div>
-              ) : null}
-              <div>
-                Once started, linked changes will be activated and users will
-                begin to see your experiment variations{" "}
-                <strong>immediately</strong>.
+                  <ul className="ml-0 pl-3 mt-3">
+                    <li>
+                      A <strong>single decision metric</strong> will be
+                      automatically assigned. You may change this before running
+                      the experiment.
+                    </li>
+                    <li>
+                      Experiment variations will begin with{" "}
+                      <strong>equal weights</strong> (
+                      {experiment.variations
+                        .map((_, i) =>
+                          i < 3
+                            ? formatPercent(
+                                1 / (experiment.variations.length ?? 2)
+                              )
+                            : i === 3
+                            ? "..."
+                            : null
+                        )
+                        .filter(Boolean)
+                        .join(", ")}
+                      ).
+                    </li>
+                    <li>
+                      The stats engine will be locked to{" "}
+                      <strong>Bayesian</strong>.
+                    </li>
+                    <li>
+                      Any <strong>Activation Metric</strong>,{" "}
+                      <strong>Segments</strong>,{" "}
+                      <strong>Conversion Window overrides</strong>,{" "}
+                      <strong>Custom SQL Filters</strong>, or{" "}
+                      <strong>Metric Overrides</strong> will be removed.
+                    </li>
+                  </ul>
+                </Collapsible>
               </div>
+            )}
+          </div>
+        </Modal>
+      ) : null}
+      {showDeleteModal ? (
+        <Modal
+          header="Delete Experiment"
+          trackingEventModalType="delete-experiment"
+          trackingEventModalSource="experiment-more-menu"
+          open={true}
+          close={() => setShowDeleteModal(false)}
+          cta="Delete"
+          submit={async () => {
+            try {
+              await apiCall<{ status: number; message?: string }>(
+                `/experiment/${experiment.id}`,
+                {
+                  method: "DELETE",
+                  body: JSON.stringify({ id: experiment.id }),
+                }
+              );
+              router.push(isBandit ? "/bandits" : "/experiments");
+            } catch (e) {
+              console.error(e);
+            }
+          }}
+        >
+          <div>
+            <p>Are you sure you want to delete this experiment?</p>
+            {!safeToEdit ? (
+              <div className="alert alert-danger">
+                This will immediately stop all linked Feature Flags and Visual
+                Changes from running
+              </div>
+            ) : null}
+          </div>
+        </Modal>
+      ) : null}
+      {showArchiveModal ? (
+        <Modal
+          header={`${experiment.archived ? "Unarchive" : "Archive"} Experiment`}
+          trackingEventModalType="archive-experiment"
+          trackingEventModalSource="experiment-more-menu"
+          open={true}
+          cta={experiment.archived ? "Unarchive" : "Archive"}
+          close={() => setShowArchiveModal(false)}
+          submit={async () => {
+            try {
+              await apiCall(
+                `/experiment/${experiment.id}/${
+                  experiment.archived ? "unarchive" : "archive"
+                }`,
+                {
+                  method: "POST",
+                }
+              );
+              mutate();
+            } catch (e) {
+              console.error(e);
+            }
+          }}
+        >
+          <div>
+            <p>{`Are you sure you want to ${
+              experiment.archived ? "unarchive" : "archive"
+            } this experiment?`}</p>
+            {!safeToEdit && !experiment.archived ? (
+              <div className="alert alert-danger">
+                This will immediately stop all linked Feature Flags and Visual
+                Changes from running
+              </div>
+            ) : null}
+          </div>
+        </Modal>
+      ) : null}
+      {showStartExperiment && experiment.status === "draft" && (
+        <Modal
+          trackingEventModalType="start-experiment"
+          trackingEventModalSource={
+            checklistIncomplete || !verifiedConnections.length
+              ? "incomplete-checklist"
+              : "complete-checklist"
+          }
+          open={true}
+          size="md"
+          closeCta={
+            checklistIncomplete || !verifiedConnections.length
+              ? "Close"
+              : "Start Immediately"
+          }
+          closeCtaClassName="btn btn-primary"
+          onClickCloseCta={
+            checklistIncomplete || !verifiedConnections.length
+              ? () => setShowStartExperiment(false)
+              : async () => startExperiment()
+          }
+          secondaryCTA={
+            checklistIncomplete || !verifiedConnections.length ? (
+              <button
+                className="btn btn-link text-decoration-none"
+                onClick={async () => startExperiment()}
+              >
+                <span
+                  style={{
+                    color: "var(--text-color-primary)",
+                  }}
+                >
+                  Start Anyway
+                </span>
+              </button>
+            ) : (
+              <button
+                className="btn btn-link text-decoration-none"
+                onClick={() => setShowStartExperiment(false)}
+              >
+                <span
+                  style={{
+                    color: "var(--text-color-primary)",
+                  }}
+                >
+                  Cancel
+                </span>
+              </button>
+            )
+          }
+          close={() => setShowStartExperiment(false)}
+          header="Start Experiment"
+        >
+          <div className="p-2">
+            {checklistIncomplete ? (
+              <div className="alert alert-warning">
+                You have{" "}
+                <strong>
+                  {checklistItemsRemaining} task
+                  {checklistItemsRemaining > 1 ? "s " : " "}
+                </strong>
+                left to complete. Review the Pre-Launch Checklist before
+                starting this experiment.
+              </div>
+            ) : null}
+            {!verifiedConnections.length ? (
+              <div className="alert alert-warning">
+                You haven&apos;t integrated GrowthBook into your app.{" "}
+                {connections.length > 0 ? (
+                  <Link href="/sdks">Manage SDK Connections</Link>
+                ) : (
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setShowStartExperiment(false);
+                      setShowSdkForm(true);
+                    }}
+                  >
+                    Add SDK Connection
+                  </a>
+                )}
+              </div>
+            ) : null}
+            <div>
+              Once started, linked changes will be activated and users will
+              begin to see your experiment variations{" "}
+              <strong>immediately</strong>.
             </div>
-          </Modal>
-        )}
-        {showTemplateForm && (
-          <TemplateForm
-            onClose={() => setShowTemplateForm(false)}
-            initialValue={convertExperimentToTemplate(experiment)}
-            isNewTemplate
-            source="experiment"
-          />
-        )}
-        {shareModalOpen && (
-          <Modal
-            open={true}
-            trackingEventModalType="share-experiment-settings"
-            close={() => setShareModalOpen(false)}
-            closeCta="Close"
-            header={`Share "${experiment.name}"`}
-            useRadixButton={true}
-            secondaryCTA={shareLinkButton}
-          >
-            <div className="mb-3">
-              {shareLevel === "organization" ? (
-                <Callout status="info" size="sm">
-                  This {isBandit ? "Bandit" : "Experiment"} is only viewable
-                  within your organization.
+          </div>
+        </Modal>
+      )}
+      {showTemplateForm && (
+        <TemplateForm
+          onClose={() => setShowTemplateForm(false)}
+          initialValue={convertExperimentToTemplate(experiment)}
+          isNewTemplate
+          source="experiment"
+        />
+      )}
+      {shareModalOpen && (
+        <Modal
+          open={true}
+          trackingEventModalType="share-experiment-settings"
+          close={() => setShareModalOpen(false)}
+          closeCta="Close"
+          header={`Share "${experiment.name}"`}
+          useRadixButton={true}
+          secondaryCTA={shareLinkButton}
+        >
+          <div className="mb-3">
+            {shareLevel === "organization" ? (
+              <Callout status="info" size="sm">
+                This {isBandit ? "Bandit" : "Experiment"} is only viewable
+                within your organization.
+              </Callout>
+            ) : shareLevel === "public" ? (
+              <>
+                <Callout status="warning" size="sm">
+                  Anyone with the link can view this{" "}
+                  {isBandit ? "Bandit" : "Experiment"}, even those outside your
+                  organization.
                 </Callout>
-              ) : shareLevel === "public" ? (
-                <>
-                  <Callout status="warning" size="sm">
-                    Anyone with the link can view this{" "}
-                    {isBandit ? "Bandit" : "Experiment"}, even those outside
-                    your organization.
-                  </Callout>
-                </>
-              ) : null}
-            </div>
+              </>
+            ) : null}
+          </div>
 
-            <SelectField
-              label="View access"
-              value={shareLevel}
-              onChange={(v: ShareLevel) => setShareLevel(v)}
-              containerClassName="mb-2"
-              sort={false}
-              disabled={!hasUpdatePermissions}
-              options={[
-                { value: "organization", label: "Only organization members" },
-                { value: "public", label: "Anyone with the link" },
-              ]}
-            />
-            <div className="mb-1" style={{ height: 24 }}>
-              {saveShareLevelStatus === "loading" ? (
-                <div className="position-relative" style={{ top: -6 }}>
-                  <LoadingSpinner />
-                </div>
-              ) : saveShareLevelStatus === "success" ? (
-                <HelperText status="success" size="sm">
-                  Sharing status has been updated
-                </HelperText>
-              ) : saveShareLevelStatus === "fail" ? (
-                <HelperText status="error" size="sm">
-                  Unable to update sharing status
-                </HelperText>
-              ) : null}
-            </div>
-          </Modal>
-        )}
-      </div>
+          <SelectField
+            label="View access"
+            value={shareLevel}
+            onChange={(v: ShareLevel) => setShareLevel(v)}
+            containerClassName="mb-2"
+            sort={false}
+            disabled={!hasUpdatePermissions}
+            options={[
+              { value: "organization", label: "Only organization members" },
+              { value: "public", label: "Anyone with the link" },
+            ]}
+          />
+          <div className="mb-1" style={{ height: 24 }}>
+            {saveShareLevelStatus === "loading" ? (
+              <div className="position-relative" style={{ top: -6 }}>
+                <LoadingSpinner />
+              </div>
+            ) : saveShareLevelStatus === "success" ? (
+              <HelperText status="success" size="sm">
+                Sharing status has been updated
+              </HelperText>
+            ) : saveShareLevelStatus === "fail" ? (
+              <HelperText status="error" size="sm">
+                Unable to update sharing status
+              </HelperText>
+            ) : null}
+          </div>
+        </Modal>
+      )}
 
-      <div className="container-fluid pagecontents position-relative">
+      <div
+        className={clsx("position-relative experiment-header", "px-3", "pt-3")}
+      >
         <div className="d-flex align-items-center">
           <Flex direction="row" align="center">
             <h1 className="mb-0">{experiment.name}</h1>
@@ -1022,7 +1020,7 @@ export default function ExperimentHeader({
             pinned: headerPinned,
           })}
         >
-          <div className="position-relative container-fluid pagecontents">
+          <div className="position-relative container-fluid pagecontents px-3">
             <div className="d-flex header-tabs" ref={tabsRef}>
               <Tabs
                 value={tab}
@@ -1059,7 +1057,7 @@ export default function ExperimentHeader({
                 </TabsList>
               </Tabs>
 
-              <div className="col-auto experiment-date-range">
+              <div className="col-auto experiment-date-range mr-2">
                 {startDate && (
                   <span>
                     {startDate} — {endDate}{" "}
