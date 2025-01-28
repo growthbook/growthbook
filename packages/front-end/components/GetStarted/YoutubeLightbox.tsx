@@ -1,6 +1,5 @@
 import { MdClose } from "react-icons/md";
-import Portal from "@/components/Modal/Portal";
-
+import Portal from "@/components/Radix/Portal";
 export type Props = {
   close: () => void;
   videoId: string;
