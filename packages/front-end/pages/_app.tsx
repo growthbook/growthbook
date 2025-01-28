@@ -186,8 +186,7 @@ function App({
           --font-weight-medium: 600;
         }
         .radix-themes[data-is-root-theme="true"] {
-          min-height: 100%;
-          height: 100vh;
+          min-height: 100vh;
         }
       `}</style>
       <Head>
