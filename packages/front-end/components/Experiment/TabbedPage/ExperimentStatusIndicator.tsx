@@ -1,63 +1,147 @@
+import { Tooltip } from "@radix-ui/themes";
+import {
+  DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_COUNT,
+  DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
+  DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+  DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
+  DEFAULT_SRM_THRESHOLD,
+} from "shared/constants";
+import { getMultipleExposureHealthData, getSRMHealthData } from "shared/health";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Badge from "@/components/Radix/Badge";
+import useOrgSettings from "@/hooks/useOrgSettings";
 
-// Examples:
-// "full" - "Running: ~5 days left"
-// "status-only" - "Running"
-// "detail-only" - "~5 days left"
 type LabelFormat = "full" | "status-only" | "detail-only";
 
 type ExperimentData = Pick<
   ExperimentInterfaceStringDates,
-  "status" | "archived" | "results"
+  "type" | "variations" | "status" | "archived" | "results" | "analysisSummary"
 >;
 
-type Props = {
-  experimentData: ExperimentData;
-  labelFormat?: LabelFormat;
-  // If true we will show the underlying status of the experiment
-  // even if the experiment is archived.
-  skipArchived?: boolean;
-};
-
+/**
+ * Component that displays the status of an experiment with an appropriate badge
+ *
+ * @param experimentData - Experiment data containing status, archived flag, results and analysis summary
+ * @param labelFormat - Controls what parts of the status label to show:
+ *                     - "full": Shows both status and detail (e.g. "Running - 5 days left")
+ *                     - "status-only": Shows just the status (e.g. "Running")
+ *                     - "detail-only": Shows just the detail if available (e.g. "5 days left")
+ * @param skipArchived - If true, shows the underlying experiment status even if archived
+ * @returns A Badge component with appropriate color, variant and label based on experiment state
+ */
 export default function ExperimentStatusIndicator({
   experimentData,
   labelFormat = "full",
   skipArchived = false,
-}: Props) {
-  const [color, variant, status, detailedStatus] = getBadgeProps(
-    experimentData,
-    skipArchived
-  );
+}: {
+  experimentData: ExperimentData;
+  labelFormat?: LabelFormat;
+  skipArchived?: boolean;
+}) {
+  const settings = useOrgSettings();
+  const healthSettings = {
+    srmThreshold: settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD,
+    multipleExposureMinPercent:
+      settings.multipleExposureMinPercent ??
+      DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
+  };
+
+  const {
+    color,
+    variant,
+    status,
+    detailedStatus,
+    tooltip,
+  } = getStatusIndicatorData(experimentData, skipArchived, healthSettings);
 
   const label = getFormattedLabel(labelFormat, status, detailedStatus);
 
-  return <Badge color={color} variant={variant} radius="full" label={label} />;
+  const badge = (
+    <Badge color={color} variant={variant} radius="full" label={label} />
+  );
+
+  return tooltip ? <Tooltip content={tooltip}>{badge}</Tooltip> : badge;
 }
 
-function getBadgeProps(
+function getStatusIndicatorData(
   experimentData: ExperimentData,
-  skipArchived: boolean
-): [
-  React.ComponentProps<typeof Badge>["color"],
-  React.ComponentProps<typeof Badge>["variant"],
-  string, // formattedStatus
-  string? // detailedStatus if applicable
-] {
+  skipArchived: boolean,
+  healthSettings: {
+    srmThreshold: number;
+    multipleExposureMinPercent: number;
+  }
+): {
+  color: React.ComponentProps<typeof Badge>["color"];
+  variant: React.ComponentProps<typeof Badge>["variant"];
+  status: string;
+  detailedStatus?: string;
+  tooltip?: string;
+} {
   if (!skipArchived && experimentData.archived) {
-    return ["gold", "soft", "Archived"];
+    return {
+      color: "gold",
+      variant: "soft",
+      status: "Archived",
+    };
   }
 
   if (experimentData.status === "draft") {
-    return ["indigo", "soft", "Draft"];
+    return {
+      color: "indigo",
+      variant: "soft",
+      status: "Draft",
+    };
   }
 
   if (experimentData.status == "running") {
-    return ["indigo", "solid", "Running"];
+    const unhealthyStatuses: string[] = [];
+    const healthSummary = experimentData.analysisSummary?.health;
+    if (healthSummary) {
+      const srmHealthData = getSRMHealthData({
+        srm: healthSummary.srm,
+        srmThreshold: healthSettings.srmThreshold,
+        totalUsersCount: healthSummary.totalUsers,
+        numOfVariations: experimentData.variations.length,
+        minUsersPerVariation:
+          experimentData.type === "multi-armed-bandit"
+            ? DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION
+            : DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+      });
+
+      if (srmHealthData === "unhealthy") {
+        unhealthyStatuses.push("SRM");
+      }
+
+      const multipleExposuresHealthData = getMultipleExposureHealthData({
+        multipleExposuresCount: healthSummary.multipleExposures,
+        totalUsersCount: healthSummary.totalUsers,
+        minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_COUNT,
+        minPercentThreshold: healthSettings.multipleExposureMinPercent,
+      });
+
+      if (multipleExposuresHealthData.status === "unhealthy") {
+        unhealthyStatuses.push("Multiple exposures");
+      }
+    }
+
+    if (unhealthyStatuses.length > 0) {
+      return {
+        color: "amber",
+        variant: "solid",
+        status: "Running",
+        detailedStatus: "Unhealthy",
+        tooltip: unhealthyStatuses.join(", "),
+      };
+    }
+
+    return {
+      color: "indigo",
+      variant: "solid",
+      status: "Running",
+    };
 
     // TODO: Add detail statuses
     // return ["indigo", "solid", "Running", "~5 days left"];
-    // return ["amber", "solid", "Running", "Unhealthy"];
     // return ["amber", "soft", "Running", "Rollback now"];
     // return ["amber", "soft", "Running", "Ship now"];
     // return ["amber", "soft", "Running", "Discuss results"];
@@ -66,15 +150,40 @@ function getBadgeProps(
   if (experimentData.status === "stopped") {
     switch (experimentData.results) {
       case "won":
-        return ["gray", "soft", "Stopped", "Won"];
+        return {
+          color: "gray",
+          variant: "soft",
+          status: "Stopped",
+          detailedStatus: "Won",
+        };
       case "lost":
-        return ["gray", "soft", "Stopped", "Lost"];
+        return {
+          color: "gray",
+          variant: "soft",
+          status: "Stopped",
+          detailedStatus: "Lost",
+        };
       case "inconclusive":
-        return ["gray", "soft", "Stopped", "Inconclusive"];
+        return {
+          color: "gray",
+          variant: "soft",
+          status: "Stopped",
+          detailedStatus: "Inconclusive",
+        };
       case "dnf":
-        return ["gray", "soft", "Stopped", "Didn't finish"];
+        return {
+          color: "gray",
+          variant: "soft",
+          status: "Stopped",
+          detailedStatus: "Didn't finish",
+        };
       default:
-        return ["gray", "soft", "Stopped", "Awaiting decision"];
+        return {
+          color: "gray",
+          variant: "soft",
+          status: "Stopped",
+          detailedStatus: "Awaiting decision",
+        };
     }
   }
 

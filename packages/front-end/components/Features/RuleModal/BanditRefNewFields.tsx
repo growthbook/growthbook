@@ -5,9 +5,10 @@ import {
   SavedGroupTargeting,
 } from "back-end/types/feature";
 import React, { useEffect } from "react";
-import { FaAngleRight, FaExclamationTriangle } from "react-icons/fa";
+import { FaExclamationTriangle } from "react-icons/fa";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import Collapsible from "react-collapsible";
+import { PiCaretRightFill } from "react-icons/pi";
 import Field from "@/components/Forms/Field";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import SelectField from "@/components/Forms/SelectField";
@@ -94,11 +95,7 @@ export default function BanditRefNewFields({
     "regression-adjustment"
   );
 
-  const {
-    datasources,
-    getDatasourceById,
-    getExperimentMetricById,
-  } = useDefinitions();
+  const { datasources, getDatasourceById } = useDefinitions();
 
   const datasource = form.watch("datasource")
     ? getDatasourceById(form.watch("datasource") ?? "")
@@ -158,7 +155,7 @@ export default function BanditRefNewFields({
         <>
           <div className="mb-4">
             <SelectField
-              label="Assign value based on attribute"
+              label="Assign Variation by Attribute"
               containerClassName="flex-1"
               options={attributeSchema
                 .filter((s) => !hasHashAttributes || s.hashAttribute)
@@ -266,31 +263,9 @@ export default function BanditRefNewFields({
               label="Data Source"
               labelClassName="font-weight-bold"
               value={form.watch("datasource") ?? ""}
-              onChange={(newDatasource) => {
-                form.setValue("datasource", newDatasource);
-
-                // If unsetting the datasource, leave all the other settings alone
-                // That way, it will be restored if the user switches back to the previous value
-                if (!newDatasource) {
-                  return;
-                }
-
-                const isValidMetric = (id: string) =>
-                  getExperimentMetricById(id)?.datasource === newDatasource;
-
-                // Filter the selected metrics to only valid ones
-                const goals = form.watch("goalMetrics") ?? [];
-                form.setValue("goalMetrics", goals.filter(isValidMetric));
-
-                const secondaryMetrics = form.watch("secondaryMetrics") ?? [];
-                form.setValue(
-                  "secondaryMetrics",
-                  secondaryMetrics.filter(isValidMetric)
-                );
-
-                // const guardrails = form.watch("guardrailMetrics") ?? [];
-                // form.setValue("guardrailMetrics", guardrails.filter(isValidMetric));
-              }}
+              onChange={(newDatasource) =>
+                form.setValue("datasource", newDatasource)
+              }
               options={datasources.map((d) => {
                 const isDefaultDataSource = d.id === settings.defaultDataSource;
                 return {
@@ -378,16 +353,18 @@ export default function BanditRefNewFields({
             collapseGuardrail={true}
           />
 
+          <hr className="mt-4" />
+
           <Collapsible
             trigger={
               <div className="link-purple font-weight-bold mt-4 mb-2">
-                <FaAngleRight className="chevron mr-1" />
+                <PiCaretRightFill className="chevron mr-1" />
                 Advanced Settings
               </div>
             }
             transitionTime={100}
           >
-            <div className="box pt-3 px-3 mt-1">
+            <div className="rounded px-3 pt-3 pb-1 bg-highlight">
               <StatsEngineSelect
                 className="mb-4"
                 label={

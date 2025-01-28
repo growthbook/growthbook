@@ -1,5 +1,13 @@
 import { includeExperimentInPayload, getSnapshotAnalysis } from "shared/util";
 import { getMetricResultStatus } from "shared/experiments";
+import { getMultipleExposureHealthData, getSRMHealthData } from "shared/health";
+import {
+  DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_COUNT,
+  DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
+  DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
+  DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+  DEFAULT_SRM_THRESHOLD,
+} from "shared/constants";
 import { StatsEngine } from "back-end/types/stats";
 import { Context } from "back-end/src/models/BaseModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
@@ -121,8 +129,6 @@ export const notifyAutoUpdate = ({
       }),
   });
 
-export const MINIMUM_MULTIPLE_EXPOSURES_PERCENT = 0.01;
-
 export const notifyMultipleExposures = async ({
   context,
   experiment,
@@ -134,16 +140,21 @@ export const notifyMultipleExposures = async ({
   results: ExperimentReportResultDimension;
   snapshot: ExperimentSnapshotDocument;
 }) => {
-  const totalsUsers = results.variations.reduce(
+  const totalUsers = results.variations.reduce(
     (totalUsersCount, { users }) => totalUsersCount + users,
     0
   );
-  const percent = snapshot.multipleExposures / totalsUsers;
-  const multipleExposureMinPercent =
-    context.org.settings?.multipleExposureMinPercent ??
-    MINIMUM_MULTIPLE_EXPOSURES_PERCENT;
 
-  const triggered = multipleExposureMinPercent < percent;
+  const multipleExposureHealth = getMultipleExposureHealthData({
+    multipleExposuresCount: snapshot.multipleExposures,
+    totalUsersCount: totalUsers,
+    minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_COUNT,
+    minPercentThreshold:
+      context.org.settings?.multipleExposureMinPercent ??
+      DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
+  });
+
+  const triggered = multipleExposureHealth.status === "unhealthy";
 
   await memoizeNotification({
     context,
@@ -163,15 +174,13 @@ export const notifyMultipleExposures = async ({
             experimentId: experiment.id,
             experimentName: experiment.name,
             usersCount: snapshot.multipleExposures,
-            percent,
+            percent: multipleExposureHealth.rawDecimal,
           },
         },
       });
     },
   });
 };
-
-export const DEFAULT_SRM_THRESHOLD = 0.001;
 
 export const notifySrm = async ({
   context,
@@ -185,7 +194,23 @@ export const notifySrm = async ({
   const srmThreshold =
     context.org.settings?.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
-  const triggered = results.srm < srmThreshold;
+  const totalUsers = results.variations.reduce(
+    (totalUsersCount, { users }) => totalUsersCount + users,
+    0
+  );
+
+  const srmHealth = getSRMHealthData({
+    srm: results.srm,
+    srmThreshold,
+    totalUsersCount: totalUsers,
+    numOfVariations: experiment.variations.length,
+    minUsersPerVariation:
+      experiment.type === "multi-armed-bandit"
+        ? DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION
+        : DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+  });
+
+  const triggered = srmHealth === "unhealthy";
 
   await memoizeNotification({
     context,

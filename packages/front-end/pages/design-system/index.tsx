@@ -740,19 +740,32 @@ export default function DesignSystemPage() {
         <h3>ExperimentStatusIndicator</h3>
         <Flex gap="3">
           <ExperimentStatusIndicator
-            experimentData={{ archived: false, status: "draft" }}
+            experimentData={{
+              archived: false,
+              status: "draft",
+              variations: [],
+            }}
           />
           <ExperimentStatusIndicator
-            experimentData={{ archived: false, status: "running" }}
+            experimentData={{
+              archived: false,
+              status: "running",
+              variations: [],
+            }}
           />
           <ExperimentStatusIndicator
-            experimentData={{ archived: false, status: "stopped" }}
+            experimentData={{
+              archived: false,
+              status: "stopped",
+              variations: [],
+            }}
           />
           <ExperimentStatusIndicator
             experimentData={{
               archived: false,
               status: "stopped",
               results: "dnf",
+              variations: [],
             }}
           />
           <ExperimentStatusIndicator
@@ -760,6 +773,7 @@ export default function DesignSystemPage() {
               archived: false,
               status: "stopped",
               results: "inconclusive",
+              variations: [],
             }}
           />
           <ExperimentStatusIndicator
@@ -767,6 +781,7 @@ export default function DesignSystemPage() {
               archived: false,
               status: "stopped",
               results: "won",
+              variations: [],
             }}
           />
           <ExperimentStatusIndicator
@@ -774,10 +789,15 @@ export default function DesignSystemPage() {
               archived: false,
               status: "stopped",
               results: "lost",
+              variations: [],
             }}
           />
           <ExperimentStatusIndicator
-            experimentData={{ archived: true, status: "running" }}
+            experimentData={{
+              archived: true,
+              status: "running",
+              variations: [],
+            }}
           />
         </Flex>
       </div>
