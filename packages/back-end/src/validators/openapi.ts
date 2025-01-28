@@ -66,7 +66,7 @@ export const apiFactMetricValidator = z.object({ "id": z.string(), "name": z.str
 
 export const apiMemberValidator = z.object({ "id": z.string(), "name": z.string().optional(), "email": z.string(), "globalRole": z.string(), "environments": z.array(z.string()).optional(), "limitAccessByEnvironment": z.boolean().optional(), "managedbyIdp": z.boolean().optional(), "teams": z.array(z.string()).optional(), "projectRoles": z.array(z.object({ "project": z.string(), "role": z.string(), "limitAccessByEnvironment": z.boolean(), "environments": z.array(z.string()) })).optional(), "lastLoginDate": z.string().optional(), "dateCreated": z.string().optional(), "dateUpdated": z.string().optional() }).strict()
 
-export const apiArchetypeValidator = z.object({ "id": z.string(), "dateCreated": z.string(), "dateUpdated": z.string(), "name": z.string(), "description": z.string().optional(), "owner": z.string(), "isPublic": z.boolean(), "attributes": z.string().describe("A valid JSON string of the attributes for this Archetype"), "projects": z.array(z.string()).optional() }).strict()
+export const apiArchetypeValidator = z.object({ "id": z.string(), "dateCreated": z.string(), "dateUpdated": z.string(), "name": z.string(), "description": z.string().optional(), "owner": z.string(), "isPublic": z.boolean(), "attributes": z.record(z.any()).describe("The attributes to set when using this Archetype"), "projects": z.array(z.string()).optional() }).strict()
 
 export const listFeaturesValidator = {
   bodySchema: z.never(),
@@ -393,7 +393,7 @@ export const listArchetypesValidator = {
 };
 
 export const postArchetypeValidator = {
-  bodySchema: z.object({ "name": z.string(), "description": z.string().optional(), "isPublic": z.boolean().describe("Whether to make this Archetype available to other team members"), "attributes": z.string().describe("A valid JSON string of the attributes for this Archetype").optional(), "projects": z.array(z.string()).optional() }).strict(),
+  bodySchema: z.object({ "name": z.string(), "description": z.string().optional(), "isPublic": z.boolean().describe("Whether to make this Archetype available to other team members"), "attributes": z.record(z.any()).describe("The attributes to set when using this Archetype").optional(), "projects": z.array(z.string()).optional() }).strict(),
   querySchema: z.never(),
   paramsSchema: z.never(),
 };
@@ -405,7 +405,7 @@ export const getArchetypeValidator = {
 };
 
 export const putArchetypeValidator = {
-  bodySchema: z.object({ "name": z.string().optional(), "description": z.string().optional(), "isPublic": z.boolean().describe("Whether to make this Archetype available to other team members").optional(), "attributes": z.string().describe("A valid JSON string of the attributes for this Archetype").optional(), "projects": z.array(z.string()).optional() }).strict(),
+  bodySchema: z.object({ "name": z.string().optional(), "description": z.string().optional(), "isPublic": z.boolean().describe("Whether to make this Archetype available to other team members").optional(), "attributes": z.record(z.any()).describe("The attributes to set when using this Archetype").optional(), "projects": z.array(z.string()).optional() }).strict(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };

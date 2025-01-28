@@ -6,13 +6,14 @@ export async function validatePayload(
     name,
     isPublic,
     description = "",
-    attributes = "{}",
+    attributes,
     projects = [],
   }: {
     name: string;
     isPublic: boolean;
     description?: string;
-    attributes?: string;
+    // eslint-disable-next-line
+    attributes?: Record<string, any> | string; // Attributes from the payload will be an object but from an existing model will be a string
     projects?: string[];
   }
 ) {
@@ -30,10 +31,8 @@ export async function validatePayload(
       );
   }
 
-  try {
-    JSON.parse(attributes);
-  } catch {
-    throw new Error("Attributes is not a valid JSON string");
+  if (typeof attributes !== "string") {
+    attributes = JSON.stringify(attributes || {});
   }
 
   return {

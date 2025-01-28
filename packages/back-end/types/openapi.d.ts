@@ -1544,8 +1544,8 @@ export interface components {
       description?: string;
       owner: string;
       isPublic: boolean;
-      /** @description A valid JSON string of the attributes for this Archetype */
-      attributes: string;
+      /** @description The attributes to set when using this Archetype */
+      attributes: any;
       projects?: (string)[];
     };
   };
@@ -6005,8 +6005,8 @@ export interface operations {
                 description?: string;
                 owner: string;
                 isPublic: boolean;
-                /** @description A valid JSON string of the attributes for this Archetype */
-                attributes: string;
+                /** @description The attributes to set when using this Archetype */
+                attributes: any;
                 projects?: (string)[];
               })[];
           };
@@ -6023,8 +6023,8 @@ export interface operations {
           description?: string;
           /** @description Whether to make this Archetype available to other team members */
           isPublic: boolean;
-          /** @description A valid JSON string of the attributes for this Archetype */
-          attributes?: string;
+          /** @description The attributes to set when using this Archetype */
+          attributes?: any;
           projects?: (string)[];
         };
       };
@@ -6041,8 +6041,8 @@ export interface operations {
               description?: string;
               owner: string;
               isPublic: boolean;
-              /** @description A valid JSON string of the attributes for this Archetype */
-              attributes: string;
+              /** @description The attributes to set when using this Archetype */
+              attributes: any;
               projects?: (string)[];
             };
           };
@@ -6070,8 +6070,8 @@ export interface operations {
               description?: string;
               owner: string;
               isPublic: boolean;
-              /** @description A valid JSON string of the attributes for this Archetype */
-              attributes: string;
+              /** @description The attributes to set when using this Archetype */
+              attributes: any;
               projects?: (string)[];
             };
           };
@@ -6094,8 +6094,8 @@ export interface operations {
           description?: string;
           /** @description Whether to make this Archetype available to other team members */
           isPublic?: boolean;
-          /** @description A valid JSON string of the attributes for this Archetype */
-          attributes?: string;
+          /** @description The attributes to set when using this Archetype */
+          attributes?: any;
           projects?: (string)[];
         };
       };
@@ -6112,8 +6112,8 @@ export interface operations {
               description?: string;
               owner: string;
               isPublic: boolean;
-              /** @description A valid JSON string of the attributes for this Archetype */
-              attributes: string;
+              /** @description The attributes to set when using this Archetype */
+              attributes: any;
               projects?: (string)[];
             };
           };

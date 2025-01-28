@@ -23,8 +23,8 @@ properties:
   isPublic:
     type: boolean
   attributes:
-    type: string
-    description: A valid JSON string of the attributes for this Archetype
+    type: object
+    description: The attributes to set when using this Archetype
   projects:
     type: array
     items:

@@ -3,6 +3,7 @@ import uniqid from "uniqid";
 import { omit } from "lodash";
 import { ArchetypeInterface } from "back-end/types/archetype";
 import { ApiArchetype } from "back-end/types/openapi";
+import { logger } from "back-end/src/util/logger";
 
 const archetypeSchema = new mongoose.Schema({
   id: {
@@ -140,6 +141,14 @@ export async function deleteArchetypeById(id: string, organization: string) {
 export function toArchetypeApiInterface(
   archetype: ArchetypeInterface
 ): ApiArchetype {
+  let parsedAttributes = {};
+  try {
+    parsedAttributes = JSON.parse(archetype.attributes);
+  } catch {
+    logger.error("Failed to parse archetype attributes json", {
+      archetypeId: archetype.id,
+    });
+  }
   return {
     id: archetype.id,
     dateCreated: archetype.dateCreated?.toISOString() || "",
@@ -148,7 +157,7 @@ export function toArchetypeApiInterface(
     description: archetype.description,
     owner: archetype.owner || "",
     isPublic: archetype.isPublic,
-    attributes: archetype.attributes,
+    attributes: parsedAttributes,
     projects: archetype.projects || [],
   };
 }
