@@ -1,5 +1,4 @@
 import { useFeature } from "@growthbook/growthbook-react";
-import { getValidDate } from "shared/dates";
 import { useUser } from "@/services/UserContext";
 
 export default function useStripeSubscription() {
@@ -8,15 +7,13 @@ export default function useStripeSubscription() {
     "self-serve-billing-overage-warning-banner"
   ).on;
 
-  const { organization, license, quote } = useUser();
+  const { organization, license } = useUser();
 
   //TODO: Remove this once we have moved the license off the organization
   const stripeSubscription =
     license?._stripeSubscription || organization?.subscription;
 
   const freeSeats = organization?.freeSeats || 3;
-
-  const activeAndInvitedUsers = quote?.activeAndInvitedUsers || 0;
 
   const subscriptionStatus = stripeSubscription?.status;
 
@@ -46,12 +43,6 @@ export default function useStripeSubscription() {
   const disableSelfServeBilling =
     organization?.disableSelfServeBilling || false;
 
-  // eslint-disable-next-line
-  let trialEnd = (stripeSubscription?.trialEnd || null) as any;
-  if (typeof trialEnd === "number") {
-    trialEnd = getValidDate(trialEnd * 1000);
-  }
-
   const canSubscribe = () => {
     if (disableSelfServeBilling) return false;
 
@@ -76,18 +67,12 @@ export default function useStripeSubscription() {
 
   return {
     freeSeats,
-    quote: quote,
     nextBillDate,
     dateToBeCanceled,
     cancelationDate,
-    subscriptionStatus,
     hasPaymentMethod,
     pendingCancelation,
-    activeAndInvitedUsers,
-    hasActiveSubscription,
-    trialEnd: trialEnd as null | Date,
     showSeatOverageBanner,
-    loading: !quote || !organization,
     canSubscribe: canSubscribe(),
   };
 }

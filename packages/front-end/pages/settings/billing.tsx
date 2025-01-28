@@ -1,6 +1,5 @@
 import { FC, useEffect, useState } from "react";
 import { LicenseInterface } from "enterprise";
-import LoadingOverlay from "@/components/LoadingOverlay";
 import SubscriptionInfo from "@/components/Settings/SubscriptionInfo";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
@@ -11,7 +10,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 const BillingPage: FC = () => {
   const [upgradeModal, setUpgradeModal] = useState(false);
 
-  const { canSubscribe, loading } = useStripeSubscription();
+  const { canSubscribe } = useStripeSubscription();
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -53,10 +52,6 @@ const BillingPage: FC = () => {
         </div>
       </div>
     );
-  }
-
-  if (loading) {
-    return <LoadingOverlay />;
   }
 
   if (!permissionsUtil.canManageBilling()) {

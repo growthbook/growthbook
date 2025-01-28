@@ -13,11 +13,10 @@ export default function AccountPlanNotices() {
   const [upgradeModal, setUpgradeModal] = useState(false);
   const permissionsUtil = usePermissionsUtil();
   const router = useRouter();
-  const { license, licenseError, subscription } = useUser();
+  const { license, licenseError, subscription, seatsInUse } = useUser();
   const {
     showSeatOverageBanner,
     canSubscribe,
-    activeAndInvitedUsers,
     freeSeats,
   } = useStripeSubscription();
 
@@ -70,11 +69,7 @@ export default function AccountPlanNotices() {
     }
 
     // Over the free tier
-    if (
-      showSeatOverageBanner &&
-      canSubscribe &&
-      activeAndInvitedUsers > freeSeats
-    ) {
+    if (showSeatOverageBanner && canSubscribe && seatsInUse > freeSeats) {
       return (
         <>
           {upgradeModal && (
@@ -336,17 +331,13 @@ export default function AccountPlanNotices() {
     }
 
     // More seats than the license allows for
-    if (
-      license.plan === "enterprise" &&
-      activeAndInvitedUsers > (license.seats || 0)
-    ) {
+    if (license.plan === "enterprise" && seatsInUse > (license.seats || 0)) {
       return (
         <Tooltip
           body={
             <>
               Your license is valid for <strong>{license.seats} seats</strong>,
-              but you are currently using{" "}
-              <strong>{activeAndInvitedUsers}</strong>. Contact
+              but you are currently using <strong>{seatsInUse}</strong>. Contact
               sales@growthbook.io to extend your quota.
             </>
           }

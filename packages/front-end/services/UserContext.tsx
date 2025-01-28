@@ -10,7 +10,6 @@ import {
   Role,
   ProjectScopedPermission,
   UserPermissions,
-  SubscriptionQuote,
   GetOrganizationResponse,
 } from "back-end/types/organization";
 import type {
@@ -115,7 +114,6 @@ export interface UserContextValue {
   hasCommercialFeature: (feature: CommercialFeature) => boolean;
   commercialFeatureLowestPlan?: Partial<Record<CommercialFeature, AccountPlan>>;
   permissionsUtil: Permissions;
-  quote: SubscriptionQuote | null;
   watching: {
     experiments: string[];
     features: string[];
@@ -161,7 +159,6 @@ export const UserContext = createContext<UserContextValue>({
     },
     projects: {},
   }),
-  quote: null,
   watching: {
     experiments: [],
     features: [],
@@ -414,24 +411,6 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     [users]
   );
 
-  // Get a quote for upgrading
-  const { data: quoteData, mutate: mutateQuote } = useApi<{
-    quote: SubscriptionQuote;
-  }>(`/subscription/quote`, {
-    shouldRun: () =>
-      !!currentOrg?.organization &&
-      isAuthenticated &&
-      !!orgId &&
-      permissionsUtil.canManageBilling(),
-    autoRevalidate: false,
-  });
-  const freeSeats = currentOrg?.organization?.freeSeats || 3;
-  useEffect(() => {
-    mutateQuote();
-  }, [freeSeats, mutateQuote]);
-
-  const quote = quoteData?.quote || null;
-
   const watching = useMemo(() => {
     return {
       experiments: currentOrg?.watching?.experiments || [],
@@ -475,7 +454,6 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         teams,
         error: error?.message || orgLoadingError?.message,
         hasCommercialFeature: (feature) => commercialFeatures.has(feature),
-        quote: quote,
         watching: watching,
       }}
     >

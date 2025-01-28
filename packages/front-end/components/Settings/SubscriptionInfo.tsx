@@ -2,7 +2,6 @@ import { useState } from "react";
 import { FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
 import { redirectWithTimeout, useAuth } from "@/services/auth";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
-import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/components/Button";
 import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
@@ -15,17 +14,12 @@ export default function SubscriptionInfo() {
     dateToBeCanceled,
     cancelationDate,
     pendingCancelation,
-    quote,
-    loading,
     canSubscribe,
-    activeAndInvitedUsers,
   } = useStripeSubscription();
 
-  const { subscription } = useUser();
+  const { subscription, seatsInUse } = useUser();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
-
-  if (loading) return <LoadingOverlay />;
 
   return (
     <>
@@ -46,7 +40,7 @@ export default function SubscriptionInfo() {
         )}
       </div>
       <div className="col-md-12 mb-3">
-        <strong>Number Of Seats:</strong> {quote?.activeAndInvitedUsers || 0}
+        <strong>Number Of Seats:</strong> {seatsInUse || 0}
       </div>
       {subscription?.status !== "canceled" && !pendingCancelation && (
         <div className="col-md-12 mb-3">
@@ -139,21 +133,6 @@ export default function SubscriptionInfo() {
           </div>
         )}
       </div>
-      {/* @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'. */}
-      {quote.currentSeatsPaidFor !== activeAndInvitedUsers && (
-        <div className="col-md-12 mb-3 alert alert-warning">
-          {`You have recently ${
-            // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
-            activeAndInvitedUsers - quote.currentSeatsPaidFor > 0
-              ? "added"
-              : "removed"
-          } ${Math.abs(
-            // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
-            activeAndInvitedUsers - quote.currentSeatsPaidFor
-          )} seats. `}
-          These changes will be applied to your subscription soon.
-        </div>
-      )}
     </>
   );
 }

@@ -9,23 +9,13 @@ import {
   postNewProTrialSubscriptionToLicenseServer,
   postNewSubscriptionSuccessToLicenseServer,
 } from "enterprise";
-import {
-  APP_ORIGIN,
-  STRIPE_PRICE,
-  STRIPE_WEBHOOK_SECRET,
-} from "back-end/src/util/secrets";
+import { APP_ORIGIN, STRIPE_WEBHOOK_SECRET } from "back-end/src/util/secrets";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getNumberOfUniqueMembersAndInvites,
   getContextFromReq,
 } from "back-end/src/services/organizations";
-import {
-  updateSubscriptionInDb,
-  stripe,
-  getCoupon,
-  getPrice,
-} from "back-end/src/services/stripe";
-import { SubscriptionQuote } from "back-end/types/organization";
+import { updateSubscriptionInDb, stripe } from "back-end/src/services/stripe";
 import { sendStripeTrialWillEndEmail } from "back-end/src/services/email";
 import { logger } from "back-end/src/util/logger";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
@@ -121,58 +111,6 @@ export const postNewProSubscription = withLicenseServerErrorHandling(
     res.status(200).json(result);
   }
 );
-
-export async function getSubscriptionQuote(req: AuthRequest, res: Response) {
-  const context = getContextFromReq(req);
-
-  if (!context.permissions.canManageBilling()) {
-    context.permissions.throwPermissionError();
-  }
-
-  const { org } = context;
-
-  let discountAmount, discountMessage, unitPrice, currentSeatsPaidFor;
-
-  //TODO: Remove once all orgs have moved license info off of the org
-  if (!org.licenseKey) {
-    const price = await getPrice(org.priceId || STRIPE_PRICE);
-    unitPrice = (price?.unit_amount || 2000) / 100;
-
-    const coupon = await getCoupon(org.discountCode);
-    discountAmount = (-1 * (coupon?.amount_off || 0)) / 100;
-    discountMessage = coupon?.name || "";
-    currentSeatsPaidFor = org.subscription?.qty || 0;
-  } else {
-    const license = await getLicense(org.licenseKey);
-
-    unitPrice = license?._stripeSubscription?.price || 20;
-    discountAmount = license?._stripeSubscription?.discountAmount || 0;
-    discountMessage = license?._stripeSubscription?.discountMessage || "";
-    currentSeatsPaidFor = license?._stripeSubscription?.qty || 0;
-  }
-
-  // TODO: handle pricing tiers
-  const additionalSeatPrice = unitPrice;
-  const activeAndInvitedUsers = getNumberOfUniqueMembersAndInvites(org);
-  const subtotal = activeAndInvitedUsers * unitPrice;
-  const total = Math.max(0, subtotal + discountAmount);
-
-  const quote: SubscriptionQuote = {
-    activeAndInvitedUsers,
-    currentSeatsPaidFor,
-    unitPrice,
-    discountAmount,
-    discountMessage,
-    subtotal,
-    total,
-    additionalSeatPrice,
-  };
-
-  return res.status(200).json({
-    status: 200,
-    quote,
-  });
-}
 
 export const postCreateBillingSession = withLicenseServerErrorHandling(
   async function (req: AuthRequest, res: Response) {

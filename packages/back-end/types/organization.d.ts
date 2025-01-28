@@ -227,17 +227,6 @@ export interface OrganizationSettings {
   requireExperimentTemplates?: boolean;
 }
 
-export interface SubscriptionQuote {
-  currentSeatsPaidFor: number;
-  activeAndInvitedUsers: number;
-  unitPrice: number;
-  discountAmount: number;
-  discountMessage: string;
-  subtotal: number;
-  total: number;
-  additionalSeatPrice: number;
-}
-
 export interface OrganizationConnections {
   slack?: SlackConnection;
   vercel?: VercelConnection;

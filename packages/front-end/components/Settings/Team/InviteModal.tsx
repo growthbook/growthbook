@@ -14,7 +14,6 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
 import RoleSelector from "./RoleSelector";
-import InviteModalSubscriptionInfo from "./InviteModalSubscriptionInfo";
 
 type InviteResult = {
   email: string;
@@ -48,13 +47,9 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
   );
   const [failedInvites, setFailedInvites] = useState<InviteResult[]>([]);
   const { apiCall } = useAuth();
-  const {
-    freeSeats,
-    canSubscribe,
-    activeAndInvitedUsers,
-  } = useStripeSubscription();
+  const { freeSeats, canSubscribe } = useStripeSubscription();
   const [showUpgradeModal, setShowUpgradeModal] = useState(
-    isCloud() && canSubscribe && activeAndInvitedUsers >= freeSeats
+    isCloud() && canSubscribe && seatsInUse >= freeSeats
       ? "Whoops! You reached your free seat limit."
       : ""
   );
@@ -105,7 +100,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
     if (
       isCloud() &&
       canSubscribe &&
-      activeAndInvitedUsers + value.email.length > freeSeats
+      seatsInUse + value.email.length > freeSeats
     ) {
       setShowUpgradeModal("Whoops! You reached your free seat limit.");
       return;
@@ -265,7 +260,6 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
               setShowUpgradeModal("To enable advanced permissioning,")
             }
           />
-          <InviteModalSubscriptionInfo />
         </>
       )}
     </Modal>
