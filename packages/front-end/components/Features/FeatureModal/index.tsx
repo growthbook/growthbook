@@ -17,6 +17,7 @@ import {
   getDefaultValue,
   useEnvironments,
 } from "@/services/features";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { useWatching } from "@/services/WatchProvider";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
@@ -28,6 +29,8 @@ import {
 import { useUser } from "@/services/UserContext";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useProjectOptions from "@/hooks/useProjectOptions";
+import SelectField from "@/components/Forms/SelectField";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";
@@ -160,6 +163,15 @@ export default function FeatureModal({
   });
 
   const form = useForm({ defaultValues });
+
+  const projectOptions = useProjectOptions(
+    (project) =>
+      permissionsUtil.canCreateFeature({ project }) &&
+      permissionsUtil.canManageFeatureDrafts({ project }),
+    project ? [project] : []
+  );
+  const selectedProject = form.watch("project");
+  const { projectId: demoProjectId } = useDemoDataSourceProject();
 
   const customFields = filterCustomFieldsForSectionAndProject(
     useCustomFields(),
@@ -357,6 +369,30 @@ export default function FeatureModal({
           released to users.
         </div>
       )}
+      {selectedProject === demoProjectId && (
+        <div className="alert alert-warning">
+          You are creating a feature under the demo datasource project.
+        </div>
+      )}
+      <SelectField
+        label={
+          <>
+            {" "}
+            Projects{" "}
+            <Tooltip
+              body={
+                "The dropdown below has been filtered to only include projects where you have permission to update Features"
+              }
+            />{" "}
+          </>
+        }
+        value={selectedProject || ""}
+        onChange={(v) => {
+          form.setValue("project", v);
+        }}
+        initialOption="None"
+        options={projectOptions}
+      />
     </Modal>
   );
 }
