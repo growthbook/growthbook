@@ -50,7 +50,7 @@ export function useSelectOptions(
     const clone = cloneDeep(options);
     if (sort) {
       clone.sort((a, b) => {
-        return a.label.localeCompare(b.label);
+        return a.label ? a.label.localeCompare(b.label) : 0;
       });
     }
     clone.forEach((o) => {
