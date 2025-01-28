@@ -400,14 +400,14 @@ const GeneralSettingsPage = (): React.ReactElement => {
             </TabsContent>
 
             <TabsContent value="custom">
-              <div className="my-3 bg-white p-3 border">
-                <div className="row">
-                  <div className="col-sm-3 h4">
+              <Box className="appbox" p="5">
+                <Flex>
+                  <Box width="300px">
                     <PremiumTooltip commercialFeature="custom-markdown">
                       Custom Markdown
                     </PremiumTooltip>
-                  </div>
-                  <div className="col-sm-9">
+                  </Box>
+                  <Box>
                     {hasCommercialFeature("custom-markdown") ? (
                       <Link href="/settings/custom-markdown">
                         View Custom Markdown Settings
@@ -417,9 +417,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
                         View Custom Markdown Settings
                       </span>
                     )}
-                  </div>
-                </div>
-              </div>
+                  </Box>
+                </Flex>
+              </Box>
             </TabsContent>
           </Box>
         </Tabs>
