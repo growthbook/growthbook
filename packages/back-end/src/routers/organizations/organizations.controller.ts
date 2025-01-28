@@ -8,7 +8,9 @@ import {
   getLicense,
   getLicenseError,
   getLowestPlanPerFeature,
+  getSubscriptionFromLicense,
   licenseInit,
+  LicenseInterface,
 } from "enterprise";
 import { experimentHasLinkedChanges } from "shared/util";
 import {
@@ -54,6 +56,7 @@ import {
 import { updatePassword } from "back-end/src/services/users";
 import { getAllTags } from "back-end/src/models/TagModel";
 import {
+  GetOrganizationResponse,
   Invite,
   MemberRoleWithProjects,
   NamespaceUsage,
@@ -653,7 +656,10 @@ export async function putInviteRole(
   }
 }
 
-export async function getOrganization(req: AuthRequest, res: Response) {
+export async function getOrganization(
+  req: AuthRequest,
+  res: Response<GetOrganizationResponse | { status: 200; organization: null }>
+) {
   if (!req.organization) {
     return res.status(200).json({
       status: 200,
@@ -671,7 +677,6 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     url,
     subscription,
     freeSeats,
-    connections,
     settings,
     disableSelfServeBilling,
     licenseKey,
@@ -680,17 +685,15 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     setupEventTracker,
   } = org;
 
-  let license;
+  let license: Partial<LicenseInterface> | null = null;
   if (licenseKey || process.env.LICENSE_KEY) {
     // automatically set the license data based on org license key
     license = getLicense(licenseKey || process.env.LICENSE_KEY);
     if (!license || (license.organizationId && license.organizationId !== id)) {
       try {
-        license = await licenseInit(
-          org,
-          getUserCodesForOrg,
-          getLicenseMetaData
-        );
+        license =
+          (await licenseInit(org, getUserCodesForOrg, getLicenseMetaData)) ||
+          null;
       } catch (e) {
         // eslint-disable-next-line no-console
         console.error("setting license failed", e);
@@ -758,12 +761,13 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     currentUserPermissions,
     teams: teamsWithMembers,
     license,
+    subscription: license ? getSubscriptionFromLicense(license) : null,
     watching: {
       experiments: watch?.experiments || [],
       features: watch?.features || [],
     },
     organization: {
-      invites: filteredInvites,
+      invites: filteredInvites as Invite[],
       ownerEmail,
       externalId,
       name,
@@ -775,7 +779,6 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       disableSelfServeBilling,
       freeTrialDate: org.freeTrialDate,
       discountCode: org.discountCode || "",
-      slackTeam: connections?.slack?.team,
       customRoles: org.customRoles,
       deactivatedRoles: org.deactivatedRoles,
       settings: {

@@ -12,7 +12,7 @@ export default function useStripeSubscription() {
 
   //TODO: Remove this once we have moved the license off the organization
   const stripeSubscription =
-    license?.stripeSubscription || organization?.subscription;
+    license?._stripeSubscription || organization?.subscription;
 
   const freeSeats = organization?.freeSeats || 3;
 
@@ -63,7 +63,7 @@ export default function useStripeSubscription() {
     if (
       license &&
       ["pro", "pro_sso"].includes(license.plan || "") &&
-      !license.stripeSubscription
+      !license._stripeSubscription
     )
       return false;
 

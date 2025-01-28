@@ -75,6 +75,47 @@ export type CommercialFeature =
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
+export type SubscriptionInfo = {
+  billingPlatform: "stripe" | "orb";
+  externalId: string;
+  trialEnd: Date | null;
+  status: "active" | "canceled" | "past_due" | "trialing" | "";
+  hasPaymentMethod: boolean;
+};
+
+function getStripeSubscriptionStatus(
+  status: Stripe.Subscription.Status
+): SubscriptionInfo["status"] {
+  if (status === "past_due") return "past_due";
+  if (status === "canceled") return "canceled";
+  if (status === "active") return "active";
+  if (status === "trialing") return "trialing";
+  return "";
+}
+
+export function getSubscriptionFromLicense(
+  license: Partial<LicenseInterface>
+): SubscriptionInfo | null {
+  if (license._billingPlatform === "orb" && license._orbSubscription) {
+    return {
+      billingPlatform: "orb",
+      externalId: license._orbSubscription.id,
+      trialEnd: license._orbSubscription.trialEnd,
+      status: license._orbSubscription.status,
+      hasPaymentMethod: license._orbSubscription.hasPaymentMethod,
+    };
+  } else if (license._stripeSubscription) {
+    return {
+      billingPlatform: "stripe",
+      externalId: license._stripeSubscription.id,
+      trialEnd: license._stripeSubscription.trialEnd,
+      status: getStripeSubscriptionStatus(license._stripeSubscription.status),
+      hasPaymentMethod: !!license._stripeSubscription.hasPaymentMethod,
+    };
+  }
+  return null;
+}
+
 export interface LicenseInterface {
   id: string; // Unique ID for the license key
   companyName: string; // Name of the organization on the license
@@ -96,7 +137,8 @@ export interface LicenseInterface {
     tooltipText: string; // The text to show in the tooltip
     showAllUsers: boolean; // True if all users should see the notice rather than just the admins
   };
-  stripeSubscription?: {
+  _billingPlatform: "stripe" | "orb" | "";
+  _stripeSubscription?: {
     id: string;
     qty: number;
     trialEnd: Date | null;
@@ -111,6 +153,12 @@ export interface LicenseInterface {
     discountAmount?: number; // The amount of the discount
     discountMessage?: string; // The message of the discount
     hasPaymentMethod?: boolean;
+  };
+  _orbSubscription?: {
+    id: string;
+    trialEnd: Date | null;
+    status: SubscriptionInfo["status"];
+    hasPaymentMethod: boolean;
   };
   freeTrialDate?: Date; // Date the free trial was started
   installationUsers: {
@@ -286,7 +334,7 @@ export function getLowestPlanPerFeature(
 }
 
 export function isActiveSubscriptionStatus(
-  status?: Stripe.Subscription.Status
+  status?: Stripe.Subscription.Status | SubscriptionInfo["status"]
 ) {
   return ["active", "trialing", "past_due"].includes(status || "");
 }
@@ -1042,9 +1090,10 @@ function shouldLimitAccessDueToExpiredLicense(
 
   // Limit access if it is a pro or pro_sso license and it has been canceled regardless of the dateExpires.
   // (If a payment failed stripe will cancel the subscription but the dateExpires will still be in the future.)
+  const subscription = getSubscriptionFromLicense(licenseData);
   if (
     ["pro", "pro_sso"].includes(licenseData.plan || "") &&
-    licenseData.stripeSubscription?.status === "canceled"
+    subscription?.status === "canceled"
   ) {
     return true;
   }

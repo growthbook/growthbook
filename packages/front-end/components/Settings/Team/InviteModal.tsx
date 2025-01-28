@@ -63,7 +63,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
     ["pro", "pro_sso", "enterprise"].includes(effectiveAccountPlan || "") &&
       license &&
       license.hardCap &&
-      license.seats <= seatsInUse
+      (license.seats || 0) <= seatsInUse
   );
 
   // Hit their free limit and needs to upgrade to invite more team members
@@ -115,7 +115,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
       ["pro", "pro_sso", "enterprise"].includes(effectiveAccountPlan || "") &&
       license &&
       license.hardCap &&
-      license.seats < seatsInUse + value.email.length
+      (license.seats || 0) < seatsInUse + value.email.length
     ) {
       setShowContactSupport(true);
       return;

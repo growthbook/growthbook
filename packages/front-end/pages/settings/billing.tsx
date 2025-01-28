@@ -11,11 +11,11 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 const BillingPage: FC = () => {
   const [upgradeModal, setUpgradeModal] = useState(false);
 
-  const { canSubscribe, subscriptionStatus, loading } = useStripeSubscription();
+  const { canSubscribe, loading } = useStripeSubscription();
 
   const permissionsUtil = usePermissionsUtil();
 
-  const { accountPlan } = useUser();
+  const { accountPlan, subscription } = useUser();
 
   const { apiCall } = useAuth();
   const { refreshOrganization } = useUser();
@@ -81,7 +81,7 @@ const BillingPage: FC = () => {
 
       <h1>Billing Settings</h1>
       <div className=" bg-white p-3 border">
-        {subscriptionStatus ? (
+        {subscription?.status ? (
           <SubscriptionInfo />
         ) : canSubscribe ? (
           <div className="alert alert-warning mb-0">

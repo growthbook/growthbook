@@ -145,10 +145,10 @@ export async function getSubscriptionQuote(req: AuthRequest, res: Response) {
   } else {
     const license = await getLicense(org.licenseKey);
 
-    unitPrice = license?.stripeSubscription?.price || 20;
-    discountAmount = license?.stripeSubscription?.discountAmount || 0;
-    discountMessage = license?.stripeSubscription?.discountMessage || "";
-    currentSeatsPaidFor = license?.stripeSubscription?.qty || 0;
+    unitPrice = license?._stripeSubscription?.price || 20;
+    discountAmount = license?._stripeSubscription?.discountAmount || 0;
+    discountMessage = license?._stripeSubscription?.discountMessage || "";
+    currentSeatsPaidFor = license?._stripeSubscription?.qty || 0;
   }
 
   // TODO: handle pricing tiers

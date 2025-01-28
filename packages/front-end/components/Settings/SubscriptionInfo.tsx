@@ -5,6 +5,7 @@ import useStripeSubscription from "@/hooks/useStripeSubscription";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/components/Button";
 import { isCloud } from "@/services/env";
+import { useUser } from "@/services/UserContext";
 import UpgradeModal from "./UpgradeModal";
 
 export default function SubscriptionInfo() {
@@ -13,14 +14,14 @@ export default function SubscriptionInfo() {
     nextBillDate,
     dateToBeCanceled,
     cancelationDate,
-    subscriptionStatus,
-    hasPaymentMethod,
     pendingCancelation,
     quote,
     loading,
     canSubscribe,
     activeAndInvitedUsers,
   } = useStripeSubscription();
+
+  const { subscription } = useUser();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
 
@@ -37,7 +38,7 @@ export default function SubscriptionInfo() {
       )}
       <div className="col-auto mb-3">
         <strong>Current Plan:</strong> {isCloud() ? "Cloud" : "Self-Hosted"} Pro
-        {subscriptionStatus === "trialing" && (
+        {subscription?.status === "trialing" && (
           <>
             {" "}
             <em>(trial)</em>
@@ -47,13 +48,13 @@ export default function SubscriptionInfo() {
       <div className="col-md-12 mb-3">
         <strong>Number Of Seats:</strong> {quote?.activeAndInvitedUsers || 0}
       </div>
-      {subscriptionStatus !== "canceled" && !pendingCancelation && (
+      {subscription?.status !== "canceled" && !pendingCancelation && (
         <div className="col-md-12 mb-3">
           <div>
             <strong>Next Bill Date: </strong>
             {nextBillDate}
           </div>
-          {hasPaymentMethod === true ? (
+          {subscription?.hasPaymentMethod === true ? (
             <div
               className="mt-3 px-3 py-2 alert alert-success row"
               style={{ maxWidth: 650 }}
@@ -66,7 +67,7 @@ export default function SubscriptionInfo() {
                 automatically on this date.
               </div>
             </div>
-          ) : hasPaymentMethod === false ? (
+          ) : subscription?.hasPaymentMethod === false ? (
             <div
               className="mt-3 px-3 py-2 alert alert-warning row"
               style={{ maxWidth: 550 }}
@@ -96,7 +97,7 @@ export default function SubscriptionInfo() {
           {` ${dateToBeCanceled}.`}
         </div>
       )}
-      {subscriptionStatus === "canceled" && (
+      {subscription?.status === "canceled" && (
         <div className="col-md-12 mb-3 alert alert-danger">
           Your plan was canceled on {` ${cancelationDate}.`}
         </div>
@@ -119,12 +120,12 @@ export default function SubscriptionInfo() {
               }
             }}
           >
-            {subscriptionStatus !== "canceled"
+            {subscription?.status !== "canceled"
               ? "View Plan Details"
               : "View Previous Invoices"}
           </Button>
         </div>
-        {subscriptionStatus === "canceled" && canSubscribe && (
+        {subscription?.status === "canceled" && canSubscribe && (
           <div className="col-auto">
             <button
               className="btn btn-success"

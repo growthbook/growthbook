@@ -11,11 +11,13 @@ import {
   ProjectScopedPermission,
   UserPermissions,
   SubscriptionQuote,
+  GetOrganizationResponse,
 } from "back-end/types/organization";
 import type {
   AccountPlan,
   CommercialFeature,
   LicenseInterface,
+  SubscriptionInfo,
 } from "enterprise";
 import { SSOConnectionInterface } from "back-end/types/sso-connection";
 import { useRouter } from "next/router";
@@ -46,28 +48,6 @@ import useApi from "@/hooks/useApi";
 import { useAuth, UserOrganizations } from "@/services/auth";
 import { getJitsuClient, trackPageView } from "@/services/track";
 import { growthbook } from "@/services/utils";
-
-type OrgSettingsResponse = {
-  organization: OrganizationInterface;
-  members: ExpandedMember[];
-  seatsInUse: number;
-  roles: Role[];
-  apiKeys: ApiKeyInterface[];
-  enterpriseSSO: SSOConnectionInterface | null;
-  accountPlan: AccountPlan;
-  effectiveAccountPlan: AccountPlan;
-  commercialFeatureLowestPlan?: Partial<Record<CommercialFeature, AccountPlan>>;
-  licenseError: string;
-  commercialFeatures: CommercialFeature[];
-  license: LicenseInterface;
-  licenseKey?: string;
-  currentUserPermissions: UserPermissions;
-  teams: TeamInterface[];
-  watching: {
-    experiments: string[];
-    features: string[];
-  };
-};
 
 export interface PermissionFunctions {
   check(permission: GlobalPermission): boolean;
@@ -112,7 +92,8 @@ export interface UserContextValue {
   name?: string;
   email?: string;
   superAdmin?: boolean;
-  license?: LicenseInterface;
+  license?: Partial<LicenseInterface> | null;
+  subscription: SubscriptionInfo | null;
   user?: ExpandedMember;
   users: Map<string, ExpandedMember>;
   getUserDisplay: (id: string, fallback?: boolean) => string;
@@ -120,7 +101,7 @@ export interface UserContextValue {
   refreshOrganization: () => Promise<void>;
   permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
   settings: OrganizationSettings;
-  enterpriseSSO?: SSOConnectionInterface;
+  enterpriseSSO?: Partial<SSOConnectionInterface> | null;
   accountPlan?: AccountPlan;
   effectiveAccountPlan?: AccountPlan;
   licenseError: string;
@@ -167,6 +148,7 @@ export const UserContext = createContext<UserContextValue>({
   },
   apiKeys: [],
   organization: {},
+  subscription: null,
   licenseError: "",
   seatsInUse: 0,
   teams: [],
@@ -219,7 +201,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     data: currentOrg,
     mutate: refreshOrganization,
     error: orgLoadingError,
-  } = useApi<OrgSettingsResponse>(`/organization`, {
+  } = useApi<GetOrganizationResponse>(`/organization`, {
     shouldRun: () => !!orgId,
   });
 
@@ -480,6 +462,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         permissionsUtil,
         settings: currentOrg?.organization?.settings || {},
         license: currentOrg?.license,
+        subscription: currentOrg?.subscription || null,
         enterpriseSSO: currentOrg?.enterpriseSSO || undefined,
         accountPlan: currentOrg?.accountPlan,
         effectiveAccountPlan: currentOrg?.effectiveAccountPlan,
