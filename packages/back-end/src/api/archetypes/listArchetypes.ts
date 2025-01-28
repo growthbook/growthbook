@@ -12,9 +12,9 @@ export const listArchetypes = createApiRequestHandler(listArchetypesValidator)(
       req.context.org.id,
       req.context.userId
     );
-    const filteredArchetypes = archetypes.filter((archetype) => {
-      req.context.permissions.canReadMultiProjectResource(archetype.projects);
-    });
+    const filteredArchetypes = archetypes.filter((archetype) =>
+      req.context.permissions.canReadMultiProjectResource(archetype.projects)
+    );
 
     return {
       archetypes: filteredArchetypes.map((archetype) =>
