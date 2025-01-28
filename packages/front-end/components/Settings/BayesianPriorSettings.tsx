@@ -1,9 +1,10 @@
 import { useFormContext } from "react-hook-form";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { MetricDefaults } from "back-end/types/organization";
-import { Box, Flex, Switch } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { hasFileConfig } from "@/services/env";
 import Field from "@/components/Forms/Field";
+import Checkbox from "@/components/Radix/Checkbox";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -35,11 +36,10 @@ export default function BayesianPriorSettings({
       <div className="appbox py-2 px-3">
         <div className="w-100 mt-2">
           <Flex gap="3">
-            <Switch
-              id="toggle-properPrior"
+            <Checkbox
               disabled={hasFileConfig()}
-              checked={form.watch("metricDefaults.priorSettings.proper")}
-              onCheckedChange={(v) =>
+              value={form.watch("metricDefaults.priorSettings.proper")}
+              setValue={(v) =>
                 form.setValue("metricDefaults.priorSettings.proper", v)
               }
             />

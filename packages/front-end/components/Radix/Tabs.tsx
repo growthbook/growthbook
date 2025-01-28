@@ -1,7 +1,8 @@
 import clsx from "clsx";
-import { forwardRef } from "react";
-import { Tabs as RadixTabs } from "@radix-ui/themes";
+import { forwardRef, useEffect, useRef, useState } from "react";
+import { Box, Tabs as RadixTabs } from "@radix-ui/themes";
 import useURLHash from "@/hooks/useURLHash";
+import { useScrollPosition } from "@/hooks/useScrollPosition";
 
 /**
  * See more examples in design-system/index.tsx
@@ -96,6 +97,34 @@ export const TabsList = forwardRef<HTMLDivElement, TabsListProps>(
       >
         {children}
       </RadixTabs.List>
+    );
+  }
+);
+
+type StickyTabsListProps = { pinnedClass?: string } & TabsListProps;
+
+export const StickyTabsList = forwardRef<HTMLDivElement, StickyTabsListProps>(
+  function StickyTabsList({ pinnedClass = "pinned", ...props }, ref) {
+    // NB: Keep in sync with .experiment-tabs top property in global.scss
+    const TABS_HEADER_HEIGHT_PX = 55;
+    const tabsRef = useRef<HTMLDivElement>(null);
+    const [headerPinned, setHeaderPinned] = useState(false);
+    const { scrollY } = useScrollPosition();
+    useEffect(() => {
+      if (!tabsRef.current) return;
+      const isHeaderSticky =
+        tabsRef.current.getBoundingClientRect().top <= TABS_HEADER_HEIGHT_PX;
+      setHeaderPinned(isHeaderSticky);
+    }, [scrollY]);
+
+    return (
+      <Box
+        className={`${headerPinned ? pinnedClass || "" : ""} tabwrap sticky`}
+        ref={tabsRef}
+        style={{ top: TABS_HEADER_HEIGHT_PX + "px" }}
+      >
+        <TabsList {...props} ref={ref} />
+      </Box>
     );
   }
 );

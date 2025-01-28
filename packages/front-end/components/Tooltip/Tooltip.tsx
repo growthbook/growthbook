@@ -9,6 +9,7 @@ import {
 import { MdInfoOutline } from "react-icons/md";
 import { usePopper } from "react-popper";
 import clsx from "clsx";
+import { Box } from "@radix-ui/themes";
 import Portal from "@/components/Modal/Portal";
 import track from "@/services/track";
 
@@ -98,7 +99,7 @@ const Tooltip: FC<Props> = ({
   const popper = (
     <>
       {open && body && shouldDisplay && (
-        <div
+        <Box
           // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Dispatch<SetStateAction<null>>' is not assig... Remove this comment to see the full error message
           ref={setTooltip}
           style={{
@@ -106,6 +107,7 @@ const Tooltip: FC<Props> = ({
             minWidth: tipMinWidth,
             maxWidth: 400,
             zIndex: 10000,
+            backgroundColor: "var(--slate-1)",
             ...popperStyle,
           }}
           {...attributes.popper}
@@ -115,7 +117,7 @@ const Tooltip: FC<Props> = ({
           <div className={`body ${innerClassName}`}>{body}</div>
           {/* @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Dispatch<SetStateAction<null>>' is not assig... Remove this comment to see the full error message */}
           <div ref={setArrow} style={styles.arrow} className="arrow" />
-        </div>
+        </Box>
       )}
     </>
   );

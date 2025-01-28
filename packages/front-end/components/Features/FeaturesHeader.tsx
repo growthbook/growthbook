@@ -409,7 +409,7 @@ export default function FeaturesHeader({
           <Tabs value={tab} onValueChange={setTab}>
             <TabsList size="3">
               <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="test">Test</TabsTrigger>
+              <TabsTrigger value="test">Simulate</TabsTrigger>
               <TabsTrigger value="stats">Code Refs</TabsTrigger>
             </TabsList>
           </Tabs>

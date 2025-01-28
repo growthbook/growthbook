@@ -622,7 +622,22 @@ pre {
     }
   }
 }
+.tabwrap.sticky {
+  position: sticky;
+  z-index: 830;
 
+  &.pinned {
+    background-color: var(--color-surface-solid);
+    // ensure no shadow bleeds above component, otherwise noticeable when scrolling quickly
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), 0 4px 4px rgba(0, 0, 0, 0.025);
+    .header-tabs .tab-wrapper {
+      overflow: hidden;
+    }
+    .rt-BaseTabList {
+      box-shadow: none !important;
+    }
+  }
+}
 .analysis-settings-bar {
   .col,
   .col-auto {

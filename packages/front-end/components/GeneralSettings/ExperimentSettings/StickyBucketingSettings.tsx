@@ -1,6 +1,7 @@
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
-import { Box, Flex, Heading, Switch, Text } from "@radix-ui/themes";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { MdInfoOutline } from "react-icons/md";
+import React from "react";
 import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -11,6 +12,7 @@ import {
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { ConnectSettingsForm } from "@/pages/settings";
 import Callout from "@/components/Radix/Callout";
+import Checkbox from "@/components/Radix/Checkbox";
 
 export default function StickyBucketingSettings() {
   const { hasCommercialFeature } = useUser();
@@ -28,20 +30,20 @@ export default function StickyBucketingSettings() {
           </Heading>
 
           <Flex align="start" gap="3">
-            <Switch
-              checked={watch("useStickyBucketing")}
-              id="toggle-useStickyBucketing"
-              onCheckedChange={(v) =>
-                setValue(
-                  "useStickyBucketing",
-                  hasCommercialFeature("sticky-bucketing") ? v : false
-                )
-              }
+            <Checkbox
               disabled={
                 !watch("useStickyBucketing") &&
                 (!hasCommercialFeature("sticky-bucketing") ||
                   !hasSDKWithStickyBucketing)
               }
+              value={watch("useStickyBucketing")}
+              setValue={(v) =>
+                setValue(
+                  "useStickyBucketing",
+                  hasCommercialFeature("sticky-bucketing") ? v : false
+                )
+              }
+              id="toggle-useStickyBucketing"
             />
             <Box>
               <label
@@ -65,10 +67,10 @@ export default function StickyBucketingSettings() {
 
           {watch("useStickyBucketing") && (
             <Flex align="start" gap="3" mt="3">
-              <Switch
-                checked={watch("useFallbackAttributes")}
+              <Checkbox
+                value={watch("useFallbackAttributes")}
+                setValue={(v) => setValue("useFallbackAttributes", v)}
                 id="toggle-useFallbackAttributes"
-                onCheckedChange={(v) => setValue("useFallbackAttributes", v)}
               />
               <Box>
                 <label

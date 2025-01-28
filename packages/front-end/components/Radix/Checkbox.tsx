@@ -18,7 +18,8 @@ export function getRadixSize(size: Size): Responsive<"2" | "3"> {
 }
 
 export type Props = {
-  label: string | ReactElement;
+  label?: string | ReactElement;
+  id?: string;
   disabled?: boolean;
   disabledMessage?: string;
   value: boolean | "indeterminate";
@@ -27,12 +28,13 @@ export type Props = {
   errorLevel?: "error" | "warning";
   description?: string;
   weight?: "bold" | "regular";
-  setValue: (value: boolean | "indeterminate") => void;
+  setValue: (value: boolean) => void;
 } & MarginProps;
 
 export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
   {
     label,
+    id,
     disabled,
     disabledMessage,
     value,
@@ -75,10 +77,11 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
         <Flex gap="2">
           <RadixCheckbox
             checked={value}
-            onCheckedChange={(v) => setValue(v)}
+            onCheckedChange={(v) => setValue(!!v)}
             disabled={disabled}
             color={checkboxColor}
             size={getRadixSize(size)}
+            id={id}
           />
           <Flex direction="column" gap="1">
             <Text weight={weight}>{label}</Text>

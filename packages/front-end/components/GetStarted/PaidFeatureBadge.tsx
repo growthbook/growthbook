@@ -51,7 +51,11 @@ const PaidFeatureBadge = ({
       radius="full"
       ml="2"
       mr="2"
-      style={{ backgroundColor: "var(--accent-9)", color: "#fff" }}
+      style={{
+        backgroundColor: "var(--accent-9)",
+        color: "#fff",
+        cursor: "default",
+      }}
     />
   );
 

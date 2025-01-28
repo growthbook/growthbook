@@ -2,6 +2,7 @@ import { FaPencilAlt } from "react-icons/fa";
 import React, { useState } from "react";
 import { OrganizationInterface } from "back-end/types/organization";
 import { FaTriangleExclamation } from "react-icons/fa6";
+import { Box } from "@radix-ui/themes";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
 import { isCloud, isMultiOrg } from "@/services/env";
@@ -34,7 +35,7 @@ export default function OrganizationAndLicenseSettings({
           mutate={refreshOrg}
         />
       )}
-      <div className=" bg-white p-3 border">
+      <Box className="appbox" p="5">
         <div className="row mb-0">
           <div className="col-sm-3">
             <h4>Organization</h4>
@@ -104,7 +105,7 @@ export default function OrganizationAndLicenseSettings({
         {(isCloud() || !isMultiOrg()) && (
           <ShowLicenseInfo showInput={!isCloud()} />
         )}
-      </div>
+      </Box>
     </>
   );
 }

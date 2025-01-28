@@ -1,7 +1,8 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { MdInfoOutline } from "react-icons/md";
-import { Box, Flex, Heading, Switch, Text } from "@radix-ui/themes";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import Checkbox from "@/components/Radix/Checkbox";
 import { hasFileConfig } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import Button from "@/components/Radix/Button";
@@ -82,17 +83,17 @@ export default function ExperimentSettings({
             <Box mb="6">
               <Flex align="start" gap="3">
                 <Box>
-                  <Switch
-                    style={{ marginTop: "2px" }}
-                    id="toggle-requireExperimentTemplates"
-                    checked={
+                  <Checkbox
+                    disabled={!hasCommercialFeature("templates")}
+                    value={
                       hasCommercialFeature("templates") &&
                       form.watch("requireExperimentTemplates")
                     }
-                    onCheckedChange={(value) => {
-                      form.setValue("requireExperimentTemplates", value);
-                    }}
-                    disabled={!hasCommercialFeature("templates")}
+                    setValue={(v) =>
+                      form.setValue("requireExperimentTemplates", v)
+                    }
+                    id="toggle-requireExperimentTemplates"
+                    mt="1"
                   />
                 </Box>
                 <Flex direction="column">
@@ -139,13 +140,11 @@ export default function ExperimentSettings({
             <Box mb="6">
               <Flex align="start" justify="start" gap="3">
                 <Box>
-                  <Switch
-                    style={{ marginTop: "2px" }}
+                  <Checkbox
+                    value={form.watch("powerCalculatorEnabled")}
+                    setValue={(v) => form.setValue("powerCalculatorEnabled", v)}
                     id="toggle-powerCalculator"
-                    checked={form.watch("powerCalculatorEnabled")}
-                    onCheckedChange={(ns) =>
-                      form.setValue("powerCalculatorEnabled", ns)
-                    }
+                    mt="1"
                   />
                 </Box>
                 <Flex direction="column">
@@ -171,17 +170,17 @@ export default function ExperimentSettings({
             <Box mb="6">
               <Flex align="start" justify="start" gap="3">
                 <Box>
-                  <Switch
-                    style={{ marginTop: "2px" }}
-                    id="toggle-factoptimization"
-                    checked={
+                  <Checkbox
+                    disabled={!hasCommercialFeature("multi-metric-queries")}
+                    value={
                       hasCommercialFeature("multi-metric-queries") &&
                       !form.watch("disableMultiMetricQueries")
                     }
-                    onCheckedChange={(value) => {
-                      form.setValue("disableMultiMetricQueries", !value);
-                    }}
-                    disabled={!hasCommercialFeature("multi-metric-queries")}
+                    setValue={(v) =>
+                      form.setValue("disableMultiMetricQueries", !v)
+                    }
+                    id="toggle-factoptimization"
+                    mt="1"
                   />
                 </Box>
                 <Flex direction="column" justify="start">
@@ -353,11 +352,10 @@ export default function ExperimentSettings({
                 </Heading>
 
                 <Flex align="start" gap="3" mb="4">
-                  <Switch
-                    checked={form.watch("runHealthTrafficQuery")}
-                    onCheckedChange={(v) =>
-                      form.setValue("runHealthTrafficQuery", v)
-                    }
+                  <Checkbox
+                    value={form.watch("runHealthTrafficQuery")}
+                    setValue={(v) => form.setValue("runHealthTrafficQuery", v)}
+                    id="toggle-factoptimization"
                   />
                   <Box>
                     <label

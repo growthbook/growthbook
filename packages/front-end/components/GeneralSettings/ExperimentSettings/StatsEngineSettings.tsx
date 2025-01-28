@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useFormContext, UseFormReturn } from "react-hook-form";
 import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
@@ -6,7 +6,7 @@ import {
 } from "shared/constants";
 import { StatsEngine, PValueCorrection } from "back-end/types/stats";
 import { MetricDefaults } from "back-end/types/organization";
-import { Box, Flex, Heading, Switch, Text } from "@radix-ui/themes";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import {
   Tabs,
   TabsList,
@@ -19,6 +19,7 @@ import { useUser } from "@/services/UserContext";
 import { hasFileConfig } from "@/services/env";
 import Field from "@/components/Forms/Field";
 import Callout from "@/components/Radix/Callout";
+import Checkbox from "@/components/Radix/Checkbox";
 import FrequentistTab from "./FrequentistTab";
 import BayesianTab from "./BayesianTab";
 
@@ -132,12 +133,12 @@ export default function StatsEngineSettings() {
           </PremiumTooltip>
         </Heading>
         <Flex align="start" gap="3">
-          <Switch
-            checked={form.watch("regressionAdjustmentEnabled")}
+          <Checkbox
             id="toggle-regressionAdjustmentEnabled"
-            onCheckedChange={(v) =>
-              form.setValue("regressionAdjustmentEnabled", v)
-            }
+            value={form.watch("regressionAdjustmentEnabled")}
+            setValue={(v) => {
+              form.setValue("regressionAdjustmentEnabled", v);
+            }}
             disabled={
               !hasCommercialFeature("regression-adjustment") || hasFileConfig()
             }
