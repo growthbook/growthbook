@@ -1,24 +1,43 @@
 import { FC, useEffect, useState } from "react";
 import { LicenseInterface } from "enterprise";
+import { Box } from "@radix-ui/themes";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import SubscriptionInfo from "@/components/Settings/SubscriptionInfo";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/components/Radix/Tabs";
+import PaymentMethodInfo from "@/components/Settings/PaymentMethodInfo";
+import StripeSubscriptionInfo from "@/components/Settings/StripeSubscriptionInfo";
+import OrbSubscriptionInfo from "@/components/Settings/OrbSubscriptionInfo";
 
 const BillingPage: FC = () => {
   const [upgradeModal, setUpgradeModal] = useState(false);
+  const [loadingOrbData, setLoadingOrbData] = useState(false);
+  const [portalError, setPortalError] = useState<string | undefined>(undefined);
+  const [portalUrl, setPortalUrl] = useState<string | undefined>(undefined);
+  const [paymentProviderId, setPaymentProviderId] = useState<
+    string | undefined
+  >(undefined);
 
-  const { canSubscribe, subscriptionStatus, loading } = useStripeSubscription();
+  const {
+    canSubscribe,
+    subscriptionStatus,
+    loading,
+    subscriptionType,
+  } = useStripeSubscription();
 
   const permissionsUtil = usePermissionsUtil();
 
-  const { accountPlan } = useUser();
+  const { accountPlan, refreshOrganization, organization } = useUser();
 
   const { apiCall } = useAuth();
-  const { refreshOrganization } = useUser();
 
   useEffect(() => {
     const refreshLicense = async () => {
@@ -44,6 +63,51 @@ const BillingPage: FC = () => {
     }
   }, [apiCall, refreshOrganization]);
 
+  useEffect(() => {
+    const fetchOrbCustomerData = async () => {
+      setLoadingOrbData(true);
+      setPortalError(undefined);
+      try {
+        const res = await fetch(
+          `https://api.withorb.com/v1/customers/external_customer_id/${organization.id}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${process.env.NEXT_PUBLIC_ORB_API_KEY}`,
+            },
+          }
+        );
+        const data = await res.json();
+        console.log("data", data);
+        if (data.portal_url) {
+          setPortalUrl(data.portal_url);
+        }
+
+        if (data.payment_provider_id) {
+          setPaymentProviderId(data.payment_provider_id);
+        }
+
+        if (data.status) {
+          setPortalError(
+            "Unable to load billing data at this time. Please contact support."
+          );
+          console.error(
+            `Unable to fetch Orb customer portal for organization: ${
+              organization.id
+            }. ${data.detail ? `Reason: ${data.detail}` : ""}`
+          );
+        }
+      } catch (err) {
+        setPortalError(err.message);
+        console.error(err);
+      }
+      setLoadingOrbData(false);
+    };
+
+    if (subscriptionType === "orb") fetchOrbCustomerData();
+  }, [organization.id, subscriptionType]);
+
   if (accountPlan === "enterprise") {
     return (
       <div className="container pagecontents">
@@ -55,7 +119,7 @@ const BillingPage: FC = () => {
     );
   }
 
-  if (loading) {
+  if (loading || loadingOrbData) {
     return <LoadingOverlay />;
   }
 
@@ -71,42 +135,86 @@ const BillingPage: FC = () => {
 
   return (
     <div className="container-fluid pagecontents">
-      {upgradeModal && (
-        <UpgradeModal
-          close={() => setUpgradeModal(false)}
-          reason=""
-          source="billing-free"
-        />
-      )}
-
-      <h1>Billing Settings</h1>
-      <div className=" bg-white p-3 border">
-        {subscriptionStatus ? (
-          <SubscriptionInfo />
-        ) : canSubscribe ? (
-          <div className="alert alert-warning mb-0">
-            <div className="d-flex align-items-center">
-              <div>
-                You are currently on the <strong>Free Plan</strong>.
-              </div>
-              <button
-                className="btn btn-primary ml-auto"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setUpgradeModal(true);
-                }}
-              >
-                Upgrade Now
-              </button>
+      <Tabs defaultValue="plan-info">
+        <Box mb="5">
+          <TabsList>
+            <TabsTrigger value="plan-info">Plan Info</TabsTrigger>
+            <TabsTrigger value="payment-methods">Payment Method</TabsTrigger>
+          </TabsList>
+        </Box>
+        <TabsContent value="plan-info">
+          <>
+            {upgradeModal && (
+              <UpgradeModal
+                close={() => setUpgradeModal(false)}
+                reason=""
+                source="billing-free"
+              />
+            )}
+            <div className=" bg-white p-3 border">
+              {subscriptionStatus ? (
+                <>
+                  {subscriptionType === "orb" ? (
+                    <OrbSubscriptionInfo
+                      portalUrl={portalUrl}
+                      portalError={portalError}
+                    />
+                  ) : (
+                    <StripeSubscriptionInfo />
+                  )}
+                </>
+              ) : canSubscribe ? (
+                <div className="alert alert-warning mb-0">
+                  <div className="d-flex align-items-center">
+                    <div>
+                      You are currently on the <strong>Free Plan</strong>.
+                    </div>
+                    <button
+                      className="btn btn-primary ml-auto"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setUpgradeModal(true);
+                      }}
+                    >
+                      Upgrade Now
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p>
+                  Contact{" "}
+                  <a href="mailto:sales@growthbook.io">sales@growthbook.io</a>{" "}
+                  to make changes to your subscription plan.
+                </p>
+              )}
             </div>
-          </div>
-        ) : (
-          <p>
-            Contact <a href="mailto:sales@growthbook.io">sales@growthbook.io</a>{" "}
-            to make changes to your subscription plan.
-          </p>
-        )}
-      </div>
+          </>
+        </TabsContent>
+        <TabsContent value="payment-methods">
+          {!subscriptionStatus ? (
+            <div className=" bg-white p-3 border">
+              <div className="alert alert-warning mb-0">
+                <div className="d-flex align-items-center">
+                  <div>
+                    You are currently on the <strong>Free Plan</strong>.
+                  </div>
+                  <button
+                    className="btn btn-primary ml-auto"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setUpgradeModal(true);
+                    }}
+                  >
+                    Upgrade Now
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <PaymentMethodInfo paymentProviderId={paymentProviderId} />
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
