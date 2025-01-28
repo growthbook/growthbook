@@ -6,8 +6,8 @@ import { ExperimentReportVariation } from "back-end/types/report";
 import { useEffect, useMemo, useState } from "react";
 import { getValidDate } from "shared/dates";
 import { FaCircle } from "react-icons/fa6";
+import { DEFAULT_SRM_THRESHOLD } from "shared/constants";
 import { useUser } from "@/services/UserContext";
-import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
 import track from "@/services/track";
 import { formatTrafficSplit } from "@/services/utils";
 import { formatNumber } from "@/services/metrics";
@@ -39,7 +39,7 @@ export default function TrafficCard({
 }: {
   traffic: ExperimentSnapshotTraffic;
   variations: ExperimentReportVariation[];
-  isBandit?: boolean;
+  isBandit: boolean;
 }) {
   const [cumulative, setCumulative] = useState(true);
   const { settings } = useUser();
@@ -51,7 +51,8 @@ export default function TrafficCard({
   const availableDimensions = transformDimensionData(
     traffic.dimension,
     variations,
-    srmThreshold
+    srmThreshold,
+    isBandit
   );
 
   const [selectedDimension, setSelectedDimension] = useState<string>("");
