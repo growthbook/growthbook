@@ -58,7 +58,7 @@ export const postPopulationData = async (
     manual: false,
     dimensions: [],
     metricSettings: [],
-    goalMetrics: data.metrics,
+    goalMetrics: data.metricIds,
     secondaryMetrics: [],
     guardrailMetrics: [],
     activationMetric: null,
@@ -88,9 +88,9 @@ export const postPopulationData = async (
     populationData &&
     populationData.datasourceId === data.datasourceId
   ) {
-    const populationMetrics = populationData.metrics.map((m) => m.metric);
+    const populationMetrics = populationData.metrics.map((m) => m.metricId);
     // only ask for new metrics
-    snapshotSettings.goalMetrics = data.metrics.filter(
+    snapshotSettings.goalMetrics = data.metricIds.filter(
       (m) => !populationMetrics.includes(m)
     );
     if (snapshotSettings.goalMetrics.length === 0) {

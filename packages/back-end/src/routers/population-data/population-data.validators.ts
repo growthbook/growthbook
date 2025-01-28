@@ -14,7 +14,7 @@ export const populationDataStatusValidator = z.enum([
 
 export const createPopulationDataPropsValidator = z
   .object({
-    metrics: z.array(z.string()),
+    metricIds: z.array(z.string()),
     datasourceId: z.string(),
     sourceType: populationDataSourceTypeValidator,
     sourceId: z.string(),
@@ -36,7 +36,7 @@ export const populationDataMetricDataValidator = z
 
 export const populationDataMetricValidator = z
   .object({
-    metric: z.string(),
+    metricId: z.string(),
     type: z.enum(["mean", "ratio", "binomial"]),
     data: populationDataMetricDataValidator,
   })

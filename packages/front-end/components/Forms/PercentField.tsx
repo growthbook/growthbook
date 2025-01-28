@@ -10,7 +10,7 @@ const formatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 });
 
-const validateValue = (value: number | undefined) => {
+const validateAndFormatValue = (value: number | undefined) => {
   if (value === undefined) return value;
   if (isNaN(value)) return 0;
   if (value < 0 || 1 < value) return 0;
@@ -24,11 +24,11 @@ export default function PercentField({
   ...fieldProps
 }: Props) {
   const [actualValue, setActualValue] = useState<number | undefined>(
-    validateValue(value)
+    validateAndFormatValue(value)
   );
 
   useEffect(() => {
-    setActualValue(validateValue(value));
+    setActualValue(validateAndFormatValue(value));
   }, [value, setActualValue]);
 
   return (

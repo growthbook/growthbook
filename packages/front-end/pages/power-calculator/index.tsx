@@ -132,7 +132,7 @@ const PowerCalculationPage = (): React.ReactElement => {
           }}
           statsEngineSettings={modalStatsEngineSettings}
           params={settingsModalParams}
-          startPage={showModal ?? "select"}
+          startPage={showModal}
         />
       )}
       {finalParams === undefined && (

@@ -26,9 +26,9 @@ router.post(
 );
 
 router.get(
-  "/population-data/:id/",
+  "/population-data/:id",
   validateRequestMiddleware({
-    params: z.object({ id: z.string().nullable() }).strict(),
+    params: z.object({ id: z.string() }).strict(),
   }),
   populationDataController.getPopulationData
 );

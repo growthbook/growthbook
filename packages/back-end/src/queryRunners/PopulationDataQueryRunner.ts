@@ -67,7 +67,8 @@ export const startPopulationDataQueries = async (
   // Goal metrics only
   const selectedMetrics = settings.goalMetrics
     .map((m) => metricMap.get(m))
-    .filter((m) => m) as ExperimentMetricInterface[];
+    .filter((m) => m !== undefined);
+
   if (!selectedMetrics.length) {
     throw new Error("Power must have at least 1 metric selected.");
   }
@@ -98,6 +99,13 @@ export const startPopulationDataQueries = async (
   }
 
   for (const m of singles) {
+    if (
+      !integration.getPopulationMetricQuery ||
+      !integration.runPopulationMetricQuery
+    ) {
+      throw new Error("Query-based power not supported for this integration.");
+    }
+
     const denominatorMetrics: MetricInterface[] = [];
     if (!isFactMetric(m) && m.denominator) {
       denominatorMetrics.push(
@@ -116,17 +124,10 @@ export const startPopulationDataQueries = async (
       metric: m,
       segment: segment,
       settings,
-      unitsSource: "sql",
+      unitsSource: "otherQuery",
       factTableMap: params.factTableMap,
       populationSettings: params.populationSettings,
     };
-
-    if (
-      !integration.getPopulationMetricQuery ||
-      !integration.runPopulationMetricQuery
-    ) {
-      throw new Error("Query-based power not supported for this integration.");
-    }
 
     queries.push(
       await startQuery({
@@ -145,23 +146,23 @@ export const startPopulationDataQueries = async (
   }
 
   for (const [i, m] of groups.entries()) {
-    const queryParams: PopulationFactMetricsQueryParams = {
-      activationMetric: null,
-      dimensions: [dimensionObj],
-      metrics: m,
-      segment: segment,
-      settings,
-      unitsSource: "sql",
-      factTableMap: params.factTableMap,
-      populationSettings: params.populationSettings,
-    };
-
     if (
       !integration.getPopulationFactMetricsQuery ||
       !integration.runPopulationFactMetricsQuery
     ) {
       throw new Error("Integration does not support multi-metric queries");
     }
+
+    const queryParams: PopulationFactMetricsQueryParams = {
+      activationMetric: null,
+      dimensions: [dimensionObj],
+      metrics: m,
+      segment: segment,
+      settings,
+      unitsSource: "otherQuery",
+      factTableMap: params.factTableMap,
+      populationSettings: params.populationSettings,
+    };
 
     queries.push(
       await startQuery({
@@ -195,7 +196,7 @@ function readMetricData({
 }): { metric: PopulationDataMetric; units: PopulationDataResult["units"] } {
   const prefix = metricPrefix ?? "";
   const metricData: PopulationDataMetric = {
-    metric: metric.id,
+    metricId: metric.id,
     type: isBinomialMetric(metric)
       ? "binomial"
       : isRatioMetric(metric, denominator)
@@ -263,7 +264,6 @@ export class PopulationDataQueryRunner extends QueryRunner<
   PopulationDataQueryParams,
   PopulationDataResult
 > {
-  private metrics: string[] = [];
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
 
   checkPermissions(): boolean {
@@ -273,7 +273,6 @@ export class PopulationDataQueryRunner extends QueryRunner<
   }
 
   async startQueries(params: PopulationDataQueryParams): Promise<Queries> {
-    this.metrics = params.snapshotSettings.goalMetrics;
     this.metricMap = params.metricMap;
     return startPopulationDataQueries(
       this.context,
@@ -286,7 +285,7 @@ export class PopulationDataQueryRunner extends QueryRunner<
   async runAnalysis(queryMap: QueryMap): Promise<PopulationDataResult> {
     const metrics: PopulationDataResult["metrics"] = [];
     let units: PopulationDataResult["units"] = [];
-    const allUnitsMax = 0; // TODO
+    let allUnitsMax = 0;
     queryMap.forEach((query, key) => {
       // Multi-metric query (refactor with results?)
       if (key.match(/group_/)) {
@@ -318,6 +317,7 @@ export class PopulationDataQueryRunner extends QueryRunner<
             );
             if (metricUnitsTotal > allUnitsMax) {
               units = res.units;
+              allUnitsMax = metricUnitsTotal;
             }
           }
         }
@@ -339,6 +339,7 @@ export class PopulationDataQueryRunner extends QueryRunner<
       );
       if (metricUnitsTotal > allUnitsMax) {
         units = res.units;
+        allUnitsMax = metricUnitsTotal;
       }
     });
 
@@ -383,7 +384,6 @@ export class PopulationDataQueryRunner extends QueryRunner<
           ? "error"
           : "success",
     };
-    // side effects?
     const latest = await this.getLatestModel();
     const updated = await this.context.models.populationData.update(
       latest,

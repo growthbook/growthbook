@@ -33,13 +33,12 @@ export interface StatsEngineSettings {
   sequentialTesting: false | number;
 }
 
-// using this to jam a lot of data around the modal now
 export interface PowerCalculationParams {
   metrics: { [id: string]: MetricParams };
   nVariations: number;
   nWeeks: number;
   alpha: number;
-  usersPerWeek: number; // TODO extend to per week
+  usersPerWeek: number; // TODO extend to have different data per week
   targetPower: number;
   statsEngineSettings: StatsEngineSettings;
   metricValuesData: {

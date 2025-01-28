@@ -1144,7 +1144,7 @@ async function postPopulationData({
 }): Promise<{ populationData?: PopulationDataInterface }> {
   const metricValuesData = form.watch("metricValuesData");
   const sourceType = metricValuesData?.source;
-  const metrics = Object.keys(form.watch("metrics"));
+  const metricIds = Object.keys(form.watch("metrics"));
   const userIdType = metricValuesData?.identifierType;
   const datasourceId = metricValuesData?.datasource;
   const sourceId = metricValuesData?.sourceId;
@@ -1153,7 +1153,7 @@ async function postPopulationData({
   }>(`/population-data`, {
     method: "POST",
     body: JSON.stringify({
-      metrics,
+      metricIds,
       datasourceId,
       sourceType,
       sourceId,
@@ -1175,7 +1175,7 @@ function setMetricDataFromPopulationData({
 
   if (populationData?.status !== "success") return;
   Object.entries(metrics).forEach(([id, metric]) => {
-    const queryMetric = populationData.metrics.find((m) => m.metric === id);
+    const queryMetric = populationData.metrics.find((m) => m.metricId === id);
     if (!queryMetric) {
       metrics[id] = {
         ...metric,

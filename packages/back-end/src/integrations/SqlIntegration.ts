@@ -1763,7 +1763,7 @@ export default abstract class SqlIntegration
 
     return this.getExperimentMetricQuery({
       ...params,
-      unitsSource: "sql",
+      unitsSource: "otherQuery",
       unitsSql: populationSQL,
       forcedUserIdType: params.populationSettings.userIdType,
     });
@@ -1782,7 +1782,7 @@ export default abstract class SqlIntegration
 
     return this.getExperimentFactMetricsQuery({
       ...params,
-      unitsSource: "sql",
+      unitsSource: "otherQuery",
       unitsSql: populationSQL,
       forcedUserIdType: params.populationSettings.userIdType,
     });
@@ -2409,7 +2409,7 @@ export default abstract class SqlIntegration
     const idTypeObjects = [[userIdType], factTable.userIdTypes || []];
     // add idTypes usually handled in units query here in the case where
     // we don't have a separate table for the units query
-    if (params.unitsSource === "query") {
+    if (params.unitsSource === "exposureQuery") {
       idTypeObjects.push(
         ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
         segment ? [segment.userIdType || "user_id"] : [],
@@ -2513,12 +2513,12 @@ export default abstract class SqlIntegration
     WITH
       ${idJoinSQL}
       ${
-        params.unitsSource === "query"
+        params.unitsSource === "exposureQuery"
           ? `${this.getExperimentUnitsQuery({
               ...params,
               includeIdJoins: false,
             })},`
-          : params.unitsSource === "sql"
+          : params.unitsSource === "otherQuery"
           ? params.unitsSql
           : ""
       }
@@ -2558,7 +2558,7 @@ export default abstract class SqlIntegration
             )
             .join("\n")}
         FROM ${
-          params.unitsSource === "table"
+          params.unitsSource === "exposureTable"
             ? `${params.unitsTableFullName}`
             : "__experimentUnits"
         }
@@ -3014,7 +3014,7 @@ export default abstract class SqlIntegration
     ];
     // add idTypes usually handled in units query here in the case where
     // we don't have a separate table for the units query
-    if (params.unitsSource === "query") {
+    if (params.unitsSource === "exposureQuery") {
       idTypeObjects.push(
         ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
         segment ? [segment.userIdType || "user_id"] : [],
@@ -3085,12 +3085,12 @@ export default abstract class SqlIntegration
     WITH
       ${idJoinSQL}
       ${
-        params.unitsSource === "query"
+        params.unitsSource === "exposureQuery"
           ? `${this.getExperimentUnitsQuery({
               ...params,
               includeIdJoins: false,
             })},`
-          : params.unitsSource === "sql"
+          : params.unitsSource === "otherQuery"
           ? params.unitsSql
           : ""
       }
@@ -3115,7 +3115,7 @@ export default abstract class SqlIntegration
               : ""
           }
         FROM ${
-          params.unitsSource === "table"
+          params.unitsSource === "exposureTable"
             ? `${params.unitsTableFullName}`
             : "__experimentUnits"
         }

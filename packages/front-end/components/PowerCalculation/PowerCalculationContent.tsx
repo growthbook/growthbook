@@ -277,17 +277,6 @@ const SampleSizeAndRuntime = ({
               </div>
             </div>
           </div>
-          {/* <div className="alert alert-info w-75 mt-2">
-                <span className="font-weight-bold">
-                  Run experiment for{" "}
-                  {formatWeeks({
-                    weeks: results.weekThreshold,
-                    nWeeks: params.nWeeks,
-                  })}
-                </span>{" "}
-                to achieve {percentFormatter(params.targetPower)} power for all
-                metrics.
-              </div> */}
         </div>
       </div>
     </div>
