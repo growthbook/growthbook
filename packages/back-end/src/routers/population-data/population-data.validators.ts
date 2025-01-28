@@ -19,6 +19,7 @@ export const createPopulationDataPropsValidator = z
     sourceType: populationDataSourceTypeValidator,
     sourceId: z.string(),
     userIdType: z.string(),
+    force: z.boolean(),
   })
   .strict();
 

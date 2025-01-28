@@ -84,8 +84,6 @@ export const startPopulationDataQueries = async (
     org
   );
 
-  // TODO permissions
-
   let segment: SegmentInterface | null = null;
   if (
     params.populationSettings.sourceType === "segment" &&
@@ -188,19 +186,21 @@ function readMetricData({
   metric,
   rows,
   metricPrefix,
+  denominator,
 }: {
   metric: ExperimentMetricInterface;
   rows: Record<string, string | number>[];
   metricPrefix?: string;
+  denominator?: ExperimentMetricInterface;
 }): { metric: PopulationDataMetric; units: PopulationDataResult["units"] } {
   const prefix = metricPrefix ?? "";
   const metricData: PopulationDataMetric = {
     metric: metric.id,
     type: isBinomialMetric(metric)
       ? "binomial"
-      : isRatioMetric(metric)
+      : isRatioMetric(metric, denominator)
       ? "ratio"
-      : "mean", // TODO fix ratio denom
+      : "mean",
     data: {
       main_sum: rows.reduce(
         (sum, r) => (sum += (r?.[prefix + "main_sum"] as number) ?? 0),
@@ -211,7 +211,7 @@ function readMetricData({
         0
       ),
       count: rows.reduce((sum, r) => (sum += (r?.["count"] as number) ?? 0), 0),
-      ...(isRatioMetric(metric) // denom
+      ...(isRatioMetric(metric, denominator)
         ? {
             denominator_sum: rows.reduce(
               (sum, r) =>
@@ -238,8 +238,7 @@ function readMetricData({
   // count units to get max
   const histogram: { [week: string]: number } = {};
   rows.forEach((r) => {
-    if (r.dimension && r.dimension !== "all") {
-      //  TODO check all
+    if (r.dimension) {
       const users = (r.users as number) ?? 0;
       const week = lastMondayString(r.dimension as string);
       if (!histogram[week]) {
@@ -264,7 +263,7 @@ export class PopulationDataQueryRunner extends QueryRunner<
   PopulationDataQueryParams,
   PopulationDataResult
 > {
-  private variationNames: string[] = [];
+  private metrics: string[] = [];
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
 
   checkPermissions(): boolean {
@@ -274,6 +273,7 @@ export class PopulationDataQueryRunner extends QueryRunner<
   }
 
   async startQueries(params: PopulationDataQueryParams): Promise<Queries> {
+    this.metrics = params.snapshotSettings.goalMetrics;
     this.metricMap = params.metricMap;
     return startPopulationDataQueries(
       this.context,
@@ -284,8 +284,6 @@ export class PopulationDataQueryRunner extends QueryRunner<
   }
 
   async runAnalysis(queryMap: QueryMap): Promise<PopulationDataResult> {
-    // const latest = this.getLatestModel(); TODO
-
     const metrics: PopulationDataResult["metrics"] = [];
     let units: PopulationDataResult["units"] = [];
     const allUnitsMax = 0; // TODO
@@ -300,9 +298,18 @@ export class PopulationDataQueryRunner extends QueryRunner<
 
           const metricId = rows[0][prefix + "id"] as string;
           const metric = this.metricMap.get(metricId);
+          const denominator =
+            metric?.denominator && !isFactMetric(metric)
+              ? this.metricMap.get(metric?.denominator)
+              : undefined;
           // skip any metrics somehow missing from map
           if (metric) {
-            const res = readMetricData({ metric, rows, metricPrefix: prefix });
+            const res = readMetricData({
+              metric,
+              rows,
+              metricPrefix: prefix,
+              denominator,
+            });
             metrics.push(res.metric);
 
             const metricUnitsTotal = res.units.reduce(
@@ -335,7 +342,6 @@ export class PopulationDataQueryRunner extends QueryRunner<
       }
     });
 
-    // TODO merge with latest
     return {
       metrics,
       units,

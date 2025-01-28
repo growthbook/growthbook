@@ -31,7 +31,7 @@ export const postPopulationData = async (
   const today = new Date();
   // TODO customizable lookback window
   const eightWeeksAgo = new Date(today);
-  eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 7 * 8); 
+  eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 7 * 8);
 
   const integration = await getIntegrationFromDatasourceId(
     context,
@@ -83,7 +83,11 @@ export const postPopulationData = async (
 
   // TODO hash metric and datasource to validate cache and let force refresh override
   // TODO incrementally update metrics
-  if (populationData && populationData.datasourceId === data.datasourceId) {
+  if (
+    !data.force &&
+    populationData &&
+    populationData.datasourceId === data.datasourceId
+  ) {
     const populationMetrics = populationData.metrics.map((m) => m.metric);
     // only ask for new metrics
     snapshotSettings.goalMetrics = data.metrics.filter(

@@ -148,9 +148,7 @@ const SelectStep = ({
   const metrics = form.watch("metrics");
   const selectedMetrics = Object.keys(metrics);
 
-  const metricValuesSource =
-    form.watch("metricValuesSource") ??
-    (hasHistoricalPower ? "factTable" : "manual");
+  const metricValuesSource = form.watch("metricValuesSource");
   const metricValuesSourceId = form.watch("metricValuesSourceId");
 
   const isNextDisabled =
@@ -321,7 +319,7 @@ const SelectStep = ({
           with your experiment.
         </div>
         <RadioGroup
-          value={metricValuesSource}
+          value={metricValuesSource ?? "manual"}
           options={[
             {
               value: "factTable",
@@ -656,7 +654,7 @@ const PopulationDataQueryInput = ({
     if (populationData?.status === "success") {
       setMetricDataFromPopulationData({ populationData, form });
     } else if (populationData?.status === "error") {
-      form.setValue("dataMetrics", {});
+      form.setValue("savedData", undefined);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [populationData]);
@@ -685,7 +683,11 @@ const PopulationDataQueryInput = ({
               onSubmit={async (e) => {
                 e.preventDefault();
                 try {
-                  const res = await postPopulationData({ form, apiCall });
+                  const res = await postPopulationData({
+                    form,
+                    apiCall,
+                    force: true,
+                  });
                   form.setValue(
                     "metricValuesPopulationId",
                     res.populationData?.id
@@ -826,14 +828,14 @@ const DataInput = ({
                   role="button"
                   className="ml-1 mb-0"
                   onClick={() => {
-                    const metricsReset = form.getValues("dataMetrics");
-                    if (metricsReset) {
-                      let dataMetrics = {};
+                    const savedData = form.getValues("savedData");
+                    if (savedData) {
+                      let savedMetrics = {};
                       for (const [id, m] of Object.entries(metrics)) {
-                        const oldMetricValues = metricsReset[id];
+                        const oldMetricValues = savedData.metrics[id];
                         if (oldMetricValues) {
-                          dataMetrics = {
-                            ...dataMetrics,
+                          savedMetrics = {
+                            ...savedMetrics,
                             [id]: {
                               ...oldMetricValues,
                               // don't override effect size
@@ -847,13 +849,14 @@ const DataInput = ({
                             },
                           };
                         } else {
-                          dataMetrics = {
-                            ...dataMetrics,
+                          savedMetrics = {
+                            ...savedMetrics,
                             [id]: m,
                           };
                         }
                       }
-                      form.setValue("metrics", dataMetrics);
+                      form.setValue("metrics", savedMetrics);
+                      form.setValue("usersPerWeek", savedData.usersPerWeek);
                       setMetricsEditable(false);
                     }
                   }}
@@ -1119,13 +1122,15 @@ const SetParamsStep = ({
 async function postPopulationData({
   form,
   apiCall,
+  force = false,
 }: {
   form: Form;
   apiCall: AuthContextValue["apiCall"];
+  force?: boolean;
 }): Promise<{ populationData?: PopulationDataInterface }> {
-  const sourceType = form.watch("metricValuesSource") ?? "segment";
+  const sourceType = form.watch("metricValuesSource");
   const metrics = Object.keys(form.watch("metrics"));
-  const userIdType = form.watch("metricValuesIdentifierType") ?? "user_id";
+  const userIdType = form.watch("metricValuesIdentifierType");
   const datasourceId = form.watch("selectedDatasource");
   const sourceId = form.watch("metricValuesSourceId");
   const res = await apiCall<{
@@ -1138,6 +1143,7 @@ async function postPopulationData({
       sourceType,
       sourceId,
       userIdType,
+      force,
     }),
   });
   return res;
@@ -1153,79 +1159,77 @@ function setMetricDataFromPopulationData({
   const metrics = form.watch("metrics");
 
   if (populationData?.status !== "success") return;
+  Object.entries(metrics).forEach(([id, metric]) => {
+    const queryMetric = populationData.metrics.find((m) => m.metric === id);
+    if (!queryMetric) {
+      metrics[id] = {
+        ...metric,
+        ...(metric.type === "binomial"
+          ? { conversionRate: 0 }
+          : { mean: 0, standardDeviation: 0 }),
+      };
+      return;
+    }
 
-  const newMetrics = populationData.metrics.reduce((result, m) => {
-    const oldMetric = metrics[m.metric];
-    if (!oldMetric) return result;
+    const mdata = queryMetric.data;
 
     const isRatioMetric =
-      m.data.denominator_sum ||
-      m.data.denominator_sum_squares ||
-      m.data.main_denominator_sum_product;
+      mdata.denominator_sum ||
+      mdata.denominator_sum_squares ||
+      mdata.main_denominator_sum_product;
 
-    if (isRatioMetric && m.type === "ratio") {
-      const mean = m.data.main_sum / (m.data.denominator_sum ?? 0);
+    if (isRatioMetric && metric.type === "mean") {
+      const mean = mdata.main_sum / (mdata.denominator_sum ?? 0);
       const standardDeviation = ratioVarianceFromSums({
-        numerator_sum: m.data.main_sum,
-        numerator_sum_squares: m.data.main_sum_squares,
-        denominator_sum: m.data.denominator_sum ?? 0,
-        denominator_sum_squares: m.data.denominator_sum_squares ?? 0,
+        numerator_sum: mdata.main_sum,
+        numerator_sum_squares: mdata.main_sum_squares,
+        denominator_sum: mdata.denominator_sum ?? 0,
+        denominator_sum_squares: mdata.denominator_sum_squares ?? 0,
         numerator_denominator_sum_product:
-          m.data.main_denominator_sum_product ?? 0,
-        n: m.data.count,
+          mdata.main_denominator_sum_product ?? 0,
+        n: mdata.count,
       });
-      return {
-        ...result,
-        [m.metric]: {
-          ...oldMetric,
-          ...{
-            mean,
-            standardDeviation,
-          },
-        },
+      metrics[id] = {
+        ...metric,
+        mean,
+        standardDeviation,
       };
-    } else if (m.type === "binomial") {
-      const mean = m.data.main_sum / m.data.count;
-      return {
-        ...result,
-        [m.metric]: {
-          ...oldMetric,
-          ...{
-            conversionRate: mean,
-          },
-        },
-      };
-    } else {
-      const mean = m.data.main_sum / m.data.count;
-      const standardDeviation = meanVarianceFromSums(
-        m.data.main_sum,
-        m.data.main_sum_squares,
-        m.data.count
-      );
-      return {
-        ...result,
-        [m.metric]: {
-          ...oldMetric,
-          ...{
-            mean,
-            standardDeviation,
-          },
-        },
-      };
+      return;
     }
-  }, metrics);
 
-  form.setValue("metrics", newMetrics);
-  form.setValue("dataMetrics", newMetrics);
+    if (metric.type === "binomial") {
+      const mean = (mdata.count ?? 0) === 0 ? 0 : mdata.main_sum / mdata.count;
+      metrics[id] = {
+        ...metric,
+        conversionRate: mean,
+      };
+      return;
+    }
 
-  form.setValue(
-    "usersPerWeek",
-    Math.round(
-      populationData.units.reduce((r, u) => {
-        return r + u.count;
-      }, 0) / populationData.units.length
-    )
+    const mean = (mdata.count ?? 0) === 0 ? 0 : mdata.main_sum / mdata.count;
+    const standardDeviation = meanVarianceFromSums(
+      mdata.main_sum,
+      mdata.main_sum_squares,
+      mdata.count
+    );
+    metrics[id] = {
+      ...metric,
+      mean,
+      standardDeviation,
+    };
+  });
+  const usersPerWeek = Math.round(
+    populationData.units.reduce((r, u) => {
+      return r + u.count;
+    }, 0) / (populationData.units.length ?? 1)
   );
+  form.setValue("metrics", metrics);
+  form.setValue("usersPerWeek", isNaN(usersPerWeek) ? 0 : usersPerWeek);
+
+  form.setValue("savedData", {
+    usersPerWeek: isNaN(usersPerWeek) ? 0 : usersPerWeek,
+    metrics: metrics,
+  });
 }
 
 export default function PowerCalculationSettingsModal({
@@ -1238,12 +1242,18 @@ export default function PowerCalculationSettingsModal({
   const settings = useOrgSettings();
   const { project } = useDefinitions();
   const { experiments } = useExperiments(project, false, "standard");
+  const { hasCommercialFeature } = useUser();
   const { apiCall } = useAuth();
 
   const [step, setStep] = useState<PowerModalPages>(startPage);
 
   const form = useForm<PartialPowerCalculationParams>({
-    defaultValues: params,
+    defaultValues: {
+      metricValuesSource: hasCommercialFeature("historical-power")
+        ? "factTable"
+        : "manual",
+      ...params,
+    },
   });
 
   const metrics = form.watch("metrics");
@@ -1347,13 +1357,16 @@ export default function PowerCalculationSettingsModal({
                     }
                   });
 
-                  form.setValue("metrics", newMetrics);
-                  form.setValue("dataMetrics", newMetrics);
-
-                  form.setValue(
-                    "usersPerWeek",
-                    Math.round((units || totalUnits) / lengthWeeks)
+                  const usersPerWeek = Math.round(
+                    (units || totalUnits) / lengthWeeks
                   );
+                  form.setValue("metrics", newMetrics);
+                  form.setValue("usersPerWeek", usersPerWeek);
+
+                  form.setValue("savedData", {
+                    usersPerWeek: usersPerWeek,
+                    metrics: newMetrics,
+                  });
                 }
               }
             } else if (form.watch("metricValuesSource") !== "manual") {

@@ -73,8 +73,11 @@ export type PartialPowerCalculationParams = Partial<
   metrics: {
     [id: string]: PartialMetricParams;
   };
-  dataMetrics?: {
-    [id: string]: PartialMetricParams;
+  savedData?: {
+    usersPerWeek: number;
+    metrics: {
+      [id: string]: PartialMetricParams;
+    };
   };
 };
 
