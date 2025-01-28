@@ -95,7 +95,7 @@ export default function FallbackAttributeSelector({
   return (
     <SelectField
       containerClassName="flex-1"
-      label="Fallback attribute"
+      label="Fallback Attribute"
       labelClassName="font-weight-bold"
       options={fallbackAttributeOptions}
       formatOptionLabel={({ value, label }) => {

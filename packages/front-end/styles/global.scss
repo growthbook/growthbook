@@ -9,13 +9,6 @@
 // Bootstrap theme overrides must be loaded AFTER Bootstrap
 @import "_bootstrap-theme-overrides";
 
-html,
-body,
-#__next,
-main {
-  min-height: 100%;
-  height: 100vh;
-}
 main {
   padding-top: 56px;
 }

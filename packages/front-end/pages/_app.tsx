@@ -185,10 +185,6 @@ function App({
           --default-font-family: ${inter.style.fontFamily};
           --font-weight-medium: 600;
         }
-        .radix-themes[data-is-root-theme="true"] {
-          min-height: 100%;
-          height: 100vh;
-        }
       `}</style>
       <Head>
         <title>GrowthBook</title>

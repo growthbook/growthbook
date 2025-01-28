@@ -9,6 +9,7 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
   DEFAULT_TEST_QUERY_DAYS,
+  DEFAULT_SRM_THRESHOLD,
 } from "shared/constants";
 import { OrganizationSettings } from "back-end/types/organization";
 import Link from "next/link";
@@ -41,8 +42,6 @@ import {
   TabsContent,
   TabsTrigger,
 } from "@/components/Radix/Tabs";
-
-export const DEFAULT_SRM_THRESHOLD = 0.001;
 
 export const ConnectSettingsForm = ({ children }) => {
   const methods = useFormContext();

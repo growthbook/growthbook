@@ -120,7 +120,7 @@ const BanditExperimentPage = (): ReactElement => {
     );
 
   return (
-    <div>
+    <>
       {metricsModalOpen && (
         <EditMetricsForm
           experiment={experiment}
@@ -266,30 +266,28 @@ const BanditExperimentPage = (): ReactElement => {
         ]}
       />
 
-      <div>
-        <SnapshotProvider experiment={experiment}>
-          <TabbedPage
-            experiment={experiment}
-            linkedFeatures={linkedFeatures}
-            mutate={mutate}
-            visualChangesets={visualChangesets}
-            urlRedirects={urlRedirects}
-            editMetrics={editMetrics}
-            editResult={editResult}
-            editVariations={editVariations}
-            duplicate={duplicate}
-            editTags={editTags}
-            newPhase={newPhase}
-            editPhases={editPhases}
-            editPhase={editPhase}
-            envs={data.envs}
-            editTargeting={editTargeting}
-            checklistItemsRemaining={checklistItemsRemaining}
-            setChecklistItemsRemaining={setChecklistItemsRemaining}
-          />
-        </SnapshotProvider>
-      </div>
-    </div>
+      <SnapshotProvider experiment={experiment}>
+        <TabbedPage
+          experiment={experiment}
+          linkedFeatures={linkedFeatures}
+          mutate={mutate}
+          visualChangesets={visualChangesets}
+          urlRedirects={urlRedirects}
+          editMetrics={editMetrics}
+          editResult={editResult}
+          editVariations={editVariations}
+          duplicate={duplicate}
+          editTags={editTags}
+          newPhase={newPhase}
+          editPhases={editPhases}
+          editPhase={editPhase}
+          envs={data.envs}
+          editTargeting={editTargeting}
+          checklistItemsRemaining={checklistItemsRemaining}
+          setChecklistItemsRemaining={setChecklistItemsRemaining}
+        />
+      </SnapshotProvider>
+    </>
   );
 };
 
