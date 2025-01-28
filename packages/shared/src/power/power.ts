@@ -42,13 +42,15 @@ export interface PowerCalculationParams {
   usersPerWeek: number; // TODO extend to per week
   targetPower: number;
   statsEngineSettings: StatsEngineSettings;
-  // TODO make object
-  metricValuesSource: "manual" | "segment" | "experiment" | "factTable";
-  metricValuesSourceName?: string;
-  metricValuesSourceId?: string;
-  metricValuesIdentifierType?: string;
-  metricValuesPopulationId?: string;
-  selectedDatasource?: string;
+  metricValuesData: {
+    source: "manual" | "segment" | "experiment" | "factTable";
+    sourceName?: string;
+    sourceId?: string;
+    identifierType?: string;
+    populationId?: string;
+    datasource?: string;
+  };
+  customizedMetrics?: boolean;
 }
 
 export type FullModalPowerCalculationParams = Omit<

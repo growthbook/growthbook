@@ -46,11 +46,12 @@ export class PopulationDataModel extends BaseClass {
   public async getRecentUsingSettings(
     sourceId: string,
     userIdType: string,
-    onlySuccess = true
+    onlySuccess = true,
+    lookbackDays = 7
   ) {
     // end date in the last week
     const lastWeek = new Date();
-    lastWeek.setDate(lastWeek.getDate() - 7);
+    lastWeek.setDate(lastWeek.getDate() - lookbackDays);
 
     const populationData = await this._find(
       {

@@ -48,7 +48,7 @@ export const postPopulationData = async (
     throw new Error("Query-based power calculations are a pro feature");
   }
 
-  // see if one exists from the last 3 days
+  // see if one exists from the last 7 days
   const populationData = await context.models.populationData.getRecentUsingSettings(
     data.sourceId,
     data.userIdType
@@ -57,7 +57,7 @@ export const postPopulationData = async (
   const snapshotSettings: ExperimentSnapshotSettings = {
     manual: false,
     dimensions: [],
-    metricSettings: [], // TODO
+    metricSettings: [],
     goalMetrics: data.metrics,
     secondaryMetrics: [],
     guardrailMetrics: [],

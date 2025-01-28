@@ -120,7 +120,7 @@ const SelectStep = ({
 
   const hasHistoricalPower = hasCommercialFeature("historical-power");
 
-  const selectedDatasource = form.watch("selectedDatasource");
+  const selectedDatasource = form.watch("metricValuesData.datasource");
   const [availableMetrics, setAvailableMetrics] = useState<string[] | null>(
     null
   );
@@ -148,8 +148,8 @@ const SelectStep = ({
   const metrics = form.watch("metrics");
   const selectedMetrics = Object.keys(metrics);
 
-  const metricValuesSource = form.watch("metricValuesSource");
-  const metricValuesSourceId = form.watch("metricValuesSourceId");
+  const metricValuesSource = form.watch("metricValuesData.source");
+  const metricValuesSourceId = form.watch("metricValuesData.sourceId");
 
   const isNextDisabled =
     !selectedMetrics.length &&
@@ -210,9 +210,12 @@ const SelectStep = ({
         );
         setAvailableMetrics(null);
         if (factTable) {
-          form.setValue("metricValuesSourceName", factTable.name);
-          form.setValue("selectedDatasource", factTable.datasource);
-          form.setValue("metricValuesIdentifierType", factTable.userIdTypes[0]);
+          form.setValue("metricValuesData.sourceName", factTable.name);
+          form.setValue("metricValuesData.datasource", factTable.datasource);
+          form.setValue(
+            "metricValuesData.identifierType",
+            factTable.userIdTypes[0]
+          );
           setIdentifiers(factTable.userIdTypes);
         }
         break;
@@ -226,9 +229,9 @@ const SelectStep = ({
         );
         setAvailableMetrics(null);
         if (segment) {
-          form.setValue("metricValuesSourceName", segment.name);
-          form.setValue("selectedDatasource", segment.datasource);
-          form.setValue("metricValuesIdentifierType", segment.userIdType);
+          form.setValue("metricValuesData.sourceName", segment.name);
+          form.setValue("metricValuesData.datasource", segment.datasource);
+          form.setValue("metricValuesData.identifierType", segment.userIdType);
           setIdentifiers([segment.userIdType]);
         }
         break;
@@ -241,10 +244,10 @@ const SelectStep = ({
           (e) => e.id === metricValuesSourceId
         );
         if (experiment) {
-          form.setValue("metricValuesSourceName", experiment.name);
-          form.setValue("selectedDatasource", experiment.datasource);
+          form.setValue("metricValuesData.sourceName", experiment.name);
+          form.setValue("metricValuesData.datasource", experiment.datasource);
           form.setValue(
-            "metricValuesIdentifierType",
+            "metricValuesData.identifierType",
             experiment.exposureQueryUserIdType
           );
           setAvailableMetrics(experiment.allMetrics);
@@ -340,14 +343,15 @@ const SelectStep = ({
           ]}
           setValue={(value) => {
             if (value !== metricValuesSource) {
-              form.setValue("metricValuesSourceId", undefined);
-              form.setValue("metricValuesSourceName", undefined);
+              form.setValue("metricValuesData.sourceId", undefined);
+              form.setValue("metricValuesData.sourceName", undefined);
               form.setValue("metrics", {});
               form.setValue(
-                "metricValuesSource",
-                value as FullModalPowerCalculationParams["metricValuesSource"]
+                "metricValuesData.source",
+                value as FullModalPowerCalculationParams["metricValuesData"]["source"]
               );
-              form.setValue("metricValuesIdentifierType", undefined);
+              form.setValue("metricValuesData.identifierType", undefined);
+              form.setValue("customizedMetrics", false);
             }
           }}
           mb="2"
@@ -368,7 +372,9 @@ const SelectStep = ({
               }
               value={metricValuesSourceId ?? ""}
               options={availablePopulations}
-              onChange={(value) => form.setValue("metricValuesSourceId", value)}
+              onChange={(value) =>
+                form.setValue("metricValuesData.sourceId", value)
+              }
               className="mb-2"
               forceUndefinedValueToNull={true}
             />
@@ -381,10 +387,10 @@ const SelectStep = ({
                 </>
               }
               disabled={identifiers.length <= 1}
-              value={form.watch("metricValuesIdentifierType") ?? ""}
+              value={form.watch("metricValuesData.identifierType") ?? ""}
               options={identifiers.map((i) => ({ label: i, value: i }))}
               onChange={(value) =>
-                form.setValue("metricValuesIdentifierType", value)
+                form.setValue("metricValuesData.identifierType", value)
               }
               forceUndefinedValueToNull={true}
             />
@@ -433,7 +439,10 @@ const SelectStep = ({
                   allAppMetrics.find((m) => m.id === id)
                 );
                 if (!selectedDatasource)
-                  form.setValue("selectedDatasource", metric.datasource);
+                  form.setValue(
+                    "metricValuesData.datasource",
+                    metric.datasource
+                  );
 
                 return {
                   ...result,
@@ -628,12 +637,15 @@ const PopulationDataQueryInput = ({
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
   const [queryModalOpen, setQueryModalOpen] = useState<boolean>(false);
 
-  const metricValuesSourceId = form.watch("metricValuesSourceId");
-  const datasource = form.watch("selectedDatasource");
-  const metricValuesPopulationId = form.watch("metricValuesPopulationId");
+  const metricValuesData = form.watch("metricValuesData");
+  const metricValuesSourceId = metricValuesData?.sourceId;
+  const datasource = metricValuesData?.datasource;
+  const metricValuesPopulationId = metricValuesData?.populationId;
   const datasourceProjects = datasource
     ? getDatasourceById(datasource)?.projects
     : [];
+
+  const customizedMetrics = form.getValues("customizedMetrics");
 
   const canRunPopulationQuery = permissionsUtil.canRunPopulationDataQueries({
     projects: datasourceProjects ?? [],
@@ -647,14 +659,11 @@ const PopulationDataQueryInput = ({
 
   const [error, setError] = useState<string | undefined>(getError?.message);
 
-  // todo reset data if refresh errors?
-  const populationData = data?.populationData; // TODO
+  const populationData = data?.populationData;
 
   useEffect(() => {
-    if (populationData?.status === "success") {
+    if (populationData?.status === "success" && !customizedMetrics) {
       setMetricDataFromPopulationData({ populationData, form });
-    } else if (populationData?.status === "error") {
-      form.setValue("savedData", undefined);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [populationData]);
@@ -674,7 +683,7 @@ const PopulationDataQueryInput = ({
       <div className="ml-2 row align-items-center">
         <div className="col-auto pl-0">
           Compute metric values using last 8 weeks of data from{" "}
-          <strong>{form.watch("metricValuesSourceName")}</strong>.
+          <strong>{form.watch("metricValuesData.sourceName")}</strong>.
         </div>
         <div style={{ flex: 1 }} />
         <div className="col-auto">
@@ -683,13 +692,14 @@ const PopulationDataQueryInput = ({
               onSubmit={async (e) => {
                 e.preventDefault();
                 try {
+                  form.setValue("customizedMetrics", false);
                   const res = await postPopulationData({
                     form,
                     apiCall,
                     force: true,
                   });
                   form.setValue(
-                    "metricValuesPopulationId",
+                    "metricValuesData.populationId",
                     res.populationData?.id
                   );
                   mutate();
@@ -799,7 +809,7 @@ const DataInput = ({
   hasPrefilledData?: boolean;
 }) => {
   const [metricsEditable, setMetricsEditable] = useState<boolean>(
-    !hasPrefilledData
+    !!form.getValues("customizedMetrics") || !hasPrefilledData
   );
   const metrics = form.getValues("metrics");
   const metricIds = Object.keys(metrics);
@@ -810,10 +820,12 @@ const DataInput = ({
         {hasPrefilledData ? (
           <div className="mb-2">
             Metric values below pre-filled from{" "}
-            {form.getValues("metricValuesSource") === "experiment" ? (
+            {form.getValues("metricValuesData.source") === "experiment" ? (
               <>
                 from experiment:{" "}
-                <strong>{form.getValues("metricValuesSourceName")}.</strong>
+                <strong>
+                  {form.getValues("metricValuesData.sourceName")}.
+                </strong>
               </>
             ) : (
               "query data."
@@ -855,6 +867,7 @@ const DataInput = ({
                           };
                         }
                       }
+                      form.setValue("customizedMetrics", false);
                       form.setValue("metrics", savedMetrics);
                       form.setValue("usersPerWeek", savedData.usersPerWeek);
                       setMetricsEditable(false);
@@ -870,6 +883,7 @@ const DataInput = ({
                 className="ml-1 mb-0"
                 onClick={() => {
                   setMetricsEditable(true);
+                  form.setValue("customizedMetrics", true);
                 }}
               >
                 Customize values.
@@ -1105,14 +1119,14 @@ const SetParamsStep = ({
         </button>
       }
     >
-      {form.watch("metricValuesSource") === "segment" ||
-      form.watch("metricValuesSource") === "factTable" ? (
+      {form.watch("metricValuesData.source") === "segment" ||
+      form.watch("metricValuesData.source") === "factTable" ? (
         <PopulationDataQueryInput form={form} engineType={engineType} />
       ) : null}
-      {form.watch("metricValuesSource") === "experiment" ? (
+      {form.watch("metricValuesData.source") === "experiment" ? (
         <DataInput form={form} engineType={engineType} />
       ) : null}
-      {form.watch("metricValuesSource") === "manual" ? (
+      {form.watch("metricValuesData.source") === "manual" ? (
         <ManualDataInput form={form} engineType={engineType} />
       ) : null}
     </Modal>
@@ -1128,11 +1142,12 @@ async function postPopulationData({
   apiCall: AuthContextValue["apiCall"];
   force?: boolean;
 }): Promise<{ populationData?: PopulationDataInterface }> {
-  const sourceType = form.watch("metricValuesSource");
+  const metricValuesData = form.watch("metricValuesData");
+  const sourceType = metricValuesData?.source;
   const metrics = Object.keys(form.watch("metrics"));
-  const userIdType = form.watch("metricValuesIdentifierType");
-  const datasourceId = form.watch("selectedDatasource");
-  const sourceId = form.watch("metricValuesSourceId");
+  const userIdType = metricValuesData?.identifierType;
+  const datasourceId = metricValuesData?.datasource;
+  const sourceId = metricValuesData?.sourceId;
   const res = await apiCall<{
     populationData: PopulationDataInterface;
   }>(`/population-data`, {
@@ -1249,10 +1264,13 @@ export default function PowerCalculationSettingsModal({
 
   const form = useForm<PartialPowerCalculationParams>({
     defaultValues: {
-      metricValuesSource: hasCommercialFeature("historical-power")
-        ? "factTable"
-        : "manual",
       ...params,
+      metricValuesData: {
+        source: hasCommercialFeature("historical-power")
+          ? "factTable"
+          : "manual",
+        ...params.metricValuesData,
+      },
     },
   });
 
@@ -1304,74 +1322,82 @@ export default function PowerCalculationSettingsModal({
           experiments={experiments}
           close={close}
           onNext={async () => {
-            if (form.watch("metricValuesSource") === "experiment") {
-              const experimentId = form.watch("metricValuesSourceId");
+            if (form.watch("metricValuesData.source") === "experiment") {
+              const experimentId = form.watch("metricValuesData.sourceId");
               const experiment = experiments.find((e) => e.id === experimentId);
 
               if (experiment) {
                 const phase = experiment.phases.length - 1;
-                const { snapshot } = await apiCall<{
-                  snapshot: ExperimentSnapshotInterface;
-                }>(
-                  `/experiment/${experiment}/snapshot/${phase}/?type=standard`
-                );
-                if (snapshot) {
-                  const analysis = getSnapshotAnalysis(snapshot);
-
-                  // use total traffic for traffic
-                  const units =
-                    snapshot.health?.traffic.overall.variationUnits.reduce(
-                      (result, v) => v + result,
-                      0
-                    ) ?? 0;
-
-                  const experimentPhase = experiment.phases[phase];
-                  const phaseLength = daysBetween(
-                    experimentPhase.dateStarted ?? new Date(),
-                    experimentPhase.dateEnded ?? new Date()
+                try {
+                  const { snapshot } = await apiCall<{
+                    snapshot: ExperimentSnapshotInterface;
+                  }>(
+                    `/experiment/${experiment.id}/snapshot/${phase}/?type=standard`
                   );
-                  const lengthWeeks = phaseLength / 7;
-                  let newMetrics = {};
-                  let totalUnits = 0;
+                  if (snapshot) {
+                    const analysis = getSnapshotAnalysis(snapshot);
 
-                  analysis?.results?.[0]?.variations?.forEach((v, i) => {
-                    // use control only for metric mean and variance
-                    if (i === 0) {
-                      metricIds.forEach((metricId) => {
-                        const mean = v.metrics[metricId].stats?.mean;
-                        const standardDeviation =
-                          v.metrics[metricId].stats?.stddev;
-                        newMetrics = {
-                          ...newMetrics,
-                          [metricId]: {
-                            ...metrics[metricId],
-                            mean,
-                            conversionRate: mean,
-                            standardDeviation,
-                          },
-                        };
-                      });
-                    }
-                    if (!units) {
-                      totalUnits += v.users;
-                    }
-                  });
+                    // use total traffic for traffic
+                    const units =
+                      snapshot.health?.traffic.overall.variationUnits.reduce(
+                        (result, v) => v + result,
+                        0
+                      ) ?? 0;
 
-                  const usersPerWeek = Math.round(
-                    (units || totalUnits) / lengthWeeks
-                  );
-                  form.setValue("metrics", newMetrics);
-                  form.setValue("usersPerWeek", usersPerWeek);
+                    const experimentPhase = experiment.phases[phase];
+                    const phaseLength = daysBetween(
+                      experimentPhase.dateStarted ?? new Date(),
+                      experimentPhase.dateEnded ?? new Date()
+                    );
+                    const lengthWeeks = phaseLength / 7;
+                    let newMetrics = {};
+                    let totalUnits = 0;
 
-                  form.setValue("savedData", {
-                    usersPerWeek: usersPerWeek,
-                    metrics: newMetrics,
-                  });
+                    analysis?.results?.[0]?.variations?.forEach((v, i) => {
+                      // use control only for metric mean and variance
+                      if (i === 0) {
+                        metricIds.forEach((metricId) => {
+                          const mean = v.metrics[metricId].stats?.mean;
+                          const standardDeviation =
+                            v.metrics[metricId].stats?.stddev;
+                          newMetrics = {
+                            ...newMetrics,
+                            [metricId]: {
+                              ...metrics[metricId],
+                              mean,
+                              conversionRate: mean,
+                              standardDeviation,
+                            },
+                          };
+                        });
+                      }
+                      if (!units) {
+                        totalUnits += v.users;
+                      }
+                    });
+
+                    const usersPerWeek = Math.round(
+                      (units || totalUnits) / lengthWeeks
+                    );
+                    form.setValue("metrics", newMetrics);
+                    form.setValue("usersPerWeek", usersPerWeek);
+
+                    form.setValue("savedData", {
+                      usersPerWeek: usersPerWeek,
+                      metrics: newMetrics,
+                    });
+                  }
+                  setStep("set-params");
+                } catch (e) {
+                  console.error(e.message);
                 }
               }
-            } else if (form.watch("metricValuesSource") !== "manual") {
+            } else if (form.watch("metricValuesData.source") !== "manual") {
               const res = await postPopulationData({ form, apiCall });
-              form.setValue("metricValuesPopulationId", res.populationData?.id);
+              form.setValue(
+                "metricValuesData.populationId",
+                res.populationData?.id
+              );
               // sets it if data already exists, otherwise starts running on next page
               if (res.populationData?.status === "success") {
                 setMetricDataFromPopulationData({
@@ -1379,8 +1405,9 @@ export default function PowerCalculationSettingsModal({
                   form,
                 });
               }
+            } else {
+              setStep("set-params");
             }
-            setStep("set-params");
           }}
         />
       )}
