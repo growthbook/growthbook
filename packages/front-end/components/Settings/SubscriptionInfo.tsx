@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
 import { redirectWithTimeout, useAuth } from "@/services/auth";
-import useStripeSubscription from "@/hooks/useStripeSubscription";
 import Button from "@/components/Button";
 import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
@@ -10,16 +9,34 @@ import UpgradeModal from "./UpgradeModal";
 export default function SubscriptionInfo() {
   const { apiCall } = useAuth();
   const {
-    nextBillDate,
-    dateToBeCanceled,
-    cancelationDate,
-    pendingCancelation,
+    subscription,
+    seatsInUse,
     canSubscribe,
-  } = useStripeSubscription();
-
-  const { subscription, seatsInUse } = useUser();
+    organization,
+    license,
+  } = useUser();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
+
+  //TODO: Remove this once we have moved the license off the organization
+  const stripeSubscription =
+    license?._stripeSubscription || organization?.subscription;
+
+  const nextBillDate = new Date(
+    (stripeSubscription?.current_period_end || 0) * 1000
+  ).toDateString();
+
+  const dateToBeCanceled = new Date(
+    (stripeSubscription?.cancel_at || 0) * 1000
+  ).toDateString();
+
+  const cancelationDate = new Date(
+    (stripeSubscription?.canceled_at || 0) * 1000
+  ).toDateString();
+
+  const pendingCancelation =
+    stripeSubscription?.status !== "canceled" &&
+    stripeSubscription?.cancel_at_period_end;
 
   return (
     <>

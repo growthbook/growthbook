@@ -2,7 +2,6 @@ import { FC, useEffect, useState } from "react";
 import { LicenseInterface } from "enterprise";
 import SubscriptionInfo from "@/components/Settings/SubscriptionInfo";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import useStripeSubscription from "@/hooks/useStripeSubscription";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -10,11 +9,9 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 const BillingPage: FC = () => {
   const [upgradeModal, setUpgradeModal] = useState(false);
 
-  const { canSubscribe } = useStripeSubscription();
-
   const permissionsUtil = usePermissionsUtil();
 
-  const { accountPlan, subscription } = useUser();
+  const { accountPlan, subscription, canSubscribe } = useUser();
 
   const { apiCall } = useAuth();
   const { refreshOrganization } = useUser();

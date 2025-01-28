@@ -1,24 +1,15 @@
 import { useRouter } from "next/router";
-import { useState } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { date, daysLeft } from "shared/dates";
-import useStripeSubscription from "@/hooks/useStripeSubscription";
 import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export default function AccountPlanNotices() {
-  const [upgradeModal, setUpgradeModal] = useState(false);
   const permissionsUtil = usePermissionsUtil();
   const router = useRouter();
   const { license, licenseError, subscription, seatsInUse } = useUser();
-  const {
-    showSeatOverageBanner,
-    canSubscribe,
-    freeSeats,
-  } = useStripeSubscription();
 
   const canManageBilling = permissionsUtil.canManageBilling();
 
@@ -65,30 +56,6 @@ export default function AccountPlanNotices() {
         >
           <FaExclamationTriangle /> payment past due
         </button>
-      );
-    }
-
-    // Over the free tier
-    if (showSeatOverageBanner && canSubscribe && seatsInUse > freeSeats) {
-      return (
-        <>
-          {upgradeModal && (
-            <UpgradeModal
-              close={() => setUpgradeModal(false)}
-              source="top-nav-freeseat-overage"
-              reason="Whoops! You are over your free seat limit."
-            />
-          )}
-          <button
-            className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1"
-            onClick={async (e) => {
-              e.preventDefault();
-              setUpgradeModal(true);
-            }}
-          >
-            <FaExclamationTriangle /> free tier exceded
-          </button>
-        </>
       );
     }
   }

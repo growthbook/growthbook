@@ -8,7 +8,6 @@ import { getDefaultRole } from "shared/permissions";
 import track from "@/services/track";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
-import useStripeSubscription from "@/hooks/useStripeSubscription";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useUser } from "@/services/UserContext";
@@ -27,7 +26,14 @@ interface Props {
 }
 
 const InviteModal = ({ mutate, close, defaultRole }: Props) => {
-  const { license, seatsInUse, organization, effectiveAccountPlan } = useUser();
+  const {
+    license,
+    seatsInUse,
+    organization,
+    effectiveAccountPlan,
+    freeSeats,
+    canSubscribe,
+  } = useUser();
 
   const form = useForm<{
     email: string[];
@@ -47,7 +53,6 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
   );
   const [failedInvites, setFailedInvites] = useState<InviteResult[]>([]);
   const { apiCall } = useAuth();
-  const { freeSeats, canSubscribe } = useStripeSubscription();
   const [showUpgradeModal, setShowUpgradeModal] = useState(
     isCloud() && canSubscribe && seatsInUse >= freeSeats
       ? "Whoops! You reached your free seat limit."
