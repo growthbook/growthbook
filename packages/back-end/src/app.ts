@@ -210,6 +210,15 @@ app.use(async (req, res, next) => {
 // Visual Designer js file (does not require JWT or cors)
 app.get("/js/:key.js", getExperimentsScript);
 
+// Orb webhook (needs raw body)
+app.post(
+  "/subscription/webhook",
+  bodyParser.text({
+    type: "*/*",
+  }),
+  stripeController.postSubscriptionWebhook
+);
+
 // Stripe webhook (needs raw body)
 app.post(
   "/stripe/webhook",

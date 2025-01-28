@@ -9,8 +9,10 @@ import {
   postNewProTrialSubscriptionToLicenseServer,
   postNewSubscriptionSuccessToLicenseServer,
 } from "enterprise";
+import { MongoServerError } from "mongodb";
 import {
   APP_ORIGIN,
+  ORB_API_KEY,
   STRIPE_PRICE,
   STRIPE_WEBHOOK_SECRET,
 } from "back-end/src/util/secrets";
@@ -25,6 +27,7 @@ import {
   getCoupon,
   getPrice,
 } from "back-end/src/services/stripe";
+import { addUsageWarning, orb } from "back-end/src/services/orb";
 import { SubscriptionQuote } from "back-end/types/organization";
 import { sendStripeTrialWillEndEmail } from "back-end/src/services/email";
 import { logger } from "back-end/src/util/logger";
@@ -33,6 +36,7 @@ import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
+import { WebhookEvent } from "back-end/src/types/Orb";
 
 function withLicenseServerErrorHandling<T>(
   fn: (req: AuthRequest<T>, res: Response) => Promise<void>
@@ -239,6 +243,44 @@ export const postSubscriptionSuccess = withLicenseServerErrorHandling(
     });
   }
 );
+
+export async function postSubscriptionWebhook(req: Request, res: Response) {
+  // Validate webhook came from Orb
+
+  let payload: WebhookEvent;
+  try {
+    payload = orb.webhooks.unwrap(
+      req.body,
+      req.headers,
+      ORB_API_KEY
+    ) as WebhookEvent;
+  } catch (e) {
+    req.log.error(e, "Invalid webhook signature");
+    return res.status(403).send("Invalid webhook signature");
+  }
+
+  try {
+    switch (payload.type) {
+      case "subscription.usage_exceeded":
+        {
+          await addUsageWarning(payload);
+        }
+        break;
+      default:
+        req.log.info("Unhandled webhook type:", payload.type);
+    }
+  } catch (e) {
+    if (e instanceof MongoServerError && e.code === 11000) {
+      // Duplicate event detected
+      req.log.error("Duplicate webhook event detected. Skipping:", payload.id);
+    } else {
+      req.log.error(e, "Webhook error");
+      return res.status(400).send(`Webhook Error: ${e.message}`);
+    }
+  }
+  req.log.info("Successfully processed webhook:", payload.id);
+  return res.status(200).send("Ok");
+}
 
 export async function postWebhook(req: Request, res: Response) {
   const payload: Buffer = req.body;
