@@ -295,8 +295,8 @@ export function calculateMidExperimentPower(
         metricVariationPowerArray.push(resultsSingleMetric);
         if (
           !resultsSingleMetric.errorMessage &&
-          resultsSingleMetric.power &&
-          resultsSingleMetric.additionalDaysNeeded
+          resultsSingleMetric.power !== undefined &&
+          resultsSingleMetric.additionalDaysNeeded !== undefined
         ) {
           const thisPower = resultsSingleMetric.power;
           const theseAdditionalDays = resultsSingleMetric.additionalDaysNeeded;
