@@ -1,5 +1,5 @@
 import { analyzeExperimentPower, orgHasPremiumFeature } from "enterprise";
-import { addDays, differenceInDays } from "date-fns";
+import { addDays } from "date-fns";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
@@ -13,6 +13,7 @@ import {
   DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
   DEFAULT_MID_EXPERIMENT_POWER_CALCULATION_ENABLED,
 } from "shared/constants";
+import { daysBetween } from "shared/dates";
 import chunk from "lodash/chunk";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -490,26 +491,25 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       if (isEligibleForPowerAnalysis) {
         const today = new Date();
         const experimentStartDate = this.model.settings.startDate;
-        const experimentDaysRunning = differenceInDays(
-          today,
-          experimentStartDate
-        );
+        const experimentDaysRunning = daysBetween(today, experimentStartDate);
         const experimentMinLengthDays =
           this.context.org.settings?.experimentMinLengthDays ??
           DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS;
 
+        const experimentMaxLengthDays =
+          this.context.org.settings?.experimentMaxLengthDays ??
+          DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS;
+
         const shouldRunPowerAnalysis =
-          experimentDaysRunning > experimentMinLengthDays;
+          experimentDaysRunning > experimentMinLengthDays &&
+          experimentDaysRunning < experimentMaxLengthDays;
 
         if (shouldRunPowerAnalysis) {
-          const experimentMaxLengthDays =
-            this.context.org.settings?.experimentMaxLengthDays ??
-            DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS;
           const experimentTargetEndDate = addDays(
             experimentStartDate,
             experimentMaxLengthDays
           );
-          const targetDaysRemaining = differenceInDays(
+          const targetDaysRemaining = daysBetween(
             experimentTargetEndDate,
             today
           );

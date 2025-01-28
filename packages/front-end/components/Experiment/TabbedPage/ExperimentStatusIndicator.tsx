@@ -5,7 +5,11 @@ import {
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
   DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
   DEFAULT_SRM_THRESHOLD,
+  DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
+  DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
+  DEFAULT_MID_EXPERIMENT_POWER_CALCULATION_ENABLED,
 } from "shared/constants";
+import { daysBetween } from "shared/dates";
 import { getMultipleExposureHealthData, getSRMHealthData } from "shared/health";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Badge from "@/components/Radix/Badge";
@@ -15,7 +19,13 @@ type LabelFormat = "full" | "status-only" | "detail-only";
 
 type ExperimentData = Pick<
   ExperimentInterfaceStringDates,
-  "type" | "variations" | "status" | "archived" | "results" | "analysisSummary"
+  | "type"
+  | "variations"
+  | "status"
+  | "archived"
+  | "results"
+  | "analysisSummary"
+  | "phases"
 >;
 
 /**
@@ -40,6 +50,13 @@ export default function ExperimentStatusIndicator({
 }) {
   const settings = useOrgSettings();
   const healthSettings = {
+    midExperimentPowerEnabled:
+      settings.midExperimentPowerEnabled ??
+      DEFAULT_MID_EXPERIMENT_POWER_CALCULATION_ENABLED,
+    experimentMinLengthDays:
+      settings.experimentMinLengthDays ?? DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
+    experimentMaxLengthDays:
+      settings.experimentMaxLengthDays ?? DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
     srmThreshold: settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD,
     multipleExposureMinPercent:
       settings.multipleExposureMinPercent ??
@@ -67,8 +84,10 @@ function getStatusIndicatorData(
   experimentData: ExperimentData,
   skipArchived: boolean,
   healthSettings: {
+    midExperimentPowerEnabled: boolean;
     srmThreshold: number;
     multipleExposureMinPercent: number;
+    experimentMaxLengthDays: number;
   }
 ): {
   color: React.ComponentProps<typeof Badge>["color"];
@@ -93,7 +112,24 @@ function getStatusIndicatorData(
     };
   }
 
+  const lastPhase = experimentData.phases[experimentData.phases.length - 1];
   if (experimentData.status == "running") {
+    console.log(healthSettings.midExperimentPowerEnabled);
+    if (
+      healthSettings.midExperimentPowerEnabled &&
+      lastPhase.dateStarted &&
+      daysBetween(lastPhase.dateStarted, new Date()) >
+        healthSettings.experimentMaxLengthDays
+    ) {
+      return {
+        color: "amber",
+        variant: "soft",
+        status: "Running",
+        detailedStatus: "Discuss results",
+        tooltip: "Reached antecipated duration",
+      };
+    }
+
     const unhealthyStatuses: string[] = [];
     const healthSummary = experimentData.analysisSummary?.health;
     if (healthSummary) {

@@ -56,7 +56,7 @@ export function PowerCard({
         anticipated experiment duration.
       </Callout>
       <ul>
-        {phase.coverage === 1 ? (
+        {phase.coverage !== 1 ? (
           <li>
             Consider increasing the traffic percentage above{" "}
             {phase.coverage * 100}%

@@ -351,7 +351,8 @@ export function getAverageExposureOverLastNDays(
   return Math.floor(totalExposure / nDays);
 }
 
-// NB: Should only be called if the experiment has been running for > settings.experimentMinLengthDays
+// NB: Should only be called if the experiment has been running
+// for > settings.experimentMinLengthDays and < settings.experimentMaxLengthDays
 export function analyzeExperimentPower({
   trafficHealth,
   targetDaysRemaining,
@@ -392,7 +393,7 @@ export function analyzeExperimentPower({
       DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     sequential: analysis.settings.sequentialTesting ?? false,
     alpha: analysis.settings.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
-    daysRemaining: Math.max(targetDaysRemaining, 0),
+    daysRemaining: targetDaysRemaining,
     firstPeriodSampleSize: firstPeriodSampleSize,
     newDailyUsers: newDailyUsers,
     numGoalMetrics: goalMetrics.length,
