@@ -273,10 +273,10 @@ class RegressionAdjustedRatioStatistic(Statistic):
             return 0
         return variance_of_ratios(
             self.mean_m_y,
-            self.var_m_y / self.n,
+            self.var_m_y,
             self.mean_d_y,
-            self.var_d_y / self.n,
-            self.cov_m_y_d_y / self.n,
+            self.var_d_y,
+            self.cov_m_y_d_y,
         )
 
     @property
@@ -285,10 +285,10 @@ class RegressionAdjustedRatioStatistic(Statistic):
             return 0
         return variance_of_ratios(
             self.mean_m_x,
-            self.var_m_x / self.n,
+            self.var_m_x,
             self.mean_d_x,
-            self.var_d_x / self.n,
-            self.cov_m_x_d_x / self.n,
+            self.var_d_x,
+            self.cov_m_x_d_x,
         )
 
     # take cross_cov here
@@ -373,36 +373,33 @@ class RegressionAdjustedRatioStatistic(Statistic):
 
     @property
     def lambda_full(self):
-        return (
-            np.array(
+        return np.array(
+            [
                 [
-                    [
-                        self.var_m_y,
-                        self.cov_m_y_d_y,
-                        self.cov_m_y_m_x,
-                        self.cov_m_y_d_x,
-                    ],
-                    [
-                        self.cov_m_y_d_y,
-                        self.var_d_y,
-                        self.cov_d_y_m_x,
-                        self.cov_d_y_d_x,
-                    ],
-                    [
-                        self.cov_m_y_m_x,
-                        self.cov_d_y_m_x,
-                        self.var_m_x,
-                        self.cov_m_x_d_x,
-                    ],
-                    [
-                        self.cov_m_y_d_x,
-                        self.cov_d_y_d_x,
-                        self.cov_m_x_d_x,
-                        self.var_d_x,
-                    ],
-                ]
-            )
-            / self.n
+                    self.var_m_y,
+                    self.cov_m_y_d_y,
+                    self.cov_m_y_m_x,
+                    self.cov_m_y_d_x,
+                ],
+                [
+                    self.cov_m_y_d_y,
+                    self.var_d_y,
+                    self.cov_d_y_m_x,
+                    self.cov_d_y_d_x,
+                ],
+                [
+                    self.cov_m_y_m_x,
+                    self.cov_d_y_m_x,
+                    self.var_m_x,
+                    self.cov_m_x_d_x,
+                ],
+                [
+                    self.cov_m_y_d_x,
+                    self.cov_d_y_d_x,
+                    self.cov_m_x_d_x,
+                    self.var_d_x,
+                ],
+            ]
         )
 
     @property
