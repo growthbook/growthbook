@@ -81,12 +81,12 @@ Next, we'll use GTM to apply the feature flag to your website:
   // Wait for the GrowthBook SDK to load before running
   window.growthbook_queue = window.growthbook_queue || [];
   window.growthbook_queue.push(function(gb) {
-    console.log(gb);
     // Function that uses feature flags to make changes to the page
     function applyFeatureFlags() {
       if(gb.isOn("show-discount")) {
         var priceEl = document.getElementById("price");
-        priceEl?.classList.add("show-discount");
+        if (!priceEl) return;
+        priceEl.classList.add("show-discount");
       }
     }
     // Call your function initially plus whenever new data is received
