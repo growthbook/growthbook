@@ -10,10 +10,7 @@ import { validatePayload } from "./validations";
 
 export const postArchetype = createApiRequestHandler(postArchetypeValidator)(
   async (req): Promise<PostArchetypeResponse> => {
-    const payload = {
-      ...(await validatePayload(req.context, req.body)),
-      organization: req.organization.id,
-    };
+    const payload = await validatePayload(req.context, req.body);
     const archetype = await createArchetype(payload);
 
     await req.audit({

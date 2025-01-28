@@ -30,6 +30,12 @@ export async function validatePayload(
       );
   }
 
+  try {
+    JSON.parse(attributes);
+  } catch {
+    throw new Error("Attributes is not a valid JSON string");
+  }
+
   return {
     name,
     attributes,
@@ -37,5 +43,6 @@ export async function validatePayload(
     projects,
     isPublic,
     owner: context.userId,
+    organization: context.org.id,
   };
 }
