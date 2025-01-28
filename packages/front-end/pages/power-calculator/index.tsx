@@ -8,7 +8,9 @@ import {
   FullModalPowerCalculationParams,
   StatsEngineSettings,
 } from "shared/power";
-import PowerCalculationSettingsModal, { PowerModalPages } from "@/components/PowerCalculation/PowerCalculationSettingsModal";
+import PowerCalculationSettingsModal, {
+  PowerModalPages,
+} from "@/components/PowerCalculation/PowerCalculationSettingsModal";
 import EmptyPowerCalculation from "@/components/PowerCalculation/EmptyPowerCalculation";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PowerCalculationContent from "@/components/PowerCalculation/PowerCalculationContent";
