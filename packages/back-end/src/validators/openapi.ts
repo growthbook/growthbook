@@ -404,6 +404,18 @@ export const getArchetypeValidator = {
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };
 
+export const putArchetypeValidator = {
+  bodySchema: z.object({ "name": z.string().optional(), "description": z.string().optional(), "isPublic": z.boolean().describe("Whether to make this Archetype available to other team members").optional(), "attributes": z.string().describe("A valid JSON string of the attributes for this Archetype").optional(), "projects": z.array(z.string()).optional() }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const deleteArchetypeValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
 export const listMembersValidator = {
   bodySchema: z.never(),
   querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0), "userName": z.string().optional(), "userEmail": z.string().optional(), "globalRole": z.string().optional() }).strict(),

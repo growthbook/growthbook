@@ -246,6 +246,10 @@ export interface paths {
   "/archetypes/${id}": {
     /** Get a single archetype */
     get: operations["getArchetype"];
+    /** Update a single archetype */
+    put: operations["putArchetype"];
+    /** Deletes a single archetype */
+    delete: operations["deleteArchetype"];
   };
   "/members": {
     /** Get all organization members */
@@ -6075,6 +6079,66 @@ export interface operations {
       };
     };
   };
+  putArchetype: {
+    /** Update a single archetype */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          name?: string;
+          description?: string;
+          /** @description Whether to make this Archetype available to other team members */
+          isPublic?: boolean;
+          /** @description A valid JSON string of the attributes for this Archetype */
+          attributes?: string;
+          projects?: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            archetype: {
+              id: string;
+              dateCreated: string;
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              owner: string;
+              isPublic: boolean;
+              /** @description A valid JSON string of the attributes for this Archetype */
+              attributes: string;
+              projects?: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteArchetype: {
+    /** Deletes a single archetype */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
   listMembers: {
     /** Get all organization members */
     parameters: {
@@ -7698,6 +7762,8 @@ export type DeleteAttributeResponse = operations["deleteAttribute"]["responses"]
 export type ListArchetypesResponse = operations["listArchetypes"]["responses"]["200"]["content"]["application/json"];
 export type PostArchetypeResponse = operations["postArchetype"]["responses"]["200"]["content"]["application/json"];
 export type GetArchetypeResponse = operations["getArchetype"]["responses"]["200"]["content"]["application/json"];
+export type PutArchetypeResponse = operations["putArchetype"]["responses"]["200"]["content"]["application/json"];
+export type DeleteArchetypeResponse = operations["deleteArchetype"]["responses"]["200"]["content"]["application/json"];
 export type ListMembersResponse = operations["listMembers"]["responses"]["200"]["content"]["application/json"];
 export type DeleteMemberResponse = operations["deleteMember"]["responses"]["200"]["content"]["application/json"];
 export type UpdateMemberRoleResponse = operations["updateMemberRole"]["responses"]["200"]["content"]["application/json"];

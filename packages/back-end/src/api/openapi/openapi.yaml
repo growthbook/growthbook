@@ -248,6 +248,10 @@ paths:
   /archetypes/${id}:
     get:
       $ref: "./paths/getArchetype.yaml"
+    put:
+      $ref: "./paths/putArchetype.yaml"
+    delete:
+      $ref: "./paths/deleteArchetype.yaml"
   /members:
     get:
       $ref: "./paths/listMembers.yaml"
