@@ -171,7 +171,7 @@ const ProjectPage: FC = () => {
         {/*  Override organization-wide settings for this project. Leave fields*/}
         {/*  blank to use the organization default.*/}
         {/*</div>*/}
-        <div className="bg-white p-3 border">
+        <div className="appbox p-3">
           <div className="row">
             <div className="col-sm-3">
               <h4>Experiment Settings</h4>
