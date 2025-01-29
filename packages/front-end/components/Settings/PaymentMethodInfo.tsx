@@ -14,9 +14,39 @@ import Badge from "../Radix/Badge";
 import Modal from "../Modal";
 import CreditCardModal from "./CreditCardModal";
 
+type StripeErrorResponse = {
+  error: {
+    message: string;
+  };
+  invoice_settings?: never;
+  data?: never;
+};
+
+type StripeCustomerSuccessResponse = {
+  invoice_settings: {
+    default_payment_method?: string;
+  };
+  error?: never;
+};
+
+type StripePaymentMethodSuccessResponse = {
+  data: {
+    id: string;
+    card: {
+      brand: string;
+      exp_month: number;
+      exp_year: number;
+      last4: string;
+    };
+  }[];
+  error?: never;
+};
+
+// type StripeApiResponse = StripeErrorResponse | StripeSuccessResponse;
+
 interface Card {
   id: string;
-  last4: number;
+  last4: string;
   brand: string;
   expMonth: number;
   expYear: number;
@@ -43,12 +73,13 @@ export default function PaymentMethodInfo({
   );
 
   const fetchCardData = useCallback(async () => {
-    console.log("fetching data!");
     setLoading(true);
     setError(undefined);
     try {
       // Fetch customer details to get the default_payment_method
-      const res = await fetch(
+      const res:
+        | StripeErrorResponse
+        | StripeCustomerSuccessResponse = await fetch(
         `https://api.stripe.com/v1/customers/${paymentProviderId}`,
         {
           method: "GET",
@@ -59,7 +90,7 @@ export default function PaymentMethodInfo({
       ).then((res) => res.json());
 
       if (res.error) {
-        throw new Error(res.error.message || "Unable to locate customer");
+        throw new Error(res.error.message);
       }
 
       const paymentMethodsUrl = new URL(
@@ -69,7 +100,9 @@ export default function PaymentMethodInfo({
       paymentMethodsUrl.searchParams.append("type", "card");
 
       // Fetch all payment methods
-      const paymentMethods = await fetch(paymentMethodsUrl, {
+      const paymentMethods:
+        | StripePaymentMethodSuccessResponse
+        | StripeErrorResponse = await fetch(paymentMethodsUrl, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${process.env.NEXT_PUBLIC_STRIPE_TEST_KEY}`,
@@ -87,13 +120,13 @@ export default function PaymentMethodInfo({
         res.invoice_settings?.default_payment_method;
 
       // Identify the default payment method
-      const paymentMethodsWithDefaultFlag = paymentMethods.data.map(
+      const paymentMethodsWithDefaultFlag: Card[] = paymentMethods.data.map(
         (method, i) => {
           const card = method.card;
           return {
             id: method.id,
             last4: card.last4,
-            brand: card.display_brand,
+            brand: card.brand,
             expMonth: card.exp_month,
             expYear: card.exp_year,
             // if no explicit defaultPaymentMethodId, Orb uses the first card
@@ -113,7 +146,9 @@ export default function PaymentMethodInfo({
 
   async function detachCard(cardId: string) {
     try {
-      const res = await fetch(
+      const res:
+        | StripeErrorResponse
+        | { id: string; error?: never } = await fetch(
         `https://api.stripe.com/v1/payment_methods/${cardId}/detach`,
         {
           method: "POST",
@@ -137,7 +172,9 @@ export default function PaymentMethodInfo({
   async function setCardAsDefault() {
     if (!defaultCardModal) throw new Error("Must specify card id");
     try {
-      const res = await fetch(
+      const res:
+        | StripeErrorResponse
+        | { id: string; error?: never } = await fetch(
         `https://api.stripe.com/v1/customers/${paymentProviderId}`,
         {
           method: "POST",
@@ -175,8 +212,6 @@ export default function PaymentMethodInfo({
       </Callout>
     );
   }
-
-  console.log("cardData", cardData);
 
   return (
     <>

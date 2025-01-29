@@ -136,36 +136,66 @@ const BillingPage: FC = () => {
   }
 
   return (
-    <div className="container-fluid pagecontents">
-      <Tabs defaultValue="plan-info">
-        <Box mb="5">
-          <TabsList>
-            <TabsTrigger value="plan-info">Plan Info</TabsTrigger>
-            <TabsTrigger value="payment-methods">Payment Methods</TabsTrigger>
-          </TabsList>
-        </Box>
-        <TabsContent value="plan-info">
-          <>
-            {upgradeModal && (
-              <UpgradeModal
-                close={() => setUpgradeModal(false)}
-                reason=""
-                source="billing-free"
-              />
-            )}
-            <div className=" bg-white p-3 border">
-              {subscriptionStatus ? (
-                <>
-                  {subscriptionType === "orb" ? (
-                    <OrbSubscriptionInfo
-                      portalUrl={portalUrl}
-                      portalError={portalError}
-                    />
-                  ) : (
-                    <StripeSubscriptionInfo />
-                  )}
-                </>
-              ) : canSubscribe ? (
+    <>
+      {upgradeModal && (
+        <UpgradeModal
+          close={() => setUpgradeModal(false)}
+          reason=""
+          source="billing-free"
+        />
+      )}
+      <div className="container-fluid pagecontents">
+        <Tabs defaultValue="plan-info">
+          <Box mb="5">
+            <TabsList>
+              <TabsTrigger value="plan-info">Plan Info</TabsTrigger>
+              <TabsTrigger value="payment-methods">Payment Methods</TabsTrigger>
+            </TabsList>
+          </Box>
+          <TabsContent value="plan-info">
+            <>
+              <div className=" bg-white p-3 border">
+                {subscriptionStatus ? (
+                  <>
+                    {subscriptionType === "orb" ? (
+                      <OrbSubscriptionInfo
+                        portalUrl={portalUrl}
+                        portalError={portalError}
+                      />
+                    ) : (
+                      <StripeSubscriptionInfo />
+                    )}
+                  </>
+                ) : canSubscribe ? (
+                  <div className="alert alert-warning mb-0">
+                    <div className="d-flex align-items-center">
+                      <div>
+                        You are currently on the <strong>Free Plan</strong>.
+                      </div>
+                      <button
+                        className="btn btn-primary ml-auto"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setUpgradeModal(true);
+                        }}
+                      >
+                        Upgrade Now
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p>
+                    Contact{" "}
+                    <a href="mailto:sales@growthbook.io">sales@growthbook.io</a>{" "}
+                    to make changes to your subscription plan.
+                  </p>
+                )}
+              </div>
+            </>
+          </TabsContent>
+          <TabsContent value="payment-methods">
+            {!subscriptionStatus ? (
+              <div className=" bg-white p-3 border">
                 <div className="alert alert-warning mb-0">
                   <div className="d-flex align-items-center">
                     <div>
@@ -182,42 +212,14 @@ const BillingPage: FC = () => {
                     </button>
                   </div>
                 </div>
-              ) : (
-                <p>
-                  Contact{" "}
-                  <a href="mailto:sales@growthbook.io">sales@growthbook.io</a>{" "}
-                  to make changes to your subscription plan.
-                </p>
-              )}
-            </div>
-          </>
-        </TabsContent>
-        <TabsContent value="payment-methods">
-          {!subscriptionStatus ? (
-            <div className=" bg-white p-3 border">
-              <div className="alert alert-warning mb-0">
-                <div className="d-flex align-items-center">
-                  <div>
-                    You are currently on the <strong>Free Plan</strong>.
-                  </div>
-                  <button
-                    className="btn btn-primary ml-auto"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setUpgradeModal(true);
-                    }}
-                  >
-                    Upgrade Now
-                  </button>
-                </div>
               </div>
-            </div>
-          ) : (
-            <PaymentMethodInfo paymentProviderId={paymentProviderId} />
-          )}
-        </TabsContent>
-      </Tabs>
-    </div>
+            ) : (
+              <PaymentMethodInfo paymentProviderId={paymentProviderId} />
+            )}
+          </TabsContent>
+        </Tabs>
+      </div>
+    </>
   );
 };
 export default BillingPage;
