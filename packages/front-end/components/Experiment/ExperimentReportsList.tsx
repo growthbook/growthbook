@@ -66,6 +66,7 @@ export default function ExperimentReportsList({
             <th>Title</th>
             <th>Description</th>
             <th>Status</th>
+            <th>Phase</th>
             <th className="d-none d-md-table-cell">Last Updated </th>
             <th>By</th>
             <th></th>
@@ -76,6 +77,14 @@ export default function ExperimentReportsList({
             const report = filteredReport.report;
             const user = report.userId ? users.get(report.userId) : null;
             const name = user ? user.name : "";
+
+            const phaseIndex =
+              typeof report.snapshot === "object" && report.snapshot !== null
+                ? report.snapshot.phase
+                : 0;
+            const phaseName =
+              report.experimentMetadata.phases[phaseIndex]?.name || "Unknown";
+
             const status =
               report.type === "experiment"
                 ? report.status === "private"
@@ -135,6 +144,7 @@ export default function ExperimentReportsList({
                     isOwner={filteredReport.isOwner}
                   />
                 </td>
+                <td>{phaseName || "Unknown"}</td>
                 <td
                   title={datetime(report.dateUpdated)}
                   className="d-none d-md-table-cell"

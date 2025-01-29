@@ -12,7 +12,10 @@ import {
   Variation,
   ExperimentAnalysisSettings,
 } from "./experiment";
-import { SnapshotVariation } from "./experiment-snapshot";
+import {
+  ExperimentSnapshotInterface,
+  SnapshotVariation,
+} from "./experiment-snapshot";
 import { Queries } from "./query";
 import { DifferenceType, StatsEngine } from "./stats";
 
@@ -72,6 +75,8 @@ export interface ExperimentReportInterface extends ReportInterfaceBase {
   results?: ExperimentReportResults;
   error?: string;
   queries: Queries;
+  snapshot: ExperimentSnapshotInterface;
+  experimentMetadata: ExperimentReportMetadata;
 }
 
 export interface ExperimentReportVariation {
