@@ -145,7 +145,9 @@ export default function FeatureRules({
                   formatOptionLabel={({ value }) => (
                     <Flex justify="between" align="center">
                       <Flex maxWidth="310px">
-                        <Text truncate>{value}</Text>
+                        <Text weight="medium" truncate>
+                          {value}
+                        </Text>
                       </Flex>
                       <Badge
                         label={`${rulesByEnv[value].length} Rule${
