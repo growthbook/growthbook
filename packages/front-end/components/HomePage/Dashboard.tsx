@@ -59,6 +59,8 @@ export default function Dashboard({ experiments }: Props) {
             <NorthStar experiments={experiments} />
           </div>
         </div>
+
+        {showImpactNearTop ? experimentImpactWidget() : null}
         <div className="row">
           <div className="col-lg-12 col-md-12 col-xl-8 mb-3">
             <div className="list-group activity-box">
@@ -70,7 +72,6 @@ export default function Dashboard({ experiments }: Props) {
               />
             </div>
           </div>
-          {showImpactNearTop ? experimentImpactWidget() : null}
           <div className="col-md-4 mb-3">
             <div className="list-group activity-box fixed-height overflow-auto">
               <h4 className="">
