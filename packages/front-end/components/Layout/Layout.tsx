@@ -8,8 +8,8 @@ import {
   BsLightbulb,
   BsCodeSlash,
 } from "react-icons/bs";
-import { FaArrowRight } from "react-icons/fa";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { Flex } from "@radix-ui/themes";
 import { getGrowthBookBuild } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
@@ -18,12 +18,12 @@ import {
   GBBandit,
   GBDatabase,
   GBExperiment,
-  GBPremiumBadge,
   GBSettings,
 } from "@/components/Icons";
 import { inferDocUrl } from "@/components/DocLink";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { AppFeatures } from "@/types/app-features";
+import { WhiteButton } from "@/components/Radix/Button";
 import ProjectSelector from "./ProjectSelector";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import TopNav from "./TopNav";
@@ -489,26 +489,16 @@ const Layout = (): React.ReactElement => {
           </div>
         </div>
         <div style={{ flex: 1 }} />
-        <div className="p-3">
+        <Flex p="3" direction="column" gap="4">
           {showUpgradeButton && (
-            <button
-              className="btn btn-premium btn-block font-weight-normal"
-              onClick={() => setUpgradeModal(true)}
-            >
-              <>
-                Upgrade <GBPremiumBadge />
-              </>
-            </button>
+            <WhiteButton onClick={() => setUpgradeModal(true)}>
+              <>Upgrade</>
+            </WhiteButton>
           )}
-          <a
-            href={inferDocUrl()}
-            className="btn btn-outline-light btn-block"
-            target="_blank"
-            rel="noreferrer"
-          >
-            View Docs <FaArrowRight className="ml-2" />
+          <a href={inferDocUrl()} target="_blank" rel="noreferrer">
+            <WhiteButton variant="outline">View docs</WhiteButton>
           </a>
-        </div>
+        </Flex>
         {build.sha && (
           <div className="px-3 my-1 text-center">
             <small>

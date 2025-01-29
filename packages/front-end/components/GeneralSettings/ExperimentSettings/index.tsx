@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { useFormContext } from "react-hook-form";
-import { MdInfoOutline } from "react-icons/md";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import Checkbox from "@/components/Radix/Checkbox";
 import { hasFileConfig } from "@/services/env";
@@ -12,6 +11,7 @@ import { AttributionModelTooltip } from "@/components/Experiment/AttributionMode
 import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListModal";
 import Badge from "@/components/Radix/Badge";
 import RadioGroup from "@/components/Radix/RadioGroup";
+import { GBInfo } from "@/components/Icons";
 import StatsEngineSettings from "./StatsEngineSettings";
 import StickyBucketingSettings from "./StickyBucketingSettings";
 
@@ -210,7 +210,7 @@ export default function ExperimentSettings({
                         <Text size="3" className="font-weight-semibold">
                           Fact Table Query Optimization
                         </Text>{" "}
-                        <MdInfoOutline className="text-info" />
+                        <GBInfo />
                       </PremiumTooltip>
                     </label>
                   </Box>
@@ -235,7 +235,7 @@ export default function ExperimentSettings({
                         <Text size="3" className="font-weight-semibold">
                           Default Conversion Window Override
                         </Text>{" "}
-                        <MdInfoOutline className="text-info" />
+                        <GBInfo />
                       </Flex>
                     </AttributionModelTooltip>
                   </Flex>

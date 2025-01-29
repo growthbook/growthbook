@@ -1,4 +1,3 @@
-import { MdInfoOutline } from "react-icons/md";
 import {
   ColumnInterface,
   CreateFactMetricProps,
@@ -15,6 +14,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import { getDefaultFactMetricProps } from "@/services/metrics";
+import { GBInfo } from "@/components/Icons";
 
 type RecommendedMetric = Pick<
   CreateFactMetricProps,
@@ -305,7 +305,7 @@ export default function RecommendedFactMetricsModal({
               <td>
                 <Tooltip body={metric.description}>
                   {metric.metricType}&nbsp;
-                  <MdInfoOutline className="text-info" />
+                  <GBInfo />
                 </Tooltip>
               </td>
               <td>{getName(metric)}</td>

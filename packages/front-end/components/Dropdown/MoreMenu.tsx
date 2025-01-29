@@ -11,6 +11,7 @@ import {
 import clsx from "clsx";
 import { IconButton } from "@radix-ui/themes";
 import useGlobalMenu from "@/services/useGlobalMenu";
+import { RadixTheme } from "@/services/RadixTheme";
 
 const MoreMenu: FC<{
   autoCloseOnClick?: boolean;
@@ -89,20 +90,22 @@ const MoreMenu: FC<{
           <BsThreeDotsVertical />
         </a>
       )}
-      <FloatingPortal>
-        <div
-          className={`dropdown-menu ${open ? "show" : ""}`}
-          onClick={() => {
-            if (autoCloseOnClick) {
-              setOpen(false);
-            }
-          }}
-          ref={refs.setFloating}
-          style={{ ...floatingStyles, zIndex, width: "max-content" }}
-        >
-          {children}
-        </div>
-      </FloatingPortal>
+      <RadixTheme>
+        <FloatingPortal>
+          <div
+            className={`dropdown-menu ${open ? "show" : ""}`}
+            onClick={() => {
+              if (autoCloseOnClick) {
+                setOpen(false);
+              }
+            }}
+            ref={refs.setFloating}
+            style={{ ...floatingStyles, zIndex, width: "max-content" }}
+          >
+            {children}
+          </div>
+        </FloatingPortal>
+      </RadixTheme>
     </div>
   );
 };

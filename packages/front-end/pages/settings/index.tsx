@@ -446,7 +446,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
               </TempMessage>
             )}
           </Flex>
-          <Box mr="8">
+          <Box style={{ marginRight: "85px" }}>
             <Button
               disabled={!ctaEnabled}
               onClick={async () => {

@@ -3,7 +3,6 @@ import React, { useEffect, useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { FaExclamationCircle } from "react-icons/fa";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
-import { MdInfoOutline } from "react-icons/md";
 import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -13,6 +12,7 @@ import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Checkbox from "@/components/Radix/Checkbox";
 import Button from "@/components/Radix/Button";
+import { GBInfo } from "@/components/Icons";
 
 export default function FeaturesSettings() {
   const [
@@ -99,7 +99,7 @@ export default function FeaturesSettings() {
                   <Text size="3" className="font-weight-semibold">
                     Salt string for secure attributes
                   </Text>{" "}
-                  <MdInfoOutline className="text-info" />
+                  <GBInfo />
                 </PremiumTooltip>
               }
               disabled={!hasSecureAttributesFeature}

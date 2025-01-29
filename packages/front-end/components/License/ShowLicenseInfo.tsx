@@ -1,14 +1,14 @@
 import React, { FC, useState } from "react";
 import { FaPencilAlt } from "react-icons/fa";
 import { date } from "shared/dates";
-import { Box, Flex, Heading } from "@radix-ui/themes";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import EditLicenseModal from "@/components/Settings/EditLicenseModal";
-import { GBPremiumBadge } from "@/components/Icons";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
 import { isCloud } from "@/services/env";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Button from "@/components/Radix/Button";
 import RefreshLicenseButton from "./RefreshLicenseButton";
 import DownloadLicenseUsageButton from "./DownloadLicenseUsageButton";
 
@@ -64,32 +64,33 @@ const ShowLicenseInfo: FC<{
           </Box>
           <Box flexGrow="1">
             <Box>
-              <div className="form-group row mb-2">
+              <div className="form-group row mb-3">
                 <div className="col-sm-12">
-                  <strong>Plan type: </strong> {licensePlanText}{" "}
+                  <Flex justify="start" gap="3" align="center">
+                    <Box>
+                      <Text className="font-weight-semibold">Plan type:</Text>
+                    </Box>
+                    <Box>{licensePlanText}</Box>
+                    {showUpgradeButton && (
+                      <Button
+                        variant={"ghost"}
+                        onClick={() => setUpgradeModal(true)}
+                      >
+                        Upgrade
+                      </Button>
+                    )}
+                  </Flex>
                 </div>
                 <AccountPlanNotices />
               </div>
-              {showUpgradeButton && (
-                <div className="form-group row mb-1">
-                  <div className="col-sm-12">
-                    <button
-                      className="btn btn-premium font-weight-normal"
-                      onClick={() => setUpgradeModal(true)}
-                    >
-                      <>
-                        Upgrade <GBPremiumBadge />
-                      </>
-                    </button>
-                  </div>
-                </div>
-              )}
               {permissionsUtil.canManageBilling() && !usesLicenseInfoOnModel && (
                 <div className="form-group row mt-3 mb-0">
                   {showInput && (
                     <div className="col-auto mr-3 nowrap">
                       <div>
-                        <strong>License Key: </strong>
+                        <Text className="font-weight-semibold">
+                          License Key:{" "}
+                        </Text>
                       </div>
                       <div
                         className="d-inline-block mt-1 mb-2 nowrap text-center text-muted"

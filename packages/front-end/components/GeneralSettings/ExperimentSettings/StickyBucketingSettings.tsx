@@ -1,6 +1,5 @@
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
-import { MdInfoOutline } from "react-icons/md";
 import React from "react";
 import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -13,6 +12,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { ConnectSettingsForm } from "@/pages/settings";
 import Callout from "@/components/Radix/Callout";
 import Checkbox from "@/components/Radix/Checkbox";
+import { GBInfo } from "@/components/Icons";
 
 export default function StickyBucketingSettings() {
   const { hasCommercialFeature } = useUser();
@@ -55,7 +55,7 @@ export default function StickyBucketingSettings() {
                   body={<StickyBucketingTooltip />}
                 >
                   Enable Sticky Bucketing{" "}
-                  <MdInfoOutline className="text-info" />
+                  <GBInfo />
                 </PremiumTooltip>
               </label>
               <p>
@@ -96,7 +96,7 @@ export default function StickyBucketingSettings() {
                     }
                   >
                     Enable fallback attributes in experiments{" "}
-                    <MdInfoOutline className="text-info" />
+                    <GBInfo />
                   </Tooltip>
                 </label>
               </Box>

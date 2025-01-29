@@ -1,4 +1,5 @@
 import React from "react";
+import { PiInfo } from "react-icons/pi";
 
 export function GBHome({ className = "" }): React.ReactElement {
   return (
@@ -19,6 +20,10 @@ export function GBHome({ className = "" }): React.ReactElement {
       />
     </svg>
   );
+}
+
+export function GBInfo(): React.ReactElement {
+  return <PiInfo style={{ color: "var(--violet-11)" }} />;
 }
 
 export function GBIdea({ className = "" }): React.ReactElement {

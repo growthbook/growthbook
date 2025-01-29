@@ -47,13 +47,11 @@ const PaidFeatureBadge = ({
           : "Paid"
       }
       color={badgeColor as RadixColor}
-      variant="soft"
+      variant="outline"
       radius="full"
       ml="2"
       mr="2"
       style={{
-        backgroundColor: "var(--accent-9)",
-        color: "#fff",
         cursor: "default",
       }}
     />

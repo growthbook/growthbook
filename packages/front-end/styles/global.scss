@@ -1412,7 +1412,7 @@ main.main {
     &::before {
       content: "";
       transform: rotate(45deg);
-      background-color: var(--surface-background-color);
+      background-color: var(--slate-12);
       box-shadow: 0 1rem 3rem rgb(0 0 0 / 18%);
       position: absolute;
       width: 8px;
@@ -1422,8 +1422,8 @@ main.main {
   }
 
   .body {
-    background-color: var(--surface-background-color);
-    color: var(--text-dark);
+    color: var(--slate-1);
+    background-color: var(--slate-12);
     padding: 15px;
     border-radius: 5px;
 
@@ -3206,7 +3206,8 @@ td.disabled {
 }
 .form-control:disabled {
   cursor: not-allowed;
-  background-color: var(--disabled-background) !important;
+  color: var(--color-text-disabled) !important;
+  background-color: var(--slate-a3) !important;
 }
 input:disabled {
   cursor: not-allowed;
