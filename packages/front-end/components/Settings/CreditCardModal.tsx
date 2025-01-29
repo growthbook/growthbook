@@ -5,11 +5,13 @@ import Modal from "../Modal";
 interface Props {
   onClose: () => void;
   paymentProviderId?: string; // Rethink this - build this in a way where this is always defined
+  refetch: () => Promise<void>;
 }
 
 export default function CreditCardModal({
   onClose,
   paymentProviderId = "",
+  refetch,
 }: Props) {
   const elements = useElements();
   const [error, setError] = useState<string | undefined>(undefined);
@@ -59,7 +61,7 @@ export default function CreditCardModal({
       }
       const updatedCustomer = await updateCustomerResponse.json();
       console.log("formattedResponse", updatedCustomer);
-      window.location.reload();
+      await refetch();
     } catch (e) {
       console.log(e);
     }

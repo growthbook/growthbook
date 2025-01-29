@@ -1,7 +1,6 @@
 import { FC, useEffect, useState } from "react";
 import { LicenseInterface } from "enterprise";
 import { Box } from "@radix-ui/themes";
-import { useRouter } from "next/router";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
@@ -20,8 +19,6 @@ import OrbSubscriptionInfo from "@/components/Settings/OrbSubscriptionInfo";
 
 const BillingPage: FC = () => {
   const { apiCall } = useAuth();
-  const router = useRouter();
-  const { query } = router;
   const {
     canSubscribe,
     subscriptionStatus,
@@ -37,20 +34,6 @@ const BillingPage: FC = () => {
   const [paymentProviderId, setPaymentProviderId] = useState<
     string | undefined
   >(undefined);
-  const [tab, setTab] = useState<string>(
-    (query.tab as "string") || "plan-info"
-  );
-
-  const handleTabClick = (value: string) => {
-    const params = new URLSearchParams(window.location.search);
-    params.set("tab", value);
-    router.push(`${window.location.pathname}?${params.toString()}`, undefined, {
-      shallow: true,
-    });
-
-    // Update state immediately to reflect UI change
-    setTab(value);
-  };
 
   useEffect(() => {
     const refreshLicense = async () => {
@@ -121,13 +104,6 @@ const BillingPage: FC = () => {
     if (subscriptionType === "orb") fetchOrbCustomerData();
   }, [organization.id, subscriptionType]);
 
-  // Update the state when URL changes (e.g., back/forward navigation)
-  useEffect(() => {
-    if (query.tab) {
-      setTab(query.tab as string);
-    }
-  }, [query.tab]);
-
   if (accountPlan === "enterprise") {
     return (
       <div className="container pagecontents">
@@ -155,21 +131,11 @@ const BillingPage: FC = () => {
 
   return (
     <div className="container-fluid pagecontents">
-      <Tabs defaultValue={tab}>
+      <Tabs defaultValue="plan-info">
         <Box mb="5">
           <TabsList>
-            <TabsTrigger
-              value="plan-info"
-              onClick={() => handleTabClick("plan-info")}
-            >
-              Plan Info
-            </TabsTrigger>
-            <TabsTrigger
-              value="payment-methods"
-              onClick={() => handleTabClick("payment-methods")}
-            >
-              Payment Methods
-            </TabsTrigger>
+            <TabsTrigger value="plan-info">Plan Info</TabsTrigger>
+            <TabsTrigger value="payment-methods">Payment Methods</TabsTrigger>
           </TabsList>
         </Box>
         <TabsContent value="plan-info">

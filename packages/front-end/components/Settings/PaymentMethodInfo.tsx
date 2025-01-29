@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Flex, Text } from "@radix-ui/themes";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
 import { redirectWithTimeout, useAuth } from "@/services/auth";
@@ -38,6 +38,92 @@ export default function PaymentMethodInfo({
   const [cardData, setCardData] = useState<Card[] | null>(null); // Use Stripe types
   const { apiCall } = useAuth();
 
+  const fetchCardData = useCallback(async () => {
+    console.log("fetching data!");
+    setLoading(true);
+    setError(undefined);
+    try {
+      // Fetch customer details to get the default_payment_method
+      const customerResponse = await fetch(
+        `https://api.stripe.com/v1/customers/${paymentProviderId}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_STRIPE_TEST_KEY}`,
+          },
+        }
+      );
+
+      console.log("customerResponse", customerResponse);
+
+      if (!customerResponse.ok) {
+        throw new Error(
+          `Failed to fetch customer: ${customerResponse.statusText}`
+        );
+      }
+
+      const customer = await customerResponse.json();
+      const defaultPaymentMethodId =
+        customer.invoice_settings?.default_payment_method;
+
+      console.log("defaultPaymentMethod", defaultPaymentMethodId);
+
+      const paymentMethodsUrl = new URL(
+        `https://api.stripe.com/v1/customers/${paymentProviderId}/payment_methods`
+      );
+
+      paymentMethodsUrl.searchParams.append("type", "card");
+
+      // Fetch all payment methods
+      const paymentMethodsResponse = await fetch(paymentMethodsUrl, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_STRIPE_TEST_KEY}`,
+        },
+      });
+
+      console.log("paymentMethodsResponse", paymentMethodsResponse);
+
+      if (!paymentMethodsResponse.ok) {
+        throw new Error(
+          `Failed to fetch payment methods: ${paymentMethodsResponse.statusText}`
+        );
+      }
+
+      const paymentMethods = await paymentMethodsResponse.json();
+
+      console.log("paymentMethods", paymentMethods);
+
+      if (!paymentMethods.data || !paymentMethods.data.length) {
+        // log error
+        return;
+      }
+
+      // Identify the default payment method
+      const paymentMethodsWithDefaultFlag = paymentMethods.data.map(
+        (method, i) => {
+          const card = method.card;
+          return {
+            id: method.id,
+            last4: card.last4,
+            brand: card.display_brand,
+            expMonth: card.exp_month,
+            expYear: card.exp_year,
+            // if no explicit defaultPaymentMethodId, Orb uses the first card
+            isDefault: defaultPaymentMethodId
+              ? method.id === defaultPaymentMethodId
+              : !!(i === 0),
+          };
+        }
+      );
+
+      setCardData(paymentMethodsWithDefaultFlag);
+    } catch (err) {
+      setError(err.message);
+    }
+    setLoading(false);
+  }, [paymentProviderId]);
+
   async function detachCard(cardId: string) {
     console.log("cardId", cardId);
     try {
@@ -55,7 +141,7 @@ export default function PaymentMethodInfo({
       if (!res.ok) {
         console.log("res isn't ok");
       }
-      window.location.reload();
+      fetchCardData();
     } catch (e) {
       console.log("e", e);
     }
@@ -84,103 +170,17 @@ export default function PaymentMethodInfo({
       }
       const formattedRes = await res.json();
       console.log("formattedRes", formattedRes);
-      window.location.reload();
+      fetchCardData();
     } catch (e) {
       console.log("e", e);
     }
   }
 
   useEffect(() => {
-    const fetchCarDataFromStripe = async () => {
-      console.log("fetching data!");
-      setLoading(true);
-      setError(undefined);
-      try {
-        // Fetch customer details to get the default_payment_method
-        const customerResponse = await fetch(
-          `https://api.stripe.com/v1/customers/${paymentProviderId}`,
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${process.env.NEXT_PUBLIC_STRIPE_TEST_KEY}`,
-            },
-          }
-        );
-
-        console.log("customerResponse", customerResponse);
-
-        if (!customerResponse.ok) {
-          throw new Error(
-            `Failed to fetch customer: ${customerResponse.statusText}`
-          );
-        }
-
-        const customer = await customerResponse.json();
-        const defaultPaymentMethodId =
-          customer.invoice_settings?.default_payment_method;
-
-        console.log("defaultPaymentMethod", defaultPaymentMethodId);
-
-        const paymentMethodsUrl = new URL(
-          `https://api.stripe.com/v1/customers/${paymentProviderId}/payment_methods`
-        );
-
-        paymentMethodsUrl.searchParams.append("type", "card");
-
-        // Fetch all payment methods
-        const paymentMethodsResponse = await fetch(paymentMethodsUrl, {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${process.env.NEXT_PUBLIC_STRIPE_TEST_KEY}`,
-          },
-        });
-
-        console.log("paymentMethodsResponse", paymentMethodsResponse);
-
-        if (!paymentMethodsResponse.ok) {
-          throw new Error(
-            `Failed to fetch payment methods: ${paymentMethodsResponse.statusText}`
-          );
-        }
-
-        const paymentMethods = await paymentMethodsResponse.json();
-
-        console.log("paymentMethods", paymentMethods);
-
-        if (!paymentMethods.data || !paymentMethods.data.length) {
-          // log error
-          return;
-        }
-
-        // Identify the default payment method
-        const paymentMethodsWithDefaultFlag = paymentMethods.data.map(
-          (method, i) => {
-            const card = method.card;
-            return {
-              id: method.id,
-              last4: card.last4,
-              brand: card.display_brand,
-              expMonth: card.exp_month,
-              expYear: card.exp_year,
-              // if no explicit defaultPaymentMethodId, Orb uses the first card
-              isDefault: defaultPaymentMethodId
-                ? method.id === defaultPaymentMethodId
-                : !!(i === 0),
-            };
-          }
-        );
-
-        setCardData(paymentMethodsWithDefaultFlag);
-      } catch (err) {
-        setError(err.message);
-      }
-      setLoading(false);
-    };
-
     if (subscriptionType === "orb" && paymentProviderId) {
-      fetchCarDataFromStripe();
+      fetchCardData();
     }
-  }, [paymentProviderId, subscriptionType]);
+  }, [fetchCardData, paymentProviderId, subscriptionType]);
 
   if (loading) return <LoadingOverlay />;
 
@@ -201,6 +201,7 @@ export default function PaymentMethodInfo({
         <CreditCardModal
           onClose={() => setCardModal(false)}
           paymentProviderId={paymentProviderId}
+          refetch={fetchCardData}
         />
       ) : null}
       {subscriptionType === "stripe" ? (
