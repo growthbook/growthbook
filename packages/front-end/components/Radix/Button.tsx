@@ -6,8 +6,8 @@ import {
   ReactNode,
   useState,
 } from "react";
-import { Responsive } from "@radix-ui/themes/dist/cjs/props";
-import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
+import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
+import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 
 export type Color = "violet" | "red";
 export type Variant = "solid" | "soft" | "outline" | "ghost";

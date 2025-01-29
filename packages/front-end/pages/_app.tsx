@@ -8,6 +8,7 @@ import { AppProps } from "next/app";
 import Head from "next/head";
 import React, { useEffect, useState } from "react";
 import { GrowthBookProvider } from "@growthbook/growthbook-react";
+import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
 import { Inter } from "next/font/google";
 import { OrganizationMessagesContainer } from "@/components/OrganizationMessages/OrganizationMessages";
 import { DemoDataSourceGlobalBannerContainer } from "@/components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner";
@@ -19,7 +20,12 @@ import {
   DefinitionsGuard,
   DefinitionsProvider,
 } from "@/services/DefinitionsContext";
-import { initEnv, isTelemetryEnabled } from "@/services/env";
+import {
+  getIngestorHost,
+  initEnv,
+  inTelemetryDebugMode,
+  isTelemetryEnabled,
+} from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import "diff2html/bundles/css/diff2html.min.css";
 import Layout from "@/components/Layout/Layout";
@@ -29,7 +35,7 @@ import GetStartedProvider from "@/services/GetStartedProvider";
 import GuidedGetStartedBar from "@/components/Layout/GuidedGetStartedBar";
 import LayoutLite from "@/components/Layout/LayoutLite";
 import { UserContextProvider } from "@/services/UserContext";
-import { growthbook, gbContext } from "@/services/utils";
+import { growthbook } from "@/services/utils";
 
 // Make useLayoutEffect isomorphic (for SSR)
 if (typeof window === "undefined") React.useLayoutEffect = React.useEffect;
@@ -87,39 +93,18 @@ function App({
 
   useEffect(() => {
     if (!ready) return;
-    if (isTelemetryEnabled()) {
-      let _rtQueue: { key: string; on: boolean }[] = [];
-      let _rtTimer = 0;
-      gbContext.onFeatureUsage = (key, res) => {
-        _rtQueue.push({
-          key,
-          on: res.on,
-        });
-        if (!_rtTimer) {
-          _rtTimer = window.setTimeout(() => {
-            // Reset the queue
-            _rtTimer = 0;
-            const q = [_rtQueue];
-            _rtQueue = [];
-
-            window
-              .fetch(
-                `https://rt.growthbook.io/?key=key_prod_cb40dfcb0eb98e44&events=${encodeURIComponent(
-                  JSON.stringify(q)
-                )}`,
-
-                {
-                  cache: "no-cache",
-                  mode: "no-cors",
-                }
-              )
-              .catch(() => {
-                // TODO: retry in case of network errors?
-              });
-          }, 2000);
-        }
-      };
-    }
+    growthbookTrackingPlugin({
+      ingestorHost: getIngestorHost(),
+      enable: isTelemetryEnabled(),
+      debug: inTelemetryDebugMode(),
+      eventFilter: (event) => {
+        // Wait for account plan to load before sending events
+        // When the plan does load, the app will re-render, so no events will be lost
+        if (event.attributes.accountPlan === "loading") return false;
+        return true;
+      },
+      dedupeKeyAttributes: ["id", "organizationId"],
+    })(growthbook);
   }, [ready]);
 
   useEffect(() => {

@@ -4,7 +4,7 @@ import {
   DropdownMenu as RadixDropdownMenu,
   Text,
 } from "@radix-ui/themes";
-import type { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
+import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { PiCaretDown, PiWarningFill } from "react-icons/pi";
 import React, { useState } from "react";
 import { amber } from "@radix-ui/colors";
