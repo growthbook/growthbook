@@ -386,7 +386,7 @@ pre {
       font-size: 14px;
       font-weight: bold;
       &.won {
-        background-color: #09ac17;
+        background-color: #09ac68;
         color: #fff;
       }
       &.lost {
@@ -754,25 +754,25 @@ pre {
     }
   }
   .won {
-    color: #09ac17;
+    color: #00936f;
     font-weight: bold;
 
     &.results-ctw,
     &.results-pval,
     &.results-mean {
       color: var(--alert-success-color);
-      background: linear-gradient(-40deg, #09ac1730, #09ac1716);
+      background: rgba(10, 159, 106, 0.19);
     }
   }
   .lost {
-    color: #ce3729;
+    color: #bb1f37;
     font-weight: bold;
 
     &.results-ctw,
     &.results-pval,
     &.results-mean {
       color: var(--alert-danger-color);
-      background: linear-gradient(-40deg, #ce372930, #ce372916);
+      background: #ce372930;
     }
   }
   //&.draw {
@@ -990,6 +990,16 @@ main.main {
       .inactivesort {
         font-size: 13px;
       }
+    }
+  }
+  td {
+    vertical-align: middle;
+  }
+}
+.dark .gbtable {
+  thead {
+    th {
+      background-color: #262d42;
     }
   }
   td {

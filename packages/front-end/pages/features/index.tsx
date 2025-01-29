@@ -166,7 +166,7 @@ export default function FeaturesPage() {
 
           <table className="table gbtable appbox">
             <thead
-              className="sticky-top bg-white shadow-sm"
+              className="sticky-top shadow-sm"
               style={{ top: "56px", zIndex: 900 }}
             >
               <tr>

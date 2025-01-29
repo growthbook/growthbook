@@ -11,7 +11,7 @@ $sidebarwidth: 240px;
   height: 56px;
   z-index: 1010;
   background-color: var(--color-surface-solid);
-  border-bottom: 1px solid var(--border-color-300);
+  box-shadow: 0px 0px 1px 0px var(--border-color-200);
   padding: 0 16px;
   @media (max-width: 520px) {
     padding: 0 8px;
