@@ -36,7 +36,7 @@ export default function BanditSettings({
     <Box>
       <Flex gap="4" p="5">
         {page === "org-settings" && (
-          <Box width="300px">
+          <Box width="220px" flexShrink="0">
             <Heading size="4" as="h4">
               Bandit Settings
             </Heading>

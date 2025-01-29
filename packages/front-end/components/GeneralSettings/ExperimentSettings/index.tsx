@@ -47,13 +47,13 @@ export default function ExperimentSettings({
     <>
       <Box mb="4" className="appbox">
         <Flex gap="4" p="5">
-          <Box width="300px">
+          <Box width="220px" flexShrink="0">
             <Heading size="4" as="h4">
               Experiment Settings
             </Heading>
           </Box>
 
-          <Flex align="start" direction="column" width="100%" pt="6">
+          <Flex align="start" direction="column" flexGrow="1" pt="6">
             {/* Custom checklists */}
             <Box mb="6">
               <PremiumTooltip
@@ -214,11 +214,13 @@ export default function ExperimentSettings({
                       </PremiumTooltip>
                     </label>
                   </Box>
-                  <Text>
-                    Combine multiple metrics from the same Fact Table into a
-                    single query to reduce fees on usage-based data sources,
-                    like BigQuery or Snowflake.
-                  </Text>
+                  <Box>
+                    <Text>
+                      Combine multiple metrics from the same Fact Table into a
+                      single query to reduce fees on usage-based data sources,
+                      like BigQuery or Snowflake.
+                    </Text>
+                  </Box>
                 </Flex>
               </Flex>
             </Box>
@@ -442,13 +444,13 @@ export default function ExperimentSettings({
 
       <Box mb="4" className="appbox">
         <Flex gap="4" p="5">
-          <Box width="300px">
+          <Box width="220px" flexShrink="0">
             <Heading size="4" as="h4">
               Experiment Analysis
             </Heading>
           </Box>
 
-          <Flex align="start" direction="column" width="100%" pt="6">
+          <Flex align="start" direction="column" flexGrow="1" pt="6">
             <StatsEngineSettings />
           </Flex>
         </Flex>

@@ -20,9 +20,9 @@ import FeaturesStats from "@/components/Features/FeaturesStats";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 import FeatureTest from "@/components/Features/FeatureTest";
-import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import { useAuth } from "@/services/auth";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
+import EditFeatureInfoModal from "@/components/Features/EditFeatureInfoModal";
 
 const featureTabs = ["overview", "stats", "test"] as const;
 export type FeatureTab = typeof featureTabs[number];
@@ -33,7 +33,7 @@ export default function FeaturePage() {
   const { fid } = router.query;
   const [editProjectModal, setEditProjectModal] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
-  const [editOwnerModal, setEditOwnerModal] = useState(false);
+  const [editFeatureInfoModal, setEditFeatureInfoModal] = useState(false);
   const [version, setVersion] = useState<number | null>(null);
   const { apiCall } = useAuth();
 
@@ -201,9 +201,7 @@ export default function FeaturePage() {
         mutate={mutate}
         tab={tab}
         setTab={setTabAndScroll}
-        setEditProjectModal={setEditProjectModal}
-        setEditTagsModal={setEditTagsModal}
-        setEditOwnerModal={setEditOwnerModal}
+        setEditFeatureInfoModal={setEditFeatureInfoModal}
         dependents={dependents}
       />
 
@@ -240,21 +238,6 @@ export default function FeaturePage() {
         <FeaturesStats orgSettings={orgSettings} codeRefs={data.codeRefs} />
       )}
 
-      {editOwnerModal && (
-        <EditOwnerModal
-          resourceType="feature"
-          cancel={() => setEditOwnerModal(false)}
-          owner={feature.owner}
-          save={async (owner) => {
-            await apiCall(`/feature/${feature.id}`, {
-              method: "PUT",
-              body: JSON.stringify({ owner }),
-            });
-          }}
-          mutate={mutate}
-        />
-      )}
-
       {editTagsModal && (
         <EditTagsForm
           tags={feature.tags || []}
@@ -265,6 +248,23 @@ export default function FeaturePage() {
             });
           }}
           cancel={() => setEditTagsModal(false)}
+          mutate={mutate}
+        />
+      )}
+
+      {editFeatureInfoModal && (
+        <EditFeatureInfoModal
+          resourceType="feature"
+          source="feature-header"
+          dependents={dependents}
+          feature={feature}
+          save={async (updates) => {
+            await apiCall(`/feature/${feature.id}`, {
+              method: "PUT",
+              body: JSON.stringify({ ...updates }),
+            });
+          }}
+          cancel={() => setEditFeatureInfoModal(false)}
           mutate={mutate}
         />
       )}

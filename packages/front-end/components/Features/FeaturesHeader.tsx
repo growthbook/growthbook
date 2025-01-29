@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { FeatureInterface } from "back-end/types/feature";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
@@ -16,7 +16,6 @@ import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { GBEdit } from "@/components/Icons";
 import SortedTags from "@/components/Tags/SortedTags";
 import WatchButton from "@/components/WatchButton";
 import Modal from "@/components/Modal";
@@ -30,6 +29,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import { Tabs, TabsList, TabsTrigger } from "@/components/Radix/Tabs";
 import Callout from "@/components/Radix/Callout";
+import ProjectBadges from "@/components/ProjectBadges";
 
 export default function FeaturesHeader({
   feature,
@@ -38,9 +38,7 @@ export default function FeaturesHeader({
   mutate,
   tab,
   setTab,
-  setEditProjectModal,
-  setEditTagsModal,
-  setEditOwnerModal,
+  setEditFeatureInfoModal,
   dependents,
 }: {
   feature: FeatureInterface;
@@ -49,9 +47,7 @@ export default function FeaturesHeader({
   mutate: () => void;
   tab: FeatureTab;
   setTab: (tab: FeatureTab) => void;
-  setEditProjectModal: (open: boolean) => void;
-  setEditTagsModal: (open: boolean) => void;
-  setEditOwnerModal: (open: boolean) => void;
+  setEditFeatureInfoModal: (open: boolean) => void;
   dependents: number;
 }) {
   const router = useRouter();
@@ -132,16 +128,18 @@ export default function FeaturesHeader({
             </Flex>
             <Box>
               <MoreMenu useRadix={true}>
-                {/*<a*/}
-                {/*  className="dropdown-item"*/}
-                {/*  href="#"*/}
-                {/*  onClick={(e) => {*/}
-                {/*    e.preventDefault();*/}
-                {/*    setShowImplementation(true);*/}
-                {/*  }}*/}
-                {/*>*/}
-                {/*  Edit information*/}
-                {/*</a>*/}
+                {canEdit && canPublish && (
+                  <a
+                    className="dropdown-item"
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setEditFeatureInfoModal(true);
+                    }}
+                  >
+                    Edit information
+                  </a>
+                )}
                 <a
                   className="dropdown-item"
                   href="#"
@@ -303,46 +301,22 @@ export default function FeaturesHeader({
                     <FaExclamationTriangle className="text-warning" />
                   </Tooltip>
                 ) : projectId ? (
-                  <strong>{projectName}</strong>
+                  <ProjectBadges
+                    resourceType="feature"
+                    projectIds={projectId ? [projectId] : []}
+                  />
                 ) : null}
-                {canEdit && canPublish && (
-                  <Tooltip
-                    shouldDisplay={dependents > 0}
-                    body={
-                      <>
-                        <ImBlocked className="text-danger" /> This feature has{" "}
-                        <strong>
-                          {dependents} dependent{dependents !== 1 && "s"}
-                        </strong>
-                        . The project cannot be changed until{" "}
-                        {dependents === 1 ? "it has" : "they have"} been
-                        removed.
-                      </>
-                    }
+                {canEdit && canPublish && !projectId && (
+                  <a
+                    role="button"
+                    className="cursor-pointer button-link"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setEditFeatureInfoModal(true);
+                    }}
                   >
-                    {projectId && (
-                      <a
-                        className="ml-2 cursor-pointer"
-                        onClick={() => {
-                          dependents === 0 && setEditProjectModal(true);
-                        }}
-                      >
-                        <GBEdit />
-                      </a>
-                    )}
-                    {!projectId && (
-                      <a
-                        role="button"
-                        className="cursor-pointer button-link"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          dependents === 0 && setEditProjectModal(true);
-                        }}
-                      >
-                        +Add
-                      </a>
-                    )}
-                  </Tooltip>
+                    +Add
+                  </a>
                 )}
               </Box>
             )}
@@ -366,14 +340,6 @@ export default function FeaturesHeader({
                 </span>
               ) : (
                 <em className="text-muted">None</em>
-              )}{" "}
-              {canEdit && (
-                <a
-                  className="ml-2 cursor-pointer"
-                  onClick={() => setEditOwnerModal(true)}
-                >
-                  <GBEdit />
-                </a>
               )}
             </Box>
             <Box>
@@ -388,14 +354,6 @@ export default function FeaturesHeader({
                 useFlex
                 shouldShowEllipsis={false}
               />
-              {canEdit && (
-                <a
-                  className="ml-1 cursor-pointer"
-                  onClick={() => setEditTagsModal(true)}
-                >
-                  <GBEdit />
-                </a>
-              )}
             </Box>
           </Box>
           <div>

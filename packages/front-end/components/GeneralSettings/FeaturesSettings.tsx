@@ -54,13 +54,13 @@ export default function FeaturesSettings() {
   return (
     <Box mb="4" className="appbox">
       <Flex gap="4" p="5">
-        <Box width="300px">
+        <Box width="220px" flexShrink="0">
           <Heading size="4" as="h4">
             Features Settings
           </Heading>
         </Box>
 
-        <Flex align="start" direction="column" width="100%" pt="6">
+        <Flex align="start" direction="column" flexGrow="1" pt="6">
           <Box mb="4" width="100%">
             <Field
               label={

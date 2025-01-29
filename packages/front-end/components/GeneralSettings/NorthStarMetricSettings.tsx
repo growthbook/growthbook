@@ -9,13 +9,13 @@ export default function NorthStarMetricSettings() {
       {({ watch, setValue }) => (
         <Box mb="4" className="appbox">
           <Flex gap="4" p="5">
-            <Box width="300px">
+            <Box width="220px" flexShrink="0">
               <Heading size="4" as="h4">
                 North Star Metrics
               </Heading>
             </Box>
 
-            <Flex align="start" direction="column" width="100%" pt="2">
+            <Flex align="start" direction="column" flexGrow="1" pt="2">
               <p>
                 North stars are metrics your team is focused on improving. These
                 metrics are shown on the home page with the experiments that

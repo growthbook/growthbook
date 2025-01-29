@@ -13,6 +13,7 @@ export interface Props {
     | "member"
     | "team"
     | "fact table"
+    | "feature"
     | "attribute"
     | "sdk connection"
     | "saved group";

@@ -282,10 +282,10 @@ export default function AssignmentTester({
     <>
       <Box>
         <Heading mb="1" size="5" as="h2">
-          Test Feature Rules
+          Simulate Feature Rules
         </Heading>
         <Text mb="0">
-          Simulate how your rules will apply to users.{" "}
+          test how your rules will apply to users.{" "}
           <Tooltip body="Enter attributes and see how Growthbook would evaluate this feature for the different environments. Will use draft rules."></Tooltip>
         </Text>
       </Box>
