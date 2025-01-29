@@ -25,6 +25,7 @@ import {
   MatchingRule,
   validateCondition,
 } from "shared/util";
+import { getSRMValue } from "shared/health";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
@@ -2733,9 +2734,11 @@ export async function updateExperimentAnalysisSummary({
     0
   );
 
-  if (overallTraffic && totalUsers) {
+  const srm = getSRMValue(experiment.type ?? "standard", experimentSnapshot);
+
+  if (overallTraffic && totalUsers && srm) {
     analysisSummary.health = {
-      srm: overallTraffic.srm,
+      srm,
       multipleExposures: experimentSnapshot.multipleExposures,
       totalUsers,
     };
