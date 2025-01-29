@@ -26,7 +26,7 @@ export default function Dashboard({ experiments }: Props) {
     nameMap.set(e.id, e.name);
   });
 
-  const experimentImpactWidget = () => (
+  const experimentImpactWidget = (
     <div className="col-xl-13 mb-4">
       <div className="list-group activity-box overflow-auto pt-1">
         {hasCommercialFeature("experiment-impact") ? (
@@ -60,7 +60,7 @@ export default function Dashboard({ experiments }: Props) {
           </div>
         </div>
 
-        {showImpactNearTop ? experimentImpactWidget() : null}
+        {showImpactNearTop ? experimentImpactWidget : null}
         <div className="row">
           <div className="col-lg-12 col-md-12 col-xl-8 mb-3">
             <div className="list-group activity-box">
@@ -110,7 +110,7 @@ export default function Dashboard({ experiments }: Props) {
             </div>
           </div>
         </div>
-        {!showImpactNearTop ? experimentImpactWidget() : null}
+        {!showImpactNearTop ? experimentImpactWidget : null}
       </div>
     </>
   );
