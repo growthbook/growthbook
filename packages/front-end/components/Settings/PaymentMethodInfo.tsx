@@ -42,8 +42,6 @@ type StripePaymentMethodSuccessResponse = {
   error?: never;
 };
 
-// type StripeApiResponse = StripeErrorResponse | StripeSuccessResponse;
-
 interface Card {
   id: string;
   last4: string;
@@ -342,10 +340,7 @@ export default function PaymentMethodInfo({
               </tbody>
             </table>
           ) : (
-            <div
-              className="appbox d-flex flex-column align-items-center" // Fix styling here - box isn't very wide
-              style={{ padding: "70px 305px 60px 305px" }}
-            >
+            <div className="appbox d-flex flex-column align-items-center p-5">
               <h1>Add a Card</h1>
               <p style={{ fontSize: "17px" }}>
                 Payments for plans, usage, and other add-ons are made using the
