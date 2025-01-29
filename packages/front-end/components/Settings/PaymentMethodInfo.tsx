@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Flex } from "@radix-ui/themes";
+import { Flex, Text } from "@radix-ui/themes";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
 import { redirectWithTimeout, useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -8,12 +8,15 @@ import Tooltip from "../Tooltip/Tooltip";
 import Button from "../Button";
 import LoadingOverlay from "../LoadingOverlay";
 import Callout from "../Radix/Callout";
+import MoreMenu from "../Dropdown/MoreMenu";
+import DeleteButton from "../DeleteButton/DeleteButton";
+import Badge from "../Radix/Badge";
 import CreditCardModal from "./CreditCardModal";
 
 interface Card {
   id: string;
   last4: number;
-  brand: string; // change to enum?
+  brand: string;
   expMonth: number;
   expYear: number;
   isDefault: boolean;
@@ -26,7 +29,6 @@ export default function PaymentMethodInfo({
 }) {
   const {
     hasActiveSubscription,
-    hasPaymentMethod,
     subscriptionType,
     subscriptionStatus,
   } = useStripeSubscription();
@@ -36,37 +38,64 @@ export default function PaymentMethodInfo({
   const [cardData, setCardData] = useState<Card[] | null>(null); // Use Stripe types
   const { apiCall } = useAuth();
 
+  async function detachCard(cardId: string) {
+    console.log("cardId", cardId);
+    try {
+      // Now, we need to actually update the user's card
+      const res = await fetch(
+        `https://api.stripe.com/v1/payment_methods/${cardId}/detach`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_STRIPE_TEST_KEY}`,
+          },
+        }
+      );
+      console.log("res", res);
+      if (!res.ok) {
+        console.log("res isn't ok");
+      }
+      window.location.reload();
+    } catch (e) {
+      console.log("e", e);
+    }
+  }
+
+  async function setCardAsDefault(cardId: string) {
+    console.log("cardId", cardId);
+    try {
+      // Now, we need to actually update the user's card
+      const res = await fetch(
+        `https://api.stripe.com/v1/customers/${paymentProviderId}`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_STRIPE_TEST_KEY}`,
+            "Content-Type": "application/x-www-form-urlencoded", // Set the correct content type
+          },
+          body: new URLSearchParams({
+            "invoice_settings[default_payment_method]": cardId, // Make sure paymentProviderId is a valid customer ID
+          }),
+        }
+      );
+      console.log("res", res);
+      if (!res.ok) {
+        console.log("res isn't ok");
+      }
+      const formattedRes = await res.json();
+      console.log("formattedRes", formattedRes);
+      window.location.reload();
+    } catch (e) {
+      console.log("e", e);
+    }
+  }
+
   useEffect(() => {
     const fetchCarDataFromStripe = async () => {
       console.log("fetching data!");
       setLoading(true);
       setError(undefined);
       try {
-        // // Handle API call here
-        // const res = await fetch(url, {
-        //   method: "GET",
-        //   headers: {
-        //     Authorization: `Bearer ${
-        //       process.env.NEXT_PUBLIC_STRIPE_TEST_KEY
-        //     }`,
-        //   },
-        // });
-        // const body = await res.json();
-        // if (body.data) {
-        //   const cards: Card[] = [];
-        //   body.data.forEach((paymentMethod) => {
-        //     if (paymentMethod.type === "card") {
-        //       cards.push({
-        //         id: paymentMethod.id,
-        //         last4: paymentMethod.card.last4,
-        //         brand: paymentMethod.card.brand,
-        //         expMonth: paymentMethod.card.exp_month,
-        //         expYear: paymentMethod.card.exp_year,
-        //       });
-        //     }
-        //   });
-        //   setCardData(cards);
-        // }
         // Fetch customer details to get the default_payment_method
         const customerResponse = await fetch(
           `https://api.stripe.com/v1/customers/${paymentProviderId}`,
@@ -125,14 +154,18 @@ export default function PaymentMethodInfo({
 
         // Identify the default payment method
         const paymentMethodsWithDefaultFlag = paymentMethods.data.map(
-          (method) => {
+          (method, i) => {
             const card = method.card;
             return {
+              id: method.id,
               last4: card.last4,
               brand: card.display_brand,
               expMonth: card.exp_month,
               expYear: card.exp_year,
-              isDefault: method.id === defaultPaymentMethodId,
+              // if no explicit defaultPaymentMethodId, Orb uses the first card
+              isDefault: defaultPaymentMethodId
+                ? method.id === defaultPaymentMethodId
+                : !!(i === 0),
             };
           }
         );
@@ -152,7 +185,6 @@ export default function PaymentMethodInfo({
   if (loading) return <LoadingOverlay />;
 
   if (subscriptionType === "orb" && !paymentProviderId) {
-    // need to return an error that their subscription isn't configured
     return (
       <Callout status="error">
         Your organization&apos;s subscription is not configured correctly.
@@ -166,7 +198,10 @@ export default function PaymentMethodInfo({
   return (
     <>
       {cardModal ? (
-        <CreditCardModal onClose={() => setCardModal(false)} />
+        <CreditCardModal
+          onClose={() => setCardModal(false)}
+          paymentProviderId={paymentProviderId}
+        />
       ) : null}
       {subscriptionType === "stripe" ? (
         <div
@@ -197,7 +232,82 @@ export default function PaymentMethodInfo({
         </div>
       ) : (
         <>
-          {!hasPaymentMethod ? (
+          <Flex align="center" justify="between" className="mb-3">
+            <Text as="p" className="mb-0">
+              Payments for subscription and usage charges are made with the
+              default card.
+            </Text>
+            <Tooltip
+              shouldDisplay={!hasActiveSubscription}
+              body="You must have an active subscription before you can add a credit card."
+            >
+              <button
+                className="btn btn-primary float-right"
+                disabled={!hasActiveSubscription}
+                onClick={() => {
+                  setCardModal(true);
+                  track("Edit Card Modal", {
+                    source: "payment-method-empty-state",
+                  });
+                }}
+                type="button"
+              >
+                <span className="h4 pr-2 m-0 d-inline-block align-top">
+                  <GBAddCircle />
+                </span>
+                Add Card
+              </button>
+            </Tooltip>
+          </Flex>
+          {cardData?.length ? (
+            <table className="table mb-3 appbox gbtable">
+              <thead>
+                <tr>
+                  <th className="col-8">Card Details</th>
+                  <th className="col-4">Valid Until</th>
+                  <th className="col-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {cardData.map((card) => {
+                  return (
+                    <tr key={card.id}>
+                      <td>
+                        {card.brand}
+                        <Text as="span" className="px-2">
+                          ••••{card.last4}
+                        </Text>
+                        {card.isDefault ? <Badge label="Default Card" /> : null}
+                      </td>
+                      <td>
+                        {card.expMonth}/{card.expYear}
+                      </td>
+                      <td>
+                        <MoreMenu className="pl-2">
+                          <button
+                            className="dropdown-item"
+                            disabled={card.isDefault}
+                            onClick={async () =>
+                              await setCardAsDefault(card.id)
+                            }
+                          >
+                            Set as Default Card
+                          </button>
+                          <DeleteButton
+                            onClick={async () => await detachCard(card.id)}
+                            className="dropdown-item text-danger"
+                            displayName="Remove Card"
+                            text="Remove Card"
+                            useIcon={false}
+                          />
+                        </MoreMenu>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : (
             <div
               className="appbox d-flex flex-column align-items-center" // Fix styling here - box isn't very wide
               style={{ padding: "70px 305px 60px 305px" }}
@@ -231,36 +341,7 @@ export default function PaymentMethodInfo({
                 </Tooltip>
               </div>
             </div>
-          ) : null}
-          {cardData?.length ? (
-            <div
-              className="appbox d-flex flex-column align-items-center" // Fix styling here - box isn't very wide
-              style={{ padding: "70px 305px 60px 305px" }}
-            >
-              {cardData.map((card) => {
-                return (
-                  <Flex key={card.id}>
-                    <div>
-                      {card.brand} ....{card.last4}
-                      {card.isDefault ? "DEFAULT" : ""}
-                    </div>
-                    <div>
-                      Valid Until {card.expMonth}/{card.expYear}
-                    </div>
-                  </Flex>
-                );
-              })}
-              {/* <Flex>
-                <div>
-                  {cardData.brand} ....{cardData.last4}
-                </div>
-                <div>
-                  Valid Until {cardData.expMonth}/{cardData.expYear}
-                </div>
-              </Flex> */}
-            </div>
-          ) : null}
-          {/* MKTODO: Display card data here when we have it */}
+          )}
         </>
       )}
     </>

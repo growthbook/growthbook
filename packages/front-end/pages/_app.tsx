@@ -9,6 +9,8 @@ import Head from "next/head";
 import React, { useEffect, useState } from "react";
 import { GrowthBookProvider } from "@growthbook/growthbook-react";
 import { Inter } from "next/font/google";
+import { Elements } from "@stripe/react-stripe-js";
+import { loadStripe } from "@stripe/stripe-js";
 import { OrganizationMessagesContainer } from "@/components/OrganizationMessages/OrganizationMessages";
 import { DemoDataSourceGlobalBannerContainer } from "@/components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner";
 import { PageHeadProvider } from "@/components/Layout/PageHead";
@@ -50,6 +52,10 @@ type ModAppProps = AppProps & {
     mainClassName?: string;
   };
 };
+
+export const stripePromise = loadStripe(
+  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""
+);
 
 function App({
   Component,
@@ -201,38 +207,44 @@ function App({
             {preAuth || progressiveAuth ? (
               renderPreAuth()
             ) : (
-              <PageHeadProvider>
-                <AuthProvider>
-                  <GrowthBookProvider growthbook={growthbook}>
-                    <ProtectedPage organizationRequired={organizationRequired}>
-                      {organizationRequired ? (
-                        <GetStartedProvider>
-                          <DefinitionsProvider>
-                            {liteLayout ? <LayoutLite /> : <Layout />}
-                            <main className={`main ${parts[0]}`}>
-                              <GuidedGetStartedBar />
-                              <OrganizationMessagesContainer />
-                              <DemoDataSourceGlobalBannerContainer />
-                              <DefinitionsGuard>
-                                <Component
-                                  {...{ ...pageProps, envReady: ready }}
-                                />
-                              </DefinitionsGuard>
+              <Elements stripe={stripePromise}>
+                <PageHeadProvider>
+                  <AuthProvider>
+                    <GrowthBookProvider growthbook={growthbook}>
+                      <ProtectedPage
+                        organizationRequired={organizationRequired}
+                      >
+                        {organizationRequired ? (
+                          <GetStartedProvider>
+                            <DefinitionsProvider>
+                              {liteLayout ? <LayoutLite /> : <Layout />}
+                              <main className={`main ${parts[0]}`}>
+                                <GuidedGetStartedBar />
+                                <OrganizationMessagesContainer />
+                                <DemoDataSourceGlobalBannerContainer />
+                                <DefinitionsGuard>
+                                  <Component
+                                    {...{ ...pageProps, envReady: ready }}
+                                  />
+                                </DefinitionsGuard>
+                              </main>
+                            </DefinitionsProvider>
+                          </GetStartedProvider>
+                        ) : (
+                          <div>
+                            <TopNavLite />
+                            <main className="container">
+                              <Component
+                                {...{ ...pageProps, envReady: ready }}
+                              />
                             </main>
-                          </DefinitionsProvider>
-                        </GetStartedProvider>
-                      ) : (
-                        <div>
-                          <TopNavLite />
-                          <main className="container">
-                            <Component {...{ ...pageProps, envReady: ready }} />
-                          </main>
-                        </div>
-                      )}
-                    </ProtectedPage>
-                  </GrowthBookProvider>
-                </AuthProvider>
-              </PageHeadProvider>
+                          </div>
+                        )}
+                      </ProtectedPage>
+                    </GrowthBookProvider>
+                  </AuthProvider>
+                </PageHeadProvider>
+              </Elements>
             )}
           </RadixTheme>
         </AppearanceUIThemeProvider>

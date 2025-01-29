@@ -1,6 +1,7 @@
 import { FC, useEffect, useState } from "react";
 import { LicenseInterface } from "enterprise";
 import { Box } from "@radix-ui/themes";
+import { useRouter } from "next/router";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
@@ -18,6 +19,17 @@ import StripeSubscriptionInfo from "@/components/Settings/StripeSubscriptionInfo
 import OrbSubscriptionInfo from "@/components/Settings/OrbSubscriptionInfo";
 
 const BillingPage: FC = () => {
+  const { apiCall } = useAuth();
+  const router = useRouter();
+  const { query } = router;
+  const {
+    canSubscribe,
+    subscriptionStatus,
+    loading,
+    subscriptionType,
+  } = useStripeSubscription();
+  const permissionsUtil = usePermissionsUtil();
+  const { accountPlan, refreshOrganization, organization } = useUser();
   const [upgradeModal, setUpgradeModal] = useState(false);
   const [loadingOrbData, setLoadingOrbData] = useState(false);
   const [portalError, setPortalError] = useState<string | undefined>(undefined);
@@ -25,19 +37,20 @@ const BillingPage: FC = () => {
   const [paymentProviderId, setPaymentProviderId] = useState<
     string | undefined
   >(undefined);
+  const [tab, setTab] = useState<string>(
+    (query.tab as "string") || "plan-info"
+  );
 
-  const {
-    canSubscribe,
-    subscriptionStatus,
-    loading,
-    subscriptionType,
-  } = useStripeSubscription();
+  const handleTabClick = (value: string) => {
+    const params = new URLSearchParams(window.location.search);
+    params.set("tab", value);
+    router.push(`${window.location.pathname}?${params.toString()}`, undefined, {
+      shallow: true,
+    });
 
-  const permissionsUtil = usePermissionsUtil();
-
-  const { accountPlan, refreshOrganization, organization } = useUser();
-
-  const { apiCall } = useAuth();
+    // Update state immediately to reflect UI change
+    setTab(value);
+  };
 
   useEffect(() => {
     const refreshLicense = async () => {
@@ -108,6 +121,13 @@ const BillingPage: FC = () => {
     if (subscriptionType === "orb") fetchOrbCustomerData();
   }, [organization.id, subscriptionType]);
 
+  // Update the state when URL changes (e.g., back/forward navigation)
+  useEffect(() => {
+    if (query.tab) {
+      setTab(query.tab as string);
+    }
+  }, [query.tab]);
+
   if (accountPlan === "enterprise") {
     return (
       <div className="container pagecontents">
@@ -135,11 +155,21 @@ const BillingPage: FC = () => {
 
   return (
     <div className="container-fluid pagecontents">
-      <Tabs defaultValue="plan-info">
+      <Tabs defaultValue={tab}>
         <Box mb="5">
           <TabsList>
-            <TabsTrigger value="plan-info">Plan Info</TabsTrigger>
-            <TabsTrigger value="payment-methods">Payment Method</TabsTrigger>
+            <TabsTrigger
+              value="plan-info"
+              onClick={() => handleTabClick("plan-info")}
+            >
+              Plan Info
+            </TabsTrigger>
+            <TabsTrigger
+              value="payment-methods"
+              onClick={() => handleTabClick("payment-methods")}
+            >
+              Payment Methods
+            </TabsTrigger>
           </TabsList>
         </Box>
         <TabsContent value="plan-info">
