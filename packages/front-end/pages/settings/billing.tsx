@@ -17,6 +17,22 @@ import PaymentMethodInfo from "@/components/Settings/PaymentMethodInfo";
 import StripeSubscriptionInfo from "@/components/Settings/StripeSubscriptionInfo";
 import OrbSubscriptionInfo from "@/components/Settings/OrbSubscriptionInfo";
 
+type OrbErrorResponse = {
+  status: number;
+  title: string;
+  portal_url?: never;
+  payment_provider_id?: never;
+};
+
+type OrbSuccessResponse = {
+  portal_url: string;
+  payment_provider_id: string;
+  status?: never;
+  title?: never;
+};
+
+type OrbApiResponse = OrbErrorResponse | OrbSuccessResponse;
+
 const BillingPage: FC = () => {
   const { apiCall } = useAuth();
   const {
@@ -64,7 +80,7 @@ const BillingPage: FC = () => {
       setLoadingOrbData(true);
       setPortalError(undefined);
       try {
-        const res = await fetch(
+        const orbData: OrbApiResponse = await fetch(
           `https://api.withorb.com/v1/customers/external_customer_id/${organization.id}`,
           {
             method: "GET",
@@ -73,26 +89,16 @@ const BillingPage: FC = () => {
               Authorization: `Bearer ${process.env.NEXT_PUBLIC_ORB_API_KEY}`,
             },
           }
-        );
-        const data = await res.json();
-        console.log("data", data);
-        if (data.portal_url) {
-          setPortalUrl(data.portal_url);
+        ).then((res) => res.json());
+        if (orbData.status) {
+          throw new Error(orbData.title);
+        }
+        if (orbData.portal_url) {
+          setPortalUrl(orbData.portal_url);
         }
 
-        if (data.payment_provider_id) {
-          setPaymentProviderId(data.payment_provider_id);
-        }
-
-        if (data.status) {
-          setPortalError(
-            "Unable to load billing data at this time. Please contact support."
-          );
-          console.error(
-            `Unable to fetch Orb customer portal for organization: ${
-              organization.id
-            }. ${data.detail ? `Reason: ${data.detail}` : ""}`
-          );
+        if (orbData.payment_provider_id) {
+          setPaymentProviderId(orbData.payment_provider_id);
         }
       } catch (err) {
         setPortalError(err.message);

@@ -1,11 +1,18 @@
-import { useState } from "react";
 import { CardElement, useElements, useStripe } from "@stripe/react-stripe-js";
+import { PaymentMethodResult } from "@stripe/stripe-js";
 import Modal from "../Modal";
 
 interface Props {
   onClose: () => void;
-  paymentProviderId?: string; // Rethink this - build this in a way where this is always defined
+  paymentProviderId?: string;
   refetch: () => Promise<void>;
+}
+
+class AddCardError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AddCardError";
+  }
 }
 
 export default function CreditCardModal({
@@ -14,56 +21,49 @@ export default function CreditCardModal({
   refetch,
 }: Props) {
   const elements = useElements();
-  const [error, setError] = useState<string | undefined>(undefined);
   const stripe = useStripe();
 
-  console.log("elements", elements);
-
   const handleSubmit = async () => {
-    setError(undefined);
-
     if (!stripe || !elements) {
-      // stripe hasn't loaded yet
-      // throw errors
-      return;
+      throw new AddCardError(`Can not load Stripe`);
+    }
+
+    if (!paymentProviderId) {
+      throw new AddCardError("Missing Stripe customer ID");
     }
 
     try {
-      const result = await stripe.createPaymentMethod({ elements });
+      // Create the paymentMethod object
+      const result: PaymentMethodResult = await stripe.createPaymentMethod({
+        elements,
+      });
 
-      console.log("result", result);
-      if (result.error || !result.paymentMethod?.id) {
-        console.error(result.error);
-        setError(result?.error?.message || "Unable to add a new card.");
-        return;
+      if (!result?.paymentMethod) {
+        throw new AddCardError(
+          result.error.message || "Unable to create a payment object"
+        );
       }
 
-      console.log("paymentProviderId", paymentProviderId);
-
-      // Now, we need to actually update the user's card
-      const updateCustomerResponse = await fetch(
+      // Attach this payment method to customer
+      const updatedCustomer = await fetch(
         `https://api.stripe.com/v1/payment_methods/${result.paymentMethod.id}/attach`,
         {
           method: "POST",
           headers: {
             Authorization: `Bearer ${process.env.NEXT_PUBLIC_STRIPE_TEST_KEY}`,
-            "Content-Type": "application/x-www-form-urlencoded", // Set the correct content type
+            "Content-Type": "application/x-www-form-urlencoded",
           },
-          body: new URLSearchParams({
-            customer: paymentProviderId, // Make sure paymentProviderId is a valid customer ID
-          }),
+          body: new URLSearchParams({ customer: paymentProviderId }),
         }
-      );
-      console.log("rawResponse", updateCustomerResponse);
+      ).then((res) => res.json());
 
-      if (!updateCustomerResponse.ok) {
-        setError("Unable to add a new card.");
+      if (updatedCustomer?.error) {
+        throw new AddCardError(updatedCustomer.error.message);
       }
-      const updatedCustomer = await updateCustomerResponse.json();
-      console.log("formattedResponse", updatedCustomer);
+      // Refetch updated list of cards
       await refetch();
     } catch (e) {
-      console.log(e);
+      throw new AddCardError(e.message);
     }
   };
   return (
@@ -73,7 +73,7 @@ export default function CreditCardModal({
       cta="Save Card"
       close={() => onClose()}
       header="Add Card"
-      submit={async () => handleSubmit()}
+      submit={async () => await handleSubmit()}
     >
       <CardElement options={{ disableLink: true }} />
     </Modal>

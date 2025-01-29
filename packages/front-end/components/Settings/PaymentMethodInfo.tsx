@@ -11,6 +11,7 @@ import Callout from "../Radix/Callout";
 import MoreMenu from "../Dropdown/MoreMenu";
 import DeleteButton from "../DeleteButton/DeleteButton";
 import Badge from "../Radix/Badge";
+import Modal from "../Modal";
 import CreditCardModal from "./CreditCardModal";
 
 interface Card {
@@ -37,6 +38,9 @@ export default function PaymentMethodInfo({
   const [error, setError] = useState<string | undefined>(undefined);
   const [cardData, setCardData] = useState<Card[] | null>(null); // Use Stripe types
   const { apiCall } = useAuth();
+  const [defaultCardModal, setDefaultCardModal] = useState<string | undefined>(
+    undefined
+  );
 
   const fetchCardData = useCallback(async () => {
     console.log("fetching data!");
@@ -44,7 +48,7 @@ export default function PaymentMethodInfo({
     setError(undefined);
     try {
       // Fetch customer details to get the default_payment_method
-      const customerResponse = await fetch(
+      const res = await fetch(
         `https://api.stripe.com/v1/customers/${paymentProviderId}`,
         {
           method: "GET",
@@ -52,21 +56,11 @@ export default function PaymentMethodInfo({
             Authorization: `Bearer ${process.env.NEXT_PUBLIC_STRIPE_TEST_KEY}`,
           },
         }
-      );
+      ).then((res) => res.json());
 
-      console.log("customerResponse", customerResponse);
-
-      if (!customerResponse.ok) {
-        throw new Error(
-          `Failed to fetch customer: ${customerResponse.statusText}`
-        );
+      if (res.error) {
+        throw new Error(res.error.message || "Unable to locate customer");
       }
-
-      const customer = await customerResponse.json();
-      const defaultPaymentMethodId =
-        customer.invoice_settings?.default_payment_method;
-
-      console.log("defaultPaymentMethod", defaultPaymentMethodId);
 
       const paymentMethodsUrl = new URL(
         `https://api.stripe.com/v1/customers/${paymentProviderId}/payment_methods`
@@ -75,29 +69,22 @@ export default function PaymentMethodInfo({
       paymentMethodsUrl.searchParams.append("type", "card");
 
       // Fetch all payment methods
-      const paymentMethodsResponse = await fetch(paymentMethodsUrl, {
+      const paymentMethods = await fetch(paymentMethodsUrl, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${process.env.NEXT_PUBLIC_STRIPE_TEST_KEY}`,
         },
-      });
+      }).then((updatePaymentsRes) => updatePaymentsRes.json());
 
-      console.log("paymentMethodsResponse", paymentMethodsResponse);
-
-      if (!paymentMethodsResponse.ok) {
+      if (paymentMethods.error) {
         throw new Error(
-          `Failed to fetch payment methods: ${paymentMethodsResponse.statusText}`
+          paymentMethods.error.message ||
+            "Unable to fetch customer payment methods"
         );
       }
 
-      const paymentMethods = await paymentMethodsResponse.json();
-
-      console.log("paymentMethods", paymentMethods);
-
-      if (!paymentMethods.data || !paymentMethods.data.length) {
-        // log error
-        return;
-      }
+      const defaultPaymentMethodId =
+        res.invoice_settings?.default_payment_method;
 
       // Identify the default payment method
       const paymentMethodsWithDefaultFlag = paymentMethods.data.map(
@@ -125,9 +112,7 @@ export default function PaymentMethodInfo({
   }, [paymentProviderId]);
 
   async function detachCard(cardId: string) {
-    console.log("cardId", cardId);
     try {
-      // Now, we need to actually update the user's card
       const res = await fetch(
         `https://api.stripe.com/v1/payment_methods/${cardId}/detach`,
         {
@@ -136,43 +121,41 @@ export default function PaymentMethodInfo({
             Authorization: `Bearer ${process.env.NEXT_PUBLIC_STRIPE_TEST_KEY}`,
           },
         }
-      );
-      console.log("res", res);
-      if (!res.ok) {
-        console.log("res isn't ok");
+      ).then((res) => res.json());
+
+      if (res.error) {
+        throw new Error(
+          res.error.message || "Unable to remove card from account."
+        );
       }
       fetchCardData();
     } catch (e) {
-      console.log("e", e);
+      throw new Error(e.message);
     }
   }
 
-  async function setCardAsDefault(cardId: string) {
-    console.log("cardId", cardId);
+  async function setCardAsDefault() {
+    if (!defaultCardModal) throw new Error("Must specify card id");
     try {
-      // Now, we need to actually update the user's card
       const res = await fetch(
         `https://api.stripe.com/v1/customers/${paymentProviderId}`,
         {
           method: "POST",
           headers: {
             Authorization: `Bearer ${process.env.NEXT_PUBLIC_STRIPE_TEST_KEY}`,
-            "Content-Type": "application/x-www-form-urlencoded", // Set the correct content type
+            "Content-Type": "application/x-www-form-urlencoded",
           },
           body: new URLSearchParams({
-            "invoice_settings[default_payment_method]": cardId, // Make sure paymentProviderId is a valid customer ID
+            "invoice_settings[default_payment_method]": defaultCardModal,
           }),
         }
-      );
-      console.log("res", res);
-      if (!res.ok) {
-        console.log("res isn't ok");
+      ).then((res) => res.json());
+      if (res.error) {
+        throw new Error(res.error.message || "Unable to update default card.");
       }
-      const formattedRes = await res.json();
-      console.log("formattedRes", formattedRes);
       fetchCardData();
     } catch (e) {
-      console.log("e", e);
+      throw new Error(e.message);
     }
   }
 
@@ -197,12 +180,26 @@ export default function PaymentMethodInfo({
 
   return (
     <>
+      {error ? <Callout status="error">{error}</Callout> : null}
       {cardModal ? (
         <CreditCardModal
           onClose={() => setCardModal(false)}
           paymentProviderId={paymentProviderId}
           refetch={fetchCardData}
         />
+      ) : null}
+      {defaultCardModal ? (
+        <Modal
+          header="Update default card"
+          open={true}
+          cta="Set as default card"
+          submit={async () => await setCardAsDefault()}
+          trackingEventModalType=""
+          close={() => setDefaultCardModal(undefined)}
+        >
+          Are your sure? The default card will be the card charged on future
+          invoices.
+        </Modal>
       ) : null}
       {subscriptionType === "stripe" ? (
         <div
@@ -244,7 +241,7 @@ export default function PaymentMethodInfo({
             >
               <button
                 className="btn btn-primary float-right"
-                disabled={!hasActiveSubscription}
+                disabled={!hasActiveSubscription || !paymentProviderId}
                 onClick={() => {
                   setCardModal(true);
                   track("Edit Card Modal", {
@@ -288,9 +285,10 @@ export default function PaymentMethodInfo({
                           <button
                             className="dropdown-item"
                             disabled={card.isDefault}
-                            onClick={async () =>
-                              await setCardAsDefault(card.id)
-                            }
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setDefaultCardModal(card.id);
+                            }}
                           >
                             Set as Default Card
                           </button>
