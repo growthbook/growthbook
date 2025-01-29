@@ -136,16 +136,18 @@ export default function FeatureRules({
           </Container>
         ) : (
           <Container mb={"4"} maxWidth="100%">
-            <Flex align="center">
-              <Container flexGrow="0" width="270px" mr="4">
+            <Flex align="center" mb="3">
+              <Container flexGrow="0" width="310px" mr="4">
                 <EnvironmentDropdown
                   env={env}
                   setEnv={setEnv}
                   environments={environments}
                   formatOptionLabel={({ value }) => (
                     <Flex justify="between" align="center">
-                      <Flex maxWidth="270px">
-                        <Text truncate>{value}</Text>
+                      <Flex maxWidth="310px">
+                        <Text weight="medium" truncate>
+                          {value}
+                        </Text>
                       </Flex>
                       <Badge
                         label={`${rulesByEnv[value].length} Rule${
