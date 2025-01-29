@@ -1,4 +1,3 @@
-import { logger } from "back-end/src/util/logger";
 import { ExperimentType } from "back-end/src/validators/experiments";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 
@@ -108,8 +107,9 @@ export function getSRMValue(
 
     default: {
       const _exhaustiveCheck: never = experimentType;
-      logger.error(
-        `Unknown experiment type for SRM: ${_exhaustiveCheck}. Snapshot id: ${snapshot.id}`
+      // eslint-disable-next-line no-console
+      console.error(
+        `Unknown experiment type for SRM: ${_exhaustiveCheck}. snapshotId: ${snapshot.id}`
       );
       return undefined;
     }
