@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
 import { redirectWithTimeout, useAuth } from "@/services/auth";
-import useStripeSubscription from "@/hooks/useStripeSubscription";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import Button from "@/components/Button";
 import { isCloud } from "@/services/env";
+import useStripeSubscription from "@/hooks/useStripeSubscription";
+import Button from "@/components/Button";
 import UpgradeModal from "./UpgradeModal";
 
-export default function SubscriptionInfo() {
+export default function StripeSubscriptionInfo() {
+  const [upgradeModal, setUpgradeModal] = useState(false);
   const { apiCall } = useAuth();
   const {
     nextBillDate,
@@ -17,15 +17,9 @@ export default function SubscriptionInfo() {
     hasPaymentMethod,
     pendingCancelation,
     quote,
-    loading,
     canSubscribe,
     activeAndInvitedUsers,
   } = useStripeSubscription();
-
-  const [upgradeModal, setUpgradeModal] = useState(false);
-
-  if (loading) return <LoadingOverlay />;
-
   return (
     <>
       {upgradeModal && (
