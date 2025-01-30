@@ -1,4 +1,6 @@
 import { Request, Response } from "express";
+import { GrowthBook } from "@growthbook/growthbook";
+import { AppFeatures } from "back-end/types/app-features";
 import {
   EnvScopedPermission,
   GlobalPermission,
@@ -45,6 +47,7 @@ export type AuthRequest<
   audit: (
     data: Omit<AuditInterface, "organization" | "id" | "user" | "dateCreated">
   ) => Promise<void>;
+  gb?: GrowthBook<AppFeatures>;
 } & PermissionFunctions;
 
 export type ResponseWithStatusAndError<T = unknown> = Response<
