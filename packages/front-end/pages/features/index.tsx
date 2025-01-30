@@ -60,6 +60,7 @@ import ProjectBadges from "@/components/ProjectBadges";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
+const HEADER_HEIGHT_PX = 55;
 
 export default function FeaturesPage() {
   const router = useRouter();
@@ -168,7 +169,7 @@ export default function FeaturesPage() {
           <table className="table gbtable appbox">
             <thead
               className="sticky-top shadow-sm"
-              style={{ top: "56px", zIndex: 900 }}
+              style={{ top: HEADER_HEIGHT_PX + "px", zIndex: 900 }}
             >
               <tr>
                 <th></th>
