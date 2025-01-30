@@ -14,6 +14,7 @@ import {
 import { OrganizationSettings } from "back-end/types/organization";
 import Link from "next/link";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { Box, Flex, Heading } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig, isCloud } from "@/services/env";
 import TempMessage from "@/components/TempMessage";
@@ -35,6 +36,12 @@ import DatasourceSettings from "@/components/GeneralSettings/DatasourceSettings"
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import HelperText from "@/components/Radix/HelperText";
 import { AppFeatures } from "@/types/app-features";
+import {
+  StickyTabsList,
+  Tabs,
+  TabsContent,
+  TabsTrigger,
+} from "@/components/Radix/Tabs";
 
 export const ConnectSettingsForm = ({ children }) => {
   const methods = useFormContext();
@@ -334,79 +341,99 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
   return (
     <FormProvider {...form}>
-      <div className="container-fluid pagecontents">
-        <h1>General Settings</h1>
-
-        <div className="mb-1">
+      <Box className="container-fluid pagecontents" mb="4">
+        <Heading as="h1" size="5" mb="3">
+          General Settings
+        </Heading>
+        <Box mb="5">
           <OrganizationAndLicenseSettings
             org={organization}
             refreshOrg={refreshOrganization}
           />
+        </Box>
 
-          <ImportSettings
-            hasFileConfig={hasFileConfig()}
-            isCloud={isCloud()}
-            settings={settings}
-            refreshOrg={refreshOrganization}
-          />
+        <Tabs defaultValue="experiment" persistInURL={true}>
+          <StickyTabsList>
+            <TabsTrigger value="experiment">Experiment Settings</TabsTrigger>
+            <TabsTrigger value="feature">Feature Settings</TabsTrigger>
+            <TabsTrigger value="metrics">Metrics &amp; Data</TabsTrigger>
+            <TabsTrigger value="import">Import &amp; Export</TabsTrigger>
+            <TabsTrigger value="custom">
+              <PremiumTooltip commercialFeature="custom-markdown">
+                Custom Markdown
+              </PremiumTooltip>
+            </TabsTrigger>
+          </StickyTabsList>
+          <Box pt="4">
+            <TabsContent value="experiment">
+              <ExperimentSettings
+                cronString={cronString}
+                updateCronString={updateCronString}
+              />
+              {growthbook.isOn("bandits") && (
+                <Box mb="4" className="appbox">
+                  <BanditSettings page="org-settings" />
+                </Box>
+              )}
+            </TabsContent>
 
-          <NorthStarMetricSettings />
+            <TabsContent value="feature">
+              <FeaturesSettings />
+            </TabsContent>
 
-          <div className="bg-white p-3 border position-relative">
-            <ExperimentSettings
-              cronString={cronString}
-              updateCronString={updateCronString}
-            />
-
-            {growthbook.isOn("bandits") && (
+            <TabsContent value="metrics">
               <>
-                <div className="divider border-bottom mb-3 mt-3" />
-                <BanditSettings page="org-settings" />
+                <MetricsSettings />
+                <DatasourceSettings />
+                <NorthStarMetricSettings />
               </>
-            )}
+            </TabsContent>
 
-            <div className="divider border-bottom mb-3 mt-3" />
-            <MetricsSettings />
+            <TabsContent value="import">
+              <ImportSettings
+                hasFileConfig={hasFileConfig()}
+                isCloud={isCloud()}
+                settings={settings}
+                refreshOrg={refreshOrganization}
+              />
+            </TabsContent>
 
-            <div className="divider border-bottom mb-3 mt-3" />
-            <FeaturesSettings />
+            <TabsContent value="custom">
+              <Box className="appbox" p="5">
+                <Flex>
+                  <Box width="300px">
+                    <PremiumTooltip commercialFeature="custom-markdown">
+                      Custom Markdown
+                    </PremiumTooltip>
+                  </Box>
+                  <Box>
+                    {hasCommercialFeature("custom-markdown") ? (
+                      <Link href="/settings/custom-markdown">
+                        View Custom Markdown Settings
+                      </Link>
+                    ) : (
+                      <span className="text-muted">
+                        View Custom Markdown Settings
+                      </span>
+                    )}
+                  </Box>
+                </Flex>
+              </Box>
+            </TabsContent>
+          </Box>
+        </Tabs>
+      </Box>
 
-            <div className="divider border-bottom mb-3 mt-3" />
-            <DatasourceSettings />
-          </div>
-          <div className="my-3 bg-white p-3 border">
-            <div className="row">
-              <div className="col-sm-3 h4">
-                <PremiumTooltip commercialFeature="custom-markdown">
-                  Custom Markdown
-                </PremiumTooltip>
-              </div>
-              <div className="col-sm-9">
-                {hasCommercialFeature("custom-markdown") ? (
-                  <Link href="/settings/custom-markdown">
-                    View Custom Markdown Settings
-                  </Link>
-                ) : (
-                  <span className="text-muted">
-                    View Custom Markdown Settings
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div
+      <Box
         className="bg-main-color position-sticky w-100 py-3 border-top"
-        style={{ bottom: 0, height: 70 }}
+        style={{ bottom: 0, height: 70, zIndex: 840 }}
       >
-        <div className="container-fluid pagecontents d-flex">
-          <div className="flex-grow-1 mr-4">
+        <Box className="container-fluid pagecontents d-flex">
+          <Flex flexGrow="1" gap="3" align="end">
             {submitError && (
-              <div className="float-right mt-2">
+              <Box>
                 <HelperText status="error">{submitError}</HelperText>
-              </div>
+              </Box>
             )}
             {saveMsg && (
               <TempMessage
@@ -418,8 +445,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 Settings saved
               </TempMessage>
             )}
-          </div>
-          <div style={{ marginRight: "4rem" }}>
+          </Flex>
+          <Box style={{ marginRight: "85px" }}>
             <Button
               disabled={!ctaEnabled}
               onClick={async () => {
@@ -429,11 +456,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
               }}
               setError={setSubmitError}
             >
-              Save
+              Save All
             </Button>
-          </div>
-        </div>
-      </div>
+          </Box>
+        </Box>
+      </Box>
     </FormProvider>
   );
 };

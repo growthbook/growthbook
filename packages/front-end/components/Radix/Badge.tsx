@@ -7,7 +7,7 @@ type Props = {
   label: string | ReactElement;
   title?: string;
   color?: RadixColor;
-  variant?: "solid" | "soft";
+  variant?: "solid" | "soft" | "outline";
   radius?: "none" | "small" | "medium" | "large" | "full";
   style?: CSSProperties;
 } & MarginProps;

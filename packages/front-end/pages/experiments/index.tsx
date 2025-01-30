@@ -10,7 +10,7 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentTemplateInterface,
 } from "back-end/types/experiment";
-import { Box, Text } from "@radix-ui/themes";
+import { Box, Switch, Text } from "@radix-ui/themes";
 import { isEmpty } from "lodash";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -21,7 +21,6 @@ import Pagination from "@/components/Pagination";
 import { useUser } from "@/services/UserContext";
 import SortedTags from "@/components/Tags/SortedTags";
 import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
 import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal";
 import { useExperiments } from "@/hooks/useExperiments";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -523,15 +522,15 @@ const ExperimentsPage = (): React.ReactElement => {
                       </Link>
                     </div>
                     <div className="col-auto ml-auto">
-                      <Toggle
-                        id="my-experiments-toggle"
-                        type="toggle"
-                        value={showMineOnly}
-                        setValue={(value) => {
-                          setShowMineOnly(value);
-                        }}
-                      />{" "}
-                      My Experiments Only
+                      <Text as="label" size="1">
+                        <Switch
+                          checked={showMineOnly}
+                          id="my-experiments-toggle"
+                          onCheckedChange={(v) => setShowMineOnly(v)}
+                          mr="3"
+                        />
+                        My Experiments Only
+                      </Text>
                     </div>
                   </div>
 

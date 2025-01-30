@@ -9,6 +9,7 @@ import {
 } from "shared/util";
 import { FaMagnifyingGlass } from "react-icons/fa6";
 import { isEmpty } from "lodash";
+import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useSearch } from "@/services/search";
@@ -91,10 +92,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
   if (!conditionGroups) return <LoadingOverlay />;
 
   return (
-    <div
-      className="mb-5 p-3 bg-white appbox border-top-0"
-      style={{ borderRadius: "0 0 5px 5px" }}
-    >
+    <Box mt="4" mb="5" p="4" className="appbox">
       {savedGroupForm && (
         <SavedGroupForm
           close={() => setSavedGroupForm(null)}
@@ -170,13 +168,9 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                             <ProjectBadges
                               resourceType="saved group"
                               projectIds={s.projects}
-                              className="badge-ellipsis short align-middle"
                             />
                           ) : (
-                            <ProjectBadges
-                              resourceType="saved group"
-                              className="badge-ellipsis short align-middle"
-                            />
+                            <ProjectBadges resourceType="saved group" />
                           )}
                         </td>
                         <td>{s.owner}</td>
@@ -236,6 +230,6 @@ export default function ConditionGroups({ groups, mutate }: Props) {
           </div>
         </>
       )}
-    </div>
+    </Box>
   );
 }

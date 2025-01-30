@@ -522,13 +522,9 @@ const MetricsList = (): React.ReactElement => {
                     <ProjectBadges
                       resourceType="metric"
                       projectIds={metric.projects}
-                      className="badge-ellipsis short align-middle"
                     />
                   ) : (
-                    <ProjectBadges
-                      resourceType="metric"
-                      className="badge-ellipsis short align-middle"
-                    />
+                    <ProjectBadges resourceType="metric" />
                   )}
                 </td>
                 <td>{metric.owner}</td>
