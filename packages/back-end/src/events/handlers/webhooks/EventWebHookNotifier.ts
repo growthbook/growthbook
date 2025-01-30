@@ -225,6 +225,7 @@ export class EventWebHookNotifier implements Notifier {
           headers: {
             ...headers,
             "Content-Type": "application/json",
+            "User-Agent": "GrowthBook Webhook",
             "X-GrowthBook-Signature": signature,
           },
           method,

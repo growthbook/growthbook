@@ -9,10 +9,11 @@ import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
 import { accountFeatures, getAccountPlan } from "enterprise";
 import { omit } from "lodash";
 import { SavedGroupInterface } from "shared/src/types";
+import { v4 as uuidv4 } from "uuid";
 import {
   ExperimentReportArgs,
+  ExperimentReportInterface,
   LegacyReportInterface,
-  ReportInterface,
 } from "back-end/types/report";
 import { WebhookInterface } from "back-end/types/webhook";
 import { SdkWebHookLogDocument } from "back-end/src/models/SdkWebhookLogModel";
@@ -74,7 +75,8 @@ export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
         windowValue:
           (doc.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS) + 0.5,
         windowUnit: "hours",
-        delayHours: -0.5,
+        delayUnit: "hours",
+        delayValue: -0.5,
       };
     } else {
       newDoc.windowSettings = {
@@ -82,9 +84,20 @@ export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
         windowValue:
           doc.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS,
         windowUnit: "hours",
-        delayHours: doc.conversionDelayHours || 0,
+        delayUnit: "hours",
+        delayValue: doc.conversionDelayHours || 0,
       };
     }
+  } else {
+    if (doc.windowSettings.delayValue === undefined) {
+      newDoc.windowSettings = {
+        ...doc.windowSettings,
+        delayValue: doc.windowSettings.delayHours ?? 0,
+        delayUnit: doc.windowSettings.delayUnit ?? "hours",
+      };
+    }
+
+    delete newDoc?.windowSettings?.delayHours;
   }
 
   if (doc.priorSettings === undefined) {
@@ -605,10 +618,19 @@ export function upgradeExperimentDoc(
     experiment.sequentialTestingTuningParameter = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
   }
 
+  if (!("shareLevel" in experiment)) {
+    experiment.shareLevel = "organization";
+  }
+  if (!("uid" in experiment)) {
+    experiment.uid = uuidv4().replace(/-/g, "");
+  }
+
   return experiment as ExperimentInterface;
 }
 
-export function migrateReport(orig: LegacyReportInterface): ReportInterface {
+export function migrateExperimentReport(
+  orig: LegacyReportInterface
+): ExperimentReportInterface {
   const { args, ...report } = orig;
 
   const {
@@ -756,7 +778,8 @@ export function migrateSnapshot(
         computedSettings: {
           windowSettings: {
             type: "conversion",
-            delayHours: 0,
+            delayUnit: "hours",
+            delayValue: 0,
             windowUnit: "hours",
             windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,
           },
@@ -824,6 +847,15 @@ export function migrateSnapshot(
             ...defaultMetricPriorSettings,
             ...m.computedSettings,
           };
+          if (m.computedSettings.windowSettings?.delayValue === undefined) {
+            m.computedSettings.windowSettings = {
+              ...m.computedSettings.windowSettings,
+              // @ts-expect-error To prevent building a full legacy snapshot settings type
+              delayValue: m.computedSettings.windowSettings?.delayHours ?? 0,
+              delayUnit:
+                m.computedSettings.windowSettings?.delayUnit ?? "hours",
+            };
+          }
         }
         return m;
       }

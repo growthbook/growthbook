@@ -15,6 +15,7 @@ import RoleList from "@/components/Teams/Roles/RoleList";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/components/Radix/Button";
 import LinkButton from "@/components/Radix/LinkButton";
+import PremiumEmptyState from "@/components/PremiumEmptyState";
 
 const TeamPage: FC = () => {
   const { refreshOrganization, hasCommercialFeature } = useUser();
@@ -84,10 +85,13 @@ const TeamPage: FC = () => {
             {hasTeamsFeature ? (
               <TeamsList />
             ) : (
-              <div className="alert alert-warning">
-                Teams are only available on the Enterprise plan. Email
-                sales@growthbook.io for more information and to set up a call.
-              </div>
+              <PremiumEmptyState
+                title="Teams"
+                description="Create groups of GrowthBook users to organize and manage permissions centrally"
+                commercialFeature="teams"
+                reason="Teams no access"
+                learnMoreLink="https://docs.growthbook.io/account/user-permissions#teams"
+              />
             )}
           </>
         </TabsContent>
@@ -120,10 +124,13 @@ const TeamPage: FC = () => {
             {hasCustomRolesFeature ? (
               <RoleList />
             ) : (
-              <div className="alert alert-warning">
-                Custom Roles are only available on the Enterprise plan. Email
-                sales@growthbook.io for more information and to set up a call.
-              </div>
+              <PremiumEmptyState
+                title="Custom Roles"
+                description="Custom roles allows you to adjust permissions and assign those roles to members or teams"
+                commercialFeature="custom-roles"
+                reason="Custom Roles no access"
+                learnMoreLink="https://docs.growthbook.io/account/user-permissions#custom-roles"
+              />
             )}
           </>
         </TabsContent>

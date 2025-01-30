@@ -128,6 +128,9 @@ const experimentRule = baseRule
     goalMetrics: z.array(z.string()).optional(),
     secondaryMetrics: z.array(z.string()).optional(),
     guardrailMetrics: z.array(z.string()).optional(),
+    activationMetric: z.string().optional(),
+    segment: z.string().optional(),
+    skipPartialData: z.boolean().optional(),
     values: z.array(experimentValue),
     regressionAdjustmentEnabled: z.boolean().optional(),
     sequentialTestingEnabled: z.boolean().optional(),
@@ -139,6 +142,7 @@ const experimentRule = baseRule
     banditScheduleUnit: z.enum(["hours", "days"]).optional(),
     banditBurnInValue: z.number().optional(),
     banditBurnInUnit: z.enum(["hours", "days"]).optional(),
+    templateId: z.string().optional(),
   })
   .strict();
 
@@ -269,6 +273,7 @@ const computedFeatureInterface = featureInterface
     projectId: z.string(),
     projectName: z.string(),
     projectIsDeReferenced: z.boolean(),
+    savedGroups: z.array(z.string()),
     stale: z.boolean(),
     staleReason: z.string(),
     ownerName: z.string(),

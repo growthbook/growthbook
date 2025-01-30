@@ -38,8 +38,7 @@ import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/components/Radix/Button";
 import { useUser } from "@/services/UserContext";
-import LinkButton from "@/components/Radix/LinkButton";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
+import PremiumEmptyState from "@/components/PremiumEmptyState";
 
 export const SimulateFeatureValues: FC<{
   archetypes: ArchetypeInterface[];
@@ -73,7 +72,6 @@ export const SimulateFeatureValues: FC<{
   const [evaluatedEnvironment, setEvaluatedEnvironment] = useState(
     selectedEnvironment
   );
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const { apiCall } = useAuth();
 
   const { features: allFeatures, loading } = useFeaturesList(true, false);
@@ -452,40 +450,15 @@ export const SimulateFeatureValues: FC<{
   if (!hasSimulateFeature) {
     return (
       <div className="mb-3">
-        <div className="appbox p-5 text-center">
-          <div className="py-2">
-            <h2>Simulate feature/experiment states for Users</h2>
-            <p>
-              For any set of attributes or archetype, simulate what feature
+        <PremiumEmptyState
+          title="Simulate feature/experiment states for Users"
+          description=" For any set of attributes or archetype, simulate what feature
               values they have or would receive. Simulation is a premium
-              feature.
-            </p>
-            <div className="mt-3">
-              <LinkButton
-                href="https://docs.growthbook.io/features/rules#simulation"
-                variant="outline"
-                mr="3"
-                external={true}
-              >
-                View docs
-              </LinkButton>
-              <Button
-                onClick={() => {
-                  setShowUpgradeModal(true);
-                }}
-              >
-                Upgrade Plan
-              </Button>
-            </div>
-          </div>
-        </div>
-        {showUpgradeModal && (
-          <UpgradeModal
-            close={() => setShowUpgradeModal(false)}
-            source="archetypes"
-            reason="Create reusable archetypes"
-          />
-        )}
+              feature."
+          commercialFeature="simulate"
+          reason="Simulate landing page no access"
+          learnMoreLink="https://docs.growthbook.io/features/rules#simulation"
+        />
       </div>
     );
   }

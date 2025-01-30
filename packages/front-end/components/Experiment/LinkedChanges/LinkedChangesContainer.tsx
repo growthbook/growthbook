@@ -11,7 +11,7 @@ import {
 export interface Props {
   type: LinkedChange;
   canAddChanges: boolean;
-  children: JSX.Element;
+  children: JSX.Element | null;
   changeCount: number;
   experimentStatus: ExperimentStatus;
   onAddChange: () => void;
@@ -38,7 +38,7 @@ export default function LinkedChangesContainer({
 
   return (
     <div className="appbox px-4 py-3 mb-4">
-      <div className="d-flex mb-3 align-items-center">
+      <div className={`d-flex mb-${children ? "3" : "0"} align-items-center`}>
         <span
           className="mr-3"
           style={{
@@ -64,7 +64,7 @@ export default function LinkedChangesContainer({
             <div className="h4 mb-0 align-self-center">
               {header}{" "}
               {!!changeCount && (
-                <small className="text-muted">({changeCount})</small>
+                <span className="font-weight-normal">({changeCount})</span>
               )}
             </div>
             {canAddChanges ? (

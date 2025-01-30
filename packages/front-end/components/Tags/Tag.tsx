@@ -1,5 +1,5 @@
 import React from "react";
-import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
+import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Badge from "@/components/Radix/Badge";
 import { RadixColor } from "@/components/Radix/HelperText";
@@ -35,7 +35,8 @@ export default function Tag({ tag, color, description, skipMargin }: Props) {
       label={tag}
       color={tagColor as RadixColor}
       variant="soft"
-      ml={skipMargin ? undefined : "2"}
+      mr={skipMargin ? undefined : "2"}
+      mb={skipMargin ? undefined : "1"}
     />
   );
 }

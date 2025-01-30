@@ -25,7 +25,6 @@ import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/Demo
 import { phaseSummary } from "@/services/utils";
 import EditStatusModal from "@/components/Experiment/EditStatusModal";
 import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
-import EditExperimentNameForm from "@/components/Experiment/EditExperimentNameForm";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
@@ -48,8 +47,8 @@ export interface Props {
   mutate: () => void;
   duplicate?: (() => void) | null;
   editTags?: (() => void) | null;
-  editProject?: (() => void) | null;
   checklistItemsRemaining: number | null;
+  envs: string[];
   setChecklistItemsRemaining: (value: number | null) => void;
   editVariations?: (() => void) | null;
   visualChangesets: VisualChangesetInterface[];
@@ -67,10 +66,10 @@ export default function TabbedPage({
   linkedFeatures,
   mutate,
   duplicate,
-  editProject,
   editTags,
   editVariations,
   visualChangesets,
+  envs,
   urlRedirects,
   editPhases,
   editTargeting,
@@ -89,7 +88,6 @@ export default function TabbedPage({
 
   const { apiCall } = useAuth();
 
-  const [editNameOpen, setEditNameOpen] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
   const [statusModal, setStatusModal] = useState(false);
   const [watchersModal, setWatchersModal] = useState(false);
@@ -176,13 +174,13 @@ export default function TabbedPage({
     (connection) => connection.connected
   );
 
-  const watcherIds = useApi<{
+  const { data, mutate: mutateWatchers } = useApi<{
     userIds: string[];
   }>(`/experiment/${experiment.id}/watchers`);
   const { users, organization } = useUser();
 
   // Get name or email of all active users watching this experiment
-  const usersWatching = (watcherIds?.data?.userIds || [])
+  const usersWatching = (data?.userIds || [])
     .map((id) => users.get(id))
     .filter(isDefined)
     .map((u) => u.name || u.email);
@@ -192,14 +190,7 @@ export default function TabbedPage({
   const isBandit = experiment.type === "multi-armed-bandit";
   const trackSource = "tabbed-page";
   return (
-    <div>
-      {editNameOpen && (
-        <EditExperimentNameForm
-          experiment={experiment}
-          mutate={mutate}
-          cancel={() => setEditNameOpen(false)}
-        />
-      )}
+    <>
       {auditModal && (
         <Modal
           trackingEventModalType=""
@@ -267,21 +258,22 @@ export default function TabbedPage({
         />
       )}
       {/* TODO: Update Experiment Header props to include redirect and pipe through to StartExperimentBanner */}
+
       <ExperimentHeader
         experiment={experiment}
+        envs={envs}
         tab={tab}
         setTab={setTabAndScroll}
         mutate={mutate}
         safeToEdit={safeToEdit}
         setAuditModal={setAuditModal}
-        setEditNameOpen={setEditNameOpen}
         setStatusModal={setStatusModal}
         setWatchersModal={setWatchersModal}
         duplicate={duplicate}
         usersWatching={usersWatching}
+        mutateWatchers={mutateWatchers}
         editResult={editResult || undefined}
         editTargeting={editTargeting}
-        editProject={editProject}
         editTags={editTags}
         newPhase={newPhase}
         editPhases={editPhases}
@@ -290,7 +282,8 @@ export default function TabbedPage({
         verifiedConnections={verifiedConnections}
         linkedFeatures={linkedFeatures}
       />
-      <div className="container pagecontents pb-4 px-3">
+
+      <div className="container-fluid pagecontents">
         {experiment.project ===
           getDemoDatasourceProjectIdForOrganization(organization.id) && (
           <div className="alert alert-info mb-3 d-flex align-items-center mt-3">
@@ -306,9 +299,7 @@ export default function TabbedPage({
             </div>
           </div>
         )}
-        <div className="mt-3">
-          <CustomMarkdown page={"experiment"} variables={variables} />
-        </div>
+        <CustomMarkdown page={"experiment"} variables={variables} />
 
         {experiment.status === "stopped" && (
           <div className="pt-3">
@@ -358,6 +349,7 @@ export default function TabbedPage({
             verifiedConnections={verifiedConnections}
             checklistItemsRemaining={checklistItemsRemaining}
             setChecklistItemsRemaining={setChecklistItemsRemaining}
+            envs={envs}
           />
           <Implementation
             experiment={experiment}
@@ -371,12 +363,13 @@ export default function TabbedPage({
             urlRedirects={urlRedirects}
             editTargeting={editTargeting}
             linkedFeatures={linkedFeatures}
+            envs={envs}
           />
           {experiment.status !== "draft" && (
             <div className="mt-3 mb-2 text-center d-print-none">
               <Button
                 onClick={() => setTabAndScroll("results")}
-                size="lg"
+                size="md"
                 icon={<FaChartBar />}
               >
                 View Results
@@ -388,7 +381,9 @@ export default function TabbedPage({
           <div
             className={
               // todo: standardize explore & results tabs across experiment types
-              isBandit && tab === "results" ? "d-block" : "d-none d-print-block"
+              isBandit && tab === "results"
+                ? "container-fluid pagecontents d-block pt-0"
+                : "d-none d-print-block"
             }
           >
             <BanditSummaryResultsTab
@@ -398,59 +393,60 @@ export default function TabbedPage({
             />
           </div>
         ) : null}
-        <div
-          className={
-            // todo: standardize explore & results tabs across experiment types
-            (!isBandit && tab === "results") || (isBandit && tab === "explore")
-              ? "d-block pt-2"
-              : "d-none d-print-block"
-          }
-        >
-          {/* TODO: Update ResultsTab props to include redirect and pipe through to StartExperimentBanner */}
-          <ResultsTab
-            experiment={experiment}
-            mutate={mutate}
-            editMetrics={editMetrics}
-            editPhases={editPhases}
-            editResult={editResult}
-            newPhase={newPhase}
-            connections={connections}
-            linkedFeatures={linkedFeatures}
-            setTab={setTabAndScroll}
-            visualChangesets={visualChangesets}
-            editTargeting={editTargeting}
-            isTabActive={tab === "results"}
-            safeToEdit={safeToEdit}
-            baselineRow={baselineRow}
-            setBaselineRow={setBaselineRow}
-            differenceType={differenceType}
-            setDifferenceType={setDifferenceType}
-            variationFilter={variationFilter}
-            setVariationFilter={setVariationFilter}
-            metricFilter={metricFilter}
-            setMetricFilter={setMetricFilter}
-          />
-        </div>
-        <div
-          className={tab === "health" ? "d-block pt-2" : "d-none d-print-block"}
-        >
-          <HealthTab
-            experiment={experiment}
-            onHealthNotify={handleIncrementHealthNotifications}
-            onSnapshotUpdate={handleSnapshotChange}
-            resetResultsSettings={() => {
-              setBaselineRow(0);
-              setDifferenceType("relative");
-              setVariationFilter([]);
-            }}
-          />
-        </div>
+      </div>
+      <div
+        className={
+          // todo: standardize explore & results tabs across experiment types
+          (!isBandit && tab === "results") || (isBandit && tab === "explore")
+            ? "container-fluid pagecontents d-block pt-0"
+            : "d-none d-print-block"
+        }
+      >
+        {/* TODO: Update ResultsTab props to include redirect and pipe through to StartExperimentBanner */}
+        <ResultsTab
+          experiment={experiment}
+          mutate={mutate}
+          editMetrics={editMetrics}
+          editPhases={editPhases}
+          editResult={editResult}
+          newPhase={newPhase}
+          connections={connections}
+          envs={envs}
+          setTab={setTabAndScroll}
+          visualChangesets={visualChangesets}
+          editTargeting={editTargeting}
+          isTabActive={tab === "results"}
+          safeToEdit={safeToEdit}
+          baselineRow={baselineRow}
+          setBaselineRow={setBaselineRow}
+          differenceType={differenceType}
+          setDifferenceType={setDifferenceType}
+          variationFilter={variationFilter}
+          setVariationFilter={setVariationFilter}
+          metricFilter={metricFilter}
+          setMetricFilter={setMetricFilter}
+        />
+      </div>
+      <div
+        className={
+          tab === "health"
+            ? "container-fluid pagecontents d-block pt-0"
+            : "d-none d-print-block"
+        }
+      >
+        <HealthTab
+          experiment={experiment}
+          onHealthNotify={handleIncrementHealthNotifications}
+          onSnapshotUpdate={handleSnapshotChange}
+          resetResultsSettings={() => {
+            setBaselineRow(0);
+            setDifferenceType("relative");
+            setVariationFilter([]);
+          }}
+        />
       </div>
 
-      <div
-        className="bg-white mt-4 px-4 border-top"
-        style={{ marginLeft: -8, marginRight: -8 }}
-      >
+      <div className="bg-white mt-4 px-4 border-top pb-3">
         <div className="pt-2 pt-4 pb-5 container pagecontents">
           <div className="h3 mb-4">Comments</div>
           <DiscussionThread
@@ -461,6 +457,6 @@ export default function TabbedPage({
           />
         </div>
       </div>
-    </div>
+    </>
   );
 }

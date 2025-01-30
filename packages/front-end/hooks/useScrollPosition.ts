@@ -2,19 +2,19 @@ import { useEffect, useState } from "react";
 
 export function useScrollPosition() {
   const [scrollPosition, setScrollPosition] = useState({
-    scrollX: window.pageXOffset,
-    scrollY: window.pageYOffset,
+    scrollX: globalThis?.window?.pageXOffset || 0,
+    scrollY: globalThis?.window?.pageYOffset || 0,
   });
   useEffect(() => {
     function onScroll() {
       setScrollPosition({
-        scrollX: window.pageXOffset,
-        scrollY: window.pageYOffset,
+        scrollX: globalThis?.window?.pageXOffset || 0,
+        scrollY: globalThis?.window?.pageYOffset || 0,
       });
     }
 
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    globalThis?.window?.addEventListener("scroll", onScroll, { passive: true });
+    return () => globalThis?.window?.removeEventListener("scroll", onScroll);
   }, []);
   return scrollPosition;
 }

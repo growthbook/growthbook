@@ -9,7 +9,7 @@ import {
 import omit from "lodash/omit";
 import { LegacyMetricInterface } from "back-end/types/metric";
 import {
-  migrateReport,
+  migrateExperimentReport,
   migrateSavedGroup,
   migrateSnapshot,
   upgradeDatasourceObject,
@@ -23,9 +23,11 @@ import {
   DataSourceInterface,
   DataSourceSettings,
 } from "back-end/types/datasource";
+import { FactMetricModel } from "back-end/src/models/FactMetricModel";
 import { encryptParams } from "back-end/src/services/datasource";
 import { MixpanelConnectionParams } from "back-end/types/integrations/mixpanel";
 import { PostgresConnectionParams } from "back-end/types/integrations/postgres";
+import { LegacyFactMetricInterface } from "back-end/types/fact-table";
 import {
   ExperimentRule,
   FeatureInterface,
@@ -44,6 +46,82 @@ import {
 import { Queries } from "back-end/types/query";
 import { ExperimentPhase } from "back-end/types/experiment";
 import { LegacySavedGroupInterface } from "back-end/types/saved-group";
+
+describe("Fact Metric Migration", () => {
+  it("upgrades delay hours", () => {
+    const baseFactMetric: LegacyFactMetricInterface = {
+      id: "",
+      organization: "",
+      owner: "",
+      datasource: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      name: "",
+      description: "",
+      tags: [],
+      projects: [],
+      inverse: false,
+
+      metricType: "proportion",
+      numerator: {
+        factTableId: "",
+        column: "",
+        filters: [],
+      },
+      denominator: null,
+
+      windowSettings: {
+        type: "",
+        delayUnit: "hours",
+        delayValue: 0,
+        windowUnit: "hours",
+        windowValue: 0,
+      },
+      cappingSettings: {
+        type: "",
+        value: 0,
+      },
+      priorSettings: {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+      },
+
+      maxPercentChange: 0.05,
+      minPercentChange: 500,
+      minSampleSize: 150,
+      winRisk: 0.1,
+      loseRisk: 3,
+
+      regressionAdjustmentOverride: false,
+      regressionAdjustmentEnabled: true,
+      regressionAdjustmentDays: 14,
+
+      quantileSettings: null,
+    };
+
+    const delayHours: LegacyFactMetricInterface = {
+      ...baseFactMetric,
+      windowSettings: {
+        type: "",
+        delayHours: 14,
+        windowUnit: "hours",
+        windowValue: 0,
+      },
+    };
+    expect(FactMetricModel.upgradeFactMetricDoc(delayHours)).toEqual({
+      ...delayHours,
+      windowSettings: {
+        type: "",
+        delayUnit: "hours",
+        delayValue: 14,
+        windowUnit: "hours",
+        windowValue: 0,
+      },
+    });
+  });
+});
 
 describe("Metric Migration", () => {
   it("updates old metric objects - earlyStart and conversion*Hours", () => {
@@ -88,7 +166,8 @@ describe("Metric Migration", () => {
         type: "conversion",
         windowUnit: "hours",
         windowValue: 72.5,
-        delayHours: -0.5,
+        delayValue: -0.5,
+        delayUnit: "hours",
       },
     });
 
@@ -104,7 +183,8 @@ describe("Metric Migration", () => {
         type: "conversion",
         windowUnit: "hours",
         windowValue: 50.5,
-        delayHours: -0.5,
+        delayUnit: "hours",
+        delayValue: -0.5,
       },
     });
 
@@ -121,7 +201,8 @@ describe("Metric Migration", () => {
         type: "conversion",
         windowUnit: "hours",
         windowValue: 50,
-        delayHours: 5,
+        delayUnit: "hours",
+        delayValue: 5,
       },
     });
 
@@ -136,7 +217,8 @@ describe("Metric Migration", () => {
         type: "conversion",
         windowUnit: "hours",
         windowValue: 50,
-        delayHours: 5,
+        delayUnit: "hours",
+        delayValue: 5,
       },
     });
     const conversionWindowAndSettings: LegacyMetricInterface = {
@@ -156,7 +238,27 @@ describe("Metric Migration", () => {
         type: "lookback",
         windowUnit: "days",
         windowValue: 33,
+        delayUnit: "hours",
+        delayValue: 3,
+      },
+    });
+    const delayHours: LegacyMetricInterface = {
+      ...baseMetric,
+      windowSettings: {
+        type: "lookback",
+        windowUnit: "days",
+        windowValue: 33,
         delayHours: 3,
+      },
+    };
+    expect(upgradeMetricDoc(delayHours)).toEqual({
+      ...baseMetric,
+      windowSettings: {
+        type: "lookback",
+        windowUnit: "days",
+        windowValue: 33,
+        delayUnit: "hours",
+        delayValue: 3,
       },
     });
   });
@@ -184,7 +286,8 @@ describe("Metric Migration", () => {
         type: "conversion",
         windowUnit: "hours",
         windowValue: 72,
-        delayHours: 0,
+        delayUnit: "hours",
+        delayValue: 0,
       },
       priorSettings: {
         override: false,
@@ -260,7 +363,8 @@ describe("Metric Migration", () => {
         type: "conversion",
         windowUnit: "hours",
         windowValue: 72,
-        delayHours: 0,
+        delayUnit: "hours",
+        delayValue: 0,
       },
       priorSettings: {
         override: false,
@@ -340,7 +444,8 @@ describe("Metric Migration", () => {
         type: "conversion",
         windowUnit: "hours",
         windowValue: 72,
-        delayHours: 0,
+        delayUnit: "hours",
+        delayValue: 0,
       },
       userIdTypes: ["anonymous_id", "user_id"],
     };
@@ -375,7 +480,8 @@ describe("Metric Migration", () => {
         type: "conversion",
         windowUnit: "hours",
         windowValue: 72,
-        delayHours: 0,
+        delayUnit: "hours",
+        delayValue: 0,
       },
       cappingSettings: {
         type: "",
@@ -459,7 +565,8 @@ describe("Metric Migration", () => {
         type: "conversion",
         windowUnit: "hours",
         windowValue: 72,
-        delayHours: 0,
+        delayUnit: "hours",
+        delayValue: 0,
       },
       cappingSettings: {
         type: "",
@@ -1070,6 +1177,7 @@ describe("Experiment Migration", () => {
         name: "New Name",
       },
     ],
+    uid: "1234",
   };
 
   const upgraded = {
@@ -1129,6 +1237,8 @@ describe("Experiment Migration", () => {
     ],
     sequentialTestingEnabled: false,
     sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    uid: "1234",
+    shareLevel: "organization",
   };
 
   it("upgrades experiment objects", () => {
@@ -1467,7 +1577,8 @@ describe("Snapshot Migration", () => {
                 type: "conversion",
                 windowUnit: "hours",
                 windowValue: 72,
-                delayHours: 0,
+                delayUnit: "hours",
+                delayValue: 0,
               },
               regressionAdjustmentDays: 0,
               regressionAdjustmentEnabled: false,
@@ -1485,7 +1596,8 @@ describe("Snapshot Migration", () => {
                 type: "conversion",
                 windowUnit: "hours",
                 windowValue: 72,
-                delayHours: 0,
+                delayUnit: "hours",
+                delayValue: 0,
               },
               regressionAdjustmentDays: 0,
               regressionAdjustmentEnabled: false,
@@ -1680,7 +1792,8 @@ describe("Snapshot Migration", () => {
                 type: "conversion",
                 windowUnit: "hours",
                 windowValue: 72,
-                delayHours: 0,
+                delayUnit: "hours",
+                delayValue: 0,
               },
               regressionAdjustmentDays: 0,
               regressionAdjustmentEnabled: false,
@@ -1746,7 +1859,7 @@ describe("Report Migration", () => {
       },
     };
 
-    expect(migrateReport(report)).toEqual({
+    expect(migrateExperimentReport(report)).toEqual({
       ...report,
       args: {
         ...omit(report.args, "metrics"),
@@ -1768,7 +1881,7 @@ describe("Report Migration", () => {
       },
     };
 
-    expect(migrateReport(report)).toEqual({
+    expect(migrateExperimentReport(report)).toEqual({
       ...report,
       args: {
         ...omit(report.args, "metrics", "guardrails"),
@@ -1792,7 +1905,7 @@ describe("Report Migration", () => {
       },
     };
 
-    expect(migrateReport(report)).toEqual({
+    expect(migrateExperimentReport(report)).toEqual({
       ...report,
       args: {
         ...omit(report.args, "metrics", "guardrails"),
@@ -1820,7 +1933,7 @@ describe("Report Migration", () => {
       },
     };
 
-    expect(migrateReport(report)).toEqual({
+    expect(migrateExperimentReport(report)).toEqual({
       ...report,
       args: {
         ...omit(report.args, "metrics", "metricRegressionAdjustmentStatuses"),

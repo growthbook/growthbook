@@ -1,7 +1,13 @@
 import { Button as RadixButton, ButtonProps, Text } from "@radix-ui/themes";
-import { ForwardedRef, forwardRef, ReactNode, useState } from "react";
-import { Responsive } from "@radix-ui/themes/dist/cjs/props";
-import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
+import {
+  CSSProperties,
+  ForwardedRef,
+  forwardRef,
+  ReactNode,
+  useState,
+} from "react";
+import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
+import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 
 export type Color = "violet" | "red";
 export type Variant = "solid" | "soft" | "outline" | "ghost";
@@ -17,8 +23,8 @@ export type Props = {
   setError?: (error: string | null) => void;
   icon?: ReactNode;
   iconPosition?: "left" | "right";
-  children: string | string[];
-  style?: React.CSSProperties;
+  children: string | string[] | ReactNode;
+  style?: CSSProperties;
 } & MarginProps &
   Pick<ButtonProps, "title" | "type" | "aria-label">;
 
@@ -41,7 +47,7 @@ const Button = forwardRef<HTMLButtonElement, Props>(
       onClick,
       color = "violet",
       variant = "solid",
-      size = "md",
+      size = "sm",
       disabled,
       loading: _externalLoading,
       setError,

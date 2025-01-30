@@ -6,3 +6,5 @@ export * as experiments from "./experiments";
 export * as permissions from "./permissions";
 export * as sdkVersioning from "./sdk-versioning";
 export * as types from "./types";
+export * as power from "./power";
+export * as health from "./health";
