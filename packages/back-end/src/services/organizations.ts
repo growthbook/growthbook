@@ -9,6 +9,8 @@ import {
   licenseInit,
   postSubscriptionUpdateToLicenseServer,
   getSubscriptionFromLicense,
+  SubscriptionInfo,
+  getStripeSubscriptionStatus,
 } from "enterprise";
 import {
   areProjectRolesValid,
@@ -1135,4 +1137,19 @@ export async function getContextForAgendaJobByOrgId(
   }
 
   return getContextForAgendaJobByOrgObject(organization);
+}
+
+export function getSubscriptionFromOrg(
+  organization: OrganizationInterface
+): SubscriptionInfo | null {
+  if (organization.subscription) {
+    return {
+      billingPlatform: "stripe",
+      externalId: organization.subscription.id,
+      trialEnd: organization.subscription.trialEnd,
+      status: getStripeSubscriptionStatus(organization.subscription.status),
+      hasPaymentMethod: !!organization.subscription.hasPaymentMethod,
+    };
+  }
+  return null;
 }

@@ -83,7 +83,7 @@ export type SubscriptionInfo = {
   hasPaymentMethod: boolean;
 };
 
-function getStripeSubscriptionStatus(
+export function getStripeSubscriptionStatus(
   status: Stripe.Subscription.Status
 ): SubscriptionInfo["status"] {
   if (status === "past_due") return "past_due";
