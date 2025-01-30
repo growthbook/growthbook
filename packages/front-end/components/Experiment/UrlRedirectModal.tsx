@@ -259,7 +259,7 @@ const UrlRedirectModal: FC<{
                   <div className="ml-auto d-flex align-items-center">
                     <Checkbox
                       label="Redirect"
-                      disabled={i === 0}
+                      disable={i === 0 ? "all" : undefined}
                       disabledMessage={
                         i === 0 ? "You can not edit the control" : ""
                       }
