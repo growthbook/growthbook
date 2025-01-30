@@ -56,6 +56,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import Button from "@/components/Radix/Button";
 import Callout from "@/components/Radix/Callout";
+import ProjectBadges from "@/components/ProjectBadges";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
@@ -266,7 +267,16 @@ export default function FeaturesPage() {
                             <span className="text-danger">Invalid project</span>
                           </Tooltip>
                         ) : (
-                          feature.projectName ?? <em>None</em>
+                          <>
+                            {feature.project ? (
+                              <ProjectBadges
+                                resourceType="feature"
+                                projectIds={[feature.projectId]}
+                              />
+                            ) : (
+                              <></>
+                            )}
+                          </>
                         )}
                       </td>
                     )}

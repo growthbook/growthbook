@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FeatureInterface } from "back-end/types/feature";
 import { Box } from "@radix-ui/themes";
@@ -33,9 +33,10 @@ const EditFeatureInfoModal: FC<{
     },
   });
   const permissionsUtil = usePermissionsUtil();
+  const [showProjectWarningMsg, setShowProjectWarningMsg] = useState(false);
 
   const permissionRequired = (project) =>
-    permissionsUtil.canUpdateFeature({ project }, {});
+    permissionsUtil.canUpdateFeature(feature, { project });
   const initialOption = permissionRequired("") ? "None" : "";
 
   return (
@@ -80,7 +81,10 @@ const EditFeatureInfoModal: FC<{
           <SelectField
             label="Project"
             value={form.watch("project")}
-            onChange={(v) => form.setValue("project", v)}
+            onChange={(v) => {
+              form.setValue("project", v);
+              setShowProjectWarningMsg(true);
+            }}
             options={useProjectOptions(
               permissionRequired,
               feature?.project ? [feature.project] : []
@@ -97,15 +101,19 @@ const EditFeatureInfoModal: FC<{
               {dependents === 1 ? "it has" : "they have"} been removed.
             </Callout>
           ) : (
-            <Callout status="warning">
-              Changing the project may prevent this Feature Flag and any linked
-              Experiments from being sent to users.{" "}
-              <Tooltip
-                body={
-                  "SDK endpoints are linked to specific environments and (optionally) projects. Changing the project of this feature may result in this feature returning in a different payload."
-                }
-              />
-            </Callout>
+            <>
+              {showProjectWarningMsg && (
+                <Callout status="warning">
+                  Changing the project may prevent this Feature Flag and any
+                  linked Experiments from being sent to users.{" "}
+                  <Tooltip
+                    body={
+                      "SDK endpoints are linked to specific environments and (optionally) projects. Changing the project of this feature may result in this feature returning in a different payload."
+                    }
+                  />
+                </Callout>
+              )}
+            </>
           )}
         </Box>
       </Box>

@@ -23,6 +23,9 @@ export interface Props {
   sort?: boolean;
   skipMargin?: boolean;
 }
+// these types can only have one project associated with them, and we don't
+// want to show the project badge for them (rather than 'all')
+const singularProjectTypes = ["feature"];
 
 export default function ProjectBadges({
   resourceType,
@@ -34,6 +37,9 @@ export default function ProjectBadges({
 }: Props) {
   const { projects, project } = useDefinitions();
   if (!projectIds) {
+    if (singularProjectTypes.includes(resourceType)) {
+      return null;
+    }
     return (
       <Badge
         label="All projects"

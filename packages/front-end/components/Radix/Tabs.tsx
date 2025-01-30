@@ -2,7 +2,6 @@ import clsx from "clsx";
 import { forwardRef, useEffect, useRef, useState } from "react";
 import { Box, Tabs as RadixTabs } from "@radix-ui/themes";
 import useURLHash from "@/hooks/useURLHash";
-import { useScrollPosition } from "@/hooks/useScrollPosition";
 
 /**
  * See more examples in design-system/index.tsx
@@ -109,20 +108,37 @@ export const StickyTabsList = forwardRef<HTMLDivElement, StickyTabsListProps>(
     const TABS_HEADER_HEIGHT_PX = 55;
     const tabsRef = useRef<HTMLDivElement>(null);
     const [headerPinned, setHeaderPinned] = useState(false);
-    const { scrollY } = useScrollPosition();
+
     useEffect(() => {
-      if (!tabsRef.current) return;
-      const isHeaderSticky =
-        tabsRef.current.getBoundingClientRect().top <= TABS_HEADER_HEIGHT_PX;
-      setHeaderPinned(isHeaderSticky);
-    }, [scrollY]);
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          setHeaderPinned(entry.intersectionRatio < 1);
+        },
+        {
+          root: null, // Use the viewport as the root
+          rootMargin: `-${TABS_HEADER_HEIGHT_PX}px`,
+          threshold: 0.01, // Trigger when first pixel leaves
+        }
+      );
+      if (tabsRef.current) {
+        observer.observe(tabsRef.current);
+      }
+      return () => observer.disconnect();
+    }, []);
 
     return (
       <Box
         className={`${headerPinned ? pinnedClass || "" : ""} tabwrap sticky`}
-        ref={tabsRef}
         style={{ top: TABS_HEADER_HEIGHT_PX + "px" }}
       >
+        {/* This is needed as for some reason the intersection observer doesn't work on the position:sticky element-even with the right margin offsets. */}
+        <Box
+          ref={tabsRef}
+          style={{
+            position: "absolute",
+            top: -1,
+          }}
+        ></Box>
         <TabsList {...props} ref={ref} />
       </Box>
     );

@@ -93,6 +93,7 @@ const DeleteButton: FC<{
           onClick={() => !disabled && setConfirming(true)}
           variant="ghost"
           color="red"
+          title={title}
         >
           {text}
         </Button>
