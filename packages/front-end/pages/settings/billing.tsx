@@ -5,6 +5,7 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import PaymentInfo from "@/components/Settings/PaymentInfo";
 
 const BillingPage: FC = () => {
   const [upgradeModal, setUpgradeModal] = useState(false);
@@ -70,11 +71,13 @@ const BillingPage: FC = () => {
           source="billing-free"
         />
       )}
-
       <h1>Billing Settings</h1>
-      <div className=" bg-white p-3 border">
+      <div>
         {subscription?.status ? (
-          <SubscriptionInfo />
+          <>
+            <PaymentInfo />
+            <SubscriptionInfo />
+          </>
         ) : canSubscribe ? (
           <div className="alert alert-warning mb-0">
             <div className="d-flex align-items-center">

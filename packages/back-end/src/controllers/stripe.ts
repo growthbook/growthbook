@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { Stripe } from "stripe";
+import { Card } from "shared/src/types/subscriptions";
 import {
   LicenseServerError,
   getLicense,
@@ -260,4 +261,113 @@ export async function postWebhook(req: Request, res: Response) {
   }
 
   res.status(200).send("Ok");
+}
+
+export async function postSetupIntent(req: Request, res: Response) {
+  // MKTODO: Need to type the response
+  const { subscription } = req.body; //MKTODO: This is missing the Stripe customer id.
+  try {
+    const setupIntent = await stripe.setupIntents.create({
+      customer: "cus_Rg3aee6F7wi9EH",
+      payment_method_types: ["card"],
+    });
+    return res.status(200).json({ clientSecret: setupIntent.client_secret });
+  } catch (e) {
+    throw new Error(e.message);
+  }
+}
+
+export async function postStripeCustomerDefaultCard(
+  req: AuthRequest<{ paymentMethodId: string; customerId: string }>,
+  res: Response //MKTODO: Type the response
+) {
+  const { paymentMethodId, customerId } = req.body;
+
+  try {
+    await stripe.customers.update(customerId, {
+      invoice_settings: { default_payment_method: paymentMethodId },
+    });
+  } catch (e) {
+    throw new Error(e.message);
+  }
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function listPaymentMethods(
+  req: AuthRequest<null, { customerId: string }>,
+  res: Response //MKTODO: type this out
+) {
+  const customerId = req.params.customerId;
+
+  try {
+    // Fetch the customer to get default_payment_method
+    const customer = await stripe.customers.retrieve(customerId);
+
+    if (customer.deleted) {
+      return res.status(200).json({ status: 200, cards: [] });
+    }
+    let defaultPaymentMethod: undefined | string = undefined;
+    const paymentMethod = customer.invoice_settings.default_payment_method;
+
+    if (paymentMethod) {
+      if (typeof paymentMethod === "string") {
+        defaultPaymentMethod = paymentMethod;
+      } else {
+        defaultPaymentMethod = paymentMethod.id;
+      }
+    }
+
+    // Fetch all card payment methods for customer
+    const { data: paymentMethods } = await stripe.customers.listPaymentMethods(
+      customerId,
+      {
+        type: "card",
+      }
+    );
+
+    if (!paymentMethods) {
+      return res.status(200).json({ status: 200, cards: [] });
+    }
+
+    const cards: Card[] = paymentMethods
+      .map((method, i) => {
+        const card = method.card;
+        if (!card) return undefined;
+
+        return {
+          id: method.id,
+          last4: card.last4,
+          brand: card.brand,
+          expMonth: card.exp_month,
+          expYear: card.exp_year,
+          // if no explicit defaultPaymentMethodId, Orb uses the first card, so matching that logic
+          isDefault: defaultPaymentMethod
+            ? method.id === defaultPaymentMethod
+            : !!(i === 0),
+        };
+      })
+      .filter((card): card is Card => Boolean(card));
+
+    return res.status(200).json({ status: 200, cards });
+  } catch (e) {
+    throw new Error(e.message);
+  }
+}
+
+export async function deletePaymentMethod(
+  req: AuthRequest<{ paymentMethodId: string }>,
+  res: Response // MKTODO: Type this response
+) {
+  const { paymentMethodId } = req.body;
+
+  try {
+    await stripe.paymentMethods.detach(paymentMethodId);
+  } catch (e) {
+    throw new Error(e.message);
+  }
+  res.status(200).json({
+    status: 200,
+  });
 }
