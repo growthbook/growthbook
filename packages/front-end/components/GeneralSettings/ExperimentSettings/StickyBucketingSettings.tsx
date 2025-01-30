@@ -54,8 +54,7 @@ export default function StickyBucketingSettings() {
                   commercialFeature={"sticky-bucketing"}
                   body={<StickyBucketingTooltip />}
                 >
-                  Enable Sticky Bucketing{" "}
-                  <GBInfo />
+                  Enable Sticky Bucketing <GBInfo />
                 </PremiumTooltip>
               </label>
               <p>
@@ -95,8 +94,7 @@ export default function StickyBucketingSettings() {
                       </>
                     }
                   >
-                    Enable fallback attributes in experiments{" "}
-                    <GBInfo />
+                    Enable fallback attributes in experiments <GBInfo />
                   </Tooltip>
                 </label>
               </Box>

@@ -426,7 +426,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
       <Box
         className="bg-main-color position-sticky w-100 py-3 border-top"
-        style={{ bottom: 0, height: 70 }}
+        style={{ bottom: 0, height: 70, zIndex: 840 }}
       >
         <Box className="container-fluid pagecontents d-flex">
           <Flex flexGrow="1" gap="3" align="end">

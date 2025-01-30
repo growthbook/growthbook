@@ -52,7 +52,6 @@ const EditFeatureInfoModal: FC<{
       cta="Save"
     >
       <Box>
-
         <Field
           label={"Feature Key"}
           value={feature.id}

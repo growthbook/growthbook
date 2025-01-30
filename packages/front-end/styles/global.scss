@@ -1281,11 +1281,12 @@ main.main {
 .box,
 .appbox {
   background-color: var(--color-panel-solid);
-  border: 1px solid var(--border-color-200);
+  border: 1px solid var(--slate-a3);
   margin-bottom: 1em;
   border-radius: 5px;
-  &.appbox {
+  .appbox {
     overflow-x: auto;
+    border: 1px solid var(--slate-a4);
   }
 
   &.nobg {
