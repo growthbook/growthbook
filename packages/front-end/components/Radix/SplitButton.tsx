@@ -1,5 +1,5 @@
 import { forwardRef, ReactNode } from "react";
-import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
+import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import clsx from "clsx";
 
 export type Props = {

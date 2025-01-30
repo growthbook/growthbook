@@ -1,6 +1,6 @@
 import { Avatar as RadixAvatar, AvatarProps } from "@radix-ui/themes";
-import { Responsive } from "@radix-ui/themes/dist/cjs/props";
-import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
+import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
+import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { forwardRef, ReactNode } from "react";
 import styles from "./RadixOverrides.module.scss";
 

@@ -1,3 +1,6 @@
+import { ExperimentType } from "back-end/src/validators/experiments";
+import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+
 type MultipleExposureHealthStatus =
   | "not-enough-traffic"
   | "healthy"
@@ -18,7 +21,7 @@ type MultipleExposureHealthData = {
  * @param minCountThreshold - Minimum number of multiple exposures required to be considered significant
  * @param minPercentThreshold - Minimum percentage of multiple exposures required to be considered unhealthy
  */
-export const getMultipleExposureHealthData = ({
+export function getMultipleExposureHealthData({
   multipleExposuresCount,
   totalUsersCount,
   minCountThreshold,
@@ -28,7 +31,7 @@ export const getMultipleExposureHealthData = ({
   totalUsersCount: number;
   minCountThreshold: number;
   minPercentThreshold: number;
-}): MultipleExposureHealthData => {
+}): MultipleExposureHealthData {
   const multipleExposureDecimal = multipleExposuresCount / totalUsersCount;
 
   const hasEnoughData = multipleExposuresCount >= minCountThreshold;
@@ -55,7 +58,7 @@ export const getMultipleExposureHealthData = ({
       ...data,
     };
   }
-};
+}
 
 /**
  * Returns the health status for Sample Ratio Mismatch (SRM) in an experiment
@@ -67,7 +70,7 @@ export const getMultipleExposureHealthData = ({
  * @param minUsersPerVariation - Minimum number of users required per variation
  * @returns SRMHealthStatus - The health status: 'healthy', 'unhealthy', or 'not-enough-traffic'
  */
-export const getSRMHealthData = ({
+export function getSRMHealthData({
   srm,
   numOfVariations,
   totalUsersCount,
@@ -79,7 +82,7 @@ export const getSRMHealthData = ({
   totalUsersCount: number;
   srmThreshold: number;
   minUsersPerVariation: number;
-}): SRMHealthStatus => {
+}): SRMHealthStatus {
   const minUsersCount = numOfVariations * minUsersPerVariation;
 
   if (totalUsersCount < minUsersCount) {
@@ -89,4 +92,26 @@ export const getSRMHealthData = ({
   } else {
     return "healthy";
   }
-};
+}
+
+export function getSRMValue(
+  experimentType: ExperimentType,
+  snapshot: ExperimentSnapshotInterface
+): number | undefined {
+  switch (experimentType) {
+    case "multi-armed-bandit":
+      return snapshot.banditResult?.srm;
+
+    case "standard":
+      return snapshot.health?.traffic?.overall?.srm;
+
+    default: {
+      const _exhaustiveCheck: never = experimentType;
+      // eslint-disable-next-line no-console
+      console.error(
+        `Unknown experiment type for SRM: ${_exhaustiveCheck}. snapshotId: ${snapshot.id}`
+      );
+      return undefined;
+    }
+  }
+}

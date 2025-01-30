@@ -453,7 +453,7 @@ export default function ExperimentRefNewFields({
               className="portal-overflow-ellipsis"
             />
 
-            {exposureQueries ? (
+            {datasourceProperties?.exposureQueries && exposureQueries ? (
               <SelectField
                 label={
                   <>
