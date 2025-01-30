@@ -125,10 +125,8 @@ import {
   getExperimentsForActivityFeed,
 } from "back-end/src/models/ExperimentModel";
 import {
-  findAllAuditsByEntityType,
-  findAllAuditsByEntityTypeParent,
-  findAuditByEntity,
-  findAuditByEntityParent,
+  findAllAuditsAndChildrenByEntityType,
+  findAuditAndChildrenByEntity,
 } from "back-end/src/models/AuditModel";
 import { EntityType } from "back-end/src/types/Audit";
 import { getTeamsForOrganization } from "back-end/src/models/TeamModel";
@@ -253,20 +251,9 @@ export async function getAllHistory(
     });
   }
 
-  const events = await Promise.all([
-    findAllAuditsByEntityType(org.id, type),
-    findAllAuditsByEntityTypeParent(org.id, type),
-  ]);
+  const auditEvents = await findAllAuditsAndChildrenByEntityType(org.id, type);
 
-  const merged = [...events[0], ...events[1]];
-
-  merged.sort((a, b) => {
-    if (b.dateCreated > a.dateCreated) return 1;
-    else if (b.dateCreated < a.dateCreated) return -1;
-    return 0;
-  });
-
-  if (merged.filter((e) => e.organization !== org.id).length > 0) {
+  if (auditEvents.filter((e) => e.organization !== org.id).length > 0) {
     return res.status(403).json({
       status: 403,
       message: "You do not have access to view history",
@@ -275,7 +262,7 @@ export async function getAllHistory(
 
   res.status(200).json({
     status: 200,
-    events: merged,
+    events: auditEvents,
   });
 }
 
@@ -293,20 +280,9 @@ export async function getHistory(
     });
   }
 
-  const events = await Promise.all([
-    findAuditByEntity(org.id, type, id),
-    findAuditByEntityParent(org.id, type, id),
-  ]);
+  const auditEvents = await findAuditAndChildrenByEntity(org.id, type, id);
 
-  const merged = [...events[0], ...events[1]];
-
-  merged.sort((a, b) => {
-    if (b.dateCreated > a.dateCreated) return 1;
-    else if (b.dateCreated < a.dateCreated) return -1;
-    return 0;
-  });
-
-  if (merged.filter((e) => e.organization !== org.id).length > 0) {
+  if (auditEvents.filter((e) => e.organization !== org.id).length > 0) {
     return res.status(403).json({
       status: 403,
       message: "You do not have access to view history for this",
@@ -315,7 +291,7 @@ export async function getHistory(
 
   res.status(200).json({
     status: 200,
-    events: merged,
+    events: auditEvents,
   });
 }
 

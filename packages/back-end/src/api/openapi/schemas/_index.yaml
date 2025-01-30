@@ -60,3 +60,5 @@ Member:
   $ref: "./Member.yaml"
 Archetype:
   $ref: "./Archetype.yaml"
+AuditLog:
+  $ref: "./AuditLog.yaml"

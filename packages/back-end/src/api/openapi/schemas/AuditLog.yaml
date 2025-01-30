@@ -1,0 +1,64 @@
+type: object
+required:
+  - id
+  - user
+  - event
+  - entity
+  - dateCreated
+properties:
+  id:
+    type: string
+  user:
+    anyOf:
+      - type: object
+        required:
+          - apiKey
+        properties:
+          apiKey:
+            type: string
+      - type: object
+        required:
+          - id
+          - email
+          - name
+        properties:
+          id:
+            type: string
+          email:
+            type: string
+          name:
+            type: string
+  event:
+    type: string
+    pattern: '^\w+\.\w+$'
+    description: The event being audited contains the Entity and the Action separated by a '.'
+  entity:
+    type: object
+    required:
+      - object
+      - id
+    properties:
+      object:
+        type: string
+        description: The type of Entity being acted on, e.g. "experiment" or "feature"
+      id:
+        type: string
+      name:
+        type: string
+  parent:
+    type: object
+    required:
+      - object
+      - id
+    properties:
+      object:
+        type: string
+        description: The type of Entity being acted on, e.g. "experiment" or "feature"
+      id:
+        type: string
+  reason:
+    type: string
+  details:
+    type: string
+  dateCreated:
+    type: string

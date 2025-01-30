@@ -111,12 +111,18 @@ tags:
   - name: archetypes
     x-displayName: Archetypes
     description: Archetypes allow you to simulate the result of targeting rules on pre-set user attributes
+  - name: audit-logs
+    x-displayName: Audit Logs
+    description: The events logged when changes are made to various objects
   - name: Archetype_model
     x-displayName: Archetype
     description: <SchemaDefinition schemaRef="#/components/schemas/Archetype" />
   - name: Attribute_model
     x-displayName: Attribute
     description: <SchemaDefinition schemaRef="#/components/schemas/Attribute" />
+  - name: AuditLog_model
+    x-displayName: AuditLog
+    description: <SchemaDefinition schemaRef="#/components/schemas/AuditLog" />
   - name: DataSource_model
     x-displayName: DataSource
     description: <SchemaDefinition schemaRef="#/components/schemas/DataSource" />
@@ -4749,6 +4755,71 @@ paths:
                     type: array
                     items:
                       type: string
+  '/history/{type}':
+    get:
+      parameters:
+        - type: null
+          name: type
+          in: path
+          required: true
+          description: 'The type of entity, e.g. "experiment" or "feature"'
+          schema:
+            type: string
+      summary: Get the Audit Logs for all entities of specified type
+      tags:
+        - audit-logs
+      operationId: getAllHistory
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/getHistory/feature \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - events
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AuditLog'
+  '/history/{type}/{id}':
+    get:
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - type: null
+          name: type
+          in: path
+          required: true
+          description: 'The type of entity, e.g. "experiment" or "feature"'
+          schema:
+            type: string
+      summary: Get the Audit Logs for a single entity
+      tags:
+        - audit-logs
+      operationId: getHistory
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/getHistory/feature/my_feature \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - events
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AuditLog'
 components:
   parameters:
     id:
@@ -6788,6 +6859,71 @@ components:
           type: array
           items:
             type: string
+    AuditLog:
+      type: object
+      required:
+        - id
+        - user
+        - event
+        - entity
+        - dateCreated
+      properties:
+        id:
+          type: string
+        user:
+          anyOf:
+            - type: object
+              required:
+                - apiKey
+              properties:
+                apiKey:
+                  type: string
+            - type: object
+              required:
+                - id
+                - email
+                - name
+              properties:
+                id:
+                  type: string
+                email:
+                  type: string
+                name:
+                  type: string
+        event:
+          type: string
+          pattern: ^\w+\.\w+$
+          description: The event being audited contains the Entity and the Action separated by a '.'
+        entity:
+          type: object
+          required:
+            - object
+            - id
+          properties:
+            object:
+              type: string
+              description: 'The type of Entity being acted on, e.g. "experiment" or "feature"'
+            id:
+              type: string
+            name:
+              type: string
+        parent:
+          type: object
+          required:
+            - object
+            - id
+          properties:
+            object:
+              type: string
+              description: 'The type of Entity being acted on, e.g. "experiment" or "feature"'
+            id:
+              type: string
+        reason:
+          type: string
+        details:
+          type: string
+        dateCreated:
+          type: string
   securitySchemes:
     bearerAuth:
       type: http
@@ -6842,10 +6978,12 @@ x-tagGroups:
       - fact-metrics
       - code-references
       - archetypes
+      - audit-logs
   - name: Models
     tags:
       - Archetype_model
       - Attribute_model
+      - AuditLog_model
       - DataSource_model
       - Dimension_model
       - Environment_model

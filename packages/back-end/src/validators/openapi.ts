@@ -68,6 +68,8 @@ export const apiMemberValidator = z.object({ "id": z.string(), "name": z.string(
 
 export const apiArchetypeValidator = z.object({ "id": z.string(), "dateCreated": z.string(), "dateUpdated": z.string(), "name": z.string(), "description": z.string().optional(), "owner": z.string(), "isPublic": z.boolean(), "attributes": z.record(z.any()).describe("The attributes to set when using this Archetype"), "projects": z.array(z.string()).optional() }).strict()
 
+export const apiAuditLogValidator = z.object({ "id": z.string(), "user": z.union([z.object({ "apiKey": z.string() }), z.object({ "id": z.string(), "email": z.string(), "name": z.string() })]), "event": z.string().regex(new RegExp("^\\w+\\.\\w+$")).describe("The event being audited contains the Entity and the Action separated by a '.'"), "entity": z.object({ "object": z.string().describe("The type of Entity being acted on, e.g. \"experiment\" or \"feature\""), "id": z.string(), "name": z.string().optional() }), "parent": z.object({ "object": z.string().describe("The type of Entity being acted on, e.g. \"experiment\" or \"feature\""), "id": z.string() }).optional(), "reason": z.string().optional(), "details": z.string().optional(), "dateCreated": z.string() }).strict()
+
 export const listFeaturesValidator = {
   bodySchema: z.never(),
   querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0), "projectId": z.string().optional() }).strict(),
@@ -558,4 +560,16 @@ export const postCodeRefsValidator = {
   bodySchema: z.object({ "branch": z.string(), "repoName": z.string(), "refs": z.array(z.object({ "filePath": z.string(), "startingLineNumber": z.number().int(), "lines": z.string(), "flagKey": z.string(), "contentHash": z.string() })) }).strict(),
   querySchema: z.never(),
   paramsSchema: z.never(),
+};
+
+export const getAllHistoryValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "type": z.string() }).strict(),
+};
+
+export const getHistoryValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string(), "type": z.string() }).strict(),
 };

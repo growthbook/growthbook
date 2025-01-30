@@ -114,6 +114,9 @@ tags:
   - name: archetypes
     x-displayName: Archetypes
     description: Archetypes allow you to simulate the result of targeting rules on pre-set user attributes
+  - name: audit-logs
+    x-displayName: Audit Logs
+    description: The events logged when changes are made to various objects
 paths:
   /features:
     get:
@@ -313,6 +316,12 @@ paths:
   /code-refs:
     post:
       $ref: "./paths/postCodeRefs.yaml"
+  /history/{type}:
+    get:
+      $ref: "./paths/getAllHistory.yaml"
+  /history/{type}/{id}:
+    get:
+      $ref: "./paths/getHistory.yaml"
   # PLOP_INSERT_PATHS_HERE
 components:
   parameters:

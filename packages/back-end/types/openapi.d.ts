@@ -325,6 +325,14 @@ export interface paths {
     /** Submit list of code references */
     post: operations["postCodeRefs"];
   };
+  "/history/{type}": {
+    /** Get the Audit Logs for all entities of specified type */
+    get: operations["getAllHistory"];
+  };
+  "/history/{type}/{id}": {
+    /** Get the Audit Logs for a single entity */
+    get: operations["getHistory"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -1547,6 +1555,32 @@ export interface components {
       /** @description The attributes to set when using this Archetype */
       attributes: any;
       projects?: (string)[];
+    };
+    AuditLog: {
+      id: string;
+      user: {
+        apiKey: string;
+      } | {
+        id: string;
+        email: string;
+        name: string;
+      };
+      /** @description The event being audited contains the Entity and the Action separated by a '.' */
+      event: string;
+      entity: {
+        /** @description The type of Entity being acted on, e.g. "experiment" or "feature" */
+        object: string;
+        id: string;
+        name?: string;
+      };
+      parent?: {
+        /** @description The type of Entity being acted on, e.g. "experiment" or "feature" */
+        object: string;
+        id: string;
+      };
+      reason?: string;
+      details?: string;
+      dateCreated: string;
     };
   };
   responses: {
@@ -7668,6 +7702,94 @@ export interface operations {
       };
     };
   };
+  getAllHistory: {
+    /** Get the Audit Logs for all entities of specified type */
+    parameters: {
+        /** @description The type of entity, e.g. "experiment" or "feature" */
+      path: {
+        type: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            events: ({
+                id: string;
+                user: {
+                  apiKey: string;
+                } | {
+                  id: string;
+                  email: string;
+                  name: string;
+                };
+                /** @description The event being audited contains the Entity and the Action separated by a '.' */
+                event: string;
+                entity: {
+                  /** @description The type of Entity being acted on, e.g. "experiment" or "feature" */
+                  object: string;
+                  id: string;
+                  name?: string;
+                };
+                parent?: {
+                  /** @description The type of Entity being acted on, e.g. "experiment" or "feature" */
+                  object: string;
+                  id: string;
+                };
+                reason?: string;
+                details?: string;
+                dateCreated: string;
+              })[];
+          };
+        };
+      };
+    };
+  };
+  getHistory: {
+    /** Get the Audit Logs for a single entity */
+    parameters: {
+        /** @description The id of the requested resource */
+        /** @description The type of entity, e.g. "experiment" or "feature" */
+      path: {
+        id: string;
+        type: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            events: ({
+                id: string;
+                user: {
+                  apiKey: string;
+                } | {
+                  id: string;
+                  email: string;
+                  name: string;
+                };
+                /** @description The event being audited contains the Entity and the Action separated by a '.' */
+                event: string;
+                entity: {
+                  /** @description The type of Entity being acted on, e.g. "experiment" or "feature" */
+                  object: string;
+                  id: string;
+                  name?: string;
+                };
+                parent?: {
+                  /** @description The type of Entity being acted on, e.g. "experiment" or "feature" */
+                  object: string;
+                  id: string;
+                };
+                reason?: string;
+                details?: string;
+                dateCreated: string;
+              })[];
+          };
+        };
+      };
+    };
+  };
 }
 import { z } from "zod";
 import * as openApiValidators from "back-end/src/validators/openapi";
@@ -7704,6 +7826,7 @@ export type ApiFactTableFilter = z.infer<typeof openApiValidators.apiFactTableFi
 export type ApiFactMetric = z.infer<typeof openApiValidators.apiFactMetricValidator>;
 export type ApiMember = z.infer<typeof openApiValidators.apiMemberValidator>;
 export type ApiArchetype = z.infer<typeof openApiValidators.apiArchetypeValidator>;
+export type ApiAuditLog = z.infer<typeof openApiValidators.apiAuditLogValidator>;
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
@@ -7788,3 +7911,5 @@ export type UpdateFactMetricResponse = operations["updateFactMetric"]["responses
 export type DeleteFactMetricResponse = operations["deleteFactMetric"]["responses"]["200"]["content"]["application/json"];
 export type PostBulkImportFactsResponse = operations["postBulkImportFacts"]["responses"]["200"]["content"]["application/json"];
 export type PostCodeRefsResponse = operations["postCodeRefs"]["responses"]["200"]["content"]["application/json"];
+export type GetAllHistoryResponse = operations["getAllHistory"]["responses"]["200"]["content"]["application/json"];
+export type GetHistoryResponse = operations["getHistory"]["responses"]["200"]["content"]["application/json"];

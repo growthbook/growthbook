@@ -1,0 +1,30 @@
+parameters:
+  - type:
+    name: type
+    in: path
+    required: true
+    description: The type of entity, e.g. "experiment" or "feature"
+    schema:
+      type: string
+summary: Get the Audit Logs for all entities of specified type
+tags:
+  - audit-logs
+operationId: getAllHistory
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl https://api.growthbook.io/api/v1/getHistory/feature \
+        -u secret_abc123DEF456:
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - events
+          properties:
+            events:
+              type: array
+              items:
+                $ref: "../schemas/AuditLog.yaml"

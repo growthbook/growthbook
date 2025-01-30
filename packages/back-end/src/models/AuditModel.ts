@@ -3,6 +3,7 @@ import { omit } from "lodash";
 import uniqid from "uniqid";
 import { AuditInterface } from "back-end/types/audit";
 import { EntityType } from "back-end/src/types/Audit";
+import { ApiAuditLog } from "back-end/types/openapi";
 
 const auditSchema = new mongoose.Schema({
   id: {
@@ -130,6 +131,27 @@ export async function findAuditByEntityParent(
   return auditDocs.map((doc) => toInterface(doc));
 }
 
+export async function findAuditAndChildrenByEntity(
+  organization: string,
+  type: EntityType,
+  id: string,
+  options?: QueryOptions
+): Promise<AuditInterface[]> {
+  const events = await Promise.all([
+    findAuditByEntity(organization, type, id, options),
+    findAuditByEntityParent(organization, type, id, options),
+  ]);
+
+  const merged = [...events[0], ...events[1]];
+
+  merged.sort((a, b) => {
+    if (b.dateCreated > a.dateCreated) return 1;
+    else if (b.dateCreated < a.dateCreated) return -1;
+    return 0;
+  });
+  return merged;
+}
+
 export async function findAllAuditsByEntityType(
   organization: string,
   type: EntityType,
@@ -158,4 +180,38 @@ export async function findAllAuditsByEntityTypeParent(
     options
   );
   return auditDocs.map((doc) => toInterface(doc));
+}
+
+export async function findAllAuditsAndChildrenByEntityType(
+  organization: string,
+  type: EntityType,
+  options?: QueryOptions
+): Promise<AuditInterface[]> {
+  const events = await Promise.all([
+    findAllAuditsByEntityType(organization, type, options),
+    findAllAuditsByEntityTypeParent(organization, type, options),
+  ]);
+
+  const merged = [...events[0], ...events[1]];
+
+  merged.sort((a, b) => {
+    if (b.dateCreated > a.dateCreated) return 1;
+    else if (b.dateCreated < a.dateCreated) return -1;
+    return 0;
+  });
+
+  return merged;
+}
+
+export function toApiAuditLog(audit: AuditInterface): ApiAuditLog {
+  return {
+    id: audit.id,
+    event: audit.event,
+    dateCreated: audit.dateCreated?.toISOString() || "",
+    entity: audit.entity,
+    user: audit.user,
+    parent: audit.parent,
+    reason: audit.reason,
+    details: audit.details,
+  };
 }

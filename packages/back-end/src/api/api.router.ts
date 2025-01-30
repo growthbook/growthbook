@@ -30,6 +30,7 @@ import { postCopyTransform } from "./openai/postCopyTransform";
 import { getFeatureKeys } from "./features/getFeatureKeys";
 import ingestionRouter from "./ingestion/ingestion.router";
 import archetypesRouter from "./archetypes/archetypes.router";
+import auditLogsRouter from "./audit-logs/audit-logs.router";
 
 const router = Router();
 let openapiSpec: string;
@@ -104,6 +105,7 @@ router.use("/code-refs", codeRefsRouter);
 router.use("/members", membersRouter);
 router.use("/ingestion", ingestionRouter);
 router.use("/archetypes", archetypesRouter);
+router.use("/history", auditLogsRouter);
 
 router.post("/transform-copy", postCopyTransform);
 
