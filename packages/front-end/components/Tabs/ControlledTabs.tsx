@@ -186,7 +186,7 @@ const ControlledTabs: FC<{
       </nav>
       <div
         className={clsx(
-          "tab-content",
+          "appbox",
           typeof tabContentsClassName === "function"
             ? tabContentsClassName(activeChosen)
             : tabContentsClassName,

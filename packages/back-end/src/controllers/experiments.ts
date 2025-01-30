@@ -237,8 +237,9 @@ export async function getExperimentsFrequencyMonth(
         // I can do this because the indexes will represent the same month
         dataByStatus[e.status][i].numExp++;
 
-        // experiments without a project, are included in the 'all projects'
-        if (e.project) {
+        // experiments without a project or with a deleted project
+        // are included in the 'all projects'
+        if (e.project && dataByProject[e.project]) {
           dataByProject[e.project][i].numExp++;
         } else {
           dataByProject["all"][i].numExp++;

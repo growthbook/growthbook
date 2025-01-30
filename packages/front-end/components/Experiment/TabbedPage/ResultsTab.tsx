@@ -318,7 +318,7 @@ export default function ResultsTab({
         </div>
       </div>
       {snapshot && (
-        <div className="bg-white border mt-4">
+        <div className="appbox mt-4">
           <div className="row mx-2 py-3 d-flex align-items-center">
             <div className="col ml-2">
               <div className="h3">Custom Reports</div>

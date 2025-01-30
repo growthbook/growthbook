@@ -386,7 +386,7 @@ pre {
       font-size: 14px;
       font-weight: bold;
       &.won {
-        background-color: #09ac17;
+        background-color: #09ac68;
         color: #fff;
       }
       &.lost {
@@ -615,7 +615,22 @@ pre {
     }
   }
 }
+.tabwrap.sticky {
+  position: sticky;
+  z-index: 830;
 
+  &.pinned {
+    background-color: var(--color-surface-solid);
+    // ensure no shadow bleeds above component, otherwise noticeable when scrolling quickly
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), 0 4px 4px rgba(0, 0, 0, 0.025);
+    .header-tabs .tab-wrapper {
+      overflow: hidden;
+    }
+    .rt-BaseTabList {
+      box-shadow: none !important;
+    }
+  }
+}
 .analysis-settings-bar {
   .col,
   .col-auto {
@@ -739,25 +754,25 @@ pre {
     }
   }
   .won {
-    color: #09ac17;
+    color: #00936f;
     font-weight: bold;
 
     &.results-ctw,
     &.results-pval,
     &.results-mean {
       color: var(--alert-success-color);
-      background: linear-gradient(-40deg, #09ac1730, #09ac1716);
+      background: rgba(10, 159, 106, 0.19);
     }
   }
   .lost {
-    color: #ce3729;
+    color: #bb1f37;
     font-weight: bold;
 
     &.results-ctw,
     &.results-pval,
     &.results-mean {
       color: var(--alert-danger-color);
-      background: linear-gradient(-40deg, #ce372930, #ce372916);
+      background: #ce372930;
     }
   }
   //&.draw {
@@ -975,6 +990,16 @@ main.main {
       .inactivesort {
         font-size: 13px;
       }
+    }
+  }
+  td {
+    vertical-align: middle;
+  }
+}
+.dark .gbtable {
+  thead {
+    th {
+      background-color: #262d42;
     }
   }
   td {
@@ -1255,14 +1280,18 @@ main.main {
 
 .box,
 .appbox {
-  background-color: var(--surface-background-color);
-  border: 1px solid var(--border-color-200);
+  background-color: var(--color-panel-solid);
+  border: 1px solid var(--slate-a3);
   margin-bottom: 1em;
   border-radius: 5px;
-  &.appbox {
+  .appbox {
     overflow-x: auto;
+    border: 1px solid var(--slate-a4);
   }
 
+  &.nobg {
+    background-color: initial;
+  }
   td {
     vertical-align: middle;
   }
@@ -1384,7 +1413,7 @@ main.main {
     &::before {
       content: "";
       transform: rotate(45deg);
-      background-color: var(--surface-background-color);
+      background-color: var(--slate-12);
       box-shadow: 0 1rem 3rem rgb(0 0 0 / 18%);
       position: absolute;
       width: 8px;
@@ -1394,8 +1423,8 @@ main.main {
   }
 
   .body {
-    background-color: var(--surface-background-color);
-    color: var(--text-dark);
+    color: var(--slate-1);
+    background-color: var(--slate-12);
     padding: 15px;
     border-radius: 5px;
 
@@ -3178,7 +3207,8 @@ td.disabled {
 }
 .form-control:disabled {
   cursor: not-allowed;
-  background-color: var(--disabled-background) !important;
+  color: var(--color-text-disabled) !important;
+  background-color: var(--slate-a3) !important;
 }
 input:disabled {
   cursor: not-allowed;

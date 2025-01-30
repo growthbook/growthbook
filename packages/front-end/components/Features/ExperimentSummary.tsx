@@ -35,7 +35,7 @@ export default function ExperimentSummary({
     <div>
       <div className="mb-3 row">
         <div className="col-auto">
-          <strong>SPLIT</strong>
+          <strong className="font-weight-semibold">SPLIT</strong>
         </div>
         <div className="col-auto">
           {" "}
@@ -57,7 +57,7 @@ export default function ExperimentSummary({
       </div>
       <div className="mb-3 row">
         <div className="col-auto">
-          <strong>INCLUDE</strong>
+          <strong className="font-weight-semibold">INCLUDE</strong>
         </div>
         <div className="col-auto">
           <span className="mr-1 border px-2 py-1 bg-light rounded">
@@ -79,7 +79,7 @@ export default function ExperimentSummary({
           )}
         </div>
       </div>
-      <strong>SERVE</strong>
+      <strong className="font-weight-semibold">SERVE</strong>
 
       <table className="table mt-1 mb-3 bg-light gbtable">
         <tbody>
@@ -139,7 +139,7 @@ export default function ExperimentSummary({
       </table>
       <div className="row align-items-center">
         <div className="col-auto">
-          <strong>TRACK</strong>
+          <strong className="font-weight-semibold">TRACK</strong>
         </div>
         <div className="col">
           {" "}

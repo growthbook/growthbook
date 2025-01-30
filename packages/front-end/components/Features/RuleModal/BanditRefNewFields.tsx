@@ -278,7 +278,7 @@ export default function BanditRefNewFields({
               className="portal-overflow-ellipsis"
             />
 
-            {exposureQueries ? (
+            {datasource?.properties?.exposureQueries && exposureQueries ? (
               <SelectField
                 label={
                   <>

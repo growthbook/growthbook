@@ -23,7 +23,6 @@ import {
   isRuleFullyCovered,
 } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { Rule, SortableRule } from "./Rule";
 
 export default function RuleList({
@@ -36,7 +35,7 @@ export default function RuleList({
   setVersion,
   locked,
   experimentsMap,
-  showDisabledToggle,
+  hideDisabled,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -54,13 +53,9 @@ export default function RuleList({
   setVersion: (version: number) => void;
   locked: boolean;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
-  showDisabledToggle?: boolean;
+  hideDisabled?: boolean;
 }) {
   const { apiCall } = useAuth();
-  const [hideDisabled, setHideDisabled] = useLocalStorage(
-    `hide-disabled-rules-${environment}`,
-    false
-  );
   const [activeId, setActiveId] = useState<string | null>(null);
   const [items, setItems] = useState(getRules(feature, environment));
   const permissionsUtil = usePermissionsUtil();
@@ -77,7 +72,6 @@ export default function RuleList({
   );
 
   const disabledRules = items.filter((r) => isRuleDisabled(r, experimentsMap));
-  const showInactiveToggle = showDisabledToggle;
 
   if (!items.length) {
     return (
@@ -154,22 +148,6 @@ export default function RuleList({
         setActiveId(active.id);
       }}
     >
-      {showInactiveToggle ? (
-        <div
-          className="position-absolute d-flex justify-content-end"
-          style={{ top: "-22px", right: 0 }}
-        >
-          <label className="mb-0">
-            <input
-              type="checkbox"
-              className="form-check-input"
-              checked={hideDisabled}
-              onChange={(e) => setHideDisabled(e.target.checked)}
-            />
-            only show active rules
-          </label>
-        </div>
-      ) : null}
       {disabledRules.length === items.length && hideDisabled && (
         <div className="px-3 mb-3">
           <em>No Active Rules</em>
@@ -191,7 +169,7 @@ export default function RuleList({
             setVersion={setVersion}
             locked={locked}
             experimentsMap={experimentsMap}
-            hideDisabled={showInactiveToggle ? hideDisabled : false}
+            hideDisabled={hideDisabled}
           />
         ))}
       </SortableContext>
@@ -209,6 +187,11 @@ export default function RuleList({
             setVersion={setVersion}
             locked={locked}
             experimentsMap={experimentsMap}
+            hideDisabled={hideDisabled}
+            unreachable={
+              !!unreachableIndex &&
+              getRuleIndex(activeId as string) >= unreachableIndex
+            }
           />
         ) : null}
       </DragOverlay>
