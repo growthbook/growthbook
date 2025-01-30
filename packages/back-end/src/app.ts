@@ -405,7 +405,7 @@ app.post(
   stripeController.postSetupIntent
 );
 app.get(
-  "/subscription/payment-methods/:customerId",
+  "/subscription/payment-methods/:subscriptionId",
   stripeController.listPaymentMethods
 );
 app.post(

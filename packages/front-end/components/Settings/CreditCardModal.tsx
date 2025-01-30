@@ -13,19 +13,21 @@ import Toggle from "../Forms/Toggle";
 
 interface Props {
   onClose: () => void;
+  refetch: () => void;
 }
 
-export default function CreditCardModal({ onClose }: Props) {
+export default function CreditCardModal({ onClose, refetch }: Props) {
   const [defaultCard, setDefaultCard] = useState(true);
   const { apiCall } = useAuth();
-  const { organization, subscription } = useUser();
+  const { subscription } = useUser();
   const elements = useElements();
   const stripe = useStripe();
 
-  const customerId = "cus_Rg3aee6F7wi9EH"; //MKTODO: Fix this so the customer is from the subscription
-
   const handleSubmit = async () => {
     if (!stripe || !elements) return;
+    if (!subscription?.externalId) {
+      throw new Error("Must have a subscription");
+    }
     try {
       // Trigger form validation and wallet collection
       const { error: submitError } = await elements.submit();
@@ -39,7 +41,7 @@ export default function CreditCardModal({ onClose }: Props) {
         "/subscription/payment-methods/setup-intent",
         {
           method: "POST",
-          body: JSON.stringify({ subscription, organization }),
+          body: JSON.stringify({ subscriptionId: subscription.externalId }),
         }
       );
 
@@ -62,10 +64,11 @@ export default function CreditCardModal({ onClose }: Props) {
           method: "POST",
           body: JSON.stringify({
             paymentMethodId: setupIntent.payment_method,
-            customerId,
+            subscriptionId: subscription.externalId,
           }),
         });
       }
+      refetch();
     } catch (e) {
       throw new Error(e.message);
     }

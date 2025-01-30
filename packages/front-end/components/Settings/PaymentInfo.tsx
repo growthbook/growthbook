@@ -23,13 +23,14 @@ export default function PaymentInfo() {
   const { subscription } = useUser();
   const { apiCall } = useAuth();
 
-  const customerId = "cus_Rg3aee6F7wi9EH"; //MKTODO: Fix this so the customer is from the subscription
-
   const fetchCardData = useCallback(async () => {
     setLoadingCards(true);
     try {
+      if (!subscription?.externalId) {
+        throw new Error("Must have a subscription.");
+      }
       const res: { cards: Card[] } = await apiCall(
-        `/subscription/payment-methods/${customerId}`,
+        `/subscription/payment-methods/${subscription.externalId}`,
         {
           method: "GET",
         }
@@ -40,16 +41,17 @@ export default function PaymentInfo() {
     } finally {
       setLoadingCards(false);
     }
-  }, [customerId, apiCall, setCardData, setLoadingCards, setError]);
+  }, [apiCall, subscription?.externalId]);
 
   async function setCardAsDefault() {
+    if (!subscription?.externalId) throw new Error("Must have a subscription");
     if (!defaultCard) throw new Error("Must specify card id");
     try {
       await apiCall("/subscription/payment-methods/set-default", {
         method: "POST",
         body: JSON.stringify({
           paymentMethodId: defaultCard,
-          customerId,
+          subscriptionId: subscription.externalId,
         }),
       });
       fetchCardData();
@@ -73,13 +75,18 @@ export default function PaymentInfo() {
   }
 
   useEffect(() => {
-    fetchCardData();
+    if (subscription?.externalId) {
+      fetchCardData();
+    }
   }, [apiCall, fetchCardData, subscription]);
 
   return (
     <>
       {cardModal ? (
-        <CreditCardModal onClose={() => setCardModal(false)} />
+        <CreditCardModal
+          onClose={() => setCardModal(false)}
+          refetch={() => fetchCardData()}
+        />
       ) : null}
       {defaultCard ? (
         <Modal

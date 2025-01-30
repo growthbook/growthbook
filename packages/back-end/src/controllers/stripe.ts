@@ -16,7 +16,11 @@ import {
   getNumberOfUniqueMembersAndInvites,
   getContextFromReq,
 } from "back-end/src/services/organizations";
-import { updateSubscriptionInDb, stripe } from "back-end/src/services/stripe";
+import {
+  updateSubscriptionInDb,
+  stripe,
+  getStripeCustomerId,
+} from "back-end/src/services/stripe";
 import { sendStripeTrialWillEndEmail } from "back-end/src/services/email";
 import { logger } from "back-end/src/util/logger";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
@@ -263,12 +267,15 @@ export async function postWebhook(req: Request, res: Response) {
   res.status(200).send("Ok");
 }
 
-export async function postSetupIntent(req: Request, res: Response) {
-  // MKTODO: Need to type the response
-  const { subscription } = req.body; //MKTODO: This is missing the Stripe customer id.
+export async function postSetupIntent(
+  req: AuthRequest<{ subscriptionId: string }>,
+  res: Response
+) {
+  const { subscriptionId } = req.body;
   try {
+    const customer = await getStripeCustomerId(subscriptionId);
     const setupIntent = await stripe.setupIntents.create({
-      customer: "cus_Rg3aee6F7wi9EH",
+      customer,
       payment_method_types: ["card"],
     });
     return res.status(200).json({ clientSecret: setupIntent.client_secret });
@@ -278,12 +285,13 @@ export async function postSetupIntent(req: Request, res: Response) {
 }
 
 export async function postStripeCustomerDefaultCard(
-  req: AuthRequest<{ paymentMethodId: string; customerId: string }>,
-  res: Response //MKTODO: Type the response
+  req: AuthRequest<{ paymentMethodId: string; subscriptionId: string }>,
+  res: Response
 ) {
-  const { paymentMethodId, customerId } = req.body;
+  const { paymentMethodId, subscriptionId } = req.body;
 
   try {
+    const customerId = await getStripeCustomerId(subscriptionId);
     await stripe.customers.update(customerId, {
       invoice_settings: { default_payment_method: paymentMethodId },
     });
@@ -296,13 +304,12 @@ export async function postStripeCustomerDefaultCard(
 }
 
 export async function listPaymentMethods(
-  req: AuthRequest<null, { customerId: string }>,
-  res: Response //MKTODO: type this out
+  req: AuthRequest<null, { subscriptionId: string }>,
+  res: Response
 ) {
-  const customerId = req.params.customerId;
-
   try {
     // Fetch the customer to get default_payment_method
+    const customerId = await getStripeCustomerId(req.params.subscriptionId);
     const customer = await stripe.customers.retrieve(customerId);
 
     if (customer.deleted) {
@@ -358,7 +365,7 @@ export async function listPaymentMethods(
 
 export async function deletePaymentMethod(
   req: AuthRequest<{ paymentMethodId: string }>,
-  res: Response // MKTODO: Type this response
+  res: Response
 ) {
   const { paymentMethodId } = req.body;
 
