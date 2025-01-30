@@ -991,6 +991,9 @@ main.main {
         font-size: 13px;
       }
     }
+    &.sticky-top th {
+      background-color: #fdfefe;
+    }
   }
   td {
     vertical-align: middle;
