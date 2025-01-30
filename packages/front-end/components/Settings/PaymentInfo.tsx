@@ -171,9 +171,8 @@ export default function PaymentInfo() {
                                   Set as Default Card
                                 </button>
                                 <DeleteButton
-                                  onClick={
-                                    async () => await detachCard(card.id)
-                                    // console.log("delete card")
+                                  onClick={async () =>
+                                    await detachCard(card.id)
                                   }
                                   className="dropdown-item text-danger"
                                   displayName="Remove Card"

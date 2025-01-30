@@ -79,20 +79,22 @@ const BillingPage: FC = () => {
             <SubscriptionInfo />
           </>
         ) : canSubscribe ? (
-          <div className="alert alert-warning mb-0">
-            <div className="d-flex align-items-center">
-              <div>
-                You are currently on the <strong>Free Plan</strong>.
+          <div className="bg-white p-3">
+            <div className="alert alert-warning mb-0">
+              <div className="d-flex align-items-center">
+                <div>
+                  You are currently on the <strong>Starter Plan</strong>.
+                </div>
+                <button
+                  className="btn btn-primary ml-auto"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setUpgradeModal(true);
+                  }}
+                >
+                  Upgrade Now
+                </button>
               </div>
-              <button
-                className="btn btn-primary ml-auto"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setUpgradeModal(true);
-                }}
-              >
-                Upgrade Now
-              </button>
             </div>
           </div>
         ) : (
