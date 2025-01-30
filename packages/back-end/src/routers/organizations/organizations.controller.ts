@@ -772,6 +772,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       subscription,
       licenseKey,
       freeSeats,
+      enterprise: org.enterprise,
       disableSelfServeBilling,
       freeTrialDate: org.freeTrialDate,
       discountCode: org.discountCode || "",
