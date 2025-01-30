@@ -1,6 +1,11 @@
 import { getValidDateOffsetByUTC } from "shared/dates";
 import { isBinomialMetric, isRatioMetric } from "shared/experiments";
-import { returnZeroIfNotFinite } from "shared/util";
+import {
+  meanVarianceFromSums,
+  proportionVarianceFromSums,
+  ratioVarianceFromSums,
+  returnZeroIfNotFinite,
+} from "shared/util";
 import { DEFAULT_METRIC_HISTOGRAM_BINS } from "shared/constants";
 import {
   MetricAnalysisHistogram,
@@ -13,11 +18,6 @@ import {
   MetricAnalysisParams,
   MetricAnalysisQueryResponseRows,
 } from "back-end/src/types/Integration";
-import {
-  meanVarianceFromSums,
-  proportionVarianceFromSums,
-  ratioVarianceFromSums,
-} from "back-end/src/util/stats";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 
 export class MetricAnalysisQueryRunner extends QueryRunner<
