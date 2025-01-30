@@ -16,6 +16,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { createPopulationDataPropsValidator } from "back-end/src/routers/population-data/population-data.validators";
+import { PrivateApiErrorResponse } from "back-end/types/api";
 
 type CreatePopulationDataProps = z.infer<
   typeof createPopulationDataPropsValidator
@@ -23,7 +24,7 @@ type CreatePopulationDataProps = z.infer<
 
 export const postPopulationData = async (
   req: AuthRequest<CreatePopulationDataProps>,
-  res: Response<{ status: 200; populationData: PopulationDataInterface }>
+  res: Response<{ status: 200; populationData: PopulationDataInterface } | PrivateApiErrorResponse>
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
@@ -45,7 +46,10 @@ export const postPopulationData = async (
     context.permissions.throwPermissionError();
   }
   if (!context.hasPremiumFeature("historical-power")) {
-    throw new Error("Query-based power calculations are a pro feature");
+    return res.status(403).json({
+      status: 403,
+      message: "Query-based power calculations are a pro feature"
+    });
   }
 
   // see if one exists from the last 7 days

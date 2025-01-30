@@ -34,7 +34,6 @@ import {
   StartQueryParams,
 } from "./QueryRunner";
 
-// MOVE
 export type PopulationDataQuerySettings = Pick<
   PopulationDataInterface,
   "startDate" | "endDate" | "sourceId" | "sourceType" | "userIdType"

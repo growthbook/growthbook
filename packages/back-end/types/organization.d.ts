@@ -202,8 +202,6 @@ export interface OrganizationSettings {
   codeReferencesEnabled?: boolean;
   codeRefsBranchesToFilter?: string[];
   codeRefsPlatformUrl?: string;
-  /** @deprecated */
-  powerCalculatorEnabled?: boolean;
   featureKeyExample?: string; // Example Key of feature flag (e.g. "feature-20240201-name")
   featureRegexValidator?: string; // Regex to validate feature flag name (e.g. ^.+-\d{8}-.+$)
   featureListMarkdown?: string;

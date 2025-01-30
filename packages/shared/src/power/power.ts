@@ -48,6 +48,7 @@ export interface PowerCalculationParams {
     identifierType?: string;
     populationId?: string;
     datasource?: string;
+    error?: string;
   };
   customizedMetrics?: boolean;
 }

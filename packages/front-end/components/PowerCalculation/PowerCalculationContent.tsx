@@ -138,7 +138,7 @@ const AnalysisSettings = ({
         </div>
 
         {results.type === "error" ? (
-          <div className="row pt-4 pl-4 pr-4 pb-4">
+          <div className="row p-4">
             <Callout status="error">
               Computation failed: {results.description}
             </Callout>
