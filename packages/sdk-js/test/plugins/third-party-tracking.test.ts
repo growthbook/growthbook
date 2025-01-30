@@ -192,7 +192,9 @@ describe("thirdPartyTrackingPlugin", () => {
   it("Fails silently if trackers don't exist", () => {
     delete window.dataLayer;
 
-    const plugin = thirdPartyTrackingPlugin();
+    const plugin = thirdPartyTrackingPlugin({
+      trackers: ["gtm", "gtag", "segment", "snowplow"],
+    });
 
     const gb = new GrowthBook({
       plugins: [plugin],
