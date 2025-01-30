@@ -33,6 +33,9 @@ const licenseSchema = new mongoose.Schema({
     priceId: String,
     hasPaymentMethod: Boolean,
   },
+  _billingPlatform: String,
+  _stripeSubscription: {},
+  _orbSubscription: {},
   price: Number, // The price of the license
   discountAmount: Number, // The amount of the discount
   discountMessage: String, // The message of the discount
@@ -50,15 +53,29 @@ const licenseSchema = new mongoose.Schema({
   dateUpdated: Date, // Date the license was last updated
 });
 
-export type LicenseDocument = mongoose.Document & LicenseInterface;
+export type LicenseDocument = mongoose.Document &
+  LicenseInterface & {
+    stripeSubscription?: LicenseInterface["_stripeSubscription"];
+  };
 
 const LicenseModel = mongoose.model<LicenseDocument>("License", licenseSchema);
 
 export { LicenseModel };
 
+export function migrateLicenseDoc(
+  doc: LicenseInterface & {
+    stripeSubscription?: LicenseInterface["_stripeSubscription"];
+  }
+): LicenseInterface {
+  return {
+    ...doc,
+    _stripeSubscription: doc._stripeSubscription || doc.stripeSubscription,
+  };
+}
+
 export function toInterface(doc: LicenseDocument): LicenseInterface {
   const ret = doc.toJSON<LicenseDocument>();
-  return omit(ret, ["__v", "_id"]);
+  return migrateLicenseDoc(omit(ret, ["__v", "_id"]));
 }
 
 export async function getLicenseByKey(

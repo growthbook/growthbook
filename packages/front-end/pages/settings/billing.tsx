@@ -1,9 +1,7 @@
 import { FC, useEffect, useState } from "react";
 import { LicenseInterface } from "enterprise";
-import LoadingOverlay from "@/components/LoadingOverlay";
 import SubscriptionInfo from "@/components/Settings/SubscriptionInfo";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import useStripeSubscription from "@/hooks/useStripeSubscription";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -11,11 +9,9 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 const BillingPage: FC = () => {
   const [upgradeModal, setUpgradeModal] = useState(false);
 
-  const { canSubscribe, subscriptionStatus, loading } = useStripeSubscription();
-
   const permissionsUtil = usePermissionsUtil();
 
-  const { accountPlan } = useUser();
+  const { accountPlan, subscription, canSubscribe } = useUser();
 
   const { apiCall } = useAuth();
   const { refreshOrganization } = useUser();
@@ -55,10 +51,6 @@ const BillingPage: FC = () => {
     );
   }
 
-  if (loading) {
-    return <LoadingOverlay />;
-  }
-
   if (!permissionsUtil.canManageBilling()) {
     return (
       <div className="container pagecontents">
@@ -81,7 +73,7 @@ const BillingPage: FC = () => {
 
       <h1>Billing Settings</h1>
       <div className=" bg-white p-3 border">
-        {subscriptionStatus ? (
+        {subscription?.status ? (
           <SubscriptionInfo />
         ) : canSubscribe ? (
           <div className="alert alert-warning mb-0">
