@@ -255,6 +255,7 @@ async function runWebhookFetch({
         headers: {
           ...customHeaders,
           "Content-Type": "application/json",
+          "User-Agent": "GrowthBook Webhook",
           "webhook-id": webhookID,
           "webhook-timestamp": timestamp + "",
           "webhook-signature": standardSignature,

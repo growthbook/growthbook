@@ -51,7 +51,7 @@ import RadioGroup from "@/components/Radix/RadioGroup";
 import Callout from "@/components/Radix/Callout";
 import { MetricWindowSettingsForm } from "./MetricWindowSettingsForm";
 import { MetricCappingSettingsForm } from "./MetricCappingSettingsForm";
-import { MetricDelayHours } from "./MetricDelayHours";
+import { MetricDelaySettings } from "./MetricDelaySettings";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -654,6 +654,7 @@ const MetricForm: FC<MetricFormProps> = ({
       >
         <Page
           display="Basic Info"
+          enabled
           validate={async () => {
             validateBasicInfo(form.getValues());
             if (allowAutomaticSqlReset) {
@@ -795,6 +796,7 @@ const MetricForm: FC<MetricFormProps> = ({
         </Page>
         <Page
           display="Query Settings"
+          enabled
           validate={async () => {
             validateQuerySettings(
               datasourceSettingsSupport,
@@ -1217,7 +1219,7 @@ const MetricForm: FC<MetricFormProps> = ({
             )}
 
           {conversionWindowSupported && (
-            <MetricWindowSettingsForm form={form} />
+            <MetricWindowSettingsForm form={form} type={""} />
           )}
 
           {!showAdvanced ? (
@@ -1233,7 +1235,7 @@ const MetricForm: FC<MetricFormProps> = ({
             </a>
           ) : (
             <>
-              <MetricDelayHours form={form} />
+              <MetricDelaySettings form={form} />
 
               <MetricPriorSettingsForm
                 priorSettings={form.watch("priorSettings")}

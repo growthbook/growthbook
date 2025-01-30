@@ -76,14 +76,16 @@ const ViewAsyncQueriesButton: FC<{
               setOpen(!open);
             }}
           >
-            <span
-              className={clsx("h4", {
-                "position-relative d-flex m-0 d-inline-block align-top": condensed,
-                "pr-2": !hideQueryCount,
-              })}
-            >
-              {icon !== undefined ? icon : <FaDatabase />}
-            </span>
+            {icon !== null && (
+              <span
+                className={clsx("h4", {
+                  "position-relative d-flex m-0 d-inline-block align-top": condensed,
+                  "pr-2": !hideQueryCount,
+                })}
+              >
+                {icon !== undefined ? icon : <FaDatabase />}
+              </span>
+            )}
             {display}
             {!hideQueryCount ? (
               <>

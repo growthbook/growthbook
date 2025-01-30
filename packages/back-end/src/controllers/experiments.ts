@@ -42,6 +42,7 @@ import {
   getAllExperiments,
   getExperimentById,
   getExperimentByTrackingKey,
+  getExperimentByUid,
   getExperimentsByIds,
   getPastExperimentsByDatasource,
   hasArchivedExperiments,
@@ -64,7 +65,10 @@ import {
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { addTagsDiff } from "back-end/src/models/TagModel";
-import { getContextFromReq } from "back-end/src/services/organizations";
+import {
+  getContextForAgendaJobByOrgId,
+  getContextFromReq,
+} from "back-end/src/services/organizations";
 import { removeExperimentFromPresentations } from "back-end/src/services/presentations";
 import {
   createPastExperiments,
@@ -108,6 +112,7 @@ import {
   createUserVisualEditorApiKey,
   getVisualEditorApiKey,
 } from "back-end/src/models/ApiKeyModel";
+
 import {
   getExperimentWatchers,
   upsertWatch,
@@ -116,6 +121,8 @@ import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { OrganizationSettings, ReqContext } from "back-end/types/organization";
 import { CreateURLRedirectProps } from "back-end/types/url-redirect";
 import { logger } from "back-end/src/util/logger";
+import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
+import { generateExperimentReportSSRData } from "back-end/src/services/reports";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
@@ -230,8 +237,9 @@ export async function getExperimentsFrequencyMonth(
         // I can do this because the indexes will represent the same month
         dataByStatus[e.status][i].numExp++;
 
-        // experiments without a project, are included in the 'all projects'
-        if (e.project) {
+        // experiments without a project or with a deleted project
+        // are included in the 'all projects'
+        if (e.project && dataByProject[e.project]) {
           dataByProject[e.project][i].numExp++;
         } else {
           dataByProject["all"][i].numExp++;
@@ -314,15 +322,83 @@ export async function getExperiment(
     experiment.id
   );
 
-  const linkedFeatures = await getLinkedFeatureInfo(context, experiment);
+  const linkedFeatureInfo = await getLinkedFeatureInfo(context, experiment);
+
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
+  const envs = getAffectedEnvsForExperiment({
+    experiment,
+    orgEnvironments: context.org.settings?.environments || [],
+    linkedFeatures,
+  });
 
   res.status(200).json({
     status: 200,
     experiment,
     visualChangesets,
     urlRedirects,
-    linkedFeatures,
+    linkedFeatures: linkedFeatureInfo,
+    envs,
     idea,
+  });
+}
+
+export async function getExperimentPublic(
+  req: AuthRequest<null, { uid: string }>,
+  res: Response
+) {
+  const { uid } = req.params;
+  const experiment = await getExperimentByUid(uid);
+  if (!experiment) {
+    return res.status(404).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+  }
+  if (experiment.shareLevel !== "public") {
+    return res.status(401).json({
+      message: "Unauthorized",
+    });
+  }
+
+  const context = await getContextForAgendaJobByOrgId(experiment.organization);
+  const phase = experiment.phases.length - 1;
+
+  const snapshot =
+    (await getLatestSnapshot({
+      experiment: experiment.id,
+      phase,
+      type: "standard",
+    })) || undefined;
+
+  const visualChangesets = await findVisualChangesetsByExperiment(
+    experiment.id,
+    experiment.organization
+  );
+
+  const urlRedirects = await context.models.urlRedirects.findByExperiment(
+    experiment.id
+  );
+
+  const linkedFeatures = await getLinkedFeatureInfo(context, experiment);
+
+  const ssrData = await generateExperimentReportSSRData({
+    context,
+    organization: experiment.organization,
+    project: experiment.project,
+    snapshot,
+  });
+
+  res.status(200).json({
+    status: 200,
+    experiment,
+    snapshot,
+    visualChangesets,
+    urlRedirects,
+    linkedFeatures,
+    ssrData,
   });
 }
 
@@ -434,6 +510,29 @@ export async function getSnapshot(
     status: 200,
     snapshot,
     latest,
+  });
+}
+
+export async function getSnapshotById(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+
+  const { id } = req.params;
+
+  const snapshot = await findSnapshotById(org.id, id);
+  if (!snapshot) {
+    return res.status(400).json({
+      status: 400,
+      message: "No snapshot found with that id",
+    });
+  }
+
+  res.status(200).json({
+    status: 200,
+    snapshot,
   });
 }
 
@@ -584,7 +683,7 @@ export async function postExperiments(
 
   const experimentType = data.type ?? "standard";
 
-  const obj: Omit<ExperimentInterface, "id"> = {
+  const obj: Omit<ExperimentInterface, "id" | "uid"> = {
     organization: data.organization,
     archived: false,
     hashAttribute: data.hashAttribute || "",
@@ -652,6 +751,8 @@ export async function postExperiments(
     banditBurnInValue: data.banditBurnInValue ?? 1,
     banditBurnInUnit: data.banditBurnInUnit ?? "days",
     customFields: data.customFields || undefined,
+    templateId: data.templateId || undefined,
+    shareLevel: data.shareLevel || "organization",
   };
 
   const { settings } = getScopedSettings({
@@ -936,6 +1037,9 @@ export async function postExperiment(
     "banditBurnInValue",
     "banditBurnInUnit",
     "customFields",
+    "shareLevel",
+    "uid",
+    "analysisSummary",
   ];
   let changes: Changeset = {};
 
@@ -1045,8 +1149,14 @@ export async function postExperiment(
     "banditBurnInUnit",
   ] as (keyof ExperimentInterfaceStringDates)[]).some((key) => key in changes);
   if (needsRunExperimentsPermission) {
+    const linkedFeatureIds = experiment.linkedFeatures || [];
+
+    const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
     const envs = getAffectedEnvsForExperiment({
       experiment,
+      orgEnvironments: context.org.settings?.environments || [],
+      linkedFeatures,
     });
     if (envs.length > 0) {
       const projects = [experiment.project || undefined];
@@ -1159,8 +1269,14 @@ export async function postExperimentArchive(
     context.permissions.throwPermissionError();
   }
 
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    orgEnvironments: context.org.settings?.environments || [],
+    linkedFeatures,
   });
   if (
     envs.length > 0 &&
@@ -1288,6 +1404,10 @@ export async function postExperimentStatus(
     context.permissions.throwPermissionError();
   }
 
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
   const { settings } = getScopedSettings({
     organization: org,
     experiment,
@@ -1295,6 +1415,8 @@ export async function postExperimentStatus(
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    orgEnvironments: context.org.settings?.environments || [],
+    linkedFeatures,
   });
 
   if (
@@ -1504,8 +1626,14 @@ export async function postExperimentStop(
     context.permissions.throwPermissionError();
   }
 
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    orgEnvironments: context.org.settings?.environments || [],
+    linkedFeatures,
   });
 
   if (
@@ -1605,8 +1733,14 @@ export async function deleteExperimentPhase(
     context.permissions.throwPermissionError();
   }
 
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    orgEnvironments: context.org.settings?.environments || [],
+    linkedFeatures,
   });
 
   if (
@@ -1687,8 +1821,14 @@ export async function putExperimentPhase(
     context.permissions.throwPermissionError();
   }
 
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    orgEnvironments: context.org.settings?.environments || [],
+    linkedFeatures,
   });
 
   if (
@@ -1791,8 +1931,14 @@ export async function postExperimentTargeting(
     context.permissions.throwPermissionError();
   }
 
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    orgEnvironments: context.org.settings?.environments || [],
+    linkedFeatures,
   });
 
   if (
@@ -1923,8 +2069,14 @@ export async function postExperimentPhase(
     context.permissions.throwPermissionError();
   }
 
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    orgEnvironments: context.org.settings?.environments || [],
+    linkedFeatures,
   });
 
   if (
@@ -2042,8 +2194,14 @@ export async function deleteExperiment(
     context.permissions.throwPermissionError();
   }
 
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    orgEnvironments: context.org.settings?.environments || [],
+    linkedFeatures,
   });
 
   if (
@@ -2963,8 +3121,14 @@ export async function postVisualChangeset(
     throw new Error("Could not find experiment");
   }
 
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    orgEnvironments: context.org.settings?.environments || [],
+    linkedFeatures,
   });
 
   if (
@@ -3013,7 +3177,17 @@ export async function putVisualChangeset(
     visualChanges: req.body.visualChanges,
   };
 
-  const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
+  const envs = experiment
+    ? getAffectedEnvsForExperiment({
+        experiment,
+        linkedFeatures,
+        orgEnvironments: context.org.settings?.environments || [],
+      })
+    : [];
   if (!context.permissions.canRunExperiment(experiment, envs)) {
     context.permissions.throwPermissionError();
   }
@@ -3052,7 +3226,17 @@ export async function deleteVisualChangeset(
     visualChangeset.experiment
   );
 
-  const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
+  const linkedFeatureIds = experiment?.linkedFeatures || [];
+
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
+  const envs = experiment
+    ? getAffectedEnvsForExperiment({
+        experiment,
+        linkedFeatures,
+        orgEnvironments: context.org.settings?.environments || [],
+      })
+    : [];
   if (!context.permissions.canRunExperiment(experiment || {}, envs)) {
     context.permissions.throwPermissionError();
   }

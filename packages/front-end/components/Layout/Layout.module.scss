@@ -5,7 +5,7 @@ $collapsedSidebarwidth: 70px;
 $topbarheight: 60px;
 
 .sidebar {
-  background-color: $dark-blue;
+  background-color: var(--color-landmark);
   width: $sidebarwidth;
   flex-direction: column;
   display: flex;

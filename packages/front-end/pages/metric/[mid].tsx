@@ -349,6 +349,7 @@ const MetricPage: FC = () => {
       )}
       {editOwnerModal && (
         <EditOwnerModal
+          resourceType="metric"
           cancel={() => setEditOwnerModal(false)}
           owner={metric.owner}
           save={async (owner) => {
@@ -1190,8 +1191,8 @@ const MetricPage: FC = () => {
                         <span className="text-gray">{` 
                         of first experiment exposure
                         ${
-                          metric.windowSettings.delayHours
-                            ? " plus the conversion delay"
+                          metric.windowSettings.delayValue
+                            ? " plus the metric delay"
                             : ""
                         }`}</span>
                       </li>
@@ -1220,21 +1221,21 @@ const MetricPage: FC = () => {
                       <li>
                         <span className="text-gray">{`Include all metric data after first experiment exposure
                       ${
-                        metric.windowSettings.delayHours
-                          ? " plus the conversion delay"
+                        metric.windowSettings.delayValue
+                          ? " plus the metric delay"
                           : ""
                       }`}</span>
                       </li>
                     </>
                   )}
-                  {metric.windowSettings.delayHours ? (
+                  {metric.windowSettings.delayValue ? (
                     <>
                       <li className="mt-3 mb-1">
                         <span className="uppercase-title lg">Metric Delay</span>
                       </li>
                       <li className="mt-1">
                         <span className="font-weight-bold">
-                          {metric.windowSettings.delayHours} hours
+                          {`${metric.windowSettings.delayValue} ${metric.windowSettings.delayUnit}`}
                         </span>
                       </li>
                     </>

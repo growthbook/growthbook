@@ -58,6 +58,7 @@ export default function AnalysisSettingsBar({
   setBaselineRow,
   differenceType,
   setDifferenceType,
+  envs,
 }: {
   mutateExperiment: () => void;
   setAnalysisSettings: (
@@ -66,6 +67,7 @@ export default function AnalysisSettingsBar({
   editMetrics?: () => void;
   editPhases?: () => void;
   variations: ExperimentReportVariation[];
+  envs: string[];
   alwaysShowPhaseSelector?: boolean;
   regressionAdjustmentAvailable?: boolean;
   regressionAdjustmentEnabled?: boolean;
@@ -117,6 +119,7 @@ export default function AnalysisSettingsBar({
     <div>
       {modalOpen && experiment && (
         <AnalysisForm
+          envs={envs}
           cancel={() => setModalOpen(false)}
           experiment={experiment}
           mutate={mutateExperiment}
@@ -273,8 +276,8 @@ export default function AnalysisSettingsBar({
                       <div className="text-left">
                         <p>This is an exploratory analysis.</p>
                         <p>
-                          Ad-hoc analyses do not cause bandit variation weights
-                          to change.
+                          Exploratory analyses do not cause bandit variation
+                          weights to change.
                         </p>
                       </div>
                     }
@@ -316,7 +319,7 @@ export default function AnalysisSettingsBar({
             <div className="col-auto">
               <ResultMoreMenu
                 experiment={experiment}
-                id={snapshot?.id || ""}
+                snapshotId={snapshot?.id || ""}
                 datasource={datasource}
                 forceRefresh={async () => {
                   await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
@@ -345,7 +348,6 @@ export default function AnalysisSettingsBar({
                 editMetrics={editMetrics}
                 notebookUrl={`/experiments/notebook/${snapshot?.id}`}
                 notebookFilename={experiment.trackingKey}
-                generateReport={true}
                 queries={snapshot?.queries}
                 queryError={snapshot?.error}
                 supportsNotebooks={!!datasource?.settings?.notebookRunQuery}

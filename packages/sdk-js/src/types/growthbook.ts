@@ -1,6 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import type { GrowthBook, StickyBucketService } from "..";
+import type {
+  GrowthBook,
+  GrowthBookClient,
+  StickyBucketService,
+  UserScopedGrowthBook,
+} from "..";
 import { ConditionInterface, ParentConditionInterface } from "./mongrule";
 
 declare global {
@@ -184,6 +189,17 @@ export type FeatureUsageCallbackWithUser = (
   user: UserContext
 ) => void;
 
+export type Plugin = (
+  gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient
+) => void;
+
+export type EventProperties = Record<string, unknown>;
+export type EventLogger = (
+  eventName: string,
+  properties: EventProperties,
+  userContext: UserContext
+) => void | Promise<void>;
+
 export type NavigateCallback = (url: string) => void | Promise<void>;
 
 export type ApplyDomChangesCallback = (
@@ -224,7 +240,8 @@ export type Options = {
   /** @deprecated */
   disableDevTools?: boolean;
   trackingCallback?: TrackingCallback;
-  onFeatureUsage?: (key: string, result: FeatureResult<any>) => void;
+  onFeatureUsage?: FeatureUsageCallback;
+  eventLogger?: EventLogger;
   cacheKeyAttributes?: (keyof Attributes)[];
   /** @deprecated */
   user?: {
@@ -253,6 +270,7 @@ export type Options = {
   antiFlickerTimeout?: number;
   applyDomChangesCallback?: ApplyDomChangesCallback;
   savedGroups?: SavedGroupsValues;
+  plugins?: Plugin[];
 };
 
 export type ClientOptions = {
@@ -270,6 +288,7 @@ export type ClientOptions = {
     result: FeatureResult<any>,
     user: UserContext
   ) => void;
+  eventLogger?: EventLogger;
   apiHost?: string;
   streamingHost?: string;
   apiHostRequestHeaders?: Record<string, string>;
@@ -277,6 +296,7 @@ export type ClientOptions = {
   clientKey?: string;
   decryptionKey?: string;
   savedGroups?: SavedGroupsValues;
+  plugins?: Plugin[];
 };
 
 // Contexts
@@ -294,6 +314,7 @@ export type GlobalContext = {
   onExperimentEval?: (experiment: Experiment<any>, result: Result<any>) => void;
   saveDeferredTrack?: (data: TrackingData) => void;
   recordChangeId?: (changeId: string) => void;
+  eventLogger?: EventLogger;
 
   /** @deprecated */
   overrides?: Record<string, ExperimentOverride>;

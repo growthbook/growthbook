@@ -25,7 +25,7 @@ import LinkedChange from "@/components/Experiment/LinkedChange";
 type Props = {
   experiment: ExperimentInterfaceStringDates;
   visualChangesets: VisualChangesetInterface[];
-  mutate: () => void;
+  mutate?: () => void;
   canEditVisualChangesets: boolean;
 };
 
@@ -254,7 +254,7 @@ export const VisualChangesetTable: FC<Props> = ({
       await apiCall(`/visual-changesets/${id}`, {
         method: "DELETE",
       });
-      mutate();
+      mutate?.();
       track("Delete visual changeset", {
         source: "visual-editor-ui",
       });
@@ -282,7 +282,7 @@ export const VisualChangesetTable: FC<Props> = ({
         method: "PUT",
         body: JSON.stringify(newVisualChangeset),
       });
-      mutate();
+      mutate?.();
       track("Delete visual changeset", {
         source: "visual-editor-ui",
       });
@@ -350,7 +350,7 @@ export const VisualChangesetTable: FC<Props> = ({
         );
       })}
 
-      {editingVisualChangeset ? (
+      {editingVisualChangeset && mutate ? (
         <VisualChangesetModal
           mode="edit"
           experiment={experiment}

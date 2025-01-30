@@ -94,7 +94,8 @@ export default function MarkdownInlineEdit({
             <div className="card-text">
               {canCreate ? (
                 <a
-                  href="#"
+                  role="button"
+                  className="link-purple"
                   onClick={(e) => {
                     e.preventDefault();
                     setVal(value || "");
@@ -112,7 +113,8 @@ export default function MarkdownInlineEdit({
         {value && canEdit && !header && (
           <div className="col-auto">
             <a
-              href="#"
+              role="button"
+              className="link-purple"
               onClick={(e) => {
                 e.preventDefault();
                 setVal(value || "");

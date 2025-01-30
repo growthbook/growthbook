@@ -9,11 +9,8 @@
 // Bootstrap theme overrides must be loaded AFTER Bootstrap
 @import "_bootstrap-theme-overrides";
 
-html,
-body,
-#__next,
 main {
-  height: 100%;
+  padding-top: 56px;
 }
 
 body {
@@ -46,7 +43,9 @@ body {
 
 .main {
   padding-left: 240px;
-  padding-top: 60px;
+  &.lite {
+    padding-left: 0;
+  }
 
   &.present {
     padding: 0;
@@ -74,7 +73,7 @@ pre {
   color: colors.$second-blue;
 }
 .text-purple {
-  color: colors.$highlight-purple;
+  color: var(--violet-a11);
 }
 .text-indigo {
   color: colors.$indigo;
@@ -183,19 +182,6 @@ pre {
     colors.$highlight-purple,
     darken(colors.$highlight-purple, 7.5%),
     darken(colors.$highlight-purple, 10%),
-    lighten(colors.$highlight-purple, 5%),
-    lighten(colors.$highlight-purple, 10%),
-    darken(colors.$highlight-purple, 30%)
-  );
-  white-space: nowrap;
-  font-weight: 600;
-}
-
-.btn-primary-darkened {
-  @include button-variant(
-    darken(colors.$highlight-purple, 10%),
-    darken(colors.$highlight-purple, 14%),
-    darken(colors.$highlight-purple, 18%),
     lighten(colors.$highlight-purple, 5%),
     lighten(colors.$highlight-purple, 10%),
     darken(colors.$highlight-purple, 30%)
@@ -561,9 +547,10 @@ pre {
 }
 
 .main.experiment,
-.main.bandit {
+.main.bandit,
+.public.experiment,
+.public.bandit {
   .experiment-header {
-    margin: -4px -8px 0;
     .border {
       border-bottom: 1px solid var(--border-color-200);
     }
@@ -571,9 +558,9 @@ pre {
   .experiment-tabs {
     background-color: var(--background-color);
     // NB: Keep top property in sync with TABS_HEADER_HEIGHT_PX in ExperimentHeader.tsx
+    // also, make sure shared reports & shared experiments look good
     top: 55px;
     height: 40px;
-    margin: 0 -8px -3px;
     transition: 150ms all;
     .header-tabs {
       flex-wrap: nowrap;
@@ -617,9 +604,13 @@ pre {
     &.pinned {
       position: sticky;
       z-index: 830;
-      box-shadow: var(--shadow-3);
+      // ensure no shadow bleeds above component, otherwise noticeable when scrolling quickly
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), 0 4px 4px rgba(0, 0, 0, 0.025);
       .header-tabs .tab-wrapper {
         overflow: hidden;
+      }
+      .rt-BaseTabList {
+        box-shadow: none !important;
       }
     }
   }
@@ -787,12 +778,15 @@ pre {
     transform: translate(0.5px, -0.5px);
   }
 }
-main.main.report {
-  .experiment-results {
-    th {
-      &.axis-col {
-        top: 50px;
-      }
+main.main {
+  &.report {
+    .experiment-results th.axis-col {
+      top: 55px;
+    }
+  }
+  &.public.experiment {
+    .experiment-results th.axis-col {
+      top: 95px;
     }
   }
 }
@@ -896,6 +890,10 @@ main.main.report {
     }
   }
 }
+.dark .bg-white textarea.form-control,
+.dark .tab-content input.form-control {
+  background-color: var(--black-a3);
+}
 
 .hover-show {
   .show-target {
@@ -931,10 +929,10 @@ main.main.report {
 }
 
 .link-purple {
-  color: colors.$highlight-purple;
+  color: var(--violet-a11);
   text-decoration: none;
   &:hover {
-    color: lighten(colors.$highlight-purple, 5%);
+    color: var(--violet-a10);
     text-decoration: underline;
   }
 }
@@ -1154,6 +1152,14 @@ main.main.report {
     }
   }
 }
+.dropdown-circle {
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 1);
+  padding: 7px 9px;
+}
+.dark .dropdown-circle {
+  background-color: rgba(255, 255, 255, 0.1);
+}
 .shiftdown-1 {
   position: relative;
   top: 1px;
@@ -1213,11 +1219,6 @@ main.main.report {
         width: auto !important;
       }
     }
-  }
-}
-@media only screen and (min-width: 992px) {
-  .paged-modal-default {
-    padding: 0 40px;
   }
 }
 .modal {
@@ -1953,6 +1954,7 @@ main.main.report {
   &.with-variation-label {
     .label {
       display: inline-flex;
+      flex-shrink: 0;
       align-items: center;
       justify-content: center;
       width: 24px;
@@ -2253,7 +2255,6 @@ li.metrics a span img {
   .testname {
     font-weight: 400;
     color: var(--text-color-main);
-
     &:hover {
       text-decoration: none;
     }
@@ -3171,6 +3172,10 @@ td.disabled {
     }
   }
 }
+.form-control:focus {
+  border-color: var(--border-color-200);
+  box-shadow: 0px 0px 0px 1px var(--violet-8);
+}
 .form-control:disabled {
   cursor: not-allowed;
   background-color: var(--disabled-background) !important;
@@ -3312,8 +3317,9 @@ input:disabled {
 @import "./components/demo-datasource-banner";
 
 .main.features {
-  .features-header {
-    margin: -4px -8px 0;
+  .featurename {
+    font-weight: 400;
+    color: var(--text-color-main);
   }
 }
 .approval-flow-accepted {

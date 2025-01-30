@@ -15,6 +15,7 @@ import { getExperimentMetricFormatter } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { GBCuped } from "@/components/Icons";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 
 export const TOOLTIP_WIDTH = 350;
 export const TOOLTIP_HEIGHT = 300; // Used for over/under layout calculation. Actual height may vary.
@@ -52,6 +53,7 @@ interface Props
   data?: TooltipData;
   tooltipOpen: boolean;
   close: () => void;
+  ssrPolyfills?: SSRPolyfills;
 }
 export default function BanditSummaryTooltip({
   left,
@@ -59,6 +61,7 @@ export default function BanditSummaryTooltip({
   data,
   tooltipOpen,
   close,
+  ssrPolyfills,
   ...otherProps
 }: Props) {
   useEffect(() => {
@@ -80,9 +83,12 @@ export default function BanditSummaryTooltip({
     };
   }, [data, tooltipOpen, close]);
 
-  const metricDisplayCurrency = useCurrency();
-  const metricFormatterOptions = { currency: metricDisplayCurrency };
-  const { getFactTableById } = useDefinitions();
+  const _displayCurrency = useCurrency();
+  const { getFactTableById: _getFactTableById } = useDefinitions();
+
+  const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
+  const displayCurrency = ssrPolyfills?.useCurrency() || _displayCurrency;
+  const metricFormatterOptions = { currency: displayCurrency };
 
   if (!data) {
     return null;

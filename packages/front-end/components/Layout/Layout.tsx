@@ -55,7 +55,6 @@ const navlinks: SidebarLinkProps[] = [
     href: "/bandits",
     Icon: GBBandit,
     path: /^bandit/,
-    beta: true,
     filter: ({ gb }) => !!gb?.isOn("bandits"),
   },
   {
@@ -279,6 +278,14 @@ const otherPageTitles = [
   {
     path: /^activity/,
     title: "Activity Feed",
+  },
+  {
+    path: /^reports/,
+    title: "My Reports",
+  },
+  {
+    path: /^account\/personal-access-tokens/,
+    title: "Personal Access Tokens",
   },
   {
     path: /^integrations\/vercel/,

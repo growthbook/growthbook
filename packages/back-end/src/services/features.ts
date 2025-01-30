@@ -273,7 +273,7 @@ export function generateAutoExperimentsPayload({
             : data.visualChangeset.urlPatterns,
         weights: phase.variationWeights,
         meta: e.variations.map((v) => ({ key: v.key, name: v.name })),
-        filters: phase.namespace.enabled
+        filters: phase?.namespace?.enabled
           ? [
               {
                 attribute: e.hashAttribute,
@@ -1041,11 +1041,12 @@ export async function evaluateAllFeatures({
 
     // now loop through all features to eval them:
     for (const feature of features) {
-      const revision = await getRevision(
-        context.org.id,
-        feature.id,
-        parseInt(feature.version.toString())
-      );
+      const revision = await getRevision({
+        context,
+        organization: context.org.id,
+        featureId: feature.id,
+        version: parseInt(feature.version.toString()),
+      });
       if (!revision) {
         if (switchEnv) {
           // change the NODE ENV back
