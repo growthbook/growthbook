@@ -123,22 +123,14 @@ const genFormDefaultValues = ({
     permissions: permissionsUtil,
     project,
   });
-  let customFieldValues = {};
-  if (customFields && featureToDuplicate) {
-    customFieldValues = featureToDuplicate.customFields
-      ? Object.fromEntries(
-          Object.entries(featureToDuplicate.customFields).filter(([key]) =>
-            customFields.some((a) => a.id.toString() === key)
-          )
-        )
-      : Object.fromEntries(
-          customFields.map((field) => [field.id.toString(), field.defaultValue])
-        ); // Create a fallback object
-  } else if (customFields) {
-    customFieldValues = Object.fromEntries(
-      customFields.map((field) => [field.id.toString(), field.defaultValue])
-    );
-  }
+  const customFieldValues = customFields
+    ? Object.fromEntries(
+        customFields.map((field) => [
+          field.id,
+          featureToDuplicate?.customFields?.[field.id] ?? field.defaultValue,
+        ])
+      )
+    : {};
 
   return featureToDuplicate
     ? {
