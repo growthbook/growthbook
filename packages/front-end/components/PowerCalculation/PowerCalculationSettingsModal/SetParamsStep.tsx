@@ -72,37 +72,36 @@ const DataInput = ({
                   className="ml-1 mb-0"
                   onClick={() => {
                     const savedData = form.getValues("savedData");
-                    if (savedData) {
-                      let savedMetrics = {};
-                      for (const [id, m] of Object.entries(metrics)) {
-                        const oldMetricValues = savedData.metrics[id];
-                        if (oldMetricValues) {
-                          savedMetrics = {
-                            ...savedMetrics,
-                            [id]: {
-                              ...oldMetricValues,
-                              // don't override effect size
-                              effectSize: m.effectSize,
-                              overrideMetricLevelSettings:
-                                m.overrideMetricLevelSettings,
-                              overridePriorLiftMean: m.overridePriorLiftMean,
-                              overridePriorLiftStandardDeviation:
-                                m.overridePriorLiftStandardDeviation,
-                              overrideProper: m.overrideProper,
-                            },
-                          };
-                        } else {
-                          savedMetrics = {
-                            ...savedMetrics,
-                            [id]: m,
-                          };
-                        }
+                    let savedMetrics = {};
+                    for (const [id, m] of Object.entries(metrics)) {
+                      const oldMetricValues = savedData?.metrics[id];
+                      if (oldMetricValues) {
+                        savedMetrics = {
+                          ...savedMetrics,
+                          [id]: {
+                            ...oldMetricValues,
+                            // don't override effect size
+                            effectSize: m.effectSize,
+                            overrideMetricLevelSettings:
+                              m.overrideMetricLevelSettings,
+                            overridePriorLiftMean: m.overridePriorLiftMean,
+                            overridePriorLiftStandardDeviation:
+                              m.overridePriorLiftStandardDeviation,
+                            overrideProper: m.overrideProper,
+                          },
+                        };
+                      } else {
+                        savedMetrics = {
+                          ...savedMetrics,
+                          [id]: m,
+                        };
                       }
-                      form.setValue("customizedMetrics", false);
-                      form.setValue("metrics", savedMetrics);
-                      form.setValue("usersPerWeek", savedData.usersPerWeek);
-                      setMetricsEditable(false);
                     }
+
+                    form.setValue("customizedMetrics", false);
+                    form.setValue("metrics", savedMetrics);
+                    form.setValue("usersPerWeek", savedData?.usersPerWeek ?? 0);
+                    setMetricsEditable(false);
                   }}
                 >
                   Reset to data values.

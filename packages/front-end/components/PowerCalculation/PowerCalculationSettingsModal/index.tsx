@@ -135,30 +135,40 @@ export default function PowerCalculationSettingsModal({
           close={close}
           onNext={async () => {
             form.setValue("metricValuesData.error", undefined);
-            if (form.watch("metricValuesData.source") === "experiment") {
-              const experimentId = form.watch("metricValuesData.sourceId");
-              const experiment = experiments.find((e) => e.id === experimentId);
-              // Retrieve experiment snapshot and set data from it before moving
-              // to the set params step
-              setMetricDataFromExperiment({ form, experiment, apiCall });
-            } else if (form.watch("metricValuesData.source") !== "manual") {
-              // Kick of segment of fact table power query, or retrieve
-              // existing values from cache and proceed to the set params step
-              const res = await postPopulationData({ form, apiCall });
+            try {
+              if (form.watch("metricValuesData.source") === "experiment") {
+                const experimentId = form.watch("metricValuesData.sourceId");
+                const experiment = experiments.find(
+                  (e) => e.id === experimentId
+                );
+                // Retrieve experiment snapshot and set data from it before moving
+                // to the set params step
+                setMetricDataFromExperiment({ form, experiment, apiCall });
+              } else if (form.watch("metricValuesData.source") !== "manual") {
+                // Kick of segment of fact table power query, or retrieve
+                // existing values from cache and proceed to the set params step
+                const res = await postPopulationData({ form, apiCall });
 
-              form.setValue(
-                "metricValuesData.populationId",
-                res.populationData?.id
-              );
-              // sets it if data already exists, otherwise starts running on next page
-              if (res.populationData?.status === "success") {
-                setMetricDataFromPopulationData({
-                  populationData: res.populationData,
-                  form,
-                });
+                form.setValue(
+                  "metricValuesData.populationId",
+                  res.populationData?.id
+                );
+                // sets it if data already exists, otherwise starts running on next page
+                if (res.populationData?.status === "success") {
+                  setMetricDataFromPopulationData({
+                    populationData: res.populationData,
+                    form,
+                  });
+                }
               }
+            } catch (e) {
+              form.setValue(
+                "metricValuesData.error",
+                `Unable to compute metric values: ${e.message}`
+              );
+            } finally {
+              setStep("set-params");
             }
-            setStep("set-params");
           }}
         />
       )}
