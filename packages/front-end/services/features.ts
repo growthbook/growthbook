@@ -304,7 +304,8 @@ export function getVariationDefaultName(
 
 export function isRuleDisabled(
   rule: FeatureRule,
-  experimentsMap: Map<string, ExperimentInterfaceStringDates>
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>,
+  isDraft: boolean
 ): boolean {
   const linkedExperiment =
     rule.type === "experiment-ref" && experimentsMap.get(rule.experimentId);
@@ -317,7 +318,8 @@ export function isRuleDisabled(
   return (
     scheduleCompletedAndDisabled ||
     upcomingScheduleRule?.enabled ||
-    (linkedExperiment && isExperimentRefRuleSkipped(linkedExperiment)) ||
+    (linkedExperiment &&
+      isExperimentRefRuleSkipped(linkedExperiment, isDraft)) ||
     !rule.enabled
   );
 }

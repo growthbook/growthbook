@@ -36,6 +36,7 @@ export default function RuleList({
   locked,
   experimentsMap,
   hideDisabled,
+  isDraft,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -54,6 +55,7 @@ export default function RuleList({
   locked: boolean;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
   hideDisabled?: boolean;
+  isDraft: boolean;
 }) {
   const { apiCall } = useAuth();
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -71,7 +73,9 @@ export default function RuleList({
     })
   );
 
-  const disabledRules = items.filter((r) => isRuleDisabled(r, experimentsMap));
+  const disabledRules = items.filter((r) =>
+    isRuleDisabled(r, experimentsMap, isDraft)
+  );
 
   if (!items.length) {
     return (
@@ -170,6 +174,7 @@ export default function RuleList({
             locked={locked}
             experimentsMap={experimentsMap}
             hideDisabled={hideDisabled}
+            isDraft={isDraft}
           />
         ))}
       </SortableContext>
@@ -192,6 +197,7 @@ export default function RuleList({
               !!unreachableIndex &&
               getRuleIndex(activeId as string) >= unreachableIndex
             }
+            isDraft={isDraft}
           />
         ) : null}
       </DragOverlay>

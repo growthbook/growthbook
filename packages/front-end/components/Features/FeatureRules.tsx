@@ -35,6 +35,7 @@ export default function FeatureRules({
   currentVersion,
   setVersion,
   hideDisabled,
+  isDraft,
 }: {
   environments: Environment[];
   feature: FeatureInterface;
@@ -46,6 +47,7 @@ export default function FeatureRules({
   currentVersion: number;
   setVersion: (v: number) => void;
   hideDisabled: boolean;
+  isDraft: boolean;
 }) {
   const envs = environments.map((e) => e.id);
   const [env, setEnv] = useEnvironmentState();
@@ -167,6 +169,7 @@ export default function FeatureRules({
                     locked={isLocked}
                     experimentsMap={experimentsMap}
                     hideDisabled={hideDisabled}
+                    isDraft={isDraft}
                   />
                 ) : (
                   <Box py="4" className="text-muted">

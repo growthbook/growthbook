@@ -6,7 +6,6 @@ import { RxCircleBackslash } from "react-icons/rx";
 import { PiArrowBendRightDown } from "react-icons/pi";
 import { RiAlertLine } from "react-icons/ri";
 import Badge from "@/components/Radix/Badge";
-import { isExperimentRefRuleSkipped } from "./ExperimentRefSummary";
 
 type Props = {
   rule: FeatureRule;
@@ -21,7 +20,6 @@ export default function RuleStatusPill({
   rule,
   upcomingScheduleRule,
   scheduleCompletedAndDisabled,
-  linkedExperiment,
   ruleDisabled,
   unreachable,
 }: Props) {
@@ -96,14 +94,6 @@ export default function RuleStatusPill({
       new Date(upcomingScheduleRule.timestamp),
       "h:mm a z"
     )}`;
-    return getSkippedBadge(msg);
-  }
-
-  if (linkedExperiment && isExperimentRefRuleSkipped(linkedExperiment)) {
-    const msg =
-      linkedExperiment.type === "multi-armed-bandit"
-        ? "Bandit not running"
-        : "Experiment not running";
     return getSkippedBadge(msg);
   }
 

@@ -18,9 +18,14 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 });
 
 export function isExperimentRefRuleSkipped(
-  experiment: ExperimentInterfaceStringDates
+  experiment: ExperimentInterfaceStringDates,
+  isDraft: boolean
 ) {
-  if (experiment.status === "draft") return true;
+  if (experiment.status === "draft") {
+    // Draft experiments are published alongside feature drafts,
+    // so don't need to mark this as skipped if we're viewing a feature draft
+    return !isDraft;
+  }
   return !includeExperimentInPayload(experiment);
 }
 
@@ -60,10 +65,12 @@ export default function ExperimentRefSummary({
   rule,
   experiment,
   feature,
+  isDraft,
 }: {
   feature: FeatureInterface;
   experiment?: ExperimentInterfaceStringDates;
   rule: ExperimentRefRule;
+  isDraft: boolean;
 }) {
   const { variations } = rule;
   const type = feature.valueType;
@@ -146,7 +153,7 @@ export default function ExperimentRefSummary({
 
   return (
     <div>
-      {experiment.status === "draft" && (
+      {experiment.status === "draft" && !isDraft && (
         <div className="alert alert-warning">
           This {isBandit ? "Bandit" : "Experiment"} is in a{" "}
           <strong>draft</strong> state and has not been started yet. This rule

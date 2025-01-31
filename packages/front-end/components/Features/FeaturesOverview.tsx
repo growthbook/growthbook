@@ -266,7 +266,7 @@ export default function FeaturesOverview({
   environments?.forEach((e) => {
     const r = getRules(feature, e.id) || [];
     if (r.length > 0) hasRules = true;
-    if (r.filter((r) => isRuleDisabled(r, experimentsMap))) {
+    if (r.filter((r) => isRuleDisabled(r, experimentsMap, isDraft))) {
       hasDisabledRules = true;
     }
   });
@@ -1046,6 +1046,7 @@ export default function FeaturesOverview({
                       currentVersion={currentVersion}
                       setVersion={setVersion}
                       hideDisabled={hideDisabled}
+                      isDraft={isDraft}
                     />
                   </>
                 ) : (

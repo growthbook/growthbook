@@ -49,12 +49,46 @@ interface SortableProps {
   locked: boolean;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
   hideDisabled?: boolean;
+  isDraft: boolean;
 }
 
 type RuleProps = SortableProps &
   React.HTMLAttributes<HTMLDivElement> & {
     handle?: React.HTMLAttributes<HTMLDivElement>;
   };
+
+function isRuleSkipped({
+  rule,
+  linkedExperiment,
+  isDraft,
+}: {
+  rule: FeatureRule;
+  isDraft: boolean;
+  linkedExperiment?: ExperimentInterfaceStringDates;
+}): boolean {
+  // Not live yet
+  const upcomingScheduleRule = getUpcomingScheduleRule(rule);
+  if (upcomingScheduleRule && rule?.scheduleRules?.length) return true;
+
+  // Schedule completed and disabled
+  if (
+    !upcomingScheduleRule &&
+    rule?.scheduleRules?.length &&
+    rule.scheduleRules.at(-1)?.timestamp !== null
+  ) {
+    return true;
+  }
+
+  // If the experiment is skipped
+  if (
+    linkedExperiment &&
+    isExperimentRefRuleSkipped(linkedExperiment, isDraft)
+  ) {
+    return true;
+  }
+
+  return false;
+}
 
 // eslint-disable-next-line
 export const Rule = forwardRef<HTMLDivElement, RuleProps>(
@@ -74,6 +108,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       locked,
       experimentsMap,
       hideDisabled,
+      isDraft,
       ...props
     },
     ref
@@ -119,21 +154,22 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       rule?.scheduleRules?.length &&
       rule.scheduleRules.at(-1)?.timestamp !== null;
 
-    const ruleDisabled = isRuleDisabled(rule, experimentsMap);
+    const ruleDisabled = isRuleDisabled(rule, experimentsMap, isDraft);
 
     const hasCondition =
       (rule.condition && rule.condition !== "{}") ||
       !!rule.savedGroups?.length ||
       !!rule.prerequisites?.length;
 
-    const isSkipped =
-      (upcomingScheduleRule && rule?.scheduleRules?.length) ||
-      0 > 0 ||
-      scheduleCompletedAndDisabled ||
-      (linkedExperiment && isExperimentRefRuleSkipped(linkedExperiment));
     if (hideDisabled && ruleDisabled) {
       return null;
     }
+
+    const isSkipped = isRuleSkipped({
+      rule,
+      linkedExperiment: linkedExperiment || undefined,
+      isDraft,
+    });
 
     return (
       <Box {...props} ref={ref}>
@@ -213,7 +249,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     scheduleCompletedAndDisabled={
                       !!scheduleCompletedAndDisabled
                     }
-                    linkedExperiment={linkedExperiment || undefined}
                   />
                 </Box>
                 <Box style={{ opacity: ruleDisabled ? 0.6 : 1 }} mt="3">
@@ -257,6 +292,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       feature={feature}
                       experiment={experimentsMap.get(rule.experimentId)}
                       rule={rule}
+                      isDraft={isDraft}
                     />
                   )}
                 </Box>
