@@ -872,6 +872,7 @@ export async function postFeaturePublish(
       experiments.some((exp) => {
         const envs = getAffectedEnvsForExperiment({
           experiment: exp,
+          orgEnvironments: allEnvironments,
         });
         return (
           envs.length > 0 && !context.permissions.canRunExperiment(exp, envs)
