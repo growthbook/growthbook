@@ -491,7 +491,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       if (isEligibleForPowerAnalysis) {
         const today = new Date();
         const experimentStartDate = this.model.settings.startDate;
-        const experimentDaysRunning = daysBetween(today, experimentStartDate);
+        const experimentDaysRunning = daysBetween(experimentStartDate, today);
         const experimentMinLengthDays =
           this.context.org.settings?.experimentMinLengthDays ??
           DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS;
@@ -510,8 +510,8 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
             experimentMaxLengthDays
           );
           const targetDaysRemaining = daysBetween(
-            experimentTargetEndDate,
-            today
+            today,
+            experimentTargetEndDate
           );
 
           // NB: This does not run a SQL query, but it is a health check that depends on the trafficHealth
