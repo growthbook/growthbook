@@ -278,7 +278,6 @@ export async function postSetupIntent(
   const { subscriptionId } = req.body;
   try {
     const customer = await getStripeCustomerId(subscriptionId);
-    // Not sure why this is throwing an error as it's working
     const setupIntent = await stripe.setupIntents.create({
       customer,
       payment_method_configuration: STRIPE_PAYMENT_METHOD_CONFIG_ID,

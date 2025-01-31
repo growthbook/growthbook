@@ -1286,7 +1286,8 @@ describe("validateCondition", () => {
     expect(validateCondition("{(+")).toEqual({
       success: false,
       empty: false,
-      error: "Expected property name or '}' in JSON at position 1",
+      error:
+        "Expected property name or '}' in JSON at position 1 (line 1 column 2)",
     });
   });
   it("returns error when condition is not an object", () => {
@@ -1300,7 +1301,8 @@ describe("validateCondition", () => {
     expect(validateCondition("{test: true}")).toEqual({
       success: false,
       empty: false,
-      error: "Expected property name or '}' in JSON at position 1",
+      error:
+        "Expected property name or '}' in JSON at position 1 (line 1 column 2)",
       suggestedValue: '{"test":true}',
     });
   });

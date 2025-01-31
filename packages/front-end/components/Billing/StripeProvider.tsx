@@ -50,6 +50,9 @@ export default function StripeProvider({ children }) {
         clientSecret,
         appearance: {
           theme: theme === "light" ? "stripe" : "night",
+          variables: {
+            colorPrimary: "#aa99ec",
+          },
         },
       }}
     >

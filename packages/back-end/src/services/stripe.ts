@@ -9,7 +9,7 @@ import { logger } from "back-end/src/util/logger";
 
 // TODO: Get rid of this file once all license data has moved off all organizations
 export const stripe = new Stripe(STRIPE_SECRET || "", {
-  apiVersion: "2025-01-27.acacia",
+  apiVersion: "2023-08-16",
 });
 
 /**
