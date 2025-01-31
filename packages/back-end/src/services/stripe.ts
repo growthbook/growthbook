@@ -2,7 +2,6 @@ import { Stripe } from "stripe";
 import { STRIPE_SECRET } from "back-end/src/util/secrets";
 import {
   findOrganizationByStripeCustomerId,
-  updateOrganization,
   updateOrganizationByStripeId,
 } from "back-end/src/models/OrganizationModel";
 import { OrganizationInterface } from "back-end/types/organization";
@@ -10,7 +9,7 @@ import { logger } from "back-end/src/util/logger";
 
 // TODO: Get rid of this file once all license data has moved off all organizations
 export const stripe = new Stripe(STRIPE_SECRET || "", {
-  apiVersion: "2022-11-15",
+  apiVersion: "2023-08-16",
 });
 
 /**
@@ -90,25 +89,16 @@ export async function updateSubscriptionInDb(
   return { organization: org, subscription, hasPaymentMethod };
 }
 
-export async function getStripeCustomerId(org: OrganizationInterface) {
-  if (org.stripeCustomerId) return org.stripeCustomerId;
+export async function getStripeCustomerId(subscriptionId: string) {
+  const res = await stripe.subscriptions.retrieve(subscriptionId);
 
-  if (!STRIPE_SECRET) {
-    throw new Error("Missing Stripe secret");
+  if (!res || !res.customer) {
+    throw new Error("Unable to locate customer Id");
   }
 
-  // Create a new Stripe customer and save it in the organization object
-  const { id } = await stripe.customers.create({
-    metadata: {
-      growthBookId: org.id,
-      ownerEmail: org.ownerEmail,
-    },
-    name: org.name,
-  });
+  if (typeof res.customer === "string") {
+    return res.customer;
+  }
 
-  await updateOrganization(org.id, {
-    stripeCustomerId: id,
-  });
-
-  return id;
+  return res.customer.id;
 }
