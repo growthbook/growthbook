@@ -134,15 +134,15 @@ function getLinksFor(type: Props["type"]): JSX.Element {
           </LinkItem>
           <LinkItem href="https://docs.growthbook.io/app/sticky-bucketing">
             Sticky Bucketing
-            <PaidFeatureBadge type="pro" />
+            <PaidFeatureBadge commercialFeature="sticky-bucketing" />
           </LinkItem>
           <LinkItem href="https://docs.growthbook.io/app/visual">
             Visual Editor
-            <PaidFeatureBadge type="pro" />
+            <PaidFeatureBadge commercialFeature="visual-editor" />
           </LinkItem>
           <LinkItem href="https://docs.growthbook.io/app/url-redirects">
             URL Redirects
-            <PaidFeatureBadge type="pro" />
+            <PaidFeatureBadge commercialFeature="redirects" />
           </LinkItem>
         </>
       );
@@ -158,7 +158,7 @@ function getLinksFor(type: Props["type"]): JSX.Element {
           </LinkItem>
           <LinkItem href="https://docs.growthbook.io/app/data-pipeline">
             Data Pipeline Mode
-            <PaidFeatureBadge type="enterprise" />
+            <PaidFeatureBadge commercialFeature="pipeline-mode" />
           </LinkItem>
           <LinkItem href="https://docs.growthbook.io/app/experiment-results">
             Experiment Results

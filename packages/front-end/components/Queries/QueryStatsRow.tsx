@@ -1,7 +1,7 @@
 import { QueryInterface, QueryStatistics } from "back-end/types/query";
 import { ReactElement } from "react";
-import { MdInfoOutline } from "react-icons/md";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { GBInfo } from "@/components/Icons";
 
 const numberFormatter = Intl.NumberFormat();
 
@@ -60,7 +60,7 @@ export default function QueryStatsRow({
           <BooleanQueryStatDisplay
             stat={
               <>
-                Pipeline Mode <MdInfoOutline className="text-info" />
+                Pipeline Mode <GBInfo />
               </>
             }
             values={usingPipelineMode ? [true] : [false]}
@@ -83,7 +83,7 @@ export default function QueryStatsRow({
         >
           <div className="col-auto mb-2">
             <span className="uppercase-title">
-              Fact Optimized <MdInfoOutline className="text-info" />
+              Fact Optimized <GBInfo />
             </span>
             :{" "}
             <strong>

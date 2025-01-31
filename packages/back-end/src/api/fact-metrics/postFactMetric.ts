@@ -78,7 +78,7 @@ export async function getCreateMetricPropsFromBody(
     filters: [],
     ...numerator,
     column:
-      body.metricType === "proportion"
+      body.metricType === "proportion" || body.metricType === "retention"
         ? "$$distinctUsers"
         : body.numerator.column || "$$distinctUsers",
   };
@@ -119,8 +119,12 @@ export async function getCreateMetricPropsFromBody(
     quantileSettings: quantileSettings ?? null,
     windowSettings: {
       type: scopedSettings.windowType.value ?? DEFAULT_FACT_METRIC_WINDOW,
-      delayHours:
-        scopedSettings.delayHours.value ?? DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+      delayValue:
+        windowSettings?.delayValue ??
+        windowSettings?.delayHours ??
+        scopedSettings.delayHours.value ??
+        DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+      delayUnit: windowSettings?.delayUnit ?? "hours",
       windowValue:
         scopedSettings.windowHours.value ?? DEFAULT_METRIC_WINDOW_HOURS,
       windowUnit: "hours",
@@ -168,11 +172,9 @@ export async function getCreateMetricPropsFromBody(
     data.cappingSettings.type = cappingSettings.type;
     data.cappingSettings.value = cappingSettings.value || 0;
   }
+
   if (windowSettings?.type && windowSettings?.type !== "none") {
     data.windowSettings.type = windowSettings.type;
-    if (windowSettings.delayHours) {
-      data.windowSettings.delayHours = windowSettings.delayHours;
-    }
     if (windowSettings.windowValue) {
       data.windowSettings.windowValue = windowSettings.windowValue;
     }

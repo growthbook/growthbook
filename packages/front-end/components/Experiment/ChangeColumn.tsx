@@ -11,6 +11,7 @@ import {
 } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 
 interface Props
   extends DetailedHTMLProps<
@@ -28,6 +29,7 @@ interface Props
   differenceType: DifferenceType;
   showCI?: boolean;
   className?: string;
+  ssrPolyfills?: SSRPolyfills;
 }
 
 export default function ChangeColumn({
@@ -39,10 +41,14 @@ export default function ChangeColumn({
   showCI = false,
   differenceType,
   className,
+  ssrPolyfills,
   ...otherProps
 }: Props) {
-  const displayCurrency = useCurrency();
-  const { getFactTableById } = useDefinitions();
+  const _displayCurrency = useCurrency();
+  const { getFactTableById: _getFactTableById } = useDefinitions();
+
+  const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
+  const displayCurrency = ssrPolyfills?.useCurrency() || _displayCurrency;
 
   const expected = stats?.expected ?? 0;
   const ci0 = stats?.ciAdjusted?.[0] ?? stats?.ci?.[0] ?? 0;

@@ -1,7 +1,13 @@
 import { Button as RadixButton, ButtonProps, Text } from "@radix-ui/themes";
-import { ForwardedRef, forwardRef, ReactNode, useState } from "react";
-import { Responsive } from "@radix-ui/themes/dist/cjs/props";
-import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
+import {
+  CSSProperties,
+  ForwardedRef,
+  forwardRef,
+  ReactNode,
+  useState,
+} from "react";
+import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
+import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 
 export type Color = "violet" | "red";
 export type Variant = "solid" | "soft" | "outline" | "ghost";
@@ -17,8 +23,8 @@ export type Props = {
   setError?: (error: string | null) => void;
   icon?: ReactNode;
   iconPosition?: "left" | "right";
-  children: string | string[];
-  style?: React.CSSProperties;
+  children: string | string[] | ReactNode;
+  style?: CSSProperties;
 } & MarginProps &
   Pick<ButtonProps, "title" | "type" | "aria-label">;
 
@@ -41,7 +47,7 @@ const Button = forwardRef<HTMLButtonElement, Props>(
       onClick,
       color = "violet",
       variant = "solid",
-      size = "md",
+      size = "sm",
       disabled,
       loading: _externalLoading,
       setError,
@@ -92,3 +98,66 @@ const Button = forwardRef<HTMLButtonElement, Props>(
 );
 Button.displayName = "Button";
 export default Button;
+
+type WhiteButtonProps = Omit<Props, "color">;
+export const WhiteButton = forwardRef<HTMLButtonElement, WhiteButtonProps>(
+  function WhiteButton(
+    {
+      onClick,
+      variant = "solid",
+      size = "sm",
+      disabled,
+      loading: _externalLoading,
+      setError,
+      icon,
+      iconPosition = "left",
+      type = "button",
+      children,
+      ...otherProps
+    }: WhiteButtonProps,
+    ref: ForwardedRef<HTMLButtonElement>
+  ) {
+    const [_internalLoading, setLoading] = useState(false);
+    const loading = _externalLoading || _internalLoading;
+
+    return (
+      <RadixButton
+        ref={ref}
+        {...otherProps}
+        onClick={
+          onClick
+            ? async (e) => {
+                e.preventDefault();
+                if (loading) return;
+                setLoading(true);
+                setError?.(null);
+                try {
+                  await onClick();
+                } catch (error) {
+                  setError?.(error.message);
+                }
+                setLoading(false);
+              }
+            : undefined
+        }
+        variant={variant}
+        size={getRadixSize(size)}
+        disabled={disabled}
+        loading={loading}
+        type={type}
+        style={{
+          width: "100%",
+          backgroundColor: variant === "outline" ? "" : "var(--white-a12)",
+          color:
+            variant === "outline" ? "var(--white-a12)" : "var(--black-a12)",
+          boxShadow:
+            variant === "outline" ? "inset 0 0 0 1px var(--white-a8)" : "",
+        }}
+      >
+        {icon && iconPosition === "left" ? icon : null}
+        <Text weight="medium">{children}</Text>
+        {icon && iconPosition === "right" ? icon : null}
+      </RadixButton>
+    );
+  }
+);

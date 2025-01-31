@@ -22,7 +22,7 @@ export default function RolloutSummary({
   return (
     <div>
       <div className="mb-3">
-        <strong className="mr-2">SAMPLE</strong> users by{" "}
+        <strong className="mr-2 font-weight-semibold">SAMPLE</strong> users by{" "}
         <span className="mr-1 border px-2 py-1 bg-light rounded">
           {hashAttribute}
         </span>
@@ -30,7 +30,7 @@ export default function RolloutSummary({
       <div className="mb-3">
         <div className="row">
           <div className="col-auto">
-            <strong>ROLLOUT</strong>
+            <strong className="font-weight-semibold">ROLLOUT</strong>
           </div>
           <div className="col" style={{ maxWidth: 250 }}>
             <div className="progress d-none d-md-flex">
@@ -52,7 +52,7 @@ export default function RolloutSummary({
       </div>
       <div className="row align-items-top">
         <div className="col-auto">
-          <strong>SERVE</strong>
+          <strong className="font-weight-semibold">SERVE</strong>
         </div>
         <div className="col-auto">
           <ValueDisplay value={value} type={type} />

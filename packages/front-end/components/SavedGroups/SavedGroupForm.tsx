@@ -13,7 +13,6 @@ import { SavedGroupInterface, SavedGroupType } from "shared/src/types";
 import clsx from "clsx";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
-import useMembers from "@/hooks/useMembers";
 import { useAttributeSchema } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
@@ -24,6 +23,7 @@ import { IdListItemInput } from "@/components/SavedGroups/IdListItemInput";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
+import SelectOwner from "../Owner/SelectOwner";
 
 const SavedGroupForm: FC<{
   close: () => void;
@@ -31,7 +31,6 @@ const SavedGroupForm: FC<{
   type: SavedGroupType;
 }> = ({ close, current, type }) => {
   const { apiCall } = useAuth();
-  const { memberUsernameOptions } = useMembers();
 
   const [conditionKey, forceConditionRender] = useIncrementer();
 
@@ -187,16 +186,11 @@ const SavedGroupForm: FC<{
         closeMenuOnSelect={true}
       />
       {current.id && (
-        <SelectField
-          label="Owner"
-          labelClassName="font-weight-bold"
-          value={form.watch("owner") || ""}
-          onChange={(v) => form.setValue("owner", v)}
+        <SelectOwner
+          resourceType="savedGroup"
           placeholder="Optional"
-          options={memberUsernameOptions.map((m) => ({
-            value: m.display,
-            label: m.display,
-          }))}
+          value={form.watch("owner")}
+          onChange={(v) => form.setValue("owner", v)}
         />
       )}
       {type === "condition" ? (

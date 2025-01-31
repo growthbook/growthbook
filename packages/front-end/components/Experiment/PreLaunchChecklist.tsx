@@ -170,7 +170,6 @@ export function getChecklistItems({
       items.push({
         status: hasFeatureFlagsErrors ? "incomplete" : "complete",
         type: "auto",
-        required: false,
         display: (
           <>
             Publish and enable all{" "}
@@ -184,6 +183,7 @@ export function getChecklistItems({
             rules.
           </>
         ),
+        required: false,
       });
     }
 
@@ -206,10 +206,10 @@ export function getChecklistItems({
             .
           </>
         ),
-        // An A/A test is a valid experiment that doesn't have changes, so don't make this required
-        required: false,
         status: hasSomeVisualChanges ? "complete" : "incomplete",
         type: "auto",
+        // An A/A test is a valid experiment that doesn't have changes, so don't make this required
+        required: false,
       });
     }
   }
@@ -237,8 +237,8 @@ export function getChecklistItems({
       </>
     ),
     status: hasPhases ? "complete" : "incomplete",
-    required: true,
     type: "auto",
+    required: true,
   });
 
   const verifiedConnections = connections.some((c) => c.connected);
@@ -280,36 +280,34 @@ export function getChecklistItems({
   }
 
   /*
-  items.push({
-    type: "manual",
-    key: "sdk-connection",
-    status: isChecklistItemComplete("manual", "sdk-connection")
-      ? "complete"
-      : "incomplete",
-    display: (
-      <>
-        Verify your app is passing both
-        <strong> attributes </strong>
-        and a <strong> trackingCallback </strong>into the GrowthBook SDK.
-      </>
-    ),
-    required: true,
-  });
-  items.push({
-    type: "manual",
-    key: "metrics-tracked",
-    status: isChecklistItemComplete("manual", "metrics-tracked")
-      ? "complete"
-      : "incomplete",
-    display: (
-      <>
-        Verify your app is tracking events for all of the metrics that you plan
-        to include in the analysis.
-      </>
-    ),
-    required: true,
-  });
-  */
+    items.push({
+      type: "manual",
+      key: "sdk-connection",
+      status: isChecklistItemComplete("manual", "sdk-connection")
+        ? "complete"
+        : "incomplete",
+      display: (
+        <>
+          Verify your app is passing both
+          <strong> attributes </strong>
+          and a <strong> trackingCallback </strong>into the GrowthBook SDK.
+        </>
+      ),
+    });
+    items.push({
+      type: "manual",
+      key: "metrics-tracked",
+      status: isChecklistItemComplete("manual", "metrics-tracked")
+        ? "complete"
+        : "incomplete",
+      display: (
+        <>
+          Verify your app is tracking events for all of the metrics that you
+          plan to include in the analysis.
+        </>
+      ),
+    });
+    */
 
   if (checklist?.tasks?.length) {
     checklist.tasks.forEach((item) => {
@@ -361,6 +359,7 @@ export function PreLaunchChecklistUI({
   allowEditChecklist,
   title = "Pre-Launch Checklist",
   collapsible = true,
+  envs,
 }: {
   experiment: ExperimentInterfaceStringDates;
   mutateExperiment: () => unknown | Promise<unknown>;
@@ -373,6 +372,7 @@ export function PreLaunchChecklistUI({
   allowEditChecklist?: boolean;
   title?: string;
   collapsible?: boolean;
+  envs: string[];
 }) {
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
@@ -510,7 +510,7 @@ export function PreLaunchChecklistUI({
           href={"/settings?editCheckListModal=true"}
           onClick={(e) => e.stopPropagation()}
         >
-          <span className="text-purple">Edit</span>
+          Edit
         </Link>
       ) : null}
       {collapsible && <FaAngleRight className="chevron" />}
@@ -529,9 +529,9 @@ export function PreLaunchChecklistUI({
           editVariationIds={false}
           editMetrics={true}
           source={"pre-launch-checklist"}
+          envs={envs}
         />
       ) : null}
-
       {collapsible ? (
         <div className="box my-3">
           <Collapsible
@@ -556,10 +556,12 @@ export function PreLaunchChecklistFeatureExpRule({
   experiment,
   mutateExperiment,
   checklist,
+  envs,
 }: {
   experiment: ExperimentInterfaceStringDates;
   mutateExperiment: () => unknown | Promise<unknown>;
   checklist: CheckListItem[];
+  envs: string[];
 }) {
   const failedRequired = checklist.some(
     (item) => item.status === "incomplete" && item.required
@@ -577,6 +579,7 @@ export function PreLaunchChecklistFeatureExpRule({
         setChecklistItemsRemaining={() => {}}
         collapsible={false}
         title={experiment.name}
+        envs={envs}
       />
       {failedRequired ? (
         <Callout status="error" mb="3">
@@ -586,7 +589,7 @@ export function PreLaunchChecklistFeatureExpRule({
         <Callout status="success" mb="3">
           All required items are complete. The experiment is ready to start.
         </Callout>
-      )}
+      )}{" "}
     </>
   );
 }
@@ -601,6 +604,7 @@ export function PreLaunchChecklist({
   setChecklistItemsRemaining,
   editTargeting,
   openSetupTab,
+  envs,
 }: {
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures: LinkedFeatureInfo[];
@@ -612,6 +616,7 @@ export function PreLaunchChecklist({
   editTargeting?: (() => void) | null;
   openSetupTab?: () => void;
   className?: string;
+  envs: string[];
 }) {
   const permissionsUtil = usePermissionsUtil();
   const canEditExperiment =
@@ -679,6 +684,7 @@ export function PreLaunchChecklist({
           analysisModal,
           setAnalysisModal,
           allowEditChecklist: true,
+          envs,
         }}
       />
     </>

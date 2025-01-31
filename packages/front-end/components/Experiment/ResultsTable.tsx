@@ -51,6 +51,7 @@ import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
 import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useResultsTableTooltip } from "@/components/Experiment/ResultsTableTooltip/useResultsTableTooltip";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import AlignedGraph from "./AlignedGraph";
 import ChanceToWinColumn from "./ChanceToWinColumn";
 import MetricValueColumn from "./MetricValueColumn";
@@ -90,6 +91,7 @@ export type ResultsTableProps = {
   noTooltip?: boolean;
   isBandit?: boolean;
   isGoalMetrics?: boolean;
+  ssrPolyfills?: SSRPolyfills;
 };
 
 const ROW_HEIGHT = 56;
@@ -129,22 +131,31 @@ export default function ResultsTable({
   noStickyHeader,
   noTooltip,
   isBandit,
+  ssrPolyfills,
 }: ResultsTableProps) {
   // fix any potential filter conflicts
   if (variationFilter?.includes(baselineRow)) {
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
   }
 
-  const { getFactTableById, getMetricById } = useDefinitions();
+  const { getExperimentMetricById, getFactTableById } = useDefinitions();
 
-  const {
-    metricDefaults,
-    getMinSampleSizeForMetric,
-  } = useOrganizationMetricDefaults();
-  const { ciUpper, ciLower } = useConfidenceLevels();
-  const pValueThreshold = usePValueThreshold();
-  const displayCurrency = useCurrency();
-  const orgSettings = useOrgSettings();
+  const _useOrganizationMetricDefaults = useOrganizationMetricDefaults();
+  const { metricDefaults, getMinSampleSizeForMetric } =
+    ssrPolyfills?.useOrganizationMetricDefaults?.() ||
+    _useOrganizationMetricDefaults;
+
+  const _confidenceLevels = useConfidenceLevels();
+  const _pValueThreshold = usePValueThreshold();
+  const _displayCurrency = useCurrency();
+  const _orgSettings = useOrgSettings();
+
+  const { ciUpper, ciLower } =
+    ssrPolyfills?.useConfidenceLevels?.() || _confidenceLevels;
+  const pValueThreshold =
+    ssrPolyfills?.usePValueThreshold?.() || _pValueThreshold;
+  const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
+  const orgSettings = ssrPolyfills?.useOrgSettings?.() || _orgSettings;
 
   const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
 
@@ -168,8 +179,9 @@ export default function ResultsTable({
   }
 
   useEffect(() => {
-    window.addEventListener("resize", onResize, false);
-    return () => window.removeEventListener("resize", onResize, false);
+    globalThis.window?.addEventListener("resize", onResize, false);
+    return () =>
+      globalThis.window?.removeEventListener("resize", onResize, false);
   }, []);
   useLayoutEffect(onResize, []);
   useEffect(onResize, [isTabActive]);
@@ -234,7 +246,11 @@ export default function ResultsTable({
 
         const denominator =
           !isFactMetric(row.metric) && row.metric.denominator
-            ? getMetricById(row.metric.denominator) ?? undefined
+            ? (ssrPolyfills?.getExperimentMetricById?.(
+                row.metric.denominator
+              ) ||
+                getExperimentMetricById(row.metric.denominator)) ??
+              undefined
             : undefined;
         const rowResults = getRowResults({
           stats,
@@ -253,7 +269,7 @@ export default function ResultsTable({
           isLatestPhase,
           experimentStatus: status,
           displayCurrency,
-          getFactTableById,
+          getFactTableById: ssrPolyfills?.getFactTableById || getFactTableById,
         });
         rr[i].push(rowResults);
       });
@@ -276,8 +292,9 @@ export default function ResultsTable({
     status,
     displayCurrency,
     queryStatusData,
+    ssrPolyfills,
     getFactTableById,
-    getMetricById,
+    getExperimentMetricById,
   ]);
 
   const {
@@ -339,6 +356,7 @@ export default function ResultsTable({
           onClick={resetTimeout}
           onPointerLeave={leaveRow}
           isBandit={isBandit}
+          ssrPolyfills={ssrPolyfills}
         />
       </CSSTransition>
 
@@ -506,9 +524,13 @@ export default function ResultsTable({
                       })}
                       style={{
                         width:
-                          window.innerWidth < 900 ? graphCellWidth : undefined,
+                          (globalThis.window?.innerWidth ?? 900) < 900
+                            ? graphCellWidth
+                            : undefined,
                         minWidth:
-                          window.innerWidth >= 900 ? graphCellWidth : undefined,
+                          (globalThis.window?.innerWidth ?? 900) >= 900
+                            ? graphCellWidth
+                            : undefined,
                       }}
                     >
                       <div className="position-relative">
@@ -580,6 +602,7 @@ export default function ResultsTable({
                       rowHeight: METRIC_LABEL_ROW_HEIGHT,
                       id,
                       domain,
+                      ssrPolyfills,
                     })}
 
                   {orderedVariations.map((v, j) => {
@@ -622,6 +645,7 @@ export default function ResultsTable({
                             : ROW_HEIGHT,
                           id,
                           domain,
+                          ssrPolyfills,
                         });
                       } else {
                         return null;
@@ -647,7 +671,10 @@ export default function ResultsTable({
                       settings?: TooltipHoverSettings
                     ) => {
                       // No hover tooltip if the screen is too narrow. Clicks still work.
-                      if (e?.type === "mousemove" && window.innerWidth < 900) {
+                      if (
+                        e?.type === "mousemove" &&
+                        (globalThis.window?.innerWidth ?? 900) < 900
+                      ) {
                         return;
                       }
                       if (!rowResults.hasData) return;
@@ -700,6 +727,14 @@ export default function ResultsTable({
                               hover: isHovered,
                             })}
                             showRatio={!isBandit}
+                            displayCurrency={displayCurrency}
+                            getExperimentMetricById={
+                              ssrPolyfills?.getExperimentMetricById ||
+                              getExperimentMetricById
+                            }
+                            getFactTableById={
+                              ssrPolyfills?.getFactTableById || getFactTableById
+                            }
                           />
                         ) : (
                           <td />
@@ -712,6 +747,14 @@ export default function ResultsTable({
                             hover: isHovered,
                           })}
                           showRatio={!isBandit}
+                          displayCurrency={displayCurrency}
+                          getExperimentMetricById={
+                            ssrPolyfills?.getExperimentMetricById ||
+                            getExperimentMetricById
+                          }
+                          getFactTableById={
+                            ssrPolyfills?.getFactTableById || getFactTableById
+                          }
                         />
                         {j > 0 ? (
                           statsEngine === "bayesian" ? (
@@ -803,6 +846,7 @@ export default function ResultsTable({
                                   ? rowResults.resultsStatus
                                   : undefined
                               }
+                              ssrPolyfills={ssrPolyfills}
                               onMouseMove={(e) =>
                                 onPointerMove(e, {
                                   x: "element-center",
@@ -828,6 +872,7 @@ export default function ResultsTable({
                               axisOnly={true}
                               graphWidth={graphCellWidth}
                               height={32}
+                              ssrPolyfills={ssrPolyfills}
                             />
                           )}
                         </td>
@@ -839,6 +884,7 @@ export default function ResultsTable({
                             differenceType={differenceType}
                             statsEngine={statsEngine}
                             className={resultsHighlightClassname}
+                            ssrPolyfills={ssrPolyfills}
                           />
                         ) : (
                           <td></td>
@@ -877,6 +923,7 @@ function drawEmptyRow({
   rowHeight = SPACER_ROW_HEIGHT,
   id,
   domain,
+  ssrPolyfills,
 }: {
   key?: number | string;
   className?: string;
@@ -886,6 +933,7 @@ function drawEmptyRow({
   rowHeight?: number;
   id: string;
   domain: [number, number];
+  ssrPolyfills?: SSRPolyfills;
 }) {
   return (
     <tr key={key} style={style} className={className}>
@@ -899,6 +947,7 @@ function drawEmptyRow({
           axisOnly={true}
           graphWidth={graphCellWidth}
           height={rowHeight}
+          ssrPolyfills={ssrPolyfills}
         />
       </td>
       <td />

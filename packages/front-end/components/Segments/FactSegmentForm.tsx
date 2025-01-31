@@ -13,6 +13,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import SelectOwner from "../Owner/SelectOwner";
 
 type Props = {
   goBack: () => void;
@@ -48,13 +49,17 @@ export default function FactSegmentForm({
     uniqueDatasourcesWithFactTables.includes(filteredDs.id)
   );
 
+  const currentOwner = memberUsernameOptions.find(
+    (member) => member.display === current?.owner
+  );
+
   const form = useForm({
     defaultValues: {
       name: current?.name || "",
       datasource:
         (current?.id ? current?.datasource : datasourceOptions[0]?.id) || "",
       userIdType: current?.userIdType || "user_id",
-      owner: current?.owner || "",
+      owner: currentOwner?.display || "",
       description: current?.description || "",
       factTableId: current?.factTableId || "",
       filters: current?.filters || [],
@@ -149,11 +154,10 @@ export default function FactSegmentForm({
           </div>
         ) : null}
         <Field label="Name" required {...form.register("name")} />
-        <Field
-          label="Owner"
-          options={memberUsernameOptions}
-          comboBox
-          {...form.register("owner")}
+        <SelectOwner
+          resourceType="factSegment"
+          value={form.watch("owner")}
+          onChange={(v) => form.setValue("owner", v)}
         />
         <Field label="Description" {...form.register("description")} textarea />
         <SelectField

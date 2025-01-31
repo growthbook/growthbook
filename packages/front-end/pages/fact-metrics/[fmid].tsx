@@ -5,6 +5,7 @@ import { FaChartLine, FaExternalLinkAlt, FaTimes } from "react-icons/fa";
 import { FactTableInterface } from "back-end/types/fact-table";
 import {
   getAggregateFilters,
+  isBinomialMetric,
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
@@ -95,7 +96,7 @@ function MetricType({
   type,
   quantileType,
 }: {
-  type: "proportion" | "mean" | "ratio" | "quantile";
+  type: "proportion" | "retention" | "mean" | "ratio" | "quantile";
   quantileType?: "" | "unit" | "event";
 }) {
   if (type === "proportion") {
@@ -103,6 +104,14 @@ function MetricType({
       <div>
         <strong>Proportion Metric</strong> - Percent of experiment users who
         exist in a Fact Table
+      </div>
+    );
+  }
+  if (type === "retention") {
+    return (
+      <div>
+        <strong>Retention Metric</strong> - Percent of experiment users who
+        exist in a Fact Table a certain period after experiment exposure
       </div>
     );
   }
@@ -247,7 +256,7 @@ export default function FactMetricPage() {
           <em>None</em>
         ),
     },
-    ...(factMetric.metricType !== "proportion"
+    ...(!isBinomialMetric(factMetric)
       ? [
           {
             label: `Value`,
@@ -391,6 +400,7 @@ export default function FactMetricPage() {
       )}
       {editOwnerModal && (
         <EditOwnerModal
+          resourceType="factMetric"
           cancel={() => setEditOwnerModal(false)}
           owner={factMetric.owner}
           save={async (owner) => {
@@ -597,8 +607,10 @@ export default function FactMetricPage() {
                     {factMetric.windowSettings.windowUnit}
                   </strong>{" "}
                   of first experiment exposure
-                  {factMetric.windowSettings.delayHours
-                    ? " plus the conversion delay"
+                  {factMetric.metricType === "retention"
+                    ? " plus the retention window"
+                    : factMetric.windowSettings.delayValue
+                    ? " plus the metric delay"
                     : ""}
                   .
                 </>
@@ -616,8 +628,10 @@ export default function FactMetricPage() {
                 <>
                   <em className="font-weight-bold">Disabled</em> - Include all
                   metric data after first experiment exposure
-                  {factMetric.windowSettings.delayHours
-                    ? " plus the conversion delay"
+                  {factMetric.metricType === "retention"
+                    ? " plus the retention window"
+                    : factMetric.windowSettings.delayValue
+                    ? " plus the metric delay"
                     : ""}
                   .
                 </>
@@ -632,20 +646,24 @@ export default function FactMetricPage() {
               open={() => setEditOpen(true)}
               canOpen={canEdit}
             >
-              {factMetric.windowSettings.delayHours > 0 && (
+              {factMetric.windowSettings.delayValue ? (
                 <RightRailSectionGroup type="custom" empty="" className="mt-3">
                   <ul className="right-rail-subsection list-unstyled mb-4">
                     <li className="mt-3 mb-1">
-                      <span className="uppercase-title lg">Metric Delay</span>
+                      <span className="uppercase-title lg">
+                        {factMetric.metricType === "retention"
+                          ? "Retention Window"
+                          : "Metric Delay"}
+                      </span>
                     </li>
                     <li className="mb-2">
                       <span className="font-weight-bold">
-                        {factMetric.windowSettings.delayHours} hours
+                        {`${factMetric.windowSettings.delayValue} ${factMetric.windowSettings.delayUnit}`}
                       </span>
                     </li>
                   </ul>
                 </RightRailSectionGroup>
-              )}
+              ) : null}
 
               <RightRailSectionGroup type="custom" empty="" className="mt-3">
                 <ul className="right-rail-subsection list-unstyled mb-4">

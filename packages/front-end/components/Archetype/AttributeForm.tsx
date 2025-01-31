@@ -22,6 +22,7 @@ export interface Props {
   attributeValues: ArchetypeAttributeValues;
   archetypeId?: string;
   jsonCTA?: string;
+  hideTitle?: boolean;
   useJSONButton?: boolean;
 }
 
@@ -30,6 +31,7 @@ export default function AttributeForm({
   attributeValues = {},
   archetypeId,
   jsonCTA = "Test Attributes",
+  hideTitle = false,
   useJSONButton = true,
 }: Props) {
   const [formValues, setFormValues] = useState({});
@@ -232,7 +234,7 @@ export default function AttributeForm({
   return (
     <>
       <div>
-        <h4>Attributes</h4>
+        {!hideTitle && <h4>Attributes</h4>}
         <Tabs
           value={activeTab}
           onValueChange={(v: "simple" | "adv") => {
@@ -255,7 +257,10 @@ export default function AttributeForm({
             <TabsTrigger value="adv">JSON</TabsTrigger>
           </TabsList>
 
-          <div className={`${styles.attributeBox} pb-2 bg-light round`}>
+          <div
+            className={`${styles.attributeBox} pb-2 bg-light round`}
+            style={{ borderTopRightRadius: 0 }}
+          >
             <TabsContent value="simple">
               <div className=" form-group ">
                 <div

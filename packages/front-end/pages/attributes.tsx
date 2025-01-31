@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { Fragment, useMemo, useState } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
 import { SDKAttribute } from "back-end/types/organization";
 import { recursiveWalk } from "shared/util";
@@ -131,14 +131,16 @@ const FeatureAttributesPage = (): React.ReactElement => {
     const numReferences = features.length + experiments.length + groups.length;
 
     return (
-      <tr className={v.archived ? "disabled" : ""} key={i}>
-        <td className="text-gray font-weight-bold">
+      <tr className={v.archived ? "disabled" : ""} key={"attr-row-" + i}>
+        <td className="text-gray font-weight-bold" style={{ width: "17%" }}>
           {v.property}{" "}
           {v.archived && (
             <span className="badge badge-secondary ml-2">archived</span>
           )}
         </td>
-        <td className="text-gray">{v.description}</td>
+        <td className="text-gray" style={{ width: "38%" }}>
+          {v.description}
+        </td>
         <td
           className="text-gray"
           style={{ maxWidth: "20vw", wordWrap: "break-word" }}
@@ -151,14 +153,13 @@ const FeatureAttributesPage = (): React.ReactElement => {
             </p>
           )}
         </td>
-        <td className="col-2">
+        <td className="">
           <ProjectBadges
             resourceType="attribute"
             projectIds={(v.projects || []).length > 0 ? v.projects : undefined}
-            className="badge-ellipsis short align-middle"
           />
         </td>
-        <td className="text-gray col-2">
+        <td className="text-gray">
           <Tooltip
             tipPosition="bottom"
             state={showReferences === i}
@@ -188,7 +189,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                       <div className="mb-2">
                         <ul className="pl-3 mb-0">
                           {features.map((feature, j) => (
-                            <>
+                            <Fragment key={"features-" + j}>
                               {j < MAX_REFERENCES_PER_TYPE ? (
                                 <li
                                   key={"f_" + j}
@@ -204,7 +205,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                                   <em>{features.length - j} more...</em>
                                 </li>
                               ) : null}
-                            </>
+                            </Fragment>
                           ))}
                         </ul>
                       </div>
@@ -218,7 +219,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                       <div className="mb-2">
                         <ul className="pl-3 mb-0">
                           {experiments.map((exp, j) => (
-                            <>
+                            <Fragment key={"exps-" + j}>
                               {j < MAX_REFERENCES_PER_TYPE ? (
                                 <li
                                   key={"e_" + j}
@@ -234,7 +235,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                                   <em>{experiments.length - j} more...</em>
                                 </li>
                               ) : null}
-                            </>
+                            </Fragment>
                           ))}
                         </ul>
                       </div>
@@ -248,7 +249,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                       <div className="mb-2">
                         <ul className="pl-3 mb-0">
                           {groups.map((group, j) => (
-                            <>
+                            <Fragment key={"saved-groups" + j}>
                               {j < MAX_REFERENCES_PER_TYPE ? (
                                 <li
                                   key={"g_" + j}
@@ -264,7 +265,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                                   <em>{groups.length - j} more...</em>
                                 </li>
                               ) : null}
-                            </>
+                            </Fragment>
                           ))}
                         </ul>
                       </div>
@@ -416,7 +417,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
               ) : (
                 <>
                   <tr>
-                    <td colSpan={3} className="text-center text-gray">
+                    <td colSpan={7} className="text-center text-gray">
                       <em>No attributes defined.</em>
                     </td>
                   </tr>

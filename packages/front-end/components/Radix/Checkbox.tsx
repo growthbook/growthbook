@@ -1,8 +1,8 @@
 import { Flex, Text, Checkbox as RadixCheckbox } from "@radix-ui/themes";
-import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
+import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import clsx from "clsx";
-import { ReactElement } from "react";
-import { Responsive } from "@radix-ui/themes/dist/cjs/props";
+import { forwardRef, ReactElement } from "react";
+import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
 import HelperText, { getRadixColor } from "@/components/Radix/HelperText";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
@@ -18,7 +18,8 @@ export function getRadixSize(size: Size): Responsive<"2" | "3"> {
 }
 
 export type Props = {
-  label: string | ReactElement;
+  label?: string | ReactElement;
+  id?: string;
   disabled?: boolean;
   disabledMessage?: string;
   value: boolean | "indeterminate";
@@ -27,22 +28,26 @@ export type Props = {
   errorLevel?: "error" | "warning";
   description?: string;
   weight?: "bold" | "regular";
-  setValue: (value: boolean | "indeterminate") => void;
+  setValue: (value: boolean) => void;
 } & MarginProps;
 
-export default function Checkbox({
-  label,
-  disabled,
-  disabledMessage,
-  value,
-  size = "md",
-  setValue,
-  description,
-  error,
-  errorLevel = "error",
-  weight = "bold",
-  ...containerProps
-}: Props) {
+export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
+  {
+    label,
+    id,
+    disabled,
+    disabledMessage,
+    value,
+    size = "md",
+    setValue,
+    description,
+    error,
+    errorLevel = "error",
+    weight = "bold",
+    ...containerProps
+  }: Props,
+  ref
+) {
   const checkboxColor = error ? getRadixColor(errorLevel) : "violet";
 
   const TooltipWrapper = ({ children }) =>
@@ -60,6 +65,7 @@ export default function Checkbox({
   return (
     <TooltipWrapper>
       <Text
+        ref={ref}
         as="label"
         size="2"
         className={clsx("rt-CheckboxItem", {
@@ -71,10 +77,11 @@ export default function Checkbox({
         <Flex gap="2">
           <RadixCheckbox
             checked={value}
-            onCheckedChange={(v) => setValue(v)}
+            onCheckedChange={(v) => setValue(!!v)}
             disabled={disabled}
             color={checkboxColor}
             size={getRadixSize(size)}
+            id={id}
           />
           <Flex direction="column" gap="1">
             <Text weight={weight}>{label}</Text>
@@ -85,4 +92,4 @@ export default function Checkbox({
       </Text>
     </TooltipWrapper>
   );
-}
+});

@@ -9,11 +9,8 @@
 // Bootstrap theme overrides must be loaded AFTER Bootstrap
 @import "_bootstrap-theme-overrides";
 
-html,
-body,
-#__next,
 main {
-  height: 100%;
+  padding-top: 56px;
 }
 
 body {
@@ -46,7 +43,9 @@ body {
 
 .main {
   padding-left: 240px;
-  padding-top: 60px;
+  &.lite {
+    padding-left: 0;
+  }
 
   &.present {
     padding: 0;
@@ -74,7 +73,7 @@ pre {
   color: colors.$second-blue;
 }
 .text-purple {
-  color: colors.$highlight-purple;
+  color: var(--violet-a11);
 }
 .text-indigo {
   color: colors.$indigo;
@@ -183,19 +182,6 @@ pre {
     colors.$highlight-purple,
     darken(colors.$highlight-purple, 7.5%),
     darken(colors.$highlight-purple, 10%),
-    lighten(colors.$highlight-purple, 5%),
-    lighten(colors.$highlight-purple, 10%),
-    darken(colors.$highlight-purple, 30%)
-  );
-  white-space: nowrap;
-  font-weight: 600;
-}
-
-.btn-primary-darkened {
-  @include button-variant(
-    darken(colors.$highlight-purple, 10%),
-    darken(colors.$highlight-purple, 14%),
-    darken(colors.$highlight-purple, 18%),
     lighten(colors.$highlight-purple, 5%),
     lighten(colors.$highlight-purple, 10%),
     darken(colors.$highlight-purple, 30%)
@@ -400,7 +386,7 @@ pre {
       font-size: 14px;
       font-weight: bold;
       &.won {
-        background-color: #09ac17;
+        background-color: #09ac68;
         color: #fff;
       }
       &.lost {
@@ -561,9 +547,10 @@ pre {
 }
 
 .main.experiment,
-.main.bandit {
+.main.bandit,
+.public.experiment,
+.public.bandit {
   .experiment-header {
-    margin: -4px -8px 0;
     .border {
       border-bottom: 1px solid var(--border-color-200);
     }
@@ -571,9 +558,9 @@ pre {
   .experiment-tabs {
     background-color: var(--background-color);
     // NB: Keep top property in sync with TABS_HEADER_HEIGHT_PX in ExperimentHeader.tsx
+    // also, make sure shared reports & shared experiments look good
     top: 55px;
     height: 40px;
-    margin: 0 -8px -3px;
     transition: 150ms all;
     .header-tabs {
       flex-wrap: nowrap;
@@ -617,14 +604,33 @@ pre {
     &.pinned {
       position: sticky;
       z-index: 830;
-      box-shadow: var(--shadow-3);
+      // ensure no shadow bleeds above component, otherwise noticeable when scrolling quickly
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), 0 4px 4px rgba(0, 0, 0, 0.025);
       .header-tabs .tab-wrapper {
         overflow: hidden;
+      }
+      .rt-BaseTabList {
+        box-shadow: none !important;
       }
     }
   }
 }
+.tabwrap.sticky {
+  position: sticky;
+  z-index: 830;
 
+  &.pinned {
+    background-color: var(--color-surface-solid);
+    // ensure no shadow bleeds above component, otherwise noticeable when scrolling quickly
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), 0 4px 4px rgba(0, 0, 0, 0.025);
+    .header-tabs .tab-wrapper {
+      overflow: hidden;
+    }
+    .rt-BaseTabList {
+      box-shadow: none !important;
+    }
+  }
+}
 .analysis-settings-bar {
   .col,
   .col-auto {
@@ -748,25 +754,25 @@ pre {
     }
   }
   .won {
-    color: #09ac17;
+    color: #00936f;
     font-weight: bold;
 
     &.results-ctw,
     &.results-pval,
     &.results-mean {
       color: var(--alert-success-color);
-      background: linear-gradient(-40deg, #09ac1730, #09ac1716);
+      background: rgba(10, 159, 106, 0.19);
     }
   }
   .lost {
-    color: #ce3729;
+    color: #bb1f37;
     font-weight: bold;
 
     &.results-ctw,
     &.results-pval,
     &.results-mean {
       color: var(--alert-danger-color);
-      background: linear-gradient(-40deg, #ce372930, #ce372916);
+      background: #ce372930;
     }
   }
   //&.draw {
@@ -787,12 +793,15 @@ pre {
     transform: translate(0.5px, -0.5px);
   }
 }
-main.main.report {
-  .experiment-results {
-    th {
-      &.axis-col {
-        top: 50px;
-      }
+main.main {
+  &.report {
+    .experiment-results th.axis-col {
+      top: 55px;
+    }
+  }
+  &.public.experiment {
+    .experiment-results th.axis-col {
+      top: 95px;
     }
   }
 }
@@ -896,6 +905,10 @@ main.main.report {
     }
   }
 }
+.dark .bg-white textarea.form-control,
+.dark .tab-content input.form-control {
+  background-color: var(--black-a3);
+}
 
 .hover-show {
   .show-target {
@@ -931,10 +944,10 @@ main.main.report {
 }
 
 .link-purple {
-  color: colors.$highlight-purple;
+  color: var(--violet-a11);
   text-decoration: none;
   &:hover {
-    color: lighten(colors.$highlight-purple, 5%);
+    color: var(--violet-a10);
     text-decoration: underline;
   }
 }
@@ -977,6 +990,19 @@ main.main.report {
       .inactivesort {
         font-size: 13px;
       }
+    }
+    &.sticky-top th {
+      background-color: #fdfefe;
+    }
+  }
+  td {
+    vertical-align: middle;
+  }
+}
+.dark .gbtable {
+  thead {
+    th {
+      background-color: #262d42;
     }
   }
   td {
@@ -1154,6 +1180,14 @@ main.main.report {
     }
   }
 }
+.dropdown-circle {
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 1);
+  padding: 7px 9px;
+}
+.dark .dropdown-circle {
+  background-color: rgba(255, 255, 255, 0.1);
+}
 .shiftdown-1 {
   position: relative;
   top: 1px;
@@ -1215,11 +1249,6 @@ main.main.report {
     }
   }
 }
-@media only screen and (min-width: 992px) {
-  .paged-modal-default {
-    padding: 0 40px;
-  }
-}
 .modal {
   label:not(.rt-Text) {
     color: var(--text-color-main);
@@ -1254,14 +1283,18 @@ main.main.report {
 
 .box,
 .appbox {
-  background-color: var(--surface-background-color);
-  border: 1px solid var(--border-color-200);
+  background-color: var(--color-panel-solid);
+  border: 1px solid var(--slate-a3);
   margin-bottom: 1em;
   border-radius: 5px;
-  &.appbox {
+  .appbox {
     overflow-x: auto;
+    border: 1px solid var(--slate-a4);
   }
 
+  &.nobg {
+    background-color: initial;
+  }
   td {
     vertical-align: middle;
   }
@@ -1383,7 +1416,7 @@ main.main.report {
     &::before {
       content: "";
       transform: rotate(45deg);
-      background-color: var(--surface-background-color);
+      background-color: var(--slate-12);
       box-shadow: 0 1rem 3rem rgb(0 0 0 / 18%);
       position: absolute;
       width: 8px;
@@ -1393,8 +1426,8 @@ main.main.report {
   }
 
   .body {
-    background-color: var(--surface-background-color);
-    color: var(--text-dark);
+    color: var(--slate-1);
+    background-color: var(--slate-12);
     padding: 15px;
     border-radius: 5px;
 
@@ -1953,6 +1986,7 @@ main.main.report {
   &.with-variation-label {
     .label {
       display: inline-flex;
+      flex-shrink: 0;
       align-items: center;
       justify-content: center;
       width: 24px;
@@ -2253,7 +2287,6 @@ li.metrics a span img {
   .testname {
     font-weight: 400;
     color: var(--text-color-main);
-
     &:hover {
       text-decoration: none;
     }
@@ -3171,9 +3204,14 @@ td.disabled {
     }
   }
 }
+.form-control:focus {
+  border-color: var(--border-color-200);
+  box-shadow: 0px 0px 0px 1px var(--violet-8);
+}
 .form-control:disabled {
   cursor: not-allowed;
-  background-color: var(--disabled-background) !important;
+  color: var(--color-text-disabled) !important;
+  background-color: var(--slate-a3) !important;
 }
 input:disabled {
   cursor: not-allowed;
@@ -3312,8 +3350,9 @@ input:disabled {
 @import "./components/demo-datasource-banner";
 
 .main.features {
-  .features-header {
-    margin: -4px -8px 0;
+  .featurename {
+    font-weight: 400;
+    color: var(--text-color-main);
   }
 }
 .approval-flow-accepted {

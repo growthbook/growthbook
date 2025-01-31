@@ -3,7 +3,10 @@ export type SavedGroupsValues = Record<string, (string | number)[]>;
 
 export type GroupMap = Map<
   string,
-  Pick<SavedGroupInterface, "type" | "condition" | "attributeKey"> & {
+  Pick<
+    SavedGroupInterface,
+    "type" | "condition" | "attributeKey" | "useEmptyListGroup"
+  > & {
     values?: (string | number)[];
   }
 >;
@@ -21,5 +24,6 @@ export interface SavedGroupInterface {
   dateCreated: Date;
   description?: string;
   projects?: string[];
+  useEmptyListGroup?: boolean;
 }
 export type SavedGroupType = "condition" | "list";
