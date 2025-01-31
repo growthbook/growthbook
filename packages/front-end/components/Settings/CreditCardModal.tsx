@@ -8,7 +8,7 @@ import { Flex, Text } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import Modal from "../Modal";
-import LoadingOverlay from "../LoadingOverlay";
+import { useStripeContext } from "../Billing/StripeProviderWrapper";
 import Toggle from "../Forms/Toggle";
 
 interface Props {
@@ -18,13 +18,14 @@ interface Props {
 
 export default function CreditCardModal({ onClose, refetch }: Props) {
   const [defaultCard, setDefaultCard] = useState(true);
+  const { clientSecret } = useStripeContext();
   const { apiCall } = useAuth();
   const { subscription } = useUser();
   const elements = useElements();
   const stripe = useStripe();
 
   const handleSubmit = async () => {
-    if (!stripe || !elements) return;
+    if (!stripe || !elements || !clientSecret) return;
     if (!subscription?.externalId) {
       throw new Error("Must have a subscription");
     }
@@ -37,17 +38,9 @@ export default function CreditCardModal({ onClose, refetch }: Props) {
         );
       }
 
-      const res: { clientSecret: string } = await apiCall(
-        "/subscription/payment-methods/setup-intent",
-        {
-          method: "POST",
-          body: JSON.stringify({ subscriptionId: subscription.externalId }),
-        }
-      );
-
       const { setupIntent } = await stripe.confirmSetup({
         elements,
-        clientSecret: res.clientSecret,
+        clientSecret,
         confirmParams: {
           return_url: `${process.env.NEXT_PUBLIC_API_HOST}/settings/billing`,
         },
@@ -84,29 +77,20 @@ export default function CreditCardModal({ onClose, refetch }: Props) {
       submit={async () => await handleSubmit()}
     >
       <>
-        {!stripe || !elements ? (
-          <div style={{ minHeight: "300px" }}>
-            <LoadingOverlay />
-          </div>
-        ) : (
-          <>
-            {/* MKTODO: Still need to style this better for dark mode */}
-            <PaymentElement />
-            <Flex align="center" justify="end" className="pt-3">
-              <Text as="label" className="mb-0 pr-1">
-                Set as Default Card
-              </Text>
-              <Toggle
-                id={"defaultValue"}
-                label="Default value"
-                value={defaultCard}
-                setValue={() => {
-                  setDefaultCard(!defaultCard);
-                }}
-              />
-            </Flex>
-          </>
-        )}
+        <PaymentElement />
+        <Flex align="center" justify="end" className="pt-3">
+          <Text as="label" className="mb-0 pr-1">
+            Set as Default Card
+          </Text>
+          <Toggle
+            id={"defaultValue"}
+            label="Default value"
+            value={defaultCard}
+            setValue={() => {
+              setDefaultCard(!defaultCard);
+            }}
+          />
+        </Flex>
       </>
     </Modal>
   );

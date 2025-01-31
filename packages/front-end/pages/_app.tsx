@@ -9,7 +9,6 @@ import Head from "next/head";
 import React, { useEffect, useState } from "react";
 import { GrowthBookProvider } from "@growthbook/growthbook-react";
 import { Inter } from "next/font/google";
-import { Elements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
 import { OrganizationMessagesContainer } from "@/components/OrganizationMessages/OrganizationMessages";
 import { DemoDataSourceGlobalBannerContainer } from "@/components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner";
@@ -32,6 +31,7 @@ import GuidedGetStartedBar from "@/components/Layout/GuidedGetStartedBar";
 import LayoutLite from "@/components/Layout/LayoutLite";
 import { UserContextProvider } from "@/services/UserContext";
 import { growthbook, gbContext } from "@/services/utils";
+import { StripeProviderWrapper } from "@/components/Billing/StripeProviderWrapper";
 
 // Make useLayoutEffect isomorphic (for SSR)
 if (typeof window === "undefined") React.useLayoutEffect = React.useEffect;
@@ -207,14 +207,7 @@ function App({
             {preAuth || progressiveAuth ? (
               renderPreAuth()
             ) : (
-              <Elements
-                stripe={stripePromise}
-                options={{
-                  mode: "setup",
-                  currency: "usd",
-                  payment_method_types: ["card"],
-                }}
-              >
+              <StripeProviderWrapper>
                 <PageHeadProvider>
                   <AuthProvider>
                     <GrowthBookProvider growthbook={growthbook}>
@@ -251,7 +244,7 @@ function App({
                     </GrowthBookProvider>
                   </AuthProvider>
                 </PageHeadProvider>
-              </Elements>
+              </StripeProviderWrapper>
             )}
           </RadixTheme>
         </AppearanceUIThemeProvider>

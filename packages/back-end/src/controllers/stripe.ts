@@ -10,7 +10,11 @@ import {
   postNewProTrialSubscriptionToLicenseServer,
   postNewSubscriptionSuccessToLicenseServer,
 } from "enterprise";
-import { APP_ORIGIN, STRIPE_WEBHOOK_SECRET } from "back-end/src/util/secrets";
+import {
+  APP_ORIGIN,
+  STRIPE_PAYMENT_METHOD_CONFIG_ID,
+  STRIPE_WEBHOOK_SECRET,
+} from "back-end/src/util/secrets";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getNumberOfUniqueMembersAndInvites,
@@ -274,9 +278,13 @@ export async function postSetupIntent(
   const { subscriptionId } = req.body;
   try {
     const customer = await getStripeCustomerId(subscriptionId);
+    // Not sure why this is throwing an error as it's working
     const setupIntent = await stripe.setupIntents.create({
       customer,
-      payment_method_types: ["card"],
+      payment_method_configuration: STRIPE_PAYMENT_METHOD_CONFIG_ID,
+      automatic_payment_methods: {
+        enabled: true,
+      },
     });
     return res.status(200).json({ clientSecret: setupIntent.client_secret });
   } catch (e) {
