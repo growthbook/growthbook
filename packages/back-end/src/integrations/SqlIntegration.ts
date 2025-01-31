@@ -630,6 +630,9 @@ export default abstract class SqlIntegration
     switch (settings.sourceType) {
       case "segment": {
         if (segment) {
+          const factTable = segment.factTableId
+            ? factTableMap.get(segment.factTableId)
+            : undefined;
           return `
           __source AS (${this.getSegmentCTE(
             segment,
@@ -639,6 +642,7 @@ export default abstract class SqlIntegration
             {
               startDate: settings.startDate,
               endDate: settings.endDate ?? undefined,
+              templateVariables: { eventName: factTable?.eventName },
             }
           )})`;
         } else {
