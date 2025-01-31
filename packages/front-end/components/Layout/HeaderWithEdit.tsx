@@ -33,14 +33,13 @@ export default function HeaderWithEdit({
         {edit ? (
           <Link
             className={editClassName}
-            role="button"
             onClick={(e) => {
               e.preventDefault();
               if (stopPropagation) e.stopPropagation();
               edit();
             }}
           >
-            <Button variant="ghost">Edit me</Button>
+            <Button variant="ghost">Edit</Button>
           </Link>
         ) : disabledMessage ? (
           <span className="ml-1 text-muted">
