@@ -134,6 +134,13 @@ export function calculateMidExperimentPowerSingle(
       "Missing variation."
     );
   }
+  if (params.daysRemaining <= 0) {
+    return calculateMidExperimentPowerSingleError(
+      metricId,
+      variation,
+      "Days remaining must be greater than 0."
+    );
+  }
   const response = params.variation;
   if (response?.errorMessage) {
     return calculateMidExperimentPowerSingleError(
