@@ -1,10 +1,14 @@
 import { useEffect } from "react";
-import { Separator } from "@radix-ui/themes";
+import { useSWRConfig } from "swr";
+import { Flex, Separator, Text, Tooltip } from "@radix-ui/themes";
+import { PiInfo, PiX } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import Link from "@/components/Radix/Link";
 import Callout from "@/components/Radix/Callout";
+import Button from "@/components/Radix/Button";
 import { useUser } from "@/services/UserContext";
+import { useAuth } from "@/services/auth";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { IssueValue } from "./IssueTags";
 import { StatusBadge } from "./StatusBadge";
@@ -18,23 +22,46 @@ export function PowerCard({
   snapshot: ExperimentSnapshotInterface;
   onNotify: (issue: IssueValue) => void;
 }) {
+  const { apiCall, orgId } = useAuth();
+  const { mutate } = useSWRConfig();
   const { hasCommercialFeature } = useUser();
   const snapshotPower = snapshot.health?.power;
   const hasMidExperimentPowerFeature = hasCommercialFeature(
     "mid-experiment-power"
   );
 
+  // TODO: Add message informing where this was not generated. Not necessarily healthy.
   const isLowPowered = snapshotPower?.isLowPowered ?? false;
   const phase = experiment.phases[snapshot.phase];
 
+  const isDismissed =
+    experiment.dismissedWarnings?.includes("low-power") ?? false;
+
+  const toggleDismissed = async () => {
+    await apiCall(`/experiment/${experiment.id}`, {
+      method: "POST",
+      body: JSON.stringify({
+        dismissedWarnings: isDismissed
+          ? (experiment.dismissedWarnings || []).filter(
+              (w) => w !== "low-power"
+            )
+          : [...(experiment.dismissedWarnings || []), "low-power"],
+      }),
+    });
+    mutate(`${orgId}::/experiment/${experiment.id}`);
+  };
+
   useEffect(() => {
-    if (isLowPowered) {
+    if (
+      experiment.dismissedWarnings?.includes("low-power") === false &&
+      isLowPowered
+    ) {
       onNotify({
         label: "Low powered",
         value: "power-card",
       });
     }
-  }, [isLowPowered, onNotify]);
+  }, [experiment, isLowPowered, onNotify]);
 
   const content = !hasMidExperimentPowerFeature ? (
     <Callout status="info">
@@ -55,6 +82,7 @@ export function PowerCard({
         Your experiment is low-powered. Conclusive results are unlikely by the
         anticipated experiment duration.
       </Callout>
+      Recommendations:
       <ul>
         {phase.coverage !== 1 ? (
           <li>
@@ -75,12 +103,31 @@ export function PowerCard({
   return (
     <div id="power-card" style={{ scrollMarginTop: "100px" }}>
       <div className="appbox container-fluid my-4 pl-3 py-3">
-        <PremiumTooltip commercialFeature="mid-experiment-power">
-          <h2 className="d-flex">Experiment Power</h2>{" "}
-          {hasMidExperimentPowerFeature && isLowPowered ? (
-            <StatusBadge status="unhealthy" />
+        <Flex justify="between">
+          <PremiumTooltip commercialFeature="mid-experiment-power">
+            <h2 className="d-flex">Experiment Power</h2>{" "}
+            {hasMidExperimentPowerFeature && isLowPowered ? (
+              <StatusBadge status="unhealthy" />
+            ) : null}
+          </PremiumTooltip>
+          {!isDismissed ? (
+            <Tooltip content={"Dismiss this alert"}>
+              <Button onClick={toggleDismissed} variant="ghost">
+                <PiX />
+              </Button>
+            </Tooltip>
           ) : null}
-        </PremiumTooltip>
+        </Flex>
+
+        {isDismissed ? (
+          <Text size="2" color="gray">
+            <PiInfo />
+            This alert was dismissed, it will not consider the experiment
+            Unhealthy even if problems are detected. Click{" "}
+            <Link onClick={toggleDismissed}>here</Link> to reenable it.
+          </Text>
+        ) : null}
+
         <p className="mt-1">
           Shows the likelihood of conclusive results before the experiment
           duration

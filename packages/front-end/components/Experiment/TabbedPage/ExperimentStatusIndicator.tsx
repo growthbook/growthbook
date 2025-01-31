@@ -26,6 +26,7 @@ type ExperimentData = Pick<
   | "results"
   | "analysisSummary"
   | "phases"
+  | "dismissedWarnings"
 >;
 
 /**
@@ -114,7 +115,6 @@ function getStatusIndicatorData(
 
   const lastPhase = experimentData.phases[experimentData.phases.length - 1];
   if (experimentData.status == "running") {
-    console.log(healthSettings.midExperimentPowerEnabled);
     if (
       healthSettings.midExperimentPowerEnabled &&
       lastPhase.dateStarted &&
@@ -161,6 +161,7 @@ function getStatusIndicatorData(
 
       const powerSummary = healthSummary.power;
       if (
+        experimentData.dismissedWarnings?.includes("low-power") === false &&
         powerSummary &&
         powerSummary.type === "success" &&
         powerSummary.isLowPowered
@@ -171,7 +172,8 @@ function getStatusIndicatorData(
       if (
         powerSummary &&
         powerSummary.type === "success" &&
-        !powerSummary.isLowPowered
+        !powerSummary.isLowPowered &&
+        powerSummary.additionalDaysNeeded > 0
       ) {
         return {
           color: "indigo",

@@ -253,6 +253,7 @@ export const experimentInterface = z
     templateId: z.string().optional(),
     shareLevel: z.enum(["public", "organization"]).optional(),
     analysisSummary: experimentAnalysisSummary,
+    dismissedWarnings: z.array(z.enum(["low-power"])).optional(),
   })
   .strict()
   .merge(experimentAnalysisSettings);

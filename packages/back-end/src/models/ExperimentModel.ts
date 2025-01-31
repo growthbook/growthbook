@@ -268,6 +268,7 @@ const experimentSchema = new mongoose.Schema({
       },
     },
   },
+  dismissedWarnings: [String],
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;

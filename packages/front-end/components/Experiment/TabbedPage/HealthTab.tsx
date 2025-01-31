@@ -82,7 +82,7 @@ export default function HealthTab({
       onSnapshotUpdate();
       setHealthIssues([]);
     };
-  }, [snapshot, onSnapshotUpdate]);
+  }, [experiment, snapshot, onSnapshotUpdate]);
 
   const handleHealthNotification = useCallback(
     (issue: IssueValue) => {
