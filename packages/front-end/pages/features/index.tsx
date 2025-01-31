@@ -2,7 +2,7 @@ import Link from "next/link";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
-import { Box } from "@radix-ui/themes";
+import { Box, Switch, Text } from "@radix-ui/themes";
 import {
   ComputedFeatureInterface,
   FeatureInterface,
@@ -40,7 +40,6 @@ import TagsFilter, {
   useTagsFilter,
 } from "@/components/Tags/TagsFilter";
 import SortedTags from "@/components/Tags/SortedTags";
-import Toggle from "@/components/Forms/Toggle";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
@@ -144,19 +143,6 @@ export default function FeaturesPage() {
               />
             </div>
             <div className="col-auto">
-              <TagsFilter filter={tagsFilter} items={items} />
-            </div>
-            {showArchivedToggle && (
-              <div className="col">
-                <Toggle
-                  value={showArchived}
-                  id="archived"
-                  setValue={setShowArchived}
-                ></Toggle>
-                Show Archived
-              </div>
-            )}
-            <div className="col-auto">
               <Link
                 href="https://docs.growthbook.io/using/growthbook-best-practices#syntax-search"
                 target="_blank"
@@ -164,6 +150,25 @@ export default function FeaturesPage() {
                 <Tooltip body={searchTermFilterExplainations}></Tooltip>
               </Link>
             </div>
+            <div className="col-auto">
+              <TagsFilter filter={tagsFilter} items={items} />
+            </div>
+            {showArchivedToggle && (
+              <>
+                <div className="flex-1" />
+                <div className="col-auto">
+                  <Text as="label" mb="0">
+                    <Switch
+                      checked={showArchived}
+                      id="archived"
+                      onCheckedChange={setShowArchived}
+                      mr="2"
+                    />
+                    Show Archived
+                  </Text>
+                </div>
+              </>
+            )}
           </div>
 
           <table className="table gbtable appbox">
@@ -554,11 +559,6 @@ export default function FeaturesPage() {
             </div>
           )}
       </div>
-      <p>
-        Features enable you to change your app&apos;s behavior from within the
-        GrowthBook UI. For example, turn on/off a sales banner or change the
-        title of your pricing page.{" "}
-      </p>
       <div className="mt-3">
         <CustomMarkdown page={"featureList"} />
       </div>
