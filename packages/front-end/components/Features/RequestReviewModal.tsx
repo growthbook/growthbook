@@ -4,6 +4,7 @@ import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import {
   autoMerge,
   filterEnvironmentsByFeature,
+  getAffectedEnvsForExperiment,
   mergeResultHasChanges,
 } from "shared/util";
 import { useForm } from "react-hook-form";
@@ -285,6 +286,11 @@ export default function RequestReviewModal({
                         experiment={experiment}
                         mutateExperiment={mutate}
                         checklist={checklist}
+                        envs={getAffectedEnvsForExperiment({
+                          experiment,
+                          orgEnvironments: allEnvironments,
+                          linkedFeatures: [],
+                        })}
                       />
                     </div>
                   );

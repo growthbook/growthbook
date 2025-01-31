@@ -6,6 +6,7 @@ import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import {
   autoMerge,
   filterEnvironmentsByFeature,
+  getAffectedEnvsForExperiment,
   mergeResultHasChanges,
 } from "shared/util";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
@@ -265,6 +266,11 @@ export default function DraftModal({
                     experiment={experiment}
                     mutateExperiment={mutate}
                     checklist={checklist}
+                    envs={getAffectedEnvsForExperiment({
+                      experiment,
+                      orgEnvironments: allEnvironments,
+                      linkedFeatures: [],
+                    })}
                   />
                 </div>
               );
