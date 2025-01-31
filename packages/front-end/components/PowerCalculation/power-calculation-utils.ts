@@ -29,12 +29,23 @@ export async function setMetricDataFromExperiment({
     const { snapshot } = await apiCall<{
       snapshot: ExperimentSnapshotInterface;
     }>(`/experiment/${experiment.id}/snapshot/${phase}/?type=standard`);
-    if (!snapshot) {
-      form.setValue(
-        "metricValuesData.error",
-        `No data found for the experiment.`
-      );
-      return;
+    let data = snapshot;
+    if (!data) {
+      // if above fails, maybe snapshots are legacy and don't have type = standard
+      // so try one more time
+      const { snapshot: anyTypeSnapshot } = await apiCall<{
+        snapshot: ExperimentSnapshotInterface;
+      }>(`/experiment/${experiment.id}/snapshot/${phase}`);
+
+      if (anyTypeSnapshot) {
+        data = anyTypeSnapshot;
+      } else {
+        form.setValue(
+          "metricValuesData.error",
+          `No data found for the experiment.`
+        );
+        return;
+      }
     }
 
     const metrics = form.watch("metrics");

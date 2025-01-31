@@ -661,7 +661,7 @@ export default abstract class SqlIntegration
               , timestamp
             FROM (
               ${sql}
-            )
+            ) ft
           )`,
             {
               startDate: settings.startDate,
