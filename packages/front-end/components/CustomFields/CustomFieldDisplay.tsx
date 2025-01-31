@@ -123,6 +123,8 @@ const CustomFieldDisplay: FC<{
     });
   });
 
+  if (!hasCustomFieldAccess) return null;
+
   return (
     <Box>
       {editModal && (
