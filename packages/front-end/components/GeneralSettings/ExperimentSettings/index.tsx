@@ -409,7 +409,7 @@ export default function ExperimentSettings({
                   <Box>
                     <label
                       htmlFor="toggle-runHealthTrafficQuery"
-                      className="font-weight-semibold mb-3"
+                      className="font-weight-semibold mb-0"
                     >
                       Run traffic query by default
                     </label>
@@ -430,6 +430,7 @@ export default function ExperimentSettings({
                   >
                     <Flex display="inline-flex" gap="3" align="start">
                       <Checkbox
+                        mb="0"
                         value={
                           !hasCommercialFeature("mid-experiment-power")
                             ? false
@@ -444,7 +445,7 @@ export default function ExperimentSettings({
                       <Box>
                         <label
                           htmlFor="toggle-midExperimentPowerEnabled"
-                          className="font-weight-semibold mb-3"
+                          className="font-weight-semibold mb-0"
                         >
                           Mid-experiment Power Calculation <GBInfo />
                         </label>

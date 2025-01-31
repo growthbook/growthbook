@@ -30,12 +30,13 @@ export function PowerCard({
     "mid-experiment-power"
   );
 
-  // TODO: Add message informing where this was not generated. Not necessarily healthy.
+  const hasPowerData = snapshotPower !== undefined;
   const isLowPowered = snapshotPower?.isLowPowered ?? false;
   const phase = experiment.phases[snapshot.phase];
 
   const isDismissed =
     experiment.dismissedWarnings?.includes("low-power") ?? false;
+  const isDismissable = hasMidExperimentPowerFeature && isLowPowered;
 
   const toggleDismissed = async () => {
     await apiCall(`/experiment/${experiment.id}`, {
@@ -71,6 +72,11 @@ export function PowerCard({
       </Link>
       .
     </Callout>
+  ) : !hasPowerData ? (
+    <Callout status="info">
+      We have not calculated power for this experiment yet. Refresh the Results
+      to see the power data.
+    </Callout>
   ) : !isLowPowered ? (
     <Callout status="success">
       Your experiment is healthy. Conclusive results are likely before the
@@ -102,15 +108,15 @@ export function PowerCard({
 
   return (
     <div id="power-card" style={{ scrollMarginTop: "100px" }}>
-      <div className="appbox container-fluid my-4 pl-3 py-3">
-        <Flex justify="between">
+      <div className="appbox container-fluid mb-4 pl-3 py-3">
+        <Flex justify="between" mb="2">
           <PremiumTooltip commercialFeature="mid-experiment-power">
-            <h2 className="d-flex">Experiment Power</h2>{" "}
+            <h2 className="d-flex mb-0">Experiment Power</h2>{" "}
             {hasMidExperimentPowerFeature && isLowPowered ? (
               <StatusBadge status="unhealthy" />
             ) : null}
           </PremiumTooltip>
-          {!isDismissed ? (
+          {isDismissable && !isDismissed ? (
             <Tooltip content={"Dismiss this alert"}>
               <Button onClick={toggleDismissed} variant="ghost">
                 <PiX />
@@ -119,7 +125,7 @@ export function PowerCard({
           ) : null}
         </Flex>
 
-        {isDismissed ? (
+        {isDismissable && isDismissed ? (
           <Text size="2" color="gray">
             <PiInfo />
             This alert was dismissed, it will not consider the experiment
