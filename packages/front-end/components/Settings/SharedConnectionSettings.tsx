@@ -21,7 +21,7 @@ export default function SharedConnectionSettings({
             type="number"
             label={
               <>
-                Maximum Concurrent Queries (Optional){" "}
+                Maximum Concurrent Queries (optional){" "}
                 <Tooltip
                   body={
                     "When executing queries against this datasource, if this many queries are already" +

@@ -112,6 +112,15 @@ export const ArchetypeList: FC<{
                   archetype,
                   {}
                 );
+                let parsedAttributes = {};
+                try {
+                  parsedAttributes = JSON.parse(archetype.attributes);
+                } catch {
+                  console.error(
+                    "Failed to parse attributes. Invalid JSON string: " +
+                      archetype.attributes
+                  );
+                }
                 const canDelete = permissionsUtil.canDeleteArchetype(archetype);
                 return (
                   <tr key={archetype.id} className={``}>
@@ -120,11 +129,7 @@ export const ArchetypeList: FC<{
                         body={
                           <>
                             <Code
-                              code={JSON.stringify(
-                                JSON.parse(archetype.attributes),
-                                null,
-                                2
-                              )}
+                              code={JSON.stringify(parsedAttributes, null, 2)}
                               language="json"
                             />
                           </>

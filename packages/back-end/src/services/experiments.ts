@@ -25,6 +25,7 @@ import {
   MatchingRule,
   validateCondition,
 } from "shared/util";
+import { getSRMValue } from "shared/health";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
@@ -39,7 +40,10 @@ import { orgHasPremiumFeature } from "enterprise";
 import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
 import { MetricPriorSettings } from "back-end/types/fact-table";
-import { BanditResult } from "back-end/src/validators/experiments";
+import {
+  BanditResult,
+  ExperimentAnalysisSummary,
+} from "back-end/src/validators/experiments";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { Context } from "back-end/src/models/BaseModel";
@@ -2708,4 +2712,43 @@ export async function getLinkedFeatureInfo(
   });
 
   return linkedFeatureInfo.filter((info) => info.state !== "discarded");
+}
+
+export async function updateExperimentAnalysisSummary({
+  context,
+  experiment,
+  experimentSnapshot,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+  experimentSnapshot: ExperimentSnapshotInterface;
+}) {
+  const analysisSummary: ExperimentAnalysisSummary = {
+    snapshotId: experimentSnapshot.id,
+  };
+
+  const overallTraffic = experimentSnapshot.health?.traffic?.overall;
+
+  const totalUsers = overallTraffic?.variationUnits?.reduce(
+    (acc, a) => acc + a,
+    0
+  );
+
+  const srm = getSRMValue(experiment.type ?? "standard", experimentSnapshot);
+
+  if (overallTraffic && totalUsers && srm) {
+    analysisSummary.health = {
+      srm,
+      multipleExposures: experimentSnapshot.multipleExposures,
+      totalUsers,
+    };
+  }
+
+  await updateExperiment({
+    context,
+    experiment,
+    changes: {
+      analysisSummary,
+    },
+  });
 }

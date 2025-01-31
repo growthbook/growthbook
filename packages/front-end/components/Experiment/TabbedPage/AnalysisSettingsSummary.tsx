@@ -401,7 +401,10 @@ export default function AnalysisSettingsSummary({
                     <RunQueriesButton
                       cta="Update"
                       cancelEndpoint={`/snapshot/${latest.id}/cancel`}
-                      mutate={mutateSnapshot}
+                      mutate={() => {
+                        mutateSnapshot();
+                        mutate();
+                      }}
                       model={latest}
                       icon="refresh"
                       color="outline-primary"
@@ -436,6 +439,7 @@ export default function AnalysisSettingsSummary({
 
                             setAnalysisSettings(null);
                             mutateSnapshot();
+                            mutate();
                             setRefreshError("");
                           })
                           .catch((e) => {
@@ -445,7 +449,10 @@ export default function AnalysisSettingsSummary({
                     />
                   ) : (
                     <RefreshSnapshotButton
-                      mutate={mutateSnapshot}
+                      mutate={() => {
+                        mutateSnapshot();
+                        mutate();
+                      }}
                       phase={phase}
                       experiment={experiment}
                       lastAnalysis={analysis}
@@ -537,6 +544,7 @@ export default function AnalysisSettingsSummary({
                               res.snapshot
                             );
                             mutateSnapshot();
+                            mutate();
                           })
                           .catch((e) => {
                             console.error(e);
