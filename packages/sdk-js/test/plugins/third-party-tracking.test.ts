@@ -162,7 +162,8 @@ describe("thirdPartyTrackingPlugin", () => {
       {
         experiment_id: exp.key,
         variation_id: res.key,
-      }
+      },
+      expect.any(Function)
     );
 
     delete window.rudderanalytics;
