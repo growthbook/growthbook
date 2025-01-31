@@ -162,6 +162,7 @@ export default function PowerCalculationSettingsModal({
                 }
               }
             } catch (e) {
+              console.log(e);
               form.setValue(
                 "metricValuesData.error",
                 `Unable to compute metric values: ${e.message}`
