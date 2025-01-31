@@ -26,11 +26,11 @@ export async function setMetricDataFromExperiment({
 
   try {
     const phase = experiment.phases.length - 1;
-    const { snapshot } = await apiCall<{
+    const { snapshot: standardSnapshot } = await apiCall<{
       snapshot: ExperimentSnapshotInterface;
     }>(`/experiment/${experiment.id}/snapshot/${phase}/?type=standard`);
-    let data = snapshot;
-    if (!data) {
+    let snapshot = standardSnapshot;
+    if (!snapshot) {
       // if above fails, maybe snapshots are legacy and don't have type = standard
       // so try one more time
       const { snapshot: anyTypeSnapshot } = await apiCall<{
@@ -38,7 +38,7 @@ export async function setMetricDataFromExperiment({
       }>(`/experiment/${experiment.id}/snapshot/${phase}`);
 
       if (anyTypeSnapshot) {
-        data = anyTypeSnapshot;
+        snapshot = anyTypeSnapshot;
       } else {
         form.setValue(
           "metricValuesData.error",

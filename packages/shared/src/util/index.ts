@@ -89,8 +89,8 @@ export function getSnapshotAnalysis(
   // TODO make it so order doesn't matter
   return (
     (analysisSettings
-      ? snapshot.analyses.find((a) => isEqual(a.settings, analysisSettings))
-      : snapshot.analyses[0]) || null
+      ? snapshot?.analyses?.find((a) => isEqual(a.settings, analysisSettings))
+      : snapshot?.analyses?.[0]) || null
   );
 }
 
