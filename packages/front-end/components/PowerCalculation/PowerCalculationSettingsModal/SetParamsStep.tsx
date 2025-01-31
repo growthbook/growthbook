@@ -100,7 +100,7 @@ const DataInput = ({
 
                     form.setValue("customizedMetrics", false);
                     form.setValue("metrics", savedMetrics);
-                    form.setValue("usersPerWeek", savedData?.usersPerWeek ?? 0);
+                    form.setValue("usersPerWeek", savedData?.usersPerWeek);
                     setMetricsEditable(false);
                   }}
                 >

@@ -93,7 +93,7 @@ export const InputField = ({
     if (entryValue === undefined) return false;
     if (c.type === "boolean") return false;
     if (c.minValue !== undefined && entryValue <= c.minValue) return true;
-    if (c.maxValue !== undefined && c.maxValue < entryValue) return true;
+    if (c.maxValue !== undefined && c.maxValue <= entryValue) return true;
     return false;
   })();
 
@@ -104,7 +104,7 @@ export const InputField = ({
     const max = c.maxValue ? c.maxValue * 100 : c.maxValue;
 
     if (min !== undefined && max !== undefined)
-      return `Must be greater than ${min} and less than or equal to ${max}`;
+      return `Must be greater than ${min} and less than ${max}`;
     if (min !== undefined) return `Must be greater than ${min}`;
     if (max !== undefined) return `Must be less than ${max}`;
     return "Must be a number";

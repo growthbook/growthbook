@@ -230,7 +230,7 @@ const validEntry = (
   const { maxValue, minValue } = c;
 
   if (minValue !== undefined && v <= minValue) return false;
-  if (maxValue !== undefined && maxValue < v) return false;
+  if (maxValue !== undefined && maxValue <= v) return false;
 
   return true;
 };
