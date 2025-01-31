@@ -38,6 +38,12 @@ class GaussianPrior:
 
 
 @dataclass
+class InverseGammaPrior:
+    shape: float = 1
+    scale: float = 1
+
+
+@dataclass
 class BayesianConfig(BaseConfig):
     inverse: bool = False
     prior_type: Literal["relative", "absolute"] = "relative"
