@@ -173,6 +173,8 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
               onChange(selected?.map((s) => s.value) ?? []);
             }}
             components={{
+              // eslint-disable-next-line
+              // @ts-expect-error We're failing to provide a required index prop to SortableElement
               MultiValue: SortableMultiValue,
               MultiValueLabel: SortableMultiValueLabel,
               Option: OptionWithTitle,
