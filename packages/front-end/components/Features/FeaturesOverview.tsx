@@ -966,14 +966,28 @@ export default function FeaturesOverview({
               </Grid>
             </Box>
             <Box className="appbox nobg" mt="4" p="4">
-              {isPendingReview && (
+              {isPendingReview ? (
                 <Box>
-                  <Callout status="info" mb="3">
-                    This draft is pending approval. Review and approve changes
-                    to enable publishing.
+                  <Callout status="warning" mb="3">
+                    You are viewing a <strong>draft</strong>. The changes below
+                    will not go live until they are approved and published.
                   </Callout>
                 </Box>
-              )}
+              ) : isDraft ? (
+                <Box>
+                  <Callout status="warning" mb="3">
+                    You are viewing a <strong>draft</strong>. The changes below
+                    will not go live until you review and publish them.
+                  </Callout>
+                </Box>
+              ) : isLocked && !isLive ? (
+                <Box>
+                  <Callout status="info" mb="3">
+                    This revision has been <strong>locked</strong>. It is no
+                    longer live and cannot be modified.
+                  </Callout>
+                </Box>
+              ) : null}
 
               {renderRevisionInfo()}
 
