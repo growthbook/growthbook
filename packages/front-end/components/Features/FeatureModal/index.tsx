@@ -99,11 +99,13 @@ const genFormDefaultValues = ({
   permissions: permissionsUtil,
   featureToDuplicate,
   project,
+  customFields,
 }: {
   environments: ReturnType<typeof useEnvironments>;
   permissions: ReturnType<typeof usePermissionsUtil>;
   featureToDuplicate?: FeatureInterface;
   project: string;
+  customFields?: ReturnType<typeof useCustomFields>;
 }): Pick<
   FeatureInterface,
   | "valueType"
@@ -113,6 +115,7 @@ const genFormDefaultValues = ({
   | "project"
   | "id"
   | "environmentSettings"
+  | "customFields"
 > => {
   const environmentSettings = genEnvironmentSettings({
     environments,
@@ -120,6 +123,15 @@ const genFormDefaultValues = ({
     permissions: permissionsUtil,
     project,
   });
+  const customFieldValues = customFields
+    ? Object.fromEntries(
+        customFields.map((field) => [
+          field.id,
+          featureToDuplicate?.customFields?.[field.id] ?? field.defaultValue,
+        ])
+      )
+    : {};
+
   return featureToDuplicate
     ? {
         valueType: featureToDuplicate.valueType,
@@ -129,6 +141,7 @@ const genFormDefaultValues = ({
         project: featureToDuplicate.project ?? project,
         tags: featureToDuplicate.tags,
         environmentSettings,
+        customFields: customFieldValues,
       }
     : {
         valueType: "" as FeatureValueType,
@@ -138,6 +151,7 @@ const genFormDefaultValues = ({
         project,
         tags: [],
         environmentSettings,
+        customFields: customFieldValues,
       };
 };
 
@@ -155,11 +169,20 @@ export default function FeatureModal({
   const { refreshWatching } = useWatching();
   const { hasCommercialFeature } = useUser();
 
+  const customFields = filterCustomFieldsForSectionAndProject(
+    useCustomFields(),
+    "feature",
+    project
+  );
+
   const defaultValues = genFormDefaultValues({
     environments,
     permissions: permissionsUtil,
     featureToDuplicate,
     project,
+    customFields: hasCommercialFeature("custom-metadata")
+      ? customFields
+      : undefined,
   });
 
   const form = useForm({ defaultValues });
@@ -172,12 +195,6 @@ export default function FeatureModal({
   );
   const selectedProject = form.watch("project");
   const { projectId: demoProjectId } = useDemoDataSourceProject();
-
-  const customFields = filterCustomFieldsForSectionAndProject(
-    useCustomFields(),
-    "feature",
-    project
-  );
 
   const [showTags, setShowTags] = useState(!!featureToDuplicate?.tags?.length);
   const [showDescription, setShowDescription] = useState(
