@@ -24,7 +24,10 @@ type CreatePopulationDataProps = z.infer<
 
 export const postPopulationData = async (
   req: AuthRequest<CreatePopulationDataProps>,
-  res: Response<{ status: 200; populationData: PopulationDataInterface } | PrivateApiErrorResponse>
+  res: Response<
+    | { status: 200; populationData: PopulationDataInterface }
+    | PrivateApiErrorResponse
+  >
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
@@ -48,7 +51,7 @@ export const postPopulationData = async (
   if (!context.hasPremiumFeature("historical-power")) {
     return res.status(403).json({
       status: 403,
-      message: "Query-based power calculations are a pro feature"
+      message: "Query-based power calculations are a pro feature",
     });
   }
 
