@@ -13,6 +13,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Pagination from "@/components/Pagination";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import ProjectBadges from "@/components/ProjectBadges";
 export interface Props {
   features: FeatureInterface[];
 }
@@ -203,7 +204,16 @@ export default function FeaturesDraftTable({ features }: Props) {
                           <span className="text-danger">Invalid project</span>
                         </Tooltip>
                       ) : (
-                        projectName ?? <em>None</em>
+                        <>
+                          {featureAndRevision.project ? (
+                            <ProjectBadges
+                              resourceType="feature"
+                              projectIds={[featureAndRevision.project]}
+                            />
+                          ) : (
+                            <></>
+                          )}
+                        </>
                       )}
                     </td>
                   }

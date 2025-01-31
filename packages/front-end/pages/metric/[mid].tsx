@@ -468,16 +468,9 @@ const MetricPage: FC = () => {
         <div className="col">
           Projects:{" "}
           {metric?.projects?.length ? (
-            <ProjectBadges
-              resourceType="metric"
-              projectIds={metric.projects}
-              className="badge-ellipsis align-middle"
-            />
+            <ProjectBadges resourceType="metric" projectIds={metric.projects} />
           ) : (
-            <ProjectBadges
-              resourceType="metric"
-              className="badge-ellipsis align-middle"
-            />
+            <ProjectBadges resourceType="metric" />
           )}
           {canEditMetric && (
             <a
@@ -971,13 +964,9 @@ const MetricPage: FC = () => {
                   <ProjectBadges
                     resourceType="metric"
                     projectIds={metric.projects}
-                    className="badge-ellipsis align-middle"
                   />
                 ) : (
-                  <ProjectBadges
-                    resourceType="metric"
-                    className="badge-ellipsis align-middle"
-                  />
+                  <ProjectBadges resourceType="metric" />
                 )}
               </RightRailSectionGroup>
             </RightRailSection>

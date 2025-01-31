@@ -273,10 +273,7 @@ export default function EditSavedGroupPage() {
                     />
                   </div>
                 ) : (
-                  <ProjectBadges
-                    resourceType="saved group"
-                    className="badge-ellipsis short align-middle"
-                  />
+                  <ProjectBadges resourceType="saved group" />
                 )}
               </div>
             </div>

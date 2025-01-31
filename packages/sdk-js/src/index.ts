@@ -52,6 +52,9 @@ export type {
   Helpers,
   GrowthBookPayload,
   SavedGroupsValues,
+  EventLogger,
+  EventProperties,
+  Plugin,
 } from "./types/growthbook";
 
 export type {
@@ -73,6 +76,7 @@ export { GrowthBook, prefetchPayload } from "./GrowthBook";
 export {
   GrowthBookClient as GrowthBookMultiUser,
   GrowthBookClient,
+  UserScopedGrowthBook,
 } from "./GrowthBookClient";
 
 export {
@@ -91,3 +95,5 @@ export {
   getAutoExperimentChangeType,
   paddedVersionString,
 } from "./util";
+
+export { EVENT_EXPERIMENT_VIEWED, EVENT_FEATURE_EVALUATED } from "./core";

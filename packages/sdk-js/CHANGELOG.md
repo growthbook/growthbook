@@ -1,5 +1,12 @@
 # Changelog
 
+## **1.4.0** - Unreleased
+
+- Fixed edge case with pre-requisites that caused some feature rules to be skipped
+- New methods for dealing with destroyed GrowthBook instances - `isDestroyed()` and `onDestroy(callback)`
+- New `plugins` option to extend GrowthBook functionality, plus several built-in plugins
+- New `eventLogger` option and `logEvent` method to track arbitrary analytics events
+
 ## **1.3.1** - Dec 3, 2024
 
 - Renamed `GrowthBookMultiUser` to `GrowthBookClient`

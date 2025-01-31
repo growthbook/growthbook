@@ -3,6 +3,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
 import { CustomField, CustomFieldSection } from "back-end/types/custom-fields";
 import { FeatureInterface } from "back-end/types/feature";
+import { Box, Card, Flex, Heading } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -13,13 +14,13 @@ import {
 import Markdown from "@/components/Markdown/Markdown";
 import Modal from "@/components/Modal";
 import DataList, { DataListItem } from "@/components/Radix/DataList";
+import Button from "@/components/Radix/Button";
 import CustomFieldInput from "./CustomFieldInput";
 
 const CustomFieldDisplay: FC<{
   label?: string;
   canEdit?: boolean;
   mutate?: () => void;
-  addBox?: boolean;
   className?: string;
   section: CustomFieldSection;
   target: ExperimentInterfaceStringDates | FeatureInterface;
@@ -27,7 +28,6 @@ const CustomFieldDisplay: FC<{
   label = "Additional Fields",
   canEdit = true,
   mutate,
-  addBox = false,
   className = "",
   section,
   target,
@@ -124,7 +124,7 @@ const CustomFieldDisplay: FC<{
   });
 
   return (
-    <div className="mb-4">
+    <Box>
       {editModal && (
         <Modal
           trackingEventModalType="edit-custom-fields"
@@ -156,29 +156,31 @@ const CustomFieldDisplay: FC<{
         </Modal>
       )}
       {displayFieldsObj && (
-        <div className={`${addBox ? "appbox px-4 py-3" : ""} ${className}`}>
-          <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-4">
-            <h4 className="m-0">{label ? label : ""}</h4>
+        <Card className={className} my="3">
+          <Flex justify="between" align="center">
+            <Heading as="h4" size="3">
+              {label ? label : ""}
+            </Heading>
             <div className="flex-1" />
             {canEdit && hasCustomFieldAccess ? (
               <>
-                <button
-                  className="btn p-0 link-purple"
+                <Button
+                  variant="ghost"
                   onClick={() => {
                     setEditModal(true);
                   }}
                 >
                   Edit
-                </button>
+                </Button>
               </>
             ) : (
               <></>
             )}
-          </div>
+          </Flex>
           <DataList data={displayFieldsObj} maxColumns={3} />
-        </div>
+        </Card>
       )}
-    </div>
+    </Box>
   );
 };
 

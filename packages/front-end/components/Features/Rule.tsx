@@ -2,14 +2,11 @@ import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import React, { forwardRef, ReactElement } from "react";
-import {
-  FaArrowsAlt,
-  FaExclamationTriangle,
-  FaExternalLinkAlt,
-} from "react-icons/fa";
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { filterEnvironmentsByFeature } from "shared/util";
+import { Box, Card, Flex, Heading } from "@radix-ui/themes";
+import { RiDraggable } from "react-icons/ri";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { getRules, isRuleDisabled, useEnvironments } from "@/services/features";
@@ -20,12 +17,16 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import HelperText from "@/components/Radix/HelperText";
+import Badge from "@/components/Radix/Badge";
+import RuleStatusMsg from "@/components/Features/RuleStatusMsg";
 import ConditionDisplay from "./ConditionDisplay";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
 import ExperimentSummary from "./ExperimentSummary";
 import RuleStatusPill from "./RuleStatusPill";
-import ExperimentRefSummary from "./ExperimentRefSummary";
+import ExperimentRefSummary, {
+  isExperimentRefRuleSkipped,
+} from "./ExperimentRefSummary";
 
 interface SortableProps {
   i: number;
@@ -125,219 +126,231 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       !!rule.savedGroups?.length ||
       !!rule.prerequisites?.length;
 
+    const isSkipped =
+      (upcomingScheduleRule && rule?.scheduleRules?.length) ||
+      0 > 0 ||
+      scheduleCompletedAndDisabled ||
+      (linkedExperiment && isExperimentRefRuleSkipped(linkedExperiment));
     if (hideDisabled && ruleDisabled) {
       return null;
     }
+
     return (
-      <div className={`p-3 border bg-white`} {...props} ref={ref}>
-        <div className="d-flex mb-2 align-items-center">
-          <div>
-            <Tooltip body={ruleDisabled ? "This rule will be skipped" : ""}>
-              <div
-                className={`text-light border rounded-circle text-center font-weight-bold ${
-                  ruleDisabled ? "bg-secondary" : "bg-purple"
-                }`}
-                style={{
-                  width: 28,
-                  height: 28,
-                  lineHeight: "28px",
-                }}
-              >
-                {i + 1}
-              </div>
-            </Tooltip>
-          </div>
-          <div className="flex-1 mx-2">
-            {linkedExperiment ? (
-              <div>
-                {linkedExperiment.type === "multi-armed-bandit"
-                  ? "Bandit"
-                  : "Experiment"}
-                : <strong className="mr-3">{linkedExperiment.name}</strong>{" "}
-                <Link
-                  href={`/${
-                    linkedExperiment.type === "multi-armed-bandit"
-                      ? "bandit"
-                      : "experiment"
-                  }/${linkedExperiment.id}`}
-                >
-                  View{" "}
-                  {linkedExperiment.type === "multi-armed-bandit"
-                    ? "Bandit"
-                    : "Experiment"}
-                  <FaExternalLinkAlt
-                    className="small ml-1 position-relative ml-2"
-                    style={{ top: "-1px" }}
-                  />
-                </Link>
-              </div>
-            ) : (
-              title
-            )}
-            {unreachable && !ruleDisabled ? (
-              <Tooltip body="A rule above this one will serve to 100% of the traffic, and this rule will never be reached.">
-                <span className="ml-2 font-italic bg-secondary text-light border px-2 rounded d-inline-block">
-                  {" "}
-                  <FaExclamationTriangle className="text-warning" /> This rule
-                  is not reachable
-                </span>
-              </Tooltip>
-            ) : null}
-          </div>
-          <RuleStatusPill
-            rule={rule}
-            upcomingScheduleRule={upcomingScheduleRule}
-            scheduleCompletedAndDisabled={!!scheduleCompletedAndDisabled}
-            linkedExperiment={linkedExperiment || undefined}
-          />
-          {rules.length > 1 && canEdit && (
+      <Box {...props} ref={ref}>
+        <Box mt="3">
+          <Card>
             <div
-              {...handle}
-              title="Drag and drop to re-order rules"
-              className="mr-2"
-            >
-              <FaArrowsAlt />
-            </div>
-          )}
-          <div>
-            {canEdit && (
-              <MoreMenu>
-                <a
-                  href="#"
-                  className="dropdown-item"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setRuleModal({ environment, i });
-                  }}
-                >
-                  Edit
-                </a>
-                <Button
-                  color=""
-                  className="dropdown-item"
-                  onClick={async () => {
-                    track(
-                      rule.enabled
-                        ? "Disable Feature Rule"
-                        : "Enable Feature Rule",
-                      {
-                        ruleIndex: i,
-                        environment,
-                        type: rule.type,
-                      }
-                    );
-                    const res = await apiCall<{ version: number }>(
-                      `/feature/${feature.id}/${version}/rule`,
-                      {
-                        method: "PUT",
-                        body: JSON.stringify({
-                          environment,
-                          rule: {
-                            ...rule,
-                            enabled: !rule.enabled,
-                          },
-                          i,
-                        }),
-                      }
-                    );
-                    await mutate();
-                    res.version && setVersion(res.version);
-                  }}
-                >
-                  {rule.enabled ? "Disable" : "Enable"}
-                </Button>
-                {environments.length > 1 && (
-                  <Button
-                    color=""
-                    className="dropdown-item"
-                    onClick={() => {
-                      setCopyRuleModal({ environment, rules: [rule] });
-                    }}
+              style={{
+                position: "absolute",
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: "4px",
+                backgroundColor: !rule.enabled
+                  ? "var(--gray-5)"
+                  : unreachable
+                  ? "var(--orange-7)"
+                  : isSkipped
+                  ? "var(--amber-7)"
+                  : "var(--green-9)",
+              }}
+            ></div>
+            <Flex align="start" justify="between" gap="3" p="1" px="2">
+              <Box>
+                {rules.length > 1 && canEdit && (
+                  <div
+                    {...handle}
+                    title="Drag and drop to re-order rules"
+                    style={{ cursor: "grab" }}
                   >
-                    Copy rule to environment(s)
-                  </Button>
+                    <RiDraggable />
+                  </div>
                 )}
-                <DeleteButton
-                  className="dropdown-item"
-                  displayName="Rule"
-                  useIcon={false}
-                  text="Delete"
-                  onClick={async () => {
-                    track("Delete Feature Rule", {
-                      ruleIndex: i,
-                      environment,
-                      type: rule.type,
-                    });
-                    const res = await apiCall<{ version: number }>(
-                      `/feature/${feature.id}/${version}/rule`,
-                      {
-                        method: "DELETE",
-                        body: JSON.stringify({
-                          environment,
-                          i,
-                        }),
-                      }
-                    );
-                    await mutate();
-                    res.version && setVersion(res.version);
-                  }}
-                />
-              </MoreMenu>
-            )}
-          </div>
-        </div>
-        <div className="d-flex">
-          <div
-            style={{
-              maxWidth: "100%",
-              opacity: ruleDisabled ? 0.4 : 1,
-            }}
-            className="flex-1 pt-1 position-relative"
-          >
-            {hasCondition && rule.type !== "experiment-ref" && (
-              <div className="row mb-3 align-items-top">
-                <div className="col-auto d-flex align-items-center">
-                  <strong>IF</strong>
-                </div>
-                <div className="col">
-                  <ConditionDisplay
-                    condition={rule.condition || ""}
-                    savedGroups={rule.savedGroups}
-                    prerequisites={rule.prerequisites}
+              </Box>
+              <Box>
+                <Badge label={<>{i + 1}</>} radius="full" color="gray" />
+              </Box>
+              <Box width="100%">
+                <Flex align="center" justify="between" mb="3">
+                  <Heading as="h4" size="3" weight="medium" mb="0">
+                    {linkedExperiment ? (
+                      <>
+                        {linkedExperiment.type === "multi-armed-bandit"
+                          ? "Bandit"
+                          : "Experiment"}
+                        :{" "}
+                        <Link
+                          href={`/${
+                            linkedExperiment.type === "multi-armed-bandit"
+                              ? "bandit"
+                              : "experiment"
+                          }/${linkedExperiment.id}`}
+                        >
+                          {linkedExperiment.name}
+                        </Link>
+                      </>
+                    ) : (
+                      title
+                    )}
+                  </Heading>
+                  <RuleStatusPill
+                    rule={rule}
+                    ruleDisabled={ruleDisabled}
+                    unreachable={unreachable}
+                    upcomingScheduleRule={upcomingScheduleRule}
+                    scheduleCompletedAndDisabled={
+                      !!scheduleCompletedAndDisabled
+                    }
+                    linkedExperiment={linkedExperiment || undefined}
                   />
-                </div>
-              </div>
-            )}
-            {rule.type === "force" && (
-              <ForceSummary value={rule.value} feature={feature} />
-            )}
-            {rule.type === "rollout" && (
-              <RolloutSummary
-                value={rule.value ?? ""}
-                coverage={rule.coverage ?? 1}
-                feature={feature}
-                hashAttribute={rule.hashAttribute || ""}
-              />
-            )}
-            {rule.type === "experiment" && (
-              <ExperimentSummary
-                feature={feature}
-                experiment={Array.from(experimentsMap.values()).find(
-                  (exp) => exp.trackingKey === (rule.trackingKey || feature.id)
+                </Flex>
+                <Box>
+                  <RuleStatusMsg
+                    rule={rule}
+                    ruleDisabled={ruleDisabled}
+                    unreachable={unreachable}
+                    upcomingScheduleRule={upcomingScheduleRule}
+                    scheduleCompletedAndDisabled={
+                      !!scheduleCompletedAndDisabled
+                    }
+                    linkedExperiment={linkedExperiment || undefined}
+                  />
+                </Box>
+                <Box style={{ opacity: ruleDisabled ? 0.6 : 1 }} mt="3">
+                  {hasCondition && rule.type !== "experiment-ref" && (
+                    <div className="row mb-3 align-items-top">
+                      <div className="col-auto d-flex align-items-center">
+                        <strong className="font-weight-semibold">IF</strong>
+                      </div>
+                      <div className="col">
+                        <ConditionDisplay
+                          condition={rule.condition || ""}
+                          savedGroups={rule.savedGroups}
+                          prerequisites={rule.prerequisites}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {rule.type === "force" && (
+                    <ForceSummary value={rule.value} feature={feature} />
+                  )}
+                  {rule.type === "rollout" && (
+                    <RolloutSummary
+                      value={rule.value ?? ""}
+                      coverage={rule.coverage ?? 1}
+                      feature={feature}
+                      hashAttribute={rule.hashAttribute || ""}
+                    />
+                  )}
+                  {rule.type === "experiment" && (
+                    <ExperimentSummary
+                      feature={feature}
+                      experiment={Array.from(experimentsMap.values()).find(
+                        (exp) =>
+                          exp.trackingKey === (rule.trackingKey || feature.id)
+                      )}
+                      rule={rule}
+                    />
+                  )}
+                  {rule.type === "experiment-ref" && (
+                    <ExperimentRefSummary
+                      feature={feature}
+                      experiment={experimentsMap.get(rule.experimentId)}
+                      rule={rule}
+                    />
+                  )}
+                </Box>
+              </Box>
+              <Box>
+                {canEdit && (
+                  <MoreMenu useRadix={true} size={14}>
+                    <a
+                      href="#"
+                      className="dropdown-item"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setRuleModal({ environment, i });
+                      }}
+                    >
+                      Edit
+                    </a>
+                    <Button
+                      color=""
+                      className="dropdown-item"
+                      onClick={async () => {
+                        track(
+                          rule.enabled
+                            ? "Disable Feature Rule"
+                            : "Enable Feature Rule",
+                          {
+                            ruleIndex: i,
+                            environment,
+                            type: rule.type,
+                          }
+                        );
+                        const res = await apiCall<{ version: number }>(
+                          `/feature/${feature.id}/${version}/rule`,
+                          {
+                            method: "PUT",
+                            body: JSON.stringify({
+                              environment,
+                              rule: {
+                                ...rule,
+                                enabled: !rule.enabled,
+                              },
+                              i,
+                            }),
+                          }
+                        );
+                        await mutate();
+                        res.version && setVersion(res.version);
+                      }}
+                    >
+                      {rule.enabled ? "Disable" : "Enable"}
+                    </Button>
+                    {environments.length > 1 && (
+                      <Button
+                        color=""
+                        className="dropdown-item"
+                        onClick={() => {
+                          setCopyRuleModal({ environment, rules: [rule] });
+                        }}
+                      >
+                        Copy rule to environment(s)
+                      </Button>
+                    )}
+                    <DeleteButton
+                      className="dropdown-item"
+                      displayName="Rule"
+                      useIcon={false}
+                      text="Delete"
+                      onClick={async () => {
+                        track("Delete Feature Rule", {
+                          ruleIndex: i,
+                          environment,
+                          type: rule.type,
+                        });
+                        const res = await apiCall<{ version: number }>(
+                          `/feature/${feature.id}/${version}/rule`,
+                          {
+                            method: "DELETE",
+                            body: JSON.stringify({
+                              environment,
+                              i,
+                            }),
+                          }
+                        );
+                        await mutate();
+                        res.version && setVersion(res.version);
+                      }}
+                    />
+                  </MoreMenu>
                 )}
-                rule={rule}
-              />
-            )}
-            {rule.type === "experiment-ref" && (
-              <ExperimentRefSummary
-                feature={feature}
-                experiment={experimentsMap.get(rule.experimentId)}
-                rule={rule}
-              />
-            )}
-          </div>
-        </div>
-      </div>
+              </Box>
+            </Flex>
+          </Card>
+        </Box>
+      </Box>
     );
   }
 );

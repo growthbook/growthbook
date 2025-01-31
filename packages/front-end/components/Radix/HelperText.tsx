@@ -6,8 +6,8 @@ import {
   PiWarningFill,
   PiWarningOctagonFill,
 } from "react-icons/pi";
-import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
-import { Responsive } from "@radix-ui/themes/dist/cjs/props";
+import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
 
 export type Status = "info" | "warning" | "error" | "success";
 export type RadixColor = TextProps["color"];

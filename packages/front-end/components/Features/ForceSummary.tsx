@@ -13,7 +13,7 @@ export default function ForceSummary({
     <>
       <div className="row align-items-top">
         <div className="col-auto">
-          <strong>SERVE</strong>
+          <strong className="font-weight-semibold">SERVE</strong>
         </div>
         <div className="col">
           <ValueDisplay value={value} type={feature.valueType} />
