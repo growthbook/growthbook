@@ -8,6 +8,7 @@ import {
   ReactElement,
 } from "react";
 import clsx from "clsx";
+import { useKeyPress } from "@/hooks/useKeyPress";
 import Modal from "./Modal";
 import DeleteButton from "./DeleteButton/DeleteButton";
 
@@ -20,6 +21,14 @@ const Carousel: FC<{
   const [modalOpen, setModalOpen] = useState(false);
 
   const num = Children.count(children);
+
+  useKeyPress(() => {
+    if (active > 0 && modalOpen) setActive(active - 1);
+  }, "ArrowLeft");
+  useKeyPress(() => {
+    if (active < num - 1 && modalOpen) setActive(active + 1);
+  }, "ArrowRight");
+
   if (!modalOpen && maxChildHeight) {
     children = Children.map(children, (child) => {
       return cloneElement(child as ReactElement, {
