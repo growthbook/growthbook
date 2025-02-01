@@ -967,8 +967,7 @@ export default function FeaturesOverview({
                   justify="end"
                   flexShrink="0"
                   direction={{ initial: "row", xs: "column", sm: "row" }}
-                  // @ts-expect-error text wrap is not valid for some reason, but it is
-                  style={{ textWrap: "nowrap" }}
+                  style={{ whiteSpace: "nowrap" }}
                   gap="4"
                 >
                   {renderRevisionCTA()}
