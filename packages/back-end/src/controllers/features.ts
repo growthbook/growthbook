@@ -862,13 +862,6 @@ export async function postFeaturePublish(
       throw new Error("All experiments must be linked to this feature");
     }
     if (
-      experiments.some(
-        (exp) => !context.permissions.canUpdateExperiment(exp, {})
-      )
-    ) {
-      context.permissions.throwPermissionError();
-    }
-    if (
       experiments.some((exp) => {
         const envs = getAffectedEnvsForExperiment({
           experiment: exp,
@@ -885,6 +878,11 @@ export async function postFeaturePublish(
     for (const experiment of experiments) {
       try {
         const changes = await getChangesToStartExperiment(context, experiment);
+
+        if (!context.permissions.canUpdateExperiment(experiment, changes)) {
+          context.permissions.throwPermissionError();
+        }
+
         experimentsToUpdate.push({ experiment, changes });
       } catch (e) {
         throw new Error(`Cannot publish experiment: ${e.message}`);

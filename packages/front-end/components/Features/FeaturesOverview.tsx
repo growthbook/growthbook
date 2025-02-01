@@ -262,7 +262,7 @@ export default function FeaturesOverview({
   environments?.forEach((e) => {
     const r = getRules(feature, e.id) || [];
     if (r.length > 0) hasRules = true;
-    if (r.filter((r) => isRuleDisabled(r, experimentsMap, isDraft))) {
+    if (r.some((r) => isRuleDisabled(r, experimentsMap))) {
       hasDisabledRules = true;
     }
   });
@@ -1032,7 +1032,7 @@ export default function FeaturesOverview({
                       checked={!hideDisabled}
                       onCheckedChange={(state) => setHideDisabled(!state)}
                     />{" "}
-                    Show disabled
+                    Show inactive
                   </label>
                 </Flex>
                 {environments.length > 0 ? (

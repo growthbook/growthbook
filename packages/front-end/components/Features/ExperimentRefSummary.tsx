@@ -22,7 +22,7 @@ export function isExperimentRefRuleSkipped(
   experiment: ExperimentInterfaceStringDates,
   isDraft: boolean
 ) {
-  if (experiment.status === "draft") {
+  if (experiment.status === "draft" && !experiment.archived) {
     // Draft experiments are published alongside feature drafts,
     // so don't need to mark this as skipped if we're viewing a feature draft
     return !isDraft;
@@ -55,9 +55,11 @@ export default function ExperimentRefSummary({
   if (experiment.archived) {
     return (
       <Callout status="info">
-        This {isBandit ? "Bandit" : "Experiment"} is archived. This rule will be
+        This {isBandit ? "Bandit" : "Experiment"} is archived and will be
         skipped.{" "}
-        <Link href={`/experiment/${experiment.id}`}>View Experiment</Link>
+        <Link href={`/experiment/${experiment.id}`}>
+          View {isBandit ? "Bandit" : "Experiment"}
+        </Link>
       </Callout>
     );
   }
@@ -66,9 +68,11 @@ export default function ExperimentRefSummary({
   if (!phase) {
     return (
       <Callout status="info">
-        This {isBandit ? "Bandit" : "Experiment"} is not running. This rule will
+        This {isBandit ? "Bandit" : "Experiment"} is not running and rule will
         be skipped.{" "}
-        <Link href={`/experiment/${experiment.id}`}>View Experiment</Link>
+        <Link href={`/experiment/${experiment.id}`}>
+          View {isBandit ? "Bandit" : "Experiment"}
+        </Link>
       </Callout>
     );
   }

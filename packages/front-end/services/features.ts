@@ -38,7 +38,6 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import useApi from "@/hooks/useApi";
-import { isExperimentRefRuleSkipped } from "@/components/Features/ExperimentRefSummary";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useUser } from "@/services/UserContext";
 import { ALL_COUNTRY_CODES } from "@/components/Forms/CountrySelector";
@@ -304,8 +303,7 @@ export function getVariationDefaultName(
 
 export function isRuleDisabled(
   rule: FeatureRule,
-  experimentsMap: Map<string, ExperimentInterfaceStringDates>,
-  isDraft: boolean
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>
 ): boolean {
   const linkedExperiment =
     rule.type === "experiment-ref" && experimentsMap.get(rule.experimentId);
@@ -317,9 +315,7 @@ export function isRuleDisabled(
 
   return (
     scheduleCompletedAndDisabled ||
-    upcomingScheduleRule?.enabled ||
-    (linkedExperiment &&
-      isExperimentRefRuleSkipped(linkedExperiment, isDraft)) ||
+    (linkedExperiment && linkedExperiment.archived) ||
     !rule.enabled
   );
 }

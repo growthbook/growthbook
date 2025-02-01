@@ -73,9 +73,7 @@ export default function RuleList({
     })
   );
 
-  const disabledRules = items.filter((r) =>
-    isRuleDisabled(r, experimentsMap, isDraft)
-  );
+  const disabledRules = items.filter((r) => isRuleDisabled(r, experimentsMap));
 
   if (!items.length) {
     return (
