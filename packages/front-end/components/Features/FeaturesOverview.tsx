@@ -921,14 +921,14 @@ export default function FeaturesOverview({
               </Heading>
               <Flex
                 gap="4"
-                align={{ initial: "center", xs: "start" }}
+                align={{ initial: "center" }}
                 direction={{ initial: "column", xs: "row" }}
                 justify="between"
               >
                 <Flex
                   align="center"
                   justify="between"
-                  width={{ initial: "95%", sm: "70%", md: "60%", lg: "50%" }}
+                  width={{ initial: "98%", sm: "70%", md: "60%", lg: "50%" }}
                 >
                   <Box width="100%">
                     <RevisionDropdown

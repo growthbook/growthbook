@@ -53,7 +53,11 @@ export default function RevisionDropdown({
               Revision {value}
             </Heading>
             <Box flexGrow="1" />
-            <Box flexShrink="1" overflow="hidden">
+            <Box
+              flexShrink="1"
+              overflow="hidden"
+              style={{ textOverflow: "ellipsis" }}
+            >
               {date && (
                 <Text size="1" color="gray">
                   Created {datetime(date)} by{" "}
