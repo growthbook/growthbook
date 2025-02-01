@@ -329,7 +329,7 @@ export function isRuleInactive(
     }
     if (
       linkedExperiment.status === "stopped" &&
-      (!linkedExperiment.excludeFromPayload ||
+      (linkedExperiment.excludeFromPayload ||
         !linkedExperiment.releasedVariationId)
     ) {
       return true;
