@@ -44,7 +44,7 @@ export default function HealthTab({
     mutateSnapshot,
     setAnalysisSettings,
   } = useSnapshot();
-  const { runHealthTrafficQuery } = useOrgSettings();
+  const { runHealthTrafficQuery, midExperimentPowerEnabled } = useOrgSettings();
   const { refreshOrganization } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
@@ -297,7 +297,7 @@ export default function HealthTab({
         </div>
       </div>
 
-      {!isBandit ? (
+      {!isBandit && midExperimentPowerEnabled ? (
         <PowerCard
           experiment={experiment}
           snapshot={snapshot}
