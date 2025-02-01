@@ -223,6 +223,7 @@ export default function RequestReviewModal({
         open={true}
         header={"Review Draft Changes"}
         cta={ctaCopy}
+        ctaEnabled={submitEnabled}
         close={close}
         autoCloseOnSubmit={false}
         closeCta="Cancel"
@@ -409,7 +410,6 @@ export default function RequestReviewModal({
           }
           await mutate();
         })}
-        ctaEnabled={submitEnabled}
         backCTA={
           <Button
             color="link"

@@ -139,16 +139,6 @@ export default function FeaturesOverview({
     timeout: 800,
   });
 
-  const experimentsMap = useMemo<
-    Map<string, ExperimentInterfaceStringDates>
-  >(() => {
-    if (!experiments) return new Map();
-
-    return new Map<string, ExperimentInterfaceStringDates>(
-      experiments.map((exp) => [exp.id, exp])
-    );
-  }, [experiments]);
-
   const mergeResult = useMemo(() => {
     if (!feature || !revision) return null;
     const baseRevision = revisions.find(
@@ -187,6 +177,12 @@ export default function FeaturesOverview({
     [feature, features, envsStr]
   );
 
+  const experimentsMap = useMemo<
+    Map<string, ExperimentInterfaceStringDates>
+  >(() => {
+    if (!experiments) return new Map();
+    return new Map(experiments.map((exp) => [exp.id, exp]));
+  }, [experiments]);
   if (!baseFeature || !feature || !revision) {
     return <LoadingOverlay />;
   }

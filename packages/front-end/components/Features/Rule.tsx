@@ -19,6 +19,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import HelperText from "@/components/Radix/HelperText";
 import Badge from "@/components/Radix/Badge";
 import RuleStatusMsg from "@/components/Features/RuleStatusMsg";
+import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import ConditionDisplay from "./ConditionDisplay";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
@@ -210,7 +211,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 <Flex align="center" justify="between" mb="3">
                   <Heading as="h4" size="3" weight="medium" mb="0">
                     {linkedExperiment ? (
-                      <>
+                      <Flex gap="3" align="center">
                         {linkedExperiment.type === "multi-armed-bandit"
                           ? "Bandit"
                           : "Experiment"}
@@ -224,7 +225,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         >
                           {linkedExperiment.name}
                         </Link>
-                      </>
+                        <ExperimentStatusIndicator
+                          experimentData={linkedExperiment}
+                        />
+                      </Flex>
                     ) : (
                       title
                     )}

@@ -1,12 +1,13 @@
 import { ExperimentRefRule, FeatureInterface } from "back-end/types/feature";
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, { ReactElement } from "react";
+import React from "react";
 import { includeExperimentInPayload } from "shared/util";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { getVariationColor } from "@/services/features";
 import ValidateValue from "@/components/Features/ValidateValue";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import Callout from "@/components/Radix/Callout";
 import ValueDisplay from "./ValueDisplay";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import ConditionDisplay from "./ConditionDisplay";
@@ -29,38 +30,6 @@ export function isExperimentRefRuleSkipped(
   return !includeExperimentInPayload(experiment);
 }
 
-function ExperimentSkipped({
-  color = "secondary",
-  experimentId,
-  message,
-  cta = "View results",
-}: {
-  color?: string;
-  experimentId?: string;
-  message: string | ReactElement;
-  cta?: string;
-}) {
-  return (
-    <div className="mb-2">
-      <div className={`alert alert-${color}`}>
-        <div className="d-flex align-items-center">
-          <div className="flex">{message}</div>
-          {experimentId && (
-            <div className="ml-auto">
-              <Link
-                href={`/experiment/${experimentId}`}
-                className="btn btn-outline-primary"
-              >
-                {cta}
-              </Link>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function ExperimentRefSummary({
   rule,
   experiment,
@@ -80,32 +49,27 @@ export default function ExperimentRefSummary({
   const isBandit = experiment?.type === "multi-armed-bandit";
 
   if (!experiment) {
-    return (
-      <ExperimentSkipped
-        message="The experiment could not be found"
-        color="danger"
-      />
-    );
+    return <Callout status="error">The experiment could not be found.</Callout>;
   }
 
   if (experiment.archived) {
     return (
-      <ExperimentSkipped
-        message="This experiment is archived. This rule will be skipped."
-        experimentId={experiment.id}
-        cta="View experiment"
-      />
+      <Callout status="info">
+        This {isBandit ? "Bandit" : "Experiment"} is archived. This rule will be
+        skipped.{" "}
+        <Link href={`/experiment/${experiment.id}`}>View Experiment</Link>
+      </Callout>
     );
   }
 
   const phase = experiment.phases[experiment.phases.length - 1];
   if (!phase) {
     return (
-      <ExperimentSkipped
-        message="This experiment is not running. This rule will be skipped."
-        experimentId={experiment.id}
-        cta="View experiment"
-      />
+      <Callout status="info">
+        This {isBandit ? "Bandit" : "Experiment"} is not running. This rule will
+        be skipped.{" "}
+        <Link href={`/experiment/${experiment.id}`}>View Experiment</Link>
+      </Callout>
     );
   }
 
@@ -117,26 +81,12 @@ export default function ExperimentRefSummary({
       : null;
 
   if (experiment.status === "stopped" && !releasedValue) {
-    if (experiment.excludeFromPayload) {
-      return (
-        <ExperimentSkipped
-          message={
-            <>
-              This experiment is stopped and does not have a{" "}
-              <strong>Temporary Rollout</strong> enabled. This rule will be
-              skipped.
-            </>
-          }
-          experimentId={experiment.id}
-        />
-      );
-    }
-
     return (
-      <ExperimentSkipped
-        message="This experiment is stopped, but a winning variation was not selected. This rule will be skipped"
-        experimentId={experiment.id}
-      />
+      <Callout status="info">
+        This {isBandit ? "Bandit" : "Experiment"} is stopped and does not have a{" "}
+        <strong>Temporary Rollout</strong> enabled. This rule will be skipped.{" "}
+        <Link href={`/experiment/${experiment.id}#results`}>View Results</Link>
+      </Callout>
     );
   }
 
@@ -154,20 +104,20 @@ export default function ExperimentRefSummary({
   return (
     <div>
       {experiment.status === "draft" && !isDraft && (
-        <div className="alert alert-warning">
+        <Callout status="warning" mb="3">
           This {isBandit ? "Bandit" : "Experiment"} is in a{" "}
           <strong>draft</strong> state and has not been started yet. This rule
           will be skipped.
-        </div>
+        </Callout>
       )}
       {experiment.status === "stopped" && (
-        <div className="alert alert-info">
+        <Callout status="info" mb="3">
           This {isBandit ? "Bandit" : "Experiment"} is stopped and a{" "}
           <strong>Temporary Rollout</strong> is enabled. All users in the{" "}
           {isBandit ? "Bandit" : "Experiment"} will receive the winning
           variation. If no longer needed, you can stop it from the{" "}
           {isBandit ? "Bandit" : "Experiment"} page.
-        </div>
+        </Callout>
       )}
       {hasCondition && (
         <div className="row mb-3 align-items-top">
