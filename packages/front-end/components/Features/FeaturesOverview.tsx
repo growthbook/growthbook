@@ -19,7 +19,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Link from "next/link";
 import { BsClock } from "react-icons/bs";
 import { PiCheckCircleFill, PiCircleDuotone, PiFileX } from "react-icons/pi";
-import { Box, Card, Flex, Grid, Heading, Switch } from "@radix-ui/themes";
+import { Box, Card, Flex, Heading, Switch } from "@radix-ui/themes";
 import { RxListBullet } from "react-icons/rx";
 import Button from "@/components/Radix/Button";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
@@ -450,9 +450,7 @@ export default function FeaturesOverview({
     return (
       <>
         {actions.map((el, i) => (
-          <Box key={"cta-" + i} ml="5">
-            {el}
-          </Box>
+          <Box key={"cta-" + i}>{el}</Box>
         ))}
       </>
     );
@@ -921,12 +919,16 @@ export default function FeaturesOverview({
               <Heading as="h3" size="5" mb="3">
                 Rules &amp; Values
               </Heading>
-              <Grid columns="2" gap="4">
+              <Flex
+                gap="4"
+                align={{ initial: "center" }}
+                direction={{ initial: "column", xs: "row" }}
+                justify="between"
+              >
                 <Flex
                   align="center"
-                  flexGrow="1"
-                  width="100%"
                   justify="between"
+                  width={{ initial: "98%", sm: "70%", md: "60%", lg: "50%" }}
                 >
                   <Box width="100%">
                     <RevisionDropdown
@@ -960,10 +962,17 @@ export default function FeaturesOverview({
                     </a>
                   </Box>
                 </Flex>
-                <Flex align="center" justify="end">
+                <Flex
+                  align={{ initial: "center", xs: "center", sm: "start" }}
+                  justify="end"
+                  flexShrink="0"
+                  direction={{ initial: "row", xs: "column", sm: "row" }}
+                  style={{ whiteSpace: "nowrap" }}
+                  gap="4"
+                >
                   {renderRevisionCTA()}
                 </Flex>
-              </Grid>
+              </Flex>
             </Box>
             <Box className="appbox nobg" mt="4" p="4">
               {isPendingReview ? (
