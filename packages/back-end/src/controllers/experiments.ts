@@ -1040,6 +1040,7 @@ export async function postExperiment(
     "shareLevel",
     "uid",
     "analysisSummary",
+    "dismissedWarnings",
   ];
   let changes: Changeset = {};
 

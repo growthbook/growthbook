@@ -259,8 +259,16 @@ const experimentSchema = new mongoose.Schema({
       srm: Number,
       multipleExposures: Number,
       totalUsers: Number,
+      power: {
+        _id: false,
+        type: { type: String, enum: ["error", "success"] },
+        errorMessage: String,
+        isLowPowered: Boolean,
+        additionalDaysNeeded: Number,
+      },
     },
   },
+  dismissedWarnings: [String],
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;

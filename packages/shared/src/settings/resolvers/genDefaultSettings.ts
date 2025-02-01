@@ -1,5 +1,7 @@
 import { MemberRoleInfo, MetricDefaults } from "back-end/types/organization";
 import {
+  DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
+  DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
   DEFAULT_METRIC_CAPPING,
   DEFAULT_METRIC_CAPPING_VALUE,
   DEFAULT_METRIC_WINDOW,
@@ -86,5 +88,7 @@ export default function genDefaultSettings(): Settings {
     banditScheduleUnit: DEFAULT_BANDIT_SCHEDULE_UNIT,
     banditBurnInValue: DEFAULT_BANDIT_BURN_IN_VALUE,
     banditBurnInUnit: DEFAULT_BANDIT_BURN_IN_UNIT,
+    experimentMinLengthDays: DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
+    experimentMaxLengthDays: DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
   };
 }

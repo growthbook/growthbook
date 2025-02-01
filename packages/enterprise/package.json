@@ -17,6 +17,7 @@
     "type-check": "tsc --pretty --noEmit"
   },
   "dependencies": {
+    "date-fns": "^4.1.0",
     "shared": "0.0.1"
   },
   "devDependencies": {

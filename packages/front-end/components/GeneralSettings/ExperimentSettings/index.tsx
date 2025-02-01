@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useFormContext } from "react-hook-form";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex, Heading, Text, Tooltip } from "@radix-ui/themes";
 import Checkbox from "@/components/Radix/Checkbox";
 import { hasFileConfig } from "@/services/env";
 import { useUser } from "@/services/UserContext";
@@ -225,6 +225,53 @@ export default function ExperimentSettings({
               </Flex>
             </Box>
 
+            <Box mb="4" width="100%">
+              <Box className="appbox p-3">
+                <Flex align="center">
+                  <Tooltip content="This configuration will help us guide our recommendations for experiments.">
+                    <Flex gap="2" align="center" mb="4">
+                      <Text size="3" className="font-weight-semibold">
+                        Experiment Runtime
+                      </Text>{" "}
+                      <GBInfo />
+                    </Flex>
+                  </Tooltip>
+                </Flex>
+
+                <Flex direction="column" gap="2" mb="2">
+                  <Text size="2">Minimum runtime</Text>
+                  <Box width="150px">
+                    <Field
+                      type="number"
+                      append="days"
+                      step="1"
+                      min="0"
+                      max={form.watch("experimentMaxLengthDays")}
+                      {...form.register("experimentMinLengthDays", {
+                        valueAsNumber: true,
+                        max: form.watch("experimentMaxLengthDays"),
+                      })}
+                    />
+                  </Box>
+                </Flex>
+
+                <Flex direction="column" gap="2">
+                  <Text size="2">Maximum runtime</Text>
+                  <Box width="150px">
+                    <Field
+                      type="number"
+                      append="days"
+                      step="1"
+                      min="0"
+                      {...form.register("experimentMaxLengthDays", {
+                        valueAsNumber: true,
+                      })}
+                    />
+                  </Box>
+                </Flex>
+              </Box>
+            </Box>
+
             {/* Conversion window override */}
             <Box mb="4" width="100%">
               <Box className="appbox p-3">
@@ -362,12 +409,51 @@ export default function ExperimentSettings({
                   <Box>
                     <label
                       htmlFor="toggle-runHealthTrafficQuery"
-                      className="font-weight-semibold mb-3"
+                      className="font-weight-semibold mb-0"
                     >
                       Run traffic query by default
                     </label>
                   </Box>
                 </Flex>
+
+                <Box mb="4">
+                  <PremiumTooltip
+                    commercialFeature="mid-experiment-power"
+                    style={{ display: "inline-flex" }}
+                    body={
+                      <p>
+                        If enabled we will calculate the power of the experiment
+                        when the Results are refreshed and display the status as
+                        Unhealthy if the power is too low.
+                      </p>
+                    }
+                  >
+                    <Flex display="inline-flex" gap="3" align="start">
+                      <Checkbox
+                        mb="0"
+                        value={
+                          !hasCommercialFeature("mid-experiment-power")
+                            ? false
+                            : form.watch("midExperimentPowerEnabled")
+                        }
+                        setValue={(v) =>
+                          form.setValue("midExperimentPowerEnabled", v)
+                        }
+                        id="toggle-midExperimentPowerEnabled"
+                        disabled={!hasCommercialFeature("mid-experiment-power")}
+                      />
+                      <Box>
+                        <label
+                          htmlFor="toggle-midExperimentPowerEnabled"
+                          className="font-weight-semibold mb-0"
+                        >
+                          Mid-experiment Power Calculation <GBInfo />
+                        </label>
+                      </Box>
+                    </Flex>
+                  </PremiumTooltip>
+                </Box>
+
                 <Box mb="4">
                   <Text as="p" className="font-weight-semibold">
                     SRM p-value threshold

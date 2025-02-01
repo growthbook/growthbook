@@ -359,6 +359,7 @@ export function getDefaultExperimentAnalysisSettings(
     differenceType: "relative",
     pValueThreshold:
       organization.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
+    numGoalMetrics: experiment.goalMetrics.length,
   };
 }
 
@@ -2728,6 +2729,7 @@ export async function updateExperimentAnalysisSummary({
   };
 
   const overallTraffic = experimentSnapshot.health?.traffic?.overall;
+  const snapshotHealthPower = experimentSnapshot.health?.power;
 
   const totalUsers = overallTraffic?.variationUnits?.reduce(
     (acc, a) => acc + a,
@@ -2740,8 +2742,26 @@ export async function updateExperimentAnalysisSummary({
     analysisSummary.health = {
       srm,
       multipleExposures: experimentSnapshot.multipleExposures,
-      totalUsers,
+      totalUsers: totalUsers,
     };
+
+    if (snapshotHealthPower?.type === "error") {
+      const errorMessage = snapshotHealthPower.metricVariationPowerResults.find(
+        (r) => r.errorMessage !== undefined
+      )?.errorMessage;
+
+      analysisSummary.health.power = {
+        type: "error",
+        errorMessage:
+          errorMessage ?? "An error occurred while calculating power",
+      };
+    } else if (snapshotHealthPower?.type === "success") {
+      analysisSummary.health.power = {
+        type: "success",
+        isLowPowered: snapshotHealthPower.isLowPowered,
+        additionalDaysNeeded: snapshotHealthPower.additionalDaysNeeded,
+      };
+    }
   }
 
   await updateExperiment({
