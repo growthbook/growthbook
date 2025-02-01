@@ -19,8 +19,8 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import {
   getRules,
-  isRuleDisabled,
-  isRuleFullyCovered,
+  getUnreachableRuleIndex,
+  isRuleInactive,
 } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { Rule, SortableRule } from "./Rule";
@@ -35,7 +35,7 @@ export default function RuleList({
   setVersion,
   locked,
   experimentsMap,
-  hideDisabled,
+  hideInactive,
   isDraft,
 }: {
   feature: FeatureInterface;
@@ -54,7 +54,7 @@ export default function RuleList({
   setVersion: (version: number) => void;
   locked: boolean;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
-  hideDisabled?: boolean;
+  hideInactive?: boolean;
   isDraft: boolean;
 }) {
   const { apiCall } = useAuth();
@@ -73,7 +73,7 @@ export default function RuleList({
     })
   );
 
-  const disabledRules = items.filter((r) => isRuleDisabled(r, experimentsMap));
+  const inactiveRules = items.filter((r) => isRuleInactive(r, experimentsMap));
 
   if (!items.length) {
     return (
@@ -91,15 +91,7 @@ export default function RuleList({
   }
 
   // detect unreachable rules, and get the first rule that is at 100%.
-  let unreachableIndex = 0;
-  items.forEach((item, i) => {
-    if (unreachableIndex) return;
-
-    // if this rule covers 100% of traffic, no additional rules are reachable.
-    if (isRuleFullyCovered(item)) {
-      unreachableIndex = i + 1;
-    }
-  });
+  const unreachableIndex = getUnreachableRuleIndex(items, experimentsMap);
 
   const activeRule = activeId ? items[getRuleIndex(activeId)] : null;
 
@@ -150,7 +142,7 @@ export default function RuleList({
         setActiveId(active.id);
       }}
     >
-      {disabledRules.length === items.length && hideDisabled && (
+      {inactiveRules.length === items.length && hideInactive && (
         <div className="px-3 mb-3">
           <em>No Active Rules</em>
         </div>
@@ -171,7 +163,7 @@ export default function RuleList({
             setVersion={setVersion}
             locked={locked}
             experimentsMap={experimentsMap}
-            hideDisabled={hideDisabled}
+            hideInactive={hideInactive}
             isDraft={isDraft}
           />
         ))}
@@ -190,7 +182,7 @@ export default function RuleList({
             setVersion={setVersion}
             locked={locked}
             experimentsMap={experimentsMap}
-            hideDisabled={hideDisabled}
+            hideInactive={hideInactive}
             unreachable={
               !!unreachableIndex &&
               getRuleIndex(activeId as string) >= unreachableIndex

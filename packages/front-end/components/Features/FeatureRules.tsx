@@ -34,7 +34,7 @@ export default function FeatureRules({
   mutate,
   currentVersion,
   setVersion,
-  hideDisabled,
+  hideInactive,
   isDraft,
 }: {
   environments: Environment[];
@@ -46,7 +46,7 @@ export default function FeatureRules({
   mutate: () => Promise<unknown>;
   currentVersion: number;
   setVersion: (v: number) => void;
-  hideDisabled: boolean;
+  hideInactive: boolean;
   isDraft: boolean;
 }) {
   const envs = environments.map((e) => e.id);
@@ -168,7 +168,7 @@ export default function FeatureRules({
                     setVersion={setVersion}
                     locked={isLocked}
                     experimentsMap={experimentsMap}
-                    hideDisabled={hideDisabled}
+                    hideInactive={hideInactive}
                     isDraft={isDraft}
                   />
                 ) : (

@@ -12,7 +12,7 @@ import { PiArrowBendRightDown } from "react-icons/pi";
 import { format as formatTimeZone } from "date-fns-tz";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
-import { getRules, isRuleDisabled, useEnvironments } from "@/services/features";
+import { getRules, isRuleInactive, useEnvironments } from "@/services/features";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/components/Button";
@@ -51,7 +51,7 @@ interface SortableProps {
   setVersion: (version: number) => void;
   locked: boolean;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
-  hideDisabled?: boolean;
+  hideInactive?: boolean;
   isDraft: boolean;
 }
 
@@ -110,7 +110,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       setVersion,
       locked,
       experimentsMap,
-      hideDisabled,
+      hideInactive,
       isDraft,
       ...props
     },
@@ -150,7 +150,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       permissionsUtil.canViewFeatureModal(feature.project) &&
       permissionsUtil.canManageFeatureDrafts(feature);
 
-    const ruleDisabled = isRuleDisabled(rule, experimentsMap);
+    const isInactive = isRuleInactive(rule, experimentsMap);
 
     const hasCondition =
       (rule.condition && rule.condition !== "{}") ||
@@ -164,7 +164,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       unreachable,
     });
 
-    if (hideDisabled && ruleDisabled) {
+    if (hideInactive && isInactive) {
       return null;
     }
 
@@ -233,7 +233,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   {info.pill}
                 </Flex>
                 <Box>{info.callout}</Box>
-                <Box style={{ opacity: ruleDisabled ? 0.6 : 1 }} mt="3">
+                <Box style={{ opacity: isInactive ? 0.6 : 1 }} mt="3">
                   {hasCondition && rule.type !== "experiment-ref" && (
                     <div className="row mb-3 align-items-top">
                       <div className="col-auto d-flex align-items-center">
@@ -435,7 +435,7 @@ export function getRuleMetaInfo({
     rule.type === "experiment-ref"
       ? experimentsMap.get(rule.experimentId)
       : undefined;
-  const ruleDisabled = isRuleDisabled(rule, experimentsMap);
+  const ruleInactive = isRuleInactive(rule, experimentsMap);
   const ruleSkipped = isRuleSkipped({
     rule,
     linkedExperiment,
@@ -449,7 +449,7 @@ export function getRuleMetaInfo({
     rule?.scheduleRules?.length &&
     rule.scheduleRules.at(-1)?.timestamp !== null;
 
-  // Rule was explicitly marked as disabled
+  // Inactive due to explicitly being disabled
   if (!rule.enabled) {
     return {
       pill: (
@@ -468,7 +468,7 @@ export function getRuleMetaInfo({
     };
   }
 
-  // Was disabled due to a schedule
+  // Inactive due to a schedule that is finished
   if (
     scheduleCompletedAndDisabled &&
     rule.scheduleRules &&
@@ -490,8 +490,8 @@ export function getRuleMetaInfo({
     }
   }
 
-  // Disabled for some other reason (e.g. experiment is archived)
-  if (ruleDisabled) {
+  // Inactive for some other reason (e.g. experiment is archived)
+  if (ruleInactive) {
     // Assume callout will be added by the rule summary
     return {
       pill: <SkippedPill />,

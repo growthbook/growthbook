@@ -301,23 +301,43 @@ export function getVariationDefaultName(
   return val.value;
 }
 
-export function isRuleDisabled(
+export function isRuleInactive(
   rule: FeatureRule,
   experimentsMap: Map<string, ExperimentInterfaceStringDates>
 ): boolean {
-  const linkedExperiment =
-    rule.type === "experiment-ref" && experimentsMap.get(rule.experimentId);
+  // Explicitly disabled
+  if (!rule.enabled) return true;
+
+  // Was scheduled to be disabled and that time has passed
   const upcomingScheduleRule = getUpcomingScheduleRule(rule);
   const scheduleCompletedAndDisabled =
     !upcomingScheduleRule &&
     rule?.scheduleRules?.length &&
     rule.scheduleRules.at(-1)?.timestamp !== null;
+  if (scheduleCompletedAndDisabled) {
+    return true;
+  }
 
-  return (
-    scheduleCompletedAndDisabled ||
-    (linkedExperiment && linkedExperiment.archived) ||
-    !rule.enabled
-  );
+  // Linked experiment is missing, archived, or stopped with no temp rollout
+  if (rule.type === "experiment-ref") {
+    const linkedExperiment = experimentsMap.get(rule.experimentId);
+    if (!linkedExperiment) {
+      return true;
+    }
+    if (linkedExperiment.archived) {
+      return true;
+    }
+    if (
+      linkedExperiment.status === "stopped" &&
+      (!linkedExperiment.excludeFromPayload ||
+        !linkedExperiment.releasedVariationId)
+    ) {
+      return true;
+    }
+  }
+
+  // Otherwise, it is active
+  return false;
 }
 
 type NamespaceGaps = { start: number; end: number }[];
@@ -769,43 +789,45 @@ export function getDefaultRuleValue({
   throw new Error("Unknown Rule Type: " + ruleType);
 }
 
-export function isRuleFullyCovered(rule: FeatureRule): boolean {
-  // get the schedules on any of the rules:
-  const upcomingScheduleRule = getUpcomingScheduleRule(rule);
+export function getUnreachableRuleIndex(
+  rules: FeatureRule[],
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>
+) {
+  for (let i = 0; i < rules.length; i++) {
+    const rule = rules[i];
 
-  const scheduleCompletedAndDisabled =
-    !upcomingScheduleRule &&
-    rule?.scheduleRules?.length &&
-    rule.scheduleRules.at(-1)?.timestamp !== null;
+    // Skip over inactive rules
+    if (isRuleInactive(rule, experimentsMap)) continue;
 
-  const ruleDisabled =
-    scheduleCompletedAndDisabled ||
-    upcomingScheduleRule?.enabled ||
-    !rule.enabled;
+    // Skip rules that are conditional based on a schedule
+    const upcomingScheduleRule = getUpcomingScheduleRule(rule);
+    if (upcomingScheduleRule && upcomingScheduleRule.timestamp) {
+      continue;
+    }
 
-  if (rule?.prerequisites?.length) {
-    return false;
+    // Skip rules with targeting conditions
+    if (rule.condition && rule.condition !== "{}") {
+      continue;
+    }
+    if (rule.savedGroups?.length) {
+      continue;
+    }
+    if (rule.prerequisites?.length) {
+      continue;
+    }
+
+    // Skip non-force rules (require a non-null hash attribute, so may not match)
+    if (rule.type !== "force") {
+      continue;
+    }
+
+    // By this point, we have a force rule that matches all users
+    // Any rule after this is unreachable
+    return i + 1;
   }
 
-  // rollouts and experiments at 100%:
-  if (
-    (rule.type === "rollout" || rule.type === "experiment") &&
-    rule.coverage === 1 &&
-    rule.enabled === true &&
-    (!rule.condition || rule.condition === "{}") &&
-    !rule.savedGroups?.length &&
-    !ruleDisabled
-  ) {
-    return true;
-  }
-
-  // force rule at 100%: (doesn't have coverage)
-  return (
-    rule.type === "force" &&
-    rule.condition === "{}" &&
-    !rule.savedGroups?.length &&
-    !ruleDisabled
-  );
+  // No unreachable rules
+  return 0;
 }
 
 export function jsonToConds(

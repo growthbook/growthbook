@@ -37,7 +37,7 @@ import {
   getPrerequisites,
   useFeaturesList,
   getRules,
-  isRuleDisabled,
+  isRuleInactive,
 } from "@/services/features";
 import Modal from "@/components/Modal";
 import DraftModal from "@/components/Features/DraftModal";
@@ -112,7 +112,7 @@ export default function FeaturesOverview({
   const [reviewModal, setReviewModal] = useState(false);
   const [conflictModal, setConflictModal] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
-  const [hideDisabled, setHideDisabled] = useLocalStorage(
+  const [hideInactive, setHideInactive] = useLocalStorage(
     `hide-disabled-rules`,
     false
   );
@@ -258,12 +258,12 @@ export default function FeaturesOverview({
 
   // loop through each environment and see if there are any rules or disabled rules
   let hasRules = false;
-  let hasDisabledRules = false;
+  let hasInactiveRules = false;
   environments?.forEach((e) => {
     const r = getRules(feature, e.id) || [];
     if (r.length > 0) hasRules = true;
-    if (r.some((r) => isRuleDisabled(r, experimentsMap))) {
-      hasDisabledRules = true;
+    if (r.some((r) => isRuleInactive(r, experimentsMap))) {
+      hasInactiveRules = true;
     }
   });
 
@@ -1028,9 +1028,9 @@ export default function FeaturesOverview({
                   <label className="font-weight-semibold">
                     <Switch
                       mr="1"
-                      disabled={!hasDisabledRules}
-                      checked={!hideDisabled}
-                      onCheckedChange={(state) => setHideDisabled(!state)}
+                      disabled={!hasInactiveRules}
+                      checked={!hideInactive}
+                      onCheckedChange={(state) => setHideInactive(!state)}
                     />{" "}
                     Show inactive
                   </label>
@@ -1055,7 +1055,7 @@ export default function FeaturesOverview({
                       mutate={mutate}
                       currentVersion={currentVersion}
                       setVersion={setVersion}
-                      hideDisabled={hideDisabled}
+                      hideInactive={hideInactive}
                       isDraft={isDraft}
                     />
                   </>
