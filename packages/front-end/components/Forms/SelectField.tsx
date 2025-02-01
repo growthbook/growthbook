@@ -269,7 +269,6 @@ const SelectField: FC<SelectFieldProps> = ({
                 formatOptionLabel={formatOptionLabel}
                 formatGroupLabel={formatGroupLabel}
                 isSearchable={!!isSearchable}
-                // @ts-expect-error onPaste is passed to Input
                 onPaste={onPaste}
                 components={{
                   Input,
@@ -295,7 +294,6 @@ const SelectField: FC<SelectFieldProps> = ({
                 formatOptionLabel={formatOptionLabel}
                 formatGroupLabel={formatGroupLabel}
                 isSearchable={!!isSearchable}
-                // @ts-expect-error onPaste is passed to Input
                 onPaste={onPaste}
                 components={{
                   Input,
