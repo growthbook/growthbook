@@ -1,4 +1,5 @@
 import { Tooltip } from "@radix-ui/themes";
+import { addDays } from "date-fns";
 import {
   DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_COUNT,
   DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
@@ -9,7 +10,7 @@ import {
   DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
   DEFAULT_MID_EXPERIMENT_POWER_CALCULATION_ENABLED,
 } from "shared/constants";
-import { daysBetween } from "shared/dates";
+import { daysBetween, getValidDate } from "shared/dates";
 import { getMultipleExposureHealthData, getSRMHealthData } from "shared/health";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Badge from "@/components/Radix/Badge";
@@ -173,14 +174,36 @@ function getStatusIndicatorData(
         powerSummary &&
         powerSummary.type === "success" &&
         !powerSummary.isLowPowered &&
-        powerSummary.additionalDaysNeeded > 0
+        lastPhase.dateStarted
       ) {
-        return {
-          color: "indigo",
-          variant: "solid",
-          status: "Running",
-          detailedStatus: `~${powerSummary.additionalDaysNeeded} days left`,
-        };
+        const powerAdditionalDaysNeeded =
+          powerSummary.type === "success"
+            ? powerSummary.additionalDaysNeeded
+            : 0;
+
+        const runtimeTargetDaysRemaining = daysBetween(
+          new Date(),
+          addDays(
+            getValidDate(lastPhase.dateStarted),
+            healthSettings.experimentMaxLengthDays
+          )
+        );
+
+        const daysRemaining = Math.min(
+          ...[runtimeTargetDaysRemaining, powerAdditionalDaysNeeded].filter(
+            (d) => d > 0
+          )
+        );
+
+        // NB: Infinity is possible result if both values are filtered out.
+        if (daysRemaining > 0 && daysRemaining !== Infinity) {
+          return {
+            color: "indigo",
+            variant: "solid",
+            status: "Running",
+            detailedStatus: `~${daysRemaining} days left`,
+          };
+        }
       }
     }
 
