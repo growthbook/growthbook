@@ -1,8 +1,9 @@
 import clsx from "clsx";
 import { ReactElement } from "react";
-import { GBEdit } from "@/components/Icons";
+import { Box, Flex } from "@radix-ui/themes";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Link from "@/components/Radix/Link";
+import Button from "@/components/Radix/Button";
 
 export interface Props {
   className?: string;
@@ -26,32 +27,27 @@ export default function HeaderWithEdit({
   disabledMessage = null,
 }: Props) {
   return (
-    <div className={containerClassName}>
-      <div className={clsx(className, "mb-0")}>
+    <Box className={containerClassName}>
+      <Flex align="start" justify="between" className={clsx(className, "mb-0")}>
         {children}{" "}
         {edit ? (
-          <span className="ml-1">
-            <Link
-              className={editClassName}
-              role="button"
-              onClick={(e) => {
-                e.preventDefault();
-                if (stopPropagation) e.stopPropagation();
-                edit();
-              }}
-            >
-              <GBEdit />
-            </Link>
-          </span>
+          <Link
+            className={editClassName}
+            onClick={(e) => {
+              e.preventDefault();
+              if (stopPropagation) e.stopPropagation();
+              edit();
+            }}
+          >
+            <Button variant="ghost">Edit</Button>
+          </Link>
         ) : disabledMessage ? (
           <span className="ml-1 text-muted">
-            <Tooltip body={disabledMessage}>
-              <GBEdit />
-            </Tooltip>
+            <Tooltip body={disabledMessage}>Edit</Tooltip>
           </span>
         ) : null}
         {additionalActions && <div className="ml-1">{additionalActions}</div>}
-      </div>
-    </div>
+      </Flex>
+    </Box>
   );
 }

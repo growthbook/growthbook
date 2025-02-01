@@ -556,7 +556,7 @@ pre {
     }
   }
   .experiment-tabs {
-    background-color: var(--background-color);
+    background-color: var(--color-background);
     // NB: Keep top property in sync with TABS_HEADER_HEIGHT_PX in ExperimentHeader.tsx
     // also, make sure shared reports & shared experiments look good
     top: 55px;

@@ -123,6 +123,8 @@ const CustomFieldDisplay: FC<{
     });
   });
 
+  if (!hasCustomFieldAccess) return null;
+
   return (
     <Box>
       {editModal && (
@@ -157,27 +159,29 @@ const CustomFieldDisplay: FC<{
       )}
       {displayFieldsObj && (
         <Card className={className} my="3">
-          <Flex justify="between" align="center">
-            <Heading as="h4" size="3">
-              {label ? label : ""}
-            </Heading>
-            <div className="flex-1" />
-            {canEdit && hasCustomFieldAccess ? (
-              <>
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setEditModal(true);
-                  }}
-                >
-                  Edit
-                </Button>
-              </>
-            ) : (
-              <></>
-            )}
-          </Flex>
-          <DataList data={displayFieldsObj} maxColumns={3} />
+          <Box px="5" py="4">
+            <Flex justify="between" align="center">
+              <Heading as="h4" size="3">
+                {label ? label : ""}
+              </Heading>
+              <div className="flex-1" />
+              {canEdit && hasCustomFieldAccess ? (
+                <>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setEditModal(true);
+                    }}
+                  >
+                    Edit
+                  </Button>
+                </>
+              ) : (
+                <></>
+              )}
+            </Flex>
+            <DataList data={displayFieldsObj} maxColumns={3} />
+          </Box>
         </Card>
       )}
     </Box>
