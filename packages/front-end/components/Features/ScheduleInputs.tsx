@@ -58,7 +58,7 @@ export default function ScheduleInputs(props: Props) {
             Apply Schedule
           </PremiumTooltip>
         }
-        description="Enable/disable rule based on selected date and time"
+        description="Schedule this rule to be automatically enabled or disabled in the future"
         value={props.scheduleToggleEnabled}
         setValue={(v) => {
           props.setScheduleToggleEnabled(v === true);
