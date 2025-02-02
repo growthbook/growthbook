@@ -9,6 +9,7 @@ import {
   MergeStrategy,
   checkIfRevisionNeedsReview,
   resetReviewOnChange,
+  getAffectedEnvsForExperiment,
 } from "shared/util";
 import {
   getConnectionSDKCapabilities,
@@ -106,11 +107,13 @@ import {
   getExperimentById,
   getExperimentsByIds,
   getExperimentsByTrackingKeys,
+  updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { ReqContext } from "back-end/types/organization";
-import { ExperimentInterface } from "back-end/types/experiment";
+import { Changeset, ExperimentInterface } from "back-end/types/experiment";
 import { ApiReqContext } from "back-end/types/api";
 import { getAllCodeRefsForFeature } from "back-end/src/models/FeatureCodeRefs";
+import { getChangesToStartExperiment } from "back-end/src/services/experiments";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
@@ -722,6 +725,7 @@ export async function postFeaturePublish(
       comment: string;
       mergeResultSerialized: string;
       adminOverride?: boolean;
+      publishExperimentIds?: string[];
     },
     { id: string; version: string }
   >,
@@ -729,7 +733,12 @@ export async function postFeaturePublish(
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
-  const { comment, mergeResultSerialized, adminOverride } = req.body;
+  const {
+    comment,
+    mergeResultSerialized,
+    adminOverride,
+    publishExperimentIds,
+  } = req.body;
   const { id, version } = req.params;
   const feature = await getFeature(context, id);
 
@@ -833,6 +842,54 @@ export async function postFeaturePublish(
     }
   }
 
+  // If publishing experiments along with this draft, ensure they are valid
+  const experimentsToUpdate: {
+    experiment: ExperimentInterface;
+    changes: Changeset;
+  }[] = [];
+  if (publishExperimentIds && publishExperimentIds.length) {
+    const experiments = await getExperimentsByIds(
+      context,
+      publishExperimentIds
+    );
+    if (experiments.length !== publishExperimentIds.length) {
+      throw new Error("Invalid experiment IDs");
+    }
+    if (experiments.some((exp) => exp.status !== "draft" || exp.archived)) {
+      throw new Error("Can only publish draft experiments");
+    }
+    if (experiments.some((exp) => !exp.linkedFeatures?.includes(feature.id))) {
+      throw new Error("All experiments must be linked to this feature");
+    }
+    if (
+      experiments.some((exp) => {
+        const envs = getAffectedEnvsForExperiment({
+          experiment: exp,
+          orgEnvironments: allEnvironments,
+        });
+        return (
+          envs.length > 0 && !context.permissions.canRunExperiment(exp, envs)
+        );
+      })
+    ) {
+      context.permissions.throwPermissionError();
+    }
+
+    for (const experiment of experiments) {
+      try {
+        const changes = await getChangesToStartExperiment(context, experiment);
+
+        if (!context.permissions.canUpdateExperiment(experiment, changes)) {
+          context.permissions.throwPermissionError();
+        }
+
+        experimentsToUpdate.push({ experiment, changes });
+      } catch (e) {
+        throw new Error(`Cannot publish experiment: ${e.message}`);
+      }
+    }
+  }
+
   const updatedFeature = await publishRevision(
     context,
     feature,
@@ -852,6 +909,23 @@ export async function postFeaturePublish(
       comment,
     }),
   });
+
+  for (const { experiment, changes } of experimentsToUpdate) {
+    const updated = await updateExperiment({
+      context,
+      experiment,
+      changes,
+    });
+
+    await req.audit({
+      event: "experiment.status",
+      entity: {
+        object: "experiment",
+        id: experiment.id,
+      },
+      details: auditDetailsUpdate(experiment, updated),
+    });
+  }
 
   res.status(200).json({
     status: 200,

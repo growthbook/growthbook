@@ -6,10 +6,13 @@ import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { filterEnvironmentsByFeature } from "shared/util";
 import { Box, Card, Flex, Heading } from "@radix-ui/themes";
-import { RiDraggable } from "react-icons/ri";
+import { RiAlertLine, RiDraggable } from "react-icons/ri";
+import { RxCircleBackslash } from "react-icons/rx";
+import { PiArrowBendRightDown } from "react-icons/pi";
+import { format as formatTimeZone } from "date-fns-tz";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
-import { getRules, isRuleDisabled, useEnvironments } from "@/services/features";
+import { getRules, isRuleInactive, useEnvironments } from "@/services/features";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/components/Button";
@@ -18,12 +21,12 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import HelperText from "@/components/Radix/HelperText";
 import Badge from "@/components/Radix/Badge";
-import RuleStatusMsg from "@/components/Features/RuleStatusMsg";
+import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+import Callout from "@/components/Radix/Callout";
 import ConditionDisplay from "./ConditionDisplay";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
 import ExperimentSummary from "./ExperimentSummary";
-import RuleStatusPill from "./RuleStatusPill";
 import ExperimentRefSummary, {
   isExperimentRefRuleSkipped,
 } from "./ExperimentRefSummary";
@@ -48,13 +51,47 @@ interface SortableProps {
   setVersion: (version: number) => void;
   locked: boolean;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
-  hideDisabled?: boolean;
+  hideInactive?: boolean;
+  isDraft: boolean;
 }
 
 type RuleProps = SortableProps &
   React.HTMLAttributes<HTMLDivElement> & {
     handle?: React.HTMLAttributes<HTMLDivElement>;
   };
+
+function isRuleSkipped({
+  rule,
+  linkedExperiment,
+  isDraft,
+}: {
+  rule: FeatureRule;
+  isDraft: boolean;
+  linkedExperiment?: ExperimentInterfaceStringDates;
+}): boolean {
+  // Not live yet
+  const upcomingScheduleRule = getUpcomingScheduleRule(rule);
+  if (upcomingScheduleRule?.enabled && rule?.scheduleRules?.length) return true;
+
+  // Schedule completed and disabled
+  if (
+    !upcomingScheduleRule &&
+    rule?.scheduleRules?.length &&
+    rule.scheduleRules.at(-1)?.timestamp !== null
+  ) {
+    return true;
+  }
+
+  // If the experiment is skipped
+  if (
+    linkedExperiment &&
+    isExperimentRefRuleSkipped(linkedExperiment, isDraft)
+  ) {
+    return true;
+  }
+
+  return false;
+}
 
 // eslint-disable-next-line
 export const Rule = forwardRef<HTMLDivElement, RuleProps>(
@@ -73,7 +110,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       setVersion,
       locked,
       experimentsMap,
-      hideDisabled,
+      hideInactive,
+      isDraft,
       ...props
     },
     ref
@@ -112,26 +150,21 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       permissionsUtil.canViewFeatureModal(feature.project) &&
       permissionsUtil.canManageFeatureDrafts(feature);
 
-    const upcomingScheduleRule = getUpcomingScheduleRule(rule);
-
-    const scheduleCompletedAndDisabled =
-      !upcomingScheduleRule &&
-      rule?.scheduleRules?.length &&
-      rule.scheduleRules.at(-1)?.timestamp !== null;
-
-    const ruleDisabled = isRuleDisabled(rule, experimentsMap);
+    const isInactive = isRuleInactive(rule, experimentsMap);
 
     const hasCondition =
       (rule.condition && rule.condition !== "{}") ||
       !!rule.savedGroups?.length ||
       !!rule.prerequisites?.length;
 
-    const isSkipped =
-      (upcomingScheduleRule && rule?.scheduleRules?.length) ||
-      0 > 0 ||
-      scheduleCompletedAndDisabled ||
-      (linkedExperiment && isExperimentRefRuleSkipped(linkedExperiment));
-    if (hideDisabled && ruleDisabled) {
+    const info = getRuleMetaInfo({
+      rule,
+      experimentsMap,
+      isDraft,
+      unreachable,
+    });
+
+    if (hideInactive && isInactive) {
       return null;
     }
 
@@ -146,13 +179,14 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 top: 0,
                 bottom: 0,
                 width: "4px",
-                backgroundColor: !rule.enabled
-                  ? "var(--gray-5)"
-                  : unreachable
-                  ? "var(--orange-7)"
-                  : isSkipped
-                  ? "var(--amber-7)"
-                  : "var(--green-9)",
+                backgroundColor:
+                  info.sideColor === "disabled"
+                    ? "var(--gray-5)"
+                    : info.sideColor === "unreachable"
+                    ? "var(--orange-7)"
+                    : info.sideColor === "skipped"
+                    ? "var(--amber-7)"
+                    : "var(--green-9)",
               }}
             ></div>
             <Flex align="start" justify="between" gap="3" p="1" px="2">
@@ -174,7 +208,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 <Flex align="center" justify="between" mb="3">
                   <Heading as="h4" size="3" weight="medium" mb="0">
                     {linkedExperiment ? (
-                      <>
+                      <Flex gap="3" align="center">
                         {linkedExperiment.type === "multi-armed-bandit"
                           ? "Bandit"
                           : "Experiment"}
@@ -188,35 +222,18 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         >
                           {linkedExperiment.name}
                         </Link>
-                      </>
+                        <ExperimentStatusIndicator
+                          experimentData={linkedExperiment}
+                        />
+                      </Flex>
                     ) : (
                       title
                     )}
                   </Heading>
-                  <RuleStatusPill
-                    rule={rule}
-                    ruleDisabled={ruleDisabled}
-                    unreachable={unreachable}
-                    upcomingScheduleRule={upcomingScheduleRule}
-                    scheduleCompletedAndDisabled={
-                      !!scheduleCompletedAndDisabled
-                    }
-                    linkedExperiment={linkedExperiment || undefined}
-                  />
+                  {info.pill}
                 </Flex>
-                <Box>
-                  <RuleStatusMsg
-                    rule={rule}
-                    ruleDisabled={ruleDisabled}
-                    unreachable={unreachable}
-                    upcomingScheduleRule={upcomingScheduleRule}
-                    scheduleCompletedAndDisabled={
-                      !!scheduleCompletedAndDisabled
-                    }
-                    linkedExperiment={linkedExperiment || undefined}
-                  />
-                </Box>
-                <Box style={{ opacity: ruleDisabled ? 0.6 : 1 }} mt="3">
+                <Box>{info.callout}</Box>
+                <Box style={{ opacity: isInactive ? 0.6 : 1 }} mt="3">
                   {hasCondition && rule.type !== "experiment-ref" && (
                     <div className="row mb-3 align-items-top">
                       <div className="col-auto d-flex align-items-center">
@@ -257,6 +274,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       feature={feature}
                       experiment={experimentsMap.get(rule.experimentId)}
                       rule={rule}
+                      isDraft={isDraft}
                     />
                   )}
                 </Box>
@@ -380,4 +398,175 @@ export function SortableRule(props: SortableProps) {
       handle={{ ...attributes, ...listeners }}
     />
   );
+}
+
+function SkippedPill() {
+  return (
+    <Badge
+      color="amber"
+      label={
+        <>
+          <PiArrowBendRightDown />
+          Skipped
+        </>
+      }
+    />
+  );
+}
+
+export type RuleMetaInfo = {
+  pill?: ReactElement;
+  callout?: ReactElement;
+  sideColor: "active" | "skipped" | "disabled" | "unreachable";
+};
+
+export function getRuleMetaInfo({
+  rule,
+  experimentsMap,
+  isDraft,
+  unreachable,
+}: {
+  rule: FeatureRule;
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>;
+  isDraft: boolean;
+  unreachable?: boolean;
+}): RuleMetaInfo {
+  const linkedExperiment =
+    rule.type === "experiment-ref"
+      ? experimentsMap.get(rule.experimentId)
+      : undefined;
+  const ruleInactive = isRuleInactive(rule, experimentsMap);
+  const ruleSkipped = isRuleSkipped({
+    rule,
+    linkedExperiment,
+    isDraft,
+  });
+
+  const upcomingScheduleRule = getUpcomingScheduleRule(rule);
+
+  const scheduleCompletedAndDisabled =
+    !upcomingScheduleRule &&
+    rule?.scheduleRules?.length &&
+    rule.scheduleRules.at(-1)?.timestamp !== null;
+
+  // Inactive due to explicitly being disabled
+  if (!rule.enabled) {
+    return {
+      pill: (
+        <Badge
+          color="gray"
+          title="Rule is not enabled"
+          label={
+            <>
+              <RxCircleBackslash />
+              Disabled
+            </>
+          }
+        />
+      ),
+      sideColor: "disabled",
+    };
+  }
+
+  // Inactive due to a schedule that is finished
+  if (
+    scheduleCompletedAndDisabled &&
+    rule.scheduleRules &&
+    rule.scheduleRules.length > 0
+  ) {
+    const lastRule = rule.scheduleRules[rule.scheduleRules.length - 1];
+    if (lastRule && lastRule.timestamp) {
+      return {
+        pill: <SkippedPill />,
+        callout: (
+          <Callout status="warning">
+            Disabled by a schedule on{" "}
+            {new Date(lastRule.timestamp).toLocaleDateString()} at{" "}
+            {formatTimeZone(new Date(lastRule.timestamp), "h:mm a z")}
+          </Callout>
+        ),
+        sideColor: "skipped",
+      };
+    }
+  }
+
+  // Inactive for some other reason (e.g. experiment is archived)
+  if (ruleInactive) {
+    // Assume callout will be added by the rule summary
+    return {
+      pill: <SkippedPill />,
+      sideColor: "skipped",
+    };
+  }
+
+  // Skipped, but will be enabled on a schedule
+  if (
+    upcomingScheduleRule &&
+    upcomingScheduleRule.enabled &&
+    upcomingScheduleRule.timestamp
+  ) {
+    return {
+      pill: <SkippedPill />,
+      callout: (
+        <Callout status="warning">
+          Will be enabled on{" "}
+          {new Date(upcomingScheduleRule.timestamp).toLocaleDateString()} at{" "}
+          {formatTimeZone(new Date(upcomingScheduleRule.timestamp), "h:mm a z")}
+        </Callout>
+      ),
+      sideColor: "skipped",
+    };
+  }
+
+  // Skipped for some other reason
+  if (ruleSkipped) {
+    return {
+      pill: <SkippedPill />,
+      sideColor: "skipped",
+    };
+  }
+
+  // Rule is not reachable
+  if (unreachable) {
+    return {
+      pill: (
+        <Badge
+          color="orange"
+          title="Rule not reachable"
+          label={
+            <>
+              <RiAlertLine />
+              Unreachable
+            </>
+          }
+        />
+      ),
+      callout: (
+        <Callout status="warning">
+          Rules above will serve 100% of traffic and this rule will never be
+          used
+        </Callout>
+      ),
+      sideColor: "unreachable",
+    };
+  }
+
+  // Active, but will be disabled on a schedule
+  if (upcomingScheduleRule && upcomingScheduleRule.timestamp) {
+    return {
+      callout: (
+        <Callout status="info">
+          Will be disabled on{" "}
+          {new Date(upcomingScheduleRule.timestamp).toLocaleDateString()} at{" "}
+          {formatTimeZone(new Date(upcomingScheduleRule.timestamp), "h:mm a z")}
+        </Callout>
+      ),
+      sideColor: "active",
+    };
+  }
+
+  // Active
+  return {
+    sideColor: "active",
+  };
 }

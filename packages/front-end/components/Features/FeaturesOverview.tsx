@@ -19,7 +19,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Link from "next/link";
 import { BsClock } from "react-icons/bs";
 import { PiCheckCircleFill, PiCircleDuotone, PiFileX } from "react-icons/pi";
-import { Box, Card, Flex, Grid, Heading, Switch } from "@radix-ui/themes";
+import { Box, Card, Flex, Heading, Switch } from "@radix-ui/themes";
 import { RxListBullet } from "react-icons/rx";
 import Button from "@/components/Radix/Button";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
@@ -37,7 +37,7 @@ import {
   getPrerequisites,
   useFeaturesList,
   getRules,
-  isRuleDisabled,
+  isRuleInactive,
 } from "@/services/features";
 import Modal from "@/components/Modal";
 import DraftModal from "@/components/Features/DraftModal";
@@ -112,7 +112,7 @@ export default function FeaturesOverview({
   const [reviewModal, setReviewModal] = useState(false);
   const [conflictModal, setConflictModal] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
-  const [hideDisabled, setHideDisabled] = useLocalStorage(
+  const [hideInactive, setHideInactive] = useLocalStorage(
     `hide-disabled-rules`,
     false
   );
@@ -177,11 +177,11 @@ export default function FeaturesOverview({
     [feature, features, envsStr]
   );
 
-  const experimentsMap = useMemo(() => {
+  const experimentsMap = useMemo<
+    Map<string, ExperimentInterfaceStringDates>
+  >(() => {
     if (!experiments) return new Map();
-    return new Map<string, ExperimentInterfaceStringDates>(
-      experiments.map((exp) => [exp.id, exp])
-    );
+    return new Map(experiments.map((exp) => [exp.id, exp]));
   }, [experiments]);
   if (!baseFeature || !feature || !revision) {
     return <LoadingOverlay />;
@@ -258,12 +258,12 @@ export default function FeaturesOverview({
 
   // loop through each environment and see if there are any rules or disabled rules
   let hasRules = false;
-  let hasDisabledRules = false;
+  let hasInactiveRules = false;
   environments?.forEach((e) => {
     const r = getRules(feature, e.id) || [];
     if (r.length > 0) hasRules = true;
-    if (r.filter((r) => isRuleDisabled(r, experimentsMap))) {
-      hasDisabledRules = true;
+    if (r.some((r) => isRuleInactive(r, experimentsMap))) {
+      hasInactiveRules = true;
     }
   });
 
@@ -450,9 +450,7 @@ export default function FeaturesOverview({
     return (
       <>
         {actions.map((el, i) => (
-          <Box key={"cta-" + i} ml="5">
-            {el}
-          </Box>
+          <Box key={"cta-" + i}>{el}</Box>
         ))}
       </>
     );
@@ -921,12 +919,16 @@ export default function FeaturesOverview({
               <Heading as="h3" size="5" mb="3">
                 Rules &amp; Values
               </Heading>
-              <Grid columns="2" gap="4">
+              <Flex
+                gap="4"
+                align={{ initial: "center" }}
+                direction={{ initial: "column", xs: "row" }}
+                justify="between"
+              >
                 <Flex
                   align="center"
-                  flexGrow="1"
-                  width="100%"
                   justify="between"
+                  width={{ initial: "98%", sm: "70%", md: "60%", lg: "50%" }}
                 >
                   <Box width="100%">
                     <RevisionDropdown
@@ -960,10 +962,17 @@ export default function FeaturesOverview({
                     </a>
                   </Box>
                 </Flex>
-                <Flex align="center" justify="end">
+                <Flex
+                  align={{ initial: "center", xs: "center", sm: "start" }}
+                  justify="end"
+                  flexShrink="0"
+                  direction={{ initial: "row", xs: "column", sm: "row" }}
+                  style={{ whiteSpace: "nowrap" }}
+                  gap="4"
+                >
                   {renderRevisionCTA()}
                 </Flex>
-              </Grid>
+              </Flex>
             </Box>
             <Box className="appbox nobg" mt="4" p="4">
               {isPendingReview ? (
@@ -1028,11 +1037,11 @@ export default function FeaturesOverview({
                   <label className="font-weight-semibold">
                     <Switch
                       mr="1"
-                      disabled={!hasDisabledRules}
-                      checked={!hideDisabled}
-                      onCheckedChange={(state) => setHideDisabled(!state)}
+                      disabled={!hasInactiveRules}
+                      checked={!hideInactive}
+                      onCheckedChange={(state) => setHideInactive(!state)}
                     />{" "}
-                    Show disabled
+                    Show inactive
                   </label>
                 </Flex>
                 {environments.length > 0 ? (
@@ -1055,7 +1064,8 @@ export default function FeaturesOverview({
                       mutate={mutate}
                       currentVersion={currentVersion}
                       setVersion={setVersion}
-                      hideDisabled={hideDisabled}
+                      hideInactive={hideInactive}
+                      isDraft={isDraft}
                     />
                   </>
                 ) : (
@@ -1158,10 +1168,7 @@ export default function FeaturesOverview({
             version={revision.version}
             close={() => setReviewModal(false)}
             mutate={mutate}
-            onDiscard={() => {
-              // When discarding a draft, switch back to the live version
-              setVersion(feature.version);
-            }}
+            experimentsMap={experimentsMap}
           />
         )}
         {draftModal && revision && (
@@ -1171,10 +1178,7 @@ export default function FeaturesOverview({
             version={revision.version}
             close={() => setDraftModal(false)}
             mutate={mutate}
-            onDiscard={() => {
-              // When discarding a draft, switch back to the live version
-              setVersion(feature.version);
-            }}
+            experimentsMap={experimentsMap}
           />
         )}
         {conflictModal && revision && (
