@@ -1,20 +1,21 @@
 import { FC, useEffect, useMemo, useState } from "react";
 import { CustomField, CustomFieldSection } from "back-end/types/custom-fields";
 import { UseFormReturn } from "react-hook-form";
+import { Switch } from "@radix-ui/themes";
 import { filterCustomFieldsForSectionAndProject } from "@/hooks/useCustomFields";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
-import Toggle from "@/components/Forms/Toggle";
 
 const CustomFieldInput: FC<{
   customFields: CustomField[];
   // eslint-disable-next-line
   form: UseFormReturn<any>;
   section: CustomFieldSection;
+  setCustomFields?: (customFields: Record<string, string>) => void;
   project?: string;
   className?: string;
-}> = ({ customFields, project, className, form, section }) => {
+}> = ({ customFields, project, className, form, section, setCustomFields }) => {
   const availableFields = filterCustomFieldsForSectionAndProject(
     customFields,
     section,
@@ -58,6 +59,9 @@ const CustomFieldInput: FC<{
   const updateCustomField = (name, value) => {
     currentCustomFields[name] = value;
     form.setValue("customFields", currentCustomFields);
+    if (setCustomFields) {
+      setCustomFields(currentCustomFields);
+    }
   };
 
   const getMultiSelectValue = (value) => {
@@ -85,14 +89,15 @@ const CustomFieldInput: FC<{
                 <div key={i}>
                   {v.type === "boolean" ? (
                     <div className="mb-3 mt-3">
-                      <Toggle
+                      <Switch
                         id="bool"
-                        value={
+                        mr="3"
+                        checked={
                           currentCustomFields?.[v.id]
                             ? currentCustomFields[v.id] === "true"
                             : false
                         }
-                        setValue={(t) => {
+                        onCheckedChange={(t) => {
                           updateCustomField(v.id, "" + JSON.stringify(t));
                         }}
                       />
