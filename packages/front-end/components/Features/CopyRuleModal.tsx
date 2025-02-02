@@ -1,6 +1,7 @@
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { filterEnvironmentsByFeature } from "shared/util";
 import { useState } from "react";
+import { Box } from "@radix-ui/themes";
 import { getRules, useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
@@ -143,6 +144,68 @@ export default function CopyRuleModal({
           );
         })}
       </div>
+    </Modal>
+  );
+}
+
+export function DuplicateRuleModal({
+  feature,
+  environment,
+  version,
+  setVersion,
+  rule,
+  cancel,
+  mutate,
+}: {
+  feature: FeatureInterface;
+  environment: string;
+  version: number;
+  setVersion: (version: number) => void;
+  rule: FeatureRule;
+  cancel: () => void;
+  mutate: () => void;
+}) {
+  const { apiCall } = useAuth();
+
+  const allEnvironments = useEnvironments();
+  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+  const envs = environments.map((e) => e.id);
+
+  const submit = async () => {
+    let draftVersion = version;
+    if (!envs.includes(environment)) {
+      throw new Error("Invalid environment");
+    }
+
+    const res = await apiCall<{ version: number }>(
+      `/feature/${feature.id}/${draftVersion}/rule`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          environment: environment,
+          rule: { ...rule, id: "" },
+        }),
+      }
+    );
+    draftVersion = res.version;
+
+    track("Duplicate Feature Rule", {
+      environment,
+    });
+    await mutate();
+    setVersion(draftVersion);
+  };
+
+  return (
+    <Modal
+      trackingEventModalType=""
+      header={`Duplicate Rule`}
+      open={true}
+      close={cancel}
+      submit={submit}
+      cta={`Duplicate Rule`}
+    >
+      <Box p="4">Duplicate this rule in {environment}?</Box>
     </Modal>
   );
 }

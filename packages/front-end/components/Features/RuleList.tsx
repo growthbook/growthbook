@@ -31,6 +31,7 @@ export default function RuleList({
   environment,
   setRuleModal,
   setCopyRuleModal,
+  setDuplicateRuleModal,
   version,
   setVersion,
   locked,
@@ -49,6 +50,10 @@ export default function RuleList({
   setCopyRuleModal: (args: {
     environment: string;
     rules: FeatureRule[];
+  }) => void;
+  setDuplicateRuleModal?: (args: {
+    environment: string;
+    rule: FeatureRule;
   }) => void;
   version: number;
   setVersion: (version: number) => void;
@@ -158,6 +163,7 @@ export default function RuleList({
             mutate={mutate}
             setRuleModal={setRuleModal}
             setCopyRuleModal={setCopyRuleModal}
+            setDuplicateRuleModal={setDuplicateRuleModal}
             unreachable={!!unreachableIndex && i >= unreachableIndex}
             version={version}
             setVersion={setVersion}
@@ -178,6 +184,7 @@ export default function RuleList({
             mutate={mutate}
             setRuleModal={setRuleModal}
             setCopyRuleModal={setCopyRuleModal}
+            setDuplicateRuleModal={setDuplicateRuleModal}
             version={version}
             setVersion={setVersion}
             locked={locked}

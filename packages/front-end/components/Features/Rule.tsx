@@ -46,6 +46,10 @@ interface SortableProps {
     environment: string;
     rules: FeatureRule[];
   }) => void;
+  setDuplicateRuleModal?: (args: {
+    environment: string;
+    rule: FeatureRule;
+  }) => void;
   unreachable?: boolean;
   version: number;
   setVersion: (version: number) => void;
@@ -103,6 +107,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       environment,
       setRuleModal,
       setCopyRuleModal,
+      setDuplicateRuleModal,
       mutate,
       handle,
       unreachable,
@@ -204,7 +209,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               <Box>
                 <Badge label={<>{i + 1}</>} radius="full" color="gray" />
               </Box>
-              <Box width="100%">
+              <Box width="100%" flexShrink="5" overflowY="auto">
                 <Flex align="center" justify="between" mb="3">
                   <Heading as="h4" size="3" weight="medium" mb="0">
                     {linkedExperiment ? (
@@ -335,6 +340,19 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         }}
                       >
                         Copy rule to environment(s)
+                      </Button>
+                    )}
+                    {setDuplicateRuleModal && (
+                      <Button
+                        color=""
+                        className="dropdown-item"
+                        onClick={() => {
+                          if (setDuplicateRuleModal) {
+                            setDuplicateRuleModal({ environment, rule: rule });
+                          }
+                        }}
+                      >
+                        Duplicate rule
                       </Button>
                     )}
                     <DeleteButton
