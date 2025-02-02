@@ -25,6 +25,7 @@ export type SelectFieldProps = Omit<
   "value" | "onChange" | "options" | "multi" | "initialOption" | "placeholder"
 > & {
   value: string;
+  markRequired?: boolean;
   placeholder?: string;
   options: (SingleValue | GroupedValue)[];
   initialOption?: string;

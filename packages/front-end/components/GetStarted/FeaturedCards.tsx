@@ -11,7 +11,7 @@ import styles from "./FeaturedCards.module.scss";
 
 export function FeatureFlagFeatureCard() {
   return (
-    <CardLink href="/getstarted/feature-flag-guide">
+    <CardLink href="/features">
       <Flex>
         <Heading as="h2" size="4" weight="bold">
           Create Feature Flags from scratch
@@ -30,7 +30,7 @@ export function FeatureFlagFeatureCard() {
 
 export function ExperimentFeatureCard() {
   return (
-    <CardLink href="/getstarted/experiment-guide">
+    <CardLink href="/experiments">
       <Flex direction="column" height="100%">
         <Flex>
           <Heading as="h2" size="4" weight="bold">

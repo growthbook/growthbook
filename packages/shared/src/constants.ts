@@ -40,3 +40,12 @@ export const AUTOMATIC_DIMENSION_OTHER_NAME = "__Other__";
 // export const variant_3 = "#e83e8c";
 
 export const GROWTHBOOK_SECURE_ATTRIBUTE_SALT = "eg8amUur5GunJXCfgjwB";
+
+export const OWNER_ROLES = [
+  "Engineer",
+  "Data Scientist",
+  "Project Manager",
+  "Marketer",
+  "Designer",
+  "Other",
+];

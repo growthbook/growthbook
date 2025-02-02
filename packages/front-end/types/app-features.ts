@@ -53,4 +53,5 @@ export type AppFeatures = {
   "gb-ax10-bandit": boolean;
   "fact-metric-sql-preview": boolean;
   "inbuilt-data-warehouse": boolean;
+  "use-new-setup-flow-2": boolean;
 };

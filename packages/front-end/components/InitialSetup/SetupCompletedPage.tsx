@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, FC } from "react";
 import { Grid } from "@radix-ui/themes";
 import { useCelebration } from "@/hooks/useCelebration";
 import {
@@ -7,12 +7,18 @@ import {
   FeatureFlagFeatureCard,
 } from "@/components/GetStarted/FeaturedCards";
 
-const SetupCompletedPage = (): React.ReactElement => {
+interface SetupCompletedPageProps {
+  exitHref?: string;
+}
+
+const SetupCompletedPage: FC<SetupCompletedPageProps> = ({
+  exitHref = "/getstarted",
+}): React.ReactElement => {
   const startCelebration = useCelebration();
 
   useEffect(() => {
     startCelebration();
-  });
+  }, [startCelebration]);
 
   return (
     <div
@@ -29,7 +35,7 @@ const SetupCompletedPage = (): React.ReactElement => {
         <ExperimentFeatureCard />
       </Grid>
 
-      <Link className="float-right mt-auto" href={"/getstarted"}>
+      <Link className="float-right mt-auto" href={exitHref}>
         <button className="btn btn-primary">Exit Setup</button>
       </Link>
     </div>

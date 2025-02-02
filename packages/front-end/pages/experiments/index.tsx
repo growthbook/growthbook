@@ -10,7 +10,7 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentTemplateInterface,
 } from "back-end/types/experiment";
-import { Box, Text } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import { isEmpty } from "lodash";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -52,6 +52,8 @@ import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
 import { TemplatesPage } from "@/components/Experiment/Templates/TemplatesPage";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import ViewSampleDataButton from "@/components/GetStarted/ViewSampleDataButton";
+import EmptyState from "@/components/EmptyState";
 
 const NUM_PER_PAGE = 20;
 
@@ -341,6 +343,9 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const hasExperiments = experiments.length > 0;
 
+  // Show the View Sample Button if none of the experiments have an attached datasource
+  const showViewSampleButton = !experiments.some((e) => e.datasource);
+
   const hasTemplatesFeature = hasCommercialFeature("templates");
 
   const canAddExperiment = permissionsUtil.canViewExperimentModal(project);
@@ -398,8 +403,8 @@ const ExperimentsPage = (): React.ReactElement => {
   return (
     <>
       <div className="contents experiments container-fluid pagecontents">
-        <div className="mb-3">
-          <div className="filters md-form row mb-3 align-items-center">
+        <div className="my-3">
+          <div className="filters md-form row align-items-center">
             <div className="col-auto">
               <h1>Experiments</h1>
             </div>
@@ -411,6 +416,7 @@ const ExperimentsPage = (): React.ReactElement => {
                 </LinkButton>
               </div>
             )}
+            {showViewSampleButton && <ViewSampleDataButton />}
             {(canAddExperiment || canAddTemplate) && (
               <div className="col-auto">{addExperimentDropdownButton}</div>
             )}
@@ -428,28 +434,26 @@ const ExperimentsPage = (): React.ReactElement => {
             <TabsContent value="experiments">
               <CustomMarkdown page={"experimentList"} />
               {!hasExperiments ? (
-                <div className="box py-4 text-center">
-                  <div className="mx-auto mb-3" style={{ maxWidth: 650 }}>
-                    <h1>Test Variations with Targeted Users</h1>
-                    <Text size="3">
-                      Run unlimited tests with linked feature flags, URL
-                      redirects or the Visual Editor. You can also easily import
-                      existing experiments from other platforms.
-                    </Text>
-                  </div>
-                  <div
-                    className="d-flex justify-content-center"
-                    style={{ gap: "1rem" }}
-                  >
+                <EmptyState
+                  title="Test Variations with Targeted Users"
+                  description="Run unlimited tests with linked feature flags, URL redirects or the Visual Editor."
+                  leftButton={
                     <LinkButton
-                      href="/getstarted/experiment-guide"
+                      href="https://docs.growthbook.io/experiments"
                       variant="outline"
+                      external
                     >
-                      Setup Instructions
+                      View docs
                     </LinkButton>
-                    {canAddExperiment && addExperimentDropdownButton}
-                  </div>
-                </div>
+                  }
+                  rightButton={
+                    canAddExperiment && (
+                      <Button onClick={() => setOpenNewExperimentModal(true)}>
+                        Create New Experiment
+                      </Button>
+                    )
+                  }
+                />
               ) : (
                 <>
                   <div className="row align-items-center mb-3">

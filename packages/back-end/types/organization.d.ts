@@ -6,6 +6,7 @@ import {
   Policy,
 } from "shared/permissions";
 import { z } from "zod";
+import { OWNER_ROLES } from "shared/constants";
 import { environment } from "back-end/src/routers/environment/environment.validators";
 import type { ReqContextClass } from "back-end/src/services/context";
 import { attributeDataTypes } from "back-end/src/util/organization.util";
@@ -44,6 +45,8 @@ export type RequireReview = {
   environments: string[];
   projects: string[];
 };
+
+export type OwnerRole = typeof OWNER_ROLES[number];
 
 export type DefaultMemberRole =
   | "noaccess"
@@ -261,6 +264,7 @@ export interface OrganizationInterface {
   externalId?: string;
   name: string;
   ownerEmail: string;
+  ownerRole?: OwnerRole;
   stripeCustomerId?: string;
   restrictLoginMethod?: string;
   restrictAuthSubPrefix?: string;

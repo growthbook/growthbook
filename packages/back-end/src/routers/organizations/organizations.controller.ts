@@ -37,7 +37,6 @@ import {
   addPendingMemberToOrg,
   expandOrgMembers,
   findVerifiedOrgsForNewUser,
-  getContextForAgendaJobByOrgObject,
   getContextFromReq,
   getInviteUrl,
   getNumberOfUniqueMembersAndInvites,
@@ -59,6 +58,7 @@ import {
   NamespaceUsage,
   OrganizationInterface,
   OrganizationSettings,
+  OwnerRole,
   Role,
   SDKAttribute,
 } from "back-end/types/organization";
@@ -666,6 +666,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     invites,
     members,
     ownerEmail,
+    ownerRole,
     name,
     id,
     url,
@@ -765,6 +766,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     organization: {
       invites: filteredInvites,
       ownerEmail,
+      ownerRole,
       externalId,
       name,
       id,
@@ -1161,6 +1163,9 @@ export async function postInvite(
 interface SignupBody {
   company: string;
   externalId: string;
+  ownerRole: OwnerRole;
+  ownerFeatureFlagUsageIntent: boolean;
+  ownerExperimentUsageIntent: boolean;
 }
 
 export async function deleteMember(
@@ -1242,7 +1247,13 @@ export async function deleteInvite(
 
 export async function signup(req: AuthRequest<SignupBody>, res: Response) {
   // Note: Request will not have an organization at this point. Do not use getContextFromReq
-  const { company, externalId } = req.body;
+  const {
+    company,
+    externalId,
+    ownerRole,
+    ownerFeatureFlagUsageIntent,
+    ownerExperimentUsageIntent,
+  } = req.body;
 
   const orgs = await hasOrganization();
   // Only allow one organization per site unless IS_MULTI_ORG is true
@@ -1280,9 +1291,13 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
       name: company,
       verifiedDomain,
       externalId,
+      ownerRole,
+      ownerFeatureFlagUsageIntent,
+      ownerExperimentUsageIntent,
     });
 
-    const context = getContextForAgendaJobByOrgObject(org);
+    req.organization = org;
+    const context = getContextFromReq(req);
 
     const project = await context.models.projects.create({
       name: "My First Project",
