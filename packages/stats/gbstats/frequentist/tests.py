@@ -12,7 +12,11 @@ from gbstats.messages import (
     ZERO_SCALED_VARIATION_MESSAGE,
     NO_UNITS_IN_VARIATION_MESSAGE,
 )
-from gbstats.models.statistics import TestStatistic, ScaledImpactStatistic
+from gbstats.models.statistics import (
+    TestStatistic,
+    ScaledImpactStatistic,
+    RegressionAdjustedStatistic,
+)
 from gbstats.models.tests import BaseABTest, BaseConfig, TestResult, Uplift
 from gbstats.utils import variance_of_ratios, isinstance_union
 
@@ -79,15 +83,48 @@ class TTest(BaseABTest):
 
     @property
     def variance(self) -> float:
-        return frequentist_variance(
-            self.stat_a.variance,
-            self.stat_a.unadjusted_mean,
-            self.stat_a.n,
-            self.stat_b.variance,
-            self.stat_b.unadjusted_mean,
-            self.stat_b.n,
-            self.relative,
-        )
+        if (
+            isinstance(self.stat_a, RegressionAdjustedStatistic)
+            and isinstance(self.stat_b, RegressionAdjustedStatistic)
+            and self.relative
+        ):
+            den_trt = self.stat_b.n * self.stat_a.unadjusted_mean**2
+            den_ctrl = self.stat_a.n * self.stat_a.unadjusted_mean**2
+            if den_trt == 0 or den_ctrl == 0:
+                return 0  # avoid division by zero
+            theta = self.stat_a.theta if self.stat_a.theta else 0
+            num_trt = (
+                self.stat_b.post_statistic.variance
+                + theta**2 * self.stat_b.pre_statistic.variance
+                - 2 * theta * self.stat_b.covariance
+            )
+            v_trt = num_trt / den_trt
+            const = -self.stat_b.post_statistic.mean
+            num_a = (
+                self.stat_a.post_statistic.variance
+                * const**2
+                / (self.stat_a.post_statistic.mean**2)
+            )
+            num_b = (
+                2
+                * theta
+                * self.stat_a.covariance
+                * const
+                / self.stat_a.post_statistic.mean
+            )
+            num_c = theta**2 * self.stat_a.pre_statistic.variance
+            v_ctrl = (num_a + num_b + num_c) / den_ctrl
+            return v_trt + v_ctrl
+        else:
+            return frequentist_variance(
+                self.stat_a.variance,
+                self.stat_a.unadjusted_mean,
+                self.stat_a.n,
+                self.stat_b.variance,
+                self.stat_b.unadjusted_mean,
+                self.stat_b.n,
+                self.relative,
+            )
 
     @property
     def point_estimate(self) -> float:
