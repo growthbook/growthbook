@@ -41,14 +41,11 @@ interface SortableProps {
     environment: string;
     i: number;
     defaultType?: string;
+    duplicate?: boolean;
   }) => void;
   setCopyRuleModal: (args: {
     environment: string;
     rules: FeatureRule[];
-  }) => void;
-  setDuplicateRuleModal?: (args: {
-    environment: string;
-    rule: FeatureRule;
   }) => void;
   unreachable?: boolean;
   version: number;
@@ -107,7 +104,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       environment,
       setRuleModal,
       setCopyRuleModal,
-      setDuplicateRuleModal,
       mutate,
       handle,
       unreachable,
@@ -342,14 +338,12 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         Copy rule to environment(s)
                       </Button>
                     )}
-                    {setDuplicateRuleModal && (
+                    {rule.type !== "experiment-ref" && (
                       <Button
                         color=""
                         className="dropdown-item"
                         onClick={() => {
-                          if (setDuplicateRuleModal) {
-                            setDuplicateRuleModal({ environment, rule: rule });
-                          }
+                          setRuleModal({ environment, i, duplicate: true });
                         }}
                       >
                         Duplicate rule

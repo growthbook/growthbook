@@ -11,9 +11,7 @@ import RuleModal from "@/components/Features/RuleModal/index";
 import RuleList from "@/components/Features/RuleList";
 import track from "@/services/track";
 import { getRules, useEnvironmentState } from "@/services/features";
-import CopyRuleModal, {
-  DuplicateRuleModal,
-} from "@/components/Features/CopyRuleModal";
+import CopyRuleModal from "@/components/Features/CopyRuleModal";
 import Button from "@/components/Radix/Button";
 import {
   Tabs,
@@ -57,14 +55,11 @@ export default function FeatureRules({
     i: number;
     environment: string;
     defaultType?: string;
+    duplicate?: boolean;
   } | null>(null);
   const [copyRuleModal, setCopyRuleModal] = useState<{
     environment: string;
     rules: FeatureRule[];
-  } | null>(null);
-  const [duplicateRuleModal, setDuplicateRuleModal] = useState<{
-    environment: string;
-    rule: FeatureRule;
   } | null>(null);
   const [compareEnvModal, setCompareEnvModal] = useState<{
     sourceEnv?: string;
@@ -170,7 +165,6 @@ export default function FeatureRules({
                     mutate={mutate}
                     setRuleModal={setRuleModal}
                     setCopyRuleModal={setCopyRuleModal}
-                    setDuplicateRuleModal={setDuplicateRuleModal}
                     version={currentVersion}
                     setVersion={setVersion}
                     locked={isLocked}
@@ -218,6 +212,7 @@ export default function FeatureRules({
           version={currentVersion}
           setVersion={setVersion}
           revisions={revisions}
+          duplicate={ruleModal?.duplicate || false}
         />
       )}
       {copyRuleModal !== null && (
@@ -228,17 +223,6 @@ export default function FeatureRules({
           setVersion={setVersion}
           rules={copyRuleModal.rules}
           cancel={() => setCopyRuleModal(null)}
-          mutate={mutate}
-        />
-      )}
-      {duplicateRuleModal !== null && (
-        <DuplicateRuleModal
-          feature={feature}
-          environment={duplicateRuleModal.environment}
-          version={currentVersion}
-          setVersion={setVersion}
-          rule={duplicateRuleModal.rule}
-          cancel={() => setDuplicateRuleModal(null)}
           mutate={mutate}
         />
       )}
