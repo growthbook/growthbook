@@ -116,10 +116,6 @@ export default function RuleModal({
     attributeSchema,
   });
 
-  // unset the ID if we're duplicating the rule.
-  if (duplicate) {
-    rule.id = "";
-  }
   const defaultValues = {
     ...defaultRuleValues,
     ...rule,
@@ -296,6 +292,11 @@ export default function RuleModal({
     // If the user built a schedule, but disabled the toggle, we ignore the schedule
     if (!scheduleToggleEnabled) {
       values.scheduleRules = [];
+    }
+
+    // unset the ID if we're duplicating the rule.
+    if (duplicate) {
+      values.id = "";
     }
 
     // Loop through each scheduleRule and convert the timestamp to an ISOString()
