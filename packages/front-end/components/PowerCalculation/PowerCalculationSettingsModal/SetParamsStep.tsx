@@ -45,6 +45,9 @@ const DataInput = ({
   const metricIds = Object.keys(metrics);
   const error = form.watch("metricValuesData.error");
 
+  const usersPerWeek = form.watch("usersPerWeek");
+  const isUsersPerDayInvalid = usersPerWeek !== undefined && usersPerWeek <= 0;
+
   return (
     <>
       <div className="ml-2 mt-4">
@@ -147,6 +150,12 @@ const DataInput = ({
             valueAsNumber: true,
           })}
           disabled={!metricsEditable}
+          className={isUsersPerDayInvalid ? "border border-danger" : undefined}
+          helpText={
+            isUsersPerDayInvalid ? (
+              <div className="text-danger">Must be greater than 0</div>
+            ) : undefined
+          }
         />
       </div>
       <div className="ml-2">
@@ -157,65 +166,6 @@ const DataInput = ({
             engineType={engineType}
             form={form}
             disableValue={!metricsEditable}
-          />
-        ))}
-      </div>
-    </>
-  );
-};
-
-const ManualDataInput = ({
-  form,
-  engineType,
-}: {
-  form: PowerCalculationForm;
-  engineType: "bayesian" | "frequentist";
-}) => {
-  const metrics = form.watch("metrics");
-  const metricIds = Object.keys(metrics);
-
-  const usersPerWeek = form.watch("usersPerWeek");
-  const isUsersPerDayInvalid = usersPerWeek !== undefined && usersPerWeek <= 0;
-
-  return (
-    <>
-      <div className="ml-2">
-        <Field
-          label={
-            <div>
-              <span className="font-weight-bold mr-1">
-                Estimated Users Per Week
-              </span>
-              <Tooltip
-                popperClassName="text-left"
-                body="Total users across all variations"
-                tipPosition="right"
-              />
-            </div>
-          }
-          type="number"
-          {...form.register("usersPerWeek", {
-            valueAsNumber: true,
-          })}
-          className={isUsersPerDayInvalid ? "border border-danger" : undefined}
-          helpText={
-            isUsersPerDayInvalid ? (
-              <div className="text-danger">Must be greater than 0</div>
-            ) : undefined
-          }
-        />
-      </div>
-
-      <div className="ml-2">
-        <p>Customize metric details for calculating experiment duration.</p>
-
-        {metricIds.map((metricId) => (
-          <MetricParamsInput
-            key={metricId}
-            metricId={metricId}
-            engineType={engineType}
-            form={form}
-            disableValue={false}
           />
         ))}
       </div>
@@ -413,6 +363,34 @@ export const SetParamsStep = ({
   engineType: "bayesian" | "frequentist";
 }) => {
   const metricValuesSource = form.watch("metricValuesData.source");
+
+  let inputModal: JSX.Element | null = null;
+  switch (metricValuesSource) {
+    case "segment":
+    case "factTable":
+      inputModal = (
+        <PopulationDataQueryInput form={form} engineType={engineType} />
+      );
+      break;
+    case "experiment":
+      inputModal = (
+        <DataInput
+          form={form}
+          engineType={engineType}
+          hasPrefilledData={true}
+        />
+      );
+      break;
+    case "manual":
+      inputModal = (
+        <DataInput
+          form={form}
+          engineType={engineType}
+          hasPrefilledData={false}
+        />
+      );
+      break;
+  }
   return (
     <Modal
       trackingEventModalType=""
@@ -446,16 +424,7 @@ export const SetParamsStep = ({
         </button>
       }
     >
-      {metricValuesSource === "segment" ||
-      metricValuesSource === "factTable" ? (
-        <PopulationDataQueryInput form={form} engineType={engineType} />
-      ) : null}
-      {metricValuesSource === "experiment" ? (
-        <DataInput form={form} engineType={engineType} />
-      ) : null}
-      {metricValuesSource === "manual" ? (
-        <ManualDataInput form={form} engineType={engineType} />
-      ) : null}
+      {inputModal}
     </Modal>
   );
 };
