@@ -22,7 +22,7 @@ export interface Props {
   mutate: () => void;
   editTargeting?: (() => void) | null;
   linkedFeatures: LinkedFeatureInfo[];
-  verifiedConnections: SDKConnectionInterface[];
+  matchingConnections: SDKConnectionInterface[];
   disableEditing?: boolean;
   checklistItemsRemaining: number | null;
   setChecklistItemsRemaining: (value: number | null) => void;
@@ -35,7 +35,7 @@ export default function SetupTabOverview({
   mutate,
   editTargeting,
   linkedFeatures,
-  verifiedConnections,
+  matchingConnections,
   disableEditing,
   checklistItemsRemaining,
   setChecklistItemsRemaining,
@@ -89,7 +89,7 @@ export default function SetupTabOverview({
             linkedFeatures={linkedFeatures}
             visualChangesets={visualChangesets}
             editTargeting={editTargeting}
-            verifiedConnections={verifiedConnections}
+            connections={matchingConnections}
             checklistItemsRemaining={checklistItemsRemaining}
             setChecklistItemsRemaining={setChecklistItemsRemaining}
           />

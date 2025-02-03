@@ -29,6 +29,7 @@ import {
   createSnapshotAnalysis,
   determineNextBanditSchedule,
   getAdditionalExperimentAnalysisSettings,
+  getChangesToStartExperiment,
   getDefaultExperimentAnalysisSettings,
   getLinkedFeatureInfo,
   resetExperimentBanditSettings,
@@ -1448,71 +1449,8 @@ export async function postExperimentStatus(
     status === "running" &&
     phases?.length > 0
   ) {
-    // use the current date as the phase start date
-    phases[lastIndex] = {
-      ...phases[lastIndex],
-      dateStarted: new Date(),
-    };
-    changes.phases = phases;
-
-    // Bandit-specific changes
-    if (experiment.type === "multi-armed-bandit") {
-      const metricMap = await getMetricMap(context);
-
-      // Multiple events (not just the seed 0th event) means this bandit phase was already running somehow.
-      // If multiple events, don't flush.
-      const preserveExistingBanditEvents =
-        (phases[lastIndex]?.banditEvents?.length ?? 0) > 1;
-      Object.assign(
-        changes,
-        resetExperimentBanditSettings({
-          experiment,
-          changes,
-          settings,
-          preserveExistingBanditEvents,
-        })
-      );
-
-      // validate datasources
-      let datasource: DataSourceInterface | null = null;
-      if (!experiment.datasource) {
-        throw new Error("Missing datasource");
-      }
-      datasource = await getDataSourceById(context, experiment.datasource);
-      if (!datasource) {
-        res.status(403).json({
-          status: 403,
-          message: "Invalid datasource: " + experiment.datasource,
-        });
-        return;
-      }
-
-      // validate goal metric
-      if (!experiment?.goalMetrics?.[0]) {
-        res.status(403).json({
-          status: 403,
-          message: "Missing goal metric",
-        });
-        return;
-      }
-      const metric = metricMap.get(experiment.goalMetrics[0]);
-      if (!metric) {
-        res.status(403).json({
-          status: 403,
-          message: "Invalid metric: " + experiment.goalMetrics[0],
-        });
-        return;
-      }
-      if (metric.cappingSettings.type === "percentile") {
-        res.status(403).json({
-          status: 403,
-          message: "Goal metric must not use percentile capping",
-        });
-        return;
-      }
-    }
+    Object.assign(changes, getChangesToStartExperiment(context, experiment));
   }
-
   // If starting or drafting a stopped experiment, clear the phase end date
   // and perform any needed bandit cleanup
   else if (
