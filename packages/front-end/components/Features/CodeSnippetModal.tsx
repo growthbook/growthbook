@@ -166,7 +166,7 @@ export default function CodeSnippetModal({
         trackingEventModalType=""
         close={close}
         secondaryCTA={secondaryCTA}
-        className="mb-4"
+        className="mb-4 appbox"
         bodyClassName="p-0"
         open={true}
         inline={inline}
@@ -188,7 +188,7 @@ export default function CodeSnippetModal({
         cta={cta}
       >
         <div
-          className="border-bottom mb-3 px-3 py-2 position-sticky bg-white shadow-sm"
+          className="border-bottom mb-3 px-3 py-2 position-sticky shadow-sm"
           style={{ top: 0, zIndex: 999 }}
         >
           <div className="row">

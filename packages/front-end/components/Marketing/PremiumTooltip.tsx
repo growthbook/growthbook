@@ -1,7 +1,7 @@
 import { CommercialFeature } from "enterprise";
 import { CSSProperties, HTMLAttributes, ReactNode } from "react";
 import clsx from "clsx";
-import { Flex } from "@radix-ui/themes";
+import { Flex, Text } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBPremiumBadge } from "@/components/Icons";
@@ -101,14 +101,13 @@ export default function PremiumTooltip({
       body={
         <>
           {!hasFeature && (
-            <p
-              className={clsx(
-                body ? "mb-2" : "mb-0",
-                !hasFeature ? "text-indigo font-weight-bold" : ""
-              )}
+            <Text
+              as="p"
+              mb={body ? "2" : "0"}
+              className={clsx(!hasFeature ? "font-weight-bold" : "")}
             >
               {tooltipText}
-            </p>
+            </Text>
           )}
           {body}
         </>

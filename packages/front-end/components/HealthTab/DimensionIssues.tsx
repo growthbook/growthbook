@@ -5,8 +5,13 @@ import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
 } from "back-end/types/datasource";
+import { getSRMHealthData, SRMHealthStatus } from "shared/health";
+import {
+  DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
+  DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+  DEFAULT_SRM_THRESHOLD,
+} from "shared/constants";
 import { useUser } from "@/services/UserContext";
-import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
 import track from "@/services/track";
 import VariationUsersTable from "@/components/Experiment/TabbedPage/VariationUsersTable";
 import Modal from "@/components/Modal";
@@ -16,10 +21,9 @@ import {
   HealthTabConfigParams,
   HealthTabOnboardingModal,
 } from "@/components/Experiment/TabbedPage/HealthTabOnboardingModal";
-import { EXPERIMENT_DIMENSION_PREFIX, srmHealthCheck } from "./SRMCard";
+import { EXPERIMENT_DIMENSION_PREFIX } from "./SRMCard";
 import HealthCard from "./HealthCard";
 import { IssueTags, IssueValue } from "./IssueTags";
-import { HealthStatus } from "./StatusBadge";
 
 interface Props {
   dimensionData: {
@@ -46,7 +50,8 @@ export function transformDimensionData(
     [dimension: string]: ExperimentSnapshotTrafficDimension[];
   },
   variations: ExperimentReportVariation[],
-  srmThreshold: number
+  srmThreshold: number,
+  isBandit: boolean
 ): DimensionWithIssues[] {
   return Object.entries(dimensionData).flatMap(
     ([dimensionName, dimensionSlices]) => {
@@ -61,11 +66,14 @@ export function transformDimensionData(
           0
         );
         return (
-          srmHealthCheck({
+          getSRMHealthData({
             srm: item.srm,
-            variations,
+            numOfVariations: variations.length,
             srmThreshold,
-            totalUsers: totalDimUsers,
+            totalUsersCount: totalDimUsers,
+            minUsersPerVariation: isBandit
+              ? DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION
+              : DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
           }) !== "healthy"
         );
       });
@@ -100,7 +108,8 @@ export const DimensionIssues = ({
   const availableDimensions = transformDimensionData(
     dimensionData,
     variations,
-    srmThreshold
+    srmThreshold,
+    !!isBandit
   ).sort((a, b) => b.issues.length - a.issues.length);
 
   const [selectedDimension, setSelectedDimension] = useState(
@@ -110,14 +119,17 @@ export const DimensionIssues = ({
   const [issues, dimensionSlicesWithHealth] = useMemo(() => {
     const dimensionSlicesWithHealth: (ExperimentSnapshotTrafficDimension & {
       totalUsers: number;
-      health: HealthStatus;
+      health: SRMHealthStatus;
     })[] = dimensionData[selectedDimension]?.map((d) => {
       const totalDimUsers = d.variationUnits.reduce((acc, a) => acc + a, 0);
-      const health = srmHealthCheck({
+      const health = getSRMHealthData({
         srm: d.srm,
         srmThreshold,
-        variations,
-        totalUsers: totalDimUsers,
+        numOfVariations: variations.length,
+        totalUsersCount: totalDimUsers,
+        minUsersPerVariation: isBandit
+          ? DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION
+          : DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
       });
 
       return {
@@ -130,7 +142,7 @@ export const DimensionIssues = ({
 
     const dimensionSlicesWithIssues = dimensionSlicesWithHealth?.reduce(
       (acc, cur) => {
-        if (cur.health === "Issues detected") {
+        if (cur.health === "unhealthy") {
           acc.push({ label: cur.name, value: cur.name });
         }
 
@@ -140,7 +152,13 @@ export const DimensionIssues = ({
     );
 
     return [dimensionSlicesWithIssues, dimensionSlicesWithHealth];
-  }, [dimensionData, selectedDimension, srmThreshold, variations]);
+  }, [
+    dimensionData,
+    selectedDimension,
+    srmThreshold,
+    variations.length,
+    isBandit,
+  ]);
 
   const areDimensionsAvailable = !!availableDimensions.length;
 
@@ -206,8 +224,7 @@ export const DimensionIssues = ({
                           variations={variations}
                           srm={d.srm}
                         />
-                        {(d.health === "healthy" ||
-                          d.health === "Issues detected") && (
+                        {d.health !== "not-enough-traffic" ? (
                           <SRMWarning
                             srm={d.srm}
                             variations={variations}
@@ -216,8 +233,7 @@ export const DimensionIssues = ({
                             type="simple"
                             isBandit={isBandit}
                           />
-                        )}
-                        {d.health === "Not enough traffic" && (
+                        ) : (
                           <div className="alert alert-info">
                             <b>
                               More traffic is required to detect a Sample Ratio

@@ -54,4 +54,5 @@ export type AppFeatures = {
   "fact-metric-sql-preview": boolean;
   "inbuilt-data-warehouse": boolean;
   "use-new-setup-flow-2": boolean;
+  "show-impact-near-top": boolean;
 };

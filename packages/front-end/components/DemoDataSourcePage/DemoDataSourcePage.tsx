@@ -119,7 +119,7 @@ export function DeleteDemoDatasourceButton({
       displayName="Sample Data"
       title="Sample Data"
       text="Delete Sample Data"
-      outline={false}
+      useRadix={true}
       onClick={async () => {
         track("Delete Sample Project", {
           source,

@@ -794,7 +794,7 @@ describe("experiments events", () => {
         },
       },
       experiment: { id: "experiment-aabb", ...experimentSnapshot },
-      results: { srm: 0.1 },
+      results: { srm: 0.1, variations: [{ users: 50 }, { users: 50 }] },
       snapshot: { multipleExposures: 10, totalUsers: 100 },
     });
 

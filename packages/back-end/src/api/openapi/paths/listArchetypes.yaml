@@ -1,0 +1,23 @@
+summary: Get the organization's archetypes
+tags:
+  - archetypes
+operationId: listArchetypes
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl https://api.growthbook.io/api/v1/archetypes \
+        -u secret_abc123DEF456:
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          allOf:
+            - type: object
+              required:
+                - archetypes
+              properties:
+                archetypes:
+                  type: array
+                  items:
+                    $ref: "../schemas/Archetype.yaml"

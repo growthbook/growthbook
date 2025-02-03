@@ -455,6 +455,15 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       const template = templatesMap.get(initialValue.templateId);
       if (!template) return;
       const templateAsExperiment = convertTemplateToExperiment(template);
+
+      if (templateAsExperiment.skipPartialData === true) {
+        // @ts-expect-error Mangled types
+        templateAsExperiment.skipPartialData = "strict";
+      } else if (templateAsExperiment.skipPartialData === false) {
+        // @ts-expect-error Mangled types
+        templateAsExperiment.skipPartialData = "loose";
+      }
+
       form.reset(templateAsExperiment, {
         keepDefaultValues: true,
       });
@@ -713,7 +722,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         </Page>
 
         {!isBandit && (isNewExperiment || duplicate)
-          ? ["Overview", "Traffic", "Targeting"].map((p, i) => {
+          ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => {
               // skip, custom overview page above
               if (i === 0) return null;
               return (
@@ -790,16 +799,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           : null}
 
         {isBandit && (isNewExperiment || duplicate)
-          ? [
-              "Overview",
-              "Traffic",
-              "Targeting",
-              <>
-                Analysis
-                <br />
-                Settings
-              </>,
-            ].map((p, i) => {
+          ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => {
               // skip, custom overview page above
               if (i === 0) return null;
               return (
@@ -1009,15 +1009,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         ) : null}
 
         {!(isNewExperiment || duplicate) ? (
-          <Page
-            display={
-              <>
-                Analysis
-                <br />
-                Settings
-              </>
-            }
-          >
+          <Page display="Metrics">
             <div className="px-2" style={{ minHeight: 350 }}>
               {(!isImport || fromFeature) && (
                 <SelectField
@@ -1099,7 +1091,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             </div>
 
             {isImport && (
-              <div className="form-group">
+              <div className="form-group ml-2">
                 <Toggle
                   id="auto_refresh_results"
                   label="Auto Refresh Results"
