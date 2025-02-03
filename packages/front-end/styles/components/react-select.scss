@@ -4,14 +4,14 @@
 .gb-multi-select__control,
 .gb-select__control {
   border-color: var(--border-color-200) !important;
-  background-color: var(--surface-background-color) !important;
+  background-color: var(--color-surface) !important;
 }
 
 .gb-multi-select__menu,
 .gb-select__menu {
   min-width: 100% !important;
   width: max-content !important;
-  background-color: var(--surface-background-color) !important;
+  background-color: var(--color-surface-solid) !important;
 }
 
 .gb-multi-select__option,

@@ -44,6 +44,11 @@ import { useTemplates } from "@/hooks/useTemplates";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { convertTemplateToExperimentRule } from "@/services/experiments";
 import { useUser } from "@/services/UserContext";
+import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
+import {
+  filterCustomFieldsForSectionAndProject,
+  useCustomFields,
+} from "@/hooks/useCustomFields";
 
 export default function ExperimentRefNewFields({
   step,
@@ -78,6 +83,7 @@ export default function ExperimentRefNewFields({
   hideVariationIds = true,
   startEditingIndexes = false,
   orgStickyBucketing,
+  setCustomFields,
   isTemplate = false,
 }: {
   step: number;
@@ -112,6 +118,7 @@ export default function ExperimentRefNewFields({
   hideVariationIds?: boolean;
   startEditingIndexes?: boolean;
   orgStickyBucketing?: boolean;
+  setCustomFields?: (customFields: Record<string, string>) => void;
   isTemplate?: boolean;
 }) {
   const form = useFormContext();
@@ -166,6 +173,12 @@ export default function ExperimentRefNewFields({
     hasCommercialFeature("templates") &&
     settings.requireExperimentTemplates &&
     availableTemplates.length >= 1;
+
+  const customFields = filterCustomFieldsForSectionAndProject(
+    useCustomFields(),
+    "experiment",
+    project
+  );
 
   return (
     <>
@@ -256,6 +269,17 @@ export default function ExperimentRefNewFields({
             {...form.register("description")}
             placeholder="Short human-readable description of the Experiment"
           />
+
+          {hasCommercialFeature("custom-metadata") &&
+            !!customFields?.length && (
+              <CustomFieldInput
+                customFields={customFields}
+                currentCustomFields={form.watch("customFields")}
+                setCustomFields={setCustomFields ? setCustomFields : () => {}}
+                section={"experiment"}
+                project={project}
+              />
+            )}
         </>
       ) : null}
 

@@ -451,6 +451,9 @@ export default function RuleModal({
           type: values.experimentType,
         };
 
+        if (values?.customFields) {
+          exp.customFields = values.customFields;
+        }
         if (values.experimentType === "multi-armed-bandit") {
           Object.assign(exp, {
             banditScheduleValue: values.banditScheduleValue ?? 1,
@@ -889,6 +892,9 @@ export default function RuleModal({
                   hideVariationIds={true}
                   startEditingIndexes={true}
                   orgStickyBucketing={orgStickyBucketing}
+                  setCustomFields={(customFields) =>
+                    form.setValue("customFields", customFields)
+                  }
                 />
               </Page>
             ))

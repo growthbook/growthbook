@@ -143,6 +143,7 @@ const experimentRule = baseRule
     banditBurnInValue: z.number().optional(),
     banditBurnInUnit: z.enum(["hours", "days"]).optional(),
     templateId: z.string().optional(),
+    customFields: z.record(z.any()).optional(),
   })
   .strict();
 

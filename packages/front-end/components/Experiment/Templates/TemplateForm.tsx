@@ -325,7 +325,10 @@ const TemplateForm: FC<Props> = ({
               <div className="form-group">
                 <CustomFieldInput
                   customFields={customFields}
-                  form={form}
+                  setCustomFields={(value) => {
+                    form.setValue("customFields", value);
+                  }}
+                  currentCustomFields={form.watch("customFields") || {}}
                   section={"experiment"}
                   project={form.watch("project")}
                 />

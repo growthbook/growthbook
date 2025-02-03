@@ -144,9 +144,12 @@ const CustomFieldDisplay: FC<{
           {hasCustomFieldAccess ? (
             <CustomFieldInput
               customFields={customFields}
-              form={form}
               section={section}
               project={target.project}
+              setCustomFields={(value) => {
+                form.setValue("customFields", value);
+              }}
+              currentCustomFields={form.watch("customFields") || {}}
             />
           ) : (
             <div className="text-center">
