@@ -5,6 +5,8 @@ import { Card } from "shared/src/types/subscriptions";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
+import { StripeProviderWrapper } from "@/components/Billing/StripeProviderWrapper";
+import { isCloud } from "@/services/env";
 import { GBAddCircle } from "../Icons";
 import Callout from "../Radix/Callout";
 import Badge from "../Radix/Badge";
@@ -25,12 +27,14 @@ export default function PaymentInfo() {
   const { apiCall } = useAuth();
 
   const fetchCardData = useCallback(async () => {
+    if (!isCloud()) return;
     setLoadingCards(true);
     try {
       if (!subscription?.externalId) {
         throw new Error("Must have a subscription.");
       }
       const res: { cards: Card[] } = await apiCall(
+        // MKTODO: Don't share externalId
         `/subscription/payment-methods/${subscription.externalId}`,
         {
           method: "GET",
@@ -76,13 +80,15 @@ export default function PaymentInfo() {
   }
 
   useEffect(() => {
-    if (subscription?.externalId) {
+    if (subscription?.externalId && isCloud()) {
       fetchCardData();
     }
   }, [apiCall, fetchCardData, subscription]);
 
+  if (!isCloud()) return null;
+
   return (
-    <>
+    <StripeProviderWrapper>
       <StripeProvider>
         {cardModal ? (
           <CreditCardModal
@@ -202,6 +208,6 @@ export default function PaymentInfo() {
           )}
         </div>
       </StripeProvider>
-    </>
+    </StripeProviderWrapper>
   );
 }
