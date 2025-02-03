@@ -48,6 +48,7 @@ import {
   isEnterpriseSSO,
   removeMember,
   revokeInvite,
+  getSubscriptionFromOrg,
 } from "back-end/src/services/organizations";
 import {
   getNonSensitiveParams,
@@ -761,7 +762,9 @@ export async function getOrganization(
     currentUserPermissions,
     teams: teamsWithMembers,
     license,
-    subscription: license ? getSubscriptionFromLicense(license) : null,
+    subscription: license
+      ? getSubscriptionFromLicense(license)
+      : getSubscriptionFromOrg(org),
     watching: {
       experiments: watch?.experiments || [],
       features: watch?.features || [],
