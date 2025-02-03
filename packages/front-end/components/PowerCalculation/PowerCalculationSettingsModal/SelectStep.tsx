@@ -117,12 +117,15 @@ export const SelectStep = ({
   // only allow metrics from the same datasource in an analysis
   // combine both metrics and remove quantile metrics
   const availableMetrics: ExperimentMetricInterface[] = useMemo(
-    () => {
-      console.log("availmetrics sourceId", metricValuesSourceId)
-      console.log("availmetrics datasource", selectedDatasource);
-      return [...appMetrics, ...appFactMetrics].filter((m) => {
+    () =>
+      [...appMetrics, ...appFactMetrics].filter((m) => {
         // drop quantile metrics
         if (quantileMetricType(m) !== "") return false;
+
+        // include all for manual metric values source
+        if (metricValuesSource === "manual") {
+          return true;
+        }
 
         // drop if not in experiment
         if (metricValuesSource === "experiment") {
@@ -130,21 +133,17 @@ export const SelectStep = ({
             (e) => e.id === metricValuesSourceId
           );
 
-          if (
-            experiment &&
-            !getAllMetricIdsFromExperiment(experiment).includes(m.id)
-          )
-            return false;
+          if (experiment && !experiment.allMetrics.includes(m.id)) return false;
         }
 
         // drop if not in datasource
-        if (!(selectedDatasource && m.datasource === selectedDatasource))
+        if (selectedDatasource && m.datasource !== selectedDatasource)
           return false;
 
         // drop if does not have user id type
         const userIdTypes = !isFactMetric(m)
           ? m.userIdTypes
-          : appFactTables.find((ft) => (ft.id = m.numerator.factTableId))
+          : appFactTables.find((ft) => ft.id === m.numerator.factTableId)
               ?.userIdTypes;
         if (
           selectedIdType &&
@@ -154,8 +153,7 @@ export const SelectStep = ({
           return false;
 
         return true;
-      })
-    },
+      }),
     [
       selectedDatasource,
       selectedIdType,
@@ -167,7 +165,6 @@ export const SelectStep = ({
       availableExperiments,
     ]
   );
-  console.log(availableMetrics);
 
   useEffect(() => {
     const metricValuesData = form.getValues("metricValuesData");
@@ -176,21 +173,16 @@ export const SelectStep = ({
         setAvailablePopulations(
           availableFactTables.map((p) => ({ label: p.name, value: p.id }))
         );
-        console.log("ft source", metricValuesSourceId);
-        console.log(availableFactTables);
-        debugger;
         const factTable = availableFactTables.find(
           (f) => f.id === metricValuesSourceId
         );
-        console.log(factTable);
         if (factTable) {
-          console.log("ft source", factTable);
           form.setValue("metricValuesData", {
             ...metricValuesData,
             source: metricValuesSource,
             sourceName: factTable.name,
             datasource: factTable.datasource,
-            identifierType: factTable.userIdTypes[0]
+            identifierType: factTable.userIdTypes[0],
           });
           setIdentifiers(factTable.userIdTypes);
         }
@@ -209,7 +201,7 @@ export const SelectStep = ({
             source: metricValuesSource,
             sourceName: segment.name,
             datasource: segment.datasource,
-            identifierType: segment.userIdType
+            identifierType: segment.userIdType,
           });
           setIdentifiers([segment.userIdType]);
         }
@@ -228,7 +220,7 @@ export const SelectStep = ({
             source: metricValuesSource,
             sourceName: experiment.name,
             datasource: experiment.datasource,
-            identifierType: experiment.exposureQueryUserIdType
+            identifierType: experiment.exposureQueryUserIdType,
           });
           setIdentifiers(
             experiment.exposureQueryUserIdType
@@ -244,8 +236,9 @@ export const SelectStep = ({
           source: metricValuesSource,
           sourceName: undefined,
           datasource: undefined,
-          identifierType: undefined
+          identifierType: undefined,
         });
+        break;
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -371,10 +364,8 @@ export const SelectStep = ({
               }
               value={metricValuesSourceId ?? ""}
               options={availablePopulations}
-              onChange={(value) => {
-                console.log(value);
+              onChange={(value) =>
                 form.setValue("metricValuesData.sourceId", value)
-              }
               }
               className="mb-2"
               forceUndefinedValueToNull={true}

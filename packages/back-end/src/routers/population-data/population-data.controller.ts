@@ -35,7 +35,7 @@ export const postPopulationData = async (
   const today = new Date();
   // TODO customizable lookback window
   const eightWeeksAgo = new Date(today);
-  eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 7 * 999);
+  eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 7 * 8);
 
   const integration = await getIntegrationFromDatasourceId(
     context,
