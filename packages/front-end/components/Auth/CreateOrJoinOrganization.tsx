@@ -278,6 +278,7 @@ const CreateOrJoinOrganization: FC<{
                     labelClassName="font-weight-bold"
                     markRequired
                     required
+                    sort={false}
                     options={OWNER_ROLES.map((role) => ({
                       label: role,
                       value: role,
