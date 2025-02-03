@@ -265,6 +265,8 @@ export interface OrganizationInterface {
   name: string;
   ownerEmail: string;
   ownerRole?: OwnerRole;
+  ownerFeatureFlagUsageIntent?: boolean;
+  ownerExperimentUsageIntent?: boolean;
   stripeCustomerId?: string;
   restrictLoginMethod?: string;
   restrictAuthSubPrefix?: string;
