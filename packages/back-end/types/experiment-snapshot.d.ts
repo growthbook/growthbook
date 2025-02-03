@@ -205,6 +205,7 @@ export interface ExperimentSnapshotInterface {
   multipleExposures: number;
   analyses: ExperimentSnapshotAnalysis[];
   banditResult?: BanditResult;
+
   health?: ExperimentSnapshotHealth;
 }
 

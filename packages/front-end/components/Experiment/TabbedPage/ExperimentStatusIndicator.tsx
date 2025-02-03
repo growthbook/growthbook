@@ -162,6 +162,7 @@ function getStatusIndicatorData(
 
       const powerSummary = healthSummary.power;
       if (
+        healthSettings.midExperimentPowerEnabled &&
         experimentData.dismissedWarnings?.includes("low-power") === false &&
         powerSummary &&
         powerSummary.type === "success" &&
@@ -171,6 +172,7 @@ function getStatusIndicatorData(
       }
 
       if (
+        healthSettings.midExperimentPowerEnabled &&
         powerSummary &&
         powerSummary.type === "success" &&
         !powerSummary.isLowPowered &&

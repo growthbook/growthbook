@@ -481,21 +481,21 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         (a) => a.settings.differenceType === "relative"
       );
 
-      const isEligibleForPowerAnalysis =
-        this.model.settings.banditSettings === undefined &&
+      const isEligibleForMidExperimentPowerAnalysis =
         relativeAnalysis &&
+        this.model.settings.banditSettings === undefined &&
         orgHasPremiumFeature(this.context.org, "mid-experiment-power") &&
-        (this.context.org.settings?.midExperimentPowerEnabled ||
+        (this.context.org.settings?.midExperimentPowerEnabled ??
           DEFAULT_MID_EXPERIMENT_POWER_CALCULATION_ENABLED);
 
-      if (isEligibleForPowerAnalysis) {
+      if (isEligibleForMidExperimentPowerAnalysis) {
         const today = new Date();
         const experimentStartDate = this.model.settings.startDate;
         const experimentDaysRunning = daysBetween(experimentStartDate, today);
+
         const experimentMinLengthDays =
           this.context.org.settings?.experimentMinLengthDays ??
           DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS;
-
         const experimentMaxLengthDays =
           this.context.org.settings?.experimentMaxLengthDays ??
           DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS;

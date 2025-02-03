@@ -2742,7 +2742,7 @@ export async function updateExperimentAnalysisSummary({
     analysisSummary.health = {
       srm,
       multipleExposures: experimentSnapshot.multipleExposures,
-      totalUsers: totalUsers,
+      totalUsers,
     };
 
     if (snapshotHealthPower?.type === "error") {

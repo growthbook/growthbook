@@ -30,9 +30,9 @@ export function PowerCard({
     "mid-experiment-power"
   );
 
+  const phase = experiment.phases[snapshot.phase];
   const hasPowerData = snapshotPower !== undefined;
   const isLowPowered = snapshotPower?.isLowPowered ?? false;
-  const phase = experiment.phases[snapshot.phase];
 
   const isDismissed =
     experiment.dismissedWarnings?.includes("low-power") ?? false;
@@ -64,7 +64,7 @@ export function PowerCard({
     }
   }, [experiment, isLowPowered, onNotify]);
 
-  const content = !hasMidExperimentPowerFeature ? (
+  const renderPowerAnalysisInfo = () => (
     <Callout status="info">
       Learn more in our{" "}
       <Link target="_blank" href="https://docs.growthbook.io/statistics/power">
@@ -72,39 +72,69 @@ export function PowerCard({
       </Link>
       .
     </Callout>
-  ) : !hasPowerData ? (
+  );
+
+  const renderNoPowerData = () => (
     <Callout status="info">
       We have not calculated power for this experiment yet. Refresh the Results
       to see the power data.
     </Callout>
-  ) : !isLowPowered ? (
+  );
+
+  const renderHealthyExperiment = () => (
     <Callout status="success">
       Your experiment is healthy. Conclusive results are likely before the
       anticipated experiment duration.
     </Callout>
-  ) : (
-    <>
-      <Callout status="warning" mb="2">
-        Your experiment is low-powered. Conclusive results are unlikely by the
-        anticipated experiment duration.
-      </Callout>
-      Recommendations:
-      <ul>
-        {phase.coverage !== 1 ? (
-          <li>
-            Consider increasing the traffic percentage above{" "}
-            {phase.coverage * 100}%
-          </li>
-        ) : null}
-        {snapshot.settings.variations.length > 2 ? (
-          <li>Consider reducing the number of variations</li>
-        ) : null}
-        {snapshot.settings.goalMetrics.length > 3 ? (
-          <li>Consider reducing the number of goal metrics</li>
-        ) : null}
-      </ul>
-    </>
   );
+
+  const renderLowPowerRecommendations = () => {
+    const recommendations: React.ReactNode[] = [];
+
+    if (phase.coverage !== 1) {
+      recommendations.push(
+        <li key="coverage">
+          Consider increasing the traffic percentage above{" "}
+          {phase.coverage * 100}%
+        </li>
+      );
+    }
+
+    if (snapshot.settings.variations.length > 2) {
+      recommendations.push(
+        <li key="variations">Consider reducing the number of variations</li>
+      );
+    }
+
+    if (snapshot.settings.goalMetrics.length > 3) {
+      recommendations.push(
+        <li key="metrics">Consider reducing the number of goal metrics</li>
+      );
+    }
+
+    return (
+      <>
+        <Callout status="warning" mb="2">
+          Your experiment is low-powered. Conclusive results are unlikely by the
+          anticipated experiment duration.
+        </Callout>
+        {recommendations.length > 0 && (
+          <>
+            Recommendations:
+            <ul>{recommendations}</ul>
+          </>
+        )}
+      </>
+    );
+  };
+
+  const content = !hasMidExperimentPowerFeature
+    ? renderPowerAnalysisInfo()
+    : !hasPowerData
+    ? renderNoPowerData()
+    : !isLowPowered
+    ? renderHealthyExperiment()
+    : renderLowPowerRecommendations();
 
   return (
     <div id="power-card" style={{ scrollMarginTop: "100px" }}>
@@ -116,6 +146,7 @@ export function PowerCard({
               <StatusBadge status="unhealthy" />
             ) : null}
           </PremiumTooltip>
+
           {isDismissable && !isDismissed ? (
             <Tooltip content={"Dismiss this alert"}>
               <Button onClick={toggleDismissed} variant="ghost">
