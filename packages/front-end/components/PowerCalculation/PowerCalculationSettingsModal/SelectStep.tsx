@@ -117,8 +117,10 @@ export const SelectStep = ({
   // only allow metrics from the same datasource in an analysis
   // combine both metrics and remove quantile metrics
   const availableMetrics: ExperimentMetricInterface[] = useMemo(
-    () =>
-      [...appMetrics, ...appFactMetrics].filter((m) => {
+    () => {
+      console.log("availmetrics sourceId", metricValuesSourceId)
+      console.log("availmetrics datasource", selectedDatasource);
+      return [...appMetrics, ...appFactMetrics].filter((m) => {
         // drop quantile metrics
         if (quantileMetricType(m) !== "") return false;
 
@@ -152,7 +154,8 @@ export const SelectStep = ({
           return false;
 
         return true;
-      }),
+      })
+    },
     [
       selectedDatasource,
       selectedIdType,
@@ -164,23 +167,31 @@ export const SelectStep = ({
       availableExperiments,
     ]
   );
+  console.log(availableMetrics);
 
   useEffect(() => {
+    const metricValuesData = form.getValues("metricValuesData");
     switch (metricValuesSource) {
       case "factTable": {
         setAvailablePopulations(
           availableFactTables.map((p) => ({ label: p.name, value: p.id }))
         );
+        console.log("ft source", metricValuesSourceId);
+        console.log(availableFactTables);
+        debugger;
         const factTable = availableFactTables.find(
           (f) => f.id === metricValuesSourceId
         );
+        console.log(factTable);
         if (factTable) {
-          form.setValue("metricValuesData.sourceName", factTable.name);
-          form.setValue("metricValuesData.datasource", factTable.datasource);
-          form.setValue(
-            "metricValuesData.identifierType",
-            factTable.userIdTypes[0]
-          );
+          console.log("ft source", factTable);
+          form.setValue("metricValuesData", {
+            ...metricValuesData,
+            source: metricValuesSource,
+            sourceName: factTable.name,
+            datasource: factTable.datasource,
+            identifierType: factTable.userIdTypes[0]
+          });
           setIdentifiers(factTable.userIdTypes);
         }
         break;
@@ -193,9 +204,13 @@ export const SelectStep = ({
           (s) => s.id === metricValuesSourceId
         );
         if (segment) {
-          form.setValue("metricValuesData.sourceName", segment.name);
-          form.setValue("metricValuesData.datasource", segment.datasource);
-          form.setValue("metricValuesData.identifierType", segment.userIdType);
+          form.setValue("metricValuesData", {
+            ...metricValuesData,
+            source: metricValuesSource,
+            sourceName: segment.name,
+            datasource: segment.datasource,
+            identifierType: segment.userIdType
+          });
           setIdentifiers([segment.userIdType]);
         }
         break;
@@ -208,12 +223,13 @@ export const SelectStep = ({
           (e) => e.id === metricValuesSourceId
         );
         if (experiment) {
-          form.setValue("metricValuesData.sourceName", experiment.name);
-          form.setValue("metricValuesData.datasource", experiment.datasource);
-          form.setValue(
-            "metricValuesData.identifierType",
-            experiment.exposureQueryUserIdType
-          );
+          form.setValue("metricValuesData", {
+            ...metricValuesData,
+            source: metricValuesSource,
+            sourceName: experiment.name,
+            datasource: experiment.datasource,
+            identifierType: experiment.exposureQueryUserIdType
+          });
           setIdentifiers(
             experiment.exposureQueryUserIdType
               ? [experiment.exposureQueryUserIdType]
@@ -222,9 +238,14 @@ export const SelectStep = ({
         }
         break;
       }
-      default: {
-        setAvailablePopulations([]);
-        break;
+      case "manual": {
+        form.setValue("metricValuesData", {
+          ...metricValuesData,
+          source: metricValuesSource,
+          sourceName: undefined,
+          datasource: undefined,
+          identifierType: undefined
+        });
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -234,7 +255,7 @@ export const SelectStep = ({
     availableExperiments,
     availableSegments,
     availableFactTables,
-    setAvailablePopulations,
+    //setAvailablePopulations,
   ]);
 
   const field = (
@@ -350,8 +371,10 @@ export const SelectStep = ({
               }
               value={metricValuesSourceId ?? ""}
               options={availablePopulations}
-              onChange={(value) =>
+              onChange={(value) => {
+                console.log(value);
                 form.setValue("metricValuesData.sourceId", value)
+              }
               }
               className="mb-2"
               forceUndefinedValueToNull={true}
