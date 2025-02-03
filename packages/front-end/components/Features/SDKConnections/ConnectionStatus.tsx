@@ -19,7 +19,7 @@ export default function ConnectionStatus({
   return (
     <div
       className="mx-3 text-center"
-      style={{ zIndex: 10, marginTop: -16, whiteSpace: "nowrap" }}
+      style={{ zIndex: 10, marginTop: -12, whiteSpace: "nowrap" }}
     >
       {connected ? (
         <>
@@ -65,7 +65,7 @@ export default function ConnectionStatus({
           )}
         </>
       )}
-      <div style={{ marginTop: 16, textAlign: "center" }}>
+      <div style={{ marginTop: 24, textAlign: "center" }}>
         {canRefresh && refresh ? refresh : <>&nbsp;</>}
       </div>
     </div>
