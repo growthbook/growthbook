@@ -2714,6 +2714,75 @@ export async function getLinkedFeatureInfo(
   return linkedFeatureInfo.filter((info) => info.state !== "discarded");
 }
 
+export async function getChangesToStartExperiment(
+  context: ReqContext,
+  experiment: ExperimentInterface
+) {
+  const phases = [...experiment.phases];
+  const lastIndex = phases.length - 1;
+
+  const changes: Changeset = {};
+
+  // use the current date as the phase start date
+  phases[lastIndex] = {
+    ...phases[lastIndex],
+    dateStarted: new Date(),
+  };
+  changes.phases = phases;
+
+  // Bandit-specific changes
+  if (experiment.type === "multi-armed-bandit") {
+    const { settings } = getScopedSettings({
+      organization: context.org,
+      experiment,
+    });
+
+    // Multiple events (not just the seed 0th event) means this bandit phase was already running somehow.
+    // If multiple events, don't flush.
+    const preserveExistingBanditEvents =
+      (phases[lastIndex]?.banditEvents?.length ?? 0) > 1;
+    Object.assign(
+      changes,
+      resetExperimentBanditSettings({
+        experiment,
+        changes,
+        settings,
+        preserveExistingBanditEvents,
+      })
+    );
+
+    // validate datasources
+    let datasource: DataSourceInterface | null = null;
+    if (!experiment.datasource) {
+      throw new Error("Missing datasource");
+    }
+    datasource = await getDataSourceById(context, experiment.datasource);
+    if (!datasource) {
+      throw new Error("Invalid datasource: " + experiment.datasource);
+    }
+
+    // validate goal metric
+    if (!experiment?.goalMetrics?.[0]) {
+      throw new Error("Missing goal metric");
+    }
+
+    const metric = await getExperimentMetricById(
+      context,
+      experiment.goalMetrics[0]
+    );
+    if (!metric) {
+      throw new Error("Invalid metric: " + experiment.goalMetrics[0]);
+    }
+    if (metric.cappingSettings.type === "percentile") {
+      throw new Error("Goal metric must not use percentile capping");
+    }
+  }
+
+  changes.status = "running";
+
+  return changes;
+}
+
 export async function updateExperimentAnalysisSummary({
   context,
   experiment,

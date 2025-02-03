@@ -34,7 +34,8 @@ export default function FeatureRules({
   mutate,
   currentVersion,
   setVersion,
-  hideDisabled,
+  hideInactive,
+  isDraft,
 }: {
   environments: Environment[];
   feature: FeatureInterface;
@@ -45,7 +46,8 @@ export default function FeatureRules({
   mutate: () => Promise<unknown>;
   currentVersion: number;
   setVersion: (v: number) => void;
-  hideDisabled: boolean;
+  hideInactive: boolean;
+  isDraft: boolean;
 }) {
   const envs = environments.map((e) => e.id);
   const [env, setEnv] = useEnvironmentState();
@@ -53,6 +55,7 @@ export default function FeatureRules({
     i: number;
     environment: string;
     defaultType?: string;
+    duplicate?: boolean;
   } | null>(null);
   const [copyRuleModal, setCopyRuleModal] = useState<{
     environment: string;
@@ -166,7 +169,8 @@ export default function FeatureRules({
                     setVersion={setVersion}
                     locked={isLocked}
                     experimentsMap={experimentsMap}
-                    hideDisabled={hideDisabled}
+                    hideInactive={hideInactive}
+                    isDraft={isDraft}
                   />
                 ) : (
                   <Box py="4" className="text-muted">
@@ -208,6 +212,7 @@ export default function FeatureRules({
           version={currentVersion}
           setVersion={setVersion}
           revisions={revisions}
+          duplicate={ruleModal?.duplicate || false}
         />
       )}
       {copyRuleModal !== null && (
