@@ -555,3 +555,24 @@ export interface StickyAssignmentsDocument {
 }
 
 export type SavedGroupsValues = Record<string, (string | number)[]>;
+
+export type DebugLog = {
+  debug: {
+    msg: string;
+    ctx: Record<string, unknown>;
+  };
+};
+export type EventLog = {
+  eventName: string;
+  properties?: Record<string, unknown>;
+};
+export type ExperimentLog<T> = {
+  experiment: Experiment<T>;
+  result: Result<T>;
+};
+export type FeatureLog = {
+  featureKey: string;
+  result: FeatureResult;
+};
+
+export type LogUnion = DebugLog | EventLog | ExperimentLog<any> | FeatureLog;

@@ -27,6 +27,7 @@ import type {
   UserContext,
   StickyAssignmentsDocument,
   EventLogger,
+  LogUnion,
 } from "./types/growthbook";
 import {
   decrypt,
@@ -65,6 +66,7 @@ export class GrowthBook<
   public debug: boolean;
   public ready: boolean;
   public version: string;
+  public logs: Array<LogUnion> | undefined;
 
   // Properties and methods that start with "_" are mangled by Terser (saves ~150 bytes)
   private _options: Options;
@@ -178,6 +180,10 @@ export class GrowthBook<
     if (isBrowser && options.enableDevMode) {
       window._growthbook = this;
       document.dispatchEvent(new Event("gbloaded"));
+    }
+
+    if (options.enableDevMode) {
+      this.logs = [];
     }
 
     if (options.experiments) {
@@ -850,6 +856,9 @@ export class GrowthBook<
   }
 
   private _trackFeatureUsage(key: string, res: FeatureResult): void {
+    if (Array.isArray(this.logs)) {
+      this.logs.push({ featureKey: key, result: res });
+    }
     // Only track a feature once, unless the assigned value changed
     const stringifiedValue = JSON.stringify(res.value);
     if (this._trackedFeatures[key] === stringifiedValue) return;
@@ -902,6 +911,9 @@ export class GrowthBook<
 
   log(msg: string, ctx: Record<string, unknown>) {
     if (!this.debug) return;
+    if (Array.isArray(this.logs)) {
+      this.logs.push({ debug: { msg, ctx } });
+    }
     if (this._options.log) this._options.log(msg, ctx);
     else console.log(msg, ctx);
   }
@@ -952,6 +964,9 @@ export class GrowthBook<
       console.error("Cannot log event to destroyed GrowthBook instance");
       return;
     }
+    if (Array.isArray(this.logs)) {
+      this.logs.push({ eventName, properties });
+    }
     if (this._options.eventLogger) {
       try {
         await this._options.eventLogger(
@@ -987,6 +1002,9 @@ export class GrowthBook<
   }
 
   private async _track<T>(experiment: Experiment<T>, result: Result<T>) {
+    if (Array.isArray(this.logs)) {
+      this.logs.push({ experiment, result });
+    }
     if (!this._options.trackingCallback) return;
 
     const k = this._getTrackKey(experiment, result);
