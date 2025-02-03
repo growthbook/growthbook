@@ -1,6 +1,5 @@
-import { FC, useEffect, useMemo, useState } from "react";
+import { FC, useEffect, useState } from "react";
 import { CustomField, CustomFieldSection } from "back-end/types/custom-fields";
-import { UseFormReturn } from "react-hook-form";
 import { Switch } from "@radix-ui/themes";
 import { filterCustomFieldsForSectionAndProject } from "@/hooks/useCustomFields";
 import Field from "@/components/Forms/Field";
@@ -9,28 +8,34 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 
 const CustomFieldInput: FC<{
   customFields: CustomField[];
-  // eslint-disable-next-line
-  form: UseFormReturn<any>;
+  currentCustomFields: Record<string, string>;
   section: CustomFieldSection;
-  setCustomFields?: (customFields: Record<string, string>) => void;
+  setCustomFields: (customFields: Record<string, string>) => void;
   project?: string;
   className?: string;
-}> = ({ customFields, project, className, form, section, setCustomFields }) => {
+}> = ({
+  customFields,
+  currentCustomFields,
+  project,
+  className,
+  section,
+  setCustomFields,
+}) => {
   const availableFields = filterCustomFieldsForSectionAndProject(
     customFields,
     section,
     project
   );
   const [loadedDefaults, setLoadedDefaults] = useState(false);
-  const customFieldStrings = form.watch("customFields");
-  const currentCustomFields = useMemo(() => {
-    try {
-      return customFieldStrings ? customFieldStrings : {};
-    } catch (e) {
-      // this should never be reachable as we control the JSON that is being parsed
-      return {};
-    }
-  }, [customFieldStrings]);
+  // const customFieldStrings = form.watch("customFields");
+  // const currentCustomFields = useMemo(() => {
+  //   try {
+  //     return customFieldStrings ? customFieldStrings : {};
+  //   } catch (e) {
+  //     // this should never be reachable as we control the JSON that is being parsed
+  //     return {};
+  //   }
+  // }, [customFieldStrings]);
 
   useEffect(() => {
     if (!loadedDefaults) {
@@ -50,18 +55,16 @@ const CustomFieldInput: FC<{
             }
           }
         });
-        form.setValue("customFields", currentCustomFields);
+        //updateAllCustomFields(currentCustomFields);
+        setCustomFields(currentCustomFields);
         setLoadedDefaults(true);
       }
     }
-  }, [availableFields, form, loadedDefaults, currentCustomFields]);
+  }, [availableFields, loadedDefaults, currentCustomFields, setCustomFields]);
 
   const updateCustomField = (name, value) => {
     currentCustomFields[name] = value;
-    form.setValue("customFields", currentCustomFields);
-    if (setCustomFields) {
-      setCustomFields(currentCustomFields);
-    }
+    setCustomFields(currentCustomFields);
   };
 
   const getMultiSelectValue = (value) => {

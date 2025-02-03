@@ -274,8 +274,8 @@ export default function ExperimentRefNewFields({
             !!customFields?.length && (
               <CustomFieldInput
                 customFields={customFields}
-                form={form}
-                setCustomFields={setCustomFields}
+                currentCustomFields={form.watch("customFields")}
+                setCustomFields={setCustomFields ? setCustomFields : () => {}}
                 section={"experiment"}
                 project={project}
               />

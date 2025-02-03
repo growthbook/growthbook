@@ -709,15 +709,17 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 )}
               </>
             )}
-            {hasCommercialFeature("custom-metadata") &&
-              !!customFields?.length && (
-                <CustomFieldInput
-                  customFields={customFields}
-                  form={form}
-                  section={"experiment"}
-                  project={selectedProject}
-                />
-              )}
+            {hasCommercialFeature("custom-metadata") && !!customFields?.length && (
+              <CustomFieldInput
+                customFields={customFields}
+                currentCustomFields={form.watch("customFields") || {}}
+                setCustomFields={(value) => {
+                  form.setValue("customFields", value);
+                }}
+                section={"experiment"}
+                project={selectedProject}
+              />
+            )}
           </div>
         </Page>
 
