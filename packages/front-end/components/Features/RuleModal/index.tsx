@@ -115,6 +115,11 @@ export default function RuleModal({
     ruleType: defaultType,
     attributeSchema,
   });
+
+  // unset the ID if we're duplicating the rule.
+  if (duplicate) {
+    rule.id = "";
+  }
   const defaultValues = {
     ...defaultRuleValues,
     ...rule,
