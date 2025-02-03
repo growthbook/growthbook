@@ -45,6 +45,7 @@ export default function RuleList({
     environment: string;
     i: number;
     defaultType?: string;
+    duplicate?: boolean;
   }) => void;
   setCopyRuleModal: (args: {
     environment: string;

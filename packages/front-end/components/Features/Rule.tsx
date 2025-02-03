@@ -41,6 +41,7 @@ interface SortableProps {
     environment: string;
     i: number;
     defaultType?: string;
+    duplicate?: boolean;
   }) => void;
   setCopyRuleModal: (args: {
     environment: string;
@@ -204,7 +205,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               <Box>
                 <Badge label={<>{i + 1}</>} radius="full" color="gray" />
               </Box>
-              <Box width="100%">
+              <Box width="100%" flexShrink="5" overflowY="auto">
                 <Flex align="center" justify="between" mb="3">
                   <Heading as="h4" size="3" weight="medium" mb="0">
                     {linkedExperiment ? (
@@ -335,6 +336,17 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         }}
                       >
                         Copy rule to environment(s)
+                      </Button>
+                    )}
+                    {rule.type !== "experiment-ref" && (
+                      <Button
+                        color=""
+                        className="dropdown-item"
+                        onClick={() => {
+                          setRuleModal({ environment, i, duplicate: true });
+                        }}
+                      >
+                        Duplicate rule
                       </Button>
                     )}
                     <DeleteButton

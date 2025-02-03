@@ -16,7 +16,6 @@ type Props = {
   containerClassName?: string;
   header?: string | JSX.Element;
   headerClassName?: string;
-  editClassName?: string;
 };
 
 export default function MarkdownInlineEdit({
@@ -29,7 +28,6 @@ export default function MarkdownInlineEdit({
   containerClassName = "",
   header = "",
   headerClassName = "h3",
-  editClassName = "a",
 }: Props) {
   const [edit, setEdit] = useState(false);
   const [val, setVal] = useState("");
@@ -82,7 +80,6 @@ export default function MarkdownInlineEdit({
           }
           className={headerClassName}
           containerClassName={containerClassName}
-          editClassName={editClassName}
         >
           {header}
         </HeaderWithEdit>
