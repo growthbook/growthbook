@@ -27,15 +27,6 @@ const CustomFieldInput: FC<{
     project
   );
   const [loadedDefaults, setLoadedDefaults] = useState(false);
-  // const customFieldStrings = form.watch("customFields");
-  // const currentCustomFields = useMemo(() => {
-  //   try {
-  //     return customFieldStrings ? customFieldStrings : {};
-  //   } catch (e) {
-  //     // this should never be reachable as we control the JSON that is being parsed
-  //     return {};
-  //   }
-  // }, [customFieldStrings]);
 
   useEffect(() => {
     if (!loadedDefaults) {
@@ -55,7 +46,6 @@ const CustomFieldInput: FC<{
             }
           }
         });
-        //updateAllCustomFields(currentCustomFields);
         setCustomFields(currentCustomFields);
         setLoadedDefaults(true);
       }
@@ -63,8 +53,7 @@ const CustomFieldInput: FC<{
   }, [availableFields, loadedDefaults, currentCustomFields, setCustomFields]);
 
   const updateCustomField = (name, value) => {
-    currentCustomFields[name] = value;
-    setCustomFields(currentCustomFields);
+    setCustomFields({ ...currentCustomFields, [name]: value });
   };
 
   const getMultiSelectValue = (value) => {
