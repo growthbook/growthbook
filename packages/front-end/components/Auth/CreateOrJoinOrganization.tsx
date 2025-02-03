@@ -252,6 +252,7 @@ const CreateOrJoinOrganization: FC<{
                     autoFocus
                     autoComplete="company"
                     minLength={3}
+                    maxLength={60}
                     {...newOrgForm.register("company")}
                     error={error}
                   />
