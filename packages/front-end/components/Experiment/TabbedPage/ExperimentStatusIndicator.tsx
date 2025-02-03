@@ -127,7 +127,7 @@ function getStatusIndicatorData(
         variant: "soft",
         status: "Running",
         detailedStatus: "Discuss results",
-        tooltip: "Reached antecipated duration",
+        tooltip: "Reached anticipated duration",
       };
     }
 
