@@ -1149,6 +1149,7 @@ export function getSubscriptionFromOrg(
       trialEnd: organization.subscription.trialEnd,
       status: getStripeSubscriptionStatus(organization.subscription.status),
       hasPaymentMethod: !!organization.subscription.hasPaymentMethod,
+      hasLicense: false,
     };
   }
   return null;

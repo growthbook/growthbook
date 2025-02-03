@@ -75,7 +75,7 @@ const BillingPage: FC = () => {
       <div>
         {subscription?.status ? (
           <>
-            <PaymentInfo />
+            {subscription.hasLicense ? <PaymentInfo /> : null}
             <SubscriptionInfo />
           </>
         ) : canSubscribe ? (
