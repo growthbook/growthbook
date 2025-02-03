@@ -63,14 +63,14 @@ const IdeasPage = (): React.ReactElement => {
           blown Experiment.
         </p>
         {canCreateIdeas ? (
-          <button
-            className="btn btn-success btn-lg"
+          <Button
+            mt="3"
             onClick={() => {
               setCurrent({});
             }}
           >
             <FaPlus /> Add your first Idea
-          </button>
+          </Button>
         ) : null}
         {current && (
           <IdeaForm

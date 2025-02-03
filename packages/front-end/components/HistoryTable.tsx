@@ -30,7 +30,7 @@ function EventDetails({
     }
   }, [details]);
 
-  // Link to ad-hoc report
+  // Link to report
   if (eventType === "experiment.analysis" && json.report) {
     return <Link href={`/report/${json.report}`}>View Report</Link>;
   }
@@ -201,7 +201,7 @@ const HistoryTable: FC<{
           </Button>
         </div>
       </div>
-      <table className="table appbox bg-light">
+      <table className="table appbox">
         <thead>
           <tr>
             <th>Date</th>

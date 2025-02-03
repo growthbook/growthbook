@@ -5,12 +5,16 @@ import {
 import React, { useState } from "react";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
-import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
-import { useAuth } from "@/services/auth";
+import Collapsible from "react-collapsible";
+import { FaAngleRight } from "react-icons/fa";
+import { Box, Flex, ScrollArea } from "@radix-ui/themes";
 import { PreLaunchChecklist } from "@/components/Experiment/PreLaunchChecklist";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Markdown from "@/components/Markdown/Markdown";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import EditHypothesisModal from "../EditHypothesisModal";
+import EditDescriptionModal from "../EditDescriptionModal";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -18,10 +22,11 @@ export interface Props {
   mutate: () => void;
   editTargeting?: (() => void) | null;
   linkedFeatures: LinkedFeatureInfo[];
-  verifiedConnections: SDKConnectionInterface[];
+  matchingConnections: SDKConnectionInterface[];
   disableEditing?: boolean;
   checklistItemsRemaining: number | null;
   setChecklistItemsRemaining: (value: number | null) => void;
+  envs: string[];
 }
 
 export default function SetupTabOverview({
@@ -30,13 +35,20 @@ export default function SetupTabOverview({
   mutate,
   editTargeting,
   linkedFeatures,
-  verifiedConnections,
+  matchingConnections,
   disableEditing,
   checklistItemsRemaining,
   setChecklistItemsRemaining,
+  envs,
 }: Props) {
-  const { apiCall } = useAuth();
   const [showHypothesisModal, setShowHypothesisModal] = useState(false);
+  const [showDescriptionModal, setShowDescriptionModal] = useState(false);
+  const [expandDescription, setExpandDescription] = useLocalStorage(
+    `collapse-${experiment.id}-description`,
+    localStorage.getItem(`collapse-${experiment.id}-description`) === "true"
+      ? false
+      : true
+  );
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -58,44 +70,91 @@ export default function SetupTabOverview({
           close={() => setShowHypothesisModal(false)}
         />
       ) : null}
+      {showDescriptionModal ? (
+        <EditDescriptionModal
+          source="experiment-setup-tab"
+          mutate={mutate}
+          experimentId={experiment.id}
+          initialValue={experiment.description}
+          close={() => setShowDescriptionModal(false)}
+        />
+      ) : null}
       <div>
         <h2>Overview</h2>
         {experiment.status === "draft" ? (
           <PreLaunchChecklist
             experiment={experiment}
+            envs={envs}
             mutateExperiment={mutate}
             linkedFeatures={linkedFeatures}
             visualChangesets={visualChangesets}
             editTargeting={editTargeting}
-            verifiedConnections={verifiedConnections}
+            connections={matchingConnections}
             checklistItemsRemaining={checklistItemsRemaining}
             setChecklistItemsRemaining={setChecklistItemsRemaining}
           />
         ) : null}
-
-        <div className="box">
-          <div
-            className="mh-350px fade-mask-vertical-1rem px-4 py-3"
-            style={{ overflowY: "auto" }}
+        <Box className="box" pt="4" pb="2">
+          <Collapsible
+            open={!experiment.description ? true : expandDescription}
+            transitionTime={100}
+            triggerDisabled={!experiment.description}
+            onOpening={() => setExpandDescription(true)}
+            onClosing={() => setExpandDescription(false)}
+            trigger={
+              <Box
+                as="div"
+                style={{
+                  cursor: `${experiment.description ? "pointer" : "default"}`,
+                }}
+              >
+                <Flex
+                  align="center"
+                  justify="between"
+                  px="5"
+                  pb="2"
+                  className="text-dark"
+                >
+                  <h4 className="m-0">Description</h4>
+                  <Flex align="center">
+                    {canEditExperiment ? (
+                      <button
+                        className={`btn p-0 link-purple ${
+                          experiment.description ? "mr-3" : ""
+                        }`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowDescriptionModal(true);
+                        }}
+                      >
+                        Edit
+                      </button>
+                    ) : null}
+                    {experiment.description ? (
+                      <FaAngleRight className="chevron" />
+                    ) : null}
+                  </Flex>
+                </Flex>
+              </Box>
+            }
           >
-            <MarkdownInlineEdit
-              value={experiment.description ?? ""}
-              save={async (description) => {
-                await apiCall(`/experiment/${experiment.id}`, {
-                  method: "POST",
-                  body: JSON.stringify({ description }),
-                });
-                mutate();
-              }}
-              canCreate={canEditExperiment}
-              canEdit={canEditExperiment}
-              label="description"
-              header="Description"
-              headerClassName="h4"
-              containerClassName="mb-1"
-            />
-          </div>
-        </div>
+            {experiment.description ? (
+              <ScrollArea
+                style={{
+                  maxHeight: "491px",
+                }}
+                className="px-4 py-2 fade-mask-vertical-1rem"
+              >
+                <Markdown>{experiment.description}</Markdown>
+              </ScrollArea>
+            ) : (
+              <Box as="div" className="font-italic text-muted" px="5" py="2">
+                Add a description to keep your team informed about the purpose
+                and parameters of your experiment
+              </Box>
+            )}
+          </Collapsible>
+        </Box>
 
         {!isBandit && (
           <div className="box px-4 py-3">
@@ -107,7 +166,7 @@ export default function SetupTabOverview({
                   className="btn p-0 link-purple"
                   onClick={() => setShowHypothesisModal(true)}
                 >
-                  <span className="text-purple">Edit</span>
+                  Edit
                 </button>
               ) : null}
             </div>
@@ -124,7 +183,6 @@ export default function SetupTabOverview({
           </div>
         )}
         <CustomFieldDisplay
-          addBox={true}
           target={experiment}
           canEdit={canEditExperiment}
           mutate={mutate}

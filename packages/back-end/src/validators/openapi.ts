@@ -14,7 +14,7 @@ export const apiMetricValidator = z.object({ "id": z.string(), "managedBy": z.en
 
 export const apiProjectValidator = z.object({ "id": z.string(), "name": z.string(), "dateCreated": z.string(), "dateUpdated": z.string(), "description": z.string().optional(), "settings": z.object({ "statsEngine": z.string().optional() }).optional() }).strict()
 
-export const apiEnvironmentValidator = z.object({ "id": z.string(), "description": z.string(), "toggleOnList": z.boolean(), "defaultState": z.boolean(), "projects": z.array(z.string()) }).strict()
+export const apiEnvironmentValidator = z.object({ "id": z.string(), "description": z.string(), "toggleOnList": z.boolean(), "defaultState": z.boolean(), "projects": z.array(z.string()), "parent": z.string().optional() }).strict()
 
 export const apiAttributeValidator = z.object({ "property": z.string(), "datatype": z.enum(["boolean","string","number","secureString","enum","string[]","number[]","secureString[]"]), "description": z.string().optional(), "hashAttribute": z.boolean().optional(), "archived": z.boolean().optional(), "enum": z.string().optional(), "format": z.enum(["","version","date","isoCountryCode"]).optional(), "projects": z.array(z.string()).optional() }).strict()
 
@@ -66,6 +66,8 @@ export const apiFactMetricValidator = z.object({ "id": z.string(), "name": z.str
 
 export const apiMemberValidator = z.object({ "id": z.string(), "name": z.string().optional(), "email": z.string(), "globalRole": z.string(), "environments": z.array(z.string()).optional(), "limitAccessByEnvironment": z.boolean().optional(), "managedbyIdp": z.boolean().optional(), "teams": z.array(z.string()).optional(), "projectRoles": z.array(z.object({ "project": z.string(), "role": z.string(), "limitAccessByEnvironment": z.boolean(), "environments": z.array(z.string()) })).optional(), "lastLoginDate": z.string().optional(), "dateCreated": z.string().optional(), "dateUpdated": z.string().optional() }).strict()
 
+export const apiArchetypeValidator = z.object({ "id": z.string(), "dateCreated": z.string(), "dateUpdated": z.string(), "name": z.string(), "description": z.string().optional(), "owner": z.string(), "isPublic": z.boolean(), "attributes": z.record(z.any()).describe("The attributes to set when using this Archetype"), "projects": z.array(z.string()).optional() }).strict()
+
 export const listFeaturesValidator = {
   bodySchema: z.never(),
   querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0), "projectId": z.string().optional() }).strict(),
@@ -86,6 +88,12 @@ export const getFeatureValidator = {
 
 export const updateFeatureValidator = {
   bodySchema: z.object({ "description": z.string().describe("Description of the feature").optional(), "archived": z.boolean().optional(), "project": z.string().describe("An associated project ID").optional(), "owner": z.string().optional(), "defaultValue": z.string().optional(), "tags": z.array(z.string()).describe("List of associated tags. Will override tags completely with submitted list").optional(), "environments": z.record(z.object({ "enabled": z.boolean(), "rules": z.array(z.union([z.object({ "description": z.string().optional(), "condition": z.string().describe("Applied to everyone by default.").optional(), "savedGroupTargeting": z.array(z.object({ "matchType": z.enum(["all","any","none"]), "savedGroups": z.array(z.string()) })).optional(), "id": z.string().optional(), "enabled": z.boolean().describe("Enabled by default").optional(), "type": z.literal("force"), "value": z.string() }), z.object({ "description": z.string().optional(), "condition": z.string().describe("Applied to everyone by default.").optional(), "savedGroupTargeting": z.array(z.object({ "matchType": z.enum(["all","any","none"]), "savedGroups": z.array(z.string()) })).optional(), "id": z.string().optional(), "enabled": z.boolean().describe("Enabled by default").optional(), "type": z.literal("rollout"), "value": z.string(), "coverage": z.number().describe("Percent of traffic included in this experiment. Users not included in the experiment will skip this rule."), "hashAttribute": z.string() }), z.object({ "description": z.string().optional(), "id": z.string().optional(), "enabled": z.boolean().describe("Enabled by default").optional(), "type": z.literal("experiment-ref"), "condition": z.string().optional(), "variations": z.array(z.object({ "value": z.string(), "variationId": z.string() })), "experimentId": z.string() }), z.object({ "description": z.string().optional(), "condition": z.string(), "id": z.string().optional(), "enabled": z.boolean().describe("Enabled by default").optional(), "type": z.literal("experiment"), "trackingKey": z.string().optional(), "hashAttribute": z.string().optional(), "fallbackAttribute": z.string().optional(), "disableStickyBucketing": z.boolean().optional(), "bucketVersion": z.number().optional(), "minBucketVersion": z.number().optional(), "namespace": z.object({ "enabled": z.boolean(), "name": z.string(), "range": z.array(z.number()).min(2).max(2) }).optional(), "coverage": z.number().optional(), "values": z.array(z.object({ "value": z.string(), "weight": z.number(), "name": z.string().optional() })).optional(), "value": z.array(z.object({ "value": z.string(), "weight": z.number(), "name": z.string().optional() })).describe("Support passing values under the value key as that was the original spec for FeatureExperimentRules").optional() })])), "definition": z.string().describe("A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)").optional(), "draft": z.object({ "enabled": z.boolean().optional(), "rules": z.array(z.union([z.object({ "description": z.string().optional(), "condition": z.string().describe("Applied to everyone by default.").optional(), "savedGroupTargeting": z.array(z.object({ "matchType": z.enum(["all","any","none"]), "savedGroups": z.array(z.string()) })).optional(), "id": z.string().optional(), "enabled": z.boolean().describe("Enabled by default").optional(), "type": z.literal("force"), "value": z.string() }), z.object({ "description": z.string().optional(), "condition": z.string().describe("Applied to everyone by default.").optional(), "savedGroupTargeting": z.array(z.object({ "matchType": z.enum(["all","any","none"]), "savedGroups": z.array(z.string()) })).optional(), "id": z.string().optional(), "enabled": z.boolean().describe("Enabled by default").optional(), "type": z.literal("rollout"), "value": z.string(), "coverage": z.number().describe("Percent of traffic included in this experiment. Users not included in the experiment will skip this rule."), "hashAttribute": z.string() }), z.object({ "description": z.string().optional(), "id": z.string().optional(), "enabled": z.boolean().describe("Enabled by default").optional(), "type": z.literal("experiment-ref"), "condition": z.string().optional(), "variations": z.array(z.object({ "value": z.string(), "variationId": z.string() })), "experimentId": z.string() }), z.object({ "description": z.string().optional(), "condition": z.string(), "id": z.string().optional(), "enabled": z.boolean().describe("Enabled by default").optional(), "type": z.literal("experiment"), "trackingKey": z.string().optional(), "hashAttribute": z.string().optional(), "fallbackAttribute": z.string().optional(), "disableStickyBucketing": z.boolean().optional(), "bucketVersion": z.number().optional(), "minBucketVersion": z.number().optional(), "namespace": z.object({ "enabled": z.boolean(), "name": z.string(), "range": z.array(z.number()).min(2).max(2) }).optional(), "coverage": z.number().optional(), "values": z.array(z.object({ "value": z.string(), "weight": z.number(), "name": z.string().optional() })).optional(), "value": z.array(z.object({ "value": z.string(), "weight": z.number(), "name": z.string().optional() })).describe("Support passing values under the value key as that was the original spec for FeatureExperimentRules").optional() })])), "definition": z.string().describe("A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)").optional() }).describe("Use to write draft changes without publishing them.").optional() })).optional(), "jsonSchema": z.string().describe("Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).").optional() }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const deleteFeatureValidator = {
+  bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };
@@ -184,6 +192,12 @@ export const deleteSdkConnectionValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const lookupSdkConnectionByKeyValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "key": z.string() }).strict(),
 };
 
 export const listDataSourcesValidator = {
@@ -372,6 +386,36 @@ export const deleteAttributeValidator = {
   paramsSchema: z.object({ "property": z.string() }).strict(),
 };
 
+export const listArchetypesValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+};
+
+export const postArchetypeValidator = {
+  bodySchema: z.object({ "name": z.string(), "description": z.string().optional(), "isPublic": z.boolean().describe("Whether to make this Archetype available to other team members"), "attributes": z.record(z.any()).describe("The attributes to set when using this Archetype").optional(), "projects": z.array(z.string()).optional() }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+};
+
+export const getArchetypeValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const putArchetypeValidator = {
+  bodySchema: z.object({ "name": z.string().optional(), "description": z.string().optional(), "isPublic": z.boolean().describe("Whether to make this Archetype available to other team members").optional(), "attributes": z.record(z.any()).describe("The attributes to set when using this Archetype").optional(), "projects": z.array(z.string()).optional() }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const deleteArchetypeValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
 export const listMembersValidator = {
   bodySchema: z.never(),
   querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0), "userName": z.string().optional(), "userEmail": z.string().optional(), "globalRole": z.string().optional() }).strict(),
@@ -397,7 +441,7 @@ export const listEnvironmentsValidator = {
 };
 
 export const postEnvironmentValidator = {
-  bodySchema: z.object({ "id": z.string().describe("The ID of the new environment"), "description": z.string().describe("The description of the new environment").optional(), "toggleOnList": z.any().describe("Show toggle on feature list").optional(), "defaultState": z.any().describe("Default state for new features").optional(), "projects": z.array(z.string()).optional() }).strict(),
+  bodySchema: z.object({ "id": z.string().describe("The ID of the new environment"), "description": z.string().describe("The description of the new environment").optional(), "toggleOnList": z.any().describe("Show toggle on feature list").optional(), "defaultState": z.any().describe("Default state for new features").optional(), "projects": z.array(z.string()).optional(), "parent": z.string().describe("An environment that the new environment should inherit feature rules from. Requires an enterprise license").optional() }).strict(),
   querySchema: z.never(),
   paramsSchema: z.never(),
 };

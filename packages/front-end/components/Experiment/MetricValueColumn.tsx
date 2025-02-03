@@ -11,13 +11,12 @@ import {
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
+import { FactTableInterface } from "back-end/types/fact-table";
 import {
   getColumnRefFormatter,
   getExperimentMetricFormatter,
   getMetricFormatter,
 } from "@/services/metrics";
-import { useCurrency } from "@/hooks/useCurrency";
-import { useDefinitions } from "@/services/DefinitionsContext";
 
 const numberFormatter = Intl.NumberFormat("en-US", {
   notation: "compact",
@@ -37,6 +36,9 @@ interface Props
   rowSpan?: number;
   showRatio?: boolean;
   noDataMessage?: ReactElement | string;
+  displayCurrency: string;
+  getExperimentMetricById: (id: string) => null | ExperimentMetricInterface;
+  getFactTableById: (id: string) => null | FactTableInterface;
 }
 
 export default function MetricValueColumn({
@@ -48,11 +50,12 @@ export default function MetricValueColumn({
   rowSpan,
   showRatio = true,
   noDataMessage = "no data",
+  displayCurrency,
+  getExperimentMetricById,
+  getFactTableById,
   ...otherProps
 }: Props) {
-  const displayCurrency = useCurrency();
   const formatterOptions = { currency: displayCurrency };
-  const { getFactTableById, getMetricById } = useDefinitions();
 
   const overall = getExperimentMetricFormatter(metric, getFactTableById)(
     stats.cr,
@@ -63,7 +66,7 @@ export default function MetricValueColumn({
   const denominatorValue = isRatioMetric(
     metric,
     !isFactMetric(metric) && metric.denominator
-      ? getMetricById(metric.denominator) ?? undefined
+      ? getExperimentMetricById(metric.denominator) ?? undefined
       : undefined
   )
     ? stats.denominator ?? stats.users

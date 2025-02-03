@@ -1,4 +1,3 @@
-import { MdInfoOutline } from "react-icons/md";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
@@ -8,6 +7,7 @@ import { formatTrafficSplit } from "@/services/utils";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import { HashVersionTooltip } from "@/components/Experiment/HashVersionSelector";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { GBInfo } from "@/components/Icons";
 
 export interface Props {
   phaseIndex?: number | null;
@@ -30,11 +30,11 @@ export default function TrafficAndTargeting({
   const phase = experiment.phases?.[phaseIndex ?? experiment.phases.length - 1];
   const hasNamespace = phase?.namespace && phase.namespace.enabled;
   const namespaceRange = hasNamespace
-    ? phase.namespace.range[1] - phase.namespace.range[0]
+    ? phase.namespace!.range[1] - phase.namespace!.range[0]
     : 1;
   const namespaceName = hasNamespace
-    ? namespaces?.find((n) => n.name === phase.namespace.name)?.label ||
-      phase.namespace.name
+    ? namespaces?.find((n) => n.name === phase.namespace!.name)?.label ||
+      phase.namespace!.name
     : "";
 
   const isBandit = experiment.type === "multi-armed-bandit";
@@ -50,7 +50,7 @@ export default function TrafficAndTargeting({
               {editTargeting &&
               !(isBandit && experiment.status === "running") ? (
                 <button className="btn p-0 link-purple" onClick={editTargeting}>
-                  <span className="text-purple">Edit</span>
+                  Edit
                 </button>
               ) : null}
             </div>
@@ -74,7 +74,7 @@ export default function TrafficAndTargeting({
                     popperStyle={{ lineHeight: 1.5 }}
                     body="This user attribute will be used to assign variations. This is typically either a logged-in user id or an anonymous id stored in a long-lived cookie."
                   >
-                    <MdInfoOutline className="text-info" />
+                    <GBInfo />
                   </Tooltip>
                 </div>
                 <div>
@@ -106,7 +106,7 @@ export default function TrafficAndTargeting({
                     popperStyle={{ lineHeight: 1.5 }}
                     body="Use namespaces to run mutually exclusive experiments. Manage namespaces under SDK Configuration → Namespaces"
                   >
-                    <MdInfoOutline className="text-info" />
+                    <GBInfo />
                   </Tooltip>
                 </div>
                 <div>
@@ -132,7 +132,7 @@ export default function TrafficAndTargeting({
               {editTargeting &&
               !(isBandit && experiment.status === "running") ? (
                 <button className="btn p-0 link-purple" onClick={editTargeting}>
-                  <span className="text-purple">Edit</span>
+                  Edit
                 </button>
               ) : null}
             </div>

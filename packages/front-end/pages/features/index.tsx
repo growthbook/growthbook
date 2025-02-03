@@ -2,7 +2,7 @@ import Link from "next/link";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
-import { Box } from "@radix-ui/themes";
+import { Box, Switch, Text } from "@radix-ui/themes";
 import {
   ComputedFeatureInterface,
   FeatureInterface,
@@ -16,6 +16,7 @@ import {
   StaleFeatureReason,
 } from "shared/util";
 import { FaTriangleExclamation } from "react-icons/fa6";
+import clsx from "clsx";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBAddCircle } from "@/components/Icons";
 import FeatureModal from "@/components/Features/FeatureModal";
@@ -39,7 +40,6 @@ import TagsFilter, {
   useTagsFilter,
 } from "@/components/Tags/TagsFilter";
 import SortedTags from "@/components/Tags/SortedTags";
-import Toggle from "@/components/Forms/Toggle";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
@@ -55,9 +55,11 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import Button from "@/components/Radix/Button";
 import Callout from "@/components/Radix/Callout";
+import ProjectBadges from "@/components/ProjectBadges";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
+const HEADER_HEIGHT_PX = 55;
 
 export default function FeaturesPage() {
   const router = useRouter();
@@ -141,19 +143,6 @@ export default function FeaturesPage() {
               />
             </div>
             <div className="col-auto">
-              <TagsFilter filter={tagsFilter} items={items} />
-            </div>
-            {showArchivedToggle && (
-              <div className="col">
-                <Toggle
-                  value={showArchived}
-                  id="archived"
-                  setValue={setShowArchived}
-                ></Toggle>
-                Show Archived
-              </div>
-            )}
-            <div className="col-auto">
               <Link
                 href="https://docs.growthbook.io/using/growthbook-best-practices#syntax-search"
                 target="_blank"
@@ -161,12 +150,31 @@ export default function FeaturesPage() {
                 <Tooltip body={searchTermFilterExplainations}></Tooltip>
               </Link>
             </div>
+            <div className="col-auto">
+              <TagsFilter filter={tagsFilter} items={items} />
+            </div>
+            {showArchivedToggle && (
+              <>
+                <div className="flex-1" />
+                <div className="col-auto">
+                  <Text as="label" mb="0">
+                    <Switch
+                      checked={showArchived}
+                      id="archived"
+                      onCheckedChange={setShowArchived}
+                      mr="2"
+                    />
+                    Show Archived
+                  </Text>
+                </div>
+              </>
+            )}
           </div>
 
-          <table className="table gbtable table-hover appbox">
+          <table className="table gbtable appbox">
             <thead
-              className="sticky-top bg-white shadow-sm"
-              style={{ top: "56px", zIndex: 900 }}
+              className="sticky-top shadow-sm"
+              style={{ top: HEADER_HEIGHT_PX + "px", zIndex: 900 }}
             >
               <tr>
                 <th></th>
@@ -231,7 +239,9 @@ export default function FeaturesPage() {
                 return (
                   <tr
                     key={feature.id}
-                    className={feature.archived ? "text-muted" : ""}
+                    className={clsx("hover-highlight", {
+                      "text-muted": feature.archived,
+                    })}
                   >
                     <td data-title="Watching status:" className="watching">
                       <WatchButton
@@ -240,10 +250,12 @@ export default function FeaturesPage() {
                         type="icon"
                       />
                     </td>
-                    <td>
+                    <td className="p-0">
                       <Link
                         href={`/features/${feature.id}`}
-                        className={feature.archived ? "text-muted" : ""}
+                        className={clsx("featurename d-block p-2", {
+                          "text-muted": feature.archived,
+                        })}
                       >
                         {feature.id}
                       </Link>
@@ -261,12 +273,21 @@ export default function FeaturesPage() {
                             <span className="text-danger">Invalid project</span>
                           </Tooltip>
                         ) : (
-                          feature.projectName ?? <em>None</em>
+                          <>
+                            {feature.project ? (
+                              <ProjectBadges
+                                resourceType="feature"
+                                projectIds={[feature.projectId]}
+                              />
+                            ) : (
+                              <></>
+                            )}
+                          </>
                         )}
                       </td>
                     )}
                     <td>
-                      <SortedTags tags={feature?.tags || []} />
+                      <SortedTags tags={feature?.tags || []} useFlex={true} />
                     </td>
                     {toggleEnvs.map((en) => (
                       <td key={en.id} className="position-relative text-center">
@@ -538,11 +559,6 @@ export default function FeaturesPage() {
             </div>
           )}
       </div>
-      <p>
-        Features enable you to change your app&apos;s behavior from within the
-        GrowthBook UI. For example, turn on/off a sales banner or change the
-        title of your pricing page.{" "}
-      </p>
       <div className="mt-3">
         <CustomMarkdown page={"featureList"} />
       </div>

@@ -1,36 +1,21 @@
 import { BanditEvent } from "back-end/src/validators/experiments";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
 } from "back-end/types/experiment";
+import { getSRMHealthData } from "shared/health";
+import {
+  DEFAULT_SRM_THRESHOLD,
+  DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
+} from "shared/constants";
 import { useUser } from "@/services/UserContext";
-import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
 import BanditSRMGraph from "@/components/HealthTab/BanditSRMGraph";
 import ButtonSelectField from "@/components/Forms/ButtonSelectField";
 import { pValueFormatter } from "@/services/experiments";
 import SRMWarning from "@/components/Experiment/SRMWarning";
-import { HealthStatus, StatusBadge } from "./StatusBadge";
+import { StatusBadge } from "./StatusBadge";
 import { IssueValue } from "./IssueTags";
-
-export const srmHealthCheck = ({
-  srm,
-  numVariations,
-  srmThreshold,
-  totalUsers,
-}: {
-  srm: number;
-  numVariations: number;
-  srmThreshold: number;
-  totalUsers: number;
-}): HealthStatus => {
-  if (totalUsers && totalUsers < 5 * numVariations) {
-    return "Not enough traffic";
-  } else if (srm >= srmThreshold) {
-    return "healthy";
-  }
-  return "Issues detected";
-};
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -54,15 +39,20 @@ export default function BanditSRMCard({ experiment, phase, onNotify }: Props) {
 
   const [chartMode, setChartMode] = useState<"weights" | "users">("users");
 
-  const overallHealth: HealthStatus = srmHealthCheck({
-    srm: srm ?? Infinity,
-    srmThreshold,
-    numVariations: experiment.variations.length,
-    totalUsers,
-  });
+  const overallHealth = useMemo(
+    () =>
+      getSRMHealthData({
+        srm: srm ?? Infinity,
+        srmThreshold,
+        numOfVariations: experiment.variations.length,
+        totalUsersCount: totalUsers,
+        minUsersPerVariation: DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
+      }),
+    [srm, srmThreshold, experiment.variations.length, totalUsers]
+  );
 
   useEffect(() => {
-    if (overallHealth === "Issues detected") {
+    if (overallHealth === "unhealthy") {
       onNotify({ label: "Experiment Balance", value: "balanceCheck" });
     }
   }, [overallHealth, onNotify]);
@@ -80,7 +70,7 @@ export default function BanditSRMCard({ experiment, phase, onNotify }: Props) {
       <div className="row overflow-hidden" id="parent-container">
         <div className="col-12">
           <h2 className="d-inline">Experiment Balance Check</h2>{" "}
-          {overallHealth && overallHealth !== "healthy" && (
+          {overallHealth !== "healthy" && (
             <StatusBadge status={overallHealth} />
           )}
           <p className="mt-1">
@@ -113,22 +103,20 @@ export default function BanditSRMCard({ experiment, phase, onNotify }: Props) {
             />
           </div>
           <div>
-            {(overallHealth === "healthy" ||
-              overallHealth === "Issues detected") && (
+            {overallHealth !== "not-enough-traffic" ? (
               <>
                 <div className="text-muted mx-3 mb-2">
                   p-value:{" "}
                   {srm !== undefined ? pValueFormatter(srm, 4) : <em>n/a</em>}
                 </div>
                 <SRMWarning
-                  srm={srm !== undefined ? srm : Infinity}
+                  srm={srm ?? Infinity}
                   users={users}
                   showWhenHealthy
                   isBandit={true}
                 />
               </>
-            )}
-            {overallHealth === "Not enough traffic" && (
+            ) : (
               <div className="alert alert-info font-weight-bold">
                 More traffic is required to detect a Sample Ratio Mismatch
                 (SRM).

@@ -71,9 +71,16 @@ For example, if you have an Orders Fact Table, you can create a Proportion Metri
 
 ### Mean Metrics
 
-Mean Metrics are useful when there are more than 2 possible states a user can be in. For example, instead of just purchase/not purchase, you might care about the average number of orders a user makes, or the average revenue you earned per user in an experiment.
+Mean Metrics are useful when there are more than 2 possible states a user can be in. For example, instead of just purchase/not purchase, you might care about the average number of orders a user makes, the average revenue you earned per user in an experiment, or a count of the distinct types of items a user purchased.
 
-For the metric value, there are 2 types of aggregations you can do - `COUNT(*)` and `SUM(column)`. For `SUM`, you will be able to choose any numeric column in your Fact Table.
+For the metric value, there are 4 types of aggregations you can do:
+
+- `COUNT(*)` - a count of all rows per user in your Fact Table
+- `SUM(column)` - the sum per user of any numeric column in your Fact Table
+- `MAX(column)` - the max of a numeric column per user in your Fact Table
+- `COUNT(DISTINCT column)` - the distinct count of a string column per user in your Fact Table.
+
+Note: for `COUNT DISTINCT`, we use the [HyperLogLog](https://en.wikipedia.org/wiki/HyperLogLog) estimation method to approximate the distinct count while scaling to account for data with many rows and easily allow re-aggregation. However, `COUNT DISTINCT` is still more computationally costly than other aggregation types, so use it only when necessary. This aggregation is not available for SQL Server, MySQL, Postgres, or Vertica.
 
 For example, an **Orders per User** metric would use `COUNT(*)` since you want to count the total number of rows. A **Revenue per User** metric would use `SUM` and select the column where the order total is stored.
 
@@ -90,6 +97,8 @@ The types of aggregations supported for ratio metrics are:
 - `COUNT(*)` - Number of rows in the Fact Table
 - `COUNT(DISTINCT 'User Identifier')` - Sample size of the experiment variation
 - `SUM(column)` - Total of a numeric column in the Fact Table
+- `MAX(column)` - Max of a numeric column in the Fact Table by user
+- `COUNT(DISTINCT column)` - Distinct count of a string column in the Fact Table by user
 
 Under the hood, GrowthBook uses the Delta Method to accurately determine the variance.
 

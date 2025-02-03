@@ -33,6 +33,9 @@ import {
 } from "./util";
 import { StickyBucketService } from "./sticky-bucket-service";
 
+export const EVENT_FEATURE_EVALUATED = "Feature Evaluated";
+export const EVENT_EXPERIMENT_VIEWED = "Experiment Viewed";
+
 function getForcedFeatureValues(ctx: EvalContext) {
   // Merge user and global values
   const ret: typeof ctx.global.forcedFeatureValues = new Map();
@@ -56,6 +59,49 @@ function getForcedVariations(ctx: EvalContext) {
   } else {
     return {};
   }
+}
+
+async function safeCall(fn: () => void | Promise<void>) {
+  try {
+    await fn();
+  } catch (e) {
+    // Do nothing
+  }
+}
+
+function onExperimentViewed(
+  ctx: EvalContext,
+  experiment: Experiment<unknown>,
+  result: Result<unknown>
+) {
+  const calls: Promise<void>[] = [];
+
+  if (ctx.global.trackingCallback) {
+    const cb = ctx.global.trackingCallback;
+    calls.push(safeCall(() => cb(experiment, result, ctx.user)));
+  }
+  if (ctx.user.trackingCallback) {
+    const cb = ctx.user.trackingCallback;
+    calls.push(safeCall(() => cb(experiment, result)));
+  }
+  if (ctx.global.eventLogger) {
+    const cb = ctx.global.eventLogger;
+    calls.push(
+      safeCall(() =>
+        cb(
+          EVENT_EXPERIMENT_VIEWED,
+          {
+            experimentId: experiment.key,
+            variationId: result.key,
+            hashAttribute: result.hashAttribute,
+            hashValue: result.hashValue,
+          },
+          ctx.user
+        )
+      )
+    );
+  }
+  return calls;
 }
 
 export function evalFeature<V = unknown>(
@@ -99,10 +145,12 @@ export function evalFeature<V = unknown>(
 
   // Loop through the rules
   if (feature.rules) {
+    const evaluatedFeatures = new Set(ctx.stack.evaluatedFeatures);
     rules: for (const rule of feature.rules) {
       // If there are prerequisite flag(s), evaluate them
       if (rule.parentConditions) {
         for (const parentCondition of rule.parentConditions) {
+          ctx.stack.evaluatedFeatures = new Set(evaluatedFeatures);
           const parentResult = evalFeature(parentCondition.id, ctx);
           // break out for cyclic prerequisites
           if (parentResult.source === "cyclicPrerequisite") {
@@ -189,20 +237,8 @@ export function evalFeature<V = unknown>(
         // If this was a remotely evaluated experiment, fire the tracking callbacks
         if (rule.tracks) {
           rule.tracks.forEach((t) => {
-            let tracked = false;
-            if (ctx.global.trackingCallback) {
-              tracked = true;
-              Promise.resolve(
-                ctx.global.trackingCallback(t.experiment, t.result, ctx.user)
-              ).catch(() => {});
-            }
-            if (ctx.user.trackingCallback) {
-              tracked = true;
-              Promise.resolve(
-                ctx.user.trackingCallback(t.experiment, t.result)
-              ).catch(() => {});
-            }
-            if (!tracked && ctx.global.saveDeferredTrack) {
+            const calls = onExperimentViewed(ctx, t.experiment, t.result);
+            if (!calls.length && ctx.global.saveDeferredTrack) {
               ctx.global.saveDeferredTrack({
                 experiment: t.experiment,
                 result: t.result,
@@ -465,7 +501,9 @@ export function runExperiment<T>(
 
     // 8.05. Exclude if prerequisites are not met
     if (experiment.parentConditions) {
+      const evaluatedFeatures = new Set(ctx.stack.evaluatedFeatures);
       for (const parentCondition of experiment.parentConditions) {
+        ctx.stack.evaluatedFeatures = new Set(evaluatedFeatures);
         const parentResult = evalFeature(parentCondition.id, ctx);
         // break out for cyclic prerequisites
         if (parentResult.source === "cyclicPrerequisite") {
@@ -649,21 +687,7 @@ export function runExperiment<T>(
 
   // 14. Fire the tracking callback(s)
   // Store the promise in case we're awaiting it (ex: browser url redirects)
-  const trackingCalls = [];
-  if (ctx.global.trackingCallback) {
-    trackingCalls.push(
-      Promise.resolve(
-        ctx.global.trackingCallback(experiment, result, ctx.user)
-      ).catch(() => {})
-    );
-  }
-  if (ctx.user.trackingCallback) {
-    trackingCalls.push(
-      Promise.resolve(
-        ctx.user.trackingCallback(experiment, result)
-      ).catch(() => {})
-    );
-  }
+  const trackingCalls = onExperimentViewed(ctx, experiment, result);
   if (trackingCalls.length === 0 && ctx.global.saveDeferredTrack) {
     ctx.global.saveDeferredTrack({
       experiment,
@@ -713,18 +737,30 @@ function getFeatureResult<T>(
   // Track the usage of this feature in real-time
   if (source !== "override") {
     if (ctx.global.onFeatureUsage) {
-      try {
-        ctx.global.onFeatureUsage(key, ret, ctx.user);
-      } catch (e) {
-        // Ignore feature usage errors
-      }
+      const cb = ctx.global.onFeatureUsage;
+      safeCall(() => cb(key, ret, ctx.user));
     }
     if (ctx.user.onFeatureUsage) {
-      try {
-        ctx.user.onFeatureUsage(key, ret);
-      } catch (e) {
-        // Ignore feature usage errors
-      }
+      const cb = ctx.user.onFeatureUsage;
+      safeCall(() => cb(key, ret));
+    }
+
+    if (ctx.global.eventLogger) {
+      const cb = ctx.global.eventLogger;
+      safeCall(() =>
+        cb(
+          EVENT_FEATURE_EVALUATED,
+          {
+            feature: key,
+            source: ret.source,
+            value: ret.value,
+            ruleId:
+              ret.source === "defaultValue" ? "$default" : ret.ruleId || "",
+            variationId: ret.experimentResult ? ret.experimentResult.key : "",
+          },
+          ctx.user
+        )
+      );
     }
   }
 
@@ -838,7 +874,7 @@ function mergeOverrides<T>(
     if (typeof experiment.url === "string") {
       experiment.url = getUrlRegExp(
         // eslint-disable-next-line
-          experiment.url as any
+        experiment.url as any
       );
     }
   }

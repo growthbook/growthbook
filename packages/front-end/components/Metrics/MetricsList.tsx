@@ -283,6 +283,7 @@ const MetricsList = (): React.ReactElement => {
 
   const {
     items,
+    unpaginatedItems,
     searchInputProps,
     isFiltered,
     SortableTH,
@@ -394,7 +395,7 @@ const MetricsList = (): React.ReactElement => {
           </div>
         )}
         <div className="col-auto">
-          <TagsFilter filter={tagsFilter} items={items} />
+          <TagsFilter filter={tagsFilter} items={unpaginatedItems} />
         </div>
       </div>
       <table className="table appbox gbtable table-hover">
@@ -521,13 +522,9 @@ const MetricsList = (): React.ReactElement => {
                     <ProjectBadges
                       resourceType="metric"
                       projectIds={metric.projects}
-                      className="badge-ellipsis short align-middle"
                     />
                   ) : (
-                    <ProjectBadges
-                      resourceType="metric"
-                      className="badge-ellipsis short align-middle"
-                    />
+                    <ProjectBadges resourceType="metric" />
                   )}
                 </td>
                 <td>{metric.owner}</td>

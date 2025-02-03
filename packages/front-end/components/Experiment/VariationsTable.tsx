@@ -16,7 +16,7 @@ const ScreenshotCarousel: FC<{
   variation: Variation;
   canEditExperiment: boolean;
   experiment: ExperimentInterfaceStringDates;
-  mutate: () => void;
+  mutate?: () => void;
   maxChildHeight?: number;
 }> = ({
   canEditExperiment,
@@ -50,7 +50,7 @@ const ScreenshotCarousel: FC<{
                 );
               }
 
-              mutate();
+              mutate?.();
             }
       }
       maxChildHeight={maxChildHeight}
@@ -75,7 +75,7 @@ const ScreenshotCarousel: FC<{
 interface Props {
   experiment: ExperimentInterfaceStringDates;
   canEditExperiment: boolean;
-  mutate: () => void;
+  mutate?: () => void;
 }
 
 const VariationsTable: FC<Props> = ({
@@ -180,7 +180,7 @@ const VariationsTable: FC<Props> = ({
                       <ScreenshotUpload
                         variation={i}
                         experiment={experiment.id}
-                        onSuccess={() => mutate()}
+                        onSuccess={() => mutate?.()}
                       />
                     </div>
                   </td>

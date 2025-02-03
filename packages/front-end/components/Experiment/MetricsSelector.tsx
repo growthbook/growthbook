@@ -1,5 +1,4 @@
-import { FC } from "react";
-import { FaQuestionCircle } from "react-icons/fa";
+import React, { FC, ReactNode } from "react";
 import { isProjectListValidForProject } from "shared/util";
 import {
   isFactMetric,
@@ -12,6 +11,7 @@ import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricName from "@/components/Metrics/MetricName";
 import ClickToCopy from "@/components/Settings/ClickToCopy";
+import { GBInfo } from "@/components/Icons";
 
 type MetricOption = {
   id: string;
@@ -78,6 +78,7 @@ const MetricsSelector: FC<{
   forceSingleMetric?: boolean;
   noPercentile?: boolean;
   disabled?: boolean;
+  helpText?: ReactNode;
 }> = ({
   datasource,
   project,
@@ -91,6 +92,7 @@ const MetricsSelector: FC<{
   forceSingleMetric = false,
   noPercentile = false,
   disabled,
+  helpText,
 }) => {
   const {
     metrics,
@@ -264,6 +266,52 @@ const MetricsSelector: FC<{
         }
       }}
       disabled={disabled}
+      helpText={
+        <>
+          {helpText}
+          <div className="d-flex align-items-center justify-content-end mt-1 mb-2">
+            <div>
+              {!forceSingleMetric && filteredOptions.length > 0 && !disabled && (
+                <div className="metric-from-tag text-muted form-inline">
+                  <span>
+                    Select metric by tag:{" "}
+                    <Tooltip body="Metrics can be tagged for grouping. Select any tag to add all metrics associated with that tag.">
+                      <GBInfo />
+                    </Tooltip>
+                  </span>
+                  <SelectField
+                    value="choose"
+                    placeholder="choose"
+                    className="ml-3"
+                    containerClassName="select-dropdown-underline"
+                    style={{ minWidth: 100 }}
+                    onChange={(v) => {
+                      const newValue = new Set(selected);
+                      const tag = v;
+                      filteredOptions.forEach((m) => {
+                        if (m.tags && m.tags.includes(tag)) {
+                          newValue.add(m.id);
+                        }
+                      });
+                      onChange(Array.from(newValue));
+                    }}
+                    options={[
+                      {
+                        value: "...",
+                        label: "...",
+                      },
+                      ...Object.keys(tagCounts).map((k) => ({
+                        value: k,
+                        label: `${k} (${tagCounts[k]})`,
+                      })),
+                    ]}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      }
     />
   ) : (
     <SelectField
@@ -287,6 +335,7 @@ const MetricsSelector: FC<{
         );
       }}
       disabled={disabled}
+      helpText={helpText}
     />
   );
 
@@ -300,46 +349,6 @@ const MetricsSelector: FC<{
         </div>
       )}
       {selector}
-      <div className="d-flex align-items-center justify-content-end">
-        <div>
-          {!forceSingleMetric && filteredOptions.length > 0 && !disabled && (
-            <div className="metric-from-tag text-muted form-inline mt-2">
-              <span style={{ fontSize: "0.82rem" }}>
-                Select metric by tag:{" "}
-                <Tooltip body="Metrics can be tagged for grouping. Select any tag to add all metrics associated with that tag.">
-                  <FaQuestionCircle />
-                </Tooltip>
-              </span>
-              <SelectField
-                value="choose"
-                placeholder="choose"
-                className="ml-3"
-                style={{ minWidth: 100 }}
-                onChange={(v) => {
-                  const newValue = new Set(selected);
-                  const tag = v;
-                  filteredOptions.forEach((m) => {
-                    if (m.tags && m.tags.includes(tag)) {
-                      newValue.add(m.id);
-                    }
-                  });
-                  onChange(Array.from(newValue));
-                }}
-                options={[
-                  {
-                    value: "...",
-                    label: "...",
-                  },
-                  ...Object.keys(tagCounts).map((k) => ({
-                    value: k,
-                    label: `${k} (${tagCounts[k]})`,
-                  })),
-                ]}
-              />
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   );
 };

@@ -59,4 +59,5 @@ export type AppFeatures = {
   "kiosk-greeting": string;
   "feature-usage": boolean;
   "feature-usage-auto-refresh-interval": Record<string, unknown>;
+  "show-impact-near-top": boolean;
 };

@@ -22,6 +22,8 @@ export interface paths {
     get: operations["getFeature"];
     /** Partially update a feature */
     post: operations["updateFeature"];
+    /** Deletes a single feature */
+    delete: operations["deleteFeature"];
   };
   "/features/{id}/toggle": {
     /** Toggle a feature in one or more environments */
@@ -92,6 +94,10 @@ export interface paths {
     put: operations["putSdkConnection"];
     /** Deletes a single SDK connection */
     delete: operations["deleteSdkConnection"];
+  };
+  "/sdk-connections/lookup/{key}": {
+    /** Find a single sdk connection by its key */
+    get: operations["lookupSdkConnectionByKey"];
   };
   "/data-sources": {
     /** Get all data sources */
@@ -230,6 +236,20 @@ export interface paths {
     put: operations["putAttribute"];
     /** Deletes a single attribute */
     delete: operations["deleteAttribute"];
+  };
+  "/archetypes": {
+    /** Get the organization's archetypes */
+    get: operations["listArchetypes"];
+    /** Create a single archetype */
+    post: operations["postArchetype"];
+  };
+  "/archetypes/${id}": {
+    /** Get a single archetype */
+    get: operations["getArchetype"];
+    /** Update a single archetype */
+    put: operations["putArchetype"];
+    /** Deletes a single archetype */
+    delete: operations["deleteArchetype"];
   };
   "/members": {
     /** Get all organization members */
@@ -450,6 +470,7 @@ export interface components {
       toggleOnList: boolean;
       defaultState: boolean;
       projects: (string)[];
+      parent?: string;
     };
     Attribute: {
       property: string;
@@ -1514,6 +1535,18 @@ export interface components {
       dateCreated?: string;
       /** Format: date-time */
       dateUpdated?: string;
+    };
+    Archetype: {
+      id: string;
+      dateCreated: string;
+      dateUpdated: string;
+      name: string;
+      description?: string;
+      owner: string;
+      isPublic: boolean;
+      /** @description The attributes to set when using this Archetype */
+      attributes: any;
+      projects?: (string)[];
     };
   };
   responses: {
@@ -2703,6 +2736,28 @@ export interface operations {
       };
     };
   };
+  deleteFeature: {
+    /** Deletes a single feature */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            /**
+             * @description The ID of the deleted feature 
+             * @example feature-123
+             */
+            deletedId?: string;
+          };
+        };
+      };
+    };
+  };
   toggleFeature: {
     /** Toggle a feature in one or more environments */
     requestBody: {
@@ -3451,6 +3506,52 @@ export interface operations {
         content: {
           "application/json": {
             deletedId: string;
+          };
+        };
+      };
+    };
+  };
+  lookupSdkConnectionByKey: {
+    /** Find a single sdk connection by its key */
+    parameters: {
+        /** @description The key of the requested sdkConnection */
+      path: {
+        key: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            sdkConnection: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              organization: string;
+              languages: (string)[];
+              sdkVersion?: string;
+              environment: string;
+              /** @description Use 'projects' instead. This is only for backwards compatibility and contains the first project only. */
+              project: string;
+              projects?: (string)[];
+              encryptPayload: boolean;
+              encryptionKey: string;
+              includeVisualExperiments?: boolean;
+              includeDraftExperiments?: boolean;
+              includeExperimentNames?: boolean;
+              includeRedirectExperiments?: boolean;
+              key: string;
+              proxyEnabled: boolean;
+              proxyHost: string;
+              proxySigningKey: string;
+              sseEnabled?: boolean;
+              hashSecureAttributes?: boolean;
+              remoteEvalEnabled?: boolean;
+              savedGroupReferencesEnabled?: boolean;
+            };
           };
         };
       };
@@ -5890,6 +5991,154 @@ export interface operations {
       };
     };
   };
+  listArchetypes: {
+    /** Get the organization's archetypes */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            archetypes: ({
+                id: string;
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                description?: string;
+                owner: string;
+                isPublic: boolean;
+                /** @description The attributes to set when using this Archetype */
+                attributes: any;
+                projects?: (string)[];
+              })[];
+          };
+        };
+      };
+    };
+  };
+  postArchetype: {
+    /** Create a single archetype */
+    requestBody: {
+      content: {
+        "application/json": {
+          name: string;
+          description?: string;
+          /** @description Whether to make this Archetype available to other team members */
+          isPublic: boolean;
+          /** @description The attributes to set when using this Archetype */
+          attributes?: any;
+          projects?: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            archetype: {
+              id: string;
+              dateCreated: string;
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              owner: string;
+              isPublic: boolean;
+              /** @description The attributes to set when using this Archetype */
+              attributes: any;
+              projects?: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  getArchetype: {
+    /** Get a single archetype */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            archetype: {
+              id: string;
+              dateCreated: string;
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              owner: string;
+              isPublic: boolean;
+              /** @description The attributes to set when using this Archetype */
+              attributes: any;
+              projects?: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  putArchetype: {
+    /** Update a single archetype */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          name?: string;
+          description?: string;
+          /** @description Whether to make this Archetype available to other team members */
+          isPublic?: boolean;
+          /** @description The attributes to set when using this Archetype */
+          attributes?: any;
+          projects?: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            archetype: {
+              id: string;
+              dateCreated: string;
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              owner: string;
+              isPublic: boolean;
+              /** @description The attributes to set when using this Archetype */
+              attributes: any;
+              projects?: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteArchetype: {
+    /** Deletes a single archetype */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
   listMembers: {
     /** Get all organization members */
     parameters: {
@@ -6018,6 +6267,7 @@ export interface operations {
                 toggleOnList: boolean;
                 defaultState: boolean;
                 projects: (string)[];
+                parent?: string;
               })[];
           };
         };
@@ -6038,6 +6288,8 @@ export interface operations {
           /** @description Default state for new features */
           defaultState?: any;
           projects?: (string)[];
+          /** @description An environment that the new environment should inherit feature rules from. Requires an enterprise license */
+          parent?: string;
         };
       };
     };
@@ -6051,6 +6303,7 @@ export interface operations {
               toggleOnList: boolean;
               defaultState: boolean;
               projects: (string)[];
+              parent?: string;
             };
           };
         };
@@ -6088,6 +6341,7 @@ export interface operations {
               toggleOnList: boolean;
               defaultState: boolean;
               projects: (string)[];
+              parent?: string;
             };
           };
         };
@@ -7449,12 +7703,14 @@ export type ApiFactTable = z.infer<typeof openApiValidators.apiFactTableValidato
 export type ApiFactTableFilter = z.infer<typeof openApiValidators.apiFactTableFilterValidator>;
 export type ApiFactMetric = z.infer<typeof openApiValidators.apiFactMetricValidator>;
 export type ApiMember = z.infer<typeof openApiValidators.apiMemberValidator>;
+export type ApiArchetype = z.infer<typeof openApiValidators.apiArchetypeValidator>;
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
 export type PostFeatureResponse = operations["postFeature"]["responses"]["200"]["content"]["application/json"];
 export type GetFeatureResponse = operations["getFeature"]["responses"]["200"]["content"]["application/json"];
 export type UpdateFeatureResponse = operations["updateFeature"]["responses"]["200"]["content"]["application/json"];
+export type DeleteFeatureResponse = operations["deleteFeature"]["responses"]["200"]["content"]["application/json"];
 export type ToggleFeatureResponse = operations["toggleFeature"]["responses"]["200"]["content"]["application/json"];
 export type GetFeatureKeysResponse = operations["getFeatureKeys"]["responses"]["200"]["content"]["application/json"];
 export type ListProjectsResponse = operations["listProjects"]["responses"]["200"]["content"]["application/json"];
@@ -7471,6 +7727,7 @@ export type PostSdkConnectionResponse = operations["postSdkConnection"]["respons
 export type GetSdkConnectionResponse = operations["getSdkConnection"]["responses"]["200"]["content"]["application/json"];
 export type PutSdkConnectionResponse = operations["putSdkConnection"]["responses"]["200"]["content"]["application/json"];
 export type DeleteSdkConnectionResponse = operations["deleteSdkConnection"]["responses"]["200"]["content"]["application/json"];
+export type LookupSdkConnectionByKeyResponse = operations["lookupSdkConnectionByKey"]["responses"]["200"]["content"]["application/json"];
 export type ListDataSourcesResponse = operations["listDataSources"]["responses"]["200"]["content"]["application/json"];
 export type GetDataSourceResponse = operations["getDataSource"]["responses"]["200"]["content"]["application/json"];
 export type ListExperimentsResponse = operations["listExperiments"]["responses"]["200"]["content"]["application/json"];
@@ -7502,6 +7759,11 @@ export type ListAttributesResponse = operations["listAttributes"]["responses"]["
 export type PostAttributeResponse = operations["postAttribute"]["responses"]["200"]["content"]["application/json"];
 export type PutAttributeResponse = operations["putAttribute"]["responses"]["200"]["content"]["application/json"];
 export type DeleteAttributeResponse = operations["deleteAttribute"]["responses"]["200"]["content"]["application/json"];
+export type ListArchetypesResponse = operations["listArchetypes"]["responses"]["200"]["content"]["application/json"];
+export type PostArchetypeResponse = operations["postArchetype"]["responses"]["200"]["content"]["application/json"];
+export type GetArchetypeResponse = operations["getArchetype"]["responses"]["200"]["content"]["application/json"];
+export type PutArchetypeResponse = operations["putArchetype"]["responses"]["200"]["content"]["application/json"];
+export type DeleteArchetypeResponse = operations["deleteArchetype"]["responses"]["200"]["content"]["application/json"];
 export type ListMembersResponse = operations["listMembers"]["responses"]["200"]["content"]["application/json"];
 export type DeleteMemberResponse = operations["deleteMember"]["responses"]["200"]["content"]["application/json"];
 export type UpdateMemberRoleResponse = operations["updateMemberRole"]["responses"]["200"]["content"]["application/json"];

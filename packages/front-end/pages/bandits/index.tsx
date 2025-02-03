@@ -7,8 +7,6 @@ import clsx from "clsx";
 import { PiShuffle } from "react-icons/pi";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { phaseSummary } from "@/services/utils";
-import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -33,6 +31,7 @@ import Button from "@/components/Radix/Button";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import LinkButton from "@/components/Radix/LinkButton";
+import PremiumEmptyState from "@/components/PremiumEmptyState";
 
 const NUM_PER_PAGE = 20;
 
@@ -247,23 +246,34 @@ const ExperimentsPage = (): React.ReactElement => {
     };
   }
 
+  if (!hasMultiArmedBanditFeature) {
+    return (
+      <div className="contents container-fluid pagecontents">
+        <PremiumEmptyState
+          h1="Bandits"
+          title="Run Adaptive Experiments with Bandits"
+          description="Bandits automatically guide more traffic to better variants."
+          commercialFeature="multi-armed-bandits"
+          reason="Bandit Experiments No Access"
+          learnMoreLink="https://docs.growthbook.io/bandits/overview"
+        />
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="contents experiments container-fluid pagecontents">
-        <div className="mb-3">
+        <div className="mb-3 mt-2">
           <div className="filters md-form row mb-3 align-items-center">
             <div className="col d-flex align-items-center">
               <h1>Bandits</h1>
-              <span className="mr-auto badge badge-purple text-uppercase ml-2">
-                Beta
-              </span>
             </div>
             <div style={{ flex: 1 }} />
             {canAdd && (
               <div className="col-auto">
                 <PremiumTooltip
                   tipPosition="left"
-                  popperStyle={{ top: 15 }}
                   body={
                     hasStickyBucketFeature && !orgStickyBucketing
                       ? "Enable Sticky Bucketing in your organization settings to run a Bandit"
@@ -289,15 +299,13 @@ const ExperimentsPage = (): React.ReactElement => {
           </div>
           <CustomMarkdown page={"experimentList"} />
           {!hasExperiments ? (
-            <div className="box py-4 text-center">
+            <div className="box py-5 text-center">
               <div className="mx-auto" style={{ maxWidth: 650 }}>
                 <h1>Adaptively experiment with bandits.</h1>
-                <p style={{ fontSize: "17px" }}>
-                  Run adaptive experiments with Bandits.
-                </p>
+                <p className="">Run adaptive experiments with Bandits.</p>
               </div>
               <div
-                className="d-flex justify-content-center"
+                className="d-flex justify-content-center pt-2"
                 style={{ gap: "1rem" }}
               >
                 <LinkButton
@@ -422,14 +430,12 @@ const ExperimentsPage = (): React.ReactElement => {
                     )}
                     <SortableTH field="tags">Tags</SortableTH>
                     <SortableTH field="ownerName">Owner</SortableTH>
-                    <SortableTH field="status">Status</SortableTH>
                     <SortableTH field="date">Date</SortableTH>
-                    <th>Summary</th>
+                    <SortableTH field="status">Status</SortableTH>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.slice(start, end).map((e) => {
-                    const phase = e.phases?.[e.phases.length - 1];
                     return (
                       <tr key={e.id} className="hover-highlight">
                         <td data-title="Watching status:" className="watching">
@@ -512,15 +518,6 @@ const ExperimentsPage = (): React.ReactElement => {
                         <td className="nowrap" data-title="Owner:">
                           {e.ownerName}
                         </td>
-                        <td className="nowrap" data-title="Status:">
-                          {e.archived ? (
-                            <span className="badge badge-secondary">
-                              archived
-                            </span>
-                          ) : (
-                            <ExperimentStatusIndicator status={e.status} />
-                          )}
-                        </td>
                         <td className="nowrap" title={datetime(e.date)}>
                           {e.tab === "running"
                             ? "started"
@@ -533,16 +530,8 @@ const ExperimentsPage = (): React.ReactElement => {
                             : ""}{" "}
                           {date(e.date)}
                         </td>
-                        <td className="nowrap" data-title="Summary:">
-                          {e.archived ? (
-                            ""
-                          ) : e.status === "running" && phase ? (
-                            phaseSummary(phase, e.type === "multi-armed-bandit")
-                          ) : e.status === "stopped" && e.results ? (
-                            <ResultsIndicator results={e.results} />
-                          ) : (
-                            ""
-                          )}
+                        <td className="nowrap" data-title="Status:">
+                          <ExperimentStatusIndicator experimentData={e} />
                         </td>
                       </tr>
                     );

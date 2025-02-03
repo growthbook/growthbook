@@ -36,7 +36,7 @@ const defaultMetricPriorSettings: MetricPriorSettings = {
   stddev: DEFAULT_PROPER_PRIOR_STDDEV,
 };
 
-const METRIC_DEFAULTS = {
+export const METRIC_DEFAULTS = {
   minimumSampleSize: DEFAULT_MIN_SAMPLE_SIZE,
   maxPercentageChange: DEFAULT_MAX_PERCENT_CHANGE,
   minPercentageChange: DEFAULT_MIN_PERCENT_CHANGE,
@@ -50,7 +50,7 @@ const METRIC_DEFAULTS = {
  * If an organization has them set, use them, otherwise use the hardcoded defaults.
  * Helper methods will consider zero (0) as a valid value.
  */
-type OrganizationMetricDefaults = {
+export type OrganizationMetricDefaults = {
   /**
    * The default values, with this precedence:
    *  - organization defaults

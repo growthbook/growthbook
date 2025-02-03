@@ -110,13 +110,9 @@ const EnvironmentsPage: FC = () => {
                       <ProjectBadges
                         resourceType="environment"
                         projectIds={e.projects}
-                        className="badge-ellipsis short align-middle"
                       />
                     ) : (
-                      <ProjectBadges
-                        resourceType="environment"
-                        className="badge-ellipsis short align-middle"
-                      />
+                      <ProjectBadges resourceType="environment" />
                     )}
                   </td>
                   <td>

@@ -9,10 +9,11 @@ import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
 import { accountFeatures, getAccountPlan } from "enterprise";
 import { omit } from "lodash";
 import { SavedGroupInterface } from "shared/src/types";
+import { v4 as uuidv4 } from "uuid";
 import {
   ExperimentReportArgs,
+  ExperimentReportInterface,
   LegacyReportInterface,
-  ReportInterface,
 } from "back-end/types/report";
 import { WebhookInterface } from "back-end/types/webhook";
 import { SdkWebHookLogDocument } from "back-end/src/models/SdkWebhookLogModel";
@@ -617,10 +618,19 @@ export function upgradeExperimentDoc(
     experiment.sequentialTestingTuningParameter = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
   }
 
+  if (!("shareLevel" in experiment)) {
+    experiment.shareLevel = "organization";
+  }
+  if (!("uid" in experiment)) {
+    experiment.uid = uuidv4().replace(/-/g, "");
+  }
+
   return experiment as ExperimentInterface;
 }
 
-export function migrateReport(orig: LegacyReportInterface): ReportInterface {
+export function migrateExperimentReport(
+  orig: LegacyReportInterface
+): ExperimentReportInterface {
   const { args, ...report } = orig;
 
   const {

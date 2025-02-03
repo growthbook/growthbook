@@ -1,9 +1,10 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { FaArchive, FaChevronRight, FaPlus } from "react-icons/fa";
 import Link from "next/link";
 import { ago, datetime } from "shared/dates";
 import clsx from "clsx";
 import { getMetricLink } from "shared/experiments";
+import { Box, Card, Flex, Heading } from "@radix-ui/themes";
 import { DocLink } from "@/components/DocLink";
 import { envAllowsCreatingMetrics } from "@/services/env";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
@@ -18,6 +19,8 @@ import {
   MetricModalState,
 } from "@/components/FactTables/NewMetricModal";
 import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
+import Badge from "@/components/Radix/Badge";
+import Button from "@/components/Radix/Button";
 import { DataSourceQueryEditingModalBaseProps } from "./types";
 
 type DataSourceMetricsProps = Omit<
@@ -66,21 +69,26 @@ export default function DataSourceMetrics({
           datasource={dataSource.id}
         />
       ) : null}
-      <div className="d-flex flex-row align-items-center justify-content-between">
-        <div>
-          <h2>
-            Metrics{" "}
-            <span className="badge badge-purple mx-2 my-0">
-              {metrics && metrics.length > 0 ? metrics.length : "0"}
-            </span>
-          </h2>
+      <Flex align="center" justify="between">
+        <Box>
+          <Flex align="center" gap="3" mb="3">
+            <Heading as="h4" size="4" mb="0">
+              Metrics
+            </Heading>
+            <Badge
+              label={metrics && metrics.length > 0 ? metrics.length + "" : "0"}
+              color="gray"
+              radius="medium"
+            />
+          </Flex>
           <p className="m-0">
             Metrics are what your experiments are trying to improve (or at least
             not hurt). Below are the metrics defined from this data source.{" "}
             <DocLink docSection="metrics">Learn more.</DocLink>
           </p>
-        </div>
-        <div className="d-flex flex-row pl-3">
+        </Box>
+
+        <Flex gap="2" direction="column" justify="end">
           {canEdit &&
           envAllowsCreatingMetrics() &&
           canCreateMetricsInAllDataSourceProjects ? (
@@ -92,18 +100,14 @@ export default function DataSourceMetrics({
                 datasource={dataSource}
                 size="sm"
               />
-              <button
-                className="btn btn-outline-primary font-weight-bold text-nowrap"
-                onClick={() => setModalData({ mode: "new" })}
-              >
+              <Button onClick={() => setModalData({ mode: "new" })}>
                 <FaPlus className="mr-1" /> Add
-              </button>
+              </Button>
             </>
           ) : null}
-          <button
-            className="btn text-dark"
-            onClick={(e) => {
-              e.preventDefault();
+          <Button
+            variant="ghost"
+            onClick={() => {
               setMetricsOpen(!metricsOpen);
             }}
           >
@@ -112,24 +116,28 @@ export default function DataSourceMetrics({
                 transform: `rotate(${metricsOpen ? "90deg" : "0deg"})`,
               }}
             />
-          </button>
-        </div>
-      </div>
+          </Button>
+        </Flex>
+      </Flex>
       {metricsOpen ? (
-        <div className="my-3">
+        <Box>
           {metrics && metrics?.length > 0 ? (
-            <div>
+            <Box>
               {metrics.map((metric) => {
                 return (
-                  <div key={metric.id} className="card p-3 mb-3 bg-light">
-                    <div className="d-flex flex-row align-items-center justify-content-between">
+                  <Card mt="3" key={metric.id}>
+                    <Flex align="start" justify="between" py="2" px="3" gap="3">
                       <div className="pr-3">
                         <div className="mr-5 w-100">
-                          <h4 className={metric.archived ? "text-muted" : ""}>
+                          <Heading
+                            size="3"
+                            mb="1"
+                            className={metric.archived ? "text-muted" : ""}
+                          >
                             <Link href={getMetricLink(metric.id)}>
                               {metric.name}
                             </Link>
-                          </h4>
+                          </Heading>
                           <div className="d-flex flex-row align-items-center">
                             <div className="pr-3">
                               <strong
@@ -164,20 +172,11 @@ export default function DataSourceMetrics({
                             >
                               <strong>Projects: </strong>
                               {!metric?.projects?.length ? (
-                                <ProjectBadges
-                                  resourceType="metric"
-                                  className="badge-ellipsis align-middle"
-                                />
+                                <ProjectBadges resourceType="metric" />
                               ) : (
                                 <ProjectBadges
                                   resourceType="metric"
                                   projectIds={metric.projects}
-                                  className={clsx(
-                                    {
-                                      "text-muted": metric.archived,
-                                    },
-                                    "badge-ellipsis align-middle"
-                                  )}
                                 />
                               )}
                             </div>
@@ -248,18 +247,18 @@ export default function DataSourceMetrics({
                           ) : null}
                         </MoreMenu>
                       </div>
-                    </div>
-                  </div>
+                    </Flex>
+                  </Card>
                 );
               })}
-            </div>
+            </Box>
           ) : (
             <div className="alert alert-info">
               No metrics have been defined yet from this data source. Click the{" "}
               <strong>Add</strong> button to create your first one.
             </div>
           )}
-        </div>
+        </Box>
       ) : null}
     </>
   );

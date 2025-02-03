@@ -1233,12 +1233,13 @@ export default abstract class SqlIntegration
   //Test the validity of a query as cheaply as possible
   getTestValidityQuery(
     query: string,
+    testDays?: number,
     templateVariables?: TemplateVariables
   ): string {
     return this.getTestQuery({
       query,
       templateVariables,
-      testDays: DEFAULT_TEST_QUERY_DAYS,
+      testDays: testDays ?? DEFAULT_TEST_QUERY_DAYS,
       limit: 1,
     });
   }
@@ -4835,12 +4836,18 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         metric.quantileSettings?.ignoreZeros
       ) {
         return `SUM(${valueColumn})`;
-      } else if (columnRef?.aggregation === "count distinct") {
+      } else if (
+        !columnRef?.column.startsWith("$$") &&
+        columnRef?.aggregation === "count distinct"
+      ) {
         if (willReaggregate) {
           return this.hllAggregate(valueColumn);
         }
         return this.hllCardinality(this.hllAggregate(valueColumn));
-      } else if (columnRef?.aggregation === "max") {
+      } else if (
+        !columnRef?.column.startsWith("$$") &&
+        columnRef?.aggregation === "max"
+      ) {
         return `COALESCE(MAX(${valueColumn}), 0)`;
       } else {
         return `SUM(COALESCE(${valueColumn}, 0))`;
@@ -4916,9 +4923,15 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         (isBinomialMetric(metric) || column === "$$distinctUsers")
       ) {
         return `MAX(COALESCE(${valueColumn}, 0))`;
-      } else if (columnRef?.aggregation === "count distinct") {
+      } else if (
+        !columnRef?.column.startsWith("$$") &&
+        columnRef?.aggregation === "count distinct"
+      ) {
         return this.hllCardinality(this.hllReaggregate(valueColumn));
-      } else if (columnRef?.aggregation === "max") {
+      } else if (
+        !columnRef?.column.startsWith("$$") &&
+        columnRef?.aggregation === "max"
+      ) {
         return `MAX(COALESCE(${valueColumn}, 0))`;
       } else {
         return `SUM(COALESCE(${valueColumn}, 0))`;
@@ -4933,7 +4946,10 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     col: string,
     columnRef?: ColumnRef | null
   ): string {
-    if (columnRef?.aggregation === "count distinct") {
+    if (
+      !columnRef?.column.startsWith("$$") &&
+      columnRef?.aggregation === "count distinct"
+    ) {
       return this.hllCardinality(col);
     }
 

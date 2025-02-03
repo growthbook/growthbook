@@ -2,7 +2,7 @@ import { Box, Flex, Slider } from "@radix-ui/themes";
 import React, { useEffect, useState } from "react";
 import { FaDownload, FaExternalLinkAlt } from "react-icons/fa";
 import { BsArrowRepeat } from "react-icons/bs";
-import { PiHourglassMedium, PiInfoFill } from "react-icons/pi";
+import { PiCaretDownFill, PiHourglassMedium, PiInfoFill } from "react-icons/pi";
 import HelperText from "@/components/Radix/HelperText";
 import Checkbox from "@/components/Radix/Checkbox";
 import RadioGroup from "@/components/Radix/RadioGroup";
@@ -34,6 +34,9 @@ import {
   TabsContent,
 } from "@/components/Radix/Tabs";
 import DatePicker from "@/components/DatePicker";
+import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
+import SplitButton from "@/components/Radix/SplitButton";
 
 export default function DesignSystemPage() {
   const [checked, setChecked] = useState<"indeterminate" | boolean>(false);
@@ -52,7 +55,7 @@ export default function DesignSystemPage() {
   const [activeControlledTab, setActiveControlledTab] = useState("tab1");
 
   return (
-    <div className="pagecontents container-fluid">
+    <div className="pagecontents container-fluid pt-4 pb-3">
       <h1>GrowthBook Design System</h1>
       <p>
         This page is a work in progress to document the GrowthBook design
@@ -174,6 +177,7 @@ export default function DesignSystemPage() {
             )}
           </div>
         </Flex>
+
         <b>LinkButton</b>
         <Flex direction="row" gap="3" className="my-3">
           <LinkButton size={size} variant="ghost" href="https://growthbook.io">
@@ -188,6 +192,29 @@ export default function DesignSystemPage() {
           >
             A disabled link
           </LinkButton>
+        </Flex>
+
+        <b>SplitButton</b>
+        <Flex direction="row" gap="3" className="my-3">
+          <SplitButton
+            menu={
+              <DropdownMenu
+                trigger={
+                  <Button size={size}>
+                    <PiCaretDownFill />
+                  </Button>
+                }
+                menuPlacement="end"
+              >
+                <DropdownMenuItem>Create New Experiment</DropdownMenuItem>
+                <DropdownMenuItem>Import Existing Experiment</DropdownMenuItem>
+              </DropdownMenu>
+            }
+          >
+            <Button size={size} icon={<FaDownload />}>
+              Download
+            </Button>
+          </SplitButton>
         </Flex>
       </div>
 
@@ -706,6 +733,82 @@ export default function DesignSystemPage() {
               </Box>
             </Tabs>
           </Box>
+        </Flex>
+      </div>
+
+      <div className="appbox p-3">
+        <h3>ExperimentStatusIndicator</h3>
+        <Flex gap="3">
+          <ExperimentStatusIndicator
+            experimentData={{
+              archived: false,
+              status: "draft",
+              variations: [],
+            }}
+          />
+          <ExperimentStatusIndicator
+            experimentData={{
+              archived: false,
+              status: "running",
+              variations: [],
+            }}
+          />
+          <ExperimentStatusIndicator
+            experimentData={{
+              archived: false,
+              status: "stopped",
+              variations: [],
+            }}
+          />
+          <ExperimentStatusIndicator
+            experimentData={{
+              archived: false,
+              status: "stopped",
+              results: "dnf",
+              variations: [],
+            }}
+          />
+          <ExperimentStatusIndicator
+            experimentData={{
+              archived: false,
+              status: "stopped",
+              results: "inconclusive",
+              variations: [],
+            }}
+          />
+          <ExperimentStatusIndicator
+            experimentData={{
+              archived: false,
+              status: "stopped",
+              results: "won",
+              variations: [],
+            }}
+          />
+          <ExperimentStatusIndicator
+            experimentData={{
+              archived: false,
+              status: "stopped",
+              results: "lost",
+              variations: [],
+            }}
+          />
+          <ExperimentStatusIndicator
+            experimentData={{
+              archived: true,
+              status: "running",
+              variations: [],
+            }}
+          />
+        </Flex>
+      </div>
+
+      <div className="appbox p-3">
+        <h3>ResultsIndicator</h3>
+        <Flex gap="3">
+          <ResultsIndicator results="dnf" />
+          <ResultsIndicator results="inconclusive" />
+          <ResultsIndicator results="won" />
+          <ResultsIndicator results="lost" />
         </Flex>
       </div>
     </div>

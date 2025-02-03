@@ -1,17 +1,9 @@
 import { useRouter } from "next/router";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import React, { useEffect, useMemo, useState } from "react";
-import {
-  FaDraftingCompass,
-  FaExchangeAlt,
-  FaExclamationTriangle,
-  FaLink,
-  FaList,
-  FaLock,
-  FaTimes,
-} from "react-icons/fa";
-import { FaBoltLightning, FaPlusMinus } from "react-icons/fa6";
+import React, { useMemo, useState } from "react";
+import { FaExclamationTriangle, FaLink } from "react-icons/fa";
+import { FaBoltLightning } from "react-icons/fa6";
 import { ago, datetime } from "shared/dates";
 import {
   autoMerge,
@@ -22,42 +14,37 @@ import {
   mergeResultHasChanges,
   PrerequisiteStateResult,
 } from "shared/util";
-import { MdHistory, MdRocketLaunch } from "react-icons/md";
+import { MdRocketLaunch } from "react-icons/md";
 import { BiHide, BiShow } from "react-icons/bi";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import clsx from "clsx";
 import Link from "next/link";
 import { BsClock } from "react-icons/bs";
 import { PiCheckCircleFill, PiCircleDuotone, PiFileX } from "react-icons/pi";
 import { FeatureUsageLookback } from "back-end/src/types/Integration";
+import { Box, Card, Flex, Heading, Switch } from "@radix-ui/themes";
+import { RxListBullet } from "react-icons/rx";
+import Button from "@/components/Radix/Button";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
-import RuleModal from "@/components/Features/RuleModal/index";
 import ForceSummary from "@/components/Features/ForceSummary";
-import RuleList from "@/components/Features/RuleList";
 import track from "@/services/track";
 import EditDefaultValueModal from "@/components/Features/EditDefaultValueModal";
 import EnvironmentToggle from "@/components/Features/EnvironmentToggle";
 import EditProjectForm from "@/components/Experiment/EditProjectForm";
-import EditTagsForm from "@/components/Tags/EditTagsForm";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import {
   getFeatureDefaultValue,
-  getRules,
-  useEnvironmentState,
   useEnvironments,
   getAffectedRevisionEnvs,
   getPrerequisites,
   useFeaturesList,
+  getRules,
+  isRuleInactive,
 } from "@/services/features";
-import AssignmentTester from "@/components/Archetype/AssignmentTester";
-import Tab from "@/components/Tabs/Tab";
 import Modal from "@/components/Modal";
 import DraftModal from "@/components/Features/DraftModal";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
 import DiscussionThread from "@/components/DiscussionThread";
-import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import EditSchemaModal from "@/components/Features/EditSchemaModal";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -72,13 +59,14 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import CopyRuleModal from "@/components/Features/CopyRuleModal";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
-import Button from "@/components/Radix/Button";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import SelectField from "@/components/Forms/SelectField";
 import BarChart100 from "@/components/Features/BarChart100";
+import Callout from "@/components/Radix/Callout";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
+import Badge from "@/components/Radix/Badge";
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";
@@ -87,6 +75,7 @@ import PrerequisiteModal from "./PrerequisiteModal";
 import RequestReviewModal from "./RequestReviewModal";
 import JSONSchemaDescription from "./JSONSchemaDescription";
 import FeatureUsageGraph, { useFeatureUsage } from "./FeatureUsageGraph";
+import FeatureRules from "./FeatureRules";
 
 export default function FeaturesOverview({
   baseFeature,
@@ -97,10 +86,6 @@ export default function FeaturesOverview({
   mutate,
   editProjectModal,
   setEditProjectModal,
-  editTagsModal,
-  setEditTagsModal,
-  editOwnerModal,
-  setEditOwnerModal,
   version,
   setVersion,
   dependents,
@@ -115,10 +100,6 @@ export default function FeaturesOverview({
   mutate: () => Promise<unknown>;
   editProjectModal: boolean;
   setEditProjectModal: (b: boolean) => void;
-  editTagsModal: boolean;
-  setEditTagsModal: (b: boolean) => void;
-  editOwnerModal: boolean;
-  setEditOwnerModal: (b: boolean) => void;
   version: number | null;
   setVersion: (v: number) => void;
   dependents: number;
@@ -136,6 +117,10 @@ export default function FeaturesOverview({
   const [reviewModal, setReviewModal] = useState(false);
   const [conflictModal, setConflictModal] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [hideInactive, setHideInactive] = useLocalStorage(
+    `hide-disabled-rules`,
+    false
+  );
   const [logModal, setLogModal] = useState(false);
   const [prerequisiteModal, setPrerequisiteModal] = useState<{
     i: number;
@@ -145,17 +130,6 @@ export default function FeaturesOverview({
 
   const [revertIndex, setRevertIndex] = useState(0);
 
-  const [env, setEnv] = useEnvironmentState();
-
-  const [ruleModal, setRuleModal] = useState<{
-    i: number;
-    environment: string;
-    defaultType?: string;
-  } | null>(null);
-  const [copyRuleModal, setCopyRuleModal] = useState<{
-    environment: string;
-    rules: FeatureRule[];
-  } | null>(null);
   const [editCommentModel, setEditCommentModal] = useState(false);
 
   const { apiCall } = useAuth();
@@ -166,25 +140,9 @@ export default function FeaturesOverview({
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envs = environments.map((e) => e.id);
 
-  // Make sure you can't access an invalid env tab, since active env tab is persisted via localStorage
-  useEffect(() => {
-    if (!envs?.length) return;
-    if (!envs.includes(env)) {
-      setEnv(envs[0]);
-    }
-  }, [envs, env, setEnv]);
-
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
     timeout: 800,
   });
-
-  const experimentsMap = useMemo(() => {
-    if (!experiments) return new Map();
-
-    return new Map<string, ExperimentInterfaceStringDates>(
-      experiments.map((exp) => [exp.id, exp])
-    );
-  }, [experiments]);
 
   const mergeResult = useMemo(() => {
     if (!feature || !revision) return null;
@@ -223,6 +181,13 @@ export default function FeaturesOverview({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [feature, features, envsStr]
   );
+
+  const experimentsMap = useMemo<
+    Map<string, ExperimentInterfaceStringDates>
+  >(() => {
+    if (!experiments) return new Map();
+    return new Map(experiments.map((exp) => [exp.id, exp]));
+  }, [experiments]);
 
   const { featureUsage, lookback, setLookback } = useFeatureUsage();
 
@@ -299,6 +264,17 @@ export default function FeaturesOverview({
   const canEdit = permissionsUtil.canViewFeatureModal(projectId);
   const canEditDrafts = permissionsUtil.canManageFeatureDrafts(feature);
 
+  // loop through each environment and see if there are any rules or disabled rules
+  let hasRules = false;
+  let hasInactiveRules = false;
+  environments?.forEach((e) => {
+    const r = getRules(feature, e.id) || [];
+    if (r.length > 0) hasRules = true;
+    if (r.some((r) => isRuleInactive(r, experimentsMap))) {
+      hasInactiveRules = true;
+    }
+  });
+
   const variables = {
     featureKey: feature.id,
     featureType: feature.valueType,
@@ -352,12 +328,207 @@ export default function FeaturesOverview({
     );
   };
 
+  const renderRevisionCTA = () => {
+    const actions: JSX.Element[] = [];
+
+    if (canEditDrafts) {
+      if (isLocked && !isLive) {
+        actions.push(
+          <Button
+            variant="ghost"
+            color="red"
+            onClick={() => setRevertIndex(revision.version)}
+            title="Create a new Draft based on this revision"
+          >
+            Revert to this version
+          </Button>
+        );
+      } else if (revision.version > 1 && isLive) {
+        actions.push(
+          <Button
+            variant="ghost"
+            color="red"
+            onClick={() => {
+              const previousRevision = revisions
+                .filter(
+                  (r) => r.status === "published" && r.version < feature.version
+                )
+                .sort((a, b) => b.version - a.version)[0];
+              if (previousRevision) {
+                setRevertIndex(previousRevision.version);
+              }
+            }}
+            title="Create a new Draft based on this revision"
+          >
+            Revert to Previous
+          </Button>
+        );
+      }
+
+      if (drafts.length > 0 && isLocked && !isDraft) {
+        actions.push(
+          <Button
+            variant="outline"
+            onClick={() => {
+              setVersion(drafts[0].version);
+            }}
+          >
+            View active draft
+          </Button>
+        );
+      }
+
+      if (isDraft) {
+        actions.push(
+          <Button
+            variant="ghost"
+            color="red"
+            onClick={() => {
+              setConfirmDiscard(true);
+            }}
+          >
+            Discard draft
+          </Button>
+        );
+
+        if (mergeResult?.success) {
+          if (requireReviews) {
+            // requires a review
+            actions.push(
+              <Tooltip
+                body={
+                  !revisionHasChanges
+                    ? "Draft is identical to the live version. Make changes first before requesting review"
+                    : ""
+                }
+              >
+                <Button
+                  disabled={!revisionHasChanges}
+                  onClick={() => {
+                    setReviewModal(true);
+                  }}
+                >
+                  {renderDraftBannerCopy()}
+                </Button>
+              </Tooltip>
+            );
+          } else {
+            // no review is required
+            actions.push(
+              <Tooltip
+                body={
+                  !revisionHasChanges
+                    ? "Draft is identical to the live version. Make changes first before publishing"
+                    : !hasDraftPublishPermission
+                    ? "You do not have permission to publish this draft."
+                    : ""
+                }
+              >
+                <Button
+                  disabled={!revisionHasChanges}
+                  onClick={() => {
+                    setDraftModal(true);
+                  }}
+                >
+                  Review &amp; Publish
+                </Button>
+              </Tooltip>
+            );
+          }
+        } else {
+          // merging was not a success (!mergeResult.success)
+          if (mergeResult) {
+            actions.push(
+              <Tooltip body="There have been new conflicting changes published since this draft was created that must be resolved before you can publish">
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setConflictModal(true);
+                  }}
+                >
+                  Fix conflicts
+                </Button>
+              </Tooltip>
+            );
+          }
+        }
+      }
+    }
+
+    return (
+      <>
+        {actions.map((el, i) => (
+          <Box key={"cta-" + i}>{el}</Box>
+        ))}
+      </>
+    );
+  };
+
+  const renderRevisionInfo = () => {
+    return (
+      <Flex align="center" justify="between">
+        <Flex align="center" gap="3">
+          <Box>
+            <span className="text-muted">
+              {isDraft ? "Draft r" : "R"}evision created by
+            </span>{" "}
+            <EventUser user={revision.createdBy} display="name" />{" "}
+            <span className="text-muted">on</span>{" "}
+            {datetime(revision.dateCreated)}
+          </Box>
+          <Flex align="center" gap="2">
+            <span className="text-muted">Revision Comment:</span>{" "}
+            {revision.comment || <em>None</em>}
+            {canEditDrafts && (
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setEditCommentModal(true);
+                }}
+              >
+                <GBEdit />
+              </Button>
+            )}
+          </Flex>
+        </Flex>
+        <Flex align="center" justify="between" gap="3">
+          {revision.status === "published" && revision.datePublished && (
+            <Box>
+              <span className="text-muted">Published on</span>{" "}
+              {datetime(revision.datePublished)}
+            </Box>
+          )}
+          {revision.status === "draft" && (
+            <Box>
+              <span className="text-muted">Last updated</span>{" "}
+              {ago(revision.dateUpdated)}
+            </Box>
+          )}
+          <Box>
+            {renderStatusCopy()}
+            <Button
+              title="View log"
+              variant="ghost"
+              onClick={() => {
+                setLogModal(true);
+              }}
+            >
+              <RxListBullet />
+            </Button>
+          </Box>
+        </Flex>
+      </Flex>
+    );
+  };
+
   return (
     <>
-      <div className="contents container-fluid pagecontents mt-2">
-        <h2 className="mb-3">Overview</h2>
+      <Box className="contents container-fluid pagecontents">
+        <Heading mb="3" size="5" as="h2">
+          Overview
+        </Heading>
 
-        <div className="box">
+        <Card>
           <div
             className="mh-350px fade-mask-vertical-1rem px-4 py-3"
             style={{ overflowY: "auto" }}
@@ -382,853 +553,610 @@ export default function FeaturesOverview({
               containerClassName="mb-1"
             />
           </div>
-        </div>
-        <div>
+        </Card>
+        <Box>
           <CustomFieldDisplay
             target={feature}
-            addBox={true}
             canEdit={canManageCustomFields}
             mutate={mutate}
             section={"feature"}
           />
-        </div>
-        <div className="mt-3">
+        </Box>
+        <Box mt="3">
           <CustomMarkdown page={"feature"} variables={variables} />
-        </div>
 
-        {featureUsage && (
-          <div>
-            <div className="row align-items-center">
-              <div className="col-auto">
-                <h3 className="mb-0">Usage Analytics</h3>
-              </div>
-              <div className="col-auto">
-                <SelectField
-                  value={lookback}
-                  onChange={(lookback) => {
-                    setLookback(lookback as FeatureUsageLookback);
-                  }}
-                  options={[
-                    { value: "15minute", label: "Past 15 Minutes" },
-                    { value: "hour", label: "Past Hour" },
-                    { value: "day", label: "Past Day" },
-                    { value: "week", label: "Past Week" },
-                  ]}
-                  sort={false}
-                  formatOptionLabel={(o) => {
-                    if (o.value !== "15minute") return o.label;
-                    return (
-                      <div>
-                        <span className="badge badge-success mr-1">
-                          <FaBoltLightning /> Live
-                        </span>
-                        {o.label}
-                      </div>
-                    );
-                  }}
-                />
-              </div>
-            </div>
-            <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
-              {featureUsage.overall.total === 0 ? (
-                <em>No usage detected in the selected time frame</em>
-              ) : (
-                <div className="row">
-                  <div className="col-12 col-md-4">
-                    <strong>Assigned Values</strong>
-                    <BarChart100 data={featureUsage.values} max={3} />
-                  </div>
-                  <div className="col-12 col-md-4">
-                    <strong>Sources</strong>
-                    <BarChart100 data={featureUsage.sources} max={3} />
-                  </div>
-                  <div className="col-12 col-md-4">
-                    <div className="mb-1">
-                      <strong>Usage Over Time</strong>
-                    </div>
-                    <FeatureUsageGraph
-                      data={featureUsage.overall}
-                      width="auto"
-                      height={80}
-                    />
-                  </div>
+          {featureUsage && (
+            <div>
+              <div className="row align-items-center">
+                <div className="col-auto">
+                  <h3 className="mb-0">Usage Analytics</h3>
                 </div>
-              )}
-            </div>
-          </div>
-        )}
-        <h3 className="mt-4 mb-3">Enabled Environments</h3>
-        <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
-          <div className="mb-2">
-            When disabled, this feature will evaluate to <code>null</code>. The
-            default value and rules will be ignored.
-          </div>
-          {prerequisites.length > 0 ? (
-            <table className="table border bg-white mb-2 w-100">
-              <thead>
-                <tr className="bg-light">
-                  <th
-                    className="pl-3 align-bottom font-weight-bold border-right"
-                    style={{ minWidth: 350 }}
+                <div className="col-auto">
+                  <SelectField
+                    value={lookback}
+                    onChange={(lookback) => {
+                      setLookback(lookback as FeatureUsageLookback);
+                    }}
+                    options={[
+                      { value: "15minute", label: "Past 15 Minutes" },
+                      { value: "hour", label: "Past Hour" },
+                      { value: "day", label: "Past Day" },
+                      { value: "week", label: "Past Week" },
+                    ]}
+                    sort={false}
+                    formatOptionLabel={(o) => {
+                      if (o.value !== "15minute") return o.label;
+                      return (
+                        <div>
+                          <span className="badge badge-success mr-1">
+                            <FaBoltLightning /> Live
+                          </span>
+                          {o.label}
+                        </div>
+                      );
+                    }}
                   />
-                  {envs.map((env) => (
-                    <th
-                      key={env}
-                      className="text-center align-bottom font-weight-bolder"
-                      style={{ minWidth: 120 }}
-                    >
-                      {env}
-                    </th>
-                  ))}
-                  {envs.length === 0 ? (
-                    <th className="text-center align-bottom">
-                      <span className="font-italic">No environments</span>
-                      <Tooltip
-                        className="ml-1"
-                        popperClassName="text-left font-weight-normal"
-                        body={
-                          <>
-                            <div className="text-warning-orange mb-2">
-                              <FaExclamationTriangle /> This feature has no
-                              associated environments
-                            </div>
-                            <div>
-                              Ensure that this feature&apos;s project is
-                              included in at least one environment to use it.
-                            </div>
-                          </>
-                        }
-                      />
-                      <div
-                        className="float-right small position-relative"
-                        style={{ top: 5 }}
-                      >
-                        <Link href="/environments">Manage Environments</Link>
+                </div>
+              </div>
+              <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
+                {featureUsage.overall.total === 0 ? (
+                  <em>No usage detected in the selected time frame</em>
+                ) : (
+                  <div className="row">
+                    <div className="col-12 col-md-4">
+                      <strong>Assigned Values</strong>
+                      <BarChart100 data={featureUsage.values} max={3} />
+                    </div>
+                    <div className="col-12 col-md-4">
+                      <strong>Sources</strong>
+                      <BarChart100 data={featureUsage.sources} max={3} />
+                    </div>
+                    <div className="col-12 col-md-4">
+                      <div className="mb-1">
+                        <strong>Usage Over Time</strong>
                       </div>
-                    </th>
-                  ) : (
-                    <th className="w-100" />
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td
-                    className="pl-3 align-bottom font-weight-bold border-right"
-                    style={{ minWidth: 350 }}
-                  >
-                    Kill Switch
-                  </td>
-                  {envs.map((env) => (
+                      <FeatureUsageGraph
+                        data={featureUsage.overall}
+                        width="auto"
+                        height={80}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </Box>
+        <Heading size="4" as="h3" mt="4">
+          Enabled Environments
+        </Heading>
+        <Card mb="4">
+          <Box p="5">
+            <div className="mb-2">
+              When disabled, this feature will evaluate to <code>null</code>.
+              The default value and rules will be ignored.
+            </div>
+            {prerequisites.length > 0 ? (
+              <table className="table border bg-white mb-2 w-100">
+                <thead>
+                  <tr className="bg-light">
+                    <th
+                      className="pl-3 align-bottom font-weight-bold border-right"
+                      style={{ minWidth: 350 }}
+                    />
+                    {envs.map((env) => (
+                      <th
+                        key={env}
+                        className="text-center align-bottom font-weight-bolder"
+                        style={{ minWidth: 120 }}
+                      >
+                        {env}
+                      </th>
+                    ))}
+                    {envs.length === 0 ? (
+                      <th className="text-center align-bottom">
+                        <span className="font-italic">No environments</span>
+                        <Tooltip
+                          className="ml-1"
+                          popperClassName="text-left font-weight-normal"
+                          body={
+                            <>
+                              <div className="text-warning-orange mb-2">
+                                <FaExclamationTriangle /> This feature has no
+                                associated environments
+                              </div>
+                              <div>
+                                Ensure that this feature&apos;s project is
+                                included in at least one environment to use it.
+                              </div>
+                            </>
+                          }
+                        />
+                        <div
+                          className="float-right small position-relative"
+                          style={{ top: 5 }}
+                        >
+                          <Link href="/environments">Manage Environments</Link>
+                        </div>
+                      </th>
+                    ) : (
+                      <th className="w-100" />
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
                     <td
-                      key={env}
-                      className="text-center align-bottom pb-2"
-                      style={{ minWidth: 120 }}
+                      className="pl-3 align-bottom font-weight-bold border-right"
+                      style={{ minWidth: 350 }}
                     >
+                      Kill Switch
+                    </td>
+                    {envs.map((env) => (
+                      <td
+                        key={env}
+                        className="text-center align-bottom pb-2"
+                        style={{ minWidth: 120 }}
+                      >
+                        <EnvironmentToggle
+                          feature={feature}
+                          environment={env}
+                          mutate={() => {
+                            mutate();
+                          }}
+                          id={`${env}_toggle`}
+                          className="mr-0"
+                        />
+                      </td>
+                    ))}
+                    <td className="w-100" />
+                  </tr>
+                  {prerequisites.map(({ ...item }, i) => {
+                    const parentFeature = features.find(
+                      (f) => f.id === item.id
+                    );
+                    return (
+                      <PrerequisiteStatusRow
+                        key={i}
+                        i={i}
+                        feature={feature}
+                        features={features}
+                        parentFeature={parentFeature}
+                        prerequisite={item}
+                        environments={environments}
+                        mutate={mutate}
+                        setPrerequisiteModal={setPrerequisiteModal}
+                      />
+                    );
+                  })}
+                </tbody>
+                <tbody>
+                  <tr className="bg-light">
+                    <td className="pl-3 font-weight-bold border-right">
+                      Summary
+                    </td>
+                    {envs.length > 0 && (
+                      <PrerequisiteStatesCols
+                        prereqStates={prereqStates ?? undefined}
+                        envs={envs}
+                        isSummaryRow={true}
+                      />
+                    )}
+                    <td />
+                  </tr>
+                </tbody>
+              </table>
+            ) : (
+              <div className="row mt-3">
+                {environments.length > 0 ? (
+                  environments.map((en) => (
+                    <div className="col-auto" key={en.id}>
+                      <label
+                        className="font-weight-bold mr-2 mb-0"
+                        htmlFor={`${en.id}_toggle`}
+                      >
+                        {en.id}:{" "}
+                      </label>
                       <EnvironmentToggle
                         feature={feature}
-                        environment={env}
+                        environment={en.id}
                         mutate={() => {
                           mutate();
                         }}
-                        id={`${env}_toggle`}
-                        className="mr-0"
+                        id={`${en.id}_toggle`}
                       />
-                    </td>
-                  ))}
-                  <td className="w-100" />
-                </tr>
-                {prerequisites.map(({ ...item }, i) => {
-                  const parentFeature = features.find((f) => f.id === item.id);
-                  return (
-                    <PrerequisiteStatusRow
-                      key={i}
-                      i={i}
-                      feature={feature}
-                      features={features}
-                      parentFeature={parentFeature}
-                      prerequisite={item}
-                      environments={environments}
-                      mutate={mutate}
-                      setPrerequisiteModal={setPrerequisiteModal}
-                    />
-                  );
-                })}
-              </tbody>
-              <tbody>
-                <tr className="bg-light">
-                  <td className="pl-3 font-weight-bold border-right">
-                    Summary
-                  </td>
-                  {envs.length > 0 && (
-                    <PrerequisiteStatesCols
-                      prereqStates={prereqStates ?? undefined}
-                      envs={envs}
-                      isSummaryRow={true}
-                    />
-                  )}
-                  <td />
-                </tr>
-              </tbody>
-            </table>
-          ) : (
-            <div className="row mt-3">
-              {environments.length > 0 ? (
-                environments.map((en) => (
-                  <div className="col-auto" key={en.id}>
-                    <label
-                      className="font-weight-bold mr-2 mb-0"
-                      htmlFor={`${en.id}_toggle`}
-                    >
-                      {en.id}:{" "}
-                    </label>
-                    <EnvironmentToggle
-                      feature={feature}
-                      environment={en.id}
-                      mutate={() => {
-                        mutate();
-                      }}
-                      id={`${en.id}_toggle`}
-                    />
+                    </div>
+                  ))
+                ) : (
+                  <div className="alert alert-warning pt-3 pb-2 w-100">
+                    <div className="h4 mb-3">
+                      <FaExclamationTriangle /> This feature has no associated
+                      environments
+                    </div>
+                    <div className="mb-2">
+                      Ensure that this feature&apos;s project is included in at
+                      least one environment to use it.{" "}
+                      <Link href="/environments">Manage Environments</Link>
+                    </div>
                   </div>
-                ))
-              ) : (
-                <div className="alert alert-warning pt-3 pb-2 w-100">
-                  <div className="h4 mb-3">
-                    <FaExclamationTriangle /> This feature has no associated
-                    environments
-                  </div>
-                  <div className="mb-2">
-                    Ensure that this feature&apos;s project is included in at
-                    least one environment to use it.{" "}
-                    <Link href="/environments">Manage Environments</Link>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {hasConditionalState && (
-            <PrerequisiteAlerts
-              environments={envs}
-              type="feature"
-              project={projectId ?? ""}
-            />
-          )}
-
-          {canEdit && (
-            <PremiumTooltip
-              commercialFeature="prerequisites"
-              className="d-inline-flex align-items-center mt-3"
-            >
-              <button
-                className="btn d-inline-block px-1 font-weight-bold link-purple"
-                disabled={!hasPrerequisitesCommercialFeature}
-                onClick={() => {
-                  setPrerequisiteModal({
-                    i: getPrerequisites(feature).length,
-                  });
-                  track("Viewed prerequisite feature modal", {
-                    source: "add-prerequisite",
-                  });
-                }}
-              >
-                <span className="h4 pr-2 m-0 d-inline-block align-top">
-                  <GBAddCircle />
-                </span>
-                Add Prerequisite Feature
-              </button>
-            </PremiumTooltip>
-          )}
-        </div>
-        {dependents > 0 && (
-          <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
-            <h4>
-              Dependents
-              <div
-                className="ml-2 d-inline-block badge-warning font-weight-bold text-center"
-                style={{
-                  width: 24,
-                  height: 24,
-                  lineHeight: "24px",
-                  fontSize: "14px",
-                  borderRadius: 30,
-                }}
-              >
-                {dependents}
-              </div>
-            </h4>
-            <div className="mb-2">
-              {dependents === 1
-                ? `Another ${
-                    dependentFeatures.length ? "feature" : "experiment"
-                  } depends on this feature as a prerequisite. Modifying the current feature may affect its behavior.`
-                : `Other ${
-                    dependentFeatures.length
-                      ? dependentExperiments.length
-                        ? "features and experiments"
-                        : "features"
-                      : "experiments"
-                  } depend on this feature as a prerequisite. Modifying the current feature may affect their behavior.`}
-            </div>
-            <hr className="mb-2" />
-            {showDependents ? (
-              <div className="mt-3">
-                {dependentFeatures.length > 0 && (
-                  <>
-                    <label>Dependent Features</label>
-                    <ul className="pl-4">
-                      {dependentFeatures.map((fid, i) => (
-                        <li className="my-1" key={i}>
-                          <a
-                            href={`/features/${fid}`}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            {fid}
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  </>
                 )}
-                {dependentExperiments.length > 0 && (
-                  <>
-                    <label>Dependent Experiments</label>
-                    <ul className="pl-4">
-                      {dependentExperiments.map((exp, i) => (
-                        <li className="my-1" key={i}>
-                          <a
-                            href={`/experiment/${exp.id}`}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            {exp.name}
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                )}
-                <a
-                  role="button"
-                  className="d-inline-block a link-purple mt-1"
-                  onClick={() => setShowDependents(false)}
-                >
-                  <BiHide /> Hide details
-                </a>
               </div>
-            ) : (
-              <>
-                <a
-                  role="button"
-                  className="d-inline-block a link-purple"
-                  onClick={() => setShowDependents(true)}
-                >
-                  <BiShow /> Show details
-                </a>
-              </>
             )}
-          </div>
+
+            {hasConditionalState && (
+              <PrerequisiteAlerts
+                environments={envs}
+                type="feature"
+                project={projectId ?? ""}
+              />
+            )}
+
+            {canEdit && (
+              <PremiumTooltip
+                commercialFeature="prerequisites"
+                className="d-inline-flex align-items-center mt-3"
+              >
+                <Button
+                  variant="ghost"
+                  disabled={!hasPrerequisitesCommercialFeature}
+                  onClick={() => {
+                    setPrerequisiteModal({
+                      i: getPrerequisites(feature).length,
+                    });
+                    track("Viewed prerequisite feature modal", {
+                      source: "add-prerequisite",
+                    });
+                  }}
+                >
+                  <span className="h4 pr-2 m-0 d-inline-block align-top">
+                    <GBAddCircle />
+                  </span>
+                  Add Prerequisite Feature
+                </Button>
+              </PremiumTooltip>
+            )}
+          </Box>
+        </Card>
+        {dependents > 0 && (
+          <Card mb="4">
+            <Box p="5">
+              <Flex mb="3" gap="3" align="center">
+                <Heading size="4" as="h4" mb="0">
+                  Dependents
+                </Heading>
+                <Badge label={dependents + ""} color="gray" radius="medium" />
+              </Flex>
+              <Box mb="2">
+                {dependents === 1
+                  ? `Another ${
+                      dependentFeatures.length ? "feature" : "experiment"
+                    } depends on this feature as a prerequisite. Modifying the current feature may affect its behavior.`
+                  : `Other ${
+                      dependentFeatures.length
+                        ? dependentExperiments.length
+                          ? "features and experiments"
+                          : "features"
+                        : "experiments"
+                    } depend on this feature as a prerequisite. Modifying the current feature may affect their behavior.`}
+              </Box>
+              <hr className="mb-2" />
+              {showDependents ? (
+                <div className="mt-3">
+                  {dependentFeatures.length > 0 && (
+                    <>
+                      <label>Dependent Features</label>
+                      <ul className="pl-4">
+                        {dependentFeatures.map((fid, i) => (
+                          <li className="my-1" key={i}>
+                            <a
+                              href={`/features/${fid}`}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              {fid}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                  {dependentExperiments.length > 0 && (
+                    <>
+                      <label>Dependent Experiments</label>
+                      <ul className="pl-4">
+                        {dependentExperiments.map((exp, i) => (
+                          <li className="my-1" key={i}>
+                            <a
+                              href={`/experiment/${exp.id}`}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              {exp.name}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                  <a
+                    role="button"
+                    className="d-inline-block a link-purple mt-1"
+                    onClick={() => setShowDependents(false)}
+                  >
+                    <BiHide /> Hide details
+                  </a>
+                </div>
+              ) : (
+                <>
+                  <a
+                    role="button"
+                    className="d-inline-block a link-purple"
+                    onClick={() => setShowDependents(true)}
+                  >
+                    <BiShow /> Show details
+                  </a>
+                </>
+              )}
+            </Box>
+          </Card>
         )}
 
         {feature.valueType === "json" && (
-          <div>
-            <h3>
+          <Box mb="4">
+            <Heading as="h3" size="4">
               JSON Validation{" "}
               <Tooltip
                 body={
                   "Prevent typos and mistakes by specifying validation rules using JSON Schema or our Simple Validation Builder"
                 }
               />
-              <span
-                className="badge badge-dark ml-2"
-                style={{ fontStyle: "normal", fontSize: "0.7em" }}
-              >
-                ENTERPRISE
-              </span>
-            </h3>
-            <div className="appbox mb-4 p-3 card">
-              {hasJsonValidator && jsonSchema ? (
-                <>
-                  <div className="d-flex align-items-center">
-                    <strong>
-                      {validationEnabled ? "Enabled" : "Disabled"}
-                    </strong>
+            </Heading>
+            <Card>
+              <Box p="5">
+                {hasJsonValidator && jsonSchema ? (
+                  <>
+                    <div className="d-flex align-items-center">
+                      <strong>
+                        {validationEnabled ? "Enabled" : "Disabled"}
+                      </strong>
 
-                    {schemaDateUpdated && (
-                      <div className="text-muted ml-3">
-                        Updated{" "}
-                        {schemaDateUpdated ? ago(schemaDateUpdated) : ""}
+                      {schemaDateUpdated && (
+                        <div className="text-muted ml-3">
+                          Updated{" "}
+                          {schemaDateUpdated ? ago(schemaDateUpdated) : ""}
+                        </div>
+                      )}
+
+                      {validationEnabled ? (
+                        <div className="ml-auto">
+                          <a
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setShowSchema(!showSchema);
+                            }}
+                          >
+                            <small>
+                              {showSchema
+                                ? "Hide JSON Schema"
+                                : "Show JSON Schema"}
+                            </small>
+                          </a>
+                        </div>
+                      ) : null}
+                    </div>
+                    {validationEnabled ? (
+                      <JSONSchemaDescription jsonSchema={jsonSchema} />
+                    ) : null}
+                    {showSchema && validationEnabled && (
+                      <div className="mt-4">
+                        <Code
+                          language="json"
+                          code={JSON.stringify(jsonSchema, null, 2)}
+                        />
                       </div>
                     )}
-
-                    {validationEnabled ? (
-                      <div className="ml-auto">
-                        <a
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setShowSchema(!showSchema);
-                          }}
-                        >
-                          <small>
-                            {showSchema
-                              ? "Hide JSON Schema"
-                              : "Show JSON Schema"}
-                          </small>
-                        </a>
-                      </div>
-                    ) : null}
+                  </>
+                ) : (
+                  <div>
+                    <em>No validation added.</em>
                   </div>
-                  {validationEnabled ? (
-                    <JSONSchemaDescription jsonSchema={jsonSchema} />
-                  ) : null}
-                  {showSchema && validationEnabled && (
-                    <div className="mt-4">
-                      <Code
-                        language="json"
-                        code={JSON.stringify(jsonSchema, null, 2)}
-                      />
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div>
-                  <em>No validation added.</em>
-                </div>
-              )}
+                )}
 
-              {hasJsonValidator && canEdit && (
-                <div className="mt-3">
-                  <a
-                    href="#"
-                    className="text-purple"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setEditValidator(true);
-                    }}
-                  >
-                    {validationEnabled ? <GBEdit /> : <GBAddCircle />}{" "}
-                    {validationEnabled ? "Edit" : "Add"} JSON Validation
-                  </a>
-                </div>
-              )}
-            </div>
-          </div>
+                {hasJsonValidator && canEdit && (
+                  <div className="mt-3">
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setEditValidator(true);
+                      }}
+                    >
+                      <span className="h4 pr-2 m-0 d-inline-block align-top">
+                        {validationEnabled ? <GBEdit /> : <GBAddCircle />}
+                      </span>
+                      {validationEnabled ? "Edit" : "Add"} JSON Validation
+                    </Button>
+                  </div>
+                )}
+              </Box>
+            </Card>
+          </Box>
         )}
 
         {revision && (
           <>
-            <div className="row mb-2 align-items-center">
-              <div className="col-auto">
-                <h3 className="mb-0">Rules and Values</h3>
-              </div>
-              <div className="col-auto">
-                <RevisionDropdown
-                  feature={feature}
-                  version={currentVersion}
-                  setVersion={setVersion}
-                  revisions={revisions || []}
-                />
-              </div>
-              <div className="col-auto">
-                <a
-                  title="Copy a link to this revision"
-                  href={`/features/${fid}?v=${version}`}
-                  className="position-relative"
-                  onClick={(e) => {
-                    if (!copySupported) return;
-
-                    e.preventDefault();
-                    const url =
-                      window.location.href.replace(/[?#].*/, "") +
-                      `?v=${version}`;
-                    performCopy(url);
-                  }}
-                >
-                  <FaLink />
-                  {copySuccess ? (
-                    <SimpleTooltip position="right">
-                      Copied to clipboard!
-                    </SimpleTooltip>
-                  ) : null}
-                </a>
-              </div>
-            </div>
-            {isLive ? (
-              <div
-                className="px-3 py-2 alert alert-success mb-0"
-                style={{
-                  borderBottomLeftRadius: 0,
-                  borderBottomRightRadius: 0,
-                }}
+            <Box>
+              <Heading as="h3" size="5" mb="3">
+                Rules &amp; Values
+              </Heading>
+              <Flex
+                gap="4"
+                align={{ initial: "center" }}
+                direction={{ initial: "column", xs: "row" }}
+                justify="between"
               >
-                <div className="d-flex align-items-center">
-                  <strong className="mr-3">
-                    <MdRocketLaunch /> Live Revision
-                  </strong>
-                  <div className="mr-3">
-                    {!isLocked ? (
-                      "Changes you make below will start a new draft"
-                    ) : (
-                      <>
-                        There is already an active draft. Switch to that to make
-                        changes.
-                      </>
+                <Flex
+                  align="center"
+                  justify="between"
+                  width={{ initial: "98%", sm: "70%", md: "60%", lg: "50%" }}
+                >
+                  <Box width="100%">
+                    <RevisionDropdown
+                      feature={feature}
+                      version={currentVersion}
+                      setVersion={setVersion}
+                      revisions={revisions || []}
+                    />
+                  </Box>
+                  <Box mx="6">
+                    <a
+                      title="Copy a link to this revision"
+                      href={`/features/${fid}?v=${version}`}
+                      className="position-relative"
+                      onClick={(e) => {
+                        if (!copySupported) return;
+
+                        e.preventDefault();
+                        const url =
+                          window.location.href.replace(/[?#].*/, "") +
+                          `?v=${version}`;
+                        performCopy(url);
+                      }}
+                    >
+                      <FaLink />
+                      {copySuccess ? (
+                        <SimpleTooltip position="right">
+                          Copied to clipboard!
+                        </SimpleTooltip>
+                      ) : null}
+                    </a>
+                  </Box>
+                </Flex>
+                <Flex
+                  align={{ initial: "center", xs: "center", sm: "start" }}
+                  justify="end"
+                  flexShrink="0"
+                  direction={{ initial: "row", xs: "column", sm: "row" }}
+                  style={{ whiteSpace: "nowrap" }}
+                  gap="4"
+                >
+                  {renderRevisionCTA()}
+                </Flex>
+              </Flex>
+            </Box>
+            <Box className="appbox nobg" mt="4" p="4">
+              {isPendingReview ? (
+                <Box>
+                  <Callout status="warning" mb="3">
+                    You are viewing a <strong>draft</strong>. The changes below
+                    will not go live until they are approved and published.
+                  </Callout>
+                </Box>
+              ) : isDraft ? (
+                <Box>
+                  <Callout status="warning" mb="3">
+                    You are viewing a <strong>draft</strong>. The changes below
+                    will not go live until you review and publish them.
+                  </Callout>
+                </Box>
+              ) : isLocked && !isLive ? (
+                <Box>
+                  <Callout status="info" mb="3">
+                    This revision has been <strong>locked</strong>. It is no
+                    longer live and cannot be modified.
+                  </Callout>
+                </Box>
+              ) : null}
+
+              {renderRevisionInfo()}
+
+              <Box className="appbox" mt="4" p="5" pl="6" pr="5">
+                <Flex align="center" justify="between">
+                  <Heading as="h3" size="4" mb="0">
+                    Default Value
+                  </Heading>
+                  {canEdit && !isLocked && canEditDrafts && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEdit(true)}
+                    >
+                      Edit
+                    </Button>
+                  )}
+                </Flex>
+                <Box mt="2" mb="1">
+                  <div className="d-flex">
+                    <div>
+                      <ForceSummary
+                        value={getFeatureDefaultValue(feature)}
+                        feature={feature}
+                      />
+                    </div>
+                    {featureUsage && (
+                      <div className="ml-auto">
+                        <FeatureUsageGraph data={featureUsage?.defaultValue} />
+                      </div>
                     )}
                   </div>
-                  <div className="ml-auto"></div>
-                  {canEditDrafts && drafts.length > 0 && (
-                    <div>
-                      <a
-                        role="button"
-                        className="a font-weight-bold link-purple"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setVersion(drafts[0].version);
-                        }}
-                      >
-                        <FaExchangeAlt /> Switch to Draft
-                      </a>
-                    </div>
-                  )}
-                  {canEditDrafts && revision.version > 1 && (
-                    <div className="ml-4">
-                      <a
-                        href="#"
-                        className="font-weight-bold text-danger"
-                        onClick={(e) => {
-                          e.preventDefault();
+                </Box>
+              </Box>
+              <Box className="appbox" mt="4" p="5" px="6">
+                <Flex align="center" justify="between" mb="2">
+                  <Flex>
+                    <Heading as="h3" size="4" mb="0" mr="1">
+                      Rules
+                    </Heading>
+                    <Tooltip
+                      body="Add powerful logic on top of your feature. The first rule
+                      that matches will be applied and override the Default
+                      Value."
+                    />
+                  </Flex>
+                  <label className="font-weight-semibold">
+                    <Switch
+                      mr="1"
+                      disabled={!hasInactiveRules}
+                      checked={!hideInactive}
+                      onCheckedChange={(state) => setHideInactive(!state)}
+                    />{" "}
+                    Show inactive
+                  </label>
+                </Flex>
+                {environments.length > 0 ? (
+                  <>
+                    {!hasRules && (
+                      <p>
+                        Add powerful logic on top of your feature. The first
+                        rule that matches will be applied and override the
+                        Default Value.
+                      </p>
+                    )}
 
-                          // Get highest revision number that is published and less than the current revision
-                          const previousRevision = revisions
-                            .filter(
-                              (r) =>
-                                r.status === "published" &&
-                                r.version < feature.version
-                            )
-                            .sort((a, b) => b.version - a.version)[0];
-
-                          if (previousRevision) {
-                            setRevertIndex(previousRevision.version);
-                          }
-                        }}
-                      >
-                        <MdHistory /> Revert to Previous
-                      </a>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : isLocked ? (
-              <div
-                className="px-3 py-2 alert-secondary mb-0"
-                style={{
-                  borderBottomLeftRadius: 0,
-                  borderBottomRightRadius: 0,
-                }}
-              >
-                <div className="d-flex align-items-center">
-                  <strong className="mr-3">
-                    <FaLock /> Revision Locked
-                  </strong>
-                  <div className="mr-2">
-                    This revision is no longer active and cannot be modified.
-                  </div>
-                  <div className="ml-auto"></div>
-                  {canEditDrafts && (
-                    <div>
-                      <a
-                        role="button"
-                        className="a font-weight-bold link-purple"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setRevertIndex(revision.version);
-                        }}
-                        title="Create a new Draft based on this revision"
-                      >
-                        <MdHistory /> Revert to this Revision
-                      </a>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : isDraft ? (
-              <div
-                className="px-3 py-2 alert alert-warning mb-0"
-                style={{
-                  borderBottomLeftRadius: 0,
-                  borderBottomRightRadius: 0,
-                }}
-              >
-                <div className="d-flex align-items-center">
-                  <strong className="mr-3">
-                    <FaDraftingCompass /> Draft Revision
-                  </strong>
-                  <div className="mr-3">
-                    {requireReviews
-                      ? "Make changes below and request review when you are ready"
-                      : "Make changes below and publish when you are ready"}
-                  </div>
-                  <div className="ml-auto"></div>
-                  {mergeResult?.success && requireReviews && (
-                    <div>
-                      <Tooltip
-                        body={
-                          !revisionHasChanges
-                            ? "Draft is identical to the live version. Make changes first before requesting review"
-                            : ""
-                        }
-                      >
-                        <a
-                          href="#"
-                          className={clsx(
-                            "font-weight-bold",
-                            !revisionHasChanges ? "text-muted" : "text-purple"
-                          )}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setReviewModal(true);
-                          }}
-                        >
-                          {renderDraftBannerCopy()}
-                        </a>
-                      </Tooltip>
-                    </div>
-                  )}
-                  {mergeResult?.success && !requireReviews && (
-                    <div>
-                      <Tooltip
-                        body={
-                          !revisionHasChanges
-                            ? "Draft is identical to the live version. Make changes first before publishing"
-                            : !hasDraftPublishPermission
-                            ? "You do not have permission to publish this draft."
-                            : ""
-                        }
-                      >
-                        <a
-                          role="button"
-                          className={clsx(
-                            "a font-weight-bold",
-                            !hasDraftPublishPermission || !revisionHasChanges
-                              ? "text-muted"
-                              : "link-purple"
-                          )}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setDraftModal(true);
-                          }}
-                        >
-                          <MdRocketLaunch /> Review and Publish
-                        </a>
-                      </Tooltip>
-                    </div>
-                  )}
-                  {canEditDrafts && mergeResult && !mergeResult.success && (
-                    <div>
-                      <Tooltip body="There have been new conflicting changes published since this draft was created that must be resolved before you can publish">
-                        <a
-                          role="button"
-                          className="a font-weight-bold link-purple"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setConflictModal(true);
-                          }}
-                        >
-                          <FaPlusMinus /> Fix Conflicts
-                        </a>
-                      </Tooltip>
-                    </div>
-                  )}
-                  {canEditDrafts && (
-                    <div className="ml-4">
-                      <a
-                        href="#"
-                        className="font-weight-bold text-danger"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setConfirmDiscard(true);
-                        }}
-                      >
-                        <FaTimes /> Discard Draft
-                      </a>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : null}
-          </>
-        )}
-        <div
-          className={revision ? "appbox mb-4 px-3 pt-3" : ""}
-          style={{
-            borderTopRightRadius: 0,
-            borderTopLeftRadius: 0,
-          }}
-        >
-          {revision && (
-            <div className="row mb-3">
-              <div className="col-auto">
-                <span className="text-muted">Revision created by</span>{" "}
-                <EventUser user={revision.createdBy} display="name" />{" "}
-                <span className="text-muted">on</span>{" "}
-                {datetime(revision.dateCreated)}
-              </div>
-              <div className="col-auto">
-                <span className="text-muted">Revision Comment:</span>{" "}
-                {revision.comment || <em>None</em>}
-                {canEditDrafts && (
-                  <a
-                    href="#"
-                    className="ml-1"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setEditCommentModal(true);
-                    }}
-                  >
-                    <GBEdit />
-                  </a>
+                    <FeatureRules
+                      environments={environments}
+                      feature={feature}
+                      isLocked={isLocked}
+                      canEditDrafts={canEditDrafts}
+                      revisions={revisions}
+                      experimentsMap={experimentsMap}
+                      mutate={mutate}
+                      currentVersion={currentVersion}
+                      setVersion={setVersion}
+                      hideInactive={hideInactive}
+                      isDraft={isDraft}
+                    />
+                  </>
+                ) : (
+                  <p>
+                    You need at least one environment to add rules. Add powerful
+                    logic on top of your feature. The first rule that matches
+                    will be applied and override the Default Value.
+                  </p>
                 )}
-              </div>
-              <div className="ml-auto"></div>
-              {revision.status === "published" && revision.datePublished && (
-                <div className="col-auto">
-                  <span className="text-muted">Published on</span>{" "}
-                  {datetime(revision.datePublished)}
-                </div>
-              )}
-              {revision.status === "draft" && (
-                <div className="col-auto">
-                  <span className="text-muted">Last updated</span>{" "}
-                  {ago(revision.dateUpdated)}
-                </div>
-              )}
-              <div className="col-auto">
-                {renderStatusCopy()}
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setLogModal(true);
-                  }}
-                >
-                  <FaList /> View Log
-                </a>
-              </div>
-            </div>
-          )}
-
-          <h3>
-            Default Value
-            {canEdit && !isLocked && canEditDrafts && (
-              <a className="ml-2 cursor-pointer" onClick={() => setEdit(true)}>
-                <GBEdit />
-              </a>
-            )}
-          </h3>
-          <div className="appbox mb-4 p-3">
-            <div className="d-flex">
-              <div>
-                <ForceSummary
-                  value={getFeatureDefaultValue(feature)}
-                  feature={feature}
-                />
-              </div>
-              {featureUsage && (
-                <div className="ml-auto">
-                  <FeatureUsageGraph data={featureUsage?.defaultValue} />
-                </div>
-              )}
-            </div>
-          </div>
-
-          {environments.length > 0 && (
-            <>
-              <h3>Rules</h3>
-              <p>
-                Add powerful logic on top of your feature. The first rule that
-                matches will be applied and override the Default Value.
-              </p>
-
-              <div className="mb-0">
-                <ControlledTabs
-                  setActive={(v) => {
-                    setEnv(v || "");
-                  }}
-                  active={env}
-                  showActiveCount={true}
-                  newStyle={false}
-                  buttonsClassName="px-3 py-2 h4"
-                >
-                  {environments.map((e) => {
-                    const rules = getRules(feature, e.id);
-                    return (
-                      <Tab
-                        key={e.id}
-                        id={e.id}
-                        display={e.id}
-                        count={rules.length}
-                        padding={false}
-                      >
-                        <div className="mb-4 border border-top-0">
-                          {rules.length > 0 ? (
-                            <RuleList
-                              environment={e.id}
-                              feature={feature}
-                              mutate={mutate}
-                              setRuleModal={setRuleModal}
-                              setCopyRuleModal={setCopyRuleModal}
-                              version={currentVersion}
-                              setVersion={setVersion}
-                              locked={isLocked}
-                              experimentsMap={experimentsMap}
-                            />
-                          ) : (
-                            <div className="p-3 bg-white border-bottom">
-                              <em>No rules for this environment yet</em>
-                            </div>
-                          )}
-
-                          {canEditDrafts && !isLocked && (
-                            <div className="p-3 d-flex align-items-center">
-                              <h5 className="ml-0 mb-0">Add Rule to {env}</h5>
-                              <div className="flex-1" />
-                              <Button
-                                onClick={() => {
-                                  setRuleModal({
-                                    environment: env,
-                                    i: getRules(feature, env).length,
-                                  });
-                                  track("Viewed Rule Modal", {
-                                    source: "add-rule",
-                                    type: "force",
-                                  });
-                                }}
-                              >
-                                Add Rule
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      </Tab>
-                    );
-                  })}
-                </ControlledTabs>
-              </div>
-            </>
-          )}
-        </div>
-
-        {environments.length > 0 && (
-          <div className="mb-4">
-            <AssignmentTester
-              feature={feature}
-              version={currentVersion}
-              project={feature.project}
-            />
-          </div>
+              </Box>
+            </Box>
+          </>
         )}
 
         <div className="mb-4">
@@ -1251,47 +1179,10 @@ export default function FeaturesOverview({
             setVersion={setVersion}
           />
         )}
-        {editOwnerModal && (
-          <EditOwnerModal
-            cancel={() => setEditOwnerModal(false)}
-            owner={feature.owner}
-            save={async (owner) => {
-              await apiCall(`/feature/${feature.id}`, {
-                method: "PUT",
-                body: JSON.stringify({ owner }),
-              });
-            }}
-            mutate={mutate}
-          />
-        )}
         {editValidator && (
           <EditSchemaModal
             close={() => setEditValidator(false)}
             feature={feature}
-            mutate={mutate}
-          />
-        )}
-        {ruleModal !== null && (
-          <RuleModal
-            feature={feature}
-            close={() => setRuleModal(null)}
-            i={ruleModal.i}
-            environment={ruleModal.environment}
-            mutate={mutate}
-            defaultType={ruleModal.defaultType || ""}
-            version={currentVersion}
-            setVersion={setVersion}
-            revisions={revisions}
-          />
-        )}
-        {copyRuleModal !== null && (
-          <CopyRuleModal
-            feature={feature}
-            environment={copyRuleModal.environment}
-            version={currentVersion}
-            setVersion={setVersion}
-            rules={copyRuleModal.rules}
-            cancel={() => setCopyRuleModal(null)}
             mutate={mutate}
           />
         )}
@@ -1349,19 +1240,6 @@ export default function FeaturesOverview({
             <Revisionlog feature={feature} revision={revision} />
           </Modal>
         )}
-        {editTagsModal && (
-          <EditTagsForm
-            tags={feature.tags || []}
-            save={async (tags) => {
-              await apiCall(`/feature/${feature.id}`, {
-                method: "PUT",
-                body: JSON.stringify({ tags }),
-              });
-            }}
-            cancel={() => setEditTagsModal(false)}
-            mutate={mutate}
-          />
-        )}
         {reviewModal && revision && (
           <RequestReviewModal
             feature={baseFeature}
@@ -1369,10 +1247,7 @@ export default function FeaturesOverview({
             version={revision.version}
             close={() => setReviewModal(false)}
             mutate={mutate}
-            onDiscard={() => {
-              // When discarding a draft, switch back to the live version
-              setVersion(feature.version);
-            }}
+            experimentsMap={experimentsMap}
           />
         )}
         {draftModal && revision && (
@@ -1382,10 +1257,7 @@ export default function FeaturesOverview({
             version={revision.version}
             close={() => setDraftModal(false)}
             mutate={mutate}
-            onDiscard={() => {
-              // When discarding a draft, switch back to the live version
-              setVersion(feature.version);
-            }}
+            experimentsMap={experimentsMap}
           />
         )}
         {conflictModal && revision && (
@@ -1446,7 +1318,7 @@ export default function FeaturesOverview({
             version={currentVersion}
           />
         )}
-      </div>
+      </Box>
     </>
   );
 }

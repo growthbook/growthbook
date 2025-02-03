@@ -2,7 +2,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import React from "react";
 import { CustomField } from "back-end/types/custom-fields";
-import { MdDragIndicator } from "react-icons/md";
+import { RiDraggable } from "react-icons/ri";
 import { GBEdit } from "@/components/Icons";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -34,7 +34,7 @@ export function SortableCustomFieldRow(props: SortableProps) {
   const draggedRowStyle = { background: "rgba(127, 207, 250, 0.3)" };
   const handleStyle = {
     fontSize: 20,
-    color: "rgba(0,0,0,0.2)",
+    color: "var(--slate-a6)",
     cursor: `${isDragging ? "grabbing" : "grab"}`,
   };
 
@@ -49,7 +49,7 @@ export function SortableCustomFieldRow(props: SortableProps) {
           <td style={{ width: "30px", padding: "0.5rem" }}>
             <div className="d-flex flex-column">
               <div style={handleStyle} {...attributes} {...listeners}>
-                <MdDragIndicator />
+                <RiDraggable />
               </div>
             </div>
           </td>
@@ -129,7 +129,7 @@ export function StaticCustomFieldRow({
       <td style={{ width: "30px", padding: "0.5rem" }}>
         <div className="d-flex flex-column">
           <div style={handleStyle}>
-            <MdDragIndicator />
+            <RiDraggable />
           </div>
         </div>
       </td>
