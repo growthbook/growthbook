@@ -14,7 +14,7 @@ interface SetupCompletedPageProps {
 const SetupCompletedPage: FC<SetupCompletedPageProps> = ({
   exitHref = "/getstarted",
 }): React.ReactElement => {
-  const startCelebration = useCelebration();
+  const startCelebration = useCelebration(1);
 
   useEffect(() => {
     startCelebration();
