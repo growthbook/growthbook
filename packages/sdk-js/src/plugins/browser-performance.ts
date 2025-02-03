@@ -43,8 +43,8 @@ export function browserPerformancePlugin({
 
         // Navigation to a new path (SPA) via navigation API:
         const urlPath = window.location.origin + window.location.pathname;
-        // @ts-expect-error: new Navigate API may not be in types yet
         "navigation" in window &&
+          // @ts-expect-error: new Navigate API may not be in types yet
           window?.navigation?.addEventListener("navigate", (event) => {
             const destination = event?.destination?.url;
             if (destination) {
