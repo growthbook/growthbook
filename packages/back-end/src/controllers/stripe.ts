@@ -1,6 +1,5 @@
 import { Request, Response } from "express";
 import { Stripe } from "stripe";
-import { Card } from "shared/src/types/subscriptions";
 import {
   LicenseServerError,
   getLicense,
@@ -9,22 +8,19 @@ import {
   postNewProSubscriptionToLicenseServer,
   postNewProTrialSubscriptionToLicenseServer,
   postNewSubscriptionSuccessToLicenseServer,
+  postCreateSetupIntent,
+  getPaymentMethodsByOrgId,
+  updateDefaultCard,
+  deletePaymentMethodById,
 } from "enterprise";
-import {
-  APP_ORIGIN,
-  STRIPE_PAYMENT_METHOD_CONFIG_ID,
-  STRIPE_WEBHOOK_SECRET,
-} from "back-end/src/util/secrets";
+import { Card } from "shared/src/types/subscriptions";
+import { APP_ORIGIN, STRIPE_WEBHOOK_SECRET } from "back-end/src/util/secrets";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getNumberOfUniqueMembersAndInvites,
   getContextFromReq,
 } from "back-end/src/services/organizations";
-import {
-  updateSubscriptionInDb,
-  stripe,
-  getStripeCustomerId,
-} from "back-end/src/services/stripe";
+import { updateSubscriptionInDb, stripe } from "back-end/src/services/stripe";
 import { sendStripeTrialWillEndEmail } from "back-end/src/services/email";
 import { logger } from "back-end/src/util/logger";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
@@ -272,36 +268,31 @@ export async function postWebhook(req: Request, res: Response) {
 }
 
 export async function postSetupIntent(
-  req: AuthRequest<{ subscriptionId: string }>,
+  req: AuthRequest<null, null>,
   res: Response
 ) {
-  const { subscriptionId } = req.body;
+  const context = getContextFromReq(req);
+
+  const { org } = context;
+
   try {
-    const customer = await getStripeCustomerId(subscriptionId);
-    const setupIntent = await stripe.setupIntents.create({
-      customer,
-      payment_method_configuration: STRIPE_PAYMENT_METHOD_CONFIG_ID,
-      automatic_payment_methods: {
-        enabled: true,
-      },
-    });
-    return res.status(200).json({ clientSecret: setupIntent.client_secret });
+    const { clientSecret } = await postCreateSetupIntent(org.id);
+    return res.status(200).json({ clientSecret });
   } catch (e) {
-    throw new Error(e.message);
+    return res.status(500).json({ status: 500, message: e.message });
   }
 }
 
 export async function postStripeCustomerDefaultCard(
-  req: AuthRequest<{ paymentMethodId: string; subscriptionId: string }>,
+  req: AuthRequest<{ paymentMethodId: string }>,
   res: Response
 ) {
-  const { paymentMethodId, subscriptionId } = req.body;
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { paymentMethodId } = req.body;
 
   try {
-    const customerId = await getStripeCustomerId(subscriptionId);
-    await stripe.customers.update(customerId, {
-      invoice_settings: { default_payment_method: paymentMethodId },
-    });
+    await updateDefaultCard(org.id, paymentMethodId);
   } catch (e) {
     throw new Error(e.message);
   }
@@ -311,45 +302,30 @@ export async function postStripeCustomerDefaultCard(
 }
 
 export async function listPaymentMethods(
-  req: AuthRequest<null, { subscriptionId: string }>,
+  req: AuthRequest<null, null>,
   res: Response
 ) {
+  const context = getContextFromReq(req);
+
+  const { org } = context;
   try {
-    // Fetch the customer to get default_payment_method
-    const customerId = await getStripeCustomerId(req.params.subscriptionId);
-    const customer = await stripe.customers.retrieve(customerId);
+    const {
+      cards,
+      defaultPaymentMethod,
+    }: {
+      cards: Stripe.PaymentMethod[];
+      defaultPaymentMethod: string | undefined;
+    } = await getPaymentMethodsByOrgId(org.id);
 
-    if (customer.deleted) {
-      return res.status(200).json({ status: 200, cards: [] });
-    }
-    let defaultPaymentMethod: undefined | string = undefined;
-    const paymentMethod = customer.invoice_settings.default_payment_method;
-
-    if (paymentMethod) {
-      if (typeof paymentMethod === "string") {
-        defaultPaymentMethod = paymentMethod;
-      } else {
-        defaultPaymentMethod = paymentMethod.id;
-      }
-    }
-
-    // Fetch all card payment methods for customer
-    const { data: paymentMethods } = await stripe.customers.listPaymentMethods(
-      customerId,
-      {
-        type: "card",
-      }
-    );
-
-    if (!paymentMethods) {
+    if (!cards.length) {
       return res.status(200).json({ status: 200, cards: [] });
     }
 
-    const cards: Card[] = paymentMethods
+    // Otherwise, we need to format the cards
+    const formattedCards: Card[] = cards
       .map((method, i) => {
         const card = method.card;
         if (!card) return undefined;
-
         return {
           id: method.id,
           last4: card.last4,
@@ -364,7 +340,7 @@ export async function listPaymentMethods(
       })
       .filter((card): card is Card => Boolean(card));
 
-    return res.status(200).json({ status: 200, cards });
+    return res.status(200).json({ status: 200, cards: formattedCards });
   } catch (e) {
     throw new Error(e.message);
   }
@@ -374,10 +350,12 @@ export async function deletePaymentMethod(
   req: AuthRequest<{ paymentMethodId: string }>,
   res: Response
 ) {
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { paymentMethodId } = req.body;
 
   try {
-    await stripe.paymentMethods.detach(paymentMethodId);
+    await deletePaymentMethodById(org.id, paymentMethodId);
   } catch (e) {
     throw new Error(e.message);
   }

@@ -400,22 +400,22 @@ app.post(
   "/subscription/new-pro-trial",
   stripeController.postNewProTrialSubscription
 );
-app.post(
-  "/subscription/payment-methods/setup-intent",
-  stripeController.postSetupIntent
-);
-app.get(
-  "/subscription/payment-methods/:subscriptionId",
-  stripeController.listPaymentMethods
-);
-app.post(
-  "/subscription/payment-methods/detach",
-  stripeController.deletePaymentMethod
-);
-app.post(
-  "/subscription/payment-methods/set-default",
-  stripeController.postStripeCustomerDefaultCard
-);
+
+if (IS_CLOUD) {
+  app.post(
+    "/subscription/payment-methods/setup-intent",
+    stripeController.postSetupIntent
+  );
+  app.get("/subscription/payment-methods", stripeController.listPaymentMethods);
+  app.post(
+    "/subscription/payment-methods/detach",
+    stripeController.deletePaymentMethod
+  );
+  app.post(
+    "/subscription/payment-methods/set-default",
+    stripeController.postStripeCustomerDefaultCard
+  );
+}
 app.post("/subscription/new", stripeController.postNewProSubscription);
 app.post("/subscription/manage", stripeController.postCreateBillingSession);
 app.post("/subscription/success", stripeController.postSubscriptionSuccess);

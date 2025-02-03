@@ -34,8 +34,7 @@ export default function PaymentInfo() {
         throw new Error("Must have a subscription.");
       }
       const res: { cards: Card[] } = await apiCall(
-        // MKTODO: Don't share externalId
-        `/subscription/payment-methods/${subscription.externalId}`,
+        "/subscription/payment-methods",
         {
           method: "GET",
         }

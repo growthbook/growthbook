@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Elements } from "@stripe/react-stripe-js";
-import { loadStripe, Stripe } from "@stripe/stripe-js";
+import { loadStripe } from "@stripe/stripe-js";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
@@ -14,10 +14,14 @@ export default function StripeProvider({ children }) {
   const { theme } = useAppearanceUITheme();
   const { clientSecret, setClientSecret } = useStripeContext();
   const [error, setError] = useState<string | undefined>(undefined);
-  const [stripePromise, setStripePromise] = useState<Stripe | null>(null);
 
   const stripePublishableKey =
     process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "";
+
+  const stripePromise = useMemo(
+    () => (stripePublishableKey ? loadStripe(stripePublishableKey) : null),
+    [stripePublishableKey]
+  );
 
   const setupStripe = useCallback(async () => {
     if (!subscription) {
@@ -30,9 +34,6 @@ export default function StripeProvider({ children }) {
     }
 
     try {
-      const stripe = await loadStripe(stripePublishableKey);
-      setStripePromise(stripe);
-
       const { clientSecret }: { clientSecret: string } = await apiCall(
         "/subscription/payment-methods/setup-intent",
         {
@@ -46,7 +47,7 @@ export default function StripeProvider({ children }) {
       console.error("Failed to get client secret:", error);
       setError(error.message);
     }
-  }, [apiCall, setClientSecret, stripePublishableKey, subscription]);
+  }, [apiCall, setClientSecret, subscription, stripePublishableKey]);
 
   useEffect(() => {
     if (stripePublishableKey) setupStripe();

@@ -694,6 +694,62 @@ export async function postResendEmailVerificationEmailToLicenseServer(
   );
 }
 
+export async function postCreateSetupIntent(organizationId: string) {
+  const url = `${LICENSE_SERVER_URL}subscription/setup-intent`;
+  const res = await callLicenseServer(
+    url,
+    JSON.stringify({
+      organizationId,
+      cloudSecret: process.env.CLOUD_SECRET,
+    })
+  );
+  return res;
+}
+
+export async function getPaymentMethodsByOrgId(organizationId: string) {
+  const url = `${LICENSE_SERVER_URL}subscription/payment-methods`;
+  const res = await callLicenseServer(
+    url,
+    JSON.stringify({
+      organizationId,
+      cloudSecret: process.env.CLOUD_SECRET,
+    })
+  );
+  return res;
+}
+
+export async function updateDefaultCard(
+  organizationId: string,
+  paymentMethodId: string
+) {
+  const url = `${LICENSE_SERVER_URL}subscription/payment-methods/set-default`;
+  const res = await callLicenseServer(
+    url,
+    JSON.stringify({
+      organizationId,
+      paymentMethodId,
+      cloudSecret: process.env.CLOUD_SECRET,
+    })
+  );
+  return res;
+}
+
+export async function deletePaymentMethodById(
+  organizationId: string,
+  paymentMethodId: string
+) {
+  const url = `${LICENSE_SERVER_URL}subscription/payment-methods/detach`;
+  const res = await callLicenseServer(
+    url,
+    JSON.stringify({
+      organizationId,
+      paymentMethodId,
+      cloudSecret: process.env.CLOUD_SECRET,
+    })
+  );
+  return res;
+}
+
 // Creates or replaces the license in the MongoDB cache in case the license server goes down.
 async function createOrReplaceLicenseMongoCache(license: LicenseInterface) {
   await LicenseModel.findOneAndReplace({ id: license.id }, license, {
