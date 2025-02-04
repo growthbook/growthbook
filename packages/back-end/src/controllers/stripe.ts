@@ -353,7 +353,7 @@ export async function fetchCustomerCards(
     }
 
     const formattedCards: Card[] = cards
-      .map((method, i) => {
+      .map((method) => {
         const card = method.card;
         if (!card) return undefined;
         return {
@@ -362,10 +362,7 @@ export async function fetchCustomerCards(
           brand: card.brand,
           expMonth: card.exp_month,
           expYear: card.exp_year,
-          // if no explicit defaultPaymentMethodId, Orb uses the first card, so matching that logic
-          isDefault: defaultPaymentMethod
-            ? method.id === defaultPaymentMethod
-            : !!(i === 0),
+          isDefault: method.id === defaultPaymentMethod,
         };
       })
       .filter((card): card is Card => Boolean(card));

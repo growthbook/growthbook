@@ -14,6 +14,7 @@ import DeleteButton from "../DeleteButton/DeleteButton";
 import Modal from "../Modal";
 import LoadingSpinner from "../LoadingSpinner";
 import { StripeProvider } from "../Billing/StripeProvider";
+import Tooltip from "../Tooltip/Tooltip";
 import CreditCardModal from "./CreditCardModal";
 
 export default function PaymentInfo() {
@@ -52,7 +53,16 @@ export default function PaymentInfo() {
           paymentMethodId: defaultCard,
         }),
       });
-      fetchCardData();
+      const updatedCardData = cardData.map((card) => {
+        const updatedCard = card;
+        if (card.isDefault) {
+          card.isDefault = false;
+        } else if (card.id === defaultCard) {
+          card.isDefault = true;
+        }
+        return updatedCard;
+      });
+      setCardData(updatedCardData);
     } catch (e) {
       throw new Error(e.message);
     }
@@ -60,13 +70,22 @@ export default function PaymentInfo() {
 
   async function detachCard(cardId: string) {
     try {
+      const cardIndex = cardData.findIndex((card) => card.id === cardId);
+
+      if (cardIndex <= -1) {
+        throw new Error(
+          "Cannot delete: Card does not exist on this subscription"
+        );
+      }
       await apiCall("/subscription/payment-methods/detach", {
         method: "POST",
         body: JSON.stringify({
           paymentMethodId: cardId,
         }),
       });
-      fetchCardData();
+
+      const updatedCardData = cardData.toSpliced(cardIndex, 1);
+      setCardData(updatedCardData);
     } catch (e) {
       throw new Error(e.message);
     }
@@ -86,6 +105,7 @@ export default function PaymentInfo() {
         <CreditCardModal
           onClose={() => setCardModal(false)}
           refetch={() => fetchCardData()}
+          numOfCards={cardData.length}
         />
       ) : null}
       {defaultCard ? (
@@ -104,21 +124,27 @@ export default function PaymentInfo() {
       <div className="bg-white p-3 border mb-3">
         <Flex justify="between" align="center" className="pb-3">
           <h3 className="mb-0">Payment Methods</h3>
-          <button
-            className="btn btn-primary float-right"
-            onClick={() => {
-              setCardModal(true);
-              track("Edit Card Modal", {
-                source: "payment-method-empty-state",
-              });
-            }}
-            type="button"
+          <Tooltip
+            body="You can only have up to 3 cards on file"
+            shouldDisplay={cardData.length > 2}
           >
-            <span className="h4 pr-2 m-0 d-inline-block align-top">
-              <GBAddCircle />
-            </span>
-            Add Card
-          </button>
+            <button
+              disabled={cardData.length > 2}
+              className="btn btn-primary float-right"
+              onClick={() => {
+                setCardModal(true);
+                track("Edit Card Modal", {
+                  source: "payment-method-empty-state",
+                });
+              }}
+              type="button"
+            >
+              <span className="h4 pr-2 m-0 d-inline-block align-top">
+                <GBAddCircle />
+              </span>
+              Add Card
+            </button>
+          </Tooltip>
         </Flex>
         {error ? (
           <Callout status="warning">{error}</Callout>
@@ -177,15 +203,22 @@ export default function PaymentInfo() {
                                 >
                                   Set as Default Card
                                 </button>
-                                <DeleteButton
-                                  onClick={async () =>
-                                    await detachCard(card.id)
-                                  }
-                                  className="dropdown-item text-danger"
-                                  displayName="Remove Card"
-                                  text="Remove Card"
-                                  useIcon={false}
-                                />
+                                <Tooltip
+                                  tipPosition="left"
+                                  body="Before you can delete this card, set another card as the default card"
+                                  shouldDisplay={card.isDefault}
+                                >
+                                  <DeleteButton
+                                    onClick={async () =>
+                                      await detachCard(card.id)
+                                    }
+                                    disabled={card.isDefault}
+                                    className="dropdown-item text-danger"
+                                    displayName="Remove Card"
+                                    text="Remove Card"
+                                    useIcon={false}
+                                  />
+                                </Tooltip>
                               </MoreMenu>
                             </td>
                           </tr>

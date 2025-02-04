@@ -9,13 +9,19 @@ import { useAuth } from "@/services/auth";
 import { useStripeContext } from "@/hooks/useStripeContext";
 import Modal from "../Modal";
 import Toggle from "../Forms/Toggle";
+import Tooltip from "../Tooltip/Tooltip";
 
 interface Props {
   onClose: () => void;
   refetch: () => void;
+  numOfCards: number;
 }
 
-export default function CreditCardModal({ onClose, refetch }: Props) {
+export default function CreditCardModal({
+  onClose,
+  refetch,
+  numOfCards,
+}: Props) {
   const [defaultCard, setDefaultCard] = useState(true);
   const { clientSecret } = useStripeContext();
   const { apiCall } = useAuth();
@@ -73,14 +79,17 @@ export default function CreditCardModal({ onClose, refetch }: Props) {
           <Text as="label" className="mb-0 pr-1">
             Set as Default Card
           </Text>
-          <Toggle
-            id={"defaultValue"}
-            label="Default value"
-            value={defaultCard}
-            setValue={() => {
-              setDefaultCard(!defaultCard);
-            }}
-          />
+          <Tooltip body="The first card you add is automatically set as the default card">
+            <Toggle
+              disabled={numOfCards === 0}
+              id={"defaultValue"}
+              label="Default value"
+              value={defaultCard}
+              setValue={() => {
+                setDefaultCard(!defaultCard);
+              }}
+            />
+          </Tooltip>
         </Flex>
       </>
     </Modal>
