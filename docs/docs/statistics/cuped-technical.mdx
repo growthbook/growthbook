@@ -41,11 +41,12 @@ $$
 Under a superpopulation framework and independence of random assignment, the adjusted means $\left(\bar{Y}_{T} - \theta\bar{X}_{T}\right)$ and $\left(\bar{Y}_{C} - \theta\bar{X}_{C}\right)$ are statistically independent.  
 Therefore, the variance of the difference in adjusted means is the sum of the variances of the adjusted means.  
 We denote these variances as $V_{adj, C}$ and $V_{adj, T}$, respectively, and they are defined as
+Define the control (treatment) population covariance between post-exposure and pre-exposure revenue as $\sigma_{XY,C}$ ($\sigma_{XY,T}$).
 
 $$
 \begin{align}
-V_{adj, C} &= \frac{\sigma^{2}_{YC} + \theta^{2}\sigma^{2}_{XC} - 2\theta\text{Cov}\left(Y_{C}, X_{C} \right)}{N_{C}}\\
-V_{adj, T} &= \frac{\sigma^{2}_{YT} + \theta^{2}\sigma^{2}_{XT} - 2\theta\text{Cov}\left(Y_{T}, X_{T} \right)}{N_{T}}.
+V_{adj, C} &= \frac{\sigma^{2}_{YC} + \theta^{2}\sigma^{2}_{XC} - 2\theta\sigma_{XY,C}}{N_{C}}\\
+V_{adj, T} &= \frac{\sigma^{2}_{YT} + \theta^{2}\sigma^{2}_{XT} - 2\theta\sigma_{XY,T}}{N_{T}}.
 \end{align}
 $$
 
@@ -73,18 +74,17 @@ To derive $\hat{\sigma}^{2}_{\Delta_{R}}$, the estimated variance of $\hat{\Delt
 
 1. Define the control (treatment) population post-exposure variance as $\sigma^{2}_{YC}$ ($\sigma^{2}_{YT}$).
 2. Define the control (treatment) population pre-exposure variance as $\sigma^{2}_{XC}$ ($\sigma^{2}_{XT}$).
-3. Define the control (treatment) population covariance between post-exposure and pre-exposure revenue as $\text{Cov}\left(Y_{C}, X_{C} \right)$ ($\text{Cov}\left(Y_{T}, X_{T} \right)$).
-4. Define the covariance of the sample control means $$ \boldsymbol{\Lambda}_{C} = \text{Cov}\left[\bar{Y}_{C}, \bar{X}_{C}\right] =\begin{pmatrix}
+3. Define the covariance of the sample control means $$ \boldsymbol{\Lambda}_{C} = \text{Cov}\left[\bar{Y}_{C}, \bar{X}_{C}\right] =\begin{pmatrix}
    \sigma^{2}_{Y,C} & \sigma*{XY,C}\\
    \sigma*{XY,C} & \sigma^{2}_{X,C}
    \end{pmatrix}/ N_{C}$$.
-5. Define the covariance of the sample treatment means $$ \boldsymbol{\Lambda}_{T} = \text{Cov}\left[\bar{Y}_{T}, \bar{X}_{T}\right] =\begin{pmatrix}
+4. Define the covariance of the sample treatment means $$ \boldsymbol{\Lambda}_{T} = \text{Cov}\left[\bar{Y}_{T}, \bar{X}_{T}\right] =\begin{pmatrix}
    \sigma^{2}_{Y,T} & \sigma*{XY,T}\\
    \sigma*{XY,T} & \sigma^{2}_{X,T}
    \end{pmatrix}/ N_{T}$$.
-6. Define the vector of population means $\boldsymbol{\beta}_{0} = \left[\mu_{YT}, \mu_{XT}, \mu_{YC}, \mu_{XC} \right].$
-7. Define their sample counterparts as $\hat{\boldsymbol{\beta}} = \left[\bar{Y}_{T}, \bar{X}_{T}, \bar{Y}_{C}, \bar{X}_{C} \right].$
-8. Define $$\boldsymbol{\Lambda} = \text{Cov}\left(\hat{\boldsymbol{\beta}}\right) = \begin{pmatrix}
+5. Define the vector of population means $\boldsymbol{\beta}_{0} = \left[\mu_{YT}, \mu_{XT}, \mu_{YC}, \mu_{XC} \right].$
+6. Define their sample counterparts as $\hat{\boldsymbol{\beta}} = \left[\bar{Y}_{T}, \bar{X}_{T}, \bar{Y}_{C}, \bar{X}_{C} \right].$
+7. Define $$\boldsymbol{\Lambda} = \text{Cov}\left(\hat{\boldsymbol{\beta}}\right) = \begin{pmatrix}
 \boldsymbol{\Lambda}_{T} & \textbf{0}\\
 \textbf{0} & \boldsymbol{\Lambda}_{C}
 \end{pmatrix},$$
@@ -180,7 +180,7 @@ $$
 \nonumber\\&=\frac{
 \sigma^{2}_{Y,T}
 +\theta^{2}\sigma^{2}_{X,T}
--2\text{Cov}\left(\sigma_{XY,T} \right)
+-2\sigma_{XY,T}
 }{N_{T}\boldsymbol{\beta}[3]^{2}}
 \nonumber\\&+
 \frac{1}{N_{C}\boldsymbol{\beta}[3]^{2}}
@@ -203,7 +203,7 @@ $$
 \nonumber\\&=\frac{
 \sigma^{2}_{Y,T}
 +\theta^{2}\sigma^{2}_{X,T}
--2\text{Cov}\left(\sigma_{XY,T} \right)
+-2\sigma_{XY,T}
 }{N_{T}\boldsymbol{\beta}[3]^{2}}
 \nonumber\\&+
 \frac{1}{N_{C}\boldsymbol{\beta}[3]^{2}}
@@ -218,7 +218,7 @@ $$
 \nonumber\\&=\frac{
 \sigma^{2}_{Y,T}
 +\theta^{2}\sigma^{2}_{X,T}
--2\text{Cov}\left(\sigma_{XY,T} \right)
+-2\sigma_{XY,T}
 }{N_{T}\bar{Y}_{C}^{2}}
 \nonumber\\&+
 \frac{1}{N_{C}\bar{Y}_{C}^{2}}
