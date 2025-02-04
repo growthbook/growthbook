@@ -12,9 +12,9 @@ import {
   getCardsByOrgId,
   updateDefaultCard,
   deletePaymentMethodById,
+  getLicenseData,
 } from "enterprise";
 import { Card } from "shared/src/types/subscriptions";
-import { getLicenseByKey } from "enterprise/src/models/licenseModel";
 import { APP_ORIGIN, STRIPE_WEBHOOK_SECRET } from "back-end/src/util/secrets";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
@@ -280,7 +280,7 @@ export async function postSetupIntent(
     if (!org.licenseKey) {
       throw new Error("No license key found for organization");
     }
-    const license = await getLicenseByKey(org.licenseKey);
+    const license = await getLicenseData(org.licenseKey);
 
     if (!license?.organizationId) {
       throw new Error(
@@ -306,7 +306,7 @@ export async function updateCustomerDefaultPayment(
     if (!org.licenseKey) {
       throw new Error("No license key found for organization");
     }
-    const license = await getLicenseByKey(org.licenseKey);
+    const license = await getLicenseData(org.licenseKey);
 
     if (!license?.organizationId) {
       throw new Error(
@@ -333,7 +333,7 @@ export async function fetchCustomerCards(
     if (!org.licenseKey) {
       throw new Error("No license key found for organization");
     }
-    const license = await getLicenseByKey(org.licenseKey);
+    const license = await getLicenseData(org.licenseKey);
 
     if (!license?.organizationId) {
       throw new Error(
@@ -388,7 +388,7 @@ export async function deletePaymentMethod(
     if (!org.licenseKey) {
       throw new Error("No license key found for organization");
     }
-    const license = await getLicenseByKey(org.licenseKey);
+    const license = await getLicenseData(org.licenseKey);
 
     if (!license?.organizationId) {
       throw new Error(

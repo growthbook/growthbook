@@ -1173,3 +1173,9 @@ function shouldLimitAccessDueToExpiredLicense(
   // The license is not expired
   return false;
 }
+
+export async function getLicenseData(
+  key: string
+): Promise<LicenseInterface | null> {
+  return getLicenseByKey(key);
+}
