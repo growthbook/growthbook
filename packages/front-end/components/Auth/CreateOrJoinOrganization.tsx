@@ -36,7 +36,7 @@ const CreateOrJoinOrganization: FC<{
   const newOrgForm = useForm({
     defaultValues: {
       company: "",
-      ownerJobTitle: undefined as OwnerJobTitle | undefined,
+      ownerJobTitle: "" as OwnerJobTitle,
       ownerFeatureFlagUsageIntent: false,
       ownerExperimentUsageIntent: false,
     },
@@ -295,7 +295,7 @@ const CreateOrJoinOrganization: FC<{
                       label: role,
                       value: role,
                     }))}
-                    onChange={(value) => {
+                    onChange={(value: OwnerJobTitle) => {
                       newOrgForm.setValue("ownerJobTitle", value);
                     }}
                     value={newOrgForm.watch("ownerJobTitle")}
