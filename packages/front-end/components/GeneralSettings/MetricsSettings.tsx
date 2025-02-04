@@ -6,6 +6,7 @@ import { supportedCurrencies } from "@/services/settings";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import Callout from "@/components/Radix/Callout";
+import Frame from "@/components/Radix/Frame";
 
 export default function MetricsSettings() {
   const form = useFormContext();
@@ -18,8 +19,8 @@ export default function MetricsSettings() {
     supportedCurrencies
   ).map(([value, label]) => ({ value, label }));
   return (
-    <Box mb="4" className="appbox">
-      <Flex gap="4" p="5">
+    <Frame>
+      <Flex gap="4">
         <Box width="220px" flexShrink="0">
           <Heading size="4" as="h4">
             Metrics Settings
@@ -151,6 +152,6 @@ export default function MetricsSettings() {
           </>
         </Flex>
       </Flex>
-    </Box>
+    </Frame>
   );
 }
