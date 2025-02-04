@@ -2,10 +2,11 @@ import { MdFilterAlt, MdOutlineFilterAltOff } from "react-icons/md";
 import React, { useEffect, useState } from "react";
 import { BsXCircle } from "react-icons/bs";
 import { FaX } from "react-icons/fa6";
-import Toggle from "@/components/Forms/Toggle";
+import { Box } from "@radix-ui/themes";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { ResultsMetricFilters } from "@/components/Experiment/Results";
+import Checkbox from "@/components/Radix/Checkbox";
 
 export default function ResultsMetricFilter({
   metricTags = [],
@@ -109,30 +110,24 @@ export default function ResultsMetricFilter({
               <small>Drag &amp; drop tags to change display order</small>
             </div>
 
-            <label className="mt-3 mb-2">
-              <h5 className="mb-0">Filter metrics</h5>
-            </label>
-            <div>
-              <Toggle
-                id="filterByTag"
+            <Box mt="3">
+              <Checkbox
+                label="Filter metrics"
                 value={
                   _metricFilter?.tagOrder?.length
                     ? !!_metricFilter.filterByTag
                     : false
                 }
-                setValue={(v) => {
+                setValue={(value) => {
                   _setMetricFilter({
                     ..._metricFilter,
-                    filterByTag: v,
+                    filterByTag: value,
                   });
                 }}
+                mt="1"
                 disabled={!_metricFilter?.tagOrder?.length}
               />
-              {!_metricFilter?.tagOrder?.length ? (
-                <small className="text-muted ml-2">No tags selected</small>
-              ) : null}
-            </div>
-
+            </Box>
             <div className="d-flex mt-3">
               {_filteringApplied ? (
                 <button
