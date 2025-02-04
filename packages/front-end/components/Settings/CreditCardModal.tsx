@@ -6,8 +6,8 @@ import {
 } from "@stripe/react-stripe-js";
 import { Flex, Text } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
+import { useStripeContext } from "@/hooks/useStripeContext";
 import Modal from "../Modal";
-import { useStripeContext } from "../Billing/StripeProviderWrapper";
 import Toggle from "../Forms/Toggle";
 
 interface Props {
@@ -36,9 +36,6 @@ export default function CreditCardModal({ onClose, refetch }: Props) {
       const { setupIntent } = await stripe.confirmSetup({
         elements,
         clientSecret,
-        confirmParams: {
-          return_url: `${process.env.NEXT_PUBLIC_API_HOST}/settings/billing`,
-        },
         redirect: "if_required",
       });
 
