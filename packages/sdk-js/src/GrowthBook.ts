@@ -859,7 +859,12 @@ export class GrowthBook<
     this._trackedFeatures[key] = stringifiedValue;
 
     if (this._options.enableDevMode) {
-      this.logs.push({ featureKey: key, result: res });
+      this.logs.push({
+        featureKey: key,
+        result: res,
+        timestamp: Date.now().toString(),
+        logType: "feature",
+      });
     }
 
     // Fire user-supplied callback
@@ -910,7 +915,11 @@ export class GrowthBook<
   log(msg: string, ctx: Record<string, unknown>) {
     if (!this.debug) return;
     if (this._options.enableDevMode) {
-      this.logs.push({ debug: { msg, ctx } });
+      this.logs.push({
+        debug: { msg, ctx },
+        timestamp: Date.now().toString(),
+        logType: "debug",
+      });
     }
     if (this._options.log) this._options.log(msg, ctx);
     else console.log(msg, ctx);
@@ -963,7 +972,12 @@ export class GrowthBook<
       return;
     }
     if (this._options.enableDevMode) {
-      this.logs.push({ eventName, properties });
+      this.logs.push({
+        eventName,
+        properties,
+        timestamp: Date.now().toString(),
+        logType: "event",
+      });
     }
     if (this._options.eventLogger) {
       try {
@@ -1001,7 +1015,12 @@ export class GrowthBook<
 
   private async _track<T>(experiment: Experiment<T>, result: Result<T>) {
     if (this._options.enableDevMode) {
-      this.logs.push({ experiment, result });
+      this.logs.push({
+        experiment,
+        result,
+        timestamp: Date.now().toString(),
+        logType: "experiment",
+      });
     }
     if (!this._options.trackingCallback) return;
 
