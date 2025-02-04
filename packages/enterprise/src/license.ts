@@ -697,7 +697,7 @@ export async function postResendEmailVerificationEmailToLicenseServer(
   );
 }
 
-export async function postCreateSetupIntent(organizationId: string) {
+export async function createSetupIntent(organizationId: string) {
   const url = `${LICENSE_SERVER_URL}subscription/setup-intent`;
   const res = await callLicenseServer(
     url,
@@ -709,7 +709,7 @@ export async function postCreateSetupIntent(organizationId: string) {
   return res;
 }
 
-export async function getPaymentMethodsByOrgId(organizationId: string) {
+export async function getCardsByOrgId(organizationId: string) {
   const url = `${LICENSE_SERVER_URL}subscription/payment-methods`;
   const res = await callLicenseServer(
     url,

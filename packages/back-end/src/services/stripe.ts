@@ -88,17 +88,3 @@ export async function updateSubscriptionInDb(
 
   return { organization: org, subscription, hasPaymentMethod };
 }
-
-export async function getStripeCustomerId(subscriptionId: string) {
-  const res = await stripe.subscriptions.retrieve(subscriptionId);
-
-  if (!res || !res.customer) {
-    throw new Error("Unable to locate customer Id");
-  }
-
-  if (typeof res.customer === "string") {
-    return res.customer;
-  }
-
-  return res.customer.id;
-}

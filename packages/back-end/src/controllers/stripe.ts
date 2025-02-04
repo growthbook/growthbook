@@ -8,8 +8,8 @@ import {
   postNewProSubscriptionToLicenseServer,
   postNewProTrialSubscriptionToLicenseServer,
   postNewSubscriptionSuccessToLicenseServer,
-  postCreateSetupIntent,
-  getPaymentMethodsByOrgId,
+  createSetupIntent,
+  getCardsByOrgId,
   updateDefaultCard,
   deletePaymentMethodById,
 } from "enterprise";
@@ -276,14 +276,14 @@ export async function postSetupIntent(
   const { org } = context;
 
   try {
-    const { clientSecret } = await postCreateSetupIntent(org.id);
+    const { clientSecret } = await createSetupIntent(org.id);
     return res.status(200).json({ clientSecret });
   } catch (e) {
     return res.status(500).json({ status: 500, message: e.message });
   }
 }
 
-export async function postStripeCustomerDefaultCard(
+export async function updateCustomerDefaultPayment(
   req: AuthRequest<{ paymentMethodId: string }>,
   res: Response
 ) {
@@ -301,7 +301,7 @@ export async function postStripeCustomerDefaultCard(
   });
 }
 
-export async function listPaymentMethods(
+export async function fetchCustomerCards(
   req: AuthRequest<null, null>,
   res: Response
 ) {
@@ -315,13 +315,12 @@ export async function listPaymentMethods(
     }: {
       cards: Stripe.PaymentMethod[];
       defaultPaymentMethod: string | undefined;
-    } = await getPaymentMethodsByOrgId(org.id);
+    } = await getCardsByOrgId(org.id);
 
     if (!cards.length) {
       return res.status(200).json({ status: 200, cards: [] });
     }
 
-    // Otherwise, we need to format the cards
     const formattedCards: Card[] = cards
       .map((method, i) => {
         const card = method.card;

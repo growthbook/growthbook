@@ -111,8 +111,6 @@ export const SITE_MANAGER_EMAIL = process.env.SITE_MANAGER_EMAIL;
 
 export const STRIPE_SECRET = process.env.STRIPE_SECRET || "";
 export const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "";
-export const STRIPE_PAYMENT_METHOD_CONFIG_ID =
-  process.env.STRIPE_PAYMENT_METHOD_CONFIG_ID || "";
 
 export const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET || "";
 

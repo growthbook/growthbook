@@ -406,14 +406,14 @@ if (IS_CLOUD) {
     "/subscription/payment-methods/setup-intent",
     stripeController.postSetupIntent
   );
-  app.get("/subscription/payment-methods", stripeController.listPaymentMethods);
+  app.get("/subscription/payment-methods", stripeController.fetchCustomerCards);
   app.post(
     "/subscription/payment-methods/detach",
     stripeController.deletePaymentMethod
   );
   app.post(
     "/subscription/payment-methods/set-default",
-    stripeController.postStripeCustomerDefaultCard
+    stripeController.updateCustomerDefaultPayment
   );
 }
 app.post("/subscription/new", stripeController.postNewProSubscription);
