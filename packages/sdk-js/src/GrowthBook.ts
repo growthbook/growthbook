@@ -856,13 +856,14 @@ export class GrowthBook<
   }
 
   private _trackFeatureUsage(key: string, res: FeatureResult): void {
-    if (Array.isArray(this.logs)) {
-      this.logs.push({ featureKey: key, result: res });
-    }
     // Only track a feature once, unless the assigned value changed
     const stringifiedValue = JSON.stringify(res.value);
     if (this._trackedFeatures[key] === stringifiedValue) return;
     this._trackedFeatures[key] = stringifiedValue;
+
+    if (Array.isArray(this.logs)) {
+      this.logs.push({ featureKey: key, result: res });
+    }
 
     // Fire user-supplied callback
     if (this._options.onFeatureUsage) {
