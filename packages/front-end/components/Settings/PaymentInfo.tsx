@@ -25,7 +25,7 @@ export default function PaymentInfo() {
   const [loadingCards, setLoadingCards] = useState(false);
   const { subscription } = useUser();
   const { apiCall } = useAuth();
-  const canShowPaymentInfo = isCloud() && subscription?.hasLicense;
+  const canShowPaymentInfo = isCloud() && subscription?.hasLicenseWithOrgId;
 
   const fetchCardData = useCallback(async () => {
     setLoadingCards(true);
