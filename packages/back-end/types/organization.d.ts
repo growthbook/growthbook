@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import { OwnerJobTitle, UsageIntent } from "shared/constants";
 import {
   ENV_SCOPED_PERMISSIONS,
   GLOBAL_PERMISSIONS,
@@ -16,7 +17,6 @@ import {
   MetricPriorSettings,
   MetricWindowSettings,
 } from "./fact-table";
-import { OwnerJobTitle, UsageIntent } from "shared/constants";
 
 export type EnvScopedPermission = typeof ENV_SCOPED_PERMISSIONS[number];
 export type ProjectScopedPermission = typeof PROJECT_SCOPED_PERMISSIONS[number];

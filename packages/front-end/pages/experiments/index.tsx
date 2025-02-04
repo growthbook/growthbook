@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { RxDesktop } from "react-icons/rx";
 import { date, datetime } from "shared/dates";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
 import { PiCaretDown, PiShuffle } from "react-icons/pi";
@@ -53,7 +54,6 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import ViewSampleDataButton from "@/components/GetStarted/ViewSampleDataButton";
 import EmptyState from "@/components/EmptyState";
-import { useRouter } from "next/router";
 import Callout from "@/components/Radix/Callout";
 
 const NUM_PER_PAGE = 20;

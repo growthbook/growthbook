@@ -3,6 +3,7 @@ import { FiLogOut } from "react-icons/fi";
 import { useForm } from "react-hook-form";
 import { FaCheck, FaPlus } from "react-icons/fa";
 import { useRouter } from "next/router";
+import { OwnerJobTitle, UsageIntent } from "shared/constants";
 import { CreateOrganizationPostBody } from "back-end/types/organization";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
@@ -22,7 +23,6 @@ import Checkbox from "@/components/Radix/Checkbox";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import style from "./CreateOrJoinOrganization.module.scss";
 import WelcomeFrame from "./WelcomeFrame";
-import { OwnerJobTitle, UsageIntent } from "shared/constants";
 
 const CreateOrJoinOrganization: FC<{
   showFrame?: boolean;

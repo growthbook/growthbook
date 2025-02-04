@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { cloneDeep } from "lodash";
+import { OwnerJobTitle, UsageIntent } from "shared/constants";
 import { POLICIES, RESERVED_ROLE_IDS } from "shared/permissions";
 import { z } from "zod";
 import { TeamInterface } from "back-end/types/team";
@@ -21,7 +22,6 @@ import {
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
-import { OwnerJobTitle, UsageIntent } from "shared/constants";
 
 const baseMemberFields = {
   _id: false,

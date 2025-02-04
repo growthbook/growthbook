@@ -7,6 +7,7 @@ import {
   FaExclamationTriangle,
 } from "react-icons/fa";
 import { PiArrowRight, PiPaperPlaneTiltFill } from "react-icons/pi";
+import { OwnerJobTitle } from "shared/constants";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { getApiBaseUrl } from "@/components/Features/CodeSnippetModal";
 import InstallationCodeSnippet from "@/components/SyntaxHighlighting/Snippets/InstallationCodeSnippet";
@@ -23,7 +24,6 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import { DocLink } from "@/components/DocLink";
 import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import Link from "@/components/Radix/Link";
-import { OwnerJobTitle } from "shared/constants";
 
 interface Props {
   connection: string | null;
