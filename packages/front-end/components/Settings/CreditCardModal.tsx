@@ -6,7 +6,6 @@ import {
 } from "@stripe/react-stripe-js";
 import { Flex, Text } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
-import { useUser } from "@/services/UserContext";
 import Modal from "../Modal";
 import { useStripeContext } from "../Billing/StripeProviderWrapper";
 import Toggle from "../Forms/Toggle";
@@ -20,15 +19,11 @@ export default function CreditCardModal({ onClose, refetch }: Props) {
   const [defaultCard, setDefaultCard] = useState(true);
   const { clientSecret } = useStripeContext();
   const { apiCall } = useAuth();
-  const { subscription } = useUser();
   const elements = useElements();
   const stripe = useStripe();
 
   const handleSubmit = async () => {
     if (!stripe || !elements || !clientSecret) return;
-    if (!subscription?.externalId) {
-      throw new Error("Must have a subscription");
-    }
     try {
       // Trigger form validation and wallet collection
       const { error: submitError } = await elements.submit();
@@ -51,13 +46,12 @@ export default function CreditCardModal({ onClose, refetch }: Props) {
         throw new Error("Unable to save new card");
       }
 
-      // Optionally, make a call to our backend to update the user's default payment method
+      // Optionally, update the user's default payment method
       if (defaultCard) {
         await apiCall("/subscription/payment-methods/set-default", {
           method: "POST",
           body: JSON.stringify({
             paymentMethodId: setupIntent.payment_method,
-            subscriptionId: subscription.externalId,
           }),
         });
       }

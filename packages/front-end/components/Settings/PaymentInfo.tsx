@@ -25,14 +25,11 @@ export default function PaymentInfo() {
   const [loadingCards, setLoadingCards] = useState(false);
   const { subscription } = useUser();
   const { apiCall } = useAuth();
+  const canShowPaymentInfo = isCloud() && subscription?.hasLicense;
 
   const fetchCardData = useCallback(async () => {
-    if (!isCloud()) return;
     setLoadingCards(true);
     try {
-      if (!subscription?.externalId) {
-        throw new Error("Must have a subscription.");
-      }
       const res: { cards: Card[] } = await apiCall(
         "/subscription/payment-methods",
         {
@@ -45,17 +42,15 @@ export default function PaymentInfo() {
     } finally {
       setLoadingCards(false);
     }
-  }, [apiCall, subscription?.externalId]);
+  }, [apiCall]);
 
   async function setCardAsDefault() {
-    if (!subscription?.externalId) throw new Error("Must have a subscription");
     if (!defaultCard) throw new Error("Must specify card id");
     try {
       await apiCall("/subscription/payment-methods/set-default", {
         method: "POST",
         body: JSON.stringify({
           paymentMethodId: defaultCard,
-          subscriptionId: subscription.externalId,
         }),
       });
       fetchCardData();
@@ -79,12 +74,12 @@ export default function PaymentInfo() {
   }
 
   useEffect(() => {
-    if (subscription?.externalId && isCloud()) {
+    if (canShowPaymentInfo) {
       fetchCardData();
     }
-  }, [apiCall, fetchCardData, subscription]);
+  }, [apiCall, canShowPaymentInfo, fetchCardData, subscription]);
 
-  if (!isCloud()) return null;
+  if (!canShowPaymentInfo) return null;
 
   return (
     <StripeProviderWrapper>
