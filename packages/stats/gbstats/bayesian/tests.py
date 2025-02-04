@@ -206,7 +206,9 @@ class EffectBayesianABTest(BayesianABTest):
             )
         else:
             post_prec = (
-                1 / scaled_prior_effect.variance if scaled_prior_effect.proper else 0
+                1 / scaled_prior_effect.variance
+                if scaled_prior_effect.proper
+                else 1e-10
             )
             self.mean_diff = (
                 scaled_prior_effect.mean if scaled_prior_effect.proper else 0
