@@ -104,7 +104,7 @@ export function getSubscriptionFromLicense(
       trialEnd: license._orbSubscription.trialEnd,
       status: license._orbSubscription.status,
       hasPaymentMethod: license._orbSubscription.hasPaymentMethod,
-      hasLicense: true,
+      hasLicense: !!license.organizationId,
     };
   } else if (license._stripeSubscription) {
     return {
@@ -113,7 +113,7 @@ export function getSubscriptionFromLicense(
       trialEnd: license._stripeSubscription.trialEnd,
       status: getStripeSubscriptionStatus(license._stripeSubscription.status),
       hasPaymentMethod: !!license._stripeSubscription.hasPaymentMethod,
-      hasLicense: true,
+      hasLicense: !!license.organizationId,
     };
   }
   return null;

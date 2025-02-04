@@ -38,7 +38,6 @@ export default function StripeProvider({ children }) {
         "/subscription/payment-methods/setup-intent",
         {
           method: "POST",
-          body: JSON.stringify({ subscriptionId: subscription.externalId }),
         }
       );
 
