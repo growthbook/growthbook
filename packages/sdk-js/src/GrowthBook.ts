@@ -66,7 +66,7 @@ export class GrowthBook<
   public debug: boolean;
   public ready: boolean;
   public version: string;
-  public logs: Array<LogUnion> | undefined;
+  public logs: Array<LogUnion>;
 
   // Properties and methods that start with "_" are mangled by Terser (saves ~150 bytes)
   private _options: Options;
@@ -128,6 +128,7 @@ export class GrowthBook<
     this._deferredTrackingCalls = new Map();
     this._autoExperimentsAllowed = !options.disableExperimentsOnLoad;
     this._destroyCallbacks = [];
+    this.logs = [];
 
     this.log = this.log.bind(this);
     this._track = this._track.bind(this);
@@ -180,10 +181,6 @@ export class GrowthBook<
     if (isBrowser && options.enableDevMode) {
       window._growthbook = this;
       document.dispatchEvent(new Event("gbloaded"));
-    }
-
-    if (options.enableDevMode) {
-      this.logs = [];
     }
 
     if (options.experiments) {
@@ -861,7 +858,7 @@ export class GrowthBook<
     if (this._trackedFeatures[key] === stringifiedValue) return;
     this._trackedFeatures[key] = stringifiedValue;
 
-    if (Array.isArray(this.logs)) {
+    if (this._options.enableDevMode) {
       this.logs.push({ featureKey: key, result: res });
     }
 
@@ -912,7 +909,7 @@ export class GrowthBook<
 
   log(msg: string, ctx: Record<string, unknown>) {
     if (!this.debug) return;
-    if (Array.isArray(this.logs)) {
+    if (this._options.enableDevMode) {
       this.logs.push({ debug: { msg, ctx } });
     }
     if (this._options.log) this._options.log(msg, ctx);
@@ -965,7 +962,7 @@ export class GrowthBook<
       console.error("Cannot log event to destroyed GrowthBook instance");
       return;
     }
-    if (Array.isArray(this.logs)) {
+    if (this._options.enableDevMode) {
       this.logs.push({ eventName, properties });
     }
     if (this._options.eventLogger) {
@@ -1003,7 +1000,7 @@ export class GrowthBook<
   }
 
   private async _track<T>(experiment: Experiment<T>, result: Result<T>) {
-    if (Array.isArray(this.logs)) {
+    if (this._options.enableDevMode) {
       this.logs.push({ experiment, result });
     }
     if (!this._options.trackingCallback) return;
