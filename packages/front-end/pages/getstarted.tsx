@@ -82,7 +82,7 @@ const GetStartedPage = (): React.ReactElement => {
           align="center"
         >
           <Heading as="h1" size="6" weight="medium" mb="0">
-            Get Started Updated - 3
+            Get Started
           </Heading>
 
           {canUseSetupFlow && (
