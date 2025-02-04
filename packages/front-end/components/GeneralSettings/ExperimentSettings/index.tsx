@@ -422,9 +422,9 @@ export default function ExperimentSettings({
                     style={{ display: "inline-flex" }}
                     body={
                       <p>
-                        If enabled we will calculate the power of the experiment
-                        when the Results are refreshed and display the status as
-                        Unhealthy if the power is too low.
+                        Calculate experimental power when results are refreshed
+                        and display experiment status as Unhealthy if power is
+                        low.
                       </p>
                     }
                   >
