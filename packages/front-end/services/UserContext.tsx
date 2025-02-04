@@ -190,12 +190,6 @@ export function useUser() {
   return useContext(UserContext);
 }
 
-export type UsageIntent =
-  | ""
-  | "experiments"
-  | "features"
-  | "experiments, features";
-
 let currentUser: null | {
   id: string;
   org: string;
@@ -319,19 +313,6 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 
     const build = getGrowthBookBuild();
 
-    const experimentUsageIntent =
-      currentOrg?.organization?.ownerExperimentUsageIntent;
-    const featureUsageIntent =
-      currentOrg?.organization?.ownerFeatureFlagUsageIntent;
-    const usageIntents: ("experiments" | "features")[] = [];
-    if (experimentUsageIntent) {
-      usageIntents.push("experiments");
-    }
-    if (featureUsageIntent) {
-      usageIntents.push("features");
-    }
-    const usageIntent = usageIntents.join(", ") as UsageIntent;
-
     growthbook.updateAttributes({
       anonymous_id,
       id: data?.userId || "",
@@ -344,15 +325,16 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       buildSHA: build.sha,
       buildDate: build.date,
       buildVersion: build.lastVersion,
-      orgOwnerRole: currentOrg?.organization?.ownerRole,
-      orgOwnerUsageIntent: usageIntent,
+      orgOwnerJobTitle:
+        currentOrg?.organization?.demographicData?.ownerJobTitle,
+      orgOwnerUsageIntents:
+        currentOrg?.organization?.demographicData?.ownerUsageIntents,
     });
   }, [
     data?.superAdmin,
     data?.userId,
-    currentOrg?.organization?.ownerRole,
-    currentOrg?.organization?.ownerExperimentUsageIntent,
-    currentOrg?.organization?.ownerFeatureFlagUsageIntent,
+    currentOrg?.organization?.demographicData?.ownerJobTitle,
+    currentOrg?.organization?.demographicData?.ownerUsageIntents,
   ]);
 
   // Org GrowthBook attributes

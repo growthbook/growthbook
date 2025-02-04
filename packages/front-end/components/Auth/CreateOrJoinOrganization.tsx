@@ -3,8 +3,7 @@ import { FiLogOut } from "react-icons/fi";
 import { useForm } from "react-hook-form";
 import { FaCheck, FaPlus } from "react-icons/fa";
 import { useRouter } from "next/router";
-import { OWNER_ROLES } from "shared/constants";
-import { OwnerRole } from "back-end/types/organization";
+import { CreateOrganizationPostBody } from "back-end/types/organization";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
@@ -23,6 +22,7 @@ import Checkbox from "@/components/Radix/Checkbox";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import style from "./CreateOrJoinOrganization.module.scss";
 import WelcomeFrame from "./WelcomeFrame";
+import { OwnerJobTitle, UsageIntent } from "shared/constants";
 
 const CreateOrJoinOrganization: FC<{
   showFrame?: boolean;
@@ -36,7 +36,7 @@ const CreateOrJoinOrganization: FC<{
   const newOrgForm = useForm({
     defaultValues: {
       company: "",
-      ownerRole: "engineer" as OwnerRole,
+      ownerJobTitle: undefined as OwnerJobTitle | undefined,
       ownerFeatureFlagUsageIntent: false,
       ownerExperimentUsageIntent: false,
     },
@@ -226,6 +226,18 @@ const CreateOrJoinOrganization: FC<{
                     setError(null);
                     setLoading(true);
                     try {
+                      const body: CreateOrganizationPostBody = {
+                        company: value.company,
+                        demographicData: {
+                          ownerJobTitle: value.ownerJobTitle,
+                          ownerUsageIntents: [
+                            value.ownerExperimentUsageIntent &&
+                              UsageIntent.experiments,
+                            value.ownerFeatureFlagUsageIntent &&
+                              UsageIntent.featureFlags,
+                          ].filter(Boolean) as UsageIntent[],
+                        },
+                      };
                       const resp = await apiCall<{
                         orgId: string;
                         status: number;
@@ -233,7 +245,7 @@ const CreateOrJoinOrganization: FC<{
                         projectId?: string;
                       }>("/organization", {
                         method: "POST",
-                        body: JSON.stringify(value),
+                        body: JSON.stringify(body),
                       });
                       track("Create Organization");
                       updateUser();
@@ -279,14 +291,14 @@ const CreateOrJoinOrganization: FC<{
                     markRequired
                     required
                     sort={false}
-                    options={OWNER_ROLES.map((role) => ({
+                    options={Object.values(OwnerJobTitle).map((role) => ({
                       label: role,
                       value: role,
                     }))}
                     onChange={(value) => {
-                      newOrgForm.setValue("ownerRole", value);
+                      newOrgForm.setValue("ownerJobTitle", value);
                     }}
-                    value={newOrgForm.watch("ownerRole")}
+                    value={newOrgForm.watch("ownerJobTitle")}
                   />
                   <div className="mt-4 font-weight-bold">
                     How will your team use Growthbook?

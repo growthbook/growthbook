@@ -23,6 +23,7 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import { DocLink } from "@/components/DocLink";
 import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import Link from "@/components/Radix/Link";
+import { OwnerJobTitle } from "shared/constants";
 
 interface Props {
   connection: string | null;
@@ -99,7 +100,8 @@ const VerifyConnectionPage = ({
               Environment
             </h3>
 
-            {organization.ownerRole !== "Engineer" && (
+            {organization.demographicData?.ownerJobTitle !==
+              OwnerJobTitle.engineer && (
               <div className="ml-auto">
                 <button
                   className="btn btn-link"

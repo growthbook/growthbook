@@ -74,6 +74,7 @@ const Modal: FC<ModalProps> = ({
   fullWidthSubmit = false,
   submitColor = "primary",
   open = true,
+  hideCta = false,
   cta = "Save",
   ctaEnabled = true,
   closeCta = "Cancel",
@@ -223,11 +224,12 @@ const Modal: FC<ModalProps> = ({
           children
         )}
       </div>
-      {submit ||
-      secondaryCTA ||
-      tertiaryCTA ||
-      backCTA ||
-      (close && includeCloseCta) ? (
+      {!hideCta &&
+      (submit ||
+        secondaryCTA ||
+        tertiaryCTA ||
+        backCTA ||
+        (close && includeCloseCta)) ? (
         <div
           className={clsx("modal-footer", { "sticky-footer": stickyFooter })}
         >

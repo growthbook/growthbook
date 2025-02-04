@@ -3,15 +3,14 @@ import uniqid from "uniqid";
 import { cloneDeep } from "lodash";
 import { POLICIES, RESERVED_ROLE_IDS } from "shared/permissions";
 import { z } from "zod";
-import { OWNER_ROLES } from "shared/constants";
 import { TeamInterface } from "back-end/types/team";
 import {
+  DemographicData,
   Invite,
   Member,
   MemberRoleWithProjects,
   OrganizationInterface,
   OrganizationMessage,
-  OwnerRole,
   Role,
 } from "back-end/types/organization";
 import { upgradeOrganizationDoc } from "back-end/src/util/migrations";
@@ -22,6 +21,7 @@ import {
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
+import { OwnerJobTitle, UsageIntent } from "shared/constants";
 
 const baseMemberFields = {
   _id: false,
@@ -54,12 +54,18 @@ const organizationSchema = new mongoose.Schema({
   url: String,
   name: String,
   ownerEmail: String,
-  ownerRole: {
-    type: String,
-    enum: OWNER_ROLES,
+  demographicData: {
+    ownerJobTitle: {
+      type: String,
+      enum: OwnerJobTitle,
+    },
+    ownerUsageIntents: [
+      {
+        type: String,
+        enum: UsageIntent,
+      },
+    ],
   },
-  ownerFeatureFlagUsageIntent: Boolean,
-  ownerExperimentUsageIntent: Boolean,
   restrictLoginMethod: String,
   restrictAuthSubPrefix: String,
   autoApproveMembers: Boolean,
@@ -157,19 +163,15 @@ export async function createOrganization({
   email,
   userId,
   name,
-  ownerRole,
-  ownerFeatureFlagUsageIntent,
-  ownerExperimentUsageIntent,
+  demographicData,
   url = "",
   verifiedDomain = "",
   externalId = "",
 }: {
   email: string;
-  ownerRole?: OwnerRole;
-  ownerFeatureFlagUsageIntent?: boolean;
-  ownerExperimentUsageIntent?: boolean;
   userId: string;
   name: string;
+  demographicData?: DemographicData;
   url?: string;
   verifiedDomain?: string;
   externalId?: string;
@@ -177,9 +179,7 @@ export async function createOrganization({
   // TODO: sanitize fields
   const doc = await OrganizationModel.create({
     ownerEmail: email,
-    ownerRole,
-    ownerFeatureFlagUsageIntent,
-    ownerExperimentUsageIntent,
+    demographicData,
     name,
     url,
     verifiedDomain,

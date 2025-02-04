@@ -605,7 +605,7 @@ export default function FeaturesPage() {
             }
             rightButton={
               showSetUpFlow ? (
-                <LinkButton href="/setup?exitHref=/features">
+                <LinkButton href="/setup?exitLocation=features">
                   Connect your SDK
                 </LinkButton>
               ) : (

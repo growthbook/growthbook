@@ -53,12 +53,12 @@ import {
 import { updatePassword } from "back-end/src/services/users";
 import { getAllTags } from "back-end/src/models/TagModel";
 import {
+  CreateOrganizationPostBody,
   Invite,
   MemberRoleWithProjects,
   NamespaceUsage,
   OrganizationInterface,
   OrganizationSettings,
-  OwnerRole,
   Role,
   SDKAttribute,
 } from "back-end/types/organization";
@@ -666,9 +666,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     invites,
     members,
     ownerEmail,
-    ownerRole,
-    ownerFeatureFlagUsageIntent,
-    ownerExperimentUsageIntent,
+    demographicData,
     name,
     id,
     url,
@@ -768,9 +766,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     organization: {
       invites: filteredInvites,
       ownerEmail,
-      ownerRole,
-      ownerFeatureFlagUsageIntent,
-      ownerExperimentUsageIntent,
+      demographicData,
       externalId,
       name,
       id,
@@ -1165,14 +1161,6 @@ export async function postInvite(
   });
 }
 
-interface SignupBody {
-  company: string;
-  externalId: string;
-  ownerRole: OwnerRole;
-  ownerFeatureFlagUsageIntent: boolean;
-  ownerExperimentUsageIntent: boolean;
-}
-
 export async function deleteMember(
   req: AuthRequest<null, { id: string }>,
   res: Response
@@ -1250,15 +1238,12 @@ export async function deleteInvite(
   });
 }
 
-export async function signup(req: AuthRequest<SignupBody>, res: Response) {
+export async function signup(
+  req: AuthRequest<CreateOrganizationPostBody>,
+  res: Response
+) {
   // Note: Request will not have an organization at this point. Do not use getContextFromReq
-  const {
-    company,
-    externalId,
-    ownerRole,
-    ownerFeatureFlagUsageIntent,
-    ownerExperimentUsageIntent,
-  } = req.body;
+  const { company, externalId, demographicData } = req.body;
 
   const orgs = await hasOrganization();
   // Only allow one organization per site unless IS_MULTI_ORG is true
@@ -1296,9 +1281,7 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
       name: company,
       verifiedDomain,
       externalId,
-      ownerRole,
-      ownerFeatureFlagUsageIntent,
-      ownerExperimentUsageIntent,
+      demographicData,
     });
 
     req.organization = org;

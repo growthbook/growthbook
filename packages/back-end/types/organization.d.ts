@@ -6,7 +6,6 @@ import {
   Policy,
 } from "shared/permissions";
 import { z } from "zod";
-import { OWNER_ROLES } from "shared/constants";
 import { environment } from "back-end/src/routers/environment/environment.validators";
 import type { ReqContextClass } from "back-end/src/services/context";
 import { attributeDataTypes } from "back-end/src/util/organization.util";
@@ -17,6 +16,7 @@ import {
   MetricPriorSettings,
   MetricWindowSettings,
 } from "./fact-table";
+import { OwnerJobTitle, UsageIntent } from "shared/constants";
 
 export type EnvScopedPermission = typeof ENV_SCOPED_PERMISSIONS[number];
 export type ProjectScopedPermission = typeof PROJECT_SCOPED_PERMISSIONS[number];
@@ -46,7 +46,16 @@ export type RequireReview = {
   projects: string[];
 };
 
-export type OwnerRole = typeof OWNER_ROLES[number];
+export interface DemographicData {
+  ownerJobTitle?: OwnerJobTitle;
+  ownerUsageIntents?: UsageIntent[];
+}
+
+export interface CreateOrganizationPostBody {
+  company: string;
+  externalId?: string;
+  demographicData?: DemographicData;
+}
 
 export type DefaultMemberRole =
   | "noaccess"
@@ -264,9 +273,7 @@ export interface OrganizationInterface {
   externalId?: string;
   name: string;
   ownerEmail: string;
-  ownerRole?: OwnerRole;
-  ownerFeatureFlagUsageIntent?: boolean;
-  ownerExperimentUsageIntent?: boolean;
+  demographicData?: DemographicData;
   stripeCustomerId?: string;
   restrictLoginMethod?: string;
   restrictAuthSubPrefix?: string;

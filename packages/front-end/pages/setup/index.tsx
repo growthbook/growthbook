@@ -27,6 +27,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import SDKLanguageSelector from "@/components/Features/SDKConnections/SDKLanguageSelector";
+import SetupAbandonedPage from "@/components/InitialSetup/SetupAbandonedPage";
 
 export type SdkFormValues = {
   languages: SDKLanguage[];
@@ -41,11 +42,11 @@ export type ProjectApiResponse = {
 export default function SetupFlow() {
   const [step, setStep] = useState(0);
   const router = useRouter();
-  const exitHref = (router.query.exitHref as string) || "/getstarted";
+  const exitHref =
+    router.query.exitLocation === "features" ? "/features" : "/getstarted";
 
   const [connection, setConnection] = useState<null | string>(null);
   const [SDKConnectionModalOpen, setSDKConnectionModalOpen] = useState(false);
-  const [setupComplete, setSetupComplete] = useState(false);
   const [skipped, setSkipped] = useState<Set<number>>(() => new Set());
 
   const { hasCommercialFeature } = useUser();
@@ -79,7 +80,7 @@ export default function SetupFlow() {
     if (!firstConnection.connected) {
       setStep(1);
     } else if (firstConnection.connected) {
-      setSetupComplete(true);
+      setStep(2);
     }
   }, [sdkConnectionData, datasources, sdkConnectionForm, connection]);
 
@@ -103,22 +104,19 @@ export default function SetupFlow() {
     );
   }
 
-  if (setupComplete) {
-    return <SetupCompletedPage exitHref={exitHref} />;
-  }
-
   return (
     <div className="container pagecontents pt-5" style={{ maxWidth: "1100px" }}>
       <PageHead breadcrumb={[{ display: "< Exit Setup", href: exitHref }]} />
-      <h1 style={{ padding: "0px 65px" }}>
-        Setup GrowthBook for {organization.name}
-      </h1>
+      {step < 2 && (
+        <h1 style={{ padding: "0px 65px" }}>
+          Setup GrowthBook for {organization.name}
+        </h1>
+      )}
       <PagedModal
         trackingEventModalType="setup-growthbook"
         header={""}
-        submit={async () => {
-          setSetupComplete(true);
-        }}
+        submit={async () => {}}
+        hideCta={step >= 2}
         cta={"Next"}
         closeCta="Cancel"
         step={step}
@@ -146,11 +144,7 @@ export default function SetupFlow() {
                   return next;
                 });
 
-                if (step >= 1) {
-                  setSetupComplete(true);
-                } else {
-                  setStep((prev) => prev + 1);
-                }
+                setStep((prev) => prev + 1);
               }
         }
         skipped={skipped}
@@ -266,7 +260,7 @@ export default function SetupFlow() {
                 source: "EssentialSetup",
                 skippedSteps: skipped,
               });
-              setSetupComplete(true);
+              setStep((prev) => prev + 1);
             }}
             setSkipped={() =>
               setSkipped((prev) => {
@@ -278,9 +272,12 @@ export default function SetupFlow() {
           />
         </Page>
 
-        {/* The customNext only works if it is not the last page. This page should be unreachable*/}
-        <Page display="" enabled={true}>
-          <div></div>
+        <Page display="">
+          {skipped.size > 0 ? (
+            <SetupAbandonedPage exitHref={exitHref} />
+          ) : (
+            <SetupCompletedPage exitHref={exitHref} />
+          )}
         </Page>
       </PagedModal>
     </div>
