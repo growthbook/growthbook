@@ -22,6 +22,7 @@ type ModalProps = {
   header?: "logo" | string | ReactNode | boolean;
   subHeader?: string | ReactNode;
   open: boolean;
+  hideCta?: boolean;
   // An empty string will prevent firing a tracking event, but the prop is still required to encourage developers to add tracking
   trackingEventModalType: string;
   // The source (likely page or component) causing the modal to be shown
@@ -74,6 +75,7 @@ const Modal: FC<ModalProps> = ({
   fullWidthSubmit = false,
   submitColor = "primary",
   open = true,
+  hideCta = false,
   cta = "Save",
   ctaEnabled = true,
   closeCta = "Cancel",
@@ -223,11 +225,12 @@ const Modal: FC<ModalProps> = ({
           children
         )}
       </div>
-      {submit ||
-      secondaryCTA ||
-      tertiaryCTA ||
-      backCTA ||
-      (close && includeCloseCta) ? (
+      {!hideCta &&
+      (submit ||
+        secondaryCTA ||
+        tertiaryCTA ||
+        backCTA ||
+        (close && includeCloseCta)) ? (
         <div
           className={clsx("modal-footer", { "sticky-footer": stickyFooter })}
         >

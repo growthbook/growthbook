@@ -325,8 +325,17 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       buildSHA: build.sha,
       buildDate: build.date,
       buildVersion: build.lastVersion,
+      orgOwnerJobTitle:
+        currentOrg?.organization?.demographicData?.ownerJobTitle,
+      orgOwnerUsageIntents:
+        currentOrg?.organization?.demographicData?.ownerUsageIntents,
     });
-  }, [data?.superAdmin, data?.userId]);
+  }, [
+    data?.superAdmin,
+    data?.userId,
+    currentOrg?.organization?.demographicData?.ownerJobTitle,
+    currentOrg?.organization?.demographicData?.ownerUsageIntents,
+  ]);
 
   // Org GrowthBook attributes
   useEffect(() => {

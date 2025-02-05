@@ -20,6 +20,7 @@ type Props = {
   header: string;
   subHeader?: string | ReactNode;
   submitColor?: string;
+  hideCta?: boolean;
   cta?: string | ReactNode;
   ctaEnabled?: boolean;
   forceCtaText?: boolean;
