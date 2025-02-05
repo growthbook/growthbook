@@ -698,24 +698,24 @@ export async function postResendEmailVerificationEmailToLicenseServer(
   );
 }
 
-export async function createSetupIntent(organizationId: string) {
+export async function createSetupIntent(licenseKey: string) {
   const url = `${LICENSE_SERVER_URL}subscription/setup-intent`;
   const res = await callLicenseServer(
     url,
     JSON.stringify({
-      organizationId,
+      licenseKey,
       cloudSecret: process.env.CLOUD_SECRET,
     })
   );
   return res;
 }
 
-export async function getCardsByOrgId(organizationId: string) {
+export async function getCardsByLicenseKey(licenseKey: string) {
   const url = `${LICENSE_SERVER_URL}subscription/payment-methods`;
   const res = await callLicenseServer(
     url,
     JSON.stringify({
-      organizationId,
+      licenseKey,
       cloudSecret: process.env.CLOUD_SECRET,
     })
   );
@@ -723,14 +723,14 @@ export async function getCardsByOrgId(organizationId: string) {
 }
 
 export async function updateDefaultCard(
-  organizationId: string,
+  licenseKey: string,
   paymentMethodId: string
 ) {
   const url = `${LICENSE_SERVER_URL}subscription/payment-methods/set-default`;
   const res = await callLicenseServer(
     url,
     JSON.stringify({
-      organizationId,
+      licenseKey,
       paymentMethodId,
       cloudSecret: process.env.CLOUD_SECRET,
     })
@@ -739,14 +739,14 @@ export async function updateDefaultCard(
 }
 
 export async function deletePaymentMethodById(
-  organizationId: string,
+  licenseKey: string,
   paymentMethodId: string
 ) {
   const url = `${LICENSE_SERVER_URL}subscription/payment-methods/detach`;
   const res = await callLicenseServer(
     url,
     JSON.stringify({
-      organizationId,
+      licenseKey,
       paymentMethodId,
       cloudSecret: process.env.CLOUD_SECRET,
     })
@@ -1173,10 +1173,4 @@ function shouldLimitAccessDueToExpiredLicense(
 
   // The license is not expired
   return false;
-}
-
-export async function getLicenseData(
-  key: string
-): Promise<LicenseInterface | null> {
-  return getLicenseByKey(key);
 }

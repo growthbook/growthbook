@@ -9,10 +9,9 @@ import {
   postNewProTrialSubscriptionToLicenseServer,
   postNewSubscriptionSuccessToLicenseServer,
   createSetupIntent,
-  getCardsByOrgId,
+  getCardsByLicenseKey,
   updateDefaultCard,
   deletePaymentMethodById,
-  getLicenseData,
 } from "enterprise";
 import { Card } from "shared/src/types/subscriptions";
 import { APP_ORIGIN, STRIPE_WEBHOOK_SECRET } from "back-end/src/util/secrets";
@@ -280,14 +279,7 @@ export async function postSetupIntent(
     if (!org.licenseKey) {
       throw new Error("No license key found for organization");
     }
-    const license = await getLicenseData(org.licenseKey);
-
-    if (!license?.organizationId) {
-      throw new Error(
-        "Unable to look up license - license does not include the organizationID"
-      );
-    }
-    const { clientSecret } = await createSetupIntent(org.id);
+    const { clientSecret } = await createSetupIntent(org.licenseKey);
     return res.status(200).json({ clientSecret });
   } catch (e) {
     return res.status(400).json({ status: 400, message: e.message });
@@ -306,14 +298,7 @@ export async function updateCustomerDefaultPayment(
     if (!org.licenseKey) {
       throw new Error("No license key found for organization");
     }
-    const license = await getLicenseData(org.licenseKey);
-
-    if (!license?.organizationId) {
-      throw new Error(
-        "Unable to look up license - license does not include the organizationID"
-      );
-    }
-    await updateDefaultCard(org.id, paymentMethodId);
+    await updateDefaultCard(org.licenseKey, paymentMethodId);
   } catch (e) {
     return res.status(400).json({ status: 400, message: e.message });
   }
@@ -333,20 +318,13 @@ export async function fetchCustomerCards(
     if (!org.licenseKey) {
       throw new Error("No license key found for organization");
     }
-    const license = await getLicenseData(org.licenseKey);
-
-    if (!license?.organizationId) {
-      throw new Error(
-        "Unable to look up license - license does not include the organizationID"
-      );
-    }
     const {
       cards,
       defaultPaymentMethod,
     }: {
       cards: Stripe.PaymentMethod[];
       defaultPaymentMethod: string | undefined;
-    } = await getCardsByOrgId(org.id);
+    } = await getCardsByLicenseKey(org.licenseKey);
 
     if (!cards.length) {
       return res.status(200).json({ status: 200, cards: [] });
@@ -385,14 +363,7 @@ export async function deletePaymentMethod(
     if (!org.licenseKey) {
       throw new Error("No license key found for organization");
     }
-    const license = await getLicenseData(org.licenseKey);
-
-    if (!license?.organizationId) {
-      throw new Error(
-        "Unable to look up license - license does not include the organizationID"
-      );
-    }
-    await deletePaymentMethodById(org.id, paymentMethodId);
+    await deletePaymentMethodById(org.licenseKey, paymentMethodId);
   } catch (e) {
     return res.status(400).json({ status: 400, message: e.message });
   }
