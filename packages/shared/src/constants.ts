@@ -41,19 +41,19 @@ export const AUTOMATIC_DIMENSION_OTHER_NAME = "__Other__";
 
 export const GROWTHBOOK_SECURE_ATTRIBUTE_SALT = "eg8amUur5GunJXCfgjwB";
 
-export enum OwnerJobTitle {
-  engineer = "Engineer",
-  dataScientist = "Data Scientist",
-  projectManager = "Project Manager",
-  marketer = "Marketer",
-  designer = "Designer",
-  other = "Other",
-}
+export const OWNER_JOB_TITLES = {
+  engineer: "Engineer",
+  dataScientist: "Data Scientist",
+  projectManager: "Project Manager",
+  marketer: "Marketer",
+  designer: "Designer",
+  other: "Other",
+} as const;
 
-export enum UsageIntent {
-  featureFlags = "Feature Flags",
-  experiments = "Experiments",
-}
+export const USAGE_INTENTS = {
+  featureFlags: "Feature Flags",
+  experiments: "Experiments",
+} as const;
 
 // Health
 export const DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_COUNT = 10;

@@ -7,7 +7,6 @@ import {
   FaExclamationTriangle,
 } from "react-icons/fa";
 import { PiArrowRight, PiPaperPlaneTiltFill } from "react-icons/pi";
-import { OwnerJobTitle } from "shared/constants";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { getApiBaseUrl } from "@/components/Features/CodeSnippetModal";
 import InstallationCodeSnippet from "@/components/SyntaxHighlighting/Snippets/InstallationCodeSnippet";
@@ -100,8 +99,7 @@ const VerifyConnectionPage = ({
               Environment
             </h3>
 
-            {organization.demographicData?.ownerJobTitle !==
-              OwnerJobTitle.engineer && (
+            {organization.demographicData?.ownerJobTitle !== "engineer" && (
               <div className="ml-auto">
                 <button
                   className="btn btn-link"

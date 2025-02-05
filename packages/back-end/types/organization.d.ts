@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import { OwnerJobTitle, UsageIntent } from "shared/constants";
+import { OWNER_JOB_TITLES, USAGE_INTENTS } from "shared/constants";
 import {
   ENV_SCOPED_PERMISSIONS,
   GLOBAL_PERMISSIONS,
@@ -45,6 +45,10 @@ export type RequireReview = {
   environments: string[];
   projects: string[];
 };
+
+export type OwnerJobTitle = keyof typeof OWNER_JOB_TITLES;
+
+export type UsageIntent = keyof typeof USAGE_INTENTS;
 
 export interface DemographicData {
   ownerJobTitle?: OwnerJobTitle;

@@ -435,7 +435,7 @@ const ExperimentsPage = (): React.ReactElement => {
 
             <TabsContent value="experiments">
               <CustomMarkdown page={"experimentList"} />
-              {(!hasExperiments && analyzeExisting && (
+              {!hasExperiments && analyzeExisting ? (
                 <EmptyState
                   title="Analyze Experiment Results"
                   description="Use our powerful query and stats engine to analyze experiment results using data from your warehouse."
@@ -458,41 +458,38 @@ const ExperimentsPage = (): React.ReactElement => {
                     )
                   }
                 />
-              )) ||
-                (!hasExperiments && !analyzeExisting && (
-                  <>
-                    <EmptyState
-                      title="Create Your First Experiment"
-                      description="Run unlimited tests with linked feature flags, URL redirects or the Visual Editor."
-                      leftButton={
-                        <LinkButton
-                          href="https://docs.growthbook.io/experiments"
-                          variant="outline"
-                          external
-                        >
-                          View docs
-                        </LinkButton>
-                      }
-                      rightButton={
-                        canAddExperiment && (
-                          <Button
-                            onClick={() => setOpenNewExperimentModal(true)}
-                          >
-                            Create New Experiment
-                          </Button>
-                        )
-                      }
-                    />
-                    <Callout status="info">
-                      Want to analyze results of an existing experiment that you
-                      ran elsewhere?{" "}
-                      <Link href="/getstarted/imported-experiment-guide">
-                        Learn More
-                      </Link>
-                    </Callout>
-                  </>
-                )) ||
-                (hasExperiments && (
+              ) : !hasExperiments && !analyzeExisting ? (
+                <>
+                  <EmptyState
+                    title="Create Your First Experiment"
+                    description="Run unlimited tests with linked feature flags, URL redirects or the Visual Editor."
+                    leftButton={
+                      <LinkButton
+                        href="https://docs.growthbook.io/experiments"
+                        variant="outline"
+                        external
+                      >
+                        View docs
+                      </LinkButton>
+                    }
+                    rightButton={
+                      canAddExperiment && (
+                        <Button onClick={() => setOpenNewExperimentModal(true)}>
+                          Create New Experiment
+                        </Button>
+                      )
+                    }
+                  />
+                  <Callout status="info">
+                    Want to analyze results of an existing experiment that you
+                    ran elsewhere?{" "}
+                    <Link href="/getstarted/imported-experiment-guide">
+                      Learn More
+                    </Link>
+                  </Callout>
+                </>
+              ) : (
+                hasExperiments && (
                   <>
                     <div className="row align-items-center mb-3">
                       <div className="col-auto d-flex">
@@ -717,7 +714,8 @@ const ExperimentsPage = (): React.ReactElement => {
                       />
                     )}
                   </>
-                ))}
+                )
+              )}
             </TabsContent>
             <TabsContent value="templates">
               <TemplatesPage

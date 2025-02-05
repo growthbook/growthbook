@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { cloneDeep } from "lodash";
-import { OwnerJobTitle, UsageIntent } from "shared/constants";
+import { OWNER_JOB_TITLES, USAGE_INTENTS } from "shared/constants";
 import { POLICIES, RESERVED_ROLE_IDS } from "shared/permissions";
 import { z } from "zod";
 import { TeamInterface } from "back-end/types/team";
@@ -57,12 +57,12 @@ const organizationSchema = new mongoose.Schema({
   demographicData: {
     ownerJobTitle: {
       type: String,
-      enum: OwnerJobTitle,
+      enum: Object.keys(OWNER_JOB_TITLES),
     },
     ownerUsageIntents: [
       {
         type: String,
-        enum: UsageIntent,
+        enum: Object.keys(USAGE_INTENTS),
       },
     ],
   },

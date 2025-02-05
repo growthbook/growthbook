@@ -3,8 +3,11 @@ import { FiLogOut } from "react-icons/fi";
 import { useForm } from "react-hook-form";
 import { FaCheck, FaPlus } from "react-icons/fa";
 import { useRouter } from "next/router";
-import { OwnerJobTitle, UsageIntent } from "shared/constants";
-import { CreateOrganizationPostBody } from "back-end/types/organization";
+import { OWNER_JOB_TITLES } from "shared/constants";
+import {
+  OwnerJobTitle,
+  CreateOrganizationPostBody,
+} from "back-end/types/organization";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
@@ -17,7 +20,6 @@ import useApi from "@/hooks/useApi";
 import Field from "@/components/Forms/Field";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { LOCALSTORAGE_PROJECT_KEY } from "@/services/DefinitionsContext";
-
 import SelectField from "@/components/Forms/SelectField";
 import Checkbox from "@/components/Radix/Checkbox";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
@@ -230,14 +232,19 @@ const CreateOrJoinOrganization: FC<{
                         company: value.company,
                         demographicData: {
                           ownerJobTitle: value.ownerJobTitle,
-                          ownerUsageIntents: [
-                            value.ownerExperimentUsageIntent &&
-                              UsageIntent.experiments,
-                            value.ownerFeatureFlagUsageIntent &&
-                              UsageIntent.featureFlags,
-                          ].filter(Boolean) as UsageIntent[],
+                          ownerUsageIntents: [],
                         },
                       };
+                      if (value.ownerFeatureFlagUsageIntent) {
+                        body.demographicData?.ownerUsageIntents?.push(
+                          "featureFlags"
+                        );
+                      }
+                      if (value.ownerExperimentUsageIntent) {
+                        body.demographicData?.ownerUsageIntents?.push(
+                          "experiments"
+                        );
+                      }
                       const resp = await apiCall<{
                         orgId: string;
                         status: number;
@@ -291,10 +298,12 @@ const CreateOrJoinOrganization: FC<{
                     markRequired
                     required
                     sort={false}
-                    options={Object.values(OwnerJobTitle).map((role) => ({
-                      label: role,
-                      value: role,
-                    }))}
+                    options={Object.entries(OWNER_JOB_TITLES).map(
+                      ([key, title]) => ({
+                        label: title,
+                        value: key,
+                      })
+                    )}
                     onChange={(value: OwnerJobTitle) => {
                       newOrgForm.setValue("ownerJobTitle", value);
                     }}
