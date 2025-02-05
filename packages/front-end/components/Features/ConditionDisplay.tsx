@@ -7,6 +7,7 @@ import {
 import Link from "next/link";
 import { isDefined } from "shared/util";
 import { SavedGroupInterface } from "shared/src/types";
+import { Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { Condition, jsonToConds, useAttributeMap } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -337,5 +338,5 @@ export default function ConditionDisplay({
     parts.push(...prereqParts);
   }
 
-  return <div className="row">{parts}</div>;
+  return <Flex gap="3">{parts}</Flex>;
 }

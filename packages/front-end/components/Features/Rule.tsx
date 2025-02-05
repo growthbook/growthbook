@@ -205,7 +205,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               <Box>
                 <Badge label={<>{i + 1}</>} radius="full" color="gray" />
               </Box>
-              <Box width="100%" flexShrink="5" overflowY="auto">
+              <Box flexGrow="1" flexShrink="5" overflowY="auto">
                 <Flex align="center" justify="between" mb="3">
                   <Heading as="h4" size="3" weight="medium" mb="0">
                     {linkedExperiment ? (
@@ -236,18 +236,18 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 <Box>{info.callout}</Box>
                 <Box style={{ opacity: isInactive ? 0.6 : 1 }} mt="3">
                   {hasCondition && rule.type !== "experiment-ref" && (
-                    <div className="row mb-3 align-items-top">
-                      <div className="col-auto d-flex align-items-center">
+                    <Flex align="center" justify="start" mb="3" gap="1">
+                      <Box>
                         <strong className="font-weight-semibold">IF</strong>
-                      </div>
-                      <div className="col">
+                      </Box>
+                      <Box>
                         <ConditionDisplay
                           condition={rule.condition || ""}
                           savedGroups={rule.savedGroups}
                           prerequisites={rule.prerequisites}
                         />
-                      </div>
-                    </div>
+                      </Box>
+                    </Flex>
                   )}
                   {rule.type === "force" && (
                     <ForceSummary value={rule.value} feature={feature} />

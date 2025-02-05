@@ -4,6 +4,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React from "react";
 import { includeExperimentInPayload } from "shared/util";
 import { FaExclamationTriangle } from "react-icons/fa";
+import { Box, Flex } from "@radix-ui/themes";
 import { getVariationColor } from "@/services/features";
 import ValidateValue from "@/components/Features/ValidateValue";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -106,7 +107,7 @@ export default function ExperimentRefSummary({
     !!phase.prerequisites?.length;
 
   return (
-    <div>
+    <Box>
       {experiment.status === "draft" && !isDraft && (
         <Callout status="warning" mb="3">
           This {isBandit ? "Bandit" : "Experiment"} is in a{" "}
@@ -124,25 +125,25 @@ export default function ExperimentRefSummary({
         </Callout>
       )}
       {hasCondition && (
-        <div className="row mb-3 align-items-top">
-          <div className="col-auto d-flex align-items-center">
+        <Flex align="start" mb="3" gap="3">
+          <Box>
             <strong>IF</strong>
-          </div>
-          <div className="col">
+          </Box>
+          <Box>
             <ConditionDisplay
               condition={phase.condition}
               savedGroups={phase.savedGroups}
               prerequisites={phase.prerequisites}
             />
-          </div>
-        </div>
+          </Box>
+        </Flex>
       )}
 
-      <div className="mb-3 row">
-        <div className="col-auto">
+      <Flex gap="3" mb="3">
+        <Box>
           <strong>SPLIT</strong>
-        </div>
-        <div className="col-auto">
+        </Box>
+        <Box>
           {" "}
           users by{" "}
           <span className="mr-1 border px-2 py-1 bg-light rounded">
@@ -167,13 +168,13 @@ export default function ExperimentRefSummary({
               </Link>
             </>
           )}
-        </div>
-      </div>
-      <div className="mb-3 row">
-        <div className="col-auto">
+        </Box>
+      </Flex>
+      <Flex gap="3" mb="3">
+        <Box>
           <strong>INCLUDE</strong>
-        </div>
-        <div className="col-auto">
+        </Box>
+        <Box>
           <span className="mr-1 border px-2 py-1 bg-light rounded">
             {percentFormatter.format(effectiveCoverage)}
           </span>{" "}
@@ -191,8 +192,8 @@ export default function ExperimentRefSummary({
               <span> exposure)</span>
             </>
           )}
-        </div>
-      </div>
+        </Box>
+      </Flex>
       {releasedValue ? (
         <ForceSummary feature={feature} value={releasedValue.value} />
       ) : (
@@ -275,20 +276,20 @@ export default function ExperimentRefSummary({
               )}
             </tbody>
           </table>
-          <div className="row align-items-center">
-            <div className="col-auto">
+          <Flex align="center" gap="3" mb="3">
+            <Box>
               <strong>TRACK</strong>
-            </div>
-            <div className="col">
+            </Box>
+            <Box>
               {" "}
               the result using the key{" "}
               <span className="mr-1 border px-2 py-1 bg-light rounded">
                 {experiment.trackingKey}
               </span>{" "}
-            </div>
-          </div>
+            </Box>
+          </Flex>
         </>
       )}
-    </div>
+    </Box>
   );
 }
