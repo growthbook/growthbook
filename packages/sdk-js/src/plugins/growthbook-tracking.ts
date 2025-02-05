@@ -138,19 +138,15 @@ async function track({
   const body = JSON.stringify(events);
 
   try {
-    if (typeof navigator !== "undefined" && "sendBeacon" in navigator) {
-      navigator.sendBeacon(endpoint, body);
-    } else {
-      await fetch(endpoint, {
-        method: "POST",
-        body,
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "text/plain",
-        },
-        credentials: "omit",
-      });
-    }
+    await fetch(endpoint, {
+      method: "POST",
+      body,
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "text/plain",
+      },
+      credentials: "omit",
+    });
   } catch (e) {
     console.error("Failed to track event", e);
   }
