@@ -107,13 +107,15 @@ export default function PaymentInfo() {
   if (!canShowPaymentInfo) return null;
 
   return (
-    <StripeProvider>
+    <>
       {cardModal ? (
-        <CreditCardModal
-          onClose={() => setCardModal(false)}
-          refetch={() => fetchCardData()}
-          numOfCards={cardData.length}
-        />
+        <StripeProvider>
+          <CreditCardModal
+            onClose={() => setCardModal(false)}
+            refetch={() => fetchCardData()}
+            numOfCards={cardData.length}
+          />
+        </StripeProvider>
       ) : null}
       {defaultCard ? (
         <Modal
@@ -239,6 +241,6 @@ export default function PaymentInfo() {
           </>
         )}
       </div>
-    </StripeProvider>
+    </>
   );
 }
