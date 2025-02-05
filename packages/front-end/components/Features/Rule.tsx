@@ -205,7 +205,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               <Box>
                 <Badge label={<>{i + 1}</>} radius="full" color="gray" />
               </Box>
-              <Box flexGrow="1" flexShrink="5" overflowY="auto">
+              <Box flexGrow="1" flexShrink="5" overflowX="auto">
                 <Flex align="center" justify="between" mb="3">
                   <Heading as="h4" size="3" weight="medium" mb="0">
                     {linkedExperiment ? (
