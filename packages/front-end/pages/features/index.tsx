@@ -507,7 +507,7 @@ export default function FeaturesPage() {
     return <LoadingOverlay />;
   }
 
-  // If "All Projects" is selected is selected and some experiments are in a project, show the project column
+  // If "All Projects" is selected and some experiments are in a project, show the project column
   const showProjectColumn = !project && allFeatures.some((f) => f.project);
 
   // Ignore the demo datasource
@@ -528,6 +528,7 @@ export default function FeaturesPage() {
     });
 
   const showSetUpFlow =
+    !hasFeatures &&
     canUseSetupFlow &&
     sdkConnectionData &&
     (sdkConnectionData.connections.length === 0 ||
