@@ -46,7 +46,16 @@ class BaseABTest(ABC):
     ):
         self.stat_a = stat_a
         self.stat_b = stat_b
-
+        if isinstance(stat_a, RegressionAdjustedStatistic):
+            if not isinstance(stat_b, RegressionAdjustedStatistic):
+                raise ValueError(
+                    "If stat_a is a RegressionAdjustedStatistic, stat_b must be as well"
+                )
+        if isinstance(stat_b, RegressionAdjustedStatistic):
+            if not isinstance(stat_a, RegressionAdjustedStatistic):
+                raise ValueError(
+                    "If stat_b is a RegressionAdjustedStatistic, stat_a must be as well"
+                )
         # Ensure theta is set for regression adjusted statistics
         if (
             isinstance(self.stat_b, RegressionAdjustedStatistic)
