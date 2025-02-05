@@ -34,7 +34,7 @@ export function getMultipleExposureHealthData({
 }): MultipleExposureHealthData {
   const multipleExposureDecimal = multipleExposuresCount / totalUsersCount;
 
-  const hasEnoughData = multipleExposuresCount >= minCountThreshold;
+  const hasEnoughData = totalUsersCount >= minCountThreshold;
 
   const isUnhealthy = multipleExposureDecimal >= minPercentThreshold;
 
