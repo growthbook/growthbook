@@ -13,6 +13,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Checkbox from "@/components/Radix/Checkbox";
 import Button from "@/components/Radix/Button";
 import { GBInfo } from "@/components/Icons";
+import Frame from "@/components/Radix/Frame";
 
 export default function FeaturesSettings() {
   const [
@@ -52,8 +53,8 @@ export default function FeaturesSettings() {
   }, [form, codeRefsBranchesToFilterStr]);
 
   return (
-    <Box mb="4" className="appbox">
-      <Flex gap="4" p="5">
+    <Frame>
+      <Flex gap="4">
         <Box width="220px" flexShrink="0">
           <Heading size="4" as="h4">
             Features Settings
@@ -471,6 +472,6 @@ export default function FeaturesSettings() {
           </Box>
         </Flex>
       </Flex>
-    </Box>
+    </Frame>
   );
 }

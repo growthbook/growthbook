@@ -5,14 +5,15 @@ import React from "react";
 import SelectField from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
+import Frame from "@/components/Radix/Frame";
 
 export default function DatasourceSettings() {
   const form = useFormContext();
   const { datasources } = useDefinitions();
 
   return (
-    <Box mb="4" className="appbox">
-      <Flex gap="4" p="5">
+    <Frame>
+      <Flex gap="4">
         <Box width="220px" flexShrink="0">
           <Heading size="4" as="h4">
             Data Source Settings
@@ -64,6 +65,6 @@ export default function DatasourceSettings() {
           </Box>
         </Flex>
       </Flex>
-    </Box>
+    </Frame>
   );
 }
