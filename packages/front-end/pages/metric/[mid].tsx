@@ -8,7 +8,7 @@ import React, {
   ReactElement,
 } from "react";
 import Link from "next/link";
-import { FaArchive, FaQuestionCircle, FaTimes } from "react-icons/fa";
+import { FaQuestionCircle, FaTimes } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { useForm } from "react-hook-form";
 import { BsGear } from "react-icons/bs";
@@ -19,6 +19,7 @@ import {
   DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
+import { Box, Heading } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import DiscussionThread from "@/components/DiscussionThread";
@@ -28,8 +29,12 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import { getMetricFormatter } from "@/services/metrics";
 import MetricForm, { usesValueColumn } from "@/components/Metrics/MetricForm";
-import Tabs from "@/components/Tabs/Tabs";
-import Tab from "@/components/Tabs/Tab";
+import {
+  TabsList,
+  Tabs,
+  TabsContent,
+  TabsTrigger,
+} from "@/components/Radix/Tabs";
 import HistoryTable from "@/components/HistoryTable";
 import DateGraph from "@/components/Metrics/DateGraph";
 import RunQueriesButton, {
@@ -38,8 +43,6 @@ import RunQueriesButton, {
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import RightRailSection from "@/components/Layout/RightRailSection";
 import RightRailSectionGroup from "@/components/Layout/RightRailSectionGroup";
-import InlineForm from "@/components/Forms/InlineForm";
-import EditableH1 from "@/components/Forms/EditableH1";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Code from "@/components/SyntaxHighlighting/Code";
 import PickSegmentModal from "@/components/Segments/PickSegmentModal";
@@ -83,7 +86,6 @@ const MetricPage: FC = () => {
   const { organization } = useUser();
 
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
-  const [editing, setEditing] = useState(false);
   const [editTags, setEditTags] = useState(false);
   const [editProjects, setEditProjects] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
@@ -423,6 +425,15 @@ const MetricPage: FC = () => {
         <div style={{ flex: 1 }} />
         <div className="col-auto">
           <MoreMenu>
+            {canEditMetric ? (
+              <Button
+                className="btn dropdown-item py-2"
+                color=""
+                onClick={() => setEditModalOpen(true)}
+              >
+                Edit metric
+              </Button>
+            ) : null}
             {canDeleteMetric ? (
               <DeleteButton
                 className="btn dropdown-item py-2"
@@ -436,7 +447,7 @@ const MetricPage: FC = () => {
                   mutateDefinitions({});
                   router.push("/metrics");
                 }}
-                useIcon={true}
+                useIcon={false}
                 displayName={"Metric '" + metric.name + "'"}
               />
             ) : null}
@@ -457,7 +468,6 @@ const MetricPage: FC = () => {
                   mutate();
                 }}
               >
-                <FaArchive />{" "}
                 {metric.status === "archived" ? "Unarchive" : "Archive"}
               </Button>
             ) : null}
@@ -493,250 +503,301 @@ const MetricPage: FC = () => {
 
       <div className="row">
         <div className="col-12 col-md-8">
-          <Tabs newStyle={true}>
-            <Tab display="Info" anchor="info" lazy={true}>
-              <div className="row">
-                <div className="col-12">
-                  <InlineForm
-                    editing={editing}
-                    setEdit={setEditing}
-                    canEdit={canEditMetric}
-                    onSave={form.handleSubmit(async (value) => {
-                      await apiCall(`/metric/${metric.id}`, {
-                        method: "PUT",
-                        body: JSON.stringify(value),
-                      });
-                      await mutate();
-                      mutateDefinitions({});
-                      setEditing(false);
-                    })}
-                    onStartEdit={() => {
-                      form.setValue("name", metric.name || "");
-                      form.setValue("description", metric.description || "");
-                    }}
-                  >
-                    {({ cancel, save }) => (
-                      <div className="mb-4">
-                        <div className="row mb-3">
-                          <div className="col">
-                            <EditableH1
-                              value={form.watch("name")}
-                              onChange={(e) =>
-                                form.setValue("name", e.target.value)
-                              }
-                              editing={canEditMetric && editing}
-                              save={save}
-                              cancel={cancel}
-                            />
-                          </div>
-                          {canEditMetric && !editing && (
+          <Tabs defaultValue="info" persistInURL={true}>
+            <TabsList>
+              <TabsTrigger value="info">Info</TabsTrigger>
+              <TabsTrigger value="experiments">Experiments</TabsTrigger>
+              <TabsTrigger value="discussion">Discussion</TabsTrigger>
+              <TabsTrigger value="history">History</TabsTrigger>
+            </TabsList>
+            <Box pt="4">
+              <TabsContent value="info">
+                <Box className="appbox px-4 py-3">
+                  <div className="row">
+                    <div className="col-12">
+                      <Heading as="h2" mb="3" size="4">
+                        {metric.name}
+                      </Heading>
+                      <MarkdownInlineEdit
+                        save={async (description) => {
+                          await apiCall(`/metric/${metric.id}`, {
+                            method: "PUT",
+                            body: JSON.stringify({
+                              description,
+                            }),
+                          });
+                          await mutate();
+                          mutateDefinitions({});
+                        }}
+                        value={metric.description}
+                        canCreate={canEditMetric}
+                        canEdit={canEditMetric}
+                        label="Description"
+                      />
+                      <hr />
+                      {!!datasource && (
+                        <div>
+                          <div className="row mb-1 align-items-center">
                             <div className="col-auto">
-                              <button
-                                className="btn btn-outline-primary"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setEditing(true);
-                                }}
-                              >
-                                Edit
-                              </button>
+                              <h3 className="d-inline-block mb-0">
+                                Data Preview
+                              </h3>
                             </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </InlineForm>
-                  <MarkdownInlineEdit
-                    save={async (description) => {
-                      await apiCall(`/metric/${metric.id}`, {
-                        method: "PUT",
-                        body: JSON.stringify({
-                          description,
-                        }),
-                      });
-                      await mutate();
-                      mutateDefinitions({});
-                    }}
-                    value={metric.description}
-                    canCreate={canEditMetric}
-                    canEdit={canEditMetric}
-                    label="Description"
-                  />
-                  <hr />
-                  {!!datasource && (
-                    <div>
-                      <div className="row mb-1 align-items-center">
-                        <div className="col-auto">
-                          <h3 className="d-inline-block mb-0">Data Preview</h3>
-                        </div>
-                        <div className="small col-auto">
-                          {segments.length > 0 && (
-                            <>
-                              {segment?.name ? (
+                            <div className="small col-auto">
+                              {segments.length > 0 && (
                                 <>
-                                  Segment applied:{" "}
-                                  <span className="badge badge-primary mr-1">
-                                    {segment?.name || "Everyone"}
-                                  </span>
+                                  {segment?.name ? (
+                                    <>
+                                      Segment applied:{" "}
+                                      <span className="badge badge-primary mr-1">
+                                        {segment?.name || "Everyone"}
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <span className="mr-1">
+                                      Apply a segment
+                                    </span>
+                                  )}
+                                  {canEditMetric && canRunMetricQuery && (
+                                    <a
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        setSegmentOpen(true);
+                                      }}
+                                      href="#"
+                                    >
+                                      <BsGear />
+                                    </a>
+                                  )}
                                 </>
-                              ) : (
-                                <span className="mr-1">Apply a segment</span>
                               )}
-                              {canEditMetric && canRunMetricQuery && (
-                                <a
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    setSegmentOpen(true);
-                                  }}
-                                  href="#"
-                                >
-                                  <BsGear />
-                                </a>
-                              )}
-                            </>
-                          )}
-                        </div>
-                        <div style={{ flex: 1 }} />
-                        <div className="col-auto">
-                          {canRunMetricQuery && (
-                            <form
-                              onSubmit={async (e) => {
-                                e.preventDefault();
-                                try {
-                                  await apiCall(
-                                    `/metric/${metric.id}/analysis`,
-                                    {
-                                      method: "POST",
-                                    }
-                                  );
-                                  mutate();
-                                } catch (e) {
-                                  console.error(e);
-                                }
-                              }}
-                            >
-                              <RunQueriesButton
-                                icon="refresh"
-                                cta={analysis ? "Refresh Data" : "Run Analysis"}
-                                mutate={mutate}
-                                model={metric}
-                                cancelEndpoint={`/metric/${metric.id}/analysis/cancel`}
-                                color="outline-primary"
-                              />
-                            </form>
-                          )}
-                        </div>
-                      </div>
-                      <div className="row flex justify-content-between">
-                        <div className="small text-muted col">
-                          {denominator && (
-                            <>
-                              The data below only aggregates the numerator. The
-                              denominator ({denominator.name}) is only used in
-                              experiment analyses.
-                            </>
-                          )}
-                        </div>
-                        {analysis && (
-                          <div className="small text-muted col-auto">
-                            Last updated on {date(analysis?.createdAt)}
-                          </div>
-                        )}
-                      </div>
-                      {hasQueries && status === "failed" && (
-                        <div className="alert alert-danger my-3">
-                          Error running the analysis.{" "}
-                          <ViewAsyncQueriesButton
-                            queries={metric.queries.map((q) => q.query)}
-                            error={metric.analysisError}
-                            ctaComponent={(onClick) => (
-                              <a
-                                className="alert-link"
-                                href="#"
-                                onClick={onClick}
-                              >
-                                View Queries
-                              </a>
-                            )}
-                          />{" "}
-                          for more info
-                        </div>
-                      )}
-                      {hasQueries && status === "running" && (
-                        <div className="alert alert-info">
-                          Your analysis is currently running.{" "}
-                          {analysis &&
-                            "The data below is from the previous run."}
-                        </div>
-                      )}
-                      {analysis &&
-                        status === "succeeded" &&
-                        (metric.segment || analysis.segment) &&
-                        metric.segment !== analysis.segment && (
-                          <div className="alert alert-info">
-                            The graphs below are using an old Segment. Update
-                            them to see the latest numbers.
-                          </div>
-                        )}
-                      {analysis && (
-                        <div className="mb-4">
-                          {metric.type !== "binomial" && (
-                            <div className="d-flex flex-row align-items-end">
-                              <div style={{ fontSize: "2.5em" }}>
-                                {getMetricFormatter(metric.type)(
-                                  analysis.average,
-                                  {
-                                    currency: displayCurrency,
-                                  }
-                                )}
-                              </div>
-                              <div className="pb-2 ml-1">average</div>
                             </div>
-                          )}
-                        </div>
-                      )}
-                      {analysis?.dates && analysis.dates.length > 0 && (
-                        <div className="mb-4">
-                          <div className="row mt-3">
+                            <div style={{ flex: 1 }} />
                             <div className="col-auto">
-                              <h5 className="mb-1 mt-1">
-                                {metric.type === "binomial"
-                                  ? "Conversions"
-                                  : "Metric Value"}{" "}
-                                Over Time
-                              </h5>
+                              {canRunMetricQuery && (
+                                <form
+                                  onSubmit={async (e) => {
+                                    e.preventDefault();
+                                    try {
+                                      await apiCall(
+                                        `/metric/${metric.id}/analysis`,
+                                        {
+                                          method: "POST",
+                                        }
+                                      );
+                                      mutate();
+                                    } catch (e) {
+                                      console.error(e);
+                                    }
+                                  }}
+                                >
+                                  <RunQueriesButton
+                                    icon="refresh"
+                                    cta={
+                                      analysis ? "Refresh Data" : "Run Analysis"
+                                    }
+                                    mutate={mutate}
+                                    model={metric}
+                                    cancelEndpoint={`/metric/${metric.id}/analysis/cancel`}
+                                    color="outline-primary"
+                                  />
+                                </form>
+                              )}
                             </div>
                           </div>
+                          <div className="row flex justify-content-between">
+                            <div className="small text-muted col">
+                              {denominator && (
+                                <>
+                                  The data below only aggregates the numerator.
+                                  The denominator ({denominator.name}) is only
+                                  used in experiment analyses.
+                                </>
+                              )}
+                            </div>
+                            {analysis && (
+                              <div className="small text-muted col-auto">
+                                Last updated on {date(analysis?.createdAt)}
+                              </div>
+                            )}
+                          </div>
+                          {hasQueries && status === "failed" && (
+                            <div className="alert alert-danger my-3">
+                              Error running the analysis.{" "}
+                              <ViewAsyncQueriesButton
+                                queries={metric.queries.map((q) => q.query)}
+                                error={metric.analysisError}
+                                ctaComponent={(onClick) => (
+                                  <a
+                                    className="alert-link"
+                                    href="#"
+                                    onClick={onClick}
+                                  >
+                                    View Queries
+                                  </a>
+                                )}
+                              />{" "}
+                              for more info
+                            </div>
+                          )}
+                          {hasQueries && status === "running" && (
+                            <div className="alert alert-info">
+                              Your analysis is currently running.{" "}
+                              {analysis &&
+                                "The data below is from the previous run."}
+                            </div>
+                          )}
+                          {analysis &&
+                            status === "succeeded" &&
+                            (metric.segment || analysis.segment) &&
+                            metric.segment !== analysis.segment && (
+                              <div className="alert alert-info">
+                                The graphs below are using an old Segment.
+                                Update them to see the latest numbers.
+                              </div>
+                            )}
+                          {analysis && (
+                            <div className="mb-4">
+                              {metric.type !== "binomial" && (
+                                <div className="d-flex flex-row align-items-end">
+                                  <div style={{ fontSize: "2.5em" }}>
+                                    {getMetricFormatter(metric.type)(
+                                      analysis.average,
+                                      {
+                                        currency: displayCurrency,
+                                      }
+                                    )}
+                                  </div>
+                                  <div className="pb-2 ml-1">average</div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {analysis?.dates && analysis.dates.length > 0 && (
+                            <div className="mb-4">
+                              <div className="row mt-3">
+                                <div className="col-auto">
+                                  <h5 className="mb-1 mt-1">
+                                    {metric.type === "binomial"
+                                      ? "Conversions"
+                                      : "Metric Value"}{" "}
+                                    Over Time
+                                  </h5>
+                                </div>
+                              </div>
 
-                          {metric.type !== "binomial" && (
-                            <>
+                              {metric.type !== "binomial" && (
+                                <>
+                                  <div className="row mt-4 mb-1">
+                                    <div className="col">
+                                      <Tooltip
+                                        body={
+                                          <>
+                                            <p>
+                                              This figure shows the average
+                                              metric value on a day divided by
+                                              number of unique units (e.g.
+                                              users) in the metric source on
+                                              that day.
+                                            </p>
+                                            <p>
+                                              The standard deviation shows the
+                                              spread of the daily user metric
+                                              values.
+                                            </p>
+                                            <p>
+                                              When smoothing is turned on, we
+                                              simply average values and standard
+                                              deviations over the 7 trailing
+                                              days (including the selected day).
+                                            </p>
+                                          </>
+                                        }
+                                      >
+                                        <strong className="ml-4 align-bottom">
+                                          Daily Average <FaQuestionCircle />
+                                        </strong>
+                                      </Tooltip>
+                                    </div>
+                                    <div className="col">
+                                      <div className="float-right mr-2">
+                                        <label
+                                          className="small my-0 mr-2 text-right align-middle"
+                                          htmlFor="toggle-group-by-avg"
+                                        >
+                                          Smoothing
+                                          <br />
+                                          (7 day trailing)
+                                        </label>
+                                        <Toggle
+                                          value={smoothByAvg === "week"}
+                                          setValue={() =>
+                                            setSmoothByAvg(
+                                              smoothByAvg === "week"
+                                                ? "day"
+                                                : "week"
+                                            )
+                                          }
+                                          id="toggle-group-by-avg"
+                                          className="align-middle"
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <DateGraph
+                                    type={metric.type}
+                                    method="avg"
+                                    dates={analysis.dates}
+                                    smoothBy={smoothByAvg}
+                                    onHover={onHoverCallback}
+                                    hoverDate={hoverDate}
+                                  />
+                                </>
+                              )}
+
                               <div className="row mt-4 mb-1">
                                 <div className="col">
                                   <Tooltip
                                     body={
                                       <>
-                                        <p>
-                                          This figure shows the average metric
-                                          value on a day divided by number of
-                                          unique units (e.g. users) in the
-                                          metric source on that day.
-                                        </p>
-                                        <p>
-                                          The standard deviation shows the
-                                          spread of the daily user metric
-                                          values.
-                                        </p>
-                                        <p>
-                                          When smoothing is turned on, we simply
-                                          average values and standard deviations
-                                          over the 7 trailing days (including
-                                          the selected day).
-                                        </p>
+                                        {metric.type !== "binomial" ? (
+                                          <>
+                                            <p>
+                                              This figure shows the daily sum of
+                                              values in the metric source on
+                                              that day.
+                                            </p>
+                                            <p>
+                                              When smoothing is turned on, we
+                                              simply average values over the 7
+                                              trailing days (including the
+                                              selected day).
+                                            </p>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <p>
+                                              This figure shows the total count
+                                              of units (e.g. users) in the
+                                              metric source on that day.
+                                            </p>
+                                            <p>
+                                              When smoothing is turned on, we
+                                              simply average counts over the 7
+                                              trailing days (including the
+                                              selected day).
+                                            </p>
+                                          </>
+                                        )}
                                       </>
                                     }
                                   >
                                     <strong className="ml-4 align-bottom">
-                                      Daily Average <FaQuestionCircle />
+                                      Daily{" "}
+                                      {metric.type !== "binomial"
+                                        ? "Sum"
+                                        : "Count"}{" "}
+                                      <FaQuestionCircle />
                                     </strong>
                                   </Tooltip>
                                 </div>
@@ -744,22 +805,22 @@ const MetricPage: FC = () => {
                                   <div className="float-right mr-2">
                                     <label
                                       className="small my-0 mr-2 text-right align-middle"
-                                      htmlFor="toggle-group-by-avg"
+                                      htmlFor="toggle-group-by-sum"
                                     >
                                       Smoothing
                                       <br />
                                       (7 day trailing)
                                     </label>
                                     <Toggle
-                                      value={smoothByAvg === "week"}
+                                      value={smoothBySum === "week"}
                                       setValue={() =>
-                                        setSmoothByAvg(
-                                          smoothByAvg === "week"
+                                        setSmoothBySum(
+                                          smoothBySum === "week"
                                             ? "day"
                                             : "week"
                                         )
                                       }
-                                      id="toggle-group-by-avg"
+                                      id="toggle-group-by-sum"
                                       className="align-middle"
                                     />
                                   </div>
@@ -767,133 +828,64 @@ const MetricPage: FC = () => {
                               </div>
                               <DateGraph
                                 type={metric.type}
-                                method="avg"
+                                method="sum"
                                 dates={analysis.dates}
-                                smoothBy={smoothByAvg}
+                                smoothBy={smoothBySum}
                                 onHover={onHoverCallback}
                                 hoverDate={hoverDate}
                               />
-                            </>
+                            </div>
                           )}
 
-                          <div className="row mt-4 mb-1">
-                            <div className="col">
-                              <Tooltip
-                                body={
-                                  <>
-                                    {metric.type !== "binomial" ? (
-                                      <>
-                                        <p>
-                                          This figure shows the daily sum of
-                                          values in the metric source on that
-                                          day.
-                                        </p>
-                                        <p>
-                                          When smoothing is turned on, we simply
-                                          average values over the 7 trailing
-                                          days (including the selected day).
-                                        </p>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <p>
-                                          This figure shows the total count of
-                                          units (e.g. users) in the metric
-                                          source on that day.
-                                        </p>
-                                        <p>
-                                          When smoothing is turned on, we simply
-                                          average counts over the 7 trailing
-                                          days (including the selected day).
-                                        </p>
-                                      </>
-                                    )}
-                                  </>
-                                }
-                              >
-                                <strong className="ml-4 align-bottom">
-                                  Daily{" "}
-                                  {metric.type !== "binomial" ? "Sum" : "Count"}{" "}
-                                  <FaQuestionCircle />
-                                </strong>
-                              </Tooltip>
+                          {!analysis && (
+                            <div>
+                              <em>
+                                No data for this metric yet.{" "}
+                                {canRunMetricQuery
+                                  ? "Click the Run Analysis button above."
+                                  : null}
+                              </em>
                             </div>
-                            <div className="col">
-                              <div className="float-right mr-2">
-                                <label
-                                  className="small my-0 mr-2 text-right align-middle"
-                                  htmlFor="toggle-group-by-sum"
-                                >
-                                  Smoothing
-                                  <br />
-                                  (7 day trailing)
-                                </label>
-                                <Toggle
-                                  value={smoothBySum === "week"}
-                                  setValue={() =>
-                                    setSmoothBySum(
-                                      smoothBySum === "week" ? "day" : "week"
-                                    )
+                          )}
+
+                          {hasQueries && (
+                            <div className="row my-3">
+                              <div className="col-auto">
+                                <ViewAsyncQueriesButton
+                                  queries={metric.queries.map((q) => q.query)}
+                                  color={
+                                    status === "failed" ? "danger" : "info"
                                   }
-                                  id="toggle-group-by-sum"
-                                  className="align-middle"
+                                  error={metric.analysisError}
                                 />
                               </div>
                             </div>
-                          </div>
-                          <DateGraph
-                            type={metric.type}
-                            method="sum"
-                            dates={analysis.dates}
-                            smoothBy={smoothBySum}
-                            onHover={onHoverCallback}
-                            hoverDate={hoverDate}
-                          />
-                        </div>
-                      )}
-
-                      {!analysis && (
-                        <div>
-                          <em>
-                            No data for this metric yet.{" "}
-                            {canRunMetricQuery
-                              ? "Click the Run Analysis button above."
-                              : null}
-                          </em>
-                        </div>
-                      )}
-
-                      {hasQueries && (
-                        <div className="row my-3">
-                          <div className="col-auto">
-                            <ViewAsyncQueriesButton
-                              queries={metric.queries.map((q) => q.query)}
-                              color={status === "failed" ? "danger" : "info"}
-                              error={metric.analysisError}
-                            />
-                          </div>
+                          )}
                         </div>
                       )}
                     </div>
-                  )}
-                </div>
-              </div>
-            </Tab>
-            <Tab display="Experiments" anchor="experiments">
-              <h3>Experiments</h3>
-              <MetricExperiments metric={metric} outerClassName="" />
-            </Tab>
-            <Tab display="Discussion" anchor="discussion" lazy={true}>
-              <h3>Comments</h3>
-              <DiscussionThread
-                type="metric"
-                id={data.metric.id}
-                projects={metric.projects || []}
-              />
-            </Tab>
-            <Tab display="History" anchor="history" lazy={true}>
-              <HistoryTable type="metric" id={metric.id} />
-            </Tab>
+                  </div>
+                </Box>
+              </TabsContent>
+              <TabsContent value="experiments">
+                <Box>
+                  <MetricExperiments metric={metric} outerClassName="" />
+                </Box>
+              </TabsContent>
+              <TabsContent value="discussion">
+                <Box>
+                  <h3>Comments</h3>
+                  <DiscussionThread
+                    type="metric"
+                    id={data.metric.id}
+                    projects={metric.projects || []}
+                  />
+                </Box>
+              </TabsContent>
+              <TabsContent value="history">
+                <HistoryTable type="metric" id={metric.id} />
+              </TabsContent>
+            </Box>
           </Tabs>
         </div>
         <div className="col-12 col-md-4 mt-md-5">

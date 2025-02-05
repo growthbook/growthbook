@@ -5,11 +5,6 @@
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-bold: 600;
-
-  /* NB: --background-color is a non-Radix variable defined in theme.scss */
-  .main {
-    background-color: var(--background-color);
-  }
 }
 
 :root,

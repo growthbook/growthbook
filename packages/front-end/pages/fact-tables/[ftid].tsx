@@ -357,7 +357,7 @@ export default function FactTablePage() {
           </TabsTrigger>
         </TabsList>
 
-        <Box p="4">
+        <Box pt="4">
           <TabsContent value="metrics">
             <h3>Metrics</h3>
             <div className="mb-5">

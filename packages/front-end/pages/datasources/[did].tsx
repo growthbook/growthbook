@@ -4,7 +4,7 @@ import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import Link from "next/link";
-import { Box, Card, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { PiLinkBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
@@ -32,6 +32,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/components/Radix/Badge";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Callout from "@/components/Radix/Callout";
+import Frame from "@/components/Radix/Frame";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -324,72 +325,60 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   structure.
                 </Callout>
               )}
-            <Card mt="4">
-              <Box p="4">
-                <DataSourceInlineEditIdentifierTypes
-                  onSave={updateDataSourceSettings}
-                  onCancel={() => undefined}
-                  dataSource={d}
-                  canEdit={canUpdateDataSourceSettings}
-                />
-              </Box>
-            </Card>
+            <Frame>
+              <DataSourceInlineEditIdentifierTypes
+                onSave={updateDataSourceSettings}
+                onCancel={() => undefined}
+                dataSource={d}
+                canEdit={canUpdateDataSourceSettings}
+              />
+            </Frame>
 
             {d.settings?.userIdTypes && d.settings.userIdTypes.length > 1 ? (
-              <Card mt="4">
-                <Box p="4">
-                  <DataSourceInlineEditIdentityJoins
-                    dataSource={d}
-                    onSave={updateDataSourceSettings}
-                    onCancel={() => undefined}
-                    canEdit={canUpdateDataSourceSettings}
-                  />
-                </Box>
-              </Card>
+              <Frame>
+                <DataSourceInlineEditIdentityJoins
+                  dataSource={d}
+                  onSave={updateDataSourceSettings}
+                  onCancel={() => undefined}
+                  canEdit={canUpdateDataSourceSettings}
+                />
+              </Frame>
             ) : null}
 
-            <Card mt="4">
-              <Box p="4">
-                <ExperimentAssignmentQueries
-                  dataSource={d}
-                  onSave={updateDataSourceSettings}
-                  onCancel={() => undefined}
-                  canEdit={canUpdateDataSourceSettings}
-                />
-              </Box>
-            </Card>
+            <Frame>
+              <ExperimentAssignmentQueries
+                dataSource={d}
+                onSave={updateDataSourceSettings}
+                onCancel={() => undefined}
+                canEdit={canUpdateDataSourceSettings}
+              />
+            </Frame>
 
-            <Card mt="4">
-              <Box p="4">
-                <DataSourceMetrics
-                  dataSource={d}
-                  canEdit={canUpdateDataSourceSettings}
-                />
-              </Box>
-            </Card>
+            <Frame>
+              <DataSourceMetrics
+                dataSource={d}
+                canEdit={canUpdateDataSourceSettings}
+              />
+            </Frame>
 
-            <Card mt="4">
-              <Box p="4">
-                <DataSourceJupyterNotebookQuery
-                  dataSource={d}
-                  onSave={updateDataSourceSettings}
-                  onCancel={() => undefined}
-                  canEdit={canUpdateDataSourceSettings}
-                />
-              </Box>
-            </Card>
+            <Frame>
+              <DataSourceJupyterNotebookQuery
+                dataSource={d}
+                onSave={updateDataSourceSettings}
+                onCancel={() => undefined}
+                canEdit={canUpdateDataSourceSettings}
+              />
+            </Frame>
 
             {d.properties?.supportsWritingTables && pipelineEnabled ? (
-              <Card mt="4">
-                <Box p="4">
-                  <DataSourcePipeline
-                    dataSource={d}
-                    onSave={updateDataSourceSettings}
-                    onCancel={() => undefined}
-                    canEdit={canUpdateDataSourceSettings}
-                  />
-                </Box>
-              </Card>
+              <Frame>
+                <DataSourcePipeline
+                  dataSource={d}
+                  onSave={updateDataSourceSettings}
+                  onCancel={() => undefined}
+                  canEdit={canUpdateDataSourceSettings}
+                />
+              </Frame>
             ) : null}
           </>
         )}

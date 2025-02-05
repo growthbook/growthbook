@@ -3,7 +3,7 @@ import { FeatureInterface, FeatureTestResult } from "back-end/types/feature";
 import { FaChevronRight } from "react-icons/fa";
 import { ArchetypeInterface } from "back-end/types/archetype";
 import { FiAlertTriangle } from "react-icons/fi";
-import { Box, Card, Flex, Heading, Switch, Text } from "@radix-ui/themes";
+import { Box, Flex, Heading, Switch, Text } from "@radix-ui/themes";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { useAuth } from "@/services/auth";
 import ValueDisplay from "@/components/Features/ValueDisplay";
@@ -20,6 +20,7 @@ import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 import DatePicker from "@/components/DatePicker";
 import Button from "@/components/Radix/Button";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
+import Frame from "@/components/Radix/Frame";
 import styles from "./AssignmentTester.module.scss";
 
 export interface Props {
@@ -370,8 +371,8 @@ export default function AssignmentTester({
         )}
       </div>
 
-      <Card>
-        <Box p="5">
+      <Frame>
+        <Box>
           <Flex align="center" justify="between">
             <Heading as="h4" size="3" mb="0">
               Ad hoc attributes
@@ -441,7 +442,7 @@ export default function AssignmentTester({
             </div>
           )}
         </Box>
-      </Card>
+      </Frame>
       {openArchetypeModal && (
         <>
           {hasArchetypeAccess ? (
