@@ -80,7 +80,7 @@ export default function ResultsMetricFilter({
                 top: 3,
                 right: 5,
               }}
-              className="position-absolute text-gray cursor-pointer"
+              className="position-absolute cursor-pointer"
               onClick={(e) => {
                 e.preventDefault();
                 setShowMetricFilter(false);
