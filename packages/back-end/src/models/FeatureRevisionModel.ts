@@ -10,6 +10,7 @@ import { EventUser, EventUserLoggedIn } from "back-end/src/events/event-types";
 import { OrganizationInterface, ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
 import { applyEnvironmentInheritance } from "back-end/src/util/features";
+import { FeatureModel } from "back-end/src/models/FeatureModel";
 
 export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
 
@@ -263,7 +264,7 @@ export async function createRevision({
     }),
   };
   if (!baseVersion) baseVersion = lastRevision?.version;
-  const baseRevision =
+  let baseRevision =
     lastRevision?.version === baseVersion
       ? lastRevision
       : await getRevision({
@@ -273,6 +274,24 @@ export async function createRevision({
           version: baseVersion,
         });
 
+  if (!baseRevision) {
+    if (
+      lastRevision?.version &&
+      baseVersion &&
+      baseVersion > lastRevision.version
+    ) {
+      // this is an odd case where the base revision is higher than the last revision.
+      // setting the base revision to the last revision
+      await FeatureModel.updateOne(
+        { organization: feature.organization, id: feature.id },
+        {
+          $set: { version: lastRevision.version },
+        }
+      );
+      baseVersion = lastRevision.version;
+      baseRevision = lastRevision;
+    }
+  }
   if (!baseRevision) {
     throw new Error("can not find a base revision");
   }
