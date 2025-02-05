@@ -195,7 +195,7 @@ function getConditionParts({
       }
     }
     return (
-      <div key={keyPrefix + i} className="col-auto d-flex flex-wrap">
+      <Flex wrap="wrap" key={keyPrefix + i} gap="2">
         {(i > 0 || initialAnd) && <span className="mr-1">AND</span>}
         {parentIdEl}
         {fieldEl}
@@ -214,7 +214,7 @@ function getConditionParts({
         ) : (
           ""
         )}
-      </div>
+      </Flex>
     );
   });
 }

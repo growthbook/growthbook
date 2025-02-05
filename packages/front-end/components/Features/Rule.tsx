@@ -236,11 +236,17 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 <Box>{info.callout}</Box>
                 <Box style={{ opacity: isInactive ? 0.6 : 1 }} mt="3">
                   {hasCondition && rule.type !== "experiment-ref" && (
-                    <Flex align="center" justify="start" mb="3" gap="1">
-                      <Box>
+                    <Flex align="center" justify="start" gap="3">
+                      <Box pb="3">
                         <strong className="font-weight-semibold">IF</strong>
                       </Box>
-                      <Box>
+                      <Box
+                        width="100%"
+                        flexShrink="4"
+                        flexGrow="1"
+                        overflowX="auto"
+                        pb="3"
+                      >
                         <ConditionDisplay
                           condition={rule.condition || ""}
                           savedGroups={rule.savedGroups}
