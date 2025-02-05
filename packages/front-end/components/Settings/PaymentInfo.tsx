@@ -73,6 +73,12 @@ export default function PaymentInfo() {
     try {
       const cardIndex = cardData.findIndex((card) => card.id === cardId);
 
+      if (cardData.length === 1 && subscription?.status !== "canceled") {
+        throw new Error(
+          "Unable to delete card. You must have at least 1 card on file."
+        );
+      }
+
       if (cardIndex <= -1) {
         throw new Error(
           "Cannot delete: Card does not exist on this subscription"
