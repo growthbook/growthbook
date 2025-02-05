@@ -12,9 +12,9 @@ import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListM
 import Badge from "@/components/Radix/Badge";
 import RadioGroup from "@/components/Radix/RadioGroup";
 import { GBInfo } from "@/components/Icons";
+import Frame from "@/components/Radix/Frame";
 import StatsEngineSettings from "./StatsEngineSettings";
 import StickyBucketingSettings from "./StickyBucketingSettings";
-import Frame from "@/components/Radix/Frame";
 
 export default function ExperimentSettings({
   cronString,

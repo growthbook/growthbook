@@ -13,9 +13,9 @@ import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Markdown from "@/components/Markdown/Markdown";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import Frame from "@/components/Radix/Frame";
 import EditHypothesisModal from "../EditHypothesisModal";
 import EditDescriptionModal from "../EditDescriptionModal";
-import Frame from "@/components/Radix/Frame";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
