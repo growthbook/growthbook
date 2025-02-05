@@ -81,6 +81,7 @@ export type SubscriptionInfo = {
   trialEnd: Date | null;
   status: "active" | "canceled" | "past_due" | "trialing" | "";
   hasPaymentMethod: boolean;
+  // TODO: Remove once all orgs have moved license info off of the org
   hasLicenseWithOrgId: boolean; // Licenses before 12/2022 don't have the organizationId set
 };
 

@@ -1139,6 +1139,7 @@ export async function getContextForAgendaJobByOrgId(
   return getContextForAgendaJobByOrgObject(organization);
 }
 
+// TODO: Remove once all orgs have moved license info off of the org
 export function getSubscriptionFromOrg(
   organization: OrganizationInterface
 ): SubscriptionInfo | null {

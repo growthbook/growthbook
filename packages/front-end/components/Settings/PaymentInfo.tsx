@@ -25,6 +25,7 @@ export default function PaymentInfo() {
   const [loadingCards, setLoadingCards] = useState(false);
   const { subscription } = useUser();
   const { apiCall } = useAuth();
+  // TODO: Remove once all orgs have moved license info off of the org - only limit by isCloud()
   const canShowPaymentInfo = isCloud() && subscription?.hasLicenseWithOrgId;
 
   const fetchCardData = useCallback(async () => {
