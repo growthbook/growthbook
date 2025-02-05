@@ -3,18 +3,21 @@ import { forwardRef, ReactElement } from "react";
 import {
   PiCheckCircleFill,
   PiInfoFill,
+  PiLightbulb,
   PiWarningFill,
   PiWarningOctagonFill,
 } from "react-icons/pi";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
 
-export type Status = "info" | "warning" | "error" | "success";
+export type Status = "wizard" | "info" | "warning" | "error" | "success";
 export type RadixColor = TextProps["color"];
 export type Size = "sm" | "md";
 
 export function getRadixColor(status: Status): TextProps["color"] {
   switch (status) {
+    case "wizard":
+      return "violet";
     case "info":
       return "violet";
     case "warning":
@@ -52,6 +55,8 @@ export function RadixStatusIcon({
   size: Size;
 }): ReactElement {
   switch (status) {
+    case "wizard":
+      return <PiLightbulb size={getIconSize(size)} />;
     case "info":
       return <PiInfoFill size={getIconSize(size)} />;
     case "warning":
