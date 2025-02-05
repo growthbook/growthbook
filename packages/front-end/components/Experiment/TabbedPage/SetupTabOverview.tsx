@@ -13,6 +13,7 @@ import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Markdown from "@/components/Markdown/Markdown";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import Frame from "@/components/Radix/Frame";
 import EditHypothesisModal from "../EditHypothesisModal";
 import EditDescriptionModal from "../EditDescriptionModal";
 
@@ -22,7 +23,7 @@ export interface Props {
   mutate: () => void;
   editTargeting?: (() => void) | null;
   linkedFeatures: LinkedFeatureInfo[];
-  verifiedConnections: SDKConnectionInterface[];
+  matchingConnections: SDKConnectionInterface[];
   disableEditing?: boolean;
   checklistItemsRemaining: number | null;
   setChecklistItemsRemaining: (value: number | null) => void;
@@ -35,7 +36,7 @@ export default function SetupTabOverview({
   mutate,
   editTargeting,
   linkedFeatures,
-  verifiedConnections,
+  matchingConnections,
   disableEditing,
   checklistItemsRemaining,
   setChecklistItemsRemaining,
@@ -89,12 +90,12 @@ export default function SetupTabOverview({
             linkedFeatures={linkedFeatures}
             visualChangesets={visualChangesets}
             editTargeting={editTargeting}
-            verifiedConnections={verifiedConnections}
+            connections={matchingConnections}
             checklistItemsRemaining={checklistItemsRemaining}
             setChecklistItemsRemaining={setChecklistItemsRemaining}
           />
         ) : null}
-        <Box className="box" pt="4" pb="2">
+        <Frame>
           <Collapsible
             open={!experiment.description ? true : expandDescription}
             transitionTime={100}
@@ -111,7 +112,6 @@ export default function SetupTabOverview({
                 <Flex
                   align="center"
                   justify="between"
-                  px="5"
                   pb="2"
                   className="text-dark"
                 >
@@ -143,21 +143,21 @@ export default function SetupTabOverview({
                 style={{
                   maxHeight: "491px",
                 }}
-                className="px-4 py-2 fade-mask-vertical-1rem"
+                className="py-2 fade-mask-vertical-1rem"
               >
                 <Markdown>{experiment.description}</Markdown>
               </ScrollArea>
             ) : (
-              <Box as="div" className="font-italic text-muted" px="5" py="2">
+              <Box as="div" className="font-italic text-muted" py="2">
                 Add a description to keep your team informed about the purpose
                 and parameters of your experiment
               </Box>
             )}
           </Collapsible>
-        </Box>
+        </Frame>
 
         {!isBandit && (
-          <div className="box px-4 py-3">
+          <Frame>
             <div className="d-flex flex-row align-items-center justify-content-between mb-3">
               <h4 className="m-0">Hypothesis</h4>
               <div className="flex-1" />
@@ -180,10 +180,9 @@ export default function SetupTabOverview({
                 experiment.hypothesis
               )}
             </div>
-          </div>
+          </Frame>
         )}
         <CustomFieldDisplay
-          addBox={true}
           target={experiment}
           canEdit={canEditExperiment}
           mutate={mutate}

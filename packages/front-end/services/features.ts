@@ -31,16 +31,21 @@ import {
 } from "shared/util";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import isEqual from "lodash/isEqual";
+import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
 import { SavedGroupInterface } from "shared/src/types";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import useApi from "@/hooks/useApi";
-import { isExperimentRefRuleSkipped } from "@/components/Features/ExperimentRefSummary";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useUser } from "@/services/UserContext";
 import { ALL_COUNTRY_CODES } from "@/components/Forms/CountrySelector";
+import useSDKConnections from "@/hooks/useSDKConnections";
+import {
+  CheckListItem,
+  getChecklistItems,
+} from "@/components/Experiment/PreLaunchChecklist";
 import { useDefinitions } from "./DefinitionsContext";
 
 export { generateVariationId } from "shared/util";
@@ -296,24 +301,43 @@ export function getVariationDefaultName(
   return val.value;
 }
 
-export function isRuleDisabled(
+export function isRuleInactive(
   rule: FeatureRule,
   experimentsMap: Map<string, ExperimentInterfaceStringDates>
 ): boolean {
-  const linkedExperiment =
-    rule.type === "experiment-ref" && experimentsMap.get(rule.experimentId);
+  // Explicitly disabled
+  if (!rule.enabled) return true;
+
+  // Was scheduled to be disabled and that time has passed
   const upcomingScheduleRule = getUpcomingScheduleRule(rule);
   const scheduleCompletedAndDisabled =
     !upcomingScheduleRule &&
     rule?.scheduleRules?.length &&
     rule.scheduleRules.at(-1)?.timestamp !== null;
+  if (scheduleCompletedAndDisabled) {
+    return true;
+  }
 
-  return (
-    scheduleCompletedAndDisabled ||
-    upcomingScheduleRule?.enabled ||
-    (linkedExperiment && isExperimentRefRuleSkipped(linkedExperiment)) ||
-    !rule.enabled
-  );
+  // Linked experiment is missing, archived, or stopped with no temp rollout
+  if (rule.type === "experiment-ref") {
+    const linkedExperiment = experimentsMap.get(rule.experimentId);
+    if (!linkedExperiment) {
+      return true;
+    }
+    if (linkedExperiment.archived) {
+      return true;
+    }
+    if (
+      linkedExperiment.status === "stopped" &&
+      (linkedExperiment.excludeFromPayload ||
+        !linkedExperiment.releasedVariationId)
+    ) {
+      return true;
+    }
+  }
+
+  // Otherwise, it is active
+  return false;
 }
 
 type NamespaceGaps = { start: number; end: number }[];
@@ -765,43 +789,45 @@ export function getDefaultRuleValue({
   throw new Error("Unknown Rule Type: " + ruleType);
 }
 
-export function isRuleFullyCovered(rule: FeatureRule): boolean {
-  // get the schedules on any of the rules:
-  const upcomingScheduleRule = getUpcomingScheduleRule(rule);
+export function getUnreachableRuleIndex(
+  rules: FeatureRule[],
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>
+) {
+  for (let i = 0; i < rules.length; i++) {
+    const rule = rules[i];
 
-  const scheduleCompletedAndDisabled =
-    !upcomingScheduleRule &&
-    rule?.scheduleRules?.length &&
-    rule.scheduleRules.at(-1)?.timestamp !== null;
+    // Skip over inactive rules
+    if (isRuleInactive(rule, experimentsMap)) continue;
 
-  const ruleDisabled =
-    scheduleCompletedAndDisabled ||
-    upcomingScheduleRule?.enabled ||
-    !rule.enabled;
+    // Skip rules that are conditional based on a schedule
+    const upcomingScheduleRule = getUpcomingScheduleRule(rule);
+    if (upcomingScheduleRule && upcomingScheduleRule.timestamp) {
+      continue;
+    }
 
-  if (rule?.prerequisites?.length) {
-    return false;
+    // Skip rules with targeting conditions
+    if (rule.condition && rule.condition !== "{}") {
+      continue;
+    }
+    if (rule.savedGroups?.length) {
+      continue;
+    }
+    if (rule.prerequisites?.length) {
+      continue;
+    }
+
+    // Skip non-force rules (require a non-null hash attribute, so may not match)
+    if (rule.type !== "force") {
+      continue;
+    }
+
+    // By this point, we have a force rule that matches all users
+    // Any rule after this is unreachable
+    return i + 1;
   }
 
-  // rollouts and experiments at 100%:
-  if (
-    (rule.type === "rollout" || rule.type === "experiment") &&
-    rule.coverage === 1 &&
-    rule.enabled === true &&
-    (!rule.condition || rule.condition === "{}") &&
-    !rule.savedGroups?.length &&
-    !ruleDisabled
-  ) {
-    return true;
-  }
-
-  // force rule at 100%: (doesn't have coverage)
-  return (
-    rule.type === "force" &&
-    rule.condition === "{}" &&
-    !rule.savedGroups?.length &&
-    !ruleDisabled
-  );
+  // No unreachable rules
+  return 0;
 }
 
 export function jsonToConds(
@@ -1226,4 +1252,126 @@ export function genDuplicatedKey({ id }: FeatureInterface) {
     // we failed, let the user name the key
     return "";
   }
+}
+
+export function getNewDraftExperimentsToPublish({
+  environments,
+  feature,
+  revision,
+  experimentsMap,
+}: {
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  environments: Environment[];
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>;
+}) {
+  const environmentIds = environments.map((e) => e.id);
+
+  const liveExperimentIds = new Set(
+    getMatchingRules(
+      feature,
+      (rule) => rule.type === "experiment-ref",
+      environmentIds
+    ).map((result) => (result.rule as ExperimentRefRule).experimentId)
+  );
+
+  function isExp(
+    exp: ExperimentInterfaceStringDates | undefined
+  ): exp is ExperimentInterfaceStringDates {
+    return !!exp;
+  }
+
+  const draftExperiments = getMatchingRules(
+    feature,
+    (rule) =>
+      // New experiment rule that hasn't been published yet and is in a draft state
+      rule.enabled !== false &&
+      rule.type === "experiment-ref" &&
+      !liveExperimentIds.has(rule.experimentId) &&
+      experimentsMap.get(rule.experimentId)?.status === "draft" &&
+      // Skip experiments with visual changesets. Those need to be started from the experiment page
+      !experimentsMap.get(rule.experimentId)?.hasVisualChangesets,
+    environmentIds,
+    revision
+  )
+    .map((result) =>
+      experimentsMap.get((result.rule as ExperimentRefRule).experimentId)
+    )
+    .filter(isExp);
+
+  return [...new Set(draftExperiments)];
+}
+
+export function useFeatureExperimentChecklists({
+  feature,
+  revision,
+  experimentsMap,
+}: {
+  feature: FeatureInterface;
+  revision?: FeatureRevisionInterface;
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>;
+}) {
+  const allEnvironments = useEnvironments();
+
+  const { data: checklistData } = useApi<{
+    checklist: ExperimentLaunchChecklistInterface;
+  }>("/experiments/launch-checklist");
+
+  const settings = useOrgSettings();
+  const orgStickyBucketing = !!settings.useStickyBucketing;
+
+  const { data: sdkConnectionsData } = useSDKConnections();
+  const connections = sdkConnectionsData?.connections || [];
+
+  const experimentData = useMemo(() => {
+    const experimentsAvailableToPublish = revision
+      ? getNewDraftExperimentsToPublish({
+          feature,
+          revision,
+          environments: allEnvironments,
+          experimentsMap,
+        })
+      : [];
+
+    const experimentData: {
+      checklist: CheckListItem[];
+      experiment: ExperimentInterfaceStringDates;
+      failedRequired: boolean;
+    }[] = [];
+    experimentsAvailableToPublish.forEach((exp) => {
+      const projectConnections = connections.filter(
+        (connection) =>
+          !connection.projects.length ||
+          connection.projects.includes(exp.project || "")
+      );
+
+      const checklist = getChecklistItems({
+        experiment: exp,
+        linkedFeatures: [],
+        visualChangesets: [],
+        checklist: checklistData?.checklist,
+        usingStickyBucketing: orgStickyBucketing && !exp.disableStickyBucketing,
+        checkLinkedChanges: false,
+        connections: projectConnections,
+      });
+
+      const failedRequired = checklist.some(
+        (item) => item.status === "incomplete" && item.required
+      );
+
+      experimentData.push({ checklist, experiment: exp, failedRequired });
+    });
+
+    return experimentData;
+  }, [
+    connections,
+    allEnvironments,
+    orgStickyBucketing,
+    checklistData,
+    revision,
+  ]);
+
+  return {
+    experimentData,
+  };
 }

@@ -18,6 +18,10 @@ import type {
   AutoExperiment,
   TrackingCallbackWithUser,
   Attributes,
+  TrackingCallback,
+  EventLogger,
+  EventProperties,
+  Plugin,
 } from "./types/growthbook";
 import { loadSDKVersion } from "./util";
 import {
@@ -52,6 +56,7 @@ export class GrowthBookClient<
   private _experiments: AutoExperiment[];
   private _payload: FeatureApiResponse | undefined;
   private _decryptedPayload: FeatureApiResponse | undefined;
+  private _destroyed?: boolean;
 
   constructor(options?: ClientOptions) {
     options = options || {};
@@ -65,6 +70,12 @@ export class GrowthBookClient<
     this._experiments = [];
 
     this.log = this.log.bind(this);
+
+    if (options.plugins) {
+      for (const plugin of options.plugins) {
+        plugin(this);
+      }
+    }
   }
 
   public async setPayload(payload: FeatureApiResponse): Promise<void> {
@@ -198,6 +209,7 @@ export class GrowthBookClient<
   }
 
   public destroy() {
+    this._destroyed = true;
     unsubscribe(this);
 
     // Release references to save memory
@@ -206,6 +218,25 @@ export class GrowthBookClient<
     this._decryptedPayload = undefined;
     this._payload = undefined;
     this._options = {};
+  }
+
+  public isDestroyed() {
+    return !!this._destroyed;
+  }
+
+  public setEventLogger(logger: EventLogger) {
+    this._options.eventLogger = logger;
+  }
+
+  public logEvent(
+    eventName: string,
+    properties: EventProperties,
+    userContext: UserContext
+  ) {
+    if (this._options.eventLogger) {
+      const ctx = this._getEvalContext(userContext);
+      this._options.eventLogger(eventName, properties, ctx.user);
+    }
   }
 
   public runInlineExperiment<T>(
@@ -320,7 +351,7 @@ export class GrowthBookClient<
   }
 
   public createScopedInstance(userContext: UserContext) {
-    return new UserScopedGrowthBook(this, userContext);
+    return new UserScopedGrowthBook(this, userContext, this._options.plugins);
   }
 }
 
@@ -331,9 +362,19 @@ export class UserScopedGrowthBook<
   private _gb: GrowthBookClient;
   private _userContext: UserContext;
 
-  constructor(gb: GrowthBookClient<AppFeatures>, userContext: UserContext) {
+  constructor(
+    gb: GrowthBookClient<AppFeatures>,
+    userContext: UserContext,
+    plugins?: Plugin[]
+  ) {
     this._gb = gb;
     this._userContext = userContext;
+
+    if (plugins) {
+      for (const plugin of plugins) {
+        plugin(this);
+      }
+    }
   }
 
   public runInlineExperiment<T>(experiment: Experiment<T>): Result<T> {
@@ -360,5 +401,25 @@ export class UserScopedGrowthBook<
     K extends string & keyof AppFeatures = string
   >(id: K): FeatureResult<V | null> {
     return this._gb.evalFeature(id, this._userContext);
+  }
+
+  public logEvent(eventName: string, properties?: EventProperties) {
+    this._gb.logEvent(eventName, properties || {}, this._userContext);
+  }
+
+  public setTrackingCallback(cb: TrackingCallback) {
+    this._userContext.trackingCallback = cb;
+  }
+  public getClientKey() {
+    return this._gb.getClientKey();
+  }
+  public setURL(url: string) {
+    this._userContext.url = url;
+  }
+  public updateAttributes(attributes: Attributes) {
+    this._userContext.attributes = {
+      ...this._userContext.attributes,
+      ...attributes,
+    };
   }
 }

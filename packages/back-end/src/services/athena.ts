@@ -1,5 +1,9 @@
 import { STSClient, AssumeRoleCommand } from "@aws-sdk/client-sts";
-import { Athena, ResultSet } from "@aws-sdk/client-athena";
+import {
+  Athena,
+  ResultSet,
+  StartQueryExecutionCommandInput,
+} from "@aws-sdk/client-athena";
 import { AthenaConnectionParams } from "back-end/types/integrations/athena";
 import { logger } from "back-end/src/util/logger";
 import { IS_CLOUD } from "back-end/src/util/secrets";
@@ -76,7 +80,7 @@ export async function runAthenaQuery(
   const retryWaitTime =
     (parseInt(process.env.ATHENA_RETRY_WAIT_TIME || "60") || 60) * 1000;
 
-  const { QueryExecutionId } = await athena.startQueryExecution({
+  const startQueryExecutionArgs: StartQueryExecutionCommandInput = {
     QueryString: sql,
     QueryExecutionContext: {
       Database: database || undefined,
@@ -89,7 +93,25 @@ export async function runAthenaQuery(
       OutputLocation: bucketUri,
     },
     WorkGroup: workGroup || "primary",
-  });
+  };
+
+  const resultReuseMaxAgeInMinutes = conn.resultReuseMaxAgeInMinutes
+    ? parseInt(conn.resultReuseMaxAgeInMinutes)
+    : undefined;
+
+  // Skipped when parsed setting is 0, NaN, or not present
+  if (resultReuseMaxAgeInMinutes) {
+    startQueryExecutionArgs.ResultReuseConfiguration = {
+      ResultReuseByAgeConfiguration: {
+        Enabled: true,
+        MaxAgeInMinutes: resultReuseMaxAgeInMinutes,
+      },
+    };
+  }
+
+  const { QueryExecutionId } = await athena.startQueryExecution(
+    startQueryExecutionArgs
+  );
 
   if (!QueryExecutionId) {
     throw new Error("Failed to start query");

@@ -255,7 +255,7 @@ export default function HealthTab({
   });
 
   return (
-    <div className="mt-4">
+    <div className="mt-2">
       <IssueTags issues={healthIssues} />
       <TrafficCard
         traffic={traffic}

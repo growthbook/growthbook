@@ -5,13 +5,13 @@ import {
   isMetricJoinable,
   quantileMetricType,
 } from "shared/experiments";
-import { MdInfoOutline } from "react-icons/md";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricName from "@/components/Metrics/MetricName";
 import ClickToCopy from "@/components/Settings/ClickToCopy";
+import { GBInfo } from "@/components/Icons";
 
 type MetricOption = {
   id: string;
@@ -276,7 +276,7 @@ const MetricsSelector: FC<{
                   <span>
                     Select metric by tag:{" "}
                     <Tooltip body="Metrics can be tagged for grouping. Select any tag to add all metrics associated with that tag.">
-                      <MdInfoOutline style={{ color: "#029dd1" }} />
+                      <GBInfo />
                     </Tooltip>
                   </span>
                   <SelectField

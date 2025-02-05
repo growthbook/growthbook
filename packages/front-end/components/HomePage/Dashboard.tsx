@@ -1,6 +1,8 @@
 import React from "react";
 import Link from "next/link";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { AppFeatures } from "@/types/app-features";
 import { useUser } from "@/services/UserContext";
 import ActivityList from "@/components/ActivityList";
 import ExperimentList from "@/components/Experiment/ExperimentList";
@@ -17,11 +19,36 @@ export interface Props {
 
 export default function Dashboard({ experiments }: Props) {
   const { name, hasCommercialFeature } = useUser();
+  const growthbook = useGrowthBook<AppFeatures>();
 
   const nameMap = new Map<string, string>();
   experiments.forEach((e) => {
     nameMap.set(e.id, e.name);
   });
+
+  const experimentImpactWidget = (
+    <div className="col-xl-13 mb-4">
+      <div className="list-group activity-box overflow-auto pt-1">
+        {hasCommercialFeature("experiment-impact") ? (
+          <ExperimentImpact experiments={experiments} />
+        ) : (
+          <div className="pt-2">
+            <div className="row align-items-start mb-4">
+              <div className="col-lg-auto">
+                <h3 className="mt-2">Experiment Impact</h3>
+              </div>
+            </div>
+
+            <PremiumTooltip commercialFeature="experiment-impact">
+              Experiment Impact is available to Enterprise customers
+            </PremiumTooltip>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const showImpactNearTop = growthbook.isOn("show-impact-near-top");
 
   return (
     <>
@@ -32,6 +59,8 @@ export default function Dashboard({ experiments }: Props) {
             <NorthStar experiments={experiments} />
           </div>
         </div>
+
+        {showImpactNearTop ? experimentImpactWidget : null}
         <div className="row">
           <div className="col-lg-12 col-md-12 col-xl-8 mb-3">
             <div className="list-group activity-box">
@@ -81,25 +110,7 @@ export default function Dashboard({ experiments }: Props) {
             </div>
           </div>
         </div>
-        <div className="col-xl-13 mb-4">
-          <div className="list-group activity-box overflow-auto pt-1">
-            {hasCommercialFeature("experiment-impact") ? (
-              <ExperimentImpact experiments={experiments} />
-            ) : (
-              <div className="pt-2">
-                <div className="row align-items-start mb-4">
-                  <div className="col-lg-auto">
-                    <h3 className="mt-2">Experiment Impact</h3>
-                  </div>
-                </div>
-
-                <PremiumTooltip commercialFeature="experiment-impact">
-                  Experiment Impact is available to Enterprise customers
-                </PremiumTooltip>
-              </div>
-            )}
-          </div>
-        </div>
+        {!showImpactNearTop ? experimentImpactWidget : null}
       </div>
     </>
   );

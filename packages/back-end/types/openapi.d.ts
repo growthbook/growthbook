@@ -95,6 +95,10 @@ export interface paths {
     /** Deletes a single SDK connection */
     delete: operations["deleteSdkConnection"];
   };
+  "/sdk-connections/lookup/{key}": {
+    /** Find a single sdk connection by its key */
+    get: operations["lookupSdkConnectionByKey"];
+  };
   "/data-sources": {
     /** Get all data sources */
     get: operations["listDataSources"];
@@ -232,6 +236,20 @@ export interface paths {
     put: operations["putAttribute"];
     /** Deletes a single attribute */
     delete: operations["deleteAttribute"];
+  };
+  "/archetypes": {
+    /** Get the organization's archetypes */
+    get: operations["listArchetypes"];
+    /** Create a single archetype */
+    post: operations["postArchetype"];
+  };
+  "/archetypes/${id}": {
+    /** Get a single archetype */
+    get: operations["getArchetype"];
+    /** Update a single archetype */
+    put: operations["putArchetype"];
+    /** Deletes a single archetype */
+    delete: operations["deleteArchetype"];
   };
   "/members": {
     /** Get all organization members */
@@ -1517,6 +1535,18 @@ export interface components {
       dateCreated?: string;
       /** Format: date-time */
       dateUpdated?: string;
+    };
+    Archetype: {
+      id: string;
+      dateCreated: string;
+      dateUpdated: string;
+      name: string;
+      description?: string;
+      owner: string;
+      isPublic: boolean;
+      /** @description The attributes to set when using this Archetype */
+      attributes: any;
+      projects?: (string)[];
     };
   };
   responses: {
@@ -3476,6 +3506,52 @@ export interface operations {
         content: {
           "application/json": {
             deletedId: string;
+          };
+        };
+      };
+    };
+  };
+  lookupSdkConnectionByKey: {
+    /** Find a single sdk connection by its key */
+    parameters: {
+        /** @description The key of the requested sdkConnection */
+      path: {
+        key: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            sdkConnection: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              organization: string;
+              languages: (string)[];
+              sdkVersion?: string;
+              environment: string;
+              /** @description Use 'projects' instead. This is only for backwards compatibility and contains the first project only. */
+              project: string;
+              projects?: (string)[];
+              encryptPayload: boolean;
+              encryptionKey: string;
+              includeVisualExperiments?: boolean;
+              includeDraftExperiments?: boolean;
+              includeExperimentNames?: boolean;
+              includeRedirectExperiments?: boolean;
+              key: string;
+              proxyEnabled: boolean;
+              proxyHost: string;
+              proxySigningKey: string;
+              sseEnabled?: boolean;
+              hashSecureAttributes?: boolean;
+              remoteEvalEnabled?: boolean;
+              savedGroupReferencesEnabled?: boolean;
+            };
           };
         };
       };
@@ -5915,6 +5991,154 @@ export interface operations {
       };
     };
   };
+  listArchetypes: {
+    /** Get the organization's archetypes */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            archetypes: ({
+                id: string;
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                description?: string;
+                owner: string;
+                isPublic: boolean;
+                /** @description The attributes to set when using this Archetype */
+                attributes: any;
+                projects?: (string)[];
+              })[];
+          };
+        };
+      };
+    };
+  };
+  postArchetype: {
+    /** Create a single archetype */
+    requestBody: {
+      content: {
+        "application/json": {
+          name: string;
+          description?: string;
+          /** @description Whether to make this Archetype available to other team members */
+          isPublic: boolean;
+          /** @description The attributes to set when using this Archetype */
+          attributes?: any;
+          projects?: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            archetype: {
+              id: string;
+              dateCreated: string;
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              owner: string;
+              isPublic: boolean;
+              /** @description The attributes to set when using this Archetype */
+              attributes: any;
+              projects?: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  getArchetype: {
+    /** Get a single archetype */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            archetype: {
+              id: string;
+              dateCreated: string;
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              owner: string;
+              isPublic: boolean;
+              /** @description The attributes to set when using this Archetype */
+              attributes: any;
+              projects?: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  putArchetype: {
+    /** Update a single archetype */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          name?: string;
+          description?: string;
+          /** @description Whether to make this Archetype available to other team members */
+          isPublic?: boolean;
+          /** @description The attributes to set when using this Archetype */
+          attributes?: any;
+          projects?: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            archetype: {
+              id: string;
+              dateCreated: string;
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              owner: string;
+              isPublic: boolean;
+              /** @description The attributes to set when using this Archetype */
+              attributes: any;
+              projects?: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteArchetype: {
+    /** Deletes a single archetype */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
   listMembers: {
     /** Get all organization members */
     parameters: {
@@ -7479,6 +7703,7 @@ export type ApiFactTable = z.infer<typeof openApiValidators.apiFactTableValidato
 export type ApiFactTableFilter = z.infer<typeof openApiValidators.apiFactTableFilterValidator>;
 export type ApiFactMetric = z.infer<typeof openApiValidators.apiFactMetricValidator>;
 export type ApiMember = z.infer<typeof openApiValidators.apiMemberValidator>;
+export type ApiArchetype = z.infer<typeof openApiValidators.apiArchetypeValidator>;
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
@@ -7502,6 +7727,7 @@ export type PostSdkConnectionResponse = operations["postSdkConnection"]["respons
 export type GetSdkConnectionResponse = operations["getSdkConnection"]["responses"]["200"]["content"]["application/json"];
 export type PutSdkConnectionResponse = operations["putSdkConnection"]["responses"]["200"]["content"]["application/json"];
 export type DeleteSdkConnectionResponse = operations["deleteSdkConnection"]["responses"]["200"]["content"]["application/json"];
+export type LookupSdkConnectionByKeyResponse = operations["lookupSdkConnectionByKey"]["responses"]["200"]["content"]["application/json"];
 export type ListDataSourcesResponse = operations["listDataSources"]["responses"]["200"]["content"]["application/json"];
 export type GetDataSourceResponse = operations["getDataSource"]["responses"]["200"]["content"]["application/json"];
 export type ListExperimentsResponse = operations["listExperiments"]["responses"]["200"]["content"]["application/json"];
@@ -7533,6 +7759,11 @@ export type ListAttributesResponse = operations["listAttributes"]["responses"]["
 export type PostAttributeResponse = operations["postAttribute"]["responses"]["200"]["content"]["application/json"];
 export type PutAttributeResponse = operations["putAttribute"]["responses"]["200"]["content"]["application/json"];
 export type DeleteAttributeResponse = operations["deleteAttribute"]["responses"]["200"]["content"]["application/json"];
+export type ListArchetypesResponse = operations["listArchetypes"]["responses"]["200"]["content"]["application/json"];
+export type PostArchetypeResponse = operations["postArchetype"]["responses"]["200"]["content"]["application/json"];
+export type GetArchetypeResponse = operations["getArchetype"]["responses"]["200"]["content"]["application/json"];
+export type PutArchetypeResponse = operations["putArchetype"]["responses"]["200"]["content"]["application/json"];
+export type DeleteArchetypeResponse = operations["deleteArchetype"]["responses"]["200"]["content"]["application/json"];
 export type ListMembersResponse = operations["listMembers"]["responses"]["200"]["content"]["application/json"];
 export type DeleteMemberResponse = operations["deleteMember"]["responses"]["200"]["content"]["application/json"];
 export type UpdateMemberRoleResponse = operations["updateMemberRole"]["responses"]["200"]["content"]["application/json"];

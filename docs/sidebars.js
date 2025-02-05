@@ -362,6 +362,11 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "experimentation-analysis/cluster-experiments",
+          label: "Cluster Experiments",
+        },
+        {
+          type: "doc",
           id: "experimentation-analysis/dimensions",
           label: "Dimensions",
         },
