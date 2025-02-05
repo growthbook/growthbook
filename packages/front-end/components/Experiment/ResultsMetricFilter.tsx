@@ -2,7 +2,7 @@ import { MdFilterAlt, MdOutlineFilterAltOff } from "react-icons/md";
 import React, { useEffect, useState } from "react";
 import { BsXCircle } from "react-icons/bs";
 import { FaX } from "react-icons/fa6";
-import { Box } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { ResultsMetricFilters } from "@/components/Experiment/Results";
@@ -110,9 +110,10 @@ export default function ResultsMetricFilter({
               <small>Drag &amp; drop tags to change display order</small>
             </div>
 
-            <Box mt="3">
+            <Flex mt="3" align="center" gap="3">
               <Checkbox
                 label="Filter metrics"
+                mb="0"
                 value={
                   _metricFilter?.tagOrder?.length
                     ? !!_metricFilter.filterByTag
@@ -124,10 +125,12 @@ export default function ResultsMetricFilter({
                     filterByTag: value,
                   });
                 }}
-                mt="1"
                 disabled={!_metricFilter?.tagOrder?.length}
               />
-            </Box>
+              {!_metricFilter?.tagOrder?.length ? (
+                <small className="text-muted ml-2">No tags selected</small>
+              ) : null}
+            </Flex>
             <div className="d-flex mt-3">
               {_filteringApplied ? (
                 <button
