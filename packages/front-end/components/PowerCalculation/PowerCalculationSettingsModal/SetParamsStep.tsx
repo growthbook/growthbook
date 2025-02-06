@@ -32,18 +32,14 @@ import { useUser } from "@/services/UserContext";
 const DataInput = ({
   form,
   engineType,
-  hasPrefilledData = true,
+  metricsEditable,
 }: {
   form: PowerCalculationForm;
   engineType: "bayesian" | "frequentist";
-  hasPrefilledData?: boolean;
+  metricsEditable: boolean;
 }) => {
-  const [metricsEditable, setMetricsEditable] = useState<boolean>(
-    !!form.getValues("customizedMetrics") || !hasPrefilledData
-  );
   const metrics = form.getValues("metrics");
   const metricIds = Object.keys(metrics);
-  const error = form.watch("metricValuesData.error");
 
   const usersPerWeek = form.watch("usersPerWeek");
   const isUsersPerDayInvalid = usersPerWeek !== undefined && usersPerWeek <= 0;
@@ -51,87 +47,6 @@ const DataInput = ({
   return (
     <>
       <div className="ml-2 mt-4">
-        {hasPrefilledData ? (
-          <div className="mb-2">
-            Metric values below pre-filled{" "}
-            {form.getValues("metricValuesData.source") === "experiment" ? (
-              <>
-                from experiment:{" "}
-                <strong>
-                  {form.getValues("metricValuesData.sourceName")}.
-                </strong>
-              </>
-            ) : (
-              "from query data."
-            )}
-            {metricsEditable ? (
-              <Tooltip
-                body="Reset to query values"
-                usePortal={true}
-                tipPosition="top"
-              >
-                <a
-                  role="button"
-                  className="ml-1 mb-0"
-                  onClick={() => {
-                    const savedData = form.getValues("savedData");
-                    let savedMetrics = {};
-                    for (const [id, m] of Object.entries(metrics)) {
-                      const oldMetricValues = savedData?.metrics[id];
-                      if (oldMetricValues) {
-                        savedMetrics = {
-                          ...savedMetrics,
-                          [id]: {
-                            ...oldMetricValues,
-                            // don't override effect size
-                            effectSize: m.effectSize,
-                            overrideMetricLevelSettings:
-                              m.overrideMetricLevelSettings,
-                            overridePriorLiftMean: m.overridePriorLiftMean,
-                            overridePriorLiftStandardDeviation:
-                              m.overridePriorLiftStandardDeviation,
-                            overrideProper: m.overrideProper,
-                          },
-                        };
-                      } else {
-                        savedMetrics = {
-                          ...savedMetrics,
-                          [id]: m,
-                        };
-                      }
-                    }
-
-                    form.setValue("customizedMetrics", false);
-                    form.setValue("metrics", savedMetrics);
-                    form.setValue("usersPerWeek", savedData?.usersPerWeek);
-                    setMetricsEditable(false);
-                  }}
-                >
-                  Reset to data values.
-                </a>
-              </Tooltip>
-            ) : (
-              <a
-                role="button"
-                className="ml-1 mb-0"
-                onClick={() => {
-                  setMetricsEditable(true);
-                  form.setValue("customizedMetrics", true);
-                }}
-              >
-                Customize values.
-              </a>
-            )}
-          </div>
-        ) : null}
-        {error ? (
-          <Callout status={"error"} mb={"2"}>
-            Error populating data. Try a different population and/or metric or
-            enter values manually.
-            <br />
-            {error}
-          </Callout>
-        ) : null}
         <Field
           label={
             <div>
@@ -173,6 +88,76 @@ const DataInput = ({
   );
 };
 
+const ResetText = ({
+  form,
+  metricsEditable,
+  setMetricsEditable,
+}: {
+  form: PowerCalculationForm;
+  metricsEditable: boolean;
+  setMetricsEditable: (value: boolean) => void;
+}) => {
+  const metrics = form.getValues("metrics");
+
+  if (metricsEditable) {
+    return (
+      <Tooltip body="Reset to data values" usePortal={true} tipPosition="top">
+        <a
+          role="button"
+          className="ml-1 mb-0"
+          onClick={() => {
+            const savedData = form.getValues("savedData");
+            let savedMetrics = {};
+            for (const [id, m] of Object.entries(metrics)) {
+              const oldMetricValues = savedData?.metrics[id];
+              if (oldMetricValues) {
+                savedMetrics = {
+                  ...savedMetrics,
+                  [id]: {
+                    ...oldMetricValues,
+                    // don't override effect size
+                    effectSize: m.effectSize,
+                    overrideMetricLevelSettings: m.overrideMetricLevelSettings,
+                    overridePriorLiftMean: m.overridePriorLiftMean,
+                    overridePriorLiftStandardDeviation:
+                      m.overridePriorLiftStandardDeviation,
+                    overrideProper: m.overrideProper,
+                  },
+                };
+              } else {
+                savedMetrics = {
+                  ...savedMetrics,
+                  [id]: m,
+                };
+              }
+            }
+
+            form.setValue("customizedMetrics", false);
+            form.setValue("metrics", savedMetrics);
+            form.setValue("usersPerWeek", savedData?.usersPerWeek);
+            setMetricsEditable(false);
+          }}
+        >
+          Reset to data values.
+        </a>
+      </Tooltip>
+    );
+  }
+
+  return (
+    <a
+      role="button"
+      className="ml-1 mb-0"
+      onClick={() => {
+        setMetricsEditable(true);
+        form.setValue("customizedMetrics", true);
+      }}
+    >
+      Customize values.
+    </a>
+  );
+};
+
 const PopulationDataQueryInput = ({
   form,
   engineType,
@@ -186,6 +171,7 @@ const PopulationDataQueryInput = ({
 
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
   const [queryModalOpen, setQueryModalOpen] = useState<boolean>(false);
+  const [metricsEditable, setMetricsEditable] = useState<boolean>(true);
 
   const metricValuesData = form.watch("metricValuesData");
   const metricValuesSourceId = metricValuesData?.sourceId;
@@ -207,13 +193,19 @@ const PopulationDataQueryInput = ({
     shouldRun: () => !!metricValuesPopulationId,
   });
 
-  const [error, setError] = useState<string | undefined>(getError?.message);
-
   const populationData = data?.populationData;
+
+  const [error, setError] = useState<string | undefined>(undefined);
+  const selectError = form.watch("metricValuesData.error");
+
+  useEffect(() => {
+    setError(getError?.message ?? selectError);
+  }, [getError, setError, selectError]);
 
   useEffect(() => {
     if (populationData?.status === "success" && !customizedMetrics) {
       setMetricDataFromPopulationData({ populationData, form });
+      setMetricsEditable(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [populationData]);
@@ -252,6 +244,7 @@ const PopulationDataQueryInput = ({
                     "metricValuesData.populationId",
                     res.populationData?.id
                   );
+                  setMetricsEditable(false);
                   mutate();
                 } catch (e) {
                   setError(e.message);
@@ -302,6 +295,7 @@ const PopulationDataQueryInput = ({
                 setQueryModalOpen(true);
                 setDropdownOpen(false);
               }}
+              disabled={!populationData?.queries?.length}
             >
               View Queries
             </DropdownMenuItem>
@@ -335,16 +329,67 @@ const PopulationDataQueryInput = ({
           <DataInput
             form={form}
             engineType={engineType}
-            hasPrefilledData={false}
+            metricsEditable={true}
           />
         </>
       ) : null}
       {populationData?.status === "success" && (
         <>
-          <hr />
-          <DataInput form={form} engineType={engineType} />
+          <hr />{" "}
+          <div className="mb-2">
+            Metric values below pre-filled from query data.
+            <ResetText
+              form={form}
+              metricsEditable={metricsEditable}
+              setMetricsEditable={setMetricsEditable}
+            />
+          </div>
+          <DataInput
+            form={form}
+            engineType={engineType}
+            metricsEditable={metricsEditable}
+          />
         </>
       )}
+    </>
+  );
+};
+
+const ExperimentDataInput = ({
+  form,
+  engineType,
+}: {
+  form: PowerCalculationForm;
+  engineType: "bayesian" | "frequentist";
+}) => {
+  const error = form.getValues("metricValuesData.error");
+
+  const [metricsEditable, setMetricsEditable] = useState<boolean>(!error);
+
+  return (
+    <>
+      <div className="mb-2">
+        Metric values below pre-filled from experiment:{" "}
+        <strong>{form.getValues("metricValuesData.sourceName")}.</strong>
+        <ResetText
+          form={form}
+          metricsEditable={metricsEditable}
+          setMetricsEditable={setMetricsEditable}
+        />
+      </div>
+      {error ? (
+        <Callout status={"error"} mt={"2"}>
+          Error populating data: Try a different population and/or metric or
+          enter values manually.
+          <br />
+          {error}
+        </Callout>
+      ) : null}
+      <DataInput
+        form={form}
+        engineType={engineType}
+        metricsEditable={metricsEditable}
+      />
     </>
   );
 };
@@ -373,21 +418,11 @@ export const SetParamsStep = ({
       );
       break;
     case "experiment":
-      inputModal = (
-        <DataInput
-          form={form}
-          engineType={engineType}
-          hasPrefilledData={true}
-        />
-      );
+      inputModal = <ExperimentDataInput form={form} engineType={engineType} />;
       break;
     case "manual":
       inputModal = (
-        <DataInput
-          form={form}
-          engineType={engineType}
-          hasPrefilledData={false}
-        />
+        <DataInput form={form} engineType={engineType} metricsEditable={true} />
       );
       break;
   }

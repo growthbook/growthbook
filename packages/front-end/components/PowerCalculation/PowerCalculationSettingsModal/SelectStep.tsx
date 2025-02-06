@@ -50,7 +50,7 @@ export const SelectStep = ({
     datasources,
   } = useDefinitions();
   const settings = useOrgSettings();
-  const { hasCommercialFeature } = useUser();
+  const { hasCommercialFeature, permissionsUtil } = useUser();
 
   const hasHistoricalPower = hasCommercialFeature("historical-power");
 
@@ -101,17 +101,37 @@ export const SelectStep = ({
 
   const availableSegments = useMemo(
     () =>
-      appSegments.filter((s) =>
-        isProjectListValidForProject(s.projects, project)
-      ),
-    [appSegments, project]
+      appSegments.filter((s) => {
+        if (!isProjectListValidForProject(s.projects, project)) {
+          return false;
+        }
+        const datasource = datasources.find((d) => d.id === s.datasource);
+        if (
+          !datasource ||
+          !permissionsUtil.canRunPopulationDataQueries(datasource)
+        ) {
+          return false;
+        }
+        return true;
+      }),
+    [appSegments, datasources, project, permissionsUtil]
   );
   const availableFactTables = useMemo(
     () =>
-      appFactTables.filter((ft) =>
-        isProjectListValidForProject(ft.projects, project)
-      ),
-    [appFactTables, project]
+      appFactTables.filter((ft) => {
+        if (!isProjectListValidForProject(ft.projects, project)) {
+          return false;
+        }
+        const datasource = datasources.find((d) => d.id === ft.datasource);
+        if (
+          !datasource ||
+          !permissionsUtil.canRunPopulationDataQueries(datasource)
+        ) {
+          return false;
+        }
+        return true;
+      }),
+    [appFactTables, datasources, project, permissionsUtil]
   );
 
   // only allow metrics from the same datasource in an analysis
@@ -248,7 +268,6 @@ export const SelectStep = ({
     availableExperiments,
     availableSegments,
     availableFactTables,
-    //setAvailablePopulations,
   ]);
 
   const field = (
