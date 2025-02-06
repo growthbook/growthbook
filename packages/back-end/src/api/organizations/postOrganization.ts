@@ -20,6 +20,9 @@ export const postOrganization = createApiRequestHandler(
     if (name.length < 3) {
       throw Error("Name length must be at least 3 characters");
     }
+    if (name.length > 60) {
+      throw Error("Name length must be at most 60 characters");
+    }
 
     const org = await createOrganization({
       email: user.email,

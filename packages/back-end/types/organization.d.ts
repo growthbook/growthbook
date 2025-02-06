@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import { OWNER_JOB_TITLES, USAGE_INTENTS } from "shared/constants";
 import {
   ENV_SCOPED_PERMISSIONS,
   GLOBAL_PERMISSIONS,
@@ -44,6 +45,21 @@ export type RequireReview = {
   environments: string[];
   projects: string[];
 };
+
+export type OwnerJobTitle = keyof typeof OWNER_JOB_TITLES;
+
+export type UsageIntent = keyof typeof USAGE_INTENTS;
+
+export interface DemographicData {
+  ownerJobTitle?: OwnerJobTitle;
+  ownerUsageIntents?: UsageIntent[];
+}
+
+export interface CreateOrganizationPostBody {
+  company: string;
+  externalId?: string;
+  demographicData?: DemographicData;
+}
 
 export type DefaultMemberRole =
   | "noaccess"
@@ -261,6 +277,7 @@ export interface OrganizationInterface {
   externalId?: string;
   name: string;
   ownerEmail: string;
+  demographicData?: DemographicData;
   stripeCustomerId?: string;
   restrictLoginMethod?: string;
   restrictAuthSubPrefix?: string;

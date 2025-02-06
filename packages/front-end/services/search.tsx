@@ -136,7 +136,7 @@ export function useSearch<T>({
       const currentQ = searchParams.has("q") ? searchParams.get("q") : null;
 
       const shouldRemoveQ = value.length === 0 && currentQ !== null;
-      const shouldSetQ = value !== currentQ;
+      const shouldSetQ = value !== currentQ && value.length > 0;
       const shouldUpdateURL = shouldRemoveQ || shouldSetQ;
 
       if (shouldRemoveQ) {

@@ -21,7 +21,7 @@ import Link from "next/link";
 import { BsClock } from "react-icons/bs";
 import { PiCheckCircleFill, PiCircleDuotone, PiFileX } from "react-icons/pi";
 import { FeatureUsageLookback } from "back-end/src/types/Integration";
-import { Box, Card, Flex, Heading, Switch } from "@radix-ui/themes";
+import { Box, Flex, Heading, Switch } from "@radix-ui/themes";
 import { RxListBullet } from "react-icons/rx";
 import Button from "@/components/Radix/Button";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
@@ -67,6 +67,7 @@ import BarChart100 from "@/components/Features/BarChart100";
 import Callout from "@/components/Radix/Callout";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Badge from "@/components/Radix/Badge";
+import Frame from "@/components/Radix/Frame";
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";
@@ -528,11 +529,8 @@ export default function FeaturesOverview({
           Overview
         </Heading>
 
-        <Card>
-          <div
-            className="mh-350px fade-mask-vertical-1rem px-4 py-3"
-            style={{ overflowY: "auto" }}
-          >
+        <Frame>
+          <div className="mh-350px" style={{ overflowY: "auto" }}>
             <MarkdownInlineEdit
               value={feature.description || ""}
               save={async (description) => {
@@ -553,7 +551,7 @@ export default function FeaturesOverview({
               containerClassName="mb-1"
             />
           </div>
-        </Card>
+        </Frame>
         <Box>
           <CustomFieldDisplay
             target={feature}
@@ -630,8 +628,8 @@ export default function FeaturesOverview({
         <Heading size="4" as="h3" mt="4">
           Enabled Environments
         </Heading>
-        <Card mb="4">
-          <Box p="5">
+        <Frame mb="4">
+          <Box>
             <div className="mb-2">
               When disabled, this feature will evaluate to <code>null</code>.
               The default value and rules will be ignored.
@@ -816,10 +814,10 @@ export default function FeaturesOverview({
               </PremiumTooltip>
             )}
           </Box>
-        </Card>
+        </Frame>
         {dependents > 0 && (
-          <Card mb="4">
-            <Box p="5">
+          <Frame mb="4">
+            <Box>
               <Flex mb="3" gap="3" align="center">
                 <Heading size="4" as="h4" mb="0">
                   Dependents
@@ -898,7 +896,7 @@ export default function FeaturesOverview({
                 </>
               )}
             </Box>
-          </Card>
+          </Frame>
         )}
 
         {feature.valueType === "json" && (
@@ -911,8 +909,8 @@ export default function FeaturesOverview({
                 }
               />
             </Heading>
-            <Card>
-              <Box p="5">
+            <Frame>
+              <Box>
                 {hasJsonValidator && jsonSchema ? (
                   <>
                     <div className="d-flex align-items-center">
@@ -979,7 +977,7 @@ export default function FeaturesOverview({
                   </div>
                 )}
               </Box>
-            </Card>
+            </Frame>
           </Box>
         )}
 

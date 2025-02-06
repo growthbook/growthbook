@@ -21,6 +21,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import Callout from "@/components/Radix/Callout";
 import Checkbox from "@/components/Radix/Checkbox";
+import Frame from "@/components/Radix/Frame";
 
 export type CheckListItem = {
   display: string | ReactElement;
@@ -486,7 +487,7 @@ export function PreLaunchChecklistUI({
 
   const header = (
     <div className="d-flex flex-row align-items-center justify-content-between text-dark">
-      <h4 className="m-0 py-3">
+      <h4>
         {title}{" "}
         {data && checklistItemsRemaining !== null ? (
           <span
@@ -533,15 +534,15 @@ export function PreLaunchChecklistUI({
         />
       ) : null}
       {collapsible ? (
-        <div className="box my-3">
+        <Frame>
           <Collapsible
             open={true}
             transitionTime={100}
-            trigger={<div className="px-4">{header}</div>}
+            trigger={<div className="">{header}</div>}
           >
-            <div className="mx-4 mt-2">{contents}</div>
+            <div className="mt-2">{contents}</div>
           </Collapsible>
-        </div>
+        </Frame>
       ) : (
         <>
           {header}

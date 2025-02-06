@@ -244,7 +244,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
 
   let value: DefinitionContextValue;
   if (error) {
-    value = { ...defaultValue, error: error?.message || "" };
+    value = { ...defaultValue, setProject, error: error?.message || "" };
   } else if (!data) {
     value = defaultValue;
   } else {
