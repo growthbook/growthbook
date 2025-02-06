@@ -336,7 +336,7 @@ const PopulationDataQueryInput = ({
       {populationData?.status === "success" && (
         <>
           <hr />{" "}
-          <div className="mb-2">
+          <div className="ml-2 mb-2">
             Metric values below pre-filled from query data.
             <ResetText
               form={form}
@@ -362,13 +362,13 @@ const ExperimentDataInput = ({
   form: PowerCalculationForm;
   engineType: "bayesian" | "frequentist";
 }) => {
-  const error = form.getValues("metricValuesData.error");
+  const error = form.watch("metricValuesData.error");
 
   const [metricsEditable, setMetricsEditable] = useState<boolean>(!error);
 
   return (
     <>
-      <div className="mb-2">
+      <div className="ml-2 mb-2">
         Metric values below pre-filled from experiment:{" "}
         <strong>{form.getValues("metricValuesData.sourceName")}.</strong>
         <ResetText
