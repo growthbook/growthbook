@@ -13,7 +13,11 @@ import {
   updateDefaultCard,
   deletePaymentMethodById,
 } from "enterprise";
-import { Card } from "shared/src/types/subscriptions";
+import {
+  BankAccount,
+  Card,
+  PaymentMethod,
+} from "shared/src/types/subscriptions";
 import { APP_ORIGIN, STRIPE_WEBHOOK_SECRET } from "back-end/src/util/secrets";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
@@ -307,7 +311,7 @@ export async function updateCustomerDefaultPayment(
   });
 }
 
-export async function fetchCustomerCards(
+export async function fetchPaymentMethods(
   req: AuthRequest<null, null>,
   res: Response
 ) {
@@ -319,33 +323,68 @@ export async function fetchCustomerCards(
       throw new Error("No license key found for organization");
     }
     const {
-      cards,
+      paymentMethods,
       defaultPaymentMethod,
     }: {
-      cards: Stripe.PaymentMethod[];
+      paymentMethods: Stripe.PaymentMethod[];
       defaultPaymentMethod: string | undefined;
     } = await getCardsByLicenseKey(org.licenseKey);
 
-    if (!cards.length) {
+    if (!paymentMethods.length) {
       return res.status(200).json({ status: 200, cards: [] });
     }
 
-    const formattedCards: Card[] = cards
+    const formattedPaymentMethods: PaymentMethod[] = paymentMethods
       .map((method) => {
-        const card = method.card;
-        if (!card) return undefined;
-        return {
-          id: method.id,
-          last4: card.last4,
-          brand: card.brand,
-          expMonth: card.exp_month,
-          expYear: card.exp_year,
-          isDefault: method.id === defaultPaymentMethod,
-        };
+        if (method.card) {
+          return {
+            id: method.id,
+            type: "Card",
+            last4: method.card.last4,
+            brand: method.card.brand,
+            expMonth: method.card.exp_month,
+            expYear: method.card.exp_year,
+            isDefault: method.id === defaultPaymentMethod,
+            wallet: method.card.wallet?.type || undefined,
+          } as Card;
+        } else if (method.afterpay_clearpay) {
+          return {
+            id: method.id,
+            type: "Bank Account",
+            brand: "Clearpay",
+            isDefault: method.id === defaultPaymentMethod,
+          } as BankAccount;
+        } else if (method.us_bank_account) {
+          return {
+            id: method.id,
+            type: "Bank Account",
+            last4: method.us_bank_account.last4,
+            brand: method.us_bank_account.bank_name,
+            isDefault: method.id === defaultPaymentMethod,
+          } as BankAccount;
+        } else if (method.sepa_debit) {
+          return {
+            id: method.id,
+            type: "Bank Account",
+            last4: method.sepa_debit.last4,
+            brand: "SEPA Debit",
+            isDefault: method.id === defaultPaymentMethod,
+          } as BankAccount;
+        } else if (method.sofort) {
+          return {
+            id: method.id,
+            type: "Bank Account",
+            brand: `Sofort ${method.sofort.country}`,
+            isDefault: method.id === defaultPaymentMethod,
+          } as BankAccount;
+        }
+        return undefined;
       })
-      .filter((card): card is Card => Boolean(card));
+      .filter((method): method is PaymentMethod => method !== undefined); // Ensure TypeScript knows undefined is removed
 
-    return res.status(200).json({ status: 200, cards: formattedCards });
+    return res
+      .status(200)
+      .json({ status: 200, paymentMethods: formattedPaymentMethods });
   } catch (e) {
     return res.status(400).json({ status: 400, message: e.message });
   }

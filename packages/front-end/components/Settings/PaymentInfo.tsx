@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { Flex, Text } from "@radix-ui/themes";
 import { CiCreditCard1 } from "react-icons/ci";
-import { Card } from "shared/src/types/subscriptions";
+import { PaymentMethod } from "shared/src/types/subscriptions";
+import { FaCreditCard } from "react-icons/fa";
+import { FaBuildingColumns } from "react-icons/fa6";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
@@ -17,69 +19,99 @@ import { StripeProvider } from "../Billing/StripeProvider";
 import Tooltip from "../Tooltip/Tooltip";
 import CreditCardModal from "./CreditCardModal";
 
+function formatBrandName(name: string): string {
+  switch (name) {
+    case "amex":
+      return "American Express";
+    case "diners":
+      return "Diners Club";
+    case "discover":
+      return "Discover";
+    case "eftpos_au":
+      return "Eftpos Australia";
+    case "jcb":
+      return "JCB";
+    case "mastercard":
+      return "Mastercard";
+    case "unionpay":
+      return "UnionPay";
+    case "visa":
+      return "Visa";
+    case "unknown":
+      return "Unknown Card Brand";
+    default:
+      return name; // Return the original name if it's an unexpected value
+  }
+}
+
 export default function PaymentInfo() {
-  const [cardModal, setCardModal] = useState(false);
-  const [defaultCard, setDefaultCard] = useState<string | undefined>(undefined);
+  const [paymentMethodModal, setPaymentMethodModal] = useState(false);
+  const [defaultPaymentMethod, setDefaultPaymentMethod] = useState<
+    string | undefined
+  >(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
-  const [cardData, setCardData] = useState<Card[]>([]);
-  const [loadingCards, setLoadingCards] = useState(false);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]); // change to paymentMethods
+  const [loading, setLoading] = useState(false);
   const { subscription } = useUser();
   const { apiCall } = useAuth();
   // TODO: Remove once all orgs have moved license info off of the org - only limit by isCloud()
   const canShowPaymentInfo = isCloud() && subscription?.hasLicenseWithOrgId;
 
-  const fetchCardData = useCallback(async () => {
-    setLoadingCards(true);
+  const fetchPaymentMethods = useCallback(async () => {
+    setLoading(true);
     try {
-      const res: { cards: Card[] } = await apiCall(
+      const res: { paymentMethods: PaymentMethod[] } = await apiCall(
         "/subscription/payment-methods",
         {
           method: "GET",
         }
       );
-      setCardData(res.cards);
+      console.log("res", res);
+      setPaymentMethods(res.paymentMethods);
     } catch (e) {
       setError(e.message);
     } finally {
-      setLoadingCards(false);
+      setLoading(false);
     }
   }, [apiCall]);
 
-  async function setCardAsDefault() {
-    if (!defaultCard) throw new Error("Must specify card id");
+  async function setPaymentMethodAsDefault() {
+    if (!defaultPaymentMethod) throw new Error("Must specify card id");
     try {
       await apiCall("/subscription/payment-methods/set-default", {
         method: "POST",
         body: JSON.stringify({
-          paymentMethodId: defaultCard,
+          paymentMethodId: defaultPaymentMethod,
         }),
       });
-      const updatedCardData = cardData.map((card) => {
-        const updatedCard = card;
-        if (card.isDefault) {
-          card.isDefault = false;
-        } else if (card.id === defaultCard) {
-          card.isDefault = true;
+      const updatedCardData = paymentMethods.map((paymentMethod) => {
+        const updatedPaymentMethod = paymentMethod;
+        if (paymentMethod.isDefault) {
+          paymentMethod.isDefault = false;
+        } else if (paymentMethod.id === defaultPaymentMethod) {
+          paymentMethod.isDefault = true;
         }
-        return updatedCard;
+        return updatedPaymentMethod;
       });
-      setCardData(updatedCardData);
+      setPaymentMethods(updatedCardData);
     } catch (e) {
       throw new Error(e.message);
     }
   }
 
-  async function detachCard(cardId: string) {
+  async function detachPaymentMethod(paymentMethodId: string) {
     try {
-      const cardIndex = cardData.findIndex((card) => card.id === cardId);
+      const methodIndex = paymentMethods.findIndex(
+        (method) => method.id === paymentMethodId
+      );
 
-      if (cardData.length === 1 && subscription?.status !== "canceled") {
+      if (paymentMethods.length === 1 && subscription?.status !== "canceled") {
         throw new Error(
           "Unable to delete card. You must have at least 1 card on file."
         );
       }
 
-      if (cardIndex <= -1) {
+      if (methodIndex <= -1) {
         throw new Error(
           "Cannot delete: Card does not exist on this subscription"
         );
@@ -87,12 +119,12 @@ export default function PaymentInfo() {
       await apiCall("/subscription/payment-methods/detach", {
         method: "POST",
         body: JSON.stringify({
-          paymentMethodId: cardId,
+          paymentMethodId,
         }),
       });
 
-      const updatedCardData = cardData.toSpliced(cardIndex, 1);
-      setCardData(updatedCardData);
+      const updatedData = paymentMethods.toSpliced(methodIndex, 1);
+      setPaymentMethods(updatedData);
     } catch (e) {
       throw new Error(e.message);
     }
@@ -100,31 +132,31 @@ export default function PaymentInfo() {
 
   useEffect(() => {
     if (canShowPaymentInfo) {
-      fetchCardData();
+      fetchPaymentMethods();
     }
-  }, [apiCall, canShowPaymentInfo, fetchCardData, subscription]);
+  }, [apiCall, canShowPaymentInfo, fetchPaymentMethods, subscription]);
 
   if (!canShowPaymentInfo) return null;
 
   return (
     <>
-      {cardModal ? (
+      {paymentMethodModal ? (
         <StripeProvider>
           <CreditCardModal
-            onClose={() => setCardModal(false)}
-            refetch={() => fetchCardData()}
-            numOfCards={cardData.length}
+            onClose={() => setPaymentMethodModal(false)}
+            refetch={() => fetchPaymentMethods()}
+            numOfCards={paymentMethods.length}
           />
         </StripeProvider>
       ) : null}
-      {defaultCard ? (
+      {defaultPaymentMethod ? (
         <Modal
           header="Update default card"
           open={true}
           cta="Set as default card"
-          submit={async () => await setCardAsDefault()}
+          submit={async () => await setPaymentMethodAsDefault()}
           trackingEventModalType=""
-          close={() => setDefaultCard(undefined)}
+          close={() => setDefaultPaymentMethod(undefined)}
         >
           Are your sure? The default card will be the card charged on future
           invoices.
@@ -135,14 +167,14 @@ export default function PaymentInfo() {
           <h3 className="mb-0">Payment Methods</h3>
           <Tooltip
             body="You can only have up to 3 cards on file"
-            shouldDisplay={cardData.length > 2}
+            shouldDisplay={paymentMethods.length > 2}
           >
             <button
-              disabled={cardData.length > 2}
+              // disabled={paymentMethods.length > 2}
               className="btn btn-primary float-right"
               onClick={() => {
-                setCardModal(true);
-                track("Edit Card Modal", {
+                setPaymentMethodModal(true);
+                track("Edit Payment Method Modal", {
                   source: "payment-method-empty-state",
                 });
               }}
@@ -151,7 +183,7 @@ export default function PaymentInfo() {
               <span className="h4 pr-2 m-0 d-inline-block align-top">
                 <GBAddCircle />
               </span>
-              Add Card
+              Add Payment Method
             </button>
           </Tooltip>
         </Flex>
@@ -159,13 +191,13 @@ export default function PaymentInfo() {
           <Callout status="warning">{error}</Callout>
         ) : (
           <>
-            {loadingCards ? (
+            {loading ? (
               <Flex justify="center" align="center" className="py-8">
                 <LoadingSpinner />
               </Flex>
             ) : (
               <>
-                {!cardData.length ? (
+                {!paymentMethods.length ? (
                   <Flex
                     justify="center"
                     align="center"
@@ -173,62 +205,80 @@ export default function PaymentInfo() {
                     className="py-4"
                   >
                     <CiCreditCard1 size={50} />
-                    <Text as="label">No cards added</Text>
+                    <Text as="label">No paymenth methods added</Text>
                   </Flex>
                 ) : (
-                  <table className="table mb-3 appbox gbtable">
-                    <thead>
-                      <tr>
-                        <th className="col-8">Card Details</th>
-                        <th className="col-4">Valid Until</th>
-                        <th className="col-2"></th>
-                      </tr>
-                    </thead>
+                  <table className="table mb-3 appbox gbtable table-hover">
                     <tbody>
-                      {cardData.map((card) => {
+                      {paymentMethods.map((method) => {
                         return (
-                          <tr key={card.id}>
+                          <tr key={method.id}>
                             <td>
-                              {card.brand}
-                              <Text as="span" className="px-2">
-                                ••••{card.last4}
-                              </Text>
-                              {card.isDefault ? (
-                                <Badge label="Default Card" />
+                              <span className="pr-2">
+                                {method.type === "Card" ? (
+                                  <FaCreditCard size={15} />
+                                ) : null}
+                                {method.type === "Bank Account" ? (
+                                  <FaBuildingColumns size={15} />
+                                ) : null}
+                              </span>
+                              {formatBrandName(method.brand)}
+                              {method.last4 ? (
+                                <Text as="span" className="px-2">
+                                  ••••{method.last4}
+                                </Text>
                               ) : null}
+                              <span className="pl-2">
+                                {method.isDefault ? (
+                                  <Badge label="Default" />
+                                ) : null}
+                                {method.type === "Card" && method.wallet ? (
+                                  <Badge label={method.wallet} color="green" />
+                                ) : null}
+                              </span>
                             </td>
                             <td>
-                              {card.expMonth}/{card.expYear}
-                            </td>
-                            <td>
-                              <MoreMenu className="pl-2">
-                                <button
-                                  className="dropdown-item"
-                                  disabled={card.isDefault}
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    setDefaultCard(card.id);
-                                  }}
-                                >
-                                  Set as Default Card
-                                </button>
-                                <Tooltip
-                                  tipPosition="left"
-                                  body="Before you can delete this card, set another card as the default card"
-                                  shouldDisplay={card.isDefault}
-                                >
-                                  <DeleteButton
-                                    onClick={async () =>
-                                      await detachCard(card.id)
-                                    }
-                                    disabled={card.isDefault}
-                                    className="dropdown-item text-danger"
-                                    displayName="Remove Card"
-                                    text="Remove Card"
-                                    useIcon={false}
-                                  />
-                                </Tooltip>
-                              </MoreMenu>
+                              <Flex align="center" justify="end">
+                                {method.type === "Card"
+                                  ? `Expires ${method.expMonth}/${method.expYear}`
+                                  : null}
+                                <MoreMenu className="pl-2">
+                                  <button
+                                    className="dropdown-item"
+                                    disabled={method.isDefault}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      setDefaultPaymentMethod(method.id);
+                                    }}
+                                  >
+                                    Set as default
+                                  </button>
+                                  <Tooltip
+                                    tipPosition="left"
+                                    body="Before you can delete this card, set another card as the default card"
+                                    shouldDisplay={method.isDefault}
+                                  >
+                                    <DeleteButton
+                                      onClick={async () =>
+                                        await detachPaymentMethod(method.id)
+                                      }
+                                      disabled={method.isDefault}
+                                      className="dropdown-item text-danger"
+                                      displayName={`Remove ${
+                                        method.type === "Card"
+                                          ? "Card"
+                                          : "Bank Account"
+                                      }`}
+                                      text={`Remove ${
+                                        method.type === "Card"
+                                          ? "Card"
+                                          : "Bank Account"
+                                      }`}
+                                      useIcon={false}
+                                    />
+                                  </Tooltip>
+                                </MoreMenu>
+                              </Flex>
                             </td>
                           </tr>
                         );
