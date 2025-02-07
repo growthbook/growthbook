@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { DailyUsage } from "back-end/types/organization";
-import { FaAngleLeft, FaAngleRight } from "react-icons/fa";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { AreaClosed } from "@visx/shape";
@@ -10,6 +9,7 @@ import { AxisBottom, AxisLeft } from "@visx/axis";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { curveLinear } from "@visx/curve";
+import { PiCaretLeft, PiCaretRight } from "react-icons/pi";
 import useApi from "@/hooks/useApi";
 import Callout from "@/components/Radix/Callout";
 import Frame from "@/components/Radix/Frame";
@@ -17,6 +17,7 @@ import SelectField from "@/components/Forms/SelectField";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { isCloud } from "@/services/env";
 import Badge from "@/components/Radix/Badge";
+import Button from "@/components/Radix/Button";
 
 // Formatter for numbers
 const requestsFormatter = new Intl.NumberFormat("en-US", {
@@ -120,56 +121,54 @@ export default function CloudUsage() {
       {!usage.length && <LoadingOverlay />}
       <Flex gap="2" align="center" mb="4">
         <h3 className="mr-4 mb-0">CDN Usage</h3>
-        <a
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            if (monthsAgo >= maxMonthsAgo) return;
-            setMonthsAgo(monthsAgo + 1);
-          }}
-          className={
-            monthsAgo >= maxMonthsAgo ? "text-secondary cursor-default" : ""
-          }
-        >
-          <FaAngleLeft />
-        </a>
-        <SelectField
-          options={monthOptions}
-          value={monthsAgo + ""}
-          onChange={(value) => setMonthsAgo(parseInt(value))}
-          sort={false}
-        />
-        <a
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            if (monthsAgo <= 0) return;
-            setMonthsAgo(monthsAgo - 1);
-          }}
-          className={monthsAgo <= 0 ? "text-secondary cursor-default" : ""}
-        >
-          <FaAngleRight />
-        </a>
+        <div className="ml-auto">
+          <SelectField
+            options={monthOptions}
+            value={monthsAgo + ""}
+            onChange={(value) => setMonthsAgo(parseInt(value))}
+            sort={false}
+          />
+        </div>
       </Flex>
-      <Flex gap="3" align="center" mb="4">
+      <Flex gap="5" align="center" mb="4">
         <div>
-          <strong>Total Requests: </strong>
+          <strong>Total requests: </strong>
           <span>{requestsFormatter.format(totalRequests)}</span>
         </div>
         <div>
-          <strong>Total Bandwidth: </strong>
+          <strong>Total bandwidth: </strong>
           <span>{formatBytes(totalBandwidth)}</span>
         </div>
         {useDummyData && <Badge label="Dummy Data" color="amber" />}
+        <Flex className="ml-auto" gap="2">
+          <Button
+            variant="ghost"
+            onClick={() => {
+              if (monthsAgo >= maxMonthsAgo) return;
+              setMonthsAgo(monthsAgo + 1);
+            }}
+            disabled={monthsAgo >= maxMonthsAgo}
+          >
+            <PiCaretLeft /> prev
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              if (monthsAgo <= 0) return;
+              setMonthsAgo(monthsAgo - 1);
+            }}
+            disabled={monthsAgo <= 0}
+          >
+            next <PiCaretRight />
+          </Button>
+        </Flex>
       </Flex>
-      <p>
-        <em>
-          Usage data not available prior to February 2025. Graphs may be delayed
-          by up to 24 hours.
-        </em>
-      </p>
+      <Callout status="info" mb="5">
+        Usage data not available prior to February 2025. Graphs may be delayed
+        by up to 24 hours.
+      </Callout>
       {totalRequests > 0 && (
-        <Box mb="4">
+        <Box mb="5">
           <h3>CDN Requests</h3>
           <DailyGraph
             data={usage.map((u) => ({ ts: new Date(u.date), v: u.requests }))}
@@ -245,7 +244,12 @@ function DailyGraph({
             });
 
             return (
-              <div className="bg-light border">
+              <div
+                className="rounded"
+                style={{
+                  border: "1px solid var(--slate-a5)",
+                }}
+              >
                 <svg width={width} height={height}>
                   <Group left={margin[3]} top={margin[0]}>
                     <AreaClosed
@@ -255,7 +259,7 @@ function DailyGraph({
                       yScale={yScale}
                       strokeWidth={1}
                       stroke="url(#area-gradient)"
-                      fill="#a44afe"
+                      fill="var(--violet-9)"
                       curve={curveLinear}
                     />
                     <AxisLeft

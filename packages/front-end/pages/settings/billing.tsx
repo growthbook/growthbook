@@ -72,7 +72,8 @@ const BillingPage: FC = () => {
         />
       )}
 
-      <h1>Billing and Usage</h1>
+      <h1 className="mb-3">Billing and Usage</h1>
+
       {(isCloud() || useDummyUsageData) && <CloudUsage />}
 
       <div className=" bg-white p-3 border">
