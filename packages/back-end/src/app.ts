@@ -406,7 +406,10 @@ if (IS_CLOUD) {
     "/subscription/payment-methods/setup-intent",
     stripeController.postSetupIntent
   );
-  app.get("/subscription/payment-methods", stripeController.fetchCustomerCards);
+  app.get(
+    "/subscription/payment-methods",
+    stripeController.fetchPaymentMethods
+  );
   app.post(
     "/subscription/payment-methods/detach",
     stripeController.deletePaymentMethod

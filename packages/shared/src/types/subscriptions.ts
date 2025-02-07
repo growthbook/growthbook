@@ -1,20 +1,10 @@
-export interface Card {
+export interface PaymentMethod {
   id: string;
-  last4: string;
   brand: string;
-  expMonth: number;
-  expYear: number;
+  type: "card" | "us_bank_account" | "unknown" | "link";
   isDefault: boolean;
-  type: "Card";
+  last4?: string;
+  expMonth?: number;
+  expYear?: number;
   wallet?: string;
 }
-
-export interface BankAccount {
-  id: string;
-  last4?: string;
-  brand: string;
-  isDefault: boolean;
-  type: "Bank Account";
-}
-
-export type PaymentMethod = Card | BankAccount;

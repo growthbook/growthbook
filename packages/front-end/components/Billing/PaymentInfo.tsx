@@ -17,31 +17,23 @@ import Modal from "../Modal";
 import LoadingSpinner from "../LoadingSpinner";
 import { StripeProvider } from "../Billing/StripeProvider";
 import Tooltip from "../Tooltip/Tooltip";
-import CreditCardModal from "./CreditCardModal";
+import AddPaymentMethodModal from "./AddPaymentMethodModal";
+
+const brandNames: Record<string, string> = {
+  amex: "American Express",
+  diners: "Diners Club",
+  discover: "Discover",
+  eftpos_au: "Eftpos Australia",
+  jcb: "JCB",
+  mastercard: "Mastercard",
+  unionpay: "UnionPay",
+  visa: "Visa",
+  us_bank_account: "US Bank Account",
+  unknown: "Unknown Card Brand",
+};
 
 function formatBrandName(name: string): string {
-  switch (name) {
-    case "amex":
-      return "American Express";
-    case "diners":
-      return "Diners Club";
-    case "discover":
-      return "Discover";
-    case "eftpos_au":
-      return "Eftpos Australia";
-    case "jcb":
-      return "JCB";
-    case "mastercard":
-      return "Mastercard";
-    case "unionpay":
-      return "UnionPay";
-    case "visa":
-      return "Visa";
-    case "unknown":
-      return "Unknown Card Brand";
-    default:
-      return name; // Return the original name if it's an unexpected value
-  }
+  return brandNames[name] || name; // Fallback to the original name if not found
 }
 
 export default function PaymentInfo() {
@@ -66,7 +58,6 @@ export default function PaymentInfo() {
           method: "GET",
         }
       );
-      console.log("res", res);
       setPaymentMethods(res.paymentMethods);
     } catch (e) {
       setError(e.message);
@@ -76,7 +67,8 @@ export default function PaymentInfo() {
   }, [apiCall]);
 
   async function setPaymentMethodAsDefault() {
-    if (!defaultPaymentMethod) throw new Error("Must specify card id");
+    if (!defaultPaymentMethod)
+      throw new Error("Must specify payment method id");
     try {
       await apiCall("/subscription/payment-methods/set-default", {
         method: "POST",
@@ -84,7 +76,7 @@ export default function PaymentInfo() {
           paymentMethodId: defaultPaymentMethod,
         }),
       });
-      const updatedCardData = paymentMethods.map((paymentMethod) => {
+      const updatedPaymentMethodData = paymentMethods.map((paymentMethod) => {
         const updatedPaymentMethod = paymentMethod;
         if (paymentMethod.isDefault) {
           paymentMethod.isDefault = false;
@@ -93,7 +85,7 @@ export default function PaymentInfo() {
         }
         return updatedPaymentMethod;
       });
-      setPaymentMethods(updatedCardData);
+      setPaymentMethods(updatedPaymentMethodData);
     } catch (e) {
       throw new Error(e.message);
     }
@@ -107,13 +99,13 @@ export default function PaymentInfo() {
 
       if (paymentMethods.length === 1 && subscription?.status !== "canceled") {
         throw new Error(
-          "Unable to delete card. You must have at least 1 card on file."
+          "Unable to delete payment method. You must have at least 1 payment method on file."
         );
       }
 
       if (methodIndex <= -1) {
         throw new Error(
-          "Cannot delete: Card does not exist on this subscription"
+          "Cannot delete: Payment method does not exist on this subscription"
         );
       }
       await apiCall("/subscription/payment-methods/detach", {
@@ -142,35 +134,35 @@ export default function PaymentInfo() {
     <>
       {paymentMethodModal ? (
         <StripeProvider>
-          <CreditCardModal
+          <AddPaymentMethodModal
             onClose={() => setPaymentMethodModal(false)}
             refetch={() => fetchPaymentMethods()}
-            numOfCards={paymentMethods.length}
+            numOfMethods={paymentMethods.length}
           />
         </StripeProvider>
       ) : null}
       {defaultPaymentMethod ? (
         <Modal
-          header="Update default card"
+          header="Update default payment method"
           open={true}
-          cta="Set as default card"
+          cta="Set as default payment method"
           submit={async () => await setPaymentMethodAsDefault()}
           trackingEventModalType=""
           close={() => setDefaultPaymentMethod(undefined)}
         >
-          Are your sure? The default card will be the card charged on future
-          invoices.
+          Are your sure? The default payment method will be the one charged on
+          future invoices.
         </Modal>
       ) : null}
       <div className="bg-white p-3 border mb-3">
         <Flex justify="between" align="center" className="pb-3">
           <h3 className="mb-0">Payment Methods</h3>
           <Tooltip
-            body="You can only have up to 3 cards on file"
+            body="You can only have up to 3 payment methods on file"
             shouldDisplay={paymentMethods.length > 2}
           >
             <button
-              // disabled={paymentMethods.length > 2}
+              disabled={paymentMethods.length > 2}
               className="btn btn-primary float-right"
               onClick={() => {
                 setPaymentMethodModal(true);
@@ -205,7 +197,7 @@ export default function PaymentInfo() {
                     className="py-4"
                   >
                     <CiCreditCard1 size={50} />
-                    <Text as="label">No paymenth methods added</Text>
+                    <Text as="label">No payment methods added</Text>
                   </Flex>
                 ) : (
                   <table className="table mb-3 appbox gbtable table-hover">
@@ -215,16 +207,16 @@ export default function PaymentInfo() {
                           <tr key={method.id}>
                             <td>
                               <span className="pr-2">
-                                {method.type === "Card" ? (
+                                {method.type === "card" ? (
                                   <FaCreditCard size={15} />
                                 ) : null}
-                                {method.type === "Bank Account" ? (
+                                {method.type === "us_bank_account" ? (
                                   <FaBuildingColumns size={15} />
                                 ) : null}
                               </span>
                               {formatBrandName(method.brand)}
                               {method.last4 ? (
-                                <Text as="span" className="px-2">
+                                <Text as="span" className="px-2" align="center">
                                   ••••{method.last4}
                                 </Text>
                               ) : null}
@@ -232,14 +224,14 @@ export default function PaymentInfo() {
                                 {method.isDefault ? (
                                   <Badge label="Default" />
                                 ) : null}
-                                {method.type === "Card" && method.wallet ? (
+                                {method.wallet ? (
                                   <Badge label={method.wallet} color="green" />
                                 ) : null}
                               </span>
                             </td>
                             <td>
                               <Flex align="center" justify="end">
-                                {method.type === "Card"
+                                {method.type === "card"
                                   ? `Expires ${method.expMonth}/${method.expYear}`
                                   : null}
                                 <MoreMenu className="pl-2">
@@ -264,16 +256,8 @@ export default function PaymentInfo() {
                                       }
                                       disabled={method.isDefault}
                                       className="dropdown-item text-danger"
-                                      displayName={`Remove ${
-                                        method.type === "Card"
-                                          ? "Card"
-                                          : "Bank Account"
-                                      }`}
-                                      text={`Remove ${
-                                        method.type === "Card"
-                                          ? "Card"
-                                          : "Bank Account"
-                                      }`}
+                                      displayName="Remove Payment Method"
+                                      text="Remove Payment Method"
                                       useIcon={false}
                                     />
                                   </Tooltip>

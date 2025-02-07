@@ -13,11 +13,7 @@ import {
   updateDefaultCard,
   deletePaymentMethodById,
 } from "enterprise";
-import {
-  BankAccount,
-  Card,
-  PaymentMethod,
-} from "shared/src/types/subscriptions";
+import { PaymentMethod } from "shared/src/types/subscriptions";
 import { APP_ORIGIN, STRIPE_WEBHOOK_SECRET } from "back-end/src/util/secrets";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
@@ -334,53 +330,38 @@ export async function fetchPaymentMethods(
       return res.status(200).json({ status: 200, cards: [] });
     }
 
-    const formattedPaymentMethods: PaymentMethod[] = paymentMethods
-      .map((method) => {
+    const formattedPaymentMethods: PaymentMethod[] = paymentMethods.map(
+      (method) => {
+        const isDefault = method.id === defaultPaymentMethod;
         if (method.card) {
           return {
             id: method.id,
-            type: "Card",
+            type: "card",
             last4: method.card.last4,
             brand: method.card.brand,
             expMonth: method.card.exp_month,
             expYear: method.card.exp_year,
-            isDefault: method.id === defaultPaymentMethod,
+            isDefault,
             wallet: method.card.wallet?.type || undefined,
-          } as Card;
-        } else if (method.afterpay_clearpay) {
-          return {
-            id: method.id,
-            type: "Bank Account",
-            brand: "Clearpay",
-            isDefault: method.id === defaultPaymentMethod,
-          } as BankAccount;
+          };
         } else if (method.us_bank_account) {
           return {
             id: method.id,
-            type: "Bank Account",
-            last4: method.us_bank_account.last4,
-            brand: method.us_bank_account.bank_name,
-            isDefault: method.id === defaultPaymentMethod,
-          } as BankAccount;
-        } else if (method.sepa_debit) {
+            type: "us_bank_account",
+            last4: method.us_bank_account.last4 || "",
+            brand: method.us_bank_account.bank_name || method.type,
+            isDefault,
+          };
+        } else {
           return {
             id: method.id,
-            type: "Bank Account",
-            last4: method.sepa_debit.last4,
-            brand: "SEPA Debit",
-            isDefault: method.id === defaultPaymentMethod,
-          } as BankAccount;
-        } else if (method.sofort) {
-          return {
-            id: method.id,
-            type: "Bank Account",
-            brand: `Sofort ${method.sofort.country}`,
-            isDefault: method.id === defaultPaymentMethod,
-          } as BankAccount;
+            type: "unknown",
+            brand: method.type,
+            isDefault,
+          };
         }
-        return undefined;
-      })
-      .filter((method): method is PaymentMethod => method !== undefined); // Ensure TypeScript knows undefined is removed
+      }
+    );
 
     return res
       .status(200)
