@@ -116,6 +116,8 @@ const PowerCalculationPage = (): React.ReactElement => {
           close={() => setShowModal(null)}
           onSuccess={(p) => {
             track("power-calculation-settings-update", {
+              type: "success",
+              source: p.metricValuesData.source,
               numMetrics: p.metrics.length,
               metricsMetaData: Object.keys(p.metrics).map((m: string) => {
                 const metric = p.metrics[m];

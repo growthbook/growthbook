@@ -428,7 +428,10 @@ export const SetParamsStep = ({
   }
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="power-calculation-set-params"
+      allowlistedTrackingEventProps={{
+        source: form.getValues("metricValuesData.source"),
+      }}
       open
       size="lg"
       header="New Calculation"

@@ -292,7 +292,7 @@ export const SelectStep = ({
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="power-calculation-select"
       open
       size="lg"
       header="New Power Calculation"
