@@ -10,7 +10,7 @@ import {
   postNewSubscriptionSuccessToLicenseServer,
   createSetupIntent,
   getPaymentMethodsByLicenseKey,
-  updateDefaultCard,
+  updateDefaultPaymentMethod,
   deletePaymentMethodById,
 } from "enterprise";
 import { PaymentMethod } from "shared/src/types/subscriptions";
@@ -302,7 +302,7 @@ export async function updateCustomerDefaultPayment(
     if (!org.licenseKey) {
       throw new Error("No license key found for organization");
     }
-    await updateDefaultCard(org.licenseKey, paymentMethodId);
+    await updateDefaultPaymentMethod(org.licenseKey, paymentMethodId);
   } catch (e) {
     return res.status(400).json({ status: 400, message: e.message });
   }

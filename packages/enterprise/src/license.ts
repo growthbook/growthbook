@@ -82,7 +82,7 @@ export type SubscriptionInfo = {
   status: "active" | "canceled" | "past_due" | "trialing" | "";
   hasPaymentMethod: boolean;
   // TODO: Remove once all orgs have moved license info off of the org
-  hasLicenseWithOrgId: boolean; // Licenses before 12/2022 don't have the organizationId set
+  hasLicense: boolean;
 };
 
 export function getStripeSubscriptionStatus(
@@ -105,7 +105,7 @@ export function getSubscriptionFromLicense(
       trialEnd: license._orbSubscription.trialEnd,
       status: license._orbSubscription.status,
       hasPaymentMethod: license._orbSubscription.hasPaymentMethod,
-      hasLicenseWithOrgId: !!license.organizationId,
+      hasLicense: true,
     };
   } else if (license._stripeSubscription) {
     return {
@@ -114,7 +114,7 @@ export function getSubscriptionFromLicense(
       trialEnd: license._stripeSubscription.trialEnd,
       status: getStripeSubscriptionStatus(license._stripeSubscription.status),
       hasPaymentMethod: !!license._stripeSubscription.hasPaymentMethod,
-      hasLicenseWithOrgId: !!license.organizationId,
+      hasLicense: true,
     };
   }
   return null;
@@ -722,7 +722,7 @@ export async function getPaymentMethodsByLicenseKey(licenseKey: string) {
   return res;
 }
 
-export async function updateDefaultCard(
+export async function updateDefaultPaymentMethod(
   licenseKey: string,
   paymentMethodId: string
 ) {

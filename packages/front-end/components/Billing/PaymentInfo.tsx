@@ -25,12 +25,13 @@ export default function PaymentInfo() {
     string | undefined
   >(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]); // change to paymentMethods
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(false);
   const { subscription } = useUser();
   const { apiCall } = useAuth();
   // TODO: Remove once all orgs have moved license info off of the org - only limit by isCloud()
-  const canShowPaymentInfo = isCloud() && subscription?.hasLicenseWithOrgId;
+  // The licenseKey is required to look up payment methods
+  const canShowPaymentInfo = isCloud() && subscription?.hasLicense;
 
   const fetchPaymentMethods = useCallback(async () => {
     setLoading(true);
@@ -189,37 +190,28 @@ export default function PaymentInfo() {
                         return (
                           <tr key={method.id}>
                             <td>
-                              <Flex align="center">
-                                {method.brand}
-                                {method.last4 ? (
-                                  <Text
-                                    as="span"
-                                    className="px-2"
-                                    align="center"
-                                  >
-                                    ••••{method.last4}
-                                  </Text>
+                              {method.brand}
+                              {method.last4 ? (
+                                <Text as="span" className="px-2" align="center">
+                                  ••••{method.last4}
+                                </Text>
+                              ) : null}
+                              <span className="pr-2">
+                                {method.type === "card" ? (
+                                  <FaCreditCard size={18} />
                                 ) : null}
-                                <span className="pr-2">
-                                  {method.type === "card" ? (
-                                    <FaCreditCard size={18} />
-                                  ) : null}
-                                  {method.type === "us_bank_account" ? (
-                                    <FaBuildingColumns size={18} />
-                                  ) : null}
-                                </span>
-                                <span className="pl-2">
-                                  {method.isDefault ? (
-                                    <Badge label="Default" />
-                                  ) : null}
-                                  {method.wallet ? (
-                                    <Badge
-                                      label={method.wallet}
-                                      color="green"
-                                    />
-                                  ) : null}
-                                </span>
-                              </Flex>
+                                {method.type === "us_bank_account" ? (
+                                  <FaBuildingColumns size={18} />
+                                ) : null}
+                              </span>
+                              <span className="pl-2">
+                                {method.isDefault ? (
+                                  <Badge label="Default" />
+                                ) : null}
+                                {method.wallet ? (
+                                  <Badge label={method.wallet} color="green" />
+                                ) : null}
+                              </span>
                             </td>
                             <td>
                               <Flex align="center" justify="end">
