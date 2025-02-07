@@ -373,7 +373,10 @@ export default function FeatureModal({
           <div>
             <CustomFieldInput
               customFields={customFields}
-              form={form}
+              setCustomFields={(value) => {
+                form.setValue("customFields", value);
+              }}
+              currentCustomFields={form.watch("customFields") || {}}
               section={"feature"}
             />
           </div>

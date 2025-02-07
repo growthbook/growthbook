@@ -31,7 +31,9 @@ export type QueryType =
   | "experimentDropUnitsTable"
   | "experimentResults"
   | "experimentTraffic"
-  | "experimentMultiMetric";
+  | "experimentMultiMetric"
+  | "populationMetric"
+  | "populationMultiMetric";
 
 export interface QueryInterface {
   id: string;

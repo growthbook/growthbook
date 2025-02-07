@@ -27,6 +27,7 @@ import ConditionDisplay from "./ConditionDisplay";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
 import ExperimentSummary from "./ExperimentSummary";
+import FeatureUsageGraph, { useFeatureUsage } from "./FeatureUsageGraph";
 import ExperimentRefSummary, {
   isExperimentRefRuleSkipped,
 } from "./ExperimentRefSummary";
@@ -41,6 +42,7 @@ interface SortableProps {
     environment: string;
     i: number;
     defaultType?: string;
+    duplicate?: boolean;
   }) => void;
   setCopyRuleModal: (args: {
     environment: string;
@@ -120,6 +122,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
 
     const allEnvironments = useEnvironments();
     const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+    const { featureUsage } = useFeatureUsage();
 
     let title: string | ReactElement =
       rule.description ||
@@ -204,7 +207,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               <Box>
                 <Badge label={<>{i + 1}</>} radius="full" color="gray" />
               </Box>
-              <Box width="100%">
+              <Box flexGrow="1" flexShrink="5" overflowX="auto">
                 <Flex align="center" justify="between" mb="3">
                   <Heading as="h4" size="3" weight="medium" mb="0">
                     {linkedExperiment ? (
@@ -235,18 +238,24 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 <Box>{info.callout}</Box>
                 <Box style={{ opacity: isInactive ? 0.6 : 1 }} mt="3">
                   {hasCondition && rule.type !== "experiment-ref" && (
-                    <div className="row mb-3 align-items-top">
-                      <div className="col-auto d-flex align-items-center">
+                    <Flex align="center" justify="start" gap="3">
+                      <Box pb="3">
                         <strong className="font-weight-semibold">IF</strong>
-                      </div>
-                      <div className="col">
+                      </Box>
+                      <Box
+                        width="100%"
+                        flexShrink="4"
+                        flexGrow="1"
+                        overflowX="auto"
+                        pb="3"
+                      >
                         <ConditionDisplay
                           condition={rule.condition || ""}
                           savedGroups={rule.savedGroups}
                           prerequisites={rule.prerequisites}
                         />
-                      </div>
-                    </div>
+                      </Box>
+                    </Flex>
                   )}
                   {rule.type === "force" && (
                     <ForceSummary value={rule.value} feature={feature} />
@@ -280,6 +289,17 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 </Box>
               </Box>
               <Box>
+                {featureUsage && (
+                  <div className="ml-auto">
+                    <FeatureUsageGraph
+                      data={
+                        featureUsage?.environments?.[environment]?.rules?.[
+                          rule.id
+                        ]
+                      }
+                    />
+                  </div>
+                )}
                 {canEdit && (
                   <MoreMenu useRadix={true} size={14}>
                     <a
@@ -335,6 +355,17 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         }}
                       >
                         Copy rule to environment(s)
+                      </Button>
+                    )}
+                    {rule.type !== "experiment-ref" && (
+                      <Button
+                        color=""
+                        className="dropdown-item"
+                        onClick={() => {
+                          setRuleModal({ environment, i, duplicate: true });
+                        }}
+                      >
+                        Duplicate rule
                       </Button>
                     )}
                     <DeleteButton

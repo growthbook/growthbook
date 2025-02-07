@@ -22,6 +22,8 @@ import {
   FeatureRule,
   FeatureTestResult,
   JSONSchemaDef,
+  FeatureUsageData,
+  FeatureUsageTimeSeries,
 } from "back-end/types/feature";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
@@ -113,6 +115,9 @@ import { ReqContext } from "back-end/types/organization";
 import { Changeset, ExperimentInterface } from "back-end/types/experiment";
 import { ApiReqContext } from "back-end/types/api";
 import { getAllCodeRefsForFeature } from "back-end/src/models/FeatureCodeRefs";
+import { getSourceIntegrationObject } from "back-end/src/services/datasource";
+import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
+import { FeatureUsageLookback } from "back-end/src/types/Integration";
 import { getChangesToStartExperiment } from "back-end/src/services/experiments";
 
 class UnrecoverableApiError extends Error {
@@ -2353,6 +2358,154 @@ export async function getFeatureById(
     revisions,
     experiments: [...experimentsMap.values()],
     codeRefs,
+  });
+}
+
+function getLookbackNumBuckets(
+  lookback: FeatureUsageLookback
+): { width: number; buckets: number } {
+  switch (lookback) {
+    case "15minute":
+      return { width: 60 * 1000, buckets: 15 };
+    case "hour":
+      return { width: 5 * 60 * 1000, buckets: 12 };
+    case "day":
+      return { width: 60 * 60 * 1000, buckets: 24 };
+    case "week":
+      return { width: 6 * 60 * 60 * 1000, buckets: 28 };
+    default:
+      throw new Error(`Invalid lookback: ${lookback}`);
+  }
+}
+
+export async function getFeatureUsage(
+  req: AuthRequest<null, { id: string }, { lookback?: FeatureUsageLookback }>,
+  res: Response<{ status: 200; usage: FeatureUsageData }>
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+
+  const { id } = req.params;
+  const feature = await getFeature(context, id);
+
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  const environments = getEnvironments(org);
+
+  //TODO: handle multiple datasources with feature tracking
+  const ds = await getGrowthbookDatasource(context);
+  if (!ds) {
+    throw new Error("No tracking datasource configured");
+  }
+
+  const integration = getSourceIntegrationObject(context, ds, true);
+  if (!integration.getFeatureUsage) {
+    throw new Error("Tracking datasource does not support feature usage");
+  }
+
+  const lookback = req.query.lookback || "15minute";
+
+  const { buckets, width } = getLookbackNumBuckets(lookback);
+  const createEmptyRecord = () => {
+    return {
+      total: 0,
+      ts: new Array(buckets).fill(0).map((_, i) => ({
+        t: i,
+        v: 0,
+      })),
+    };
+  };
+
+  const { start, rows } = await integration.getFeatureUsage(
+    feature.id,
+    lookback
+  );
+
+  const getTSIndex = (timestamp: Date) => {
+    const ts = timestamp.getTime();
+    const diff = ts - start;
+    const bucket = Math.floor(diff / width);
+
+    return Math.min(buckets - 1, Math.max(bucket, 0));
+  };
+
+  const usage: FeatureUsageData = {
+    overall: createEmptyRecord(),
+    sources: {},
+    values: {},
+    defaultValue: createEmptyRecord(),
+    environments: {},
+  };
+
+  const validEnvs = new Set(environments.map((e) => e.id));
+
+  const updateRecord = (
+    record: FeatureUsageTimeSeries,
+    data: { timestamp: Date; evaluations: number }
+  ) => {
+    const i = getTSIndex(data.timestamp);
+    const v = data.evaluations;
+
+    record.total += v;
+    record.ts[i].v += v;
+  };
+
+  rows.forEach((d) => {
+    // Skip invalid environments (sanity check)
+    if (!d.environment || !validEnvs.has(d.environment)) return;
+
+    // Overall evaluation counts
+    updateRecord(usage.overall, d);
+
+    // Sources
+    usage.sources[d.source] = usage.sources[d.source] || 0;
+    usage.sources[d.source] += d.evaluations;
+
+    // Values
+    usage.values[d.value] = usage.values[d.value] || 0;
+    usage.values[d.value] += d.evaluations;
+
+    if (!usage.environments[d.environment]) {
+      usage.environments[d.environment] = { ...createEmptyRecord(), rules: {} };
+    }
+    updateRecord(usage.environments[d.environment], d);
+
+    if (d.source === "defaultValue") {
+      updateRecord(usage.defaultValue, d);
+    } else if (d.ruleId) {
+      if (!usage.environments[d.environment].rules[d.ruleId]) {
+        usage.environments[d.environment].rules[d.ruleId] = {
+          ...createEmptyRecord(),
+          variations: {},
+        };
+      }
+      updateRecord(usage.environments[d.environment].rules[d.ruleId], d);
+
+      if (d.variationId) {
+        if (
+          !usage.environments[d.environment].rules[d.ruleId].variations[
+            d.variationId
+          ]
+        ) {
+          usage.environments[d.environment].rules[d.ruleId].variations[
+            d.variationId
+          ] = createEmptyRecord();
+        }
+        updateRecord(
+          usage.environments[d.environment].rules[d.ruleId].variations[
+            d.variationId
+          ],
+          d
+        );
+      }
+    }
+  });
+
+  res.status(200).json({
+    status: 200,
+    usage,
   });
 }
 

@@ -1,10 +1,12 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { cloneDeep } from "lodash";
+import { OWNER_JOB_TITLES, USAGE_INTENTS } from "shared/constants";
 import { POLICIES, RESERVED_ROLE_IDS } from "shared/permissions";
 import { z } from "zod";
 import { TeamInterface } from "back-end/types/team";
 import {
+  DemographicData,
   Invite,
   Member,
   MemberRoleWithProjects,
@@ -52,6 +54,18 @@ const organizationSchema = new mongoose.Schema({
   url: String,
   name: String,
   ownerEmail: String,
+  demographicData: {
+    ownerJobTitle: {
+      type: String,
+      enum: Object.keys(OWNER_JOB_TITLES),
+    },
+    ownerUsageIntents: [
+      {
+        type: String,
+        enum: Object.keys(USAGE_INTENTS),
+      },
+    ],
+  },
   restrictLoginMethod: String,
   restrictAuthSubPrefix: String,
   autoApproveMembers: Boolean,
@@ -149,6 +163,7 @@ export async function createOrganization({
   email,
   userId,
   name,
+  demographicData,
   url = "",
   verifiedDomain = "",
   externalId = "",
@@ -156,6 +171,7 @@ export async function createOrganization({
   email: string;
   userId: string;
   name: string;
+  demographicData?: DemographicData;
   url?: string;
   verifiedDomain?: string;
   externalId?: string;
@@ -163,6 +179,7 @@ export async function createOrganization({
   // TODO: sanitize fields
   const doc = await OrganizationModel.create({
     ownerEmail: email,
+    demographicData,
     name,
     url,
     verifiedDomain,

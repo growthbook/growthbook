@@ -9,9 +9,9 @@ import Field from "@/components/Forms/Field";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
 import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListModal";
-import Badge from "@/components/Radix/Badge";
 import RadioGroup from "@/components/Radix/RadioGroup";
 import { GBInfo } from "@/components/Icons";
+import Frame from "@/components/Radix/Frame";
 import StatsEngineSettings from "./StatsEngineSettings";
 import StickyBucketingSettings from "./StickyBucketingSettings";
 
@@ -45,8 +45,8 @@ export default function ExperimentSettings({
 
   return (
     <>
-      <Box mb="4" className="appbox">
-        <Flex gap="4" p="5">
+      <Frame>
+        <Flex gap="4">
           <Box width="220px" flexShrink="0">
             <Heading size="4" as="h4">
               Experiment Settings
@@ -134,36 +134,6 @@ export default function ExperimentSettings({
                   })}
                 />
               </Box>
-            </Box>
-
-            {/* Power calculator */}
-            <Box mb="6">
-              <Flex align="start" justify="start" gap="3">
-                <Box>
-                  <Checkbox
-                    value={form.watch("powerCalculatorEnabled")}
-                    setValue={(v) => form.setValue("powerCalculatorEnabled", v)}
-                    id="toggle-powerCalculator"
-                    mt="1"
-                  />
-                </Box>
-                <Flex direction="column">
-                  <label
-                    className="mb-2"
-                    htmlFor="toggle-powerCalculator"
-                    style={{ justifyContent: "start" }}
-                  >
-                    <Text size="3" className="font-weight-semibold">
-                      Enable Power Calculator
-                    </Text>{" "}
-                    <Badge label="Alpha" color="purple" ml="3" />
-                  </label>
-                  <Text>
-                    Displays a button to launch the calculator from the
-                    Experiments page
-                  </Text>
-                </Flex>
-              </Flex>
             </Box>
 
             {/* Fact table optimization */}
@@ -440,10 +410,10 @@ export default function ExperimentSettings({
             </Box>
           </Flex>
         </Flex>
-      </Box>
+      </Frame>
 
-      <Box mb="4" className="appbox">
-        <Flex gap="4" p="5">
+      <Frame>
+        <Flex gap="4">
           <Box width="220px" flexShrink="0">
             <Heading size="4" as="h4">
               Experiment Analysis
@@ -457,7 +427,7 @@ export default function ExperimentSettings({
         {editChecklistOpen ? (
           <ExperimentCheckListModal close={() => setEditChecklistOpen(false)} />
         ) : null}
-      </Box>
+      </Frame>
     </>
   );
 }

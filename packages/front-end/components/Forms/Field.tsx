@@ -25,6 +25,7 @@ export type SelectOptions =
 
 export type BaseFieldProps = {
   label?: ReactNode;
+  markRequired?: boolean;
   error?: ReactNode;
   helpText?: ReactNode;
   containerClassName?: string;
@@ -98,6 +99,7 @@ const Field = forwardRef(
       inputGroupClassName,
       labelClassName,
       label,
+      markRequired,
       prepend,
       append,
       render,
@@ -219,6 +221,7 @@ const Field = forwardRef(
           {label && (
             <label htmlFor={fieldId} className={clsx(labelClassName)}>
               {label}
+              {markRequired && <span className="text-danger ml-1">*</span>}
             </label>
           )}
           {otherProps.currentLength !== undefined && otherProps.maxLength ? (

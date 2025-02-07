@@ -1,0 +1,260 @@
+---
+title: Cuped Estimated Variance Technical Details
+description: Technical details of CUPED variance estimates
+sidebar_label: CUPED Technical
+slug: cuped-technical
+---
+
+# Technical CUPED details
+
+Here we document the technical details behind GrowthBook CUPED variance estimates.
+
+We use the notation below. We describe our approach in terms of revenue, but any binomial or count metric can be substituted.
+
+1. Define $Y_{C}$ $\left(Y_{T}\right)$ as the observed post-exposure revenue for a user exposed to control (treatment).
+2. Define $X_{C}$ $\left(X_{T}\right)$ as the observed pre-exposure revenue for a user exposed to control (treatment).
+3. Define $Y$ ($X$) as the post-exposure (pre-exposure) revenue for all users collectively in the experiment.
+4. Define $\bar{Y}_{C}$ $\left(\bar{Y}_{T}\right)$ as the sample average post-exposure revenue for users exposed to control (treatment).
+5. Define $\mu_{C}$ $\left(\mu_{T}\right)$ as the population average post-exposure revenue for users exposed to control (treatment).
+6. Define $N_{C}$ $\left(N_{T}\right)$ as the number of users exposed to control (treatment).
+
+## Absolute case
+
+For absolute inference, our target parameter is
+
+$$
+\begin{align}
+\Delta_{A}&=\mu_{Y}-\mu_{YC}.
+\end{align}
+$$
+
+As described in Equation 4 of ([Deng et al. 2013](https://exp-platform.com/Documents/2013-02-CUPED-ImprovingSensitivityOfControlledExperiments.pdf)), we find the optimal $\theta$ using user data across both control and treatment:
+$$\theta = cov(Y, X) / var(X).$$
+Our estimate of $\Delta_{A}$ is the difference in adjusted means
+
+$$
+\begin{align}
+\hat{\Delta}_{A} &= \left(\bar{Y}_{T} - \theta\bar{X}_{T}\right)  - \left(\bar{Y}_{C} - \theta\bar{X}_{C}\right).
+\end{align}
+$$
+
+Under a superpopulation framework and independence of random assignment, the adjusted means $\left(\bar{Y}_{T} - \theta\bar{X}_{T}\right)$ and $\left(\bar{Y}_{C} - \theta\bar{X}_{C}\right)$ are statistically independent.  
+Therefore, the variance of the difference in adjusted means is the sum of the variances of the adjusted means.  
+We denote these variances as $V_{adj, C}$ and $V_{adj, T}$, respectively, and they are defined as
+Define the control (treatment) population covariance between post-exposure and pre-exposure revenue as $\sigma_{XY,C}$ ($\sigma_{XY,T}$).
+
+$$
+\begin{align}
+V_{adj, C} &= \frac{\sigma^{2}_{YC} + \theta^{2}\sigma^{2}_{XC} - 2\theta\sigma_{XY,C}}{N_{C}}\\
+V_{adj, T} &= \frac{\sigma^{2}_{YT} + \theta^{2}\sigma^{2}_{XT} - 2\theta\sigma_{XY,T}}{N_{T}}.
+\end{align}
+$$
+
+Our estimated variance of $\hat{\Delta}_{A}$ is $\hat{\sigma}^{2}_{\Delta_{A}} = V_{adj, C} + V_{adj, T}$.
+
+## Relative case
+
+For relative inference (i.e., estimating lift), the parameter of interest is
+
+$$
+\begin{align}
+\Delta_{R}&=\frac{\mu_{T}-\mu_{C}}{\mu_{C}}.
+\end{align}
+$$
+
+Our estimate of $\Delta_{R}$ is the difference in adjusted means divided by the control mean:
+
+$$
+\begin{align}
+\hat{\Delta}_{R} = \frac{\left(\bar{Y}_{T} - \theta\bar{X}_{T}\right)  - \left(\bar{Y}_{C} - \theta\bar{X}_{C}\right)}{\bar{Y}_{C}}.
+\end{align}
+$$
+
+To derive $\hat{\sigma}^{2}_{\Delta_{R}}$, the estimated variance of $\hat{\Delta}_{R}$, we use the delta method.
+
+1. Define the control (treatment) population post-exposure variance as $\sigma^{2}_{YC}$ ($\sigma^{2}_{YT}$).
+2. Define the control (treatment) population pre-exposure variance as $\sigma^{2}_{XC}$ ($\sigma^{2}_{XT}$).
+3. Define the covariance of the sample control means $$ \boldsymbol{\Lambda}_{C} = \text{Cov}\left[\bar{Y}_{C}, \bar{X}_{C}\right] =\begin{pmatrix}
+   \sigma^{2}_{Y,C} & \sigma*{XY,C}\\
+   \sigma*{XY,C} & \sigma^{2}_{X,C}
+   \end{pmatrix}/ N_{C}$$.
+4. Define the covariance of the sample treatment means $$ \boldsymbol{\Lambda}_{T} = \text{Cov}\left[\bar{Y}_{T}, \bar{X}_{T}\right] =\begin{pmatrix}
+   \sigma^{2}_{Y,T} & \sigma*{XY,T}\\
+   \sigma*{XY,T} & \sigma^{2}_{X,T}
+   \end{pmatrix}/ N_{T}$$.
+5. Define the vector of population means $\boldsymbol{\beta}_{0} = \left[\mu_{YT}, \mu_{XT}, \mu_{YC}, \mu_{XC} \right].$
+6. Define their sample counterparts as $\hat{\boldsymbol{\beta}} = \left[\bar{Y}_{T}, \bar{X}_{T}, \bar{Y}_{C}, \bar{X}_{C} \right].$
+7. Define $$\boldsymbol{\Lambda} = \text{Cov}\left(\hat{\boldsymbol{\beta}}\right) = \begin{pmatrix}
+\boldsymbol{\Lambda}_{T} & \textbf{0}\\
+\textbf{0} & \boldsymbol{\Lambda}_{C}
+\end{pmatrix},$$
+   where $\textbf{0}$ is a $2 \times 2$ matrix of zeros.
+
+By the multivariate central limit theorem:
+
+$$
+\begin{align}
+\hat{\boldsymbol{\beta}}
+\stackrel{}{\sim}\mathcal{MVN}\left(\boldsymbol{\beta}_{0},\boldsymbol{\Lambda}\right).
+\end{align}
+$$
+
+For vector $\boldsymbol{\beta}$, define its $k^{\text{th}}$ element as $\beta[k]$.  
+Define the function
+$$g(\boldsymbol{\beta}; \theta) = \frac{\left(\beta[1] - \theta\beta[2]\right)  - \left(\beta[3] - \theta\beta[4]\right)}{\beta[3]}.$$
+
+Define the vector of partial derivatives as $\boldsymbol{\nabla}_{r} = \frac{\partial g(\boldsymbol{\beta})}{\partial\boldsymbol{\beta}}$, where the individual elements are
+
+$$
+\begin{align*}
+\boldsymbol{\nabla}[1] &= \frac{1}{\boldsymbol{\beta}[3]}
+\\\boldsymbol{\nabla}[2] &= \frac{-\theta}{\boldsymbol{\beta}[3]}
+\\\boldsymbol{\nabla}[3] &= \frac{-\boldsymbol{\beta}[3]
+-
+\left(\boldsymbol{\beta}[1] - \theta\boldsymbol{\beta}[2] - \boldsymbol{\beta}[3] + \theta\boldsymbol{\beta}[4]\right)
+}{\boldsymbol{\beta}[3]^{2}}
+= \frac{
+-\boldsymbol{\beta}[1] + \theta\boldsymbol{\beta}[2]  - \theta\boldsymbol{\beta}[4]
+}{\boldsymbol{\beta}[3]^{2}}
+\\\boldsymbol{\nabla}[4] &= \frac{\theta}{\boldsymbol{\beta}[3]}.
+\end{align*}
+$$
+
+By the delta method,
+$$\hat{\Delta}_{r} = g(\hat{\boldsymbol{\beta}}) \stackrel{}{\sim}\mathcal{N}\left(\Delta_{r} = g\left(\boldsymbol{\beta}\right), \boldsymbol{\nabla}_{r}^{\top}\Lambda\boldsymbol{\nabla}_{r} \right)$$.
+
+Decompose $\boldsymbol{\nabla}_{r}$ into $\boldsymbol{\nabla}_{r} = \left[
+\boldsymbol{\nabla}_{r}[1:2], \boldsymbol{\nabla}_{r}[3:4]
+\right].$
+
+Then the final variance
+
+$$
+\begin{align}
+\boldsymbol{\nabla}_{r}^{\top}\Lambda\boldsymbol{\nabla}_{r} &=
+\boldsymbol{\nabla}_{r}[1:2]^{\top}
+\boldsymbol{\Lambda}_{T}
+\boldsymbol{\nabla}_{r}[1:2]
++
+\boldsymbol{\nabla}_{r}[3:4]^{\top}
+\boldsymbol{\Lambda}_{C}
+\boldsymbol{\nabla}_{r}[3:4]
+\nonumber\\&=
+\left[\frac{1}{\boldsymbol{\beta}[3]}, \frac{-\theta}{\boldsymbol{\beta}[3]}\right]
+^{\top}
+\begin{pmatrix}
+\sigma^{2}_{Y,T}  & \sigma_{XY,T} \\
+\sigma_{XY,T} & \sigma^{2}_{X,T}
+\end{pmatrix}/ N_{T}
+\left[\frac{1}{\boldsymbol{\beta}[3]}, \frac{-\theta}{\boldsymbol{\beta}[3]}\right]
+\nonumber\\&+ \left[\frac{
+-\boldsymbol{\beta}[1] + \theta\boldsymbol{\beta}[2]  - \theta\boldsymbol{\beta}[4]
+}{\boldsymbol{\beta}[3]^{2}},  \frac{\theta}{\boldsymbol{\beta}[3]}\right]
+\begin{pmatrix}
+\sigma^{2}_{Y,C}  & \sigma_{XY,C} \\
+\sigma_{XY,C} & \sigma^{2}_{X,C}
+\end{pmatrix}/ N_{C}
+\left[\frac{
+-\boldsymbol{\beta}[1] + \theta\boldsymbol{\beta}[2]  - \theta\boldsymbol{\beta}[4]
+}{\boldsymbol{\beta}[3]^{2}},  \frac{\theta}{\boldsymbol{\beta}[3]}\right]
+\nonumber\\&=
+\frac{1}{N_{T}\boldsymbol{\beta}[3]^{2}}\left[1, -\theta\right]
+^{\top}
+\begin{pmatrix}
+\sigma^{2}_{Y,T}  & \sigma_{XY,T} \\
+\sigma_{XY,T} & \sigma^{2}_{X,T}
+\end{pmatrix}
+\left[1, -\theta\right]
+\nonumber\\&+
+\frac{1}{N_{C}\boldsymbol{\beta}[3]^{2}}
+\left[\frac{
+-\boldsymbol{\beta}[1] + \theta\boldsymbol{\beta}[2]  - \theta\boldsymbol{\beta}[4]
+}{\boldsymbol{\beta}[3]},  \theta\right]
+\begin{pmatrix}
+\sigma^{2}_{Y,C}  & \sigma_{XY,C} \\
+\sigma_{XY,C} & \sigma^{2}_{X,C}
+\end{pmatrix}
+\left[\frac{
+-\boldsymbol{\beta}[1] + \theta\boldsymbol{\beta}[2]  - \theta\boldsymbol{\beta}[4]
+}{\boldsymbol{\beta}[3]},  \theta\right]
+\nonumber\\&=\frac{
+\sigma^{2}_{Y,T}
++\theta^{2}\sigma^{2}_{X,T}
+-2\sigma_{XY,T}
+}{N_{T}\boldsymbol{\beta}[3]^{2}}
+\nonumber\\&+
+\frac{1}{N_{C}\boldsymbol{\beta}[3]^{2}}
+\left[\frac{
+-\boldsymbol{\beta}[1] + \theta\boldsymbol{\beta}[2]  - \theta\boldsymbol{\beta}[4]
+}{\boldsymbol{\beta}[3]},  \theta\right]
+\begin{pmatrix}
+\frac{\sigma^{2}_{Y,C}  \left(
+-\boldsymbol{\beta}[1] + \theta\boldsymbol{\beta}[2]  - \theta\boldsymbol{\beta}[4]
+\right)}{
+\boldsymbol{\beta}[3]
+}
++ \theta\sigma_{XY,C} \\
+\frac{\sigma_{XY,C}
+\left(
+-\boldsymbol{\beta}[1] + \theta\boldsymbol{\beta}[2]  - \theta\boldsymbol{\beta}[4]
+\right)}{\boldsymbol{\beta}[3]}
++\theta\sigma^{2}_{X,C}
+\end{pmatrix}
+\nonumber\\&=\frac{
+\sigma^{2}_{Y,T}
++\theta^{2}\sigma^{2}_{X,T}
+-2\sigma_{XY,T}
+}{N_{T}\boldsymbol{\beta}[3]^{2}}
+\nonumber\\&+
+\frac{1}{N_{C}\boldsymbol{\beta}[3]^{2}}
+\left(
+\frac{\sigma^{2}_{Y,C}  \left(
+-\boldsymbol{\beta}[1] + \theta\boldsymbol{\beta}[2]  - \theta\boldsymbol{\beta}[4]
+\right)^{2}}{\boldsymbol{\beta}[3]^{2}}
++2\frac{\theta\sigma_{XY,C}
+\left(-\boldsymbol{\beta}[1] + \theta\boldsymbol{\beta}[2]  - \theta\boldsymbol{\beta}[4]\right)}{\boldsymbol{\beta}[3]}
++\theta^{2}\sigma^{2}_{X,C}
+\right)
+\nonumber\\&=\frac{
+\sigma^{2}_{Y,T}
++\theta^{2}\sigma^{2}_{X,T}
+-2\sigma_{XY,T}
+}{N_{T}\bar{Y}_{C}^{2}}
+\nonumber\\&+
+\frac{1}{N_{C}\bar{Y}_{C}^{2}}
+\left(
+\frac{\sigma^{2}_{Y,C}  \left(
+-\bar{Y}_{T} + \theta\bar{X}_{T}  - \theta\bar{X}_{C}
+\right)^{2}}{\bar{Y}_{C}^{2}}
++2\frac{\theta\sigma_{XY,C}
+\left(-\bar{Y}_{T} + \theta\bar{X}_{T}  - \theta\bar{X}_{C}\right)}{\bar{Y}_{C}}
++\theta^{2}\sigma^{2}_{X,C}
+\right),
+\end{align}
+$$
+
+where in the last step we move away from $\boldsymbol{\beta}$ notation and use sample mean notation.
+
+For estimating uncertainty in production, we use
+
+$$
+\begin{align}
+\hat{\sigma}^{2}_{\Delta_{R}}&=\frac{
+\sigma^{2}_{Y,T}
++\theta^{2}\sigma^{2}_{X,T}
+-2\sigma_{XY,T}
+}{N_{T}\bar{Y}_{C}^{2}}
+\nonumber\\&+
+\frac{1}{N_{C}\bar{Y}_{C}^{2}}
+\left(
+\frac{\sigma^{2}_{Y,C}  \left(
+-\bar{Y}_{T}
+\right)^{2}}{\bar{Y}_{C}^{2}}
++2\frac{\theta\sigma_{XY,C}
+\left(-\bar{Y}_{T}\right)}{\bar{Y}_{C}}
++\theta^{2}\sigma^{2}_{X,C}
+\right),
+\end{align}
+$$
+
+which leverages the fact that the pre-exposure revenue population means are equal due to randomization.

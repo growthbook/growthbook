@@ -3,6 +3,7 @@ import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import React, { useMemo, useState } from "react";
 import { FaExclamationTriangle, FaLink } from "react-icons/fa";
+import { FaBoltLightning } from "react-icons/fa6";
 import { ago, datetime } from "shared/dates";
 import {
   autoMerge,
@@ -19,7 +20,8 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Link from "next/link";
 import { BsClock } from "react-icons/bs";
 import { PiCheckCircleFill, PiCircleDuotone, PiFileX } from "react-icons/pi";
-import { Box, Card, Flex, Heading, Switch } from "@radix-ui/themes";
+import { FeatureUsageLookback } from "back-end/src/types/Integration";
+import { Box, Flex, Heading, Switch, Text } from "@radix-ui/themes";
 import { RxListBullet } from "react-icons/rx";
 import Button from "@/components/Radix/Button";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
@@ -60,9 +62,13 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
+import SelectField from "@/components/Forms/SelectField";
+import BarChart100 from "@/components/Features/BarChart100";
 import Callout from "@/components/Radix/Callout";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Badge from "@/components/Radix/Badge";
+import Frame from "@/components/Radix/Frame";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";
@@ -70,6 +76,7 @@ import { PrerequisiteAlerts } from "./PrerequisiteTargetingField";
 import PrerequisiteModal from "./PrerequisiteModal";
 import RequestReviewModal from "./RequestReviewModal";
 import JSONSchemaDescription from "./JSONSchemaDescription";
+import FeatureUsageGraph, { useFeatureUsage } from "./FeatureUsageGraph";
 import FeatureRules from "./FeatureRules";
 
 export default function FeaturesOverview({
@@ -183,6 +190,14 @@ export default function FeaturesOverview({
     if (!experiments) return new Map();
     return new Map(experiments.map((exp) => [exp.id, exp]));
   }, [experiments]);
+
+  const {
+    showFeatureUsage,
+    featureUsage,
+    lookback,
+    setLookback,
+  } = useFeatureUsage();
+
   if (!baseFeature || !feature || !revision) {
     return <LoadingOverlay />;
   }
@@ -520,11 +535,8 @@ export default function FeaturesOverview({
           Overview
         </Heading>
 
-        <Card>
-          <div
-            className="mh-350px fade-mask-vertical-1rem px-4 py-3"
-            style={{ overflowY: "auto" }}
-          >
+        <Frame>
+          <div className="mh-350px" style={{ overflowY: "auto" }}>
             <MarkdownInlineEdit
               value={feature.description || ""}
               save={async (description) => {
@@ -545,7 +557,7 @@ export default function FeaturesOverview({
               containerClassName="mb-1"
             />
           </div>
-        </Card>
+        </Frame>
         <Box>
           <CustomFieldDisplay
             target={feature}
@@ -556,12 +568,78 @@ export default function FeaturesOverview({
         </Box>
         <Box mt="3">
           <CustomMarkdown page={"feature"} variables={variables} />
+
+          {showFeatureUsage && (
+            <div>
+              <div className="row align-items-center">
+                <div className="col-auto">
+                  <h3 className="mb-0">Usage Analytics</h3>
+                </div>
+                <div className="col-auto">
+                  <SelectField
+                    value={lookback}
+                    onChange={(lookback) => {
+                      setLookback(lookback as FeatureUsageLookback);
+                    }}
+                    options={[
+                      { value: "15minute", label: "Past 15 Minutes" },
+                      { value: "hour", label: "Past Hour" },
+                      { value: "day", label: "Past Day" },
+                      { value: "week", label: "Past Week" },
+                    ]}
+                    sort={false}
+                    formatOptionLabel={(o) => {
+                      if (o.value !== "15minute") return o.label;
+                      return (
+                        <div>
+                          <span className="badge badge-success mr-1">
+                            <FaBoltLightning /> Live
+                          </span>
+                          {o.label}
+                        </div>
+                      );
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
+                {!featureUsage ? (
+                  <Flex align="center" justify="center">
+                    <LoadingSpinner /> <Text ml="2">Loading...</Text>
+                  </Flex>
+                ) : featureUsage.overall.total === 0 ? (
+                  <em>No usage detected in the selected time frame</em>
+                ) : (
+                  <div className="row">
+                    <div className="col-12 col-md-4">
+                      <strong>Assigned Values</strong>
+                      <BarChart100 data={featureUsage.values} max={3} />
+                    </div>
+                    <div className="col-12 col-md-4">
+                      <strong>Sources</strong>
+                      <BarChart100 data={featureUsage.sources} max={3} />
+                    </div>
+                    <div className="col-12 col-md-4">
+                      <div className="mb-1">
+                        <strong>Usage Over Time</strong>
+                      </div>
+                      <FeatureUsageGraph
+                        data={featureUsage.overall}
+                        width="auto"
+                        height={80}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </Box>
         <Heading size="4" as="h3" mt="4">
           Enabled Environments
         </Heading>
-        <Card mb="4">
-          <Box p="5">
+        <Frame mb="4">
+          <Box>
             <div className="mb-2">
               When disabled, this feature will evaluate to <code>null</code>.
               The default value and rules will be ignored.
@@ -746,10 +824,10 @@ export default function FeaturesOverview({
               </PremiumTooltip>
             )}
           </Box>
-        </Card>
+        </Frame>
         {dependents > 0 && (
-          <Card mb="4">
-            <Box p="5">
+          <Frame mb="4">
+            <Box>
               <Flex mb="3" gap="3" align="center">
                 <Heading size="4" as="h4" mb="0">
                   Dependents
@@ -828,7 +906,7 @@ export default function FeaturesOverview({
                 </>
               )}
             </Box>
-          </Card>
+          </Frame>
         )}
 
         {feature.valueType === "json" && (
@@ -841,8 +919,8 @@ export default function FeaturesOverview({
                 }
               />
             </Heading>
-            <Card>
-              <Box p="5">
+            <Frame>
+              <Box>
                 {hasJsonValidator && jsonSchema ? (
                   <>
                     <div className="d-flex align-items-center">
@@ -909,7 +987,7 @@ export default function FeaturesOverview({
                   </div>
                 )}
               </Box>
-            </Card>
+            </Frame>
           </Box>
         )}
 
@@ -1016,10 +1094,19 @@ export default function FeaturesOverview({
                   )}
                 </Flex>
                 <Box mt="2" mb="1">
-                  <ForceSummary
-                    value={getFeatureDefaultValue(feature)}
-                    feature={feature}
-                  />
+                  <div className="d-flex">
+                    <div>
+                      <ForceSummary
+                        value={getFeatureDefaultValue(feature)}
+                        feature={feature}
+                      />
+                    </div>
+                    {featureUsage && (
+                      <div className="ml-auto">
+                        <FeatureUsageGraph data={featureUsage?.defaultValue} />
+                      </div>
+                    )}
+                  </div>
                 </Box>
               </Box>
               <Box className="appbox" mt="4" p="5" px="6">

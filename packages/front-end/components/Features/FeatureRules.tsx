@@ -55,6 +55,7 @@ export default function FeatureRules({
     i: number;
     environment: string;
     defaultType?: string;
+    duplicate?: boolean;
   } | null>(null);
   const [copyRuleModal, setCopyRuleModal] = useState<{
     environment: string;
@@ -211,6 +212,7 @@ export default function FeatureRules({
           version={currentVersion}
           setVersion={setVersion}
           revisions={revisions}
+          duplicate={ruleModal?.duplicate || false}
         />
       )}
       {copyRuleModal !== null && (
