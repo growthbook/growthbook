@@ -224,6 +224,13 @@ export async function getDailyCDNUsageForOrg(
   const startString = start.toISOString().replace("T", " ").substring(0, 19);
   const endString = end.toISOString().replace("T", " ").substring(0, 19);
 
+  // Don't fill forward beyond the current date
+  const fillEnd = end > new Date() ? new Date() : end;
+  const fillEndString = fillEnd
+    .toISOString()
+    .replace("T", " ")
+    .substring(0, 19);
+
   const sql = `
 select
   toStartOfDay(hour) as date,
@@ -236,8 +243,8 @@ where
 group by date
 order by date ASC
 WITH FILL
-  FROM toDateTime(${startString})
-  TO toDateTime(${endString})
+  FROM toDateTime('${startString}')
+  TO toDateTime('${fillEndString}')
   STEP toIntervalDay(1)
   `.trim();
 

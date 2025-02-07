@@ -4,11 +4,12 @@ import { DailyUsage } from "back-end/types/organization";
 import { FaAngleLeft, FaAngleRight } from "react-icons/fa";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
-import { Bar } from "@visx/shape";
-import { scaleBand, scaleLinear } from "@visx/scale";
+import { AreaClosed } from "@visx/shape";
+import { scaleLinear, scaleTime } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { curveLinear } from "@visx/curve";
 import useApi from "@/hooks/useApi";
 import Callout from "@/components/Radix/Callout";
 import Frame from "@/components/Radix/Frame";
@@ -24,10 +25,10 @@ const requestsFormatter = new Intl.NumberFormat("en-US", {
 });
 
 function formatBytes(bytes: number) {
-  if (bytes === 0) return "0 Bytes";
+  if (bytes === 0) return "0";
 
   const k = 1024;
-  const sizes = ["Bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
+  const sizes = ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
 
   const i = Math.floor(Math.log(bytes) / Math.log(k));
 
@@ -63,28 +64,31 @@ export default function CloudUsage() {
 
   const usage = data?.cdnUsage || [];
 
+  const startDate = new Date();
+  startDate.setUTCMonth(startDate.getUTCMonth() - monthsAgo);
+  startDate.setUTCDate(1);
+  startDate.setUTCHours(0, 0, 0, 0);
+
+  const endDate = new Date();
+  endDate.setUTCMonth(endDate.getUTCMonth() - monthsAgo + 1);
+  endDate.setUTCDate(0);
+  endDate.setUTCHours(23, 59, 59, 999);
+
   // Use dummy data for testing
   if (useDummyData) {
-    const startDate = new Date();
-    startDate.setUTCMonth(startDate.getUTCMonth() - monthsAgo);
-    startDate.setUTCDate(1);
-    startDate.setUTCHours(0, 0, 0, 0);
-
-    // Current day of month - all numbers after this will be 0
-    const CURRENT_DAY = monthsAgo > 0 ? 99 : 20;
+    const now = new Date();
 
     // Generate dummy data for every day in the selected month
-    const now = new Date(startDate);
+    const current = new Date(startDate);
     for (let i = 0; i < 32; i++) {
-      // Stop when we reach the next month
-      if (now.getUTCMonth() !== startDate.getUTCMonth()) break;
+      // Stop when we reach the next month or the current date
+      if (current > endDate || current > now) break;
       usage.push({
-        date: new Date(now).toISOString(),
-        requests: i >= CURRENT_DAY ? 0 : Math.floor(Math.random() * 10000000),
-        bandwidth:
-          i >= CURRENT_DAY ? 0 : Math.floor(Math.random() * 10000000000),
+        date: new Date(current).toISOString(),
+        requests: Math.floor(Math.random() * 10000000),
+        bandwidth: Math.floor(Math.random() * 10000000000),
       });
-      now.setUTCDate(now.getUTCDate() + 1);
+      current.setUTCDate(current.getUTCDate() + 1);
     }
   }
 
@@ -170,6 +174,8 @@ export default function CloudUsage() {
           <DailyGraph
             data={usage.map((u) => ({ ts: new Date(u.date), v: u.requests }))}
             formatValue={(v) => requestsFormatter.format(v)}
+            start={startDate}
+            end={endDate}
           />
         </Box>
       )}
@@ -182,6 +188,8 @@ export default function CloudUsage() {
               v: u.bandwidth,
             }))}
             formatValue={formatBytes}
+            start={startDate}
+            end={endDate}
           />
         </Box>
       )}
@@ -189,20 +197,33 @@ export default function CloudUsage() {
   );
 }
 
+function useCumulativeData(data: { ts: Date; v: number }[]) {
+  let sum = 0;
+  return data.map((d) => {
+    sum += d.v;
+    return { ts: d.ts, v: sum };
+  });
+}
+
 function DailyGraph({
   data,
   width = "auto",
   height = 250,
   formatValue,
+  start,
+  end,
 }: {
   data: { ts: Date; v: number }[];
   width?: "auto" | string;
   height?: number;
   formatValue?: (v: number) => string;
+  start: Date;
+  end: Date;
 }) {
+  data = useCumulativeData(data);
+
   const margin = [15, 15, 30, 60];
   const yDomain = [0, Math.max(...data.map((d) => d.v))];
-  const xDomain = data.map((d) => d.ts);
 
   return (
     <div>
@@ -213,11 +234,9 @@ function DailyGraph({
             const xMax = width - margin[1] - margin[3];
             const graphHeight = yMax;
 
-            const xScale = scaleBand({
-              domain: xDomain,
+            const xScale = scaleTime({
               range: [0, xMax],
-              round: true,
-              padding: 0.1,
+              domain: [start, end],
             });
             const yScale = scaleLinear<number>({
               domain: yDomain,
@@ -229,32 +248,27 @@ function DailyGraph({
               <div className="bg-light border">
                 <svg width={width} height={height}>
                   <Group left={margin[3]} top={margin[0]}>
-                    {data.map(({ ts, v }) => {
-                      const barHeight = yMax - (yScale(v) ?? 0);
-                      const barWidth = xScale.bandwidth();
-                      const barX = xScale(ts);
-                      const barY = yMax - barHeight;
-                      return (
-                        <Bar
-                          key={`bar-${ts.toISOString()}`}
-                          x={barX}
-                          y={barY}
-                          width={barWidth}
-                          height={barHeight}
-                          fill="#a44afe"
-                          opacity={0.5}
-                        />
-                      );
-                    })}
+                    <AreaClosed
+                      data={data}
+                      x={(d) => xScale(d.ts)}
+                      y={(d) => yScale(d.v)}
+                      yScale={yScale}
+                      strokeWidth={1}
+                      stroke="url(#area-gradient)"
+                      fill="#a44afe"
+                      curve={curveLinear}
+                    />
                     <AxisLeft
-                      hideAxisLine
-                      hideTicks
                       scale={yScale}
+                      stroke="var(--slate-a4)"
+                      tickStroke="var(--slate-a4)"
                       tickFormat={formatValue}
                       tickLabelProps={() => ({
                         fill: "var(--text-color-table)",
                         fontSize: 11,
                         textAnchor: "end",
+                        dy: 3,
+                        dx: -5,
                       })}
                     />
                     <AxisBottom
@@ -262,17 +276,18 @@ function DailyGraph({
                       left={0}
                       scale={xScale}
                       tickFormat={(d) => {
-                        return d.toLocaleString("default", {
+                        return (d as Date).toLocaleString("default", {
                           month: "short",
                           day: "numeric",
                           timeZone: "UTC",
                         });
                       }}
-                      stroke={"var(--text-color-muted)"}
+                      stroke="var(--slate-a4)"
+                      tickStroke="var(--slate-a4)"
                       tickLabelProps={() => ({
                         fill: "var(--text-color-table)",
                         fontSize: 11,
-                        textAnchor: "end",
+                        textAnchor: "middle",
                       })}
                     />
                   </Group>
