@@ -1,7 +1,7 @@
 import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { datetime } from "shared/dates";
-import { Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import SelectField from "@/components/Forms/SelectField";
 import EventUser from "@/components/Avatar/EventUser";
 import Badge from "@/components/Radix/Badge";
@@ -52,13 +52,20 @@ export default function RevisionDropdown({
             <Heading size="2" mb="0">
               Revision {value}
             </Heading>
-            <Flex align="center" gap="3">
+            <Box flexGrow="1" />
+            <Box
+              flexShrink="1"
+              overflow="hidden"
+              style={{ textOverflow: "ellipsis" }}
+            >
               {date && (
                 <Text size="1" color="gray">
                   Created {datetime(date)} by{" "}
                   <EventUser user={revision?.createdBy} display="name" />
                 </Text>
               )}
+            </Box>
+            <Box flexShrink="0">
               {revision?.version === liveVersion ? (
                 <Badge label="Live" radius="full" color="teal" />
               ) : revision?.status === "draft" ? (
@@ -68,9 +75,7 @@ export default function RevisionDropdown({
               ) : revision?.status === "discarded" ? (
                 <Badge label="Discarded" radius="full" color="red" />
               ) : null}
-
-              <div className="ml-auto"></div>
-            </Flex>
+            </Box>
           </Flex>
         );
       }}

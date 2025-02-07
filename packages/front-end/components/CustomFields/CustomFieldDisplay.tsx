@@ -3,7 +3,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
 import { CustomField, CustomFieldSection } from "back-end/types/custom-fields";
 import { FeatureInterface } from "back-end/types/feature";
-import { Box, Card, Flex, Heading } from "@radix-ui/themes";
+import { Box, Flex, Heading } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -15,6 +15,7 @@ import Markdown from "@/components/Markdown/Markdown";
 import Modal from "@/components/Modal";
 import DataList, { DataListItem } from "@/components/Radix/DataList";
 import Button from "@/components/Radix/Button";
+import Frame from "@/components/Radix/Frame";
 import CustomFieldInput from "./CustomFieldInput";
 
 const CustomFieldDisplay: FC<{
@@ -123,6 +124,8 @@ const CustomFieldDisplay: FC<{
     });
   });
 
+  if (!hasCustomFieldAccess) return null;
+
   return (
     <Box>
       {editModal && (
@@ -142,9 +145,12 @@ const CustomFieldDisplay: FC<{
           {hasCustomFieldAccess ? (
             <CustomFieldInput
               customFields={customFields}
-              form={form}
               section={section}
               project={target.project}
+              setCustomFields={(value) => {
+                form.setValue("customFields", value);
+              }}
+              currentCustomFields={form.watch("customFields") || {}}
             />
           ) : (
             <div className="text-center">
@@ -156,29 +162,31 @@ const CustomFieldDisplay: FC<{
         </Modal>
       )}
       {displayFieldsObj && (
-        <Card className={className} my="3">
-          <Flex justify="between" align="center">
-            <Heading as="h4" size="3">
-              {label ? label : ""}
-            </Heading>
-            <div className="flex-1" />
-            {canEdit && hasCustomFieldAccess ? (
-              <>
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setEditModal(true);
-                  }}
-                >
-                  Edit
-                </Button>
-              </>
-            ) : (
-              <></>
-            )}
-          </Flex>
-          <DataList data={displayFieldsObj} maxColumns={3} />
-        </Card>
+        <Frame className={className} my="3">
+          <Box>
+            <Flex justify="between" align="center">
+              <Heading as="h4" size="3">
+                {label ? label : ""}
+              </Heading>
+              <div className="flex-1" />
+              {canEdit && hasCustomFieldAccess ? (
+                <>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setEditModal(true);
+                    }}
+                  >
+                    Edit
+                  </Button>
+                </>
+              ) : (
+                <></>
+              )}
+            </Flex>
+            <DataList data={displayFieldsObj} maxColumns={3} />
+          </Box>
+        </Frame>
       )}
     </Box>
   );

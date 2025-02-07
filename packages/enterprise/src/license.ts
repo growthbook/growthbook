@@ -72,6 +72,7 @@ export type CommercialFeature =
   | "metric-groups"
   | "environment-inheritance"
   | "templates"
+  | "historical-power"
   | "mid-experiment-power";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
@@ -179,6 +180,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "retention-metrics",
     "metric-populations",
     "multi-armed-bandits",
+    "historical-power",
     "mid-experiment-power",
   ]),
   pro_sso: new Set<CommercialFeature>([
@@ -205,6 +207,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "retention-metrics",
     "metric-populations",
     "multi-armed-bandits",
+    "historical-power",
     "mid-experiment-power",
   ]),
   enterprise: new Set<CommercialFeature>([
@@ -250,6 +253,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "metric-groups",
     "environment-inheritance",
     "templates",
+    "historical-power",
     "mid-experiment-power",
   ]),
 };

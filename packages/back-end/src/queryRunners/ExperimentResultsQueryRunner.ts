@@ -308,7 +308,7 @@ export const startExperimentResultQueries = async (
       metric: m,
       segment: segmentObj,
       settings: snapshotSettings,
-      useUnitsTable: !!unitQuery,
+      unitsSource: unitQuery ? "exposureTable" : "exposureQuery",
       unitsTableFullName: unitsTableFullName,
       factTableMap: params.factTableMap,
     };
@@ -332,7 +332,7 @@ export const startExperimentResultQueries = async (
       metrics: m,
       segment: segmentObj,
       settings: snapshotSettings,
-      useUnitsTable: !!unitQuery,
+      unitsSource: unitQuery ? "exposureTable" : "exposureQuery",
       unitsTableFullName: unitsTableFullName,
       factTableMap: params.factTableMap,
     };

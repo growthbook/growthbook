@@ -38,9 +38,19 @@ export interface PowerCalculationParams {
   nVariations: number;
   nWeeks: number;
   alpha: number;
-  usersPerWeek: number;
+  usersPerWeek: number; // TODO extend to have different data per week
   targetPower: number;
   statsEngineSettings: StatsEngineSettings;
+  metricValuesData: {
+    source: "manual" | "segment" | "experiment" | "factTable";
+    sourceName?: string;
+    sourceId?: string;
+    identifierType?: string;
+    populationId?: string;
+    datasource?: string;
+    error?: string;
+  };
+  customizedMetrics?: boolean;
 }
 
 export type FullModalPowerCalculationParams = Omit<
@@ -64,6 +74,12 @@ export type PartialPowerCalculationParams = Partial<
 > & {
   metrics: {
     [id: string]: PartialMetricParams;
+  };
+  savedData?: {
+    usersPerWeek: number;
+    metrics: {
+      [id: string]: PartialMetricParams;
+    };
   };
 };
 
@@ -102,7 +118,7 @@ export const config = checkConfig({
     minValue: 0,
   },
   effectSize: {
-    title: "Effect Size",
+    title: "Expected Effect Size",
     type: "percent",
     tooltip:
       "This is the relative effect size that you anticipate for your experiment. Setting this allows us to compute the number of weeks needed to reliably detect an effect of this size or larger.",
@@ -214,7 +230,7 @@ const validEntry = (
   const { maxValue, minValue } = c;
 
   if (minValue !== undefined && v <= minValue) return false;
-  if (maxValue !== undefined && maxValue < v) return false;
+  if (maxValue !== undefined && maxValue <= v) return false;
 
   return true;
 };

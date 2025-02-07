@@ -1,7 +1,6 @@
 import { Tooltip } from "@radix-ui/themes";
 import { addDays } from "date-fns";
 import {
-  DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_COUNT,
   DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
   DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
@@ -9,6 +8,7 @@ import {
   DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
   DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
   DEFAULT_MID_EXPERIMENT_POWER_CALCULATION_ENABLED,
+  DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
 } from "shared/constants";
 import { daysBetween, getValidDate } from "shared/dates";
 import { getMultipleExposureHealthData, getSRMHealthData } from "shared/health";
@@ -152,7 +152,7 @@ function getStatusIndicatorData(
       const multipleExposuresHealthData = getMultipleExposureHealthData({
         multipleExposuresCount: healthSummary.multipleExposures,
         totalUsersCount: healthSummary.totalUsers,
-        minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_COUNT,
+        minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
         minPercentThreshold: healthSettings.multipleExposureMinPercent,
       });
 
