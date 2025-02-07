@@ -235,6 +235,10 @@ where
   AND date BETWEEN '${startString}' AND '${endString}'
 group by date
 order by date ASC
+WITH FILL
+  FROM toDateTime(${startString})
+  TO toDateTime(${endString})
+  STEP toIntervalDay(1)
   `.trim();
 
   const res = await client.query({
