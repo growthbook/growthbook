@@ -277,6 +277,10 @@ export async function postSetupIntent(
 ) {
   const context = getContextFromReq(req);
 
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
+
   const { org } = context;
 
   try {
@@ -295,6 +299,11 @@ export async function updateCustomerDefaultPayment(
   res: Response
 ) {
   const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
+
   const { org } = context;
   const { paymentMethodId } = req.body;
 
@@ -316,6 +325,10 @@ export async function fetchPaymentMethods(
   res: Response
 ) {
   const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
 
   const { org } = context;
   try {
@@ -384,6 +397,11 @@ export async function deletePaymentMethod(
   res: Response
 ) {
   const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
+
   const { org } = context;
   const { paymentMethodId } = req.body;
 
