@@ -211,7 +211,8 @@ class EffectBayesianABTest(BayesianABTest):
             self.mean_diff = (
                 scaled_prior_effect.mean if scaled_prior_effect.proper else 0
             )
-
+        if post_prec == 0:
+            return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
         self.std_diff = np.sqrt(1 / post_prec)
 
         ctw = self.chance_to_win(self.mean_diff, self.std_diff)
