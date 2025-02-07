@@ -329,3 +329,9 @@ export type NamespaceUsage = Record<
 >;
 
 export type ReqContext = ReqContextClass;
+
+export type DailyUsage = {
+  date: string;
+  requests: number;
+  bandwidth: number;
+};

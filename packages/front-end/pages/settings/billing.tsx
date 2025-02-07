@@ -7,6 +7,8 @@ import useStripeSubscription from "@/hooks/useStripeSubscription";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import CloudUsage from "@/components/Settings/Billing/CloudUsage";
+import { isCloud } from "@/services/env";
 
 const BillingPage: FC = () => {
   const [upgradeModal, setUpgradeModal] = useState(false);
@@ -79,7 +81,9 @@ const BillingPage: FC = () => {
         />
       )}
 
-      <h1>Billing Settings</h1>
+      <h1>Billing and Usage</h1>
+      {isCloud() && <CloudUsage />}
+
       <div className=" bg-white p-3 border">
         {subscriptionStatus ? (
           <SubscriptionInfo />

@@ -10,7 +10,7 @@ import {
   ENVIRONMENT,
 } from "back-end/src/util/secrets";
 import { DataSourceParams } from "back-end/types/datasource";
-import { ReqContext } from "back-end/types/organization";
+import { DailyUsage, ReqContext } from "back-end/types/organization";
 import { logger } from "back-end/src/util/logger";
 
 function clickhouseUserId(orgId: string, datasourceId: string) {
@@ -209,4 +209,49 @@ export async function deleteClickhouseUser(
   });
 
   logger.info(`Clickhouse user ${user} deleted`);
+}
+
+export async function getDailyCDNUsageForOrg(
+  orgId: string,
+  start: Date,
+  end: Date
+): Promise<DailyUsage[]> {
+  const client = createAdminClickhouseClient();
+
+  // orgId is coming from the back-end, so this should not be necessary, but just in case
+  const sanitizedOrgId = orgId.replace(/[^a-zA-Z0-9_-]/g, "");
+
+  const startString = start.toISOString().replace("T", " ").substring(0, 19);
+  const endString = end.toISOString().replace("T", " ").substring(0, 19);
+
+  const sql = `
+select
+  toStartOfDay(hour) as date,
+  sum(requests) as requests,
+  sum(bandwidth) as bandwidth
+from usage.cdn_hourly
+where
+  organization = '${sanitizedOrgId}'
+  AND date BETWEEN '${startString}' AND '${endString}'
+group by date
+order by date ASC
+  `.trim();
+
+  const res = await client.query({
+    query: sql,
+    format: "JSONEachRow",
+  });
+
+  const data: {
+    date: string;
+    requests: string;
+    bandwidth: string;
+  }[] = await res.json();
+
+  // Convert strings to numbers for requests/bandwidth
+  return data.map((d) => ({
+    date: d.date,
+    requests: parseInt(d.requests) || 0,
+    bandwidth: parseInt(d.bandwidth) || 0,
+  }));
 }
