@@ -50,8 +50,7 @@ const GetStartedPage = (): React.ReactElement => {
   const showSetUpFlow =
     canUseSetupFlow &&
     sdkConnectionData &&
-    (sdkConnectionData.connections.length === 0 ||
-      !sdkConnectionData.connections[0].connected);
+    !sdkConnectionData.connections.some((c) => c.connected);
 
   // If they view the guide, clear the current step
   useEffect(() => {

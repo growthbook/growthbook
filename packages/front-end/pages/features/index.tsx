@@ -531,8 +531,7 @@ export default function FeaturesPage() {
     !hasFeatures &&
     canUseSetupFlow &&
     sdkConnectionData &&
-    (sdkConnectionData.connections.length === 0 ||
-      !sdkConnectionData.connections[0].connected);
+    !sdkConnectionData.connections.length;
 
   const toggleEnvs = environments.filter((en) => en.toggleOnList);
   const showArchivedToggle = hasArchived;
