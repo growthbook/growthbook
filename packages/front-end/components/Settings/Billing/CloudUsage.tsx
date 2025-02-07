@@ -8,6 +8,7 @@ import { Bar } from "@visx/shape";
 import { scaleBand, scaleLinear } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { useRouter } from "next/router";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import useApi from "@/hooks/useApi";
 import Callout from "@/components/Radix/Callout";
 import Frame from "@/components/Radix/Frame";
@@ -36,15 +37,21 @@ function formatBytes(bytes: number) {
 export default function CloudUsage() {
   const [monthsAgo, setMonthsAgo] = useState(0);
 
+  const gb = useGrowthBook();
+
   const router = useRouter();
   const useDummyData = !isCloud() && !!router.query.dummy;
+
+  const enableUsage = useDummyData || gb.isOn("cdn-usage-data");
 
   const { data, error } = useApi<{ cdnUsage: DailyUsage[] }>(
     `/billing/usage?monthsAgo=${monthsAgo}`,
     {
-      shouldRun: () => !useDummyData,
+      shouldRun: () => enableUsage && !useDummyData,
     }
   );
+
+  if (!enableUsage) return null;
 
   if (error) {
     return (
