@@ -80,6 +80,7 @@ export async function createClickhouseUser(
   });
 
   const remainingColumns = `
+    environment,
     user_id,
     context_json,
     url,
@@ -139,7 +140,6 @@ AS ${eventsMaterializedViewSql}`,
     client_key,
     JSONExtractString(properties_json, 'feature') as feature,
     JSONExtractString(properties_json, 'revision') as revision,
-    JSONExtractString(properties_json, 'env') as env,
     JSONExtractString(properties_json, 'source') as source,
     JSONExtractString(properties_json, 'value') as value,
     JSONExtractString(properties_json, 'ruleId') as ruleId,

@@ -21,7 +21,7 @@ import Link from "next/link";
 import { BsClock } from "react-icons/bs";
 import { PiCheckCircleFill, PiCircleDuotone, PiFileX } from "react-icons/pi";
 import { FeatureUsageLookback } from "back-end/src/types/Integration";
-import { Box, Flex, Heading, Switch } from "@radix-ui/themes";
+import { Box, Flex, Heading, Switch, Text } from "@radix-ui/themes";
 import { RxListBullet } from "react-icons/rx";
 import Button from "@/components/Radix/Button";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
@@ -68,6 +68,7 @@ import Callout from "@/components/Radix/Callout";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Badge from "@/components/Radix/Badge";
 import Frame from "@/components/Radix/Frame";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";
@@ -190,7 +191,12 @@ export default function FeaturesOverview({
     return new Map(experiments.map((exp) => [exp.id, exp]));
   }, [experiments]);
 
-  const { featureUsage, lookback, setLookback } = useFeatureUsage();
+  const {
+    showFeatureUsage,
+    featureUsage,
+    lookback,
+    setLookback,
+  } = useFeatureUsage();
 
   if (!baseFeature || !feature || !revision) {
     return <LoadingOverlay />;
@@ -563,7 +569,7 @@ export default function FeaturesOverview({
         <Box mt="3">
           <CustomMarkdown page={"feature"} variables={variables} />
 
-          {featureUsage && (
+          {showFeatureUsage && (
             <div>
               <div className="row align-items-center">
                 <div className="col-auto">
@@ -597,7 +603,11 @@ export default function FeaturesOverview({
                 </div>
               </div>
               <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
-                {featureUsage.overall.total === 0 ? (
+                {!featureUsage ? (
+                  <Flex align="center" justify="center">
+                    <LoadingSpinner /> <Text ml="2">Loading...</Text>
+                  </Flex>
+                ) : featureUsage.overall.total === 0 ? (
                   <em>No usage detected in the selected time frame</em>
                 ) : (
                   <div className="row">

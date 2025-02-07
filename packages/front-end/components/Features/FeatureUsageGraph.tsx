@@ -22,10 +22,12 @@ const featureUsageContext = createContext<{
   lookback: FeatureUsageLookback;
   setLookback: (lookback: FeatureUsageLookback) => void;
   featureUsage: FeatureUsageData | undefined;
+  showFeatureUsage: boolean;
   mutateFeatureUsage: () => void;
 }>({
   lookback: "15minute",
   setLookback: () => {},
+  showFeatureUsage: false,
   featureUsage: undefined,
   mutateFeatureUsage: () => {},
 });
@@ -50,13 +52,13 @@ export function FeatureUsageProvider({
     ? true
     : false;
 
-  const useFeatureUsage =
+  const showFeatureUsage =
     growthbook.isOn("feature-usage") && hasGrowthbookClickhouseDatasource;
 
   const { data: featureUsage, mutate: mutateFeatureUsage } = useApi<{
     usage: FeatureUsageData;
   }>(`/feature/${featureId}/usage?lookback=${lookback}`, {
-    shouldRun: () => useFeatureUsage,
+    shouldRun: () => showFeatureUsage,
   });
 
   const featureUsageAutoRefreshInterval = growthbook.getFeatureValue(
@@ -97,6 +99,7 @@ export function FeatureUsageProvider({
       value={{
         lookback,
         setLookback,
+        showFeatureUsage,
         featureUsage: featureUsage?.usage,
         mutateFeatureUsage,
       }}

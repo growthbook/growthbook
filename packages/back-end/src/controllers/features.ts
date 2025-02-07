@@ -2454,7 +2454,7 @@ export async function getFeatureUsage(
 
   rows.forEach((d) => {
     // Skip invalid environments (sanity check)
-    if (!d.env || !validEnvs.has(d.env)) return;
+    if (!d.environment || !validEnvs.has(d.environment)) return;
 
     // Overall evaluation counts
     updateRecord(usage.overall, d);
@@ -2467,32 +2467,36 @@ export async function getFeatureUsage(
     usage.values[d.value] = usage.values[d.value] || 0;
     usage.values[d.value] += d.evaluations;
 
-    if (!usage.environments[d.env]) {
-      usage.environments[d.env] = { ...createEmptyRecord(), rules: {} };
+    if (!usage.environments[d.environment]) {
+      usage.environments[d.environment] = { ...createEmptyRecord(), rules: {} };
     }
-    updateRecord(usage.environments[d.env], d);
+    updateRecord(usage.environments[d.environment], d);
 
     if (d.source === "defaultValue") {
       updateRecord(usage.defaultValue, d);
     } else if (d.ruleId) {
-      if (!usage.environments[d.env].rules[d.ruleId]) {
-        usage.environments[d.env].rules[d.ruleId] = {
+      if (!usage.environments[d.environment].rules[d.ruleId]) {
+        usage.environments[d.environment].rules[d.ruleId] = {
           ...createEmptyRecord(),
           variations: {},
         };
       }
-      updateRecord(usage.environments[d.env].rules[d.ruleId], d);
+      updateRecord(usage.environments[d.environment].rules[d.ruleId], d);
 
       if (d.variationId) {
         if (
-          !usage.environments[d.env].rules[d.ruleId].variations[d.variationId]
+          !usage.environments[d.environment].rules[d.ruleId].variations[
+            d.variationId
+          ]
         ) {
-          usage.environments[d.env].rules[d.ruleId].variations[
+          usage.environments[d.environment].rules[d.ruleId].variations[
             d.variationId
           ] = createEmptyRecord();
         }
         updateRecord(
-          usage.environments[d.env].rules[d.ruleId].variations[d.variationId],
+          usage.environments[d.environment].rules[d.ruleId].variations[
+            d.variationId
+          ],
           d
         );
       }

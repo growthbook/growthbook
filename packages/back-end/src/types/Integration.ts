@@ -514,7 +514,7 @@ export interface InsertFeatureUsageProps {
 
 export interface FeatureUsageAggregateRow {
   timestamp: Date;
-  env: string;
+  environment: string;
   value: string;
   source: string;
   revision: string;

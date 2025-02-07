@@ -47,7 +47,6 @@ export default class ClickHouse extends SqlIntegration {
         ),
       },
     });
-    logger.info("query: " + sql);
     const results = await client.query({ query: sql, format: "JSON" });
     // eslint-disable-next-line
     const data: ResponseJSON<Record<string, any>[]> = await results.json();
@@ -154,7 +153,7 @@ export default class ClickHouse extends SqlIntegration {
 WITH _data as (
 	SELECT
 	  ${this.formatDateTimeString(roundedTimestamp)} as ts,
-    env,
+    environment,
     value,
     source,
     ruleId,
@@ -166,7 +165,7 @@ WITH _data as (
 )
 SELECT
   ts,
-  env,
+  environment,
   value,
   source,
   ruleId,
@@ -175,7 +174,7 @@ SELECT
 FROM _data
 GROUP BY
   ts,
-  env,
+  environment,
   value,
   source,
   ruleId,
@@ -187,7 +186,7 @@ LIMIT 50
       start: start.getTime(),
       rows: res.rows.map((row) => ({
         timestamp: new Date(row.ts + "Z"),
-        env: "" + row.env,
+        environment: "" + row.environment,
         value: "" + row.value,
         source: "" + row.source,
         revision: "" + row.revision,
