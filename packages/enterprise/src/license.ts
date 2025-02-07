@@ -81,6 +81,8 @@ export type SubscriptionInfo = {
   trialEnd: Date | null;
   status: "active" | "canceled" | "past_due" | "trialing" | "";
   hasPaymentMethod: boolean;
+  // TODO: Remove once all orgs have moved license info off of the org
+  hasLicense: boolean;
 };
 
 export function getStripeSubscriptionStatus(
@@ -103,6 +105,7 @@ export function getSubscriptionFromLicense(
       trialEnd: license._orbSubscription.trialEnd,
       status: license._orbSubscription.status,
       hasPaymentMethod: license._orbSubscription.hasPaymentMethod,
+      hasLicense: true,
     };
   } else if (license._stripeSubscription) {
     return {
@@ -111,6 +114,7 @@ export function getSubscriptionFromLicense(
       trialEnd: license._stripeSubscription.trialEnd,
       status: getStripeSubscriptionStatus(license._stripeSubscription.status),
       hasPaymentMethod: !!license._stripeSubscription.hasPaymentMethod,
+      hasLicense: true,
     };
   }
   return null;
@@ -692,6 +696,62 @@ export async function postResendEmailVerificationEmailToLicenseServer(
       appOrigin: APP_ORIGIN,
     })
   );
+}
+
+export async function createSetupIntent(licenseKey: string) {
+  const url = `${LICENSE_SERVER_URL}subscription/setup-intent`;
+  const res = await callLicenseServer(
+    url,
+    JSON.stringify({
+      licenseKey,
+      cloudSecret: process.env.CLOUD_SECRET,
+    })
+  );
+  return res;
+}
+
+export async function getPaymentMethodsByLicenseKey(licenseKey: string) {
+  const url = `${LICENSE_SERVER_URL}subscription/payment-methods`;
+  const res = await callLicenseServer(
+    url,
+    JSON.stringify({
+      licenseKey,
+      cloudSecret: process.env.CLOUD_SECRET,
+    })
+  );
+  return res;
+}
+
+export async function updateDefaultPaymentMethod(
+  licenseKey: string,
+  paymentMethodId: string
+) {
+  const url = `${LICENSE_SERVER_URL}subscription/payment-methods/set-default`;
+  const res = await callLicenseServer(
+    url,
+    JSON.stringify({
+      licenseKey,
+      paymentMethodId,
+      cloudSecret: process.env.CLOUD_SECRET,
+    })
+  );
+  return res;
+}
+
+export async function deletePaymentMethodById(
+  licenseKey: string,
+  paymentMethodId: string
+) {
+  const url = `${LICENSE_SERVER_URL}subscription/payment-methods/detach`;
+  const res = await callLicenseServer(
+    url,
+    JSON.stringify({
+      licenseKey,
+      paymentMethodId,
+      cloudSecret: process.env.CLOUD_SECRET,
+    })
+  );
+  return res;
 }
 
 // Creates or replaces the license in the MongoDB cache in case the license server goes down.
