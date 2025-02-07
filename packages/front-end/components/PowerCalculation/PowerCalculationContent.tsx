@@ -116,11 +116,13 @@ const AnalysisSettings = ({
                   !isValidCurrentVariations && "border border-danger"
                 )}
                 value={currentVariations}
+                min={2}
+                max={12}
                 onChange={(e) => {
-                  setCurrentVariations(
-                    e.target.value !== "" ? Number(e.target.value) : undefined
-                  );
-                  updateVariations(ensureAndReturn(currentVariations));
+                  const varNum =
+                    e.target.value !== "" ? Number(e.target.value) : undefined;
+                  setCurrentVariations(varNum);
+                  updateVariations(varNum ?? 0);
                 }}
               />
             </div>
@@ -601,13 +603,13 @@ export default function PowerCalculationContent({
         updateVariations={updateVariations}
         updateStatsEngineSettings={updateStatsEngineSettings}
       />
-      {results.type !== "error" && (
+      {results.type !== "error" ? (
         <>
           <SampleSizeAndRuntime params={params} results={results} />
           <PowerOverTime params={params} results={results} />
           <MinimumDetectableEffect params={params} results={results} />
         </>
-      )}
+      ) : null}
     </div>
   );
 }
