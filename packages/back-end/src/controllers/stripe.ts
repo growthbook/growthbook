@@ -20,7 +20,11 @@ import {
   getNumberOfUniqueMembersAndInvites,
   getContextFromReq,
 } from "back-end/src/services/organizations";
-import { updateSubscriptionInDb, stripe } from "back-end/src/services/stripe";
+import {
+  updateSubscriptionInDb,
+  stripe,
+  formatBrandName,
+} from "back-end/src/services/stripe";
 import { sendStripeTrialWillEndEmail } from "back-end/src/services/email";
 import { logger } from "back-end/src/util/logger";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
@@ -338,25 +342,29 @@ export async function fetchPaymentMethods(
             id: method.id,
             type: "card",
             last4: method.card.last4,
-            brand: method.card.brand,
+            brand: formatBrandName(method.card.brand),
             expMonth: method.card.exp_month,
             expYear: method.card.exp_year,
             isDefault,
-            wallet: method.card.wallet?.type || undefined,
+            wallet: method.card.wallet?.type
+              ? formatBrandName(method.card.wallet.type)
+              : undefined,
           };
         } else if (method.us_bank_account) {
           return {
             id: method.id,
             type: "us_bank_account",
             last4: method.us_bank_account.last4 || "",
-            brand: method.us_bank_account.bank_name || method.type,
+            brand: formatBrandName(
+              method.us_bank_account.bank_name || method.type
+            ),
             isDefault,
           };
         } else {
           return {
             id: method.id,
             type: "unknown",
-            brand: method.type,
+            brand: formatBrandName(method.type),
             isDefault,
           };
         }

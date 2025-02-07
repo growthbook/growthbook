@@ -19,26 +19,6 @@ import { StripeProvider } from "../Billing/StripeProvider";
 import Tooltip from "../Tooltip/Tooltip";
 import AddPaymentMethodModal from "./AddPaymentMethodModal";
 
-const brandNames: Record<string, string> = {
-  amex: "American Express",
-  diners: "Diners Club",
-  discover: "Discover",
-  eftpos_au: "Eftpos Australia",
-  jcb: "JCB",
-  mastercard: "Mastercard",
-  unionpay: "UnionPay",
-  visa: "Visa",
-  us_bank_account: "US Bank Account",
-  apple_pay: "Apple Pay",
-  google_pay: "Google Pay",
-  link: "Link by Stripe",
-  unknown: "Unknown Card Brand",
-};
-
-function formatBrandName(name: string): string {
-  return brandNames[name] || name; // Fallback to the original name if not found
-}
-
 export default function PaymentInfo() {
   const [paymentMethodModal, setPaymentMethodModal] = useState(false);
   const [defaultPaymentMethod, setDefaultPaymentMethod] = useState<
@@ -209,31 +189,37 @@ export default function PaymentInfo() {
                         return (
                           <tr key={method.id}>
                             <td>
-                              <span className="pr-2">
-                                {method.type === "card" ? (
-                                  <FaCreditCard size={15} />
+                              <Flex align="center">
+                                {method.brand}
+                                {method.last4 ? (
+                                  <Text
+                                    as="span"
+                                    className="px-2"
+                                    align="center"
+                                  >
+                                    ••••{method.last4}
+                                  </Text>
                                 ) : null}
-                                {method.type === "us_bank_account" ? (
-                                  <FaBuildingColumns size={15} />
-                                ) : null}
-                              </span>
-                              {formatBrandName(method.brand)}
-                              {method.last4 ? (
-                                <Text as="span" className="px-2" align="center">
-                                  ••••{method.last4}
-                                </Text>
-                              ) : null}
-                              <span className="pl-2">
-                                {method.isDefault ? (
-                                  <Badge label="Default" />
-                                ) : null}
-                                {method.wallet ? (
-                                  <Badge
-                                    label={formatBrandName(method.wallet)}
-                                    color="green"
-                                  />
-                                ) : null}
-                              </span>
+                                <span className="pr-2">
+                                  {method.type === "card" ? (
+                                    <FaCreditCard size={18} />
+                                  ) : null}
+                                  {method.type === "us_bank_account" ? (
+                                    <FaBuildingColumns size={18} />
+                                  ) : null}
+                                </span>
+                                <span className="pl-2">
+                                  {method.isDefault ? (
+                                    <Badge label="Default" />
+                                  ) : null}
+                                  {method.wallet ? (
+                                    <Badge
+                                      label={method.wallet}
+                                      color="green"
+                                    />
+                                  ) : null}
+                                </span>
+                              </Flex>
                             </td>
                             <td>
                               <Flex align="center" justify="end">
