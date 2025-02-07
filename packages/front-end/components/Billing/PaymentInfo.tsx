@@ -29,6 +29,9 @@ const brandNames: Record<string, string> = {
   unionpay: "UnionPay",
   visa: "Visa",
   us_bank_account: "US Bank Account",
+  apple_pay: "Apple Pay",
+  google_pay: "Google Pay",
+  link: "Link by Stripe",
   unknown: "Unknown Card Brand",
 };
 
@@ -225,7 +228,10 @@ export default function PaymentInfo() {
                                   <Badge label="Default" />
                                 ) : null}
                                 {method.wallet ? (
-                                  <Badge label={method.wallet} color="green" />
+                                  <Badge
+                                    label={formatBrandName(method.wallet)}
+                                    color="green"
+                                  />
                                 ) : null}
                               </span>
                             </td>

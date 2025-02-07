@@ -710,7 +710,7 @@ export async function createSetupIntent(licenseKey: string) {
   return res;
 }
 
-export async function getCardsByLicenseKey(licenseKey: string) {
+export async function getPaymentMethodsByLicenseKey(licenseKey: string) {
   const url = `${LICENSE_SERVER_URL}subscription/payment-methods`;
   const res = await callLicenseServer(
     url,

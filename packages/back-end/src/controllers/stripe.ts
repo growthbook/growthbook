@@ -9,7 +9,7 @@ import {
   postNewProTrialSubscriptionToLicenseServer,
   postNewSubscriptionSuccessToLicenseServer,
   createSetupIntent,
-  getCardsByLicenseKey,
+  getPaymentMethodsByLicenseKey,
   updateDefaultCard,
   deletePaymentMethodById,
 } from "enterprise";
@@ -324,7 +324,7 @@ export async function fetchPaymentMethods(
     }: {
       paymentMethods: Stripe.PaymentMethod[];
       defaultPaymentMethod: string | undefined;
-    } = await getCardsByLicenseKey(org.licenseKey);
+    } = await getPaymentMethodsByLicenseKey(org.licenseKey);
 
     if (!paymentMethods.length) {
       return res.status(200).json({ status: 200, cards: [] });
