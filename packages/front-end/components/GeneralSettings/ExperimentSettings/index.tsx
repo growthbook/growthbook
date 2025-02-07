@@ -197,16 +197,18 @@ export default function ExperimentSettings({
 
             <Box mb="4" width="100%">
               <Box className="appbox p-3">
-                <Flex align="center">
-                  <Tooltip content="This configuration will help us guide our recommendations for experiments.">
-                    <Flex gap="2" align="center" mb="4">
-                      <Text size="3" className="font-weight-semibold">
-                        Experiment Runtime
-                      </Text>{" "}
-                      <GBInfo />
-                    </Flex>
-                  </Tooltip>
-                </Flex>
+                <Box mb="4">
+                  <Text mb="1" size="3" className="font-weight-semibold">
+                    Experiment Runtime
+                  </Text>
+
+                  <Box>
+                    <Text>
+                      This configuration will guide recommendations for
+                      experiments.
+                    </Text>
+                  </Box>
+                </Box>
 
                 <Flex direction="column" gap="2" mb="2">
                   <Text size="2">Minimum runtime</Text>
@@ -387,41 +389,48 @@ export default function ExperimentSettings({
                 </Flex>
 
                 <Box mb="4">
-                  <PremiumTooltip
-                    commercialFeature="mid-experiment-power"
-                    style={{ display: "inline-flex" }}
-                    body={
-                      <p>
-                        Calculate experimental power when results are refreshed
-                        and display experiment status as Unhealthy if power is
-                        low.
-                      </p>
-                    }
+                  <Flex
+                    display="inline-flex"
+                    gap="3"
+                    align="center"
+                    justify="center"
                   >
-                    <Flex display="inline-flex" gap="3" align="start">
-                      <Checkbox
-                        mb="0"
-                        value={
-                          !hasCommercialFeature("mid-experiment-power")
-                            ? false
-                            : form.watch("midExperimentPowerEnabled")
-                        }
-                        setValue={(v) =>
-                          form.setValue("midExperimentPowerEnabled", v)
-                        }
-                        id="toggle-midExperimentPowerEnabled"
-                        disabled={!hasCommercialFeature("mid-experiment-power")}
-                      />
-                      <Box>
-                        <label
-                          htmlFor="toggle-midExperimentPowerEnabled"
-                          className="font-weight-semibold mb-0"
-                        >
-                          Mid-experiment Power Calculation <GBInfo />
-                        </label>
-                      </Box>
-                    </Flex>
-                  </PremiumTooltip>
+                    <Checkbox
+                      mb="0"
+                      value={
+                        !hasCommercialFeature("mid-experiment-power")
+                          ? false
+                          : form.watch("midExperimentPowerEnabled")
+                      }
+                      setValue={(v) =>
+                        form.setValue("midExperimentPowerEnabled", v)
+                      }
+                      id="toggle-midExperimentPowerEnabled"
+                      disabled={!hasCommercialFeature("mid-experiment-power")}
+                    />
+                    <Box>
+                      <label
+                        htmlFor="toggle-midExperimentPowerEnabled"
+                        className="font-weight-semibold mb-0"
+                      >
+                        Mid-experiment Power Calculation
+                        <Tooltip content="Calculate the power of the experiment when Results are refreshed and display the status as Unhealthy if the power is too low">
+                          <Flex
+                            ml="2"
+                            mb="2px"
+                            display="inline-flex"
+                            style={{ verticalAlign: "middle" }}
+                          >
+                            <GBInfo />
+                          </Flex>
+                        </Tooltip>
+                        <PremiumTooltip
+                          commercialFeature="mid-experiment-power"
+                          style={{ display: "inline-flex" }}
+                        />
+                      </label>
+                    </Box>
+                  </Flex>
                 </Box>
 
                 <Box mb="4">
