@@ -40,6 +40,10 @@ const config = {
       "data-button-height": "72px",
       async: true,
     },
+    {
+      src: "https://w.appzi.io/w.js?token=jZ31J",
+      async: true,
+    },
   ],
   presets: [
     [
