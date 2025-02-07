@@ -13,7 +13,6 @@ import {
 } from "back-end/types/experiment";
 import { Box, Switch, Text } from "@radix-ui/themes";
 import { isEmpty } from "lodash";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import WatchButton from "@/components/WatchButton";
@@ -125,7 +124,6 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const { getUserDisplay, userId, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
-  const settings = useOrgSettings();
 
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -411,13 +409,11 @@ const ExperimentsPage = (): React.ReactElement => {
               <h1>Experiments</h1>
             </div>
             <div style={{ flex: 1 }} />
-            {settings.powerCalculatorEnabled && (
-              <div className="col-auto">
-                <LinkButton variant="outline" href="/power-calculator">
-                  Power Calculator
-                </LinkButton>
-              </div>
-            )}
+            <div className="col-auto">
+              <LinkButton variant="outline" href="/power-calculator">
+                Power Calculator
+              </LinkButton>
+            </div>
             {showViewSampleButton && <ViewSampleDataButton />}
             {(canAddExperiment || canAddTemplate) && (
               <div className="col-auto">{addExperimentDropdownButton}</div>

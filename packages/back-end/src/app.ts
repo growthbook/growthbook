@@ -7,6 +7,7 @@ import cors from "cors";
 import asyncHandler from "express-async-handler";
 import compression from "compression";
 import * as Sentry from "@sentry/node";
+import { populationDataRouter } from "back-end/src/routers/population-data/population-data.router";
 import { usingFileConfig } from "./init/config";
 import { AuthRequest } from "./types/AuthRequest";
 import {
@@ -473,6 +474,9 @@ app.use(metricAnalysisRouter);
 
 // Metric Groups
 app.use(metricGroupRouter);
+
+// Population Data for power
+app.use(populationDataRouter);
 
 // Experiments
 app.get("/experiments", experimentsController.getExperiments);
