@@ -364,7 +364,7 @@ const ExperimentDataInput = ({
 }) => {
   const error = form.watch("metricValuesData.error");
 
-  const [metricsEditable, setMetricsEditable] = useState<boolean>(!error);
+  const [metricsEditable, setMetricsEditable] = useState<boolean>(!!error);
 
   return (
     <>

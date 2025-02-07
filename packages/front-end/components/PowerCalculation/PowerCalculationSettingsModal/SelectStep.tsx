@@ -383,9 +383,12 @@ export const SelectStep = ({
               }
               value={metricValuesSourceId ?? ""}
               options={availablePopulations}
-              onChange={(value) =>
-                form.setValue("metricValuesData.sourceId", value)
-              }
+              onChange={(value) => {
+                if (value != metricValuesSourceId) {
+                  resetMetricsUsersInForm({ form });
+                }
+                form.setValue("metricValuesData.sourceId", value);
+              }}
               className="mb-2"
               forceUndefinedValueToNull={true}
             />
