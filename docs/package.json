@@ -24,6 +24,7 @@
     "@docusaurus/theme-live-codeblock": "3.3.2",
     "@docusaurus/tsconfig": "^3.4.0",
     "@mdx-js/react": "^3.0.0",
+    "@phosphor-icons/react": "^2.1.7",
     "clsx": "^2.0.0",
     "docusaurus-plugin-sass": "^0.2.2",
     "hast-util-is-element": "1.1.0",
