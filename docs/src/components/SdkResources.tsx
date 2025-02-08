@@ -6,7 +6,6 @@ import { GitHubLogo, SlackLogo, CodeLogos } from "./CodeLogos";
 const SLACK_URL =
   "https://join.slack.com/t/growthbookusers/shared_invite/zt-2xw8fu279-Y~hwnfCEf7WrEI9qScHURQ";
 
-// Add display name to InfoContainer
 const InfoContainer = memo(
   ({
     href,
@@ -30,7 +29,6 @@ const InfoContainer = memo(
 );
 InfoContainer.displayName = "InfoContainer";
 
-// Add display name to main component
 export default function SdkResources({ sdk }: { sdk: keyof typeof sdkInfo }) {
   const { name, version, github, examples, packageRepos } = sdkInfo[sdk];
   const formattedVersion = useMemo(() => version.replace(/^v?/, "v"), [
@@ -77,5 +75,3 @@ export default function SdkResources({ sdk }: { sdk: keyof typeof sdkInfo }) {
     </section>
   );
 }
-
-SdkResources.displayName = "SDK Resources";

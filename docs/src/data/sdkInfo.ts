@@ -2,29 +2,6 @@ import {
   getLatestSDKVersion,
   getSDKCapabilities,
 } from "../../../packages/shared/sdk-versioning";
-// import { sdkVersions } from "./sdkVersions";
-// "nocode-other": nocode_json,
-//   "nocode-webflow": nocode_json,
-//   "nocode-shopify": nocode_json,
-//   "nocode-wordpress": nocode_json,
-//   javascript: javascript_json,
-//   nodejs: nodejs_json,
-//   react: react_json,
-//   php: php_json,
-//   python: python_json,
-//   ruby: ruby_json,
-//   java: java_json,
-//   android: kotlin_json,
-//   ios: swift_json,
-//   go: go_json,
-//   flutter: flutter_json,
-//   csharp: csharp_json,
-//   elixir: elixir_json,
-//   "edge-cloudflare": edge_cloudflare_json,
-//   "edge-fastly": edge_fastly_json,
-//   "edge-lambda": edge_lambda_json,
-//   "edge-other": edge_other_json,
-//   other: other_json,
 
 export const sdkInfo = {
   js: {
