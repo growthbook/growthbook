@@ -42,6 +42,7 @@ import {
   TabsContent,
   TabsTrigger,
 } from "@/components/Radix/Tabs";
+import Frame from "@/components/Radix/Frame";
 
 export const ConnectSettingsForm = ({ children }) => {
   const methods = useFormContext();
@@ -120,7 +121,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
       regressionAdjustmentDays: DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
       sequentialTestingEnabled: false,
       sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-      powerCalculatorEnabled: false,
       attributionModel: "firstExposure",
       displayCurrency,
       secureAttributeSalt: "",
@@ -182,7 +182,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
     pValueCorrection: form.watch("pValueCorrection"),
     regressionAdjustmentEnabled: form.watch("regressionAdjustmentEnabled"),
     regressionAdjustmentDays: form.watch("regressionAdjustmentDays"),
-    powerCalculatorEnabled: form.watch("powerCalculatorEnabled"),
     sequentialTestingEnabled: form.watch("sequentialTestingEnabled"),
     sequentialTestingTuningParameter: form.watch(
       "sequentialTestingTuningParameter"
@@ -364,16 +363,16 @@ const GeneralSettingsPage = (): React.ReactElement => {
               </PremiumTooltip>
             </TabsTrigger>
           </StickyTabsList>
-          <Box pt="4">
+          <Box mt="4">
             <TabsContent value="experiment">
               <ExperimentSettings
                 cronString={cronString}
                 updateCronString={updateCronString}
               />
               {growthbook.isOn("bandits") && (
-                <Box mb="4" className="appbox">
+                <Frame mb="4">
                   <BanditSettings page="org-settings" />
-                </Box>
+                </Frame>
               )}
             </TabsContent>
 
@@ -399,7 +398,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
             </TabsContent>
 
             <TabsContent value="custom">
-              <Box className="appbox" p="5">
+              <Frame>
                 <Flex>
                   <Box width="300px">
                     <PremiumTooltip commercialFeature="custom-markdown">
@@ -418,7 +417,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     )}
                   </Box>
                 </Flex>
-              </Box>
+              </Frame>
             </TabsContent>
           </Box>
         </Tabs>

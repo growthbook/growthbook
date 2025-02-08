@@ -286,7 +286,7 @@ export default function TabbedPage({
       <div className="container-fluid pagecontents">
         {experiment.project ===
           getDemoDatasourceProjectIdForOrganization(organization.id) && (
-          <div className="alert alert-info mb-3 d-flex align-items-center mt-3">
+          <div className="alert alert-info d-flex align-items-center mb-0 mt-2">
             <div className="flex-1">
               This experiment is part of our sample dataset. You can safely
               delete this once you are done exploring.

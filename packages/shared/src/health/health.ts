@@ -18,7 +18,7 @@ type MultipleExposureHealthData = {
  *
  * @param multipleExposuresCount - Number of users exposed to multiple variations
  * @param totalUsersCount - Total number of users exposed to any variation
- * @param minCountThreshold - Minimum number of multiple exposures required to be considered significant
+ * @param minCountThreshold - Minimum number of total users required to be considered enough data
  * @param minPercentThreshold - Minimum percentage of multiple exposures required to be considered unhealthy
  */
 export function getMultipleExposureHealthData({
@@ -34,7 +34,7 @@ export function getMultipleExposureHealthData({
 }): MultipleExposureHealthData {
   const multipleExposureDecimal = multipleExposuresCount / totalUsersCount;
 
-  const hasEnoughData = multipleExposuresCount >= minCountThreshold;
+  const hasEnoughData = totalUsersCount >= minCountThreshold;
 
   const isUnhealthy = multipleExposureDecimal >= minPercentThreshold;
 

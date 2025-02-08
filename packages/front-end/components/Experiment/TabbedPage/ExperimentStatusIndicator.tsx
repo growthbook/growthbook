@@ -1,10 +1,10 @@
 import { Tooltip } from "@radix-ui/themes";
 import {
-  DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_COUNT,
   DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
   DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
   DEFAULT_SRM_THRESHOLD,
+  DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
 } from "shared/constants";
 import { getMultipleExposureHealthData, getSRMHealthData } from "shared/health";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
@@ -115,7 +115,7 @@ function getStatusIndicatorData(
       const multipleExposuresHealthData = getMultipleExposureHealthData({
         multipleExposuresCount: healthSummary.multipleExposures,
         totalUsersCount: healthSummary.totalUsers,
-        minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_COUNT,
+        minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
         minPercentThreshold: healthSettings.multipleExposureMinPercent,
       });
 

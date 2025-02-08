@@ -34,8 +34,8 @@ import TopNavLite from "@/components/Layout/TopNavLite";
 import GetStartedProvider from "@/services/GetStartedProvider";
 import GuidedGetStartedBar from "@/components/Layout/GuidedGetStartedBar";
 import LayoutLite from "@/components/Layout/LayoutLite";
-import { UserContextProvider } from "@/services/UserContext";
 import { growthbook } from "@/services/utils";
+import { UserContextProvider } from "@/services/UserContext";
 
 // Make useLayoutEffect isomorphic (for SSR)
 if (typeof window === "undefined") React.useLayoutEffect = React.useEffect;

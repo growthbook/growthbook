@@ -71,6 +71,17 @@ export function getJitsuClient(): JitsuClient | null {
   return _jitsu;
 }
 
+const getHost = () => {
+  // Mask the hostname and sanitize URLs to avoid leaking private info
+  const isLocalhost = !!location.hostname.match(/(localhost|127\.0\.0\.1)/i);
+  return isLocalhost ? "localhost" : isCloud() ? "cloud" : "self-hosted";
+};
+
+const getURL = () => {
+  const host = getHost();
+  return document.location.protocol + "//" + host + location.pathname;
+};
+
 export default function track(
   event: string,
   props: TrackEventProps = {},
@@ -88,16 +99,13 @@ export default function track(
   const effectiveAccountPlan = currentUser?.effectiveAccountPlan;
   const orgCreationDate = currentUser?.orgCreationDate;
 
-  // Mask the hostname and sanitize URLs to avoid leaking private info
-  const isLocalhost = !!location.hostname.match(/(localhost|127\.0\.0\.1)/i);
-  const host = isLocalhost ? "localhost" : isCloud() ? "cloud" : "self-hosted";
   const trackProps = {
     ...props,
     page_url: location.pathname,
     page_title: "",
     source_ip: "",
-    url: document.location.protocol + "//" + host + location.pathname,
-    doc_host: host,
+    url: getURL(),
+    doc_host: getHost(),
     doc_search: "",
     doc_path: location.pathname,
     referer: document?.referrer?.match(/weblens\.ai/) ? document.referrer : "",

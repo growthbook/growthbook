@@ -2,7 +2,7 @@ import { includeExperimentInPayload, getSnapshotAnalysis } from "shared/util";
 import { getMetricResultStatus } from "shared/experiments";
 import { getMultipleExposureHealthData, getSRMHealthData } from "shared/health";
 import {
-  DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_COUNT,
+  DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
   DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
   DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
@@ -148,7 +148,7 @@ export const notifyMultipleExposures = async ({
   const multipleExposureHealth = getMultipleExposureHealthData({
     multipleExposuresCount: snapshot.multipleExposures,
     totalUsersCount: totalUsers,
-    minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_COUNT,
+    minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
     minPercentThreshold:
       context.org.settings?.multipleExposureMinPercent ??
       DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,

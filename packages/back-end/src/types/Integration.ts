@@ -22,6 +22,7 @@ import {
   FactTableInterface,
   MetricQuantileSettings,
 } from "back-end/types/fact-table";
+import { PopulationDataQuerySettings } from "back-end/src/queryRunners/PopulationDataQueryRunner";
 
 export type ExternalIdCallback = (id: string) => Promise<void>;
 
@@ -182,17 +183,34 @@ export interface ExperimentUnitsQueryParams extends ExperimentBaseQueryParams {
   includeIdJoins: boolean;
 }
 
+type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";
 export interface ExperimentMetricQueryParams extends ExperimentBaseQueryParams {
   metric: ExperimentMetricInterface;
   denominatorMetrics: ExperimentMetricInterface[];
-  useUnitsTable: boolean;
+  unitsSource: UnitsSource;
+  unitsSql?: string;
+  forcedUserIdType?: string;
 }
 
 export interface ExperimentFactMetricsQueryParams
   extends ExperimentBaseQueryParams {
   metrics: FactMetricInterface[];
-  useUnitsTable: boolean;
+  unitsSource: UnitsSource;
+  unitsSql?: string;
+  forcedUserIdType?: string;
 }
+
+export interface PopulationBaseQueryParams {
+  populationSettings: PopulationDataQuerySettings;
+  factTableMap: FactTableMap;
+  segment: SegmentInterface | null;
+}
+export interface PopulationMetricQueryParams
+  extends ExperimentMetricQueryParams,
+    PopulationBaseQueryParams {}
+export interface PopulationFactMetricsQueryParams
+  extends ExperimentFactMetricsQueryParams,
+    PopulationBaseQueryParams {}
 
 export interface ExperimentAggregateUnitsQueryParams
   extends ExperimentBaseQueryParams {
@@ -495,6 +513,34 @@ export interface InformationSchemaTablesInterface {
   informationSchemaId: string;
 }
 
+export interface InsertTrackEventProps {
+  event_name: string;
+  value?: number;
+  properties?: Record<string, unknown>;
+  attributes?: Record<string, unknown>;
+}
+
+export interface InsertFeatureUsageProps {
+  feature: string;
+  env: string;
+  revision: string;
+  value: string;
+  source: string;
+  ruleId: string;
+  variationId: string;
+}
+
+export interface FeatureUsageAggregateRow {
+  timestamp: Date;
+  environment: string;
+  value: string;
+  source: string;
+  revision: string;
+  ruleId: string;
+  variationId: string;
+  evaluations: number;
+}
+export type FeatureUsageLookback = "15minute" | "hour" | "day" | "week";
 export interface SourceIntegrationInterface {
   datasource: DataSourceInterface;
   context: ReqContext;
@@ -544,6 +590,10 @@ export interface SourceIntegrationInterface {
     setExternalId: ExternalIdCallback
   ): Promise<DropTableQueryResponse>;
   getMetricValueQuery(params: MetricValueParams): string;
+  getPopulationMetricQuery?(params: PopulationMetricQueryParams): string;
+  getPopulationFactMetricsQuery?(
+    params: PopulationFactMetricsQueryParams
+  ): string;
   getExperimentFactMetricsQuery?(
     params: ExperimentFactMetricsQueryParams
   ): string;
@@ -562,6 +612,14 @@ export interface SourceIntegrationInterface {
     query: string,
     setExternalId: ExternalIdCallback
   ): Promise<MetricValueQueryResponse>;
+  runPopulationMetricQuery?(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<ExperimentMetricQueryResponse>;
+  runPopulationFactMetricsQuery?(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<ExperimentFactMetricsQueryResponse>;
   runExperimentMetricQuery(
     query: string,
     setExternalId: ExternalIdCallback
@@ -605,4 +663,8 @@ export interface SourceIntegrationInterface {
     requireSchema?: boolean
   ): string;
   cancelQuery?(externalId: string): Promise<void>;
+  getFeatureUsage?(
+    feature: string,
+    lookback: FeatureUsageLookback
+  ): Promise<{ start: number; rows: FeatureUsageAggregateRow[] }>;
 }
