@@ -12,7 +12,11 @@ from gbstats.messages import (
     ZERO_SCALED_VARIATION_MESSAGE,
     NO_UNITS_IN_VARIATION_MESSAGE,
 )
-from gbstats.models.statistics import TestStatistic, ScaledImpactStatistic
+from gbstats.models.statistics import (
+    TestStatistic,
+    ScaledImpactStatistic,
+    RegressionAdjustedStatistic,
+)
 from gbstats.models.tests import BaseABTest, BaseConfig, TestResult, Uplift
 from gbstats.utils import variance_of_ratios, isinstance_union
 
@@ -52,6 +56,30 @@ def frequentist_variance(var_a, mean_a, n_a, var_b, mean_b, n_b, relative) -> fl
         return var_b / n_b + var_a / n_a
 
 
+def frequentist_variance_relative_cuped(
+    stat_a: RegressionAdjustedStatistic, stat_b: RegressionAdjustedStatistic
+) -> float:
+    den_trt = stat_b.n * stat_a.unadjusted_mean**2
+    den_ctrl = stat_a.n * stat_a.unadjusted_mean**2
+    if den_trt == 0 or den_ctrl == 0:
+        return 0  # avoid division by zero
+    theta = stat_a.theta if stat_a.theta else 0
+    num_trt = (
+        stat_b.post_statistic.variance
+        + theta**2 * stat_b.pre_statistic.variance
+        - 2 * theta * stat_b.covariance
+    )
+    v_trt = num_trt / den_trt
+    const = -stat_b.post_statistic.mean
+    num_a = (
+        stat_a.post_statistic.variance * const**2 / (stat_a.post_statistic.mean**2)
+    )
+    num_b = 2 * theta * stat_a.covariance * const / stat_a.post_statistic.mean
+    num_c = theta**2 * stat_a.pre_statistic.variance
+    v_ctrl = (num_a + num_b + num_c) / den_ctrl
+    return v_trt + v_ctrl
+
+
 class TTest(BaseABTest):
     def __init__(
         self,
@@ -79,15 +107,22 @@ class TTest(BaseABTest):
 
     @property
     def variance(self) -> float:
-        return frequentist_variance(
-            self.stat_a.variance,
-            self.stat_a.unadjusted_mean,
-            self.stat_a.n,
-            self.stat_b.variance,
-            self.stat_b.unadjusted_mean,
-            self.stat_b.n,
-            self.relative,
-        )
+        if (
+            isinstance(self.stat_a, RegressionAdjustedStatistic)
+            and isinstance(self.stat_b, RegressionAdjustedStatistic)
+            and self.relative
+        ):
+            return frequentist_variance_relative_cuped(self.stat_a, self.stat_b)
+        else:
+            return frequentist_variance(
+                self.stat_a.variance,
+                self.stat_a.unadjusted_mean,
+                self.stat_a.n,
+                self.stat_b.variance,
+                self.stat_b.unadjusted_mean,
+                self.stat_b.n,
+                self.relative,
+            )
 
     @property
     def point_estimate(self) -> float:

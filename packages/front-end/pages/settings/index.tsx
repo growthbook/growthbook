@@ -121,7 +121,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
       regressionAdjustmentDays: DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
       sequentialTestingEnabled: false,
       sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-      powerCalculatorEnabled: false,
       attributionModel: "firstExposure",
       displayCurrency,
       secureAttributeSalt: "",
@@ -183,7 +182,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
     pValueCorrection: form.watch("pValueCorrection"),
     regressionAdjustmentEnabled: form.watch("regressionAdjustmentEnabled"),
     regressionAdjustmentDays: form.watch("regressionAdjustmentDays"),
-    powerCalculatorEnabled: form.watch("powerCalculatorEnabled"),
     sequentialTestingEnabled: form.watch("sequentialTestingEnabled"),
     sequentialTestingTuningParameter: form.watch(
       "sequentialTestingTuningParameter"
