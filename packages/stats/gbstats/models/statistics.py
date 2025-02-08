@@ -255,6 +255,15 @@ class RegressionAdjustedRatioStatistic(Statistic):
         return self.m_statistic_pre.sum / self.d_statistic_pre.sum
 
     @property
+    def unadjusted_mean(self) -> float:
+        """
+        Return the mean that has no regression adjustments.
+        Must be over-ridden if regular `mean` function is adjusted,
+        as it is for RegressionAdjustedStatistic
+        """
+        return self.mean_post
+
+    @property
     def sum(self):
         raise NotImplementedError(
             "RatioStatistic does not have a unique `sum` property"
@@ -264,39 +273,19 @@ class RegressionAdjustedRatioStatistic(Statistic):
     def variance(self):
         if self.d_statistic_post.mean == 0 or self.n <= 1:
             return 0
-        theta = self.theta if self.theta else 0
-        return self.var_y + theta**2 * self.var_x - 2 * theta * self.covariance
-
-    @property
-    def var_y(self):
-        if self.n <= 1:
-            return 0
-        return variance_of_ratios(
-            self.mean_m_y,
-            self.var_m_y,
-            self.mean_d_y,
-            self.var_d_y,
-            self.cov_m_y_d_y,
-        )
+        return self.nabla.T.dot(self.lambda_matrix).dot(self.nabla)
 
     @property
     def var_x(self):
         if self.n <= 1:
             return 0
-        return variance_of_ratios(
-            self.mean_m_x,
-            self.var_m_x,
-            self.mean_d_x,
-            self.var_d_x,
-            self.cov_m_x_d_x,
-        )
+        return self.nabla[2:4].T.dot(self.lambda_matrix[2:4, 2:4]).dot(self.nabla[2:4])
 
-    # take cross_cov here
     @property
     def covariance(self):
         if self.n <= 1:
             return 0
-        return self.lambda_matrix[1, 0]
+        return self.nabla[2:4].T.dot(self.lambda_matrix[2:4, 0:2]).dot(self.nabla[0:2])
 
     @property
     def cov_m_x_d_x(self) -> float:
@@ -353,26 +342,11 @@ class RegressionAdjustedRatioStatistic(Statistic):
         ) / (self.n - 1)
 
     @property
-    def unadjusted_mean(self) -> float:
-        """
-        Return the mean that has no regression adjustments.
-        Must be over-ridden if regular `mean` function is adjusted,
-        as it is for RegressionAdjustedStatistic
-        """
-        return self.mean_post
-
-    ######################
-    # new below here
-    ######################
-    ########################################
-    # joint stuff below here
-    ########################################
-    @property
     def betahat(self):
         return np.array([self.mean_m_y, self.mean_d_y, self.mean_m_x, self.mean_d_x])
 
     @property
-    def lambda_full(self):
+    def lambda_matrix(self) -> np.ndarray:
         return np.array(
             [
                 [
@@ -403,24 +377,17 @@ class RegressionAdjustedRatioStatistic(Statistic):
         )
 
     @property
-    def nabla_0(self):
-        return np.array(
-            [1 / self.betahat[1], -self.betahat[0] / self.betahat[1] ** 2, 0, 0]
-        )
-
-    @property
-    def nabla_1(self):
-        return np.array(
-            [0, 0, 1 / self.betahat[3], -self.betahat[2] / self.betahat[3] ** 2]
-        )
-
-    @property
     def nabla(self):
-        return np.vstack((self.nabla_0, self.nabla_1))
-
-    @property
-    def lambda_matrix(self):
-        return self.nabla.dot(self.lambda_full.dot(self.nabla.T))
+        theta = self.theta if self.theta else 0
+        # later figure out best place for check that not dividing by 0
+        return np.array(
+            [
+                1 / self.betahat[1],
+                -self.betahat[0] / self.betahat[1] ** 2,
+                -theta / self.betahat[3],
+                theta * self.betahat[2] / self.betahat[3] ** 2,
+            ]
+        )
 
     @property
     def mean_m_y(self) -> float:
