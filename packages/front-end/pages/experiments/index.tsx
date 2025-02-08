@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { RxDesktop } from "react-icons/rx";
 import { date, datetime } from "shared/dates";
 import Link from "next/link";
@@ -18,7 +18,6 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Pagination from "@/components/Pagination";
 import { useUser } from "@/services/UserContext";
 import SortedTags from "@/components/Tags/SortedTags";
 import Field from "@/components/Forms/Field";
@@ -127,8 +126,6 @@ const ExperimentsPage = (): React.ReactElement => {
   const permissionsUtil = usePermissionsUtil();
   const settings = useOrgSettings();
 
-  const [currentPage, setCurrentPage] = useState(1);
-
   const experiments = useAddComputedFields(
     allExperiments,
     (exp) => {
@@ -168,6 +165,7 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const filterResults = useCallback(
     (items: typeof experiments) => {
+      console.log("filter results called...", items.length);
       if (showMineOnly) {
         items = items.filter(
           (item) =>
@@ -175,14 +173,29 @@ const ExperimentsPage = (): React.ReactElement => {
         );
       }
 
+      // filter by tags:
       items = filterByTags(items, tagsFilter.tags);
 
+      // filter by active tabs:
+      if (tabs.length) {
+        items = items.filter((item) => tabs.includes(item.tab));
+      }
+      console.log("now", items.length);
       return items;
     },
     [showMineOnly, userId, tagsFilter.tags, watchedExperiments]
   );
 
-  const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
+  // wrap the useSearch hook in a useMemo so that the search is only re-run when the experiments filters change:
+  // ?
+  const {
+    items,
+    searchInputProps,
+    isFiltered,
+    SortableTH,
+    pagination,
+    unpaginatedItems,
+  } = useSearch({
     items: experiments,
     localStorageKey: "experiments",
     defaultSortField: "date",
@@ -263,6 +276,7 @@ const ExperimentsPage = (): React.ReactElement => {
       goal: (item) => [...item.metricNames, ...item.goalMetrics],
     },
     filterResults,
+    pageSize: NUM_PER_PAGE,
   });
 
   const searchTermFilterExplainations = (
@@ -311,12 +325,12 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const tabCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    items.forEach((item) => {
+    unpaginatedItems.forEach((item) => {
       counts[item.tab] = counts[item.tab] || 0;
       counts[item.tab]++;
     });
     return counts;
-  }, [items]);
+  }, [unpaginatedItems]);
 
   const filtered = useMemo(() => {
     return tabs.length
@@ -325,12 +339,7 @@ const ExperimentsPage = (): React.ReactElement => {
   }, [tabs, items]);
 
   // If "All Projects" is selected is selected and some experiments are in a project, show the project column
-  const showProjectColumn = !project && items.some((e) => e.project);
-
-  // Reset to page 1 when a filter is applied or tabs change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [filtered.length]);
+  const showProjectColumn = !project && unpaginatedItems.some((e) => e.project);
 
   if (error) {
     return (
@@ -354,9 +363,6 @@ const ExperimentsPage = (): React.ReactElement => {
   const canAddTemplate = permissionsUtil.canViewExperimentTemplateModal(
     project
   );
-
-  const start = (currentPage - 1) * NUM_PER_PAGE;
-  const end = start + NUM_PER_PAGE;
 
   function onToggleTab(tab: string) {
     return () => {
@@ -598,7 +604,7 @@ const ExperimentsPage = (): React.ReactElement => {
                         </tr>
                       </thead>
                       <tbody>
-                        {filtered.slice(start, end).map((e) => {
+                        {filtered.map((e) => {
                           return (
                             <tr key={e.id} className="hover-highlight">
                               <td
@@ -705,14 +711,7 @@ const ExperimentsPage = (): React.ReactElement => {
                         })}
                       </tbody>
                     </table>
-                    {filtered.length > NUM_PER_PAGE && (
-                      <Pagination
-                        numItemsTotal={filtered.length}
-                        currentPage={currentPage}
-                        perPage={NUM_PER_PAGE}
-                        onPageChange={setCurrentPage}
-                      />
-                    )}
+                    {pagination}
                   </>
                 )
               )}
