@@ -104,10 +104,12 @@ if (gb.isOn(${JSON.stringify(featureId)})) {
       <Code
         language="go"
         code={`
-if gb.Feature(${JSON.stringify(featureId)}).On {
+
+result := client.EvalFeature(context.Background(), ${JSON.stringify(featureId)})
+if result.On {
   // Feature is enabled!
 }
-            `.trim()}
+        `.trim()}
       />
     );
   }
