@@ -331,7 +331,7 @@ export async function getUsage(
 ) {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canManageBilling()) {
+  if (!context.permissions.canViewUsage()) {
     context.permissions.throwPermissionError();
   }
 

@@ -1,6 +1,5 @@
 import { FC, useEffect, useState } from "react";
 import { LicenseInterface } from "enterprise";
-import { useRouter } from "next/router";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import SubscriptionInfo from "@/components/Settings/SubscriptionInfo";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
@@ -8,8 +7,6 @@ import useStripeSubscription from "@/hooks/useStripeSubscription";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import CloudUsage from "@/components/Settings/Billing/CloudUsage";
-import { isCloud } from "@/services/env";
 
 const BillingPage: FC = () => {
   const [upgradeModal, setUpgradeModal] = useState(false);
@@ -18,8 +15,7 @@ const BillingPage: FC = () => {
 
   const permissionsUtil = usePermissionsUtil();
 
-  const router = useRouter();
-  const useDummyUsageData = !!router.query.dummy;
+  const { accountPlan } = useUser();
 
   const { apiCall } = useAuth();
   const { refreshOrganization } = useUser();
@@ -48,6 +44,17 @@ const BillingPage: FC = () => {
     }
   }, [apiCall, refreshOrganization]);
 
+  if (accountPlan === "enterprise") {
+    return (
+      <div className="container pagecontents">
+        <div className="alert alert-info">
+          This page is not available for enterprise customers. Please contact
+          your account rep for any billing questions or changes.
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return <LoadingOverlay />;
   }
@@ -72,10 +79,7 @@ const BillingPage: FC = () => {
         />
       )}
 
-      <h1 className="mb-3">Billing and Usage</h1>
-
-      {(isCloud() || useDummyUsageData) && <CloudUsage />}
-
+      <h1>Billing Settings</h1>
       <div className=" bg-white p-3 border">
         {subscriptionStatus ? (
           <SubscriptionInfo />

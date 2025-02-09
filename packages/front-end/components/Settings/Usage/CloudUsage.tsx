@@ -7,7 +7,6 @@ import { AreaClosed } from "@visx/shape";
 import { scaleLinear, scaleTime } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { useRouter } from "next/router";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { curveLinear } from "@visx/curve";
 import { PiCaretLeft, PiCaretRight } from "react-icons/pi";
 import useApi from "@/hooks/useApi";
@@ -39,21 +38,23 @@ function formatBytes(bytes: number) {
 export default function CloudUsage() {
   const [monthsAgo, setMonthsAgo] = useState(0);
 
-  const gb = useGrowthBook();
-
   const router = useRouter();
   const useDummyData = !isCloud() && !!router.query.dummy;
-
-  const enableUsage = useDummyData || gb.isOn("cdn-usage-data");
 
   const { data, error } = useApi<{ cdnUsage: DailyUsage[] }>(
     `/billing/usage?monthsAgo=${monthsAgo}`,
     {
-      shouldRun: () => enableUsage && !useDummyData,
+      shouldRun: () => !useDummyData,
     }
   );
 
-  if (!enableUsage) return null;
+  if (!isCloud() && !useDummyData) {
+    return (
+      <Callout status="warning">
+        Usage data is only availbale on GrowthBook Cloud.
+      </Callout>
+    );
+  }
 
   if (error) {
     return (
@@ -120,7 +121,7 @@ export default function CloudUsage() {
     <Frame style={{ position: "relative" }}>
       {!usage.length && <LoadingOverlay />}
       <Flex gap="2" align="center" mb="4">
-        <h3 className="mr-4 mb-0">CDN Usage</h3>
+        <h2 className="mr-4 mb-0">CDN Usage</h2>
         <div className="ml-auto">
           <SelectField
             options={monthOptions}
