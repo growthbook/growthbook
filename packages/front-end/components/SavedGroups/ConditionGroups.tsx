@@ -1,8 +1,15 @@
 import { useMemo, useState } from "react";
 import { ago } from "shared/dates";
 import { SavedGroupInterface } from "shared/src/types";
-import { isProjectListValidForProject, truncateString } from "shared/util";
+import {
+  experimentsReferencingSavedGroups,
+  featuresReferencingSavedGroups,
+  isProjectListValidForProject,
+  truncateString,
+} from "shared/util";
 import { FaMagnifyingGlass } from "react-icons/fa6";
+import { isEmpty } from "lodash";
+import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useSearch } from "@/services/search";
@@ -16,6 +23,7 @@ import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
+import { useExperiments } from "@/hooks/useExperiments";
 import SavedGroupForm from "./SavedGroupForm";
 
 export interface Props {
@@ -51,30 +59,27 @@ export default function ConditionGroups({ groups, mutate }: Props) {
     : conditionGroups;
 
   const { features } = useFeaturesList(false);
+  const { experiments } = useExperiments();
 
   // Get a list of feature ids for every saved group
-  // TODO: also get experiments
-  const savedGroupFeatureIds = useMemo(() => {
-    const map: Record<string, Set<string>> = {};
-    features.forEach((feature) => {
-      environments.forEach((env) => {
-        if (feature.environmentSettings[env.id]?.rules) {
-          feature.environmentSettings[env.id].rules.forEach((rule) => {
-            filteredConditionGroups.forEach((group) => {
-              if (
-                rule.condition?.includes(group.id) ||
-                rule.savedGroups?.some((g) => g.ids.includes(group.id))
-              ) {
-                map[group.id] = map[group.id] || new Set();
-                map[group.id].add(feature.id);
-              }
-            });
-          });
-        }
-      });
-    });
-    return map;
-  }, [filteredConditionGroups, features, environments]);
+  const referencingFeaturesByGroup = useMemo(
+    () =>
+      featuresReferencingSavedGroups({
+        savedGroups: filteredConditionGroups,
+        features,
+        environments,
+      }),
+    [filteredConditionGroups, environments, features]
+  );
+
+  const referencingExperimentsByGroup = useMemo(
+    () =>
+      experimentsReferencingSavedGroups({
+        savedGroups: filteredConditionGroups,
+        experiments,
+      }),
+    [filteredConditionGroups, experiments]
+  );
 
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
     items: filteredConditionGroups,
@@ -87,10 +92,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
   if (!conditionGroups) return <LoadingOverlay />;
 
   return (
-    <div
-      className="mb-5 p-3 bg-white appbox border-top-0"
-      style={{ borderRadius: "0 0 5px 5px" }}
-    >
+    <Box mt="4" mb="5" p="4" className="appbox">
       {savedGroupForm && (
         <SavedGroupForm
           close={() => setSavedGroupForm(null)}
@@ -166,13 +168,9 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                             <ProjectBadges
                               resourceType="saved group"
                               projectIds={s.projects}
-                              className="badge-ellipsis short align-middle"
                             />
                           ) : (
-                            <ProjectBadges
-                              resourceType="saved group"
-                              className="badge-ellipsis short align-middle"
-                            />
+                            <ProjectBadges resourceType="saved group" />
                           )}
                         </td>
                         <td>{s.owner}</td>
@@ -205,10 +203,12 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                                   mutate();
                                 }}
                                 getConfirmationContent={getSavedGroupMessage(
-                                  savedGroupFeatureIds[s.id]
+                                  referencingFeaturesByGroup[s.id],
+                                  referencingExperimentsByGroup[s.id]
                                 )}
                                 canDelete={
-                                  (savedGroupFeatureIds[s.id]?.size || 0) === 0
+                                  isEmpty(referencingFeaturesByGroup[s.id]) &&
+                                  isEmpty(referencingExperimentsByGroup[s.id])
                                 }
                               />
                             ) : null}
@@ -230,6 +230,6 @@ export default function ConditionGroups({ groups, mutate }: Props) {
           </div>
         </>
       )}
-    </div>
+    </Box>
   );
 }

@@ -6,12 +6,13 @@ import {
   SavedGroupTargeting,
 } from "back-end/types/feature";
 import React from "react";
-import { FaAngleRight, FaExclamationTriangle } from "react-icons/fa";
+import { FaExclamationTriangle } from "react-icons/fa";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import Collapsible from "react-collapsible";
 import { Flex, Tooltip, Text } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
+import { PiCaretRightFill } from "react-icons/pi";
 import Field from "@/components/Forms/Field";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import SelectField from "@/components/Forms/SelectField";
@@ -43,6 +44,11 @@ import { useTemplates } from "@/hooks/useTemplates";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { convertTemplateToExperimentRule } from "@/services/experiments";
 import { useUser } from "@/services/UserContext";
+import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
+import {
+  filterCustomFieldsForSectionAndProject,
+  useCustomFields,
+} from "@/hooks/useCustomFields";
 
 export default function ExperimentRefNewFields({
   step,
@@ -77,6 +83,7 @@ export default function ExperimentRefNewFields({
   hideVariationIds = true,
   startEditingIndexes = false,
   orgStickyBucketing,
+  setCustomFields,
   isTemplate = false,
 }: {
   step: number;
@@ -111,6 +118,7 @@ export default function ExperimentRefNewFields({
   hideVariationIds?: boolean;
   startEditingIndexes?: boolean;
   orgStickyBucketing?: boolean;
+  setCustomFields?: (customFields: Record<string, string>) => void;
   isTemplate?: boolean;
 }) {
   const form = useFormContext();
@@ -165,6 +173,12 @@ export default function ExperimentRefNewFields({
     hasCommercialFeature("templates") &&
     settings.requireExperimentTemplates &&
     availableTemplates.length >= 1;
+
+  const customFields = filterCustomFieldsForSectionAndProject(
+    useCustomFields(),
+    "experiment",
+    project
+  );
 
   return (
     <>
@@ -255,6 +269,17 @@ export default function ExperimentRefNewFields({
             {...form.register("description")}
             placeholder="Short human-readable description of the Experiment"
           />
+
+          {hasCommercialFeature("custom-metadata") &&
+            !!customFields?.length && (
+              <CustomFieldInput
+                customFields={customFields}
+                currentCustomFields={form.watch("customFields")}
+                setCustomFields={setCustomFields ? setCustomFields : () => {}}
+                section={"experiment"}
+                project={project}
+              />
+            )}
         </>
       ) : null}
 
@@ -262,7 +287,7 @@ export default function ExperimentRefNewFields({
         <>
           <div className="mb-4">
             <SelectField
-              label="Assign value based on attribute"
+              label="Assign Variation by Attribute"
               containerClassName="flex-1"
               options={attributeSchema
                 .filter((s) => !hasHashAttributes || s.hashAttribute)
@@ -366,7 +391,7 @@ export default function ExperimentRefNewFields({
             </div>
           )}
 
-          {!isTemplate && (
+          {!isTemplate && source === "rule" && (
             <>
               <hr />
               <div className="mt-4 mb-3">
@@ -420,28 +445,10 @@ export default function ExperimentRefNewFields({
 
                 // If unsetting the datasource, leave all the other settings alone
                 // That way, it will be restored if the user switches back to the previous value
-                if (!newDatasource) {
-                  return;
-                }
+                if (!newDatasource) return;
 
                 const isValidMetric = (id: string) =>
                   getExperimentMetricById(id)?.datasource === newDatasource;
-
-                // Filter the selected metrics to only valid ones
-                const goals = form.watch("goalMetrics") ?? [];
-                form.setValue("goalMetrics", goals.filter(isValidMetric));
-
-                const secondaryMetrics = form.watch("secondaryMetrics") ?? [];
-                form.setValue(
-                  "secondaryMetrics",
-                  secondaryMetrics.filter(isValidMetric)
-                );
-
-                const guardrails = form.watch("guardrailMetrics") ?? [];
-                form.setValue(
-                  "guardrailMetrics",
-                  guardrails.filter(isValidMetric)
-                );
 
                 // If the segment is now invalid
                 const segment = form.watch("segment");
@@ -470,7 +477,7 @@ export default function ExperimentRefNewFields({
               className="portal-overflow-ellipsis"
             />
 
-            {exposureQueries ? (
+            {datasourceProperties?.exposureQueries && exposureQueries ? (
               <SelectField
                 label={
                   <>
@@ -530,16 +537,18 @@ export default function ExperimentRefNewFields({
             collapseGuardrail={true}
           />
 
+          <hr className="mt-4" />
+
           <Collapsible
             trigger={
               <div className="link-purple font-weight-bold mt-4 mb-2">
-                <FaAngleRight className="chevron mr-1" />
+                <PiCaretRightFill className="chevron mr-1" />
                 Advanced Settings
               </div>
             }
             transitionTime={100}
           >
-            <div className="box pt-3 px-3 mt-1">
+            <div className="rounded px-3 pt-3 pb-1 bg-highlight">
               {!!datasource && (
                 <MetricSelector
                   datasource={form.watch("datasource")}

@@ -103,7 +103,6 @@ const BanditExperimentPage = (): ReactElement => {
     ? () => setDuplicateModalOpen(true)
     : null;
   const editTags = canEditExperiment ? () => setTagsModalOpen(true) : null;
-  const editProject = canRunExperiment ? () => setProjectModalOpen(true) : null;
   const newPhase = canRunExperiment ? () => setPhaseModalOpen(true) : null;
   const editPhases = canRunExperiment ? () => setEditPhasesOpen(true) : null;
   const editPhase = canRunExperiment
@@ -121,7 +120,7 @@ const BanditExperimentPage = (): ReactElement => {
     );
 
   return (
-    <div>
+    <>
       {metricsModalOpen && (
         <EditMetricsForm
           experiment={experiment}
@@ -267,31 +266,28 @@ const BanditExperimentPage = (): ReactElement => {
         ]}
       />
 
-      <div className="container-fluid">
-        <SnapshotProvider experiment={experiment}>
-          <TabbedPage
-            experiment={experiment}
-            linkedFeatures={linkedFeatures}
-            mutate={mutate}
-            visualChangesets={visualChangesets}
-            urlRedirects={urlRedirects}
-            editMetrics={editMetrics}
-            editResult={editResult}
-            editVariations={editVariations}
-            duplicate={duplicate}
-            editProject={editProject}
-            editTags={editTags}
-            newPhase={newPhase}
-            editPhases={editPhases}
-            editPhase={editPhase}
-            envs={data.envs}
-            editTargeting={editTargeting}
-            checklistItemsRemaining={checklistItemsRemaining}
-            setChecklistItemsRemaining={setChecklistItemsRemaining}
-          />
-        </SnapshotProvider>
-      </div>
-    </div>
+      <SnapshotProvider experiment={experiment}>
+        <TabbedPage
+          experiment={experiment}
+          linkedFeatures={linkedFeatures}
+          mutate={mutate}
+          visualChangesets={visualChangesets}
+          urlRedirects={urlRedirects}
+          editMetrics={editMetrics}
+          editResult={editResult}
+          editVariations={editVariations}
+          duplicate={duplicate}
+          editTags={editTags}
+          newPhase={newPhase}
+          editPhases={editPhases}
+          editPhase={editPhase}
+          envs={data.envs}
+          editTargeting={editTargeting}
+          checklistItemsRemaining={checklistItemsRemaining}
+          setChecklistItemsRemaining={setChecklistItemsRemaining}
+        />
+      </SnapshotProvider>
+    </>
   );
 };
 

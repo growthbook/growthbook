@@ -319,6 +319,12 @@ const sidebars = {
 
         {
           type: "doc",
+          id: "running-experiments/experiment-templates",
+          label: "Experiment Templates",
+        },
+
+        {
+          type: "doc",
           id: "experimentation-analysis/experiment-results",
           label: "Experiment Results",
         },
@@ -353,6 +359,11 @@ const sidebars = {
           type: "doc",
           id: "sticky-bucketing",
           label: "Sticky Bucketing",
+        },
+        {
+          type: "doc",
+          id: "experimentation-analysis/cluster-experiments",
+          label: "Cluster Experiments",
         },
         {
           type: "doc",

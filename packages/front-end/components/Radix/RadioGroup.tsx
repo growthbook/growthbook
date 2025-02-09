@@ -1,12 +1,12 @@
 import { Flex, Text, RadioGroup as RadixRadioGroup } from "@radix-ui/themes";
-import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
-import { ReactElement } from "react";
+import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import { forwardRef, ReactElement } from "react";
 import HelperText, { getRadixColor } from "@/components/Radix/HelperText";
 
 export type RadioOptions = {
   value: string;
   label?: string;
-  description?: string;
+  description?: string | JSX.Element;
   error?: string;
   errorLevel?: "error" | "warning";
   renderOnSelect?: ReactElement;
@@ -18,15 +18,22 @@ export type Props = {
   options: RadioOptions;
   value: string;
   setValue: (value: string) => void;
+  gap?: string;
+  descriptionSize?: "1" | "2" | "3" | "4";
 } & MarginProps;
 
-export default function RadioGroup({
-  disabled,
-  options,
-  value,
-  setValue,
-  ...containerProps
-}: Props) {
+export default forwardRef<HTMLDivElement, Props>(function RadioGroup(
+  {
+    disabled,
+    options,
+    value,
+    setValue,
+    gap = "1",
+    descriptionSize = "1",
+    ...containerProps
+  }: Props,
+  ref
+) {
   // get color for selected option
   const selectedOption = options.find((o) => o.value === value);
   const selectedValue = value;
@@ -35,7 +42,7 @@ export default function RadioGroup({
     : "violet";
 
   return (
-    <Flex {...containerProps}>
+    <Flex {...containerProps} ref={ref}>
       <Flex direction={"column"}>
         <Text size="2" color={disabled ? "gray" : undefined}>
           <RadixRadioGroup.Root
@@ -63,12 +70,12 @@ export default function RadioGroup({
                     className={disabled ? "disabled" : undefined}
                   >
                     <Text className={disabled ? "rt-TextDisabled" : undefined}>
-                      <Flex direction="column" gap="1">
+                      <Flex direction="column" gap={gap}>
                         <Text weight="medium" className="main-text">
                           {label || value}
                         </Text>
                         {description ? (
-                          <Text weight="regular" size="1">
+                          <Text weight="regular" size={descriptionSize}>
                             {description}
                           </Text>
                         ) : null}
@@ -87,4 +94,4 @@ export default function RadioGroup({
       </Flex>
     </Flex>
   );
-}
+});

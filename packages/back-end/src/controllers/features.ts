@@ -9,6 +9,7 @@ import {
   MergeStrategy,
   checkIfRevisionNeedsReview,
   resetReviewOnChange,
+  getAffectedEnvsForExperiment,
 } from "shared/util";
 import {
   getConnectionSDKCapabilities,
@@ -21,6 +22,8 @@ import {
   FeatureRule,
   FeatureTestResult,
   JSONSchemaDef,
+  FeatureUsageData,
+  FeatureUsageTimeSeries,
 } from "back-end/types/feature";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
@@ -34,6 +37,7 @@ import {
   addLinkedExperiment,
   applyRevisionChanges,
   archiveFeature,
+  copyFeatureEnvironmentRules,
   createFeature,
   deleteFeature,
   editFeatureRule,
@@ -105,11 +109,16 @@ import {
   getExperimentById,
   getExperimentsByIds,
   getExperimentsByTrackingKeys,
+  updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { ReqContext } from "back-end/types/organization";
-import { ExperimentInterface } from "back-end/types/experiment";
+import { Changeset, ExperimentInterface } from "back-end/types/experiment";
 import { ApiReqContext } from "back-end/types/api";
 import { getAllCodeRefsForFeature } from "back-end/src/models/FeatureCodeRefs";
+import { getSourceIntegrationObject } from "back-end/src/services/datasource";
+import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
+import { FeatureUsageLookback } from "back-end/src/types/Integration";
+import { getChangesToStartExperiment } from "back-end/src/services/experiments";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
@@ -721,6 +730,7 @@ export async function postFeaturePublish(
       comment: string;
       mergeResultSerialized: string;
       adminOverride?: boolean;
+      publishExperimentIds?: string[];
     },
     { id: string; version: string }
   >,
@@ -728,7 +738,12 @@ export async function postFeaturePublish(
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
-  const { comment, mergeResultSerialized, adminOverride } = req.body;
+  const {
+    comment,
+    mergeResultSerialized,
+    adminOverride,
+    publishExperimentIds,
+  } = req.body;
   const { id, version } = req.params;
   const feature = await getFeature(context, id);
 
@@ -832,6 +847,54 @@ export async function postFeaturePublish(
     }
   }
 
+  // If publishing experiments along with this draft, ensure they are valid
+  const experimentsToUpdate: {
+    experiment: ExperimentInterface;
+    changes: Changeset;
+  }[] = [];
+  if (publishExperimentIds && publishExperimentIds.length) {
+    const experiments = await getExperimentsByIds(
+      context,
+      publishExperimentIds
+    );
+    if (experiments.length !== publishExperimentIds.length) {
+      throw new Error("Invalid experiment IDs");
+    }
+    if (experiments.some((exp) => exp.status !== "draft" || exp.archived)) {
+      throw new Error("Can only publish draft experiments");
+    }
+    if (experiments.some((exp) => !exp.linkedFeatures?.includes(feature.id))) {
+      throw new Error("All experiments must be linked to this feature");
+    }
+    if (
+      experiments.some((exp) => {
+        const envs = getAffectedEnvsForExperiment({
+          experiment: exp,
+          orgEnvironments: allEnvironments,
+        });
+        return (
+          envs.length > 0 && !context.permissions.canRunExperiment(exp, envs)
+        );
+      })
+    ) {
+      context.permissions.throwPermissionError();
+    }
+
+    for (const experiment of experiments) {
+      try {
+        const changes = await getChangesToStartExperiment(context, experiment);
+
+        if (!context.permissions.canUpdateExperiment(experiment, changes)) {
+          context.permissions.throwPermissionError();
+        }
+
+        experimentsToUpdate.push({ experiment, changes });
+      } catch (e) {
+        throw new Error(`Cannot publish experiment: ${e.message}`);
+      }
+    }
+  }
+
   const updatedFeature = await publishRevision(
     context,
     feature,
@@ -851,6 +914,23 @@ export async function postFeaturePublish(
       comment,
     }),
   });
+
+  for (const { experiment, changes } of experimentsToUpdate) {
+    const updated = await updateExperiment({
+      context,
+      experiment,
+      changes,
+    });
+
+    await req.audit({
+      event: "experiment.status",
+      entity: {
+        object: "experiment",
+        id: experiment.id,
+      },
+      details: auditDetailsUpdate(experiment, updated),
+    });
+  }
 
   res.status(200).json({
     status: 200,
@@ -2281,6 +2361,154 @@ export async function getFeatureById(
   });
 }
 
+function getLookbackNumBuckets(
+  lookback: FeatureUsageLookback
+): { width: number; buckets: number } {
+  switch (lookback) {
+    case "15minute":
+      return { width: 60 * 1000, buckets: 15 };
+    case "hour":
+      return { width: 5 * 60 * 1000, buckets: 12 };
+    case "day":
+      return { width: 60 * 60 * 1000, buckets: 24 };
+    case "week":
+      return { width: 6 * 60 * 60 * 1000, buckets: 28 };
+    default:
+      throw new Error(`Invalid lookback: ${lookback}`);
+  }
+}
+
+export async function getFeatureUsage(
+  req: AuthRequest<null, { id: string }, { lookback?: FeatureUsageLookback }>,
+  res: Response<{ status: 200; usage: FeatureUsageData }>
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+
+  const { id } = req.params;
+  const feature = await getFeature(context, id);
+
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  const environments = getEnvironments(org);
+
+  //TODO: handle multiple datasources with feature tracking
+  const ds = await getGrowthbookDatasource(context);
+  if (!ds) {
+    throw new Error("No tracking datasource configured");
+  }
+
+  const integration = getSourceIntegrationObject(context, ds, true);
+  if (!integration.getFeatureUsage) {
+    throw new Error("Tracking datasource does not support feature usage");
+  }
+
+  const lookback = req.query.lookback || "15minute";
+
+  const { buckets, width } = getLookbackNumBuckets(lookback);
+  const createEmptyRecord = () => {
+    return {
+      total: 0,
+      ts: new Array(buckets).fill(0).map((_, i) => ({
+        t: i,
+        v: 0,
+      })),
+    };
+  };
+
+  const { start, rows } = await integration.getFeatureUsage(
+    feature.id,
+    lookback
+  );
+
+  const getTSIndex = (timestamp: Date) => {
+    const ts = timestamp.getTime();
+    const diff = ts - start;
+    const bucket = Math.floor(diff / width);
+
+    return Math.min(buckets - 1, Math.max(bucket, 0));
+  };
+
+  const usage: FeatureUsageData = {
+    overall: createEmptyRecord(),
+    sources: {},
+    values: {},
+    defaultValue: createEmptyRecord(),
+    environments: {},
+  };
+
+  const validEnvs = new Set(environments.map((e) => e.id));
+
+  const updateRecord = (
+    record: FeatureUsageTimeSeries,
+    data: { timestamp: Date; evaluations: number }
+  ) => {
+    const i = getTSIndex(data.timestamp);
+    const v = data.evaluations;
+
+    record.total += v;
+    record.ts[i].v += v;
+  };
+
+  rows.forEach((d) => {
+    // Skip invalid environments (sanity check)
+    if (!d.environment || !validEnvs.has(d.environment)) return;
+
+    // Overall evaluation counts
+    updateRecord(usage.overall, d);
+
+    // Sources
+    usage.sources[d.source] = usage.sources[d.source] || 0;
+    usage.sources[d.source] += d.evaluations;
+
+    // Values
+    usage.values[d.value] = usage.values[d.value] || 0;
+    usage.values[d.value] += d.evaluations;
+
+    if (!usage.environments[d.environment]) {
+      usage.environments[d.environment] = { ...createEmptyRecord(), rules: {} };
+    }
+    updateRecord(usage.environments[d.environment], d);
+
+    if (d.source === "defaultValue") {
+      updateRecord(usage.defaultValue, d);
+    } else if (d.ruleId) {
+      if (!usage.environments[d.environment].rules[d.ruleId]) {
+        usage.environments[d.environment].rules[d.ruleId] = {
+          ...createEmptyRecord(),
+          variations: {},
+        };
+      }
+      updateRecord(usage.environments[d.environment].rules[d.ruleId], d);
+
+      if (d.variationId) {
+        if (
+          !usage.environments[d.environment].rules[d.ruleId].variations[
+            d.variationId
+          ]
+        ) {
+          usage.environments[d.environment].rules[d.ruleId].variations[
+            d.variationId
+          ] = createEmptyRecord();
+        }
+        updateRecord(
+          usage.environments[d.environment].rules[d.ruleId].variations[
+            d.variationId
+          ],
+          d
+        );
+      }
+    }
+  });
+
+  res.status(200).json({
+    status: 200,
+    usage,
+  });
+}
+
 export async function getRealtimeUsage(
   req: AuthRequest<null, { id: string }>,
   res: Response
@@ -2477,5 +2705,66 @@ export async function deletePrerequisite(
 
   res.status(200).json({
     status: 200,
+  });
+}
+
+export async function postCopyEnvironmentRules(
+  req: AuthRequest<
+    { sourceEnv: string; targetEnv: string },
+    { id: string; version: string }
+  >,
+  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { id, version } = req.params;
+  const { sourceEnv, targetEnv } = req.body;
+
+  const feature = await getFeature(context, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  const allEnvironments = getEnvironments(context.org);
+  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+  const environmentIds = environments.map((e) => e.id);
+
+  if (
+    !environmentIds.includes(sourceEnv) ||
+    !environmentIds.includes(targetEnv)
+  ) {
+    throw new Error("Invalid environment");
+  }
+
+  if (sourceEnv === targetEnv) {
+    throw new Error("Source and target environments should be different");
+  }
+
+  if (
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  const revision = await getDraftRevision(context, feature, parseInt(version));
+  const resetReview = resetReviewOnChange({
+    feature,
+    changedEnvironments: [targetEnv],
+    defaultValueChanged: false,
+    settings: org?.settings,
+  });
+
+  await copyFeatureEnvironmentRules(
+    revision,
+    sourceEnv,
+    targetEnv,
+    res.locals.eventAudit,
+    resetReview
+  );
+
+  res.status(200).json({
+    status: 200,
+    version: revision.version,
   });
 }

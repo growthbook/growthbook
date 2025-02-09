@@ -7,7 +7,6 @@ import {
 } from "back-end/types/experiment";
 import { getValidDate } from "shared/dates";
 import { DifferenceType } from "back-end/types/stats";
-import { MdInfoOutline } from "react-icons/md";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import Button from "@/components/Radix/Button";
 import DatePicker from "@/components/DatePicker";
@@ -30,7 +29,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { GBCuped, GBSequential } from "@/components/Icons";
+import { GBCuped, GBInfo, GBSequential } from "@/components/Icons";
 import { hasFileConfig } from "@/services/env";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
@@ -427,8 +426,7 @@ export default function ConfigureReport({
               <SelectField
                 label={
                   <AttributionModelTooltip>
-                    Conversion Window Override{" "}
-                    <MdInfoOutline style={{ color: "#029dd1" }} />
+                    Conversion Window Override <GBInfo />
                   </AttributionModelTooltip>
                 }
                 value={

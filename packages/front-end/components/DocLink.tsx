@@ -12,6 +12,7 @@ const docSections = {
   dimensions: "/app/dimensions",
   datasources: "/app/datasources",
   dashboard: "/app/experiment-configuration",
+  powerCalculator: "/statistics/power",
   api: "/app/api",
   eventWebhooks: "/app/webhooks/event-webhooks",
   sdkWebhooks: "/app/webhooks/sdk-webhooks",
@@ -74,6 +75,7 @@ const docSections = {
   savedGroups: "/features/targeting#saved-groups",
   ga4BigQuery: "/guide/GA4-google-analytics",
   apiPostEnvironment: "/api#tag/environments/operation/postEnvironment",
+  idLists: "/features/targeting#id-lists",
 };
 
 export type DocSection = keyof typeof docSections;
@@ -85,6 +87,7 @@ const urlPathMapping: Record<string, DocSection> = {
   "/experiments": "experimentConfiguration",
   "/metric": "metrics",
   "/metrics": "metrics",
+  "/power-calculator": "powerCalculator",
   "/segments": "datasources",
   "/dimensions": "dimensions",
   "/datasources": "datasources",

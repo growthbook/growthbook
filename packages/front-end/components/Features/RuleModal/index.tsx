@@ -65,6 +65,7 @@ export interface Props {
   environment: string;
   defaultType?: string;
   revisions?: FeatureRevisionInterface[];
+  duplicate?: boolean;
 }
 
 type RadioSelectorRuleType = "force" | "rollout" | "experiment" | "bandit" | "";
@@ -85,6 +86,7 @@ export default function RuleModal({
   version,
   setVersion,
   revisions,
+  duplicate,
 }: Props) {
   const growthbook = useGrowthBook<AppFeatures>();
   const { hasCommercialFeature, organization } = useUser();
@@ -113,6 +115,7 @@ export default function RuleModal({
     ruleType: defaultType,
     attributeSchema,
   });
+
   const defaultValues = {
     ...defaultRuleValues,
     ...rule,
@@ -180,6 +183,7 @@ export default function RuleModal({
 
   const templateRequired =
     hasCommercialFeature("templates") &&
+    experimentType !== "bandit" &&
     settings.requireExperimentTemplates &&
     availableTemplates.length >= 1;
 
@@ -279,11 +283,20 @@ export default function RuleModal({
   };
 
   const submit = form.handleSubmit(async (values) => {
-    const ruleAction = i === rules.length ? "add" : "edit";
+    const ruleAction = duplicate
+      ? "duplicate"
+      : i === rules.length
+      ? "add"
+      : "edit";
 
     // If the user built a schedule, but disabled the toggle, we ignore the schedule
     if (!scheduleToggleEnabled) {
       values.scheduleRules = [];
+    }
+
+    // unset the ID if we're duplicating the rule.
+    if (duplicate) {
+      values.id = "";
     }
 
     // Loop through each scheduleRule and convert the timestamp to an ISOString()
@@ -363,6 +376,15 @@ export default function RuleModal({
           }
         }
 
+        // @ts-expect-error Mangled types when coming from a feature rule
+        if (values.skipPartialData === "strict") {
+          values.skipPartialData = true;
+        }
+        // @ts-expect-error Mangled types when coming from a feature rule
+        else if (values.skipPartialData === "loose") {
+          values.skipPartialData = false;
+        }
+
         // All looks good, create experiment
         const exp: Partial<ExperimentInterfaceStringDates> = {
           archived: false,
@@ -381,7 +403,9 @@ export default function RuleModal({
           goalMetrics: values.goalMetrics || [],
           secondaryMetrics: values.secondaryMetrics || [],
           guardrailMetrics: values.guardrailMetrics || [],
-          activationMetric: "",
+          activationMetric: values.activationMetric || "",
+          segment: values.segment || "",
+          skipPartialData: values.skipPartialData,
           name: values.name,
           hashVersion: (values.hashVersion ||
             (hasSDKWithNoBucketingV2 ? 1 : 2)) as 1 | 2,
@@ -439,6 +463,9 @@ export default function RuleModal({
           type: values.experimentType,
         };
 
+        if (values?.customFields) {
+          exp.customFields = values.customFields;
+        }
         if (values.experimentType === "multi-armed-bandit") {
           Object.assign(exp, {
             banditScheduleValue: values.banditScheduleValue ?? 1,
@@ -551,7 +578,7 @@ export default function RuleModal({
       const res = await apiCall<{ version: number }>(
         `/feature/${feature.id}/${version}/rule`,
         {
-          method: i === rules.length ? "POST" : "PUT",
+          method: duplicate ? "POST" : i === rules.length ? "POST" : "PUT",
           body: JSON.stringify({
             rule: values,
             environment,
@@ -636,9 +663,6 @@ export default function RuleModal({
                           usePortal={true}
                         >
                           Bandit
-                          <span className="mr-auto badge badge-purple text-uppercase ml-2">
-                            Beta
-                          </span>
                         </PremiumTooltip>
                       ),
                       description: (
@@ -714,7 +738,7 @@ export default function RuleModal({
     );
   }
 
-  let headerText = isNewRule ? "Add " : "Edit ";
+  let headerText = duplicate ? "Duplicate " : isNewRule ? "Add " : "Edit ";
   headerText +=
     ruleType === "force"
       ? `${isNewRule ? "new " : ""}Force Value Rule`
@@ -823,7 +847,7 @@ export default function RuleModal({
         {(ruleType === "experiment-ref-new" &&
           experimentType === "experiment") ||
         ruleType === "experiment"
-          ? ["Overview", "Traffic", "Targeting"].map((p, i) => (
+          ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => (
               <Page display={p} key={i}>
                 <ExperimentRefNewFields
                   step={i}
@@ -880,22 +904,16 @@ export default function RuleModal({
                   hideVariationIds={true}
                   startEditingIndexes={true}
                   orgStickyBucketing={orgStickyBucketing}
+                  setCustomFields={(customFields) =>
+                    form.setValue("customFields", customFields)
+                  }
                 />
               </Page>
             ))
           : null}
 
         {ruleType === "experiment-ref-new" && experimentType === "bandit"
-          ? [
-              "Overview",
-              "Traffic",
-              "Targeting",
-              <>
-                Analysis
-                <br />
-                Settings
-              </>,
-            ].map((p, i) => (
+          ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => (
               <Page display={p} key={i}>
                 <BanditRefNewFields
                   step={i}

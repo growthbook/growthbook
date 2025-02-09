@@ -16,6 +16,7 @@ import { ExperimentReportVariation } from "back-end/types/report";
 import { VisualChange } from "back-end/types/visual-changeset";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { Environment } from "back-end/types/organization";
+import { SavedGroupInterface } from "../types";
 import { featureHasEnvironment } from "./features";
 
 export * from "./features";
@@ -88,8 +89,8 @@ export function getSnapshotAnalysis(
   // TODO make it so order doesn't matter
   return (
     (analysisSettings
-      ? snapshot.analyses.find((a) => isEqual(a.settings, analysisSettings))
-      : snapshot.analyses[0]) || null
+      ? snapshot?.analyses?.find((a) => isEqual(a.settings, analysisSettings))
+      : snapshot?.analyses?.[0]) || null
   );
 }
 
@@ -335,4 +336,119 @@ export function formatByteSizeString(numBytes: number, decimalPlaces = 1) {
     " " +
     sizes[i]
   );
+}
+
+export function meanVarianceFromSums(
+  sum: number,
+  sum_squares: number,
+  n: number
+): number {
+  const variance = (sum_squares - Math.pow(sum, 2) / n) / (n - 1);
+  return returnZeroIfNotFinite(variance);
+}
+
+export function proportionVarianceFromSums(sum: number, n: number): number {
+  const mean = sum / n;
+  return returnZeroIfNotFinite(mean * (1 - mean));
+}
+
+// compare with RatioStatistic.variance in gbstats
+export function ratioVarianceFromSums({
+  numerator_sum,
+  numerator_sum_squares,
+  denominator_sum,
+  denominator_sum_squares,
+  numerator_denominator_sum_product,
+  n,
+}: {
+  numerator_sum: number;
+  numerator_sum_squares: number;
+  denominator_sum: number;
+  denominator_sum_squares: number;
+  numerator_denominator_sum_product: number;
+  n: number;
+}): number {
+  const numerator_mean = returnZeroIfNotFinite(numerator_sum / n);
+  const numerator_variance = meanVarianceFromSums(
+    numerator_sum,
+    numerator_sum_squares,
+    n
+  );
+  const denominator_mean = returnZeroIfNotFinite(denominator_sum / n);
+  const denominator_variance = meanVarianceFromSums(
+    denominator_sum,
+    denominator_sum_squares,
+    n
+  );
+  const covariance =
+    returnZeroIfNotFinite(
+      numerator_denominator_sum_product - (numerator_sum * denominator_sum) / n
+    ) /
+    (n - 1);
+
+  return returnZeroIfNotFinite(
+    numerator_variance / Math.pow(denominator_mean, 2) -
+      (2 * covariance * numerator_mean) / Math.pow(denominator_mean, 3) +
+      (Math.pow(numerator_mean, 2) * denominator_variance) /
+        Math.pow(denominator_mean, 4)
+  );
+}
+
+export function featuresReferencingSavedGroups({
+  savedGroups,
+  features,
+  environments,
+}: {
+  savedGroups: SavedGroupInterface[];
+  features: FeatureInterface[];
+  environments: Environment[];
+}): Record<string, FeatureInterface[]> {
+  const referenceMap: Record<string, FeatureInterface[]> = {};
+  features.forEach((feature) => {
+    savedGroups.forEach((savedGroup) => {
+      const matches = getMatchingRules(
+        feature,
+        (rule) =>
+          rule.condition?.includes(savedGroup.id) ||
+          rule.savedGroups?.some((g) => g.ids.includes(savedGroup.id)) ||
+          false,
+        environments.map((e) => e.id)
+      );
+
+      if (matches.length > 0) {
+        referenceMap[savedGroup.id] ||= [];
+        referenceMap[savedGroup.id].push(feature);
+      }
+    });
+  });
+  return referenceMap;
+}
+
+export function experimentsReferencingSavedGroups({
+  savedGroups,
+  experiments,
+}: {
+  savedGroups: SavedGroupInterface[];
+  experiments: Array<ExperimentInterface | ExperimentInterfaceStringDates>;
+}) {
+  const referenceMap: Record<
+    string,
+    Array<ExperimentInterface | ExperimentInterfaceStringDates>
+  > = {};
+  savedGroups.forEach((savedGroup) => {
+    experiments.forEach((experiment) => {
+      const matchingPhases = experiment.phases.filter(
+        (phase) =>
+          phase.condition?.includes(savedGroup.id) ||
+          phase.savedGroups?.some((g) => g.ids.includes(savedGroup.id)) ||
+          false
+      );
+
+      if (matchingPhases.length > 0) {
+        referenceMap[savedGroup.id] ||= [];
+        referenceMap[savedGroup.id].push(experiment);
+      }
+    });
+  });
+  return referenceMap;
 }

@@ -16,6 +16,7 @@ import useProjectOptions from "@/hooks/useProjectOptions";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import MultiSelectField from "../Forms/MultiSelectField";
 import Tooltip from "../Tooltip/Tooltip";
+import SelectOwner from "../Owner/SelectOwner";
 import FactSegmentForm from "./FactSegmentForm";
 
 export type CursorData = {
@@ -46,6 +47,10 @@ const SegmentForm: FC<{
         d.id === current.datasource ||
         isProjectListValidForProject(d.projects, project)
     );
+
+  const currentOwner = memberUsernameOptions.find(
+    (member) => member.display === current.owner
+  );
   const form = useForm({
     defaultValues: {
       name: current.name || "",
@@ -53,7 +58,7 @@ const SegmentForm: FC<{
       datasource:
         (current.id ? current.datasource : filteredDatasources[0]?.id) || "",
       userIdType: current.userIdType || "user_id",
-      owner: current.owner || "",
+      owner: currentOwner?.display || "",
       description: current.description || "",
       projects: current.id
         ? current.projects || []
@@ -177,11 +182,10 @@ const SegmentForm: FC<{
           </div>
         ) : null}
         <Field label="Name" required {...form.register("name")} />
-        <Field
-          label="Owner"
-          options={memberUsernameOptions}
-          comboBox
-          {...form.register("owner")}
+        <SelectOwner
+          resourceType="segment"
+          value={form.watch("owner")}
+          onChange={(v) => form.setValue("owner", v)}
         />
         <Field label="Description" {...form.register("description")} textarea />
         <SelectField

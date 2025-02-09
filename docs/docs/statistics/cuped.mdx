@@ -47,12 +47,12 @@ For each metric you analyze, we use the metric itself from the pre-exposure peri
 We then use the standard CUPED estimator for each variation mean,
 
 $$
-\bar{Y}_{adjusted} = \bar{Y}_{post} - \theta * \bar{Y}_{pre}
+\bar{Y}_{adjusted} = \bar{Y} - \theta * \bar{X}
 $$
 
-where $\bar{Y}_{post}$ is the post-exposure metric average, $\bar{Y}_{pre}$ is the pre-exposure metric average, and $\theta$ is essentially a regression coefficient from a regression of the post-experiment data on the pre-experiment data (pooled across both the control and treatment variation of interest), $\theta = \text{Cov}(Y_{pre}, Y_{post}) / \text{Var}(Y_{pre})$.
+where $\bar{Y}$ is the post-exposure metric average, $\bar{X}$ is the pre-exposure metric average, and $\theta$ is essentially a regression coefficient from a regression of the post-experiment data on the pre-experiment data (pooled across both the control and treatment variation of interest), $\theta = \text{Cov}(Y, X) / \text{Var}(X)$. We describe how to estimate uncertainty [here](/statistics/cuped-technical).
 
-As discussed above, we could use any correlated data instead of $Y_{pre}$. For example, we could use some model that includes all pre-exposure metrics added to your experiment, or auxiliary dimension information you have configured per user. However, one downside of these approaches is that your results for metric A will depend on whether or not you add a metric B to your experiment and our analysis pipeline would lose its modularity, where each metric can be processed in parallel. Nonetheless, we anticipate continuing to build methods that leverage additional data to improve variance reduction from CUPED.
+As discussed above, we could use any correlated data instead of $X$. For example, we could use some model that includes all pre-exposure metrics added to your experiment, or auxiliary dimension information you have configured per user. However, one downside of these approaches is that your results for metric A will depend on whether or not you add a metric B to your experiment and our analysis pipeline would lose its modularity, where each metric can be processed in parallel. Nonetheless, we anticipate continuing to build methods that leverage additional data to improve variance reduction from CUPED.
 
 ### Regression Adjustment lookback window
 
