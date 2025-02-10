@@ -50,9 +50,7 @@ export default function SdkResources({ sdk }: { sdk: keyof typeof sdkInfo }) {
           <CodeLogos name={sdk} />
           <span>{name} Resources</span>
         </div>
-        <InfoContainer icon={<GitBranch size={32} />}>
-          {formattedVersion}
-        </InfoContainer>
+        <InfoContainer icon={<GitBranch />}>{formattedVersion}</InfoContainer>
       </header>
 
       <InfoContainer href={github} icon={<GitHubLogo />}>
@@ -60,17 +58,13 @@ export default function SdkResources({ sdk }: { sdk: keyof typeof sdkInfo }) {
       </InfoContainer>
 
       {packageRepos.map((repo) => (
-        <InfoContainer
-          key={repo.name}
-          href={repo.url}
-          icon={<Package size={32} />}
-        >
+        <InfoContainer key={repo.name} href={repo.url} icon={<Package />}>
           {repo.name}
         </InfoContainer>
       ))}
 
       {examples.map(({ url, name }) => (
-        <InfoContainer key={name} href={url} icon={<FileCode size={32} />}>
+        <InfoContainer key={name} href={url} icon={<FileCode />}>
           {name}
         </InfoContainer>
       ))}
