@@ -1,4 +1,14 @@
-import { getLatestSDKVersion, getSDKCapabilities } from "shared/sdk-versioning";
+// import { getLatestSDKVersion, getSDKCapabilities } from "shared/sdk-versioning";
+
+function getLatestSDKVersion(sdk: string): string {
+  // This function is a placeholder for the real implementation
+  return sdk;
+}
+
+function getSDKCapabilities(sdk: string, version: string): string[] {
+  // This function is a placeholder for the real implementation
+  return [sdk, version];
+}
 
 export const sdkInfo = {
   js: {
