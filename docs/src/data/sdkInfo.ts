@@ -1,7 +1,4 @@
-import {
-  getLatestSDKVersion,
-  getSDKCapabilities,
-} from "../../../packages/shared/sdk-versioning";
+import { getLatestSDKVersion, getSDKCapabilities } from "shared/sdk-versioning";
 
 export const sdkInfo = {
   js: {
