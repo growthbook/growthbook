@@ -1028,7 +1028,7 @@ export function CodeLogos({ name }: { name: string }) {
       );
 
     default:
-      return <Code size="32" />;
+      return <Code />;
   }
 }
 
