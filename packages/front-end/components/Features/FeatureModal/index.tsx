@@ -6,7 +6,13 @@ import {
 } from "back-end/types/feature";
 import dJSON from "dirty-json";
 import React, { ReactElement, useState } from "react";
-import { inferSimpleSchemaFromValue, validateFeatureValue } from "shared/util";
+import {
+  getJSONValidator,
+  inferSimpleSchemaFromValue,
+  simpleToJSONSchema,
+  validateFeatureValue,
+} from "shared/util";
+import { Box, Heading } from "@radix-ui/themes";
 import { EditSimpleSchema } from "@/components/Features/EditSchemaModal";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
@@ -31,6 +37,7 @@ import FeatureValueField from "@/components/Features/FeatureValueField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import SelectField from "@/components/Forms/SelectField";
+import Frame from "@/components/Radix/Frame";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";
@@ -116,6 +123,7 @@ const genFormDefaultValues = ({
   | "id"
   | "environmentSettings"
   | "customFields"
+  | "jsonSchema"
 > => {
   const environmentSettings = genEnvironmentSettings({
     environments,
@@ -123,6 +131,7 @@ const genFormDefaultValues = ({
     permissions: permissionsUtil,
     project,
   });
+
   const customFieldValues = customFields
     ? Object.fromEntries(
         customFields.map((field) => [
@@ -147,7 +156,6 @@ const genFormDefaultValues = ({
     : {
         valueType: "" as FeatureValueType,
         defaultValue: getDefaultValue("boolean"),
-        jsonSchema: inferSimpleSchemaFromValue("object"),
         description: "",
         id: "",
         project,
@@ -170,6 +178,10 @@ export default function FeatureModal({
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
   const { hasCommercialFeature } = useUser();
+  const [simpleSchema, setSimpleSchema] = useState(
+    inferSimpleSchemaFromValue("{}")
+  );
+  const hasJsonValidator = hasCommercialFeature("json-validation");
 
   const customFields = filterCustomFieldsForSectionAndProject(
     useCustomFields(),
@@ -270,6 +282,28 @@ export default function FeatureModal({
           ...feature,
           defaultValue: parseDefaultValue(defaultValue, valueType),
         };
+        if (values.valueType === "custom" && hasJsonValidator) {
+          const schemaString = simpleToJSONSchema(simpleSchema);
+          try {
+            const parsedSchema = JSON.parse(schemaString);
+            const ajv = getJSONValidator();
+            ajv.compile(parsedSchema);
+          } catch (e) {
+            throw new Error(
+              `The Simple Schema is invalid. Please check it and try again. Validator error: "${e.message}"`
+            );
+          }
+          // add JSON validation to feature
+          body.valueType = "json";
+          body.jsonSchema = {
+            date: new Date(),
+            schemaType: "simple",
+            schema: schemaString,
+            simple: simpleSchema,
+            enabled: true,
+          };
+          // todo: validate default value against schema
+        }
 
         const res = await apiCall<{ feature: FeatureInterface }>(`/feature`, {
           method: "POST",
@@ -346,12 +380,20 @@ export default function FeatureModal({
         />
       )}
       {form.watch("valueType") === "custom" && (
-        <div>
-          <EditSimpleSchema
-            schema={form.watch("jsonSchema")}
-            setSchema={(v) => form.setValue("jsonSchema", v)}
-          />
-        </div>
+        <Box>
+          <Heading as="h4" size="2">
+            Describe the values allowed in this feature flag.{" "}
+            <Tooltip
+              body={`Custom feature flag types let you describe the values that are allowed to be passed to your code. Feature types of this type will use a JSON object with custom JSON validation. This can be edited at any time after creation.`}
+            />
+          </Heading>
+          <Frame>
+            <EditSimpleSchema
+              schema={simpleSchema}
+              setSchema={(v) => setSimpleSchema(v)}
+            />
+          </Frame>
+        </Box>
       )}
       <EnvironmentSelect
         environmentSettings={environmentSettings}
@@ -374,6 +416,11 @@ export default function FeatureModal({
           value={form.watch("defaultValue")}
           setValue={(v) => form.setValue("defaultValue", v)}
           valueType={valueType}
+          renderJSONInline={true}
+          initialSimpleSchema={
+            form.watch("valueType") === "custom" ? simpleSchema : undefined
+          }
+          initialValidationEnabled={form.watch("valueType") === "custom"}
         />
       )}
       {hasCommercialFeature("custom-metadata") &&
