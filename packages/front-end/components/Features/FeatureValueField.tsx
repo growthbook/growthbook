@@ -59,7 +59,7 @@ export default function FeatureValueField({
   if (
     validationEnabled &&
     hasJsonValidator &&
-    (valueType === "json" || valueType === "custom") &&
+    valueType === "json" &&
     simpleSchema
   ) {
     return (
