@@ -34,7 +34,7 @@ Triggered when a feature is created
             description: string;
             owner: string;
             project: string;
-            valueType: "boolean" | "string" | "number" | "json";
+            valueType: "boolean" | "string" | "number" | "json" | "custom";
             defaultValue: string;
             tags: string[];
             environments: {
@@ -220,7 +220,7 @@ Triggered when a feature is updated
             description: string;
             owner: string;
             project: string;
-            valueType: "boolean" | "string" | "number" | "json";
+            valueType: "boolean" | "string" | "number" | "json" | "custom";
             defaultValue: string;
             tags: string[];
             environments: {
@@ -374,7 +374,7 @@ Triggered when a feature is updated
             description?: string | undefined;
             owner?: string | undefined;
             project?: string | undefined;
-            valueType?: ("boolean" | "string" | "number" | "json") | undefined;
+            valueType?: ("boolean" | "string" | "number" | "json" | "custom") | undefined;
             defaultValue?: string | undefined;
             tags?: string[] | undefined;
             environments?: {
@@ -560,7 +560,7 @@ Triggered when a feature is deleted
             description: string;
             owner: string;
             project: string;
-            valueType: "boolean" | "string" | "number" | "json";
+            valueType: "boolean" | "string" | "number" | "json" | "custom";
             defaultValue: string;
             tags: string[];
             environments: {

@@ -55,7 +55,7 @@ export default function FeatureValueField({
         simpleSchema: initialSimpleSchema,
         validationEnabled: initialValidationEnabled,
       };
-  console.log("setting simple schema", simpleSchema, validationEnabled);
+
   if (
     validationEnabled &&
     hasJsonValidator &&
