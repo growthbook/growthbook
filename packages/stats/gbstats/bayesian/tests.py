@@ -22,6 +22,7 @@ from gbstats.models.statistics import (
 from gbstats.frequentist.tests import (
     frequentist_diff,
     frequentist_variance,
+    frequentist_variance_relative_cuped,
 )
 from gbstats.utils import (
     truncated_normal_mean,
@@ -175,16 +176,24 @@ class EffectBayesianABTest(BayesianABTest):
                 self.config.prior_effect.variance * pow(self.stat_a.unadjusted_mean, 2),
                 self.config.prior_effect.proper,
             )
-
-        data_variance = frequentist_variance(
-            self.stat_a.variance,
-            self.stat_a.unadjusted_mean,
-            self.stat_a.n,
-            self.stat_b.variance,
-            self.stat_b.unadjusted_mean,
-            self.stat_b.n,
-            self.relative,
-        )
+        if (
+            isinstance(self.stat_a, RegressionAdjustedStatistic)
+            and isinstance(self.stat_b, RegressionAdjustedStatistic)
+            and self.relative
+        ):
+            data_variance = frequentist_variance_relative_cuped(
+                self.stat_a, self.stat_b
+            )
+        else:
+            data_variance = frequentist_variance(
+                self.stat_a.variance,
+                self.stat_a.unadjusted_mean,
+                self.stat_a.n,
+                self.stat_b.variance,
+                self.stat_b.unadjusted_mean,
+                self.stat_b.n,
+                self.relative,
+            )
         data_mean = frequentist_diff(
             self.stat_a.mean,
             self.stat_b.mean,

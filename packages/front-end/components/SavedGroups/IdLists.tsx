@@ -11,6 +11,7 @@ import { SavedGroupInterface } from "shared/src/types";
 import { FaMagnifyingGlass } from "react-icons/fa6";
 import { PiInfoFill } from "react-icons/pi";
 import { isEmpty } from "lodash";
+import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useSearch } from "@/services/search";
@@ -109,7 +110,7 @@ export default function IdLists({ groups, mutate }: Props) {
           source="large-saved-groups"
         />
       )}
-      <div className="mb-5 p-3 bg-white appbox border-top-0">
+      <Box mt="4" mb="5" p="4" className="appbox">
         {savedGroupForm && (
           <SavedGroupForm
             close={() => setSavedGroupForm(null)}
@@ -143,11 +144,13 @@ export default function IdLists({ groups, mutate }: Props) {
         </p>
 
         {unsupportedConnections.length > 0 ? (
-          <LargeSavedGroupPerformanceWarning
-            hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
-            unsupportedConnections={unsupportedConnections}
-            openUpgradeModal={() => setUpgradeModal(true)}
-          />
+          <Box mt="4">
+            <LargeSavedGroupPerformanceWarning
+              hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
+              unsupportedConnections={unsupportedConnections}
+              openUpgradeModal={() => setUpgradeModal(true)}
+            />
+          </Box>
         ) : (
           <p>
             <PiInfoFill /> Too many large lists will cause too large of a
@@ -207,13 +210,9 @@ export default function IdLists({ groups, mutate }: Props) {
                               <ProjectBadges
                                 resourceType="saved group"
                                 projectIds={s.projects}
-                                className="badge-ellipsis short align-middle"
                               />
                             ) : (
-                              <ProjectBadges
-                                resourceType="saved group"
-                                className="badge-ellipsis short align-middle"
-                              />
+                              <ProjectBadges resourceType="saved group" />
                             )}
                           </td>
                           <td>{s.owner}</td>
@@ -273,7 +272,7 @@ export default function IdLists({ groups, mutate }: Props) {
             </div>
           </>
         )}
-      </div>
+      </Box>
     </>
   );
 }

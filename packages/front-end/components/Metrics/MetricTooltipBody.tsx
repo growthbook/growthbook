@@ -207,14 +207,14 @@ const MetricTooltipBody = ({
       <h4>
         <MetricName id={metric.id} showOfficialLabel disableTooltip />
       </h4>
-      <table className="table table-sm table-bordered text-left mb-0">
+      <table className="table gbtable appbox mb-0">
         <tbody>
           {metricInfo
             .filter((i) => i.show)
             .map(({ label, body, markdown }, index) => (
               <tr key={`metricInfo${index}`}>
                 <td
-                  className="text-right font-weight-bold py-1 align-middle"
+                  className="text-right font-weight-bold py-2 align-middle"
                   style={{
                     width: 120,
                     border: "1px solid var(--border-color-100)",
@@ -223,7 +223,7 @@ const MetricTooltipBody = ({
                   }}
                 >{`${label}`}</td>
                 <td
-                  className="py-1 align-middle"
+                  className="py-2 align-middle"
                   style={{
                     minWidth: 180,
                     border: "1px solid var(--border-color-100)",

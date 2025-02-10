@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { getMultipleExposureHealthData } from "shared/health";
 import {
-  DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_COUNT,
+  DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
   DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
 } from "shared/constants";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -33,7 +33,7 @@ export default function MultipleExposuresCard({ totalUsers, onNotify }: Props) {
       getMultipleExposureHealthData({
         multipleExposuresCount: snapshot?.multipleExposures ?? 0,
         totalUsersCount: totalUsers,
-        minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_COUNT,
+        minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
         minPercentThreshold,
       }),
     [snapshot?.multipleExposures, totalUsers, minPercentThreshold]

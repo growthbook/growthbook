@@ -7,6 +7,7 @@ import {
 import Link from "next/link";
 import { isDefined } from "shared/util";
 import { SavedGroupInterface } from "shared/src/types";
+import { Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { Condition, jsonToConds, useAttributeMap } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -194,7 +195,7 @@ function getConditionParts({
       }
     }
     return (
-      <div key={keyPrefix + i} className="col-auto d-flex flex-wrap">
+      <Flex wrap="wrap" key={keyPrefix + i} gap="2">
         {(i > 0 || initialAnd) && <span className="mr-1">AND</span>}
         {parentIdEl}
         {fieldEl}
@@ -213,7 +214,7 @@ function getConditionParts({
         ) : (
           ""
         )}
-      </div>
+      </Flex>
     );
   });
 }
@@ -337,5 +338,5 @@ export default function ConditionDisplay({
     parts.push(...prereqParts);
   }
 
-  return <div className="row">{parts}</div>;
+  return <Flex gap="3">{parts}</Flex>;
 }

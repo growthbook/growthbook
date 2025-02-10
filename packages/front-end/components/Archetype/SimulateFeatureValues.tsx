@@ -211,7 +211,7 @@ export const SimulateFeatureValues: FC<{
       <div className="mb-3">
         <div className="row mb-3">
           <div className="col">
-            <div className="border border-primary bg-white p-3 rounded">
+            <div className="border border-primary appbox p-3">
               {attributeText} {attributeNodes}{" "}
               <a
                 href="#"

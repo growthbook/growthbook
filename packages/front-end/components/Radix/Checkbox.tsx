@@ -1,8 +1,8 @@
 import { Flex, Text, Checkbox as RadixCheckbox } from "@radix-ui/themes";
-import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
+import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import clsx from "clsx";
 import { forwardRef, ReactElement } from "react";
-import { Responsive } from "@radix-ui/themes/dist/cjs/props";
+import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
 import HelperText, { getRadixColor } from "@/components/Radix/HelperText";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
@@ -27,7 +27,7 @@ export type Props = {
   errorLevel?: "error" | "warning";
   description?: string;
   weight?: "bold" | "regular";
-  setValue: (value: boolean | "indeterminate") => void;
+  setValue: (value: boolean) => void;
 } & MarginProps;
 
 export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
@@ -75,10 +75,16 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
         <Flex gap="2">
           <RadixCheckbox
             checked={value}
+<<<<<<< HEAD
             onCheckedChange={(v) => setValue(v)}
             disabled={!!disable}
+=======
+            onCheckedChange={(v) => setValue(!!v)}
+            disabled={disabled}
+>>>>>>> main
             color={checkboxColor}
             size={getRadixSize(size)}
+            id={id}
           />
           <Flex direction="column" gap="1">
             <Text weight={weight}>{label}</Text>
