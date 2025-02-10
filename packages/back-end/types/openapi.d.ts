@@ -2006,7 +2006,7 @@ export interface operations {
               owner: string;
               project: string;
               /** @enum {string} */
-              valueType: "boolean" | "string" | "number" | "json";
+              valueType: "boolean" | "string" | "number" | "json" | "custom";
               defaultValue: string;
               tags: (string)[];
               environments: {
