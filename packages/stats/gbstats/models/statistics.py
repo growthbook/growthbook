@@ -224,8 +224,8 @@ def create_joint_statistic(
 @dataclass
 class RegressionAdjustedRatioStatistic(Statistic):
     m_statistic_post: Union[SampleMeanStatistic, ProportionStatistic]
-    m_statistic_pre: Union[SampleMeanStatistic, ProportionStatistic]
     d_statistic_post: Union[SampleMeanStatistic, ProportionStatistic]
+    m_statistic_pre: Union[SampleMeanStatistic, ProportionStatistic]
     d_statistic_pre: Union[SampleMeanStatistic, ProportionStatistic]
     m_post_m_pre_sum_of_products: float
     d_post_d_pre_sum_of_products: float
@@ -376,10 +376,10 @@ class RegressionAdjustedRatioStatistic(Statistic):
             ]
         )
 
+    # vector of partial derivatives for the absolute case
     @property
     def nabla(self):
         theta = self.theta if self.theta else 0
-        # later figure out best place for check that not dividing by 0
         return np.array(
             [
                 1 / self.betahat[1],
@@ -425,9 +425,12 @@ class RegressionAdjustedRatioStatistic(Statistic):
 def compute_theta_regression_adjusted_ratio(
     a: RegressionAdjustedRatioStatistic, b: RegressionAdjustedRatioStatistic
 ) -> float:
+    # set theta equal to 1, so the partial derivatives are unaffected by theta
+    a.theta = 1
+    b.theta = 1
     if a.var_x + b.var_x == 0:
         return 0
-    return (a.covariance + b.covariance) / (a.var_x + b.var_x)
+    return -(a.covariance + b.covariance) / (a.var_x + b.var_x)
 
 
 @dataclass
