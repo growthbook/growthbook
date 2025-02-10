@@ -250,7 +250,7 @@ export const sdkInfo = {
         url: "https://www.npmjs.com/package/@growthbook/growthbook-react",
       },
     ],
-    capabilities: getSDKCapabilities("react"),
+    capabilities: getSDKCapabilities("react", getLatestSDKVersion("react")),
   },
   edgeCloudflare: {
     name: "Cloudflare Edge SDK",
