@@ -6,7 +6,8 @@ import { useUser } from "@/services/UserContext";
 const ValueTypeField: FC<{
   onChange: (v: FeatureValueType) => void;
   value: FeatureValueType;
-}> = ({ onChange, value }) => {
+  useCustom?: boolean;
+}> = ({ onChange, value, useCustom }) => {
   const { hasCommercialFeature } = useUser();
   const hasJsonValidator = hasCommercialFeature("json-validation");
 
@@ -22,8 +23,13 @@ const ValueTypeField: FC<{
     { label: "String", value: "string" },
     { label: "Number", value: "number" },
     { label: "JSON", value: "json" },
-    { label: customLabel, value: "custom", disabled: hasJsonValidator },
   ];
+  if (useCustom) {
+    options.push({
+      label: customLabel,
+      value: "custom",
+    });
+  }
   return (
     <SelectField
       label="Value Type"
@@ -31,6 +37,12 @@ const ValueTypeField: FC<{
       onChange={onChange}
       placeholder="Select Type..."
       options={options}
+      isOptionDisabled={(o: { label: string; value: string }) => {
+        if (o?.value === "custom") {
+          return !hasJsonValidator;
+        }
+        return false;
+      }}
       required
       sort={false}
     />
