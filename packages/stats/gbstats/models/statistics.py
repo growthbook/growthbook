@@ -282,7 +282,7 @@ class RegressionAdjustedRatioStatistic(Statistic):
         return self.nabla[2:4].T.dot(self.lambda_matrix[2:4, 2:4]).dot(self.nabla[2:4])
 
     @property
-    def covariance(self):
+    def covariance(self) -> float:
         if self.n <= 1:
             return 0
         return self.nabla[2:4].T.dot(self.lambda_matrix[2:4, 0:2]).dot(self.nabla[0:2])
