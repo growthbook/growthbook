@@ -64,14 +64,13 @@ export default function UpgradeModal({ close, source }: Props) {
     commercialFeatureLowestPlan,
     seatsInUse,
   } = useUser();
-  const lowestPlanLevel = commercialFeatureLowestPlan?.[source] || undefined;
-  let featureFlagValue = "OFF";
   // These are some Upgrade CTAs throughout the app related to enterprise-only features
   // we don't want to show a user the test treatments if that's the case
   // since this test doesn't highlight enterprise features at all.
-  if (lowestPlanLevel !== "enterprise") {
-    featureFlagValue = growthbook.getFeatureValue("pro-upgrade-modal", "OFF");
-  }
+  const featureFlagValue =
+    commercialFeatureLowestPlan?.[source] !== "enterprise"
+      ? growthbook.getFeatureValue("pro-upgrade-modal", "OFF")
+      : "OFF";
 
   const permissionsUtil = usePermissionsUtil();
 
