@@ -455,7 +455,11 @@ export default function FeatureModal({
           id="defaultValue"
           value={form.watch("defaultValue")}
           setValue={(v) => form.setValue("defaultValue", v)}
-          valueType={valueType}
+          valueType={
+            (valueType as ExtendedFeatureValueType) === "custom"
+              ? "json"
+              : valueType
+          }
           renderJSONInline={true}
           initialSimpleSchema={
             usingJsonSchema && hasJsonValidator ? simpleSchema : undefined
