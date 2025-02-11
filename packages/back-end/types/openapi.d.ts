@@ -4186,6 +4186,7 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
+          datasource?: string;
           assignmentQueryId?: string;
           trackingKey?: string;
           /** @description Name of the experiment */

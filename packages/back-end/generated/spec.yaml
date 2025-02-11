@@ -1591,6 +1591,8 @@ paths:
             schema:
               type: object
               properties:
+                datasource:
+                  type: string
                 assignmentQueryId:
                   type: string
                 trackingKey:
