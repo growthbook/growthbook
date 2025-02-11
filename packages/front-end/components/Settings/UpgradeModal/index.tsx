@@ -3,7 +3,7 @@ import clsx from "clsx";
 import { daysLeft } from "shared/dates";
 import Link from "next/link";
 import { Flex } from "@radix-ui/themes";
-import { FaCheckCircle } from "react-icons/fa";
+import { FaCheckCircle, FaExternalLinkAlt } from "react-icons/fa";
 import { PiCaretRight } from "react-icons/pi";
 import { growthbook } from "@/services/utils";
 import { useUser } from "@/services/UserContext";
@@ -316,7 +316,17 @@ export default function UpgradeModal({ close, source }: Props) {
           Continuing will{" "}
           {trialAndUpgradePreference === "trial"
             ? "start a 14-day Pro plan trial for your organization."
-            : "take you to Stripe and upgrade your account immediately."}
+            : "require a credit card to purchase a Pro plan for your organization."}
+          <a
+            href="https://www.growthbook.io/pricing"
+            className="text-decoration-none pl-1"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <strong className="a link-purple text-decoration-none">
+              Learn more <FaExternalLinkAlt className="pl-1" />
+            </strong>
+          </a>
         </p>
       </div>
     );
@@ -330,20 +340,22 @@ export default function UpgradeModal({ close, source }: Props) {
           <p>
             <Flex align="center">
               <FaCheckCircle className="mr-2" color="blue" />
-              Up to 100 team members
+              <strong>Up to 100 team members</strong>
             </Flex>
           </p>
           <p>
             <Flex align="center">
               <FaCheckCircle className="mr-2" color="blue" />
-              Encrypted SDK endpoint response
+              <strong>Encrypted SDK endpoint response</strong>
             </Flex>
           </p>
           <p>
             <Flex align="center">
               <FaCheckCircle className="mr-2" color="blue" />
-              Advanced experimentation: CUPED, Sequential testing, Bandits and
-              more
+              <strong>
+                Advanced experimentation: CUPED, Sequential testing, Bandits and
+                more
+              </strong>
             </Flex>
           </p>
         </div>
@@ -352,6 +364,7 @@ export default function UpgradeModal({ close, source }: Props) {
             <span>
               <label>Cost Estimate</label>
               <Tooltip
+                color="purple"
                 body="Estimate based on your organization’s activity over the last 30 days. Actual cost may vary depending on future usage patterns."
                 className="pl-1"
               />
