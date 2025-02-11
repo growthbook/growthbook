@@ -35,10 +35,16 @@ export const updateExperiment = createApiRequestHandler(
     const datasource = datasourceId
       ? await getDataSourceById(req.context, datasourceId)
       : null;
+
     if (
       req.body.datasourceId !== undefined &&
       req.body.datasourceId !== experiment.datasource
     ) {
+      if (experiment.datasource) {
+        throw new Error(
+          "Cannot change datasource via API if one is already set."
+        );
+      }
       if (!datasource) {
         throw new Error("Datasource not found.");
       }
