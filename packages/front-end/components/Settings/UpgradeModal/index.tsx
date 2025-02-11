@@ -457,7 +457,8 @@ export default function UpgradeModal({ close, source }: Props) {
         />
       ) : (
         <Modal
-          trackingEventModalType=""
+          trackingEventModalType="upgrade-modal"
+          allowlistedTrackingEventProps={trackContext}
           open={true}
           autoCloseOnSubmit={false}
           includeCloseCta={featureFlagValue !== "OFF" ? true : false}
