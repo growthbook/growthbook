@@ -109,14 +109,13 @@ export function evalFeature<V = unknown>(
   ctx: EvalContext
 ): FeatureResult<V | null> {
   if (ctx.stack.evaluatedFeatures.has(id)) {
-    process.env.NODE_ENV !== "production" &&
-      ctx.global.log(
-        `evalFeature: circular dependency detected: ${ctx.stack.id} -> ${id}`,
-        {
-          from: ctx.stack.id,
-          to: id,
-        }
-      );
+    ctx.global.log(
+      `evalFeature: circular dependency detected: ${ctx.stack.id} -> ${id}`,
+      {
+        from: ctx.stack.id,
+        to: id,
+      }
+    );
     return getFeatureResult(ctx, id, null, "cyclicPrerequisite");
   }
   ctx.stack.evaluatedFeatures.add(id);
@@ -125,18 +124,16 @@ export function evalFeature<V = unknown>(
   // Global override
   const forcedValues = getForcedFeatureValues(ctx);
   if (forcedValues.has(id)) {
-    process.env.NODE_ENV !== "production" &&
-      ctx.global.log("Global override", {
-        id,
-        value: forcedValues.get(id),
-      });
+    ctx.global.log("Global override", {
+      id,
+      value: forcedValues.get(id),
+    });
     return getFeatureResult(ctx, id, forcedValues.get(id), "override");
   }
 
   // Unknown feature id
   if (!ctx.global.features || !ctx.global.features[id]) {
-    process.env.NODE_ENV !== "production" &&
-      ctx.global.log("Unknown feature", { id });
+    ctx.global.log("Unknown feature", { id });
     return getFeatureResult(ctx, id, null, "unknownFeature");
   }
 
@@ -165,19 +162,15 @@ export function evalFeature<V = unknown>(
           if (!evaled) {
             // blocking prerequisite eval failed: feature evaluation fails
             if (parentCondition.gate) {
-              process.env.NODE_ENV !== "production" &&
-                ctx.global.log("Feature blocked by prerequisite", { id, rule });
+              ctx.global.log("Feature blocked by prerequisite", { id, rule });
               return getFeatureResult(ctx, id, null, "prerequisite");
             }
             // non-blocking prerequisite eval failed: break out of parentConditions loop, jump to the next rule
-            process.env.NODE_ENV !== "production" &&
-              ctx.global.log(
-                "Skip rule because prerequisite evaluation fails",
-                {
-                  id,
-                  rule,
-                }
-              );
+
+            ctx.global.log("Skip rule because prerequisite evaluation fails", {
+              id,
+              rule,
+            });
             continue rules;
           }
         }
@@ -185,11 +178,10 @@ export function evalFeature<V = unknown>(
 
       // If there are filters for who is included (e.g. namespaces)
       if (rule.filters && isFilteredOut(rule.filters, ctx)) {
-        process.env.NODE_ENV !== "production" &&
-          ctx.global.log("Skip rule because of filters", {
-            id,
-            rule,
-          });
+        ctx.global.log("Skip rule because of filters", {
+          id,
+          rule,
+        });
         continue;
       }
 
@@ -197,11 +189,10 @@ export function evalFeature<V = unknown>(
       if ("force" in rule) {
         // If it's a conditional rule, skip if the condition doesn't pass
         if (rule.condition && !conditionPasses(rule.condition, ctx)) {
-          process.env.NODE_ENV !== "production" &&
-            ctx.global.log("Skip rule because of condition ff", {
-              id,
-              rule,
-            });
+          ctx.global.log("Skip rule because of condition ff", {
+            id,
+            rule,
+          });
           continue;
         }
 
@@ -220,19 +211,17 @@ export function evalFeature<V = unknown>(
             rule.hashVersion
           )
         ) {
-          process.env.NODE_ENV !== "production" &&
-            ctx.global.log("Skip rule because user not included in rollout", {
-              id,
-              rule,
-            });
-          continue;
-        }
-
-        process.env.NODE_ENV !== "production" &&
-          ctx.global.log("Force value from rule", {
+          ctx.global.log("Skip rule because user not included in rollout", {
             id,
             rule,
           });
+          continue;
+        }
+
+        ctx.global.log("Force value from rule", {
+          id,
+          rule,
+        });
 
         // If this was a remotely evaluated experiment, fire the tracking callbacks
         if (rule.tracks) {
@@ -250,11 +239,10 @@ export function evalFeature<V = unknown>(
         return getFeatureResult(ctx, id, rule.force as V, "force", rule.id);
       }
       if (!rule.variations) {
-        process.env.NODE_ENV !== "production" &&
-          ctx.global.log("Skip invalid rule", {
-            id,
-            rule,
-          });
+        ctx.global.log("Skip invalid rule", {
+          id,
+          rule,
+        });
 
         continue;
       }
@@ -302,11 +290,10 @@ export function evalFeature<V = unknown>(
     }
   }
 
-  process.env.NODE_ENV !== "production" &&
-    ctx.global.log("Use default value", {
-      id,
-      value: feature.defaultValue,
-    });
+  ctx.global.log("Use default value", {
+    id,
+    value: feature.defaultValue,
+  });
 
   // Fall back to using the default value
   return getFeatureResult(
@@ -330,8 +317,7 @@ export function runExperiment<T>(
 
   // 1. If experiment has less than 2 variations, return immediately
   if (numVariations < 2) {
-    process.env.NODE_ENV !== "production" &&
-      ctx.global.log("Invalid experiment", { id: key });
+    ctx.global.log("Invalid experiment", { id: key });
     return {
       result: getExperimentResult(ctx, experiment, -1, false, featureId),
     };
@@ -339,8 +325,7 @@ export function runExperiment<T>(
 
   // 2. If the context is disabled, return immediately
   if (ctx.global.enabled === false || ctx.user.enabled === false) {
-    process.env.NODE_ENV !== "production" &&
-      ctx.global.log("Context disabled", { id: key });
+    ctx.global.log("Context disabled", { id: key });
     return {
       result: getExperimentResult(ctx, experiment, -1, false, featureId),
     };
@@ -354,10 +339,9 @@ export function runExperiment<T>(
     experiment.urlPatterns &&
     !isURLTargeted(ctx.user.url || "", experiment.urlPatterns)
   ) {
-    process.env.NODE_ENV !== "production" &&
-      ctx.global.log("Skip because of url targeting", {
-        id: key,
-      });
+    ctx.global.log("Skip because of url targeting", {
+      id: key,
+    });
     return {
       result: getExperimentResult(ctx, experiment, -1, false, featureId),
     };
@@ -370,11 +354,10 @@ export function runExperiment<T>(
     numVariations
   );
   if (qsOverride !== null) {
-    process.env.NODE_ENV !== "production" &&
-      ctx.global.log("Force via querystring", {
-        id: key,
-        variation: qsOverride,
-      });
+    ctx.global.log("Force via querystring", {
+      id: key,
+      variation: qsOverride,
+    });
     return {
       result: getExperimentResult(
         ctx,
@@ -390,11 +373,11 @@ export function runExperiment<T>(
   const forcedVariations = getForcedVariations(ctx);
   if (key in forcedVariations) {
     const variation = forcedVariations[key];
-    process.env.NODE_ENV !== "production" &&
-      ctx.global.log("Force via dev tools", {
-        id: key,
-        variation,
-      });
+
+    ctx.global.log("Force via dev tools", {
+      id: key,
+      variation,
+    });
     return {
       result: getExperimentResult(ctx, experiment, variation, false, featureId),
     };
@@ -402,10 +385,9 @@ export function runExperiment<T>(
 
   // 5. Exclude if a draft experiment or not active
   if (experiment.status === "draft" || experiment.active === false) {
-    process.env.NODE_ENV !== "production" &&
-      ctx.global.log("Skip because inactive", {
-        id: key,
-      });
+    ctx.global.log("Skip because inactive", {
+      id: key,
+    });
     return {
       result: getExperimentResult(ctx, experiment, -1, false, featureId),
     };
@@ -420,10 +402,9 @@ export function runExperiment<T>(
       : undefined
   );
   if (!hashValue) {
-    process.env.NODE_ENV !== "production" &&
-      ctx.global.log("Skip because missing hashAttribute", {
-        id: key,
-      });
+    ctx.global.log("Skip because missing hashAttribute", {
+      id: key,
+    });
     return {
       result: getExperimentResult(ctx, experiment, -1, false, featureId),
     };
@@ -456,10 +437,9 @@ export function runExperiment<T>(
     // 7. Exclude if user is filtered out (used to be called "namespace")
     if (experiment.filters) {
       if (isFilteredOut(experiment.filters, ctx)) {
-        process.env.NODE_ENV !== "production" &&
-          ctx.global.log("Skip because of filters", {
-            id: key,
-          });
+        ctx.global.log("Skip because of filters", {
+          id: key,
+        });
         return {
           result: getExperimentResult(ctx, experiment, -1, false, featureId),
         };
@@ -468,10 +448,9 @@ export function runExperiment<T>(
       experiment.namespace &&
       !inNamespace(hashValue, experiment.namespace)
     ) {
-      process.env.NODE_ENV !== "production" &&
-        ctx.global.log("Skip because of namespace", {
-          id: key,
-        });
+      ctx.global.log("Skip because of namespace", {
+        id: key,
+      });
       return {
         result: getExperimentResult(ctx, experiment, -1, false, featureId),
       };
@@ -479,10 +458,9 @@ export function runExperiment<T>(
 
     // 7.5. Exclude if experiment.include returns false or throws
     if (experiment.include && !isIncluded(experiment.include)) {
-      process.env.NODE_ENV !== "production" &&
-        ctx.global.log("Skip because of include function", {
-          id: key,
-        });
+      ctx.global.log("Skip because of include function", {
+        id: key,
+      });
       return {
         result: getExperimentResult(ctx, experiment, -1, false, featureId),
       };
@@ -490,10 +468,9 @@ export function runExperiment<T>(
 
     // 8. Exclude if condition is false
     if (experiment.condition && !conditionPasses(experiment.condition, ctx)) {
-      process.env.NODE_ENV !== "production" &&
-        ctx.global.log("Skip because of condition exp", {
-          id: key,
-        });
+      ctx.global.log("Skip because of condition exp", {
+        id: key,
+      });
       return {
         result: getExperimentResult(ctx, experiment, -1, false, featureId),
       };
@@ -514,10 +491,9 @@ export function runExperiment<T>(
 
         const evalObj = { value: parentResult.value };
         if (!evalCondition(evalObj, parentCondition.condition || {})) {
-          process.env.NODE_ENV !== "production" &&
-            ctx.global.log("Skip because prerequisite evaluation fails", {
-              id: key,
-            });
+          ctx.global.log("Skip because prerequisite evaluation fails", {
+            id: key,
+          });
           return {
             result: getExperimentResult(ctx, experiment, -1, false, featureId),
           };
@@ -530,10 +506,9 @@ export function runExperiment<T>(
       experiment.groups &&
       !hasGroupOverlap(experiment.groups as string[], ctx)
     ) {
-      process.env.NODE_ENV !== "production" &&
-        ctx.global.log("Skip because of groups", {
-          id: key,
-        });
+      ctx.global.log("Skip because of groups", {
+        id: key,
+      });
       return {
         result: getExperimentResult(ctx, experiment, -1, false, featureId),
       };
@@ -542,10 +517,9 @@ export function runExperiment<T>(
 
   // 8.2. Old style URL targeting
   if (experiment.url && !urlIsValid(experiment.url as RegExp, ctx)) {
-    process.env.NODE_ENV !== "production" &&
-      ctx.global.log("Skip because of url", {
-        id: key,
-      });
+    ctx.global.log("Skip because of url", {
+      id: key,
+    });
     return {
       result: getExperimentResult(ctx, experiment, -1, false, featureId),
     };
@@ -558,10 +532,9 @@ export function runExperiment<T>(
     experiment.hashVersion || 1
   );
   if (n === null) {
-    process.env.NODE_ENV !== "production" &&
-      ctx.global.log("Skip because of invalid hash version", {
-        id: key,
-      });
+    ctx.global.log("Skip because of invalid hash version", {
+      id: key,
+    });
     return {
       result: getExperimentResult(ctx, experiment, -1, false, featureId),
     };
@@ -580,10 +553,9 @@ export function runExperiment<T>(
 
   // 9.5 Unenroll if any prior sticky buckets are blocked by version
   if (stickyBucketVersionIsBlocked) {
-    process.env.NODE_ENV !== "production" &&
-      ctx.global.log("Skip because sticky bucket version is blocked", {
-        id: key,
-      });
+    ctx.global.log("Skip because sticky bucket version is blocked", {
+      id: key,
+    });
     return {
       result: getExperimentResult(
         ctx,
@@ -599,10 +571,9 @@ export function runExperiment<T>(
 
   // 10. Return if not in experiment
   if (assigned < 0) {
-    process.env.NODE_ENV !== "production" &&
-      ctx.global.log("Skip because of coverage", {
-        id: key,
-      });
+    ctx.global.log("Skip because of coverage", {
+      id: key,
+    });
     return {
       result: getExperimentResult(ctx, experiment, -1, false, featureId),
     };
@@ -610,11 +581,10 @@ export function runExperiment<T>(
 
   // 11. Experiment has a forced variation
   if ("force" in experiment) {
-    process.env.NODE_ENV !== "production" &&
-      ctx.global.log("Force variation", {
-        id: key,
-        variation: experiment.force,
-      });
+    ctx.global.log("Force variation", {
+      id: key,
+      variation: experiment.force,
+    });
     return {
       result: getExperimentResult(
         ctx,
@@ -628,10 +598,9 @@ export function runExperiment<T>(
 
   // 12. Exclude if in QA mode
   if (ctx.global.qaMode || ctx.user.qaMode) {
-    process.env.NODE_ENV !== "production" &&
-      ctx.global.log("Skip because QA mode", {
-        id: key,
-      });
+    ctx.global.log("Skip because QA mode", {
+      id: key,
+    });
     return {
       result: getExperimentResult(ctx, experiment, -1, false, featureId),
     };
@@ -639,10 +608,9 @@ export function runExperiment<T>(
 
   // 12.5. Exclude if experiment is stopped
   if (experiment.status === "stopped") {
-    process.env.NODE_ENV !== "production" &&
-      ctx.global.log("Skip because stopped", {
-        id: key,
-      });
+    ctx.global.log("Skip because stopped", {
+      id: key,
+    });
     return {
       result: getExperimentResult(ctx, experiment, -1, false, featureId),
     };
@@ -707,11 +675,11 @@ export function runExperiment<T>(
     ctx.global.recordChangeId(experiment.changeId as string);
 
   // 15. Return the result
-  process.env.NODE_ENV !== "production" &&
-    ctx.global.log("In experiment", {
-      id: key,
-      variation: result.variationId,
-    });
+
+  ctx.global.log("In experiment", {
+    id: key,
+    variation: result.variationId,
+  });
   return { result, trackingCall };
 }
 
