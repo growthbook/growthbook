@@ -32,12 +32,12 @@ export const updateExperiment = createApiRequestHandler(
 
     // validate datasource only if updating
     if (
-      req.body.datasource !== undefined &&
-      req.body.datasource !== experiment.datasource
+      req.body.datasourceId !== undefined &&
+      req.body.datasourceId !== experiment.datasource
     ) {
       const datasource = await getDataSourceById(
         req.context,
-        req.body.datasource
+        req.body.datasourceId
       );
       if (!datasource) {
         throw new Error("Datasource not found.");
@@ -49,7 +49,7 @@ export const updateExperiment = createApiRequestHandler(
       req.body.assignmentQueryId !== undefined &&
       req.body.assignmentQueryId !== experiment.exposureQueryId
     ) {
-      const datasourceId = req.body.datasource ?? experiment.datasource;
+      const datasourceId = req.body.datasourceId ?? experiment.datasource;
       const datasource = await getDataSourceById(req.context, datasourceId);
       if (!datasource) {
         throw new Error("Datasource not found.");

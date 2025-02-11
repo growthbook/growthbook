@@ -1,6 +1,6 @@
 type: object
 properties:
-  datasource:
+  datasourceId:
     type: string
   assignmentQueryId:
     type: string
