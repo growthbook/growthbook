@@ -82,6 +82,7 @@ export default function AccountPlanNotices() {
               close={() => setUpgradeModal(false)}
               source="top-nav-freeseat-overage"
               reason="Whoops! You are over your free seat limit."
+              commercialFeature={null}
             />
           )}
           <button

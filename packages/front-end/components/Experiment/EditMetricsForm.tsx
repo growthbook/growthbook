@@ -166,6 +166,7 @@ const EditMetricsForm: FC<{
         close={() => setUpgradeModal(false)}
         reason="To override metric conversion windows,"
         source="override-metrics"
+        commercialFeature="override-metrics"
       />
     );
   }

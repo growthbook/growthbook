@@ -146,6 +146,7 @@ const TemplatePage: FC = () => {
                 close={() => setShowUpgradeModal(false)}
                 source="templates"
                 reason="Create experiments from templates"
+                commercialFeature="templates"
               />
             )}
             <div className="appbox p-5 text-center">

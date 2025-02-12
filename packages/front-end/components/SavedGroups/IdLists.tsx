@@ -108,6 +108,7 @@ export default function IdLists({ groups, mutate }: Props) {
           close={() => setUpgradeModal(false)}
           reason=""
           source="large-saved-groups"
+          commercialFeature="large-saved-groups"
         />
       )}
       <Box mt="4" mb="5" p="4" className="appbox">

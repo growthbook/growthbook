@@ -67,6 +67,7 @@ const GetStartedPage = (): React.ReactElement => {
           close={() => setUpgradeModal(false)}
           reason=""
           source="get-started"
+          commercialFeature={null}
         />
       )}
       {showVideoId && (

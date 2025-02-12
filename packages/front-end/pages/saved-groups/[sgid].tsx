@@ -156,6 +156,7 @@ export default function EditSavedGroupPage() {
           close={() => setUpgradeModal(false)}
           reason=""
           source="large-saved-groups"
+          commercialFeature="large-saved-groups"
         />
       )}
       {addItems && (
