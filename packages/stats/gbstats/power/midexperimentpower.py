@@ -14,7 +14,7 @@ from gbstats.frequentist.tests import (
     sequential_rho,
 )
 from gbstats.models.tests import BaseConfig
-from gbstats.utils import is_statistically_significant
+from gbstats.utils import is_statistically_significant, gaussian_credible_interval
 
 from gbstats.messages import (
     ZERO_NEGATIVE_VARIANCE_MESSAGE,
@@ -176,7 +176,8 @@ class MidExperimentPower:
 
     @property
     def already_significant(self) -> bool:
-        return is_statistically_significant(self.test_result.ci)
+        ci = gaussian_credible_interval(self.m_prime, np.sqrt(self.v_prime), self.alpha)
+        return is_statistically_significant(ci)
 
     @property
     def pairwise_sample_size(self) -> int:
