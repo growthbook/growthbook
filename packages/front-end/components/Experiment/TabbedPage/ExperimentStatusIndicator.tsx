@@ -1,5 +1,5 @@
 import { Tooltip } from "@radix-ui/themes";
-import { addDays } from "date-fns";
+import { ExperimentAnalysisSummaryHealth } from "back-end/src/validators/experiments";
 import {
   DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
@@ -10,7 +10,7 @@ import {
   DEFAULT_MID_EXPERIMENT_POWER_CALCULATION_ENABLED,
   DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
 } from "shared/constants";
-import { daysBetween, getValidDate } from "shared/dates";
+import { daysBetween } from "shared/dates";
 import { getMultipleExposureHealthData, getSRMHealthData } from "shared/health";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Badge from "@/components/Radix/Badge";
@@ -29,6 +29,14 @@ type ExperimentData = Pick<
   | "phases"
   | "dismissedWarnings"
 >;
+
+type StatusIndicatorData = {
+  color: React.ComponentProps<typeof Badge>["color"];
+  variant: React.ComponentProps<typeof Badge>["variant"];
+  status: string;
+  detailedStatus?: string;
+  tooltip?: string;
+};
 
 /**
  * Component that displays the status of an experiment with an appropriate badge
@@ -89,15 +97,9 @@ function getStatusIndicatorData(
     midExperimentPowerEnabled: boolean;
     srmThreshold: number;
     multipleExposureMinPercent: number;
-    experimentMaxLengthDays: number;
+    experimentMinLengthDays: number;
   }
-): {
-  color: React.ComponentProps<typeof Badge>["color"];
-  variant: React.ComponentProps<typeof Badge>["variant"];
-  status: string;
-  detailedStatus?: string;
-  tooltip?: string;
-} {
+): StatusIndicatorData {
   if (!skipArchived && experimentData.archived) {
     return {
       color: "gold",
@@ -114,25 +116,10 @@ function getStatusIndicatorData(
     };
   }
 
-  const lastPhase = experimentData.phases[experimentData.phases.length - 1];
   if (experimentData.status == "running") {
-    if (
-      healthSettings.midExperimentPowerEnabled &&
-      lastPhase.dateStarted &&
-      daysBetween(lastPhase.dateStarted, new Date()) >
-        healthSettings.experimentMaxLengthDays
-    ) {
-      return {
-        color: "amber",
-        variant: "soft",
-        status: "Running",
-        detailedStatus: "Discuss results",
-        tooltip: "Reached anticipated duration",
-      };
-    }
-
     const unhealthyStatuses: string[] = [];
     const healthSummary = experimentData.analysisSummary?.health;
+
     if (healthSummary) {
       const srmHealthData = getSRMHealthData({
         srm: healthSummary.srm,
@@ -160,51 +147,23 @@ function getStatusIndicatorData(
         unhealthyStatuses.push("Multiple exposures");
       }
 
-      const powerSummary = healthSummary.power;
-      if (
-        healthSettings.midExperimentPowerEnabled &&
-        experimentData.dismissedWarnings?.includes("low-power") === false &&
-        powerSummary &&
-        powerSummary.type === "success" &&
-        powerSummary.isLowPowered
-      ) {
-        unhealthyStatuses.push("Low powered");
-      }
+      if (healthSettings.midExperimentPowerEnabled) {
+        const lastPhase =
+          experimentData.phases[experimentData.phases.length - 1];
+        const powerStatus = getPowerStatus({
+          power: healthSummary.power,
+          totalUsers: healthSummary.totalUsers,
+          dateStarted: lastPhase.dateStarted,
+          experimentMinLengthDays: healthSettings.experimentMinLengthDays,
+        });
 
-      if (
-        healthSettings.midExperimentPowerEnabled &&
-        powerSummary &&
-        powerSummary.type === "success" &&
-        !powerSummary.isLowPowered &&
-        lastPhase.dateStarted
-      ) {
-        const powerAdditionalDaysNeeded =
-          powerSummary.type === "success"
-            ? powerSummary.additionalDaysNeeded
-            : 0;
+        if (powerStatus?.isLowPowered) {
+          unhealthyStatuses.push("Low powered");
+        }
 
-        const runtimeTargetDaysRemaining = daysBetween(
-          new Date(),
-          addDays(
-            getValidDate(lastPhase.dateStarted),
-            healthSettings.experimentMaxLengthDays
-          )
-        );
-
-        const daysRemaining = Math.min(
-          ...[runtimeTargetDaysRemaining, powerAdditionalDaysNeeded].filter(
-            (d) => d > 0
-          )
-        );
-
-        // NB: Infinity is possible result if both values are filtered out.
-        if (daysRemaining > 0 && daysRemaining !== Infinity) {
-          return {
-            color: "indigo",
-            variant: "solid",
-            status: "Running",
-            detailedStatus: `~${daysRemaining} days left`,
-          };
+        // If we have a override status from powerStatus, use it
+        if (powerStatus?.indicatorData) {
+          return powerStatus.indicatorData;
         }
       }
     }
@@ -226,7 +185,6 @@ function getStatusIndicatorData(
     };
 
     // TODO: Add detail statuses
-    // return ["indigo", "solid", "Running", "~5 days left"];
     // return ["amber", "soft", "Running", "Rollback now"];
     // return ["amber", "soft", "Running", "Ship now"];
     // return ["amber", "soft", "Running", "Discuss results"];
@@ -306,5 +264,89 @@ function getFormattedLabel(
       const _exhaustiveCheck: never = labelFormat;
       throw new Error(`Unknown label format: ${_exhaustiveCheck}`);
     }
+  }
+}
+
+function getPowerStatus({
+  power,
+  totalUsers,
+  dateStarted,
+  experimentMinLengthDays,
+}: {
+  power: ExperimentAnalysisSummaryHealth["power"];
+  totalUsers: number;
+  dateStarted?: string;
+  experimentMinLengthDays: number;
+}): { isLowPowered: boolean; indicatorData?: StatusIndicatorData } | undefined {
+  // TODO: Right now midExperimentPowerEnable is controlling the whole "Days Left" status
+  // but we should probably split it when considering Experiment Runtime length without power
+
+  // FIXME: This technically overrides other Unhealthy statuses, which will not happen because they also need
+  // traffic data to be measured, but still not ideal.
+  if (totalUsers === 0) {
+    return {
+      isLowPowered: false,
+      indicatorData: {
+        color: "indigo",
+        variant: "solid",
+        status: "Running",
+        detailedStatus: "No data",
+      },
+    };
+  }
+
+  // Do not show low powered status if the experiment has not been running for the minimum length of time
+  if (
+    !dateStarted ||
+    daysBetween(dateStarted, new Date()) < experimentMinLengthDays
+  ) {
+    return;
+  }
+
+  if (power?.type === "success" && power.isLowPowered) {
+    return {
+      isLowPowered: true,
+    };
+  }
+
+  const powerAdditionalDaysNeeded =
+    power?.type === "success" ? power.additionalDaysNeeded : undefined;
+  if (!powerAdditionalDaysNeeded) {
+    return;
+  }
+
+  if (powerAdditionalDaysNeeded > 0) {
+    const cappedPowerAdditionalDaysNeeded = Math.min(
+      powerAdditionalDaysNeeded,
+      90
+    );
+
+    return {
+      isLowPowered: false,
+      indicatorData: {
+        color: "indigo",
+        variant: "solid",
+        status: "Running",
+        detailedStatus: `${
+          powerAdditionalDaysNeeded !== cappedPowerAdditionalDaysNeeded
+            ? ">"
+            : ""
+        }${cappedPowerAdditionalDaysNeeded} days left`,
+        tooltip: `This experiment has not collected enough data to reliably detected the specified Target Lift for all goal metrics. At recent traffic levels, the experiment will take ~${powerAdditionalDaysNeeded} days to collect enough data.`,
+      },
+    };
+  }
+
+  if (powerAdditionalDaysNeeded === 0) {
+    return {
+      isLowPowered: false,
+      indicatorData: {
+        color: "indigo",
+        variant: "solid",
+        status: "Running",
+        detailedStatus: "Ready for review",
+        tooltip: "The experiment has collected enough data to make a decision",
+      },
+    };
   }
 }

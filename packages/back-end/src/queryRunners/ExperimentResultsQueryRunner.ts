@@ -8,11 +8,7 @@ import {
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
-import {
-  DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
-  DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
-  DEFAULT_MID_EXPERIMENT_POWER_CALCULATION_ENABLED,
-} from "shared/constants";
+import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
 import { daysBetween } from "shared/dates";
 import chunk from "lodash/chunk";
 import { ApiReqContext } from "back-end/types/api";
@@ -482,47 +478,30 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       );
 
       const isEligibleForMidExperimentPowerAnalysis =
-        relativeAnalysis &&
-        this.model.settings.banditSettings === undefined &&
-        orgHasPremiumFeature(this.context.org, "mid-experiment-power") &&
-        (this.context.org.settings?.midExperimentPowerEnabled ??
-          DEFAULT_MID_EXPERIMENT_POWER_CALCULATION_ENABLED);
+        relativeAnalysis && this.model.settings.banditSettings === undefined;
 
       if (isEligibleForMidExperimentPowerAnalysis) {
         const today = new Date();
         const experimentStartDate = this.model.settings.startDate;
-        const experimentDaysRunning = daysBetween(experimentStartDate, today);
+        const experimentMaxLengthDays = this.context.org.settings
+          ?.experimentMaxLengthDays;
 
-        const experimentMinLengthDays =
-          this.context.org.settings?.experimentMinLengthDays ??
-          DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS;
-        const experimentMaxLengthDays =
-          this.context.org.settings?.experimentMaxLengthDays ??
-          DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS;
+        const experimentTargetEndDate = addDays(
+          experimentStartDate,
+          experimentMaxLengthDays && experimentMaxLengthDays > 0
+            ? experimentMaxLengthDays
+            : FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS
+        );
+        const targetDaysRemaining = daysBetween(today, experimentTargetEndDate);
 
-        const shouldRunPowerAnalysis =
-          experimentDaysRunning > experimentMinLengthDays &&
-          experimentDaysRunning < experimentMaxLengthDays;
-
-        if (shouldRunPowerAnalysis) {
-          const experimentTargetEndDate = addDays(
-            experimentStartDate,
-            experimentMaxLengthDays
-          );
-          const targetDaysRemaining = daysBetween(
-            today,
-            experimentTargetEndDate
-          );
-
-          // NB: This does not run a SQL query, but it is a health check that depends on the trafficHealth
-          result.health.power = analyzeExperimentPower({
-            trafficHealth,
-            targetDaysRemaining,
-            analysis: relativeAnalysis,
-            goalMetrics: this.model.settings.goalMetrics,
-            variationsSettings: this.model.settings.variations,
-          });
-        }
+        // NB: This does not run a SQL query, but it is a health check that depends on the trafficHealth
+        result.health.power = analyzeExperimentPower({
+          trafficHealth,
+          targetDaysRemaining,
+          analysis: relativeAnalysis,
+          goalMetrics: this.model.settings.goalMetrics,
+          variationsSettings: this.model.settings.variations,
+        });
       }
     }
 
