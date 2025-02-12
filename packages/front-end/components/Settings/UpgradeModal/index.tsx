@@ -289,8 +289,11 @@ export default function UpgradeModal({
 
   const upgradeHeader = (
     <>
-      <h3 className="mb-0">Upgrade to Pro</h3>
-      <p className="text-secondary mb-0">
+      <h3 className="mb-1">Upgrade to Pro</h3>
+      <p
+        className="mb-0"
+        style={{ color: "var(--color-text-mid", fontSize: "16px" }}
+      >
         Get instant access to advanced experimentation, permissioning and
         security features.
       </p>
@@ -320,7 +323,7 @@ export default function UpgradeModal({
             ]}
           />
         </div>
-        <p className="text-secondary">
+        <p style={{ color: "var(--color-text-mid" }}>
           Continuing will{" "}
           {trialAndUpgradePreference === "trial"
             ? "start a 14-day Pro plan trial for your organization."
