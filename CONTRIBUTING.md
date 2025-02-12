@@ -80,7 +80,7 @@ This repository is a monorepo with the following packages:
 
 - **packages/front-end** is a Next.js app and contains the full UI of the GrowthBook app.
 - **packages/back-end** is an Express app and serves as the REST api for the front-end.
-- **package/shared** is a collection of Typescript functions and constants shared between the front-end and back-end.
+- **packages/shared** is a collection of Typescript functions and constants shared between the front-end and back-end.
 - **package/enterprise** contains proprietary code governed under the GrowthBook Enterprise license. We typically do not accept outside contributions for this package.
 - **packages/sdk-js** is our javascript SDK (`@growthbook/growthbook` on npm)
 - **packages/sdk-react** is our React SDK (`@growthbook/growthbook-react` on npm)
