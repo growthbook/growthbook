@@ -1441,6 +1441,7 @@ export default function FactMetricModal({
   defaultValues.loseRisk = defaultValues.loseRisk * 100;
   defaultValues.minPercentChange = defaultValues.minPercentChange * 100;
   defaultValues.maxPercentChange = defaultValues.maxPercentChange * 100;
+  defaultValues.targetLift = defaultValues.targetLift * 100;
 
   const form = useForm<CreateFactMetricProps>({
     defaultValues,
@@ -1628,6 +1629,7 @@ export default function FactMetricModal({
         values.loseRisk = values.loseRisk / 100;
         values.minPercentChange = values.minPercentChange / 100;
         values.maxPercentChange = values.maxPercentChange / 100;
+        values.targetLift = values.targetLift / 100;
 
         // Anonymized telemetry props
         // Will help us measure which settings are being used so we can optimize the UI
@@ -2380,7 +2382,7 @@ export default function FactMetricModal({
                         helpText={`An experiment that changes the metric by more than this percent will
             be flagged as suspicious (default ${
               metricDefaults.maxPercentageChange * 100
-            })`}
+            }%)`}
                       />
                       <Field
                         label="Min Percent Change"
@@ -2393,7 +2395,20 @@ export default function FactMetricModal({
                         helpText={`An experiment that changes the metric by less than this percent will be
             considered a draw (default ${
               metricDefaults.minPercentageChange * 100
-            })`}
+            }%)`}
+                      />
+
+                      <Field
+                        label="Target Lift"
+                        type="number"
+                        step="any"
+                        append="%"
+                        {...form.register("targetLift", {
+                          valueAsNumber: true,
+                        })}
+                        helpText={`The percentage change that you want to reliably detect before ending your experiment. This is used to estimate the "Days Left" for running experiments. (default ${
+                          metricDefaults.targetLift * 100
+                        }%)`}
                       />
 
                       <RiskThresholds

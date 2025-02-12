@@ -14,6 +14,7 @@ import {
   DEFAULT_METRIC_WINDOW_HOURS,
   DEFAULT_MIN_PERCENT_CHANGE,
   DEFAULT_MIN_SAMPLE_SIZE,
+  DEFAULT_TARGET_LIFT,
   DEFAULT_PROPER_PRIOR_STDDEV,
 } from "shared/constants";
 import useOrgSettings from "./useOrgSettings";
@@ -40,6 +41,7 @@ export const METRIC_DEFAULTS = {
   minimumSampleSize: DEFAULT_MIN_SAMPLE_SIZE,
   maxPercentageChange: DEFAULT_MAX_PERCENT_CHANGE,
   minPercentageChange: DEFAULT_MIN_PERCENT_CHANGE,
+  targetLift: DEFAULT_TARGET_LIFT,
   windowSettings: defaultMetricWindowSettings,
   cappingSettings: defaultMetricCappingSettings,
   priorSettings: defaultMetricPriorSettings,
@@ -60,6 +62,7 @@ export type OrganizationMetricDefaults = {
     minimumSampleSize: number;
     maxPercentageChange: number;
     minPercentageChange: number;
+    targetLift: number;
     windowSettings: MetricWindowSettings;
     cappingSettings: MetricCappingSettings;
     priorSettings: MetricPriorSettings;
@@ -90,6 +93,16 @@ export type OrganizationMetricDefaults = {
   }) => number;
 
   /**
+   * Returns the target lift for the provided metric,
+   * considering 0 (zero) as a valid value.
+   * Number returned is a multiplier value between 0-1,
+   * e.g. for 1% you will get 0.01.
+   * @param metric
+   * @return number
+   */
+  getTargetLiftForMetric: (metric: { targetLift?: number }) => number;
+
+  /**
    * Returns the minimum metric total for the provided metric,
    * considering 0 (zero) as a valid value.
    * @param metric
@@ -106,6 +119,7 @@ export type OrganizationSettingsWithMetricDefaults = Omit<
     minimumSampleSize: number;
     maxPercentageChange: number;
     minPercentageChange: number;
+    targetLift: number;
     priorSettings: MetricPriorSettings;
   };
 };
@@ -149,6 +163,19 @@ export const useOrganizationMetricDefaults = (): OrganizationMetricDefaults => {
   );
 
   /**
+   * @link OrganizationMetricDefaults#getTargetLiftForMetric
+   */
+  const getTargetLiftForMetric = useCallback(
+    (metric: { targetLift?: number }): number => {
+      const value = metric.targetLift;
+      if (typeof value === "number") return value;
+
+      return metricDefaults.targetLift;
+    },
+    [metricDefaults]
+  );
+
+  /**
    * @link OrganizationMetricDefaults#getMinSampleSizeForMetric
    */
   const getMinSampleSizeForMetric = useCallback(
@@ -166,5 +193,6 @@ export const useOrganizationMetricDefaults = (): OrganizationMetricDefaults => {
     getMinPercentageChangeForMetric,
     getMaxPercentageChangeForMetric,
     getMinSampleSizeForMetric,
+    getTargetLiftForMetric,
   };
 };

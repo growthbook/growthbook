@@ -139,6 +139,7 @@ export interface MetricDefaults {
   windowSettings?: MetricWindowSettings;
   cappingSettings?: MetricCappingSettings;
   priorSettings?: MetricPriorSettings;
+  targetLift?: number;
 }
 
 export interface Namespaces {

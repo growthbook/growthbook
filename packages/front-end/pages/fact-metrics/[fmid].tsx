@@ -170,6 +170,7 @@ export default function FactMetricPage() {
     getMinSampleSizeForMetric,
     getMinPercentageChangeForMetric,
     getMaxPercentageChangeForMetric,
+    getTargetLiftForMetric,
   } = useOrganizationMetricDefaults();
 
   const {
@@ -740,6 +741,12 @@ export default function FactMetricPage() {
                     <span className="text-gray">Min percent change :</span>{" "}
                     <span className="font-weight-bold">
                       {getMinPercentageChangeForMetric(factMetric) * 100}%
+                    </span>
+                  </li>
+                  <li className="mb-2">
+                    <span className="text-gray">Target Lift :</span>{" "}
+                    <span className="font-weight-bold">
+                      {getTargetLiftForMetric(factMetric) * 100}%
                     </span>
                   </li>
                 </ul>
