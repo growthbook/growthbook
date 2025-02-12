@@ -3,9 +3,9 @@ import os from "os";
 import { PythonShell } from "python-shell";
 import cloneDeep from "lodash/cloneDeep";
 import {
-  DEFAULT_MIN_PERCENT_CHANGE,
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_TARGET_LIFT,
   EXPOSURE_DATE_DIMENSION_NAME,
 } from "shared/constants";
 import { putBaselineVariationFirst } from "shared/util";
@@ -108,7 +108,7 @@ export interface MetricSettingsForStatsEngine {
   prior_proper?: boolean;
   prior_mean?: number;
   prior_stddev?: number;
-  min_percent_change: number;
+  target_lift: number;
   business_metric_type: BusinessMetricTypeForStatsEngine[];
 }
 
@@ -418,7 +418,7 @@ export function getMetricSettingsForStatsEngine(
     prior_proper: metric.priorSettings.proper,
     prior_mean: metric.priorSettings.mean,
     prior_stddev: metric.priorSettings.stddev,
-    min_percent_change: metric.minPercentChange ?? DEFAULT_MIN_PERCENT_CHANGE,
+    target_lift: metric.targetLift ?? DEFAULT_TARGET_LIFT,
     business_metric_type: getBusinessMetricTypeForStatsEngine(
       metric.id,
       settings

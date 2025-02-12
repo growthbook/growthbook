@@ -49,7 +49,7 @@ class BaselineResponse:
 class PowerResponse:
     status: str
     errorMessage: Optional[str]
-    minPercentChange: float
+    targetLift: float
     firstPeriodPairwiseSampleSize: Optional[float]
     sigmahat2Delta: Optional[float]
     sigma2Posterior: Optional[float]

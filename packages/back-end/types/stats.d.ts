@@ -39,7 +39,7 @@ interface FrequentistVariationResponse extends BaseVariationResponse {
 export interface MetricPowerResponseFromStatsEngine {
   status: string;
   errorMessage?: string;
-  minPercentChange: number;
+  targetLift: number;
   firstPeriodPairwiseSampleSize?: number;
   sigmahat2Delta?: number;
   sigma2Posterior?: number;

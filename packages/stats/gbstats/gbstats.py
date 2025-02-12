@@ -291,7 +291,7 @@ def analyze_metric_df(
             df[f"v{i}_error_message"] = None
             df[f"v{i}_decision_making_conditions"] = False
             df[f"v{i}_first_period_pairwise_users"] = None
-            df[f"v{i}_min_effect_size"] = None
+            df[f"v{i}_target_lift"] = None
             df[f"v{i}_sigmahat_2_delta"] = None
             df[f"v{i}_sigma_2_posterior"] = None
             df[f"v{i}_delta_posterior"] = None
@@ -319,7 +319,7 @@ def analyze_metric_df(
                     alpha=analysis.alpha,
                 )
                 power_config = MidExperimentPowerConfig(
-                    m_prime=2 * metric.min_percent_change,
+                    m_prime=metric.target_lift,
                     v_prime=None,
                     sequential=analysis.sequential_testing_enabled,
                     sequential_tuning_parameter=analysis.sequential_tuning_parameter,
@@ -333,7 +333,7 @@ def analyze_metric_df(
                 s[
                     f"v{i}_first_period_pairwise_users"
                 ] = mid_experiment_power.pairwise_sample_size
-                s[f"v{i}_min_percent_change"] = metric.min_percent_change
+                s[f"v{i}_target_lift"] = metric.target_lift
                 s[f"v{i}_sigmahat_2_delta"] = mid_experiment_power.sigmahat_2_delta
                 s[f"v{i}_sigma_2_posterior"] = mid_experiment_power.sigma_2_posterior
                 s[f"v{i}_delta_posterior"] = mid_experiment_power.delta_posterior
@@ -450,7 +450,7 @@ def format_variation_result(
                 firstPeriodPairwiseSampleSize=row[
                     f"{prefix}_first_period_pairwise_users"
                 ],
-                minPercentChange=row[f"{prefix}_min_percent_change"],
+                targetLift=row[f"{prefix}_target_lift"],
                 sigmahat2Delta=row[f"{prefix}_sigmahat_2_delta"],
                 sigma2Posterior=row[f"{prefix}_sigma_2_posterior"],
                 deltaPosterior=row[f"{prefix}_delta_posterior"],

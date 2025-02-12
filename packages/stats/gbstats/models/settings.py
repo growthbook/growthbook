@@ -74,7 +74,7 @@ class MetricSettingsForStatsEngine:
     covariate_metric_type: Optional[MetricType] = None
     quantile_value: Optional[float] = None
     business_metric_type: Optional[List[BusinessMetricType]] = None
-    min_percent_change: float = 0.005
+    target_lift: float = 0.01
 
 
 @dataclass

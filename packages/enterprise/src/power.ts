@@ -187,7 +187,7 @@ export function calculateMidExperimentPowerSingle(
   const sigmahat2Delta = response.sigmahat2Delta;
   const sigma2Posterior = response.sigma2Posterior;
   const deltaPosterior = response.deltaPosterior;
-  const mPrime = 2 * response.minPercentChange;
+  const mPrime = response.targetLift;
   const vPrime = sigmahat2Delta;
   if (params.sequential) {
     const s2 = sigmahat2Delta * firstPeriodPairwiseSampleSize;
@@ -270,7 +270,7 @@ export function calculateMidExperimentPower(
           metricId: metricId,
           variation: variation,
           power: undefined,
-          effectSize: variationMetricData.minPercentChange * 2,
+          effectSize: variationMetricData.targetLift,
           errorMessage: variationMetricData.errorMessage,
         });
       } else {
