@@ -168,6 +168,29 @@ const experimentRefRule = baseRule
 
 export type ExperimentRefRule = z.infer<typeof experimentRefRule>;
 
+export const safeRolloutStatus = [
+  "running",
+  "rolled-back",
+  "released",
+] as const;
+export type SafeRolloutStatus = typeof safeRolloutStatus[number];
+
+export const safeRolloutRule = baseRule
+  .extend({
+    type: z.literal("safe-rollout"),
+    trackingKey: z.string(),
+    datasource: z.string(),
+    exposureQueryId: z.string(),
+    values: z.array(experimentValue),
+    coverage: z.number(),
+    hashAttribute: z.string(),
+    seed: z.string(),
+    guardrailMetrics: z.array(z.string()),
+    status: z.enum(safeRolloutStatus),
+    maxDurationDays: z.number(),
+  })
+  .strict();
+
 export const featureRule = z.union([
   forceRule,
   rolloutRule,
