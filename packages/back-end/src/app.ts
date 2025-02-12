@@ -405,6 +405,9 @@ app.post("/subscription/new", stripeController.postNewProSubscription);
 app.get("/subscription/quote", stripeController.getSubscriptionQuote);
 app.post("/subscription/manage", stripeController.postCreateBillingSession);
 app.post("/subscription/success", stripeController.postSubscriptionSuccess);
+
+app.get("/billing/usage", stripeController.getUsage);
+
 app.get("/queries/:ids", datasourcesController.getQueries);
 app.post("/query/test", datasourcesController.testLimitedQuery);
 app.post("/dimension-slices", datasourcesController.postDimensionSlices);

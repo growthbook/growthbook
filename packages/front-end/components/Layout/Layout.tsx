@@ -245,6 +245,15 @@ const navlinks: SidebarLinkProps[] = [
           !!gb?.isOn("import-from-x"),
       },
       {
+        name: "Usage",
+        href: "/settings/usage",
+        path: /^settings\/usage/,
+        filter: ({ permissionsUtils, isCloud, gb }) =>
+          permissionsUtils.canViewUsage() &&
+          isCloud &&
+          !!gb?.isOn("cdn-usage-data"),
+      },
+      {
         name: "Billing",
         href: "/settings/billing",
         path: /^settings\/billing/,
