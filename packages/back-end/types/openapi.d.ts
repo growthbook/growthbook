@@ -580,7 +580,28 @@ export interface components {
                   variationId: string;
                 })[];
               experimentId: string;
-            })[];
+            } | ({
+              condition: string;
+              savedGroupTargeting?: ({
+                  /** @enum {string} */
+                  matchType: "all" | "any" | "none";
+                  savedGroups: (string)[];
+                })[];
+              id: string;
+              trackingKey?: string;
+              enabled: boolean;
+              /** @enum {string} */
+              type: "safe-rollout";
+              values?: ({
+                  value: string;
+                  weight: number;
+                  name?: string;
+                })[];
+              coverage: number;
+              hashAttribute: string;
+              /** @enum {string} */
+              status?: "running" | "released" | "rolled-back";
+            }))[];
           /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
           definition?: string;
           draft?: {
@@ -650,7 +671,28 @@ export interface components {
                     variationId: string;
                   })[];
                 experimentId: string;
-              })[];
+              } | ({
+                condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                id: string;
+                trackingKey?: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "safe-rollout";
+                values?: ({
+                    value: string;
+                    weight: number;
+                    name?: string;
+                  })[];
+                coverage: number;
+                hashAttribute: string;
+                /** @enum {string} */
+                status?: "running" | "released" | "rolled-back";
+              }))[];
             /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
             definition?: string;
           };
@@ -735,7 +777,28 @@ export interface components {
               variationId: string;
             })[];
           experimentId: string;
-        })[];
+        } | ({
+          condition: string;
+          savedGroupTargeting?: ({
+              /** @enum {string} */
+              matchType: "all" | "any" | "none";
+              savedGroups: (string)[];
+            })[];
+          id: string;
+          trackingKey?: string;
+          enabled: boolean;
+          /** @enum {string} */
+          type: "safe-rollout";
+          values?: ({
+              value: string;
+              weight: number;
+              name?: string;
+            })[];
+          coverage: number;
+          hashAttribute: string;
+          /** @enum {string} */
+          status?: "running" | "released" | "rolled-back";
+        }))[];
       /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
       definition?: string;
       draft?: {
@@ -805,7 +868,28 @@ export interface components {
                 variationId: string;
               })[];
             experimentId: string;
-          })[];
+          } | ({
+            condition: string;
+            savedGroupTargeting?: ({
+                /** @enum {string} */
+                matchType: "all" | "any" | "none";
+                savedGroups: (string)[];
+              })[];
+            id: string;
+            trackingKey?: string;
+            enabled: boolean;
+            /** @enum {string} */
+            type: "safe-rollout";
+            values?: ({
+                value: string;
+                weight: number;
+                name?: string;
+              })[];
+            coverage: number;
+            hashAttribute: string;
+            /** @enum {string} */
+            status?: "running" | "released" | "rolled-back";
+          }))[];
         /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
         definition?: string;
       };
@@ -874,7 +958,28 @@ export interface components {
           variationId: string;
         })[];
       experimentId: string;
-    };
+    } | ({
+      condition: string;
+      savedGroupTargeting?: ({
+          /** @enum {string} */
+          matchType: "all" | "any" | "none";
+          savedGroups: (string)[];
+        })[];
+      id: string;
+      trackingKey?: string;
+      enabled: boolean;
+      /** @enum {string} */
+      type: "safe-rollout";
+      values?: ({
+          value: string;
+          weight: number;
+          name?: string;
+        })[];
+      coverage: number;
+      hashAttribute: string;
+      /** @enum {string} */
+      status?: "running" | "released" | "rolled-back";
+    });
     FeatureDefinition: {
       defaultValue: OneOf<[string, number, (unknown)[], any, null]>;
       rules?: ({
@@ -1687,7 +1792,28 @@ export interface operations {
                             variationId: string;
                           })[];
                         experimentId: string;
-                      })[];
+                      } | ({
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        id: string;
+                        trackingKey?: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "safe-rollout";
+                        values?: ({
+                            value: string;
+                            weight: number;
+                            name?: string;
+                          })[];
+                        coverage: number;
+                        hashAttribute: string;
+                        /** @enum {string} */
+                        status?: "running" | "released" | "rolled-back";
+                      }))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
                     draft?: {
@@ -1757,7 +1883,28 @@ export interface operations {
                               variationId: string;
                             })[];
                           experimentId: string;
-                        })[];
+                        } | ({
+                          condition: string;
+                          savedGroupTargeting?: ({
+                              /** @enum {string} */
+                              matchType: "all" | "any" | "none";
+                              savedGroups: (string)[];
+                            })[];
+                          id: string;
+                          trackingKey?: string;
+                          enabled: boolean;
+                          /** @enum {string} */
+                          type: "safe-rollout";
+                          values?: ({
+                              value: string;
+                              weight: number;
+                              name?: string;
+                            })[];
+                          coverage: number;
+                          hashAttribute: string;
+                          /** @enum {string} */
+                          status?: "running" | "released" | "rolled-back";
+                        }))[];
                       /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                       definition?: string;
                     };
@@ -2077,7 +2224,28 @@ export interface operations {
                           variationId: string;
                         })[];
                       experimentId: string;
-                    })[];
+                    } | ({
+                      condition: string;
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      id: string;
+                      trackingKey?: string;
+                      enabled: boolean;
+                      /** @enum {string} */
+                      type: "safe-rollout";
+                      values?: ({
+                          value: string;
+                          weight: number;
+                          name?: string;
+                        })[];
+                      coverage: number;
+                      hashAttribute: string;
+                      /** @enum {string} */
+                      status?: "running" | "released" | "rolled-back";
+                    }))[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
                   draft?: {
@@ -2147,7 +2315,28 @@ export interface operations {
                             variationId: string;
                           })[];
                         experimentId: string;
-                      })[];
+                      } | ({
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        id: string;
+                        trackingKey?: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "safe-rollout";
+                        values?: ({
+                            value: string;
+                            weight: number;
+                            name?: string;
+                          })[];
+                        coverage: number;
+                        hashAttribute: string;
+                        /** @enum {string} */
+                        status?: "running" | "released" | "rolled-back";
+                      }))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
                   };
@@ -2264,7 +2453,28 @@ export interface operations {
                           variationId: string;
                         })[];
                       experimentId: string;
-                    })[];
+                    } | ({
+                      condition: string;
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      id: string;
+                      trackingKey?: string;
+                      enabled: boolean;
+                      /** @enum {string} */
+                      type: "safe-rollout";
+                      values?: ({
+                          value: string;
+                          weight: number;
+                          name?: string;
+                        })[];
+                      coverage: number;
+                      hashAttribute: string;
+                      /** @enum {string} */
+                      status?: "running" | "released" | "rolled-back";
+                    }))[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
                   draft?: {
@@ -2334,7 +2544,28 @@ export interface operations {
                             variationId: string;
                           })[];
                         experimentId: string;
-                      })[];
+                      } | ({
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        id: string;
+                        trackingKey?: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "safe-rollout";
+                        values?: ({
+                            value: string;
+                            weight: number;
+                            name?: string;
+                          })[];
+                        coverage: number;
+                        hashAttribute: string;
+                        /** @enum {string} */
+                        status?: "running" | "released" | "rolled-back";
+                      }))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
                   };
@@ -2643,7 +2874,28 @@ export interface operations {
                           variationId: string;
                         })[];
                       experimentId: string;
-                    })[];
+                    } | ({
+                      condition: string;
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      id: string;
+                      trackingKey?: string;
+                      enabled: boolean;
+                      /** @enum {string} */
+                      type: "safe-rollout";
+                      values?: ({
+                          value: string;
+                          weight: number;
+                          name?: string;
+                        })[];
+                      coverage: number;
+                      hashAttribute: string;
+                      /** @enum {string} */
+                      status?: "running" | "released" | "rolled-back";
+                    }))[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
                   draft?: {
@@ -2713,7 +2965,28 @@ export interface operations {
                             variationId: string;
                           })[];
                         experimentId: string;
-                      })[];
+                      } | ({
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        id: string;
+                        trackingKey?: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "safe-rollout";
+                        values?: ({
+                            value: string;
+                            weight: number;
+                            name?: string;
+                          })[];
+                        coverage: number;
+                        hashAttribute: string;
+                        /** @enum {string} */
+                        status?: "running" | "released" | "rolled-back";
+                      }))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
                   };
@@ -2856,7 +3129,28 @@ export interface operations {
                           variationId: string;
                         })[];
                       experimentId: string;
-                    })[];
+                    } | ({
+                      condition: string;
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      id: string;
+                      trackingKey?: string;
+                      enabled: boolean;
+                      /** @enum {string} */
+                      type: "safe-rollout";
+                      values?: ({
+                          value: string;
+                          weight: number;
+                          name?: string;
+                        })[];
+                      coverage: number;
+                      hashAttribute: string;
+                      /** @enum {string} */
+                      status?: "running" | "released" | "rolled-back";
+                    }))[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
                   draft?: {
@@ -2926,7 +3220,28 @@ export interface operations {
                             variationId: string;
                           })[];
                         experimentId: string;
-                      })[];
+                      } | ({
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        id: string;
+                        trackingKey?: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "safe-rollout";
+                        values?: ({
+                            value: string;
+                            weight: number;
+                            name?: string;
+                          })[];
+                        coverage: number;
+                        hashAttribute: string;
+                        /** @enum {string} */
+                        status?: "running" | "released" | "rolled-back";
+                      }))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
                   };
