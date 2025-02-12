@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Optional, Union, List
-
+import copy
 import numpy as np
 import scipy.stats
 from pydantic.dataclasses import dataclass
@@ -236,20 +236,20 @@ class RegressionAdjustedRatioStatistic(Statistic):
     theta: Optional[float]
 
     @property
-    def mean(self):
+    def mean(self) -> float:
         if self.d_statistic_post.sum == 0 or self.d_statistic_pre.sum == 0:
             return 0
         theta = self.theta if self.theta else 0
         return self.mean_post - theta * self.mean_pre
 
     @property
-    def mean_post(self):
+    def mean_post(self) -> float:
         if self.d_statistic_post.sum == 0:
             return 0
         return self.m_statistic_post.sum / self.d_statistic_post.sum
 
     @property
-    def mean_pre(self):
+    def mean_pre(self) -> float:
         if self.d_statistic_pre.sum == 0:
             return 0
         return self.m_statistic_pre.sum / self.d_statistic_pre.sum
@@ -270,25 +270,19 @@ class RegressionAdjustedRatioStatistic(Statistic):
         )
 
     @property
-    def variance(self):
-        if self.d_statistic_post.mean == 0 or self.n <= 1:
-            return 0
+    def variance(self) -> float:
         return self.nabla.T.dot(self.lambda_matrix).dot(self.nabla)
 
     @property
-    def var_x(self):
-        if self.n <= 1:
-            return 0
+    def var_pre(self) -> float:
         return self.nabla[2:4].T.dot(self.lambda_matrix[2:4, 2:4]).dot(self.nabla[2:4])
 
     @property
     def covariance(self) -> float:
-        if self.n <= 1:
-            return 0
         return self.nabla[2:4].T.dot(self.lambda_matrix[2:4, 0:2]).dot(self.nabla[0:2])
 
     @property
-    def cov_m_x_d_x(self) -> float:
+    def cov_m_pre_d_pre(self) -> float:
         if self.n <= 1:
             return 0
         return (
@@ -297,7 +291,7 @@ class RegressionAdjustedRatioStatistic(Statistic):
         ) / (self.n - 1)
 
     @property
-    def cov_m_y_d_y(self) -> float:
+    def cov_m_post_d_post(self) -> float:
         if self.n <= 1:
             return 0
         return (
@@ -306,7 +300,7 @@ class RegressionAdjustedRatioStatistic(Statistic):
         ) / (self.n - 1)
 
     @property
-    def cov_m_y_m_x(self) -> float:
+    def cov_m_post_m_pre(self) -> float:
         if self.n <= 1:
             return 0
         return (
@@ -315,7 +309,7 @@ class RegressionAdjustedRatioStatistic(Statistic):
         ) / (self.n - 1)
 
     @property
-    def cov_d_y_d_x(self) -> float:
+    def cov_d_post_d_pre(self) -> float:
         if self.n <= 1:
             return 0
         return (
@@ -324,7 +318,7 @@ class RegressionAdjustedRatioStatistic(Statistic):
         ) / (self.n - 1)
 
     @property
-    def cov_m_y_d_x(self) -> float:
+    def cov_m_post_d_pre(self) -> float:
         if self.n <= 1:
             return 0
         return (
@@ -333,7 +327,7 @@ class RegressionAdjustedRatioStatistic(Statistic):
         ) / (self.n - 1)
 
     @property
-    def cov_d_y_m_x(self) -> float:
+    def cov_d_post_m_pre(self) -> float:
         if self.n <= 1:
             return 0
         return (
@@ -342,44 +336,48 @@ class RegressionAdjustedRatioStatistic(Statistic):
         ) / (self.n - 1)
 
     @property
-    def betahat(self):
-        return np.array([self.mean_m_y, self.mean_d_y, self.mean_m_x, self.mean_d_x])
+    def betahat(self) -> np.ndarray:
+        return np.array(
+            [self.mean_m_post, self.mean_d_post, self.mean_m_pre, self.mean_d_pre]
+        )
 
     @property
     def lambda_matrix(self) -> np.ndarray:
         return np.array(
             [
                 [
-                    self.var_m_y,
-                    self.cov_m_y_d_y,
-                    self.cov_m_y_m_x,
-                    self.cov_m_y_d_x,
+                    self.var_m_post,
+                    self.cov_m_post_d_post,
+                    self.cov_m_post_m_pre,
+                    self.cov_m_post_d_pre,
                 ],
                 [
-                    self.cov_m_y_d_y,
-                    self.var_d_y,
-                    self.cov_d_y_m_x,
-                    self.cov_d_y_d_x,
+                    self.cov_m_post_d_post,
+                    self.var_d_post,
+                    self.cov_d_post_m_pre,
+                    self.cov_d_post_d_pre,
                 ],
                 [
-                    self.cov_m_y_m_x,
-                    self.cov_d_y_m_x,
-                    self.var_m_x,
-                    self.cov_m_x_d_x,
+                    self.cov_m_post_m_pre,
+                    self.cov_d_post_m_pre,
+                    self.var_m_pre,
+                    self.cov_m_pre_d_pre,
                 ],
                 [
-                    self.cov_m_y_d_x,
-                    self.cov_d_y_d_x,
-                    self.cov_m_x_d_x,
-                    self.var_d_x,
+                    self.cov_m_post_d_pre,
+                    self.cov_d_post_d_pre,
+                    self.cov_m_pre_d_pre,
+                    self.var_d_pre,
                 ],
             ]
         )
 
     # vector of partial derivatives for the absolute case
     @property
-    def nabla(self):
+    def nabla(self) -> np.ndarray:
         theta = self.theta if self.theta else 0
+        if self.betahat[1] == 0 or self.betahat[3] == 0:
+            return np.zeros((4,))
         return np.array(
             [
                 1 / self.betahat[1],
@@ -390,35 +388,35 @@ class RegressionAdjustedRatioStatistic(Statistic):
         )
 
     @property
-    def mean_m_y(self) -> float:
+    def mean_m_post(self) -> float:
         return self.m_statistic_post.mean
 
     @property
-    def mean_m_x(self) -> float:
+    def mean_m_pre(self) -> float:
         return self.m_statistic_pre.mean
 
     @property
-    def mean_d_y(self):
+    def mean_d_post(self) -> float:
         return self.d_statistic_post.mean
 
     @property
-    def mean_d_x(self):
+    def mean_d_pre(self) -> float:
         return self.d_statistic_pre.mean
 
     @property
-    def var_m_y(self):
+    def var_m_post(self) -> float:
         return self.m_statistic_post.variance
 
     @property
-    def var_m_x(self):
+    def var_m_pre(self) -> float:
         return self.m_statistic_pre.variance
 
     @property
-    def var_d_y(self):
+    def var_d_post(self) -> float:
         return self.d_statistic_post.variance
 
     @property
-    def var_d_x(self):
+    def var_d_pre(self) -> float:
         return self.d_statistic_pre.variance
 
 
@@ -426,11 +424,13 @@ def compute_theta_regression_adjusted_ratio(
     a: RegressionAdjustedRatioStatistic, b: RegressionAdjustedRatioStatistic
 ) -> float:
     # set theta equal to 1, so the partial derivatives are unaffected by theta
-    a.theta = 1
-    b.theta = 1
-    if a.var_x + b.var_x == 0:
+    a_one = copy.deepcopy(a)
+    b_one = copy.deepcopy(b)
+    a_one.theta = 1
+    b_one.theta = 1
+    if a_one.var_pre + b_one.var_pre == 0:
         return 0
-    return -(a.covariance + b.covariance) / (a.var_x + b.var_x)
+    return -(a_one.covariance + b_one.covariance) / (a_one.var_pre + b_one.var_pre)
 
 
 @dataclass
