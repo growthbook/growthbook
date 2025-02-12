@@ -4186,6 +4186,8 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
+          /** @description Only can be set if existing experiment does not have a datasource */
+          datasourceId?: string;
           assignmentQueryId?: string;
           trackingKey?: string;
           /** @description Name of the experiment */
