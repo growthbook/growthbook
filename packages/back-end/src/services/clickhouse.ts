@@ -275,6 +275,8 @@ WITH FILL
 
   const data: {
     date: string;
+    // These are returned as strings because they could in theory be bigger than MAX_SAFE_INTEGER
+    // That is very unlikely, and even if it happens it will still be approximately correct
     requests: string;
     bandwidth: string;
   }[] = await res.json();
