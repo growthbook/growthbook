@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Flex } from "@radix-ui/themes";
 import { FaCheckCircle, FaExternalLinkAlt } from "react-icons/fa";
 import { PiCaretRight } from "react-icons/pi";
+import { CommercialFeature } from "enterprise";
 import { growthbook } from "@/services/utils";
 import { useUser } from "@/services/UserContext";
 import { getGrowthBookBuild, isCloud } from "@/services/env";
@@ -24,9 +25,14 @@ export interface Props {
   close: () => void;
   source: string;
   reason: string;
+  commercialFeature: CommercialFeature | null;
 }
 
-export default function UpgradeModal({ close, source }: Props) {
+export default function UpgradeModal({
+  close,
+  source,
+  commercialFeature,
+}: Props) {
   const [error, setError] = useState("");
   const { apiCall } = useAuth();
 
@@ -67,8 +73,11 @@ export default function UpgradeModal({ close, source }: Props) {
   // These are some Upgrade CTAs throughout the app related to enterprise-only features
   // we don't want to show a user the test treatments if that's the case
   // since this test doesn't highlight enterprise features at all.
+  const lowestPlan = commercialFeature
+    ? commercialFeatureLowestPlan?.[commercialFeature]
+    : "starter";
   const featureFlagValue =
-    commercialFeatureLowestPlan?.[source] !== "enterprise"
+    lowestPlan !== "enterprise"
       ? growthbook.getFeatureValue("pro-upgrade-modal", "OFF")
       : "OFF";
 
@@ -278,11 +287,11 @@ export default function UpgradeModal({ close, source }: Props) {
     }
   };
 
-  const upgradeBanner = (
+  const upgradeHeader = (
     <>
       <h3 className="mb-0">Upgrade to Pro</h3>
       <p className="text-secondary mb-0">
-        Get instance access to advanced experimentation, permissioning and
+        Get instant access to advanced experimentation, permissioning and
         security features.
       </p>
     </>
@@ -291,7 +300,7 @@ export default function UpgradeModal({ close, source }: Props) {
   function trialAndUpgradeTreatment() {
     return (
       <div>
-        {upgradeBanner}
+        {upgradeHeader}
         <div className="py-4">
           <RadioCards
             columns="2"
@@ -334,29 +343,23 @@ export default function UpgradeModal({ close, source }: Props) {
   function upgradeOnlyTreatment() {
     return (
       <div>
-        {upgradeBanner}
+        {upgradeHeader}
         <div className="py-4">
-          <p>
-            <Flex align="center">
-              <FaCheckCircle className="mr-2" color="blue" />
-              <strong>Up to 100 team members</strong>
-            </Flex>
-          </p>
-          <p>
-            <Flex align="center">
-              <FaCheckCircle className="mr-2" color="blue" />
-              <strong>Encrypted SDK endpoint response</strong>
-            </Flex>
-          </p>
-          <p>
-            <Flex align="center">
-              <FaCheckCircle className="mr-2" color="blue" />
-              <strong>
-                Advanced experimentation: CUPED, Sequential testing, Bandits and
-                more
-              </strong>
-            </Flex>
-          </p>
+          <Flex align="center" className="pb-2">
+            <FaCheckCircle className="mr-2" color="blue" />
+            <strong>Up to 100 team members</strong>
+          </Flex>
+          <Flex align="center" className="pb-2">
+            <FaCheckCircle className="mr-2" color="blue" />
+            <strong>Encrypted SDK endpoint response</strong>
+          </Flex>
+          <Flex align="center" className="pb-2">
+            <FaCheckCircle className="mr-2" color="blue" />
+            <strong>
+              Advanced experimentation: CUPED, Sequential testing, Bandits and
+              more
+            </strong>
+          </Flex>
         </div>
         <div className="p-3" style={{ backgroundColor: "var(--violet-2)" }}>
           <Flex align="center" justify="between">
@@ -471,7 +474,6 @@ export default function UpgradeModal({ close, source }: Props) {
             </>
           }
           submit={featureFlagValue !== "OFF" ? () => onSubmit() : undefined}
-          ctaEnabled={true}
         >
           {!permissionsUtil.canManageBilling() ? (
             <div className="text-center mt-4 mb-5">

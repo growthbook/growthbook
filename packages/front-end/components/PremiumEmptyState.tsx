@@ -82,6 +82,7 @@ const PremiumEmptyState: FC<Props> = ({
               close={() => setUpgradeModal(false)}
               reason={reason}
               source={commercialFeature}
+              commercialFeature={commercialFeature}
             />
           )}
         </div>
