@@ -273,15 +273,6 @@ export function calculateMidExperimentPower(
           effectSize: variationMetricData.minPercentChange * 2,
           errorMessage: variationMetricData.errorMessage,
         });
-      } else if (variationMetricData.status === "already significant") {
-        metricVariationPowerArray.push({
-          metricId: metricId,
-          variation: variation,
-          effectSize: variationMetricData.minPercentChange * 2,
-          power: 1,
-          additionalDaysNeeded: 0,
-          isLowPowered: false,
-        });
       } else {
         const powerParams: MidExperimentPowerParamsSingle = {
           sequential,
