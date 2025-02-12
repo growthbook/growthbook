@@ -12,6 +12,7 @@ import {
 import { DataSourceParams } from "back-end/types/datasource";
 import { DailyUsage, ReqContext } from "back-end/types/organization";
 import { logger } from "back-end/src/util/logger";
+import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 
 function clickhouseUserId(orgId: string, datasourceId: string) {
   return ENVIRONMENT === "production"
@@ -209,6 +210,25 @@ export async function deleteClickhouseUser(
   });
 
   logger.info(`Clickhouse user ${user} deleted`);
+}
+
+export async function addCloudSDKMapping(connection: SDKConnectionInterface) {
+  const { key, organization } = connection;
+
+  // This is not a fatal error, so just log instead of throwing
+  try {
+    const client = createAdminClickhouseClient();
+    await client.insert({
+      table: "usage.sdk_key_mapping",
+      values: [{ key, organization }],
+      format: "JSONEachRow",
+    });
+  } catch (e) {
+    logger.error(
+      e,
+      `Error inserting sdk key mapping (${key} -> ${organization})`
+    );
+  }
 }
 
 export async function getDailyCDNUsageForOrg(

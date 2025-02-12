@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { DailyUsage } from "back-end/types/organization";
+import { DailyUsage, UsageLimits } from "back-end/types/organization";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { AreaClosed } from "@visx/shape";
@@ -32,7 +32,9 @@ function formatBytes(bytes: number) {
 
   const i = Math.floor(Math.log(bytes) / Math.log(k));
 
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(0)) + " " + sizes[i];
+  const adjusted = bytes / Math.pow(k, i);
+
+  return parseFloat(adjusted.toFixed(adjusted > 10 ? 0 : 1)) + " " + sizes[i];
 }
 
 export default function CloudUsage() {
@@ -41,12 +43,12 @@ export default function CloudUsage() {
   const router = useRouter();
   const useDummyData = !isCloud() && !!router.query.dummy;
 
-  const { data, error } = useApi<{ cdnUsage: DailyUsage[] }>(
-    `/billing/usage?monthsAgo=${monthsAgo}`,
-    {
-      shouldRun: () => !useDummyData,
-    }
-  );
+  const { data, error } = useApi<{
+    cdnUsage: DailyUsage[];
+    limits: UsageLimits;
+  }>(`/billing/usage?monthsAgo=${monthsAgo}`, {
+    shouldRun: () => !useDummyData,
+  });
 
   if (!isCloud() && !useDummyData) {
     return (
@@ -65,6 +67,10 @@ export default function CloudUsage() {
   }
 
   const usage = data?.cdnUsage || [];
+  const limits: UsageLimits = data?.limits || {
+    cdnRequests: null,
+    cdnBandwidth: null,
+  };
 
   const startDate = new Date();
   startDate.setUTCMonth(startDate.getUTCMonth() - monthsAgo);
@@ -87,11 +93,13 @@ export default function CloudUsage() {
       if (current > endDate || current > now) break;
       usage.push({
         date: new Date(current).toISOString(),
-        requests: Math.floor(Math.random() * 10000000),
-        bandwidth: Math.floor(Math.random() * 10000000000),
+        requests: Math.floor(Math.random() * 1000000),
+        bandwidth: Math.floor(Math.random() * 2000000000),
       });
       current.setUTCDate(current.getUTCDate() + 1);
     }
+
+    limits.cdnRequests = 10_000_000;
   }
 
   const totalRequests = usage.reduce((sum, u) => sum + u.requests, 0);
@@ -176,6 +184,7 @@ export default function CloudUsage() {
             formatValue={(v) => requestsFormatter.format(v)}
             start={startDate}
             end={endDate}
+            limitLine={limits.cdnRequests || null}
           />
         </Box>
       )}
@@ -190,6 +199,7 @@ export default function CloudUsage() {
             formatValue={formatBytes}
             start={startDate}
             end={endDate}
+            limitLine={limits.cdnBandwidth || null}
           />
         </Box>
       )}
@@ -209,6 +219,7 @@ function DailyGraph({
   data,
   width = "auto",
   height = 250,
+  limitLine = null,
   formatValue,
   start,
   end,
@@ -216,6 +227,7 @@ function DailyGraph({
   data: { ts: Date; v: number }[];
   width?: "auto" | string;
   height?: number;
+  limitLine?: null | number;
   formatValue?: (v: number) => string;
   start: Date;
   end: Date;
@@ -223,7 +235,7 @@ function DailyGraph({
   data = useCumulativeData(data);
 
   const margin = [15, 15, 30, 60];
-  const yDomain = [0, Math.max(...data.map((d) => d.v))];
+  const yDomain = [0, Math.max(...data.map((d) => d.v), limitLine || 0)];
 
   return (
     <div>
@@ -263,6 +275,17 @@ function DailyGraph({
                       fill="var(--violet-9)"
                       curve={curveLinear}
                     />
+                    {limitLine && (
+                      <line
+                        x1={0}
+                        x2={xMax}
+                        y1={yScale(limitLine)}
+                        y2={yScale(limitLine)}
+                        stroke="var(--red-9)"
+                        strokeWidth={2}
+                        strokeDasharray="4"
+                      />
+                    )}
                     <AxisLeft
                       scale={yScale}
                       stroke="var(--slate-a4)"

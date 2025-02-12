@@ -334,3 +334,8 @@ export type DailyUsage = {
   requests: number;
   bandwidth: number;
 };
+
+export type UsageLimits = {
+  cdnRequests: number | null;
+  cdnBandwidth: number | null;
+};
