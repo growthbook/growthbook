@@ -196,6 +196,7 @@ export const featureRule = z.union([
   rolloutRule,
   experimentRule,
   experimentRefRule,
+  safeRolloutRule,
 ]);
 
 export type FeatureRule = z.infer<typeof featureRule>;
