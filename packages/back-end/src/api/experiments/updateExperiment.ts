@@ -30,24 +30,43 @@ export const updateExperiment = createApiRequestHandler(
       req.context.permissions.throwPermissionError();
     }
 
-    const datasource = await getDataSourceById(
-      req.context,
-      experiment.datasource
-    );
-    if (!datasource) {
-      throw new Error("No datasource for this experiment was found.");
+    // validate datasource only if updating
+    const datasourceId = req.body.datasourceId ?? experiment.datasource;
+    const datasource = datasourceId
+      ? await getDataSourceById(req.context, datasourceId)
+      : null;
+
+    if (
+      req.body.datasourceId !== undefined &&
+      req.body.datasourceId !== experiment.datasource
+    ) {
+      if (experiment.datasource) {
+        throw new Error(
+          "Cannot change datasource via API if one is already set."
+        );
+      }
+      if (!datasource) {
+        throw new Error("Datasource not found.");
+      }
     }
+
     // check for associated assignment query id
     if (
-      req.body.assignmentQueryId != null &&
-      req.body.assignmentQueryId !== experiment.exposureQueryId &&
-      !datasource.settings.queries?.exposure?.some(
-        (q) => q.id === req.body.assignmentQueryId
-      )
+      req.body.assignmentQueryId !== undefined &&
+      req.body.assignmentQueryId !== experiment.exposureQueryId
     ) {
-      throw new Error(
-        `Unrecognized assignment query ID: ${req.body.assignmentQueryId}`
-      );
+      if (!datasource) {
+        throw new Error("Datasource not found.");
+      }
+      if (
+        !datasource.settings.queries?.exposure?.some(
+          (q) => q.id === req.body.assignmentQueryId
+        )
+      ) {
+        throw new Error(
+          `Unrecognized assignment query ID: ${req.body.assignmentQueryId}`
+        );
+      }
     }
 
     // check if tracking key is unique
