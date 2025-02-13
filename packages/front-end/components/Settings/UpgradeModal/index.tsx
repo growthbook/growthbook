@@ -15,11 +15,13 @@ import Modal from "@/components/Modal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import RadioCards from "@/components/Radix/RadioCards";
+import { StripeProvider } from "@/components/Billing/StripeProvider";
 import styles from "./index.module.scss";
 import CloudTrialConfirmationModal from "./CloudTrialConfirmationModal";
 import LicenseSuccessModal from "./LicenseSuccessModal";
 import PleaseVerifyEmailModal from "./PleaseVerifyEmailModal";
 import SelfHostedTrialConfirmationModal from "./SelfHostedTrialConfirmationModal";
+import StartCloudProModal from "./StartCloudProModal";
 
 export interface Props {
   close: () => void;
@@ -60,6 +62,7 @@ export default function UpgradeModal({
   const [showCloudProTrialSuccess, setShowCloudProTrialSuccess] = useState(
     false
   );
+  const [showStartCloudProModal, setShowStartCloudProModal] = useState(false);
 
   const {
     name,
@@ -69,6 +72,7 @@ export default function UpgradeModal({
     effectiveAccountPlan,
     commercialFeatureLowestPlan,
     seatsInUse,
+    // subscription, //MKTODO: Uncomment this once the other branches are merged in
   } = useUser();
   // These are some Upgrade CTAs throughout the app related to enterprise-only features
   // we don't want to show a user the test treatments if that's the case
@@ -138,44 +142,31 @@ export default function UpgradeModal({
     setError("");
     setLoading(true);
     try {
-      if (
-        license?.stripeSubscription &&
-        license?.stripeSubscription.status != "canceled"
-      ) {
-        const res = await apiCall<{ url: string }>(`/subscription/manage`, {
-          method: "POST",
-        });
-        if (res && res.url) {
-          track(
-            "Start Stripe Checkout For Pro With Existing Subscription",
-            trackContext
-          );
-          await redirectWithTimeout(res.url);
-        } else {
-          setError("Unknown response");
-        }
-      } else {
-        const resp = await apiCall<{
-          status: number;
-          session?: { url?: string };
-        }>(`/subscription/new`, {
-          method: "POST",
-          body: JSON.stringify({
-            returnUrl: window.location.pathname,
-          }),
-        });
+      //MKTODO: Can anyone get here if they have an existing subscription - if so, what happens?
+      // Can we just skip the /subscription/new call?
+      // if (!subscription) { //MKTODO: Uncomment this once the other branches are pulled in
+      const resp = await apiCall<{
+        status: number;
+        session?: { url?: string };
+      }>(`/subscription/new`, {
+        method: "POST",
+        body: JSON.stringify({
+          returnUrl: window.location.pathname,
+        }),
+      });
 
-        setLoading(false);
-        if (resp.session?.url) {
-          track(
-            "Start Stripe Checkout For Pro Without Existing Subscription",
-            trackContext
-          );
-          await redirectWithTimeout(resp.session.url);
-        } else {
-          setError("Failed to start checkout");
-        }
-      }
+      // if (resp.session?.url) {
+      track(
+        "Start Stripe Checkout For Pro Without Existing Subscription",
+        trackContext
+      );
+      // await redirectWithTimeout(resp.session.url);
+      // } else {
+      // setError("Failed to start checkout");
+      // }
+      // }
+      setLoading(false);
+      setShowStartCloudProModal(true);
     } catch (e) {
       setLoading(false);
       setError(e.message);
@@ -460,6 +451,13 @@ export default function UpgradeModal({
           header={`🎉 Your 14-day Enterprise Trial starts now!`}
           isTrial={true}
         />
+      ) : showStartCloudProModal ? (
+        <StripeProvider>
+          <StartCloudProModal
+            close={() => setShowStartCloudProModal(false)}
+            seatsInUse={seatsInUse}
+          />
+        </StripeProvider>
       ) : (
         <Modal
           trackingEventModalType="upgrade-modal"
@@ -473,7 +471,10 @@ export default function UpgradeModal({
           loading={loading}
           cta={
             <>
-              Continue <PiCaretRight />
+              {trialAndUpgradePreference === "upgrade"
+                ? "Upgrade Now"
+                : "Start Trial"}{" "}
+              <PiCaretRight />
             </>
           }
           submit={featureFlagValue !== "OFF" ? () => onSubmit() : undefined}
@@ -621,7 +622,7 @@ export default function UpgradeModal({
                         >
                           <button
                             className="btn btn-primary m-3 w-100"
-                            onClick={startPro}
+                            onClick={() => setShowStartCloudProModal(true)}
                             disabled={isAtLeastPro}
                           >
                             Upgrade Now
