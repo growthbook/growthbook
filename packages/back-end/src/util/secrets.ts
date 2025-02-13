@@ -2,7 +2,11 @@ import fs from "fs";
 import dotenv from "dotenv";
 import trimEnd from "lodash/trimEnd";
 import { stringToBoolean } from "shared/util";
-import { DEFAULT_METRIC_WINDOW_HOURS } from "shared/constants";
+import {
+  GB_SDK_ID_DEV,
+  GB_SDK_ID_PROD,
+  DEFAULT_METRIC_WINDOW_HOURS,
+} from "shared/constants";
 import { z } from "zod";
 
 export const ENVIRONMENT = process.env.NODE_ENV;
@@ -274,3 +278,5 @@ export const CLICKHOUSE_ADMIN_PASSWORD =
   process.env.CLICKHOUSE_ADMIN_PASSWORD || "";
 export const CLICKHOUSE_DATABASE = process.env.CLICKHOUSE_DATABASE || "";
 export const CLICKHOUSE_MAIN_TABLE = process.env.CLICKHOUSE_MAIN_TABLE || "";
+
+export const GB_SDK_ID = prod ? GB_SDK_ID_PROD : GB_SDK_ID_DEV;
