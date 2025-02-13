@@ -1,5 +1,5 @@
 {
-  "specVersion": "0.7.0",
+  "specVersion": "0.7.1",
   "evalCondition": [
     [
       "$not - pass",
@@ -3040,7 +3040,8 @@
         "value": null,
         "on": false,
         "off": true,
-        "source": "unknownFeature"
+        "source": "unknownFeature",
+        "ruleId": ""
       }
     ],
     [
@@ -3051,7 +3052,8 @@
         "value": null,
         "on": false,
         "off": true,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -3062,7 +3064,8 @@
         "value": 1,
         "on": true,
         "off": false,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -3073,7 +3076,8 @@
         "value": "yes",
         "on": true,
         "off": false,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -3095,7 +3099,32 @@
         "value": 1,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
+      }
+    ],
+    [
+      "force rule with rule id",
+      {
+        "features": {
+          "feature": {
+            "defaultValue": 2,
+            "rules": [
+              {
+                "id": "a",
+                "force": 1
+              }
+            ]
+          }
+        }
+      },
+      "feature",
+      {
+        "value": 1,
+        "on": true,
+        "off": false,
+        "source": "force",
+        "ruleId": "a"
       }
     ],
     [
@@ -3117,7 +3146,8 @@
         "value": false,
         "on": false,
         "off": true,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -3143,7 +3173,8 @@
         "value": 1,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -3169,7 +3200,8 @@
         "value": 1,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -3183,6 +3215,7 @@
             "defaultValue": 2,
             "rules": [
               {
+                "id": "a",
                 "force": 1,
                 "coverage": 0.5
               }
@@ -3195,7 +3228,8 @@
         "value": 2,
         "on": true,
         "off": false,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -3219,7 +3253,8 @@
         "value": 2,
         "on": true,
         "off": false,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -3246,7 +3281,8 @@
         "value": 0,
         "on": false,
         "off": true,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -3276,7 +3312,8 @@
         "value": 1,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -3306,7 +3343,8 @@
         "value": 2,
         "on": true,
         "off": false,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -3333,7 +3371,8 @@
         "value": 2,
         "on": true,
         "off": false,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -3350,7 +3389,8 @@
         "value": null,
         "on": false,
         "off": true,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -3390,7 +3430,8 @@
           "key": "2",
           "stickyBucketUsed": false
         },
-        "source": "experiment"
+        "source": "experiment",
+        "ruleId": ""
       }
     ],
     [
@@ -3403,6 +3444,7 @@
           "feature": {
             "rules": [
               {
+                "id": "id",
                 "variations": ["a", "b", "c"]
               }
             ]
@@ -3430,7 +3472,8 @@
           "key": "0",
           "stickyBucketUsed": false
         },
-        "source": "experiment"
+        "source": "experiment",
+        "ruleId": "id"
       }
     ],
     [
@@ -3470,7 +3513,8 @@
           "key": "1",
           "stickyBucketUsed": false
         },
-        "source": "experiment"
+        "source": "experiment",
+        "ruleId": ""
       }
     ],
     [
@@ -3515,7 +3559,8 @@
                 "key": "hello",
                 "variations": [true, false],
                 "weights": [0.1, 0.9],
-                "condition": { "premium": true }
+                "condition": { "premium": true },
+                "foo": "bar"
               }
             ]
           }
@@ -3573,7 +3618,8 @@
           "key": "v1",
           "name": "variation 1",
           "stickyBucketUsed": false
-        }
+        },
+        "ruleId": ""
       }
     ],
     [
@@ -3607,7 +3653,8 @@
         "value": 2,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -3622,13 +3669,16 @@
             "rules": [
               {
                 "force": 1,
+                "id": "1",
                 "condition": { "browser": "chrome" }
               },
               {
+                "id": "2",
                 "force": 2,
                 "condition": { "browser": "firefox" }
               },
               {
+                "id": "3",
                 "force": 3,
                 "condition": { "browser": "safari" }
               }
@@ -3641,7 +3691,8 @@
         "value": 3,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": "3"
       }
     ],
     [
@@ -3675,7 +3726,8 @@
         "value": 0,
         "on": false,
         "off": true,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -3702,7 +3754,8 @@
         "value": 3,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -3729,7 +3782,8 @@
         "value": 3,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -3768,7 +3822,8 @@
           "key": "1",
           "bucket": 0.863,
           "stickyBucketUsed": false
-        }
+        },
+        "ruleId": ""
       }
     ],
     [
@@ -3795,7 +3850,8 @@
         "value": 3,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -3839,7 +3895,8 @@
           "hashValue": "123",
           "key": "1",
           "stickyBucketUsed": false
-        }
+        },
+        "ruleId": ""
       }
     ],
     [
@@ -3866,7 +3923,8 @@
         "value": 2,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -3893,7 +3951,8 @@
         "value": 2,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -3919,7 +3978,8 @@
         "value": 0,
         "on": false,
         "off": true,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -3950,7 +4010,8 @@
         "value": 0,
         "on": false,
         "off": true,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -3978,7 +4039,8 @@
         "value": 2,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -4045,7 +4107,8 @@
           "variationId": 0,
           "bucket": 0.4413,
           "stickyBucketUsed": false
-        }
+        },
+        "ruleId": ""
       }
     ],
     [
@@ -4118,7 +4181,8 @@
           "variationId": 0,
           "bucket": 0.8043,
           "stickyBucketUsed": false
-        }
+        },
+        "ruleId": ""
       }
     ],
     [
@@ -4168,7 +4232,8 @@
         "value": null,
         "on": false,
         "off": true,
-        "source": "prerequisite"
+        "source": "prerequisite",
+        "ruleId": ""
       }
     ],
     [
@@ -4205,7 +4270,8 @@
         "value": null,
         "on": false,
         "off": true,
-        "source": "prerequisite"
+        "source": "prerequisite",
+        "ruleId": ""
       }
     ],
     [
@@ -4255,7 +4321,8 @@
         "value": "success",
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -4323,7 +4390,8 @@
         "value": "success",
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -4391,7 +4459,8 @@
         "value": "success",
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -4443,7 +4512,8 @@
         "value": "success",
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -4495,7 +4565,8 @@
         "value": null,
         "on": false,
         "off": true,
-        "source": "prerequisite"
+        "source": "prerequisite",
+        "ruleId": ""
       }
     ],
     [
@@ -4540,7 +4611,8 @@
         "value": null,
         "on": false,
         "off": true,
-        "source": "cyclicPrerequisite"
+        "source": "cyclicPrerequisite",
+        "ruleId": ""
       }
     ],
     [
@@ -4604,7 +4676,8 @@
         "value": "T",
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -4629,7 +4702,13 @@
         }
       },
       "inGroup_force_rule",
-      { "value": true, "on": true, "off": false, "source": "force" }
+      {
+        "value": true,
+        "on": true,
+        "off": false,
+        "source": "force",
+        "ruleId": ""
+      }
     ],
     [
       "SavedGroups correctly pulled from context for experiment rule",
@@ -4685,7 +4764,8 @@
           "variationId": 0,
           "bucket": 0.1736,
           "stickyBucketUsed": false
-        }
+        },
+        "ruleId": ""
       }
     ]
   ],
