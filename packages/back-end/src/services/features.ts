@@ -903,7 +903,6 @@ export function evaluateFeature({
         experimentMap,
         environment: env.id,
         revision,
-        returnRuleId: true,
         date,
       });
 
