@@ -134,11 +134,11 @@ export function calculateMidExperimentPowerSingle(
       "Missing variation."
     );
   }
-  if (params.daysRemaining <= 0) {
+  if (params.daysRemaining <= 0 || params.newDailyUsers <= 0) {
     return calculateMidExperimentPowerSingleError(
       metricId,
       variation,
-      "Days remaining must be greater than 0."
+      "Days remaining and new daily users must be greater than 0."
     );
   }
   const response = params.variation;
@@ -236,22 +236,26 @@ export function calculateMidExperimentPowerSingle(
 export function calculateMidExperimentPower(
   powerSettings: MidExperimentPowerParams
 ): MidExperimentPowerCalculationResult {
-  const sequentialTuningParameter = powerSettings.sequentialTuningParameter;
-  const sequential = powerSettings.sequential;
-  const alpha = powerSettings.alpha;
-  const daysRemaining = powerSettings.daysRemaining;
-  const firstPeriodSampleSize = powerSettings.firstPeriodSampleSize;
-  const newDailyUsers = powerSettings.newDailyUsers;
-  const numGoalMetrics = powerSettings.numGoalMetrics;
-  const variationWeights = powerSettings.variationWeights;
-  const variations = powerSettings.variations;
+  const {
+    sequentialTuningParameter,
+    sequential,
+    alpha,
+    daysRemaining,
+    firstPeriodSampleSize,
+    newDailyUsers,
+    numGoalMetrics,
+    variationWeights,
+    variations,
+  } = powerSettings;
+
   const numVariations = variations.length;
   const minPowerByVariation = new Array(numVariations).fill(1);
   const maxDaysByVariation = new Array(numVariations).fill(0);
   const lowPowerThreshold = 0.1;
   const metricVariationPowerArray: MetricVariationPowerResult[] = [];
-  let calculateAdditionalDays = true;
 
+  let metricVariationCounter = 0;
+  let metricVariationFailure = 0;
   for (let variation = 1; variation < numVariations; variation++) {
     const thisProportionOfUsers =
       variationWeights[0] + variationWeights[variation];
@@ -262,10 +266,11 @@ export function calculateMidExperimentPower(
     for (const [metricId, variationMetricData] of Object.entries(
       thisVariation.metrics
     )) {
+      metricVariationCounter += 1;
       if (variationMetricData === undefined) {
-        calculateAdditionalDays = false;
+        metricVariationFailure += 1;
       } else if (variationMetricData.status === "unsuccessful") {
-        calculateAdditionalDays = false;
+        metricVariationFailure += 1;
         metricVariationPowerArray.push({
           metricId: metricId,
           variation: variation,
@@ -305,20 +310,23 @@ export function calculateMidExperimentPower(
             maxDaysWithinVariation = resultsSingleMetric.additionalDaysNeeded;
           }
         } else {
-          calculateAdditionalDays = false;
+          metricVariationFailure += 1;
         }
       }
     }
     minPowerByVariation[variation] = minPowerWithinVariation;
     maxDaysByVariation[variation] = maxDaysWithinVariation;
   }
+  // drop un-used baseline variation
   const maxPower = Math.max(...minPowerByVariation.slice(1));
+  const minDaysNeeded = Math.min(...maxDaysByVariation.slice(1));
   const lowPowerWarning = maxPower < lowPowerThreshold;
-  if (calculateAdditionalDays) {
+  // pass if 80% of tests worked
+  if (metricVariationFailure / metricVariationCounter < 0.2) {
     return {
       type: "success",
       power: maxPower,
-      additionalDaysNeeded: Math.min(...maxDaysByVariation),
+      additionalDaysNeeded: minDaysNeeded,
       isLowPowered: lowPowerWarning,
       metricVariationPowerResults: metricVariationPowerArray,
     };
