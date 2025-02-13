@@ -84,7 +84,15 @@ export default function ExperimentStatusIndicator({
   const label = getFormattedLabel(labelFormat, status, detailedStatus);
 
   const badge = (
-    <Badge color={color} variant={variant} radius="full" label={label} />
+    <Badge
+      color={color}
+      variant={variant}
+      radius="full"
+      label={label}
+      style={{
+        cursor: tooltip !== undefined ? "default" : undefined,
+      }}
+    />
   );
 
   return tooltip ? <Tooltip content={tooltip}>{badge}</Tooltip> : badge;
