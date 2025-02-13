@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useSWRConfig } from "swr";
-import { Flex, Separator, Text, Tooltip } from "@radix-ui/themes";
-import { PiInfo, PiX } from "react-icons/pi";
+import { Box, Flex, Separator, Text, Tooltip } from "@radix-ui/themes";
+import { PiArrowSquareOut, PiInfo, PiX } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import Link from "@/components/Radix/Link";
@@ -34,43 +34,41 @@ export function PowerCard({
   const hasPowerData = snapshotPower !== undefined;
   const isLowPowered = snapshotPower?.isLowPowered ?? false;
 
-  const isDismissed =
-    experiment.dismissedWarnings?.includes("low-power") ?? false;
-  const isDismissable = hasMidExperimentPowerFeature && isLowPowered;
+  const canBeMuted = hasMidExperimentPowerFeature && isLowPowered;
+  const isMuted = experiment.dismissedWarnings?.includes("low-power") ?? false;
 
-  const toggleDismissed = async () => {
+  const toggleMuteAlert = async () => {
+    const existingDismissedWarnings = experiment.dismissedWarnings ?? [];
     await apiCall(`/experiment/${experiment.id}`, {
       method: "POST",
       body: JSON.stringify({
-        dismissedWarnings: isDismissed
-          ? (experiment.dismissedWarnings || []).filter(
-              (w) => w !== "low-power"
-            )
-          : [...(experiment.dismissedWarnings || []), "low-power"],
+        dismissedWarnings: isMuted
+          ? existingDismissedWarnings.filter((w) => w !== "low-power")
+          : [...existingDismissedWarnings, "low-power"],
       }),
     });
+    // Ensure the experiment is refetched to get the updated dismissedWarnings
     mutate(`${orgId}::/experiment/${experiment.id}`);
   };
 
   useEffect(() => {
-    if (
-      experiment.dismissedWarnings?.includes("low-power") === false &&
-      isLowPowered
-    ) {
+    if (isLowPowered && !experiment.dismissedWarnings?.includes("low-power")) {
       onNotify({
         label: "Low powered",
         value: "power-card",
       });
     }
-  }, [experiment, isLowPowered, onNotify]);
+  }, [experiment.dismissedWarnings, isLowPowered, onNotify]);
 
-  const renderPowerAnalysisInfo = () => (
+  const renderUpsell = () => (
     <Callout status="info">
-      Learn more in our{" "}
+      Learn more about Power Analysis.{" "}
       <Link target="_blank" href="https://docs.growthbook.io/statistics/power">
-        Power Analysis docs
+        View docs
+        <Box display="inline-block" ml="1">
+          <PiArrowSquareOut />
+        </Box>
       </Link>
-      .
     </Callout>
   );
 
@@ -129,7 +127,7 @@ export function PowerCard({
   };
 
   const content = !hasMidExperimentPowerFeature
-    ? renderPowerAnalysisInfo()
+    ? renderUpsell()
     : !hasPowerData
     ? renderNoPowerData()
     : !isLowPowered
@@ -140,28 +138,29 @@ export function PowerCard({
     <div id="power-card" style={{ scrollMarginTop: "100px" }}>
       <div className="appbox container-fluid mb-4 pl-3 py-3">
         <Flex justify="between" mb="2">
-          <PremiumTooltip commercialFeature="mid-experiment-power">
-            <h2 className="d-flex mb-0">Experiment Power</h2>{" "}
+          <Flex align="center" gap="2">
+            <h2 className="d-flex mb-0">Experiment Power</h2>
+            <PremiumTooltip commercialFeature="mid-experiment-power" />
             {hasMidExperimentPowerFeature && isLowPowered ? (
               <StatusBadge status="unhealthy" />
             ) : null}
-          </PremiumTooltip>
+          </Flex>
 
-          {isDismissable && !isDismissed ? (
-            <Tooltip content={"Dismiss this alert"}>
-              <Button onClick={toggleDismissed} variant="ghost">
+          {canBeMuted && !isMuted ? (
+            <Tooltip content={"Mute this alert"}>
+              <Button onClick={toggleMuteAlert} variant="ghost">
                 <PiX />
               </Button>
             </Tooltip>
           ) : null}
         </Flex>
 
-        {isDismissable && isDismissed ? (
+        {canBeMuted && isMuted ? (
           <Text size="2" color="gray">
             <PiInfo />
-            This alert was dismissed, it will not consider the experiment
-            Unhealthy even if problems are detected. Click{" "}
-            <Link onClick={toggleDismissed}>here</Link> to reenable it.
+            This alert was muted, it will not consider the experiment Unhealthy
+            even if problems are detected. Click{" "}
+            <Link onClick={toggleMuteAlert}>here</Link> to reenable it.
           </Text>
         ) : null}
 

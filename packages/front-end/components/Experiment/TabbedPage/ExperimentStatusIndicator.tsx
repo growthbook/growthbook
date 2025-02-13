@@ -162,10 +162,8 @@ function getStatusIndicatorData(
           !experimentData.dismissedWarnings?.includes("low-power")
         ) {
           unhealthyStatuses.push("Low powered");
-        }
-
-        // If we have a override status from powerStatus, use it
-        if (powerStatus?.indicatorData) {
+          // If we have a override status from powerStatus, use it
+        } else if (powerStatus?.indicatorData) {
           return powerStatus.indicatorData;
         }
       }
@@ -284,11 +282,13 @@ function getPowerStatus({
   // TODO: Right now midExperimentPowerEnable is controlling the whole "Days Left" status
   // but we should probably split it when considering Experiment Runtime length without power
 
+  const isLowPowered = power?.type === "success" && power.isLowPowered;
+
   // FIXME: This technically overrides other Unhealthy statuses, which will not happen because they also need
   // traffic data to be measured, but still not ideal.
   if (totalUsers === 0) {
     return {
-      isLowPowered: false,
+      isLowPowered,
       indicatorData: {
         color: "indigo",
         variant: "solid",
@@ -298,18 +298,12 @@ function getPowerStatus({
     };
   }
 
-  // Do not show low powered status if the experiment has not been running for the minimum length of time
+  // Do not show power-backed status if the experiment has not been running for the minimum length of time
   if (
     !dateStarted ||
     daysBetween(dateStarted, new Date()) < experimentMinLengthDays
   ) {
     return;
-  }
-
-  if (power?.type === "success" && power.isLowPowered) {
-    return {
-      isLowPowered: true,
-    };
   }
 
   const powerAdditionalDaysNeeded =
@@ -325,7 +319,7 @@ function getPowerStatus({
     );
 
     return {
-      isLowPowered: false,
+      isLowPowered,
       indicatorData: {
         color: "indigo",
         variant: "solid",
@@ -342,7 +336,7 @@ function getPowerStatus({
 
   if (powerAdditionalDaysNeeded === 0) {
     return {
-      isLowPowered: false,
+      isLowPowered,
       indicatorData: {
         color: "indigo",
         variant: "solid",
