@@ -157,7 +157,10 @@ function getStatusIndicatorData(
           experimentMinLengthDays: healthSettings.experimentMinLengthDays,
         });
 
-        if (powerStatus?.isLowPowered) {
+        if (
+          powerStatus?.isLowPowered &&
+          !experimentData.dismissedWarnings?.includes("low-power")
+        ) {
           unhealthyStatuses.push("Low powered");
         }
 
