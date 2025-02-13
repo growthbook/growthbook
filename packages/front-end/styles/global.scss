@@ -1416,7 +1416,7 @@ main.main {
     &::before {
       content: "";
       transform: rotate(45deg);
-      background-color: var(--slate-12);
+      background-color: var(--slate-1);
       box-shadow: 0 1rem 3rem rgb(0 0 0 / 18%);
       position: absolute;
       width: 8px;
@@ -1426,13 +1426,23 @@ main.main {
   }
 
   .body {
-    color: var(--slate-1);
-    background-color: var(--slate-12);
+    color: var(--slate-12);
+    background-color: var(--slate-1);
     padding: 15px;
     border-radius: 5px;
 
+    .text-muted {
+      color: var(--slate-a11) !important;
+    }
     *:last-child {
       margin-bottom: 0;
+    }
+    .bg-light {
+      background-color: var(--slate-a12);
+      color: var(--slate-1);
+    }
+    .gbtable {
+      background-color: var(--surface-background-color);
     }
   }
 
@@ -2027,6 +2037,17 @@ main.main {
       $color: nth($colors, $color-index + 1);
       &.variation#{$i} {
         border-bottom: 7px solid $color;
+      }
+    }
+  }
+  &.with-variation-color {
+    background-color: colors.$variant-null;
+
+    @for $i from 0 through 99 {
+      $color-index: $i % length($colors);
+      $color: nth($colors, $color-index + 1);
+      &.variation#{$i} {
+        background-color: $color;
       }
     }
   }
