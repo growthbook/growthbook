@@ -498,7 +498,7 @@ export default function FeatureModal({
         label={
           <>
             {" "}
-            Projects{" "}
+            Project{" "}
             <Tooltip
               body={
                 "The dropdown below has been filtered to only include projects where you have permission to update Features"
