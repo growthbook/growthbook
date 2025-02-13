@@ -482,12 +482,12 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
 
       if (isEligibleForMidExperimentPowerAnalysis) {
         const today = new Date();
-        const experimentStartDate = this.model.settings.startDate;
+        const phaseStartDate = this.model.settings.startDate;
         const experimentMaxLengthDays = this.context.org.settings
           ?.experimentMaxLengthDays;
 
         const experimentTargetEndDate = addDays(
-          experimentStartDate,
+          phaseStartDate,
           experimentMaxLengthDays && experimentMaxLengthDays > 0
             ? experimentMaxLengthDays
             : FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS
