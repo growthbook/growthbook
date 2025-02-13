@@ -1,3 +1,4 @@
+import { z } from "zod";
 import normal from "@stdlib/stats/base/dists/normal";
 import {
   ExperimentSnapshotAnalysis,
@@ -43,33 +44,46 @@ export interface MidExperimentPowerParamsSingle {
   variation?: MetricPowerResponseFromStatsEngine;
 }
 
-export type MetricVariationPowerResult = {
-  metricId: string;
-  variation: number;
-  errorMessage?: string;
-  power?: number;
-  isLowPowered?: boolean;
-  effectSize?: number;
-  additionalDaysNeeded?: number;
-};
+export const MetricVariationPowerResultValidator = z.object({
+  metricId: z.string(),
+  variation: z.number(),
+  errorMessage: z.string().optional(),
+  power: z.number().optional(),
+  isLowPowered: z.boolean().optional(),
+  effectSize: z.number().optional(),
+  additionalDaysNeeded: z.number().optional(),
+});
+export type MetricVariationPowerResult = z.infer<
+  typeof MetricVariationPowerResultValidator
+>;
 
-export type MidExperimentPowerCalculationFailureResult = {
-  type: "error";
-  isLowPowered: boolean;
-  metricVariationPowerResults: MetricVariationPowerResult[];
-};
+export const MidExperimentPowerCalculationFailureValidator = z.object({
+  type: z.literal("error"),
+  isLowPowered: z.boolean(),
+  metricVariationPowerResults: z.array(MetricVariationPowerResultValidator),
+});
+export type MidExperimentPowerCalculationFailureResult = z.infer<
+  typeof MidExperimentPowerCalculationFailureValidator
+>;
 
-export type MidExperimentPowerCalculationSuccessResult = {
-  type: "success";
-  power: number;
-  isLowPowered: boolean;
-  additionalDaysNeeded: number;
-  metricVariationPowerResults: MetricVariationPowerResult[];
-};
+export const MidExperimentPowerCalculationSuccessValidator = z.object({
+  type: z.literal("success"),
+  power: z.number(),
+  isLowPowered: z.boolean(),
+  additionalDaysNeeded: z.number(),
+  metricVariationPowerResults: z.array(MetricVariationPowerResultValidator),
+});
+export type MidExperimentPowerCalculationSuccessResult = z.infer<
+  typeof MidExperimentPowerCalculationSuccessValidator
+>;
 
-export type MidExperimentPowerCalculationResult =
-  | MidExperimentPowerCalculationSuccessResult
-  | MidExperimentPowerCalculationFailureResult;
+export const MidExperimentPowerCalculationResultValidator = z.union([
+  MidExperimentPowerCalculationSuccessValidator,
+  MidExperimentPowerCalculationFailureValidator,
+]);
+export type MidExperimentPowerCalculationResult = z.infer<
+  typeof MidExperimentPowerCalculationResultValidator
+>;
 
 function finalPosteriorVariance(
   sigma2Posterior: number,
@@ -391,7 +405,7 @@ export function analyzeExperimentPower({
     0
   );
 
-  return calculateMidExperimentPower({
+  const power = calculateMidExperimentPower({
     sequentialTuningParameter:
       analysis.settings.sequentialTestingTuningParameter ??
       DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
@@ -404,4 +418,12 @@ export function analyzeExperimentPower({
     variationWeights: variationsSettings.map((it) => it.weight),
     variations: variationsPowerResponses,
   });
+
+  // Be extra safe and validate it so it doesn't fail when saving to the DB
+  // We had this issue with NaN
+  const parsedPower = MidExperimentPowerCalculationResultValidator.safeParse(
+    power
+  );
+
+  return parsedPower.success ? parsedPower.data : undefined;
 }
