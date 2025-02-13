@@ -7,11 +7,13 @@ from scipy.stats import norm
 from gbstats.models.tests import TestResult
 from gbstats.models.statistics import (
     TestStatistic,
+    RegressionAdjustedStatistic,
 )
 from gbstats.frequentist.tests import (
     frequentist_variance,
     sequential_interval_halfwidth,
     sequential_rho,
+    frequentist_variance_relative_cuped,
 )
 from gbstats.models.tests import BaseConfig
 from gbstats.utils import is_statistically_significant, gaussian_credible_interval
@@ -176,7 +178,19 @@ class MidExperimentPower:
 
     @property
     def already_significant(self) -> bool:
-        ci = gaussian_credible_interval(self.m_prime, np.sqrt(self.v_prime), self.alpha)
+        if self.sequential:
+            rho = sequential_rho(
+                self.alpha / self.num_tests, self.sequential_tuning_parameter
+            )
+            n_total = self.stat_a.n + self.stat_b.n
+            halfwidth = sequential_interval_halfwidth(
+                self.v_prime * n_total, n_total, rho, self.alpha
+            )
+            ci = [self.m_prime - halfwidth, self.m_prime + halfwidth]
+        else:
+            ci = gaussian_credible_interval(
+                self.m_prime, np.sqrt(self.v_prime), self.alpha
+            )
         return is_statistically_significant(ci)
 
     @property
@@ -209,6 +223,12 @@ class MidExperimentPower:
     def sigmahat_2_delta(self) -> float:
         if self._has_zero_variance() or self._control_mean_zero():
             return 0
+        elif (
+            isinstance(self.stat_a, RegressionAdjustedStatistic)
+            and isinstance(self.stat_b, RegressionAdjustedStatistic)
+            and self.relative
+        ):
+            return frequentist_variance_relative_cuped(self.stat_a, self.stat_b)
         else:
             return frequentist_variance(
                 self.stat_a.variance,

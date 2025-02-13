@@ -1,6 +1,7 @@
 from dataclasses import asdict
 from functools import partial
 from unittest import TestCase, main as unittest_main
+import numpy.typing as npt
 
 import numpy as np
 from scipy.stats import norm
