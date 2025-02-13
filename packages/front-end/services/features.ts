@@ -592,6 +592,9 @@ export function getDefaultValue(valueType: FeatureValueType): string {
   if (valueType === "json") {
     return "{}";
   }
+  if (valueType === "custom") {
+    return "{}";
+  }
   return "";
 }
 
