@@ -1467,6 +1467,7 @@ export default abstract class SqlIntegration
     regressionAdjusted: boolean = false,
     cumulativeDate: boolean = false,
     overrideConversionWindows: boolean = false,
+    banditDates: Date[] | undefined = undefined,
     tablePrefix: string = "__denominator",
     initialTable: string = "__experiment"
   ) {
@@ -1474,18 +1475,19 @@ export default abstract class SqlIntegration
     return `
       -- one row per user
       SELECT
-        initial.${baseIdType} AS ${baseIdType},
-        MIN(initial.dimension) AS dimension,
-        MIN(initial.variation) AS variation,
-        MIN(initial.first_exposure_date) AS first_exposure_date,
+        initial.${baseIdType} AS ${baseIdType}
+        , MIN(initial.dimension) AS dimension
+        , MIN(initial.variation) AS variation
+        , MIN(initial.first_exposure_date) AS first_exposure_date
+        ${banditDates?.length ? this.getBanditCaseWhen(banditDates) : ""}
         ${
           regressionAdjusted
             ? `
-            MIN(initial.preexposure_start) AS preexposure_start,
-            MIN(initial.preexposure_end) AS preexposure_end,`
+            , MIN(initial.preexposure_start) AS preexposure_start
+            , MIN(initial.preexposure_end) AS preexposure_end`
             : ""
         }
-        MIN(t${metrics.length - 1}.timestamp) AS timestamp
+        , MIN(t${metrics.length - 1}.timestamp) AS timestamp
       FROM
         ${initialTable} initial
         ${metrics
@@ -3161,6 +3163,7 @@ export default abstract class SqlIntegration
               regressionAdjusted,
               cumulativeDate,
               overrideConversionWindows,
+              banditDates,
               "__denominator",
               "__distinctUsers"
             )})`
