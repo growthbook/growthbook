@@ -128,6 +128,7 @@ function getStatusIndicatorData(
     const unhealthyStatuses: string[] = [];
     const healthSummary = experimentData.analysisSummary?.health;
 
+    let powerIndicatorData: StatusIndicatorData | null = null;
     if (healthSummary) {
       const srmHealthData = getSRMHealthData({
         srm: healthSummary.srm,
@@ -160,7 +161,6 @@ function getStatusIndicatorData(
           experimentData.phases[experimentData.phases.length - 1];
         const powerStatus = getPowerStatus({
           power: healthSummary.power,
-          totalUsers: healthSummary.totalUsers,
           dateStarted: lastPhase.dateStarted,
           experimentMinLengthDays: healthSettings.experimentMinLengthDays,
         });
@@ -172,11 +172,12 @@ function getStatusIndicatorData(
           unhealthyStatuses.push("Low powered");
           // If we have a override status from powerStatus, use it
         } else if (powerStatus?.indicatorData) {
-          return powerStatus.indicatorData;
+          powerIndicatorData = powerStatus.indicatorData;
         }
       }
     }
 
+    // 1. Always show unhealthy status if they exist
     if (unhealthyStatuses.length > 0) {
       return {
         color: "amber",
@@ -187,6 +188,22 @@ function getStatusIndicatorData(
       };
     }
 
+    // 2. Show no data if no data is present
+    if (healthSummary?.totalUsers === 0) {
+      return {
+        color: "indigo",
+        variant: "solid",
+        status: "Running",
+        detailedStatus: "No data",
+      };
+    }
+
+    // 3. If no unhealthy status, show days left data
+    if (powerIndicatorData) {
+      return powerIndicatorData;
+    }
+
+    // 4. Otherwise, show running status
     return {
       color: "indigo",
       variant: "solid",
@@ -278,12 +295,10 @@ function getFormattedLabel(
 
 function getPowerStatus({
   power,
-  totalUsers,
   dateStarted,
   experimentMinLengthDays,
 }: {
   power: ExperimentAnalysisSummaryHealth["power"];
-  totalUsers: number;
   dateStarted?: string;
   experimentMinLengthDays: number;
 }): { isLowPowered: boolean; indicatorData?: StatusIndicatorData } | undefined {
@@ -291,20 +306,6 @@ function getPowerStatus({
   // but we should probably split it when considering Experiment Runtime length without power
 
   const isLowPowered = power?.type === "success" && power.isLowPowered;
-
-  // FIXME: This technically overrides other Unhealthy statuses, which will not happen because they also need
-  // traffic data to be measured, but still not ideal.
-  if (totalUsers === 0) {
-    return {
-      isLowPowered,
-      indicatorData: {
-        color: "indigo",
-        variant: "solid",
-        status: "Running",
-        detailedStatus: "No data",
-      },
-    };
-  }
 
   // Do not show power-backed status if the experiment has not been running for the minimum length of time
   if (
