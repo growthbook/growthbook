@@ -2135,6 +2135,24 @@ export default function FactMetricModal({
 
               <MetricWindowSettingsForm form={form} type={type} />
 
+              <SelectField
+                label="Metric Goal"
+                value={form.watch("inverse") ? "1" : "0"}
+                onChange={(v) => {
+                  form.setValue("inverse", v === "1");
+                }}
+                options={[
+                  {
+                    value: "0",
+                    label: `Increase the metric value`,
+                  },
+                  {
+                    value: "1",
+                    label: `Decrease the metric value`,
+                  },
+                ]}
+              />
+
               {!advancedOpen && (
                 <a
                   href="#"
@@ -2153,7 +2171,7 @@ export default function FactMetricModal({
                 <Tabs defaultValue="query">
                   <TabsList>
                     <TabsTrigger value="query">Query Settings</TabsTrigger>
-                    <TabsTrigger value="display">Display Settings</TabsTrigger>
+                    <TabsTrigger value="display">Analysis Settings</TabsTrigger>
                     <div className="ml-auto">
                       <a
                         href="#"
@@ -2319,24 +2337,19 @@ export default function FactMetricModal({
                     </TabsContent>
 
                     <TabsContent value="display">
-                      <SelectField
-                        label="What is the goal?"
-                        value={form.watch("inverse") ? "1" : "0"}
-                        onChange={(v) => {
-                          form.setValue("inverse", v === "1");
-                        }}
-                        options={[
-                          {
-                            value: "0",
-                            label: `Increase the metric value`,
-                          },
-                          {
-                            value: "1",
-                            label: `Decrease the metric value`,
-                          },
-                        ]}
-                        helpText="Some metrics like 'page load time' you actually want to decrease instead of increase"
+                      <Field
+                        label="Target Lift"
+                        type="number"
+                        step="any"
+                        append="%"
+                        {...form.register("targetLift", {
+                          valueAsNumber: true,
+                        })}
+                        helpText={`The percentage change that you want to reliably detect before ending your experiment. This is used to estimate the "Days Left" for running experiments. (default ${
+                          metricDefaults.targetLift * 100
+                        }%)`}
                       />
+
                       <div className="form-group">
                         <label>{`Minimum ${
                           quantileMetricType
@@ -2396,19 +2409,6 @@ export default function FactMetricModal({
             considered a draw (default ${
               metricDefaults.minPercentageChange * 100
             }%)`}
-                      />
-
-                      <Field
-                        label="Target Lift"
-                        type="number"
-                        step="any"
-                        append="%"
-                        {...form.register("targetLift", {
-                          valueAsNumber: true,
-                        })}
-                        helpText={`The percentage change that you want to reliably detect before ending your experiment. This is used to estimate the "Days Left" for running experiments. (default ${
-                          metricDefaults.targetLift * 100
-                        }%)`}
                       />
 
                       <RiskThresholds

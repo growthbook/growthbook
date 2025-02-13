@@ -147,7 +147,9 @@ export default function FactMetricPage() {
   const router = useRouter();
   const { fmid } = router.query;
 
-  const [editOpen, setEditOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState<
+    "closed" | "open" | "openWithAdvanced"
+  >("closed");
 
   const [editProjectsOpen, setEditProjectsOpen] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
@@ -363,10 +365,11 @@ export default function FactMetricPage() {
 
   return (
     <div className="pagecontents container-fluid">
-      {editOpen && (
+      {editOpen !== "closed" && (
         <FactMetricModal
-          close={() => setEditOpen(false)}
+          close={() => setEditOpen("closed")}
           existing={factMetric}
+          showAdvancedSettings={editOpen === "openWithAdvanced"}
           source="fact-metric"
         />
       )}
@@ -453,7 +456,7 @@ export default function FactMetricPage() {
                 className="dropdown-item"
                 onClick={(e) => {
                   e.preventDefault();
-                  setEditOpen(true);
+                  setEditOpen("open");
                 }}
               >
                 Edit Metric
@@ -644,7 +647,7 @@ export default function FactMetricPage() {
           <div className="appbox p-3">
             <RightRailSection
               title="Advanced Settings"
-              open={() => setEditOpen(true)}
+              open={() => setEditOpen("openWithAdvanced")}
               canOpen={canEdit}
             >
               {factMetric.windowSettings.delayValue ? (
@@ -738,13 +741,13 @@ export default function FactMetricPage() {
                     </span>
                   </li>
                   <li className="mb-2">
-                    <span className="text-gray">Min percent change :</span>{" "}
+                    <span className="text-gray">Min percent change:</span>{" "}
                     <span className="font-weight-bold">
                       {getMinPercentageChangeForMetric(factMetric) * 100}%
                     </span>
                   </li>
                   <li className="mb-2">
-                    <span className="text-gray">Target Lift :</span>{" "}
+                    <span className="text-gray">Target Lift:</span>{" "}
                     <span className="font-weight-bold">
                       {getTargetLiftForMetric(factMetric) * 100}%
                     </span>
