@@ -83,7 +83,7 @@
     "md5": "^2.3.0",
     "module-alias": "^2.2.3",
     "mongodb": "^4.17.2",
-    "mongoose": "^6.11.6",
+    "mongoose": "^6.13.6",
     "mssql": "^10.0.2",
     "mysql2": "^3.11.3",
     "node-fetch": "^2.6.1",
