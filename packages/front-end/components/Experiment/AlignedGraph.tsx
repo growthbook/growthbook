@@ -64,8 +64,8 @@ const AlignedGraph: FC<Props> = ({
   significant = false,
   showAxis = false,
   axisOnly = false,
-  zeroLineWidth = 3,
-  zeroLineOffset = 1,
+  zeroLineWidth = 1,
+  zeroLineOffset = 0,
   metricForFormatting,
   graphWidth = 500,
   height = 30,
@@ -89,18 +89,18 @@ const AlignedGraph: FC<Props> = ({
 
   const metricFormatterOptions = { currency: metricDisplayCurrency };
 
-  const axisColor = "var(--text-link-hover-color)";
-  const zeroLineColor = "#0077b6";
-  const gridColor = "#0077b633";
+  const axisColor = "var(--color-text-mid)";
+  const zeroLineColor = "var(--color-text-low)"; //"#0077b6";
+  const gridColor = "var(--slate-a3)"; //"#0077b633";
   let barColor = "#aaa";
-  let sigBarColorPos = "#099476";
-  let sigBarColorNeg = "#d35a5a";
+  let sigBarColorPos = "var(--green-10)"; //"#099476";
+  let sigBarColorNeg = "var(--red-10)";
   let barColorOk = "#55ab95";
   let barColorWarning = "#d99132";
   let barColorDanger = "#d94032";
   const barThickness = 20;
   const barHeight = Math.floor(height / 2) - barThickness / 2;
-  const violinOpacitySignificant = 0.8;
+  const violinOpacitySignificant = 0.9;
   const violinOpacityNotSignificant = 0.4;
   if (barFillType !== "color" && isHovered) {
     barColor = "#a0a0a0";
@@ -404,9 +404,9 @@ const AlignedGraph: FC<Props> = ({
                     />
                   )}
                   <Line
-                    fill="#000000"
-                    strokeWidth={3}
-                    stroke={"#0008"}
+                    fill={"var(--slate-a9)"}
+                    strokeWidth={1}
+                    stroke={"var(--slate-a9)"}
                     from={{ x: xScale(expected ?? 0), y: barHeight }}
                     to={{
                       x: xScale(expected ?? 0),

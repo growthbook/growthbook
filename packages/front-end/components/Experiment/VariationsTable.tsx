@@ -3,7 +3,7 @@ import {
   Variation,
 } from "back-end/types/experiment";
 import { FC } from "react";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex, Grid, Heading, Text } from "@radix-ui/themes";
 import { PiCameraLight, PiCameraPlusLight } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { trafficSplitPercentages } from "@/services/utils";
@@ -102,7 +102,7 @@ const VariationsTable: FC<Props> = ({
   const hasAnyImages = variations.some((v) => v.screenshots.length > 0);
 
   // set some variables for the display of the component - could make options
-  const cols = variations.length > 6 ? 4 : 3;
+  const cols = variations.length > 4 ? 4 : variations.length;
   const gap = "4";
   const maxImageHeight = hasAnyImages ? 200 : 110; // shrink the image height if there are no images
 
@@ -128,24 +128,20 @@ const VariationsTable: FC<Props> = ({
 
   return (
     <Box mx="4">
-      <Flex gap={gap} wrap="wrap" direction={{ initial: "column", sm: "row" }}>
+      <Grid
+        gap={gap}
+        columns={{
+          initial: "1",
+          xs: "2",
+          sm: cols === 2 ? "2" : "3",
+          md: cols.toString(),
+        }}
+      >
         {variations.map((v, i) => (
           <Box
             key={i}
             p="5"
             pb="3"
-            flexGrow="0"
-            flexShrink="1"
-            flexBasis={{
-              // This might be a bit confusing, but 'gap' in flex box is not included in the flex basis width,
-              // which means percentages can't just be a simple division.
-              // This checks and does the math to make it fix perfectly
-              initial: `calc(100% / ${cols} - var(--space-${gap}) / ${cols} * (${cols} - 1))`,
-              sm: `calc(100% / ${cols - 1} - var(--space-${gap}) / ${
-                cols - 1
-              } * (${cols - 1} - 1))`,
-              md: `calc(100% / ${cols} - var(--space-${gap}) / ${cols} * (${cols} - 1))`,
-            }}
             className={`appbox mb-0 position-relative variation variation${i} with-variation-label`}
             style={{ backgroundColor: "var(--white-a1)" }}
           >
@@ -173,7 +169,7 @@ const VariationsTable: FC<Props> = ({
                 </Box>
                 {allowImages && (
                   <Box>
-                    <Flex>
+                    <Flex justify="center">
                       {v.screenshots.length > 0 ? (
                         <ScreenshotCarousel
                           key={i}
@@ -248,7 +244,7 @@ const VariationsTable: FC<Props> = ({
             </Flex>
           </Box>
         ))}
-      </Flex>
+      </Grid>
     </Box>
   );
 };
