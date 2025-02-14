@@ -1,16 +1,11 @@
-// import { getLatestSDKVersion, getSDKCapabilities } from "shared/sdk-versioning";
+import fs from "node:fs";
+import path from "node:path";
+import { getLatestSDKVersion, getSDKCapabilities } from "shared/sdk-versioning";
 
-function getLatestSDKVersion(sdk: string): string {
-  // This function is a placeholder for the real implementation
-  return sdk;
-}
+const basePath = path.resolve(path.dirname(process.argv[1]), "..");
+const TARGET = `${basePath}/src/data/SDKInfo.json`;
 
-function getSDKCapabilities(sdk: string, version: string): string[] {
-  // This function is a placeholder for the real implementation
-  return [sdk, version];
-}
-
-export const sdkInfo = {
+const baseSDKInfo = {
   js: {
     name: "JS SDK",
     version: getLatestSDKVersion("javascript"),
@@ -289,3 +284,5 @@ export const sdkInfo = {
     capabilities: getSDKCapabilities("flutter", getLatestSDKVersion("flutter")),
   },
 };
+
+fs.writeFileSync(TARGET, JSON.stringify(baseSDKInfo, null, 2));
