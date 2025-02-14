@@ -425,7 +425,7 @@ export default function UpgradeModal({ close, source }: Props) {
                 <div
                   className={clsx(
                     "col-lg-6 mb-4",
-                    isAtLeastPro ? "disabled-opacity" : ""
+                    isAtLeastPro && !license?.isTrial ? "disabled-opacity" : ""
                   )}
                 >
                   <div className="pr-lg-2 border rounded p-0 d-flex flex-column">
@@ -464,7 +464,7 @@ export default function UpgradeModal({ close, source }: Props) {
                         <button
                           className="btn btn-primary m-3 w-100"
                           onClick={startPro}
-                          disabled={isAtLeastPro}
+                          disabled={isAtLeastPro && !license?.isTrial}
                         >
                           Upgrade Now
                         </button>

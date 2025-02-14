@@ -22,6 +22,7 @@ import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { triggerSingleSDKWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/organization";
+import { addCloudSDKMapping } from "back-end/src/services/clickhouse";
 import { generateEncryptionKey, generateSigningKey } from "./ApiKeyModel";
 
 const sdkConnectionSchema = new mongoose.Schema({
@@ -234,6 +235,10 @@ export async function createSDKConnection(params: CreateSDKConnectionParams) {
   }
 
   const doc = await SDKConnectionModel.create(connection);
+
+  if (IS_CLOUD) {
+    await addCloudSDKMapping(connection);
+  }
 
   return toInterface(doc);
 }

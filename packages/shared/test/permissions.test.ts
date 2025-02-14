@@ -84,6 +84,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteSegment(projectsResource)).toBe(false);
     expect(p.canDeleteTag()).toBe(false);
     expect(p.canManageBilling()).toBe(false);
+    expect(p.canViewUsage()).toBe(false);
     expect(p.canManageFeatureDrafts(projectResource)).toBe(false);
     expect(p.canManageIntegrations()).toBe(false);
     expect(p.canManageNorthStarMetric()).toBe(false);
@@ -193,6 +194,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteSegment(projectsResource)).toBe(false);
     expect(p.canDeleteTag()).toBe(false);
     expect(p.canManageBilling()).toBe(false);
+    expect(p.canViewUsage()).toBe(false);
     expect(p.canManageFeatureDrafts(projectResource)).toBe(false);
     expect(p.canManageIntegrations()).toBe(false);
     expect(p.canManageNorthStarMetric()).toBe(false);
@@ -302,6 +304,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteSegment(projectsResource)).toBe(false);
     expect(p.canDeleteTag()).toBe(false);
     expect(p.canManageBilling()).toBe(false);
+    expect(p.canViewUsage()).toBe(false);
     expect(p.canManageFeatureDrafts(projectResource)).toBe(false);
     expect(p.canManageIntegrations()).toBe(false);
     expect(p.canManageNorthStarMetric()).toBe(false);
@@ -411,6 +414,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteSegment(projectsResource)).toBe(false);
     expect(p.canDeleteTag()).toBe(false);
     expect(p.canManageBilling()).toBe(false);
+    expect(p.canViewUsage()).toBe(false);
     expect(p.canManageFeatureDrafts(projectResource)).toBe(false);
     expect(p.canManageIntegrations()).toBe(false);
     expect(p.canManageNorthStarMetric()).toBe(false);
@@ -520,6 +524,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteSegment(projectsResource)).toBe(false);
     expect(p.canDeleteTag()).toBe(true);
     expect(p.canManageBilling()).toBe(false);
+    expect(p.canViewUsage()).toBe(false);
     expect(p.canManageFeatureDrafts(projectResource)).toBe(true);
     expect(p.canManageIntegrations()).toBe(false);
     expect(p.canManageNorthStarMetric()).toBe(false);
@@ -629,6 +634,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteSegment(projectsResource)).toBe(true);
     expect(p.canDeleteTag()).toBe(true);
     expect(p.canManageBilling()).toBe(false);
+    expect(p.canViewUsage()).toBe(false);
     expect(p.canManageFeatureDrafts(projectResource)).toBe(false);
     expect(p.canManageIntegrations()).toBe(false);
     expect(p.canManageNorthStarMetric()).toBe(false);
@@ -738,6 +744,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteSegment(projectsResource)).toBe(true);
     expect(p.canDeleteTag()).toBe(true);
     expect(p.canManageBilling()).toBe(false);
+    expect(p.canViewUsage()).toBe(false);
     expect(p.canManageFeatureDrafts(projectResource)).toBe(true);
     expect(p.canManageIntegrations()).toBe(false);
     expect(p.canManageNorthStarMetric()).toBe(false);
@@ -847,6 +854,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteSegment(projectsResource)).toBe(true);
     expect(p.canDeleteTag()).toBe(true);
     expect(p.canManageBilling()).toBe(true);
+    expect(p.canViewUsage()).toBe(true);
     expect(p.canManageFeatureDrafts(projectResource)).toBe(true);
     expect(p.canManageIntegrations()).toBe(true);
     expect(p.canManageNorthStarMetric()).toBe(true);

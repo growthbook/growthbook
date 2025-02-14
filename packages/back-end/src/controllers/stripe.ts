@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { Stripe } from "stripe";
 import {
   LicenseServerError,
+  getEffectiveAccountPlan,
   getLicense,
   licenseInit,
   postCreateBillingSessionToLicenseServer,
@@ -25,7 +26,11 @@ import {
   getCoupon,
   getPrice,
 } from "back-end/src/services/stripe";
-import { SubscriptionQuote } from "back-end/types/organization";
+import {
+  SubscriptionQuote,
+  DailyUsage,
+  UsageLimits,
+} from "back-end/types/organization";
 import { sendStripeTrialWillEndEmail } from "back-end/src/services/email";
 import { logger } from "back-end/src/util/logger";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
@@ -33,6 +38,7 @@ import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
+import { getDailyCDNUsageForOrg } from "back-end/src/services/clickhouse";
 
 function withLicenseServerErrorHandling<T>(
   fn: (req: AuthRequest<T>, res: Response) => Promise<void>
@@ -322,4 +328,50 @@ export async function postWebhook(req: Request, res: Response) {
   }
 
   res.status(200).send("Ok");
+}
+
+export async function getUsage(
+  req: AuthRequest<unknown, unknown, { monthsAgo?: number }>,
+  res: Response<{ status: 200; cdnUsage: DailyUsage[]; limits: UsageLimits }>
+) {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canViewUsage()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const monthsAgo = Math.round(req.query.monthsAgo || 0);
+  if (monthsAgo < 0 || monthsAgo > 12) {
+    throw new Error("Usage data only available for the past 12 months");
+  }
+
+  const { org } = context;
+
+  // Beginning of the month
+  const start = new Date();
+  start.setMonth(start.getMonth() - monthsAgo);
+  start.setDate(1);
+  start.setHours(0, 0, 0, 0);
+
+  // End of the month
+  const end = new Date();
+  end.setMonth(end.getMonth() - monthsAgo + 1);
+  end.setDate(0);
+  end.setHours(23, 59, 59, 999);
+
+  const cdnUsage = await getDailyCDNUsageForOrg(org.id, start, end);
+
+  const limits: UsageLimits = {
+    cdnRequests: null,
+    cdnBandwidth: null,
+  };
+
+  const plan = getEffectiveAccountPlan(org);
+  if (plan === "starter" || plan === "pro" || plan === "pro_sso") {
+    // 10 million requests, no bandwidth limit
+    // TODO: Store this limit as part of the license/org instead of hard-coding
+    limits.cdnRequests = 10_000_000;
+  }
+
+  res.json({ status: 200, cdnUsage, limits });
 }

@@ -12,7 +12,8 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { Condition, jsonToConds, useAttributeMap } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
-import SavedGroupTargetingDisplay from "./SavedGroupTargetingDisplay";
+import SavedGroupTargetingDisplay from "../SavedGroupTargetingDisplay";
+import styles from "./ConditionDisplay.module.scss";
 
 type ConditionWithParentId = Condition & { parentId?: string };
 
@@ -106,12 +107,13 @@ export function MultiValuesDisplay({ values }: { values: string[] }) {
           body={
             <div>
               {values.slice(MULTI_VALUE_LIMIT).map((v, i) => (
-                <span key={i} className="mr-1 border px-2 bg-light rounded">
+                <span key={i} className={`${styles.Tooltip} ml-1`}>
                   {v}
                 </span>
               ))}
             </div>
           }
+          usePortal
         >
           <span className="mr-1">
             <em>+ {values.length - MULTI_VALUE_LIMIT} more</em>

@@ -1,0 +1,10 @@
+.Tooltip {
+  &:first-child {
+    margin-left: 0;
+  }
+
+  &:not(:last-child)::after {
+    display: inline-block;
+    content: ",";
+  }
+}

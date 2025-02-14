@@ -381,7 +381,7 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
     res.set("Cache-control", "no-store");
 
     // todo: don't use link. investigate why clicking through returns the stub only.
-    const payload = evaluateFeatures({
+    const payload = await evaluateFeatures({
       payload: defs,
       attributes,
       forcedVariations,

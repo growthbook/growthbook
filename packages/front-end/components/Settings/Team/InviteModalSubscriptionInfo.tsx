@@ -14,9 +14,9 @@ export default function InviteModalSubscriptionInfo() {
     quote,
     loading,
   } = useStripeSubscription();
-  const { license } = useUser();
+  const { license, effectiveAccountPlan } = useUser();
   if (loading) return null;
-
+  if (effectiveAccountPlan === "enterprise") return null;
   if (!hasActiveSubscription) return null;
   if (activeAndInvitedUsers < freeSeats) return null;
 

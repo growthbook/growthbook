@@ -98,6 +98,11 @@ export class Permissions {
     return this.checkGlobalPermission("manageBilling");
   };
 
+  public canViewUsage = (): boolean => {
+    // TODO: separate this from billing?
+    return this.checkGlobalPermission("manageBilling");
+  };
+
   public canManageIntegrations = (): boolean => {
     return this.checkGlobalPermission("manageIntegrations");
   };
