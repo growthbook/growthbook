@@ -1479,7 +1479,11 @@ export default abstract class SqlIntegration
         , MIN(initial.dimension) AS dimension
         , MIN(initial.variation) AS variation
         , MIN(initial.first_exposure_date) AS first_exposure_date
-        ${banditDates?.length ? this.getBanditCaseWhen(banditDates) : ""}
+        ${
+          banditDates?.length
+            ? `, MIN(initial.bandit_period) AS bandit_period`
+            : ""
+        }
         ${
           regressionAdjusted
             ? `
