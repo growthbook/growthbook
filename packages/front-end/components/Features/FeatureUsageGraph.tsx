@@ -2,7 +2,13 @@ import { Bar } from "@visx/shape";
 import { scaleBand, scaleLinear } from "@visx/scale";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
-import React, { createContext, ReactNode, useContext, useEffect } from "react";
+import React, {
+  createContext,
+  ReactNode,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import {
   FeatureUsageData,
   FeatureUsageTimeSeries,
@@ -66,32 +72,61 @@ export function FeatureUsageProvider({
     {
       withData: 0,
       withoutData: 0,
+      unfocused: 0,
     }
   );
+
+  const [isTabFocused, setIsTabFocused] = useState(true);
 
   useEffect(() => {
     if (!featureUsage) return;
     if (lookback !== "15minute") return;
-    const hasData = featureUsage.usage?.overall?.total > 0;
-    const interval = hasData
-      ? featureUsageAutoRefreshInterval["withData"]
-      : featureUsageAutoRefreshInterval["withoutData"];
 
-    if (interval === 0) return;
+    const updateInterval = () => {
+      const hasData = featureUsage.usage?.overall?.total > 0;
+      let interval = featureUsageAutoRefreshInterval["withoutData"];
+      if (hasData) {
+        interval = featureUsageAutoRefreshInterval["withData"];
+      }
+      if (!isTabFocused) {
+        interval = featureUsageAutoRefreshInterval["unfocused"];
+      }
 
-    const timer = setInterval(
-      () => {
-        mutateFeatureUsage();
-      },
-      // We might want to update slower when there's no data yet
-      interval
-    );
-    return () => clearInterval(timer);
+      clearInterval(timer);
+      if (!document.hidden && interval > 0) {
+        timer = setInterval(mutateFeatureUsage, interval);
+      }
+    };
+
+    let timer: NodeJS.Timeout;
+    updateInterval();
+
+    const handleFocus = () => {
+      setIsTabFocused(true);
+      updateInterval();
+    };
+
+    const handleBlur = () => {
+      setIsTabFocused(false);
+      updateInterval();
+    };
+
+    document.addEventListener("visibilitychange", updateInterval);
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("blur", handleBlur);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", updateInterval);
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("blur", handleBlur);
+    };
   }, [
     lookback,
     featureUsage,
     featureUsageAutoRefreshInterval,
     mutateFeatureUsage,
+    isTabFocused,
   ]);
 
   return (
