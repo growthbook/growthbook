@@ -99,11 +99,32 @@ const VariationsTable: FC<Props> = ({
 
   const hasDescriptions = variations.some((v) => !!v.description?.trim());
   const hasUniqueIDs = variations.some((v, i) => v.key !== i + "");
+  const hasAnyImages = variations.some((v) => v.screenshots.length > 0);
 
   // set some variables for the display of the component - could make options
-  const cols = 3;
+  const cols = variations.length > 6 ? 4 : 3;
   const gap = "4";
-  const maxImageHeight = 220;
+  const maxImageHeight = hasAnyImages ? 200 : 110; // shrink the image height if there are no images
+
+  const noImageBox = () => {
+    return (
+      <Flex
+        align="center"
+        justify="center"
+        className="appbox mb-0"
+        width="100%"
+        style={{
+          backgroundColor: "var(--slate-a3)",
+          height: maxImageHeight + "px",
+          color: "var(--slate-a9)",
+        }}
+      >
+        <Text size="8">
+          {canEditExperiment ? <PiCameraPlusLight /> : <PiCameraLight />}
+        </Text>
+      </Flex>
+    );
+  };
 
   return (
     <Box mx="4">
@@ -116,7 +137,8 @@ const VariationsTable: FC<Props> = ({
             flexGrow="0"
             flexShrink="1"
             flexBasis={{
-              // This might be a bit confusing, but 'gap' in flex box is not included in the flex basis.
+              // This might be a bit confusing, but 'gap' in flex box is not included in the flex basis width,
+              // which means percentages can't just be a simple division.
               // This checks and does the math to make it fix perfectly
               initial: `calc(100% / ${cols} - var(--space-${gap}) / ${cols} * (${cols} - 1))`,
               sm: `calc(100% / ${cols - 1} - var(--space-${gap}) / ${
@@ -124,7 +146,7 @@ const VariationsTable: FC<Props> = ({
               } * (${cols - 1} - 1))`,
               md: `calc(100% / ${cols} - var(--space-${gap}) / ${cols} * (${cols} - 1))`,
             }}
-            className={`appbox position-relative variation variation${i} with-variation-label`}
+            className={`appbox mb-0 position-relative variation variation${i} with-variation-label`}
             style={{ backgroundColor: "var(--white-a1)" }}
           >
             <Box
@@ -137,78 +159,52 @@ const VariationsTable: FC<Props> = ({
                 height: "6px",
               }}
             />
-            <Flex gap="2" direction="column">
+            <Flex gap="2" direction="column" justify="between">
               <Box>
-                <Flex gap="4">
-                  <Box className="">
-                    <span className="circle-label label">{i}</span>
-                  </Box>
-                  <Heading as="h4" size="3" mb="0">
-                    {v.name}
-                  </Heading>
-                </Flex>
-              </Box>
-              {allowImages && (
-                <Box>
-                  <Flex>
-                    {v.screenshots.length > 0 ? (
-                      <ScreenshotCarousel
-                        key={i}
-                        index={i}
-                        variation={v}
-                        canEditExperiment={canEditExperiment}
-                        experiment={experiment}
-                        mutate={mutate}
-                        maxChildHeight={maxImageHeight}
-                      />
-                    ) : (
-                      <>
-                        {canEditExperiment ? (
-                          <>
-                            <ScreenshotUpload
-                              variation={i}
-                              experiment={experiment.id}
-                              onSuccess={() => mutate?.()}
-                            >
-                              <Flex
-                                align="center"
-                                justify="center"
-                                className="appbox mb-0"
-                                width="100%"
-                                style={{
-                                  backgroundColor: "var(--slate-a3)",
-                                  height: "148px",
-                                  color: "var(--slate-a9)",
-                                }}
-                              >
-                                <Text size="8">
-                                  <PiCameraPlusLight />
-                                </Text>
-                              </Flex>
-                            </ScreenshotUpload>
-                          </>
-                        ) : (
-                          <Flex
-                            align="center"
-                            justify="center"
-                            className="appbox mb-0"
-                            width="100%"
-                            style={{
-                              backgroundColor: "var(--slate-a3)",
-                              height: "148px",
-                              color: "var(--slate-a9)",
-                            }}
-                          >
-                            <Text size="8">
-                              <PiCameraLight />
-                            </Text>
-                          </Flex>
-                        )}
-                      </>
-                    )}
+                <Box mb="2">
+                  <Flex gap="4">
+                    <Box className="">
+                      <span className="circle-label label">{i}</span>
+                    </Box>
+                    <Heading as="h4" size="3" mb="0">
+                      {v.name}
+                    </Heading>
                   </Flex>
                 </Box>
-              )}
+                {allowImages && (
+                  <Box>
+                    <Flex>
+                      {v.screenshots.length > 0 ? (
+                        <ScreenshotCarousel
+                          key={i}
+                          index={i}
+                          variation={v}
+                          canEditExperiment={canEditExperiment}
+                          experiment={experiment}
+                          mutate={mutate}
+                          maxChildHeight={maxImageHeight}
+                        />
+                      ) : (
+                        <>
+                          {canEditExperiment ? (
+                            <>
+                              <ScreenshotUpload
+                                variation={i}
+                                experiment={experiment.id}
+                                onSuccess={() => mutate?.()}
+                              >
+                                {noImageBox()}
+                              </ScreenshotUpload>
+                            </>
+                          ) : (
+                            <>{noImageBox()}</>
+                          )}
+                        </>
+                      )}
+                    </Flex>
+                  </Box>
+                )}
+              </Box>
               <Box>
                 {hasDescriptions ? <Box>{v.description}</Box> : null}
                 {hasUniqueIDs ? (

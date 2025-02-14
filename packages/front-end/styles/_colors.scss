@@ -64,6 +64,7 @@ $light: $gray-100;
 $dark: $gray-800;
 $app-border: $gray-300;
 
+/*
 $variant-null: #999;
 $variant-0: #4f69ff;
 $variant-1: #03d1ca;
@@ -73,3 +74,17 @@ $variant-4: #fdc714;
 $variant-5: #bd41d9;
 $variant-6: #57d9a3;
 $variant-7: #f87a7a;
+*/
+
+$variant-null: var(--slate-11);
+$variant-0: var(--blue-11);
+$variant-1: var(--teal-11);
+$variant-2: var(--orange-11);
+$variant-3: var(--slate-11);
+$variant-4: var(--lime-11);
+$variant-5: var(--pink-11);
+$variant-6: var(--gold-11);
+$variant-7: var(--mint-11);
+$variant-8: var(--amber-11);
+$variant-9: var(--cyan-11);
+$variant-10: var(--red-11);

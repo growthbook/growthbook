@@ -1991,7 +1991,7 @@ main.main {
 .variation {
   $colors: colors.$variant-0, colors.$variant-1, colors.$variant-2,
     colors.$variant-3, colors.$variant-4, colors.$variant-5, colors.$variant-6,
-    colors.$variant-7;
+    colors.$variant-7, colors.$variant-8, colors.$variant-9, colors.$variant-10;
 
   &.with-variation-label {
     .label {
@@ -2001,15 +2001,15 @@ main.main {
       justify-content: center;
       width: 24px;
       height: 24px;
-      color: colors.$variant-null;
+      color: var(--slate-11);
       font-weight: 600;
-      border: 1.5px solid transparentize(colors.$variant-null, 0.35);
+      border: 1.5px solid var(--slate-a11);
       border-radius: 20px;
       margin-right: 4px;
     }
 
     .name {
-      color: colors.$variant-null;
+      color: var(--slate-11);
       margin-right: 4px;
     }
 
@@ -2018,7 +2018,7 @@ main.main {
       $color: nth($colors, $color-index + 1);
       &.variation#{$i} {
         .label {
-          border-color: transparentize($color, 0.35);
+          border-color: $color;
           color: $color;
         }
 
@@ -2030,7 +2030,7 @@ main.main {
   }
 
   &.with-variation-border-bottom {
-    border-bottom: 7px solid colors.$variant-null;
+    border-bottom: 7px solid var(--slate-11);
 
     @for $i from 0 through 99 {
       $color-index: $i % length($colors);
@@ -2041,7 +2041,7 @@ main.main {
     }
   }
   &.with-variation-color {
-    background-color: colors.$variant-null;
+    background-color: var(--slate-11);
 
     @for $i from 0 through 99 {
       $color-index: $i % length($colors);
@@ -2053,7 +2053,7 @@ main.main {
   }
 
   &.with-variation-right-shadow {
-    box-shadow: -3px 0 0 colors.$variant-null inset;
+    box-shadow: -3px 0 0 var(--slate-11) inset;
 
     @for $i from 0 through 99 {
       $color-index: $i % length($colors);
