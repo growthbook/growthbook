@@ -17,7 +17,9 @@
     "type-check": "tsc --pretty --noEmit"
   },
   "dependencies": {
-    "shared": "0.0.1"
+    "date-fns": "^2.15.0",
+    "shared": "0.0.1",
+    "zod": "^3.22.4"
   },
   "devDependencies": {
     "@swc/cli": "^0.1.57",
@@ -28,6 +30,7 @@
     "chokidar": "^3.5.3",
     "cross-env": "^7.0.3",
     "jest": "^27.1.1",
+    "node-gyp": "10.3.1",
     "rimraf": "^3.0.2",
     "typescript": "5.6.3"
   },

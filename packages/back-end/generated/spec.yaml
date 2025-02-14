@@ -4296,6 +4296,10 @@ paths:
                 minSampleSize:
                   type: number
                   minimum: 0
+                targetLift:
+                  type: number
+                  description: 'The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.02 for 2%). This is used to estimate the "Days Left" for running experiments.'
+                  minimum: 0
                 managedBy:
                   type: string
                   description: Set this to "api" to disable editing in the GrowthBook UI
@@ -4964,6 +4968,7 @@ components:
             - minPercentChange
             - maxPercentChange
             - minSampleSize
+            - targetLift
           properties:
             goal:
               type: string
@@ -5068,6 +5073,8 @@ components:
             maxPercentChange:
               type: number
             minSampleSize:
+              type: number
+            targetLift:
               type: number
         sql:
           type: object
@@ -6502,6 +6509,7 @@ components:
         - minPercentChange
         - maxPercentChange
         - minSampleSize
+        - targetLift
         - managedBy
         - dateCreated
         - dateUpdated
@@ -6690,6 +6698,8 @@ components:
         maxPercentChange:
           type: number
         minSampleSize:
+          type: number
+        targetLift:
           type: number
         managedBy:
           type: string

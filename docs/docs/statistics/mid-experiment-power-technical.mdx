@@ -1,0 +1,454 @@
+---
+title: Mid-experiment Power Analysis Technical Details
+description: Technical details of mid-experiment power analysis
+sidebar_label: Mid-experiment Power Technical
+slug: midexperiment-power-technical
+---
+
+# Mid-experiment power technical details
+
+Here we document the technical details behind GrowthBook mid-experiment power calculations. For ease of computation we put both Bayesian and frequentist inference under a Bayesian framework, where frequentist estimators are a special case of Bayesian estimators with a flat prior.
+
+As a reminder, we use mid-experiment power to:
+
+1. estimate the number of additional users needed to achieve a statistically significant result with at least 80\% probability.
+2. estimate the probability of achieving a statistically significant result based upon the projected additional sample size until the end of the experiment.  
+   For both estimates, we need a model that describes the sampling distribution of the effect estimate given new samples.
+
+We make the following assumptions:
+
+1. there is a constant treatment effect $\Delta$ throughout the experiment;
+2. average new user traffic counts over the most recent 7 days equals the new user traffic counts going forward;
+3. the experimenter stops the experiment after achieving a statistically significant result.
+   Without loss of generality we discuss relative inference.
+   Throughout we answer this question only for a single metric and a single treatment variation, and discuss extensions to multiple goal metrics and multiple treatment variations [here](#multiple-goal-metrics-and-variations).
+   Throughout, define the distribution of random variable $X$ as $[X]$, and define the conditional distribution of $X$ given $Y$ as $[X | Y]$.
+   The notation $\mathcal{N}\left(X; \mu, \sigma^{2}\right)$ means that $X$ is normally distributed with mean $\mu$ and variance $\sigma^{2}$.
+
+# Production Bayesian model
+
+Below we describe GrowthBook's [production Bayesian model](/statistics/details#bayesian-engine), using slightly different notation where appropriate that is specific to mid-experiment power analysis.
+After collecting $n_{t}$ observations, let $\hat{\Delta}_{t}$ be the treatment effect estimate at time $t$.  
+Define its estimated uncertainty as $\hat{\sigma}_{\Delta}^{2}$.
+Our production Bayesian model is of the form:
+
+$$
+\begin{align}
+\begin{split}
+\Delta | \hat{\Delta}_{t}  & \stackrel{}{\sim}  \mathcal{N}\left(\Delta; \Delta_{posterior}, \sigma^2_{posterior}\right)
+\\\Delta_{posterior} &= \frac{  \frac{\mu_{prior}}{\sigma_{prior}^{2}} + \frac{\hat{\Delta}}{\hat{\sigma}^2_{\Delta} }}{ \frac{1}{\sigma^2_{prior}} + \frac{1}{\hat{\sigma}^2_{\Delta}}}
+\\\sigma^2_{posterior} &= \frac{1}{\frac{1}{\sigma^2_{prior}} + \frac{1}{\hat{\sigma}^2_{\Delta}}}
+\\\hat{\Delta}_{t} | \Delta & \stackrel{}{\sim}\mathcal{N}\left(\hat{\Delta}_{t}; \Delta, \hat{\sigma}_{\Delta}^{2}\right).
+\\\Delta &\stackrel{}{\sim}\mathcal{N}\left(\Delta; \mu_{\text{prior}}, \sigma_{\text{prior}}^{2}\right).
+ \end{split}
+\end{align}
+$$
+
+# Production frequentist model
+
+GrowthBook's [production frequentist model](/statistics/details#frequentist-engine) is a special case of the Bayesian model, where the prior is flat. The posterior is proper, and
+
+$$
+\begin{align}
+\begin{split}
+\Delta_{posterior} &= \hat{\Delta}_{t}
+\\\sigma^2_{posterior} &= \hat{\sigma}^2_{\Delta}
+\end{split}
+\end{align}
+$$
+
+# Posterior distribution after second sample
+
+Below we try to answer the question, what is the posterior distribution if we collect an additional $n_{t'}$ observations?
+This relies upon the uncertainty of the estimator $\hat{\Delta}_{t'}$, which is the estimated effect using only the next $n_{t'}$ observations.
+We assume that the sampling variability of $\hat{\Delta}_{t'}$ is equal to the sampling variability of $\hat{\Delta}_{t}$, except the sample sizes can differ.
+We assume the proportion of units assigned to each variation is constant throughout the experiment.
+We emphasize that while we assume the treatment effect is constant throughout the experiment, the estimated effect on the new sample can differ from the previously observed effect.  
+The sampling distribution of the new effect estimate is
+
+$$
+\begin{align}
+\begin{split}
+\hat{\Delta}_{t'} | \hat{\Delta}_{t}, \Delta  & \stackrel{}{\sim}  \mathcal{N}\left(\hat{\Delta}_{t'}; \Delta, \hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}} \right).
+ \end{split}
+\end{align}
+$$
+
+This means that the conditional posterior is
+
+$$
+\begin{align*}
+\Delta | \hat{\Delta}_{t'}, \hat{\Delta}_{t} &\propto  \exp\left\{\frac{-\left[ \hat{\Delta}_{t'} - \Delta\right]^{\top}   \left[ \hat{\Delta}_{t'} - \Delta\right]}{2\hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}}\right\}
+\exp\left\{\frac{-\left[ \Delta - \Delta_{posterior}\right]^{\top} \left[ \Delta - \Delta_{posterior}\right]}{2\sigma^2_{posterior}}\right\}
+\\ &\propto
+\exp\left\{
+    \frac{-\sigma^2_{posterior}\left[ \hat{\Delta}_{t'} - \Delta\right]^{\top}   \left[ \hat{\Delta}_{t'} - \Delta\right]
+- \hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}\left[ \Delta - \Delta_{posterior}\right]^{\top} \left[ \Delta - \Delta_{posterior}\right]
+}{2\hat{\sigma}_{\Delta}^{2}\sigma^2_{posterior}\frac{n_{t}}{n_{t'}}}
+\right\}
+\\ &\propto
+\exp\left\{\frac{-\sigma^2_{posterior}\left[\Delta^{2} - 2 \Delta\hat{\Delta}_{t'}\right]
+- \hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}\left[ \Delta^{2} - 2\Delta\Delta_{posterior}\right]
+}{2\hat{\sigma}_{\Delta}^{2}\sigma^2_{posterior}\frac{n_{t}}{n_{t'}}}
+\right\}
+\\ &=
+\exp\left\{
+\frac{
+-\Delta_{t}^{2}\left(\sigma^2_{posterior} + \hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}\right)
++ 2 \Delta\left(
+  \sigma^2_{posterior}\hat{\Delta}_{t'} +
+\hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}
+\Delta_{posterior}
+\right)
+}
+{2\sigma^2_{posterior}\hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}}
+\right\}
+\\ &=
+\exp\left\{
+\frac{
+-\Delta^{2}
++ 2 \Delta\frac{\left(
+\sigma^2_{posterior}\hat{\Delta}_{t'} +
+    \hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}
+\Delta_{posterior}
+\right)}{\left(\sigma^2_{posterior} + \hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}\right)}
+}
+{2\frac{\sigma^2_{posterior}\hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}}{\left(\sigma^2_{posterior} + \hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}\right)}}
+\right\}
+\end{align*}
+$$
+
+which is the kernel of a normal random variable with variance $V$ and mean $M$ equal to
+
+$$
+\begin{align*}
+V&= \frac{\sigma^2_{posterior}\hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}}{\left(\sigma^2_{posterior} + \hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}\right)}
+=\frac{1}{\frac{1}{\sigma^2_{posterior}} + \frac{1}{\hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}}}
+\\M &= \frac{\left(
+\sigma^2_{posterior}\hat{\Delta}_{t'} +
+    \hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}
+\Delta_{posterior}
+\right)}{\left(\sigma^2_{posterior} + \hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}\right)}
+  = \frac{
+    \frac{\hat{\Delta}_{t'}}{\hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}}
++\frac{\Delta_{posterior}} {\sigma^2_{posterior}}
+}{ \frac{1}{\hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}} + \frac{1}{\sigma^2_{posterior}}}
+=
+V\left(\frac{\hat{\Delta}_{t'}}{\hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}}
++\frac{\Delta_{posterior}} {\sigma^2_{posterior}}\right).
+\end{align*}
+$$
+
+The variance is the inverse of the sum of the inverse prior and data precisions, and the mean is a precision weighted sum of the prior and data means.
+Note that given the sample sizes, $V$ is a constant (i.e., not a random variable).
+
+If the prior is flat (i.e., we are using the frequentist engine), then the posterior mean is a weighted average of the sample effects:
+
+$$
+\begin{align}
+M &= \frac{\left(
+\hat{\sigma}^2_{\Delta}\hat{\Delta}_{t'} +
+\hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}
+\hat{\Delta}_{t}
+\right)}{\left(\hat{\sigma}^2_{\Delta} + \hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}\right)}
+= \frac{\left(
+\hat{\Delta}_{t'} +
+\frac{n_{t}}{n_{t'}}
+\hat{\Delta}_{t}
+\right)}{\left(1 + \frac{n_{t}}{n_{t'}}\right)}
+= \frac{
+n_{t'}\hat{\Delta}_{t'} + n_{t}\hat{\Delta}_{t}
+}
+{
+n_{t'} + n_{t}
+}.
+\end{align}
+$$
+
+The variance simplifies to
+
+$$
+\begin{align}
+V &= \frac{\hat{\sigma}^2_{\Delta}\hat{\sigma}^{2}_{\Delta}\frac{n_{t}}{n_{t'}}}{\left(\hat{\sigma}^2_{\Delta} + \hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}\right)}
+= \frac{\hat{\sigma}^{2}_{\Delta}\frac{n_{t}}{n_{t'}}}{\left(1 + \frac{n_{t}}{n_{t'}}\right)}
+= \hat{\sigma}^{2}_{\Delta}\frac{n_{t}}{n_{t}+n_{t'}}.
+\end{align}
+$$
+
+## Power calculation
+
+Now that we have the posterior distribution, we can estimate our future experimental power.
+Define $S$ as the square root of $V$.  
+The probability we reject is equal to
+
+$$
+\begin{align}
+\begin{split}
+\pi&=P\left(\left|\frac{M}{S}\right| > \Phi^{-1}(1-0.5\alpha)\right)
+\\&= P\left(\left|M\right| > \Phi^{-1}(1-0.5\alpha)S\right)
+\\&=P\left(\left|\frac{\left(
+  \sigma^2_{posterior}\hat{\Delta}_{t'} +
+\hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}
+  \Delta_{posterior}
+  \right)}{\left(\sigma^2_{posterior} + \hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}\right)}\right| > S * \Phi^{-1}(1-0.5\alpha)\right)
+\\&=
+P\left(
+  \left|
+    \left(
+      \sigma^2_{posterior}\hat{\Delta}_{t'} + \hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}\Delta_{posterior}
+    \right)
+  \right|
+  > S * \Phi^{-1}(1-0.5\alpha) \left(
+  \sigma^2_{posterior} + \hat{\sigma}^{2}_{\Delta}\frac{n_{t}}{n_{t'}}
+    \right)
+    \right)
+\\&=
+  P\left(
+    \left(
+      \sigma^2_{posterior}\hat{\Delta}_{t'} + \hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}\Delta_{posterior}
+\right)
+> S * \Phi^{-1}(1-0.5\alpha) \left(
+  \sigma^2_{posterior} + \hat{\sigma}^{2}_{\Delta}\frac{n_{t}}{n_{t'}}
+  \right)
+\right)
+\\&+
+P\left(
+    \left(
+      \sigma^2_{posterior}\hat{\Delta}_{t'} + \hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}\Delta_{posterior}
+    \right)
+  < -S * \Phi^{-1}(1-0.5\alpha) \left(
+  \sigma^2_{posterior} + \hat{\sigma}^{2}_{\Delta}\frac{n_{t}}{n_{t'}}
+    \right)
+\right)
+\\&=P\left(
+    \hat{\Delta}_{t'}
+  > \frac{S * \Phi^{-1}(1-0.5\alpha) \left(
+  \sigma^2_{posterior} + \hat{\sigma}^{2}_{\Delta}\frac{n_{t}}{n_{t'}}
+\right) - \hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}\Delta_{posterior}}{\sigma^2_{posterior}}
+\right)
+\\&+
+P\left(
+  \hat{\Delta}_{t'}
+  < \frac{-S * \Phi^{-1}(1-0.5\alpha) \left(
+    \sigma^2_{posterior} + \hat{\sigma}^{2}_{\Delta}\frac{n_{t}}{n_{t'}}
+  \right) -  \hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}\Delta_{posterior}}{\sigma^2_{posterior}}
+  \right).
+  \end{split}
+\end{align}
+$$
+
+We need the sampling distribution of $\hat{\Delta}_{t'}$ to be able to estimate future power.  
+We advocate an approach similar to canonical pre-experimental power analysis, in that we specify a minimimum effect size $E$, and assume that the effect size in the next period equals $2E$.
+We picked $2E$ because this is external to the experiment and can roughly be thought of as a typical effect size.  
+The default value for $E$ is 0.1.  
+In this case the mean and variance of the sampling distribution of $\hat{\Delta}_{t'}$ as $M'$ and $V'$ respectively are
+
+$$
+\begin{align}
+\hat{\Delta}_{t'}|\hat{\Delta}_{t}&\stackrel{}{\sim}\mathcal{N}\left(\hat{\Delta}_{t'}; M' = 2E, V' = \hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}\right).
+\end{align}
+$$
+
+Alternatively, we could use a [fully Bayesian power approach](#fully-bayesian-power-approach). For simplicity we use the default value of $2E$ in the calculations below, and may include the posterior mean and variance in future work.
+
+Combining Equations (6) and (7), the probability we reject is
+
+$$
+\begin{align}
+\begin{split}
+&=P\left(
+    \frac{\hat{\Delta}_{t'} - M'}{
+    \sqrt{V'}}    >
+  \frac{
+  \frac{S * \Phi^{-1}(1-0.5\alpha) \left(
+  \sigma^2_{posterior} + \hat{\sigma}^{2}_{\Delta}\frac{n_{t}}{n_{t'}}
+\right) - \hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}\Delta_{posterior}}{\sigma^2_{posterior}} -M'
+}{\sqrt{V'}}
+\right)
+\\&+
+P\left(
+  \frac{\hat{\Delta}_{t'} - M'}{\sqrt{V'}}
+  <
+    \frac{
+  \frac{-S * \Phi^{-1}(1-0.5\alpha) \left(
+    \sigma^2_{posterior} + \hat{\sigma}^{2}_{\Delta}\frac{n_{t}}{n_{t'}}
+  \right) -  \hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}\Delta_{posterior}}{\sigma^2_{posterior}} -M'
+  }{\sqrt{
+  V'
+  }}
+  \right)
+\\&=
+  1 -
+    \Phi\left(
+  \frac{
+  \frac{S * \Phi^{-1}(1-0.5\alpha) \left(
+  \sigma^2_{posterior} + \hat{\sigma}^{2}_{\Delta}\frac{n_{t}}{n_{t'}}
+\right) - \hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}\Delta_{posterior}}{\sigma^2_{posterior}} -M'
+}{\sqrt{V'}}
+\right)
+\\&+
+\Phi\left(
+    \frac{
+  \frac{-S * \Phi^{-1}(1-0.5\alpha) \left(
+    \sigma^2_{posterior} + \hat{\sigma}^{2}_{\Delta}\frac{n_{t}}{n_{t'}}
+  \right) -  \hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}\Delta_{posterior}}{\sigma^2_{posterior}}- M'
+  }{\sqrt{
+  V'
+  }}
+  \right).
+  \end{split}
+    \end{align}
+$$
+
+As $n_{t'}$ gets big, the posterior mean goes to $\hat{\Delta}_{t'}$ and the posterior variances goes to 0.  
+As $n_{t'}$ gets big, the sampling distribution of $\hat{\Delta}_{t'}$ is centered at $\Delta_{posterior}$ and its variance goes to $\sigma^{2}_{posterior}$.
+
+## Usage
+
+As a reminder, we use mid-experiment power to:
+
+1. estimate the number of additional users needed to achieve a statistically significant result with at least 80\% probability.
+2. estimate the probability of achieving a statistically significant result based upon the projected additional sample size until the end of the experiment.
+
+For 1. we use a grid search to find the minimum value of $n_{t'}$ such that the probability of rejection is greater than some specified value (e.g., 95\% or 80\%).  
+For 2. we first estimate $n_{t'}$ as the product of the average number of new users added to the experiment over the last 7 days multiplied by the number of days left in the experiment.  
+We use Equation (8) for both purposes.
+
+## Multiple goal metrics and variations
+
+To adjust for multiple testing across variations and multiple goal metrics, we use a Bonferroni correction.
+Suppose we have $G$ goal metrics and $V$ variations (including control).
+Then the total number of tests is $K = G \times (V-1)$, and we modify $\Phi^{-1}(1-0.5\alpha)$ to be the $(1-0.5\alpha/K)^{\text{th}}$ percentile of the standard normal.
+
+After the first collection period (when we reach time $t$), given a single control variation and $K$ treatment variations, define the sum of the control sample size and the sample size for the $k^{\text{th}}$ treatment variation as $n_{t, k}$, $k=1,2,..., K$.
+Define $s_{t', k} = (n_{t', k} + n_{t, k}) / n_{t, k}$ as the scaling factor required to ensure at least an 80\% chance of achieving a statistically significant result for the $k^{\text{th}}$ variation.  
+Multiple variations will result in different scaling factors.
+By returning the minimum of these scaling factors and applying it to all variations, we ensure there is at least an 80\% chance of achieving a statistically significant result for some variation.
+
+In practice, we advocate stopping an experiment early if all goal metrics achieve statistical significance.
+To estimate the sample size required to achieve statistical significance for all goal metrics with at least 80\% probability, we use 0.8 \*\* (1 / G) as our target power.  
+This provides a lower bound for the threshold needed if all goal metric effect estimates are positively correlated.
+
+## Sequential testing
+
+The width of the confidence interval of [Growthbook's sequential estimator](/statistics/sequential#growthBook's-implementation) at time $t$ is of the form
+
+$$
+\begin{align*}
+W_{t}&= \sqrt{n_{t}\hat{\sigma}_{\Delta}^{2}}\sqrt{
+        \frac{(2 * (n_{t} * \rho^{2} + 1)) \log\left(\frac{\sqrt{n_{t} * \rho^{2} + 1}}{\alpha}\right)} {(n_{t} * \rho)^{2}}
+}.
+\end{align*}
+$$
+
+We reject the null hypothesis if
+$$|M|/(W_{t}/2) > 0.$$
+If we add additional samples $n_{t'}$, the posterior variance is $$\hat{\sigma}^{2}_{\Delta}\frac{n_{t}}{n_{t}+n_{t'}}$$.
+Therefore, the width at time $t + t'$ is
+
+$$
+\begin{align*}
+W_{t+t'}&= \sqrt{(n_{t} + n_{t'})\hat{\sigma}^{2}_{\Delta}\frac{n_{t}}{n_{t}+n_{t'}}}\sqrt{
+        \frac{(2 * ((n_{t} + n_{t'}) * \rho^{2} + 1)) \log\left(\frac{\sqrt{(n_{t} + n_{t'}) * \rho^{2} + 1}}{\alpha}\right)} {((n_{t} + n_{t'}) * \rho)^{2}}
+}
+\\&= \sqrt{\hat{\sigma}^{2}_{\Delta}n_{t}}\sqrt{
+        \frac{(2 * ((n_{t} + n_{t'}) * \rho^{2} + 1)) \log\left(\frac{\sqrt{(n_{t} + n_{t'}) * \rho^{2} + 1}}{\alpha}\right)} {((n_{t} + n_{t'}) * \rho)^{2}}
+}.
+\end{align*}
+$$
+
+We can define Equation 8 through its interval half-width, as the probability we reject
+
+$$
+ \begin{align*}
+P\left(\left|\frac{M}{S}\right| > \Phi^{-1}(1-0.5\alpha)\right)
+&= 1 -
+    \Phi\left(
+  \frac{
+  \frac{S * \Phi^{-1}(1-0.5\alpha) \left(
+  \sigma^2_{posterior} + \hat{\sigma}^{2}_{\Delta}\frac{n_{t}}{n_{t'}}
+\right) - \hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}\Delta_{posterior}}{\sigma^2_{posterior}} -M'
+}{\sqrt{V'}}
+\right)\\&+
+\Phi\left(
+    \frac{
+  \frac{-S * \Phi^{-1}(1-0.5\alpha) \left(
+    \sigma^2_{posterior} + \hat{\sigma}^{2}_{\Delta}\frac{n_{t}}{n_{t'}}
+  \right) -  \hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}\Delta_{posterior}}{\sigma^2_{posterior}}- M'
+  }{\sqrt{
+  V'
+  }}
+  \right).
+   \\
+   &=
+  1 -
+    \Phi\left(
+  \frac{
+  \frac{0.5W \left(
+  \sigma^2_{posterior} + \hat{\sigma}^{2}_{\Delta}\frac{n_{t}}{n_{t'}}
+\right) - \hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}\Delta_{posterior}}{\sigma^2_{posterior}} -M'
+}{\sqrt{V'}}
+\right)
+\\&+
+\Phi\left(
+    \frac{
+  \frac{-0.5W \left(
+    \sigma^2_{posterior} + \hat{\sigma}^{2}_{\Delta}\frac{n_{t}}{n_{t'}}
+  \right) -  \hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}\Delta_{posterior}}{\sigma^2_{posterior}}- M'
+  }{\sqrt{
+  V'
+  }}
+  \right).
+    \end{align*}
+$$
+
+We adjust for sequential testing by substituting $W_{t+t'}$ adjusted for sequential testing for $W$ in the equation above:
+
+$$
+\begin{align*}
+P   &=
+ 1 -
+   \Phi\left(
+ \frac{
+ \frac{0.5W_{t+t'} \left(
+ \hat{\sigma}^{2}_{\Delta} + \hat{\sigma}^{2}_{\Delta}\frac{n_{t}}{n_{t'}}
+\right) - \hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}\hat{\Delta}_{t}}{\hat{\sigma}^{2}_{\Delta}} -M'
+}{\sqrt{V'}}
+\right)
+\\&+
+\Phi\left(
+    \frac{
+\frac{-0.5W_{t+t'} \left(
+  \hat{\sigma}^{2}_{\Delta} + \hat{\sigma}^{2}_{\Delta}\frac{n_{t}}{n_{t'}}
+\right) -  \hat{\sigma}_{\Delta}^{2}\frac{n_{t}}{n_{t'}}\hat{\Delta}_{t}}{\hat{\sigma}^{2}_{\Delta}}- M'
+  }{\sqrt{
+  V'
+  }}
+  \right)
+\\  &=
+ 1 -
+   \Phi\left(
+ \frac{
+ 0.5W_{t+t'} \left(
+  1 + \frac{n_{t}}{n_{t'}}\right) - \frac{n_{t}}{n_{t'}}\hat{\Delta}_{t} -M'
+ }{\sqrt{V'}}
+\right)
+\\&+
+   \Phi\left(
+ \frac{
+ -0.5W_{t+t'} \left(
+  1 + \frac{n_{t}}{n_{t'}}\right) - \frac{n_{t}}{n_{t'}}\hat{\Delta}_{t} -M'
+ }{\sqrt{V'}}
+\right).
+\end{align*}
+$$
+
+## Fully Bayesian power approach
+
+Rather than using $2E$, we could use the posterior mean and variance of the effect estimate at time $t$ to inform the sampling distribution of $\hat{\Delta}_{t'}$, and assume the future true treatment effect $\Delta_{t'}$ is a draw from the posterior distribution. If the prior is correctly specified, this approach conveys three advantages.
+
+First, it allows us to incorporate the uncertainty in the effect estimate at time $t$ into the power calculation. It is often argued that assuming the prior is correctly specified is unrealistic. However, using a true fixed effect size $2E$, which itself is a point mass prior, is a much stronger assumption. Using a prior distribution can introduce a more realistic depiction of the sampling distribution of $\hat{\Delta}_{t'}$.
+
+Second, power estimates are more accurate, as the posterior mean more likely represents $\Delta$ compared to $2E$. After collecting $n_{t}$ observations, we may have strong evidence that $2E$ is unlikely to be the true effect size.
+
+Third, the effect during the rest of the experiment is permitted to differ from the effect in the beginning of the experiment.
