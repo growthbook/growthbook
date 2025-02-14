@@ -1674,6 +1674,32 @@
       false
     ],
     [
+      "null condition - false attribute",
+      {
+        "userId": null
+      },
+      {
+        "userId": false
+      },
+      false
+    ],
+    [
+      "false condition - missing attribute",
+      {
+        "userId": false
+      },
+      {},
+      false
+    ],
+    [
+      "false strict condition - missing attribute",
+      {
+        "userId": { "$eq": false }
+      },
+      {},
+      false
+    ],
+    [
       "$vgt/$vlt - pass - major",
       {
         "version": {
@@ -4630,7 +4656,7 @@
                 "parentConditions": [
                   {
                     "id": "parentFlag",
-                    "condition": { "$ne": false },
+                    "condition": { "value": { "$ne": false } },
                     "gate": true
                   },
                   {

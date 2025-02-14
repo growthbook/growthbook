@@ -1247,6 +1247,7 @@ Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a li
   - Add argument to `evalCondition` for definition of Saved Groups
   - Add test cases for `evalCondition`, `feature`, and `run` using the new operators
 - **v0.7.1** 2025-02-13
-  - New test cases for pre-requisite edge cases
-  - Add feature rule id to `FeatureResult` object and updated test cases
-  - New test case to make sure only known properties are copied from feature rules to experiments
+  - Add feature rule id to `FeatureResult` object and updated all test cases to include it
+  - New tests for pre-requisite edge cases
+  - New tests to make sure only known properties are copied from feature rules to experiments
+  - New tests for evalCondition to cover null/false edge cases
