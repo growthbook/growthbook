@@ -642,9 +642,7 @@ export class GrowthBook<
       trackingCallback: this._options.trackingCallback
         ? this._track
         : undefined,
-      onFeatureUsage: this._options.onFeatureUsage
-        ? this._trackFeatureUsage
-        : undefined,
+      onFeatureUsage: this._trackFeatureUsage,
     };
   }
   private _getGlobalContext(): GlobalContext {
