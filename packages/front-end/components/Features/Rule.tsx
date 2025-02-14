@@ -27,6 +27,7 @@ import ConditionDisplay from "./ConditionDisplay";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
 import ExperimentSummary from "./ExperimentSummary";
+import FeatureUsageGraph, { useFeatureUsage } from "./FeatureUsageGraph";
 import ExperimentRefSummary, {
   isExperimentRefRuleSkipped,
 } from "./ExperimentRefSummary";
@@ -121,6 +122,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
 
     const allEnvironments = useEnvironments();
     const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+    const { featureUsage } = useFeatureUsage();
 
     let title: string | ReactElement =
       rule.description ||
@@ -286,7 +288,18 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   )}
                 </Box>
               </Box>
-              <Box>
+              <Flex>
+                {featureUsage && (
+                  <div className="ml-auto">
+                    <FeatureUsageGraph
+                      data={
+                        featureUsage?.environments?.[environment]?.rules?.[
+                          rule.id
+                        ]
+                      }
+                    />
+                  </div>
+                )}
                 {canEdit && (
                   <MoreMenu useRadix={true} size={14}>
                     <a
@@ -382,7 +395,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     />
                   </MoreMenu>
                 )}
-              </Box>
+              </Flex>
             </Flex>
           </Card>
         </Box>

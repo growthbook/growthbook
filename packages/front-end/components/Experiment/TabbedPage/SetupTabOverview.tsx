@@ -109,12 +109,7 @@ export default function SetupTabOverview({
                   cursor: `${experiment.description ? "pointer" : "default"}`,
                 }}
               >
-                <Flex
-                  align="center"
-                  justify="between"
-                  pb="2"
-                  className="text-dark"
-                >
+                <Flex align="center" justify="between" className="text-dark">
                   <h4 className="m-0">Description</h4>
                   <Flex align="center">
                     {canEditExperiment ? (

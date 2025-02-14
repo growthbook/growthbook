@@ -218,7 +218,6 @@ export interface OrganizationSettings {
   codeReferencesEnabled?: boolean;
   codeRefsBranchesToFilter?: string[];
   codeRefsPlatformUrl?: string;
-  powerCalculatorEnabled?: boolean;
   featureKeyExample?: string; // Example Key of feature flag (e.g. "feature-20240201-name")
   featureRegexValidator?: string; // Regex to validate feature flag name (e.g. ^.+-\d{8}-.+$)
   featureListMarkdown?: string;
@@ -329,3 +328,14 @@ export type NamespaceUsage = Record<
 >;
 
 export type ReqContext = ReqContextClass;
+
+export type DailyUsage = {
+  date: string;
+  requests: number;
+  bandwidth: number;
+};
+
+export type UsageLimits = {
+  cdnRequests: number | null;
+  cdnBandwidth: number | null;
+};

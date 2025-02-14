@@ -98,6 +98,11 @@ export class Permissions {
     return this.checkGlobalPermission("manageBilling");
   };
 
+  public canViewUsage = (): boolean => {
+    // TODO: separate this from billing?
+    return this.checkGlobalPermission("manageBilling");
+  };
+
   public canManageIntegrations = (): boolean => {
     return this.checkGlobalPermission("manageIntegrations");
   };
@@ -739,6 +744,12 @@ export class Permissions {
   };
 
   public canRunMetricAnalysisQueries = (
+    datasource: Pick<DataSourceInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(datasource, "runQueries");
+  };
+
+  public canRunPopulationDataQueries = (
     datasource: Pick<DataSourceInterface, "projects">
   ): boolean => {
     return this.checkProjectFilterPermission(datasource, "runQueries");
