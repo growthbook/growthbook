@@ -39,6 +39,8 @@ jobs:
           yarn
           cd packages/back-end
           yarn
+          cd ../shared
+          yarn
           cd ../../docs
           yarn
           yarn gen
