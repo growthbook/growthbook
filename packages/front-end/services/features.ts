@@ -433,14 +433,25 @@ export function getVariationColor(i: number, experimentTheme = false) {
         "#6cc160",
       ]
     : [
-        "#4f69ff",
-        "#03d1ca",
-        "#e67112",
-        "#e83e8c",
-        "#fdc714",
-        "#bd41d9",
-        "#57d9a3",
-        "#f87a7a",
+        // "#4f69ff",
+        // "#03d1ca",
+        // "#e67112",
+        // "#e83e8c",
+        // "#fdc714",
+        // "#bd41d9",
+        // "#57d9a3",
+        // "#f87a7a",
+        "var(--blue-11)",
+        "var(--teal-11)",
+        "var(--orange-11)",
+        "var(--slate-11)",
+        "var(--lime-11)",
+        "var(--pink-11)",
+        "var(--gold-11)",
+        "var(--mint-11)",
+        "var(--amber-11)",
+        "var(--cyan-11)",
+        "var(--red-11)",
       ];
   return colors[i % colors.length];
 }

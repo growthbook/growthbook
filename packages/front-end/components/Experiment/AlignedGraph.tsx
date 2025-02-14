@@ -104,7 +104,7 @@ const AlignedGraph: FC<Props> = ({
   const violinOpacityNotSignificant = 0.4;
   if (barFillType !== "color" && isHovered) {
     barColor = "#a0a0a0";
-    sigBarColorPos = "#39cb45";
+    sigBarColorPos = "#09ac68"; // "#39cb45";
     sigBarColorNeg = "#e34040";
     barColorOk = "#4ec2a5";
     barColorWarning = "#ea9526";

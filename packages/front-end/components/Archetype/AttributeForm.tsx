@@ -216,12 +216,23 @@ export default function AttributeForm({
                   />
                 )}
               </>
+            ) : attribute.datatype === "number" ? (
+              <Field
+                className=""
+                type="number"
+                value={value as string}
+                onChange={(e) => {
+                  attributeFormValues.set(attribute.property, e.target.value);
+                  updateFormValues();
+                }}
+              />
             ) : (
               <Field
                 className=""
                 value={value as string}
                 onChange={(e) => {
                   attributeFormValues.set(attribute.property, e.target.value);
+                  updateFormValues();
                 }}
               />
             )}

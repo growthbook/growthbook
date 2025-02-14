@@ -15,6 +15,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import TrafficAndTargeting from "@/components/Experiment/TabbedPage/TrafficAndTargeting";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
 import Callout from "@/components/Radix/Callout";
+import Button from "@/components/Radix/Button";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -79,13 +80,13 @@ export default function Implementation({
               shouldDisplay={!safeToEdit}
               body="Cannot edit variations while the experiment is running."
             >
-              <button
-                className="btn p-0 link-purple"
+              <Button
+                variant="ghost"
                 disabled={!safeToEdit}
                 onClick={editVariations}
               >
                 Edit
-              </button>
+              </Button>
             </Tooltip>
           ) : null}
         </div>

@@ -3,11 +3,14 @@ import {
   Variation,
 } from "back-end/types/experiment";
 import { FC } from "react";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { PiCameraLight, PiCameraPlusLight } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { trafficSplitPercentages } from "@/services/utils";
 import Carousel from "@/components/Carousel";
 import ScreenshotUpload from "@/components/EditExperiment/ScreenshotUpload";
 import AuthorizedImage from "@/components/AuthorizedImage";
+import Button from "@/components/Radix/Button";
 
 const imageCache = {};
 
@@ -75,12 +78,15 @@ const ScreenshotCarousel: FC<{
 interface Props {
   experiment: ExperimentInterfaceStringDates;
   canEditExperiment: boolean;
+  // for some experiments, screenshots don't make sense - this is for a future state where you can mark exp as such.
+  allowImages?: boolean;
   mutate?: () => void;
 }
 
 const VariationsTable: FC<Props> = ({
   experiment,
   canEditExperiment,
+  allowImages = true,
   mutate,
 }) => {
   const { variations } = experiment;
@@ -93,104 +99,157 @@ const VariationsTable: FC<Props> = ({
 
   const hasDescriptions = variations.some((v) => !!v.description?.trim());
   const hasUniqueIDs = variations.some((v, i) => v.key !== i + "");
+  const hasAnyImages = variations.some((v) => v.screenshots.length > 0);
 
-  return (
-    <div>
-      <div
-        className="fade-mask-1rem"
+  // set some variables for the display of the component - could make options
+  const cols = variations.length > 6 ? 4 : 3;
+  const gap = "4";
+  const maxImageHeight = hasAnyImages ? 200 : 110; // shrink the image height if there are no images
+
+  const noImageBox = () => {
+    return (
+      <Flex
+        align="center"
+        justify="center"
+        className="appbox mb-0"
+        width="100%"
         style={{
-          overflowX: "auto",
+          backgroundColor: "var(--slate-a3)",
+          height: maxImageHeight + "px",
+          color: "var(--slate-a9)",
         }}
       >
-        <table
-          className="table table-bordered mx-3 bg-light mw100-1rem"
-          style={{ width: "auto" }}
-        >
-          <thead>
-            <tr>
-              {variations.map((v, i) => (
-                <th
-                  key={i}
-                  className={`variation with-variation-label variation${i}`}
-                  style={{ borderBottom: 0 }}
-                >
-                  <span className="label">{i}</span>
-                  <span className="name">{v.name}</span>
-                </th>
-              ))}
-            </tr>
-            <tr>
-              {variations.map((v, i) => (
-                <th
-                  className={`variation with-variation-border-bottom variation${i} pt-0 pb-1 align-bottom font-weight-normal`}
-                  style={{ borderTop: 0 }}
-                  key={i}
-                  scope="col"
-                >
-                  {hasDescriptions ? <div>{v.description}</div> : null}
-                  {hasUniqueIDs ? (
-                    <code className="small">ID: {v.key}</code>
-                  ) : null}
-                  {experiment.type !== "multi-armed-bandit" &&
-                  percentages?.[i] !== undefined ? (
-                    <div className="text-right text-muted">
-                      Split: {percentages[i].toFixed(0)}%
-                    </div>
-                  ) : null}
-                </th>
-              ))}
-            </tr>
-          </thead>
+        <Text size="8">
+          {canEditExperiment ? <PiCameraPlusLight /> : <PiCameraLight />}
+        </Text>
+      </Flex>
+    );
+  };
 
-          <tbody>
-            <tr>
-              {variations.map((v, i) => (
-                <td
-                  key={i}
-                  className={`align-middle ${canEditExperiment ? "pb-1" : ""}`}
-                  style={{
-                    minWidth: "17.5rem",
-                    maxWidth: "27rem",
-                    width: `${80 / Math.min(variations.length || 1, 4)}rem`,
-                    height: "inherit",
-                    borderBottom: canEditExperiment ? 0 : undefined,
-                  }}
-                >
-                  <div className="d-flex justify-content-center align-items-center flex-column h-100">
-                    {v.screenshots.length > 0 ? (
-                      <ScreenshotCarousel
-                        key={i}
-                        index={i}
-                        variation={v}
-                        canEditExperiment={canEditExperiment}
-                        experiment={experiment}
-                        mutate={mutate}
-                        maxChildHeight={200}
-                      />
+  return (
+    <Box mx="4">
+      <Flex gap={gap} wrap="wrap" direction={{ initial: "column", sm: "row" }}>
+        {variations.map((v, i) => (
+          <Box
+            key={i}
+            p="5"
+            pb="3"
+            flexGrow="0"
+            flexShrink="1"
+            flexBasis={{
+              // This might be a bit confusing, but 'gap' in flex box is not included in the flex basis width,
+              // which means percentages can't just be a simple division.
+              // This checks and does the math to make it fix perfectly
+              initial: `calc(100% / ${cols} - var(--space-${gap}) / ${cols} * (${cols} - 1))`,
+              sm: `calc(100% / ${cols - 1} - var(--space-${gap}) / ${
+                cols - 1
+              } * (${cols - 1} - 1))`,
+              md: `calc(100% / ${cols} - var(--space-${gap}) / ${cols} * (${cols} - 1))`,
+            }}
+            className={`appbox mb-0 position-relative variation variation${i} with-variation-label`}
+            style={{ backgroundColor: "var(--white-a1)" }}
+          >
+            <Box
+              className={`variation variation${i} with-variation-color`}
+              style={{
+                position: "absolute",
+                left: 0,
+                top: 0,
+                right: 0,
+                height: "6px",
+              }}
+            />
+            <Flex gap="2" direction="column" justify="between">
+              <Box>
+                <Box mb="2">
+                  <Flex gap="4">
+                    <Box className="">
+                      <span className="circle-label label">{i}</span>
+                    </Box>
+                    <Heading as="h4" size="3" mb="0">
+                      {v.name}
+                    </Heading>
+                  </Flex>
+                </Box>
+                {allowImages && (
+                  <Box>
+                    <Flex>
+                      {v.screenshots.length > 0 ? (
+                        <ScreenshotCarousel
+                          key={i}
+                          index={i}
+                          variation={v}
+                          canEditExperiment={canEditExperiment}
+                          experiment={experiment}
+                          mutate={mutate}
+                          maxChildHeight={maxImageHeight}
+                        />
+                      ) : (
+                        <>
+                          {canEditExperiment ? (
+                            <>
+                              <ScreenshotUpload
+                                variation={i}
+                                experiment={experiment.id}
+                                onSuccess={() => mutate?.()}
+                              >
+                                {noImageBox()}
+                              </ScreenshotUpload>
+                            </>
+                          ) : (
+                            <>{noImageBox()}</>
+                          )}
+                        </>
+                      )}
+                    </Flex>
+                  </Box>
+                )}
+              </Box>
+              <Box>
+                {hasDescriptions ? <Box>{v.description}</Box> : null}
+                {hasUniqueIDs ? (
+                  <code className="small">ID: {v.key}</code>
+                ) : null}
+                <Flex align="center" justify="between">
+                  <Box>
+                    {experiment.type !== "multi-armed-bandit" &&
+                    percentages?.[i] !== undefined ? (
+                      <Box>Split: {percentages[i].toFixed(0)}%</Box>
                     ) : null}
-                  </div>
-                </td>
-              ))}
-            </tr>
-            {canEditExperiment && (
-              <tr>
-                {variations.map((v, i) => (
-                  <td key={`b${i}`} className="py-0" style={{ borderTop: 0 }}>
-                    <div>
-                      <ScreenshotUpload
-                        variation={i}
-                        experiment={experiment.id}
-                        onSuccess={() => mutate?.()}
-                      />
-                    </div>
-                  </td>
-                ))}
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
+                  </Box>
+                  {allowImages && (
+                    <Flex align="center" justify="end" gap="2">
+                      {v.screenshots.length > 0 ? (
+                        <Text className="text-muted">
+                          {v.screenshots.length} image
+                          {v.screenshots.length > 1 ? "s" : ""}
+                        </Text>
+                      ) : null}
+                      {canEditExperiment && (
+                        <div>
+                          <ScreenshotUpload
+                            variation={i}
+                            experiment={experiment.id}
+                            onSuccess={() => mutate?.()}
+                          >
+                            <Button
+                              variant="ghost"
+                              style={{ padding: 0, margin: 0 }}
+                            >
+                              Add{v.screenshots.length > 0 ? "" : " image"}
+                            </Button>
+                          </ScreenshotUpload>
+                        </div>
+                      )}
+                    </Flex>
+                  )}
+                </Flex>
+              </Box>
+            </Flex>
+          </Box>
+        ))}
+      </Flex>
+    </Box>
   );
 };
 
