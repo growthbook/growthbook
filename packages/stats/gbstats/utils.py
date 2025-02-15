@@ -79,3 +79,7 @@ def isinstance_union(obj, union):
     if hasattr(union, "__args__"):
         return any(isinstance(obj, arg) for arg in union.__args__)
     return isinstance(obj, union)
+
+
+def is_statistically_significant(ci: List[float]) -> bool:
+    return ci[0] > 0 or ci[1] < 0

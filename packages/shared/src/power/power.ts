@@ -397,13 +397,26 @@ export function powerStandardError(
   );
 }
 
-export function calculateRho(
+export function sequentialRho(
   alpha: number,
   sequentialTuningParameter: number
 ): number {
   return Math.sqrt(
     (-2 * Math.log(alpha) + Math.log(-2 * Math.log(alpha) + 1)) /
       sequentialTuningParameter
+  );
+}
+
+export function sequentialDiscriminant(
+  n: number,
+  rho: number,
+  alpha: number
+): number {
+  return (
+    (2 *
+      (n * Math.pow(rho, 2) + 1) *
+      Math.log(Math.sqrt(n * Math.pow(rho, 2) + 1) / alpha)) /
+    Math.pow(n * rho, 2)
   );
 }
 
@@ -414,12 +427,8 @@ export function sequentialPowerSequentialVariance(
   sequentialTuningParameter: number
 ): number {
   const standardErrorSampleMean = Math.sqrt(variance / n);
-  const rho = calculateRho(alpha, sequentialTuningParameter);
-  const partUnderRadical =
-    (2 *
-      (n * Math.pow(rho, 2) + 1) *
-      Math.log(Math.sqrt(n * Math.pow(rho, 2) + 1) / alpha)) /
-    Math.pow(n * rho, 2);
+  const rho = sequentialRho(alpha, sequentialTuningParameter);
+  const partUnderRadical = sequentialDiscriminant(n, rho, alpha);
   const zSequential = Math.sqrt(n) * Math.sqrt(partUnderRadical);
   const zStar = normal.quantile(1.0 - 0.5 * alpha, 0, 1);
   const standardErrorSequential =

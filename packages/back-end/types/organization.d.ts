@@ -139,6 +139,7 @@ export interface MetricDefaults {
   windowSettings?: MetricWindowSettings;
   cappingSettings?: MetricCappingSettings;
   priorSettings?: MetricPriorSettings;
+  targetLift?: number;
 }
 
 export interface Namespaces {
@@ -231,6 +232,9 @@ export interface OrganizationSettings {
   banditBurnInValue?: number;
   banditBurnInUnit?: "hours" | "days";
   requireExperimentTemplates?: boolean;
+  experimentMinLengthDays?: number;
+  experimentMaxLengthDays?: number;
+  midExperimentPowerEnabled?: boolean;
 }
 
 export interface SubscriptionQuote {

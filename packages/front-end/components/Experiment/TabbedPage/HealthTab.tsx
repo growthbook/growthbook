@@ -15,6 +15,7 @@ import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import BanditSRMCard from "@/components/HealthTab/BanditSRMCard";
 import Callout from "@/components/Radix/Callout";
+import { PowerCard } from "@/components/HealthTab/PowerCard";
 import {
   HealthTabConfigParams,
   HealthTabOnboardingModal,
@@ -43,7 +44,7 @@ export default function HealthTab({
     mutateSnapshot,
     setAnalysisSettings,
   } = useSnapshot();
-  const { runHealthTrafficQuery } = useOrgSettings();
+  const { runHealthTrafficQuery, midExperimentPowerEnabled } = useOrgSettings();
   const { refreshOrganization } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
@@ -81,7 +82,7 @@ export default function HealthTab({
       onSnapshotUpdate();
       setHealthIssues([]);
     };
-  }, [snapshot, onSnapshotUpdate]);
+  }, [experiment, snapshot, onSnapshotUpdate]);
 
   const handleHealthNotification = useCallback(
     (issue: IssueValue) => {
@@ -295,6 +296,14 @@ export default function HealthTab({
           />
         </div>
       </div>
+
+      {!isBandit && midExperimentPowerEnabled ? (
+        <PowerCard
+          experiment={experiment}
+          snapshot={snapshot}
+          onNotify={handleHealthNotification}
+        />
+      ) : null}
     </div>
   );
 }

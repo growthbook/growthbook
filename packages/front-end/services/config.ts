@@ -92,6 +92,7 @@ export function useConfigJson({
           "maxPercentChange",
           "minPercentChange",
           "minSampleSize",
+          "targetLift",
           "userIdTypes",
           "tags",
           "denominator",

@@ -68,6 +68,7 @@ const metricSchema = new mongoose.Schema({
   maxPercentChange: Number,
   minPercentChange: Number,
   minSampleSize: Number,
+  targetLift: Number,
   regressionAdjustmentOverride: Boolean,
   regressionAdjustmentEnabled: Boolean,
   regressionAdjustmentDays: Number,

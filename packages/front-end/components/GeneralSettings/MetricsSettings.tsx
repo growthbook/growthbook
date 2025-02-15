@@ -137,6 +137,35 @@ export default function MetricsSettings() {
               </p>
             </div>
             {/* endregion Minimum Percentage Change */}
+
+            {/* region Target lift */}
+            <div>
+              <div className="form-inline">
+                <Field
+                  label="Target Lift"
+                  type="number"
+                  min={0}
+                  append="%"
+                  className="ml-2"
+                  containerClassName="mt-2"
+                  disabled={hasFileConfig()}
+                  {...form.register("metricDefaults.targetLift", {
+                    valueAsNumber: true,
+                    min: 0,
+                  })}
+                />
+              </div>
+              <p>
+                <small className="text-muted mb-3">
+                  The percentage change that you want to reliably detect before
+                  ending your experiment.
+                  <br />
+                  This is used to estimate the &quot;Days Left&quot; for running
+                  experiments.
+                </small>
+              </p>
+            </div>
+            {/* endregion Minimum Percentage Change */}
           </Box>
           {/* endregion Metrics Behavior Defaults */}
           <>
