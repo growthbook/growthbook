@@ -173,7 +173,7 @@ export default function AnalysisSettings({
             )}
 
             <div className="col-4 mb-4">
-              <div className="h5">Segments</div>
+              <div className="h5">Segment</div>
               <div>
                 {experiment.segment ? (
                   <>{getSegmentById(experiment.segment)?.name}</>

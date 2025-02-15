@@ -94,7 +94,11 @@ const AuthorizedImage: FC<AuthorizedImageProps> = ({
   }
 
   if (!imageSrc) {
-    return <LoadingSpinner />;
+    return (
+      <div {...props}>
+        <LoadingSpinner className={"center"} />
+      </div>
+    );
   }
 
   return <img src={imageSrc} {...props} crossOrigin="" />;

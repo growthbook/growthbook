@@ -2,7 +2,7 @@ import {
   ExperimentInterfaceStringDates,
   Variation,
 } from "back-end/types/experiment";
-import { FC } from "react";
+import { FC, useState } from "react";
 import { Box, Flex, Grid, Heading, Text } from "@radix-ui/themes";
 import { PiCameraLight, PiCameraPlusLight } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
@@ -11,53 +11,17 @@ import Carousel from "@/components/Carousel";
 import ScreenshotUpload from "@/components/EditExperiment/ScreenshotUpload";
 import AuthorizedImage from "@/components/AuthorizedImage";
 import Button from "@/components/Radix/Button";
+import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselModal";
 
 const imageCache = {};
 
 const ScreenshotCarousel: FC<{
-  index: number;
   variation: Variation;
-  canEditExperiment: boolean;
-  experiment: ExperimentInterfaceStringDates;
-  mutate?: () => void;
   maxChildHeight?: number;
-}> = ({
-  canEditExperiment,
-  experiment,
-  index,
-  variation,
-  mutate,
-  maxChildHeight,
-}) => {
-  const { apiCall } = useAuth();
-
+  onClick?: (i: number) => void;
+}> = ({ variation, maxChildHeight, onClick }) => {
   return (
-    <Carousel
-      deleteImage={
-        !canEditExperiment
-          ? undefined
-          : async (j) => {
-              const { status, message } = await apiCall<{
-                status: number;
-                message?: string;
-              }>(`/experiment/${experiment.id}/variation/${index}/screenshot`, {
-                method: "DELETE",
-                body: JSON.stringify({
-                  url: variation.screenshots[j].path,
-                }),
-              });
-
-              if (status >= 400) {
-                throw new Error(
-                  message || "There was an error deleting the image"
-                );
-              }
-
-              mutate?.();
-            }
-      }
-      maxChildHeight={maxChildHeight}
-    >
+    <Carousel onClick={onClick} maxChildHeight={maxChildHeight}>
       {variation.screenshots.map((s) => (
         <AuthorizedImage
           imageCache={imageCache}
@@ -89,6 +53,7 @@ const VariationsTable: FC<Props> = ({
   allowImages = true,
   mutate,
 }) => {
+  const { apiCall } = useAuth();
   const { variations } = experiment;
   const phases = experiment.phases || [];
   const lastPhaseIndex = phases.length - 1;
@@ -96,6 +61,10 @@ const VariationsTable: FC<Props> = ({
   const weights = lastPhase?.variationWeights ?? null;
   const percentages =
     (weights?.length || 0) > 0 ? trafficSplitPercentages(weights) : null;
+  const [openCarousel, setOpenCarousel] = useState<{
+    variationId: string;
+    index: number;
+  } | null>(null);
 
   const hasDescriptions = variations.some((v) => !!v.description?.trim());
   const hasUniqueIDs = variations.some((v, i) => v.key !== i + "");
@@ -155,9 +124,9 @@ const VariationsTable: FC<Props> = ({
                 height: "6px",
               }}
             />
-            <Flex gap="2" direction="column" justify="between">
+            <Flex gap="2" direction="column" justify="between" height="100%">
               <Box>
-                <Box mb="2">
+                <Box mb="3">
                   <Flex gap="4">
                     <Box className="">
                       <span className="circle-label label">{i}</span>
@@ -169,35 +138,32 @@ const VariationsTable: FC<Props> = ({
                 </Box>
                 {allowImages && (
                   <Box>
-                    <Flex justify="center">
-                      {v.screenshots.length > 0 ? (
-                        <ScreenshotCarousel
-                          key={i}
-                          index={i}
-                          variation={v}
-                          canEditExperiment={canEditExperiment}
-                          experiment={experiment}
-                          mutate={mutate}
-                          maxChildHeight={maxImageHeight}
-                        />
-                      ) : (
-                        <>
-                          {canEditExperiment ? (
-                            <>
-                              <ScreenshotUpload
-                                variation={i}
-                                experiment={experiment.id}
-                                onSuccess={() => mutate?.()}
-                              >
-                                {noImageBox()}
-                              </ScreenshotUpload>
-                            </>
-                          ) : (
-                            <>{noImageBox()}</>
-                          )}
-                        </>
-                      )}
-                    </Flex>
+                    {v.screenshots.length > 0 ? (
+                      <ScreenshotCarousel
+                        key={i}
+                        variation={v}
+                        maxChildHeight={maxImageHeight}
+                        onClick={(j) => {
+                          setOpenCarousel({ variationId: v.id, index: j });
+                        }}
+                      />
+                    ) : (
+                      <>
+                        {canEditExperiment ? (
+                          <>
+                            <ScreenshotUpload
+                              variation={i}
+                              experiment={experiment.id}
+                              onSuccess={() => mutate?.()}
+                            >
+                              {noImageBox()}
+                            </ScreenshotUpload>
+                          </>
+                        ) : (
+                          <>{noImageBox()}</>
+                        )}
+                      </>
+                    )}
                   </Box>
                 )}
               </Box>
@@ -245,6 +211,44 @@ const VariationsTable: FC<Props> = ({
           </Box>
         ))}
       </Grid>
+      {openCarousel && (
+        <ExperimentCarouselModal
+          experiment={experiment}
+          currentVariation={openCarousel.variationId}
+          currentScreenshot={openCarousel.index}
+          imageCache={imageCache}
+          close={() => {
+            setOpenCarousel(null);
+          }}
+          mutate={mutate}
+          deleteImage={
+            !canEditExperiment
+              ? undefined
+              : async (variantIndex, screenshotPath) => {
+                  const { status, message } = await apiCall<{
+                    status: number;
+                    message?: string;
+                  }>(
+                    `/experiment/${experiment.id}/variation/${variantIndex}/screenshot`,
+                    {
+                      method: "DELETE",
+                      body: JSON.stringify({
+                        url: screenshotPath,
+                      }),
+                    }
+                  );
+
+                  if (status >= 400) {
+                    throw new Error(
+                      message || "There was an error deleting the image"
+                    );
+                  }
+
+                  mutate?.();
+                }
+          }
+        />
+      )}
     </Box>
   );
 };
