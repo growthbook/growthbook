@@ -26,6 +26,7 @@ const ExperimentCarouselModal: FC<{
 }) => {
   const [variantId, setVariationId] = useState(currentVariation);
   const [screenshotIndex, setScreenshotIndex] = useState(currentScreenshot);
+  const [zoom, setZoom] = useState(false);
 
   // loop through all experiment variations and get a map of all screenshots, with the variant id and info
   const variantMap = useMemo(() => {
@@ -192,8 +193,14 @@ const ExperimentCarouselModal: FC<{
             overflow="hidden"
             flexGrow="1"
             flexShrink="1"
-            flexBasis="100%"
+            flexBasis={"100%"}
             height="100%"
+            className={styles.imageContainer}
+            style={{
+              cursor: zoom ? "zoom-out" : "zoom-in",
+              overflow: zoom ? "scroll" : "hidden",
+            }}
+            onClick={() => setZoom(!zoom)}
           >
             {/* image container */}
             <AuthorizedImage
@@ -202,9 +209,10 @@ const ExperimentCarouselModal: FC<{
               src={screenshot.path}
               key={screenshot.path}
               style={{
-                width: "100%",
-                height: "100%",
+                width: zoom ? "auto" : "100%",
+                height: zoom ? "auto" : "100%",
                 objectFit: "contain",
+                // these are to center the loading spinner:
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -226,7 +234,7 @@ const ExperimentCarouselModal: FC<{
           <p>{variant.description}</p>
         </Flex>
         <Flex width="100%" align="center" justify="between">
-          <Box flexBasis="60px" flexGrow="0"></Box>
+          <Box flexBasis="70px" flexGrow="0"></Box>
           <Flex gap="2" justify="center" wrap="wrap" flexBasis="100%">
             {orderedVariants.map((variant, variantIndex) =>
               variant.screenshots.length > 0
@@ -239,6 +247,7 @@ const ExperimentCarouselModal: FC<{
                       }}
                       style={{
                         cursor: "pointer",
+                        borderRadius: "5px",
                         border:
                           variant.id === variantId && screenshotIndex === index
                             ? "2px solid var(--text-link-color)"
@@ -248,6 +257,7 @@ const ExperimentCarouselModal: FC<{
                     >
                       <Box
                         className={`variation variation${variantIndex} with-small-border`}
+                        style={{ borderRadius: "4px", overflow: "hidden" }}
                       >
                         <AuthorizedImage
                           imageCache={imageCache}
@@ -268,7 +278,7 @@ const ExperimentCarouselModal: FC<{
                 : null
             )}
           </Flex>
-          <Box flexBasis="60px" flexGrow="0">
+          <Box flexBasis="70px" flexGrow="0">
             {deleteImage && (
               <DeleteButton
                 displayName="Screenshot"
