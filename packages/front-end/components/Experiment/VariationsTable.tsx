@@ -20,8 +20,16 @@ const ScreenshotCarousel: FC<{
   maxChildHeight?: number;
   onClick?: (i: number) => void;
 }> = ({ variation, maxChildHeight, onClick }) => {
+  const [allowClick, setAllowClick] = useState(true);
   return (
-    <Carousel onClick={onClick} maxChildHeight={maxChildHeight}>
+    <Carousel
+      onClick={(i) => {
+        if (allowClick && onClick) {
+          onClick(i);
+        }
+      }}
+      maxChildHeight={maxChildHeight}
+    >
       {variation.screenshots.map((s) => (
         <AuthorizedImage
           imageCache={imageCache}
@@ -32,6 +40,28 @@ const ScreenshotCarousel: FC<{
             width: "100%",
             height: "100%",
             objectFit: "contain",
+          }}
+          onErrorMsg={(msg) => {
+            setAllowClick(false);
+            return (
+              <Flex
+                title={msg}
+                align="center"
+                justify="center"
+                className="appbox mb-0"
+                width="100%"
+                style={{
+                  backgroundColor: "var(--slate-a3)",
+                  height: maxChildHeight + "px",
+                  width: "100%",
+                  color: "var(--slate-a9)",
+                }}
+              >
+                <Text size="8">
+                  <PiCameraLight />
+                </Text>
+              </Flex>
+            );
           }}
         />
       ))}

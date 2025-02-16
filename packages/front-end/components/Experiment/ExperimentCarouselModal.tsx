@@ -1,7 +1,8 @@
 import { FC, useState, useCallback, useEffect, useMemo } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import { MdArrowBackIosNew, MdArrowForwardIos } from "react-icons/md";
+import { PiCameraSlashLight } from "react-icons/pi";
 import Modal from "@/components/Modal";
 import AuthorizedImage from "@/components/AuthorizedImage";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -208,6 +209,27 @@ const ExperimentCarouselModal: FC<{
               className="experiment-image"
               src={screenshot.path}
               key={screenshot.path}
+              onErrorMsg={(msg) => {
+                return (
+                  <Flex
+                    title={msg}
+                    align="center"
+                    justify="center"
+                    className="appbox mb-0"
+                    width="100%"
+                    style={{
+                      backgroundColor: "var(--slate-a3)",
+                      height: "100%",
+                      width: "100%",
+                      color: "var(--slate-a9)",
+                    }}
+                  >
+                    <Text size="8">
+                      <PiCameraSlashLight />
+                    </Text>
+                  </Flex>
+                );
+              }}
               style={{
                 width: zoom ? "auto" : "100%",
                 height: zoom ? "auto" : "100%",
@@ -262,6 +284,27 @@ const ExperimentCarouselModal: FC<{
                         <AuthorizedImage
                           imageCache={imageCache}
                           src={screenshot.path}
+                          onErrorMsg={(msg) => {
+                            return (
+                              <Flex
+                                title={msg}
+                                align="center"
+                                justify="center"
+                                className="appbox mb-0"
+                                width="100%"
+                                style={{
+                                  backgroundColor: "var(--slate-a3)",
+                                  height: "46px",
+                                  width: "50px",
+                                  color: "var(--slate-a9)",
+                                }}
+                              >
+                                <Text size="8">
+                                  <PiCameraSlashLight />
+                                </Text>
+                              </Flex>
+                            );
+                          }}
                           style={{
                             width: "50px",
                             height: "46px",

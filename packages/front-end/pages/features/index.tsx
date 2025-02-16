@@ -196,8 +196,6 @@ export default function FeaturesPage() {
                 <th>Prerequisites</th>
                 <th>
                   Default
-                  <br />
-                  Value
                 </th>
                 <th>Rules</th>
                 <th>Version</th>

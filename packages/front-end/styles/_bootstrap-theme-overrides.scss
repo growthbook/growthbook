@@ -102,7 +102,9 @@ pre {
 }
 
 .bg-light {
-  background-color: var(--surface-background-color-alt) !important;
+  background-color: var(
+    --slate-a2
+  ) !important; //--surface-background-color-alt) !important;
 }
 
 /* Importants here are necessary to override Bootstrap's default (which also have !important) */
@@ -263,11 +265,11 @@ pre {
 
 .pagination {
   .page-link {
-    background-color: var(--surface-background-color);
+    background-color: var(--slate-a3);
   }
 }
 .page-item.disabled .page-link {
-  background-color: var(--surface-background-color);
+  background-color: var(--slate-a3);
 }
 
 // endregion Pagination

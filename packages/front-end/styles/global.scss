@@ -1448,10 +1448,6 @@ main.main {
     *:last-child {
       margin-bottom: 0;
     }
-    .bg-light {
-      background-color: var(--slate-a12);
-      color: var(--slate-1);
-    }
     .gbtable {
       background-color: var(--surface-background-color);
     }
@@ -3215,7 +3211,7 @@ td.disabled {
 .gb-multi-select--is-disabled {
   .gb-select__control,
   .gb-multi-select__control {
-    background-color: var(--disabled-background) !important;
+    background-color: var(--slate-a2) !important;
   }
   .gb-select__single-value,
   .gb-multi-select__single-value {
@@ -3460,10 +3456,11 @@ input:disabled {
 }
 
 .custom-file-label {
-  background-color: unset;
+  background-color: var(--color-surface);
   display: flex;
   align-items: center;
   height: 2.625rem;
+  border-color: var(--border-color-300);
 
   &::after {
     display: flex;
