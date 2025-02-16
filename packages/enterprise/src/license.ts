@@ -77,7 +77,7 @@ export type CommercialFeature =
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export type SubscriptionInfo = {
-  billingPlatform: "stripe" | "orb";
+  billingPlatform: "stripe";
   externalId: string;
   trialEnd: Date | null;
   status: "active" | "canceled" | "past_due" | "trialing" | "";
@@ -97,21 +97,13 @@ export function getStripeSubscriptionStatus(
 export function getSubscriptionFromLicense(
   license: Partial<LicenseInterface>
 ): SubscriptionInfo | null {
-  if (license._billingPlatform === "orb" && license._orbSubscription) {
-    return {
-      billingPlatform: "orb",
-      externalId: license._orbSubscription.id,
-      trialEnd: license._orbSubscription.trialEnd,
-      status: license._orbSubscription.status,
-      hasPaymentMethod: license._orbSubscription.hasPaymentMethod,
-    };
-  } else if (license._stripeSubscription) {
+  if (license.stripeSubscription) {
     return {
       billingPlatform: "stripe",
-      externalId: license._stripeSubscription.id,
-      trialEnd: license._stripeSubscription.trialEnd,
-      status: getStripeSubscriptionStatus(license._stripeSubscription.status),
-      hasPaymentMethod: !!license._stripeSubscription.hasPaymentMethod,
+      externalId: license.stripeSubscription.id,
+      trialEnd: license.stripeSubscription.trialEnd,
+      status: getStripeSubscriptionStatus(license.stripeSubscription.status),
+      hasPaymentMethod: !!license.stripeSubscription.hasPaymentMethod,
     };
   }
   return null;
@@ -138,8 +130,8 @@ export interface LicenseInterface {
     tooltipText: string; // The text to show in the tooltip
     showAllUsers: boolean; // True if all users should see the notice rather than just the admins
   };
-  _billingPlatform: "stripe" | "orb" | "";
-  _stripeSubscription?: {
+  billingPlatform: "stripe" | "";
+  stripeSubscription?: {
     id: string;
     qty: number;
     trialEnd: Date | null;
@@ -154,12 +146,6 @@ export interface LicenseInterface {
     discountAmount?: number; // The amount of the discount
     discountMessage?: string; // The message of the discount
     hasPaymentMethod?: boolean;
-  };
-  _orbSubscription?: {
-    id: string;
-    trialEnd: Date | null;
-    status: SubscriptionInfo["status"];
-    hasPaymentMethod: boolean;
   };
   freeTrialDate?: Date; // Date the free trial was started
   installationUsers: {

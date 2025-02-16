@@ -20,22 +20,8 @@ const licenseSchema = new mongoose.Schema({
     tooltipText: String, // The text to show in the tooltip
     showAllUsers: Boolean, // True if all users should see the notice rather than just the admins
   },
-  stripeSubscription: {
-    id: String,
-    qty: Number,
-    trialEnd: Date,
-    status: String,
-    current_period_end: Number,
-    cancel_at: Number,
-    canceled_at: Number,
-    cancel_at_period_end: Boolean,
-    planNickname: String,
-    priceId: String,
-    hasPaymentMethod: Boolean,
-  },
-  _billingPlatform: String,
-  _stripeSubscription: {},
-  _orbSubscription: {},
+  stripeSubscription: {},
+  billingPlatform: String,
   price: Number, // The price of the license
   discountAmount: Number, // The amount of the discount
   discountMessage: String, // The message of the discount
@@ -53,29 +39,15 @@ const licenseSchema = new mongoose.Schema({
   dateUpdated: Date, // Date the license was last updated
 });
 
-export type LicenseDocument = mongoose.Document &
-  LicenseInterface & {
-    stripeSubscription?: LicenseInterface["_stripeSubscription"];
-  };
+export type LicenseDocument = mongoose.Document & LicenseInterface;
 
 const LicenseModel = mongoose.model<LicenseDocument>("License", licenseSchema);
 
 export { LicenseModel };
 
-export function migrateLicenseDoc(
-  doc: LicenseInterface & {
-    stripeSubscription?: LicenseInterface["_stripeSubscription"];
-  }
-): LicenseInterface {
-  return {
-    ...doc,
-    _stripeSubscription: doc._stripeSubscription || doc.stripeSubscription,
-  };
-}
-
 export function toInterface(doc: LicenseDocument): LicenseInterface {
   const ret = doc.toJSON<LicenseDocument>();
-  return migrateLicenseDoc(omit(ret, ["__v", "_id"]));
+  return omit(ret, ["__v", "_id"]);
 }
 
 export async function getLicenseByKey(

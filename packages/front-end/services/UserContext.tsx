@@ -456,7 +456,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 
     if (license?.plan === "enterprise") return false;
 
-    // if already on pro, they must have a stripeSubscription - some self-hosted pro have an annual contract not directly through stripe.
+    // if already on pro, they must have a subscription - some self-hosted pro have an annual contract not directly through stripe.
     if (
       license &&
       ["pro", "pro_sso"].includes(license.plan || "") &&
