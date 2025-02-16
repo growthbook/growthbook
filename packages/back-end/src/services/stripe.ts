@@ -1,5 +1,4 @@
 import { Stripe } from "stripe";
-import { isActiveSubscriptionStatus } from "enterprise";
 import { STRIPE_SECRET } from "back-end/src/util/secrets";
 import {
   findOrganizationByStripeCustomerId,
@@ -89,51 +88,6 @@ export async function updateSubscriptionInDb(
   await updateOrganizationByStripeId(stripeCustomerId, update);
 
   return { organization: org, subscription, hasPaymentMethod };
-}
-
-const priceData: {
-  [key: string]: Stripe.Price;
-} = {};
-export async function getPrice(priceId: string): Promise<Stripe.Price | null> {
-  if (priceData[priceId]) return priceData[priceId];
-
-  if (!STRIPE_SECRET) {
-    return null;
-  }
-
-  try {
-    priceData[priceId] = await stripe.prices.retrieve(priceId, {
-      expand: ["tiers"],
-    });
-    return priceData[priceId];
-  } catch (e) {
-    logger.error(e, "Failed to get price data from Stripe");
-    return null;
-  }
-}
-
-const discountData: {
-  [key: string]: Stripe.Coupon;
-} = {};
-export async function getCoupon(
-  discountCode?: string
-): Promise<Stripe.Coupon | null> {
-  if (!discountCode) return null;
-  if (discountData[discountCode]) return discountData[discountCode];
-
-  if (!STRIPE_SECRET) return null;
-
-  try {
-    discountData[discountCode] = await stripe.coupons.retrieve(discountCode);
-    return discountData[discountCode];
-  } catch (e) {
-    logger.error(e, "Failed to get coupon data from Stripe");
-    return null;
-  }
-}
-
-export function hasActiveSubscription(org: OrganizationInterface) {
-  return isActiveSubscriptionStatus(org.subscription?.status);
 }
 
 export async function getStripeCustomerId(org: OrganizationInterface) {
