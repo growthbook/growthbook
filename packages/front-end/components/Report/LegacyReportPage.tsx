@@ -293,9 +293,9 @@ export default function LegacyReportPage({
             </TabsList>
           )}
 
-          <div className="tab-content p-0">
+          <div className="tab-content p-0 appbox">
             <TabsContent value="results">
-              <div className="pt-3 px-3">
+              <div className="pt-3 px-3 ">
                 <div className="row align-items-center mb-2">
                   <div className="col">
                     <h2>Results</h2>

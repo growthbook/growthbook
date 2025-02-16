@@ -11,6 +11,7 @@ import LoadingSpinner from "./LoadingSpinner";
 
 interface AuthorizedImageProps extends React.HTMLProps<HTMLImageElement> {
   imageCache?: Record<string, string>;
+  onErrorMsg?: (msg: string) => JSX.Element | null;
 }
 
 /**
@@ -20,11 +21,12 @@ interface AuthorizedImageProps extends React.HTMLProps<HTMLImageElement> {
  * */
 const AuthorizedImage: FC<AuthorizedImageProps> = ({
   imageCache = {},
+  onErrorMsg,
   src = "",
   ...props
 }) => {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const { apiCall } = useAuth();
 
@@ -35,8 +37,8 @@ const AuthorizedImage: FC<AuthorizedImageProps> = ({
         const imageUrl = URL.createObjectURL(imageData);
         imageCache[src] = imageUrl;
         setImageSrc(imageUrl);
-      } catch (error) {
-        setError(error.message);
+      } catch (e) {
+        setErrorMsg(e.message);
       }
     };
 
@@ -80,21 +82,28 @@ const AuthorizedImage: FC<AuthorizedImageProps> = ({
     });
   }, [src, imageCache, apiCall]);
 
-  if (error) {
+  if (errorMsg) {
+    if (onErrorMsg) {
+      return onErrorMsg(errorMsg);
+    }
     return (
-      <div>
+      <div {...props}>
         <FaExclamationTriangle
           size={14}
           className="text-danger ml-1"
-          style={{ marginTop: -4 }}
+          style={{ marginTop: -2 }}
         />
-        <span> Error: {error} </span>{" "}
+        <span className="ml-2"> Error: {errorMsg} </span>{" "}
       </div>
     );
   }
 
   if (!imageSrc) {
-    return <LoadingSpinner />;
+    return (
+      <div {...props}>
+        <LoadingSpinner className={"center"} />
+      </div>
+    );
   }
 
   return <img src={imageSrc} {...props} crossOrigin="" />;

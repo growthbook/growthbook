@@ -31,6 +31,7 @@ export default function AnalysisSettings({
     getDatasourceById,
     getProjectById,
     getExperimentMetricById,
+    getSegmentById,
     metricGroups,
   } = useDefinitions();
   const { organization } = useUser();
@@ -150,26 +151,46 @@ export default function AnalysisSettings({
 
         {!isPublic && (
           <div className="row">
-            <div className="col-4">
+            <div className="col-4 mb-4">
               <div className="h5">Data Source</div>
               <div>{datasource ? datasource.name : <em>none</em>}</div>
             </div>
 
-            <div className="col-4">
+            <div className="col-4 mb-4">
               <div className="h5">Experiment Assignment Table</div>
               <div>
                 {assignmentQuery ? assignmentQuery.name : <em>none</em>}
               </div>
             </div>
 
+            {experiment.activationMetric && (
+              <div className="col-4 mb-4">
+                <div className="h5">Activation Metric</div>
+                <div>
+                  {getExperimentMetricById(experiment.activationMetric)?.name}
+                </div>
+              </div>
+            )}
+
+            <div className="col-4 mb-4">
+              <div className="h5">Segment</div>
+              <div>
+                {experiment.segment ? (
+                  <>{getSegmentById(experiment.segment)?.name}</>
+                ) : (
+                  <em>none (all users)</em>
+                )}
+              </div>
+            </div>
+
             {!isBandit && (
-              <div className="col-4">
+              <div className="col-4 mb-4">
                 <div className="h5">Stats Engine</div>
                 <div>{upperFirst(statsEngine)}</div>
               </div>
             )}
             {isBandit && (
-              <div className="col-4">
+              <div className="col-4 mb-4">
                 <div className="h5">CUPED</div>
                 <div>
                   {experiment.regressionAdjustmentEnabled
