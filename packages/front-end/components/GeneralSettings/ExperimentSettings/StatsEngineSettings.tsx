@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useFormContext, UseFormReturn } from "react-hook-form";
 import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
@@ -6,7 +6,7 @@ import {
 } from "shared/constants";
 import { StatsEngine, PValueCorrection } from "back-end/types/stats";
 import { MetricDefaults } from "back-end/types/organization";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import {
   Tabs,
   TabsList,
@@ -15,11 +15,11 @@ import {
 } from "@/components/Radix/Tabs";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { GBCuped } from "@/components/Icons";
-import Toggle from "@/components/Forms/Toggle";
 import { useUser } from "@/services/UserContext";
 import { hasFileConfig } from "@/services/env";
 import Field from "@/components/Forms/Field";
+import Callout from "@/components/Radix/Callout";
+import Checkbox from "@/components/Radix/Checkbox";
 import FrequentistTab from "./FrequentistTab";
 import BayesianTab from "./BayesianTab";
 
@@ -125,12 +125,87 @@ export default function StatsEngineSettings() {
       : "";
 
   return (
-    <div className="mb-3 form-group flex-column align-items-start">
+    <Box className="mb-3 form-group align-items-start" width="100%">
+      <Box className="border rounded" mb="6" p="4">
+        <Heading as="h4" size="3" mb="4">
+          <PremiumTooltip commercialFeature="regression-adjustment">
+            Regression Adjustment (CUPED)
+          </PremiumTooltip>
+        </Heading>
+        <Flex align="start" gap="3">
+          <Checkbox
+            id="toggle-regressionAdjustmentEnabled"
+            value={form.watch("regressionAdjustmentEnabled")}
+            setValue={(v) => {
+              form.setValue("regressionAdjustmentEnabled", v);
+            }}
+            disabled={
+              !hasCommercialFeature("regression-adjustment") || hasFileConfig()
+            }
+          />
+          <Box>
+            <Text size="2" className="font-weight-semibold">
+              <label htmlFor="toggle-regressionAdjustmentEnabled">
+                Apply regression adjustment by default
+              </label>
+            </Text>
+            <Box
+              className="form-group mt-3 mb-0 mr-2"
+              style={{
+                opacity: form.watch("regressionAdjustmentEnabled")
+                  ? "1"
+                  : "0.5",
+              }}
+            >
+              <Text as="p" mb="1" size="2" className="font-weight-semibold">
+                Pre-exposure lookback period (days)
+              </Text>
+              <Box mb="2">
+                <Text as="span" className="text-muted">
+                  ({DEFAULT_REGRESSION_ADJUSTMENT_DAYS} is default)
+                </Text>
+              </Box>
+              <Box width="140px">
+                <Field
+                  type="number"
+                  style={{
+                    borderColor: regressionAdjustmentDaysHighlightColor,
+                    backgroundColor: regressionAdjustmentDaysHighlightColor
+                      ? regressionAdjustmentDaysHighlightColor + "15"
+                      : "",
+                  }}
+                  containerClassName="mb-0"
+                  append="days"
+                  min="0"
+                  max="100"
+                  disabled={
+                    !hasCommercialFeature("regression-adjustment") ||
+                    hasFileConfig()
+                  }
+                  {...form.register("regressionAdjustmentDays", {
+                    valueAsNumber: true,
+                    validate: (v) => {
+                      return !(v <= 0 || v > 100);
+                    },
+                  })}
+                />
+              </Box>
+              {regressionAdjustmentDaysWarningMsg && (
+                <Callout status="warning" mt="2">
+                  {regressionAdjustmentDaysWarningMsg}
+                </Callout>
+              )}
+            </Box>
+          </Box>
+        </Flex>
+      </Box>
+
       <h4>Stats Engine Settings</h4>
 
       <StatsEngineSelect
-        label="Default Statistics Engine"
+        label="Default statistics engine to use (Bayesian is most common)"
         allowUndefined={false}
+        showDefault={true}
         value={form.watch("statsEngine")}
         onChange={(value) => {
           form.setValue("statsEngine", value);
@@ -174,82 +249,6 @@ export default function StatsEngineSettings() {
           </TabsContent>
         </Tabs>
       </div>
-
-      <div className="p-3 my-3 border rounded">
-        <h5 className="font-weight-bold mb-4">
-          <PremiumTooltip commercialFeature="regression-adjustment">
-            <GBCuped /> Regression Adjustment (CUPED)
-          </PremiumTooltip>
-        </h5>
-        <div className="form-group mb-0 mr-2">
-          <div className="d-flex">
-            <label
-              className="mr-1"
-              htmlFor="toggle-regressionAdjustmentEnabled"
-            >
-              Apply regression adjustment by default
-            </label>
-            <Toggle
-              id={"toggle-regressionAdjustmentEnabled"}
-              value={!!form.watch("regressionAdjustmentEnabled")}
-              setValue={(value) => {
-                form.setValue("regressionAdjustmentEnabled", value);
-              }}
-              disabled={
-                !hasCommercialFeature("regression-adjustment") ||
-                hasFileConfig()
-              }
-            />
-          </div>
-        </div>
-        <div
-          className="form-group mt-3 mb-0 mr-2 form-inline"
-          style={{
-            opacity: form.watch("regressionAdjustmentEnabled") ? "1" : "0.5",
-          }}
-        >
-          <Field
-            label="Pre-exposure lookback period (days)"
-            type="number"
-            style={{
-              borderColor: regressionAdjustmentDaysHighlightColor,
-              backgroundColor: regressionAdjustmentDaysHighlightColor
-                ? regressionAdjustmentDaysHighlightColor + "15"
-                : "",
-            }}
-            className={`ml-2`}
-            containerClassName="mb-0"
-            append="days"
-            min="0"
-            max="100"
-            disabled={
-              !hasCommercialFeature("regression-adjustment") || hasFileConfig()
-            }
-            helpText={
-              <>
-                <span className="ml-2">
-                  ({DEFAULT_REGRESSION_ADJUSTMENT_DAYS} is default)
-                </span>
-              </>
-            }
-            {...form.register("regressionAdjustmentDays", {
-              valueAsNumber: true,
-              validate: (v) => {
-                return !(v <= 0 || v > 100);
-              },
-            })}
-          />
-          {regressionAdjustmentDaysWarningMsg && (
-            <small
-              style={{
-                color: regressionAdjustmentDaysHighlightColor,
-              }}
-            >
-              {regressionAdjustmentDaysWarningMsg}
-            </small>
-          )}
-        </div>
-      </div>
-    </div>
+    </Box>
   );
 }

@@ -1,4 +1,3 @@
-import { MdInfoOutline } from "react-icons/md";
 import {
   ExperimentInterfaceStringDates,
   ExperimentTargetingData,
@@ -11,6 +10,7 @@ import { formatTrafficSplit } from "@/services/utils";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import { HashVersionTooltip } from "@/components/Experiment/HashVersionSelector";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { GBInfo } from "@/components/Icons";
 
 export interface Props {
   phaseIndex?: number | null;
@@ -131,7 +131,7 @@ export default function TargetingInfo({
                       {experiment.fallbackAttribute ? "s" : ""}
                     </strong>{" "}
                     <Tooltip body="This user attribute will be used to assign variations. This is typically either a logged-in user id or an anonymous id stored in a long-lived cookie.">
-                      <MdInfoOutline className="text-info" />
+                      <GBInfo />
                     </Tooltip>
                   </div>
                   <div>
@@ -292,7 +292,7 @@ export default function TargetingInfo({
                 <div className="mb-1">
                   <strong>Namespace targeting</strong>{" "}
                   <Tooltip body="Use namespaces to run mutually exclusive experiments. Manage namespaces under SDK Configuration → Namespaces">
-                    <MdInfoOutline className="text-info" />
+                    <GBInfo />
                   </Tooltip>
                 </div>
                 <div className="d-flex">

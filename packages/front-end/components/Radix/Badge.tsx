@@ -1,13 +1,13 @@
 import { CSSProperties, forwardRef, ReactElement } from "react";
 import { Badge as RadixBadge } from "@radix-ui/themes";
-import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
+import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { RadixColor } from "@/components/Radix/HelperText";
 
 type Props = {
   label: string | ReactElement;
   title?: string;
   color?: RadixColor;
-  variant?: "solid" | "soft";
+  variant?: "solid" | "soft" | "outline";
   radius?: "none" | "small" | "medium" | "large" | "full";
   style?: CSSProperties;
 } & MarginProps;

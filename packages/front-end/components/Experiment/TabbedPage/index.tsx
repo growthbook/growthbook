@@ -286,7 +286,7 @@ export default function TabbedPage({
       <div className="container-fluid pagecontents">
         {experiment.project ===
           getDemoDatasourceProjectIdForOrganization(organization.id) && (
-          <div className="alert alert-info mb-3 d-flex align-items-center mt-3">
+          <div className="alert alert-info d-flex align-items-center mb-0 mt-2">
             <div className="flex-1">
               This experiment is part of our sample dataset. You can safely
               delete this once you are done exploring.
@@ -346,7 +346,7 @@ export default function TabbedPage({
             linkedFeatures={linkedFeatures}
             visualChangesets={visualChangesets}
             editTargeting={editTargeting}
-            verifiedConnections={verifiedConnections}
+            matchingConnections={matchingConnections}
             checklistItemsRemaining={checklistItemsRemaining}
             setChecklistItemsRemaining={setChecklistItemsRemaining}
             envs={envs}
@@ -446,7 +446,7 @@ export default function TabbedPage({
         />
       </div>
 
-      <div className="bg-white mt-4 px-4 border-top pb-3">
+      <div className="mt-4 px-4 border-top pb-3">
         <div className="pt-2 pt-4 pb-5 container pagecontents">
           <div className="h3 mb-4">Comments</div>
           <DiscussionThread

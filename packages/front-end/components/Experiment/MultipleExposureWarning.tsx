@@ -1,6 +1,6 @@
 import {
   DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
-  DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_COUNT,
+  DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
 } from "shared/constants";
 import { getMultipleExposureHealthData } from "shared/health";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -23,7 +23,7 @@ export default function MultipleExposureWarning({
   const multipleExposureHealth = getMultipleExposureHealthData({
     multipleExposuresCount: multipleExposures,
     totalUsersCount: totalUsers,
-    minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_MINIMUM_COUNT,
+    minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
     minPercentThreshold:
       settings?.multipleExposureMinPercent ??
       DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,

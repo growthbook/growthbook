@@ -68,7 +68,7 @@ app.use((req, res, next) => {
   }
 
   // Create a scoped GrowthBook instance and store in req
-  req.growthbook = gbClient.getScopedInstance(userContext);
+  req.growthbook = gbClient.createScopedInstance(userContext);
 
   next();
 });

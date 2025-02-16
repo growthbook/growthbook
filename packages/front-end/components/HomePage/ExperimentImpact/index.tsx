@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
-import { MdInfoOutline } from "react-icons/md";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { datetime, getValidDate } from "shared/dates";
@@ -25,6 +24,7 @@ import {
 } from "@/components/Radix/Tabs";
 import Avatar from "@/components/Radix/Avatar";
 import DatePicker from "@/components/DatePicker";
+import { GBInfo } from "@/components/Icons";
 import { jamesSteinAdjustment } from "./JamesSteinAdjustment";
 import ExperimentImpactTab from "./ExperimentImpactTab";
 
@@ -692,7 +692,7 @@ export default function ExperimentImpact({
                               <span className="small font-weight-bold">
                                 summed impact / year
                               </span>{" "}
-                              <MdInfoOutline className="text-info" />
+                              <GBInfo />
                             </Tooltip>
                           </div>
                         </div>
@@ -758,7 +758,7 @@ export default function ExperimentImpact({
                               <span className="small text-muted font-weight-bold">
                                 avoided loss / year
                               </span>{" "}
-                              <MdInfoOutline className="text-info" />
+                              <GBInfo />
                             </Tooltip>
                           </div>
                         </div>

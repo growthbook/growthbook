@@ -157,7 +157,6 @@ const FeatureAttributesPage = (): React.ReactElement => {
           <ProjectBadges
             resourceType="attribute"
             projectIds={(v.projects || []).length > 0 ? v.projects : undefined}
-            className="badge-ellipsis short align-middle"
           />
         </td>
         <td className="text-gray">

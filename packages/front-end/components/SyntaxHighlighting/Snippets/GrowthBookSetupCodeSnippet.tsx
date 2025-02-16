@@ -341,66 +341,47 @@ var gb: GrowthBookSDK = GrowthBookBuilder(
   if (language === "go") {
     return (
       <>
-        Helper function to load features from the GrowthBook API
+        Create GrowthBook client instance
         <Code
           language="go"
           code={`
 package main
 
 import (
+	"context"
+	"log"
+	"fmt"
+	"time"
 	"encoding/json"
-	"io"
-	"log"
-	"net/http"
-)
-
-// Features API response
-type GrowthBookApiResp struct {
-	Features json.RawMessage
-	Status   int
-}
-
-func GetFeatureMap() []byte {
-	// Fetch features JSON from api
-	resp, err := http.Get("${featuresEndpoint}")
-	if err != nil {
-		log.Println(err)
-	}
-	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
-	// Just return the features map from the API response
-	apiResp := &GrowthBookApiResp{}
-	_ = json.Unmarshal(body, apiResp)
-	return apiResp.Features
-}
-            `.trim()}
-        />
-        Create GrowthBook instance
-        <Code
-          language="go"
-          code={`
-package main
-
-import (
-	growthbook "github.com/growthbook/growthbook-golang"
-	"log"
+	gb "github.com/growthbook/growthbook-golang"
 )
 
 func main() {
-	featureMap := GetFeatureMap()
-	features := growthbook.ParseFeatureMap(featureMap)
-
-	context := growthbook.NewContext().
-		WithFeatures(features).
+	client, err := gb.NewClient(context.TODO(),
+		gb.WithClientKey("${apiKey || "MY_SDK_KEY"}"),${
+            encryptionKey ? `\n		gb.WithDecryptionKey("${encryptionKey}"),` : ""
+          }
+		gb.WithApiHost("${apiHost}"),
+		gb.WithPollDataSource(30 * time.Second),
 		// ${trackingComment}
-		WithTrackingCallback(func(experiment *growthbook.Experiment, result *growthbook.ExperimentResult) {
+		gb.WithExperimentCallback(func(ctx context.Context, experiment *gb.Experiment, result *gb.ExperimentResult, extra any) {
 			log.Println("Viewed Experiment")
 			log.Println("Experiment Id", experiment.Key)
-			log.Println("Variation Id", result.VariationID)
-		})
-	gb := growthbook.New(context)
-}
-            `.trim()}
+			log.Println("Variation Id", result.VariationId)
+		}),
+	)
+
+	if err != nil {
+		log.Fatal("Client start failed", "error", err)
+		return
+	}
+	defer client.Close()
+
+	if err := client.EnsureLoaded(context.TODO()); err != nil {
+		log.Fatal("Client data load failed", "error", err)
+		return
+	}
+}`.trim()}
         />
       </>
     );

@@ -39,7 +39,6 @@ import {
   addPendingMemberToOrg,
   expandOrgMembers,
   findVerifiedOrgsForNewUser,
-  getContextForAgendaJobByOrgObject,
   getContextFromReq,
   getInviteUrl,
   getNumberOfUniqueMembersAndInvites,
@@ -58,6 +57,7 @@ import { updatePassword } from "back-end/src/services/users";
 import { getAllTags } from "back-end/src/models/TagModel";
 import {
   GetOrganizationResponse,
+  CreateOrganizationPostBody,
   Invite,
   MemberRoleWithProjects,
   NamespaceUsage,
@@ -673,6 +673,7 @@ export async function getOrganization(
     invites,
     members,
     ownerEmail,
+    demographicData,
     name,
     id,
     url,
@@ -772,6 +773,7 @@ export async function getOrganization(
     organization: {
       invites: filteredInvites as Invite[],
       ownerEmail,
+      demographicData,
       externalId,
       name,
       id,
@@ -779,6 +781,7 @@ export async function getOrganization(
       subscription,
       licenseKey,
       freeSeats,
+      enterprise: org.enterprise,
       disableSelfServeBilling,
       freeTrialDate: org.freeTrialDate,
       discountCode: org.discountCode || "",
@@ -1164,11 +1167,6 @@ export async function postInvite(
   });
 }
 
-interface SignupBody {
-  company: string;
-  externalId: string;
-}
-
 export async function deleteMember(
   req: AuthRequest<null, { id: string }>,
   res: Response
@@ -1246,9 +1244,12 @@ export async function deleteInvite(
   });
 }
 
-export async function signup(req: AuthRequest<SignupBody>, res: Response) {
+export async function signup(
+  req: AuthRequest<CreateOrganizationPostBody>,
+  res: Response
+) {
   // Note: Request will not have an organization at this point. Do not use getContextFromReq
-  const { company, externalId } = req.body;
+  const { company, externalId, demographicData } = req.body;
 
   const orgs = await hasOrganization();
   // Only allow one organization per site unless IS_MULTI_ORG is true
@@ -1286,9 +1287,11 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
       name: company,
       verifiedDomain,
       externalId,
+      demographicData,
     });
 
-    const context = getContextForAgendaJobByOrgObject(org);
+    req.organization = org;
+    const context = getContextFromReq(req);
 
     const project = await context.models.projects.create({
       name: "My First Project",

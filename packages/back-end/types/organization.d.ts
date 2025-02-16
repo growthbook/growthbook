@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import { OWNER_JOB_TITLES, USAGE_INTENTS } from "shared/constants";
 import {
   ENV_SCOPED_PERMISSIONS,
   GLOBAL_PERMISSIONS,
@@ -53,6 +54,21 @@ export type RequireReview = {
   environments: string[];
   projects: string[];
 };
+
+export type OwnerJobTitle = keyof typeof OWNER_JOB_TITLES;
+
+export type UsageIntent = keyof typeof USAGE_INTENTS;
+
+export interface DemographicData {
+  ownerJobTitle?: OwnerJobTitle;
+  ownerUsageIntents?: UsageIntent[];
+}
+
+export interface CreateOrganizationPostBody {
+  company: string;
+  externalId?: string;
+  demographicData?: DemographicData;
+}
 
 export type DefaultMemberRole =
   | "noaccess"
@@ -211,7 +227,6 @@ export interface OrganizationSettings {
   codeReferencesEnabled?: boolean;
   codeRefsBranchesToFilter?: string[];
   codeRefsPlatformUrl?: string;
-  powerCalculatorEnabled?: boolean;
   featureKeyExample?: string; // Example Key of feature flag (e.g. "feature-20240201-name")
   featureRegexValidator?: string; // Regex to validate feature flag name (e.g. ^.+-\d{8}-.+$)
   featureListMarkdown?: string;
@@ -259,6 +274,7 @@ export interface OrganizationInterface {
   externalId?: string;
   name: string;
   ownerEmail: string;
+  demographicData?: DemographicData;
   stripeCustomerId?: string;
   restrictLoginMethod?: string;
   restrictAuthSubPrefix?: string;
@@ -333,4 +349,15 @@ export type GetOrganizationResponse = {
     experiments: string[];
     features: string[];
   };
+};
+
+export type DailyUsage = {
+  date: string;
+  requests: number;
+  bandwidth: number;
+};
+
+export type UsageLimits = {
+  cdnRequests: number | null;
+  cdnBandwidth: number | null;
 };
