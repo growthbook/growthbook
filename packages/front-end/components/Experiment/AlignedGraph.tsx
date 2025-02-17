@@ -232,6 +232,7 @@ const AlignedGraph: FC<Props> = ({
               fill: axisColor,
               fontSize: 12,
               y: -10,
+              x: currentX + 3,
               fontFamily: "sans-serif",
               textAnchor: "middle",
             } as const;
