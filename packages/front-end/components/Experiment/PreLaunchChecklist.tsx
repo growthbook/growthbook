@@ -21,6 +21,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import Callout from "@/components/Radix/Callout";
 import Checkbox from "@/components/Radix/Checkbox";
+import Frame from "@/components/Radix/Frame";
 
 export type CheckListItem = {
   display: string | ReactElement;
@@ -116,7 +117,7 @@ export function getChecklistItems({
           {openSetupTab &&
           ((isBandit && !hasLiveLinkedChanges) ||
             (!isBandit && hasLinkedChanges)) ? (
-            <a className="a" role="button" onClick={openSetupTab}>
+            <a className="a link-purple" role="button" onClick={openSetupTab}>
               Linked Feature or Visual Editor change
             </a>
           ) : (
@@ -139,7 +140,7 @@ export function getChecklistItems({
           <>
             {setAnalysisModal ? (
               <a
-                className="a"
+                className="a link-purple"
                 role="button"
                 onClick={() => setAnalysisModal(true)}
               >
@@ -174,7 +175,7 @@ export function getChecklistItems({
           <>
             Publish and enable all{" "}
             {openSetupTab ? (
-              <a className="a" role="button" onClick={openSetupTab}>
+              <a className="a link-purple" role="button" onClick={openSetupTab}>
                 Linked Feature
               </a>
             ) : (
@@ -197,7 +198,7 @@ export function getChecklistItems({
           <>
             Add changes in the{" "}
             {openSetupTab ? (
-              <a className="a" role="button" onClick={openSetupTab}>
+              <a className="a link-purple" role="button" onClick={openSetupTab}>
                 Visual Editor
               </a>
             ) : (
@@ -221,7 +222,7 @@ export function getChecklistItems({
       <>
         {editTargeting ? (
           <a
-            className="a"
+            className="a link-purple"
             role="button"
             onClick={() => {
               editTargeting();
@@ -252,7 +253,11 @@ export function getChecklistItems({
         {!setShowSdkForm && !verifiedConnections ? (
           <Link href="/sdks">Manage SDK Connections</Link>
         ) : connections.length === 0 && setShowSdkForm ? (
-          <a className="a" role="button" onClick={() => setShowSdkForm(true)}>
+          <a
+            className="a link-purple"
+            role="button"
+            onClick={() => setShowSdkForm(true)}
+          >
             Add SDK Connection
           </a>
         ) : null}
@@ -440,7 +445,7 @@ export function PreLaunchChecklistUI({
   const contents = !data ? (
     <LoadingSpinner />
   ) : (
-    <div>
+    <div className="pt-2">
       {checklist.map((item, i) => (
         <div key={i} className="mb-2">
           <Checkbox
@@ -486,7 +491,7 @@ export function PreLaunchChecklistUI({
 
   const header = (
     <div className="d-flex flex-row align-items-center justify-content-between text-dark">
-      <h4 className="m-0 py-3">
+      <h4 className="mb-0">
         {title}{" "}
         {data && checklistItemsRemaining !== null ? (
           <span
@@ -533,15 +538,15 @@ export function PreLaunchChecklistUI({
         />
       ) : null}
       {collapsible ? (
-        <div className="box my-3">
+        <Frame>
           <Collapsible
             open={true}
             transitionTime={100}
-            trigger={<div className="px-4">{header}</div>}
+            trigger={<div className="">{header}</div>}
           >
-            <div className="mx-4 mt-2">{contents}</div>
+            <div className="mt-2">{contents}</div>
           </Collapsible>
-        </div>
+        </Frame>
       ) : (
         <>
           {header}

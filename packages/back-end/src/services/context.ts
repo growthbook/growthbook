@@ -32,6 +32,7 @@ import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
 import { SegmentModel } from "back-end/src/models/SegmentModel";
 import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
+import { PopulationDataModel } from "back-end/src/models/PopulationDataModel";
 import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplateModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
@@ -49,6 +50,7 @@ export class ReqContextClass {
     projects: ProjectModel;
     urlRedirects: UrlRedirectModel;
     metricAnalysis: MetricAnalysisModel;
+    populationData: PopulationDataModel;
     metricGroups: MetricGroupModel;
     segments: SegmentModel;
     experimentTemplates: ExperimentTemplatesModel;
@@ -60,6 +62,7 @@ export class ReqContextClass {
       projects: new ProjectModel(this),
       urlRedirects: new UrlRedirectModel(this),
       metricAnalysis: new MetricAnalysisModel(this),
+      populationData: new PopulationDataModel(this),
       metricGroups: new MetricGroupModel(this),
       segments: new SegmentModel(this),
       experimentTemplates: new ExperimentTemplatesModel(this),

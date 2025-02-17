@@ -65,6 +65,7 @@ export interface Props {
   environment: string;
   defaultType?: string;
   revisions?: FeatureRevisionInterface[];
+  duplicate?: boolean;
 }
 
 type RadioSelectorRuleType = "force" | "rollout" | "experiment" | "bandit" | "";
@@ -85,6 +86,7 @@ export default function RuleModal({
   version,
   setVersion,
   revisions,
+  duplicate,
 }: Props) {
   const growthbook = useGrowthBook<AppFeatures>();
   const { hasCommercialFeature, organization } = useUser();
@@ -113,6 +115,7 @@ export default function RuleModal({
     ruleType: defaultType,
     attributeSchema,
   });
+
   const defaultValues = {
     ...defaultRuleValues,
     ...rule,
@@ -280,11 +283,20 @@ export default function RuleModal({
   };
 
   const submit = form.handleSubmit(async (values) => {
-    const ruleAction = i === rules.length ? "add" : "edit";
+    const ruleAction = duplicate
+      ? "duplicate"
+      : i === rules.length
+      ? "add"
+      : "edit";
 
     // If the user built a schedule, but disabled the toggle, we ignore the schedule
     if (!scheduleToggleEnabled) {
       values.scheduleRules = [];
+    }
+
+    // unset the ID if we're duplicating the rule.
+    if (duplicate) {
+      values.id = "";
     }
 
     // Loop through each scheduleRule and convert the timestamp to an ISOString()
@@ -436,6 +448,9 @@ export default function RuleModal({
           type: values.experimentType,
         };
 
+        if (values?.customFields) {
+          exp.customFields = values.customFields;
+        }
         if (values.experimentType === "multi-armed-bandit") {
           Object.assign(exp, {
             banditScheduleValue: values.banditScheduleValue ?? 1,
@@ -548,7 +563,7 @@ export default function RuleModal({
       const res = await apiCall<{ version: number }>(
         `/feature/${feature.id}/${version}/rule`,
         {
-          method: i === rules.length ? "POST" : "PUT",
+          method: duplicate ? "POST" : i === rules.length ? "POST" : "PUT",
           body: JSON.stringify({
             rule: values,
             environment,
@@ -708,7 +723,7 @@ export default function RuleModal({
     );
   }
 
-  let headerText = isNewRule ? "Add " : "Edit ";
+  let headerText = duplicate ? "Duplicate " : isNewRule ? "Add " : "Edit ";
   headerText +=
     ruleType === "force"
       ? `${isNewRule ? "new " : ""}Force Value Rule`
@@ -874,6 +889,9 @@ export default function RuleModal({
                   hideVariationIds={true}
                   startEditingIndexes={true}
                   orgStickyBucketing={orgStickyBucketing}
+                  setCustomFields={(customFields) =>
+                    form.setValue("customFields", customFields)
+                  }
                 />
               </Page>
             ))

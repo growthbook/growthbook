@@ -272,13 +272,12 @@ gb.setAttributes(attrs)
         <Code
           language="go"
           code={`
-gb.WithAttributes(growthbook.Attributes${JSON.stringify(
-            exampleAttributes,
-            null,
-            "\t"
-          )
-            .replace(/null/g, "nil")
-            .replace(/\n(\t+)\}/, ",\n$1}")})
+data := []byte(\`${JSON.stringify(exampleAttributes, null, " ")}\`)
+var jsonMap map[string]any
+if err := json.Unmarshal(data, &jsonMap); err != nil {
+  log.Fatal("Invalid JSON")
+}
+client,err := client.WithAttributes(gb.Attributes(jsonMap))
         `.trim()}
         />
       </>

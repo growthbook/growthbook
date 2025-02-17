@@ -19,6 +19,7 @@ import FeaturesOverview from "@/components/Features/FeaturesOverview";
 import FeaturesStats from "@/components/Features/FeaturesStats";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useEnvironments, useFeaturesList } from "@/services/features";
+import { FeatureUsageProvider } from "@/components/Features/FeatureUsageGraph";
 import FeatureTest from "@/components/Features/FeatureTest";
 import { useAuth } from "@/services/auth";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
@@ -187,7 +188,7 @@ export default function FeaturePage() {
   }
 
   return (
-    <>
+    <FeatureUsageProvider featureId={feature.id}>
       <PageHead
         breadcrumb={[
           { display: "Features", href: "/features" },
@@ -268,6 +269,6 @@ export default function FeaturePage() {
           mutate={mutate}
         />
       )}
-    </>
+    </FeatureUsageProvider>
   );
 }

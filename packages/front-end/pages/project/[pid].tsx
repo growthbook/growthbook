@@ -16,6 +16,7 @@ import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Frame from "@/components/Radix/Frame";
 
 function hasChanges(value: ProjectSettings, existing: ProjectSettings) {
   if (!existing) return true;
@@ -171,7 +172,7 @@ const ProjectPage: FC = () => {
         {/*  Override organization-wide settings for this project. Leave fields*/}
         {/*  blank to use the organization default.*/}
         {/*</div>*/}
-        <div className="appbox p-3">
+        <Frame>
           <div className="row">
             <div className="col-sm-3">
               <h4>Experiment Settings</h4>
@@ -180,14 +181,14 @@ const ProjectPage: FC = () => {
               <StatsEngineSelect
                 value={form.watch("statsEngine")}
                 onChange={(v) => {
-                  form.setValue("statsEngine", v);
+                  form.setValue("statsEngine", v || undefined);
                 }}
                 label="Default Statistics Engine"
                 parentSettings={parentSettings}
               />
             </div>
           </div>
-        </div>
+        </Frame>
       </div>
 
       <div
