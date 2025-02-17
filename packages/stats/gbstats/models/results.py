@@ -49,12 +49,14 @@ class BaselineResponse:
 class PowerResponse:
     status: str
     errorMessage: Optional[str]
-    targetLift: float
     firstPeriodPairwiseSampleSize: Optional[float]
+    targetLift: float
     sigmahat2Delta: Optional[float]
-    sigma2Posterior: Optional[float]
-    deltaPosterior: Optional[float]
+    priorProper: Optional[bool]
+    priorLiftMean: Optional[float]
+    priorLiftVariance: Optional[float]
     upperBoundAchieved: Optional[bool]
+    scalingFactor: Optional[float]
 
 
 @dataclass

@@ -493,7 +493,6 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
             : FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS
         );
         const targetDaysRemaining = daysBetween(today, experimentTargetEndDate);
-
         // NB: This does not run a SQL query, but it is a health check that depends on the trafficHealth
         result.health.power = analyzeExperimentPower({
           trafficHealth,

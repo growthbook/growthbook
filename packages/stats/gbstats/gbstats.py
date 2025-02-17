@@ -293,12 +293,13 @@ def analyze_metric_df(
             df[f"v{i}_first_period_pairwise_users"] = None
             df[f"v{i}_target_lift"] = None
             df[f"v{i}_sigmahat_2_delta"] = None
-            df[f"v{i}_sigma_2_posterior"] = None
-            df[f"v{i}_delta_posterior"] = None
+            df[f"v{i}_prior_proper"] = False
+            df[f"v{i}_prior_lift_mean"] = None
+            df[f"v{i}_prior_lift_variance"] = None
             df[f"v{i}_power_status"] = None
             df[f"v{i}_power_error_message"] = None
-            df[f"v{i}_power_additional_users"] = None
             df[f"v{i}_power_upper_bound_acheieved"] = None
+            df[f"v{i}_scaling_factor"] = None
 
     def analyze_row(s: pd.Series) -> pd.Series:
         s = s.copy()
@@ -318,13 +319,20 @@ def analyze_metric_df(
                     total_users=s["total_users"],
                     alpha=analysis.alpha,
                 )
+
+                if isinstance(res, BayesianTestResult):
+                    prior = GaussianPrior(
+                        mean=metric.prior_mean,
+                        variance=pow(metric.prior_stddev, 2),
+                        proper=metric.prior_proper,
+                    )
+                else:
+                    prior = None
                 power_config = MidExperimentPowerConfig(
-                    m_prime=metric.target_lift,
-                    v_prime=None,
-                    sequential=analysis.sequential_testing_enabled,
-                    sequential_tuning_parameter=analysis.sequential_tuning_parameter,
-                    num_variations=num_variations,
+                    target_lift=metric.target_lift,
                     num_goal_metrics=analysis.num_goal_metrics,
+                    num_variations=num_variations,
+                    prior_effect=prior,
                 )
                 mid_experiment_power = MidExperimentPower(
                     test.stat_a, test.stat_b, res, config, power_config
@@ -335,22 +343,24 @@ def analyze_metric_df(
                 ] = mid_experiment_power.pairwise_sample_size
                 s[f"v{i}_target_lift"] = metric.target_lift
                 s[f"v{i}_sigmahat_2_delta"] = mid_experiment_power.sigmahat_2_delta
-                s[f"v{i}_sigma_2_posterior"] = mid_experiment_power.sigma_2_posterior
-                s[f"v{i}_delta_posterior"] = mid_experiment_power.delta_posterior
+                if mid_experiment_power.prior_effect:
+                    s[f"v{i}_prior_proper"] = mid_experiment_power.prior_effect.proper
+                    s[f"v{i}_prior_lift_mean"] = mid_experiment_power.prior_effect.mean
+                    s[
+                        f"v{i}_prior_lift_variance"
+                    ] = mid_experiment_power.prior_effect.variance
                 mid_experiment_power_result = (
                     mid_experiment_power.calculate_sample_size()
                 )
-                s[
-                    f"v{i}_power_additional_users"
-                ] = mid_experiment_power_result.additional_users
-                s[
-                    f"v{i}_power_scaling_factor"
-                ] = mid_experiment_power_result.scaling_factor
                 s[f"v{i}_power_status"] = mid_experiment_power_result.update_message
                 s[f"v{i}_power_error_message"] = mid_experiment_power_result.error
                 s[
                     f"v{i}_power_upper_bound_achieved"
                 ] = mid_experiment_power_result.upper_bound_achieved
+                s[
+                    f"v{i}_power_scaling_factor"
+                ] = mid_experiment_power_result.scaling_factor
+
             s["baseline_cr"] = test.stat_a.unadjusted_mean
             s["baseline_mean"] = test.stat_a.unadjusted_mean
             s["baseline_stddev"] = test.stat_a.stddev
@@ -452,9 +462,11 @@ def format_variation_result(
                 ],
                 targetLift=row[f"{prefix}_target_lift"],
                 sigmahat2Delta=row[f"{prefix}_sigmahat_2_delta"],
-                sigma2Posterior=row[f"{prefix}_sigma_2_posterior"],
-                deltaPosterior=row[f"{prefix}_delta_posterior"],
+                priorProper=row[f"{prefix}_prior_proper"],
+                priorLiftMean=row[f"{prefix}_prior_lift_mean"],
+                priorLiftVariance=row[f"{prefix}_prior_lift_variance"],
                 upperBoundAchieved=row[f"{prefix}_power_upper_bound_achieved"],
+                scalingFactor=row[f"{prefix}_scaling_factor"],
             )
         else:
             power_response = None

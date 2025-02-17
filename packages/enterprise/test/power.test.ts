@@ -49,115 +49,117 @@ describe("getAverageExposureOverLastNDays", () => {
   });
 });
 
-it("midExperimentPowerFreq", () => {
-  const gbstatsResponse: MetricPowerResponseFromStatsEngine = {
+it("midExperimentPower", () => {
+  const firstPeriodPairwiseSampleSize = 1000;
+  const targetLift = 0.05; 
+  const sigmahat2Delta = 0.008426853707414856;
+  const scalingFactorFreq = 25.45703125; 
+  const scalingFactorSeq = 55.66796875; 
+  const scalingFactorBayes = 13.9404296875;
+
+  const gbstatsResponseFreq: MetricPowerResponseFromStatsEngine = {
     status: "successful",
-    targetLift: 1.0,
-    firstPeriodPairwiseSampleSize: 200,
-    sigmahat2Delta: 1.8660831272105123,
-    sigma2Posterior: 1.8660831272105125,
-    deltaPosterior: 1.9191363776226797,
-    upperBoundAchieved: false,
+    errorMessage: "",
+    firstPeriodPairwiseSampleSize: firstPeriodPairwiseSampleSize,
+    targetLift: targetLift,
+    sigmahat2Delta: sigmahat2Delta,
+    priorProper: false, 
+    upperBoundAchieved: false, 
+    scalingFactor: scalingFactorFreq
   };
-  const powerParams: MidExperimentPowerParamsSingle = {
-    sequential: false,
+  const gbstatsResponseSeq: MetricPowerResponseFromStatsEngine = {
+    status: "successful",
+    errorMessage: "",
+    firstPeriodPairwiseSampleSize: firstPeriodPairwiseSampleSize,
+    targetLift: targetLift,
+    sigmahat2Delta: sigmahat2Delta,
+    priorProper: false, 
+    upperBoundAchieved: false, 
+    scalingFactor: scalingFactorSeq
+  };
+  const gbstatsResponseBayes: MetricPowerResponseFromStatsEngine = {
+    status: "successful",
+    errorMessage: "",
+    firstPeriodPairwiseSampleSize: firstPeriodPairwiseSampleSize,
+    targetLift: targetLift,
+    sigmahat2Delta: sigmahat2Delta,
+    priorProper: true, 
+    priorLiftMean: 0.05, 
+    priorLiftVariance: 0.001,
+    upperBoundAchieved: false, 
+    scalingFactor: scalingFactorBayes
+  };
+  
+  const powerParamsFreq: MidExperimentPowerParamsSingle = {
     alpha: 0.05,
-    sequentialTuningParameter: 5000,
-    daysRemaining: 10,
-    firstPeriodSampleSize: 200,
-    newDailyUsers: 20,
-    numGoalMetrics: 3,
+    sequential: false, 
+    sequentialTuningParameter: 5000, 
+    daysRemaining: 1,
+    firstPeriodSampleSize: firstPeriodPairwiseSampleSize,
+    newDailyUsers: firstPeriodPairwiseSampleSize * scalingFactorFreq,
+    numGoalMetrics: 1,
     numVariations: 2,
-    variation: gbstatsResponse,
+    variation: gbstatsResponseFreq,
   };
+  const powerParamsSeq: MidExperimentPowerParamsSingle = {
+    alpha: 0.05,
+    sequential: true, 
+    sequentialTuningParameter: 5000, 
+    daysRemaining: 1,
+    firstPeriodSampleSize: firstPeriodPairwiseSampleSize,
+    newDailyUsers: firstPeriodPairwiseSampleSize * scalingFactorSeq,
+    numGoalMetrics: 1,
+    numVariations: 2,
+    variation: gbstatsResponseSeq,
+  };
+  const powerParamsBayes: MidExperimentPowerParamsSingle = {
+    alpha: 0.05,
+    sequential: false,
+    sequentialTuningParameter: 5000,
+    daysRemaining: 1,
+    firstPeriodSampleSize: firstPeriodPairwiseSampleSize,
+    newDailyUsers: firstPeriodPairwiseSampleSize * scalingFactorBayes,
+    numGoalMetrics: 1,
+    numVariations: 2,
+    variation: gbstatsResponseBayes,
+  };
+  
   const metricId = "click_through_rate";
   const variation = 1;
-  const resultsSingleMetric = calculateMidExperimentPowerSingle(
-    powerParams,
+  const resultsSingleMetricFreq = calculateMidExperimentPowerSingle(
+    powerParamsFreq,
     metricId,
     variation
   );
-  const powerTrue = 0.10589188931752198;
-  if (resultsSingleMetric.power === undefined) {
-    throw new Error("power is undefined.");
+  const resultsSingleMetricSeq = calculateMidExperimentPowerSingle(
+    powerParamsSeq,
+    metricId,
+    variation
+  );
+  const resultsSingleMetricBayes = calculateMidExperimentPowerSingle(
+    powerParamsBayes,
+    metricId,
+    variation
+  );
+  const powerTrue = 0.8; 
+  if (resultsSingleMetricFreq.power === undefined) {
+    throw new Error("freq power is undefined.");
   } else {
-    expect(parseFloat(resultsSingleMetric.power.toFixed(5))).toEqual(
+    expect(parseFloat(resultsSingleMetricFreq.power.toFixed(4))).toEqual(
       parseFloat(powerTrue.toFixed(5))
     );
   }
-});
-
-it("midExperimentPowerSeq", () => {
-  const gbstatsResponse: MetricPowerResponseFromStatsEngine = {
-    status: "successful",
-    targetLift: 1.0,
-    firstPeriodPairwiseSampleSize: 2000,
-    sigmahat2Delta: 0.1952289663558246,
-    sigma2Posterior: 0.1952289663558246,
-    deltaPosterior: 0.4090343774487013,
-    upperBoundAchieved: false,
-  };
-  const powerParams: MidExperimentPowerParamsSingle = {
-    sequential: true,
-    alpha: 0.05,
-    sequentialTuningParameter: 5000,
-    daysRemaining: 10,
-    firstPeriodSampleSize: 200,
-    newDailyUsers: 20,
-    numGoalMetrics: 3,
-    numVariations: 2,
-    variation: gbstatsResponse,
-  };
-  const metricId = "click_through_rate";
-  const variation = 1;
-  const resultsSingleMetric = calculateMidExperimentPowerSingle(
-    powerParams,
-    metricId,
-    variation
-  );
-  const powerTrue = 0.05020722743685066;
-  if (resultsSingleMetric.power === undefined) {
-    throw new Error("power is undefined.");
+  if (resultsSingleMetricSeq.power === undefined) {
+    throw new Error("seq power is undefined.");
   } else {
-    expect(parseFloat(resultsSingleMetric.power.toFixed(5))).toEqual(
+    expect(parseFloat(resultsSingleMetricSeq.power.toFixed(4))).toEqual(
       parseFloat(powerTrue.toFixed(5))
     );
   }
-});
-
-it("midExperimentPowerBayesian", () => {
-  const gbstatsResponse: MetricPowerResponseFromStatsEngine = {
-    status: "successful",
-    targetLift: 0.6709561916494536,
-    firstPeriodPairwiseSampleSize: 200,
-    sigmahat2Delta: 1.8660831272105123,
-    sigma2Posterior: 1.150463162112222,
-    deltaPosterior: 1.3637993148775518,
-    upperBoundAchieved: false,
-  };
-  const powerParams: MidExperimentPowerParamsSingle = {
-    sequential: false,
-    alpha: 0.05,
-    sequentialTuningParameter: 5000,
-    daysRemaining: 10,
-    firstPeriodSampleSize: 200,
-    newDailyUsers: 20,
-    numGoalMetrics: 3,
-    numVariations: 2,
-    variation: gbstatsResponse,
-  };
-  const metricId = "click_through_rate";
-  const variation = 1;
-  const resultsSingleMetric = calculateMidExperimentPowerSingle(
-    powerParams,
-    metricId,
-    variation
-  );
-  const powerTrue = 0.03870059143882832;
-  if (resultsSingleMetric.power === undefined) {
-    throw new Error("power is undefined.");
+  if (resultsSingleMetricBayes.power === undefined) {
+    throw new Error("bayes power is undefined.");
   } else {
-    expect(parseFloat(resultsSingleMetric.power.toFixed(5))).toEqual(
+    expect(parseFloat(resultsSingleMetricBayes.power.toFixed(4))).toEqual(
       parseFloat(powerTrue.toFixed(5))
     );
   }

@@ -1,10 +1,12 @@
 from dataclasses import asdict
 from functools import partial
 from unittest import TestCase, main as unittest_main
-import numpy.typing as npt
 
 import numpy as np
 from scipy.stats import norm
+import copy
+
+from gbstats.models.tests import BaseConfig
 
 from gbstats.frequentist.tests import (
     FrequentistConfig,
@@ -14,7 +16,6 @@ from gbstats.frequentist.tests import (
 )
 
 from gbstats.bayesian.tests import (
-    BayesianTestResult,
     GaussianPrior,
     EffectBayesianABTest,
     GaussianPrior,
@@ -33,136 +34,97 @@ from gbstats.power.midexperimentpower import (
 
 class TestMidExperimentPower(TestCase):
     def setUp(self):
-        self.stat_a = SampleMeanStatistic(
-            n=100, sum=68.70743838631438, sum_squares=8275.876210479892
-        )
-        self.scaling_factor = 1.0
-        self.v_prime = 1.8660831272105125
-        self.num_goal_metrics = 3
+        self.alpha = 0.05  # false positive rate
+        self.target_power = 0.8
+        self.delta = 0.05
+        self.num_goal_metrics = 1
         self.num_variations = 2
-        self.freq_power_config = MidExperimentPowerConfig(
-            difference_type="relative",
-            traffic_percentage=1,
-            phase_length_days=1,
-            total_users=None,
-            alpha=0.05,
-            target_power=0.8,
-            m_prime=1,
-            v_prime=None,
-            sequential=False,
-            sequential_tuning_parameter=5000,
+        self.power_config_freq = MidExperimentPowerConfig(
+            target_power=self.target_power,
+            target_lift=self.delta,
             num_goal_metrics=self.num_goal_metrics,
             num_variations=self.num_variations,
+            prior_effect=None,
         )
-        self.seq_power_config = MidExperimentPowerConfig(
-            difference_type="relative",
-            traffic_percentage=1,
-            phase_length_days=1,
-            total_users=None,
-            alpha=0.05,
-            target_power=0.8,
-            m_prime=1,
-            v_prime=None,
-            sequential=True,
-            sequential_tuning_parameter=5000,
-            num_goal_metrics=self.num_goal_metrics,
-            num_variations=self.num_variations,
+        self.power_config_seq = copy.deepcopy(self.power_config_freq)
+        self.power_config_seq.sequential = True
+        self.power_config_seq.sequential_tuning_parameter = 5000
+        self.power_config_bayes = copy.deepcopy(self.power_config_freq)
+        self.mu_prior = 0.05  # prior mean of delta used in the analysis
+        self.sigma_2_prior = 0.001  # prior variance of delta used in the analysis
+        self.prior_effect = GaussianPrior(
+            mean=self.mu_prior, variance=self.sigma_2_prior, proper=True
         )
+        self.power_config_bayes.prior_effect = self.prior_effect
+        self.config = BaseConfig(alpha=self.alpha)
+        self.stat_a = SampleMeanStatistic(
+            n=500, sum=499.99999999999994, sum_squares=1499.999999999999
+        )
+        self.stat_b = SampleMeanStatistic(
+            n=500, sum=525.0000000000008, sum_squares=1551.2499999999998
+        )
+        self.res_freq = TwoSidedTTest(
+            self.stat_a, self.stat_b, config=FrequentistConfig(alpha=self.alpha)
+        ).compute_result()
+        self.res_seq = SequentialTwoSidedTTest(
+            self.stat_a, self.stat_b, config=SequentialConfig(alpha=self.alpha)
+        ).compute_result()
+        self.res_bayes = EffectBayesianABTest(
+            self.stat_a,
+            self.stat_b,
+            config=EffectBayesianConfig(
+                prior_effect=self.prior_effect, alpha=self.alpha
+            ),
+        ).compute_result()
+        self.m_freq = MidExperimentPower(
+            self.stat_a, self.stat_b, self.res_freq, self.config, self.power_config_freq
+        )
+        self.m_seq = MidExperimentPower(
+            self.stat_a, self.stat_b, self.res_seq, self.config, self.power_config_seq
+        )
+        self.m_bayes = MidExperimentPower(
+            self.stat_a,
+            self.stat_b,
+            self.res_bayes,
+            self.config,
+            self.power_config_bayes,
+        )
+        self.result_freq = self.m_freq.calculate_scaling_factor()
+        self.result_seq = self.m_seq.calculate_scaling_factor()
+        self.result_bayes = self.m_bayes.calculate_scaling_factor()
 
     def test_calculate_midexperiment_power_freq(self):
-        stat_b_freq = SampleMeanStatistic(
-            n=100, sum=260.62107614858235, sum_squares=10924.787323128723
-        )
-        power_true = 0.10589188931752198
-        users_true = 4898.4375
-        m_prime = 1.0
-        freq_config = FrequentistConfig(difference_type="absolute")
-        r = TwoSidedTTest(self.stat_a, stat_b_freq, config=freq_config)
-        result = r.compute_result()
-        power = MidExperimentPower(
-            self.stat_a, stat_b_freq, result, freq_config, self.freq_power_config
-        )
-        power_est = power.calculate_power(self.scaling_factor, m_prime, self.v_prime)
-        self.assertAlmostEqual(power_est, power_true, places=5)
-        additional_users = power.calculate_sample_size().additional_users
-        if not additional_users:
-            raise ValueError("additional_users is None")
+        scaling_factor_true = 25.45703125
+        if self.result_freq.scaling_factor:
+            self.assertAlmostEqual(
+                self.m_freq.power(self.result_freq.scaling_factor), 0.8, places=4
+            )
+            self.assertAlmostEqual(
+                self.result_freq.scaling_factor, scaling_factor_true, places=4
+            )
         else:
-            self.assertAlmostEqual(additional_users, users_true, places=5)
+            raise ValueError("scaling_factor_freq is None")
 
     def test_calculate_midexperiment_power_seq(self):
-        stat_a_seq = SampleMeanStatistic(
-            n=1000, sum=1827.1147009267286, sum_squares=99289.75051582431
-        )
-        stat_b_seq = SampleMeanStatistic(
-            n=1000, sum=2236.14907837543, sum_squares=104082.6977047063
-        )
-        m_prime = 1.0
-        v_prime_seq = 0.1952289663558246
-        power_true = 0.05020722743685066
-        users_true = 9109.375
-        config = SequentialConfig(
-            difference_type="absolute",
-            traffic_percentage=1,
-            phase_length_days=1,
-            total_users=None,
-            alpha=0.05,
-            test_value=0,
-        )
-        result = SequentialTwoSidedTTest(
-            stat_a_seq, stat_b_seq, config=config
-        ).compute_result()
-        power = MidExperimentPower(
-            stat_a_seq, stat_b_seq, result, config, self.seq_power_config
-        )
-        p = power.calculate_power(self.scaling_factor, m_prime, v_prime_seq)
-        self.assertAlmostEqual(p, power_true, places=5)
-        additional_users = power.calculate_sample_size().additional_users
-        if not additional_users:
-            raise ValueError("additional_users is None")
+        scaling_factor_true = 55.66796875
+        if self.result_seq.scaling_factor:
+            self.assertAlmostEqual(
+                self.m_seq.power(self.result_seq.scaling_factor), 0.8, places=4
+            )
+            self.assertAlmostEqual(
+                self.result_seq.scaling_factor, scaling_factor_true, places=4
+            )
         else:
-            self.assertAlmostEqual(additional_users, users_true, places=5)
+            raise ValueError("scaling_factor_seq is None")
 
     def test_calculate_midexperiment_power_bayesian(self):
-        stat_b = SampleMeanStatistic(
-            n=100, sum=227.71669531352774, sum_squares=10764.102803045413
-        )
-        m_prime = 0.6709561916494536
-        power_true = 0.03870059143882832
-        users_true = 11225.0
-        config = EffectBayesianConfig(
-            difference_type="absolute",
-            traffic_percentage=1,
-            phase_length_days=1,
-            total_users=None,
-            alpha=0.05,
-            inverse=False,
-            prior_type="absolute",
-            prior_effect=GaussianPrior(mean=1.0, variance=3.0, proper=True),
-        )
-        result = EffectBayesianABTest(
-            self.stat_a, stat_b, config=config
-        ).compute_result()
-        power_config = MidExperimentPowerConfig(
-            difference_type="relative",
-            traffic_percentage=1,
-            phase_length_days=1,
-            total_users=None,
-            alpha=0.05,
-            target_power=0.8,
-            m_prime=0.6709561916494536,
-            v_prime=None,
-            sequential=False,
-            sequential_tuning_parameter=5000,
-            num_goal_metrics=self.num_goal_metrics,
-            num_variations=self.num_variations,
-        )
-        power = MidExperimentPower(self.stat_a, stat_b, result, config, power_config)
-        power_est = power.calculate_power(self.scaling_factor, m_prime, self.v_prime)
-        self.assertAlmostEqual(power_est, power_true, places=5)
-        additional_users = power.calculate_sample_size().additional_users
-        if not additional_users:
-            raise ValueError("additional_users is None")
+        scaling_factor_true = 13.9404296875
+        if self.result_bayes.scaling_factor:
+            self.assertAlmostEqual(
+                self.m_bayes.power(self.result_bayes.scaling_factor), 0.8, places=4
+            )
+            self.assertAlmostEqual(
+                self.result_bayes.scaling_factor, scaling_factor_true, places=4
+            )
         else:
-            print(additional_users)
-            self.assertAlmostEqual(additional_users, users_true, places=5)
+            raise ValueError("scaling_factor_bayes is None")
