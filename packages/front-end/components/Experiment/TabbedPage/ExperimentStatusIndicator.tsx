@@ -317,7 +317,7 @@ function getPowerStatus({
 
   const powerAdditionalDaysNeeded =
     power?.type === "success" ? power.additionalDaysNeeded : undefined;
-  if (!powerAdditionalDaysNeeded) {
+  if (powerAdditionalDaysNeeded === undefined) {
     return;
   }
 
