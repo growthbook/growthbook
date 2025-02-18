@@ -912,13 +912,6 @@ export class GrowthBook<
 
   log(msg: string, ctx: Record<string, unknown>) {
     if (!this.debug) return;
-    if (this._options.enableDevMode) {
-      this.logs.push({
-        debug: { msg, ctx },
-        timestamp: Date.now().toString(),
-        logType: "debug",
-      });
-    }
     if (this._options.log) this._options.log(msg, ctx);
     else console.log(msg, ctx);
   }

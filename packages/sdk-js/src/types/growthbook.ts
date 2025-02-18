@@ -560,13 +560,6 @@ export type BaseLog = {
   timestamp: string;
 };
 
-export type DebugLog = BaseLog & {
-  logType: "debug";
-  debug: {
-    msg: string;
-    ctx: Record<string, unknown>;
-  };
-};
 export type EventLog = BaseLog & {
   logType: "event";
   eventName: string;
@@ -583,4 +576,4 @@ export type FeatureLog = BaseLog & {
   result: FeatureResult;
 };
 
-export type LogUnion = DebugLog | EventLog | ExperimentLog<any> | FeatureLog;
+export type LogUnion = EventLog | ExperimentLog<any> | FeatureLog;
