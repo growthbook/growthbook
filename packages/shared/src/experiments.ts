@@ -656,15 +656,16 @@ export function getMetricResultStatus({
 
   let resultsStatus: "won" | "lost" | "draw" | "" = "";
   if (statsEngine === "bayesian") {
-    if (_shouldHighlight && (stats.chanceToWin ?? 0) > ciUpper) {
+    if (_shouldHighlight && (stats.chanceToWin ?? 0.5) > ciUpper) {
       resultsStatus = "won";
-    } else if (_shouldHighlight && (stats.chanceToWin ?? 0) < ciLower) {
+    } else if (_shouldHighlight && (stats.chanceToWin ?? 0.5) < ciLower) {
       resultsStatus = "lost";
     }
     if (
       enoughData &&
       belowMinChange &&
-      ((stats.chanceToWin ?? 0) > ciUpper || (stats.chanceToWin ?? 0) < ciLower)
+      ((stats.chanceToWin ?? 0.5) > ciUpper ||
+        (stats.chanceToWin ?? 0.5) < ciLower)
     ) {
       resultsStatus = "draw";
     }
@@ -681,6 +682,36 @@ export function getMetricResultStatus({
       resultsStatus = "draw";
     }
   }
+
+  let clearSignalResultsStatus: "won" | "lost" | "" = "";
+  // TODO make function of existing thresholds
+  if (statsEngine === "bayesian") {
+    if (
+      _shouldHighlight &&
+      (stats.chanceToWin ?? 0.5) > Math.max(0.999, ciUpper)
+    ) {
+      clearSignalResultsStatus = "won";
+    } else if (
+      _shouldHighlight &&
+      (stats.chanceToWin ?? 0.5) < Math.min(0.001, ciLower)
+    ) {
+      clearSignalResultsStatus = "lost";
+    }
+  } else {
+    const clearStatSig = isStatSig(
+      stats.pValueAdjusted ?? stats.pValue ?? 1,
+      Math.min(pValueThreshold, 0.001)
+    );
+    if (_shouldHighlight && clearStatSig && directionalStatus === "winning") {
+      clearSignalResultsStatus = "won";
+    } else if (
+      _shouldHighlight &&
+      clearStatSig &&
+      directionalStatus === "losing"
+    ) {
+      clearSignalResultsStatus = "lost";
+    }
+  }
   return {
     shouldHighlight: _shouldHighlight,
     belowMinChange,
@@ -688,6 +719,7 @@ export function getMetricResultStatus({
     significantUnadjusted,
     directionalStatus,
     resultsStatus,
+    clearSignalResultsStatus,
   };
 }
 

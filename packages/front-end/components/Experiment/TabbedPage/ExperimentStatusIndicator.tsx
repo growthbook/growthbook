@@ -1,5 +1,8 @@
 import { Tooltip } from "@radix-ui/themes";
-import { ExperimentAnalysisSummaryHealth } from "back-end/src/validators/experiments";
+import {
+  ExperimentAnalysisSummaryHealth,
+  ExperimentAnalysisSummaryMetricStatus,
+} from "back-end/src/validators/experiments";
 import {
   DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
@@ -28,6 +31,8 @@ type ExperimentData = Pick<
   | "analysisSummary"
   | "phases"
   | "dismissedWarnings"
+  | "goalMetrics"
+  | "guardrailMetrics"
 >;
 
 type StatusIndicatorData = {
@@ -127,7 +132,18 @@ function getStatusIndicatorData(
   if (experimentData.status == "running") {
     const unhealthyStatuses: string[] = [];
     const healthSummary = experimentData.analysisSummary?.health;
+    const metricStatus = experimentData.analysisSummary?.metricStatus;
 
+    const lastPhase = experimentData.phases[experimentData.phases.length - 1];
+
+    // skip all statuses
+    const beforeMinDuration =
+      lastPhase.dateStarted &&
+      daysBetween(lastPhase.dateStarted, new Date()) <
+        healthSettings.experimentMinLengthDays;
+
+    let powerStatus: PowerStatus | undefined = undefined;
+    let shippingIndicatorData: StatusIndicatorData | null = null;
     let powerIndicatorData: StatusIndicatorData | null = null;
     if (healthSummary) {
       const srmHealthData = getSRMHealthData({
@@ -157,23 +173,29 @@ function getStatusIndicatorData(
       }
 
       if (healthSettings.midExperimentPowerEnabled) {
-        const lastPhase =
-          experimentData.phases[experimentData.phases.length - 1];
-        const powerStatus = getPowerStatus({
+        powerStatus = getPowerStatus({
           power: healthSummary.power,
-          dateStarted: lastPhase.dateStarted,
-          experimentMinLengthDays: healthSettings.experimentMinLengthDays,
         });
 
         if (
           powerStatus?.isLowPowered &&
-          !experimentData.dismissedWarnings?.includes("low-power")
+          !experimentData.dismissedWarnings?.includes("low-power") &&
+          !beforeMinDuration
         ) {
           unhealthyStatuses.push("Low powered");
           // If we have a override status from powerStatus, use it
         } else if (powerStatus?.indicatorData) {
           powerIndicatorData = powerStatus.indicatorData;
         }
+      }
+
+      if (metricStatus) {
+        shippingIndicatorData = getShippingStatus({
+          metricStatus,
+          goalMetrics: experimentData.goalMetrics,
+          guardrailMetrics: experimentData.guardrailMetrics,
+          powerStatus: powerStatus,
+        });
       }
     }
 
@@ -198,22 +220,32 @@ function getStatusIndicatorData(
       };
     }
 
-    // 3. If no unhealthy status, show days left data
+    // 3. If early in the experiment, just say running with a tooltip
+    if (beforeMinDuration) {
+      return {
+        color: "indigo",
+        variant: "solid",
+        status: "Running",
+        tooltip: `Estimated days left or decision recommendations will appear after the minimum experiment duration of ${healthSettings.experimentMinLengthDays} is reached.`,
+      };
+    }
+
+    // 4. if clear shipping status, show it
+    if (shippingIndicatorData) {
+      return shippingIndicatorData;
+    }
+
+    // 5. If no unhealthy status or clear shipping criteria, show days left data
     if (powerIndicatorData) {
       return powerIndicatorData;
     }
 
-    // 4. Otherwise, show running status
+    // 5. Otherwise, show running status
     return {
       color: "indigo",
       variant: "solid",
       status: "Running",
     };
-
-    // TODO: Add detail statuses
-    // return ["amber", "soft", "Running", "Rollback now"];
-    // return ["amber", "soft", "Running", "Ship now"];
-    // return ["amber", "soft", "Running", "Discuss results"];
   }
 
   if (experimentData.status === "stopped") {
@@ -293,31 +325,25 @@ function getFormattedLabel(
   }
 }
 
+// TODO rename just to days left
+type PowerStatus = {
+  isLowPowered: boolean;
+  additionalDaysNeeded: number;
+  indicatorData?: StatusIndicatorData;
+};
 function getPowerStatus({
   power,
-  dateStarted,
-  experimentMinLengthDays,
 }: {
   power: ExperimentAnalysisSummaryHealth["power"];
-  dateStarted?: string;
-  experimentMinLengthDays: number;
-}): { isLowPowered: boolean; indicatorData?: StatusIndicatorData } | undefined {
+}): PowerStatus | undefined {
   // TODO: Right now midExperimentPowerEnable is controlling the whole "Days Left" status
   // but we should probably split it when considering Experiment Runtime length without power
 
   const isLowPowered = power?.type === "success" && power.isLowPowered;
 
-  // Do not show power-backed status if the experiment has not been running for the minimum length of time
-  if (
-    !dateStarted ||
-    daysBetween(dateStarted, new Date()) < experimentMinLengthDays
-  ) {
-    return;
-  }
-
   const powerAdditionalDaysNeeded =
     power?.type === "success" ? power.additionalDaysNeeded : undefined;
-  if (!powerAdditionalDaysNeeded) {
+  if (powerAdditionalDaysNeeded === undefined) {
     return;
   }
 
@@ -329,6 +355,7 @@ function getPowerStatus({
 
     return {
       isLowPowered,
+      additionalDaysNeeded: powerAdditionalDaysNeeded,
       indicatorData: {
         color: "indigo",
         variant: "solid",
@@ -342,17 +369,146 @@ function getPowerStatus({
       },
     };
   }
+  return { isLowPowered, additionalDaysNeeded: powerAdditionalDaysNeeded };
+}
 
-  if (powerAdditionalDaysNeeded === 0) {
+function getShippingStatus({
+  metricStatus,
+  goalMetrics,
+  guardrailMetrics,
+  powerStatus,
+}: {
+  metricStatus: ExperimentAnalysisSummaryMetricStatus;
+  goalMetrics: string[];
+  guardrailMetrics: string[];
+  powerStatus?: PowerStatus;
+}): StatusIndicatorData | null {
+  const powerReached = powerStatus?.additionalDaysNeeded === 0;
+  const decisionReady = powerReached || metricStatus.sequentialUsed;
+
+  let hasWinner = false;
+  let hasWinnerWithGuardrailFailure = false;
+  let hasSuperStatsigWinner = false;
+  let nVariationsLosing = 0;
+  let nVariationsWithSuperStatSigLoser = 0;
+  // if any variation is a clear winner with no guardrail issues, ship now
+  for (const variationResult of metricStatus.variations) {
+    const allSuperStatSigPositive = goalMetrics.every((m) =>
+      variationResult.goalMetricsSuperStatSigPositive.includes(m)
+    );
+    const guardrailFailure = guardrailMetrics.some((m) =>
+      variationResult.guardrailMetricsFailing.includes(m)
+    );
+
+    if (decisionReady) {
+      const allStatSigPositive = goalMetrics.every((m) =>
+        variationResult.goalMetricsStatSigPositive.includes(m)
+      );
+      if (allStatSigPositive && !guardrailFailure) {
+        hasWinner = true;
+      }
+
+      if (allStatSigPositive && guardrailFailure) {
+        hasWinnerWithGuardrailFailure = true;
+      }
+
+      if (
+        goalMetrics.every((m) =>
+          variationResult.goalMetricsStatSigNegative.includes(m)
+        )
+      ) {
+        nVariationsLosing += 1;
+      }
+    }
+
+    if (allSuperStatSigPositive && !guardrailFailure) {
+      hasSuperStatsigWinner = true;
+    }
+
+    if (
+      goalMetrics.every((m) =>
+        variationResult.goalMetricsSuperStatSigNegative.includes(m)
+      )
+    ) {
+      nVariationsWithSuperStatSigLoser += 1;
+    }
+  }
+
+  const tooltipLanguage =
+    powerStatus?.additionalDaysNeeded === 0
+      ? `Experiment has reached the target statistical power and`
+      : metricStatus.sequentialUsed
+      ? `Sequential testing enables calling an experiment as soon as it is significant and`
+      : "";
+
+  if (hasWinner) {
     return {
-      isLowPowered,
-      indicatorData: {
-        color: "indigo",
-        variant: "solid",
-        status: "Running",
-        detailedStatus: "Ready for review",
-        tooltip: "The experiment has collected enough data to make a decision",
-      },
+      color: "green",
+      variant: "solid",
+      status: "Running",
+      detailedStatus: "Ship Now",
+      tooltip: `${tooltipLanguage} all goal metrics are statistically significant in the desired direction for a test variation.`,
     };
   }
+
+  // if no winner without guardrail failure, call out a winner with a guardrail failure
+  if (hasWinnerWithGuardrailFailure) {
+    return {
+      color: "amber",
+      variant: "solid",
+      status: "Running",
+      detailedStatus: "Ready for Review",
+      tooltip: `${tooltipLanguage} all goal metrics are statistically significant in the desired direction for a test variation. However, one or more guardrails are failing`,
+    };
+  }
+
+  // If all variations failing, roll back now
+  if (
+    nVariationsLosing === metricStatus.variations.length &&
+    nVariationsLosing > 0
+  ) {
+    return {
+      color: "red",
+      variant: "solid",
+      status: "Running",
+      detailedStatus: "Roll Back Now",
+      tooltip: `${tooltipLanguage} all goal metrics are statistically significant in the undesired direction.`,
+    };
+  }
+
+  // TODO if super stat sig enabled
+  if (hasSuperStatsigWinner) {
+    return {
+      color: "green",
+      variant: "solid",
+      status: "Running",
+      detailedStatus: "Ship Now",
+      tooltip: `The experiment has not yet reached the target statistical power, however, the goal metrics have clear, statistically significant lifts in the desired direction.`,
+    };
+  }
+
+  if (
+    nVariationsWithSuperStatSigLoser === metricStatus.variations.length &&
+    nVariationsWithSuperStatSigLoser > 0
+  ) {
+    return {
+      color: "red",
+      variant: "solid",
+      status: "Running",
+      detailedStatus: "Roll Back Now",
+      tooltip: `The experiment has not yet reached the target statistical power, however, the goal metrics have clear, statistically significant lifts in the undesired direction.`,
+    };
+  }
+
+  if (powerReached) {
+    return {
+      color: "amber",
+      variant: "solid",
+      status: "Running",
+      detailedStatus: "Ready for Review",
+      tooltip: `The experiment has reached the target statistical power, but does not have conclusive results.`,
+    };
+  }
+
+  return null;
 }
