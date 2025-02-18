@@ -101,7 +101,6 @@ function sequentialIntervalHalfwidth(
   alpha: number
 ): number {
   const rho = sequentialRho(alpha, sequentialTuningParameter);
-
   const disc = sequentialDiscriminant(n, rho, alpha);
   return Math.sqrt(s2) * Math.sqrt(disc);
 }
