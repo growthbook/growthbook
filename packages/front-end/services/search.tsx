@@ -98,12 +98,21 @@ export function useSearch<T>({
   });
 
   const router = useRouter();
-  const { q } = router.query;
+  const { q, page: queryPage } = router.query;
   const initialSearchTerm = Array.isArray(q) ? q.join(" ") : q;
   const [value, setValue] = useState(initialSearchTerm ?? "");
+  const queryParamPage = parseInt(queryPage as string) || 1;
+  console.log("got page number from query?", queryPage, queryParamPage);
+  const [page, setPage] = useState(queryParamPage);
 
-  const [page, setPage] = useState(1);
-
+  // watch when the URL changes, and update the page state:
+  useEffect(() => {
+    const queryParamPage = parseInt(router.query.page as string) || 1;
+    if (queryParamPage !== page) {
+      console.log("setting page to", queryParamPage);
+      setPage(queryParamPage);
+    }
+  }, [router.query]);
   // We only want to re-create the Fuse instance if the fields actually changed
   // It's really easy to forget to add `useMemo` around the fields declaration
   // So, we turn it into a string here to use in the dependency array
@@ -232,8 +241,34 @@ export function useSearch<T>({
 
   // When a filter is applied, reset the page
   useEffect(() => {
+    console.log("resetting page to 1 here");
     setPage(1);
   }, [sorted.length]);
+
+  // wrap around the page change function to update the URL and call setPage.
+  const pageChangeWrap = useCallback(
+    (page: number) => {
+      console.log("pageChangeWrap", page);
+      const searchParams = new URLSearchParams(window.location.search);
+      if (page === 1) {
+        searchParams.delete("page");
+      } else {
+        searchParams.set("page", page.toString());
+      }
+      router
+        .push(
+          router.pathname +
+            (searchParams.size > 0 ? `?${searchParams.toString()}` : "") +
+            window.location.hash,
+          undefined,
+          {
+            shallow: true,
+          }
+        )
+        .then(() => setPage(page));
+    },
+    [router]
+  );
 
   const SortableTH = useMemo(() => {
     const th: FC<{
@@ -309,7 +344,7 @@ export function useSearch<T>({
         <Pagination
           currentPage={page}
           numItemsTotal={sorted.length}
-          onPageChange={setPage}
+          onPageChange={pageChangeWrap}
           perPage={pageSize}
         />
       ) : null,
