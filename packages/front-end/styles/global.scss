@@ -1301,7 +1301,7 @@ main.main {
   .appbox {
     overflow-x: auto;
     border: 1px solid var(--slate-a4);
-    background-color: var(--slate-a1);
+    //background-color: var(--slate-a1);
   }
 
   &.nobg {
@@ -2021,7 +2021,7 @@ main.main {
       font-weight: 600;
       border: 1.5px solid var(--slate-a11);
       border-radius: 20px;
-      margin-right: 4px;
+      margin-right: var(--space-2);
     }
 
     .name {

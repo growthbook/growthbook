@@ -156,7 +156,7 @@ const VariationsTable: FC<Props> = ({
             <Flex gap="2" direction="column" justify="between" height="100%">
               <Box>
                 <Box mb="3">
-                  <Flex gap="4">
+                  <Flex gap="0">
                     <Box className="">
                       <span className="circle-label label">{i}</span>
                     </Box>
