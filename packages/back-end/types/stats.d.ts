@@ -49,7 +49,6 @@ export interface MetricPowerResponseFromStatsEngine {
   scalingFactor?: number;
 }
 
-
 interface BaseDimensionResponse {
   dimension: string;
   srm: number;

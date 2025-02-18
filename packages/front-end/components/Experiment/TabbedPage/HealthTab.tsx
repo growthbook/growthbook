@@ -297,7 +297,7 @@ export default function HealthTab({
         </div>
       </div>
 
-      {!isBandit && midExperimentPowerEnabled ? (
+      {!isBandit && (midExperimentPowerEnabled ?? true) ? (
         <PowerCard
           experiment={experiment}
           snapshot={snapshot}

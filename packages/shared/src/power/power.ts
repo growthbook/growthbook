@@ -516,11 +516,11 @@ export function powerEstFrequentist(
 }
 
 export function powerFrequentist(
-  effectSize: number, 
+  effectSize: number,
   standardError: number,
   alpha: number = 0.05,
-  twoTailed: boolean = true,
-) : number {
+  twoTailed: boolean = true
+): number {
   const zStar = twoTailed
     ? normal.quantile(1.0 - 0.5 * alpha, 0, 1)
     : normal.quantile(1.0 - alpha, 0, 1);
@@ -534,8 +534,6 @@ export function powerFrequentist(
   }
   return power;
 }
-
-
 
 /**
  * Calculates minimum detectable effect
@@ -840,25 +838,37 @@ export function getCutpoint(
     relative
   );
   const proper = getMetricPriorParams(metric).proper;
-  return (calculateCutpoint(alpha, upper, proper, tauHatVariance, posteriorPrecision, priorMeanSpecified, priorVarianceSpecified, priorMeanDGP, marginalVarianceTauHat));
+  return calculateCutpoint(
+    alpha,
+    upper,
+    proper,
+    tauHatVariance,
+    posteriorPrecision,
+    priorMeanSpecified,
+    priorVarianceSpecified,
+    priorMeanDGP,
+    marginalVarianceTauHat
+  );
 }
 
 export function calculateCutpoint(
   alpha: number,
   upper: boolean,
-  proper: boolean, 
+  proper: boolean,
   tauHatVariance: number,
   posteriorPrecision: number,
   priorMeanSpecified: number,
   priorVarianceSpecified: number,
   priorMeanDGP: number,
-  marginalVarianceTauHat: number): number {
+  marginalVarianceTauHat: number
+): number {
   const zStar = normal.quantile(1.0 - 0.5 * alpha, 0, 1);
   const upperSign = upper ? 1 : -1;
   const properInt = proper ? 1 : 0;
-  const numerator = upperSign * tauHatVariance * Math.sqrt(posteriorPrecision) * zStar -
+  const numerator =
+    upperSign * tauHatVariance * Math.sqrt(posteriorPrecision) * zStar -
     (properInt * (tauHatVariance * priorMeanSpecified)) /
-    priorVarianceSpecified -
+      priorVarianceSpecified -
     priorMeanDGP;
   const denominator = Math.sqrt(marginalVarianceTauHat);
   return numerator / denominator;

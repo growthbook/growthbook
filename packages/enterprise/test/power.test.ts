@@ -51,10 +51,10 @@ describe("getAverageExposureOverLastNDays", () => {
 
 it("midExperimentPower", () => {
   const firstPeriodPairwiseSampleSize = 1000;
-  const targetLift = 0.05; 
+  const targetLift = 0.05;
   const sigmahat2Delta = 0.008426853707414856;
-  const scalingFactorFreq = 25.45703125; 
-  const scalingFactorSeq = 55.66796875; 
+  const scalingFactorFreq = 25.45703125;
+  const scalingFactorSeq = 55.66796875;
   const scalingFactorBayes = 13.9404296875;
 
   const gbstatsResponseFreq: MetricPowerResponseFromStatsEngine = {
@@ -63,9 +63,9 @@ it("midExperimentPower", () => {
     firstPeriodPairwiseSampleSize: firstPeriodPairwiseSampleSize,
     targetLift: targetLift,
     sigmahat2Delta: sigmahat2Delta,
-    priorProper: false, 
-    upperBoundAchieved: false, 
-    scalingFactor: scalingFactorFreq
+    priorProper: false,
+    upperBoundAchieved: false,
+    scalingFactor: scalingFactorFreq,
   };
   const gbstatsResponseSeq: MetricPowerResponseFromStatsEngine = {
     status: "successful",
@@ -73,9 +73,9 @@ it("midExperimentPower", () => {
     firstPeriodPairwiseSampleSize: firstPeriodPairwiseSampleSize,
     targetLift: targetLift,
     sigmahat2Delta: sigmahat2Delta,
-    priorProper: false, 
-    upperBoundAchieved: false, 
-    scalingFactor: scalingFactorSeq
+    priorProper: false,
+    upperBoundAchieved: false,
+    scalingFactor: scalingFactorSeq,
   };
   const gbstatsResponseBayes: MetricPowerResponseFromStatsEngine = {
     status: "successful",
@@ -83,17 +83,17 @@ it("midExperimentPower", () => {
     firstPeriodPairwiseSampleSize: firstPeriodPairwiseSampleSize,
     targetLift: targetLift,
     sigmahat2Delta: sigmahat2Delta,
-    priorProper: true, 
-    priorLiftMean: 0.05, 
+    priorProper: true,
+    priorLiftMean: 0.05,
     priorLiftVariance: 0.001,
-    upperBoundAchieved: false, 
-    scalingFactor: scalingFactorBayes
+    upperBoundAchieved: false,
+    scalingFactor: scalingFactorBayes,
   };
-  
+
   const powerParamsFreq: MidExperimentPowerParamsSingle = {
     alpha: 0.05,
-    sequential: false, 
-    sequentialTuningParameter: 5000, 
+    sequential: false,
+    sequentialTuningParameter: 5000,
     daysRemaining: 1,
     firstPeriodSampleSize: firstPeriodPairwiseSampleSize,
     newDailyUsers: firstPeriodPairwiseSampleSize * scalingFactorFreq,
@@ -103,8 +103,8 @@ it("midExperimentPower", () => {
   };
   const powerParamsSeq: MidExperimentPowerParamsSingle = {
     alpha: 0.05,
-    sequential: true, 
-    sequentialTuningParameter: 5000, 
+    sequential: true,
+    sequentialTuningParameter: 5000,
     daysRemaining: 1,
     firstPeriodSampleSize: firstPeriodPairwiseSampleSize,
     newDailyUsers: firstPeriodPairwiseSampleSize * scalingFactorSeq,
@@ -123,7 +123,7 @@ it("midExperimentPower", () => {
     numVariations: 2,
     variation: gbstatsResponseBayes,
   };
-  
+
   const metricId = "click_through_rate";
   const variation = 1;
   const resultsSingleMetricFreq = calculateMidExperimentPowerSingle(
@@ -141,7 +141,7 @@ it("midExperimentPower", () => {
     metricId,
     variation
   );
-  const powerTrue = 0.8; 
+  const powerTrue = 0.8;
   if (resultsSingleMetricFreq.power === undefined) {
     throw new Error("freq power is undefined.");
   } else {

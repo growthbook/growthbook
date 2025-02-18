@@ -101,57 +101,50 @@ class MidExperimentPower:
             return self._default_output(self.test_result.error_message, "unsuccessful")
         if self._control_mean_zero():
             return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE, "unsuccessful")
-        elif self._has_zero_variance():
+        if self._has_zero_variance():
             return self._default_output(ZERO_NEGATIVE_VARIANCE_MESSAGE, "unsuccessful")
+
+        scaling_factor_result = self.calculate_scaling_factor()
+        if scaling_factor_result.scaling_factor:
+            self.additional_users = (
+                self.pairwise_sample_size * scaling_factor_result.scaling_factor
+            )
         else:
-            scaling_factor_result = self.calculate_scaling_factor()
-            if scaling_factor_result.scaling_factor:
-                self.additional_users = (
-                    self.pairwise_sample_size * scaling_factor_result.scaling_factor
-                )
-            else:
-                self.additional_users = None
-            if scaling_factor_result.upper_bound_achieved:
-                if scaling_factor_result.scaling_factor:
-                    return AdditionalSampleSizeNeededResult(
-                        error=None,
-                        update_message="successful, upper bound hit",
-                        additional_users=self.additional_users,
-                        scaling_factor=scaling_factor_result.scaling_factor,
-                        upper_bound_achieved=True,
-                        target_power=self.target_power,
-                    )
-                else:
-                    return AdditionalSampleSizeNeededResult(
-                        error=scaling_factor_result.error,
-                        update_message="unsuccessful",
-                        additional_users=None,
-                        scaling_factor=None,
-                        upper_bound_achieved=True,
-                        target_power=self.target_power,
-                    )
-            if (
-                scaling_factor_result.converged
-                and scaling_factor_result.scaling_factor
-                or scaling_factor_result.scaling_factor == 0
-            ):
-                return AdditionalSampleSizeNeededResult(
-                    error=None,
-                    update_message="successful",
-                    additional_users=self.additional_users,
-                    scaling_factor=scaling_factor_result.scaling_factor,
-                    upper_bound_achieved=False,
-                    target_power=self.target_power,
-                )
-            else:
-                return AdditionalSampleSizeNeededResult(
-                    error=scaling_factor_result.error,
-                    update_message="unsuccessful",
-                    additional_users=None,
-                    scaling_factor=None,
-                    upper_bound_achieved=False,
-                    target_power=self.target_power,
-                )
+            self.additional_users = None
+
+        if (
+            scaling_factor_result.upper_bound_achieved
+            and scaling_factor_result.scaling_factor is not None
+        ):
+            return AdditionalSampleSizeNeededResult(
+                error=None,
+                update_message="successful, upper bound hit",
+                additional_users=self.additional_users,
+                scaling_factor=scaling_factor_result.scaling_factor,
+                upper_bound_achieved=True,
+                target_power=self.target_power,
+            )
+        if (
+            scaling_factor_result.converged
+            and scaling_factor_result.scaling_factor is not None
+        ):
+            return AdditionalSampleSizeNeededResult(
+                error=None,
+                update_message="successful",
+                additional_users=self.additional_users,
+                scaling_factor=scaling_factor_result.scaling_factor,
+                upper_bound_achieved=False,
+                target_power=self.target_power,
+            )
+
+        return AdditionalSampleSizeNeededResult(
+            error=scaling_factor_result.error,
+            update_message="unsuccessful",
+            additional_users=None,
+            scaling_factor=None,
+            upper_bound_achieved=True,
+            target_power=self.target_power,
+        )
 
     # case where scaling factor of 0 (i.e., no additional users) is sufficient
     @property

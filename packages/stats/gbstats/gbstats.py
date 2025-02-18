@@ -357,9 +357,7 @@ def analyze_metric_df(
                 s[
                     f"v{i}_power_upper_bound_achieved"
                 ] = mid_experiment_power_result.upper_bound_achieved
-                s[
-                    f"v{i}_power_scaling_factor"
-                ] = mid_experiment_power_result.scaling_factor
+                s[f"v{i}_scaling_factor"] = mid_experiment_power_result.scaling_factor
 
             s["baseline_cr"] = test.stat_a.unadjusted_mean
             s["baseline_mean"] = test.stat_a.unadjusted_mean
