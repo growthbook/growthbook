@@ -40,7 +40,7 @@ export default function LinkedFeatureFlag({ info, experiment, open }: Props) {
       }
       open={open ?? experiment.status === "draft"}
     >
-      <div className="mt-2">
+      <Box mt="2">
         <Flex width="100%" gap="4">
           {info.state !== "locked" && (
             <Box width="33%">
@@ -146,7 +146,7 @@ export default function LinkedFeatureFlag({ info, experiment, open }: Props) {
             )}
           </>
         )}
-      </div>
+      </Box>
     </LinkedChange>
   );
 }
