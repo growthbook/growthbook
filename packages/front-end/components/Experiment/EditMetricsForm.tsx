@@ -48,6 +48,7 @@ export function getDefaultMetricOverridesFormValue(
           "loseRisk",
           "maxPercentChange",
           "minPercentChange",
+          "targetMDE",
         ].includes(key)
       ) {
         defaultMetricOverrides[i][key] *= 100;
@@ -115,6 +116,7 @@ export function fixMetricOverridesBeforeSaving(overrides: MetricOverride[]) {
           "loseRisk",
           "maxPercentChange",
           "minPercentChange",
+          "targetMDE",
         ].includes(key)
       ) {
         overrides[i][key] = v / 100;

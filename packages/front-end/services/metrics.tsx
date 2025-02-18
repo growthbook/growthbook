@@ -21,6 +21,7 @@ import {
   DEFAULT_MIN_PERCENT_CHANGE,
   DEFAULT_MAX_PERCENT_CHANGE,
   DEFAULT_MIN_SAMPLE_SIZE,
+  DEFAULT_TARGET_MDE,
 } from "shared/constants";
 import {
   MetricDefaults,
@@ -103,6 +104,8 @@ export function getDefaultFactMetricProps({
       existing?.minPercentChange ??
       metricDefaults.minPercentageChange ??
       DEFAULT_MIN_PERCENT_CHANGE,
+    targetMDE:
+      existing?.targetMDE ?? metricDefaults.targetMDE ?? DEFAULT_TARGET_MDE,
     maxPercentChange:
       existing?.maxPercentChange ??
       metricDefaults.maxPercentageChange ??
