@@ -18,11 +18,13 @@ from gbstats.models.statistics import (
     ProportionStatistic,
     SampleMeanStatistic,
     RegressionAdjustedStatistic,
+    RegressionAdjustedRatioStatistic,
 )
 from gbstats.frequentist.tests import (
     frequentist_diff,
     frequentist_variance,
     frequentist_variance_relative_cuped,
+    frequentist_variance_relative_cuped_ratio,
 )
 from gbstats.utils import (
     truncated_normal_mean,
@@ -182,6 +184,14 @@ class EffectBayesianABTest(BayesianABTest):
             and self.relative
         ):
             data_variance = frequentist_variance_relative_cuped(
+                self.stat_a, self.stat_b
+            )
+        elif (
+            isinstance(self.stat_a, RegressionAdjustedRatioStatistic)
+            and isinstance(self.stat_b, RegressionAdjustedRatioStatistic)
+            and self.relative
+        ):
+            data_variance = frequentist_variance_relative_cuped_ratio(
                 self.stat_a, self.stat_b
             )
         else:
