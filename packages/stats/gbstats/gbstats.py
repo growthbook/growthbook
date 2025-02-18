@@ -297,7 +297,8 @@ def analyze_metric_df(
                 s[f"v{i}_risk_type"] = res.risk_type
                 s[f"v{i}_prob_beat_baseline"] = res.chance_to_win
             elif isinstance(res, FrequentistTestResult):
-                s[f"v{i}_p_value"] = res.p_value
+                if res.p_value is not None:
+                    s[f"v{i}_p_value"] = res.p_value
             if test.stat_a.unadjusted_mean <= 0:
                 # negative or missing control mean
                 s[f"v{i}_expected"] = 0
