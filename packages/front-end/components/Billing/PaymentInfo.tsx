@@ -17,6 +17,7 @@ import Modal from "../Modal";
 import LoadingSpinner from "../LoadingSpinner";
 import { StripeProvider } from "../Billing/StripeProvider";
 import Tooltip from "../Tooltip/Tooltip";
+import Button from "../Radix/Button";
 import AddPaymentMethodModal from "./AddPaymentMethodModal";
 
 export default function PaymentInfo() {
@@ -141,27 +142,27 @@ export default function PaymentInfo() {
       <div className="bg-white p-3 border mb-3">
         <Flex justify="between" align="center" className="pb-3">
           <h3 className="mb-0">Payment Methods</h3>
-          <Tooltip
-            body="You can only have up to 3 payment methods on file"
-            shouldDisplay={paymentMethods.length > 2}
-          >
-            <button
-              disabled={paymentMethods.length > 2}
-              className="btn btn-primary float-right"
-              onClick={() => {
-                setPaymentMethodModal(true);
-                track("Edit Payment Method Modal", {
-                  source: "payment-method-empty-state",
-                });
-              }}
-              type="button"
+          <div>
+            <Tooltip
+              body="You can only have up to 3 payment methods on file"
+              shouldDisplay={paymentMethods.length > 2}
             >
-              <span className="h4 pr-2 m-0 d-inline-block align-top">
-                <GBAddCircle />
-              </span>
-              Add Payment Method
-            </button>
-          </Tooltip>
+              <Button
+                disabled={paymentMethods.length > 2}
+                onClick={() => {
+                  setPaymentMethodModal(true);
+                  track("Edit Payment Method Modal", {
+                    source: "payment-method-empty-state",
+                  });
+                }}
+              >
+                <span className="h4 pr-2 m-0 d-inline-block align-top">
+                  <GBAddCircle />
+                </span>
+                Add Payment Method
+              </Button>
+            </Tooltip>
+          </div>
         </Flex>
         {error ? (
           <Callout status="warning">{error}</Callout>
