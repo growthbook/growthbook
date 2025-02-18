@@ -340,6 +340,7 @@ export const computeExperimentChanges = async ({
           : curMetric.chanceToWin;
       if (criticalValue === undefined) continue;
 
+      // use metric map instead
       const metric = ensureAndReturn(await getExperimentMetricById(context, m));
 
       const { resultsStatus: curResultsStatus } = getMetricResultStatus({
