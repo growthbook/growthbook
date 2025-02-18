@@ -1,6 +1,7 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { DEFAULT_MID_EXPERIMENT_POWER_CALCULATION_ENABLED } from "shared/constants";
 import SRMCard from "@/components/HealthTab/SRMCard";
 import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";
 import { useUser } from "@/services/UserContext";
@@ -297,7 +298,9 @@ export default function HealthTab({
         </div>
       </div>
 
-      {!isBandit && (midExperimentPowerEnabled ?? true) ? (
+      {!isBandit &&
+      (midExperimentPowerEnabled ??
+        DEFAULT_MID_EXPERIMENT_POWER_CALCULATION_ENABLED) ? (
         <PowerCard
           experiment={experiment}
           snapshot={snapshot}

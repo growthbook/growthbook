@@ -107,7 +107,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         minimumSampleSize: metricDefaults.minimumSampleSize,
         maxPercentageChange: metricDefaults.maxPercentageChange * 100,
         minPercentageChange: metricDefaults.minPercentageChange * 100,
-        targetLift: metricDefaults.targetLift * 100,
+        targetMDE: metricDefaults.targetMDE * 100,
       },
       updateSchedule: {
         type: "stale",
@@ -176,7 +176,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       minimumSampleSize: form.watch("metricDefaults.minimumSampleSize"),
       maxPercentageChange: form.watch("metricDefaults.maxPercentageChange"),
       minPercentageChange: form.watch("metricDefaults.minPercentageChange"),
-      targetLift: form.watch("metricDefaults.targetLift"),
+      targetMDE: form.watch("metricDefaults.targetMDE"),
     },
     // customization:
     customized: form.watch("customized"),
@@ -232,7 +232,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
           // they exist and are not empty
           const existingMaxChange = settings?.[k]?.maxPercentageChange;
           const existingMinChange = settings?.[k]?.minPercentageChange;
-          const existingTargetLift = settings?.[k]?.targetLift;
+          const existingTargetMDE = settings?.[k]?.targetMDE;
           newVal[k] = {
             ...newVal[k],
             ...settings?.[k],
@@ -248,9 +248,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   minPercentageChange: existingMinChange * 100,
                 }
               : {}),
-            ...(existingTargetLift !== undefined
+            ...(existingTargetMDE !== undefined
               ? {
-                  targetLift: existingTargetLift * 100,
+                  targetMDE: existingTargetMDE * 100,
                 }
               : {}),
           };
@@ -305,7 +305,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         ...value.metricDefaults,
         maxPercentageChange: value.metricDefaults.maxPercentageChange / 100,
         minPercentageChange: value.metricDefaults.minPercentageChange / 100,
-        targetLift: value.metricDefaults.targetLift / 100,
+        targetMDE: value.metricDefaults.targetMDE / 100,
       },
       confidenceLevel: (value.confidenceLevel ?? 0.95) / 100,
       multipleExposureMinPercent:

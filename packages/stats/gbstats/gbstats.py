@@ -291,7 +291,7 @@ def analyze_metric_df(
             df[f"v{i}_error_message"] = None
             df[f"v{i}_decision_making_conditions"] = False
             df[f"v{i}_first_period_pairwise_users"] = None
-            df[f"v{i}_target_lift"] = None
+            df[f"v{i}_target_mde"] = None
             df[f"v{i}_sigmahat_2_delta"] = None
             df[f"v{i}_prior_proper"] = False
             df[f"v{i}_prior_lift_mean"] = None
@@ -329,7 +329,7 @@ def analyze_metric_df(
                 else:
                     prior = None
                 power_config = MidExperimentPowerConfig(
-                    target_lift=metric.target_lift,
+                    target_mde=metric.target_mde,
                     num_goal_metrics=analysis.num_goal_metrics,
                     num_variations=num_variations,
                     prior_effect=prior,
@@ -341,7 +341,7 @@ def analyze_metric_df(
                 s[
                     f"v{i}_first_period_pairwise_users"
                 ] = mid_experiment_power.pairwise_sample_size
-                s[f"v{i}_target_lift"] = metric.target_lift
+                s[f"v{i}_target_mde"] = metric.target_mde
                 s[f"v{i}_sigmahat_2_delta"] = mid_experiment_power.sigmahat_2_delta
                 if mid_experiment_power.prior_effect:
                     s[f"v{i}_prior_proper"] = mid_experiment_power.prior_effect.proper
@@ -458,7 +458,7 @@ def format_variation_result(
                 firstPeriodPairwiseSampleSize=row[
                     f"{prefix}_first_period_pairwise_users"
                 ],
-                targetLift=row[f"{prefix}_target_lift"],
+                targetMDE=row[f"{prefix}_target_mde"],
                 sigmahat2Delta=row[f"{prefix}_sigmahat_2_delta"],
                 priorProper=row[f"{prefix}_prior_proper"],
                 priorLiftMean=row[f"{prefix}_prior_lift_mean"],

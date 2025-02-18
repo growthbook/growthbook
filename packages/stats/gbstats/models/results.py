@@ -50,7 +50,7 @@ class PowerResponse:
     status: str
     errorMessage: Optional[str]
     firstPeriodPairwiseSampleSize: Optional[float]
-    targetLift: float
+    targetMDE: float
     sigmahat2Delta: Optional[float]
     priorProper: Optional[bool]
     priorLiftMean: Optional[float]

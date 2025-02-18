@@ -74,7 +74,7 @@ export interface MetricInterface {
   maxPercentChange?: number;
   minPercentChange?: number;
   minSampleSize?: number;
-  targetLift?: number;
+  targetMDE?: number;
 
   regressionAdjustmentOverride?: boolean;
   regressionAdjustmentEnabled?: boolean;

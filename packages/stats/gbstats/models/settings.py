@@ -74,7 +74,7 @@ class MetricSettingsForStatsEngine:
     covariate_metric_type: Optional[MetricType] = None
     quantile_value: Optional[float] = None
     business_metric_type: Optional[List[BusinessMetricType]] = None
-    target_lift: float = 0.01
+    target_mde: float = 0.01
 
 
 @dataclass

@@ -2253,7 +2253,7 @@ export function toMetricApiInterface(
         metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0.5,
       minSampleSize:
         metric.minSampleSize ?? metricDefaults?.minimumSampleSize ?? 150,
-      targetLift: metric.targetLift ?? metricDefaults?.targetLift ?? 0.01,
+      targetMDE: metric.targetMDE ?? metricDefaults?.targetMDE ?? 0.01,
       riskThresholdDanger: metric.loseRisk ?? 0.0125,
       riskThresholdSuccess: metric.winRisk ?? 0.0025,
       windowSettings: metric.windowSettings

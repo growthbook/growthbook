@@ -211,7 +211,7 @@ properties:
   minSampleSize:
     type: number
     minimum: 0
-  targetLift:
+  targetMDE:
     type: number
     description: The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.02 for 2%). This is used to estimate the "Days Left" for running experiments.
     minimum: 0

@@ -338,7 +338,7 @@ function getPowerStatus({
             ? ">"
             : ""
         }${cappedPowerAdditionalDaysNeeded} days left`,
-        tooltip: `This experiment has not collected enough data to reliably detected the specified Target Lift for all goal metrics. At recent traffic levels, the experiment will take ~${powerAdditionalDaysNeeded} days to collect enough data.`,
+        tooltip: `This experiment has not collected enough data to reliably detected the specified Target MDE for all goal metrics. At recent traffic levels, the experiment will take ~${powerAdditionalDaysNeeded} days to collect enough data.`,
       },
     };
   }

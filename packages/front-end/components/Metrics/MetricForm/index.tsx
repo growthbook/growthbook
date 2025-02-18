@@ -258,7 +258,7 @@ const MetricForm: FC<MetricFormProps> = ({
     getMinSampleSizeForMetric,
     getMinPercentageChangeForMetric,
     getMaxPercentageChangeForMetric,
-    getTargetLiftForMetric,
+    getTargetMDEForMetric,
     metricDefaults,
   } = useOrganizationMetricDefaults();
 
@@ -338,7 +338,7 @@ const MetricForm: FC<MetricFormProps> = ({
       loseRisk: (current.loseRisk || DEFAULT_LOSE_RISK_THRESHOLD) * 100,
       maxPercentChange: getMaxPercentageChangeForMetric(current) * 100,
       minPercentChange: getMinPercentageChangeForMetric(current) * 100,
-      targetLift: getTargetLiftForMetric(current) * 100,
+      targetMDE: getTargetMDEForMetric(current) * 100,
       minSampleSize: getMinSampleSizeForMetric(current),
       regressionAdjustmentOverride:
         current.regressionAdjustmentOverride ?? false,
@@ -512,7 +512,7 @@ const MetricForm: FC<MetricFormProps> = ({
       loseRisk,
       maxPercentChange,
       minPercentChange,
-      targetLift,
+      targetMDE,
       eventName,
       valueColumn,
       ...otherValues
@@ -525,7 +525,7 @@ const MetricForm: FC<MetricFormProps> = ({
       loseRisk: loseRisk / 100,
       maxPercentChange: maxPercentChange / 100,
       minPercentChange: minPercentChange / 100,
-      targetLift: targetLift / 100,
+      targetMDE: targetMDE / 100,
     };
 
     if (value.loseRisk < value.winRisk) return;
@@ -1333,13 +1333,13 @@ const MetricForm: FC<MetricFormProps> = ({
             }%)`}
               />
               <Field
-                label="Target Lift"
+                label="Target MDE"
                 type="number"
                 step="any"
                 append="%"
-                {...form.register("targetLift", { valueAsNumber: true })}
+                {...form.register("targetMDE", { valueAsNumber: true })}
                 helpText={`The percentage change that you want to reliably detect before ending your experiment. This is used to estimate the "Days Left" for running experiments. (default ${
-                  metricDefaults.targetLift * 100
+                  metricDefaults.targetMDE * 100
                 }%)`}
               />
 

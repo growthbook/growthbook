@@ -26,7 +26,7 @@ from gbstats.messages import (
 @dataclass
 class MidExperimentPowerConfig(BaseConfig):
     target_power: float = 0.8
-    target_lift: float = 0.01
+    target_mde: float = 0.01
     num_goal_metrics: int = 1
     num_variations: int = 2
     prior_effect: Optional[GaussianPrior] = field(default_factory=GaussianPrior)
@@ -71,7 +71,7 @@ class MidExperimentPower:
         self.multiplier = norm.ppf(1 - self.alpha / (2 * self.num_tests))
         self.target_power = power_config.target_power
         self.adjusted_power = self.target_power ** (1 / self.num_goal_metrics)
-        self.target_lift = np.abs(power_config.target_lift)
+        self.target_mde = np.abs(power_config.target_mde)
         self.prior_effect = power_config.prior_effect
         self.sequential = power_config.sequential
         self.sequential_tuning_parameter = power_config.sequential_tuning_parameter
@@ -210,7 +210,7 @@ class MidExperimentPower:
             num_2 = (
                 adjusted_variance * self.prior_effect.mean / self.prior_effect.variance
             )
-            num_3 = self.target_lift
+            num_3 = self.target_mde
             den = adjusted_variance**0.5
             part_pos = 1 - norm.cdf((num_1 - num_2 - num_3) / den)
             part_neg = norm.cdf(-(num_1 + num_2 + num_3) / den)
@@ -225,10 +225,10 @@ class MidExperimentPower:
             else:
                 halfwidth = self.multiplier * adjusted_variance**0.5
             part_pos = 1 - norm.cdf(
-                (halfwidth - self.target_lift) / adjusted_variance**0.5
+                (halfwidth - self.target_mde) / adjusted_variance**0.5
             )
             part_neg = norm.cdf(
-                -(halfwidth + self.target_lift) / adjusted_variance**0.5
+                -(halfwidth + self.target_mde) / adjusted_variance**0.5
             )
         return float(part_pos + part_neg)
 

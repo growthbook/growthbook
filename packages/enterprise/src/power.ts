@@ -160,11 +160,11 @@ export function calculateMidExperimentPowerSingle(
       "Missing firstPeriodPairwiseSampleSize."
     );
   }
-  if (response.targetLift === undefined) {
+  if (response.targetMDE === undefined) {
     return calculateMidExperimentPowerSingleError(
       metricId,
       variation,
-      "Missing targetLift."
+      "Missing targetMDE."
     );
   }
   if (response.sigmahat2Delta === undefined) {
@@ -208,7 +208,7 @@ export function calculateMidExperimentPowerSingle(
   const secondPeriodSampleSize = params.daysRemaining * params.newDailyUsers;
   const scalingFactorLowPowerWarning =
     secondPeriodSampleSize / params.firstPeriodSampleSize;
-  const targetLift = response.targetLift;
+  const targetMDE = response.targetMDE;
   const sigmahat2Delta = response.sigmahat2Delta;
   /*calculate power to evaluate low power warning*/
   /*additional units projected for the rest of the experiment*/
@@ -228,7 +228,7 @@ export function calculateMidExperimentPowerSingle(
       params.alpha,
       params.numVariations,
       params.numGoalMetrics,
-      targetLift,
+      targetMDE,
       adjustedVariance,
       response.priorLiftMean,
       response.priorLiftVariance
@@ -252,7 +252,7 @@ export function calculateMidExperimentPowerSingle(
         normal.quantile(1 - params.alpha / (2 * numTests), 0, 1);
     }
     totalPower = calculateMidExperimentPowerFreq(
-      targetLift,
+      targetMDE,
       halfwidth,
       adjustedVariance
     );
@@ -264,7 +264,7 @@ export function calculateMidExperimentPowerSingle(
   const powerResults: MetricVariationPowerResult = {
     metricId: metricId,
     variation: variation,
-    effectSize: targetLift,
+    effectSize: targetMDE,
     power: totalPower,
     additionalDaysNeeded: Math.ceil(
       additionalUsersNeeded / params.newDailyUsers
@@ -278,7 +278,7 @@ function calculateMidExperimentPowerBayes(
   alpha: number,
   numVariations: number,
   numGoalMetrics: number,
-  targetLift: number,
+  targetMDE: number,
   variance: number,
   priorLiftMean: number,
   priorLiftVariance: number
@@ -287,7 +287,7 @@ function calculateMidExperimentPowerBayes(
   const posterior_precision = 1 / priorLiftVariance + 1 / variance;
   const num1 = variance * Math.sqrt(posterior_precision) * multiplier;
   const num2 = (variance * priorLiftMean) / priorLiftVariance;
-  const num3 = targetLift;
+  const num3 = targetMDE;
   const den = Math.sqrt(variance);
   const powerPos = 1 - normal.cdf((num1 - num2 - num3) / den, 0, 1);
   const powerNeg = normal.cdf(-(num1 + num2 + num3) / den, 0, 1);
@@ -295,14 +295,14 @@ function calculateMidExperimentPowerBayes(
 }
 
 function calculateMidExperimentPowerFreq(
-  targetLift: number,
+  targetMDE: number,
   halfwidth: number,
   variance: number
 ): number {
   const powerPos =
-    1 - normal.cdf((halfwidth - targetLift) / Math.sqrt(variance), 0, 1);
+    1 - normal.cdf((halfwidth - targetMDE) / Math.sqrt(variance), 0, 1);
   const powerNeg = normal.cdf(
-    -(halfwidth + targetLift) / Math.sqrt(variance),
+    -(halfwidth + targetMDE) / Math.sqrt(variance),
     0,
     1
   );
@@ -360,7 +360,7 @@ export function calculateMidExperimentPower(
           metricId: metricId,
           variation: variation,
           power: undefined,
-          effectSize: variationMetricData.targetLift,
+          effectSize: variationMetricData.targetMDE,
           errorMessage: variationMetricData.errorMessage,
         });
       } else {

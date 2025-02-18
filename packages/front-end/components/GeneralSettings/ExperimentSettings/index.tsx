@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useFormContext } from "react-hook-form";
-import { Box, Flex, Heading, Text, Tooltip } from "@radix-ui/themes";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import Checkbox from "@/components/Radix/Checkbox";
 import { hasFileConfig } from "@/services/env";
 import { useUser } from "@/services/UserContext";
@@ -389,51 +389,6 @@ export default function ExperimentSettings({
                     </label>
                   </Box>
                 </Flex>
-
-                <Box mb="4">
-                  <Flex
-                    display="inline-flex"
-                    gap="3"
-                    align="center"
-                    justify="center"
-                  >
-                    <Checkbox
-                      mb="0"
-                      value={
-                        !hasCommercialFeature("mid-experiment-power")
-                          ? false
-                          : form.watch("midExperimentPowerEnabled")
-                      }
-                      setValue={(v) =>
-                        form.setValue("midExperimentPowerEnabled", v)
-                      }
-                      id="toggle-midExperimentPowerEnabled"
-                      disabled={!hasCommercialFeature("mid-experiment-power")}
-                    />
-                    <Box>
-                      <label
-                        htmlFor="toggle-midExperimentPowerEnabled"
-                        className="font-weight-semibold mb-0"
-                      >
-                        Mid-experiment Power Calculation
-                        <Tooltip content="Calculate the power of the experiment when Results are refreshed and display the status as Unhealthy if the power is too low">
-                          <Flex
-                            ml="2"
-                            mb="2px"
-                            display="inline-flex"
-                            style={{ verticalAlign: "middle" }}
-                          >
-                            <GBInfo />
-                          </Flex>
-                        </Tooltip>
-                        <PremiumTooltip
-                          commercialFeature="mid-experiment-power"
-                          style={{ display: "inline-flex" }}
-                        />
-                      </label>
-                    </Box>
-                  </Flex>
-                </Box>
 
                 <Box mb="4">
                   <Text as="p" className="font-weight-semibold">

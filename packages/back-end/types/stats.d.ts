@@ -40,7 +40,7 @@ export interface MetricPowerResponseFromStatsEngine {
   status: string;
   errorMessage?: string;
   firstPeriodPairwiseSampleSize?: number;
-  targetLift: number;
+  targetMDE: number;
   sigmahat2Delta?: number;
   priorProper?: boolean;
   priorLiftMean?: number;

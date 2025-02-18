@@ -5,7 +5,7 @@ import cloneDeep from "lodash/cloneDeep";
 import {
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-  DEFAULT_TARGET_LIFT,
+  DEFAULT_TARGET_MDE,
   EXPOSURE_DATE_DIMENSION_NAME,
 } from "shared/constants";
 import { putBaselineVariationFirst } from "shared/util";
@@ -108,7 +108,7 @@ export interface MetricSettingsForStatsEngine {
   prior_proper?: boolean;
   prior_mean?: number;
   prior_stddev?: number;
-  target_lift: number;
+  target_mde: number;
   business_metric_type: BusinessMetricTypeForStatsEngine[];
 }
 
@@ -418,7 +418,7 @@ export function getMetricSettingsForStatsEngine(
     prior_proper: metric.priorSettings.proper,
     prior_mean: metric.priorSettings.mean,
     prior_stddev: metric.priorSettings.stddev,
-    target_lift: metric.targetLift ?? DEFAULT_TARGET_LIFT,
+    target_mde: metric.targetMDE ?? DEFAULT_TARGET_MDE,
     business_metric_type: getBusinessMetricTypeForStatsEngine(
       metric.id,
       settings

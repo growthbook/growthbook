@@ -138,18 +138,18 @@ export default function MetricsSettings() {
             </div>
             {/* endregion Minimum Percentage Change */}
 
-            {/* region Target lift */}
+            {/* region Target MDE */}
             <div>
               <div className="form-inline">
                 <Field
-                  label="Target Lift"
+                  label="Target Minimum Detectable Effect"
                   type="number"
                   min={0}
                   append="%"
                   className="ml-2"
                   containerClassName="mt-2"
                   disabled={hasFileConfig()}
-                  {...form.register("metricDefaults.targetLift", {
+                  {...form.register("metricDefaults.targetMDE", {
                     valueAsNumber: true,
                     min: 0,
                   })}
@@ -157,11 +157,12 @@ export default function MetricsSettings() {
               </div>
               <p>
                 <small className="text-muted mb-3">
-                  The percentage change that you want to reliably detect before
-                  ending your experiment.
+                  The percentage change that you want to be able to reliably
+                  detect before ending your experiment. This is used to estimate
+                  the &quot;Days Left&quot; for running experiments.
                   <br />
-                  This is used to estimate the &quot;Days Left&quot; for running
-                  experiments.
+                  Lower values require more data to reach a decision point for
+                  an experiment.
                 </small>
               </p>
             </div>

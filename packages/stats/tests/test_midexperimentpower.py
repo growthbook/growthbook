@@ -41,7 +41,7 @@ class TestMidExperimentPower(TestCase):
         self.num_variations = 2
         self.power_config_freq = MidExperimentPowerConfig(
             target_power=self.target_power,
-            target_lift=self.delta,
+            target_mde=self.delta,
             num_goal_metrics=self.num_goal_metrics,
             num_variations=self.num_variations,
             prior_effect=None,

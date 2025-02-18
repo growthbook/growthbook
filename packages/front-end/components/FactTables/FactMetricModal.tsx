@@ -1441,7 +1441,7 @@ export default function FactMetricModal({
   defaultValues.loseRisk = defaultValues.loseRisk * 100;
   defaultValues.minPercentChange = defaultValues.minPercentChange * 100;
   defaultValues.maxPercentChange = defaultValues.maxPercentChange * 100;
-  defaultValues.targetLift = defaultValues.targetLift * 100;
+  defaultValues.targetMDE = defaultValues.targetMDE * 100;
 
   const form = useForm<CreateFactMetricProps>({
     defaultValues,
@@ -1629,7 +1629,7 @@ export default function FactMetricModal({
         values.loseRisk = values.loseRisk / 100;
         values.minPercentChange = values.minPercentChange / 100;
         values.maxPercentChange = values.maxPercentChange / 100;
-        values.targetLift = values.targetLift / 100;
+        values.targetMDE = values.targetMDE / 100;
 
         // Anonymized telemetry props
         // Will help us measure which settings are being used so we can optimize the UI
@@ -2338,15 +2338,15 @@ export default function FactMetricModal({
 
                     <TabsContent value="display">
                       <Field
-                        label="Target Lift"
+                        label="Target MDE"
                         type="number"
                         step="any"
                         append="%"
-                        {...form.register("targetLift", {
+                        {...form.register("targetMDE", {
                           valueAsNumber: true,
                         })}
                         helpText={`The percentage change that you want to reliably detect before ending your experiment. This is used to estimate the "Days Left" for running experiments. (default ${
-                          metricDefaults.targetLift * 100
+                          metricDefaults.targetMDE * 100
                         }%)`}
                       />
 

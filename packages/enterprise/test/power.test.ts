@@ -51,7 +51,7 @@ describe("getAverageExposureOverLastNDays", () => {
 
 it("midExperimentPower", () => {
   const firstPeriodPairwiseSampleSize = 1000;
-  const targetLift = 0.05;
+  const targetMDE = 0.05;
   const sigmahat2Delta = 0.008426853707414856;
   const scalingFactorFreq = 25.45703125;
   const scalingFactorSeq = 55.66796875;
@@ -61,7 +61,7 @@ it("midExperimentPower", () => {
     status: "successful",
     errorMessage: "",
     firstPeriodPairwiseSampleSize: firstPeriodPairwiseSampleSize,
-    targetLift: targetLift,
+    targetMDE: targetMDE,
     sigmahat2Delta: sigmahat2Delta,
     priorProper: false,
     upperBoundAchieved: false,
@@ -71,7 +71,7 @@ it("midExperimentPower", () => {
     status: "successful",
     errorMessage: "",
     firstPeriodPairwiseSampleSize: firstPeriodPairwiseSampleSize,
-    targetLift: targetLift,
+    targetMDE: targetMDE,
     sigmahat2Delta: sigmahat2Delta,
     priorProper: false,
     upperBoundAchieved: false,
@@ -81,7 +81,7 @@ it("midExperimentPower", () => {
     status: "successful",
     errorMessage: "",
     firstPeriodPairwiseSampleSize: firstPeriodPairwiseSampleSize,
-    targetLift: targetLift,
+    targetMDE: targetMDE,
     sigmahat2Delta: sigmahat2Delta,
     priorProper: true,
     priorLiftMean: 0.05,

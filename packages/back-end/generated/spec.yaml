@@ -4296,7 +4296,7 @@ paths:
                 minSampleSize:
                   type: number
                   minimum: 0
-                targetLift:
+                targetMDE:
                   type: number
                   description: 'The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.02 for 2%). This is used to estimate the "Days Left" for running experiments.'
                   minimum: 0
@@ -4968,7 +4968,7 @@ components:
             - minPercentChange
             - maxPercentChange
             - minSampleSize
-            - targetLift
+            - targetMDE
           properties:
             goal:
               type: string
@@ -5074,7 +5074,7 @@ components:
               type: number
             minSampleSize:
               type: number
-            targetLift:
+            targetMDE:
               type: number
         sql:
           type: object
@@ -6509,7 +6509,7 @@ components:
         - minPercentChange
         - maxPercentChange
         - minSampleSize
-        - targetLift
+        - targetMDE
         - managedBy
         - dateCreated
         - dateUpdated
@@ -6699,7 +6699,7 @@ components:
           type: number
         minSampleSize:
           type: number
-        targetLift:
+        targetMDE:
           type: number
         managedBy:
           type: string

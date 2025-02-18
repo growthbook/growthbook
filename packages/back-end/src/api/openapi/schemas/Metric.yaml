@@ -62,7 +62,7 @@ properties:
       - minPercentChange
       - maxPercentChange
       - minSampleSize
-      - targetLift
+      - targetMDE
     properties:
       goal:
         type: string
@@ -168,7 +168,7 @@ properties:
         type: number
       minSampleSize:
         type: number
-      targetLift:
+      targetMDE:
         type: number
   sql:
     type: object
