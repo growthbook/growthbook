@@ -221,7 +221,9 @@ class MidExperimentPower:
                 )
                 n_total = self.pairwise_sample_size + n_t_prime
                 s2 = self.pairwise_sample_size * self.sigmahat_2_delta
-                halfwidth = sequential_interval_halfwidth(s2, n_total, rho, self.alpha)
+                halfwidth = sequential_interval_halfwidth(
+                    s2, n_total, rho, self.alpha / self.num_tests
+                )
             else:
                 halfwidth = self.multiplier * adjusted_variance**0.5
             part_pos = 1 - norm.cdf(
@@ -230,6 +232,7 @@ class MidExperimentPower:
             part_neg = norm.cdf(
                 -(halfwidth + self.target_mde) / adjusted_variance**0.5
             )
+            # print([self.target_lift, halfwidth, adjusted_variance])
         return float(part_pos + part_neg)
 
     def calculate_scaling_factor(self) -> ScalingFactorResult:
