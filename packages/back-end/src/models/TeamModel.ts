@@ -6,6 +6,7 @@ import {
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 
 const teamSchema = new mongoose.Schema({
   id: {
@@ -118,4 +119,34 @@ export async function deleteTeam(id: string, orgId: string): Promise<void> {
     id,
     organization: orgId,
   });
+}
+
+export async function getAllTeamRoleInfoInDb(): Promise<
+  {
+    id: string;
+    role: string;
+    projectRoles: { role: string }[];
+  }[]
+> {
+  if (IS_CLOUD) {
+    throw new Error("getAllTeamRoleInfoInDb() is not supported on cloud");
+  }
+
+  const docs = await getCollection(COLLECTION)
+    .find(
+      {},
+      {
+        projection: {
+          id: 1,
+          role: 1,
+          "projectRoles.role": 1,
+        },
+      }
+    )
+    .toArray();
+  return docs.map((d) => ({
+    id: d.id,
+    role: d.role,
+    projectRoles: d.projectRoles,
+  }));
 }
