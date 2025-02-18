@@ -240,7 +240,7 @@ function getStatusIndicatorData(
       return powerIndicatorData;
     }
 
-    // 5. Otherwise, show running status
+    // 6. Otherwise, show running status
     return {
       color: "indigo",
       variant: "solid",
