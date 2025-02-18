@@ -270,7 +270,7 @@ export default function AttributeForm({
           </TabsList>
 
           <div
-            className={`${styles.attributeBox} pb-2 round`}
+            className={`${styles.attributeBox} pb-2 round appbox`}
             style={{ borderTopRightRadius: 0 }}
           >
             <TabsContent value="simple">

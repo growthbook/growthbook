@@ -191,22 +191,22 @@ const ExperimentCarouselModal: FC<{
             ) : null}
           </Box>
           <Box
-            overflow="hidden"
             flexGrow="1"
             flexShrink="1"
             flexBasis={"100%"}
             height="100%"
             className={styles.imageContainer}
             style={{
+              textAlign: "center",
               cursor: zoom ? "zoom-out" : "zoom-in",
-              overflow: zoom ? "scroll" : "hidden",
+              overflow: zoom ? "scroll" : "",
             }}
             onClick={() => setZoom(!zoom)}
           >
             {/* image container */}
             <AuthorizedImage
               imageCache={imageCache}
-              className="experiment-image"
+              className={`experiment-image ${styles.mainimage}`}
               src={screenshot.path}
               key={screenshot.path}
               onErrorMsg={(msg) => {
@@ -327,7 +327,7 @@ const ExperimentCarouselModal: FC<{
                 displayName="Screenshot"
                 text="Delete"
                 onClick={async () => {
-                  if (!variantIndex) return;
+                  if (variantIndex == null) return;
                   await deleteImage(variantIndex, screenshot.path);
                   if (mutate) {
                     mutate();

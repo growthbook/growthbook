@@ -142,7 +142,6 @@ const VariationsTable: FC<Props> = ({
             p="5"
             pb="3"
             className={`appbox mb-0 position-relative variation variation${i} with-variation-label`}
-            style={{ backgroundColor: "var(--white-a1)" }}
           >
             <Box
               className={`variation variation${i} with-variation-color`}

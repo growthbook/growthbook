@@ -1,9 +1,11 @@
 import React, { ReactNode } from "react";
-import { FaAngleRight, FaExternalLinkAlt } from "react-icons/fa";
+import { FaAngleRight } from "react-icons/fa";
 import Collapsible from "react-collapsible";
-import { BsFlag } from "react-icons/bs";
 import { FeatureValueType } from "back-end/types/feature";
 import Link from "next/link";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { PiArrowSquareOut } from "react-icons/pi";
+import Callout from "@/components/Radix/Callout";
 
 type Props = {
   changeType: "flag" | "visual";
@@ -13,6 +15,7 @@ type Props = {
   changes?: string[];
   open: boolean;
   children?: ReactNode;
+  state?: string;
 };
 
 export default function LinkedChange({
@@ -23,72 +26,89 @@ export default function LinkedChange({
   additionalBadge,
   open,
   children,
+  state,
 }: Props) {
   return (
-    <div className="linked-change border bg-light my-3 rounded">
+    <Box className="linked-change appbox my-3" p="4" px="5">
       <Collapsible
         trigger={
-          <div className="px-3 py-3 row text-dark">
-            <div className="col-auto d-flex align-items-center text-dark">
-              <FaAngleRight className="chevron" />
-            </div>
-            {changeType === "flag" ? (
+          <Box>
+            <Flex justify="between">
+              {changeType === "flag" ? (
+                <Flex gap="1" direction="column">
+                  <Flex gap="3">
+                    <Link
+                      href={`/features/${feature?.id}`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Heading
+                        as="h4"
+                        size="3"
+                        weight="medium"
+                        mb="0"
+                        className="d-inline-flex align-items-center"
+                      >
+                        {feature?.id || "Feature"}
+                        <PiArrowSquareOut className="ml-2" />
+                      </Heading>
+                    </Link>
+                    <Box>{additionalBadge}</Box>
+                  </Flex>
+                  <Box>
+                    <Text weight="medium">{feature?.valueType}</Text>
+                  </Box>
+                </Flex>
+              ) : (
+                <>
+                  <div className="col-auto d-flex align-items-center">
+                    <span className="text-muted">Page:</span>{" "}
+                    <span
+                      className="ml-1 d-inline-block text-ellipsis"
+                      style={{ width: 300 }}
+                    >
+                      {page}
+                    </span>
+                  </div>
+                  <div className="col-auto">
+                    <span className="text-muted">Changes:</span>{" "}
+                    <span>
+                      {(changes?.length || 0) > 0 ? (
+                        changes?.join(" + ")
+                      ) : (
+                        <em>none</em>
+                      )}
+                    </span>
+                  </div>
+                </>
+              )}
+              <Box>
+                <FaAngleRight className="chevron" />
+              </Box>
+            </Flex>
+            {state && state === "draft" && (
               <>
-                <div className="col-auto d-flex align-items-center">
-                  <BsFlag />
-                  <code
-                    className="ml-1 text-break"
-                    style={{ color: "inherit" }}
-                  >
-                    {feature?.id || "Feature"}
-                  </code>
-                  <span className="rounded-pill badge-pill badge-gray ml-3">
-                    {feature?.valueType}
-                  </span>
-                  {additionalBadge}
-                </div>
-                <div className="col-auto ml-auto">
+                <Callout status="warning" mt="4">
+                  Feature is in <strong>Draft</strong> mode and will not allow
+                  experiments to run. Publish Feature from the Feature Flag
+                  detail page to start.{" "}
                   <Link
                     href={`/features/${feature?.id}`}
-                    className="ml-4 link-purple"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    View Feature
-                    <FaExternalLinkAlt className="ml-1" />
+                    Take me there <PiArrowSquareOut className="ml-1" />
                   </Link>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="col-auto d-flex align-items-center">
-                  <span className="text-muted">Page:</span>{" "}
-                  <span
-                    className="ml-1 d-inline-block text-ellipsis"
-                    style={{ width: 300 }}
-                  >
-                    {page}
-                  </span>
-                </div>
-                <div className="col-auto">
-                  <span className="text-muted">Changes:</span>{" "}
-                  <span>
-                    {(changes?.length || 0) > 0 ? (
-                      changes?.join(" + ")
-                    ) : (
-                      <em>none</em>
-                    )}
-                  </span>
-                </div>
+                </Callout>
               </>
             )}
-          </div>
+          </Box>
         }
         open={open}
         transitionTime={100}
       >
-        <div className="border-top mx-3 mb-3"></div>
-        {children}
+        <Box mt="4" pt="4" style={{ borderTop: "1px solid var(--slate-a4)" }}>
+          {children}
+        </Box>
       </Collapsible>
-    </div>
+    </Box>
   );
 }
