@@ -24,7 +24,7 @@ from gbstats.messages import (
 
 
 @dataclass
-class MidExperimentPowerConfig(BaseConfig):
+class MidExperimentPowerConfig:
     target_power: float = 0.8
     target_mde: float = 0.01
     num_goal_metrics: int = 1
@@ -219,8 +219,8 @@ class MidExperimentPower:
                 rho = sequential_rho(
                     self.alpha / self.num_tests, self.sequential_tuning_parameter
                 )
-                n_total = self.pairwise_sample_size + n_t_prime
                 s2 = self.pairwise_sample_size * self.sigmahat_2_delta
+                n_total = self.pairwise_sample_size + n_t_prime
                 halfwidth = sequential_interval_halfwidth(
                     s2, n_total, rho, self.alpha / self.num_tests
                 )
@@ -232,7 +232,6 @@ class MidExperimentPower:
             part_neg = norm.cdf(
                 -(halfwidth + self.target_mde) / adjusted_variance**0.5
             )
-            # print([self.target_lift, halfwidth, adjusted_variance])
         return float(part_pos + part_neg)
 
     def calculate_scaling_factor(self) -> ScalingFactorResult:
