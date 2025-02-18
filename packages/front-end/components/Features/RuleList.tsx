@@ -19,11 +19,10 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import {
   getRules,
-  isRuleDisabled,
-  isRuleFullyCovered,
+  getUnreachableRuleIndex,
+  isRuleInactive,
 } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { Rule, SortableRule } from "./Rule";
 
 export default function RuleList({
@@ -36,7 +35,8 @@ export default function RuleList({
   setVersion,
   locked,
   experimentsMap,
-  showDisabledToggle,
+  hideInactive,
+  isDraft,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -45,6 +45,7 @@ export default function RuleList({
     environment: string;
     i: number;
     defaultType?: string;
+    duplicate?: boolean;
   }) => void;
   setCopyRuleModal: (args: {
     environment: string;
@@ -54,13 +55,10 @@ export default function RuleList({
   setVersion: (version: number) => void;
   locked: boolean;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
-  showDisabledToggle?: boolean;
+  hideInactive?: boolean;
+  isDraft: boolean;
 }) {
   const { apiCall } = useAuth();
-  const [hideDisabled, setHideDisabled] = useLocalStorage(
-    `hide-disabled-rules-${environment}`,
-    false
-  );
   const [activeId, setActiveId] = useState<string | null>(null);
   const [items, setItems] = useState(getRules(feature, environment));
   const permissionsUtil = usePermissionsUtil();
@@ -76,8 +74,7 @@ export default function RuleList({
     })
   );
 
-  const disabledRules = items.filter((r) => isRuleDisabled(r, experimentsMap));
-  const showInactiveToggle = showDisabledToggle;
+  const inactiveRules = items.filter((r) => isRuleInactive(r, experimentsMap));
 
   if (!items.length) {
     return (
@@ -95,15 +92,7 @@ export default function RuleList({
   }
 
   // detect unreachable rules, and get the first rule that is at 100%.
-  let unreachableIndex = 0;
-  items.forEach((item, i) => {
-    if (unreachableIndex) return;
-
-    // if this rule covers 100% of traffic, no additional rules are reachable.
-    if (isRuleFullyCovered(item)) {
-      unreachableIndex = i + 1;
-    }
-  });
+  const unreachableIndex = getUnreachableRuleIndex(items, experimentsMap);
 
   const activeRule = activeId ? items[getRuleIndex(activeId)] : null;
 
@@ -154,23 +143,7 @@ export default function RuleList({
         setActiveId(active.id);
       }}
     >
-      {showInactiveToggle ? (
-        <div
-          className="position-absolute d-flex justify-content-end"
-          style={{ top: "-22px", right: 0 }}
-        >
-          <label className="mb-0">
-            <input
-              type="checkbox"
-              className="form-check-input"
-              checked={hideDisabled}
-              onChange={(e) => setHideDisabled(e.target.checked)}
-            />
-            only show active rules
-          </label>
-        </div>
-      ) : null}
-      {disabledRules.length === items.length && hideDisabled && (
+      {inactiveRules.length === items.length && hideInactive && (
         <div className="px-3 mb-3">
           <em>No Active Rules</em>
         </div>
@@ -191,7 +164,8 @@ export default function RuleList({
             setVersion={setVersion}
             locked={locked}
             experimentsMap={experimentsMap}
-            hideDisabled={showInactiveToggle ? hideDisabled : false}
+            hideInactive={hideInactive}
+            isDraft={isDraft}
           />
         ))}
       </SortableContext>
@@ -209,6 +183,12 @@ export default function RuleList({
             setVersion={setVersion}
             locked={locked}
             experimentsMap={experimentsMap}
+            hideInactive={hideInactive}
+            unreachable={
+              !!unreachableIndex &&
+              getRuleIndex(activeId as string) >= unreachableIndex
+            }
+            isDraft={isDraft}
           />
         ) : null}
       </DragOverlay>

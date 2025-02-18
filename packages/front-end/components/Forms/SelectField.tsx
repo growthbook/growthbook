@@ -25,6 +25,7 @@ export type SelectFieldProps = Omit<
   "value" | "onChange" | "options" | "multi" | "initialOption" | "placeholder"
 > & {
   value: string;
+  markRequired?: boolean;
   placeholder?: string;
   options: (SingleValue | GroupedValue)[];
   initialOption?: string;
@@ -38,6 +39,7 @@ export type SelectFieldProps = Omit<
   isClearable?: boolean;
   onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
   isOptionDisabled?: (_: Option) => boolean;
+  forceUndefinedValueToNull?: boolean;
 };
 
 export function useSelectOptions(
@@ -74,7 +76,6 @@ export function useSelectOptions(
       clone.unshift(o);
       m.set("", o);
     }
-
     return [m, clone] as const;
   }, [options, initialOption]);
 }
@@ -166,6 +167,8 @@ const SelectField: FC<SelectFieldProps> = ({
   isClearable = false,
   onPaste,
   isOptionDisabled,
+  // forces re-render when input is undefined
+  forceUndefinedValueToNull = false,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -269,7 +272,6 @@ const SelectField: FC<SelectFieldProps> = ({
                 formatOptionLabel={formatOptionLabel}
                 formatGroupLabel={formatGroupLabel}
                 isSearchable={!!isSearchable}
-                // @ts-expect-error onPaste is passed to Input
                 onPaste={onPaste}
                 components={{
                   Input,
@@ -290,12 +292,11 @@ const SelectField: FC<SelectFieldProps> = ({
                 }}
                 onBlur={onBlur}
                 autoFocus={autoFocus}
-                value={selected}
+                value={forceUndefinedValueToNull ? selected ?? null : selected}
                 placeholder={initialOption ?? placeholder}
                 formatOptionLabel={formatOptionLabel}
                 formatGroupLabel={formatGroupLabel}
                 isSearchable={!!isSearchable}
-                // @ts-expect-error onPaste is passed to Input
                 onPaste={onPaste}
                 components={{
                   Input,

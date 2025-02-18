@@ -237,7 +237,7 @@ export function applyPagination<T>(
   if (isNaN(limit) || limit < 1 || limit > 100) {
     throw new Error("Pagination limit must be between 1 and 100");
   }
-  if (isNaN(offset) || offset < 0 || (offset > 0 && offset >= items.length)) {
+  if (isNaN(offset) || offset < 0) {
     throw new Error("Invalid pagination offset");
   }
 

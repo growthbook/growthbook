@@ -9,11 +9,11 @@ import {
   Separator,
   Text,
 } from "@radix-ui/themes";
+import { PiArrowSquareOut } from "react-icons/pi";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useGetStarted } from "@/services/GetStartedProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import LinkButton from "@/components/Radix/LinkButton";
 import {
   AnalyzeExperimentFeatureCard,
   ExperimentFeatureCard,
@@ -24,6 +24,9 @@ import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import YouTubeLightBox from "@/components/GetStarted/YoutubeLightbox";
 import OverviewCard from "@/components/GetStarted/OverviewCard";
 import WorkspaceLinks from "@/components/GetStarted/WorkspaceLinks";
+import Callout from "@/components/Radix/Callout";
+import Link from "@/components/Radix/Link";
+import useSDKConnections from "@/hooks/useSDKConnections";
 
 const GetStartedPage = (): React.ReactElement => {
   const [showVideoId, setShowVideoId] = useState<string>("");
@@ -42,6 +45,12 @@ const GetStartedPage = (): React.ReactElement => {
       projects: [project],
       id: "production",
     });
+
+  const { data: sdkConnectionData } = useSDKConnections();
+  const showSetUpFlow =
+    canUseSetupFlow &&
+    sdkConnectionData &&
+    !sdkConnectionData.connections.some((c) => c.connected);
 
   // If they view the guide, clear the current step
   useEffect(() => {
@@ -84,16 +93,28 @@ const GetStartedPage = (): React.ReactElement => {
           <Heading as="h1" size="6" weight="medium" mb="0">
             Get Started
           </Heading>
+        </Grid>
 
-          {canUseSetupFlow && (
-            <LinkButton
-              href="/setup"
-              variant="outline"
-              size="sm"
-              style={{ width: "100%" }}
-            >
-              Launch Setup Flow
-            </LinkButton>
+        <Grid
+          columns={{
+            initial: "1fr",
+            xs: `1fr ${DOCUMENTATION_SIDEBAR_WIDTH}`,
+          }}
+          gapX="4"
+          mb="6"
+        >
+          {showSetUpFlow && (
+            <Callout status="wizard" size="md">
+              Connect to your SDK to get started.{" "}
+              <Link
+                href="/setup"
+                className="font-weight-bold"
+                style={{ color: "inherit" }}
+              >
+                Launch the setup flow
+              </Link>{" "}
+              <PiArrowSquareOut />
+            </Callout>
           )}
         </Grid>
 

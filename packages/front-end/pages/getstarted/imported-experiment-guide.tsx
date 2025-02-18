@@ -212,7 +212,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
               </div>
               <div className="col">
                 <Link
-                  href="/experiments"
+                  href="/experiments?analyzeExisting=true"
                   style={{
                     fontSize: "17px",
                     fontWeight: 600,

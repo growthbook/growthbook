@@ -17,6 +17,16 @@
         "types": "./dist/index.d.ts",
         "default": "./dist/cjs/index.js"
       }
+    },
+    "./plugins": {
+      "import": {
+        "types": "./dist/plugins/index.d.ts",
+        "default": "./dist/esm/plugins/index.mjs"
+      },
+      "require": {
+        "types": "./dist/plugins/index.d.ts",
+        "default": "./dist/cjs/plugins/index.js"
+      }
     }
   },
   "files": [

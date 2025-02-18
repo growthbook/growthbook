@@ -730,7 +730,7 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
         self.assertEqual(result.at[0, "v1_risk"], None)
         self.assertEqual(round_(result.at[0, "v1_expected"]), -0.281707154)
         self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
-        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.003736297)
+        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.003732549)
         # But difference is not just DIM / control mean, like it used to be
         self.assertNotEqual(
             np.round(result.at[0, "v1_expected"], 3),
@@ -763,7 +763,7 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
         self.assertEqual(result.at[0, "v1_risk"], None)
         self.assertEqual(round_(result.at[0, "v1_expected"]), -0.316211568)
         self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
-        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.00000035)
+        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.000000352)
 
 
 class TestAnalyzeMetricDfSequential(TestCase):

@@ -47,7 +47,7 @@ import {
 import useApi from "@/hooks/useApi";
 import { useAuth, UserOrganizations } from "@/services/auth";
 import { getJitsuClient, trackPageView } from "@/services/track";
-import { growthbook } from "@/services/utils";
+import { getOrGeneratePageId, growthbook } from "@/services/utils";
 
 export interface PermissionFunctions {
   check(permission: GlobalPermission): boolean;
@@ -302,6 +302,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     growthbook.updateAttributes({
       anonymous_id,
       id: data?.userId || "",
+      user_id: data?.userId || "",
       superAdmin: data?.superAdmin || false,
       cloud: isCloud(),
       multiOrg: isMultiOrg(),
@@ -310,8 +311,17 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       buildSHA: build.sha,
       buildDate: build.date,
       buildVersion: build.lastVersion,
+      orgOwnerJobTitle:
+        currentOrg?.organization?.demographicData?.ownerJobTitle,
+      orgOwnerUsageIntents:
+        currentOrg?.organization?.demographicData?.ownerUsageIntents,
     });
-  }, [data?.superAdmin, data?.userId]);
+  }, [
+    data?.superAdmin,
+    data?.userId,
+    currentOrg?.organization?.demographicData?.ownerJobTitle,
+    currentOrg?.organization?.demographicData?.ownerUsageIntents,
+  ]);
 
   // Org GrowthBook attributes
   useEffect(() => {
@@ -322,7 +332,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       orgDateCreated: currentOrg?.organization?.dateCreated
         ? getValidDate(currentOrg.organization.dateCreated).toISOString()
         : "",
-      accountPlan: currentOrg?.effectiveAccountPlan || "unknown",
+      accountPlan: currentOrg?.effectiveAccountPlan || "loading",
       hasLicenseKey: !!currentOrg?.organization?.licenseKey,
       freeSeats: currentOrg?.organization?.freeSeats || 3,
       discountCode: currentOrg?.organization?.discountCode || "",
@@ -334,6 +344,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     growthbook.setURL(window.location.href);
     growthbook.updateAttributes({
       url: router?.pathname || "",
+      page_id: getOrGeneratePageId(),
     });
   }, [router?.pathname]);
 
@@ -445,7 +456,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 
     if (license?.plan === "enterprise") return false;
 
-    // if already on pro, they must have a stripeSubscription - some self-hosted pro have an annual contract not directly through stripe.
+    // if already on pro, they must have a subscription - some self-hosted pro have an annual contract not directly through stripe.
     if (
       license &&
       ["pro", "pro_sso"].includes(license.plan || "") &&

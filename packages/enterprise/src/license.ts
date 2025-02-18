@@ -71,12 +71,13 @@ export type CommercialFeature =
   | "multi-armed-bandits"
   | "metric-groups"
   | "environment-inheritance"
-  | "templates";
+  | "templates"
+  | "historical-power";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export type SubscriptionInfo = {
-  billingPlatform: "stripe" | "orb";
+  billingPlatform: "stripe";
   externalId: string;
   trialEnd: Date | null;
   status: "active" | "canceled" | "past_due" | "trialing" | "";
@@ -98,23 +99,14 @@ export function getStripeSubscriptionStatus(
 export function getSubscriptionFromLicense(
   license: Partial<LicenseInterface>
 ): SubscriptionInfo | null {
-  if (license._billingPlatform === "orb" && license._orbSubscription) {
-    return {
-      billingPlatform: "orb",
-      externalId: license._orbSubscription.id,
-      trialEnd: license._orbSubscription.trialEnd,
-      status: license._orbSubscription.status,
-      hasPaymentMethod: license._orbSubscription.hasPaymentMethod,
-      hasLicense: true,
-    };
-  } else if (license._stripeSubscription) {
+  if (license.stripeSubscription) {
     return {
       billingPlatform: "stripe",
-      externalId: license._stripeSubscription.id,
-      trialEnd: license._stripeSubscription.trialEnd,
-      status: getStripeSubscriptionStatus(license._stripeSubscription.status),
-      hasPaymentMethod: !!license._stripeSubscription.hasPaymentMethod,
-      hasLicense: true,
+      externalId: license.stripeSubscription.id,
+      trialEnd: license.stripeSubscription.trialEnd,
+      status: getStripeSubscriptionStatus(license.stripeSubscription.status),
+      hasPaymentMethod: !!license.stripeSubscription.hasPaymentMethod,
+      hasLicense: !!license.id,
     };
   }
   return null;
@@ -141,8 +133,8 @@ export interface LicenseInterface {
     tooltipText: string; // The text to show in the tooltip
     showAllUsers: boolean; // True if all users should see the notice rather than just the admins
   };
-  _billingPlatform: "stripe" | "orb" | "";
-  _stripeSubscription?: {
+  billingPlatform: "stripe" | "";
+  stripeSubscription?: {
     id: string;
     qty: number;
     trialEnd: Date | null;
@@ -230,6 +222,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "retention-metrics",
     "metric-populations",
     "multi-armed-bandits",
+    "historical-power",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -255,6 +248,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "retention-metrics",
     "metric-populations",
     "multi-armed-bandits",
+    "historical-power",
   ]),
   enterprise: new Set<CommercialFeature>([
     "scim",
@@ -299,6 +293,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "metric-groups",
     "environment-inheritance",
     "templates",
+    "historical-power",
   ]),
 };
 

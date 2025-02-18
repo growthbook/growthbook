@@ -5,7 +5,6 @@ import { date } from "shared/dates";
 import { FaArrowRight } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { Box, Flex, Separator } from "@radix-ui/themes";
-import { MdInfoOutline } from "react-icons/md";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FactTableModal from "@/components/FactTables/FactTableModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -33,6 +32,7 @@ import {
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import { GBInfo } from "@/components/Icons";
 
 export default function FactTablesPage() {
   const {
@@ -188,7 +188,7 @@ export default function FactTablesPage() {
                   textDecorationStyle: "dotted",
                 }}
               >
-                SQL cost savings <MdInfoOutline />
+                SQL cost savings <GBInfo />
               </span>
             </Tooltip>
           </p>
@@ -425,13 +425,9 @@ export default function FactTablesPage() {
                       <ProjectBadges
                         resourceType="fact table"
                         projectIds={f.projects}
-                        className="badge-ellipsis short align-middle"
                       />
                     ) : (
-                      <ProjectBadges
-                        resourceType="fact table"
-                        className="badge-ellipsis short align-middle"
-                      />
+                      <ProjectBadges resourceType="fact table" />
                     )}
                   </td>
                   <td>

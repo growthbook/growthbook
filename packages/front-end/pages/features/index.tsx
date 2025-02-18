@@ -2,7 +2,7 @@ import Link from "next/link";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
-import { Box } from "@radix-ui/themes";
+import { Box, Switch, Text } from "@radix-ui/themes";
 import {
   ComputedFeatureInterface,
   FeatureInterface,
@@ -17,8 +17,8 @@ import {
 } from "shared/util";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import clsx from "clsx";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { GBAddCircle } from "@/components/Icons";
 import FeatureModal from "@/components/Features/FeatureModal";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import track from "@/services/track";
@@ -40,7 +40,6 @@ import TagsFilter, {
   useTagsFilter,
 } from "@/components/Tags/TagsFilter";
 import SortedTags from "@/components/Tags/SortedTags";
-import Toggle from "@/components/Forms/Toggle";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
@@ -56,12 +55,21 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import Button from "@/components/Radix/Button";
 import Callout from "@/components/Radix/Callout";
+import LinkButton from "@/components/Radix/LinkButton";
+import { useUser } from "@/services/UserContext";
+import useSDKConnections from "@/hooks/useSDKConnections";
+import EmptyState from "@/components/EmptyState";
+import ProjectBadges from "@/components/ProjectBadges";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
+const HEADER_HEIGHT_PX = 55;
 
 export default function FeaturesPage() {
   const router = useRouter();
+  const { organization } = useUser();
+  const { data: sdkConnectionData } = useSDKConnections();
+  const permissionsUtils = usePermissionsUtil();
   const [modalOpen, setModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [showArchived, setShowArchived] = useState(false);
@@ -142,19 +150,6 @@ export default function FeaturesPage() {
               />
             </div>
             <div className="col-auto">
-              <TagsFilter filter={tagsFilter} items={items} />
-            </div>
-            {showArchivedToggle && (
-              <div className="col">
-                <Toggle
-                  value={showArchived}
-                  id="archived"
-                  setValue={setShowArchived}
-                ></Toggle>
-                Show Archived
-              </div>
-            )}
-            <div className="col-auto">
               <Link
                 href="https://docs.growthbook.io/using/growthbook-best-practices#syntax-search"
                 target="_blank"
@@ -162,12 +157,31 @@ export default function FeaturesPage() {
                 <Tooltip body={searchTermFilterExplainations}></Tooltip>
               </Link>
             </div>
+            <div className="col-auto">
+              <TagsFilter filter={tagsFilter} items={items} />
+            </div>
+            {showArchivedToggle && (
+              <>
+                <div className="flex-1" />
+                <div className="col-auto">
+                  <Text as="label" mb="0">
+                    <Switch
+                      checked={showArchived}
+                      id="archived"
+                      onCheckedChange={setShowArchived}
+                      mr="2"
+                    />
+                    Show Archived
+                  </Text>
+                </div>
+              </>
+            )}
           </div>
 
           <table className="table gbtable appbox">
             <thead
-              className="sticky-top bg-white shadow-sm"
-              style={{ top: "56px", zIndex: 900 }}
+              className="sticky-top shadow-sm"
+              style={{ top: HEADER_HEIGHT_PX + "px", zIndex: 900 }}
             >
               <tr>
                 <th></th>
@@ -266,7 +280,16 @@ export default function FeaturesPage() {
                             <span className="text-danger">Invalid project</span>
                           </Tooltip>
                         ) : (
-                          feature.projectName ?? <em>None</em>
+                          <>
+                            {feature.project ? (
+                              <ProjectBadges
+                                resourceType="feature"
+                                projectIds={[feature.projectId]}
+                              />
+                            ) : (
+                              <></>
+                            )}
+                          </>
                         )}
                       </td>
                     )}
@@ -484,11 +507,31 @@ export default function FeaturesPage() {
     return <LoadingOverlay />;
   }
 
-  // If "All Projects" is selected is selected and some experiments are in a project, show the project column
+  // If "All Projects" is selected and some experiments are in a project, show the project column
   const showProjectColumn = !project && allFeatures.some((f) => f.project);
 
   // Ignore the demo datasource
-  const hasFeatures = allFeatures.length > 0;
+  const hasFeatures = allFeatures.some(
+    (f) =>
+      f.project !==
+      getDemoDatasourceProjectIdForOrganization(organization.id || "")
+  );
+
+  const canUseSetupFlow =
+    permissionsUtils.canCreateSDKConnection({
+      projects: [project],
+      environment: "production",
+    }) &&
+    permissionsUtils.canCreateEnvironment({
+      projects: [project],
+      id: "production",
+    });
+
+  const showSetUpFlow =
+    !hasFeatures &&
+    canUseSetupFlow &&
+    sdkConnectionData &&
+    !sdkConnectionData.connections.length;
 
   const toggleEnvs = environments.filter((en) => en.toggleOnList);
   const showArchivedToggle = hasArchived;
@@ -522,11 +565,11 @@ export default function FeaturesPage() {
           mutate={mutate}
         />
       )}
-      <div className="row mb-3">
+      <div className="row my-3">
         <div className="col">
           <h1>Features</h1>
         </div>
-        {allFeatures.length > 0 &&
+        {!showSetUpFlow &&
           permissionsUtil.canViewFeatureModal(project) &&
           canCreateFeatures && (
             <div className="col-auto">
@@ -543,54 +586,45 @@ export default function FeaturesPage() {
             </div>
           )}
       </div>
-      <p>
-        Features enable you to change your app&apos;s behavior from within the
-        GrowthBook UI. For example, turn on/off a sales banner or change the
-        title of your pricing page.{" "}
-      </p>
       <div className="mt-3">
         <CustomMarkdown page={"featureList"} />
       </div>
       {!hasFeatures ? (
         <>
-          <div
-            className="appbox d-flex flex-column align-items-center"
-            style={{ padding: "70px 305px 60px 305px" }}
-          >
-            <h1>Change your App&apos;s Behavior</h1>
-            <p style={{ fontSize: "17px" }}>
-              Use Feature Flags to change your app&apos;s behavior. For example,
-              turn a sales banner on or off, or enable a new feature for Beta
-              users only.
-            </p>
-            <div className="row">
-              <Link href="/getstarted/feature-flag-guide">
-                {" "}
-                <button className="btn btn-outline-primary mr-2">
-                  Setup Instructions
-                </button>
-              </Link>
-
-              {permissionsUtil.canViewFeatureModal(project) &&
+          <EmptyState
+            title="Change your App's Behavior"
+            description="Use Feature Flags to change your app's behavior. For example, turn a sales banner on or off, or enable new features for Beta users only."
+            leftButton={
+              <LinkButton
+                external
+                href="https://docs.growthbook.io/features/basics"
+                variant="outline"
+              >
+                View Docs
+              </LinkButton>
+            }
+            rightButton={
+              showSetUpFlow ? (
+                <LinkButton href="/setup?exitLocation=features">
+                  Connect your SDK
+                </LinkButton>
+              ) : (
+                permissionsUtil.canViewFeatureModal(project) &&
                 canCreateFeatures && (
-                  <button
-                    className="btn btn-primary float-right"
+                  <Button
                     onClick={() => {
                       setModalOpen(true);
                       track("Viewed Feature Modal", {
                         source: "feature-list",
                       });
                     }}
-                    type="button"
                   >
-                    <span className="h4 pr-2 m-0 d-inline-block align-top">
-                      <GBAddCircle />
-                    </span>
                     Add Feature
-                  </button>
-                )}
-            </div>
-          </div>
+                  </Button>
+                )
+              )
+            }
+          />
         </>
       ) : (
         <Tabs defaultValue="all-features" persistInURL={true}>

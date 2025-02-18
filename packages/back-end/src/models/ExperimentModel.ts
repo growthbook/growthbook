@@ -947,7 +947,10 @@ export async function deleteAllExperimentsForAProject({
     .toArray();
 
   for (const experiment of experimentsToDelete) {
-    await experiment.delete();
+    await ExperimentModel.deleteOne({
+      id: experiment.id,
+      organization: context.org.id,
+    });
     VisualChangesetModel.deleteMany({ experiment: experiment.id });
     await onExperimentDelete(context, toInterface(experiment));
   }

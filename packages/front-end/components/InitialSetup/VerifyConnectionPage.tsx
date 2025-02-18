@@ -22,7 +22,6 @@ import CheckSDKConnectionModal from "@/components/GuidedGetStarted/CheckSDKConne
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { DocLink } from "@/components/DocLink";
 import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
-import Callout from "@/components/Radix/Callout";
 import Link from "@/components/Radix/Link";
 
 interface Props {
@@ -45,7 +44,7 @@ const VerifyConnectionPage = ({
   const [attributesOpen, setAttributesOpen] = useState(true);
   const [inviting, setInviting] = useState(false);
 
-  const { refreshOrganization } = useUser();
+  const { refreshOrganization, organization } = useUser();
   const settings = useOrgSettings();
   const attributeSchema = useAttributeSchema();
   const { data, error, mutate } = useSDKConnections();
@@ -100,27 +99,24 @@ const VerifyConnectionPage = ({
               Environment
             </h3>
 
-            <div className="ml-auto">
-              <button
-                className="btn btn-link"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setInviting(true);
-                }}
-              >
-                <PiPaperPlaneTiltFill className="mr-1" />
-                Invite your developer
-              </button>
-            </div>
+            {organization.demographicData?.ownerJobTitle !== "engineer" && (
+              <div className="ml-auto">
+                <button
+                  className="btn btn-link"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setInviting(true);
+                  }}
+                >
+                  <PiPaperPlaneTiltFill className="mr-1" />
+                  Invite your developer
+                </button>
+              </div>
+            )}
           </div>
           <DocLink docSection={docs}>
             View documentation <PiArrowRight />
           </DocLink>
-          <Callout status="info" mt="3">
-            Each environment requires its own SDK connection. Add more
-            environments via <b>SDK Configuration {">"} Environments</b>. Then,
-            create the SDK connection for each environment.
-          </Callout>
           <div className="mt-4 mb-3">
             <h4
               className="cursor-pointer"

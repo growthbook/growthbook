@@ -20,7 +20,7 @@ export default function SubscriptionInfo() {
 
   //TODO: Remove this once we have moved the license off the organization
   const stripeSubscription =
-    license?._stripeSubscription || organization?.subscription;
+    license?.stripeSubscription || organization?.subscription;
 
   const nextBillDate = new Date(
     (stripeSubscription?.current_period_end || 0) * 1000
