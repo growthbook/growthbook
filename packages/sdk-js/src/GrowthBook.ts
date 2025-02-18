@@ -1005,6 +1005,12 @@ export class GrowthBook<
   }
 
   private async _track<T>(experiment: Experiment<T>, result: Result<T>) {
+    const k = this._getTrackKey(experiment, result);
+
+    // Make sure a tracking callback is only fired once per unique experiment
+    if (this._trackedExperiments.has(k)) return;
+    this._trackedExperiments.add(k);
+
     if (this._options.enableDevMode) {
       this.logs.push({
         experiment,
@@ -1013,13 +1019,8 @@ export class GrowthBook<
         logType: "experiment",
       });
     }
+
     if (!this._options.trackingCallback) return;
-
-    const k = this._getTrackKey(experiment, result);
-
-    // Make sure a tracking callback is only fired once per unique experiment
-    if (this._trackedExperiments.has(k)) return;
-    this._trackedExperiments.add(k);
 
     try {
       await this._options.trackingCallback(experiment, result);
