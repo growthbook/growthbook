@@ -303,25 +303,14 @@ export async function findOrganizationByStripeCustomerId(id: string) {
   return doc ? toInterface(doc) : null;
 }
 
-export async function getAllInviteEmailsInDb() {
+export async function getAllOrgMemberInfoInDb() {
   if (IS_CLOUD) {
-    throw new Error("getAllInviteEmailsInDb() is not supported on cloud");
+    throw new Error("getAllOrgMemberInfoInDb() is not supported on cloud");
   }
-
-  const organizations = await OrganizationModel.find(
+  return await OrganizationModel.find(
     {},
-    { "invites.email": 1 }
+    "id invites.email members.id members.role members.projectRoles.role members.teams"
   );
-
-  const inviteEmails: string[] = organizations.reduce(
-    (emails: string[], organization) => {
-      const orgEmails = organization.invites.map((invite) => invite.email);
-      return emails.concat(orgEmails);
-    },
-    []
-  );
-
-  return inviteEmails;
 }
 
 export async function getSelfHostedOrganization() {
