@@ -30,6 +30,7 @@ export default function DataSourceTypeSelector({ value, setValue }: Props) {
       }}
       columns={"3"}
       align="center"
+      width="100%"
     />
   );
 }

@@ -126,7 +126,7 @@ export default function StatsEngineSettings() {
 
   return (
     <Box className="mb-3 form-group align-items-start" width="100%">
-      <Box className="border rounded" mb="6" p="4">
+      <Box className="appbox" mb="6" p="4">
         <Heading as="h4" size="3" mb="4">
           <PremiumTooltip commercialFeature="regression-adjustment">
             Regression Adjustment (CUPED)

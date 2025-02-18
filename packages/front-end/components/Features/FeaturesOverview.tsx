@@ -1094,19 +1094,19 @@ export default function FeaturesOverview({
                   )}
                 </Flex>
                 <Box mt="2" mb="1">
-                  <div className="d-flex">
-                    <div>
+                  <Flex width="100%">
+                    <Box flexGrow="1">
                       <ForceSummary
                         value={getFeatureDefaultValue(feature)}
                         feature={feature}
                       />
-                    </div>
+                    </Box>
                     {featureUsage && (
-                      <div className="ml-auto">
+                      <Box className="ml-auto" flexGrow="1">
                         <FeatureUsageGraph data={featureUsage?.defaultValue} />
-                      </div>
+                      </Box>
                     )}
-                  </div>
+                  </Flex>
                 </Box>
               </Box>
               <Box className="appbox" mt="4" p="5" px="6">

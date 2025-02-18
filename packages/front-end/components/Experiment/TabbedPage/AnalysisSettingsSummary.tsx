@@ -309,7 +309,7 @@ export default function AnalysisSettingsSummary({
   });
 
   return (
-    <div className="px-3 py-2 bg-light border-bottom">
+    <div className="px-3 py-2 analysis-settings-top border-bottom">
       {analysisModal && (
         <AnalysisForm
           cancel={() => setAnalysisModal(false)}

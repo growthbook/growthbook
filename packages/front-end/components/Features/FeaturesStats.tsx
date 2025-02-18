@@ -68,7 +68,7 @@ export default function FeaturesStats({
       <>
         <div className="contents container-fluid pagecontents">
           <div
-            className="appbox bg-white"
+            className="appbox"
             style={{
               height: "18rem",
               display: "flex",

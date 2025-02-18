@@ -10,6 +10,7 @@ import {
 import clsx from "clsx";
 import { truncateString } from "shared/util";
 import { v4 as uuidv4 } from "uuid";
+import { Flex, Text } from "@radix-ui/themes";
 import track, { TrackEventProps } from "@/services/track";
 import ConditionalWrapper from "@/components/ConditionalWrapper";
 import Button from "@/components/Radix/Button";
@@ -192,17 +193,21 @@ const Modal: FC<ModalProps> = ({
       ) : (
         <>
           {close && (
-            <button
-              type="button"
-              className="close"
-              onClick={(e) => {
-                e.preventDefault();
-                close();
-              }}
-              aria-label="Close"
-            >
-              <span aria-hidden="true">&times;</span>
-            </button>
+            <Flex justify="end">
+              <button
+                type="button"
+                className="close px-3 py-1"
+                onClick={(e) => {
+                  e.preventDefault();
+                  close();
+                }}
+                aria-label="Close"
+              >
+                <Text aria-hidden="true" size="6">
+                  &times;
+                </Text>
+              </button>
+            </Flex>
           )}
         </>
       )}

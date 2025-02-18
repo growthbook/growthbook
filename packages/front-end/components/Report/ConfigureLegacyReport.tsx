@@ -188,7 +188,7 @@ export default function ConfigureLegacyReport({
       header=""
       size="fill"
       open={true}
-      className="border-0"
+      className="border-0 bg-transparent"
       submit={form.handleSubmit(async (value) => {
         const args = {
           ...value,

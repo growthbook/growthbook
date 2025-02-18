@@ -194,11 +194,7 @@ export default function FeaturesPage() {
                   </th>
                 ))}
                 <th>Prerequisites</th>
-                <th>
-                  Default
-                  <br />
-                  Value
-                </th>
+                <th>Default</th>
                 <th>Rules</th>
                 <th>Version</th>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>

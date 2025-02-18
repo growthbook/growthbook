@@ -157,7 +157,7 @@ export default function ProjectSelector() {
         caret={false}
         right={false}
         width={220}
-        className={"p-0"}
+        className={"p-0 pb-2"}
         toggle={
           <ProjectName
             caret

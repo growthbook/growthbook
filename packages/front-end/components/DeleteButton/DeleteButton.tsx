@@ -70,6 +70,7 @@ const DeleteButton: FC<{
           submitColor="danger"
           submit={onClick}
           ctaEnabled={canDelete}
+          increasedElevation={true}
         >
           {dynamicContent ? (
             dynamicContent

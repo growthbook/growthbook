@@ -99,7 +99,7 @@ const Tooltip: FC<Props> = ({
   const popper = (
     <>
       {open && body && shouldDisplay && (
-        <RadixTheme>
+        <RadixTheme flip={true}>
           <Box
             // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Dispatch<SetStateAction<null>>' is not assig... Remove this comment to see the full error message
             ref={setTooltip}

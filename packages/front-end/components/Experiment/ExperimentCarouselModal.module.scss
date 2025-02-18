@@ -1,0 +1,16 @@
+.carouselnav {
+  height: 100%;
+  width: 40px;
+  cursor: pointer;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  transition: background-color 0.2s ease-in-out;
+  border-radius: 5px;
+  &:hover {
+    background-color: var(--accent-a3);
+  }
+}
+.mainimage {
+  filter: drop-shadow(0px 0px 1px var(--accent-6));
+}
