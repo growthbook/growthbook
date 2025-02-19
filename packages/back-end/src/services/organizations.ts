@@ -8,6 +8,9 @@ import {
   isAirGappedLicenseKey,
   licenseInit,
   postSubscriptionUpdateToLicenseServer,
+  getSubscriptionFromLicense,
+  SubscriptionInfo,
+  getStripeSubscriptionStatus,
 } from "enterprise";
 import {
   areProjectRolesValid,
@@ -300,7 +303,7 @@ async function updateSubscriptionIfProLicense(
     const license = await getLicense(organization.licenseKey);
     if (
       license?.plan === "pro" &&
-      isActiveSubscriptionStatus(license?.stripeSubscription?.status)
+      isActiveSubscriptionStatus(getSubscriptionFromLicense(license)?.status)
     ) {
       // Only pro plans have a Stripe subscription that needs to get updated
       const seatsInUse = getNumberOfUniqueMembersAndInvites(organization);
@@ -1134,4 +1137,19 @@ export async function getContextForAgendaJobByOrgId(
   }
 
   return getContextForAgendaJobByOrgObject(organization);
+}
+
+export function getSubscriptionFromOrg(
+  organization: OrganizationInterface
+): SubscriptionInfo | null {
+  if (organization.subscription) {
+    return {
+      billingPlatform: "stripe",
+      externalId: organization.subscription.id,
+      trialEnd: organization.subscription.trialEnd,
+      status: getStripeSubscriptionStatus(organization.subscription.status),
+      hasPaymentMethod: !!organization.subscription.hasPaymentMethod,
+    };
+  }
+  return null;
 }

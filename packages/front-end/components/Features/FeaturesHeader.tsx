@@ -102,7 +102,7 @@ export default function FeaturesHeader({
                   Feature Flags and Experiments can be linked together. You can
                   delete this once you are done exploring.
                 </Box>
-                <Flex>
+                <Flex flexShrink="0">
                   <DeleteDemoDatasourceButton
                     onDelete={() => router.push("/features")}
                     source="feature"
