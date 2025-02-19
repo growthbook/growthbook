@@ -6,6 +6,8 @@ id: visual-editor
 slug: /app/visual
 ---
 
+import MaxWidthImage from '@site/src/components/MaxWidthImage';
+
 # Visual Editor
 
 With the Visual Editor, users can design A/B tests on their site directly in their browser, run them in production, and analyze results, all without writing a single line of code. To use the Visual Editor, a software developer will need to integrate GrowthBook's [Script Tag](/lib/script-tag), [JavaScript](/lib/js), or [ReactJS](/lib/react) SDKs with your application. Alternatively, use one of our [Edge SDKs](/lib/edge/cloudflare) to render visual experiments on a CDN.
@@ -28,7 +30,9 @@ Once you've create your first experiment and are ready to deploy to production, 
 
 To use the visual editor, first add a new Experiment. This can be done under **Experiments** in the left nav.
 
+<MaxWidthImage>
 ![Design a new experiment](/images/add-experiment-modal.png)
+</MaxWidthImage>
 
 Select the option to design a new experiment. Then, you'll have a series of fields to fill out (hypothesis, variation names, goal metrics, etc.). Don't worry, these can all be changed later.
 
@@ -93,7 +97,9 @@ You can also match on just the path:
 
 There are a number of different tools in the Visual Editor.
 
+<MaxWidthImage maxWidth={400}>
 ![The Visual Editor UI](/images/visual-editor-ui.png)
+</MaxWidthImage>
 
 At the top is a dropdown where you can select which variation you are currently editing.
 
@@ -149,13 +155,17 @@ When an element is selected, you will see a floating handle to move it positiona
 
 Once dragging, the cursor will highlight an edge where the dragged element will land. When you release the cursor the element will move to the indicated spot. If you want to undo the move, click the 'Undo' button that is available for elements that have been dragged.
 
+<MaxWidthImage>
 ![Visual Editor Drag and Drop Example](/images/visual-editor-drag-and-drop.gif)
+</MaxWidthImage>
 
 ### Debug Panel
 
 The Visual Editor now comes with a Debug Panel to help diagnose any issues with your SDK configuration and URL Targeting rules. Use this to help diagnose your own errors, or provide a screenshot to our Support team when reaching out to help provide context.
 
-<img style={{ width: '400px'}} src="/images/visual-editor-debug-panel.png" alt="Debug Panel"/>
+<MaxWidthImage maxWidth={400}>
+![Debug Panel](/images/visual-editor-debug-panel.png)
+</MaxWidthImage>
 
 ## Deploying to Production
 
@@ -163,7 +173,9 @@ Before you start your first experiment, you will first need to generate a **Clie
 
 **Important**: Make sure to enable the "Include Visual Experiments" toggle. If you forget this step, Visual Editor experiments will not be sent to your application.
 
+<MaxWidthImage border>
 ![Enable the Visual Editor in your SDK Connection](/images/sdk-connection-visual-editor.png)
+</MaxWidthImage>
 
 You can also optionally include Draft Experiments (see below).
 
