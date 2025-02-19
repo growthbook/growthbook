@@ -5,6 +5,7 @@ import cloneDeep from "lodash/cloneDeep";
 import {
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_TARGET_MDE,
   EXPOSURE_DATE_DIMENSION_NAME,
 } from "shared/constants";
 import { putBaselineVariationFirst } from "shared/util";
@@ -60,6 +61,7 @@ export interface AnalysisSettingsForStatsEngine {
   baseline_index: number;
   dimension: string;
   stats_engine: string;
+  p_value_corrected: boolean;
   sequential_testing_enabled: boolean;
   sequential_tuning_parameter: number;
   difference_type: string;
@@ -67,6 +69,7 @@ export interface AnalysisSettingsForStatsEngine {
   alpha: number;
   max_dimensions: number;
   traffic_percentage: number;
+  num_goal_metrics: number;
 }
 
 export interface BanditSettingsForStatsEngine {
@@ -82,6 +85,11 @@ export interface BanditSettingsForStatsEngine {
   decision_metric: string;
   bandit_weights_seed: number;
 }
+
+export type BusinessMetricTypeForStatsEngine =
+  | "goal"
+  | "secondary"
+  | "guardrail";
 
 export interface MetricSettingsForStatsEngine {
   id: string;
@@ -101,6 +109,8 @@ export interface MetricSettingsForStatsEngine {
   prior_proper?: boolean;
   prior_mean?: number;
   prior_stddev?: number;
+  target_mde: number;
+  business_metric_type: BusinessMetricTypeForStatsEngine[];
 }
 
 export interface QueryResultsForStatsEngine {
@@ -149,7 +159,7 @@ export function getAnalysisSettingsForStatsEngine(
   variations: ExperimentReportVariation[],
   coverage: number,
   phaseLengthDays: number
-) {
+): AnalysisSettingsForStatsEngine {
   const sortedVariations = putBaselineVariationFirst(
     variations,
     settings.baselineVariationIndex ?? 0
@@ -168,6 +178,7 @@ export function getAnalysisSettingsForStatsEngine(
     baseline_index: settings.baselineVariationIndex ?? 0,
     dimension: settings.dimensions[0] || "",
     stats_engine: settings.statsEngine,
+    p_value_corrected: !!settings.pValueCorrection,
     sequential_testing_enabled: settings.sequentialTesting ?? false,
     sequential_tuning_parameter: sequentialTestingTuningParameterNumber,
     difference_type: settings.differenceType,
@@ -178,7 +189,9 @@ export function getAnalysisSettingsForStatsEngine(
         ? 9999
         : MAX_DIMENSIONS,
     traffic_percentage: coverage,
+    num_goal_metrics: settings.numGoalMetrics,
   };
+
   return analysisData;
 }
 
@@ -234,7 +247,6 @@ print(json.dumps({
 }, allow_nan=False))`,
     {}
   );
-
   try {
     const parsed: {
       results: MultipleExperimentMetricAnalysis[];
@@ -330,6 +342,21 @@ export async function runSnapshotAnalyses(
   return results.flat();
 }
 
+function getBusinessMetricTypeForStatsEngine(
+  metricId: string,
+  settings: ExperimentSnapshotSettings
+): BusinessMetricTypeForStatsEngine[] {
+  return [
+    settings.goalMetrics.includes(metricId) ? ("goal" as const) : null,
+    settings.secondaryMetrics.includes(metricId)
+      ? ("secondary" as const)
+      : null,
+    settings.guardrailMetrics.includes(metricId)
+      ? ("guardrail" as const)
+      : null,
+  ].filter((m) => m !== null);
+}
+
 export function getMetricSettingsForStatsEngine(
   metricDoc: ExperimentMetricInterface,
   metricMap: Map<string, ExperimentMetricInterface>,
@@ -393,6 +420,11 @@ export function getMetricSettingsForStatsEngine(
     prior_proper: metric.priorSettings.proper,
     prior_mean: metric.priorSettings.mean,
     prior_stddev: metric.priorSettings.stddev,
+    target_mde: metric.targetMDE ?? DEFAULT_TARGET_MDE,
+    business_metric_type: getBusinessMetricTypeForStatsEngine(
+      metric.id,
+      settings
+    ),
   };
 }
 

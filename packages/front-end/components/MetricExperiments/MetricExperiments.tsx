@@ -14,6 +14,7 @@ import {
   SnapshotMetric,
 } from "back-end/types/experiment-snapshot";
 import {
+  ExperimentPhaseStringDates,
   ExperimentResultsType,
   ExperimentStatus,
   Variation,
@@ -61,6 +62,7 @@ interface MetricExperimentData {
   shipped?: boolean;
   resultsStatus?: string;
   directionalStatus?: "winning" | "losing";
+  phases: ExperimentPhaseStringDates[];
 }
 
 const NUM_PER_PAGE = 50;
@@ -105,6 +107,7 @@ function MetricExperimentResultTab({
         statsEngine: statsEngine,
         variationId: i,
         variationName: v.name,
+        phases: e.phases,
       };
       if (!bandits && baseline && variationResults[i]) {
         const {
