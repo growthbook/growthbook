@@ -326,13 +326,17 @@ def analyze_metric_df(
                         variance=pow(metric.prior_stddev, 2),
                         proper=metric.prior_proper,
                     )
+                    p_value_corrected = False
                 else:
                     prior = None
+                    p_value_corrected = analysis.p_value_corrected
+
                 power_config = MidExperimentPowerConfig(
                     target_mde=metric.target_mde,
                     num_goal_metrics=analysis.num_goal_metrics,
                     num_variations=num_variations,
                     prior_effect=prior,
+                    p_value_corrected=p_value_corrected,
                 )
                 mid_experiment_power = MidExperimentPower(
                     test.stat_a, test.stat_b, res, config, power_config

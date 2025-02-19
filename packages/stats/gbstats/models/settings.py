@@ -17,6 +17,7 @@ class AnalysisSettingsForStatsEngine:
     baseline_index: int = 0
     dimension: str = ""
     stats_engine: StatsEngine = "bayesian"
+    p_value_corrected: bool = False
     sequential_testing_enabled: bool = False
     sequential_tuning_parameter: float = 5000
     difference_type: DifferenceType = "relative"

@@ -61,6 +61,7 @@ export interface AnalysisSettingsForStatsEngine {
   baseline_index: number;
   dimension: string;
   stats_engine: string;
+  p_value_corrected: boolean;
   sequential_testing_enabled: boolean;
   sequential_tuning_parameter: number;
   difference_type: string;
@@ -170,13 +171,14 @@ export function getAnalysisSettingsForStatsEngine(
   const pValueThresholdNumber =
     Number(settings.pValueThreshold) || DEFAULT_P_VALUE_THRESHOLD;
 
-  const analysisData = {
+  const analysisData: AnalysisSettingsForStatsEngine = {
     var_names: sortedVariations.map((v) => v.name),
     var_ids: sortedVariations.map((v) => v.id),
     weights: sortedVariations.map((v) => v.weight * coverage),
     baseline_index: settings.baselineVariationIndex ?? 0,
     dimension: settings.dimensions[0] || "",
     stats_engine: settings.statsEngine,
+    p_value_corrected: !!settings.pValueCorrection,
     sequential_testing_enabled: settings.sequentialTesting ?? false,
     sequential_tuning_parameter: sequentialTestingTuningParameterNumber,
     difference_type: settings.differenceType,
