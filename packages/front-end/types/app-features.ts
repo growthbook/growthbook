@@ -62,4 +62,5 @@ export type AppFeatures = {
   "use-new-setup-flow-2": boolean;
   "show-impact-near-top": boolean;
   "pro-upgrade-modal": string;
+  "cdn-usage-data": boolean;
 };

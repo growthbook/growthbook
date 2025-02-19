@@ -68,6 +68,7 @@ export default function UpgradeModal({
     license,
     effectiveAccountPlan,
     commercialFeatureLowestPlan,
+    subscription,
     seatsInUse,
   } = useUser();
   // These are some Upgrade CTAs throughout the app related to enterprise-only features
@@ -101,11 +102,11 @@ export default function UpgradeModal({
   const freeTrialAvailable =
     !license || !license.plan || !license.emailVerified;
 
-  const daysToGo = license ? daysLeft(license.dateExpires) : 0;
+  const daysToGo = license?.dateExpires ? daysLeft(license.dateExpires) : 0;
 
   const hasCanceledSubscription =
     ["pro", "pro_sso"].includes(license?.plan || "") &&
-    license?.stripeSubscription?.status === "canceled";
+    subscription?.status === "canceled";
 
   const trackContext = {
     accountPlan,
@@ -138,10 +139,7 @@ export default function UpgradeModal({
     setError("");
     setLoading(true);
     try {
-      if (
-        license?.stripeSubscription &&
-        license?.stripeSubscription.status != "canceled"
-      ) {
+      if (subscription && subscription.status != "canceled") {
         const res = await apiCall<{ url: string }>(`/subscription/manage`, {
           method: "POST",
         });
@@ -549,7 +547,8 @@ export default function UpgradeModal({
                       {(daysToGo >= 0 && (
                         <div>
                           <span>
-                            You have <b>{daysLeft(license.dateExpires)} days</b>{" "}
+                            You have{" "}
+                            <b>{daysLeft(license.dateExpires || "")} days</b>{" "}
                             left in your {licensePlanText} of Growthbook with{" "}
                           </span>
                           <Link
@@ -583,7 +582,9 @@ export default function UpgradeModal({
                   <div
                     className={clsx(
                       "col-lg-6 mb-4",
-                      isAtLeastPro ? "disabled-opacity" : ""
+                      isAtLeastPro && !license?.isTrial
+                        ? "disabled-opacity"
+                        : ""
                     )}
                   >
                     <div className="pr-lg-2 border rounded p-0 d-flex flex-column">
@@ -622,7 +623,7 @@ export default function UpgradeModal({
                           <button
                             className="btn btn-primary m-3 w-100"
                             onClick={startPro}
-                            disabled={isAtLeastPro}
+                            disabled={isAtLeastPro && !license?.isTrial}
                           >
                             Upgrade Now
                           </button>

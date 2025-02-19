@@ -181,7 +181,7 @@ const ProjectPage: FC = () => {
               <StatsEngineSelect
                 value={form.watch("statsEngine")}
                 onChange={(v) => {
-                  form.setValue("statsEngine", v);
+                  form.setValue("statsEngine", v || undefined);
                 }}
                 label="Default Statistics Engine"
                 parentSettings={parentSettings}

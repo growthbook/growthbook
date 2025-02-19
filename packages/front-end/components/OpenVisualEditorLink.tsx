@@ -1,10 +1,12 @@
 import { FC, useMemo, useState } from "react";
-import { FaExternalLinkAlt } from "react-icons/fa";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+import { PiArrowSquareOut } from "react-icons/pi";
 import { getApiHost } from "@/services/env";
 import track from "@/services/track";
 import { appendQueryParamsToURL, growthbook } from "@/services/utils";
 import { AuthContextValue, useAuth } from "@/services/auth";
+import RadixButton from "@/components/Radix/Button";
+import Link from "@/components/Radix/Link";
 import Modal from "./Modal";
 import Button from "./Button";
 
@@ -111,7 +113,24 @@ export async function openVisualEditor(
 const OpenVisualEditorLink: FC<{
   visualChangeset: VisualChangesetInterface;
   openSettings?: () => void;
-}> = ({ visualChangeset, openSettings }) => {
+  useRadix?: boolean;
+  useLink?: boolean;
+  button?: string | JSX.Element;
+}> = ({
+  visualChangeset,
+  openSettings,
+  useRadix,
+  useLink,
+  button = (
+    <>
+      Open Visual Editor{" "}
+      <PiArrowSquareOut
+        className="ml-1"
+        style={{ position: "relative", top: "-2px" }}
+      />
+    </>
+  ),
+}) => {
   const [showExtensionDialog, setShowExtensionDialog] = useState(false);
   const [showEditorUrlDialog, setShowEditorUrlDialog] = useState(false);
 
@@ -122,32 +141,47 @@ const OpenVisualEditorLink: FC<{
     return ua.indexOf("Chrome") > -1 && ua.indexOf("Edge") === -1;
   }, []);
 
+  const onOpen = async () => {
+    const res = await openVisualEditor(visualChangeset, apiCall);
+    if (!res) {
+      // Stay in a loading state until window redirects
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+      return;
+    }
+
+    if (res.error === "NO_URL") {
+      setShowEditorUrlDialog(true);
+      return;
+    }
+
+    if (res.error === "NO_EXTENSION" || res.error === "NOT_CHROME") {
+      setShowExtensionDialog(true);
+      return;
+    }
+  };
+
   return (
     <>
-      <Button
-        color="primary"
-        className="btn-sm"
-        onClick={async () => {
-          const res = await openVisualEditor(visualChangeset, apiCall);
-          if (!res) {
-            // Stay in a loading state until window redirects
-            await new Promise((resolve) => setTimeout(resolve, 5000));
-            return;
-          }
-
-          if (res.error === "NO_URL") {
-            setShowEditorUrlDialog(true);
-            return;
-          }
-
-          if (res.error === "NO_EXTENSION" || res.error === "NOT_CHROME") {
-            setShowExtensionDialog(true);
-            return;
-          }
-        }}
-      >
-        Open Visual Editor <FaExternalLinkAlt />
-      </Button>
+      {useLink ? (
+        <Link
+          href="#"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onOpen();
+          }}
+        >
+          {button}
+        </Link>
+      ) : useRadix ? (
+        <RadixButton variant="ghost" onClick={onOpen}>
+          {button}
+        </RadixButton>
+      ) : (
+        <Button color="primary" className="btn-sm" onClick={onOpen}>
+          {button}
+        </Button>
+      )}
 
       {showEditorUrlDialog && openSettings && (
         <Modal
