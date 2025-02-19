@@ -1064,6 +1064,8 @@ paths:
                   type: boolean
                 includeRedirectExperiments:
                   type: boolean
+                includeRuleIds:
+                  type: boolean
                 proxyEnabled:
                   type: boolean
                 proxyHost:
@@ -1150,6 +1152,8 @@ paths:
                 includeExperimentNames:
                   type: boolean
                 includeRedirectExperiments:
+                  type: boolean
+                includeRuleIds:
                   type: boolean
                 proxyEnabled:
                   type: boolean
@@ -5709,6 +5713,8 @@ components:
         includeExperimentNames:
           type: boolean
         includeRedirectExperiments:
+          type: boolean
+        includeRuleIds:
           type: boolean
         key:
           type: string
