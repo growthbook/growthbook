@@ -69,7 +69,6 @@ export interface AttributeData {
 export type NewExperimentRefRule = {
   type: "experiment-ref-new";
   name: string;
-  autoStart: boolean;
 } & Omit<ExperimentRule, "type">;
 
 export function useEnvironmentState() {
@@ -731,7 +730,6 @@ export function getDefaultRuleValue({
       experimentType: "standard",
       description: "",
       name: "",
-      autoStart: true,
       id: "",
       condition: "",
       enabled: true,

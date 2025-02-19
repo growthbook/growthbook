@@ -7,9 +7,18 @@ import {
   Policy,
 } from "shared/permissions";
 import { z } from "zod";
+import {
+  AccountPlan,
+  CommercialFeature,
+  LicenseInterface,
+  SubscriptionInfo,
+} from "enterprise";
 import { environment } from "back-end/src/routers/environment/environment.validators";
 import type { ReqContextClass } from "back-end/src/services/context";
 import { attributeDataTypes } from "back-end/src/util/organization.util";
+import { ApiKeyInterface } from "back-end/types/apikey";
+import { SSOConnectionInterface } from "back-end/types/sso-connection";
+import { TeamInterface } from "back-end/types/team";
 import { AttributionModel, ImplementationType } from "./experiment";
 import type { PValueCorrection, StatsEngine } from "./stats";
 import {
@@ -233,17 +242,6 @@ export interface OrganizationSettings {
   requireExperimentTemplates?: boolean;
 }
 
-export interface SubscriptionQuote {
-  currentSeatsPaidFor: number;
-  activeAndInvitedUsers: number;
-  unitPrice: number;
-  discountAmount: number;
-  discountMessage: string;
-  subtotal: number;
-  total: number;
-  additionalSeatPrice: number;
-}
-
 export interface OrganizationConnections {
   slack?: SlackConnection;
   vercel?: VercelConnection;
@@ -328,6 +326,30 @@ export type NamespaceUsage = Record<
 >;
 
 export type ReqContext = ReqContextClass;
+
+export type GetOrganizationResponse = {
+  status: 200;
+  organization: OrganizationInterface;
+  members: ExpandedMember[];
+  seatsInUse: number;
+  roles: Role[];
+  apiKeys: ApiKeyInterface[];
+  enterpriseSSO: Partial<SSOConnectionInterface> | null;
+  accountPlan: AccountPlan;
+  effectiveAccountPlan: AccountPlan;
+  commercialFeatureLowestPlan?: Partial<Record<CommercialFeature, AccountPlan>>;
+  licenseError: string;
+  commercialFeatures: CommercialFeature[];
+  license: Partial<LicenseInterface> | null;
+  subscription: SubscriptionInfo | null;
+  licenseKey?: string;
+  currentUserPermissions: UserPermissions;
+  teams: TeamInterface[];
+  watching: {
+    experiments: string[];
+    features: string[];
+  };
+};
 
 export type DailyUsage = {
   date: string;
