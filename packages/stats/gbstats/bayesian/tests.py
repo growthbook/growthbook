@@ -129,7 +129,7 @@ class BayesianABTest(BaseABTest):
                     ),
                     risk=result.risk,
                     risk_type=result.risk_type,
-                    error_message="",
+                    error_message=None,
                 )
             else:
                 return self._default_output(NO_UNITS_IN_VARIATION_MESSAGE)
@@ -241,7 +241,7 @@ class EffectBayesianABTest(BayesianABTest):
             ),
             risk=risk,
             risk_type="relative" if self.relative else "absolute",
-            error_message="",
+            error_message=None,
         )
         if self.scaled:
             result = self.scale_result(result)

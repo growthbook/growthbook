@@ -51,7 +51,7 @@ class TestBinom(TestCase):
                 chance_to_win=0.60918,
                 risk=[0.0814, 0.04058],
                 risk_type="relative",
-                error_message="",
+                error_message=None,
             )
         )
         result_rounded_dict = round_results_dict(asdict(result))
@@ -80,7 +80,7 @@ class TestNorm(TestCase):
                 chance_to_win=0.91923,
                 risk=[0.05131, 0.00131],
                 risk_type="relative",
-                error_message="",
+                error_message=None,
             )
         )
 
@@ -103,7 +103,7 @@ class TestNorm(TestCase):
                 chance_to_win=0.92315,
                 risk=[0.05186, 0.00123],
                 risk_type="relative",
-                error_message="",
+                error_message=None,
             )
         )
 

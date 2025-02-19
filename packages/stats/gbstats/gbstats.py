@@ -893,13 +893,13 @@ def process_experiment_results(
                             )
                         )
                     else:
-                        result = process_single_metric(
-                            rows=rows,
-                            metric=this_metric,
-                            analyses=d.analyses,
+                        results.append(
+                            process_single_metric(
+                                rows=rows,
+                                metric=this_metric,
+                                analyses=d.analyses,
+                            )
                         )
-                        results.append(result)
-                        # need the result specific to relative inference
 
     if d.bandit_settings and bandit_result is None:
         bandit_result = get_error_bandit_result(
