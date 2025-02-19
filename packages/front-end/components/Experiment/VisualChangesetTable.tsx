@@ -151,7 +151,7 @@ const drawChange = ({
                   <Flex
                     width="100%"
                     direction="column"
-                    gap="4"
+                    gap="2"
                     py="2"
                     my="2"
                     style={{ borderBottom: "1px solid var(--slate-a4)" }}
