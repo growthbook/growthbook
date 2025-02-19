@@ -49,6 +49,7 @@ export function toInterface(doc: LicenseDocument): LicenseInterface {
   const ret = doc.toJSON<LicenseDocument>();
   return omit(ret, ["__v", "_id"]);
 }
+
 export async function getLicenseByKey(
   key: string
 ): Promise<LicenseInterface | null> {

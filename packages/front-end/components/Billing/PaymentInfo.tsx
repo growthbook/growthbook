@@ -139,7 +139,7 @@ export default function PaymentInfo() {
           future invoices.
         </Modal>
       ) : null}
-      <div className="bg-white p-3 border mb-3">
+      <div className="p-3 border mb-3">
         <Flex justify="between" align="center" className="pb-3">
           <h3 className="mb-0">Payment Methods</h3>
           <div>

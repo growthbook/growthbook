@@ -39,7 +39,7 @@ export default function SubscriptionInfo() {
     stripeSubscription?.cancel_at_period_end;
 
   return (
-    <div className="bg-white p-3">
+    <div className="p-3">
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}

@@ -150,12 +150,6 @@ export interface LicenseInterface {
     discountMessage?: string; // The message of the discount
     hasPaymentMethod?: boolean;
   };
-  _orbSubscription?: {
-    id: string;
-    trialEnd: Date | null;
-    status: SubscriptionInfo["status"];
-    hasPaymentMethod: boolean;
-  };
   freeTrialDate?: Date; // Date the free trial was started
   installationUsers: {
     [installationId: string]: { date: string; userHashes: string[] };
