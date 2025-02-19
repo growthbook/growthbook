@@ -28,8 +28,8 @@ import {
   DEFAULT_MIN_SAMPLE_SIZE,
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_PROPER_PRIOR_STDDEV,
+  DEFAULT_TARGET_MDE,
 } from "shared/constants";
-import { DEFAULT_TARGET_MDE } from "shared/src/constants";
 import {
   MetricCappingSettings,
   MetricPriorSettings,
