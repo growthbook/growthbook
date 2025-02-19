@@ -1,6 +1,6 @@
 # Changelog
 
-## **1.4.0** - Unreleased
+## **1.4.0** - Feb 19, 2025
 
 - Fixed edge case with pre-requisites that caused some feature rules to be skipped
 - New methods for dealing with destroyed GrowthBook instances - `isDestroyed()` and `onDestroy(callback)`
