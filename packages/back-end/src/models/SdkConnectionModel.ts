@@ -49,6 +49,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   includeDraftExperiments: Boolean,
   includeExperimentNames: Boolean,
   includeRedirectExperiments: Boolean,
+  includeRuleIds: Boolean,
   connected: Boolean,
   remoteEvalEnabled: Boolean,
   savedGroupReferencesEnabled: Boolean,
@@ -178,6 +179,7 @@ export const createSDKConnectionValidator = z
     includeDraftExperiments: z.boolean().optional(),
     includeExperimentNames: z.boolean().optional(),
     includeRedirectExperiments: z.boolean().optional(),
+    includeRuleIds: z.boolean().optional(),
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
     remoteEvalEnabled: z.boolean().optional(),
@@ -258,6 +260,7 @@ export const editSDKConnectionValidator = z
     includeDraftExperiments: z.boolean().optional(),
     includeExperimentNames: z.boolean().optional(),
     includeRedirectExperiments: z.boolean().optional(),
+    includeRuleIds: z.boolean().optional(),
     remoteEvalEnabled: z.boolean().optional(),
     savedGroupReferencesEnabled: z.boolean().optional(),
   })
@@ -321,6 +324,7 @@ export async function editSDKConnection(
     "includeDraftExperiments",
     "includeExperimentNames",
     "includeRedirectExperiments",
+    "includeRuleIds",
     "savedGroupReferencesEnabled",
   ] as const;
   keysRequiringProxyUpdate.forEach((key) => {
@@ -529,6 +533,7 @@ export function toApiSDKConnectionInterface(
     includeDraftExperiments: connection.includeDraftExperiments,
     includeExperimentNames: connection.includeExperimentNames,
     includeRedirectExperiments: connection.includeRedirectExperiments,
+    includeRuleIds: connection.includeRuleIds,
     key: connection.key,
     proxyEnabled: connection.proxy.enabled,
     proxyHost: connection.proxy.host,
