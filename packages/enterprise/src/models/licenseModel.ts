@@ -20,19 +20,8 @@ const licenseSchema = new mongoose.Schema({
     tooltipText: String, // The text to show in the tooltip
     showAllUsers: Boolean, // True if all users should see the notice rather than just the admins
   },
-  stripeSubscription: {
-    id: String,
-    qty: Number,
-    trialEnd: Date,
-    status: String,
-    current_period_end: Number,
-    cancel_at: Number,
-    canceled_at: Number,
-    cancel_at_period_end: Boolean,
-    planNickname: String,
-    priceId: String,
-    hasPaymentMethod: Boolean,
-  },
+  stripeSubscription: {},
+  billingPlatform: String,
   price: Number, // The price of the license
   discountAmount: Number, // The amount of the discount
   discountMessage: String, // The message of the discount

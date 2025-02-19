@@ -5,6 +5,7 @@ import { FaExternalLinkAlt } from "react-icons/fa";
 import { DocLink } from "@/components/DocLink";
 import SelectField from "@/components/Forms/SelectField";
 import Code from "@/components/SyntaxHighlighting/Code";
+import Link from "@/components/Radix/Link";
 
 export default function GrowthBookSetupCodeSnippet({
   language,
@@ -63,6 +64,22 @@ window.growthbook_config.trackingCallback = (experiment, result) => {
           `.trim()}
             />
           </>
+        ) : eventTracker === "GA4" ? (
+          <div>
+            Events are tracked to Google Analytics automatically. No
+            configuration needed. <br />
+            <br />
+            If you are using GTM to load Google Analytics, you will need to
+            follow{" "}
+            <Link
+              href="https://docs.growthbook.io/guide/google-tag-manager-and-growthbook#4-tracking-via-datalayer-and-gtm"
+              target="_blank"
+            >
+              additional steps
+            </Link>{" "}
+            to make sure the experiment event data is passed to Google
+            Analytics.
+          </div>
         ) : (
           <div>
             Events are tracked in {eventTracker} automatically. No configuration
