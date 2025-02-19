@@ -1441,6 +1441,7 @@ export default function FactMetricModal({
   defaultValues.loseRisk = defaultValues.loseRisk * 100;
   defaultValues.minPercentChange = defaultValues.minPercentChange * 100;
   defaultValues.maxPercentChange = defaultValues.maxPercentChange * 100;
+  defaultValues.targetMDE = defaultValues.targetMDE * 100;
 
   const form = useForm<CreateFactMetricProps>({
     defaultValues,
@@ -1628,6 +1629,7 @@ export default function FactMetricModal({
         values.loseRisk = values.loseRisk / 100;
         values.minPercentChange = values.minPercentChange / 100;
         values.maxPercentChange = values.maxPercentChange / 100;
+        values.targetMDE = values.targetMDE / 100;
 
         // Anonymized telemetry props
         // Will help us measure which settings are being used so we can optimize the UI
@@ -2133,6 +2135,24 @@ export default function FactMetricModal({
 
               <MetricWindowSettingsForm form={form} type={type} />
 
+              <SelectField
+                label="Metric Goal"
+                value={form.watch("inverse") ? "1" : "0"}
+                onChange={(v) => {
+                  form.setValue("inverse", v === "1");
+                }}
+                options={[
+                  {
+                    value: "0",
+                    label: `Increase the metric value`,
+                  },
+                  {
+                    value: "1",
+                    label: `Decrease the metric value`,
+                  },
+                ]}
+              />
+
               {!advancedOpen && (
                 <a
                   href="#"
@@ -2151,7 +2171,7 @@ export default function FactMetricModal({
                 <Tabs defaultValue="query">
                   <TabsList>
                     <TabsTrigger value="query">Query Settings</TabsTrigger>
-                    <TabsTrigger value="display">Display Settings</TabsTrigger>
+                    <TabsTrigger value="display">Analysis Settings</TabsTrigger>
                     <div className="ml-auto">
                       <a
                         href="#"
@@ -2317,24 +2337,20 @@ export default function FactMetricModal({
                     </TabsContent>
 
                     <TabsContent value="display">
-                      <SelectField
-                        label="What is the goal?"
-                        value={form.watch("inverse") ? "1" : "0"}
-                        onChange={(v) => {
-                          form.setValue("inverse", v === "1");
-                        }}
-                        options={[
-                          {
-                            value: "0",
-                            label: `Increase the metric value`,
-                          },
-                          {
-                            value: "1",
-                            label: `Decrease the metric value`,
-                          },
-                        ]}
-                        helpText="Some metrics like 'page load time' you actually want to decrease instead of increase"
-                      />
+                      {/* TODO(mid-experiment-power): Uncomment */}
+                      {/* <Field
+                        label="Target MDE"
+                        type="number"
+                        step="any"
+                        append="%"
+                        {...form.register("targetMDE", {
+                          valueAsNumber: true,
+                        })}
+                        helpText={`The percentage change that you want to reliably detect before ending your experiment. This is used to estimate the "Days Left" for running experiments. (default ${
+                          metricDefaults.targetMDE * 100
+                        }%)`}
+                      /> */}
+
                       <div className="form-group">
                         <label>{`Minimum ${
                           quantileMetricType
@@ -2380,7 +2396,7 @@ export default function FactMetricModal({
                         helpText={`An experiment that changes the metric by more than this percent will
             be flagged as suspicious (default ${
               metricDefaults.maxPercentageChange * 100
-            })`}
+            }%)`}
                       />
                       <Field
                         label="Min Percent Change"
@@ -2393,7 +2409,7 @@ export default function FactMetricModal({
                         helpText={`An experiment that changes the metric by less than this percent will be
             considered a draw (default ${
               metricDefaults.minPercentageChange * 100
-            })`}
+            }%)`}
                       />
 
                       <RiskThresholds
