@@ -144,6 +144,7 @@ export async function getAllTeamRoleInfoInDb(): Promise<
       }
     )
     .toArray();
+
   return docs.map((d) => ({
     id: d.id,
     role: d.role,

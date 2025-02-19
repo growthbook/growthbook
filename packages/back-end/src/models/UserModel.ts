@@ -214,7 +214,7 @@ export async function hasUser() {
 export async function getUserIdsAndEmailsForAllUsersInDb() {
   if (IS_CLOUD) {
     throw new Error(
-      "getUsersIdToEmailMapForAllUsersInDb() is not supported on cloud"
+      "getUserIdsAndEmailsForAllUsersInDb() is not supported on cloud"
     );
   }
 
@@ -222,7 +222,10 @@ export async function getUserIdsAndEmailsForAllUsersInDb() {
     .find({}, { projection: { email: 1, id: 1 } })
     .toArray();
 
-  return users;
+  return users.map((u) => ({
+    id: u.id,
+    email: u.email,
+  }));
 }
 
 export async function getEmailFromUserId(userId: string) {

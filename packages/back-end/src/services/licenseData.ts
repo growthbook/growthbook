@@ -141,8 +141,12 @@ export async function getUserCodesForOrg(
   let invitesSet: Set<string> = new Set([]);
 
   let organizations: OrganizationInterface[] = [];
-  let users = [];
-  let teams = [];
+  let users: { id: string; email: string }[] = [];
+  let teams: {
+    id: string;
+    role: string;
+    projectRoles?: { role: string }[];
+  }[] = [];
 
   if (IS_CLOUD) {
     organizations = [org];
