@@ -979,6 +979,7 @@ export interface components {
       includeDraftExperiments?: boolean;
       includeExperimentNames?: boolean;
       includeRedirectExperiments?: boolean;
+      includeRuleIds?: boolean;
       key: string;
       proxyEnabled: boolean;
       proxyHost: string;
@@ -3300,6 +3301,7 @@ export interface operations {
                 includeDraftExperiments?: boolean;
                 includeExperimentNames?: boolean;
                 includeRedirectExperiments?: boolean;
+                includeRuleIds?: boolean;
                 key: string;
                 proxyEnabled: boolean;
                 proxyHost: string;
@@ -3336,6 +3338,7 @@ export interface operations {
           includeDraftExperiments?: boolean;
           includeExperimentNames?: boolean;
           includeRedirectExperiments?: boolean;
+          includeRuleIds?: boolean;
           proxyEnabled?: boolean;
           proxyHost?: string;
           hashSecureAttributes?: boolean;
@@ -3368,6 +3371,7 @@ export interface operations {
               includeDraftExperiments?: boolean;
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
+              includeRuleIds?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -3414,6 +3418,7 @@ export interface operations {
               includeDraftExperiments?: boolean;
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
+              includeRuleIds?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -3449,6 +3454,7 @@ export interface operations {
           includeDraftExperiments?: boolean;
           includeExperimentNames?: boolean;
           includeRedirectExperiments?: boolean;
+          includeRuleIds?: boolean;
           proxyEnabled?: boolean;
           proxyHost?: string;
           hashSecureAttributes?: boolean;
@@ -3481,6 +3487,7 @@ export interface operations {
               includeDraftExperiments?: boolean;
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
+              includeRuleIds?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -3545,6 +3552,7 @@ export interface operations {
               includeDraftExperiments?: boolean;
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
+              includeRuleIds?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;

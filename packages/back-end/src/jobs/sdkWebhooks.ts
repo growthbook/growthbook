@@ -348,6 +348,7 @@ export async function fireSdkWebhook(
         includeDraftExperiments: connection.includeDraftExperiments,
         includeExperimentNames: connection.includeExperimentNames,
         includeRedirectExperiments: connection.includeRedirectExperiments,
+        includeRuleIds: connection.includeRuleIds,
         hashSecureAttributes: connection.hashSecureAttributes,
       });
       payload = JSON.stringify(defs);
@@ -436,6 +437,7 @@ export async function fireGlobalSdkWebhooks(
       includeDraftExperiments: connection.includeDraftExperiments,
       includeExperimentNames: connection.includeExperimentNames,
       includeRedirectExperiments: connection.includeRedirectExperiments,
+      includeRuleIds: connection.includeRuleIds,
       hashSecureAttributes: connection.hashSecureAttributes,
     });
 
