@@ -666,6 +666,7 @@ export default function SDKConnectionForm({
                             setValue={(val) =>
                               form.setValue("encryptPayload", val)
                             }
+                            disabled={!hasEncryptionFeature}
                             label={
                               <PremiumTooltip
                                 commercialFeature="encrypt-features-endpoint"
