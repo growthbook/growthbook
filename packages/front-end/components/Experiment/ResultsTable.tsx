@@ -596,7 +596,7 @@ export default function ResultsTable({
                 <tbody className={clsx("results-group-row")} key={i}>
                   {!compactResults &&
                     drawEmptyRow({
-                      className: "results-label-row bg-light",
+                      className: "results-label-row",
                       label: renderLabelColumn(row.label, row.metric, row),
                       graphCellWidth,
                       rowHeight: METRIC_LABEL_ROW_HEIGHT,

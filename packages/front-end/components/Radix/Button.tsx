@@ -23,6 +23,7 @@ export type Props = {
   setError?: (error: string | null) => void;
   icon?: ReactNode;
   iconPosition?: "left" | "right";
+  stopPropagation?: boolean;
   children: string | string[] | ReactNode;
   style?: CSSProperties;
 } & MarginProps &
@@ -53,6 +54,7 @@ const Button = forwardRef<HTMLButtonElement, Props>(
       setError,
       icon,
       iconPosition = "left",
+      stopPropagation,
       type = "button",
       children,
       ...otherProps
@@ -70,6 +72,7 @@ const Button = forwardRef<HTMLButtonElement, Props>(
           onClick
             ? async (e) => {
                 e.preventDefault();
+                if (stopPropagation) e.stopPropagation();
                 if (loading) return;
                 setLoading(true);
                 setError?.(null);
