@@ -172,7 +172,6 @@ export default function FactMetricPage() {
     getMinSampleSizeForMetric,
     getMinPercentageChangeForMetric,
     getMaxPercentageChangeForMetric,
-    getTargetMDEForMetric,
   } = useOrganizationMetricDefaults();
 
   const {
@@ -746,12 +745,13 @@ export default function FactMetricPage() {
                       {getMinPercentageChangeForMetric(factMetric) * 100}%
                     </span>
                   </li>
-                  <li className="mb-2">
+                  {/* TODO(mid-experiment-power): Uncomment */}
+                  {/* <li className="mb-2">
                     <span className="text-gray">Target MDE:</span>{" "}
                     <span className="font-weight-bold">
                       {getTargetMDEForMetric(factMetric) * 100}%
                     </span>
-                  </li>
+                  </li> */}
                 </ul>
               </RightRailSectionGroup>
 

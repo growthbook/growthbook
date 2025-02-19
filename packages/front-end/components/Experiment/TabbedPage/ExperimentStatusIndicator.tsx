@@ -189,14 +189,15 @@ function getStatusIndicatorData(
     }
 
     // 2. Show no data if no data is present
-    if (healthSummary?.totalUsers === 0) {
-      return {
-        color: "indigo",
-        variant: "solid",
-        status: "Running",
-        detailedStatus: "No data",
-      };
-    }
+    // TODO(mid-experiment-power): Uncomment
+    // if (healthSummary?.totalUsers === 0) {
+    //   return {
+    //     color: "indigo",
+    //     variant: "solid",
+    //     status: "Running",
+    //     detailedStatus: "No data",
+    //   };
+    // }
 
     // 3. If no unhealthy status, show days left data
     if (powerIndicatorData) {

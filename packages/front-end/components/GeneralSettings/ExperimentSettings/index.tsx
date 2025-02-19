@@ -195,7 +195,7 @@ export default function ExperimentSettings({
               </Flex>
             </Box>
 
-            {/* TODO: Reenable once we have statuses for experiments running for > maxExperimentLengthDays */}
+            {/* TODO(mid-experiment-power): Reenable once we have statuses for experiments running for > maxExperimentLengthDays */}
             {/* <Box mb="4" width="100%">
               <Box className="appbox p-3">
                 <Box mb="4">
@@ -383,7 +383,7 @@ export default function ExperimentSettings({
                   <Box>
                     <label
                       htmlFor="toggle-runHealthTrafficQuery"
-                      className="font-weight-semibold mb-0"
+                      className="font-weight-semibold mb-3"
                     >
                       Run traffic query by default
                     </label>

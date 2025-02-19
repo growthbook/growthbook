@@ -6,7 +6,7 @@ import {
 } from "shared/constants";
 import { StatsEngine, PValueCorrection } from "back-end/types/stats";
 import { MetricDefaults } from "back-end/types/organization";
-import { Box, Flex, Heading, Text, Tooltip } from "@radix-ui/themes";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import {
   Tabs,
   TabsList,
@@ -20,7 +20,6 @@ import { hasFileConfig } from "@/services/env";
 import Field from "@/components/Forms/Field";
 import Callout from "@/components/Radix/Callout";
 import Checkbox from "@/components/Radix/Checkbox";
-import { GBInfo } from "@/components/Icons";
 import FrequentistTab from "./FrequentistTab";
 import BayesianTab from "./BayesianTab";
 
@@ -202,7 +201,8 @@ export default function StatsEngineSettings() {
         </Flex>
       </Box>
 
-      <Box className="border rounded" mb="6" p="4">
+      {/* TODO(mid-experiment-power): Uncomment */}
+      {/* <Box className="border rounded" mb="6" p="4">
         <Heading as="h4" size="3" mb="4">
           <PremiumTooltip commercialFeature="mid-experiment-power">
             Experiment Decision Making
@@ -245,7 +245,7 @@ export default function StatsEngineSettings() {
             </Box>
           </Flex>
         </Box>
-      </Box>
+      </Box> */}
 
       <h4>Stats Engine Settings</h4>
 

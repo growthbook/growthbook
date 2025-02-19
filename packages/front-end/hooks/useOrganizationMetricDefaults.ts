@@ -93,7 +93,7 @@ export type OrganizationMetricDefaults = {
   }) => number;
 
   /**
-   * Returns the target lift for the provided metric,
+   * Returns the target minimum detectable effect for the provided metric,
    * considering 0 (zero) as a valid value.
    * Number returned is a multiplier value between 0-1,
    * e.g. for 1% you will get 0.01.
