@@ -234,7 +234,18 @@ const drawChange = ({
                     <Box>
                       <Code
                         language="json"
-                        code={JSON.stringify(changes, null, 2)}
+                        code={JSON.stringify(
+                          Object.fromEntries(
+                            Object.entries(changes).filter(
+                              ([key]) =>
+                                key !== "id" &&
+                                key !== "variation" &&
+                                key !== "description"
+                            )
+                          ),
+                          null,
+                          2
+                        )}
                       />
                     </Box>
                   )}
