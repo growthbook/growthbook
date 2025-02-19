@@ -144,6 +144,7 @@ export default function LinkedChange({
                           className="btn-sm ml-4"
                           useRadix={true}
                           text="Delete"
+                          stopPropagation={true}
                           onClick={() => {
                             deleteVisualChangeset(vc.id);
                           }}

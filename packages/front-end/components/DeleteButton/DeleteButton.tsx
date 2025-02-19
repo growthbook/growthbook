@@ -28,6 +28,7 @@ const DeleteButton: FC<{
   getConfirmationContent?: () => Promise<string | ReactElement | null>;
   canDelete?: boolean;
   disabled?: boolean;
+  stopPropagation?: boolean;
 }> = ({
   onClick,
   className,
@@ -45,6 +46,7 @@ const DeleteButton: FC<{
   getConfirmationContent,
   canDelete = true,
   disabled = false,
+  stopPropagation = false,
 }) => {
   const [confirming, setConfirming] = useState(false);
   const [dynamicContent, setDynamicContent] = useState<
@@ -95,6 +97,7 @@ const DeleteButton: FC<{
           variant="ghost"
           color="red"
           title={title}
+          stopPropagation={stopPropagation}
         >
           {text}
         </Button>
