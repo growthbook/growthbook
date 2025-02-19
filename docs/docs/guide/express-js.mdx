@@ -4,6 +4,8 @@ description: This guide shows how to integrate GrowthBook with Express.js to man
 slug: express-js
 ---
 
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
 # Feature Flags with Express.js and GrowthBook
 
 This guide walks through how to add GrowthBook feature flags to an [Express.js](https://expressjs.com/) application. It assumes you are starting from scratch, so if you already have an Express.js application, you can skip to step 2.
@@ -112,11 +114,9 @@ node --env-file=.env index.js
 
 Back in the GrowthBook application, we can create a new feature. For this tutorial, we'll make a simple on/off feature flag that determines whether or not we show the message in Spanish.
 
-<img
-  src="/images/guides/express-js-1-create-feature.png"
-  alt="GrowthBook Create Feature"
-  style={{ width: 500, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={500}>
+![GrowthBook Create Feature](/images/guides/express-js-1-create-feature.png)
+</MaxWidthImage>
 
 The key we chose (spanish-greeting) is what we will reference when using the GrowthBook SDK.
 
@@ -144,11 +144,9 @@ In the `userContext` we added, we hard-coded an id of "123". We can now use this
 
 On the feature page, click the "Add Rule" button and select "Force Value" as the rule type. Then add targeting by attribute and save the rule. It should look something like this:
 
-<img
-  src="/images/guides/express-js-2-targeting-rule.png"
-  alt="GrowthBook Targeting Rule"
-  style={{ width: 500, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={500} border>
+![GrowthBook Targeting Rule](/images/guides/express-js-2-targeting-rule.png)
+</MaxWidthImage>
 
 Rules start out in a draft state in GrowthBook. You need to publish the draft to make it live.
 
