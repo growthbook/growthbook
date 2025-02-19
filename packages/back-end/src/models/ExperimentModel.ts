@@ -260,6 +260,21 @@ const experimentSchema = new mongoose.Schema({
       multipleExposures: Number,
       totalUsers: Number,
     },
+    metricStatus: {
+      _id: false,
+      sequentialUsed: Boolean,
+      variations: [
+        {
+          _id: false,
+          variationId: String,
+          goalMetricsStatSigPositive: [String],
+          goalMetricsStatSigNegative: [String],
+          goalMetricsSuperStatSigPositive: [String],
+          goalMetricsSuperStatSigNegative: [String],
+          guardrailMetricsFailing: [String],
+        },
+      ],
+    },
   },
 });
 

@@ -158,19 +158,58 @@ export type ExperimentAnalysisSettings = z.infer<
   typeof experimentAnalysisSettings
 >;
 
+export const experimentAnalysisSummaryHealth = z.object({
+  srm: z.number(),
+  multipleExposures: z.number(),
+  totalUsers: z.number(),
+  power: z
+    .discriminatedUnion("type", [
+      z.object({
+        type: z.literal("error"),
+        errorMessage: z.string(),
+      }),
+      z.object({
+        type: z.literal("success"),
+        isLowPowered: z.boolean(),
+        additionalDaysNeeded: z.number(),
+      }),
+    ])
+    .optional(),
+});
+export type ExperimentAnalysisSummaryHealth = z.infer<
+  typeof experimentAnalysisSummaryHealth
+>;
+
+export const analysisSummaryVariationMetricStatus = z.object({
+  variationId: z.string(),
+  goalMetricsStatSigPositive: z.array(z.string()),
+  goalMetricsSuperStatSigPositive: z.array(z.string()),
+  goalMetricsStatSigNegative: z.array(z.string()),
+  goalMetricsSuperStatSigNegative: z.array(z.string()),
+  guardrailMetricsFailing: z.array(z.string()),
+});
+
+export type AnalysisSummaryVariationMetricStatus = z.infer<
+  typeof analysisSummaryVariationMetricStatus
+>;
+
+export const experimentAnalysisSummaryMetricStatus = z.object({
+  variations: z.array(analysisSummaryVariationMetricStatus),
+  sequentialUsed: z.boolean(),
+});
+export type ExperimentAnalysisSummaryMetricStatus = z.infer<
+  typeof experimentAnalysisSummaryMetricStatus
+>;
+
 export const experimentAnalysisSummary = z
   .object({
     snapshotId: z.string(),
-    health: z
-      .object({
-        srm: z.number(),
-        multipleExposures: z.number(),
-        totalUsers: z.number(),
-      })
-      .optional(),
+    health: experimentAnalysisSummaryHealth.optional(),
+    metricStatus: experimentAnalysisSummaryMetricStatus.optional(),
   })
   .strict()
   .optional();
+
 export type ExperimentAnalysisSummary = z.infer<
   typeof experimentAnalysisSummary
 >;

@@ -31,6 +31,7 @@ import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
   getEqualWeights,
+  getMetricResultStatus,
   getMetricSnapshotSettings,
   isFactMetric,
   isFactMetricId,
@@ -41,8 +42,10 @@ import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import {
+  AnalysisSummaryVariationMetricStatus,
   BanditResult,
   ExperimentAnalysisSummary,
+  ExperimentAnalysisSummaryMetricStatus,
 } from "back-end/src/validators/experiments";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { promiseAllChunks } from "back-end/src/util/promise";
@@ -147,7 +150,12 @@ import {
   runSnapshotAnalysis,
   writeSnapshotAnalyses,
 } from "./stats";
-import { getEnvironmentIdsFromOrg } from "./organizations";
+import {
+  getConfidenceLevelsForOrg,
+  getEnvironmentIdsFromOrg,
+  getMetricDefaultsForOrg,
+  getPValueThresholdForOrg,
+} from "./organizations";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -2815,6 +2823,25 @@ export async function updateExperimentAnalysisSummary({
     };
   }
 
+  const analysis = experimentSnapshot.analyses.find(
+    (v) => v.settings.differenceType === "relative"
+  );
+  if (analysis) {
+    const overallResults = analysis.results?.[0];
+    // redundant check for dimension
+    if (overallResults && overallResults.name === "") {
+      const metricStatus = await computeKeyMetricStatus({
+        context,
+        analysis,
+        experiment,
+      });
+
+      if (metricStatus) {
+        analysisSummary.metricStatus = metricStatus;
+      }
+    }
+  }
+
   await updateExperiment({
     context,
     experiment,
@@ -2822,4 +2849,89 @@ export async function updateExperimentAnalysisSummary({
       analysisSummary,
     },
   });
+}
+
+async function computeKeyMetricStatus({
+  context,
+  analysis,
+  experiment,
+}: {
+  context: ReqContext;
+  analysis: ExperimentSnapshotAnalysis;
+  experiment: ExperimentInterface;
+}): Promise<ExperimentAnalysisSummaryMetricStatus | undefined> {
+  const statsEngine = analysis.settings.statsEngine;
+  const { ciUpper, ciLower } = getConfidenceLevelsForOrg(context);
+  const metricDefaults = getMetricDefaultsForOrg(context);
+  const pValueThreshold = getPValueThresholdForOrg(context);
+  const metricMap = await getMetricMap(context);
+
+  const variations = analysis.results?.[0].variations;
+  if (!variations) {
+    return;
+  }
+
+  const variationStatuses: ExperimentAnalysisSummaryMetricStatus["variations"] = [];
+  const baselineVariation = variations[0];
+
+  for (let i = 1; i < variations.length; i++) {
+    const currentVariation = variations[i];
+    const variationStatus: AnalysisSummaryVariationMetricStatus = {
+      variationId: i + "",
+      goalMetricsStatSigNegative: [],
+      goalMetricsStatSigPositive: [],
+      guardrailMetricsFailing: [],
+      goalMetricsSuperStatSigNegative: [],
+      goalMetricsSuperStatSigPositive: [],
+    };
+    for (const m in currentVariation.metrics) {
+      const goalMetric = experiment.goalMetrics.includes(m);
+      const guardrailMetric = experiment.guardrailMetrics.includes(m);
+      if (goalMetric || guardrailMetric) {
+        const baselineMetric = baselineVariation.metrics?.[m];
+        const currentMetric = currentVariation.metrics?.[m];
+        if (!currentMetric || !baselineMetric) continue;
+
+        const metric = metricMap.get(m);
+        if (!metric) continue;
+
+        const resultsStatus = getMetricResultStatus({
+          metric,
+          metricDefaults,
+          baseline: baselineMetric,
+          stats: currentMetric,
+          ciLower,
+          ciUpper,
+          pValueThreshold,
+          statsEngine: statsEngine,
+        });
+
+        if (goalMetric) {
+          if (resultsStatus.resultsStatus === "won") {
+            variationStatus.goalMetricsStatSigPositive.push(m);
+          } else if (resultsStatus.resultsStatus === "lost") {
+            variationStatus.goalMetricsStatSigNegative.push(m);
+          }
+
+          if (resultsStatus.clearSignalResultsStatus === "won") {
+            variationStatus.goalMetricsSuperStatSigPositive.push(m);
+          } else if (resultsStatus.resultsStatus === "lost") {
+            variationStatus.goalMetricsSuperStatSigNegative.push(m);
+          }
+        }
+
+        if (guardrailMetric) {
+          if (resultsStatus.resultsStatus === "lost") {
+            variationStatus.guardrailMetricsFailing.push(m);
+          }
+        }
+      }
+    }
+    variationStatuses.push(variationStatus);
+  }
+
+  return {
+    variations: variationStatuses,
+    sequentialUsed: analysis.settings.sequentialTesting ?? false,
+  };
 }
