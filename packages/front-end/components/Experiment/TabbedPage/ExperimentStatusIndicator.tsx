@@ -176,17 +176,7 @@ function getStatusIndicatorData(
         powerStatus = getPowerStatus({
           power: healthSummary.power,
         });
-
-        if (
-          powerStatus?.isLowPowered &&
-          !experimentData.dismissedWarnings?.includes("low-power") &&
-          !beforeMinDuration
-        ) {
-          unhealthyStatuses.push("Low powered");
-          // If we have a override status from powerStatus, use it
-        } else if (powerStatus?.indicatorData) {
-          powerIndicatorData = powerStatus.indicatorData;
-        }
+        powerIndicatorData = powerStatus.indicatorData;
       }
 
       if (metricStatus) {
@@ -196,6 +186,15 @@ function getStatusIndicatorData(
           guardrailMetrics: experimentData.guardrailMetrics,
           powerStatus: powerStatus,
         });
+        // override low powered status if shipping criteria are ready
+        if (
+          !shippingIndicatorData &&
+          powerStatus?.isLowPowered &&
+          !experimentData.dismissedWarnings?.includes("low-power") &&
+          !beforeMinDuration
+        ) {
+          unhealthyStatuses.push("Low powered");
+        }
       }
     }
 
