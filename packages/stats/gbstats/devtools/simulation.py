@@ -3,7 +3,9 @@ from typing import Dict, Mapping, Tuple, Type
 
 import numpy as np
 
-from gbstats.models.statistics import TestStatistic
+from gbstats.models.statistics import (
+    TestStatistic,
+)
 from gbstats.models.tests import BaseABTest, BaseConfig
 
 ##############################################

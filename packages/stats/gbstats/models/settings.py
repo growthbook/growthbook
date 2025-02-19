@@ -6,6 +6,7 @@ DifferenceType = Literal["relative", "absolute", "scaled"]
 StatsEngine = Literal["bayesian", "frequentist"]
 StatisticType = Literal["ratio", "mean", "mean_ra", "quantile_event", "quantile_unit"]
 MetricType = Literal["binomial", "count", "quantile"]
+BusinessMetricType = Literal["goal", "guardrail", "secondary"]
 
 
 @dataclass
@@ -16,6 +17,7 @@ class AnalysisSettingsForStatsEngine:
     baseline_index: int = 0
     dimension: str = ""
     stats_engine: StatsEngine = "bayesian"
+    p_value_corrected: bool = False
     sequential_testing_enabled: bool = False
     sequential_tuning_parameter: float = 5000
     difference_type: DifferenceType = "relative"
@@ -23,6 +25,7 @@ class AnalysisSettingsForStatsEngine:
     alpha: float = 0.05
     max_dimensions: int = 20
     traffic_percentage: float = 1
+    num_goal_metrics: int = 1
 
 
 @dataclass
@@ -71,6 +74,8 @@ class MetricSettingsForStatsEngine:
     denominator_metric_type: Optional[MetricType] = None
     covariate_metric_type: Optional[MetricType] = None
     quantile_value: Optional[float] = None
+    business_metric_type: Optional[List[BusinessMetricType]] = None
+    target_mde: float = 0.01
 
 
 @dataclass

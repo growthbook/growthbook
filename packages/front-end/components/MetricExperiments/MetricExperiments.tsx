@@ -14,6 +14,7 @@ import {
   SnapshotMetric,
 } from "back-end/types/experiment-snapshot";
 import {
+  ExperimentPhaseStringDates,
   ExperimentResultsType,
   ExperimentStatus,
   Variation,

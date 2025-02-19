@@ -48,6 +48,7 @@ class TestTwoSidedTTest(TestCase):
                 ci=[-0.03526, 1.44989],
                 uplift=Uplift("normal", 0.70732, 0.37879),
                 p_value=0.06191,
+                error_message=None,
             )
         )
 
@@ -66,9 +67,10 @@ class TestTwoSidedTTest(TestCase):
         expected_rounded_dict = asdict(
             FrequentistTestResult(
                 expected=0.7 - 0.41,
-                ci=(0.04538, 0.53462),
+                ci=[0.04538, 0.53462],
                 uplift=Uplift("normal", 0.29, 0.12478),
                 p_value=0.02016,
+                error_message=None,
             )
         )
 
@@ -84,6 +86,7 @@ class TestTwoSidedTTest(TestCase):
                 ci=[-0.47767, 0.61101],
                 uplift=Uplift("normal", 0.06667, 0.2717),
                 p_value=0.80707,
+                error_message=None,
             )
         )
 
@@ -114,6 +117,7 @@ class TestSequentialTTest(TestCase):
                 ci=[-0.55844, 1.56516],
                 uplift=Uplift("normal", 0.50336, 0.33341),
                 p_value=1,
+                error_message=None,
             )
         )
 
@@ -129,6 +133,7 @@ class TestSequentialTTest(TestCase):
                 ci=[0.40098, 0.60675],
                 uplift=Uplift("normal", 0.50386, 0.03386),
                 p_value=0.0,
+                error_message=None,
             )
         )
         self.assertEqual(_round_result_dict(result_dict), expected_dict)
@@ -161,6 +166,7 @@ class TestSequentialTTest(TestCase):
                 ci=[-0.50969, 1.51646],
                 uplift=Uplift("normal", 0.50338, 0.33341),
                 p_value=1,
+                error_message=None,
             )
         )
 

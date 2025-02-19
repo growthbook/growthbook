@@ -1,6 +1,7 @@
 import { Tooltip } from "@radix-ui/themes";
 import {
   ExperimentAnalysisSummaryHealth,
+  ExperimentAnalysisSummaryHealth,
   ExperimentAnalysisSummaryMetricStatus,
 } from "back-end/src/validators/experiments";
 import {
@@ -8,8 +9,12 @@ import {
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
   DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
   DEFAULT_SRM_THRESHOLD,
+  DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
+  DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
+  DEFAULT_MID_EXPERIMENT_POWER_CALCULATION_ENABLED,
   DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
 } from "shared/constants";
+import { daysBetween } from "shared/dates";
 import { getMultipleExposureHealthData, getSRMHealthData } from "shared/health";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Badge from "@/components/Radix/Badge";
@@ -30,6 +35,14 @@ type ExperimentData = Pick<
   | "goalMetrics"
   | "guardrailMetrics"
 >;
+
+type StatusIndicatorData = {
+  color: React.ComponentProps<typeof Badge>["color"];
+  variant: React.ComponentProps<typeof Badge>["variant"];
+  status: string;
+  detailedStatus?: string;
+  tooltip?: string;
+};
 
 /**
  * Component that displays the status of an experiment with an appropriate badge
@@ -53,6 +66,13 @@ export default function ExperimentStatusIndicator({
 }) {
   const settings = useOrgSettings();
   const healthSettings = {
+    midExperimentPowerEnabled:
+      settings.midExperimentPowerEnabled ??
+      DEFAULT_MID_EXPERIMENT_POWER_CALCULATION_ENABLED,
+    experimentMinLengthDays:
+      settings.experimentMinLengthDays ?? DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
+    experimentMaxLengthDays:
+      settings.experimentMaxLengthDays ?? DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
     srmThreshold: settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD,
     multipleExposureMinPercent:
       settings.multipleExposureMinPercent ??
@@ -70,7 +90,15 @@ export default function ExperimentStatusIndicator({
   const label = getFormattedLabel(labelFormat, status, detailedStatus);
 
   const badge = (
-    <Badge color={color} variant={variant} radius="full" label={label} />
+    <Badge
+      color={color}
+      variant={variant}
+      radius="full"
+      label={label}
+      style={{
+        cursor: tooltip !== undefined ? "default" : undefined,
+      }}
+    />
   );
 
   return tooltip ? <Tooltip content={tooltip}>{badge}</Tooltip> : badge;
@@ -80,16 +108,12 @@ function getStatusIndicatorData(
   experimentData: ExperimentData,
   skipArchived: boolean,
   healthSettings: {
+    midExperimentPowerEnabled: boolean;
     srmThreshold: number;
     multipleExposureMinPercent: number;
+    experimentMinLengthDays: number;
   }
-): {
-  color: React.ComponentProps<typeof Badge>["color"];
-  variant: React.ComponentProps<typeof Badge>["variant"];
-  status: string;
-  detailedStatus?: string;
-  tooltip?: string;
-} {
+): StatusIndicatorData {
   if (!skipArchived && experimentData.archived) {
     return {
       color: "gold",
@@ -175,6 +199,7 @@ function getStatusIndicatorData(
       }
     }
 
+    // 1. Always show unhealthy status if they exist
     if (unhealthyStatuses.length > 0) {
       return {
         color: "amber",
