@@ -195,8 +195,7 @@ export default function ExperimentSettings({
               </Flex>
             </Box>
 
-            {/* TODO(mid-experiment-power): Reenable once we have statuses for experiments running for > maxExperimentLengthDays */}
-            {/* <Box mb="4" width="100%">
+            <Box mb="4" width="100%">
               <Box className="appbox p-3">
                 <Box mb="4">
                   <Text mb="1" size="3" className="font-weight-semibold">
@@ -244,7 +243,7 @@ export default function ExperimentSettings({
                   </Box>
                 </Flex>
               </Box>
-            </Box> */}
+            </Box>
 
             {/* Conversion window override */}
             <Box mb="4" width="100%">
