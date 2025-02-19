@@ -20,6 +20,7 @@ import LinkedChange from "@/components/Experiment/LinkedChange";
 import Badge from "@/components/Radix/Badge";
 import Button from "@/components/Radix/Button";
 import Code from "@/components/SyntaxHighlighting/Code";
+import Link from "@/components/Radix/Link";
 
 type Props = {
   experiment: ExperimentInterfaceStringDates;
@@ -148,107 +149,110 @@ const drawChange = ({
               return (
                 <Box key={j}>
                   <Flex
-                    justify="between"
                     width="100%"
+                    direction="column"
                     gap="4"
                     py="2"
                     my="2"
                     style={{ borderBottom: "1px solid var(--slate-a4)" }}
                   >
-                    <Flex
-                      align="start"
-                      gap="2"
-                      flexBasis="30%"
-                      flexShrink="0"
-                      className={`variation with-variation-label border-right-0 variation${j}`}
-                    >
-                      <span
-                        className="label mt-1"
-                        style={{ width: 20, height: 20 }}
+                    <Flex justify="between">
+                      <Flex
+                        align="start"
+                        gap="2"
+                        flexBasis="30%"
+                        flexShrink="0"
+                        className={`variation with-variation-label border-right-0 variation${j}`}
                       >
-                        {i}
-                      </span>
-                      <Flex direction="column">
                         <span
-                          className="d-inline-block text-ellipsis font-weight-semibold"
-                          title={v.name}
+                          className="label mt-1"
+                          style={{ width: 20, height: 20 }}
                         >
-                          {v.name}
+                          {i}
                         </span>
-                        <a
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setShowChangeset(
-                              showChangeset.includes(j)
-                                ? showChangeset.filter((item) => item !== j)
-                                : [...showChangeset, j]
-                            );
-                          }}
-                        >
-                          <Text
-                            size="1"
-                            style={{ color: "var(--color-text-mid)" }}
+                        <Flex direction="column">
+                          <span
+                            className="d-inline-block text-ellipsis font-weight-semibold"
+                            title={v.name}
                           >
-                            {numChanges} visual change
-                            {numChanges === 1 ? "" : "s"}
-                            <FaAngleRight
-                              className="chevron ml-2"
-                              style={{
-                                transform: `rotate(${
-                                  showChangeset.includes(j) ? "90deg" : "0deg"
-                                })`,
-                              }}
+                            {v.name}
+                          </span>
+                          <Link
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setShowChangeset(
+                                showChangeset.includes(j)
+                                  ? showChangeset.filter((item) => item !== j)
+                                  : [...showChangeset, j]
+                              );
+                            }}
+                          >
+                            <Text
+                              size="1"
+                              wrap="nowrap"
+                              style={{ color: "var(--color-text-mid)" }}
+                            >
+                              {numChanges} visual change
+                              {numChanges === 1 ? "" : "s"}
+                              <FaAngleRight
+                                className="chevron"
+                                style={{
+                                  transform: `rotate(${
+                                    showChangeset.includes(j) ? "90deg" : "0deg"
+                                  })`,
+                                }}
+                              />
+                            </Text>
+                          </Link>
+                        </Flex>
+                      </Flex>
+                      <Flex gap="2" align="center" justify="end">
+                        <Button variant="ghost">
+                          <a target="_blank" rel="noreferrer" href={editorUrl}>
+                            Preview{" "}
+                            <PiArrowSquareOut
+                              className="ml-1"
+                              style={{ position: "relative", top: "-2px" }}
                             />
-                          </Text>
-                        </a>
+                          </a>
+                        </Button>
+                        {canEditVisualChangesets && (
+                          <Button
+                            variant="soft"
+                            onClick={() => {
+                              setEditingVisualChange({
+                                visualChange: changes,
+                                visualChangeIndex: j,
+                                visualChangeset: vc,
+                              });
+                            }}
+                          >
+                            Edit
+                          </Button>
+                        )}
                       </Flex>
                     </Flex>
-                    <Flex gap="2" align="center" justify="end">
-                      <Button variant="ghost">
-                        <a target="_blank" rel="noreferrer" href={editorUrl}>
-                          Preview{" "}
-                          <PiArrowSquareOut
-                            className="ml-1"
-                            style={{ position: "relative", top: "-2px" }}
-                          />
-                        </a>
-                      </Button>
-                      {canEditVisualChangesets && (
-                        <Button
-                          variant="soft"
-                          onClick={() => {
-                            setEditingVisualChange({
-                              visualChange: changes,
-                              visualChangeIndex: j,
-                              visualChangeset: vc,
-                            });
-                          }}
-                        >
-                          Edit
-                        </Button>
-                      )}
-                    </Flex>
+                    {showChangeset.includes(j) && (
+                      <Box>
+                        <Code
+                          language="json"
+                          code={JSON.stringify(
+                            Object.fromEntries(
+                              Object.entries(changes).filter(
+                                ([key]) =>
+                                  key !== "id" &&
+                                  key !== "variation" &&
+                                  key !== "description"
+                              )
+                            ),
+                            null,
+                            2
+                          )}
+                        />
+                      </Box>
+                    )}
                   </Flex>
-                  {showChangeset.includes(j) && (
-                    <Box>
-                      <Code
-                        language="json"
-                        code={JSON.stringify(
-                          Object.fromEntries(
-                            Object.entries(changes).filter(
-                              ([key]) =>
-                                key !== "id" &&
-                                key !== "variation" &&
-                                key !== "description"
-                            )
-                          ),
-                          null,
-                          2
-                        )}
-                      />
-                    </Box>
-                  )}
                 </Box>
               );
             })}
