@@ -45,7 +45,14 @@ export default function UpgradeModal({ close, source }: Props) {
     false
   );
 
-  const { name, email, accountPlan, license, effectiveAccountPlan } = useUser();
+  const {
+    name,
+    email,
+    accountPlan,
+    license,
+    effectiveAccountPlan,
+    subscription,
+  } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -67,11 +74,11 @@ export default function UpgradeModal({ close, source }: Props) {
   const freeTrialAvailable =
     !license || !license.plan || !license.emailVerified;
 
-  const daysToGo = license ? daysLeft(license.dateExpires) : 0;
+  const daysToGo = license?.dateExpires ? daysLeft(license.dateExpires) : 0;
 
   const hasCanceledSubscription =
     ["pro", "pro_sso"].includes(license?.plan || "") &&
-    license?.stripeSubscription?.status === "canceled";
+    subscription?.status === "canceled";
 
   const trackContext = {
     accountPlan,
@@ -104,10 +111,7 @@ export default function UpgradeModal({ close, source }: Props) {
     setError("");
     setLoading(true);
     try {
-      if (
-        license?.stripeSubscription &&
-        license?.stripeSubscription.status != "canceled"
-      ) {
+      if (subscription && subscription.status != "canceled") {
         const res = await apiCall<{ url: string }>(`/subscription/manage`, {
           method: "POST",
         });
@@ -396,8 +400,9 @@ export default function UpgradeModal({ close, source }: Props) {
                   {(daysToGo >= 0 && (
                     <div>
                       <span>
-                        You have <b>{daysLeft(license.dateExpires)} days</b>{" "}
-                        left in your {licensePlanText} of Growthbook with{" "}
+                        You have{" "}
+                        <b>{daysLeft(license.dateExpires || "")} days</b> left
+                        in your {licensePlanText} of Growthbook with{" "}
                       </span>
                       <Link
                         href="/settings/team"

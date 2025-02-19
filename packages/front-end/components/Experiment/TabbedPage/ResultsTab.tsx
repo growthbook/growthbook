@@ -200,7 +200,7 @@ export default function ResultsTab({
         </Callout>
       ) : null}
 
-      <div className="bg-white border">
+      <div className="appbox">
         {analysisSettingsOpen && (
           <AnalysisForm
             cancel={() => setAnalysisSettingsOpen(false)}

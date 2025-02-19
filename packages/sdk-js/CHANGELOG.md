@@ -6,6 +6,7 @@
 - New methods for dealing with destroyed GrowthBook instances - `isDestroyed()` and `onDestroy(callback)`
 - New `plugins` option to extend GrowthBook functionality, plus several built-in plugins
 - New `eventLogger` option and `logEvent` method to track arbitrary analytics events
+- Fix bug in targeting condition when checking if non-existent attribute is equal to `false`
 
 ## **1.3.1** - Dec 3, 2024
 

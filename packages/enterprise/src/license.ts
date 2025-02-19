@@ -76,6 +76,39 @@ export type CommercialFeature =
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
+export type SubscriptionInfo = {
+  billingPlatform: "stripe";
+  externalId: string;
+  trialEnd: Date | null;
+  status: "active" | "canceled" | "past_due" | "trialing" | "";
+  hasPaymentMethod: boolean;
+};
+
+export function getStripeSubscriptionStatus(
+  status: Stripe.Subscription.Status
+): SubscriptionInfo["status"] {
+  if (status === "past_due") return "past_due";
+  if (status === "canceled") return "canceled";
+  if (status === "active") return "active";
+  if (status === "trialing") return "trialing";
+  return "";
+}
+
+export function getSubscriptionFromLicense(
+  license: Partial<LicenseInterface>
+): SubscriptionInfo | null {
+  if (license.stripeSubscription) {
+    return {
+      billingPlatform: "stripe",
+      externalId: license.stripeSubscription.id,
+      trialEnd: license.stripeSubscription.trialEnd,
+      status: getStripeSubscriptionStatus(license.stripeSubscription.status),
+      hasPaymentMethod: !!license.stripeSubscription.hasPaymentMethod,
+    };
+  }
+  return null;
+}
+
 export interface LicenseInterface {
   id: string; // Unique ID for the license key
   companyName: string; // Name of the organization on the license
@@ -97,6 +130,7 @@ export interface LicenseInterface {
     tooltipText: string; // The text to show in the tooltip
     showAllUsers: boolean; // True if all users should see the notice rather than just the admins
   };
+  billingPlatform: "stripe" | "";
   stripeSubscription?: {
     id: string;
     qty: number;
@@ -290,7 +324,7 @@ export function getLowestPlanPerFeature(
 }
 
 export function isActiveSubscriptionStatus(
-  status?: Stripe.Subscription.Status
+  status?: Stripe.Subscription.Status | SubscriptionInfo["status"]
 ) {
   return ["active", "trialing", "past_due"].includes(status || "");
 }
@@ -1046,9 +1080,10 @@ function shouldLimitAccessDueToExpiredLicense(
 
   // Limit access if it is a pro or pro_sso license and it has been canceled regardless of the dateExpires.
   // (If a payment failed stripe will cancel the subscription but the dateExpires will still be in the future.)
+  const subscription = getSubscriptionFromLicense(licenseData);
   if (
     ["pro", "pro_sso"].includes(licenseData.plan || "") &&
-    licenseData.stripeSubscription?.status === "canceled"
+    subscription?.status === "canceled"
   ) {
     return true;
   }
