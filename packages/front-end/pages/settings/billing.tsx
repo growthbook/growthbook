@@ -72,7 +72,7 @@ const BillingPage: FC = () => {
       )}
 
       <h1>Billing Settings</h1>
-      <div className=" bg-white p-3 border">
+      <div className="appbox p-3 border">
         {subscription?.status ? (
           <SubscriptionInfo />
         ) : canSubscribe ? (
