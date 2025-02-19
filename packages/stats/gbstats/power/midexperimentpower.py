@@ -30,6 +30,7 @@ class MidExperimentPowerConfig:
     num_goal_metrics: int = 1
     num_variations: int = 2
     prior_effect: Optional[GaussianPrior] = field(default_factory=GaussianPrior)
+    p_value_corrected: bool = False
     sequential: bool = False
     sequential_tuning_parameter: float = 5000
 
@@ -67,7 +68,11 @@ class MidExperimentPower:
         self.test_result = test_result
         self.alpha = config.alpha
         self.num_goal_metrics = power_config.num_goal_metrics
-        self.num_tests = (power_config.num_variations - 1) * self.num_goal_metrics
+        self.num_tests = (
+            (power_config.num_variations - 1) * self.num_goal_metrics
+            if power_config.p_value_corrected
+            else 1
+        )
         self.multiplier = norm.ppf(1 - self.alpha / (2 * self.num_tests))
         self.target_power = power_config.target_power
         self.adjusted_power = self.target_power ** (1 / self.num_goal_metrics)
