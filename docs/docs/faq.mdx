@@ -132,11 +132,11 @@ There's a good chance that the SQL we are exporting and your version of our Pyth
 In February of 2023 we updated our SQL engines and `gbstats` library to only use sums and sums of squares, rather than averages and standard deviations.
 
 If the queries in your notebook return averages and standard deviations (using `AVG` and `VAR` SQL operators as part of the `__stats` CTE), then you need to run that notebook with `gbstats` version 0.3.1.
-You can download this from PyPI [here](https://pypi.org/project/gbstats/0.3.1/) using `pip install gbstats==0.3.1` and ensure that your kernel uses that version of `gbstats`.
+You can [download this from PyPI](https://pypi.org/project/gbstats/0.3.1/) using `pip install gbstats==0.3.1` and ensure that your kernel uses that version of `gbstats`.
 Ideally in this case you can redownload the notebook and use the new `gbstats` library (0.4.0 or newer). You can download a new notebook by navigating to your experiment in GrowthBook and clicking `Download Notebook` again. This should now use the updated SQL and `gbstats` syntax. Then, if you install `gbstats` 0.4.0 or later, everything should work as expected.
 
 If the queries in your notebook return sums and sums of squares as part of the `__stats` CTE but your notebook is still erroring, then you probably have an old `gbstats` version installed and need to update to 0.4.0 or later.
-You can download this from PyPI [here](https://pypi.org/project/gbstats) using `pip install gbstats` and ensure that your kernel uses that version of `gbstats`.
+You can [download this from PyPI](https://pypi.org/project/gbstats) using `pip install gbstats` and ensure that your kernel uses that version of `gbstats`.
 
 ## My features aren't refreshing as expected. What can I do?
 
@@ -144,11 +144,11 @@ Our SDK's implement a stale-while-revalidate approach to cacheing with a configu
 
 This means that if the feature payload is considered stale (i.e. more than the TTL amount of time has passed since it's been updated), **the next request will return the stale features** and refetch an update asynchronously so that on the next request, the features will be up to date. You can learn more about how our SDK's implement this in detail [here](/lib/build-your-own#fetching-and-caching-features).
 
-If you would like something more real-time than this stale-while-revalidate approach, you may want to consider implementing the [GrowthBook Proxy](https://docs.growthbook.io/self-host/proxy) on your self-hosted instance.
+If you would like something more real-time than this stale-while-revalidate approach, you may want to consider implementing the [GrowthBook Proxy](/self-host/proxy) on your self-hosted instance.
 
 ## How do I configure environments in the SDK?
 
-When you create an SDK connection, it is linked to a specific environment. You can learn more about environments [here](/features/environments).
+When you create an SDK connection, it is linked to a specific environment. [Learn more about environments](/features/environments).
 
 ## How do I disable the on-screen celebrations?
 

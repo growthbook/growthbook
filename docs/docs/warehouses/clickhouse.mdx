@@ -5,10 +5,14 @@ sidebar_label: Clickhouse
 slug: clickhouse
 ---
 
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
 Connecting to Clickhouse is very straightforward. You just need to provide the connection string and credentials. If you
 are using something like Clickhouse Cloud, you can find the connection string in the UI.
 
-<img src="Clickhouse Cloud Connection String" src="/images/guides/guide-clickhouse-1.png" style={{width: "600px"}} />
+<MaxWidthImage maxWidth={600}>
+  ![Clickhouse Cloud Connection String](/images/guides/guide-clickhouse-1.png)
+</MaxWidthImage>
 
 If you are making connection credentials just for GrowthBook, you can give it read-only access to the database.
 
