@@ -6,7 +6,7 @@ import {
 } from "shared/constants";
 import { StatsEngine, PValueCorrection } from "back-end/types/stats";
 import { MetricDefaults } from "back-end/types/organization";
-import { Box, Flex, Heading, Text, Tooltip } from "@radix-ui/themes";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import {
   Tabs,
   TabsList,
@@ -17,7 +17,6 @@ import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { hasFileConfig } from "@/services/env";
-import { GBInfo } from "@/components/Icons";
 import Field from "@/components/Forms/Field";
 import Callout from "@/components/Radix/Callout";
 import Checkbox from "@/components/Radix/Checkbox";
@@ -128,6 +127,56 @@ export default function StatsEngineSettings() {
 
   return (
     <Box className="mb-3 form-group align-items-start" width="100%">
+      <h4>Stats Engine Settings</h4>
+
+      <StatsEngineSelect
+        label="Default statistics engine to use (Bayesian is most common)"
+        allowUndefined={false}
+        showDefault={true}
+        value={form.watch("statsEngine")}
+        onChange={(value) => {
+          form.setValue("statsEngine", value);
+        }}
+        labelClassName="mr-2"
+      />
+
+      <div className="mt-3">
+        <Tabs
+          value={statsEngineTab}
+          onValueChange={(v) => setStatsEngineTab(v)}
+        >
+          <TabsList>
+            <TabsTrigger value="bayesian">Bayesian</TabsTrigger>
+            <TabsTrigger value="frequentist">Frequentist</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="frequentist">
+            <Box mt="4">
+              <FrequentistTab
+                {...{
+                  pHighlightColor,
+                  pWarningMsg,
+                  regressionAdjustmentDaysHighlightColor,
+                  regressionAdjustmentDaysWarningMsg,
+                  form,
+                }}
+              />
+            </Box>
+          </TabsContent>
+          <TabsContent value="bayesian">
+            <Box mt="4">
+              <BayesianTab
+                {...{
+                  highlightColor,
+                  warningMsg,
+                  form,
+                }}
+              />
+            </Box>
+          </TabsContent>
+        </Tabs>
+      </div>
+
       <Box className="appbox" mb="6" p="4">
         <Heading as="h4" size="3" mb="4">
           <PremiumTooltip commercialFeature="regression-adjustment">
@@ -201,101 +250,6 @@ export default function StatsEngineSettings() {
           </Box>
         </Flex>
       </Box>
-
-      <Box className="border rounded" mb="6" p="4">
-        <Heading as="h4" size="3" mb="4">
-          <PremiumTooltip commercialFeature="mid-experiment-power">
-            Experiment Decision Making
-          </PremiumTooltip>
-        </Heading>
-        <Box mb="2">
-          <Flex display="inline-flex" gap="3" align="center" justify="center">
-            <Checkbox
-              mb="0"
-              value={
-                !hasCommercialFeature("mid-experiment-power")
-                  ? false
-                  : form.watch("midExperimentPowerEnabled")
-              }
-              setValue={(v) => form.setValue("midExperimentPowerEnabled", v)}
-              id="toggle-midExperimentPowerEnabled"
-              disabled={!hasCommercialFeature("mid-experiment-power")}
-            />
-            <Box>
-              <label
-                htmlFor="toggle-midExperimentPowerEnabled"
-                className="font-weight-semibold mb-0"
-              >
-                Enable experiment duration estimates
-                <Tooltip content="Calculate the estimated duration of your experiment using target MDEs and warn when it is low powered.">
-                  <Flex
-                    ml="2"
-                    mb="2px"
-                    display="inline-flex"
-                    style={{ verticalAlign: "middle" }}
-                  >
-                    <GBInfo />
-                  </Flex>
-                </Tooltip>
-                <PremiumTooltip
-                  commercialFeature="mid-experiment-power"
-                  style={{ display: "inline-flex" }}
-                />
-              </label>
-            </Box>
-          </Flex>
-        </Box>
-      </Box>
-
-      <h4>Stats Engine Settings</h4>
-
-      <StatsEngineSelect
-        label="Default statistics engine to use (Bayesian is most common)"
-        allowUndefined={false}
-        showDefault={true}
-        value={form.watch("statsEngine")}
-        onChange={(value) => {
-          form.setValue("statsEngine", value);
-        }}
-        labelClassName="mr-2"
-      />
-
-      <div className="mt-3">
-        <Tabs
-          value={statsEngineTab}
-          onValueChange={(v) => setStatsEngineTab(v)}
-        >
-          <TabsList>
-            <TabsTrigger value="bayesian">Bayesian</TabsTrigger>
-            <TabsTrigger value="frequentist">Frequentist</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="frequentist">
-            <Box mt="4">
-              <FrequentistTab
-                {...{
-                  pHighlightColor,
-                  pWarningMsg,
-                  regressionAdjustmentDaysHighlightColor,
-                  regressionAdjustmentDaysWarningMsg,
-                  form,
-                }}
-              />
-            </Box>
-          </TabsContent>
-          <TabsContent value="bayesian">
-            <Box mt="4">
-              <BayesianTab
-                {...{
-                  highlightColor,
-                  warningMsg,
-                  form,
-                }}
-              />
-            </Box>
-          </TabsContent>
-        </Tabs>
-      </div>
     </Box>
   );
 }

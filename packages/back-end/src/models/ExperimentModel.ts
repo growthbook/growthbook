@@ -267,7 +267,7 @@ const experimentSchema = new mongoose.Schema({
         additionalDaysNeeded: Number,
       },
     },
-    metricStatus: {
+    resultsStatus: {
       _id: false,
       sequentialUsed: Boolean,
       variations: [

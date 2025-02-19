@@ -1,8 +1,7 @@
 import { Tooltip } from "@radix-ui/themes";
 import {
   ExperimentAnalysisSummaryHealth,
-  ExperimentAnalysisSummaryHealth,
-  ExperimentAnalysisSummaryMetricStatus,
+  ExperimentAnalysisSummaryResultsStatus,
 } from "back-end/src/validators/experiments";
 import {
   DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
@@ -133,7 +132,7 @@ function getStatusIndicatorData(
   if (experimentData.status == "running") {
     const unhealthyStatuses: string[] = [];
     const healthSummary = experimentData.analysisSummary?.health;
-    const metricStatus = experimentData.analysisSummary?.metricStatus;
+    const resultsStatus = experimentData.analysisSummary?.resultsStatus;
 
     const lastPhase = experimentData.phases[experimentData.phases.length - 1];
 
@@ -177,12 +176,14 @@ function getStatusIndicatorData(
         powerStatus = getPowerStatus({
           power: healthSummary.power,
         });
-        powerIndicatorData = powerStatus.indicatorData;
+        if (powerStatus?.indicatorData) {
+          powerIndicatorData = powerStatus.indicatorData;
+        }
       }
 
-      if (metricStatus) {
+      if (resultsStatus) {
         shippingIndicatorData = getShippingStatus({
-          metricStatus,
+          resultsStatus,
           goalMetrics: experimentData.goalMetrics,
           guardrailMetrics: experimentData.guardrailMetrics,
           powerStatus: powerStatus,
@@ -373,18 +374,18 @@ function getPowerStatus({
 }
 
 function getShippingStatus({
-  metricStatus,
+  resultsStatus,
   goalMetrics,
   guardrailMetrics,
   powerStatus,
 }: {
-  metricStatus: ExperimentAnalysisSummaryMetricStatus;
+  resultsStatus: ExperimentAnalysisSummaryResultsStatus;
   goalMetrics: string[];
   guardrailMetrics: string[];
   powerStatus?: PowerStatus;
 }): StatusIndicatorData | null {
   const powerReached = powerStatus?.additionalDaysNeeded === 0;
-  const decisionReady = powerReached || metricStatus.sequentialUsed;
+  const decisionReady = powerReached || resultsStatus.sequentialUsed;
 
   let hasWinner = false;
   let hasWinnerWithGuardrailFailure = false;
@@ -392,7 +393,7 @@ function getShippingStatus({
   let nVariationsLosing = 0;
   let nVariationsWithSuperStatSigLoser = 0;
   // if any variation is a clear winner with no guardrail issues, ship now
-  for (const variationResult of metricStatus.variations) {
+  for (const variationResult of resultsStatus.variations) {
     const allSuperStatSigPositive = goalMetrics.every((m) =>
       variationResult.goalMetricsSuperStatSigPositive.includes(m)
     );
@@ -437,7 +438,7 @@ function getShippingStatus({
   const tooltipLanguage =
     powerStatus?.additionalDaysNeeded === 0
       ? `Experiment has reached the target statistical power and`
-      : metricStatus.sequentialUsed
+      : resultsStatus.sequentialUsed
       ? `Sequential testing enables calling an experiment as soon as it is significant and`
       : "";
 
@@ -464,7 +465,7 @@ function getShippingStatus({
 
   // If all variations failing, roll back now
   if (
-    nVariationsLosing === metricStatus.variations.length &&
+    nVariationsLosing === resultsStatus.variations.length &&
     nVariationsLosing > 0
   ) {
     return {
@@ -488,7 +489,7 @@ function getShippingStatus({
   }
 
   if (
-    nVariationsWithSuperStatSigLoser === metricStatus.variations.length &&
+    nVariationsWithSuperStatSigLoser === resultsStatus.variations.length &&
     nVariationsWithSuperStatSigLoser > 0
   ) {
     return {

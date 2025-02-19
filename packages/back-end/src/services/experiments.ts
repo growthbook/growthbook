@@ -42,10 +42,10 @@ import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import {
-  AnalysisSummaryVariationMetricStatus,
+  ExperimentAnalysisSummaryVariationStatus,
   BanditResult,
   ExperimentAnalysisSummary,
-  ExperimentAnalysisSummaryMetricStatus,
+  ExperimentAnalysisSummaryResultsStatus,
 } from "back-end/src/validators/experiments";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { promiseAllChunks } from "back-end/src/util/promise";
@@ -2851,14 +2851,14 @@ export async function updateExperimentAnalysisSummary({
     const overallResults = analysis.results?.[0];
     // redundant check for dimension
     if (overallResults && overallResults.name === "") {
-      const metricStatus = await computeKeyMetricStatus({
+      const resultsStatus = await computeResultsStatus({
         context,
         analysis,
         experiment,
       });
 
-      if (metricStatus) {
-        analysisSummary.metricStatus = metricStatus;
+      if (resultsStatus) {
+        analysisSummary.resultsStatus = resultsStatus;
       }
     }
   }
@@ -2872,7 +2872,7 @@ export async function updateExperimentAnalysisSummary({
   });
 }
 
-async function computeKeyMetricStatus({
+async function computeResultsStatus({
   context,
   analysis,
   experiment,
@@ -2880,7 +2880,7 @@ async function computeKeyMetricStatus({
   context: ReqContext;
   analysis: ExperimentSnapshotAnalysis;
   experiment: ExperimentInterface;
-}): Promise<ExperimentAnalysisSummaryMetricStatus | undefined> {
+}): Promise<ExperimentAnalysisSummaryResultsStatus | undefined> {
   const statsEngine = analysis.settings.statsEngine;
   const { ciUpper, ciLower } = getConfidenceLevelsForOrg(context);
   const metricDefaults = getMetricDefaultsForOrg(context);
@@ -2892,12 +2892,12 @@ async function computeKeyMetricStatus({
     return;
   }
 
-  const variationStatuses: ExperimentAnalysisSummaryMetricStatus["variations"] = [];
+  const variationStatuses: ExperimentAnalysisSummaryVariationStatus[] = [];
   const baselineVariation = variations[0];
 
   for (let i = 1; i < variations.length; i++) {
     const currentVariation = variations[i];
-    const variationStatus: AnalysisSummaryVariationMetricStatus = {
+    const variationStatus: ExperimentAnalysisSummaryVariationStatus = {
       variationId: i + "",
       goalMetricsStatSigNegative: [],
       goalMetricsStatSigPositive: [],

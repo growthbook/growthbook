@@ -180,7 +180,7 @@ export type ExperimentAnalysisSummaryHealth = z.infer<
   typeof experimentAnalysisSummaryHealth
 >;
 
-export const analysisSummaryVariationMetricStatus = z.object({
+export const experimentAnalysisSummaryVariationStatus = z.object({
   variationId: z.string(),
   goalMetricsStatSigPositive: z.array(z.string()),
   goalMetricsSuperStatSigPositive: z.array(z.string()),
@@ -189,23 +189,23 @@ export const analysisSummaryVariationMetricStatus = z.object({
   guardrailMetricsFailing: z.array(z.string()),
 });
 
-export type AnalysisSummaryVariationMetricStatus = z.infer<
-  typeof analysisSummaryVariationMetricStatus
+export type ExperimentAnalysisSummaryVariationStatus = z.infer<
+  typeof experimentAnalysisSummaryVariationStatus
 >;
 
-export const experimentAnalysisSummaryMetricStatus = z.object({
-  variations: z.array(analysisSummaryVariationMetricStatus),
+export const experimentAnalysisSummaryResultsStatus = z.object({
+  variations: z.array(experimentAnalysisSummaryVariationStatus),
   sequentialUsed: z.boolean(),
 });
-export type ExperimentAnalysisSummaryMetricStatus = z.infer<
-  typeof experimentAnalysisSummaryMetricStatus
+export type ExperimentAnalysisSummaryResultsStatus = z.infer<
+  typeof experimentAnalysisSummaryResultsStatus
 >;
 
 export const experimentAnalysisSummary = z
   .object({
     snapshotId: z.string(),
     health: experimentAnalysisSummaryHealth.optional(),
-    metricStatus: experimentAnalysisSummaryMetricStatus.optional(),
+    resultsStatus: experimentAnalysisSummaryResultsStatus.optional(),
   })
   .strict()
   .optional();
