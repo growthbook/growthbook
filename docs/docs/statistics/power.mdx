@@ -99,40 +99,6 @@ If your organizational default is Bayesian, then Bayesian will be your default p
 
 Your default prior for each metric will be your organizational default. To change a prior for a metric, go to "Settings", and make sure that "Statistics Engine" is toggled to "Bayesian." Then choose "Prior Specification", and update prior means and standard deviations for your metric(s). Remember that these priors are on the relative scale, so a prior mean of 0.1 represents a 10% lift.
 
-## What is mid-experiment power, and what is it used for?
-
-Mid-experiment power calculates the probability of observing a statistically significant result at the end of the experiment, given the data observed so far in the experiment.
-
-GrowthBook uses mid-experiment power estimates for two purposes, the first of which is to help determine experimental duration.
-Mid-experiment power estimates the number of additional days needed so that each goal metric could detect a target lift (default of 1\%) with at least 80% probability.
-We combine uncertainty estimates from the experiment results with the target lift to estimate the number of additional days needed.
-Suppose revenue is your single goal metric, and we estimate that in 7 days you would be able to detect a 1\% lift for each goal metric with at least 80\% probability.
-Then the estimated number of additional days displayed is 7.
-If you have opted into selecting a maximum duration for your experiment, then the number of additional days left will never be more than the maximum duration minus the current length of the experiment.
-
-The second purpose is to warn you if your experiment is low-powered.
-For each goal metric within a variation, GrowthBook estimates the probability the estimate will be statistically significant.  
-If any of these estimates are less than 10\%, then GrowthBook will display a low power warning on the Health tab.
-If mid-experiment power is low and the cost of running your experiment is high, then you may want to stop the experiment early, as the additional information gained from running the experiment longer may not be worth the cost.
-Alternatively, if some of your goal metrics are not low-powered and the cost of running your experiment is low, then you may want to continue the experiment.
-Note that even if your goal metrics are statistically significant, you may see a low-powered warning.  
-This is because the power estimates are based upon the target lift, and the target lift may be smaller than the observed estimates.
-
-We emphasize that number of days left is a projection, and power estimates are estimates.  
-These values are predicated upon the following assumptions:
-
-1. that the target lift $\Delta$ is the true lift;
-2. average new user daily traffic counts over the most recent 7 days equals the new user daily traffic counts going forward; and
-3. the treatment effect estimate for users already in the experiment does not change during the experiment (i.e., logged in users have no additional behavior during the experiment).
-
-We believe that mid-experiment power estimates can still be useful for providing guidance, even if these assumptions may not hold.  
-For example, if the projected days remaining is short, if your treatment continues to affect logged-in users already included in the experiment, then the power estimate provided may be biased low.
-Alternatively, if new users added over the last 7 days are not representative of new users going forward, then the power estimate provided may be biased high.
-In both cases, even rough estimates can help you decide whether or not to continue the experiemnt.  
-Pre-experiment power analysis is also based upon assumptions that may not hold (e.g., correctly specified lift).  
-Pre-experiment power results can still be used to decide whether the experiment should be run, and if so, what the sample size should be.
-In summary, rough estimates can be helpful for deciding whether to stop or continue the experiment.
-
 ## FAQ
 
 Frequently asked questions:
@@ -149,7 +115,7 @@ For both Bayesian and frequentist engines, we produce two key estimates:
 1. Power - After running the experiment for a given number of weeks and for a hypothesized effect size, what is the probability of a statistically significant result?
 2. Minimum Detectable Effect (MDE) - After running an experiment for a given number of weeks, what is the smallest effect that we can detect as statistically significant 80% of the time?
 
-Each engine arrives at these values differently. Below we describe high-level technical details of our implementation. All technical details except for mid-experiment power can be found [here](/statistics/power-technical).
+Each engine arrives at these values differently. Below we describe high-level technical details of our implementation. All technical details for can be found [here](/statistics/power-technical).
 
 ### Frequentist implementation
 
