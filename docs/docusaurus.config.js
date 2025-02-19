@@ -240,6 +240,8 @@ const config = {
       crossorigin: "anonymous",
     },
   ],
+
+  clientModules: ["./src/clientModules/koala.js"],
 };
 
 module.exports = config;
