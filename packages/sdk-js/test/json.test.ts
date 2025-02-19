@@ -34,7 +34,7 @@ type Cases = {
   // name, context, experiment, value, inExperiment
   run: [string, Context, Experiment<any>, any, boolean, boolean][];
   // name, context, feature key, result
-  feature: [string, Context, string, Omit<FeatureResult, "ruleId">][];
+  feature: [string, Context, string, FeatureResult][];
   // name, condition, attribute, result
   evalCondition: [string, any, any, boolean, SavedGroupsValues][];
   // name, args ([numVariations, coverage, weights]), result
@@ -90,10 +90,7 @@ describe("json test suite", () => {
     "feature[%#] %s",
     (name, ctx, key, expected) => {
       const growthbook = new GrowthBook(ctx);
-      expect(growthbook.feature(key)).toEqual({
-        ruleId: "",
-        ...expected,
-      });
+      expect(growthbook.evalFeature(key)).toEqual(expected);
       growthbook.destroy();
     }
   );

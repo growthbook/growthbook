@@ -70,7 +70,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
       feature,
       showDescription,
       dragging,
-      className = "bg-white",
+      className = "",
       ...props
     },
     ref

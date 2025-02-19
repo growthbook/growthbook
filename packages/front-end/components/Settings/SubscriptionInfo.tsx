@@ -1,30 +1,42 @@
 import { useState } from "react";
 import { FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
 import { redirectWithTimeout, useAuth } from "@/services/auth";
-import useStripeSubscription from "@/hooks/useStripeSubscription";
-import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/components/Button";
 import { isCloud } from "@/services/env";
+import { useUser } from "@/services/UserContext";
 import UpgradeModal from "./UpgradeModal";
 
 export default function SubscriptionInfo() {
   const { apiCall } = useAuth();
   const {
-    nextBillDate,
-    dateToBeCanceled,
-    cancelationDate,
-    subscriptionStatus,
-    hasPaymentMethod,
-    pendingCancelation,
-    quote,
-    loading,
+    subscription,
+    seatsInUse,
     canSubscribe,
-    activeAndInvitedUsers,
-  } = useStripeSubscription();
+    organization,
+    license,
+  } = useUser();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
 
-  if (loading) return <LoadingOverlay />;
+  //TODO: Remove this once we have moved the license off the organization
+  const stripeSubscription =
+    license?.stripeSubscription || organization?.subscription;
+
+  const nextBillDate = new Date(
+    (stripeSubscription?.current_period_end || 0) * 1000
+  ).toDateString();
+
+  const dateToBeCanceled = new Date(
+    (stripeSubscription?.cancel_at || 0) * 1000
+  ).toDateString();
+
+  const cancelationDate = new Date(
+    (stripeSubscription?.canceled_at || 0) * 1000
+  ).toDateString();
+
+  const pendingCancelation =
+    stripeSubscription?.status !== "canceled" &&
+    stripeSubscription?.cancel_at_period_end;
 
   return (
     <>
@@ -37,7 +49,7 @@ export default function SubscriptionInfo() {
       )}
       <div className="col-auto mb-3">
         <strong>Current Plan:</strong> {isCloud() ? "Cloud" : "Self-Hosted"} Pro
-        {subscriptionStatus === "trialing" && (
+        {subscription?.status === "trialing" && (
           <>
             {" "}
             <em>(trial)</em>
@@ -45,15 +57,15 @@ export default function SubscriptionInfo() {
         )}
       </div>
       <div className="col-md-12 mb-3">
-        <strong>Number Of Seats:</strong> {quote?.activeAndInvitedUsers || 0}
+        <strong>Number Of Seats:</strong> {seatsInUse || 0}
       </div>
-      {subscriptionStatus !== "canceled" && !pendingCancelation && (
+      {subscription?.status !== "canceled" && !pendingCancelation && (
         <div className="col-md-12 mb-3">
           <div>
             <strong>Next Bill Date: </strong>
             {nextBillDate}
           </div>
-          {hasPaymentMethod === true ? (
+          {subscription?.hasPaymentMethod === true ? (
             <div
               className="mt-3 px-3 py-2 alert alert-success row"
               style={{ maxWidth: 650 }}
@@ -66,7 +78,7 @@ export default function SubscriptionInfo() {
                 automatically on this date.
               </div>
             </div>
-          ) : hasPaymentMethod === false ? (
+          ) : subscription?.hasPaymentMethod === false ? (
             <div
               className="mt-3 px-3 py-2 alert alert-warning row"
               style={{ maxWidth: 550 }}
@@ -96,7 +108,7 @@ export default function SubscriptionInfo() {
           {` ${dateToBeCanceled}.`}
         </div>
       )}
-      {subscriptionStatus === "canceled" && (
+      {subscription?.status === "canceled" && (
         <div className="col-md-12 mb-3 alert alert-danger">
           Your plan was canceled on {` ${cancelationDate}.`}
         </div>
@@ -119,12 +131,12 @@ export default function SubscriptionInfo() {
               }
             }}
           >
-            {subscriptionStatus !== "canceled"
+            {subscription?.status !== "canceled"
               ? "View Plan Details"
               : "View Previous Invoices"}
           </Button>
         </div>
-        {subscriptionStatus === "canceled" && canSubscribe && (
+        {subscription?.status === "canceled" && canSubscribe && (
           <div className="col-auto">
             <button
               className="btn btn-success"
@@ -138,21 +150,6 @@ export default function SubscriptionInfo() {
           </div>
         )}
       </div>
-      {/* @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'. */}
-      {quote.currentSeatsPaidFor !== activeAndInvitedUsers && (
-        <div className="col-md-12 mb-3 alert alert-warning">
-          {`You have recently ${
-            // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
-            activeAndInvitedUsers - quote.currentSeatsPaidFor > 0
-              ? "added"
-              : "removed"
-          } ${Math.abs(
-            // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
-            activeAndInvitedUsers - quote.currentSeatsPaidFor
-          )} seats. `}
-          These changes will be applied to your subscription soon.
-        </div>
-      )}
     </>
   );
 }
