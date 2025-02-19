@@ -1,3 +1,5 @@
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
 # Experimenting in GrowthBook
 
 The Experiments section in GrowthBook is all about analyzing raw experiment results in a data source.
@@ -36,9 +38,9 @@ trying to improve or measure the impact of the change of your experiment.
 Secondary metrics are used to learn about experiment impacts, but are not primary objectives. Guardrail metrics are
 metrics you’re trying not to hurt.
 
-<div style={{textAlign: 'center'}}>
-<img loading="lazy" alt="GrowthBook Metric Selector" src="/images/using/metrics-modal.png" width="600" />
-</div>
+<MaxWidthImage maxWidth={600}>
+  ![GrowthBook Metric Selector](/images/using/metrics-modal.png)
+</MaxWidthImage>
 
 It is best to pick metrics for your experiment that are as close to your treatment as possible, and, if possible, the event itself. For
 example, if you’re trying to improve a signup rate, you can add product review metrics that are close to
@@ -162,9 +164,9 @@ experiment **health page**.
 
 GrowthBook automatically does data quality checks on all experiments and shows the results on the our _Health Page_.
 
-<div style={{textAlign: 'center'}}>
-  <img loading="lazy" alt="Experiment Health Page" src="/images/using/health-page.png" width="800" />
-</div>
+<MaxWidthImage maxWidth={600}>
+  ![Experiment Health Page](/images/using/health-page.png)
+</MaxWidthImage>
 
 This page shows experiment exposure over time, and also all the other health checks we do.
 
@@ -180,9 +182,9 @@ different (e.g. 46/54). We only show this warning if the p-value is less than 0.
 extremely unlikely to occur by chance. We will show this warning on the results page, and also on our
 experiment health page.
 
-<div style={{textAlign: 'center'}}>
-  <img loading="lazy" alt="Sample Ratio Mismatch" src="/images/using/srm-check-health-page.png" width="800" />
-</div>
+<MaxWidthImage maxWidth={600}>
+  ![Sample Ratio Mismatch](/images/using/srm-check-health-page.png)
+</MaxWidthImage>
 
 Like the warning says, you shouldn't trust the results since they are likely misleading. Instead, find and
 fix the source of the bug and restart the experiment. You can find more information about potential sources
@@ -275,10 +277,9 @@ Common use cases for custom reports include:
 - Creating targeted views for different stakeholders
 - Documenting key findings for future reference
 
-<figure>
-  <img src="/images/reports-share-report.webp" alt="Example Custom Report" style={{marginBlockEnd: 0}}/>
-  <figcaption style={{textAlign: "center", fontSize: "small"}}>Example Custom Report</figcaption>
-</figure>
+<MaxWidthImage caption="Example Custom Report">
+  ![Example Custom Reports](/images/reports-share-report.webp)
+</MaxWidthImage>
 
 For step-by-step instructions on creating and managing custom reports, see our [Sharing Experiment Insights](/app/experiment-results#sharing-experiment-insights) documentation.
 

@@ -5,6 +5,8 @@ sidebar_label: Regression Adjustment (CUPED)
 slug: cuped
 ---
 
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
 # Regression Adjustment (CUPED)
 
 :::note
@@ -28,11 +30,9 @@ Regression adjustment (RA) in general uses data correlated with a metric to redu
 
 The more correlated the pre-experiment data is with your metric of interest, the more variance reduction you can achieve. For example, the following plot demonstrates the difference in the distribution of a metric before adjustment ("Normal") and after adjustment ("Adjusted"). In both panels, the green, adjusted metric is distributed less widely (e.g. it is more tightly spaced out around the mean). However, the adjusted distribution is even tighter in the right plot, showing that variance reduction will be greater the more correlated your pre-experiment data is with your post-experiment data.
 
-<img
-  src="/images/statistics/cuped-corr.png"
-  alt="Variance Reduction by Correlation"
-  style={{ width: 600, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={600}>
+  ![Variance Reduction by Correlation](/images/statistics/cuped-corr.png)
+</MaxWidthImage>
 
 In simpler terms, if we know a particular user tends to buy a lot of products on your website before you launch an experiment, we can use that information to understand whether purchase behavior after an experiment is driven by that customer's innate tendency to buy a lot of products or whether it was due to the experiment.
 
@@ -82,21 +82,17 @@ CUPED works for all metrics except for:
 
 You can turn CUPED on for all analyses under Settings → General. CUPED can be turned on or off by default for all analyses and you can set the default number of days to use for a lookback window. This setting will set the default for all of your metrics, which will then flow through to all analyses that use those metrics.
 
-<img
-  src="/images/statistics/cuped-org.png"
-  alt="Organization-level CUPED Setting"
-  style={{ width: 800, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={800} border>
+  ![Organization-level CUPED Setting](/images/statistics/cuped-org.png)
+</MaxWidthImage>
 
 ### Metric-level settings
 
 You can also override these organization-level defaults at the Metric level. When creating or editing a Metric, go to the "Behavior" panel, click "Show advanced options" and scroll to the bottom. From there, you will see the following settings. These settings will allow you to disable CUPED for a metric, even if it is set at the organization or experiment level.
 
-<img
-  src="/images/statistics/cuped-metric.png"
-  alt="Metric-level CUPED Setting"
-  style={{ width: 700, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={700}>
+  ![Metric-level CUPED Setting](/images/statistics/cuped-metric.png)
+</MaxWidthImage>
 
 You might want to disable CUPED for a particular metric if that metric never collects values for a user before they enter an experiment. You might want to adjust metric-specific lookback windows for any of the reasons listed in the section above.
 
@@ -113,24 +109,18 @@ By default, each experiment will use your organization-level defaults, unless th
 
 The following screenshot shows the results with CUPED on. However, you can see that there is an icon showing that CUPED is disabled for Average Order Value (because it is a ratio metric). So even if CUPED is toggled on, we will always show you any metrics for which GrowthBook did not use CUPED using that small CUPED icon with a red x.
 
-<img
-  src="/images/statistics/cuped-results.png"
-  alt="Experiment Results with CUPED toggle"
-  style={{ width: 800, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={800}>
+  ![Experiment Results with CUPED toggle](/images/statistics/cuped-results.png)
+</MaxWidthImage>
 
 Furthermore, if you mouse over the icon showing CUPED wasn't applied, you will get an explanation why.
 
-<img
-  src="/images/statistics/cuped-icon.png"
-  alt="Metric Icon showing CUPED Disabled Reason"
-  style={{ width: 300, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={300} border>
+  ![Metric Icon showing CUPED Disabled Reason](/images/statistics/cuped-icon.png)
+</MaxWidthImage>
 
 If you mouse over the metric name itself, you get the final CUPED status for each metric (on/off, number of lookback days).
 
-<img
-  src="/images/statistics/cuped-tooltip.png"
-  alt="Metric Tooltip with CUPED status"
-  style={{ width: 300, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={300} border>
+  ![Metric Tooltip with CUPED status](/images/statistics/cuped-tooltip.png)
+</MaxWidthImage>
