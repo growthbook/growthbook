@@ -563,6 +563,7 @@ export class GrowthBook<
     this._payload = undefined;
     this._saveStickyBucketAssignmentDoc = undefined;
     unsubscribe(this);
+    this.logs = [];
 
     if (isBrowser && window._growthbook === this) {
       delete window._growthbook;
