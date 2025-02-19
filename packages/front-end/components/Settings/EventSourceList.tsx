@@ -42,7 +42,8 @@ export default function EventSourceList({
     ),
   });
 
-  const columns = options.length > 12 || options.length % 4 === 0 ? "4" : "3";
+  const columns =
+    options.length % 3 === 0 ? "3" : options.length % 4 === 0 ? "4" : "3";
 
   return (
     <RadioCards
@@ -63,6 +64,7 @@ export default function EventSourceList({
       }}
       columns={columns}
       align="center"
+      width="100%"
     />
   );
 }
