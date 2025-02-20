@@ -3,7 +3,7 @@ import clsx from "clsx";
 import { daysLeft } from "shared/dates";
 import Link from "next/link";
 import { Flex } from "@radix-ui/themes";
-import { FaCheckCircle, FaExternalLinkAlt } from "react-icons/fa";
+import { FaCheckCircle } from "react-icons/fa";
 import { PiCaretRight } from "react-icons/pi";
 import { CommercialFeature } from "enterprise";
 import { growthbook } from "@/services/utils";
@@ -290,12 +290,28 @@ export default function UpgradeModal({
       <h3 className="mb-1">Upgrade to Pro</h3>
       <p
         className="mb-0"
-        style={{ color: "var(--color-text-mid", fontSize: "16px" }}
+        style={{ color: "var(--color-text-mid)", fontSize: "16px" }}
       >
         Get instant access to advanced experimentation, permissioning and
         security features.
       </p>
     </>
+  );
+
+  const enterpriseCallout = (
+    <p className="mb-0" style={{ color: "var(--color-text-mid)" }}>
+      Interested in an Enterprise Plan?
+      <a
+        href="https://www.growthbook.io/demo"
+        className="text-decoration-none pl-1"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        <strong className="a link-purple text-decoration-none">
+          Talk to Sales
+        </strong>
+      </a>
+    </p>
   );
 
   function trialAndUpgradeTreatment() {
@@ -311,32 +327,17 @@ export default function UpgradeModal({
               {
                 value: "trial",
                 label: "Pro Trial",
-                description: "Free for 14 days",
+                description: "Free for 14 days - no credit card required.",
               },
               {
                 value: "upgrade",
                 label: "Pro",
-                description: "Upgrade now. No credit card required.",
+                description: "Get started now",
               },
             ]}
           />
         </div>
-        <p style={{ color: "var(--color-text-mid" }}>
-          Continuing will{" "}
-          {trialAndUpgradePreference === "trial"
-            ? "start a 14-day Pro plan trial for your organization."
-            : "require a credit card to purchase a Pro plan for your organization."}
-          <a
-            href="https://www.growthbook.io/pricing"
-            className="text-decoration-none pl-1"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <strong className="a link-purple text-decoration-none">
-              Learn more <FaExternalLinkAlt className="pl-1" />
-            </strong>
-          </a>
-        </p>
+        {enterpriseCallout}
       </div>
     );
   }
@@ -362,7 +363,10 @@ export default function UpgradeModal({
             </strong>
           </Flex>
         </div>
-        <div className="p-3" style={{ backgroundColor: "var(--violet-2)" }}>
+        <div
+          className="p-3 mb-4"
+          style={{ backgroundColor: "var(--violet-2)" }}
+        >
           <Flex align="center" justify="between">
             <span>
               <label>Cost Estimate</label>
@@ -379,6 +383,7 @@ export default function UpgradeModal({
             {seatsInUse > 1 ? "s" : ""}
           </p>
         </div>
+        {enterpriseCallout}
       </div>
     );
   }
@@ -471,7 +476,11 @@ export default function UpgradeModal({
           loading={loading}
           cta={
             <>
-              Continue <PiCaretRight />
+              {featureFlagValue === "UPGRADE-ONLY" ||
+              trialAndUpgradePreference === "upgrade"
+                ? "Upgrade Now"
+                : "Start Trial"}
+              <PiCaretRight />
             </>
           }
           submit={featureFlagValue !== "OFF" ? () => onSubmit() : undefined}
