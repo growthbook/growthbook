@@ -562,36 +562,37 @@ export function getFeatureDefinition({
         } else if (r.type === "safe-rollout") {
           rule.coverage = r.coverage;
 
-          if (r.hashAttribute) {
-            rule.hashAttribute = r.hashAttribute;
-          }
-          if (r.seed) {
-            rule.seed = r.seed;
-          }
+          rule.hashAttribute = r.hashAttribute;
+
+          rule.seed = r.seed;
+
           rule.hashVersion = 2;
 
           if (r.status === "released") {
-            // TODO: Check if this is fine for grabbing the released value or if we should add a new field like releasedVariationId
-            const variationValue = r.values[1].value;
+            const variationValue = r.variationValue;
             if (!variationValue) return null;
 
             // If a variation has been rolled out to 100%
             rule.force = getJSONValue(feature.valueType, variationValue);
           } else if (r.status === "rolled-back") {
-            // Don't return the rule if it's been rolled back
-            return null;
+            const controlValue = r.controlValue;
+            if (!controlValue) return null;
+
+            // Return control value if rolled back. Feature default value might not be the same as the control value.
+            rule.force = getJSONValue(feature.valueType, controlValue);
           } else {
-            rule.variations = r.values.map((v) => {
-              return getJSONValue(feature.valueType, v.value);
-            });
-            const varWeights = r.coverage / 2; // Double check that this logic is correct
+            rule.variations = [
+              getJSONValue(feature.valueType, r.controlValue),
+              getJSONValue(feature.valueType, r.variationValue),
+            ];
+            const varWeights = 0.5;
             rule.weights = [varWeights, varWeights];
-            rule.key = r.trackingKey;
+            rule.key = r.trackingKey; // UUID
             rule.meta = [
               { key: "0", name: "Control" },
               { key: "1", name: "Variation" },
             ];
-            rule.phase = "0"; // do we need this?
+            rule.phase = "0";
             rule.name = `${feature.id} - Safe Rollout`;
           }
         }
