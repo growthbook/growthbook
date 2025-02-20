@@ -1,8 +1,12 @@
 import { NextFunction, Request, Response } from "express";
-import { licenseInit, SSO_CONFIG } from "enterprise";
+import { getAccountPlan, licenseInit, SSO_CONFIG } from "enterprise";
+import {
+  GrowthBook,
+  BrowserCookieStickyBucketService,
+} from "@growthbook/growthbook";
 import { userHasPermission } from "shared/permissions";
 import { logger } from "back-end/src/util/logger";
-import { IS_CLOUD } from "back-end/src/util/secrets";
+import { GB_SDK_ID, IS_CLOUD, IS_MULTI_ORG } from "back-end/src/util/secrets";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   hasUser,
@@ -26,6 +30,8 @@ import {
   RefreshTokenCookie,
   SSOConnectionIdCookie,
 } from "back-end/src/util/cookie";
+import { getBuild } from "back-end/src/util/handler";
+import { usingFileConfig } from "back-end/src/init/config";
 import { getUserPermissions } from "back-end/src/util/organization.util";
 import {
   EventUserForResponseLocals,
@@ -248,6 +254,45 @@ export async function processJWT(
         dateCreated: new Date(),
       });
     };
+
+    if (IS_CLOUD) {
+      const build = getBuild();
+      req.gb = new GrowthBook({
+        apiHost: "https://cdn.growthbook.io",
+        clientKey: GB_SDK_ID,
+        enableDevMode: true,
+        stickyBucketService: new BrowserCookieStickyBucketService({
+          jsCookie: req.cookies,
+        }),
+        trackingCallback: () => {
+          // TODO: How to send event to Jitsu?
+        },
+        attributes: {
+          id: user.id,
+          url: req.originalUrl,
+          cloud: IS_CLOUD,
+          freeSeats: req.organization?.freeSeats,
+          discountCode: req.organization?.discountCode,
+          organizationId: req.organization?.id,
+          accountPlan: req.organization
+            ? getAccountPlan(req.organization)
+            : undefined,
+          superAdmin: user.superAdmin,
+          orgDateCreated: req.organization?.dateCreated,
+          anonymous_id: req.cookies["gb_device_id"],
+          multiOrg: IS_MULTI_ORG,
+          role: req.organization?.members.find((m) => m.id === user.id)?.role,
+          hasLicenseKey: req.organization?.licenseKey ? true : false,
+          configFile: usingFileConfig(),
+          usingSSO: usingOpenId(),
+          buildSHA: build.sha,
+          buildDate: build.date,
+          buildVersion: build.lastVersion,
+        },
+      });
+
+      await req.gb.init({ timeout: 500 });
+    }
   } else {
     req.audit = async () => {
       throw new Error("No user in request");
