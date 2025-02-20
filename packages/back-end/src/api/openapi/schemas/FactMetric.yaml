@@ -19,6 +19,7 @@ required:
   - minPercentChange
   - maxPercentChange
   - minSampleSize
+  - targetMDE
   - managedBy
   - dateCreated
   - dateUpdated
@@ -207,6 +208,8 @@ properties:
   maxPercentChange:
     type: number
   minSampleSize:
+    type: number
+  targetMDE:
     type: number
   managedBy:
     type: string

@@ -1,8 +1,6 @@
 import dataclasses
 from functools import partial
 from unittest import TestCase, main as unittest_main
-from typing import Dict, Union
-import copy
 import numpy as np
 import pandas as pd
 
@@ -30,7 +28,6 @@ from gbstats.models.statistics import (
     BanditPeriodDataSampleMean,
 )
 
-from gbstats.gbstats import get_var_id_map
 
 DECIMALS = 9
 round_ = partial(np.round, decimals=DECIMALS)

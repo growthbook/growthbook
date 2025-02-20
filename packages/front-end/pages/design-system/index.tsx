@@ -744,6 +744,7 @@ export default function DesignSystemPage() {
               archived: false,
               status: "draft",
               variations: [],
+              phases: [],
             }}
           />
           <ExperimentStatusIndicator
@@ -751,6 +752,7 @@ export default function DesignSystemPage() {
               archived: false,
               status: "running",
               variations: [],
+              phases: [],
             }}
           />
           <ExperimentStatusIndicator
@@ -758,6 +760,7 @@ export default function DesignSystemPage() {
               archived: false,
               status: "stopped",
               variations: [],
+              phases: [],
             }}
           />
           <ExperimentStatusIndicator
@@ -766,6 +769,7 @@ export default function DesignSystemPage() {
               status: "stopped",
               results: "dnf",
               variations: [],
+              phases: [],
             }}
           />
           <ExperimentStatusIndicator
@@ -774,6 +778,7 @@ export default function DesignSystemPage() {
               status: "stopped",
               results: "inconclusive",
               variations: [],
+              phases: [],
             }}
           />
           <ExperimentStatusIndicator
@@ -782,6 +787,7 @@ export default function DesignSystemPage() {
               status: "stopped",
               results: "won",
               variations: [],
+              phases: [],
             }}
           />
           <ExperimentStatusIndicator
@@ -790,6 +796,7 @@ export default function DesignSystemPage() {
               status: "stopped",
               results: "lost",
               variations: [],
+              phases: [],
             }}
           />
           <ExperimentStatusIndicator
@@ -797,6 +804,7 @@ export default function DesignSystemPage() {
               archived: true,
               status: "running",
               variations: [],
+              phases: [],
             }}
           />
         </Flex>
