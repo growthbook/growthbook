@@ -844,29 +844,23 @@ const ShareModal = ({
                   }}
                 >
                   <Preview
-                    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                    expIds={value.slides
-                      .map((o) => {
-                        return o.id;
-                      })
-                      .join(",")}
-                    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-                    title={value.title}
-                    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-                    desc={value.description}
-                    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-                    theme={value.theme}
-                    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                    backgroundColor={value.customTheme.backgroundColor.replace(
-                      "#",
-                      ""
-                    )}
-                    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                    textColor={value.customTheme.textColor.replace("#", "")}
-                    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                    headingFont={value.customTheme.headingFont}
-                    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                    bodyFont={value.customTheme.bodyFont}
+                    expIds={
+                      value.slides
+                        ?.map((o) => o.id)
+                        .filter(Boolean)
+                        .join(",") ?? ""
+                    }
+                    title={value.title ?? ""}
+                    desc={value.description ?? ""}
+                    theme={value.theme ?? ""}
+                    backgroundColor={
+                      value.customTheme?.backgroundColor?.replace("#", "") ?? ""
+                    }
+                    textColor={
+                      value.customTheme?.textColor?.replace("#", "") ?? ""
+                    }
+                    headingFont={value.customTheme?.headingFont ?? ""}
+                    bodyFont={value.customTheme?.bodyFont ?? ""}
                   />
                 </div>
               </>

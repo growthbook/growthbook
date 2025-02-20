@@ -6,6 +6,7 @@
     "declarationMap": true,
     "strict": true,
     "esModuleInterop": true,
+    "noUncheckedIndexedAccess": true,
     "resolveJsonModule": true
   },
   "include": ["./src"]

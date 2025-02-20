@@ -141,9 +141,11 @@ export function useFeatureSearch({
     Object.keys(savedGroupReferencesByGroup).forEach((groupId) => {
       const savedGroup = getSavedGroupById(groupId);
       if (!savedGroup) return;
-      savedGroupReferencesByGroup[groupId].forEach((referencingFeature) => {
-        savedGroupReferencesByFeature[referencingFeature.id] ||= [];
-        savedGroupReferencesByFeature[referencingFeature.id].push(savedGroup);
+      savedGroupReferencesByGroup[groupId]!.forEach((referencingFeature) => {
+        if (!savedGroupReferencesByFeature[referencingFeature.id]) {
+          savedGroupReferencesByFeature[referencingFeature.id] = [];
+        }
+        savedGroupReferencesByFeature[referencingFeature.id]!.push(savedGroup);
       });
     });
     return savedGroupReferencesByFeature;
@@ -518,7 +520,9 @@ export function validateFeatureRule(
       );
       if (newValue !== val.value) {
         hasChanges = true;
-        (ruleCopy as ExperimentRule).values[i].value = newValue;
+        if (i < (ruleCopy as ExperimentRule).values?.length) {
+          (ruleCopy as ExperimentRule).values[i].value = newValue;
+        }
       }
     });
     // Without this rounding here, JS floating point messes up simple addition.
@@ -538,7 +542,9 @@ export function validateFeatureRule(
       );
       if (newValue !== v.value) {
         hasChanges = true;
-        (ruleCopy as ExperimentRefRule).variations[i].value = newValue;
+        if (i < (ruleCopy as ExperimentRefRule).variations?.length) {
+          (ruleCopy as ExperimentRefRule).variations[i].value = newValue;
+        }
       }
     });
   } else {

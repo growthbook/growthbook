@@ -6,6 +6,7 @@
     "declarationMap": true,
     "jsx": "react",
     "strict": true,
+    "noUncheckedIndexedAccess": true,
     "esModuleInterop": true
   },
   "include": ["src/"]

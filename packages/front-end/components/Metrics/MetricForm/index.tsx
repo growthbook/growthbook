@@ -149,15 +149,16 @@ function getRawSQLPreview({
   conditions,
 }: Partial<MetricInterface>) {
   const cols: string[] = [];
-  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-  userIdTypes.forEach((type) => {
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    if (userIdColumns[type] !== type) {
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      cols.push(userIdColumns[type] + " as " + type);
-    } else {
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      cols.push(userIdColumns[type]);
+
+  // Add null checks
+  userIdTypes?.forEach((type) => {
+    const col = userIdColumns?.[type];
+    if (col) {
+      if (col !== type) {
+        cols.push(col + " as " + type);
+      } else {
+        cols.push(col);
+      }
     }
   });
 
@@ -171,11 +172,9 @@ function getRawSQLPreview({
   }
 
   let where = "";
-  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-  if (conditions.length) {
+  if (conditions?.length) {
     where =
       "\nWHERE\n  " +
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       conditions
         .map((c: Condition) => {
           return (c.column || "_") + " " + c.operator + " '" + c.value + "'";

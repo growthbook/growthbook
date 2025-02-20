@@ -72,8 +72,10 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
   const handleActionDeleteClicked = useCallback(
     (idx: number) => async () => {
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
-
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      copy.settings = copy.settings || {};
+      copy.settings.queries = copy.settings.queries || {};
+      copy.settings.queries.identityJoins =
+        copy.settings.queries.identityJoins || [];
       copy.settings.queries.identityJoins.splice(idx, 1);
 
       await onSave(copy);

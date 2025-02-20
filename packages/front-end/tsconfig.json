@@ -13,6 +13,7 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
+    "noUncheckedIndexedAccess": true,
     "jsx": "preserve",
     "baseUrl": "./",
     "paths": {

@@ -32,7 +32,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
   ]);
 
   const recordEditing = useMemo((): null | UserIdType => {
-    return userIdTypes[editingIndex] || null;
+    return userIdTypes[editingIndex] ?? null;
   }, [editingIndex, userIdTypes]);
 
   const handleCancel = useCallback(() => {
@@ -52,7 +52,8 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
   const handleActionDeleteClicked = useCallback(
     (idx: number) => async () => {
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      copy.settings = copy.settings || {};
+      copy.settings.userIdTypes = copy.settings.userIdTypes || [];
       copy.settings.userIdTypes.splice(idx, 1);
 
       await onSave(copy);
@@ -63,7 +64,8 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
   const handleSave = useCallback(
     (idx: number) => async (userIdType: string, description: string) => {
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      copy.settings = copy.settings || {};
+      copy.settings.userIdTypes = copy.settings.userIdTypes || [];
       copy.settings.userIdTypes[idx] = {
         userIdType,
         description,
