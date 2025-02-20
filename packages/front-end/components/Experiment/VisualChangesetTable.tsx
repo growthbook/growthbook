@@ -15,7 +15,7 @@ import track from "@/services/track";
 import { appendQueryParamsToURL } from "@/services/utils";
 import { useAuth } from "@/services/auth";
 import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
-import EditDOMMutatonsModal from "@/components/Experiment/EditDOMMutationsModal";
+import EditDOMMutationsModal from "@/components/Experiment/EditDOMMutationsModal";
 import LinkedChange from "@/components/Experiment/LinkedChange";
 import Badge from "@/components/Radix/Badge";
 import Button from "@/components/Radix/Button";
@@ -397,7 +397,7 @@ export const VisualChangesetTable: FC<Props> = ({
       ) : null}
 
       {editingVisualChange ? (
-        <EditDOMMutatonsModal
+        <EditDOMMutationsModal
           experiment={experiment}
           visualChange={editingVisualChange.visualChange}
           close={() => setEditingVisualChange(null)}
