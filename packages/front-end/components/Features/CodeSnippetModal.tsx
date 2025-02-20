@@ -264,7 +264,7 @@ export default function CodeSnippetModal({
               </h4>
               {configOpen && (
                 <div className="appbox bg-light p-3">
-                  <table className="gbtable table table-bordered table-sm">
+                  <table className="table table-bordered table-sm">
                     <tbody>
                       <tr>
                         <th
@@ -395,7 +395,7 @@ export default function CodeSnippetModal({
                 {attributesOpen ? <FaAngleDown /> : <FaAngleRight />}
               </h4>
               {attributesOpen && (
-                <div className="appbox bg-light p-3">
+                <div className="appbox p-3">
                   <TargetingAttributeCodeSnippet
                     language={language}
                     hashSecureAttributes={hashSecureAttributes}
@@ -404,10 +404,7 @@ export default function CodeSnippetModal({
                   />
 
                   {hashSecureAttributes && secureAttributes.length > 0 && (
-                    <div
-                      className="appbox mt-4"
-                      style={{ background: "rgb(209 236 241 / 25%)" }}
-                    >
+                    <div className="appbox mt-4">
                       <div className="alert alert-info mb-0">
                         <GBHashLock className="text-blue" /> This connection has{" "}
                         <strong>secure attribute hashing</strong> enabled. You
