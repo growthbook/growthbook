@@ -463,8 +463,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     // Run health checks
     const healthQuery = queryMap.get(TRAFFIC_QUERY_NAME);
     if (healthQuery) {
+      const rows = healthQuery.result as ExperimentAggregateUnitsQueryResponseRows;
       const trafficHealth = analyzeExperimentTraffic({
-        rows: healthQuery.result as ExperimentAggregateUnitsQueryResponseRows,
+        rows: rows,
         error: healthQuery.error,
         variations: this.model.settings.variations,
       });
@@ -478,7 +479,10 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       );
 
       const isEligibleForMidExperimentPowerAnalysis =
-        relativeAnalysis && this.model.settings.banditSettings === undefined;
+        relativeAnalysis &&
+        this.model.settings.banditSettings === undefined &&
+        rows &&
+        rows.length;
 
       if (isEligibleForMidExperimentPowerAnalysis) {
         const today = new Date();
