@@ -6,6 +6,7 @@ import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/components/Radix/Button";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 const actionValues = ["append", "set", "remove"];
 
@@ -193,6 +194,12 @@ const EditDOMMutationsModal: FC<{
                       label="Attribute"
                       labelClassName="mb-1"
                       value={domChanges?.attribute}
+                      helpText={
+                        <>
+                          DOM attribute to modify{" "}
+                          <Tooltip body="Use 'html' to set the contents of this DOM element" />
+                        </>
+                      }
                       onChange={(e) => {
                         const newMutation = {
                           ...domChanges,
