@@ -1,8 +1,5 @@
 import { Tooltip } from "@radix-ui/themes";
-import {
-  ExperimentAnalysisSummaryHealth,
-  ExperimentAnalysisSummaryResultsStatus,
-} from "back-end/src/validators/experiments";
+import { getDaysLeftStatus, getDecisionFrameworkStatus } from "enterprise";
 import {
   DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
@@ -15,11 +12,71 @@ import {
 } from "shared/constants";
 import { daysBetween } from "shared/dates";
 import { getMultipleExposureHealthData, getSRMHealthData } from "shared/health";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  DecisionFrameworkData,
+  ExperimentInterfaceStringDates,
+} from "back-end/types/experiment";
 import Badge from "@/components/Radix/Badge";
 import useOrgSettings from "@/hooks/useOrgSettings";
 
 type LabelFormat = "full" | "status-only" | "detail-only";
+
+type StatusIndicatorData = {
+  color: React.ComponentProps<typeof Badge>["color"];
+  variant: React.ComponentProps<typeof Badge>["variant"];
+  status: string;
+  detailedStatus?: string;
+  tooltip?: string;
+};
+
+function getDetailedStatusIndicatorData(
+  decisionData: DecisionFrameworkData | undefined
+): StatusIndicatorData | undefined {
+  if (decisionData === undefined) return;
+
+  if (decisionData.status === "rollback-now") {
+    return {
+      color: "red",
+      variant: "solid",
+      status: "Running",
+      detailedStatus: "Roll Back Now",
+      tooltip: decisionData.tooltip,
+    };
+  }
+
+  if (decisionData.status === "ship-now") {
+    return {
+      color: "green",
+      variant: "solid",
+      status: "Running",
+      detailedStatus: "Ship Now",
+      tooltip: decisionData.tooltip,
+    };
+  }
+
+  if (decisionData.status === "days-left") {
+    const cappedPowerAdditionalDaysNeeded = Math.min(decisionData.daysLeft, 90);
+    return {
+      color: "indigo",
+      variant: "solid",
+      status: "Running",
+      detailedStatus: `${
+        decisionData.daysLeft !== cappedPowerAdditionalDaysNeeded ? ">" : ""
+      }${cappedPowerAdditionalDaysNeeded} days left`,
+      tooltip: decisionData.tooltip,
+    };
+  }
+
+  if (decisionData.status === "ready-for-review") {
+    return {
+      color: "amber",
+      variant: "solid",
+      status: "Running",
+      detailedStatus: "Ready for Review",
+      tooltip: decisionData.tooltip,
+    };
+  }
+}
 
 type ExperimentData = Pick<
   ExperimentInterfaceStringDates,
@@ -34,14 +91,6 @@ type ExperimentData = Pick<
   | "goalMetrics"
   | "guardrailMetrics"
 >;
-
-type StatusIndicatorData = {
-  color: React.ComponentProps<typeof Badge>["color"];
-  variant: React.ComponentProps<typeof Badge>["variant"];
-  status: string;
-  detailedStatus?: string;
-  tooltip?: string;
-};
 
 /**
  * Component that displays the status of an experiment with an appropriate badge
@@ -141,8 +190,29 @@ function getStatusIndicatorData(
       daysBetween(lastPhase.dateStarted, new Date()) <
         healthSettings.experimentMinLengthDays;
 
-    let shippingIndicatorData: StatusIndicatorData | null = null;
-    let daysLeftIndicatorData: StatusIndicatorData | null = null;
+    const isLowPowered =
+      healthSummary?.power?.type === "success"
+        ? healthSummary.power.isLowPowered
+        : undefined;
+    const daysNeeded =
+      healthSummary?.power?.type === "success"
+        ? healthSummary.power.additionalDaysNeeded
+        : undefined;
+
+    const decisionStatus = resultsStatus
+      ? getDetailedStatusIndicatorData(
+          getDecisionFrameworkStatus({
+            resultsStatus,
+            goalMetrics: experimentData.goalMetrics,
+            guardrailMetrics: experimentData.guardrailMetrics,
+            daysNeeded,
+          })
+        )
+      : undefined;
+
+    const daysLeftStatus = daysNeeded
+      ? getDetailedStatusIndicatorData(getDaysLeftStatus({ daysNeeded }))
+      : undefined;
 
     if (healthSummary) {
       const srmHealthData = getSRMHealthData({
@@ -171,32 +241,12 @@ function getStatusIndicatorData(
         unhealthyStatuses.push("Multiple exposures");
       }
 
-      const isLowPowered =
-        healthSummary.power?.type === "success" &&
-        healthSummary.power.isLowPowered;
-
-      const daysLeftStatus = getDaysLeftStatus({
-        power: healthSummary.power,
-      });
-      if (daysLeftStatus?.indicatorData) {
-        daysLeftIndicatorData = daysLeftStatus.indicatorData;
-      }
-
-      if (resultsStatus) {
-        shippingIndicatorData = getShippingStatus({
-          resultsStatus,
-          goalMetrics: experimentData.goalMetrics,
-          guardrailMetrics: experimentData.guardrailMetrics,
-          daysNeeded: daysLeftStatus?.additionalDaysNeeded,
-        });
-      }
-
       if (
         isLowPowered &&
         healthSettings.midExperimentPowerEnabled &&
         // override low powered status if shipping criteria are ready
         // or before min duration
-        !shippingIndicatorData &&
+        !decisionStatus &&
         !beforeMinDuration &&
         // ignore if user has dismissed the warning
         !experimentData.dismissedWarnings?.includes("low-power")
@@ -236,14 +286,16 @@ function getStatusIndicatorData(
       };
     }
 
-    // 4. if clear shipping status, show it
-    if (shippingIndicatorData && healthSettings.midExperimentPowerEnabled) {
-      return shippingIndicatorData;
-    }
+    if (healthSettings.midExperimentPowerEnabled) {
+      // 4. if clear shipping status, show it
+      if (decisionStatus) {
+        return decisionStatus;
+      }
 
-    // 5. If no unhealthy status or clear shipping criteria, show days left data
-    if (daysLeftIndicatorData && healthSettings.midExperimentPowerEnabled) {
-      return daysLeftIndicatorData;
+      // 5. If no unhealthy status or clear shipping criteria, show days left data
+      if (daysLeftStatus) {
+        return daysLeftStatus;
+      }
     }
 
     // 6. Otherwise, show running status
@@ -329,189 +381,4 @@ function getFormattedLabel(
       throw new Error(`Unknown label format: ${_exhaustiveCheck}`);
     }
   }
-}
-
-type DaysLeftStatus = {
-  additionalDaysNeeded: number;
-  indicatorData?: StatusIndicatorData;
-};
-function getDaysLeftStatus({
-  power,
-}: {
-  power: ExperimentAnalysisSummaryHealth["power"];
-}): DaysLeftStatus | undefined {
-  // TODO: Right now midExperimentPowerEnable is controlling the whole "Days Left" status
-  // but we should probably split it when considering Experiment Runtime length without power
-  const powerAdditionalDaysNeeded =
-    power?.type === "success" ? power.additionalDaysNeeded : undefined;
-  if (powerAdditionalDaysNeeded === undefined) {
-    return;
-  }
-
-  if (powerAdditionalDaysNeeded > 0) {
-    const cappedPowerAdditionalDaysNeeded = Math.min(
-      powerAdditionalDaysNeeded,
-      90
-    );
-
-    return {
-      additionalDaysNeeded: powerAdditionalDaysNeeded,
-      indicatorData: {
-        color: "indigo",
-        variant: "solid",
-        status: "Running",
-        detailedStatus: `${
-          powerAdditionalDaysNeeded !== cappedPowerAdditionalDaysNeeded
-            ? ">"
-            : ""
-        }${cappedPowerAdditionalDaysNeeded} days left`,
-        tooltip: `This experiment has not collected enough data to reliably detected the specified Target MDE for all goal metrics. At recent traffic levels, the experiment will take ~${powerAdditionalDaysNeeded} days to collect enough data.`,
-      },
-    };
-  }
-  return { additionalDaysNeeded: powerAdditionalDaysNeeded };
-}
-
-function getShippingStatus({
-  resultsStatus,
-  goalMetrics,
-  guardrailMetrics,
-  daysNeeded,
-}: {
-  resultsStatus: ExperimentAnalysisSummaryResultsStatus;
-  goalMetrics: string[];
-  guardrailMetrics: string[];
-  daysNeeded?: number;
-}): StatusIndicatorData | null {
-  const powerReached = daysNeeded === 0;
-
-  // Rendering a decision with regular stat sig metrics is only valid
-  // if you have reached your needed power or if you used sequential testing
-  const decisionReady =
-    powerReached || resultsStatus.settings.sequentialTesting;
-
-  let hasWinner = false;
-  let hasWinnerWithGuardrailFailure = false;
-  let hasSuperStatsigWinner = false;
-  let nVariationsLosing = 0;
-  let nVariationsWithSuperStatSigLoser = 0;
-  // if any variation is a clear winner with no guardrail issues, ship now
-  for (const variationResult of resultsStatus.variations) {
-    const allSuperStatSigWon = goalMetrics.every((m) =>
-      variationResult.goalMetrics?.[m]?.status?.includes("superWon")
-    );
-    const anyGuardrailFailure = guardrailMetrics.some(
-      (m) => variationResult.guardrailMetrics?.[m]?.status === "lost"
-    );
-
-    if (decisionReady) {
-      const allStatSigGood = goalMetrics.every((m) =>
-        variationResult.goalMetrics?.[m]?.status.includes("won")
-      );
-      if (allStatSigGood && !anyGuardrailFailure) {
-        hasWinner = true;
-      }
-
-      if (allStatSigGood && anyGuardrailFailure) {
-        hasWinnerWithGuardrailFailure = true;
-      }
-
-      if (
-        goalMetrics.every((m) =>
-          variationResult.goalMetrics?.[m]?.status?.includes("lost")
-        )
-      ) {
-        nVariationsLosing += 1;
-      }
-    }
-
-    if (allSuperStatSigWon && !anyGuardrailFailure) {
-      hasSuperStatsigWinner = true;
-    }
-
-    if (
-      goalMetrics.every((m) =>
-        variationResult.goalMetrics?.[m]?.status?.includes("superLost")
-      )
-    ) {
-      nVariationsWithSuperStatSigLoser += 1;
-    }
-  }
-
-  const tooltipLanguage = powerReached
-    ? `Experiment has reached the target statistical power and`
-    : resultsStatus.settings.sequentialTesting
-    ? `Sequential testing enables calling an experiment as soon as it is significant and`
-    : "";
-
-  if (hasWinner) {
-    return {
-      color: "green",
-      variant: "solid",
-      status: "Running",
-      detailedStatus: "Ship Now",
-      tooltip: `${tooltipLanguage} all goal metrics are statistically significant in the desired direction for a test variation.`,
-    };
-  }
-
-  // if no winner without guardrail failure, call out a winner with a guardrail failure
-  if (hasWinnerWithGuardrailFailure) {
-    return {
-      color: "amber",
-      variant: "solid",
-      status: "Running",
-      detailedStatus: "Ready for Review",
-      tooltip: `${tooltipLanguage} all goal metrics are statistically significant in the desired direction for a test variation. However, one or more guardrails are failing`,
-    };
-  }
-
-  // If all variations failing, roll back now
-  if (
-    nVariationsLosing === resultsStatus.variations.length &&
-    nVariationsLosing > 0
-  ) {
-    return {
-      color: "red",
-      variant: "solid",
-      status: "Running",
-      detailedStatus: "Roll Back Now",
-      tooltip: `${tooltipLanguage} all goal metrics are statistically significant in the undesired direction.`,
-    };
-  }
-
-  // TODO if super stat sig enabled
-  if (hasSuperStatsigWinner) {
-    return {
-      color: "green",
-      variant: "solid",
-      status: "Running",
-      detailedStatus: "Ship Now",
-      tooltip: `The experiment has not yet reached the target statistical power, however, the goal metrics have clear, statistically significant lifts in the desired direction.`,
-    };
-  }
-
-  if (
-    nVariationsWithSuperStatSigLoser === resultsStatus.variations.length &&
-    nVariationsWithSuperStatSigLoser > 0
-  ) {
-    return {
-      color: "red",
-      variant: "solid",
-      status: "Running",
-      detailedStatus: "Roll Back Now",
-      tooltip: `The experiment has not yet reached the target statistical power, however, the goal metrics have clear, statistically significant lifts in the undesired direction.`,
-    };
-  }
-
-  if (powerReached) {
-    return {
-      color: "amber",
-      variant: "solid",
-      status: "Running",
-      detailedStatus: "Ready for Review",
-      tooltip: `The experiment has reached the target statistical power, but does not have conclusive results.`,
-    };
-  }
-
-  return null;
 }
