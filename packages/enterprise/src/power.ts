@@ -455,7 +455,7 @@ export function analyzeExperimentPower({
   goalMetrics: string[];
   variationsSettings: SnapshotSettingsVariation[];
 }): MidExperimentPowerCalculationResult | undefined {
-  const analysisVariations = analysis.results[0].variations;
+  const analysisVariations = analysis.results?.[0].variations;
   const variationsPowerResponses = analysisVariations.map((variation) => ({
     metrics: Object.fromEntries(
       goalMetrics.map((metricId) => [
