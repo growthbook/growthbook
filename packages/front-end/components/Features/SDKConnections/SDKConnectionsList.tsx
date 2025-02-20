@@ -165,6 +165,7 @@ export default function SDKConnectionsList() {
             sdkVersion: initialModalSelectedLanguage
               ? getLatestSDKVersion(initialModalSelectedLanguage)
               : undefined,
+            includeRuleIds: true,
           }}
           close={() => setModalOpen(false)}
           mutate={mutate}

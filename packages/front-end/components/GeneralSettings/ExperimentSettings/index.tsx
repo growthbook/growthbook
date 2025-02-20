@@ -195,6 +195,57 @@ export default function ExperimentSettings({
               </Flex>
             </Box>
 
+            {/* TODO(mid-experiment-power): Reenable once we have statuses for experiments running for > maxExperimentLengthDays */}
+            {/* <Box mb="4" width="100%">
+              <Box className="appbox p-3">
+                <Box mb="4">
+                  <Text mb="1" size="3" className="font-weight-semibold">
+                    Experiment Runtime
+                  </Text>
+
+                  <Box>
+                    <Text>
+                      This configuration will guide recommendations for
+                      experiments.
+                    </Text>
+                  </Box>
+                </Box>
+
+                <Flex direction="column" gap="2" mb="2">
+                  <Text size="2">Minimum runtime</Text>
+                  <Box width="150px">
+                    <Field
+                      type="number"
+                      append="days"
+                      step="1"
+                      min="0"
+                      max={form.watch("experimentMaxLengthDays")}
+                      {...form.register("experimentMinLengthDays", {
+                        valueAsNumber: true,
+                        max: form.watch("experimentMaxLengthDays"),
+                      })}
+                    />
+                  </Box>
+                </Flex>
+
+                <Flex direction="column" gap="2">
+                  <Text size="2">Maximum runtime</Text>
+                  <Box width="150px">
+                    <Field
+                      type="number"
+                      append="days"
+                      placeholder="Unlimited"
+                      step="1"
+                      min="0"
+                      {...form.register("experimentMaxLengthDays", {
+                        valueAsNumber: true,
+                      })}
+                    />
+                  </Box>
+                </Flex>
+              </Box>
+            </Box> */}
+
             {/* Conversion window override */}
             <Box mb="4" width="100%">
               <Box className="appbox p-3">
@@ -338,6 +389,7 @@ export default function ExperimentSettings({
                     </label>
                   </Box>
                 </Flex>
+
                 <Box mb="4">
                   <Text as="p" className="font-weight-semibold">
                     SRM p-value threshold
