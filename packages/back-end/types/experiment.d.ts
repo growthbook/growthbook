@@ -16,6 +16,7 @@ export {
   BanditStageType,
   ExperimentAnalysisSettings,
   ExperimentAnalysisSummaryResultsStatus,
+  ExperimentAnalysisSummaryVariationStatus,
   ExperimentInterface,
   ExperimentNotification,
   ExperimentResultsType,

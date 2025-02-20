@@ -398,7 +398,7 @@ function getDaysLeftStatus({
   }
 }
 
-function getDecisionFrameworkStatus({
+export function getDecisionFrameworkStatus({
   resultsStatus,
   goalMetrics,
   guardrailMetrics,
@@ -424,16 +424,16 @@ function getDecisionFrameworkStatus({
   let nVariationsWithSuperStatSigLoser = 0;
   // if any variation is a clear winner with no guardrail issues, ship now
   for (const variationResult of resultsStatus.variations) {
-    const allSuperStatSigWon = goalMetrics.every((m) =>
-      variationResult.goalMetrics?.[m]?.status?.includes("superWon")
+    const allSuperStatSigWon = goalMetrics.every(
+      (m) => variationResult.goalMetrics?.[m]?.superStatSigStatus === "won"
     );
     const anyGuardrailFailure = guardrailMetrics.some(
       (m) => variationResult.guardrailMetrics?.[m]?.status === "lost"
     );
 
     if (decisionReady) {
-      const allStatSigGood = goalMetrics.every((m) =>
-        variationResult.goalMetrics?.[m]?.status.includes("won")
+      const allStatSigGood = goalMetrics.every(
+        (m) => variationResult.goalMetrics?.[m]?.status === "won"
       );
       if (allStatSigGood && !anyGuardrailFailure) {
         hasWinner = true;
@@ -444,8 +444,8 @@ function getDecisionFrameworkStatus({
       }
 
       if (
-        goalMetrics.every((m) =>
-          variationResult.goalMetrics?.[m]?.status?.includes("lost")
+        goalMetrics.every(
+          (m) => variationResult.goalMetrics?.[m]?.status === "lost"
         )
       ) {
         nVariationsLosing += 1;
@@ -461,8 +461,8 @@ function getDecisionFrameworkStatus({
     }
 
     if (
-      goalMetrics.every((m) =>
-        variationResult.goalMetrics?.[m]?.status?.includes("superLost")
+      goalMetrics.every(
+        (m) => variationResult.goalMetrics?.[m]?.superStatSigStatus === "lost"
       )
     ) {
       nVariationsWithSuperStatSigLoser += 1;
