@@ -415,11 +415,20 @@ export default function ExperimentSettings({
 
             <Box mb="4" width="100%">
               <Box className="appbox p-3">
-                <Heading size="3" className="font-weight-semibold" mb="4">
-                  <PremiumTooltip commercialFeature="mid-experiment-power">
-                    Experiment Decision Framework
-                  </PremiumTooltip>
+                <Heading size="3" className="font-weight-semibold" mb="2">
+                  Experiment Decision Framework
+                  <PremiumTooltip
+                    commercialFeature="mid-experiment-power"
+                    style={{ display: "inline-flex" }}
+                  />
                 </Heading>
+                <Box mb="4">
+                  <Text size="2" style={{ color: "var(--color-text-mid)" }}>
+                    Calculates the estimated duration of your experiment using
+                    target minimum detectable effects and makes shipping
+                    recommendations.
+                  </Text>
+                </Box>
                 <Flex
                   display="inline-flex"
                   gap="3"
@@ -446,24 +455,9 @@ export default function ExperimentSettings({
                       className="font-weight-semibold mb-0"
                     >
                       Enable experiment decision framework
-                      <Tooltip content="Calculates the estimated duration of your experiment using target minimum detectable effects and makes shipping recommendations.">
-                        <Flex
-                          ml="2"
-                          mb="2px"
-                          display="inline-flex"
-                          style={{ verticalAlign: "middle" }}
-                        >
-                          <GBInfo />
-                        </Flex>
-                      </Tooltip>
-                      <PremiumTooltip
-                        commercialFeature="mid-experiment-power"
-                        style={{ display: "inline-flex" }}
-                      />
                     </label>
                   </Box>
                 </Flex>
-
                 <Box mb="4">
                   <Text size="2">
                     Minimum experiment runtime
