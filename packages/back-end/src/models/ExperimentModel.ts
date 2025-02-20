@@ -269,16 +269,16 @@ const experimentSchema = new mongoose.Schema({
     },
     resultsStatus: {
       _id: false,
-      sequentialUsed: Boolean,
+      settings: {
+        _id: false,
+        sequentialTesting: Boolean,
+      },
       variations: [
         {
           _id: false,
           variationId: String,
-          goalMetricsStatSigPositive: [String],
-          goalMetricsStatSigNegative: [String],
-          goalMetricsSuperStatSigPositive: [String],
-          goalMetricsSuperStatSigNegative: [String],
-          guardrailMetricsFailing: [String],
+          goalMetrics: {},
+          guardrailMetrics: {},
         },
       ],
     },

@@ -136,15 +136,14 @@ function getStatusIndicatorData(
 
     const lastPhase = experimentData.phases[experimentData.phases.length - 1];
 
-    // skip all statuses
     const beforeMinDuration =
       lastPhase.dateStarted &&
       daysBetween(lastPhase.dateStarted, new Date()) <
         healthSettings.experimentMinLengthDays;
 
-    let powerStatus: PowerStatus | undefined = undefined;
     let shippingIndicatorData: StatusIndicatorData | null = null;
-    let powerIndicatorData: StatusIndicatorData | null = null;
+    let daysLeftIndicatorData: StatusIndicatorData | null = null;
+
     if (healthSummary) {
       const srmHealthData = getSRMHealthData({
         srm: healthSummary.srm,
@@ -172,13 +171,15 @@ function getStatusIndicatorData(
         unhealthyStatuses.push("Multiple exposures");
       }
 
-      if (healthSettings.midExperimentPowerEnabled) {
-        powerStatus = getPowerStatus({
-          power: healthSummary.power,
-        });
-        if (powerStatus?.indicatorData) {
-          powerIndicatorData = powerStatus.indicatorData;
-        }
+      const isLowPowered =
+        healthSummary.power?.type === "success" &&
+        healthSummary.power.isLowPowered;
+
+      const daysLeftStatus = getDaysLeftStatus({
+        power: healthSummary.power,
+      });
+      if (daysLeftStatus?.indicatorData) {
+        daysLeftIndicatorData = daysLeftStatus.indicatorData;
       }
 
       if (resultsStatus) {
@@ -186,17 +187,21 @@ function getStatusIndicatorData(
           resultsStatus,
           goalMetrics: experimentData.goalMetrics,
           guardrailMetrics: experimentData.guardrailMetrics,
-          powerStatus: powerStatus,
+          daysNeeded: daysLeftStatus?.additionalDaysNeeded,
         });
+      }
+
+      if (
+        isLowPowered &&
+        healthSettings.midExperimentPowerEnabled &&
         // override low powered status if shipping criteria are ready
-        if (
-          !shippingIndicatorData &&
-          powerStatus?.isLowPowered &&
-          !experimentData.dismissedWarnings?.includes("low-power") &&
-          !beforeMinDuration
-        ) {
-          unhealthyStatuses.push("Low powered");
-        }
+        // or before min duration
+        !shippingIndicatorData &&
+        !beforeMinDuration &&
+        // ignore if user has dismissed the warning
+        !experimentData.dismissedWarnings?.includes("low-power")
+      ) {
+        unhealthyStatuses.push("Low powered");
       }
     }
 
@@ -232,13 +237,13 @@ function getStatusIndicatorData(
     }
 
     // 4. if clear shipping status, show it
-    if (shippingIndicatorData) {
+    if (shippingIndicatorData && healthSettings.midExperimentPowerEnabled) {
       return shippingIndicatorData;
     }
 
     // 5. If no unhealthy status or clear shipping criteria, show days left data
-    if (powerIndicatorData) {
-      return powerIndicatorData;
+    if (daysLeftIndicatorData && healthSettings.midExperimentPowerEnabled) {
+      return daysLeftIndicatorData;
     }
 
     // 6. Otherwise, show running status
@@ -326,22 +331,17 @@ function getFormattedLabel(
   }
 }
 
-// TODO rename just to days left
-type PowerStatus = {
-  isLowPowered: boolean;
+type DaysLeftStatus = {
   additionalDaysNeeded: number;
   indicatorData?: StatusIndicatorData;
 };
-function getPowerStatus({
+function getDaysLeftStatus({
   power,
 }: {
   power: ExperimentAnalysisSummaryHealth["power"];
-}): PowerStatus | undefined {
+}): DaysLeftStatus | undefined {
   // TODO: Right now midExperimentPowerEnable is controlling the whole "Days Left" status
   // but we should probably split it when considering Experiment Runtime length without power
-
-  const isLowPowered = power?.type === "success" && power.isLowPowered;
-
   const powerAdditionalDaysNeeded =
     power?.type === "success" ? power.additionalDaysNeeded : undefined;
   if (powerAdditionalDaysNeeded === undefined) {
@@ -355,7 +355,6 @@ function getPowerStatus({
     );
 
     return {
-      isLowPowered,
       additionalDaysNeeded: powerAdditionalDaysNeeded,
       indicatorData: {
         color: "indigo",
@@ -370,22 +369,26 @@ function getPowerStatus({
       },
     };
   }
-  return { isLowPowered, additionalDaysNeeded: powerAdditionalDaysNeeded };
+  return { additionalDaysNeeded: powerAdditionalDaysNeeded };
 }
 
 function getShippingStatus({
   resultsStatus,
   goalMetrics,
   guardrailMetrics,
-  powerStatus,
+  daysNeeded,
 }: {
   resultsStatus: ExperimentAnalysisSummaryResultsStatus;
   goalMetrics: string[];
   guardrailMetrics: string[];
-  powerStatus?: PowerStatus;
+  daysNeeded?: number;
 }): StatusIndicatorData | null {
-  const powerReached = powerStatus?.additionalDaysNeeded === 0;
-  const decisionReady = powerReached || resultsStatus.sequentialUsed;
+  const powerReached = daysNeeded === 0;
+
+  // Rendering a decision with regular stat sig metrics is only valid
+  // if you have reached your needed power or if you used sequential testing
+  const decisionReady =
+    powerReached || resultsStatus.settings.sequentialTesting;
 
   let hasWinner = false;
   let hasWinnerWithGuardrailFailure = false;
@@ -394,53 +397,52 @@ function getShippingStatus({
   let nVariationsWithSuperStatSigLoser = 0;
   // if any variation is a clear winner with no guardrail issues, ship now
   for (const variationResult of resultsStatus.variations) {
-    const allSuperStatSigPositive = goalMetrics.every((m) =>
-      variationResult.goalMetricsSuperStatSigPositive.includes(m)
+    const allSuperStatSigWon = goalMetrics.every((m) =>
+      variationResult.goalMetrics?.[m]?.status?.includes("superWon")
     );
-    const guardrailFailure = guardrailMetrics.some((m) =>
-      variationResult.guardrailMetricsFailing.includes(m)
+    const anyGuardrailFailure = guardrailMetrics.some(
+      (m) => variationResult.guardrailMetrics?.[m]?.status === "lost"
     );
 
     if (decisionReady) {
-      const allStatSigPositive = goalMetrics.every((m) =>
-        variationResult.goalMetricsStatSigPositive.includes(m)
+      const allStatSigGood = goalMetrics.every((m) =>
+        variationResult.goalMetrics?.[m]?.status.includes("won")
       );
-      if (allStatSigPositive && !guardrailFailure) {
+      if (allStatSigGood && !anyGuardrailFailure) {
         hasWinner = true;
       }
 
-      if (allStatSigPositive && guardrailFailure) {
+      if (allStatSigGood && anyGuardrailFailure) {
         hasWinnerWithGuardrailFailure = true;
       }
 
       if (
         goalMetrics.every((m) =>
-          variationResult.goalMetricsStatSigNegative.includes(m)
+          variationResult.goalMetrics?.[m]?.status?.includes("lost")
         )
       ) {
         nVariationsLosing += 1;
       }
     }
 
-    if (allSuperStatSigPositive && !guardrailFailure) {
+    if (allSuperStatSigWon && !anyGuardrailFailure) {
       hasSuperStatsigWinner = true;
     }
 
     if (
       goalMetrics.every((m) =>
-        variationResult.goalMetricsSuperStatSigNegative.includes(m)
+        variationResult.goalMetrics?.[m]?.status?.includes("superLost")
       )
     ) {
       nVariationsWithSuperStatSigLoser += 1;
     }
   }
 
-  const tooltipLanguage =
-    powerStatus?.additionalDaysNeeded === 0
-      ? `Experiment has reached the target statistical power and`
-      : resultsStatus.sequentialUsed
-      ? `Sequential testing enables calling an experiment as soon as it is significant and`
-      : "";
+  const tooltipLanguage = powerReached
+    ? `Experiment has reached the target statistical power and`
+    : resultsStatus.settings.sequentialTesting
+    ? `Sequential testing enables calling an experiment as soon as it is significant and`
+    : "";
 
   if (hasWinner) {
     return {

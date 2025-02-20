@@ -46,6 +46,7 @@ import {
   BanditResult,
   ExperimentAnalysisSummary,
   ExperimentAnalysisSummaryResultsStatus,
+  GoalMetricResult,
 } from "back-end/src/validators/experiments";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { promiseAllChunks } from "back-end/src/util/promise";
@@ -2844,16 +2845,17 @@ export async function updateExperimentAnalysisSummary({
     }
   }
 
-  const analysis = experimentSnapshot.analyses.find(
+  const relativeAnalysis = experimentSnapshot.analyses.find(
     (v) => v.settings.differenceType === "relative"
   );
-  if (analysis) {
-    const overallResults = analysis.results?.[0];
+
+  if (relativeAnalysis) {
+    const overallResults = relativeAnalysis.results?.[0];
     // redundant check for dimension
     if (overallResults && overallResults.name === "") {
       const resultsStatus = await computeResultsStatus({
         context,
-        analysis,
+        relativeAnalysis,
         experiment,
       });
 
@@ -2874,20 +2876,20 @@ export async function updateExperimentAnalysisSummary({
 
 async function computeResultsStatus({
   context,
-  analysis,
+  relativeAnalysis,
   experiment,
 }: {
   context: ReqContext;
-  analysis: ExperimentSnapshotAnalysis;
+  relativeAnalysis: ExperimentSnapshotAnalysis;
   experiment: ExperimentInterface;
 }): Promise<ExperimentAnalysisSummaryResultsStatus | undefined> {
-  const statsEngine = analysis.settings.statsEngine;
+  const statsEngine = relativeAnalysis.settings.statsEngine;
   const { ciUpper, ciLower } = getConfidenceLevelsForOrg(context);
   const metricDefaults = getMetricDefaultsForOrg(context);
   const pValueThreshold = getPValueThresholdForOrg(context);
   const metricMap = await getMetricMap(context);
 
-  const variations = analysis.results?.[0].variations;
+  const variations = relativeAnalysis.results?.[0].variations;
   if (!variations) {
     return;
   }
@@ -2896,14 +2898,13 @@ async function computeResultsStatus({
   const baselineVariation = variations[0];
 
   for (let i = 1; i < variations.length; i++) {
+    // try to get id from experiment object
+    const variationId = experiment.variations?.[i]?.id;
     const currentVariation = variations[i];
     const variationStatus: ExperimentAnalysisSummaryVariationStatus = {
-      variationId: i + "",
-      goalMetricsStatSigNegative: [],
-      goalMetricsStatSigPositive: [],
-      guardrailMetricsFailing: [],
-      goalMetricsSuperStatSigNegative: [],
-      goalMetricsSuperStatSigPositive: [],
+      variationId: variationId ?? i + "",
+      goalMetrics: {},
+      guardrailMetrics: {},
     };
     for (const m in currentVariation.metrics) {
       const goalMetric = experiment.goalMetrics.includes(m);
@@ -2928,23 +2929,28 @@ async function computeResultsStatus({
         });
 
         if (goalMetric) {
+          const metricStatus: GoalMetricResult = {
+            status: "neutral",
+            superStatSigStatus: "neutral",
+          };
           if (resultsStatus.resultsStatus === "won") {
-            variationStatus.goalMetricsStatSigPositive.push(m);
+            metricStatus.status = "won";
           } else if (resultsStatus.resultsStatus === "lost") {
-            variationStatus.goalMetricsStatSigNegative.push(m);
+            metricStatus.status = "lost";
           }
 
           if (resultsStatus.clearSignalResultsStatus === "won") {
-            variationStatus.goalMetricsSuperStatSigPositive.push(m);
+            metricStatus.superStatSigStatus = "won";
           } else if (resultsStatus.resultsStatus === "lost") {
-            variationStatus.goalMetricsSuperStatSigNegative.push(m);
+            metricStatus.superStatSigStatus = "lost";
           }
+          variationStatus.goalMetrics[metric.id] = metricStatus;
         }
 
         if (guardrailMetric) {
-          if (resultsStatus.resultsStatus === "lost") {
-            variationStatus.guardrailMetricsFailing.push(m);
-          }
+          variationStatus.guardrailMetrics[metric.id] = {
+            status: resultsStatus.resultsStatus === "lost" ? "lost" : "neutral",
+          };
         }
       }
     }
@@ -2953,6 +2959,8 @@ async function computeResultsStatus({
 
   return {
     variations: variationStatuses,
-    sequentialUsed: analysis.settings.sequentialTesting ?? false,
+    settings: {
+      sequentialTesting: relativeAnalysis.settings.sequentialTesting ?? false,
+    },
   };
 }

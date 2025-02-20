@@ -428,18 +428,22 @@ export function getAverageExposureOverLastNDays(
   traffic: ExperimentSnapshotTraffic,
   nDays: number,
   baseDate = new Date()
-) {
+): number {
   const lastNDates = eachDayOfInterval({
     start: subDays(baseDate, nDays),
     end: subDays(baseDate, 1),
   }).map((date) => formatISO(date, { representation: "date" }));
 
-  const totalExposure = traffic.dimension?.dim_exposure_date
-    .filter((dim) => lastNDates.includes(dim.name))
-    .map((dim) => dim.variationUnits.reduce((acc, num) => acc + num, 0))
-    .reduce((acc, num) => acc + num, 0);
+  const dailyTraffic = traffic.dimension?.["dim_exposure_date"];
+  if (dailyTraffic) {
+    const totalExposure = dailyTraffic
+      .filter((dim) => lastNDates.includes(dim.name))
+      .map((dim) => dim.variationUnits.reduce((acc, num) => acc + num, 0))
+      .reduce((acc, num) => acc + num, 0);
+    return Math.floor(totalExposure / nDays);
+  }
 
-  return Math.floor(totalExposure / nDays);
+  return 0;
 }
 
 export function analyzeExperimentPower({

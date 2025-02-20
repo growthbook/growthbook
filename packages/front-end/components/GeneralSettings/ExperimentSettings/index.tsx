@@ -446,7 +446,7 @@ export default function ExperimentSettings({
                       className="font-weight-semibold mb-0"
                     >
                       Enable experiment decision framework
-                      <Tooltip content="Calculates the estimated duration of your experiment using target MDEs and makes shipping recommendations.">
+                      <Tooltip content="Calculates the estimated duration of your experiment using target minimum detectable effects and makes shipping recommendations.">
                         <Flex
                           ml="2"
                           mb="2px"
@@ -488,10 +488,8 @@ export default function ExperimentSettings({
                         !form.watch("midExperimentPowerEnabled") ||
                         !hasCommercialFeature("mid-experiment-power")
                       }
-                      max={form.watch("experimentMaxLengthDays")}
                       {...form.register("experimentMinLengthDays", {
                         valueAsNumber: true,
-                        max: form.watch("experimentMaxLengthDays"),
                       })}
                     />
                   </Box>
