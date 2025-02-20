@@ -264,7 +264,7 @@ export default function CodeSnippetModal({
               </h4>
               {configOpen && (
                 <div className="appbox bg-light p-3">
-                  <table className="gbtable table table-bordered table-sm">
+                  <table className="table table-bordered table-sm">
                     <tbody>
                       <tr>
                         <th
@@ -395,7 +395,7 @@ export default function CodeSnippetModal({
                 {attributesOpen ? <FaAngleDown /> : <FaAngleRight />}
               </h4>
               {attributesOpen && (
-                <div className="appbox bg-light p-3">
+                <div className="appbox p-3">
                   <TargetingAttributeCodeSnippet
                     language={language}
                     hashSecureAttributes={hashSecureAttributes}
@@ -403,92 +403,87 @@ export default function CodeSnippetModal({
                     version={version}
                   />
 
-                  {hashSecureAttributes && secureAttributes.length > 0 && (
-                    <div
-                      className="appbox mt-4"
-                      style={{ background: "rgb(209 236 241 / 25%)" }}
-                    >
-                      <div className="alert alert-info mb-0">
-                        <GBHashLock className="text-blue" /> This connection has{" "}
-                        <strong>secure attribute hashing</strong> enabled. You
-                        must manually hash all attributes with datatype{" "}
-                        <code>secureString</code> or <code>secureString[]</code>{" "}
-                        in your SDK implementation code.
+                  {/* {hashSecureAttributes && secureAttributes.length > 0 && ( */}
+                  <div className="appbox mt-4">
+                    <div className="alert alert-info mb-0">
+                      <GBHashLock className="text-blue" /> This connection has{" "}
+                      <strong>secure attribute hashing</strong> enabled. You
+                      must manually hash all attributes with datatype{" "}
+                      <code>secureString</code> or <code>secureString[]</code>{" "}
+                      in your SDK implementation code.
+                    </div>
+                    <div className="px-3 pb-3">
+                      <div className="mt-3">
+                        Your organization currently has{" "}
+                        {secureAttributes.length} secure attribute
+                        {secureAttributes.length === 1 ? "" : "s"}
+                        {secureAttributes.length > 0 && (
+                          <>
+                            {" "}
+                            which need to be hashed before using them in the
+                            SDK:
+                            <table className="table table-borderless w-auto mt-1 ml-2">
+                              <tbody>
+                                {secureAttributes.map((a, i) => (
+                                  <tr key={i}>
+                                    <td className="pt-1 pb-0">
+                                      <code className="font-weight-bold">
+                                        {a.property}
+                                      </code>
+                                    </td>
+                                    <td className="pt-1 pb-0">
+                                      <span className="text-gray">
+                                        {a.datatype}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </>
+                        )}
                       </div>
-                      <div className="px-3 pb-3">
-                        <div className="mt-3">
-                          Your organization currently has{" "}
-                          {secureAttributes.length} secure attribute
-                          {secureAttributes.length === 1 ? "" : "s"}
-                          {secureAttributes.length > 0 && (
-                            <>
-                              {" "}
-                              which need to be hashed before using them in the
-                              SDK:
-                              <table className="table table-borderless w-auto mt-1 ml-2">
-                                <tbody>
-                                  {secureAttributes.map((a, i) => (
-                                    <tr key={i}>
-                                      <td className="pt-1 pb-0">
-                                        <code className="font-weight-bold">
-                                          {a.property}
-                                        </code>
-                                      </td>
-                                      <td className="pt-1 pb-0">
-                                        <span className="text-gray">
-                                          {a.datatype}
-                                        </span>
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </>
-                          )}
-                        </div>
-                        <div className="mt-3">
-                          To hash an attribute, use a cryptographic library with{" "}
-                          <strong>SHA-256</strong> support, and compute the
-                          SHA-256 hashed value of your attribute <em>plus</em>{" "}
-                          your organization&apos;s secure attribute salt.
-                        </div>
-                        <div className="mt-2">
-                          Example, using your organization&apos;s secure
-                          attribute salt:
-                          {secureAttributeSalt === "" && (
-                            <div className="alert alert-warning mt-2 px-2 py-1">
-                              <FaExclamationTriangle /> Your organization has an
-                              empty salt string. Add a salt string in your{" "}
-                              <Link href="/settings">
-                                organization settings
-                              </Link>{" "}
-                              to improve the security of hashed targeting
-                              conditions.
-                            </div>
-                          )}
-                          <Code
-                            filename="pseudocode"
-                            language="javascript"
-                            code={`const salt = "${secureAttributeSalt}";
+                      <div className="mt-3">
+                        To hash an attribute, use a cryptographic library with{" "}
+                        <strong>SHA-256</strong> support, and compute the
+                        SHA-256 hashed value of your attribute <em>plus</em>{" "}
+                        your organization&apos;s secure attribute salt.
+                      </div>
+                      <div className="mt-2">
+                        Example, using your organization&apos;s secure attribute
+                        salt:
+                        {secureAttributeSalt === "" && (
+                          <div className="alert alert-warning mt-2 px-2 py-1">
+                            <FaExclamationTriangle /> Your organization has an
+                            empty salt string. Add a salt string in your{" "}
+                            <Link href="/settings">organization settings</Link>{" "}
+                            to improve the security of hashed targeting
+                            conditions.
+                          </div>
+                        )}
+                        <Code
+                          filename="pseudocode"
+                          language="javascript"
+                          code={`const salt = "${secureAttributeSalt}";
 
 // hashing a secureString attribute
 myAttribute = sha256(salt + myAttribute);
 
 // hashing a secureString[] attribute
 myAttributes = myAttributes.map(attribute => sha256(salt + attribute));`}
-                          />
-                        </div>
-                        <div className="alert text-warning-orange mt-3 mb-0 px-2 py-1">
-                          <FaExclamationCircle /> When using an insecure
-                          environment (such as a browser), do not rely
-                          exclusively on hashing as a means of securing highly
-                          sensitive data. Hashing is an obfuscation technique
-                          that makes it very difficult, but not impossible, to
-                          extract sensitive data.
-                        </div>
+                        />
+                      </div>
+                      <div className="alert text-warning-orange mt-3 mb-0 px-2 py-1">
+                        <FaExclamationCircle /> When using an insecure
+                        environment (such as a browser), do not rely exclusively
+                        on hashing as a means of securing highly sensitive data.
+                        Hashing is an obfuscation technique that makes it very
+                        difficult, but not impossible, to extract sensitive
+                        data.
                       </div>
                     </div>
-                  )}
+                  </div>
+                  {/* )} */}
                 </div>
               )}
             </div>

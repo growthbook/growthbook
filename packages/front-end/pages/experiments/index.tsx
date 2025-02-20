@@ -500,7 +500,7 @@ const ExperimentsPage = (): React.ReactElement => {
                                 key={tab}
                                 className={clsx("border mb-0", {
                                   "badge-purple font-weight-bold": active,
-                                  "bg-white text-secondary": !active,
+                                  "text-secondary": !active,
                                   "rounded-left": i === 0,
                                   "rounded-right":
                                     tab === "archived" ||
@@ -510,6 +510,9 @@ const ExperimentsPage = (): React.ReactElement => {
                                   fontSize: "1em",
                                   opacity: active ? 1 : 0.8,
                                   padding: "6px 12px",
+                                  backgroundColor: active
+                                    ? ""
+                                    : "var(--white-a1)",
                                 }}
                                 onClick={(e) => {
                                   e.preventDefault();
