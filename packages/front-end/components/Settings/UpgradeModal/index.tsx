@@ -71,17 +71,6 @@ export default function UpgradeModal({
     subscription,
     seatsInUse,
   } = useUser();
-  // These are some Upgrade CTAs throughout the app related to enterprise-only features
-  // we don't want to show a user the test treatments if that's the case
-  // since this test doesn't highlight enterprise features at all.
-  const lowestPlan = commercialFeature
-    ? commercialFeatureLowestPlan?.[commercialFeature]
-    : "starter";
-  const featureFlagValue =
-    lowestPlan !== "enterprise"
-      ? growthbook.getFeatureValue("pro-upgrade-modal", "OFF")
-      : "OFF";
-
   const permissionsUtil = usePermissionsUtil();
 
   const { organization, refreshOrganization } = useUser();
@@ -101,6 +90,17 @@ export default function UpgradeModal({
   // When signing up to pro, but not finishing the checkout process a license gets generated and saved but has no plan.
   const freeTrialAvailable =
     !license || !license.plan || !license.emailVerified;
+
+  // These are some Upgrade CTAs throughout the app related to enterprise-only features
+  // we don't want to show a user the test treatments if that's the case
+  // since this test doesn't highlight enterprise features at all.
+  const lowestPlan = commercialFeature
+    ? commercialFeatureLowestPlan?.[commercialFeature]
+    : "starter";
+  const featureFlagValue =
+    isCloud() && freeTrialAvailable && lowestPlan !== "enterprise"
+      ? growthbook.getFeatureValue("pro-upgrade-modal", "OFF")
+      : "OFF";
 
   const daysToGo = license?.dateExpires ? daysLeft(license.dateExpires) : 0;
 
