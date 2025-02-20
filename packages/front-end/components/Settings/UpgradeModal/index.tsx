@@ -285,6 +285,35 @@ export default function UpgradeModal({
     }
   };
 
+  const bullets: Partial<Record<CommercialFeature, string>> = {
+    "advanced-permissions": "Manage advanced user permissions",
+    "encrypt-features-endpoint": "Protect your SDK with endpoint encryption",
+    "schedule-feature-flag": "Schedule feature flag rollouts",
+    "override-metrics": "Override your metrics default behavior",
+    "regression-adjustment":
+      "Increase experiment velocity with regression adjustment (CUPED)",
+    "sequential-testing": "Run sequential tests for better insights",
+    "visual-editor": "Edit feature flags with our visual editor",
+    archetypes: "Build user archetype for reusable feature flag targeting",
+    simulate: "Simulate features and experiments a user would be exposed to",
+    "cloud-proxy": "Leverage a cloud proxy for seamless SDK integration",
+    "hash-secure-attributes": "Secure sensitive attributes with hashing",
+    livechat: "Get fast support with in-app chat",
+    "remote-evaluation": "Evaluate features remotely in real time",
+    "sticky-bucketing": "Ensure consistent experiences with sticky bucketing",
+    "code-references":
+      "Quickly see where feature flags are leveraged in your codebase",
+    prerequisites: "Set prerequisites to control feature rollouts",
+    redirects: "Run URL Redirect tests",
+    "multiple-sdk-webhooks": "Hook into Growthbook's SDK Webhooks",
+    "quantile-metrics": "Analyze data using quantile-based metrics",
+    "retention-metrics": "Boost retention with precise tracking",
+    "metric-populations": "Segment users using metric insights",
+    "multi-armed-bandits": "Run adaptive experiments with Bandits",
+    "historical-power": "Leverage historical data for power analysis",
+    "mid-experiment-power": "Assess mid-experiment power for quick adjustments",
+  };
+
   const upgradeHeader = (
     <>
       <h3 className="mb-1">Upgrade to Pro</h3>
@@ -343,23 +372,28 @@ export default function UpgradeModal({
   }
 
   function upgradeOnlyTreatment() {
+    const dynamicBullet = commercialFeature ? bullets[commercialFeature] : null;
     return (
       <div>
         {upgradeHeader}
         <div className="py-4">
           <Flex align="center" className="pb-2">
             <FaCheckCircle className="mr-2" color="blue" />
-            <strong>Up to 100 team members</strong>
-          </Flex>
-          <Flex align="center" className="pb-2">
-            <FaCheckCircle className="mr-2" color="blue" />
-            <strong>Encrypted SDK endpoint response</strong>
+            <strong>{dynamicBullet || "Add up to 100 team members"}</strong>
           </Flex>
           <Flex align="center" className="pb-2">
             <FaCheckCircle className="mr-2" color="blue" />
             <strong>
-              Advanced experimentation: CUPED, Sequential testing, Bandits and
-              more
+              {dynamicBullet === "advanced-permissions"
+                ? "Add up to 100 team members"
+                : "Manage advanced user permissions"}
+            </strong>
+          </Flex>
+          <Flex align="center" className="pb-2">
+            <FaCheckCircle className="mr-2" color="blue" />
+            <strong>
+              Get access to advanced experimentation: CUPED, Sequential testing,
+              Bandits and more
             </strong>
           </Flex>
         </div>
