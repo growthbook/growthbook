@@ -39,6 +39,7 @@ export function getDecisionFrameworkStatus({
   let hasWinner = false;
   let hasWinnerWithGuardrailFailure = false;
   let hasSuperStatsigWinner = false;
+  let hasSuperStatsigWinnerWithGuardrailFailure = false;
   let nVariationsLosing = 0;
   let nVariationsWithSuperStatSigLoser = 0;
   // if any variation is a clear winner with no guardrail issues, ship now
@@ -73,6 +74,10 @@ export function getDecisionFrameworkStatus({
 
     if (allSuperStatSigWon && !anyGuardrailFailure) {
       hasSuperStatsigWinner = true;
+    }
+
+    if (allSuperStatSigWon && anyGuardrailFailure) {
+      hasSuperStatsigWinnerWithGuardrailFailure = true;
     }
 
     if (
@@ -121,6 +126,14 @@ export function getDecisionFrameworkStatus({
     return {
       status: "ship-now",
       tooltip: `The experiment has not yet reached the target statistical power, however, the goal metrics have clear, statistically significant lifts in the desired direction.`,
+    };
+  }
+
+  // if no winner without guardrail failure, call out a winner with a guardrail failure
+  if (hasSuperStatsigWinnerWithGuardrailFailure) {
+    return {
+      status: "ready-for-review",
+      tooltip: `All goal metrics have clear, statistically significant lifts in the desired direction for a test variation. However, one or more guardrails are failing`,
     };
   }
 

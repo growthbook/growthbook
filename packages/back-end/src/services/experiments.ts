@@ -2889,8 +2889,8 @@ async function computeResultsStatus({
   const pValueThreshold = getPValueThresholdForOrg(context);
   const metricMap = await getMetricMap(context);
 
-  const variations = relativeAnalysis.results?.[0].variations;
-  if (!variations) {
+  const variations = relativeAnalysis.results[0]?.variations;
+  if (!variations || !variations.length) {
     return;
   }
 
