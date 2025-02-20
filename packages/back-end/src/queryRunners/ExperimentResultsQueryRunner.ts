@@ -1,4 +1,5 @@
-import { orgHasPremiumFeature } from "enterprise";
+import { analyzeExperimentPower, orgHasPremiumFeature } from "enterprise";
+import { addDays } from "date-fns";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
@@ -7,6 +8,8 @@ import {
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
+import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
+import { daysBetween } from "shared/dates";
 import chunk from "lodash/chunk";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -465,9 +468,40 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         error: healthQuery.error,
         variations: this.model.settings.variations,
       });
+
       result.health = {
         traffic: trafficHealth,
       };
+
+      const relativeAnalysis = this.model.analyses.find(
+        (a) => a.settings.differenceType === "relative"
+      );
+
+      const isEligibleForMidExperimentPowerAnalysis =
+        relativeAnalysis && this.model.settings.banditSettings === undefined;
+
+      if (isEligibleForMidExperimentPowerAnalysis) {
+        const today = new Date();
+        const phaseStartDate = this.model.settings.startDate;
+        const experimentMaxLengthDays = this.context.org.settings
+          ?.experimentMaxLengthDays;
+
+        const experimentTargetEndDate = addDays(
+          phaseStartDate,
+          experimentMaxLengthDays && experimentMaxLengthDays > 0
+            ? experimentMaxLengthDays
+            : FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS
+        );
+        const targetDaysRemaining = daysBetween(today, experimentTargetEndDate);
+        // NB: This does not run a SQL query, but it is a health check that depends on the trafficHealth
+        result.health.power = analyzeExperimentPower({
+          trafficHealth,
+          targetDaysRemaining,
+          analysis: relativeAnalysis,
+          goalMetrics: this.model.settings.goalMetrics,
+          variationsSettings: this.model.settings.variations,
+        });
+      }
     }
 
     return result;

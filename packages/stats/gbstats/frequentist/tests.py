@@ -37,7 +37,6 @@ class SequentialConfig(FrequentistConfig):
 @dataclass
 class FrequentistTestResult(TestResult):
     p_value: float
-    error_message: Optional[str] = None
 
 
 def frequentist_diff(mean_a, mean_b, relative, mean_a_unadjusted=None) -> float:
@@ -202,6 +201,7 @@ class TTest(BaseABTest):
                 mean=self.point_estimate,
                 stddev=np.sqrt(self.variance),
             ),
+            error_message=None,
         )
         if self.scaled:
             result = self.scale_result(result)
@@ -224,6 +224,7 @@ class TTest(BaseABTest):
                         mean=result.uplift.mean * adjustment,
                         stddev=result.uplift.stddev * adjustment,
                     ),
+                    error_message=None,
                 )
             else:
                 return self._default_output(NO_UNITS_IN_VARIATION_MESSAGE)
