@@ -64,12 +64,12 @@ const EditDOMMutationsModal: FC<{
 
   const addDOMMutation = useCallback(
     (updates: DOMMutation) => {
-      setNewVisualChange({
-        ...newVisualChange,
-        domMutations: [...newVisualChange.domMutations, updates],
-      });
+      setNewVisualChange((prevVisualChange) => ({
+        ...prevVisualChange,
+        domMutations: [...prevVisualChange.domMutations, updates],
+      }));
     },
-    [newVisualChange, setNewVisualChange]
+    [setNewVisualChange]
   );
 
   const setDOMMutationErrors = useCallback(
@@ -166,7 +166,6 @@ const EditDOMMutationsModal: FC<{
                           selector: e.target.value,
                         };
                         setDOMMutation(i, newMutation);
-                        //validateDOMMutations(i, newMutation);
                       }}
                     />
                   </Box>
@@ -186,7 +185,6 @@ const EditDOMMutationsModal: FC<{
                         }
                         const newMutation = { ...domChanges, action: val };
                         setDOMMutation(i, newMutation);
-                        //validateDOMMutations(i, newMutation);
                       }}
                     />
                   </Box>
@@ -201,7 +199,6 @@ const EditDOMMutationsModal: FC<{
                           attribute: e.target.value,
                         };
                         setDOMMutation(i, newMutation);
-                        //validateDOMMutations(i, newMutation);
                       }}
                     />
                   </Box>
@@ -217,7 +214,6 @@ const EditDOMMutationsModal: FC<{
                       value: e.target.value,
                     };
                     setDOMMutation(i, newMutation);
-                    //validateDOMMutations(i, newMutation);
                   }}
                 />
                 <Flex justify="end">
@@ -248,20 +244,17 @@ const EditDOMMutationsModal: FC<{
                         onChange={(e) => {
                           if (!e.target.value) {
                             // remove the key if it's empty
-                            const {
-                              // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                              insertBeforeSelector,
-                              ...newMutation
-                            } = domChanges;
+                            const newMutation = domChanges;
+                            if (newMutation?.insertBeforeSelector) {
+                              delete newMutation.insertBeforeSelector;
+                            }
                             setDOMMutation(i, newMutation);
-                            //validateDOMMutations(i, newMutation);
                           } else {
                             const newMutation = {
                               ...domChanges,
                               insertBeforeSelector: e.target.value,
                             };
                             setDOMMutation(i, newMutation);
-                            //validateDOMMutations(i, newMutation);
                           }
                         }}
                       />
@@ -274,20 +267,17 @@ const EditDOMMutationsModal: FC<{
                         onChange={(e) => {
                           if (!e.target.value) {
                             // remove the key if it's empty
-                            const {
-                              // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                              parentSelector,
-                              ...newMutation
-                            } = domChanges;
+                            const newMutation = domChanges;
+                            if (newMutation?.parentSelector) {
+                              delete newMutation.parentSelector;
+                            }
                             setDOMMutation(i, newMutation);
-                            //validateDOMMutations(i, newMutation);
                           } else {
                             const newMutation = {
                               ...domChanges,
                               parentSelector: e.target.value,
                             };
                             setDOMMutation(i, newMutation);
-                            //validateDOMMutations(i, newMutation);
                           }
                         }}
                       />
