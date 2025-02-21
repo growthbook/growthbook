@@ -27,7 +27,7 @@ try {
   } else if (process.env.LOG_BASE) {
     parsedLogBase = JSON.parse(process.env.LOG_BASE);
   }
-} catch (e) {
+} catch {
   // Empty catch - don't pass a LOG_BASE
 }
 export const LOG_BASE = parsedLogBase;
