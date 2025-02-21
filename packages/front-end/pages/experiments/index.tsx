@@ -29,7 +29,10 @@ import TagsFilter, {
   useTagsFilter,
 } from "@/components/Tags/TagsFilter";
 import { useWatching } from "@/services/WatchProvider";
-import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+import {
+  RawExperimentStatusIndicator,
+  StatusIndicatorData,
+} from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
@@ -54,24 +57,33 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import ViewSampleDataButton from "@/components/GetStarted/ViewSampleDataButton";
 import EmptyState from "@/components/EmptyState";
 import Callout from "@/components/Radix/Callout";
+import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
 
 const NUM_PER_PAGE = 20;
 
 // Most actionable status have higher numbers
 function getExperimentStatusSortOrder(
-  e: ExperimentInterfaceStringDates
+  statusIndicator: StatusIndicatorData
 ): number {
-  if (e.archived) return 0;
-  if (e.status === "stopped") {
-    if (e.results === "dnf") return 1;
-    if (e.results === "inconclusive") return 2;
-    if (e.results === "lost") return 3;
-    if (e.results === "won") return 4;
+  if (statusIndicator.status === "Archived") return 0;
+  if (statusIndicator.status === "Stopped") {
+    if (statusIndicator.detailedStatus === "Didn't finish") return 1;
+    if (statusIndicator.detailedStatus === "Inconclusive") return 2;
+    if (statusIndicator.detailedStatus === "Lost") return 3;
+    if (statusIndicator.detailedStatus === "Won") return 4;
     return 5;
   }
-  if (e.status === "draft") return 6;
-  if (e.status === "running") return 7;
-  return 8;
+  if (statusIndicator.status === "Draft") return 6;
+  if (statusIndicator.status === "Running") {
+    if (statusIndicator.detailedStatus?.includes("days left")) return 8;
+    if (statusIndicator.detailedStatus === "Unhealthy") return 9;
+    if (statusIndicator.detailedStatus === "No data") return 10;
+    if (statusIndicator.detailedStatus === "Ready for Review") return 11;
+    if (statusIndicator.detailedStatus === "Ship Now") return 12;
+    if (statusIndicator.detailedStatus === "Roll Back Now") return 13;
+    return 7;
+  }
+  return 14;
 }
 
 export function experimentDate(exp: ExperimentInterfaceStringDates): string {
@@ -124,6 +136,7 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const { getUserDisplay, userId, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
+  const getExperimentStatusIndicator = useExperimentStatusIndicator();
 
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -133,7 +146,8 @@ const ExperimentsPage = (): React.ReactElement => {
       const projectId = exp.project;
       const projectName = projectId ? getProjectById(projectId)?.name : "";
       const projectIsDeReferenced = projectId && !projectName;
-      const statusSortOrder = getExperimentStatusSortOrder(exp);
+      const statusIndicator = getExperimentStatusIndicator(exp);
+      const statusSortOrder = getExperimentStatusSortOrder(statusIndicator);
       const lastPhase = exp.phases?.[exp.phases?.length - 1] || {};
       const rawSavedGroup = lastPhase?.savedGroups || [];
       const savedGroupIds = rawSavedGroup.map((g) => g.ids).flat();
@@ -156,6 +170,7 @@ const ExperimentsPage = (): React.ReactElement => {
           ? "drafts"
           : exp.status,
         date: experimentDate(exp),
+        statusIndicator,
         statusSortOrder,
       };
     },
@@ -697,7 +712,9 @@ const ExperimentsPage = (): React.ReactElement => {
                                 {date(e.date)}
                               </td>
                               <td className="nowrap" data-title="Status:">
-                                <ExperimentStatusIndicator experimentData={e} />
+                                <RawExperimentStatusIndicator
+                                  statusIndicatorData={e.statusIndicator}
+                                />
                               </td>
                             </tr>
                           );
