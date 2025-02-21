@@ -2273,7 +2273,13 @@ export default abstract class SqlIntegration
       capValueCol: `${alias}_value_cap`,
       columnRef: isFactMetric(metric) ? metric.numerator : null,
     });
-
+    const capCoalesceDenominatorCovariate = this.capCoalesceValue({
+      valueCol: `c.${alias}_denominator`,
+      metric,
+      capTablePrefix: "cap",
+      capValueCol: `${alias}_denominator_cap`,
+      columnRef: isFactMetric(metric) ? metric.denominator : null,
+    });
     // Get rough date filter for metrics to improve performance
     const orderedMetrics = (activationMetric ? [activationMetric] : []).concat([
       metric,
@@ -2317,6 +2323,7 @@ export default abstract class SqlIntegration
       capCoalesceMetric,
       capCoalesceDenominator,
       capCoalesceCovariate,
+      capCoalesceDenominatorCovariate,
       minMetricDelay,
       raMetricSettings,
       metricStart,
@@ -2554,9 +2561,9 @@ export default abstract class SqlIntegration
             `
               : ""
           }
-          ${raMetricSettings
-            .map(
-              ({ alias, hours, minDelay }) => `
+      ${raMetricSettings
+        .map(
+          ({ alias, hours, minDelay }) => `
               , ${this.addHours(
                 "first_exposure_timestamp",
                 minDelay
@@ -2565,8 +2572,8 @@ export default abstract class SqlIntegration
                 "first_exposure_timestamp",
                 minDelay - hours
               )} AS ${alias}_preexposure_start`
-            )
-            .join("\n")}
+        )
+        .join("\n")}
         FROM ${
           params.unitsSource === "exposureTable"
             ? `${params.unitsTableFullName}`
@@ -2745,7 +2752,20 @@ export default abstract class SqlIntegration
                       `${metric.alias}_value`,
                       "NULL"
                     ),
-                  })} as ${metric.alias}_value`
+                  })} as ${metric.alias}_value
+                    ${
+                      metric.ratioMetric
+                        ? `, ${this.getAggregateMetricColumn({
+                            metric: metric.metric,
+                            useDenominator: true,
+                            valueColumn: this.ifElse(
+                              `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
+                              `${metric.alias}_denominator`,
+                              "NULL"
+                            ),
+                          })} AS ${metric.alias}_denominator`
+                        : ""
+                    }`
               )
               .join(",\n")}
           FROM
@@ -2827,7 +2847,7 @@ export default abstract class SqlIntegration
                 : ""
             }
             ${
-              data.ratioMetric
+              data.ratioMetric && !data.regressionAdjusted
                 ? `,
               ${
                 data.isPercentileCapped
@@ -2847,7 +2867,44 @@ export default abstract class SqlIntegration
                 : ""
             }
             ${
-              data.regressionAdjusted
+              data.ratioMetric && data.regressionAdjusted
+                ? `,
+              ${
+                data.isPercentileCapped
+                  ? `MAX(COALESCE(cap.${data.alias}_denominator_cap, 0)) as ${data.alias}_denominator_cap_value,`
+                  : ""
+              }
+              SUM(${data.capCoalesceDenominator}) AS ${
+                    data.alias
+                  }_denominator_sum,
+              SUM(POWER(${data.capCoalesceDenominator}, 2)) AS ${
+                    data.alias
+                  }_denominator_sum_squares,
+              SUM(${data.capCoalesceMetric} * ${
+                    data.capCoalesceDenominator
+                  }) AS ${data.alias}_main_post_denominator_post_sum_product, 
+              SUM(${data.capCoalesceMetric} * ${
+                    data.capCoalesceCovariate
+                  }) AS ${data.alias}_main_post_main_pre_sum_product, 
+              SUM(${data.capCoalesceMetric} * ${
+                    data.capCoalesceDenominatorCovariate
+                  }) AS ${data.alias}_main_post_denominator_pre_sum_product, 
+              SUM(${data.capCoalesceCovariate} * ${
+                    data.capCoalesceDenominator
+                  }) AS ${data.alias}_main_pre_denominator_post_sum_product,
+              SUM(${data.capCoalesceCovariate} * ${
+                    data.capCoalesceDenominatorCovariate
+                  }) AS ${data.alias}_main_pre_denominator_pre_sum_product, 
+              SUM(${data.capCoalesceDenominator} * ${
+                    data.capCoalesceDenominatorCovariate
+                  }) AS ${
+                    data.alias
+                  }_denominator_post_denominator_pre_sum_product
+            `
+                : ""
+            }
+            ${
+              !data.ratioMetric && data.regressionAdjusted
                 ? `,
               SUM(${data.capCoalesceCovariate}) AS ${data.alias}_covariate_sum,
               SUM(POWER(${data.capCoalesceCovariate}, 2)) AS ${data.alias}_covariate_sum_squares,
