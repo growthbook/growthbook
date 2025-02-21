@@ -48,7 +48,7 @@ export const ChecklistItem = forwardRef<HTMLDivElement, ChecklistItemProps>(
       <div
         ref={ref}
         {...props}
-        className="d-flex align-items-center justify-content-between border rounded ml-3 px-3 py-2 my-1 shadow-sm bg-white"
+        className="d-flex align-items-center justify-content-between border rounded ml-3 px-3 py-2 my-1 shadow-sm"
         onMouseEnter={() => setShowDeleteBtn(true)}
         onMouseLeave={() => setShowDeleteBtn(false)}
       >
@@ -102,6 +102,7 @@ function SortableChecklistItem(props: SortableProps) {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: active?.id === props.item.task ? 0.3 : 1,
+    backgroundColor: "var(--color-surface)",
   };
 
   return (
@@ -136,7 +137,7 @@ export default function SortableExperimentChecklist({
   }
 
   return (
-    <div className="py-3 pr-3 border bg-light rounded">
+    <div className="py-3 pr-3 border rounded">
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
