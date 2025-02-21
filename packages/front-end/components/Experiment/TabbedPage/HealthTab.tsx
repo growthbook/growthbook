@@ -1,7 +1,7 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { DEFAULT_MID_EXPERIMENT_POWER_CALCULATION_ENABLED } from "shared/constants";
+import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
 import SRMCard from "@/components/HealthTab/SRMCard";
 import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";
 import { useUser } from "@/services/UserContext";
@@ -45,7 +45,7 @@ export default function HealthTab({
     mutateSnapshot,
     setAnalysisSettings,
   } = useSnapshot();
-  const { runHealthTrafficQuery, midExperimentPowerEnabled } = useOrgSettings();
+  const { runHealthTrafficQuery, decisionFrameworkEnabled } = useOrgSettings();
   const { refreshOrganization } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
@@ -299,8 +299,7 @@ export default function HealthTab({
       </div>
 
       {!isBandit &&
-      (midExperimentPowerEnabled ??
-        DEFAULT_MID_EXPERIMENT_POWER_CALCULATION_ENABLED) ? (
+      (decisionFrameworkEnabled ?? DEFAULT_DECISION_FRAMEWORK_ENABLED) ? (
         <PowerCard
           experiment={experiment}
           snapshot={snapshot}
