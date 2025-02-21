@@ -63,7 +63,9 @@ function getDetailedStatusIndicatorData(
       detailedStatus: `${
         decisionData.daysLeft !== cappedPowerAdditionalDaysNeeded ? ">" : ""
       }${cappedPowerAdditionalDaysNeeded} days left`,
-      tooltip: decisionData.tooltip,
+      tooltip: decisionData.tooltip
+        ? decisionData.tooltip
+        : `The experiment needs more data to reliably detect the target minimum detectable effect for all goal metrics. At recent traffic levels, the experiment will take ~${decisionData.daysLeft} more days to collect enough data.`,
     };
   }
 
@@ -186,7 +188,7 @@ function getStatusIndicatorData(
     const lastPhase = experimentData.phases[experimentData.phases.length - 1];
 
     const beforeMinDuration =
-      lastPhase.dateStarted &&
+      lastPhase?.dateStarted &&
       daysBetween(lastPhase.dateStarted, new Date()) <
         healthSettings.experimentMinLengthDays;
 
@@ -410,11 +412,11 @@ export function getDecisionFrameworkStatus({
   daysNeeded?: number;
 }): DecisionFrameworkData | undefined {
   const powerReached = daysNeeded === 0;
+  const sequentialTesting = resultsStatus?.settings?.sequentialTesting;
 
   // Rendering a decision with regular stat sig metrics is only valid
   // if you have reached your needed power or if you used sequential testing
-  const decisionReady =
-    powerReached || resultsStatus.settings.sequentialTesting;
+  const decisionReady = powerReached || sequentialTesting;
 
   let hasWinner = false;
   let hasWinnerWithGuardrailFailure = false;
@@ -470,15 +472,15 @@ export function getDecisionFrameworkStatus({
   }
 
   const tooltipLanguage = powerReached
-    ? `Experiment has reached the target statistical power and`
-    : resultsStatus.settings.sequentialTesting
-    ? `Sequential testing enables calling an experiment as soon as it is significant and`
-    : "";
+    ? ` and experiment has reached the target statistical power.`
+    : sequentialTesting
+    ? ` and sequential testing is enabled, allowing decisions as soon as statistical significance is reached.`
+    : ".";
 
   if (hasWinner) {
     return {
       status: "ship-now",
-      tooltip: `${tooltipLanguage} all goal metrics are statistically significant in the desired direction for a test variation.`,
+      tooltip: `All goal metrics are statistically significant in the desired direction for a test variation${tooltipLanguage}`,
     };
   }
 
@@ -486,7 +488,7 @@ export function getDecisionFrameworkStatus({
   if (hasWinnerWithGuardrailFailure) {
     return {
       status: "ready-for-review",
-      tooltip: `${tooltipLanguage} all goal metrics are statistically significant in the desired direction for a test variation. However, one or more guardrails are failing`,
+      tooltip: `All goal metrics are statistically significant in the desired direction for a test variation ${tooltipLanguage} However, one or more guardrails are failing`,
     };
   }
 
@@ -497,7 +499,7 @@ export function getDecisionFrameworkStatus({
   ) {
     return {
       status: "rollback-now",
-      tooltip: `${tooltipLanguage} all goal metrics are statistically significant in the undesired direction.`,
+      tooltip: `All goal metrics are statistically significant in the undesired direction ${tooltipLanguage}`,
     };
   }
 
