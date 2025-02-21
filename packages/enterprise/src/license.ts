@@ -83,6 +83,8 @@ export type SubscriptionInfo = {
   trialEnd: Date | null;
   status: "active" | "canceled" | "past_due" | "trialing" | "";
   hasPaymentMethod: boolean;
+  // TODO: Remove once all orgs have moved license info off of the org
+  hasLicense: boolean;
 };
 
 export function getStripeSubscriptionStatus(
@@ -105,6 +107,7 @@ export function getSubscriptionFromLicense(
       trialEnd: license.stripeSubscription.trialEnd,
       status: getStripeSubscriptionStatus(license.stripeSubscription.status),
       hasPaymentMethod: !!license.stripeSubscription.hasPaymentMethod,
+      hasLicense: !!license.id,
     };
   }
   return null;
@@ -686,6 +689,62 @@ export async function postResendEmailVerificationEmailToLicenseServer(
       appOrigin: APP_ORIGIN,
     })
   );
+}
+
+export async function createSetupIntent(licenseKey: string) {
+  const url = `${LICENSE_SERVER_URL}subscription/setup-intent`;
+  const res = await callLicenseServer(
+    url,
+    JSON.stringify({
+      licenseKey,
+      cloudSecret: process.env.CLOUD_SECRET,
+    })
+  );
+  return res;
+}
+
+export async function getPaymentMethodsByLicenseKey(licenseKey: string) {
+  const url = `${LICENSE_SERVER_URL}subscription/payment-methods`;
+  const res = await callLicenseServer(
+    url,
+    JSON.stringify({
+      licenseKey,
+      cloudSecret: process.env.CLOUD_SECRET,
+    })
+  );
+  return res;
+}
+
+export async function updateDefaultPaymentMethod(
+  licenseKey: string,
+  paymentMethodId: string
+) {
+  const url = `${LICENSE_SERVER_URL}subscription/payment-methods/set-default`;
+  const res = await callLicenseServer(
+    url,
+    JSON.stringify({
+      licenseKey,
+      paymentMethodId,
+      cloudSecret: process.env.CLOUD_SECRET,
+    })
+  );
+  return res;
+}
+
+export async function deletePaymentMethodById(
+  licenseKey: string,
+  paymentMethodId: string
+) {
+  const url = `${LICENSE_SERVER_URL}subscription/payment-methods/detach`;
+  const res = await callLicenseServer(
+    url,
+    JSON.stringify({
+      licenseKey,
+      paymentMethodId,
+      cloudSecret: process.env.CLOUD_SECRET,
+    })
+  );
+  return res;
 }
 
 // Creates or replaces the license in the MongoDB cache in case the license server goes down.
