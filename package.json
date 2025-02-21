@@ -26,7 +26,8 @@
     "generate-api-types": "yarn workspace back-end generate-api-types",
     "ci": "yarn lint:ci && yarn run type-check && yarn run test",
     "postinstall": "patch-package",
-    "generate-sdk-report": "yarn workspace shared generate-sdk-report"
+    "generate-sdk-report": "yarn workspace shared generate-sdk-report",
+    "bump-sdk-version": "yarn workspace @growthbook/growthbook bump-version"
   },
   "workspaces": [
     "packages/*"
@@ -67,7 +68,7 @@
     ]
   },
   "resolutions": {
-    "@growthbook/growthbook": "1.4.0"
+    "@growthbook/growthbook": "1.4.1"
   },
   "prettier": {
     "overrides": [

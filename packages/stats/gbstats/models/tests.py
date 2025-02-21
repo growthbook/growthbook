@@ -5,8 +5,11 @@ from pydantic.dataclasses import dataclass
 
 from gbstats.models.statistics import (
     RegressionAdjustedStatistic,
+    RegressionAdjustedRatioStatistic,
+    RatioStatistic,
     TestStatistic,
     compute_theta,
+    compute_theta_regression_adjusted_ratio,
 )
 from gbstats.models.settings import DifferenceType
 
@@ -68,6 +71,30 @@ class BaseABTest(ABC):
                 # revert to non-RA under the hood if no variance in a time period
                 self.stat_a = self.stat_a.post_statistic
                 self.stat_b = self.stat_b.post_statistic
+            else:
+                self.stat_a.theta = theta
+                self.stat_b.theta = theta
+
+        if (
+            isinstance(self.stat_b, RegressionAdjustedRatioStatistic)
+            and isinstance(self.stat_a, RegressionAdjustedRatioStatistic)
+            and (self.stat_a.theta is None or self.stat_b.theta is None)
+        ):
+            theta = compute_theta_regression_adjusted_ratio(self.stat_a, self.stat_b)
+            if theta == 0:
+                # revert to non-RA under the hood if no variance in a time period
+                self.stat_a = RatioStatistic(
+                    n=self.stat_a.n,
+                    m_statistic=self.stat_a.m_statistic_post,
+                    d_statistic=self.stat_a.d_statistic_post,
+                    m_d_sum_of_products=self.stat_a.m_post_d_post_sum_of_products,
+                )
+                self.stat_b = RatioStatistic(
+                    n=self.stat_b.n,
+                    m_statistic=self.stat_b.m_statistic_post,
+                    d_statistic=self.stat_b.d_statistic_post,
+                    m_d_sum_of_products=self.stat_b.m_post_d_post_sum_of_products,
+                )
             else:
                 self.stat_a.theta = theta
                 self.stat_b.theta = theta
