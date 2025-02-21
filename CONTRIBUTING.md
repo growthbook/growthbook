@@ -152,31 +152,18 @@ To work on the SDKs, `cd` into the desired directory and the following commands 
 Releasing SDK updates is a very manual process right now. It requires bumping versions in many different files, updating changelogs, and adding metadata to shared packages.
 
 1. Create a branch from the latest main
-2. Bump version of the Javascript SDK
-   - Bump version in `packages/sdk-js/package.json`
-   - Bump dependency version in `packages/back-end/package.json`
-   - Bump dependency version in `package/shared/package.json`
-   - Bump dependency version in `packages/sdk-react/package.json`
-   - Add new entry to `packages/sdk-js/CHANGELOG.md`
-   - Add new entry to `packages/shared/src/sdk-versioning/sdk-versions/javascript.json`
-   - Add new entry to `packages/shared/src/sdk-versioning/sdk-versions/nodejs.json`
-   - If any new capabilities were introduced and they work by default, update `packages/shared/src/sdk-versioning/sdk-versions/nocode.json`.
-   - Update resolutions in `package.json`
-3. Bump versions of the React SDK
-   - Bump version in `packages/sdk-react/package.json`
-   - Bump dependency version in `package/front-end/package.json`
-   - Add new entry to `packages/shared/src/sdk-versioning/sdk-versions/react.json`
-4. Do a global search for the old version strings for both Javascript and React to make sure nothing was missed. Update these instructions if needed.
-5. Run `yarn install`. There should be zero changes to `yarn.lock`. If there are, you missed something above.
-6. RUN `yarn generate-sdk-report` to update the CAPABILITIES.md file.
-7. Create a PR and let CI complete successfully. Use the changelog entry as the PR description.
-8. Publish the Javascript SDK
+2. Run `yarn bump-sdk-version patch` (or `minor` or `major`)
+3. Add new entry to `packages/sdk-js/CHANGELOG.md`
+4. If any new capabilities were added, update relevant `packages/shared/src/sdk-versioning/sdk-versions/` files (javascript, nodejs, react, nocode)
+5. Do a global search for the old version string to make sure nothing was missed. Update the `bump-version.js` script if you find anything.
+6. Create a PR and let CI complete successfully. Use the changelog entry as the PR description.
+7. Publish the Javascript SDK
    - `yarn build`
    - `npm publish`
-9. Publish the React SDK
+8. Publish the React SDK
    - `yarn build`
    - `npm publish`
-10. Merge the PR
+9. Merge the PR
 
 ### Working on the stats engine
 
