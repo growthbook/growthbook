@@ -243,7 +243,7 @@ export interface OrganizationSettings {
   requireExperimentTemplates?: boolean;
   experimentMinLengthDays?: number;
   experimentMaxLengthDays?: number;
-  midExperimentPowerEnabled?: boolean;
+  decisionFrameworkEnabled?: boolean;
 }
 
 export interface OrganizationConnections {

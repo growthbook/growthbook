@@ -418,7 +418,7 @@ export default function ExperimentSettings({
                 <Heading size="3" className="font-weight-semibold" mb="2">
                   Experiment Decision Framework
                   <PremiumTooltip
-                    commercialFeature="mid-experiment-power"
+                    commercialFeature="decision-framework"
                     style={{ display: "inline-flex" }}
                   />
                 </Heading>
@@ -439,19 +439,19 @@ export default function ExperimentSettings({
                   <Checkbox
                     mb="0"
                     value={
-                      !hasCommercialFeature("mid-experiment-power")
+                      !hasCommercialFeature("decision-framework")
                         ? false
-                        : form.watch("midExperimentPowerEnabled")
+                        : form.watch("decisionFrameworkEnabled")
                     }
                     setValue={(v) =>
-                      form.setValue("midExperimentPowerEnabled", v)
+                      form.setValue("decisionFrameworkEnabled", v)
                     }
-                    id="toggle-midExperimentPowerEnabled"
-                    disabled={!hasCommercialFeature("mid-experiment-power")}
+                    id="toggle-decisionFrameworkEnabled"
+                    disabled={!hasCommercialFeature("decision-framework")}
                   />
                   <Box>
                     <label
-                      htmlFor="toggle-midExperimentPowerEnabled"
+                      htmlFor="toggle-decisionFrameworkEnabled"
                       className="font-weight-semibold mb-0"
                     >
                       Enable experiment decision framework
@@ -479,8 +479,8 @@ export default function ExperimentSettings({
                       step="1"
                       min="0"
                       disabled={
-                        !form.watch("midExperimentPowerEnabled") ||
-                        !hasCommercialFeature("mid-experiment-power")
+                        !form.watch("decisionFrameworkEnabled") ||
+                        !hasCommercialFeature("decision-framework")
                       }
                       {...form.register("experimentMinLengthDays", {
                         valueAsNumber: true,

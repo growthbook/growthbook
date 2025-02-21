@@ -6,7 +6,7 @@ import {
   DEFAULT_SRM_THRESHOLD,
   DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
   DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
-  DEFAULT_MID_EXPERIMENT_POWER_CALCULATION_ENABLED,
+  DEFAULT_DECISION_FRAMEWORK_ENABLED,
   DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
 } from "shared/constants";
 import { daysBetween } from "shared/dates";
@@ -18,6 +18,7 @@ import {
 } from "back-end/types/experiment";
 import Badge from "@/components/Radix/Badge";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { useUser } from "@/services/UserContext";
 
 type LabelFormat = "full" | "status-only" | "detail-only";
 
@@ -114,11 +115,13 @@ export default function ExperimentStatusIndicator({
   labelFormat?: LabelFormat;
   skipArchived?: boolean;
 }) {
+  const { hasCommercialFeature } = useUser();
   const settings = useOrgSettings();
   const healthSettings = {
-    midExperimentPowerEnabled:
-      settings.midExperimentPowerEnabled ??
-      DEFAULT_MID_EXPERIMENT_POWER_CALCULATION_ENABLED,
+    decisionFrameworkEnabled:
+      (settings.decisionFrameworkEnabled ??
+        DEFAULT_DECISION_FRAMEWORK_ENABLED) &&
+      hasCommercialFeature("decision-framework"),
     experimentMinLengthDays:
       settings.experimentMinLengthDays ?? DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
     experimentMaxLengthDays:
@@ -158,7 +161,7 @@ function getStatusIndicatorData(
   experimentData: ExperimentData,
   skipArchived: boolean,
   healthSettings: {
-    midExperimentPowerEnabled: boolean;
+    decisionFrameworkEnabled: boolean;
     srmThreshold: number;
     multipleExposureMinPercent: number;
     experimentMinLengthDays: number;
@@ -245,7 +248,7 @@ function getStatusIndicatorData(
 
       if (
         isLowPowered &&
-        healthSettings.midExperimentPowerEnabled &&
+        healthSettings.decisionFrameworkEnabled &&
         // override low powered status if shipping criteria are ready
         // or before min duration
         !decisionStatus &&
@@ -288,7 +291,7 @@ function getStatusIndicatorData(
       };
     }
 
-    if (healthSettings.midExperimentPowerEnabled) {
+    if (healthSettings.decisionFrameworkEnabled) {
       // 4. if clear shipping status, show it
       if (decisionStatus) {
         return decisionStatus;

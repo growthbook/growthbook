@@ -24,7 +24,7 @@ import FrequentistTab from "./FrequentistTab";
 import BayesianTab from "./BayesianTab";
 
 interface FormValues {
-  midExperimentPowerEnabled: boolean;
+  decisionFrameworkEnabled: boolean;
   metricDefaults: MetricDefaults;
   statsEngine: StatsEngine;
   confidenceLevel: number;
