@@ -234,7 +234,7 @@ function MetricExperimentResultTab({
 
   return (
     <div>
-      <table className="table bg-white border">
+      <table className="table appbox">
         <thead className="bg-light">
           <tr>
             <SortableTH field="name">Experiment</SortableTH>
