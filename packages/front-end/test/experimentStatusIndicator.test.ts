@@ -2,7 +2,7 @@ import {
   ExperimentAnalysisSummaryResultsStatus,
   ExperimentAnalysisSummaryVariationStatus,
 } from "back-end/types/experiment";
-import { getDecisionFrameworkStatus } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+import { getDecisionFrameworkStatus } from "@/hooks/useExperimentStatusIndicator";
 
 function setMetricsOnResultsStatus({
   resultsStatus,
