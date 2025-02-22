@@ -30,6 +30,7 @@ import UserAvatar from "@/components/Avatar/UserAvatar";
 import { Tabs, TabsList, TabsTrigger } from "@/components/Radix/Tabs";
 import Callout from "@/components/Radix/Callout";
 import ProjectBadges from "@/components/ProjectBadges";
+import LoadingOverlay from "@/components/LoadingOverlay";
 
 export default function FeaturesHeader({
   feature,
@@ -57,6 +58,7 @@ export default function FeaturesHeader({
   const [duplicateModal, setDuplicateModal] = useState(false);
   const [staleFFModal, setStaleFFModal] = useState(false);
   const [showImplementation, setShowImplementation] = useState(firstFeature);
+  const [isLoading, setIsLoading] = useState(false);
 
   const { organization } = useUser();
   const permissionsUtil = usePermissionsUtil();
@@ -89,6 +91,9 @@ export default function FeaturesHeader({
   const canPublish = permissionsUtil.canPublishFeature(feature, enabledEnvs);
   const isArchived = feature.archived;
 
+  if (isLoading) {
+    return <LoadingOverlay />;
+  }
   return (
     <>
       <Box className="features-header contents container-fluid pagecontents mt-2">
@@ -390,6 +395,7 @@ export default function FeaturesHeader({
           cta={"Duplicate"}
           close={() => setDuplicateModal(false)}
           onSuccess={async (feature) => {
+            setIsLoading(true);
             const url = `/features/${feature.id}`;
             await router.push(url);
           }}

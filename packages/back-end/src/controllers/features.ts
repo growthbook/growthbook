@@ -461,14 +461,6 @@ export async function postFeatures(
     description: "",
     project: "",
     environmentSettings: {},
-    ...otherProps,
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-    organization: org.id,
-    id,
-    archived: false,
-    version: 1,
-    hasDrafts: false,
     jsonSchema: {
       schemaType: "schema",
       simple: {
@@ -479,6 +471,14 @@ export async function postFeatures(
       date: new Date(),
       enabled: false,
     },
+    ...otherProps,
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    organization: org.id,
+    id,
+    archived: false,
+    version: 1,
+    hasDrafts: false,
   };
 
   const allEnvironments = getEnvironments(org);
@@ -499,6 +499,13 @@ export async function postFeatures(
     )
   ) {
     context.permissions.throwPermissionError();
+  }
+  // fix the date in json schema - do not let the user set this
+  if (feature.jsonSchema?.enabled) {
+    feature.jsonSchema = {
+      ...feature.jsonSchema,
+      date: new Date(),
+    };
   }
 
   addIdsToRules(feature.environmentSettings, feature.id);

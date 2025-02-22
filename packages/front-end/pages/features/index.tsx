@@ -73,6 +73,7 @@ export default function FeaturesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [showArchived, setShowArchived] = useState(false);
+  const [showLoading, setShowLoading] = useState(false);
   const [
     featureToDuplicate,
     setFeatureToDuplicate,
@@ -499,7 +500,7 @@ export default function FeaturesPage() {
       </div>
     );
   }
-  if (loading) {
+  if (loading || showLoading) {
     return <LoadingOverlay />;
   }
 
@@ -543,6 +544,7 @@ export default function FeaturesPage() {
           cta={featureToDuplicate ? "Duplicate" : "Create"}
           close={() => setModalOpen(false)}
           onSuccess={async (feature) => {
+            setShowLoading(true);
             const url = `/features/${feature.id}${hasFeatures ? "" : "?first"}`;
             router.push(url);
             mutate({

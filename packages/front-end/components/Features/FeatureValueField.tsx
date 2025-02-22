@@ -31,6 +31,8 @@ export interface Props {
   placeholder?: string;
   feature?: FeatureInterface;
   renderJSONInline?: boolean;
+  initialSimpleSchema?: SimpleSchema;
+  initialValidationEnabled?: boolean;
 }
 
 export default function FeatureValueField({
@@ -42,12 +44,17 @@ export default function FeatureValueField({
   placeholder,
   feature,
   renderJSONInline,
+  initialSimpleSchema,
+  initialValidationEnabled,
 }: Props) {
   const { hasCommercialFeature } = useUser();
   const hasJsonValidator = hasCommercialFeature("json-validation");
   const { simpleSchema, validationEnabled } = feature
     ? getValidation(feature)
-    : { simpleSchema: null, validationEnabled: null };
+    : {
+        simpleSchema: initialSimpleSchema,
+        validationEnabled: initialValidationEnabled,
+      };
 
   if (
     validationEnabled &&

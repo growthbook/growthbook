@@ -5,9 +5,15 @@ import {
   FeatureValueType,
 } from "back-end/types/feature";
 import dJSON from "dirty-json";
-
 import React, { ReactElement, useState } from "react";
-import { validateFeatureValue } from "shared/util";
+import {
+  getJSONValidator,
+  inferSimpleSchemaFromValue,
+  simpleToJSONSchema,
+  validateFeatureValue,
+} from "shared/util";
+import { Box, Heading, Text } from "@radix-ui/themes";
+import { EditSimpleSchema } from "@/components/Features/EditSchemaModal";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -31,6 +37,8 @@ import FeatureValueField from "@/components/Features/FeatureValueField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import SelectField from "@/components/Forms/SelectField";
+import Frame from "@/components/Radix/Frame";
+import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";
@@ -116,6 +124,7 @@ const genFormDefaultValues = ({
   | "id"
   | "environmentSettings"
   | "customFields"
+  | "jsonSchema"
 > => {
   const environmentSettings = genEnvironmentSettings({
     environments,
@@ -123,6 +132,7 @@ const genFormDefaultValues = ({
     permissions: permissionsUtil,
     project,
   });
+
   const customFieldValues = customFields
     ? Object.fromEntries(
         customFields.map((field) => [
@@ -135,6 +145,7 @@ const genFormDefaultValues = ({
   return featureToDuplicate
     ? {
         valueType: featureToDuplicate.valueType,
+        jsonSchema: featureToDuplicate.jsonSchema,
         defaultValue: featureToDuplicate.defaultValue,
         description: featureToDuplicate.description,
         id: genDuplicatedKey(featureToDuplicate),
@@ -155,6 +166,8 @@ const genFormDefaultValues = ({
       };
 };
 
+type ExtendedFeatureValueType = FeatureValueType | "custom";
+
 export default function FeatureModal({
   close,
   onSuccess,
@@ -168,6 +181,11 @@ export default function FeatureModal({
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
   const { hasCommercialFeature } = useUser();
+  const [useSchemaCreator, setUseSchemaCreator] = useState(false);
+  const [simpleSchema, setSimpleSchema] = useState(
+    inferSimpleSchemaFromValue("{}")
+  );
+  const hasJsonValidator = hasCommercialFeature("json-validation");
 
   const customFields = filterCustomFieldsForSectionAndProject(
     useCustomFields(),
@@ -186,6 +204,7 @@ export default function FeatureModal({
   });
 
   const form = useForm({ defaultValues });
+  const flagValueType = form.watch("valueType") as ExtendedFeatureValueType;
 
   const projectOptions = useProjectOptions(
     (project) =>
@@ -226,6 +245,10 @@ export default function FeatureModal({
   // We want to show a warning when someone tries to create a feature under the demo project
   const { currentProjectIsDemo } = useDemoDataSourceProject();
 
+  const usingJsonSchema =
+    flagValueType === "custom" ||
+    (flagValueType === "json" && useSchemaCreator);
+
   return (
     <Modal
       trackingEventModalType=""
@@ -240,10 +263,39 @@ export default function FeatureModal({
       secondaryCTA={secondaryCTA}
       submit={form.handleSubmit(async (values) => {
         const { defaultValue, ...feature } = values;
-        const valueType = feature.valueType;
+        let valueType = feature.valueType as ExtendedFeatureValueType;
 
         if (!valueType) {
           throw new Error("Please select a value type");
+        }
+
+        const hasSchema =
+          valueType === "custom" || (valueType === "json" && useSchemaCreator);
+        // if custom type, set valueType to json - custom is not a supported value of FeatureValueType
+        if (valueType === "custom") {
+          valueType = "json";
+          feature.valueType = "json";
+        }
+
+        if (hasSchema && hasJsonValidator) {
+          const schemaString = simpleToJSONSchema(simpleSchema);
+          try {
+            const parsedSchema = JSON.parse(schemaString);
+            const ajv = getJSONValidator();
+            ajv.compile(parsedSchema);
+          } catch (e) {
+            throw new Error(
+              `The Simple Schema is invalid. Please check it and try again. Validator error: "${e.message}"`
+            );
+          }
+          // add JSON validation to feature
+          feature.jsonSchema = {
+            date: new Date(),
+            schemaType: "simple",
+            schema: schemaString,
+            simple: simpleSchema,
+            enabled: true,
+          };
         }
 
         const passedFeature = feature as FeatureInterface;
@@ -333,17 +385,6 @@ export default function FeatureModal({
         </a>
       )}
 
-      {!featureToDuplicate && (
-        <ValueTypeField
-          value={valueType}
-          onChange={(val) => {
-            const defaultValue = getDefaultValue(val);
-            form.setValue("valueType", val);
-            form.setValue("defaultValue", defaultValue);
-          }}
-        />
-      )}
-
       <EnvironmentSelect
         environmentSettings={environmentSettings}
         environments={environments}
@@ -352,6 +393,56 @@ export default function FeatureModal({
           form.setValue("environmentSettings", environmentSettings);
         }}
       />
+
+      {!featureToDuplicate && (
+        <>
+          <ValueTypeField
+            value={valueType}
+            onChange={(val) => {
+              const defaultValue = getDefaultValue(val);
+              form.setValue("valueType", val);
+              form.setValue("defaultValue", defaultValue);
+            }}
+            useCustom={true}
+          />
+          {flagValueType === "json" && (
+            <Box
+              style={{ position: "relative", top: "-15px", textAlign: "right" }}
+            >
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setUseSchemaCreator(!useSchemaCreator);
+                }}
+              >
+                <Text as="span" size="1">
+                  {!useSchemaCreator || !hasJsonValidator
+                    ? "Add validation"
+                    : "Remove validation"}
+                </Text>
+                <PaidFeatureBadge commercialFeature={"json-validation"} />
+              </a>
+            </Box>
+          )}
+        </>
+      )}
+      {hasJsonValidator && usingJsonSchema && (
+        <Box>
+          <Heading as="h4" size="2">
+            Describe the values allowed in this feature flag.{" "}
+            <Tooltip
+              body={`Custom feature flag types let you describe the values that are allowed to be passed to your code. Feature types of this type will use a JSON object with custom JSON validation. This can be edited at any time after creation.`}
+            />
+          </Heading>
+          <Frame>
+            <EditSimpleSchema
+              schema={simpleSchema}
+              setSchema={(v) => setSimpleSchema(v)}
+            />
+          </Frame>
+        </Box>
+      )}
 
       {/*
           We hide rule configuration when duplicating a feature since the
@@ -364,7 +455,16 @@ export default function FeatureModal({
           id="defaultValue"
           value={form.watch("defaultValue")}
           setValue={(v) => form.setValue("defaultValue", v)}
-          valueType={valueType}
+          valueType={
+            (valueType as ExtendedFeatureValueType) === "custom"
+              ? "json"
+              : valueType
+          }
+          renderJSONInline={true}
+          initialSimpleSchema={
+            usingJsonSchema && hasJsonValidator ? simpleSchema : undefined
+          }
+          initialValidationEnabled={usingJsonSchema && hasJsonValidator}
         />
       )}
       {hasCommercialFeature("custom-metadata") &&
@@ -398,7 +498,7 @@ export default function FeatureModal({
         label={
           <>
             {" "}
-            Projects{" "}
+            Project{" "}
             <Tooltip
               body={
                 "The dropdown below has been filtered to only include projects where you have permission to update Features"
