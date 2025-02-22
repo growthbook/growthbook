@@ -98,6 +98,7 @@ export interface MetricSettingsForStatsEngine {
   statistic_type:
     | "mean"
     | "ratio"
+    | "ratio_ra"
     | "mean_ra"
     | "quantile_event"
     | "quantile_unit";
@@ -378,8 +379,7 @@ export function getMetricSettingsForStatsEngine(
   const ratioMetric = isRatioMetric(metric, denominator);
   const quantileMetric = quantileMetricType(metric);
   const regressionAdjusted =
-    settings.regressionAdjustmentEnabled &&
-    isRegressionAdjusted(metric, denominator);
+    settings.regressionAdjustmentEnabled && isRegressionAdjusted(metric);
   const mainMetricType = quantileMetric
     ? "quantile"
     : isBinomialMetric(metric)
@@ -399,7 +399,9 @@ export function getMetricSettingsForStatsEngine(
         ? "quantile_unit"
         : quantileMetric === "event"
         ? "quantile_event"
-        : ratioMetric
+        : ratioMetric && regressionAdjusted
+        ? "ratio_ra"
+        : ratioMetric && !regressionAdjusted
         ? "ratio"
         : regressionAdjusted
         ? "mean_ra"

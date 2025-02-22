@@ -816,7 +816,6 @@ export default abstract class SqlIntegration
       to: settings.endDate ?? undefined,
       forcedBaseIdType: settings.userIdType,
     });
-
     const metricData = this.getMetricData(
       metric,
       {
@@ -1199,9 +1198,17 @@ export default abstract class SqlIntegration
       "denominator_cap_value",
       "covariate_sum",
       "covariate_sum_squares",
+      "denominator_covariate_sum",
+      "denominator_covariate_sum_squares",
       "main_covariate_sum_product",
       "quantile",
       "theta",
+      "main_post_denominator_post_sum_product",
+      "main_post_main_pre_sum_product",
+      "main_post_denominator_pre_sum_product",
+      "main_pre_denominator_post_sum_product",
+      "main_pre_denominator_pre_sum_product",
+      "denominator_post_denominator_pre_sum_product",
     ];
 
     return {
@@ -1284,6 +1291,31 @@ export default abstract class SqlIntegration
           }),
           ...(row.theta !== undefined && {
             theta: parseFloat(row.theta) || 0,
+          }),
+          ...(row.main_post_denominator_post_sum_product !== undefined && {
+            main_post_denominator_post_sum_product:
+              parseFloat(row.main_post_denominator_post_sum_product) || 0,
+          }),
+          ...(row.main_post_main_pre_sum_product !== undefined && {
+            main_post_main_pre_sum_product:
+              parseFloat(row.main_post_main_pre_sum_product) || 0,
+          }),
+          ...(row.main_post_denominator_pre_sum_product !== undefined && {
+            main_post_denominator_pre_sum_product:
+              parseFloat(row.main_post_denominator_pre_sum_product) || 0,
+          }),
+          ...(row.main_pre_denominator_post_sum_product !== undefined && {
+            main_pre_denominator_post_sum_product:
+              parseFloat(row.main_pre_denominator_post_sum_product) || 0,
+          }),
+          ...(row.main_pre_denominator_pre_sum_product !== undefined && {
+            main_pre_denominator_pre_sum_product:
+              parseFloat(row.main_pre_denominator_pre_sum_product) || 0,
+          }),
+          ...(row.denominator_post_denominator_pre_sum_product !==
+            undefined && {
+            denominator_post_denominator_pre_sum_product:
+              parseFloat(row.denominator_post_denominator_pre_sum_product) || 0,
           }),
         };
       }),
@@ -1789,7 +1821,6 @@ export default abstract class SqlIntegration
       factTableMap,
       segment,
     });
-
     return this.getExperimentFactMetricsQuery({
       ...params,
       unitsSource: "otherQuery",
@@ -2238,7 +2269,6 @@ export default abstract class SqlIntegration
     // where RA is actually possible
     const regressionAdjusted =
       settings.regressionAdjustmentEnabled && isRegressionAdjusted(metric);
-
     const regressionAdjustmentHours = regressionAdjusted
       ? (metric.regressionAdjustmentDays ?? 0) * 24
       : 0;
@@ -2307,7 +2337,6 @@ export default abstract class SqlIntegration
       [metric],
       activationMetric
     );
-
     return {
       alias,
       id: metric.id,
@@ -2373,8 +2402,6 @@ export default abstract class SqlIntegration
     params: ExperimentFactMetricsQueryParams
   ): string {
     const { settings, segment } = params;
-
-    // clone the metrics before we mutate them
     const metrics = cloneDeep(params.metrics);
     const activationMetric = this.processActivationMetric(
       params.activationMetric,
@@ -2384,7 +2411,6 @@ export default abstract class SqlIntegration
     metrics.forEach((m) => {
       applyMetricOverrides(m, settings);
     });
-
     // Replace any placeholders in the user defined dimension SQL
     const { unitDimensions } = this.processDimensions(
       params.dimensions,
@@ -2401,7 +2427,6 @@ export default abstract class SqlIntegration
     const userIdType =
       params.forcedUserIdType ??
       this.getExposureQuery(settings.exposureQueryId || "").userIdType;
-
     const metricData = metrics.map((metric, i) =>
       this.getMetricData(metric, settings, activationMetric, `m${i}`)
     );
@@ -2409,7 +2434,6 @@ export default abstract class SqlIntegration
     const raMetricSettings = metricData
       .filter((m) => m.regressionAdjusted)
       .map((m) => m.raMetricSettings);
-
     const maxHoursToConvert = Math.max(
       ...metricData.map((m) => m.maxHoursToConvert)
     );
@@ -2874,6 +2898,16 @@ export default abstract class SqlIntegration
                   ? `MAX(COALESCE(cap.${data.alias}_denominator_cap, 0)) as ${data.alias}_denominator_cap_value,`
                   : ""
               }
+              SUM(${data.capCoalesceCovariate}) AS ${data.alias}_covariate_sum,
+              SUM(POWER(${data.capCoalesceCovariate}, 2)) AS ${
+                    data.alias
+                  }_covariate_sum_squares,
+              SUM(${data.capCoalesceDenominatorCovariate}) AS ${
+                    data.alias
+                  }_denominator_covariate_sum,
+              SUM(POWER(${data.capCoalesceDenominatorCovariate}, 2)) AS ${
+                    data.alias
+                  }_denominator_covariate_sum_squares,              
               SUM(${data.capCoalesceDenominator}) AS ${
                     data.alias
                   }_denominator_sum,
@@ -3015,8 +3049,7 @@ export default abstract class SqlIntegration
     // redundant checks to make sure configuration makes sense and we only build expensive queries for the cases
     // where RA is actually possible
     const regressionAdjusted =
-      settings.regressionAdjustmentEnabled &&
-      isRegressionAdjusted(metric, denominator);
+      settings.regressionAdjustmentEnabled && isRegressionAdjusted(metric);
 
     const regressionAdjustmentHours = regressionAdjusted
       ? (metric.regressionAdjustmentDays ?? 0) * 24

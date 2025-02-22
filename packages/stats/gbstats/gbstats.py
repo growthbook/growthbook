@@ -64,6 +64,7 @@ from gbstats.models.statistics import (
     QuantileStatistic,
     QuantileClusteredStatistic,
     RatioStatistic,
+    RegressionAdjustedRatioStatistic,
     RegressionAdjustedStatistic,
     SampleMeanStatistic,
     TestStatistic,
@@ -83,6 +84,14 @@ SUM_COLS = [
     "covariate_sum",
     "covariate_sum_squares",
     "main_covariate_sum_product",
+    "denominator_covariate_sum",
+    "denominator_covariate_sum_squares",
+    "main_post_denominator_post_sum_product",
+    "main_post_main_pre_sum_product",
+    "main_post_denominator_pre_sum_product",
+    "main_pre_denominator_post_sum_product",
+    "main_pre_denominator_pre_sum_product",
+    "denominator_post_denominator_pre_sum_product",
 ]
 
 ROW_COLS = SUM_COLS + [
@@ -529,6 +538,49 @@ def variation_statistic_from_metric_row(
             quantile_hat=row[f"{prefix}_quantile"],
             quantile_lower=row[f"{prefix}_quantile_lower"],
             quantile_upper=row[f"{prefix}_quantile_upper"],
+        )
+    elif metric.statistic_type == "ratio_ra":
+        m_statistic_post = base_statistic_from_metric_row(
+            row, prefix, "main", metric.main_metric_type
+        )
+        d_statistic_post = base_statistic_from_metric_row(
+            row, prefix, "denominator", metric.denominator_metric_type
+        )
+        m_statistic_pre = base_statistic_from_metric_row(
+            row, prefix, "covariate", metric.main_metric_type
+        )
+        d_statistic_pre = base_statistic_from_metric_row(
+            row, prefix, "denominator_covariate", metric.denominator_metric_type
+        )
+        m_post_m_pre_sum_of_products = row[f"{prefix}_main_post_main_pre_sum_product"]
+        d_post_d_pre_sum_of_products = row[
+            f"{prefix}_denominator_post_denominator_pre_sum_product"
+        ]
+        m_pre_d_pre_sum_of_products = row[
+            f"{prefix}_main_pre_denominator_pre_sum_product"
+        ]
+        m_post_d_post_sum_of_products = row[
+            f"{prefix}_main_post_denominator_post_sum_product"
+        ]
+        m_post_d_pre_sum_of_products = row[
+            f"{prefix}_main_post_denominator_pre_sum_product"
+        ]
+        m_pre_d_post_sum_of_products = row[
+            f"{prefix}_main_pre_denominator_post_sum_product"
+        ]
+        return RegressionAdjustedRatioStatistic(
+            n=row[f"{prefix}_users"],
+            m_statistic_post=m_statistic_post,
+            d_statistic_post=d_statistic_post,
+            m_statistic_pre=m_statistic_pre,
+            d_statistic_pre=d_statistic_pre,
+            m_post_m_pre_sum_of_products=m_post_m_pre_sum_of_products,
+            d_post_d_pre_sum_of_products=d_post_d_pre_sum_of_products,
+            m_pre_d_pre_sum_of_products=m_pre_d_pre_sum_of_products,
+            m_post_d_post_sum_of_products=m_post_d_post_sum_of_products,
+            m_post_d_pre_sum_of_products=m_post_d_pre_sum_of_products,
+            m_pre_d_post_sum_of_products=m_pre_d_post_sum_of_products,
+            theta=None,
         )
     elif metric.statistic_type == "ratio":
         return RatioStatistic(

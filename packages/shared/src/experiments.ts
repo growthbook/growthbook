@@ -197,14 +197,10 @@ export function isFunnelMetric(
   return !!denominatorMetric && isBinomialMetric(denominatorMetric);
 }
 
-export function isRegressionAdjusted(
-  m: ExperimentMetricInterface,
-  denominatorMetric?: ExperimentMetricInterface
-) {
+export function isRegressionAdjusted(m: ExperimentMetricInterface) {
   return (
     (m.regressionAdjustmentDays ?? 0) > 0 &&
     !!m.regressionAdjustmentEnabled &&
-    !isRatioMetric(m, denominatorMetric) &&
     !quantileMetricType(m)
   );
 }
@@ -381,12 +377,6 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
 
   // final gatekeeping for RA
   if (regressionAdjustmentEnabled) {
-    if (metric && isFactMetric(metric) && isRatioMetric(metric)) {
-      // is this a fact ratio metric?
-      regressionAdjustmentEnabled = false;
-      regressionAdjustmentAvailable = false;
-      regressionAdjustmentReason = "ratio metrics not supported";
-    }
     if (metric && isFactMetric(metric) && quantileMetricType(metric)) {
       // is this a fact quantile metric?
       regressionAdjustmentEnabled = false;
