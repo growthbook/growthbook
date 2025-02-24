@@ -2565,18 +2565,10 @@ export async function getSettingsForSnapshotMetrics(
     .map((id) => metricMap.get(id))
     .filter(isDefined);
 
-  const denominatorMetrics = allExperimentMetrics
-    .filter((m) => m && !isFactMetric(m) && m.denominator)
-    .map((m: ExperimentMetricInterface) =>
-      metricMap.get(m.denominator as string)
-    )
-    .filter(Boolean) as MetricInterface[];
-
   for (const metric of allExperimentMetrics) {
     if (!metric) continue;
     const { metricSnapshotSettings } = getMetricSnapshotSettings({
       metric: metric,
-      denominatorMetrics: denominatorMetrics,
       experimentRegressionAdjustmentEnabled:
         experiment.regressionAdjustmentEnabled ??
         DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,

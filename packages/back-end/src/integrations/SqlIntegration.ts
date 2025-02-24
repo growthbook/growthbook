@@ -1274,12 +1274,22 @@ export default abstract class SqlIntegration
             denominator_sum: parseFloat(row.denominator_sum) || 0,
             denominator_sum_squares:
               parseFloat(row.denominator_sum_squares) || 0,
+          }),
+          ...(row.main_denominator_sum_product !== undefined && {
             main_denominator_sum_product:
               parseFloat(row.main_denominator_sum_product) || 0,
           }),
           ...(row.covariate_sum !== undefined && {
             covariate_sum: parseFloat(row.covariate_sum) || 0,
             covariate_sum_squares: parseFloat(row.covariate_sum_squares) || 0,
+          }),
+          ...(row.denominator_covariate_sum !== undefined && {
+            denominator_covariate_sum:
+              parseFloat(row.denominator_covariate_sum) || 0,
+            denominator_covariate_sum_squares:
+              parseFloat(row.denominator_covariate_sum_squares) || 0,
+          }),
+          ...(row.main_covariate_sum_product !== undefined && {
             main_covariate_sum_product:
               parseFloat(row.main_covariate_sum_product) || 0,
           }),
@@ -1316,6 +1326,15 @@ export default abstract class SqlIntegration
             undefined && {
             denominator_post_denominator_pre_sum_product:
               parseFloat(row.denominator_post_denominator_pre_sum_product) || 0,
+          }),
+          ...(row.denominator_post_denominator_pre_sum_product !==
+            undefined && {
+            denominator_post_denominator_pre_sum_product:
+              parseFloat(row.denominator_post_denominator_pre_sum_product) || 0,
+          }),
+          ...(row.main_post_denominator_pre_sum_product !== undefined && {
+            main_post_denominator_pre_sum_product:
+              parseFloat(row.main_post_denominator_pre_sum_product) || 0,
           }),
         };
       }),
@@ -2423,14 +2442,12 @@ export default abstract class SqlIntegration
     if (!factTable) {
       throw new Error("Could not find fact table");
     }
-
     const userIdType =
       params.forcedUserIdType ??
       this.getExposureQuery(settings.exposureQueryId || "").userIdType;
     const metricData = metrics.map((metric, i) =>
       this.getMetricData(metric, settings, activationMetric, `m${i}`)
     );
-
     const raMetricSettings = metricData
       .filter((m) => m.regressionAdjusted)
       .map((m) => m.raMetricSettings);
@@ -2984,7 +3001,6 @@ export default abstract class SqlIntegration
       settings,
       segment,
     } = params;
-
     const factTableMap = params.factTableMap;
 
     // clone the metrics before we mutate them
@@ -3004,7 +3020,6 @@ export default abstract class SqlIntegration
         denominatorMetrics.push(metric);
       }
     }
-
     applyMetricOverrides(metric, settings);
     denominatorMetrics.forEach((m) => applyMetricOverrides(m, settings));
 
@@ -3050,7 +3065,6 @@ export default abstract class SqlIntegration
     // where RA is actually possible
     const regressionAdjusted =
       settings.regressionAdjustmentEnabled && isRegressionAdjusted(metric);
-
     const regressionAdjustmentHours = regressionAdjusted
       ? (metric.regressionAdjustmentDays ?? 0) * 24
       : 0;
@@ -3088,6 +3102,12 @@ export default abstract class SqlIntegration
       metric: metric,
       capTablePrefix: "cap",
       columnRef: isFactMetric(metric) ? metric.numerator : null,
+    });
+    const capCoalesceDenominatorCovariate = this.capCoalesceValue({
+      valueCol: "dc.value",
+      metric: denominator,
+      capTablePrefix: "cap",
+      columnRef: isFactMetric(metric) ? metric.denominator : null,
     });
 
     // Get rough date filter for metrics to improve performance
@@ -3461,6 +3481,34 @@ export default abstract class SqlIntegration
             d.dimension,
             d.${baseIdType}
         )
+        ${
+          ratioMetric
+            ? `
+          , __userDenominatorCovariateMetric as (
+            SELECT
+              d.variation AS variation,
+              d.dimension AS dimension,
+              d.${baseIdType} AS ${baseIdType},
+              ${this.getAggregateMetricColumn({
+                metric: denominator,
+                useDenominator: true,
+              })} as value
+            FROM
+              __distinctUsers d
+            JOIN __denominator${denominatorMetrics.length - 1} m ON (
+              m.${baseIdType} = d.${baseIdType}
+            )
+            WHERE 
+              m.timestamp >= d.preexposure_start
+              AND m.timestamp < d.preexposure_end
+            GROUP BY
+              d.variation,
+              d.dimension,
+              d.${baseIdType}
+          )
+          `
+            : ""
+        }
         `
           : ""
       }
@@ -3530,7 +3578,11 @@ export default abstract class SqlIntegration
       }
       SUM(${capCoalesceDenominator}) AS denominator_sum,
       SUM(POWER(${capCoalesceDenominator}, 2)) AS denominator_sum_squares,
-      SUM(${capCoalesceDenominator} * ${capCoalesceMetric}) AS main_denominator_sum_product
+      SUM(${capCoalesceMetric} * ${capCoalesceDenominator}) AS ${
+            regressionAdjusted
+              ? `main_post_denominator_post_sum_product`
+              : `main_denominator_sum_product`
+          }
     `
         : ""
     }
@@ -3539,7 +3591,23 @@ export default abstract class SqlIntegration
         ? `,
       SUM(${capCoalesceCovariate}) AS covariate_sum,
       SUM(POWER(${capCoalesceCovariate}, 2)) AS covariate_sum_squares,
-      SUM(${capCoalesceMetric} * ${capCoalesceCovariate}) AS main_covariate_sum_product
+      SUM(${capCoalesceMetric} * ${capCoalesceCovariate}) AS ${
+            ratioMetric
+              ? `main_post_main_pre_sum_product`
+              : `main_covariate_sum_product`
+          }
+      `
+        : ""
+    }
+    ${
+      regressionAdjusted && ratioMetric
+        ? `,
+      SUM(${capCoalesceDenominatorCovariate}) AS denominator_covariate_sum,
+      SUM(POWER(${capCoalesceDenominatorCovariate}, 2)) AS denominator_covariate_sum_squares,
+      SUM(${capCoalesceDenominator} * ${capCoalesceDenominatorCovariate}) AS denominator_post_denominator_pre_sum_product, 
+      SUM(${capCoalesceMetric} * ${capCoalesceDenominatorCovariate}) AS main_post_denominator_pre_sum_product,
+      SUM(${capCoalesceCovariate} * ${capCoalesceDenominator}) AS main_pre_denominator_post_sum_product,
+      SUM(${capCoalesceCovariate} * ${capCoalesceDenominatorCovariate}) AS main_pre_denominator_pre_sum_product
       `
         : ""
     }
@@ -3570,6 +3638,15 @@ export default abstract class SqlIntegration
       ? `
       LEFT JOIN __userCovariateMetric c
       ON (c.${baseIdType} = m.${baseIdType})
+      ${
+        ratioMetric
+          ? `LEFT JOIN __userDenominatorCovariateMetric dc ON (
+            dc.${baseIdType} = m.${baseIdType}
+            ${cumulativeDate ? "AND dc.day = m.day" : ""}
+          )
+        `
+          : ""
+      }
       `
       : ""
   }

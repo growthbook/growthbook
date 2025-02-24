@@ -4,18 +4,13 @@ import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import {
-  getAffectedEnvsForExperiment,
-  getSnapshotAnalysis,
-  isDefined,
-} from "shared/util";
+import { getAffectedEnvsForExperiment, getSnapshotAnalysis } from "shared/util";
 import {
   getAllMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
-import uniq from "lodash/uniq";
 import { DataSourceInterface } from "back-end/types/datasource";
 import {
   AuthRequest,
@@ -36,7 +31,7 @@ import {
   SnapshotAnalysisParams,
   updateExperimentBanditSettings,
 } from "back-end/src/services/experiments";
-import { MetricInterface, MetricStats } from "back-end/types/metric";
+import { MetricStats } from "back-end/types/metric";
 import {
   createExperiment,
   deleteExperimentByIdForOrganization,
@@ -2283,21 +2278,11 @@ export async function createExperimentSnapshot({
   const metricIds = getAllMetricIdsFromExperiment(experiment, false);
 
   const allExperimentMetrics = metricIds.map((m) => metricMap.get(m) || null);
-  const denominatorMetricIds = uniq<string>(
-    allExperimentMetrics
-      .map((m) => m?.denominator)
-      .filter((d) => d && typeof d === "string") as string[]
-  );
-  const denominatorMetrics = denominatorMetricIds
-    .map((m) => metricMap.get(m) || null)
-    .filter(isDefined) as MetricInterface[];
-
   const {
     settingsForSnapshotMetrics,
     regressionAdjustmentEnabled,
   } = getAllMetricSettingsForSnapshot({
     allExperimentMetrics,
-    denominatorMetrics,
     orgSettings,
     experimentRegressionAdjustmentEnabled:
       experiment.regressionAdjustmentEnabled,

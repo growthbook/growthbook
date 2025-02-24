@@ -265,13 +265,11 @@ export function getMetricLink(id: string): string {
 
 export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
   metric,
-  denominatorMetrics,
   experimentRegressionAdjustmentEnabled,
   organizationSettings,
   metricOverrides,
 }: {
   metric: T;
-  denominatorMetrics: MetricInterface[];
   experimentRegressionAdjustmentEnabled: boolean;
   organizationSettings?: Partial<OrganizationSettings>; // can be RA and prior settings from a snapshot of org settings
   metricOverrides?: MetricOverride[];
@@ -383,17 +381,6 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
       regressionAdjustmentAvailable = false;
       regressionAdjustmentReason = "quantile metrics not supported";
     }
-    if (metric?.denominator) {
-      // is this a classic "ratio" metric (denominator unsupported type)?
-      const denominator = denominatorMetrics.find(
-        (m) => m.id === metric?.denominator
-      );
-      if (denominator && !isBinomialMetric(denominator)) {
-        regressionAdjustmentEnabled = false;
-        regressionAdjustmentAvailable = false;
-        regressionAdjustmentReason = `denominator is ${denominator.type}`;
-      }
-    }
     if (metric && !isFactMetric(metric) && metric?.aggregation) {
       regressionAdjustmentEnabled = false;
       regressionAdjustmentAvailable = false;
@@ -423,7 +410,6 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
 
 export function getAllMetricSettingsForSnapshot({
   allExperimentMetrics,
-  denominatorMetrics,
   orgSettings,
   experimentRegressionAdjustmentEnabled,
   experimentMetricOverrides = [],
@@ -431,7 +417,6 @@ export function getAllMetricSettingsForSnapshot({
   hasRegressionAdjustmentFeature,
 }: {
   allExperimentMetrics: (ExperimentMetricInterface | null)[];
-  denominatorMetrics: MetricInterface[];
   orgSettings: OrganizationSettings;
   experimentRegressionAdjustmentEnabled?: boolean;
   experimentMetricOverrides?: MetricOverride[];
@@ -449,7 +434,6 @@ export function getAllMetricSettingsForSnapshot({
     if (!metric) continue;
     const { metricSnapshotSettings } = getMetricSnapshotSettings({
       metric: metric,
-      denominatorMetrics: denominatorMetrics,
       experimentRegressionAdjustmentEnabled:
         experimentRegressionAdjustmentEnabled ??
         DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,

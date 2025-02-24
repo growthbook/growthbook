@@ -43,14 +43,6 @@ const regressionAdjustmentResolver = (
         : "experiment-level metric override applied";
     }
 
-    // denominator metric checks
-    if (regressionAdjustmentEnabled) {
-      if (ctx.scopes?.denominatorMetric?.type === "count") {
-        regressionAdjustmentEnabled = false;
-        reason = "denominator is count";
-      }
-    }
-
     // metrics with custom aggregation
     if (ctx.scopes?.metric?.aggregation) {
       regressionAdjustmentEnabled = false;

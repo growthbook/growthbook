@@ -5,7 +5,6 @@ import {
   ExperimentSnapshotReportArgs,
   ReportInterface,
 } from "back-end/types/report";
-import uniq from "lodash/uniq";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import Link from "next/link";
@@ -16,7 +15,6 @@ import {
   getAllMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
 } from "shared/experiments";
-import { isDefined } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -78,7 +76,6 @@ export default function ResultsTab({
   const {
     getDatasourceById,
     getExperimentMetricById,
-    getMetricById,
     getProjectById,
     metrics,
     datasources,
@@ -119,15 +116,6 @@ export default function ResultsTab({
   const allExperimentMetrics = allExperimentMetricIds.map((m) =>
     getExperimentMetricById(m)
   );
-  const denominatorMetricIds = uniq<string>(
-    allExperimentMetrics
-      .map((m) => m?.denominator)
-      .filter((d) => d && typeof d === "string") as string[]
-  );
-  const denominatorMetrics = denominatorMetricIds
-    .map((m) => getMetricById(m as string))
-    .filter(isDefined);
-
   const orgSettings = useOrgSettings();
 
   const {
@@ -137,7 +125,6 @@ export default function ResultsTab({
   } = useMemo(() => {
     return getAllMetricSettingsForSnapshot({
       allExperimentMetrics,
-      denominatorMetrics,
       orgSettings,
       experimentRegressionAdjustmentEnabled:
         experiment.regressionAdjustmentEnabled,
@@ -147,7 +134,6 @@ export default function ResultsTab({
     });
   }, [
     allExperimentMetrics,
-    denominatorMetrics,
     orgSettings,
     experiment.regressionAdjustmentEnabled,
     experiment.metricOverrides,
