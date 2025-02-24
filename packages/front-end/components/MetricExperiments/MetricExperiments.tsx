@@ -63,6 +63,8 @@ interface MetricExperimentData {
   resultsStatus?: string;
   directionalStatus?: "winning" | "losing";
   phases: ExperimentPhaseStringDates[];
+  guardrailMetrics: string[];
+  goalMetrics: string[];
 }
 
 const NUM_PER_PAGE = 50;
@@ -108,6 +110,8 @@ function MetricExperimentResultTab({
         variationId: i,
         variationName: v.name,
         phases: e.phases,
+        goalMetrics: e.goalMetrics,
+        guardrailMetrics: e.guardrailMetrics,
       };
       if (!bandits && baseline && variationResults[i]) {
         const {
@@ -230,7 +234,7 @@ function MetricExperimentResultTab({
 
   return (
     <div>
-      <table className="table bg-white border">
+      <table className="table appbox">
         <thead className="bg-light">
           <tr>
             <SortableTH field="name">Experiment</SortableTH>
