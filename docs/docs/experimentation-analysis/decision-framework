@@ -38,6 +38,7 @@ Note: only "unhealthy" and "no data" statuses appear before your experiment has 
 
 ### What is target power?
 
-### Why is my days remaining so high?
+Your experiment reaches its "target power" when it has enough data to reliably detect the target minimum detectable effect for all of your goal metrics. More data will help get more precise results, but based on the level of precision you want for your goal metrics, you have enough data to make a decision.
 
-### What do I do about a low-powered experiment?
+### Why is my days remaining so high/what do I do about a low-powered experiment?
+
