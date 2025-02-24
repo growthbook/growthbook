@@ -1198,13 +1198,13 @@ export default abstract class SqlIntegration
       "denominator_cap_value",
       "covariate_sum",
       "covariate_sum_squares",
-      "denominator_covariate_sum",
-      "denominator_covariate_sum_squares",
+      "denominator_pre_sum",
+      "denominator_pre_sum_squares",
       "main_covariate_sum_product",
       "quantile",
       "theta",
-      "main_post_denominator_post_sum_product",
-      "main_post_main_pre_sum_product",
+      "main_denominator_sum_product",
+      "main_covariate_sum_product",
       "main_post_denominator_pre_sum_product",
       "main_pre_denominator_post_sum_product",
       "main_pre_denominator_pre_sum_product",
@@ -1283,11 +1283,10 @@ export default abstract class SqlIntegration
             covariate_sum: parseFloat(row.covariate_sum) || 0,
             covariate_sum_squares: parseFloat(row.covariate_sum_squares) || 0,
           }),
-          ...(row.denominator_covariate_sum !== undefined && {
-            denominator_covariate_sum:
-              parseFloat(row.denominator_covariate_sum) || 0,
-            denominator_covariate_sum_squares:
-              parseFloat(row.denominator_covariate_sum_squares) || 0,
+          ...(row.denominator_pre_sum !== undefined && {
+            denominator_pre_sum: parseFloat(row.denominator_pre_sum) || 0,
+            denominator_pre_sum_squares:
+              parseFloat(row.denominator_pre_sum_squares) || 0,
           }),
           ...(row.main_covariate_sum_product !== undefined && {
             main_covariate_sum_product:
@@ -1302,13 +1301,9 @@ export default abstract class SqlIntegration
           ...(row.theta !== undefined && {
             theta: parseFloat(row.theta) || 0,
           }),
-          ...(row.main_post_denominator_post_sum_product !== undefined && {
-            main_post_denominator_post_sum_product:
-              parseFloat(row.main_post_denominator_post_sum_product) || 0,
-          }),
-          ...(row.main_post_main_pre_sum_product !== undefined && {
-            main_post_main_pre_sum_product:
-              parseFloat(row.main_post_main_pre_sum_product) || 0,
+          ...(row.main_covariate_sum_product !== undefined && {
+            main_covariate_sum_product:
+              parseFloat(row.main_covariate_sum_product) || 0,
           }),
           ...(row.main_post_denominator_pre_sum_product !== undefined && {
             main_post_denominator_pre_sum_product:
@@ -1321,11 +1316,6 @@ export default abstract class SqlIntegration
           ...(row.main_pre_denominator_pre_sum_product !== undefined && {
             main_pre_denominator_pre_sum_product:
               parseFloat(row.main_pre_denominator_pre_sum_product) || 0,
-          }),
-          ...(row.denominator_post_denominator_pre_sum_product !==
-            undefined && {
-            denominator_post_denominator_pre_sum_product:
-              parseFloat(row.denominator_post_denominator_pre_sum_product) || 0,
           }),
           ...(row.denominator_post_denominator_pre_sum_product !==
             undefined && {
@@ -2888,82 +2878,48 @@ export default abstract class SqlIntegration
                 : ""
             }
             ${
-              data.ratioMetric && !data.regressionAdjusted
+              data.ratioMetric
                 ? `,
+                ${
+                  data.isPercentileCapped
+                    ? `MAX(COALESCE(cap.${data.alias}_denominator_cap, 0)) as ${data.alias}_denominator_cap_value,`
+                    : ""
+                }
+                SUM(${data.capCoalesceDenominator}) AS 
+                  ${data.alias}_denominator_sum,
+                SUM(POWER(${data.capCoalesceDenominator}, 2)) AS 
+                  ${data.alias}_denominator_sum_squares
+                ${
+                  data.regressionAdjusted
+                    ? `, 
+                  SUM(${data.capCoalesceCovariate}) AS ${data.alias}_covariate_sum,
+                  SUM(POWER(${data.capCoalesceCovariate}, 2)) AS ${data.alias}_covariate_sum_squares,
+                  SUM(${data.capCoalesceDenominatorCovariate}) AS ${data.alias}_denominator_pre_sum,
+                  SUM(POWER(${data.capCoalesceDenominatorCovariate}, 2)) AS ${data.alias}_denominator_pre_sum_squares,              
+                  SUM(${data.capCoalesceMetric} * ${data.capCoalesceDenominator}) AS ${data.alias}_main_denominator_sum_product, 
+                  SUM(${data.capCoalesceMetric} * ${data.capCoalesceCovariate}) AS ${data.alias}_main_covariate_sum_product, 
+                  SUM(${data.capCoalesceMetric} * ${data.capCoalesceDenominatorCovariate}) AS ${data.alias}_main_post_denominator_pre_sum_product, 
+                  SUM(${data.capCoalesceCovariate} * ${data.capCoalesceDenominator}) AS ${data.alias}_main_pre_denominator_post_sum_product,
+                  SUM(${data.capCoalesceCovariate} * ${data.capCoalesceDenominatorCovariate}) AS ${data.alias}_main_pre_denominator_pre_sum_product, 
+                  SUM(${data.capCoalesceDenominator} * ${data.capCoalesceDenominatorCovariate}) AS ${data.alias}_denominator_post_denominator_pre_sum_product
+                  `
+                    : `,
+                    SUM(${data.capCoalesceDenominator} * ${data.capCoalesceMetric}) AS ${data.alias}_main_denominator_sum_product
+                  `
+                }` /*ends ifelse regressionAdjusted*/
+                : ` 
               ${
-                data.isPercentileCapped
-                  ? `MAX(COALESCE(cap.${data.alias}_denominator_cap, 0)) as ${data.alias}_denominator_cap_value,`
+                data.regressionAdjusted
+                  ? `,
+                SUM(${data.capCoalesceCovariate}) AS ${data.alias}_covariate_sum,
+                SUM(POWER(${data.capCoalesceCovariate}, 2)) AS ${data.alias}_covariate_sum_squares,
+                SUM(${data.capCoalesceMetric} * ${data.capCoalesceCovariate}) AS ${data.alias}_main_covariate_sum_product
+                `
                   : ""
               }
-              SUM(${data.capCoalesceDenominator}) AS ${
-                    data.alias
-                  }_denominator_sum,
-              SUM(POWER(${data.capCoalesceDenominator}, 2)) AS ${
-                    data.alias
-                  }_denominator_sum_squares,
-              SUM(${data.capCoalesceDenominator} * ${
-                    data.capCoalesceMetric
-                  }) AS ${data.alias}_main_denominator_sum_product
             `
-                : ""
             }
-            ${
-              data.ratioMetric && data.regressionAdjusted
-                ? `,
-              ${
-                data.isPercentileCapped
-                  ? `MAX(COALESCE(cap.${data.alias}_denominator_cap, 0)) as ${data.alias}_denominator_cap_value,`
-                  : ""
-              }
-              SUM(${data.capCoalesceCovariate}) AS ${data.alias}_covariate_sum,
-              SUM(POWER(${data.capCoalesceCovariate}, 2)) AS ${
-                    data.alias
-                  }_covariate_sum_squares,
-              SUM(${data.capCoalesceDenominatorCovariate}) AS ${
-                    data.alias
-                  }_denominator_covariate_sum,
-              SUM(POWER(${data.capCoalesceDenominatorCovariate}, 2)) AS ${
-                    data.alias
-                  }_denominator_covariate_sum_squares,              
-              SUM(${data.capCoalesceDenominator}) AS ${
-                    data.alias
-                  }_denominator_sum,
-              SUM(POWER(${data.capCoalesceDenominator}, 2)) AS ${
-                    data.alias
-                  }_denominator_sum_squares,
-              SUM(${data.capCoalesceMetric} * ${
-                    data.capCoalesceDenominator
-                  }) AS ${data.alias}_main_post_denominator_post_sum_product, 
-              SUM(${data.capCoalesceMetric} * ${
-                    data.capCoalesceCovariate
-                  }) AS ${data.alias}_main_post_main_pre_sum_product, 
-              SUM(${data.capCoalesceMetric} * ${
-                    data.capCoalesceDenominatorCovariate
-                  }) AS ${data.alias}_main_post_denominator_pre_sum_product, 
-              SUM(${data.capCoalesceCovariate} * ${
-                    data.capCoalesceDenominator
-                  }) AS ${data.alias}_main_pre_denominator_post_sum_product,
-              SUM(${data.capCoalesceCovariate} * ${
-                    data.capCoalesceDenominatorCovariate
-                  }) AS ${data.alias}_main_pre_denominator_pre_sum_product, 
-              SUM(${data.capCoalesceDenominator} * ${
-                    data.capCoalesceDenominatorCovariate
-                  }) AS ${
-                    data.alias
-                  }_denominator_post_denominator_pre_sum_product
-            `
-                : ""
-            }
-            ${
-              !data.ratioMetric && data.regressionAdjusted
-                ? `,
-              SUM(${data.capCoalesceCovariate}) AS ${data.alias}_covariate_sum,
-              SUM(POWER(${data.capCoalesceCovariate}, 2)) AS ${data.alias}_covariate_sum_squares,
-              SUM(${data.capCoalesceMetric} * ${data.capCoalesceCovariate}) AS ${data.alias}_main_covariate_sum_product
-              `
-                : ""
-            }
-          `;
+          `; /*ends ifelse ratioMetric*/
         })}
       FROM
         __userMetricAgg m
@@ -3578,11 +3534,7 @@ export default abstract class SqlIntegration
       }
       SUM(${capCoalesceDenominator}) AS denominator_sum,
       SUM(POWER(${capCoalesceDenominator}, 2)) AS denominator_sum_squares,
-      SUM(${capCoalesceMetric} * ${capCoalesceDenominator}) AS ${
-            regressionAdjusted
-              ? `main_post_denominator_post_sum_product`
-              : `main_denominator_sum_product`
-          }
+      SUM(${capCoalesceMetric} * ${capCoalesceDenominator}) AS main_denominator_sum_product
     `
         : ""
     }
@@ -3591,19 +3543,15 @@ export default abstract class SqlIntegration
         ? `,
       SUM(${capCoalesceCovariate}) AS covariate_sum,
       SUM(POWER(${capCoalesceCovariate}, 2)) AS covariate_sum_squares,
-      SUM(${capCoalesceMetric} * ${capCoalesceCovariate}) AS ${
-            ratioMetric
-              ? `main_post_main_pre_sum_product`
-              : `main_covariate_sum_product`
-          }
+      SUM(${capCoalesceMetric} * ${capCoalesceCovariate}) AS main_covariate_sum_product
       `
         : ""
     }
     ${
       regressionAdjusted && ratioMetric
         ? `,
-      SUM(${capCoalesceDenominatorCovariate}) AS denominator_covariate_sum,
-      SUM(POWER(${capCoalesceDenominatorCovariate}, 2)) AS denominator_covariate_sum_squares,
+      SUM(${capCoalesceDenominatorCovariate}) AS denominator_pre_sum,
+      SUM(POWER(${capCoalesceDenominatorCovariate}, 2)) AS denominator_pre_sum_squares,
       SUM(${capCoalesceDenominator} * ${capCoalesceDenominatorCovariate}) AS denominator_post_denominator_pre_sum_product, 
       SUM(${capCoalesceMetric} * ${capCoalesceDenominatorCovariate}) AS main_post_denominator_pre_sum_product,
       SUM(${capCoalesceCovariate} * ${capCoalesceDenominator}) AS main_pre_denominator_post_sum_product,

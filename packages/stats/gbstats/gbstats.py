@@ -84,10 +84,9 @@ SUM_COLS = [
     "covariate_sum",
     "covariate_sum_squares",
     "main_covariate_sum_product",
-    "denominator_covariate_sum",
-    "denominator_covariate_sum_squares",
-    "main_post_denominator_post_sum_product",
-    "main_post_main_pre_sum_product",
+    "denominator_pre_sum",
+    "denominator_pre_sum_squares",
+    "main_denominator_sum_product",
     "main_post_denominator_pre_sum_product",
     "main_pre_denominator_post_sum_product",
     "main_pre_denominator_pre_sum_product",
@@ -282,7 +281,6 @@ def analyze_metric_df(
     # Add new columns to the dataframe with placeholder values
     df["srm_p"] = 0
     df["engine"] = analysis.stats_engine
-
     for i in range(num_variations):
         if i == 0:
             df["baseline_cr"] = 0
@@ -550,18 +548,16 @@ def variation_statistic_from_metric_row(
             row, prefix, "covariate", metric.main_metric_type
         )
         d_statistic_pre = base_statistic_from_metric_row(
-            row, prefix, "denominator_covariate", metric.denominator_metric_type
+            row, prefix, "denominator_pre", metric.denominator_metric_type
         )
-        m_post_m_pre_sum_of_products = row[f"{prefix}_main_post_main_pre_sum_product"]
+        m_post_m_pre_sum_of_products = row[f"{prefix}_main_covariate_sum_product"]
         d_post_d_pre_sum_of_products = row[
             f"{prefix}_denominator_post_denominator_pre_sum_product"
         ]
         m_pre_d_pre_sum_of_products = row[
             f"{prefix}_main_pre_denominator_pre_sum_product"
         ]
-        m_post_d_post_sum_of_products = row[
-            f"{prefix}_main_post_denominator_post_sum_product"
-        ]
+        m_post_d_post_sum_of_products = row[f"{prefix}_main_denominator_sum_product"]
         m_post_d_pre_sum_of_products = row[
             f"{prefix}_main_post_denominator_pre_sum_product"
         ]
@@ -925,7 +921,7 @@ def process_experiment_results(
                             metric_settings_bandit.main_metric_type = "count"
                         if metric_settings_bandit.covariate_metric_type == "binomial":
                             metric_settings_bandit.covariate_metric_type = "count"
-                        # after we have added the functionality for ratio_ra, remove this
+                        # TODO: after we have added the functionality for ratio_ra, remove this
                         if metric_settings_bandit.main_metric_type == "ra_ratio":
                             metric_settings_bandit.main_metric_type = "ratio"
                         if (
