@@ -459,6 +459,19 @@ const MetricForm: FC<MetricFormProps> = ({
   let regressionAdjustmentAvailableForMetric = true;
   let regressionAdjustmentAvailableForMetricReason = <></>;
 
+  if (form.watch("denominator")) {
+    const denominator = metrics.find((m) => m.id === form.watch("denominator"));
+    if (denominator?.type === "count") {
+      regressionAdjustmentAvailableForMetric = false;
+      regressionAdjustmentAvailableForMetricReason = (
+        <>
+          Not available for ratio metrics with <em>count</em> denominators,
+          unless you use Fact Tables.
+        </>
+      );
+    }
+  }
+
   let table = "Table";
   let column = "Column";
   if (selectedDataSource?.properties?.events) {

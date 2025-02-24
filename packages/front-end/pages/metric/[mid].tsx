@@ -163,6 +163,15 @@ const MetricPage: FC = () => {
   const denominator = metric.denominator
     ? metrics.find((m) => m.id === metric.denominator)
     : undefined;
+  if (denominator && denominator.type === "count") {
+    regressionAdjustmentAvailableForMetric = false;
+    regressionAdjustmentAvailableForMetricReason = (
+      <>
+        Not available for non-fact ratio metrics with <em>count</em>{" "}
+        denominators.
+      </>
+    );
+  }
   if (metric.aggregation) {
     regressionAdjustmentAvailableForMetric = false;
     regressionAdjustmentAvailableForMetricReason = (
