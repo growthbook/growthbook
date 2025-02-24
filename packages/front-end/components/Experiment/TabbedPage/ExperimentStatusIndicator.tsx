@@ -1,4 +1,4 @@
-import { Tooltip } from "@radix-ui/themes";
+import { Flex, Tooltip } from "@radix-ui/themes";
 import Badge from "@/components/Radix/Badge";
 import {
   ExperimentData,
@@ -9,9 +9,9 @@ type LabelFormat = "full" | "status-only" | "detail-only";
 
 export type StatusIndicatorData = {
   color: React.ComponentProps<typeof Badge>["color"];
-  variant: React.ComponentProps<typeof Badge>["variant"];
   status: string;
   detailedStatus?: string;
+  important?: boolean;
   tooltip?: string;
 };
 
@@ -33,6 +33,34 @@ export default function ExperimentStatusIndicator({
   );
 }
 
+export function ExperimentStatusDetailsWithDot({
+  statusIndicatorData,
+}: {
+  statusIndicatorData: StatusIndicatorData;
+}) {
+  const { color, detailedStatus, important, tooltip } = statusIndicatorData;
+
+  if (!detailedStatus) return null;
+
+  const contents = important ? (
+    <Flex gap="1" align="center">
+      <div
+        style={{
+          width: 8,
+          height: 8,
+          borderRadius: 8,
+          backgroundColor: `var(--${color}-9)`,
+        }}
+      ></div>
+      {detailedStatus}
+    </Flex>
+  ) : (
+    <>{detailedStatus}</>
+  );
+
+  return tooltip ? <Tooltip content={tooltip}>{contents}</Tooltip> : contents;
+}
+
 export function RawExperimentStatusIndicator({
   statusIndicatorData,
   labelFormat = "full",
@@ -40,19 +68,13 @@ export function RawExperimentStatusIndicator({
   statusIndicatorData: StatusIndicatorData;
   labelFormat?: LabelFormat;
 }) {
-  const {
-    color,
-    variant,
-    status,
-    detailedStatus,
-    tooltip,
-  } = statusIndicatorData;
+  const { color, status, detailedStatus, tooltip } = statusIndicatorData;
   const label = getFormattedLabel(labelFormat, status, detailedStatus);
 
   const badge = (
     <Badge
       color={color}
-      variant={variant}
+      variant={"soft"}
       radius="full"
       label={label}
       style={{

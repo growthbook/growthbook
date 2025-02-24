@@ -30,7 +30,7 @@ import TagsFilter, {
 } from "@/components/Tags/TagsFilter";
 import { useWatching } from "@/services/WatchProvider";
 import {
-  RawExperimentStatusIndicator,
+  ExperimentStatusDetailsWithDot,
   StatusIndicatorData,
 } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
@@ -380,6 +380,10 @@ const ExperimentsPage = (): React.ReactElement => {
     };
   }
 
+  const needsStatusColumn = tabs.length != 1;
+  const needsResultColumn =
+    !tabs.length || tabs.includes("stopped") || tabs.includes("running");
+
   const addExperimentDropdownButton = (
     <DropdownMenu
       trigger={
@@ -603,12 +607,16 @@ const ExperimentsPage = (): React.ReactElement => {
                           <SortableTH field="tags">Tags</SortableTH>
                           <SortableTH field="ownerName">Owner</SortableTH>
                           <SortableTH field="date">Date</SortableTH>
-                          <SortableTH
-                            field="statusSortOrder"
-                            style={{ minWidth: "150px" }}
-                          >
-                            Status
-                          </SortableTH>
+                          {needsStatusColumn ? (
+                            <SortableTH field="statusSortOrder">
+                              Status
+                            </SortableTH>
+                          ) : null}
+                          {needsResultColumn ? (
+                            <SortableTH field="statusSortOrder">
+                              Result
+                            </SortableTH>
+                          ) : null}
                         </tr>
                       </thead>
                       <tbody>
@@ -711,11 +719,18 @@ const ExperimentsPage = (): React.ReactElement => {
                                   : ""}{" "}
                                 {date(e.date)}
                               </td>
-                              <td className="nowrap" data-title="Status:">
-                                <RawExperimentStatusIndicator
-                                  statusIndicatorData={e.statusIndicator}
-                                />
-                              </td>
+                              {needsStatusColumn ? (
+                                <td className="nowrap" data-title="Status:">
+                                  {e.statusIndicator.status}
+                                </td>
+                              ) : null}
+                              {needsResultColumn ? (
+                                <td className="nowrap" data-title="Details:">
+                                  <ExperimentStatusDetailsWithDot
+                                    statusIndicatorData={e.statusIndicator}
+                                  />
+                                </td>
+                              ) : null}
                             </tr>
                           );
                         })}

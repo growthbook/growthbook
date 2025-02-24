@@ -30,7 +30,9 @@ export type ExperimentData = Pick<
   | "phases"
   | "dismissedWarnings"
   | "goalMetrics"
+  | "secondaryMetrics"
   | "guardrailMetrics"
+  | "datasource"
 >;
 
 export function useExperimentStatusIndicator() {
@@ -68,7 +70,6 @@ function getStatusIndicatorData(
   if (!skipArchived && experimentData.archived) {
     return {
       color: "gold",
-      variant: "soft",
       status: "Archived",
     };
   }
@@ -76,7 +77,6 @@ function getStatusIndicatorData(
   if (experimentData.status === "draft") {
     return {
       color: "indigo",
-      variant: "soft",
       status: "Draft",
     };
   }
@@ -162,10 +162,10 @@ function getStatusIndicatorData(
     if (unhealthyStatuses.length > 0) {
       return {
         color: "amber",
-        variant: "solid",
         status: "Running",
         detailedStatus: "Unhealthy",
         tooltip: unhealthyStatuses.join(", "),
+        important: true,
       };
     }
 
@@ -173,9 +173,34 @@ function getStatusIndicatorData(
     if (healthSummary?.totalUsers === 0) {
       return {
         color: "indigo",
-        variant: "solid",
         status: "Running",
         detailedStatus: "No data",
+      };
+    }
+
+    // 2.5 - No data source configured for experiment
+    if (!experimentData.datasource) {
+      return {
+        color: "amber",
+        status: "Running",
+        detailedStatus: "No data",
+        tooltip: "No data source configured for experiment",
+        important: true,
+      };
+    }
+
+    // 2.6 - No metrics configured for experiment
+    if (
+      !experimentData.goalMetrics?.length &&
+      !experimentData.secondaryMetrics?.length &&
+      !experimentData.guardrailMetrics?.length
+    ) {
+      return {
+        color: "amber",
+        status: "Running",
+        detailedStatus: "No data",
+        tooltip: "No metrics configured for experiment yet",
+        important: true,
       };
     }
 
@@ -183,7 +208,6 @@ function getStatusIndicatorData(
     if (beforeMinDuration) {
       return {
         color: "indigo",
-        variant: "solid",
         status: "Running",
         tooltip: `Estimated days left or decision recommendations will appear after the minimum experiment duration of ${healthSettings.experimentMinLengthDays} is reached.`,
       };
@@ -204,7 +228,6 @@ function getStatusIndicatorData(
     // 6. Otherwise, show running status
     return {
       color: "indigo",
-      variant: "solid",
       status: "Running",
     };
   }
@@ -213,38 +236,36 @@ function getStatusIndicatorData(
     switch (experimentData.results) {
       case "won":
         return {
-          color: "gray",
-          variant: "soft",
+          color: "green",
           status: "Stopped",
           detailedStatus: "Won",
+          important: true,
         };
       case "lost":
         return {
-          color: "gray",
-          variant: "soft",
+          color: "red",
           status: "Stopped",
           detailedStatus: "Lost",
+          important: true,
         };
       case "inconclusive":
         return {
           color: "gray",
-          variant: "soft",
           status: "Stopped",
           detailedStatus: "Inconclusive",
         };
       case "dnf":
         return {
           color: "gray",
-          variant: "soft",
           status: "Stopped",
           detailedStatus: "Didn't finish",
         };
       default:
         return {
-          color: "gray",
-          variant: "soft",
+          color: "amber",
           status: "Stopped",
           detailedStatus: "Awaiting decision",
+          important: true,
         };
     }
   }
@@ -263,21 +284,21 @@ function getDetailedStatusIndicatorData(
 
   if (decisionData.status === "rollback-now") {
     return {
-      color: "red",
-      variant: "solid",
+      color: "amber",
       status: "Running",
-      detailedStatus: "Roll Back Now",
+      detailedStatus: "Roll back now",
       tooltip: decisionData.tooltip,
+      important: true,
     };
   }
 
   if (decisionData.status === "ship-now") {
     return {
-      color: "green",
-      variant: "solid",
+      color: "amber",
       status: "Running",
-      detailedStatus: "Ship Now",
+      detailedStatus: "Ship now",
       tooltip: decisionData.tooltip,
+      important: true,
     };
   }
 
@@ -285,7 +306,6 @@ function getDetailedStatusIndicatorData(
     const cappedPowerAdditionalDaysNeeded = Math.min(decisionData.daysLeft, 90);
     return {
       color: "indigo",
-      variant: "solid",
       status: "Running",
       detailedStatus: `${
         decisionData.daysLeft !== cappedPowerAdditionalDaysNeeded ? ">" : ""
@@ -299,10 +319,10 @@ function getDetailedStatusIndicatorData(
   if (decisionData.status === "ready-for-review") {
     return {
       color: "amber",
-      variant: "soft",
       status: "Running",
-      detailedStatus: "Ready for Review",
+      detailedStatus: "Ready for review",
       tooltip: decisionData.tooltip,
+      important: true,
     };
   }
 }
