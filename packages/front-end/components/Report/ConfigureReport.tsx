@@ -163,8 +163,13 @@ export default function ConfigureReport({
     >
       <Tabs value={tab} onValueChange={(v) => setTab(v as TabOptions)}>
         <div
-          className="position-sticky bg-white pt-1"
-          style={{ top: 0, zIndex: 1, boxShadow: "var(--shadow-3)" }}
+          className="position-sticky pt-1"
+          style={{
+            top: 0,
+            zIndex: 1,
+            boxShadow: "var(--shadow-3)",
+            backgroundColor: "var(--color-panel-solid)",
+          }}
         >
           <TabsList>
             <div className="ml-3" />

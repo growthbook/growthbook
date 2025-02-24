@@ -4650,9 +4650,10 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       ${userIdCol} as ${baseIdType},
       ${timestampDateTimeColumn} as date
     FROM(
-        ${sql} ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+        ${sql}
       ) m
       ${join}
+      ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
   `;
     return sqlVars ? compileSqlTemplate(baseSql, sqlVars) : baseSql;
   }

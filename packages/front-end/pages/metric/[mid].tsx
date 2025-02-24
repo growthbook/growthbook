@@ -115,6 +115,7 @@ const MetricPage: FC = () => {
     getMinSampleSizeForMetric,
     getMinPercentageChangeForMetric,
     getMaxPercentageChangeForMetric,
+    getTargetMDEForMetric,
   } = useOrganizationMetricDefaults();
 
   const form = useForm<{ name: string; description: string }>();
@@ -1254,13 +1255,12 @@ const MetricPage: FC = () => {
                       {getMinPercentageChangeForMetric(metric) * 100}%
                     </span>
                   </li>
-                  {/* TODO(mid-experiment-power): Uncomment */}
-                  {/* <li className="mb-2">
+                  <li className="mb-2">
                     <span className="text-gray">Target MDE:</span>{" "}
                     <span className="font-weight-bold">
                       {getTargetMDEForMetric(metric) * 100}%
                     </span>
-                  </li> */}
+                  </li>
                 </ul>
               </RightRailSectionGroup>
 
