@@ -190,11 +190,11 @@ export async function getUserCodesForOrg(
   );
 
   const fullMembers = Array.from(fullMembersSet);
-  // if a read only member is a full member in another installation, they should be counted as a full member and not appear as a read only member
+  // if a read only member is a full member in another organization, they should be counted as a full member and not appear as a read only member
   const readOnlyMembers = Array.from(readOnlyMembersSet).filter(
     (readOnlyMember) => !fullMembersSet.has(readOnlyMember)
   );
-  // if an invite is a full member or a readOnly Member in another installation, they should be counted as such and not as an invite
+  // if an invite is a full member or a readOnly Member in another organization, they should be counted as such and not as an invite
   const invites = Array.from(invitesSet).filter(
     (invite) => !fullMembersSet.has(invite) && !readOnlyMembersSet.has(invite)
   );
