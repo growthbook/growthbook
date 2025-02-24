@@ -66,6 +66,7 @@ export function LaunchDarklyImportFeatureCard() {
           ? ""
           : "You do not have permission to complete this action"
       }
+      usePortal={true}
     >
       <CardLink
         href="/importing/launchdarkly"
