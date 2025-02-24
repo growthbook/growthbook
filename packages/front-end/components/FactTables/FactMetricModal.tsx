@@ -1466,7 +1466,7 @@ export default function FactMetricModal({
   let regressionAdjustmentAvailableForMetric = true;
   let regressionAdjustmentAvailableForMetricReason = <></>;
 
-  if (["ratio", "quantile"].includes(type)) {
+  if (type === "quantile") {
     regressionAdjustmentAvailableForMetric = false;
     regressionAdjustmentAvailableForMetricReason = (
       <>{`Not available for ${type} metrics.`}</>
