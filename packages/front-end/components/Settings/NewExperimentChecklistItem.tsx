@@ -92,6 +92,7 @@ export default function NewExperimentChecklistItem({
         <label>Task</label>
         <CreatableSelect
           className="pb-3"
+          classNamePrefix="gb-select"
           options={combinedChecklistOptions.filter((option) => {
             return !experimentLaunchChecklist.some(
               (index) => index.task === option.value

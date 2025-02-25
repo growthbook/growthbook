@@ -744,6 +744,9 @@ export default function DesignSystemPage() {
               archived: false,
               status: "draft",
               variations: [],
+              phases: [],
+              goalMetrics: [],
+              guardrailMetrics: [],
             }}
           />
           <ExperimentStatusIndicator
@@ -751,6 +754,9 @@ export default function DesignSystemPage() {
               archived: false,
               status: "running",
               variations: [],
+              phases: [],
+              goalMetrics: [],
+              guardrailMetrics: [],
             }}
           />
           <ExperimentStatusIndicator
@@ -758,6 +764,9 @@ export default function DesignSystemPage() {
               archived: false,
               status: "stopped",
               variations: [],
+              phases: [],
+              goalMetrics: [],
+              guardrailMetrics: [],
             }}
           />
           <ExperimentStatusIndicator
@@ -766,6 +775,9 @@ export default function DesignSystemPage() {
               status: "stopped",
               results: "dnf",
               variations: [],
+              phases: [],
+              goalMetrics: [],
+              guardrailMetrics: [],
             }}
           />
           <ExperimentStatusIndicator
@@ -774,6 +786,9 @@ export default function DesignSystemPage() {
               status: "stopped",
               results: "inconclusive",
               variations: [],
+              phases: [],
+              goalMetrics: [],
+              guardrailMetrics: [],
             }}
           />
           <ExperimentStatusIndicator
@@ -782,6 +797,9 @@ export default function DesignSystemPage() {
               status: "stopped",
               results: "won",
               variations: [],
+              phases: [],
+              goalMetrics: [],
+              guardrailMetrics: [],
             }}
           />
           <ExperimentStatusIndicator
@@ -790,6 +808,9 @@ export default function DesignSystemPage() {
               status: "stopped",
               results: "lost",
               variations: [],
+              phases: [],
+              goalMetrics: [],
+              guardrailMetrics: [],
             }}
           />
           <ExperimentStatusIndicator
@@ -797,6 +818,9 @@ export default function DesignSystemPage() {
               archived: true,
               status: "running",
               variations: [],
+              phases: [],
+              goalMetrics: [],
+              guardrailMetrics: [],
             }}
           />
         </Flex>

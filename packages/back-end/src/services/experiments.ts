@@ -31,6 +31,7 @@ import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
   getEqualWeights,
+  getMetricResultStatus,
   getMetricSnapshotSettings,
   isFactMetric,
   isFactMetricId,
@@ -41,8 +42,11 @@ import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import {
+  ExperimentAnalysisSummaryVariationStatus,
   BanditResult,
   ExperimentAnalysisSummary,
+  ExperimentAnalysisSummaryResultsStatus,
+  GoalMetricResult,
 } from "back-end/src/validators/experiments";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { promiseAllChunks } from "back-end/src/util/promise";
@@ -147,7 +151,12 @@ import {
   runSnapshotAnalysis,
   writeSnapshotAnalyses,
 } from "./stats";
-import { getEnvironmentIdsFromOrg } from "./organizations";
+import {
+  getConfidenceLevelsForOrg,
+  getEnvironmentIdsFromOrg,
+  getMetricDefaultsForOrg,
+  getPValueThresholdForOrg,
+} from "./organizations";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -359,6 +368,7 @@ export function getDefaultExperimentAnalysisSettings(
     differenceType: "relative",
     pValueThreshold:
       organization.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
+    numGoalMetrics: experiment.goalMetrics.length,
   };
 }
 
@@ -2252,6 +2262,7 @@ export function toMetricApiInterface(
         metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0.5,
       minSampleSize:
         metric.minSampleSize ?? metricDefaults?.minimumSampleSize ?? 150,
+      targetMDE: metric.targetMDE ?? metricDefaults?.targetMDE ?? 0.1,
       riskThresholdDanger: metric.loseRisk ?? 0.0125,
       riskThresholdSuccess: metric.winRisk ?? 0.0025,
       windowSettings: metric.windowSettings
@@ -2445,6 +2456,7 @@ export function updateExperimentApiPayloadToInterface(
     trackingKey,
     project,
     owner,
+    datasourceId,
     assignmentQueryId,
     hashAttribute,
     hashVersion,
@@ -2470,6 +2482,7 @@ export function updateExperimentApiPayloadToInterface(
     ...(trackingKey ? { trackingKey } : {}),
     ...(project !== undefined ? { project } : {}),
     ...(owner !== undefined ? { owner } : {}),
+    ...(datasourceId ? { datasource: datasourceId } : {}),
     ...(assignmentQueryId ? { assignmentQueryId } : {}),
     ...(hashAttribute ? { hashAttribute } : {}),
     ...(hashVersion ? { hashVersion } : {}),
@@ -2797,6 +2810,7 @@ export async function updateExperimentAnalysisSummary({
   };
 
   const overallTraffic = experimentSnapshot.health?.traffic?.overall;
+  const snapshotHealthPower = experimentSnapshot.health?.power;
 
   const totalUsers = overallTraffic?.variationUnits?.reduce(
     (acc, a) => acc + a,
@@ -2805,12 +2819,50 @@ export async function updateExperimentAnalysisSummary({
 
   const srm = getSRMValue(experiment.type ?? "standard", experimentSnapshot);
 
-  if (overallTraffic && totalUsers && srm) {
+  if (overallTraffic && totalUsers !== undefined && srm !== undefined) {
     analysisSummary.health = {
       srm,
       multipleExposures: experimentSnapshot.multipleExposures,
       totalUsers,
     };
+
+    if (snapshotHealthPower?.type === "error") {
+      const errorMessage = snapshotHealthPower.metricVariationPowerResults.find(
+        (r) => r.errorMessage !== undefined
+      )?.errorMessage;
+
+      analysisSummary.health.power = {
+        type: "error",
+        errorMessage:
+          errorMessage ?? "An error occurred while calculating power",
+      };
+    } else if (snapshotHealthPower?.type === "success") {
+      analysisSummary.health.power = {
+        type: "success",
+        isLowPowered: snapshotHealthPower.isLowPowered,
+        additionalDaysNeeded: snapshotHealthPower.additionalDaysNeeded,
+      };
+    }
+  }
+
+  const relativeAnalysis = experimentSnapshot.analyses.find(
+    (v) => v.settings.differenceType === "relative"
+  );
+
+  if (relativeAnalysis) {
+    const overallResults = relativeAnalysis.results?.[0];
+    // redundant check for dimension
+    if (overallResults && overallResults.name === "") {
+      const resultsStatus = await computeResultsStatus({
+        context,
+        relativeAnalysis,
+        experiment,
+      });
+
+      if (resultsStatus) {
+        analysisSummary.resultsStatus = resultsStatus;
+      }
+    }
   }
 
   await updateExperiment({
@@ -2820,4 +2872,95 @@ export async function updateExperimentAnalysisSummary({
       analysisSummary,
     },
   });
+}
+
+async function computeResultsStatus({
+  context,
+  relativeAnalysis,
+  experiment,
+}: {
+  context: ReqContext;
+  relativeAnalysis: ExperimentSnapshotAnalysis;
+  experiment: ExperimentInterface;
+}): Promise<ExperimentAnalysisSummaryResultsStatus | undefined> {
+  const statsEngine = relativeAnalysis.settings.statsEngine;
+  const { ciUpper, ciLower } = getConfidenceLevelsForOrg(context);
+  const metricDefaults = getMetricDefaultsForOrg(context);
+  const pValueThreshold = getPValueThresholdForOrg(context);
+  const metricMap = await getMetricMap(context);
+
+  const variations = relativeAnalysis.results[0]?.variations;
+  if (!variations || !variations.length) {
+    return;
+  }
+
+  const variationStatuses: ExperimentAnalysisSummaryVariationStatus[] = [];
+  const baselineVariation = variations[0];
+
+  for (let i = 1; i < variations.length; i++) {
+    // try to get id from experiment object
+    const variationId = experiment.variations?.[i]?.id;
+    const currentVariation = variations[i];
+    const variationStatus: ExperimentAnalysisSummaryVariationStatus = {
+      variationId: variationId ?? i + "",
+      goalMetrics: {},
+      guardrailMetrics: {},
+    };
+    for (const m in currentVariation.metrics) {
+      const goalMetric = experiment.goalMetrics.includes(m);
+      const guardrailMetric = experiment.guardrailMetrics.includes(m);
+      if (goalMetric || guardrailMetric) {
+        const baselineMetric = baselineVariation.metrics?.[m];
+        const currentMetric = currentVariation.metrics?.[m];
+        if (!currentMetric || !baselineMetric) continue;
+
+        const metric = metricMap.get(m);
+        if (!metric) continue;
+
+        const resultsStatus = getMetricResultStatus({
+          metric,
+          metricDefaults,
+          baseline: baselineMetric,
+          stats: currentMetric,
+          ciLower,
+          ciUpper,
+          pValueThreshold,
+          statsEngine: statsEngine,
+        });
+
+        if (goalMetric) {
+          const metricStatus: GoalMetricResult = {
+            status: "neutral",
+            superStatSigStatus: "neutral",
+          };
+          if (resultsStatus.resultsStatus === "won") {
+            metricStatus.status = "won";
+          } else if (resultsStatus.resultsStatus === "lost") {
+            metricStatus.status = "lost";
+          }
+
+          if (resultsStatus.clearSignalResultsStatus === "won") {
+            metricStatus.superStatSigStatus = "won";
+          } else if (resultsStatus.resultsStatus === "lost") {
+            metricStatus.superStatSigStatus = "lost";
+          }
+          variationStatus.goalMetrics[metric.id] = metricStatus;
+        }
+
+        if (guardrailMetric) {
+          variationStatus.guardrailMetrics[metric.id] = {
+            status: resultsStatus.resultsStatus === "lost" ? "lost" : "neutral",
+          };
+        }
+      }
+    }
+    variationStatuses.push(variationStatus);
+  }
+
+  return {
+    variations: variationStatuses,
+    settings: {
+      sequentialTesting: relativeAnalysis.settings.sequentialTesting ?? false,
+    },
+  };
 }

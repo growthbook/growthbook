@@ -88,6 +88,8 @@ interface BaseSettings {
   banditScheduleUnit: "hours" | "days";
   banditBurnInValue: number;
   banditBurnInUnit: "hours" | "days";
+  experimentMinLengthDays: number;
+  experimentMaxLengthDays: number | undefined;
 }
 
 // todo: encapsulate all settings, including experiment

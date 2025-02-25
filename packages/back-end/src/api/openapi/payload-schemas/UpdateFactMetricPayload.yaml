@@ -206,6 +206,9 @@ properties:
   minSampleSize:
     type: number
     minimum: 0
+  targetMDE:
+    type: number
+    minimum: 0
   managedBy:
     type: string
     description: Set this to "api" to disable editing in the GrowthBook UI

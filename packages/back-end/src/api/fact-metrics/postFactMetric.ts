@@ -71,6 +71,7 @@ export async function getCreateMetricPropsFromBody(
     minPercentChange,
     maxPercentChange,
     minSampleSize,
+    targetMDE,
     ...otherFields
   } = body;
 
@@ -107,6 +108,8 @@ export async function getCreateMetricPropsFromBody(
       minPercentChange ||
       scopedSettings.metricDefaults.value.minPercentageChange ||
       0,
+    targetMDE:
+      targetMDE || scopedSettings.metricDefaults.value.targetMDE || 0.1,
     minSampleSize:
       minSampleSize ||
       scopedSettings.metricDefaults.value.minimumSampleSize ||

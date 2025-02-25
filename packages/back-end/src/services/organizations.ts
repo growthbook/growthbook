@@ -8,6 +8,9 @@ import {
   isAirGappedLicenseKey,
   licenseInit,
   postSubscriptionUpdateToLicenseServer,
+  getSubscriptionFromLicense,
+  SubscriptionInfo,
+  getStripeSubscriptionStatus,
 } from "enterprise";
 import {
   areProjectRolesValid,
@@ -25,6 +28,7 @@ import {
   DEFAULT_MIN_SAMPLE_SIZE,
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_PROPER_PRIOR_STDDEV,
+  DEFAULT_TARGET_MDE,
 } from "shared/constants";
 import {
   MetricCappingSettings,
@@ -191,6 +195,7 @@ export function getMetricDefaultsForOrg(context: ReqContext): MetricDefaults {
     minimumSampleSize: DEFAULT_MIN_SAMPLE_SIZE,
     maxPercentageChange: DEFAULT_MAX_PERCENT_CHANGE,
     minPercentageChange: DEFAULT_MIN_PERCENT_CHANGE,
+    targetMDE: DEFAULT_TARGET_MDE,
     windowSettings: defaultMetricWindowSettings,
     cappingSettings: defaultMetricCappingSettings,
     priorSettings: defaultMetricPriorSettings,
@@ -300,7 +305,7 @@ async function updateSubscriptionIfProLicense(
     const license = await getLicense(organization.licenseKey);
     if (
       license?.plan === "pro" &&
-      isActiveSubscriptionStatus(license?.stripeSubscription?.status)
+      isActiveSubscriptionStatus(getSubscriptionFromLicense(license)?.status)
     ) {
       // Only pro plans have a Stripe subscription that needs to get updated
       const seatsInUse = getNumberOfUniqueMembersAndInvites(organization);
@@ -1134,4 +1139,19 @@ export async function getContextForAgendaJobByOrgId(
   }
 
   return getContextForAgendaJobByOrgObject(organization);
+}
+
+export function getSubscriptionFromOrg(
+  organization: OrganizationInterface
+): SubscriptionInfo | null {
+  if (organization.subscription) {
+    return {
+      billingPlatform: "stripe",
+      externalId: organization.subscription.id,
+      trialEnd: organization.subscription.trialEnd,
+      status: getStripeSubscriptionStatus(organization.subscription.status),
+      hasPaymentMethod: !!organization.subscription.hasPaymentMethod,
+    };
+  }
+  return null;
 }
