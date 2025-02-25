@@ -55,7 +55,7 @@ export function ExperimentStatusDetailsWithDot({
         {detailedStatus}
       </Flex>
     ) : (
-      <>{detailedStatus}</>
+      <div>{detailedStatus}</div>
     );
 
   return tooltip ? <Tooltip content={tooltip}>{contents}</Tooltip> : contents;
