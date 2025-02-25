@@ -141,7 +141,7 @@ export default function FeatureRules({
                       env={selectedDropdownEnv}
                       setEnv={setEnv}
                       environments={dropdownEnvs}
-                      placeholder="Other...    "
+                      placeholder="Other..."
                       formatOptionLabel={({ value }) => (
                         <Flex align="center">
                           <Flex maxWidth="150px">
