@@ -86,7 +86,6 @@ SUM_COLS = [
     "main_covariate_sum_product",
     "denominator_pre_sum",
     "denominator_pre_sum_squares",
-    "main_denominator_sum_product",
     "main_post_denominator_pre_sum_product",
     "main_pre_denominator_post_sum_product",
     "main_pre_denominator_pre_sum_product",
