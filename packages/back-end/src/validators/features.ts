@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { statsEngines } from "back-end/src/util/constants";
 import { eventUser } from "./events";
+import { datastore } from "googleapis/build/src/apis/datastore";
+import { experimentAnalysisSettings } from "./experiments";
+import { multipleExposures } from "./experiment-warnings";
 
 export const simpleSchemaFieldValidator = z.object({
   key: z.string().max(64),
@@ -168,11 +171,38 @@ const experimentRefRule = baseRule
 
 export type ExperimentRefRule = z.infer<typeof experimentRefRule>;
 
+export const safeRolloutStatus = [
+  "running",
+  "rolled-back",
+  "released",
+] as const;
+export type SafeRolloutStatus = typeof safeRolloutStatus[number];
+
+export const safeRolloutRule = baseRule
+  .extend({
+    type: z.literal("safe-rollout"),
+    trackingKey: z.string(),
+    datasource: z.string(),
+    exposureQueryId: z.string(),
+    controlValue: z.string(),
+    variationValue: z.string(),
+    coverage: z.number(),
+    hashAttribute: z.string(),
+    seed: z.string(),
+    guardrailMetrics: z.array(z.string()),
+    status: z.enum(safeRolloutStatus),
+    maxDurationDays: z.number(),
+  })
+  .strict();
+
+export type SafeRolloutRule = z.infer<typeof safeRolloutRule>;
+
 export const featureRule = z.union([
   forceRule,
   rolloutRule,
   experimentRule,
   experimentRefRule,
+  safeRolloutRule,
 ]);
 
 export type FeatureRule = z.infer<typeof featureRule>;
@@ -282,3 +312,22 @@ const computedFeatureInterface = featureInterface
   .strict();
 
 export type ComputedFeatureInterface = z.infer<typeof computedFeatureInterface>;
+
+export const safeRolloutSnapshotInterface = z.object({
+  id: z.string(),
+  organization: z.string(),
+  safeRolloutRuleId: z.string(),
+  featureId: z.string(),
+  datasource: z.string(),
+  dimension: z.string(),
+  dateCreated: z.date(),
+  error: z.string().optional(),
+  runStarted: z.date(),
+  status: z.enum(["running", "success", "error"]),
+  settings: experimentAnalysisSettings, // Replace with SafeRolloutSnapshotSettings
+  triggeredBy: z.enum(["manual", "scheduled"]),
+  queries: z.array(z.string()), //FIXME: Replace with Queries type
+  multipleExposures: z.number(),
+  analyses: z.array(experimentSnapshotAnalyses),
+  health: z.string().optional(), // Replace with ExperimentSnapshotHealth
+});
