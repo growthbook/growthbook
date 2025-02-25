@@ -921,8 +921,8 @@ def process_experiment_results(
                         if metric_settings_bandit.covariate_metric_type == "binomial":
                             metric_settings_bandit.covariate_metric_type = "count"
                         # TODO: after we have added the functionality for ratio_ra, remove this
-                        if metric_settings_bandit.main_metric_type == "ra_ratio":
-                            metric_settings_bandit.main_metric_type = "ratio"
+                        if metric_settings_bandit.statistic_type == "ra_ratio":
+                            metric_settings_bandit.statistic_type = "ratio"
                         if (
                             metric == d.bandit_settings.decision_metric
                             and not d.analyses[0].dimension
