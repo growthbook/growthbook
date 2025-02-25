@@ -65,6 +65,8 @@ interface MetricExperimentData {
   phases: ExperimentPhaseStringDates[];
   guardrailMetrics: string[];
   goalMetrics: string[];
+  secondaryMetrics: string[];
+  datasource: string;
 }
 
 const NUM_PER_PAGE = 50;
@@ -112,6 +114,8 @@ function MetricExperimentResultTab({
         phases: e.phases,
         goalMetrics: e.goalMetrics,
         guardrailMetrics: e.guardrailMetrics,
+        secondaryMetrics: e.secondaryMetrics,
+        datasource: e.datasource,
       };
       if (!bandits && baseline && variationResults[i]) {
         const {
