@@ -55,6 +55,7 @@ import {
   getDefaultExperimentAnalysisSettings,
   isJoinableMetric,
 } from "back-end/src/services/experiments";
+import { MetricInterface } from "back-end/types/metric";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { DataSourceInterface } from "back-end/types/datasource";
@@ -340,11 +341,20 @@ export async function createReportSnapshot({
     metricGroups
   );
   const allReportMetrics = metricIds.map((m) => metricMap.get(m) || null);
+  const denominatorMetricIds = uniq<string>(
+    allReportMetrics
+      .map((m) => m?.denominator)
+      .filter((d) => d && typeof d === "string") as string[]
+  );
+  const denominatorMetrics = denominatorMetricIds
+    .map((m) => metricMap.get(m) || null)
+    .filter(isDefined) as MetricInterface[];
   const {
     settingsForSnapshotMetrics,
     regressionAdjustmentEnabled,
   } = getAllMetricSettingsForSnapshot({
     allExperimentMetrics: allReportMetrics,
+    denominatorMetrics,
     orgSettings,
     experimentRegressionAdjustmentEnabled:
       report.experimentAnalysisSettings.regressionAdjustmentEnabled,

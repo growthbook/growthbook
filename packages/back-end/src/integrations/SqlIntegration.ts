@@ -2948,7 +2948,6 @@ export default abstract class SqlIntegration
     );
     // TODO cumulativeDate in more places
   }
-
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
     const {
       metric: metricDoc,
