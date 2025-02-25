@@ -816,7 +816,6 @@ export default abstract class SqlIntegration
       to: settings.endDate ?? undefined,
       forcedBaseIdType: settings.userIdType,
     });
-
     const metricData = this.getMetricData(
       metric,
       {
@@ -1199,9 +1198,17 @@ export default abstract class SqlIntegration
       "denominator_cap_value",
       "covariate_sum",
       "covariate_sum_squares",
+      "denominator_pre_sum",
+      "denominator_pre_sum_squares",
       "main_covariate_sum_product",
       "quantile",
       "theta",
+      "main_denominator_sum_product",
+      "main_covariate_sum_product",
+      "main_post_denominator_pre_sum_product",
+      "main_pre_denominator_post_sum_product",
+      "main_pre_denominator_pre_sum_product",
+      "denominator_post_denominator_pre_sum_product",
     ];
 
     return {
@@ -1267,12 +1274,21 @@ export default abstract class SqlIntegration
             denominator_sum: parseFloat(row.denominator_sum) || 0,
             denominator_sum_squares:
               parseFloat(row.denominator_sum_squares) || 0,
+          }),
+          ...(row.main_denominator_sum_product !== undefined && {
             main_denominator_sum_product:
               parseFloat(row.main_denominator_sum_product) || 0,
           }),
           ...(row.covariate_sum !== undefined && {
             covariate_sum: parseFloat(row.covariate_sum) || 0,
             covariate_sum_squares: parseFloat(row.covariate_sum_squares) || 0,
+          }),
+          ...(row.denominator_pre_sum !== undefined && {
+            denominator_pre_sum: parseFloat(row.denominator_pre_sum) || 0,
+            denominator_pre_sum_squares:
+              parseFloat(row.denominator_pre_sum_squares) || 0,
+          }),
+          ...(row.main_covariate_sum_product !== undefined && {
             main_covariate_sum_product:
               parseFloat(row.main_covariate_sum_product) || 0,
           }),
@@ -1284,6 +1300,31 @@ export default abstract class SqlIntegration
           }),
           ...(row.theta !== undefined && {
             theta: parseFloat(row.theta) || 0,
+          }),
+          ...(row.main_covariate_sum_product !== undefined && {
+            main_covariate_sum_product:
+              parseFloat(row.main_covariate_sum_product) || 0,
+          }),
+          ...(row.main_post_denominator_pre_sum_product !== undefined && {
+            main_post_denominator_pre_sum_product:
+              parseFloat(row.main_post_denominator_pre_sum_product) || 0,
+          }),
+          ...(row.main_pre_denominator_post_sum_product !== undefined && {
+            main_pre_denominator_post_sum_product:
+              parseFloat(row.main_pre_denominator_post_sum_product) || 0,
+          }),
+          ...(row.main_pre_denominator_pre_sum_product !== undefined && {
+            main_pre_denominator_pre_sum_product:
+              parseFloat(row.main_pre_denominator_pre_sum_product) || 0,
+          }),
+          ...(row.denominator_post_denominator_pre_sum_product !==
+            undefined && {
+            denominator_post_denominator_pre_sum_product:
+              parseFloat(row.denominator_post_denominator_pre_sum_product) || 0,
+          }),
+          ...(row.main_post_denominator_pre_sum_product !== undefined && {
+            main_post_denominator_pre_sum_product:
+              parseFloat(row.main_post_denominator_pre_sum_product) || 0,
           }),
         };
       }),
@@ -1789,7 +1830,6 @@ export default abstract class SqlIntegration
       factTableMap,
       segment,
     });
-
     return this.getExperimentFactMetricsQuery({
       ...params,
       unitsSource: "otherQuery",
@@ -2238,7 +2278,6 @@ export default abstract class SqlIntegration
     // where RA is actually possible
     const regressionAdjusted =
       settings.regressionAdjustmentEnabled && isRegressionAdjusted(metric);
-
     const regressionAdjustmentHours = regressionAdjusted
       ? (metric.regressionAdjustmentDays ?? 0) * 24
       : 0;
@@ -2273,7 +2312,13 @@ export default abstract class SqlIntegration
       capValueCol: `${alias}_value_cap`,
       columnRef: isFactMetric(metric) ? metric.numerator : null,
     });
-
+    const capCoalesceDenominatorCovariate = this.capCoalesceValue({
+      valueCol: `c.${alias}_denominator`,
+      metric,
+      capTablePrefix: "cap",
+      capValueCol: `${alias}_denominator_cap`,
+      columnRef: isFactMetric(metric) ? metric.denominator : null,
+    });
     // Get rough date filter for metrics to improve performance
     const orderedMetrics = (activationMetric ? [activationMetric] : []).concat([
       metric,
@@ -2301,7 +2346,6 @@ export default abstract class SqlIntegration
       [metric],
       activationMetric
     );
-
     return {
       alias,
       id: metric.id,
@@ -2317,6 +2361,7 @@ export default abstract class SqlIntegration
       capCoalesceMetric,
       capCoalesceDenominator,
       capCoalesceCovariate,
+      capCoalesceDenominatorCovariate,
       minMetricDelay,
       raMetricSettings,
       metricStart,
@@ -2366,8 +2411,6 @@ export default abstract class SqlIntegration
     params: ExperimentFactMetricsQueryParams
   ): string {
     const { settings, segment } = params;
-
-    // clone the metrics before we mutate them
     const metrics = cloneDeep(params.metrics);
     const activationMetric = this.processActivationMetric(
       params.activationMetric,
@@ -2377,7 +2420,6 @@ export default abstract class SqlIntegration
     metrics.forEach((m) => {
       applyMetricOverrides(m, settings);
     });
-
     // Replace any placeholders in the user defined dimension SQL
     const { unitDimensions } = this.processDimensions(
       params.dimensions,
@@ -2390,19 +2432,15 @@ export default abstract class SqlIntegration
     if (!factTable) {
       throw new Error("Could not find fact table");
     }
-
     const userIdType =
       params.forcedUserIdType ??
       this.getExposureQuery(settings.exposureQueryId || "").userIdType;
-
     const metricData = metrics.map((metric, i) =>
       this.getMetricData(metric, settings, activationMetric, `m${i}`)
     );
-
     const raMetricSettings = metricData
       .filter((m) => m.regressionAdjusted)
       .map((m) => m.raMetricSettings);
-
     const maxHoursToConvert = Math.max(
       ...metricData.map((m) => m.maxHoursToConvert)
     );
@@ -2554,9 +2592,9 @@ export default abstract class SqlIntegration
             `
               : ""
           }
-          ${raMetricSettings
-            .map(
-              ({ alias, hours, minDelay }) => `
+      ${raMetricSettings
+        .map(
+          ({ alias, hours, minDelay }) => `
               , ${this.addHours(
                 "first_exposure_timestamp",
                 minDelay
@@ -2565,8 +2603,8 @@ export default abstract class SqlIntegration
                 "first_exposure_timestamp",
                 minDelay - hours
               )} AS ${alias}_preexposure_start`
-            )
-            .join("\n")}
+        )
+        .join("\n")}
         FROM ${
           params.unitsSource === "exposureTable"
             ? `${params.unitsTableFullName}`
@@ -2745,7 +2783,20 @@ export default abstract class SqlIntegration
                       `${metric.alias}_value`,
                       "NULL"
                     ),
-                  })} as ${metric.alias}_value`
+                  })} as ${metric.alias}_value
+                    ${
+                      metric.ratioMetric
+                        ? `, ${this.getAggregateMetricColumn({
+                            metric: metric.metric,
+                            useDenominator: true,
+                            valueColumn: this.ifElse(
+                              `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
+                              `${metric.alias}_denominator`,
+                              "NULL"
+                            ),
+                          })} AS ${metric.alias}_denominator`
+                        : ""
+                    }`
               )
               .join(",\n")}
           FROM
@@ -2829,33 +2880,46 @@ export default abstract class SqlIntegration
             ${
               data.ratioMetric
                 ? `,
+                ${
+                  data.isPercentileCapped
+                    ? `MAX(COALESCE(cap.${data.alias}_denominator_cap, 0)) as ${data.alias}_denominator_cap_value,`
+                    : ""
+                }
+                SUM(${data.capCoalesceDenominator}) AS 
+                  ${data.alias}_denominator_sum,
+                SUM(POWER(${data.capCoalesceDenominator}, 2)) AS 
+                  ${data.alias}_denominator_sum_squares
+                ${
+                  data.regressionAdjusted
+                    ? `, 
+                  SUM(${data.capCoalesceCovariate}) AS ${data.alias}_covariate_sum,
+                  SUM(POWER(${data.capCoalesceCovariate}, 2)) AS ${data.alias}_covariate_sum_squares,
+                  SUM(${data.capCoalesceDenominatorCovariate}) AS ${data.alias}_denominator_pre_sum,
+                  SUM(POWER(${data.capCoalesceDenominatorCovariate}, 2)) AS ${data.alias}_denominator_pre_sum_squares,              
+                  SUM(${data.capCoalesceMetric} * ${data.capCoalesceDenominator}) AS ${data.alias}_main_denominator_sum_product, 
+                  SUM(${data.capCoalesceMetric} * ${data.capCoalesceCovariate}) AS ${data.alias}_main_covariate_sum_product, 
+                  SUM(${data.capCoalesceMetric} * ${data.capCoalesceDenominatorCovariate}) AS ${data.alias}_main_post_denominator_pre_sum_product, 
+                  SUM(${data.capCoalesceCovariate} * ${data.capCoalesceDenominator}) AS ${data.alias}_main_pre_denominator_post_sum_product,
+                  SUM(${data.capCoalesceCovariate} * ${data.capCoalesceDenominatorCovariate}) AS ${data.alias}_main_pre_denominator_pre_sum_product, 
+                  SUM(${data.capCoalesceDenominator} * ${data.capCoalesceDenominatorCovariate}) AS ${data.alias}_denominator_post_denominator_pre_sum_product
+                  `
+                    : `,
+                    SUM(${data.capCoalesceDenominator} * ${data.capCoalesceMetric}) AS ${data.alias}_main_denominator_sum_product
+                  `
+                }` /*ends ifelse regressionAdjusted*/
+                : ` 
               ${
-                data.isPercentileCapped
-                  ? `MAX(COALESCE(cap.${data.alias}_denominator_cap, 0)) as ${data.alias}_denominator_cap_value,`
+                data.regressionAdjusted
+                  ? `,
+                SUM(${data.capCoalesceCovariate}) AS ${data.alias}_covariate_sum,
+                SUM(POWER(${data.capCoalesceCovariate}, 2)) AS ${data.alias}_covariate_sum_squares,
+                SUM(${data.capCoalesceMetric} * ${data.capCoalesceCovariate}) AS ${data.alias}_main_covariate_sum_product
+                `
                   : ""
               }
-              SUM(${data.capCoalesceDenominator}) AS ${
-                    data.alias
-                  }_denominator_sum,
-              SUM(POWER(${data.capCoalesceDenominator}, 2)) AS ${
-                    data.alias
-                  }_denominator_sum_squares,
-              SUM(${data.capCoalesceDenominator} * ${
-                    data.capCoalesceMetric
-                  }) AS ${data.alias}_main_denominator_sum_product
             `
-                : ""
             }
-            ${
-              data.regressionAdjusted
-                ? `,
-              SUM(${data.capCoalesceCovariate}) AS ${data.alias}_covariate_sum,
-              SUM(POWER(${data.capCoalesceCovariate}, 2)) AS ${data.alias}_covariate_sum_squares,
-              SUM(${data.capCoalesceMetric} * ${data.capCoalesceCovariate}) AS ${data.alias}_main_covariate_sum_product
-              `
-                : ""
-            }
-          `;
+          `; /*ends ifelse ratioMetric*/
         })}
       FROM
         __userMetricAgg m
@@ -2884,7 +2948,6 @@ export default abstract class SqlIntegration
     );
     // TODO cumulativeDate in more places
   }
-
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
     const {
       metric: metricDoc,

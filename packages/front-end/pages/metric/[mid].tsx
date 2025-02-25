@@ -20,6 +20,7 @@ import {
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
 import { Box, Heading } from "@radix-ui/themes";
+import { isBinomialMetric } from "shared/experiments";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import DiscussionThread from "@/components/DiscussionThread";
@@ -164,11 +165,12 @@ const MetricPage: FC = () => {
   const denominator = metric.denominator
     ? metrics.find((m) => m.id === metric.denominator)
     : undefined;
-  if (denominator && denominator.type === "count") {
+  if (denominator && !isBinomialMetric(denominator)) {
     regressionAdjustmentAvailableForMetric = false;
     regressionAdjustmentAvailableForMetricReason = (
       <>
-        Not available for ratio metrics with <em>count</em> denominators.
+        Not available for non-fact ratio metrics with{" "}
+        <em>{denominator.type}</em> denominators.
       </>
     );
   }
