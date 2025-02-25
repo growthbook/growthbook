@@ -165,7 +165,7 @@ function getStatusIndicatorData(
         status: "Running",
         detailedStatus: "Unhealthy",
         tooltip: unhealthyStatuses.join(", "),
-        important: true,
+        needsAttention: true,
       };
     }
 
@@ -185,7 +185,7 @@ function getStatusIndicatorData(
         status: "Running",
         detailedStatus: "No data",
         tooltip: "No data source configured for experiment",
-        important: true,
+        needsAttention: true,
       };
     }
 
@@ -200,7 +200,7 @@ function getStatusIndicatorData(
         status: "Running",
         detailedStatus: "No data",
         tooltip: "No metrics configured for experiment yet",
-        important: true,
+        needsAttention: true,
       };
     }
 
@@ -239,14 +239,14 @@ function getStatusIndicatorData(
           color: "green",
           status: "Stopped",
           detailedStatus: "Won",
-          important: true,
+          needsAttention: true,
         };
       case "lost":
         return {
           color: "red",
           status: "Stopped",
           detailedStatus: "Lost",
-          important: true,
+          needsAttention: true,
         };
       case "inconclusive":
         return {
@@ -265,7 +265,7 @@ function getStatusIndicatorData(
           color: "amber",
           status: "Stopped",
           detailedStatus: "Awaiting decision",
-          important: true,
+          needsAttention: true,
         };
     }
   }
@@ -288,7 +288,7 @@ function getDetailedStatusIndicatorData(
       status: "Running",
       detailedStatus: "Roll back now",
       tooltip: decisionData.tooltip,
-      important: true,
+      needsAttention: true,
     };
   }
 
@@ -298,7 +298,7 @@ function getDetailedStatusIndicatorData(
       status: "Running",
       detailedStatus: "Ship now",
       tooltip: decisionData.tooltip,
-      important: true,
+      needsAttention: true,
     };
   }
 
@@ -322,7 +322,7 @@ function getDetailedStatusIndicatorData(
       status: "Running",
       detailedStatus: "Ready for review",
       tooltip: decisionData.tooltip,
-      important: true,
+      needsAttention: true,
     };
   }
 }

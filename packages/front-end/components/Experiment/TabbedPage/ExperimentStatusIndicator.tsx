@@ -11,7 +11,7 @@ export type StatusIndicatorData = {
   color: React.ComponentProps<typeof Badge>["color"];
   status: string;
   detailedStatus?: string;
-  important?: boolean;
+  needsAttention?: boolean;
   tooltip?: string;
 };
 
@@ -38,11 +38,16 @@ export function ExperimentStatusDetailsWithDot({
 }: {
   statusIndicatorData: StatusIndicatorData;
 }) {
-  const { color, detailedStatus, important, tooltip } = statusIndicatorData;
+  const {
+    color,
+    detailedStatus,
+    needsAttention,
+    tooltip,
+  } = statusIndicatorData;
 
   if (!detailedStatus) return null;
 
-  const contents = important ? (
+  const contents = needsAttention ? (
     <Flex gap="1" align="center">
       <div
         style={{
