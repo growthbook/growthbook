@@ -42,6 +42,7 @@ const regressionAdjustmentResolver = (
         ? "disabled by metric override"
         : "experiment-level metric override applied";
     }
+    //denonimantor metric checks
     if (regressionAdjustmentEnabled) {
       if (ctx.scopes?.denominatorMetric?.type === "count") {
         regressionAdjustmentEnabled = false;
