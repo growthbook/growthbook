@@ -74,7 +74,7 @@ export function RawExperimentStatusIndicator({
   const badge = (
     <Badge
       color={color}
-      variant={"soft"}
+      variant={"solid"}
       radius="full"
       label={label}
       style={{

@@ -19,7 +19,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 
 export type StatusIndicatorData = {
-  color: "amber" | "green" | "red" | "gold" | "indigo" | "gray";
+  color: "amber" | "green" | "red" | "gold" | "indigo" | "gray" | "pink";
   status: "Running" | "Stopped" | "Draft" | "Archived";
   detailedStatus?: string;
   needsAttention?: boolean;
@@ -86,7 +86,7 @@ function getStatusIndicatorData(
 
   if (experimentData.status === "draft") {
     return {
-      color: "indigo",
+      color: "pink",
       status: "Draft",
       sortOrder: 6,
     };
