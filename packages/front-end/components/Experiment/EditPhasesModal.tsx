@@ -73,7 +73,6 @@ export default function EditPhasesModal({
       />
     );
   }
-
   return (
     <Modal
       trackingEventModalType="edit-phases-modal"
@@ -131,23 +130,22 @@ export default function EditPhasesModal({
                 >
                   Edit
                 </button>
-                {(experiment.status !== "running" || !hasLinkedChanges) && (
-                  <DeleteButton
-                    className="ml-2"
-                    displayName="phase"
-                    additionalMessage={
-                      experiment.phases.length === 1
-                        ? "This is the only phase. Deleting this will revert the experiment to a draft."
-                        : ""
-                    }
-                    onClick={async () => {
-                      await apiCall(`/experiment/${experiment.id}/phase/${i}`, {
-                        method: "DELETE",
-                      });
-                      mutateExperiment();
-                    }}
-                  />
-                )}
+                {(experiment.status !== "running" || !hasLinkedChanges) &&
+                  experiment.phases.length > 1 && (
+                    <DeleteButton
+                      className="ml-2"
+                      displayName="phase"
+                      onClick={async () => {
+                        await apiCall(
+                          `/experiment/${experiment.id}/phase/${i}`,
+                          {
+                            method: "DELETE",
+                          }
+                        );
+                        mutateExperiment();
+                      }}
+                    />
+                  )}
               </td>
             </tr>
           ))}
