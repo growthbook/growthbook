@@ -197,10 +197,17 @@ export function isFunnelMetric(
   return !!denominatorMetric && isBinomialMetric(denominatorMetric);
 }
 
-export function isRegressionAdjusted(m: ExperimentMetricInterface) {
+export function isRegressionAdjusted(
+  m: ExperimentMetricInterface,
+  denominatorMetric?: ExperimentMetricInterface
+) {
+  //case we want to flag and run unadjusted t-test
+  const ratioMetricFlag: boolean =
+    isRatioMetric(m, denominatorMetric) && !isFactMetric(m);
   return (
     (m.regressionAdjustmentDays ?? 0) > 0 &&
     !!m.regressionAdjustmentEnabled &&
+    !ratioMetricFlag &&
     !quantileMetricType(m)
   );
 }
