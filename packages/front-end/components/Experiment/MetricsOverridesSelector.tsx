@@ -147,6 +147,19 @@ export default function MetricsOverridesSelector({
                 </>
               );
             }
+            if (
+              denominator &&
+              !isFactMetric(denominator) &&
+              denominator.type === "count"
+            ) {
+              regressionAdjustmentAvailableForMetric = false;
+              regressionAdjustmentAvailableForMetricReason = (
+                <>
+                  Not available for non-fact ratio metrics where the denominator
+                  is a <em>count</em> type.
+                </>
+              );
+            }
           }
           if (
             metricDefinition &&
