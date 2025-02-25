@@ -411,6 +411,7 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
 
   return {
     newMetric,
+    denominatorMetrics,
     metricSnapshotSettings: {
       metric: newMetric.id,
       ...metricPriorSettings,
