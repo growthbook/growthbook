@@ -584,7 +584,7 @@ const ExperimentsPage = (): React.ReactElement => {
                               <SortableTH field="statusSortOrder">
                                 Status
                               </SortableTH>
-                              <td></td>
+                              <th></th>
                             </>
                           ) : needsStatusColumn || needsResultColumn ? (
                             <SortableTH field="statusSortOrder">
