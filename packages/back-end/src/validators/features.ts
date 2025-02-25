@@ -1,9 +1,7 @@
 import { z } from "zod";
 import { statsEngines } from "back-end/src/util/constants";
 import { eventUser } from "./events";
-import { datastore } from "googleapis/build/src/apis/datastore";
 import { experimentAnalysisSettings } from "./experiments";
-import { multipleExposures } from "./experiment-warnings";
 
 export const simpleSchemaFieldValidator = z.object({
   key: z.string().max(64),
@@ -313,6 +311,29 @@ const computedFeatureInterface = featureInterface
 
 export type ComputedFeatureInterface = z.infer<typeof computedFeatureInterface>;
 
+// export interface ExperimentSnapshotHealth {
+//   traffic: ExperimentSnapshotTraffic;
+// }
+
+// export interface ExperimentSnapshotTraffic {
+//   overall: ExperimentSnapshotTrafficDimension;
+//   dimension: {
+//     [dimension: string]: ExperimentSnapshotTrafficDimension[];
+//   };
+//   error?: "NO_ROWS_IN_UNIT_QUERY" | "TOO_MANY_ROWS" | string;
+// }
+// export interface ExperimentSnapshotTrafficDimension {
+//   name: string;
+//   srm: number;
+//   variationUnits: number[];
+// }
+
+const experimentSnapshotTrafficDimension = z.object({
+  name: z.string(),
+  srm: z.number(),
+  variationUnits: z.array(z.number()),
+});
+
 export const safeRolloutSnapshotInterface = z.object({
   id: z.string(),
   organization: z.string(),
@@ -329,5 +350,14 @@ export const safeRolloutSnapshotInterface = z.object({
   queries: z.array(z.string()), //FIXME: Replace with Queries type
   multipleExposures: z.number(),
   analyses: z.array(experimentSnapshotAnalyses),
-  health: z.string().optional(), // Replace with ExperimentSnapshotHealth
+  health: z.object({
+    traffic: z.object({
+      overall: experimentSnapshotTrafficDimension,
+      dimension: z.record(
+        z.string(),
+        z.array(experimentSnapshotTrafficDimension)
+      ),
+      error: z.string().optional(), // "NO_ROWS_IN_UNIT_QUERY" | "TOO_MANY_ROWS" | string
+    }),
+  }),
 });
