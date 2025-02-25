@@ -1671,6 +1671,13 @@ export async function deleteExperimentPhase(
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
+  //dont delete phase if it is the only phase
+  if (experiment.phases.length === 1) {
+    res.status(400).json({
+      status: 400,
+      message: "Cannot delete the only phase",
+    });
+  }
 
   const linkedFeatureIds = experiment.linkedFeatures || [];
 
