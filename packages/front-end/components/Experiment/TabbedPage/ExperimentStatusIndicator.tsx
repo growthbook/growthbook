@@ -2,18 +2,11 @@ import { Flex, Tooltip } from "@radix-ui/themes";
 import Badge from "@/components/Radix/Badge";
 import {
   ExperimentData,
+  StatusIndicatorData,
   useExperimentStatusIndicator,
 } from "@/hooks/useExperimentStatusIndicator";
 
 type LabelFormat = "full" | "status-only" | "detail-only";
-
-export type StatusIndicatorData = {
-  color: React.ComponentProps<typeof Badge>["color"];
-  status: string;
-  detailedStatus?: string;
-  needsAttention?: boolean;
-  tooltip?: string;
-};
 
 export default function ExperimentStatusIndicator({
   experimentData,
@@ -40,6 +33,7 @@ export function ExperimentStatusDetailsWithDot({
 }) {
   const {
     color,
+    status,
     detailedStatus,
     needsAttention,
     tooltip,
@@ -47,21 +41,22 @@ export function ExperimentStatusDetailsWithDot({
 
   if (!detailedStatus) return null;
 
-  const contents = needsAttention ? (
-    <Flex gap="1" align="center">
-      <div
-        style={{
-          width: 8,
-          height: 8,
-          borderRadius: 8,
-          backgroundColor: `var(--${color}-9)`,
-        }}
-      ></div>
-      {detailedStatus}
-    </Flex>
-  ) : (
-    <>{detailedStatus}</>
-  );
+  const contents =
+    needsAttention || status === "Stopped" ? (
+      <Flex gap="1" align="center">
+        <div
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: 8,
+            backgroundColor: `var(--${color}-9)`,
+          }}
+        ></div>
+        {detailedStatus}
+      </Flex>
+    ) : (
+      <>{detailedStatus}</>
+    );
 
   return tooltip ? <Tooltip content={tooltip}>{contents}</Tooltip> : contents;
 }

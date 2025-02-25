@@ -17,7 +17,16 @@ import {
 } from "back-end/types/experiment";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
-import { StatusIndicatorData } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+
+export type StatusIndicatorData = {
+  color: "amber" | "green" | "red" | "gold" | "indigo" | "gray";
+  status: "Running" | "Stopped" | "Draft" | "Archived";
+  detailedStatus?: string;
+  needsAttention?: boolean;
+  tooltip?: string;
+  // Most actionable status have higher numbers
+  sortOrder: number;
+};
 
 export type ExperimentData = Pick<
   ExperimentInterfaceStringDates,
@@ -71,6 +80,7 @@ function getStatusIndicatorData(
     return {
       color: "gold",
       status: "Archived",
+      sortOrder: 0,
     };
   }
 
@@ -78,6 +88,7 @@ function getStatusIndicatorData(
     return {
       color: "indigo",
       status: "Draft",
+      sortOrder: 6,
     };
   }
 
@@ -166,6 +177,7 @@ function getStatusIndicatorData(
         detailedStatus: "Unhealthy",
         tooltip: unhealthyStatuses.join(", "),
         needsAttention: true,
+        sortOrder: 9,
       };
     }
 
@@ -175,6 +187,7 @@ function getStatusIndicatorData(
         color: "indigo",
         status: "Running",
         detailedStatus: "No data",
+        sortOrder: 10,
       };
     }
 
@@ -186,6 +199,7 @@ function getStatusIndicatorData(
         detailedStatus: "No data",
         tooltip: "No data source configured for experiment",
         needsAttention: true,
+        sortOrder: 10,
       };
     }
 
@@ -201,6 +215,7 @@ function getStatusIndicatorData(
         detailedStatus: "No data",
         tooltip: "No metrics configured for experiment yet",
         needsAttention: true,
+        sortOrder: 10,
       };
     }
 
@@ -210,6 +225,7 @@ function getStatusIndicatorData(
         color: "indigo",
         status: "Running",
         tooltip: `Estimated days left or decision recommendations will appear after the minimum experiment duration of ${healthSettings.experimentMinLengthDays} is reached.`,
+        sortOrder: 7,
       };
     }
 
@@ -229,6 +245,7 @@ function getStatusIndicatorData(
     return {
       color: "indigo",
       status: "Running",
+      sortOrder: 7,
     };
   }
 
@@ -239,26 +256,28 @@ function getStatusIndicatorData(
           color: "green",
           status: "Stopped",
           detailedStatus: "Won",
-          needsAttention: true,
+          sortOrder: 4,
         };
       case "lost":
         return {
           color: "red",
           status: "Stopped",
           detailedStatus: "Lost",
-          needsAttention: true,
+          sortOrder: 3,
         };
       case "inconclusive":
         return {
           color: "gray",
           status: "Stopped",
           detailedStatus: "Inconclusive",
+          sortOrder: 2,
         };
       case "dnf":
         return {
           color: "gray",
           status: "Stopped",
           detailedStatus: "Didn't finish",
+          sortOrder: 1,
         };
       default:
         return {
@@ -266,6 +285,7 @@ function getStatusIndicatorData(
           status: "Stopped",
           detailedStatus: "Awaiting decision",
           needsAttention: true,
+          sortOrder: 5,
         };
     }
   }
@@ -289,6 +309,7 @@ function getDetailedStatusIndicatorData(
       detailedStatus: "Roll back now",
       tooltip: decisionData.tooltip,
       needsAttention: true,
+      sortOrder: 13,
     };
   }
 
@@ -299,6 +320,7 @@ function getDetailedStatusIndicatorData(
       detailedStatus: "Ship now",
       tooltip: decisionData.tooltip,
       needsAttention: true,
+      sortOrder: 12,
     };
   }
 
@@ -313,6 +335,7 @@ function getDetailedStatusIndicatorData(
       tooltip: decisionData.tooltip
         ? decisionData.tooltip
         : `The experiment needs more data to reliably detect the target minimum detectable effect for all goal metrics. At recent traffic levels, the experiment will take ~${decisionData.daysLeft} more days to collect enough data.`,
+      sortOrder: 8,
     };
   }
 
@@ -323,6 +346,7 @@ function getDetailedStatusIndicatorData(
       detailedStatus: "Ready for review",
       tooltip: decisionData.tooltip,
       needsAttention: true,
+      sortOrder: 11,
     };
   }
 }
