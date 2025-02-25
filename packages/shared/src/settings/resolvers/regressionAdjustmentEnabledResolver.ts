@@ -50,7 +50,7 @@ const regressionAdjustmentResolver = (
         !isBinomialMetric(ctx.scopes?.denominatorMetric)
       ) {
         regressionAdjustmentEnabled = false;
-        reason = `denominator is ${denominatorType}. CUPED available for ratio metrics only if based on fact tables.`;
+        reason = `denominator is ${ctx.scopes?.denominatorMetric.type}. CUPED available for ratio metrics only if based on fact tables.`;
       }
     }
 
