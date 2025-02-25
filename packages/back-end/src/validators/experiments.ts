@@ -180,13 +180,49 @@ export type ExperimentAnalysisSummaryHealth = z.infer<
   typeof experimentAnalysisSummaryHealth
 >;
 
+export const goalMetricStatus = ["won", "lost", "neutral"] as const;
+export type GoalMetricStatus = typeof goalMetricStatus[number];
+
+export const guardrailMetricStatus = ["lost", "neutral"] as const;
+export type GuardrailMetricStatus = typeof guardrailMetricStatus[number];
+
+export const goalMetricResult = z.object({
+  status: z.enum(goalMetricStatus),
+  superStatSigStatus: z.enum(goalMetricStatus),
+});
+export type GoalMetricResult = z.infer<typeof goalMetricResult>;
+
+export const experimentAnalysisSummaryVariationStatus = z.object({
+  variationId: z.string(),
+  goalMetrics: z.record(z.string(), goalMetricResult),
+  guardrailMetrics: z.record(
+    z.string(),
+    z.object({ status: z.enum(guardrailMetricStatus) })
+  ),
+});
+export type ExperimentAnalysisSummaryVariationStatus = z.infer<
+  typeof experimentAnalysisSummaryVariationStatus
+>;
+
+export const experimentAnalysisSummaryResultsStatus = z.object({
+  variations: z.array(experimentAnalysisSummaryVariationStatus),
+  settings: z.object({
+    sequentialTesting: z.boolean(),
+  }),
+});
+export type ExperimentAnalysisSummaryResultsStatus = z.infer<
+  typeof experimentAnalysisSummaryResultsStatus
+>;
+
 export const experimentAnalysisSummary = z
   .object({
     snapshotId: z.string(),
     health: experimentAnalysisSummaryHealth.optional(),
+    resultsStatus: experimentAnalysisSummaryResultsStatus.optional(),
   })
   .strict()
   .optional();
+
 export type ExperimentAnalysisSummary = z.infer<
   typeof experimentAnalysisSummary
 >;

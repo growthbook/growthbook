@@ -27,7 +27,7 @@ export function PowerCard({
   const { hasCommercialFeature } = useUser();
   const snapshotPower = snapshot.health?.power;
   const hasMidExperimentPowerFeature = hasCommercialFeature(
-    "mid-experiment-power"
+    "decision-framework"
   );
 
   const phase = experiment.phases[snapshot.phase];
@@ -140,7 +140,7 @@ export function PowerCard({
         <Flex justify="between" mb="2">
           <Flex align="center" gap="2">
             <h2 className="d-flex mb-0">Experiment Power</h2>
-            <PremiumTooltip commercialFeature="mid-experiment-power" />
+            <PremiumTooltip commercialFeature="decision-framework" />
             {hasMidExperimentPowerFeature && isLowPowered ? (
               <StatusBadge status="unhealthy" />
             ) : null}

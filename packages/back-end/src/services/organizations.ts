@@ -28,6 +28,7 @@ import {
   DEFAULT_MIN_SAMPLE_SIZE,
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_PROPER_PRIOR_STDDEV,
+  DEFAULT_TARGET_MDE,
 } from "shared/constants";
 import {
   MetricCappingSettings,
@@ -194,6 +195,7 @@ export function getMetricDefaultsForOrg(context: ReqContext): MetricDefaults {
     minimumSampleSize: DEFAULT_MIN_SAMPLE_SIZE,
     maxPercentageChange: DEFAULT_MAX_PERCENT_CHANGE,
     minPercentageChange: DEFAULT_MIN_PERCENT_CHANGE,
+    targetMDE: DEFAULT_TARGET_MDE,
     windowSettings: defaultMetricWindowSettings,
     cappingSettings: defaultMetricCappingSettings,
     priorSettings: defaultMetricPriorSettings,

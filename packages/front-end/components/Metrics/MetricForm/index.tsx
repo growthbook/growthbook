@@ -1333,8 +1333,7 @@ const MetricForm: FC<MetricFormProps> = ({
               metricDefaults.minPercentageChange * 100
             }%)`}
               />
-              {/* TODO(mid-experiment-power): Uncomment */}
-              {/* <Field
+              <Field
                 label="Target MDE"
                 type="number"
                 step="any"
@@ -1343,7 +1342,7 @@ const MetricForm: FC<MetricFormProps> = ({
                 helpText={`The percentage change that you want to reliably detect before ending your experiment. This is used to estimate the "Days Left" for running experiments. (default ${
                   metricDefaults.targetMDE * 100
                 }%)`}
-              /> */}
+              />
 
               <PremiumTooltip commercialFeature="regression-adjustment">
                 <label className="mb-1">
