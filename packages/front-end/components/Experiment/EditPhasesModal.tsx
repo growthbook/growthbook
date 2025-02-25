@@ -73,7 +73,6 @@ export default function EditPhasesModal({
       />
     );
   }
-  console.log(experiment.phases.length, "phase length");
   return (
     <Modal
       trackingEventModalType="edit-phases-modal"
