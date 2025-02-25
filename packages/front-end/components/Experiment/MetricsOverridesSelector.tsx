@@ -138,25 +138,16 @@ export default function MetricsOverridesSelector({
             const denominator = allMetricDefinitions.find(
               (m) => m.id === metricDefinition.denominator
             );
-            if (denominator && !isBinomialMetric(denominator)) {
-              regressionAdjustmentAvailableForMetric = false;
-              regressionAdjustmentAvailableForMetricReason = (
-                <>
-                  Not available for metrics where the denominator is a{" "}
-                  <em>binomial</em> type.
-                </>
-              );
-            }
             if (
               denominator &&
               !isFactMetric(denominator) &&
-              denominator.type === "count"
+              !isBinomialMetric(denominator)
             ) {
               regressionAdjustmentAvailableForMetric = false;
               regressionAdjustmentAvailableForMetricReason = (
                 <>
-                  Not available for non-fact ratio metrics where the denominator
-                  is a <em>count</em> type.
+                  Not available for metrics where the denominator is a{" "}
+                  <em>{denominator.type}</em> type.
                 </>
               );
             }

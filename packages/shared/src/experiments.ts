@@ -398,7 +398,7 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
       if (denominator && !isBinomialMetric(denominator)) {
         regressionAdjustmentEnabled = false;
         regressionAdjustmentAvailable = false;
-        regressionAdjustmentReason = `denominator is ${denominator.type}.  CUPED available for ratio metrics only if based on fact tables.`;
+        regressionAdjustmentReason = `denominator is ${denominator.type}. CUPED available for ratio metrics only if based on fact tables.`;
       }
     }
     if (metric && !isFactMetric(metric) && metric?.aggregation) {
