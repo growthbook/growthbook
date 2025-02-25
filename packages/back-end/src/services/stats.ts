@@ -379,7 +379,8 @@ export function getMetricSettingsForStatsEngine(
   const ratioMetric = isRatioMetric(metric, denominator);
   const quantileMetric = quantileMetricType(metric);
   const regressionAdjusted =
-    settings.regressionAdjustmentEnabled && isRegressionAdjusted(metric);
+    settings.regressionAdjustmentEnabled &&
+    isRegressionAdjusted(metric, denominator);
   const mainMetricType = quantileMetric
     ? "quantile"
     : isBinomialMetric(metric)

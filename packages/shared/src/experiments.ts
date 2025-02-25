@@ -201,13 +201,12 @@ export function isRegressionAdjusted(
   m: ExperimentMetricInterface,
   denominatorMetric?: ExperimentMetricInterface
 ) {
-  //case we want to flag and run unadjusted t-test
-  const ratioMetricFlag: boolean =
+  const isLegacyRatioMetric: boolean =
     isRatioMetric(m, denominatorMetric) && !isFactMetric(m);
   return (
     (m.regressionAdjustmentDays ?? 0) > 0 &&
     !!m.regressionAdjustmentEnabled &&
-    !ratioMetricFlag &&
+    !isLegacyRatioMetric &&
     !quantileMetricType(m)
   );
 }
@@ -399,7 +398,7 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
       if (denominator && !isBinomialMetric(denominator)) {
         regressionAdjustmentEnabled = false;
         regressionAdjustmentAvailable = false;
-        regressionAdjustmentReason = `denominator is ${denominator.type}`;
+        regressionAdjustmentReason = `denominator is ${denominator.type}.  CUPED available for ratio metrics only if based on fact tables.`;
       }
     }
     if (metric && !isFactMetric(metric) && metric?.aggregation) {
