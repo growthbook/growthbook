@@ -213,7 +213,7 @@ properties:
     minimum: 0
   targetMDE:
     type: number
-    description: The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.02 for 2%). This is used to estimate the "Days Left" for running experiments.
+    description: The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments.
     minimum: 0
   managedBy:
     type: string

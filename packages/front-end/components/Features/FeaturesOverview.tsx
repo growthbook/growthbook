@@ -1102,7 +1102,7 @@ export default function FeaturesOverview({
                       />
                     </Box>
                     {featureUsage && (
-                      <Box className="ml-auto" flexGrow="1">
+                      <Box className="ml-auto">
                         <FeatureUsageGraph data={featureUsage?.defaultValue} />
                       </Box>
                     )}
