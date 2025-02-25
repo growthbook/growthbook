@@ -309,7 +309,14 @@ export async function getAllOrgMemberInfoInDb() {
   }
   return await OrganizationModel.find(
     {},
-    "id invites.email members.id members.role members.projectRoles.role members.teams"
+    {
+      "invites.email": 1,
+      id: 1,
+      "members.id": 1,
+      "members.role": 1,
+      "members.projectRoles.role": 1,
+      "members.teams": 1,
+    }
   );
 }
 

@@ -121,33 +121,12 @@ export async function deleteTeam(id: string, orgId: string): Promise<void> {
   });
 }
 
-export async function getAllTeamRoleInfoInDb(): Promise<
-  {
-    id: string;
-    role: string;
-    projectRoles: { role: string }[];
-  }[]
-> {
+export async function getAllTeamRoleInfoInDb() {
   if (IS_CLOUD) {
     throw new Error("getAllTeamRoleInfoInDb() is not supported on cloud");
   }
 
-  const docs = await getCollection(COLLECTION)
-    .find(
-      {},
-      {
-        projection: {
-          id: 1,
-          role: 1,
-          "projectRoles.role": 1,
-        },
-      }
-    )
-    .toArray();
+  const docs = await getCollection(COLLECTION).find().toArray();
 
-  return docs.map((d) => ({
-    id: d.id,
-    role: d.role,
-    projectRoles: d.projectRoles,
-  }));
+  return docs.map((d) => toInterface(d));
 }

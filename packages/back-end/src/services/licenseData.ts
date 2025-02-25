@@ -20,6 +20,7 @@ import {
   getAllTeamRoleInfoInDb,
   getTeamsForOrganization,
 } from "back-end/src/models/TeamModel";
+import { TeamInterface } from "back-end/types/team";
 
 export async function getLicenseMetaData() {
   let installationId = "unknown";
@@ -81,26 +82,11 @@ function isReadOnlyRole(role: DefaultMemberRole): boolean {
 function getMemberRoles(
   orgs: OrganizationInterface[],
   memberId: string,
-  teams: Array<{ id: string; role: string; projectRoles?: { role: string }[] }>
+  teamIdToTeamMap: {
+    [key: string]: TeamInterface;
+  }
 ) {
   const roles: string[] = [];
-
-  const teamIdToTeamMap = teams.reduce(
-    (
-      acc: {
-        [key: string]: {
-          id: string;
-          role: string;
-          projectRoles?: { role: string }[];
-        };
-      },
-      team
-    ) => {
-      acc[team.id] = team;
-      return acc;
-    },
-    {}
-  );
 
   orgs.forEach((org) => {
     const member = org.members.find((m) => m.id === memberId);
@@ -142,11 +128,7 @@ export async function getUserCodesForOrg(
 
   let organizations: OrganizationInterface[] = [];
   let users: { id: string; email: string }[] = [];
-  let teams: {
-    id: string;
-    role: string;
-    projectRoles?: { role: string }[];
-  }[] = [];
+  let teams: TeamInterface[] = [];
 
   if (IS_CLOUD) {
     organizations = [org];
@@ -168,8 +150,21 @@ export async function getUserCodesForOrg(
     {}
   );
 
+  const teamIdToTeamMap = teams.reduce(
+    (
+      acc: {
+        [key: string]: TeamInterface;
+      },
+      team
+    ) => {
+      acc[team.id] = team;
+      return acc;
+    },
+    {}
+  );
+
   for (const userId of Object.keys(userIdsToEmailHash)) {
-    const roles = getMemberRoles(organizations, userId, teams);
+    const roles = getMemberRoles(organizations, userId, teamIdToTeamMap);
     const isReadOnly = roles.every(isReadOnlyRole);
     const emailHash = userIdsToEmailHash[userId];
 
