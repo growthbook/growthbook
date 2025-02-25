@@ -98,6 +98,7 @@ export interface MetricSettingsForStatsEngine {
   statistic_type:
     | "mean"
     | "ratio"
+    | "ratio_ra"
     | "mean_ra"
     | "quantile_event"
     | "quantile_unit";
@@ -399,7 +400,9 @@ export function getMetricSettingsForStatsEngine(
         ? "quantile_unit"
         : quantileMetric === "event"
         ? "quantile_event"
-        : ratioMetric
+        : ratioMetric && regressionAdjusted
+        ? "ratio_ra"
+        : ratioMetric && !regressionAdjusted
         ? "ratio"
         : regressionAdjusted
         ? "mean_ra"

@@ -4,7 +4,9 @@ from pydantic.dataclasses import dataclass
 # Types
 DifferenceType = Literal["relative", "absolute", "scaled"]
 StatsEngine = Literal["bayesian", "frequentist"]
-StatisticType = Literal["ratio", "mean", "mean_ra", "quantile_event", "quantile_unit"]
+StatisticType = Literal[
+    "ratio", "ratio_ra", "mean", "mean_ra", "quantile_event", "quantile_unit"
+]
 MetricType = Literal["binomial", "count", "quantile"]
 BusinessMetricType = Literal["goal", "guardrail", "secondary"]
 

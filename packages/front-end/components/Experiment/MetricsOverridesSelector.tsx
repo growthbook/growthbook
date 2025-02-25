@@ -12,7 +12,6 @@ import {
   getDelayWindowHours,
   isBinomialMetric,
   isFactMetric,
-  isRatioMetric,
   isRetentionMetric,
 } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -135,26 +134,20 @@ export default function MetricsOverridesSelector({
           );
           let regressionAdjustmentAvailableForMetric = true;
           let regressionAdjustmentAvailableForMetricReason = <></>;
-          if (
-            metricDefinition &&
-            isFactMetric(metricDefinition) &&
-            isRatioMetric(metricDefinition)
-          ) {
-            regressionAdjustmentAvailableForMetric = false;
-            regressionAdjustmentAvailableForMetricReason = (
-              <>Not available for ratio metrics.</>
-            );
-          }
           if (metricDefinition?.denominator) {
             const denominator = allMetricDefinitions.find(
               (m) => m.id === metricDefinition.denominator
             );
-            if (denominator && !isBinomialMetric(denominator)) {
+            if (
+              denominator &&
+              !isFactMetric(denominator) &&
+              !isBinomialMetric(denominator)
+            ) {
               regressionAdjustmentAvailableForMetric = false;
               regressionAdjustmentAvailableForMetricReason = (
                 <>
                   Not available for metrics where the denominator is a{" "}
-                  <em>binomial</em> type.
+                  <em>{denominator.type}</em> type.
                 </>
               );
             }
