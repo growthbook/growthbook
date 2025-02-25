@@ -104,6 +104,10 @@ function getStatusIndicatorData(
       daysBetween(lastPhase.dateStarted, new Date()) <
         healthSettings.experimentMinLengthDays;
 
+    const withinFirstDay = lastPhase?.dateStarted
+      ? daysBetween(lastPhase.dateStarted, new Date()) < 1
+      : false;
+
     const isLowPowered =
       healthSummary?.power?.type === "success"
         ? healthSummary.power.isLowPowered
@@ -182,11 +186,12 @@ function getStatusIndicatorData(
     }
 
     // 2. Show no data if no data is present
-    if (healthSummary?.totalUsers === 0) {
+    if (healthSummary?.totalUsers === 0 && !withinFirstDay) {
       return {
-        color: "indigo",
+        color: "amber",
         status: "Running",
         detailedStatus: "No data",
+        needsAttention: true,
         sortOrder: 10,
       };
     }
@@ -264,6 +269,7 @@ function getStatusIndicatorData(
           status: "Stopped",
           detailedStatus: "Lost",
           sortOrder: 3,
+          tooltip: "There are no real losers in A/B testing, only learnings.",
         };
       case "inconclusive":
         return {
@@ -326,6 +332,10 @@ function getDetailedStatusIndicatorData(
 
   if (decisionData.status === "days-left") {
     const cappedPowerAdditionalDaysNeeded = Math.min(decisionData.daysLeft, 90);
+
+    // Fewer days left = higher sortOrder
+    const sortOrderDecimal = 1 - cappedPowerAdditionalDaysNeeded / 90;
+
     return {
       color: "indigo",
       status: "Running",
@@ -335,7 +345,7 @@ function getDetailedStatusIndicatorData(
       tooltip: decisionData.tooltip
         ? decisionData.tooltip
         : `The experiment needs more data to reliably detect the target minimum detectable effect for all goal metrics. At recent traffic levels, the experiment will take ~${decisionData.daysLeft} more days to collect enough data.`,
-      sortOrder: 8,
+      sortOrder: 8 + sortOrderDecimal,
     };
   }
 
