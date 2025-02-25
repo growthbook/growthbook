@@ -181,9 +181,6 @@ export default function FeatureUsageGraph({
       )}
       {showLabel && (
         <div className="d-flex text-secondary">
-          <div>
-            <small></small>
-          </div>
           <div className="ml-auto">
             <small>
               used <strong>{formatter.format(data?.total || 0)}</strong> times
