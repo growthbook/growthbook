@@ -267,6 +267,21 @@ const experimentSchema = new mongoose.Schema({
         additionalDaysNeeded: Number,
       },
     },
+    resultsStatus: {
+      _id: false,
+      settings: {
+        _id: false,
+        sequentialTesting: Boolean,
+      },
+      variations: [
+        {
+          _id: false,
+          variationId: String,
+          goalMetrics: {},
+          guardrailMetrics: {},
+        },
+      ],
+    },
   },
   dismissedWarnings: [String],
 });

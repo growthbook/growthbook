@@ -1,5 +1,9 @@
 # Changelog
 
+## **1.4.1** - Feb 20, 2025
+
+- In `auto.min.js`, enable dev mode by default. Without this, the GrowthBook DevTools Chrome extension will only partially work.
+
 ## **1.4.0** - Feb 19, 2025
 
 - Fixed edge case with pre-requisites that caused some feature rules to be skipped

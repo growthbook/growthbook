@@ -138,9 +138,8 @@ export default function MetricsSettings() {
             </div>
             {/* endregion Minimum Percentage Change */}
 
-            {/* TODO(mid-experiment-power): Uncomment */}
             {/* region Target MDE */}
-            {/* <div>
+            <div>
               <div className="form-inline">
                 <Field
                   label="Target Minimum Detectable Effect"
@@ -166,8 +165,8 @@ export default function MetricsSettings() {
                   an experiment.
                 </small>
               </p>
-            </div> */}
-            {/* endregion Minimum Percentage Change */}
+            </div>
+            {/* endregion Target MDE */}
           </Box>
           {/* endregion Metrics Behavior Defaults */}
           <>

@@ -1466,7 +1466,7 @@ export default function FactMetricModal({
   let regressionAdjustmentAvailableForMetric = true;
   let regressionAdjustmentAvailableForMetricReason = <></>;
 
-  if (["ratio", "quantile"].includes(type)) {
+  if (type === "quantile") {
     regressionAdjustmentAvailableForMetric = false;
     regressionAdjustmentAvailableForMetricReason = (
       <>{`Not available for ${type} metrics.`}</>
@@ -2337,8 +2337,7 @@ export default function FactMetricModal({
                     </TabsContent>
 
                     <TabsContent value="display">
-                      {/* TODO(mid-experiment-power): Uncomment */}
-                      {/* <Field
+                      <Field
                         label="Target MDE"
                         type="number"
                         step="any"
@@ -2349,7 +2348,7 @@ export default function FactMetricModal({
                         helpText={`The percentage change that you want to reliably detect before ending your experiment. This is used to estimate the "Days Left" for running experiments. (default ${
                           metricDefaults.targetMDE * 100
                         }%)`}
-                      /> */}
+                      />
 
                       <div className="form-group">
                         <label>{`Minimum ${

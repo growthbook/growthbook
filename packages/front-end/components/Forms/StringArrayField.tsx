@@ -54,6 +54,7 @@ export default function StringArrayField({
             components={components}
             inputValue={inputValue}
             isClearable
+            classNamePrefix="gb-select"
             isMulti
             menuIsOpen={false}
             autoFocus={autoFocus}
