@@ -7,4 +7,7 @@ export interface SnowflakeConnectionParams {
   schema: string;
   role?: string;
   warehouse?: string;
+  authMethod?: "password" | "key-pair";
+  privateKey?: string;
+  privateKeyPassword?: string;
 }
