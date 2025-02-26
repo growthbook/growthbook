@@ -311,7 +311,8 @@ export default function UpgradeModal({
     "metric-populations": "Segment users using metric insights",
     "multi-armed-bandits": "Run adaptive experiments with Bandits",
     "historical-power": "Leverage historical data for power analysis",
-    "mid-experiment-power": "Assess mid-experiment power for quick adjustments",
+    "decision-framework":
+      "Estimate experiment duration using your data & get shipping recommendations.",
   };
 
   const upgradeHeader = (
