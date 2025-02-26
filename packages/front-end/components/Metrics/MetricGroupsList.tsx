@@ -59,6 +59,7 @@ const MetricGroupsList: FC = () => {
           commercialFeature="metric-groups"
           reason="No Access Metric Groups"
           learnMoreLink="https://docs.growthbook.io/app/metrics#metric-groups"
+          image="/images/empty-states/metric_groups.png"
         />
       </div>
     );
@@ -79,6 +80,14 @@ const MetricGroupsList: FC = () => {
         </p>
         <div className="mt-3">
           <Button onClick={() => setOpenModal(true)}>Add Metric Group</Button>
+        </div>
+
+        <div className="mt-4">
+          <img
+            src="/images/empty-states/metric_groups.png"
+            alt="Metric Groups"
+            style={{ width: "100%", maxWidth: "740px", height: "auto" }}
+          />
         </div>
       </div>
     );
