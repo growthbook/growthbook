@@ -128,29 +128,34 @@ export default function AccountPlanNotices() {
             </Tooltip>
           );
         case "License expired":
-          return (
-            <Tooltip
-              body={
-                license.plan === "enterprise" ? (
-                  <>
-                    Your license expired on{" "}
-                    <strong>{date(license.dateExpires || "")}</strong>. Contact
-                    sales@growthbook.io to renew.
-                  </>
-                ) : (
-                  <>
-                    Your license expired on{" "}
-                    <strong>{date(license.dateExpires || "")}</strong>. Go to
-                    your settings &gt; billing page to renew.
-                  </>
-                )
-              }
-            >
-              <div className="alert alert-danger py-1 px-2 d-none d-md-block mb-0 mr-1">
-                <FaExclamationTriangle /> license expired
-              </div>
-            </Tooltip>
-          );
+          // if the license expired more than 30 days ago, we don't show the notice
+          if (daysLeft(license.dateExpires || "") < -30) {
+            return null;
+          } else {
+            return (
+              <Tooltip
+                body={
+                  license.plan === "enterprise" ? (
+                    <>
+                      Your license expired on{" "}
+                      <strong>{date(license.dateExpires || "")}</strong>.
+                      Contact sales@growthbook.io to renew.
+                    </>
+                  ) : (
+                    <>
+                      Your license expired on{" "}
+                      <strong>{date(license.dateExpires || "")}</strong>. Go to
+                      your settings &gt; billing page to renew.
+                    </>
+                  )
+                }
+              >
+                <div className="alert alert-danger py-1 px-2 d-none d-md-block mb-0 mr-1">
+                  <FaExclamationTriangle /> license expired
+                </div>
+              </Tooltip>
+            );
+          }
         case "Email not verified":
           return (
             <Tooltip
