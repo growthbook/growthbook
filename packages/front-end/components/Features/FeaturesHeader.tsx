@@ -390,7 +390,7 @@ export default function FeaturesHeader({
           cta={"Duplicate"}
           close={() => setDuplicateModal(false)}
           onSuccess={async (feature) => {
-            const url = `/features/${feature.id}`;
+            const url = `/features/${feature.id}?new`;
             await router.push(url);
           }}
           featureToDuplicate={feature}
