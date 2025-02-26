@@ -1203,8 +1203,6 @@ export default abstract class SqlIntegration
       "main_covariate_sum_product",
       "quantile",
       "theta",
-      "main_denominator_sum_product",
-      "main_covariate_sum_product",
       "main_post_denominator_pre_sum_product",
       "main_pre_denominator_post_sum_product",
       "main_pre_denominator_pre_sum_product",
@@ -3022,7 +3020,9 @@ export default abstract class SqlIntegration
     // where RA is actually possible
     const regressionAdjusted =
       settings.regressionAdjustmentEnabled &&
-      isRegressionAdjusted(metric, denominator);
+      isRegressionAdjusted(metric, denominator) &&
+      // and block RA for experiment metric query only, only works for optimized queries
+      !isRatioMetric(metric, denominator);
 
     const regressionAdjustmentHours = regressionAdjusted
       ? (metric.regressionAdjustmentDays ?? 0) * 24
