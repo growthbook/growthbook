@@ -3021,7 +3021,7 @@ export default abstract class SqlIntegration
     const regressionAdjusted =
       settings.regressionAdjustmentEnabled &&
       isRegressionAdjusted(metric, denominator) &&
-      // and block RA for cuped for experiment metric query only, only works for optimized queries
+      // and block RA for experiment metric query only, only works for optimized queries
       !isRatioMetric(metric, denominator);
 
     const regressionAdjustmentHours = regressionAdjusted
