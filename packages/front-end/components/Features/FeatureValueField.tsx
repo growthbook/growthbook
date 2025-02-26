@@ -22,7 +22,7 @@ import RadioGroup from "@/components/Radix/RadioGroup";
 
 export interface Props {
   valueType?: FeatureValueType;
-  label?: string;
+  label?: string | ReactNode;
   value: string;
   setValue: (v: string) => void;
   id: string;
@@ -340,7 +340,7 @@ function SimpleSchemaEditor({
   value: string;
   setValue: (value: string) => void;
   renderInline?: boolean;
-  label?: string;
+  label?: string | ReactNode;
   placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -493,7 +493,7 @@ function JSONTextEditor({
   helpText,
   placeholder,
 }: {
-  label?: string;
+  label?: string | ReactNode;
   editAsForm?: () => void;
   value: string;
   setValue: (value: string) => void;
@@ -576,7 +576,7 @@ function SimpleSchemaObjectArrayEditor({
   value: string;
   setValue: (value: string) => void;
   fields: SchemaField[];
-  label?: string;
+  label?: string | ReactNode;
   placeholder?: string;
 }) {
   let valueParsed: unknown;

@@ -645,7 +645,7 @@ export default function FeaturesOverview({
               The default value and rules will be ignored.
             </div>
             {prerequisites.length > 0 ? (
-              <table className="table border bg-white mb-2 w-100">
+              <table className="table border mb-2 w-100">
                 <thead>
                   <tr className="bg-light">
                     <th

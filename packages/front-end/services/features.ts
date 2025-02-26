@@ -1055,10 +1055,15 @@ export function condToJson(
     } else if (operator === "$notEmpty") {
       obj[field]["$size"] = { $gt: 0 };
     } else if (operator === "$in" || operator === "$nin") {
-      obj[field][operator] = value
-        .split(",")
-        .map((x) => x.trim())
-        .map((x) => parseValue(x, attributes.get(field)?.datatype));
+      // Allow for the empty list
+      if (value === "") {
+        obj[field][operator] = [];
+      } else {
+        obj[field][operator] = value
+          .split(",")
+          .map((x) => x.trim())
+          .map((x) => parseValue(x, attributes.get(field)?.datatype));
+      }
     } else if (operator === "$inGroup" || operator === "$notInGroup") {
       obj[field][operator] = value;
     } else {
