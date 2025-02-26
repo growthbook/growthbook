@@ -433,7 +433,7 @@ export function getVariationColor(i: number, experimentTheme = false) {
       ]
     : [
         /* This should match the variant colors defined in _colors.scss */
-        "var(--blue-10)",
+        "var(--blue-8)",
         "var(--teal-10)",
         "var(--orange-10)",
         "var(--pink-10)",
