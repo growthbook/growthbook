@@ -106,6 +106,7 @@ export async function openVisualEditor(
     source: "visual-editor-ui",
     status: "success",
   });
+  window.location.href = url;
   return null;
 }
 
