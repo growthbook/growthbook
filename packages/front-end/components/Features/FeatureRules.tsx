@@ -124,7 +124,6 @@ export default function FeatureRules({
                 ))}
                 <Flex
                   px="1"
-                  height="100%"
                   direction="column"
                   justify="center"
                   align="center"
@@ -151,6 +150,7 @@ export default function FeatureRules({
                           </Flex>
                           <Badge
                             ml="2"
+                            mr="3"
                             label={rulesByEnv[value].length.toString()}
                             radius="full"
                             variant="solid"
