@@ -98,6 +98,7 @@ export interface MetricSettingsForStatsEngine {
   statistic_type:
     | "mean"
     | "ratio"
+    | "ratio_ra"
     | "mean_ra"
     | "quantile_event"
     | "quantile_unit";
@@ -360,7 +361,8 @@ function getBusinessMetricTypeForStatsEngine(
 export function getMetricSettingsForStatsEngine(
   metricDoc: ExperimentMetricInterface,
   metricMap: Map<string, ExperimentMetricInterface>,
-  settings: ExperimentSnapshotSettings
+  settings: ExperimentSnapshotSettings,
+  optimizedFactMetric: boolean = false
 ): MetricSettingsForStatsEngine {
   const metric = cloneDeep<ExperimentMetricInterface>(metricDoc);
   applyMetricOverrides(metric, settings);
@@ -379,7 +381,9 @@ export function getMetricSettingsForStatsEngine(
   const quantileMetric = quantileMetricType(metric);
   const regressionAdjusted =
     settings.regressionAdjustmentEnabled &&
-    isRegressionAdjusted(metric, denominator);
+    isRegressionAdjusted(metric, denominator) &&
+    // block RA for ratio metrics from non-optimized fact metrics
+    (!isRatioMetric(metric, denominator) || optimizedFactMetric);
   const mainMetricType = quantileMetric
     ? "quantile"
     : isBinomialMetric(metric)
@@ -399,7 +403,9 @@ export function getMetricSettingsForStatsEngine(
         ? "quantile_unit"
         : quantileMetric === "event"
         ? "quantile_event"
-        : ratioMetric
+        : ratioMetric && regressionAdjusted
+        ? "ratio_ra"
+        : ratioMetric && !regressionAdjusted
         ? "ratio"
         : regressionAdjusted
         ? "mean_ra"
@@ -499,7 +505,8 @@ export function getMetricsAndQueryDataForStatsEngine(
             metricSettings[metricId] = getMetricSettingsForStatsEngine(
               metric,
               metricMap,
-              settings
+              settings,
+              true
             );
           } else {
             metricIds.push(null);
@@ -519,7 +526,8 @@ export function getMetricsAndQueryDataForStatsEngine(
       metricSettings[key] = getMetricSettingsForStatsEngine(
         metric,
         metricMap,
-        settings
+        settings,
+        false
       );
       queryResults.push({
         metrics: [key],

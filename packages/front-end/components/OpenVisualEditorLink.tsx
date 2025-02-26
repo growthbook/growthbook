@@ -65,7 +65,7 @@ export async function openVisualEditor(
 
     try {
       const res = await fetch(
-        "chrome-extension://opemhndcehfgipokneipaafbglcecjia/js/logo192.png",
+        "chrome-extension://opemhndcehfgipokneipaafbglcecjia/js/logo128.png",
         { method: "HEAD" }
       );
       if (!res.ok) {

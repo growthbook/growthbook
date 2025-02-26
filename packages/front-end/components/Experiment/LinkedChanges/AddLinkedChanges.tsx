@@ -117,12 +117,14 @@ const AddLinkedChangeRow = ({
               <div className="btn btn-link p-0 disabled">{cta}</div>
             </PremiumTooltip>
           ) : (
-            <Tooltip
-              body={`The SDKs in this project don't support ${header}. Upgrade your SDK(s) or add a supported SDK.`}
-              tipPosition="top"
-            >
-              <div className="btn btn-link disabled p-0">{cta}</div>
-            </Tooltip>
+            <div>
+              <Tooltip
+                body={`The SDKs in this project don't support ${header}. Upgrade your SDK(s) or add a supported SDK.`}
+                tipPosition="top"
+              >
+                <div className="btn btn-link disabled p-0">{cta}</div>
+              </Tooltip>
+            </div>
           )}
         </div>
         <p className="mt-2 mb-1">{description}</p>

@@ -13,6 +13,7 @@ interface Props {
   learnMoreLink?: string;
   commercialFeature: CommercialFeature;
   reason: string;
+  image?: string;
 }
 
 const PremiumEmptyState: FC<Props> = ({
@@ -22,6 +23,7 @@ const PremiumEmptyState: FC<Props> = ({
   learnMoreLink,
   commercialFeature,
   reason,
+  image,
 }) => {
   const [upgradeModal, setUpgradeModal] = useState(false);
   const { hasCommercialFeature, commercialFeatureLowestPlan } = useUser();
@@ -75,6 +77,15 @@ const PremiumEmptyState: FC<Props> = ({
                     : "access"}
                 </Button>
               </div>
+              {image && (
+                <div className="mt-4">
+                  <img
+                    src={image}
+                    alt={title}
+                    style={{ width: "100%", maxWidth: "740px", height: "auto" }}
+                  />
+                </div>
+              )}
             </div>
           </div>
           {upgradeModal && (
