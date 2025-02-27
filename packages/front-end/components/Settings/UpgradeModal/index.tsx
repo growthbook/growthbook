@@ -633,7 +633,11 @@ export default function UpgradeModal({
                   )}
                 </>
               ) : null}
-              {featureFlagValue === "OFF" ? (
+              {featureFlagValue === "UPGRADE-ONLY" ? (
+                upgradeOnlyTreatment()
+              ) : featureFlagValue === "TRIAL-AND-UPGRADE" ? (
+                trialAndUpgradeTreatment()
+              ) : (
                 <div className="row">
                   <div
                     className={clsx(
@@ -769,10 +773,6 @@ export default function UpgradeModal({
                     </div>
                   </div>
                 </div>
-              ) : featureFlagValue === "TRIAL-AND-UPGRADE" ? (
-                trialAndUpgradeTreatment()
-              ) : (
-                upgradeOnlyTreatment()
               )}
             </div>
           )}
