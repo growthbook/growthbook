@@ -1,5 +1,5 @@
 import { FeatureInterface } from "back-end/types/feature";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
   FeatureRevisionInterface,
@@ -82,19 +82,8 @@ export default function FeatureRules({
     })
   );
 
-  const [tabEnvs, dropdownEnvs] = useMemo(() => {
-    const tabEnvs: Environment[] = [];
-    const dropdownEnvs: Environment[] = [];
-    environments.forEach((env) => {
-      if (env.toggleOnList) {
-        tabEnvs.push(env);
-      } else {
-        dropdownEnvs.push(env);
-      }
-    });
-    return [tabEnvs, dropdownEnvs];
-  }, [environments]);
-
+  const tabEnvs = environments.slice(0, 4);
+  const dropdownEnvs = environments.slice(4);
   const selectedDropdownEnv = dropdownEnvs.find((e) => e.id === env)?.id;
 
   return (
@@ -122,45 +111,61 @@ export default function FeatureRules({
                     ></Badge>
                   </TabsTrigger>
                 ))}
-                <Flex
-                  px="1"
-                  direction="column"
-                  justify="center"
-                  align="center"
-                  className={clsx("tab-trigger-container", {
-                    active: !!selectedDropdownEnv,
-                  })}
-                >
-                  <Container
-                    flexGrow="0"
-                    minWidth={selectedDropdownEnv ? undefined : "100px"}
+                {dropdownEnvs.length === 1 && (
+                  <TabsTrigger value={dropdownEnvs[0].id}>
+                    <Flex maxWidth="220px">
+                      <Text truncate>{dropdownEnvs[0].id}</Text>
+                    </Flex>
+                    <Badge
+                      ml="2"
+                      label={rulesByEnv[dropdownEnvs[0].id].length.toString()}
+                      radius="full"
+                      variant="solid"
+                      color="violet"
+                    ></Badge>
+                  </TabsTrigger>
+                )}
+                {dropdownEnvs.length > 1 && (
+                  <Flex
+                    px="1"
+                    direction="column"
+                    justify="center"
+                    align="center"
+                    className={clsx("tab-trigger-container", {
+                      active: !!selectedDropdownEnv,
+                    })}
                   >
-                    <EnvironmentDropdown
-                      containerClassName={"select-dropdown-no-underline"}
-                      env={selectedDropdownEnv}
-                      setEnv={setEnv}
-                      environments={dropdownEnvs}
-                      placeholder="Other..."
-                      formatOptionLabel={({ value }) => (
-                        <Flex align="center">
-                          <Flex maxWidth="150px">
-                            <Text weight="medium" truncate>
-                              {value}
-                            </Text>
+                    <Container
+                      flexGrow="0"
+                      minWidth={selectedDropdownEnv ? undefined : "100px"}
+                    >
+                      <EnvironmentDropdown
+                        containerClassName={"select-dropdown-no-underline"}
+                        env={selectedDropdownEnv}
+                        setEnv={setEnv}
+                        environments={dropdownEnvs}
+                        placeholder="Other..."
+                        formatOptionLabel={({ value }) => (
+                          <Flex align="center">
+                            <Flex maxWidth="150px">
+                              <Text weight="medium" truncate>
+                                {value}
+                              </Text>
+                            </Flex>
+                            <Badge
+                              ml="2"
+                              mr="3"
+                              label={rulesByEnv[value].length.toString()}
+                              radius="full"
+                              variant="solid"
+                              color="violet"
+                            ></Badge>
                           </Flex>
-                          <Badge
-                            ml="2"
-                            mr="3"
-                            label={rulesByEnv[value].length.toString()}
-                            radius="full"
-                            variant="solid"
-                            color="violet"
-                          ></Badge>
-                        </Flex>
-                      )}
-                    />
-                  </Container>
-                </Flex>
+                        )}
+                      />
+                    </Container>
+                  </Flex>
+                )}
               </Flex>
             </TabsList>
             <Link
