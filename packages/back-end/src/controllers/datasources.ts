@@ -52,7 +52,6 @@ import {
   SourceIntegrationInterface,
 } from "back-end/src/types/Integration";
 import { createClickhouseUser } from "back-end/src/services/clickhouse";
-import { SnowflakeConnectionParams } from "back-end/types/integrations/snowflake";
 
 export async function deleteDataSource(
   req: AuthRequest<null, { id: string }>,
@@ -514,35 +513,6 @@ export async function putDataSource(
     if (params) {
       const integration = getSourceIntegrationObject(context, datasource);
       mergeParams(integration, params);
-
-      // TODO: Should the validation be done here or somewhere else?
-      if (type === "snowflake") {
-        // Use a new variable just to cast the params to the correct type
-        const integrationParams = integration.params as SnowflakeConnectionParams;
-        switch (integrationParams.authMethod) {
-          case "key-pair":
-            if (!integrationParams.privateKey) {
-              throw new Error("Need to specify a private key.");
-            }
-
-            // Ensure we only have one auth method saved
-            integration.params.password = "";
-            break;
-
-          // Default to password if no auth method is explicitly specified
-          case "password":
-          default:
-            if (!integrationParams.password) {
-              throw new Error("Need to specify a password.");
-            }
-
-            // Ensure we only have one auth method saved
-            integration.params.privateKey = "";
-            integration.params.privateKeyPassword = "";
-            break;
-        }
-      }
-
       await integration.testConnection();
       updates.params = encryptParams(integration.params);
     }

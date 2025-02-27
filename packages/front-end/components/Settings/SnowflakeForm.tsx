@@ -2,7 +2,8 @@ import { FC, ChangeEventHandler, useState } from "react";
 import { SnowflakeConnectionParams } from "back-end/types/integrations/snowflake";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Toggle from "@/components/Forms/Toggle";
-import { GBInfo } from "../Icons";
+import { GBInfo } from "@/components/Icons";
+import FileInput from "@/components/FileInput";
 
 const SnowflakeForm: FC<{
   params: Partial<SnowflakeConnectionParams>;
@@ -79,10 +80,7 @@ const SnowflakeForm: FC<{
         <>
           <div className="form-group col-md-12">
             <label>Private Key File</label>
-            <input
-              type="file"
-              className="form-control"
-              autoComplete="off"
+            <FileInput
               name="privateKey"
               required={!existing || authMethod !== originalAuthMethod}
               onChange={(e) => {
@@ -98,7 +96,7 @@ const SnowflakeForm: FC<{
               placeholder={
                 existing && authMethod === originalAuthMethod
                   ? "(Keep existing)"
-                  : ""
+                  : "Select a private key file"
               }
             />
           </div>
