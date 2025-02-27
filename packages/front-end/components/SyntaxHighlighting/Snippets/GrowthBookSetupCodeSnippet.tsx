@@ -241,7 +241,7 @@ app.use((req, res, next) => {
     }
   }
   
-  req.growthbook = client.getScopedInstance(userContext);
+  req.growthbook = client.createScopedInstance(userContext);
 });
           `.trim()}
           />
