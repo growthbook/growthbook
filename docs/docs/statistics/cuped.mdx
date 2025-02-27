@@ -71,7 +71,7 @@ Why use a shorter lookback window?
 
 CUPED works for all metrics except for:
 
-- Ratio metrics that are not [Fact Metrics](/app/metrics#fact-tables) and where the denominator is a count, revenue, or duration metric
+- Legacy ratio metrics, or non query-optimized ratio [Fact Metrics](/app/metrics#fact-tables)
 - Ratio metrics that are the goal metric for a [Bandit](/bandits/overview)
 - Quantile metrics
 - Metrics with custom user value aggregations
@@ -115,16 +115,4 @@ So even if CUPED is toggled on, we will always show you any metrics for which Gr
 
 <MaxWidthImage maxWidth={800}>
   ![Experiment Results with CUPED toggle](/images/statistics/cuped-results-ratio.png)
-</MaxWidthImage>
-
-Furthermore, if you mouse over the icon showing CUPED wasn't applied, you will get an explanation why.
-
-<MaxWidthImage maxWidth={300} border>
-  ![Metric Icon showing CUPED Disabled Reason](/images/statistics/cuped-icon-ratio.png)
-</MaxWidthImage>
-
-If you mouse over the metric name itself, you get the final CUPED status for each metric (on/off, number of lookback days).
-
-<MaxWidthImage maxWidth={300} border>
-  ![Metric Tooltip with CUPED status](/images/statistics/cuped-tooltip-ratio.png)
 </MaxWidthImage>

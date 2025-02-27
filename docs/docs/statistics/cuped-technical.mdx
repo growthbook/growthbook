@@ -9,9 +9,9 @@ slug: cuped-technical
 
 Here we document the technical details behind GrowthBook CUPED variance estimates. We begin with [revenue metrics](/statistics/cuped-technical#revenue-metric), and then move to [ratio metrics](/statistics/cuped-technical#ratio-metric).
 
-## Revenue Metric
+## Mean or Binomial Metric
 
-We use the notation below. We describe our approach in terms of revenue, but any binomial or count metric can be substituted.
+We use the notation below. We describe our approach in terms of revenue, but any Mean or Binomial metric can be substituted.
 
 1. Define $Y_{C}$ $\left(Y_{T}\right)$ as the observed post-exposure revenue for a user exposed to control (treatment).
 2. Define $X_{C}$ $\left(X_{T}\right)$ as the observed pre-exposure revenue for a user exposed to control (treatment).
@@ -20,7 +20,7 @@ We use the notation below. We describe our approach in terms of revenue, but any
 5. Define $\mu_{C}$ $\left(\mu_{T}\right)$ as the population average post-exposure revenue for users exposed to control (treatment).
 6. Define $N_{C}$ $\left(N_{T}\right)$ as the number of users exposed to control (treatment).
 
-## Revenue Metric, Absolute case
+## Mean or Binomial Metric, Absolute case
 
 For absolute inference, our target parameter is
 
@@ -54,7 +54,7 @@ $$
 
 Our estimated variance of $\hat{\Delta}_{A}$ is $\hat{\sigma}^{2}_{\Delta_{A}} = V_{adj, C} + V_{adj, T}$.
 
-## Revenue/Count/Duration Metric, Relative case
+## Mean or Binomial Metric, Relative case
 
 For relative inference (i.e., estimating lift), the parameter of interest is
 
