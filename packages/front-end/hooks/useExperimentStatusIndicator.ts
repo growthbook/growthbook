@@ -17,7 +17,16 @@ import {
 } from "back-end/types/experiment";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
-import { StatusIndicatorData } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+
+export type StatusIndicatorData = {
+  color: "amber" | "green" | "red" | "gold" | "indigo" | "gray" | "pink";
+  status: "Running" | "Stopped" | "Draft" | "Archived";
+  detailedStatus?: string;
+  needsAttention?: boolean;
+  tooltip?: string;
+  // Most actionable status have higher numbers
+  sortOrder: number;
+};
 
 export type ExperimentData = Pick<
   ExperimentInterfaceStringDates,
@@ -30,7 +39,9 @@ export type ExperimentData = Pick<
   | "phases"
   | "dismissedWarnings"
   | "goalMetrics"
+  | "secondaryMetrics"
   | "guardrailMetrics"
+  | "datasource"
 >;
 
 export function useExperimentStatusIndicator() {
@@ -68,16 +79,16 @@ function getStatusIndicatorData(
   if (!skipArchived && experimentData.archived) {
     return {
       color: "gold",
-      variant: "soft",
       status: "Archived",
+      sortOrder: 0,
     };
   }
 
   if (experimentData.status === "draft") {
     return {
-      color: "indigo",
-      variant: "soft",
+      color: "pink",
       status: "Draft",
+      sortOrder: 6,
     };
   }
 
@@ -92,6 +103,10 @@ function getStatusIndicatorData(
       lastPhase?.dateStarted &&
       daysBetween(lastPhase.dateStarted, new Date()) <
         healthSettings.experimentMinLengthDays;
+
+    const withinFirstDay = lastPhase?.dateStarted
+      ? daysBetween(lastPhase.dateStarted, new Date()) < 1
+      : false;
 
     const isLowPowered =
       healthSummary?.power?.type === "success"
@@ -162,20 +177,50 @@ function getStatusIndicatorData(
     if (unhealthyStatuses.length > 0) {
       return {
         color: "amber",
-        variant: "solid",
         status: "Running",
         detailedStatus: "Unhealthy",
         tooltip: unhealthyStatuses.join(", "),
+        needsAttention: true,
+        sortOrder: 9,
       };
     }
 
     // 2. Show no data if no data is present
-    if (healthSummary?.totalUsers === 0) {
+    if (healthSummary?.totalUsers === 0 && !withinFirstDay) {
       return {
-        color: "indigo",
-        variant: "solid",
+        color: "amber",
         status: "Running",
         detailedStatus: "No data",
+        needsAttention: true,
+        sortOrder: 10,
+      };
+    }
+
+    // 2.5 - No data source configured for experiment
+    if (!experimentData.datasource) {
+      return {
+        color: "amber",
+        status: "Running",
+        detailedStatus: "No data",
+        tooltip: "No data source configured for experiment",
+        needsAttention: true,
+        sortOrder: 10,
+      };
+    }
+
+    // 2.6 - No metrics configured for experiment
+    if (
+      !experimentData.goalMetrics?.length &&
+      !experimentData.secondaryMetrics?.length &&
+      !experimentData.guardrailMetrics?.length
+    ) {
+      return {
+        color: "amber",
+        status: "Running",
+        detailedStatus: "No data",
+        tooltip: "No metrics configured for experiment yet",
+        needsAttention: true,
+        sortOrder: 10,
       };
     }
 
@@ -183,9 +228,9 @@ function getStatusIndicatorData(
     if (beforeMinDuration) {
       return {
         color: "indigo",
-        variant: "solid",
         status: "Running",
         tooltip: `Estimated days left or decision recommendations will appear after the minimum experiment duration of ${healthSettings.experimentMinLengthDays} is reached.`,
+        sortOrder: 7,
       };
     }
 
@@ -204,8 +249,8 @@ function getStatusIndicatorData(
     // 6. Otherwise, show running status
     return {
       color: "indigo",
-      variant: "solid",
       status: "Running",
+      sortOrder: 7,
     };
   }
 
@@ -213,38 +258,40 @@ function getStatusIndicatorData(
     switch (experimentData.results) {
       case "won":
         return {
-          color: "gray",
-          variant: "soft",
+          color: "green",
           status: "Stopped",
           detailedStatus: "Won",
+          sortOrder: 4,
         };
       case "lost":
         return {
-          color: "gray",
-          variant: "soft",
+          color: "red",
           status: "Stopped",
           detailedStatus: "Lost",
+          sortOrder: 3,
+          tooltip: "There are no real losers in A/B testing, only learnings.",
         };
       case "inconclusive":
         return {
           color: "gray",
-          variant: "soft",
           status: "Stopped",
           detailedStatus: "Inconclusive",
+          sortOrder: 2,
         };
       case "dnf":
         return {
           color: "gray",
-          variant: "soft",
           status: "Stopped",
           detailedStatus: "Didn't finish",
+          sortOrder: 1,
         };
       default:
         return {
-          color: "gray",
-          variant: "soft",
+          color: "amber",
           status: "Stopped",
           detailedStatus: "Awaiting decision",
+          needsAttention: true,
+          sortOrder: 5,
         };
     }
   }
@@ -263,29 +310,34 @@ function getDetailedStatusIndicatorData(
 
   if (decisionData.status === "rollback-now") {
     return {
-      color: "red",
-      variant: "solid",
+      color: "amber",
       status: "Running",
-      detailedStatus: "Roll Back Now",
+      detailedStatus: "Roll back now",
       tooltip: decisionData.tooltip,
+      needsAttention: true,
+      sortOrder: 13,
     };
   }
 
   if (decisionData.status === "ship-now") {
     return {
-      color: "green",
-      variant: "solid",
+      color: "amber",
       status: "Running",
-      detailedStatus: "Ship Now",
+      detailedStatus: "Ship now",
       tooltip: decisionData.tooltip,
+      needsAttention: true,
+      sortOrder: 12,
     };
   }
 
   if (decisionData.status === "days-left") {
     const cappedPowerAdditionalDaysNeeded = Math.min(decisionData.daysLeft, 90);
+
+    // Fewer days left = higher sortOrder
+    const sortOrderDecimal = 1 - cappedPowerAdditionalDaysNeeded / 90;
+
     return {
       color: "indigo",
-      variant: "solid",
       status: "Running",
       detailedStatus: `${
         decisionData.daysLeft !== cappedPowerAdditionalDaysNeeded ? ">" : ""
@@ -293,16 +345,18 @@ function getDetailedStatusIndicatorData(
       tooltip: decisionData.tooltip
         ? decisionData.tooltip
         : `The experiment needs more data to reliably detect the target minimum detectable effect for all goal metrics. At recent traffic levels, the experiment will take ~${decisionData.daysLeft} more days to collect enough data.`,
+      sortOrder: 8 + sortOrderDecimal,
     };
   }
 
   if (decisionData.status === "ready-for-review") {
     return {
       color: "amber",
-      variant: "soft",
       status: "Running",
-      detailedStatus: "Ready for Review",
+      detailedStatus: "Ready for review",
       tooltip: decisionData.tooltip,
+      needsAttention: true,
+      sortOrder: 11,
     };
   }
 }

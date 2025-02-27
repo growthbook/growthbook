@@ -340,6 +340,13 @@ const ExperimentsPage = (): React.ReactElement => {
                   </PremiumTooltip>
                 )}
               </div>
+              <div className="mt-5">
+                <img
+                  src="/images/empty-states/bandits.png"
+                  alt="Bandits"
+                  style={{ width: "100%", maxWidth: "740px", height: "auto" }}
+                />
+              </div>
             </div>
           ) : (
             <>

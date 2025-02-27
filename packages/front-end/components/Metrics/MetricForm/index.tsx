@@ -17,6 +17,7 @@ import {
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { isProjectListValidForProject } from "shared/util";
 import Link from "next/link";
+import { isBinomialMetric } from "shared/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -461,11 +462,12 @@ const MetricForm: FC<MetricFormProps> = ({
 
   if (form.watch("denominator")) {
     const denominator = metrics.find((m) => m.id === form.watch("denominator"));
-    if (denominator?.type === "count") {
+    if (denominator && !isBinomialMetric(denominator)) {
       regressionAdjustmentAvailableForMetric = false;
       regressionAdjustmentAvailableForMetricReason = (
         <>
-          Not available for ratio metrics with <em>count</em> denominators.
+          Not available for ratio metrics with <em>{denominator.type}</em>{" "}
+          denominators, unless you use Fact Tables.
         </>
       );
     }

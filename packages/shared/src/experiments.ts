@@ -201,10 +201,12 @@ export function isRegressionAdjusted(
   m: ExperimentMetricInterface,
   denominatorMetric?: ExperimentMetricInterface
 ) {
+  const isLegacyRatioMetric: boolean =
+    isRatioMetric(m, denominatorMetric) && !isFactMetric(m);
   return (
     (m.regressionAdjustmentDays ?? 0) > 0 &&
     !!m.regressionAdjustmentEnabled &&
-    !isRatioMetric(m, denominatorMetric) &&
+    !isLegacyRatioMetric &&
     !quantileMetricType(m)
   );
 }
@@ -281,6 +283,7 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
   metricOverrides?: MetricOverride[];
 }): {
   newMetric: T;
+  denominatorMetrics: MetricInterface[];
   metricSnapshotSettings: MetricSnapshotSettings;
 } {
   const newMetric = cloneDeep<T>(metric);
@@ -381,12 +384,6 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
 
   // final gatekeeping for RA
   if (regressionAdjustmentEnabled) {
-    if (metric && isFactMetric(metric) && isRatioMetric(metric)) {
-      // is this a fact ratio metric?
-      regressionAdjustmentEnabled = false;
-      regressionAdjustmentAvailable = false;
-      regressionAdjustmentReason = "ratio metrics not supported";
-    }
     if (metric && isFactMetric(metric) && quantileMetricType(metric)) {
       // is this a fact quantile metric?
       regressionAdjustmentEnabled = false;
@@ -401,7 +398,7 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
       if (denominator && !isBinomialMetric(denominator)) {
         regressionAdjustmentEnabled = false;
         regressionAdjustmentAvailable = false;
-        regressionAdjustmentReason = `denominator is ${denominator.type}`;
+        regressionAdjustmentReason = `denominator is ${denominator.type}. CUPED available for ratio metrics only if based on fact tables.`;
       }
     }
     if (metric && !isFactMetric(metric) && metric?.aggregation) {
@@ -420,6 +417,7 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
 
   return {
     newMetric,
+    denominatorMetrics,
     metricSnapshotSettings: {
       metric: newMetric.id,
       ...metricPriorSettings,
