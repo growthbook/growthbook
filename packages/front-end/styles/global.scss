@@ -2702,7 +2702,8 @@ html {
     font-size: 10px;
   }
 }
-.select-dropdown-underline {
+.select-dropdown-underline,
+.select-dropdown-no-underline {
   position: relative !important;
   top: 1px !important;
 
@@ -2774,6 +2775,16 @@ html {
     }
   }
 }
+.select-dropdown-no-underline {
+  .gb-select__control {
+    border-bottom: 0 transparent !important;
+
+    &:hover {
+      border-bottom: 0 transparent !important;
+    }
+  }
+}
+
 .phase-selector {
   .gb-select__control {
     background-color: transparent !important;
@@ -3497,4 +3508,19 @@ input:disabled {
 
 .disabled-opacity {
   opacity: 0.65;
+}
+
+// CSS style alternative to <TabsTrigger> for when a custom container is necessary
+.tab-trigger-container {
+  position: relative !important;
+  &.active::before {
+    box-sizing: border-box;
+    content: "";
+    height: 2px;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: var(--accent-indicator);
+  }
 }
