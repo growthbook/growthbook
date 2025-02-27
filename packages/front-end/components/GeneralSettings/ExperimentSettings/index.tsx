@@ -12,6 +12,7 @@ import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListM
 import RadioGroup from "@/components/Radix/RadioGroup";
 import { GBInfo } from "@/components/Icons";
 import Frame from "@/components/Radix/Frame";
+import { DocLink } from "@/components/DocLink";
 import StatsEngineSettings from "./StatsEngineSettings";
 import StickyBucketingSettings from "./StickyBucketingSettings";
 
@@ -426,7 +427,10 @@ export default function ExperimentSettings({
                   <Text size="2" style={{ color: "var(--color-text-mid)" }}>
                     Calculates the estimated duration of your experiment using
                     target minimum detectable effects and makes shipping
-                    recommendations.
+                    recommendations.{" "}
+                    <DocLink docSection={"experimentDecisionFramework"}>
+                      Learn More
+                    </DocLink>
                   </Text>
                 </Box>
                 <Flex
