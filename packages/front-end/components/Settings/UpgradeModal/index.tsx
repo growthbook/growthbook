@@ -287,30 +287,39 @@ export default function UpgradeModal({
 
   const bullets: Partial<Record<CommercialFeature, string>> = {
     "advanced-permissions": "Manage advanced user permissions",
-    "encrypt-features-endpoint": "Protect your SDK with endpoint encryption",
+    "encrypt-features-endpoint": "SDK endpoint encryption",
     "schedule-feature-flag": "Schedule feature flag rollouts",
-    "override-metrics": "Override your metrics default behavior",
-    "regression-adjustment":
-      "Increase experiment velocity with regression adjustment (CUPED)",
-    "sequential-testing": "Run sequential tests for better insights",
-    "visual-editor": "Edit feature flags with our visual editor",
-    archetypes: "Build user archetype for reusable feature flag targeting",
-    simulate: "Simulate features and experiments a user would be exposed to",
-    "cloud-proxy": "Leverage a cloud proxy for seamless SDK integration",
-    "hash-secure-attributes": "Secure sensitive attributes with hashing",
+    "override-metrics": "Override metric definitions on a per-experiment basis",
+    "regression-adjustment": "Increase experiment velocity with CUPED",
+    "sequential-testing": "Sequential testing for always-valid p-values",
+    "visual-editor":
+      "Use our no-code Visual Editor to create front-end experiments",
+    archetypes:
+      "Save user archetypes and use them to debug feature flag values",
+    simulate:
+      "Simulate how different users would see an experiment or feature flag",
+    "cloud-proxy":
+      "Use a self-hosted GrowthBook proxy in front of our Cloud CDN",
+    "hash-secure-attributes":
+      "Hash sensitive targeting attributes like email addresses to avoid leaking PII",
     livechat: "Get fast support with in-app chat",
-    "remote-evaluation": "Evaluate features remotely in real time",
-    "sticky-bucketing": "Ensure consistent experiences with sticky bucketing",
+    "remote-evaluation": "Enable remote-evaluation for client-side SDKs",
+    "sticky-bucketing": "Ensure consistent experiences with Sticky Bucketing",
     "code-references":
-      "Quickly see where feature flags are leveraged in your codebase",
-    prerequisites: "Set prerequisites to control feature rollouts",
+      "Quickly see where feature flags are referenced in your codebase",
+    prerequisites:
+      "Define dependencies between feature flags with Pre-requisites",
     redirects: "Run URL Redirect tests",
-    "multiple-sdk-webhooks": "Hook into Growthbook's SDK Webhooks",
-    "quantile-metrics": "Analyze data using quantile-based metrics",
-    "retention-metrics": "Boost retention with precise tracking",
-    "metric-populations": "Segment users using metric insights",
+    "multiple-sdk-webhooks":
+      "Implement custom caching and notification logic with SDK Webhooks",
+    "quantile-metrics":
+      "Define quantile metrics such as P99 latency or Median revenue",
+    "retention-metrics":
+      "Define retention metrics that measure return activity",
+    "metric-populations": "Analyze metrics for different sub-populations",
     "multi-armed-bandits": "Run adaptive experiments with Bandits",
-    "historical-power": "Leverage historical data for power analysis",
+    "historical-power":
+      "Power calculator that uses historical data for accurate predictions",
     "decision-framework":
       "Estimate experiment duration using your data & get shipping recommendations.",
   };
@@ -336,6 +345,9 @@ export default function UpgradeModal({
         className="text-decoration-none pl-1"
         target="_blank"
         rel="noopener noreferrer"
+        onClick={() => {
+          track("Start Enterprise Checkout", trackContext);
+        }}
       >
         <strong className="a link-purple text-decoration-none">
           Talk to Sales
@@ -404,17 +416,17 @@ export default function UpgradeModal({
         >
           <Flex align="center" justify="between">
             <span>
-              <label>Cost Estimate</label>
+              <label>Cost</label>
               <Tooltip
                 color="purple"
-                body="Estimate based on your organization’s activity over the last 30 days. Actual cost may vary depending on future usage patterns."
+                body="Based on your current seat count."
                 className="pl-1"
               />
             </span>
             <label>~${seatsInUse * 20} / month</label>
           </Flex>
           <p className="mb-0 text-secondary">
-            $20 per user per month, {seatsInUse} current user
+            $20 per seat per month, {seatsInUse} current seat
             {seatsInUse > 1 ? "s" : ""}
           </p>
         </div>
