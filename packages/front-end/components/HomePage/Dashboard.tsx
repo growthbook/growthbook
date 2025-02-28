@@ -8,6 +8,7 @@ import ActivityList from "@/components/ActivityList";
 import ExperimentList from "@/components/Experiment/ExperimentList";
 import ExperimentGraph from "@/components/Experiment/ExperimentGraph";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import ExecReport from "@/components/ExecReports/ExecReport";
 import styles from "./Dashboard.module.scss";
 import IdeasFeed from "./IdeasFeed";
 import NorthStar from "./NorthStar";
@@ -53,6 +54,8 @@ export default function Dashboard({ experiments }: Props) {
   return (
     <>
       <div className={"container-fluid dashboard p-3 " + styles.container}>
+        <ExecReport />
+
         <h1>Hello {name}</h1>
         <div className="row">
           <div className="col-md-12">

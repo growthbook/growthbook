@@ -510,6 +510,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "manageSavedGroups",
   "manageCustomFields",
   "manageTemplates",
+  "manageExecReports",
 ] as const;
 
 export const GLOBAL_PERMISSIONS = [
