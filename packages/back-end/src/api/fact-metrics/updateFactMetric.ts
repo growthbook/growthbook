@@ -52,6 +52,10 @@ export async function getUpdateFactMetricPropsFromBody(
       factTable: factTable,
     });
   }
+  // remove denominator for non-ratio metrics
+  if (metricType !== "ratio") {
+    updates.denominator = undefined;
+  }
   if (denominator) {
     updates.denominator = {
       filters: [],
