@@ -135,7 +135,6 @@ const TagsInput: FC<{
       }}
       closeMenuOnSelect={closeMenuOnSelect}
       autoFocus={autoFocus}
-      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'StylesConfig<ColorOption, true, GroupBase<Co... Remove this comment to see the full error message
       customStyles={tagStyles}
       placeholder={prompt}
       creatable={creatable}
