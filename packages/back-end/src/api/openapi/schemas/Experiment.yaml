@@ -187,6 +187,5 @@ properties:
     enum:
       - "public"
       - "organization"
-      - "private"
   publicUrl:
     type: string

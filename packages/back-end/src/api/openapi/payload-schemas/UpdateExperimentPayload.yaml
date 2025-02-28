@@ -199,4 +199,3 @@ properties:
     enum:
       - "public"
       - "organization"
-      - "private"

@@ -1111,7 +1111,7 @@ export interface components {
         excludeFromPayload: boolean;
       };
       /** @enum {string} */
-      shareLevel?: "public" | "organization" | "private";
+      shareLevel?: "public" | "organization";
       publicUrl?: string;
     };
     ExperimentSnapshot: {
@@ -3823,7 +3823,7 @@ export interface operations {
                   excludeFromPayload: boolean;
                 };
                 /** @enum {string} */
-                shareLevel?: "public" | "organization" | "private";
+                shareLevel?: "public" | "organization";
                 publicUrl?: string;
               })[];
           }) & {
@@ -3927,7 +3927,7 @@ export interface operations {
           /** @description Controls whether regression adjustment (CUPED) is enabled for experiment analyses */
           regressionAdjustmentEnabled?: boolean;
           /** @enum {string} */
-          shareLevel?: "public" | "organization" | "private";
+          shareLevel?: "public" | "organization";
         };
       };
     };
@@ -4057,7 +4057,7 @@ export interface operations {
                 excludeFromPayload: boolean;
               };
               /** @enum {string} */
-              shareLevel?: "public" | "organization" | "private";
+              shareLevel?: "public" | "organization";
               publicUrl?: string;
             };
           };
@@ -4199,7 +4199,7 @@ export interface operations {
                 excludeFromPayload: boolean;
               };
               /** @enum {string} */
-              shareLevel?: "public" | "organization" | "private";
+              shareLevel?: "public" | "organization";
               publicUrl?: string;
             };
           };
@@ -4301,7 +4301,7 @@ export interface operations {
           /** @description Controls whether regression adjustment (CUPED) is enabled for experiment analyses */
           regressionAdjustmentEnabled?: boolean;
           /** @enum {string} */
-          shareLevel?: "public" | "organization" | "private";
+          shareLevel?: "public" | "organization";
         };
       };
     };
@@ -4431,7 +4431,7 @@ export interface operations {
                 excludeFromPayload: boolean;
               };
               /** @enum {string} */
-              shareLevel?: "public" | "organization" | "private";
+              shareLevel?: "public" | "organization";
               publicUrl?: string;
             };
           };
@@ -5502,7 +5502,7 @@ export interface operations {
                 excludeFromPayload: boolean;
               };
               /** @enum {string} */
-              shareLevel?: "public" | "organization" | "private";
+              shareLevel?: "public" | "organization";
               publicUrl?: string;
             };
           };

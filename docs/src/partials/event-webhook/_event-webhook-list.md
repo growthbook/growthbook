@@ -845,7 +845,7 @@ Triggered when an experiment is created
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
             } | undefined;
-            shareLevel?: ("public" | "organization" | "private") | undefined;
+            shareLevel?: ("public" | "organization") | undefined;
             publicUrl?: string | undefined;
         };
     };
@@ -987,7 +987,7 @@ Triggered when an experiment is updated
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
             } | undefined;
-            shareLevel?: ("public" | "organization" | "private") | undefined;
+            shareLevel?: ("public" | "organization") | undefined;
             publicUrl?: string | undefined;
         };
         previous_attributes: {
@@ -1097,7 +1097,7 @@ Triggered when an experiment is updated
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
             } | undefined) | undefined;
-            shareLevel?: (("public" | "organization" | "private") | undefined) | undefined;
+            shareLevel?: (("public" | "organization") | undefined) | undefined;
             publicUrl?: (string | undefined) | undefined;
         };
     };
@@ -1239,7 +1239,7 @@ Triggered when an experiment is deleted
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
             } | undefined;
-            shareLevel?: ("public" | "organization" | "private") | undefined;
+            shareLevel?: ("public" | "organization") | undefined;
             publicUrl?: string | undefined;
         };
     };

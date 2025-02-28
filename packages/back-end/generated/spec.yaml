@@ -1545,7 +1545,6 @@ paths:
                   enum:
                     - public
                     - organization
-                    - private
       responses:
         '200':
           content:
@@ -1802,7 +1801,6 @@ paths:
                   enum:
                     - public
                     - organization
-                    - private
       responses:
         '200':
           content:
@@ -5952,7 +5950,6 @@ components:
           enum:
             - public
             - organization
-            - private
         publicUrl:
           type: string
     ExperimentSnapshot:
