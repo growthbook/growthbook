@@ -380,8 +380,9 @@ export default function ResultsTableTooltip({
             )}
             style={{ paddingTop: 12 }}
           >
-            {["won", "lost", "draw"].includes(data.rowResults.resultsStatus) ||
-            !data.rowResults.significant ? (
+            {(["won", "lost", "draw"].includes(data.rowResults.resultsStatus) ||
+              !data.rowResults.significant) &&
+            data.rowResults.enoughData ? (
               <div
                 className={clsx(
                   "results-status position-absolute d-flex align-items-center",
