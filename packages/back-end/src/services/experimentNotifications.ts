@@ -1,5 +1,8 @@
 import { includeExperimentInPayload, getSnapshotAnalysis } from "shared/util";
-import { getMetricResultStatus } from "shared/experiments";
+import {
+  getDecisionFrameworkStatus,
+  getMetricResultStatus,
+} from "shared/experiments";
 import { getMultipleExposureHealthData, getSRMHealthData } from "shared/health";
 import {
   DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
@@ -11,25 +14,24 @@ import {
 import { StatsEngine } from "back-end/types/stats";
 import { Context } from "back-end/src/models/BaseModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
-import {
-  getExperimentById,
-  updateExperiment,
-} from "back-end/src/models/ExperimentModel";
+import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { getExperimentWatchers } from "back-end/src/models/WatchModel";
 import { logger } from "back-end/src/util/logger";
 import {
   ExperimentSnapshotDocument,
-  getDefaultAnalysisResults,
   getLatestSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import {
   ExperimentInterface,
   ExperimentNotification,
 } from "back-end/types/experiment";
-import { ExperimentReportResultDimension } from "back-end/types/report";
 import { ResourceEvents } from "back-end/src/events/base-types";
 import { ensureAndReturn } from "back-end/src/util/types";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
+import {
+  ExperimentAnalysisSummary,
+  ExperimentAnalysisSummaryHealth,
+} from "back-end/src/validators/experiments";
 import {
   getConfidenceLevelsForOrg,
   getEnvironmentIdsFromOrg,
@@ -132,22 +134,15 @@ export const notifyAutoUpdate = ({
 export const notifyMultipleExposures = async ({
   context,
   experiment,
-  results,
-  snapshot,
+  healthSummary,
 }: {
   context: Context;
   experiment: ExperimentInterface;
-  results: ExperimentReportResultDimension;
-  snapshot: ExperimentSnapshotDocument;
+  healthSummary: ExperimentAnalysisSummaryHealth;
 }) => {
-  const totalUsers = results.variations.reduce(
-    (totalUsersCount, { users }) => totalUsersCount + users,
-    0
-  );
-
   const multipleExposureHealth = getMultipleExposureHealthData({
-    multipleExposuresCount: snapshot.multipleExposures,
-    totalUsersCount: totalUsers,
+    multipleExposuresCount: healthSummary.multipleExposures,
+    totalUsersCount: healthSummary.totalUsers,
     minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
     minPercentThreshold:
       context.org.settings?.multipleExposureMinPercent ??
@@ -173,7 +168,7 @@ export const notifyMultipleExposures = async ({
             type: "multiple-exposures",
             experimentId: experiment.id,
             experimentName: experiment.name,
-            usersCount: snapshot.multipleExposures,
+            usersCount: healthSummary.multipleExposures,
             percent: multipleExposureHealth.rawDecimal,
           },
         },
@@ -185,24 +180,19 @@ export const notifyMultipleExposures = async ({
 export const notifySrm = async ({
   context,
   experiment,
-  results,
+  healthSummary,
 }: {
   context: Context;
   experiment: ExperimentInterface;
-  results: ExperimentReportResultDimension;
+  healthSummary: ExperimentAnalysisSummaryHealth;
 }) => {
   const srmThreshold =
     context.org.settings?.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
-  const totalUsers = results.variations.reduce(
-    (totalUsersCount, { users }) => totalUsersCount + users,
-    0
-  );
-
   const srmHealth = getSRMHealthData({
-    srm: results.srm,
+    srm: healthSummary.srm,
     srmThreshold,
-    totalUsersCount: totalUsers,
+    totalUsersCount: healthSummary.totalUsers,
     numOfVariations: experiment.variations.length,
     minUsersPerVariation:
       experiment.type === "multi-armed-bandit"
@@ -441,37 +431,109 @@ export const notifySignificance = async ({
   );
 };
 
-export const notifyExperimentChange = async ({
+export const notifyDecision = async ({
   context,
-  snapshot,
+  experiment,
+  lastAnalysisSummary,
 }: {
   context: Context;
-  snapshot: ExperimentSnapshotDocument;
+  experiment: ExperimentInterface;
+  lastAnalysisSummary?: ExperimentAnalysisSummary;
 }) => {
-  const experiment = await getExperimentById(context, snapshot.experiment);
-  if (!experiment) throw new Error("Error while fetching experiment!");
+  const resultsStatus = experiment.analysisSummary?.resultsStatus;
+  const healthSummary = experiment.analysisSummary?.health;
+  const daysNeeded =
+    healthSummary?.power?.type === "success"
+      ? healthSummary.power.additionalDaysNeeded
+      : undefined;
 
-  // do not fire significance or error events for exploratory analyses
-  if (snapshot.type === "exploratory") return;
-  // do not fire significance or error events for reports
-  if (snapshot.type === "report") return;
-  // do not fire significance events for old snapshots that have no type
-  if (snapshot.type === undefined) return;
-  // do not fire for snapshots where statistics are manually entered in the UI
-  if (snapshot.manual) return;
+  if (!resultsStatus) {
+    return;
+  }
 
+  const currentDecision = getDecisionFrameworkStatus({
+    resultsStatus,
+    goalMetrics: experiment.goalMetrics,
+    guardrailMetrics: experiment.guardrailMetrics,
+    daysNeeded,
+  });
+
+  const lastResultsStatus = lastAnalysisSummary?.resultsStatus;
+  const lastDaysNeeded =
+    lastAnalysisSummary?.health?.power?.type === "success"
+      ? lastAnalysisSummary.health.power.additionalDaysNeeded
+      : undefined;
+
+  const lastDecision = lastResultsStatus
+    ? getDecisionFrameworkStatus({
+        resultsStatus: lastResultsStatus,
+        goalMetrics: experiment.goalMetrics,
+        guardrailMetrics: experiment.guardrailMetrics,
+        daysNeeded: lastDaysNeeded,
+      })
+    : undefined;
+
+  if (!currentDecision) {
+    return;
+  }
+
+  if (
+    currentDecision.status === "ship-now" ||
+    currentDecision.status === "rollback-now" ||
+    currentDecision.status === "ready-for-review"
+  ) {
+    const eventType: "ship" | "rollback" | "review" = (() => {
+      switch (currentDecision.status) {
+        case "ship-now":
+          return "ship";
+        case "ready-for-review":
+          return "review";
+        case "rollback-now":
+          return "rollback";
+      }
+    })();
+
+    if (currentDecision.status !== lastDecision?.status) {
+      dispatchEvent({
+        context,
+        experiment,
+        event: `decision.${eventType}`,
+        data: {
+          object: {
+            experimentId: experiment.id,
+            experimentName: experiment.name,
+            decisionDescription: currentDecision.tooltip,
+          },
+        },
+      });
+    }
+  }
+};
+
+export const notifyExperimentChange = async ({
+  context,
+  experiment,
+  snapshot,
+  lastAnalysisSummary,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  snapshot: ExperimentSnapshotDocument;
+  lastAnalysisSummary?: ExperimentAnalysisSummary;
+}) => {
   await notifySignificance({ context, experiment, snapshot });
 
-  const results = getDefaultAnalysisResults(snapshot);
+  const healthSummary = experiment.analysisSummary?.health;
 
-  if (results) {
+  if (healthSummary) {
     await notifyMultipleExposures({
       context,
       experiment,
-      results,
-      snapshot,
+      healthSummary,
     });
 
-    await notifySrm({ context, experiment, results });
+    await notifySrm({ context, experiment, healthSummary });
   }
+
+  await notifyDecision({ context, experiment, lastAnalysisSummary });
 };

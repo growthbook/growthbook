@@ -581,7 +581,6 @@ export async function createManualSnapshot({
   orgPriorSettings,
   analysisSettings,
   metricMap,
-  context,
 }: {
   experiment: ExperimentInterface;
   phaseIndex: number;
@@ -592,7 +591,6 @@ export async function createManualSnapshot({
   orgPriorSettings: MetricPriorSettings | undefined;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
   metricMap: Map<string, ExperimentMetricInterface>;
-  context: Context;
 }) {
   const snapshotSettings = getSnapshotSettings({
     experiment,
@@ -645,7 +643,7 @@ export async function createManualSnapshot({
     triggeredBy: "manual",
   };
 
-  return await createExperimentSnapshotModel({ data, context });
+  return await createExperimentSnapshotModel({ data });
 }
 
 export async function parseDimensionId(
@@ -1063,7 +1061,7 @@ export async function createSnapshot({
     });
   }
 
-  const snapshot = await createExperimentSnapshotModel({ data, context });
+  const snapshot = await createExperimentSnapshotModel({ data });
 
   const integration = getSourceIntegrationObject(context, datasource, true);
 
@@ -2796,7 +2794,7 @@ export async function getChangesToStartExperiment(
   return changes;
 }
 
-export async function updateExperimentAnalysisSummary({
+export async function getExperimentAnalysisSummary({
   context,
   experiment,
   experimentSnapshot,
@@ -2804,7 +2802,7 @@ export async function updateExperimentAnalysisSummary({
   context: ReqContext;
   experiment: ExperimentInterface;
   experimentSnapshot: ExperimentSnapshotInterface;
-}) {
+}): Promise<ExperimentAnalysisSummary> {
   const analysisSummary: ExperimentAnalysisSummary = {
     snapshotId: experimentSnapshot.id,
   };
@@ -2865,7 +2863,25 @@ export async function updateExperimentAnalysisSummary({
     }
   }
 
-  await updateExperiment({
+  return analysisSummary;
+}
+
+export async function updateExperimentAnalysisSummary({
+  context,
+  experiment,
+  experimentSnapshot,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+  experimentSnapshot: ExperimentSnapshotInterface;
+}): Promise<ExperimentInterface> {
+  const analysisSummary = await getExperimentAnalysisSummary({
+    context,
+    experiment,
+    experimentSnapshot,
+  });
+
+  return await updateExperiment({
     context,
     experiment,
     changes: {
