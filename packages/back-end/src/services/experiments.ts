@@ -1330,8 +1330,7 @@ export async function toExperimentApiInterface(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface
 ): Promise<ApiExperiment> {
-  const appOrigin =
-    (APP_ORIGIN ?? "").replace(/\/$/, "");
+  const appOrigin = (APP_ORIGIN ?? "").replace(/\/$/, "");
 
   let project: ProjectInterface | null = null;
   const organization = context.org;
@@ -1434,9 +1433,11 @@ export async function toExperimentApiInterface(
         }
       : null),
     shareLevel: experiment.shareLevel || "organization",
-    ...(experiment.shareLevel === "public" && experiment.uid ? {
-      publicUrl: `${appOrigin}/public/e/${experiment.uid}`
-    } : null)
+    ...(experiment.shareLevel === "public" && experiment.uid
+      ? {
+          publicUrl: `${appOrigin}/public/e/${experiment.uid}`,
+        }
+      : null),
   };
 }
 
