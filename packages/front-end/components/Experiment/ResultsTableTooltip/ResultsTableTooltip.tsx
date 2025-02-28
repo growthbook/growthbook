@@ -508,7 +508,7 @@ export default function ResultsTableTooltip({
                 </div>
               </>
             ) : null}
-            {addLiftWarning ? (
+            {!addLiftWarning && data.rowResults.enoughData ? (
               <div
                 className={clsx(
                   "results-prior text-muted rounded d-flex justify-content-center mt-2",
