@@ -68,6 +68,7 @@ const BillingPage: FC = () => {
           close={() => setUpgradeModal(false)}
           reason=""
           source="billing-free"
+          commercialFeature={null}
         />
       )}
 
