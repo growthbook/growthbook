@@ -1,6 +1,7 @@
 import z from "zod";
 import {
   FactMetricInterface,
+  FactMetricType,
   FactTableInterface,
   UpdateFactMetricProps,
 } from "back-end/types/fact-table";
@@ -9,6 +10,18 @@ import { getFactTable } from "back-end/src/models/FactTableModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { updateFactMetricValidator } from "back-end/src/validators/openapi";
 import { validateAggregationSpecification } from "back-end/src/api/fact-metrics/postFactMetric";
+
+function expectsDenominator(metricType: FactMetricType) {
+  switch (metricType) {
+    case "ratio":
+      return true;
+    case "mean":
+    case "proportion":
+    case "quantile":
+    case "retention":
+      return false;
+  }
+}
 
 export async function getUpdateFactMetricPropsFromBody(
   body: z.infer<typeof updateFactMetricValidator.bodySchema>,
@@ -52,8 +65,13 @@ export async function getUpdateFactMetricPropsFromBody(
       factTable: factTable,
     });
   }
-  // remove denominator for non-ratio metrics
-  if (metricType !== "ratio") {
+  // remove denominator for non-ratio metrics where existing
+  // metric is a ratio metric
+  if (
+    expectsDenominator(factMetric.metricType) &&
+    metricType &&
+    !expectsDenominator(metricType)
+  ) {
     updates.denominator = undefined;
   }
   if (denominator) {
