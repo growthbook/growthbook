@@ -26,7 +26,7 @@ export default class Snowflake extends SqlIntegration {
     return "snowflake";
   }
   getSensitiveParamKeys(): string[] {
-    return ["password"];
+    return ["password", "privateKey", "privateKeyPassword"];
   }
   runQuery(sql: string): Promise<QueryResponse> {
     return runSnowflakeQuery(this.params, sql);

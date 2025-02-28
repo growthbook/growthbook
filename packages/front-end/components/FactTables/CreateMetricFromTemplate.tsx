@@ -9,6 +9,7 @@ import {
 import { z } from "zod";
 import { ReactNode, useState } from "react";
 import dJSON from "dirty-json";
+import { CommercialFeature } from "enterprise";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import Callout from "@/components/Radix/Callout";
@@ -44,6 +45,7 @@ export default function CreateMetricFromTemplate() {
 
   const [upgradeModal, setUpgradeModal] = useState<null | {
     source: string;
+    commercialFeature: CommercialFeature;
     reason: string;
   }>(null);
 
@@ -94,6 +96,7 @@ export default function CreateMetricFromTemplate() {
                   setUpgradeModal({
                     source: "metric-template-quantile",
                     reason: "To create quantile metrics,",
+                    commercialFeature: "quantile-metrics",
                   })
                 }
               />
@@ -114,6 +117,7 @@ export default function CreateMetricFromTemplate() {
                   setUpgradeModal({
                     source: "metric-template-retention",
                     reason: "To create retention metrics,",
+                    commercialFeature: "retention-metrics",
                   })
                 }
               />
@@ -163,6 +167,7 @@ export default function CreateMetricFromTemplate() {
           close={() => setUpgradeModal(null)}
           reason={upgradeModal.reason}
           source={upgradeModal.source}
+          commercialFeature={upgradeModal.commercialFeature}
         />
       ) : null}
       {metricToCreate.callout ? (

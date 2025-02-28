@@ -208,7 +208,7 @@ app.use((req, res, next) => {
     attributes: ${indentLines(attributes, 4)}
   }
   
-  req.growthbook = client.getScopedInstance(userContext);
+  req.growthbook = client.createScopedInstance(userContext);
 });
           `.trim()}
           />
