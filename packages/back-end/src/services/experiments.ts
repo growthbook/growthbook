@@ -94,6 +94,7 @@ import {
 } from "back-end/types/experiment";
 import { findDimensionById } from "back-end/src/models/DimensionModel";
 import {
+  APP_ORIGIN,
   DEFAULT_CONVERSION_WINDOW_HOURS,
   EXPERIMENT_REFRESH_FREQUENCY,
 } from "back-end/src/util/secrets";
@@ -1329,6 +1330,9 @@ export async function toExperimentApiInterface(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface
 ): Promise<ApiExperiment> {
+  const appOrigin =
+    (APP_ORIGIN ?? "").replace(/\/$/, "");
+
   let project: ProjectInterface | null = null;
   const organization = context.org;
   if (experiment.project) {
@@ -1344,6 +1348,7 @@ export async function toExperimentApiInterface(
   return {
     id: experiment.id,
     name: experiment.name || "",
+    type: experiment.type || "standard",
     project: experiment.project || "",
     hypothesis: experiment.hypothesis || "",
     description: experiment.description || "",
@@ -1428,6 +1433,10 @@ export async function toExperimentApiInterface(
           },
         }
       : null),
+    shareLevel: experiment.shareLevel || "organization",
+    ...(experiment.shareLevel === "public" && experiment.uid ? {
+      publicUrl: `${appOrigin}/public/e/${experiment.uid}`
+    } : null)
   };
 }
 
@@ -2438,6 +2447,7 @@ export function postExperimentApiPayloadToInterface(
     regressionAdjustmentEnabled:
       payload.regressionAdjustmentEnabled ??
       !!organization?.settings?.regressionAdjustmentEnabled,
+    shareLevel: payload.shareLevel,
   };
 }
 
@@ -2477,6 +2487,7 @@ export function updateExperimentApiPayloadToInterface(
     statsEngine,
     regressionAdjustmentEnabled,
     secondaryMetrics,
+    shareLevel,
   } = payload;
   return {
     ...(trackingKey ? { trackingKey } : {}),
@@ -2550,6 +2561,7 @@ export function updateExperimentApiPayloadToInterface(
           }),
         }
       : {}),
+    ...(shareLevel !== undefined ? { shareLevel } : {}),
     dateUpdated: new Date(),
   };
 }
