@@ -5,8 +5,12 @@ import {
   ExperimentModel,
 } from "back-end/src/models/ExperimentModel";
 import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handlers/legacy";
-import { experimentSnapshot } from "back-end/test/snapshots/experiment.snapshot";
 import {
+  experimentSnapshot,
+  experimentSnapshotHealthReadyForDecision,
+} from "back-end/test/snapshots/experiment.snapshot";
+import {
+  notifyDecision,
   notifyMultipleExposures,
   notifySrm,
 } from "back-end/src/services/experimentNotifications";
@@ -715,8 +719,7 @@ describe("experiments events", () => {
         },
       },
       experiment: { id: "experiment-aabb", ...experimentSnapshot },
-      results: { variations: [{ users: 100 }] },
-      snapshot: { multipleExposures: 10, totalUsers: 100 },
+      healthSummary: { multipleExposures: 10, totalUsers: 100 },
     });
 
     expect(rawPayload).toEqual(
@@ -794,8 +797,7 @@ describe("experiments events", () => {
         },
       },
       experiment: { id: "experiment-aabb", ...experimentSnapshot },
-      results: { srm: 0.1, variations: [{ users: 50 }, { users: 50 }] },
-      snapshot: { multipleExposures: 10, totalUsers: 100 },
+      healthSummary: { srm: 0.001, totalUsers: 100 },
     });
 
     expect(rawPayload).toEqual(
@@ -845,5 +847,230 @@ describe("experiments events", () => {
         type: "dashboard",
       },
     });
+  });
+
+  it("dispatches decision update when decision to ship", async () => {
+    let rawPayload;
+
+    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
+      if (data.event === "experiment.decision.ship") rawPayload = data;
+      return { toJSON: () => "" };
+    });
+
+    jest
+      .spyOn(ExperimentModel, "updateOne")
+      .mockImplementation(() => undefined);
+
+    await notifyDecision({
+      context: {
+        org: org,
+        userId: "user-aabb",
+        email: "user@email.com",
+        userName: "User Name",
+        auditUser: {
+          type: "api_key",
+          apiKey: "aabbcc",
+        },
+      },
+      experiment: {
+        ...experimentSnapshot,
+        id: "experiment-aabb",
+        goalMetrics: ["met_123"],
+        analysisSummary: {
+          snapshotId: "snp_123",
+          health: experimentSnapshotHealthReadyForDecision,
+          resultsStatus: {
+            variations: [
+              {
+                variationId: "1",
+                goalMetrics: {
+                  met_123: { status: "won", superStatSigStatus: "won" },
+                },
+                guardrailMetrics: {},
+              },
+            ],
+            settings: { sequentialTesting: false },
+          },
+        },
+      },
+    });
+
+    expect(rawPayload).toEqual(
+      expect.objectContaining({
+        api_version: expect.any(String),
+        containsSecrets: false,
+        created: expect.any(Number),
+        environments: [],
+        event: "experiment.decision.ship",
+        object: "experiment",
+        projects: [],
+        tags: [],
+        data: {
+          object: {
+            experimentId: "experiment-aabb",
+            experimentName: "Add To Cart",
+            decisionDescription:
+              "All goal metrics are statistically significant in the desired direction for a test variation and experiment has reached the target statistical power.",
+          },
+        },
+        user: {
+          email: "user@email.com",
+          id: "user-aabb",
+          name: "User Name",
+          type: "dashboard",
+        },
+      })
+    );
+  });
+
+  it("dispatches decision update when decision to rollback", async () => {
+    let rawPayload;
+
+    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
+      if (data.event === "experiment.decision.rollback") rawPayload = data;
+      return { toJSON: () => "" };
+    });
+
+    jest
+      .spyOn(ExperimentModel, "updateOne")
+      .mockImplementation(() => undefined);
+
+    await notifyDecision({
+      context: {
+        org: org,
+        userId: "user-aabb",
+        email: "user@email.com",
+        userName: "User Name",
+        auditUser: {
+          type: "api_key",
+          apiKey: "aabbcc",
+        },
+      },
+      experiment: {
+        ...experimentSnapshot,
+        id: "experiment-aabb",
+        goalMetrics: ["met_123"],
+        analysisSummary: {
+          snapshotId: "snp_123",
+          health: experimentSnapshotHealthReadyForDecision,
+          resultsStatus: {
+            variations: [
+              {
+                variationId: "1",
+                goalMetrics: {
+                  met_123: { status: "lost", superStatSigStatus: "lost" },
+                },
+                guardrailMetrics: {},
+              },
+            ],
+            settings: { sequentialTesting: false },
+          },
+        },
+      },
+    });
+
+    expect(rawPayload).toEqual(
+      expect.objectContaining({
+        api_version: expect.any(String),
+        containsSecrets: false,
+        created: expect.any(Number),
+        environments: [],
+        event: "experiment.decision.rollback",
+        object: "experiment",
+        projects: [],
+        tags: [],
+        data: {
+          object: {
+            experimentId: "experiment-aabb",
+            experimentName: "Add To Cart",
+            decisionDescription:
+              "All goal metrics are statistically significant in the undesired direction and experiment has reached the target statistical power.",
+          },
+        },
+        user: {
+          email: "user@email.com",
+          id: "user-aabb",
+          name: "User Name",
+          type: "dashboard",
+        },
+      })
+    );
+  });
+
+  it("dispatches decision update when decision ready to review", async () => {
+    let rawPayload;
+
+    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
+      if (data.event === "experiment.decision.review") rawPayload = data;
+      return { toJSON: () => "" };
+    });
+
+    jest
+      .spyOn(ExperimentModel, "updateOne")
+      .mockImplementation(() => undefined);
+
+    await notifyDecision({
+      context: {
+        org: org,
+        userId: "user-aabb",
+        email: "user@email.com",
+        userName: "User Name",
+        auditUser: {
+          type: "api_key",
+          apiKey: "aabbcc",
+        },
+      },
+      experiment: {
+        ...experimentSnapshot,
+        id: "experiment-aabb",
+        goalMetrics: ["met_123"],
+        guardrailMetrics: ["met_456"],
+        analysisSummary: {
+          snapshotId: "snp_123",
+          health: experimentSnapshotHealthReadyForDecision,
+          resultsStatus: {
+            variations: [
+              {
+                variationId: "1",
+                goalMetrics: {
+                  met_123: { status: "won", superStatSigStatus: "won" },
+                },
+                guardrailMetrics: {
+                  met_456: { status: "lost", superStatSigStatus: "lost" },
+                },
+              },
+            ],
+            settings: { sequentialTesting: false },
+          },
+        },
+      },
+    });
+
+    expect(rawPayload).toEqual(
+      expect.objectContaining({
+        api_version: expect.any(String),
+        containsSecrets: false,
+        created: expect.any(Number),
+        environments: [],
+        event: "experiment.decision.review",
+        object: "experiment",
+        projects: [],
+        tags: [],
+        data: {
+          object: {
+            experimentId: "experiment-aabb",
+            experimentName: "Add To Cart",
+            decisionDescription:
+              "All goal metrics are statistically significant in the desired direction for a test variation and experiment has reached the target statistical power. However, one or more guardrails are failing",
+          },
+        },
+        user: {
+          email: "user@email.com",
+          id: "user-aabb",
+          name: "User Name",
+          type: "dashboard",
+        },
+      })
+    );
   });
 });

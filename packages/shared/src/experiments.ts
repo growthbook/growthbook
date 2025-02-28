@@ -961,7 +961,7 @@ export function getDecisionFrameworkStatus({
   if (hasWinnerWithGuardrailFailure) {
     return {
       status: "ready-for-review",
-      tooltip: `All goal metrics are statistically significant in the desired direction for a test variation ${tooltipLanguage} However, one or more guardrails are failing`,
+      tooltip: `All goal metrics are statistically significant in the desired direction for a test variation${tooltipLanguage} However, one or more guardrails are failing`,
     };
   }
 
@@ -972,7 +972,7 @@ export function getDecisionFrameworkStatus({
   ) {
     return {
       status: "rollback-now",
-      tooltip: `All goal metrics are statistically significant in the undesired direction ${tooltipLanguage}`,
+      tooltip: `All goal metrics are statistically significant in the undesired direction${tooltipLanguage}`,
     };
   }
 
