@@ -42,6 +42,8 @@ export interface MetricPowerResponseFromStatsEngine {
   firstPeriodPairwiseSampleSize?: number;
   targetMDE: number;
   sigmahat2Delta?: number;
+  deltaPosterior?: number;
+  sigma2Posterior?: number;
   priorProper?: boolean;
   priorLiftMean?: number;
   priorLiftVariance?: number;

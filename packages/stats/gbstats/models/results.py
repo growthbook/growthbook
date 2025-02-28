@@ -52,6 +52,8 @@ class PowerResponse:
     firstPeriodPairwiseSampleSize: Optional[float]
     targetMDE: float
     sigmahat2Delta: Optional[float]
+    deltaPosterior: Optional[float]  # posterior mean
+    sigma2Posterior: Optional[float]  # posterior variance
     priorProper: Optional[bool]
     priorLiftMean: Optional[float]
     priorLiftVariance: Optional[float]
