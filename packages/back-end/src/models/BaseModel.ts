@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import uniqid from "uniqid";
-import mongoose, { FilterQuery } from "mongoose";
+import mongoose, { FilterQuery, PipelineStage } from "mongoose";
 import { Collection } from "mongodb";
 import omit from "lodash/omit";
 import { z } from "zod";
@@ -422,6 +422,18 @@ export abstract class BaseModel<
     if (!this.canRead(migrated)) {
       return null;
     }
+
+    return migrated;
+  }
+
+  protected async _aggregate(pipeline: PipelineStage[]) {
+    const rawDocs = await this._dangerousGetCollection()
+      .aggregate(pipeline)
+      .toArray();
+
+    const migrated = rawDocs.map((d) =>
+      this.migrate(this._removeMongooseFields(d))
+    );
 
     return migrated;
   }
