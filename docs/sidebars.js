@@ -601,7 +601,7 @@ const sidebars = {
         {
           type: "doc",
           id: "tools/chrome-extension",
-          label: "Chrome Extension",
+          label: "Browser Extension",
         },
         {
           type: "doc",

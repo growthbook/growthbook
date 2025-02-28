@@ -128,7 +128,7 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
   const isBandit = experiment?.type === "multi-armed-bandit";
 
   return (
-    <div className={`container-fluid public ${isBandit ? "bandit" : "experiment"}`}>
+    <div className={`public pb-2 ${isBandit ? "bandit" : "experiment"}`}>
       <Head>
         <title>{experiment?.name || "Experiment not found"}</title>
         <meta
@@ -178,7 +178,7 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
                 onValueChange={(t: ExperimentTab) => setTab(t)}
                 style={{ width: "100%" }}
               >
-                <TabsList size="3">
+                <TabsList size="3" className="px-3">
                   <TabsTrigger value="overview">Overview</TabsTrigger>
                   <TabsTrigger value="results">Results</TabsTrigger>
                   {isBandit ? (
@@ -187,7 +187,7 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
                 </TabsList>
               </Tabs>
 
-              <div className="col-auto experiment-date-range">
+              <div className="col-auto experiment-date-range pr-3">
                 {startDate && (
                   <span>
                     {startDate} — {endDate}{" "}
@@ -203,7 +203,7 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
       )}
 
       {experiment ? (
-        <div className="mt-3 container-fluid pagecontents">
+        <div className="mt-3 container-fluid pagecontents px-3">
           <div
             className={clsx(
               "pt-3",
