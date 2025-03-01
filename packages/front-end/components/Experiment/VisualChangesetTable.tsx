@@ -352,7 +352,7 @@ export const VisualChangesetTable: FC<Props> = ({
         const visualChangeTypesSet: Set<string> = new Set();
         vc.visualChanges.forEach((c) => {
           if (c.domMutations.length > 0) {
-            visualChangeTypesSet.add("Copy");
+            visualChangeTypesSet.add("Text");
           }
           if (c.css) {
             visualChangeTypesSet.add("CSS");
@@ -362,7 +362,7 @@ export const VisualChangesetTable: FC<Props> = ({
           }
         });
 
-        const visualChangeTypesDict: string[] = ["Copy", "CSS", "Javascript"];
+        const visualChangeTypesDict: string[] = ["Text", "CSS", "Javascript"];
         const visualChangeTypes: string[] = [...visualChangeTypesSet].sort(
           (a, b) =>
             visualChangeTypesDict.indexOf(a) - visualChangeTypesDict.indexOf(b)
