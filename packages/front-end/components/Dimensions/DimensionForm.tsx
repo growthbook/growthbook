@@ -9,16 +9,15 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import useMembers from "@/hooks/useMembers";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Code from "@/components/SyntaxHighlighting/Code";
+import SelectOwner from "../Owner/SelectOwner";
 
 const DimensionForm: FC<{
   close: () => void;
   current: Partial<DimensionInterface>;
 }> = ({ close, current }) => {
   const { apiCall } = useAuth();
-  const { memberUsernameOptions } = useMembers();
   const {
     getDatasourceById,
     datasources,
@@ -40,7 +39,7 @@ const DimensionForm: FC<{
       datasource:
         (current.id ? current.datasource : validDatasources[0]?.id) || "",
       userIdType: current.userIdType || "user_id",
-      owner: current.owner || "",
+      owner: current?.owner || "",
     },
   });
   const [sqlOpen, setSqlOpen] = useState(false);
@@ -72,6 +71,7 @@ const DimensionForm: FC<{
         />
       )}
       <Modal
+        trackingEventModalType=""
         close={close}
         open={true}
         size="md"
@@ -92,11 +92,10 @@ const DimensionForm: FC<{
         })}
       >
         <Field label="Name" required {...form.register("name")} />
-        <Field
-          label="Owner"
-          options={memberUsernameOptions}
-          comboBox
-          {...form.register("owner")}
+        <SelectOwner
+          resourceType="dimension"
+          value={form.watch("owner")}
+          onChange={(v) => form.setValue("owner", v)}
         />
         <Field label="Description" textarea {...form.register("description")} />
         <SelectField

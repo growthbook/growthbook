@@ -155,6 +155,7 @@ export default function EditSqlModal({
 
   return (
     <Modal
+      trackingEventModalType=""
       open
       header="Edit SQL"
       submit={form.handleSubmit(async (value) => {
@@ -190,7 +191,7 @@ export default function EditSqlModal({
           shouldDisplay={!canRunQueries}
           tipPosition="top"
         >
-          <label className="mr-4">
+          <label className="mx-4 mb-0">
             <input
               type="checkbox"
               disabled={!canRunQueries}
@@ -311,15 +312,13 @@ export default function EditSqlModal({
               />
             </div>
             {testQueryResults && (
-              <div className="" style={{ flex: 1, maxHeight: "45%" }}>
-                <DisplayTestQueryResults
-                  duration={parseInt(testQueryResults.duration || "0")}
-                  results={testQueryResults.results || []}
-                  sql={testQueryResults.sql || ""}
-                  error={testQueryResults.error || ""}
-                  close={() => setTestQueryResults(null)}
-                />
-              </div>
+              <DisplayTestQueryResults
+                duration={parseInt(testQueryResults.duration || "0")}
+                results={testQueryResults.results || []}
+                sql={testQueryResults.sql || ""}
+                error={testQueryResults.error || ""}
+                close={() => setTestQueryResults(null)}
+              />
             )}
           </div>
         </div>

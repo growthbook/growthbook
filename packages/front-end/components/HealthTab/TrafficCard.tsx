@@ -6,8 +6,8 @@ import { ExperimentReportVariation } from "back-end/types/report";
 import { useEffect, useMemo, useState } from "react";
 import { getValidDate } from "shared/dates";
 import { FaCircle } from "react-icons/fa6";
+import { DEFAULT_SRM_THRESHOLD } from "shared/constants";
 import { useUser } from "@/services/UserContext";
-import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
 import track from "@/services/track";
 import { formatTrafficSplit } from "@/services/utils";
 import { formatNumber } from "@/services/metrics";
@@ -35,9 +35,11 @@ function compareDimsByTotalUsers(
 export default function TrafficCard({
   traffic,
   variations,
+  isBandit,
 }: {
   traffic: ExperimentSnapshotTraffic;
   variations: ExperimentReportVariation[];
+  isBandit: boolean;
 }) {
   const [cumulative, setCumulative] = useState(true);
   const { settings } = useUser();
@@ -49,7 +51,8 @@ export default function TrafficCard({
   const availableDimensions = transformDimensionData(
     traffic.dimension,
     variations,
-    srmThreshold
+    srmThreshold,
+    isBandit
   );
 
   const [selectedDimension, setSelectedDimension] = useState<string>("");
@@ -98,11 +101,12 @@ export default function TrafficCard({
   }, [selectedDimension, traffic.dimension]);
 
   return (
-    <div className="appbox my-4 p-3">
+    <div className="box my-4 p-3">
       <div className="mx-2">
         <div className="d-flex flex-row mt-1">
           <h2 className="d-inline">{"Traffic"}</h2>
-          <div className="col-2 ml-auto">
+          <div className="flex-1" />
+          <div className="col-auto">
             <div className="uppercase-title text-muted">Dimension</div>
             <SelectField
               containerClassName={"select-dropdown-underline"}
@@ -176,7 +180,7 @@ export default function TrafficCard({
               return (
                 <tr key={i}>
                   <td className="border-right">
-                    {(
+                    {!isBandit ? (
                       <>
                         <Tooltip
                           body={
@@ -202,7 +206,9 @@ export default function TrafficCard({
                           {r.name}
                         </a>
                       </>
-                    ) || <em>unknown</em>}
+                    ) : (
+                      r.name
+                    )}
                   </td>
                   {variations.map((_v, i) => (
                     <td style={{ paddingLeft: "35px" }} key={i}>
@@ -236,6 +242,7 @@ export default function TrafficCard({
             label="Users"
             datapoints={usersPerDate}
             formatter={formatNumber}
+            cumulative={cumulative}
           />
         </div>
       )}

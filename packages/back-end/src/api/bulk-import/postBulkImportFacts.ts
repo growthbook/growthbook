@@ -1,22 +1,22 @@
-import { DataSourceInterface } from "../../../types/datasource";
+import { DataSourceInterface } from "back-end/types/datasource";
 import {
   CreateFactTableProps,
   FactMetricInterface,
-} from "../../../types/fact-table";
-import { PostBulkImportFactsResponse } from "../../../types/openapi";
-import { queueFactTableColumnsRefresh } from "../../jobs/refreshFactTableColumns";
-import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
+} from "back-end/types/fact-table";
+import { PostBulkImportFactsResponse } from "back-end/types/openapi";
+import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
+import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
 import {
   createFactFilter,
   createFactTable,
   updateFactTable,
   updateFactFilter,
   getFactTableMap,
-} from "../../models/FactTableModel";
-import { createApiRequestHandler } from "../../util/handler";
-import { postBulkImportFactsValidator } from "../../validators/openapi";
-import { getCreateMetricPropsFromBody } from "../fact-metrics/postFactMetric";
-import { getUpdateFactMetricPropsFromBody } from "../fact-metrics/updateFactMetric";
+} from "back-end/src/models/FactTableModel";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { postBulkImportFactsValidator } from "back-end/src/validators/openapi";
+import { getCreateMetricPropsFromBody } from "back-end/src/api/fact-metrics/postFactMetric";
+import { getUpdateFactMetricPropsFromBody } from "back-end/src/api/fact-metrics/updateFactMetric";
 
 export const postBulkImportFacts = createApiRequestHandler(
   postBulkImportFactsValidator
@@ -198,10 +198,17 @@ export const postBulkImportFacts = createApiRequestHandler(
           data.managedBy = "api";
         }
 
+        const lookupFactTable = async (id: string) =>
+          factTableMap.get(id) || null;
+
         const existing = factMetricMap.get(id);
         // Update existing fact metric
         if (existing) {
-          const changes = getUpdateFactMetricPropsFromBody(data, existing);
+          const changes = await getUpdateFactMetricPropsFromBody(
+            data,
+            existing,
+            lookupFactTable
+          );
 
           const newFactMetric = await req.context.models.factMetrics.update(
             existing,
@@ -213,9 +220,6 @@ export const postBulkImportFacts = createApiRequestHandler(
         }
         // Create new fact metric
         else {
-          const lookupFactTable = async (id: string) =>
-            factTableMap.get(id) || null;
-
           const createProps = await getCreateMetricPropsFromBody(
             data,
             req.organization,

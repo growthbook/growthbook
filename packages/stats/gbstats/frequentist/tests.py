@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from dataclasses import asdict
-from typing import List, Optional
+from typing import Optional, List
 
 import numpy as np
 from pydantic.dataclasses import dataclass
@@ -10,9 +10,16 @@ from gbstats.messages import (
     BASELINE_VARIATION_ZERO_MESSAGE,
     ZERO_NEGATIVE_VARIANCE_MESSAGE,
     ZERO_SCALED_VARIATION_MESSAGE,
+    NO_UNITS_IN_VARIATION_MESSAGE,
 )
-from gbstats.models.statistics import TestStatistic
+from gbstats.models.statistics import (
+    TestStatistic,
+    ScaledImpactStatistic,
+    RegressionAdjustedStatistic,
+    RegressionAdjustedRatioStatistic,
+)
 from gbstats.models.tests import BaseABTest, BaseConfig, TestResult, Uplift
+from gbstats.utils import variance_of_ratios, isinstance_union
 
 
 # Configs
@@ -31,7 +38,6 @@ class SequentialConfig(FrequentistConfig):
 @dataclass
 class FrequentistTestResult(TestResult):
     p_value: float
-    error_message: Optional[str] = None
 
 
 def frequentist_diff(mean_a, mean_b, relative, mean_a_unadjusted=None) -> float:
@@ -45,11 +51,64 @@ def frequentist_diff(mean_a, mean_b, relative, mean_a_unadjusted=None) -> float:
 
 def frequentist_variance(var_a, mean_a, n_a, var_b, mean_b, n_b, relative) -> float:
     if relative:
-        return var_b / (pow(mean_a, 2) * n_b) + var_a * pow(mean_b, 2) / (
-            pow(mean_a, 4) * n_a
-        )
+        return variance_of_ratios(mean_b, var_b / n_b, mean_a, var_a / n_a, 0)
     else:
         return var_b / n_b + var_a / n_a
+
+
+def frequentist_variance_relative_cuped(
+    stat_a: RegressionAdjustedStatistic, stat_b: RegressionAdjustedStatistic
+) -> float:
+    den_trt = stat_b.n * stat_a.unadjusted_mean**2
+    den_ctrl = stat_a.n * stat_a.unadjusted_mean**2
+    if den_trt == 0 or den_ctrl == 0:
+        return 0  # avoid division by zero
+    theta = stat_a.theta if stat_a.theta else 0
+    num_trt = (
+        stat_b.post_statistic.variance
+        + theta**2 * stat_b.pre_statistic.variance
+        - 2 * theta * stat_b.covariance
+    )
+    v_trt = num_trt / den_trt
+    const = -stat_b.post_statistic.mean
+    num_a = (
+        stat_a.post_statistic.variance * const**2 / (stat_a.post_statistic.mean**2)
+    )
+    num_b = 2 * theta * stat_a.covariance * const / stat_a.post_statistic.mean
+    num_c = theta**2 * stat_a.pre_statistic.variance
+    v_ctrl = (num_a + num_b + num_c) / den_ctrl
+    return v_trt + v_ctrl
+
+
+def frequentist_variance_relative_cuped_ratio(
+    stat_a: RegressionAdjustedRatioStatistic, stat_b: RegressionAdjustedRatioStatistic
+) -> float:
+    if stat_a.unadjusted_mean == 0 or stat_a.d_statistic_post.mean == 0:
+        return 0  # avoid division by zero
+    g_abs = stat_b.mean - stat_a.mean
+    g_rel_den = np.abs(stat_a.unadjusted_mean)
+    nabla_ctrl_0_num = -(g_rel_den + g_abs) / stat_a.d_statistic_post.mean
+    nabla_ctrl_0_den = g_rel_den**2
+    nabla_ctrl_0 = nabla_ctrl_0_num / nabla_ctrl_0_den
+    nabla_ctrl_1_num = (
+        stat_a.m_statistic_post.mean * g_rel_den / stat_a.d_statistic_post.mean**2
+        + stat_a.m_statistic_post.mean * g_abs / stat_a.d_statistic_post.mean**2
+    )
+    nabla_ctrl_1_den = g_rel_den**2
+    nabla_ctrl_1 = nabla_ctrl_1_num / nabla_ctrl_1_den
+    nabla_a = np.array(
+        [
+            nabla_ctrl_0,
+            nabla_ctrl_1,
+            -stat_a.nabla[2] / g_rel_den,
+            -stat_a.nabla[3] / g_rel_den,
+        ]
+    )
+    nabla_b = stat_b.nabla / g_rel_den
+    return (
+        nabla_a.T.dot(stat_a.lambda_matrix).dot(nabla_a) / stat_a.n
+        + nabla_b.T.dot(stat_b.lambda_matrix).dot(nabla_b) / stat_b.n
+    )
 
 
 class TTest(BaseABTest):
@@ -73,20 +132,34 @@ class TTest(BaseABTest):
         self.test_value = config.test_value
         self.relative = config.difference_type == "relative"
         self.scaled = config.difference_type == "scaled"
-        self.traffic_proportion_b = config.traffic_proportion_b
+        self.traffic_percentage = config.traffic_percentage
+        self.total_users = config.total_users
         self.phase_length_days = config.phase_length_days
 
     @property
     def variance(self) -> float:
-        return frequentist_variance(
-            self.stat_a.variance,
-            self.stat_a.unadjusted_mean,
-            self.stat_a.n,
-            self.stat_b.variance,
-            self.stat_b.unadjusted_mean,
-            self.stat_b.n,
-            self.relative,
-        )
+        if (
+            isinstance(self.stat_a, RegressionAdjustedStatistic)
+            and isinstance(self.stat_b, RegressionAdjustedStatistic)
+            and self.relative
+        ):
+            return frequentist_variance_relative_cuped(self.stat_a, self.stat_b)
+        elif (
+            isinstance(self.stat_a, RegressionAdjustedRatioStatistic)
+            and isinstance(self.stat_b, RegressionAdjustedRatioStatistic)
+            and self.relative
+        ):
+            return frequentist_variance_relative_cuped_ratio(self.stat_a, self.stat_b)
+        else:
+            return frequentist_variance(
+                self.stat_a.variance,
+                self.stat_a.unadjusted_mean,
+                self.stat_a.n,
+                self.stat_b.variance,
+                self.stat_b.unadjusted_mean,
+                self.stat_b.n,
+                self.relative,
+            )
 
     @property
     def point_estimate(self) -> float:
@@ -166,29 +239,36 @@ class TTest(BaseABTest):
                 mean=self.point_estimate,
                 stddev=np.sqrt(self.variance),
             ),
+            error_message=None,
         )
         if self.scaled:
-            result = self.scale_result(
-                result, self.traffic_proportion_b, self.phase_length_days
-            )
+            result = self.scale_result(result)
         return result
 
-    def scale_result(
-        self, result: FrequentistTestResult, p: float, d: float
-    ) -> FrequentistTestResult:
-        if p == 0:
+    def scale_result(self, result: FrequentistTestResult) -> FrequentistTestResult:
+        if self.phase_length_days == 0 or self.traffic_percentage == 0:
             return self._default_output(ZERO_SCALED_VARIATION_MESSAGE)
-        adjustment = self.stat_b.n / p / d
-        return FrequentistTestResult(
-            expected=result.expected * adjustment,
-            ci=[result.ci[0] * adjustment, result.ci[1] * adjustment],
-            p_value=result.p_value,
-            uplift=Uplift(
-                dist=result.uplift.dist,
-                mean=result.uplift.mean * adjustment,
-                stddev=result.uplift.stddev * adjustment,
-            ),
-        )
+        if isinstance_union(self.stat_a, ScaledImpactStatistic):
+            if self.total_users:
+                adjustment = self.total_users / (
+                    self.traffic_percentage * self.phase_length_days
+                )
+                return FrequentistTestResult(
+                    expected=result.expected * adjustment,
+                    ci=[result.ci[0] * adjustment, result.ci[1] * adjustment],
+                    p_value=result.p_value,
+                    uplift=Uplift(
+                        dist=result.uplift.dist,
+                        mean=result.uplift.mean * adjustment,
+                        stddev=result.uplift.stddev * adjustment,
+                    ),
+                    error_message=None,
+                )
+            else:
+                return self._default_output(NO_UNITS_IN_VARIATION_MESSAGE)
+        else:
+            error_str = "For scaled impact the statistic must be of type ProportionStatistic, SampleMeanStatistic, or RegressionAdjustedStatistic."
+            return self._default_output(error_str)
 
 
 class TwoSidedTTest(TTest):
@@ -224,6 +304,24 @@ class OneSidedTreatmentLesserTTest(TTest):
         return [-np.inf, self.point_estimate - width]
 
 
+def sequential_rho(alpha, sequential_tuning_parameter) -> float:
+    # eq 161 in https://arxiv.org/pdf/2103.06476v7.pdf
+    return np.sqrt(
+        (-2 * np.log(alpha) + np.log(-2 * np.log(alpha) + 1))
+        / sequential_tuning_parameter
+    )
+
+
+def sequential_interval_halfwidth(s2, N, rho, alpha) -> float:
+    return np.sqrt(s2) * np.sqrt(
+        (
+            (2 * (N * np.power(rho, 2) + 1))
+            * np.log(np.sqrt(N * np.power(rho, 2) + 1) / alpha)
+            / (np.power(N * rho, 2))
+        )
+    )
+
+
 class SequentialTwoSidedTTest(TTest):
     def __init__(
         self,
@@ -243,23 +341,13 @@ class SequentialTwoSidedTTest(TTest):
         N = self.stat_a.n + self.stat_b.n
         rho = self.rho
         s2 = self.variance * N
-
-        width: float = np.sqrt(s2) * np.sqrt(
-            (
-                (2 * (N * np.power(rho, 2) + 1))
-                * np.log(np.sqrt(N * np.power(rho, 2) + 1) / self.alpha)
-                / (np.power(N * rho, 2))
-            )
-        )
-        return [self.point_estimate - width, self.point_estimate + width]
+        halfwidth: float = sequential_interval_halfwidth(s2, N, rho, self.alpha)
+        return [self.point_estimate - halfwidth, self.point_estimate + halfwidth]
 
     @property
     def rho(self) -> float:
         # eq 161 in https://arxiv.org/pdf/2103.06476v7.pdf
-        return np.sqrt(
-            (-2 * np.log(self.alpha) + np.log(-2 * np.log(self.alpha) + 1))
-            / self.sequential_tuning_parameter
-        )
+        return sequential_rho(self.alpha, self.sequential_tuning_parameter)
 
     @property
     def p_value(self) -> float:

@@ -25,6 +25,7 @@ export const environment = z
     toggleOnList: z.boolean().optional(),
     defaultState: z.boolean().optional(),
     projects: z.array(z.string()).optional(),
+    parent: z.string().optional(),
   })
   .strict();
 

@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
@@ -19,8 +19,13 @@ import FeaturesOverview from "@/components/Features/FeaturesOverview";
 import FeaturesStats from "@/components/Features/FeaturesStats";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useEnvironments, useFeaturesList } from "@/services/features";
+import { FeatureUsageProvider } from "@/components/Features/FeatureUsageGraph";
+import FeatureTest from "@/components/Features/FeatureTest";
+import { useAuth } from "@/services/auth";
+import EditTagsForm from "@/components/Tags/EditTagsForm";
+import EditFeatureInfoModal from "@/components/Features/EditFeatureInfoModal";
 
-const featureTabs = ["overview", "stats"] as const;
+const featureTabs = ["overview", "stats", "test"] as const;
 export type FeatureTab = typeof featureTabs[number];
 
 export default function FeaturePage() {
@@ -29,8 +34,9 @@ export default function FeaturePage() {
   const { fid } = router.query;
   const [editProjectModal, setEditProjectModal] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
-  const [editOwnerModal, setEditOwnerModal] = useState(false);
+  const [editFeatureInfoModal, setEditFeatureInfoModal] = useState(false);
   const [version, setVersion] = useState<number | null>(null);
+  const { apiCall } = useAuth();
 
   const { features } = useFeaturesList(false);
   const allEnvironments = useEnvironments();
@@ -56,7 +62,7 @@ export default function FeaturePage() {
   const experiments = data?.experiments;
 
   const [tab, setTab] = useLocalStorage<FeatureTab>(
-    `tabbedPageTab__${data?.feature?.id}`,
+    `tabbedPageTab__${fid}`,
     "overview"
   );
 
@@ -182,14 +188,13 @@ export default function FeaturePage() {
   }
 
   return (
-    <>
+    <FeatureUsageProvider featureId={feature.id}>
       <PageHead
         breadcrumb={[
           { display: "Features", href: "/features" },
           { display: feature.id },
         ]}
       />
-
       <FeaturesHeader
         feature={feature}
         features={features}
@@ -197,9 +202,7 @@ export default function FeaturePage() {
         mutate={mutate}
         tab={tab}
         setTab={setTabAndScroll}
-        setEditProjectModal={setEditProjectModal}
-        setEditTagsModal={setEditTagsModal}
-        setEditOwnerModal={setEditOwnerModal}
+        setEditFeatureInfoModal={setEditFeatureInfoModal}
         dependents={dependents}
       />
 
@@ -213,10 +216,6 @@ export default function FeaturePage() {
           mutate={mutate}
           editProjectModal={editProjectModal}
           setEditProjectModal={setEditProjectModal}
-          editTagsModal={editTagsModal}
-          setEditTagsModal={setEditTagsModal}
-          editOwnerModal={editOwnerModal}
-          setEditOwnerModal={setEditOwnerModal}
           version={version}
           setVersion={setVersion}
           dependents={dependents}
@@ -225,9 +224,51 @@ export default function FeaturePage() {
         />
       )}
 
+      {tab === "test" && (
+        <FeatureTest
+          baseFeature={data.feature}
+          feature={feature}
+          revision={revision}
+          revisions={data.revisions}
+          version={version}
+          setVersion={setVersion}
+        />
+      )}
+
       {tab === "stats" && (
         <FeaturesStats orgSettings={orgSettings} codeRefs={data.codeRefs} />
       )}
-    </>
+
+      {editTagsModal && (
+        <EditTagsForm
+          tags={feature.tags || []}
+          save={async (tags) => {
+            await apiCall(`/feature/${feature.id}`, {
+              method: "PUT",
+              body: JSON.stringify({ tags }),
+            });
+          }}
+          cancel={() => setEditTagsModal(false)}
+          mutate={mutate}
+        />
+      )}
+
+      {editFeatureInfoModal && (
+        <EditFeatureInfoModal
+          resourceType="feature"
+          source="feature-header"
+          dependents={dependents}
+          feature={feature}
+          save={async (updates) => {
+            await apiCall(`/feature/${feature.id}`, {
+              method: "PUT",
+              body: JSON.stringify({ ...updates }),
+            });
+          }}
+          cancel={() => setEditFeatureInfoModal(false)}
+          mutate={mutate}
+        />
+      )}
+    </FeatureUsageProvider>
   );
 }

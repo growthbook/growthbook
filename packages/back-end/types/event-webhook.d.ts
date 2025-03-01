@@ -2,4 +2,4 @@ export {
   EventWebHookPayloadType,
   EventWebHookMethod,
   EventWebHookInterface,
-} from "../src/validators/event-webhook";
+} from "back-end/src/validators/event-webhook";

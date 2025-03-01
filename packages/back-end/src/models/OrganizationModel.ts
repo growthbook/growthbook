@@ -1,25 +1,27 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { cloneDeep } from "lodash";
+import { OWNER_JOB_TITLES, USAGE_INTENTS } from "shared/constants";
 import { POLICIES, RESERVED_ROLE_IDS } from "shared/permissions";
 import { z } from "zod";
-import { TeamInterface } from "@back-end/types/team";
+import { TeamInterface } from "back-end/types/team";
 import {
+  DemographicData,
   Invite,
   Member,
   MemberRoleWithProjects,
   OrganizationInterface,
   OrganizationMessage,
   Role,
-} from "../../types/organization";
-import { upgradeOrganizationDoc } from "../util/migrations";
-import { ApiOrganization } from "../../types/openapi";
-import { IS_CLOUD } from "../util/secrets";
+} from "back-end/types/organization";
+import { upgradeOrganizationDoc } from "back-end/src/util/migrations";
+import { ApiOrganization } from "back-end/types/openapi";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   ToInterface,
   getCollection,
   removeMongooseFields,
-} from "../util/mongo.util";
+} from "back-end/src/util/mongo.util";
 
 const baseMemberFields = {
   _id: false,
@@ -52,6 +54,18 @@ const organizationSchema = new mongoose.Schema({
   url: String,
   name: String,
   ownerEmail: String,
+  demographicData: {
+    ownerJobTitle: {
+      type: String,
+      enum: Object.keys(OWNER_JOB_TITLES),
+    },
+    ownerUsageIntents: [
+      {
+        type: String,
+        enum: Object.keys(USAGE_INTENTS),
+      },
+    ],
+  },
   restrictLoginMethod: String,
   restrictAuthSubPrefix: String,
   autoApproveMembers: Boolean,
@@ -131,6 +145,7 @@ const organizationSchema = new mongoose.Schema({
   customRoles: {},
   deactivatedRoles: [],
   disabled: Boolean,
+  setupEventTracker: String,
 });
 
 organizationSchema.index({ "members.id": 1 });
@@ -148,6 +163,7 @@ export async function createOrganization({
   email,
   userId,
   name,
+  demographicData,
   url = "",
   verifiedDomain = "",
   externalId = "",
@@ -155,6 +171,7 @@ export async function createOrganization({
   email: string;
   userId: string;
   name: string;
+  demographicData?: DemographicData;
   url?: string;
   verifiedDomain?: string;
   externalId?: string;
@@ -162,6 +179,7 @@ export async function createOrganization({
   // TODO: sanitize fields
   const doc = await OrganizationModel.create({
     ownerEmail: email,
+    demographicData,
     name,
     url,
     verifiedDomain,
@@ -187,6 +205,7 @@ export async function createOrganization({
           defaultState: true,
         },
       ],
+      killswitchConfirmation: true,
       // Default to the same attributes as the auto-wrapper for the Javascript SDK
       attributeSchema: [
         { property: "id", datatype: "string", hashAttribute: true },

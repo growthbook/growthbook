@@ -21,7 +21,17 @@ const VisualChangesetModal: FC<{
   close: () => void;
   onCreate?: (vc: VisualChangesetInterface) => void;
   cta?: string;
-}> = ({ mode, experiment, visualChangeset, mutate, close, onCreate, cta }) => {
+  source?: string;
+}> = ({
+  mode,
+  experiment,
+  visualChangeset,
+  mutate,
+  close,
+  onCreate,
+  cta,
+  source,
+}) => {
   const { apiCall } = useAuth();
 
   let forceAdvancedMode = false;
@@ -101,6 +111,8 @@ const VisualChangesetModal: FC<{
 
   return (
     <Modal
+      trackingEventModalType="visual-changeset-modal"
+      trackingEventModalSource={source}
       open
       close={close}
       size="lg"

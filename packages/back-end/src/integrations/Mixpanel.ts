@@ -1,15 +1,18 @@
 import cloneDeep from "lodash/cloneDeep";
-import { getConversionWindowHours } from "shared/experiments";
-import { ReqContext } from "../../types/organization";
+import {
+  getConversionWindowHours,
+  getDelayWindowHours,
+} from "shared/experiments";
+import { ReqContext } from "back-end/types/organization";
 import {
   DataSourceInterface,
   DataSourceProperties,
-} from "../../types/datasource";
-import { DimensionInterface } from "../../types/dimension";
-import { MixpanelConnectionParams } from "../../types/integrations/mixpanel";
-import { MetricInterface, MetricType } from "../../types/metric";
-import { decryptDataSourceParams } from "../services/datasource";
-import { formatQuery, runQuery } from "../services/mixpanel";
+} from "back-end/types/datasource";
+import { DimensionInterface } from "back-end/types/dimension";
+import { MixpanelConnectionParams } from "back-end/types/integrations/mixpanel";
+import { MetricInterface, MetricType } from "back-end/types/metric";
+import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { formatQuery, runQuery } from "back-end/src/services/mixpanel";
 import {
   DimensionSlicesQueryResponse,
   DropTableQueryResponse,
@@ -17,21 +20,22 @@ import {
   ExperimentMetricQueryResponse,
   ExperimentQueryResponses,
   ExperimentUnitsQueryResponse,
+  MetricAnalysisQueryResponse,
   MetricValueParams,
   MetricValueQueryResponse,
   MetricValueQueryResponseRow,
   MetricValueQueryResponseRows,
   PastExperimentQueryResponse,
   SourceIntegrationInterface,
-} from "../types/Integration";
+} from "back-end/src/types/Integration";
 import {
   conditionToJavascript,
   getAggregateFunctions,
   getMixpanelPropertyColumn,
-} from "../util/mixpanel";
-import { compileSqlTemplate } from "../util/sql";
-import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
-import { applyMetricOverrides } from "../util/integration";
+} from "back-end/src/util/mixpanel";
+import { compileSqlTemplate } from "back-end/src/util/sql";
+import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
+import { applyMetricOverrides } from "back-end/src/util/integration";
 
 export default class Mixpanel implements SourceIntegrationInterface {
   context: ReqContext;
@@ -59,6 +63,12 @@ export default class Mixpanel implements SourceIntegrationInterface {
       this.params = { projectId: "", secret: "", username: "" };
       this.decryptionError = true;
     }
+  }
+  getMetricAnalysisQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  runMetricAnalysisQuery(): Promise<MetricAnalysisQueryResponse> {
+    throw new Error("Method not implemented.");
   }
   getDropUnitsTableQuery(): string {
     throw new Error("Method not implemented.");
@@ -126,9 +136,8 @@ export default class Mixpanel implements SourceIntegrationInterface {
     });
 
     const hasEarlyStartMetrics =
-      metrics.filter(
-        (m) => m.windowSettings.delayHours && m.windowSettings.delayHours < 0
-      ).length > 0;
+      metrics.filter((m) => getDelayWindowHours(m.windowSettings) < 0).length >
+      0;
 
     const onActivate = `
         ${activationMetric ? "state.activated = true;" : ""}
@@ -138,14 +147,11 @@ export default class Mixpanel implements SourceIntegrationInterface {
             ? ` // Process queued values
         state.queuedEvents.forEach((event) => {
           ${metrics
-            .filter(
-              (m) =>
-                m.windowSettings.delayHours && m.windowSettings.delayHours < 0
-            )
+            .filter((m) => getDelayWindowHours(m.windowSettings) < 0)
             .map(
               (metric, i) => `// Metric - ${metric.name}
           if(isMetric${i}(event) && event.time - state.start > ${
-                (metric.windowSettings.delayHours || 0) * 60 * 60 * 1000
+                getDelayWindowHours(metric.windowSettings) * 60 * 60 * 1000
               }) {
             state.m${i}.push(${this.getMetricValueExpression(metric.column)});
           }`
@@ -676,7 +682,7 @@ function is${name}(event) {
   ) {
     const windowHours = getConversionWindowHours(metric.windowSettings);
     const checks: string[] = [];
-    const start = (metric.windowSettings.delayHours || 0) * 60 * 60 * 1000;
+    const start = getDelayWindowHours(metric.windowSettings) * 60 * 60 * 1000;
     // add conversion delay
     if (start) {
       checks.push(`event.time - ${conversionWindowStart} >= ${start}`);

@@ -1,9 +1,9 @@
 import mongoose from "mongoose";
 import { omit } from "lodash";
 import uniqid from "uniqid";
-import { QueryInterface, QueryType } from "../../types/query";
-import { QUERY_CACHE_TTL_MINS } from "../util/secrets";
-import { QueryLanguage } from "../../types/datasource";
+import { QueryInterface, QueryType } from "back-end/types/query";
+import { QUERY_CACHE_TTL_MINS } from "back-end/src/util/secrets";
+import { QueryLanguage } from "back-end/types/datasource";
 
 export const queriesSchema = [
   {
@@ -73,6 +73,17 @@ export async function getQueriesByDatasource(
       createdAt: -1,
     });
   return docs.map((doc) => toInterface(doc));
+}
+
+export async function countRunningQueries(
+  organization: string,
+  datasource: string
+) {
+  return await QueryModel.find({
+    organization,
+    datasource,
+    status: "running",
+  }).count();
 }
 
 export async function updateQuery(

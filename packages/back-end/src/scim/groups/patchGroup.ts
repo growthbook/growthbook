@@ -7,14 +7,17 @@ import {
   ScimGroup,
   ScimGroupMember,
   ScimGroupPatchRequest,
-} from "../../../types/scim";
-import { findTeamById, updateTeamMetadata } from "../../models/TeamModel";
+} from "back-end/types/scim";
+import {
+  findTeamById,
+  updateTeamMetadata,
+} from "back-end/src/models/TeamModel";
 import {
   addMembersToTeam,
   expandOrgMembers,
   removeMembersFromTeam,
-} from "../../services/organizations";
-import { Member } from "../../../types/organization";
+} from "back-end/src/services/organizations";
+import { Member } from "back-end/types/organization";
 
 export async function patchGroup(
   req: ScimGroupPatchRequest,

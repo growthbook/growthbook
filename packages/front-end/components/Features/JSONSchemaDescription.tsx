@@ -1,6 +1,6 @@
-import { MdInfoOutline } from "react-icons/md";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { GBInfo } from "@/components/Icons";
 
 export default function JSONSchemaDescription({
   jsonSchema,
@@ -12,7 +12,7 @@ export default function JSONSchemaDescription({
   );
 
   return (
-    <div className="mt-3 border-top pt-3 d-flex align-items-center">
+    <div className="d-flex align-items-center">
       {jsonSchemaDescription ? (
         <div className="mr-2">{jsonSchemaDescription}</div>
       ) : null}
@@ -75,8 +75,7 @@ export default function JSONSchemaDescription({
               }
               tipMinWidth="300px"
             >
-              <strong>{field.key}</strong>{" "}
-              <MdInfoOutline className="text-purple" />
+              <strong>{field.key}</strong> <GBInfo />
             </Tooltip>
           </div>
         </div>

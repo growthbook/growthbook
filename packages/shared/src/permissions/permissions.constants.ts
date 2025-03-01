@@ -40,6 +40,8 @@ export const POLICIES = [
   "BillingFullAccess",
   "AuditLogsFullAccess",
   "CustomRolesFullAccess",
+  "CustomFieldsFullAccess",
+  "TemplatesFullAccess",
 ] as const;
 
 export type Policy = typeof POLICIES[number];
@@ -73,7 +75,12 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   ],
   DataSourceConfiguration: ["readData", "editDatasourceSettings", "runQueries"],
   RunQueries: ["readData", "runQueries"],
-  MetricsFullAccess: ["readData", "createMetrics", "runQueries"],
+  MetricsFullAccess: [
+    "readData",
+    "createMetrics",
+    "runQueries",
+    "createMetricGroups",
+  ],
   FactTablesFullAccess: [
     "readData",
     "manageFactTables",
@@ -112,6 +119,8 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   BillingFullAccess: ["readData", "manageBilling"],
   AuditLogsFullAccess: ["readData", "viewAuditLog"],
   CustomRolesFullAccess: ["readData", "manageTeam", "manageCustomRoles"],
+  CustomFieldsFullAccess: ["readData", "manageCustomFields"],
+  TemplatesFullAccess: ["readData", "manageTemplates"],
 };
 
 export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
@@ -133,6 +142,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "ExperimentsFullAccess",
       "VisualEditorFullAccess",
       "SuperDeleteReports",
+      "TemplatesFullAccess",
     ],
   },
   {
@@ -170,6 +180,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "NorthStarMetricFullAccess",
       "TeamManagementFullAccess",
       "CustomRolesFullAccess",
+      "CustomFieldsFullAccess",
       "ProjectsFullAccess",
       "TagsFullAccess",
       "APIKeysFullAccess",
@@ -223,7 +234,7 @@ export const POLICY_METADATA_MAP: Record<
   SuperDeleteReports: {
     displayName: "Super Delete Reports",
     description:
-      "Delete ad-hoc reports made by other users. Typically assigned to admins only.",
+      "Delete custom reports made by other users. Typically assigned to admins only.",
   },
   DataSourcesFullAccess: {
     displayName: "Data Sources Full Access",
@@ -343,6 +354,14 @@ export const POLICY_METADATA_MAP: Record<
     displayName: "Manage Custom Roles",
     description: "Create, edit, and delete custom roles",
   },
+  CustomFieldsFullAccess: {
+    displayName: "Manage Custom Fields",
+    description: "Create, edit, and delete custom fields",
+  },
+  TemplatesFullAccess: {
+    displayName: "Manage Templates",
+    description: "Create, edit, and delete experiment templates",
+  },
 };
 
 export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
@@ -410,6 +429,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "PresentationsFullAccess",
       "TagsFullAccess",
       "DataSourceConfiguration",
+      "TemplatesFullAccess",
     ],
   },
   experimenter: {
@@ -438,6 +458,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "SavedGroupsFullAccess",
       "TagsFullAccess",
       "DataSourceConfiguration",
+      "TemplatesFullAccess",
     ],
   },
   admin: {
@@ -472,8 +493,10 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "canReview",
   "manageFeatureDrafts",
   "manageFeatures",
+  "manageArchetype",
   "manageProjects",
   "createAnalyses",
+  "createSegments",
   "createIdeas",
   "createMetrics",
   "manageFactTables",
@@ -484,13 +507,16 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "runQueries",
   "manageTargetingAttributes",
   "manageVisualChanges",
+  "manageSavedGroups",
+  "manageCustomFields",
+  "manageTemplates",
 ] as const;
 
 export const GLOBAL_PERMISSIONS = [
   "readData",
   "createPresentations",
   "createDimensions",
-  "createSegments",
+  "createMetricGroups",
   "organizationSettings",
   "superDeleteReport",
   "manageTeam",
@@ -501,9 +527,8 @@ export const GLOBAL_PERMISSIONS = [
   "manageBilling",
   "manageNorthStarMetric",
   "manageNamespaces",
-  "manageSavedGroups",
-  "manageArchetype",
   "manageCustomRoles",
+  "manageCustomFields",
   "viewAuditLog",
 ] as const;
 

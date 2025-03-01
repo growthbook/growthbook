@@ -3,7 +3,6 @@ import { createHash } from "crypto";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
-import { orgHasPremiumFeature } from "shared/enterprise";
 import {
   AutoExperiment,
   FeatureRule as FeatureDefinitionRule,
@@ -35,14 +34,16 @@ import {
   SavedGroupsValues,
   SavedGroupInterface,
 } from "shared/src/types";
+import { clone } from "lodash";
 import {
   ApiReqContext,
   AutoExperimentWithProject,
   FeatureDefinition,
   FeatureDefinitionWithProject,
-} from "../../types/api";
+} from "back-end/types/api";
 import {
   ExperimentRefRule,
+  ExperimentRule,
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
@@ -51,40 +52,50 @@ import {
   FeatureTestResult,
   ForceRule,
   RolloutRule,
-} from "../../types/feature";
-import { getAllFeatures } from "../models/FeatureModel";
+} from "back-end/types/feature";
+import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import {
   getAllPayloadExperiments,
   getAllURLRedirectExperiments,
   getAllVisualExperiments,
-} from "../models/ExperimentModel";
-import { getFeatureDefinition, getParsedCondition } from "../util/features";
+} from "back-end/src/models/ExperimentModel";
+import {
+  getFeatureDefinition,
+  getParsedCondition,
+} from "back-end/src/util/features";
 import {
   getAllSavedGroups,
   getSavedGroupsById,
-} from "../models/SavedGroupModel";
+} from "back-end/src/models/SavedGroupModel";
 import {
   Environment,
   OrganizationInterface,
   ReqContext,
   SDKAttribute,
   SDKAttributeSchema,
-} from "../../types/organization";
-import { getSDKPayload, updateSDKPayload } from "../models/SdkPayloadModel";
-import { logger } from "../util/logger";
-import { promiseAllChunks } from "../util/promise";
-import { SDKPayloadKey } from "../../types/sdk-payload";
-import { ApiFeature, ApiFeatureEnvironment } from "../../types/openapi";
-import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
-import { VisualChangesetInterface } from "../../types/visual-changeset";
+} from "back-end/types/organization";
+import {
+  getSDKPayload,
+  updateSDKPayload,
+} from "back-end/src/models/SdkPayloadModel";
+import { logger } from "back-end/src/util/logger";
+import { promiseAllChunks } from "back-end/src/util/promise";
+import { SDKPayloadKey } from "back-end/types/sdk-payload";
+import { ApiFeature, ApiFeatureEnvironment } from "back-end/types/openapi";
+import {
+  ExperimentInterface,
+  ExperimentPhase,
+} from "back-end/types/experiment";
+import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import {
   ApiFeatureEnvSettings,
   ApiFeatureEnvSettingsRules,
-} from "../api/features/postFeature";
-import { ArchetypeAttributeValues } from "../../types/archetype";
-import { FeatureRevisionInterface } from "../../types/feature-revision";
-import { triggerWebhookJobs } from "../jobs/updateAllJobs";
-import { URLRedirectInterface } from "../../types/url-redirect";
+} from "back-end/src/api/features/postFeature";
+import { ArchetypeAttributeValues } from "back-end/types/archetype";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import { triggerWebhookJobs } from "back-end/src/jobs/updateAllJobs";
+import { URLRedirectInterface } from "back-end/types/url-redirect";
+import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,
@@ -262,7 +273,7 @@ export function generateAutoExperimentsPayload({
             : data.visualChangeset.urlPatterns,
         weights: phase.variationWeights,
         meta: e.variations.map((v) => ({ key: v.key, name: v.name })),
-        filters: phase.namespace.enabled
+        filters: phase?.namespace?.enabled
           ? [
               {
                 attribute: e.hashAttribute,
@@ -310,9 +321,7 @@ export async function getSavedGroupMap(
   // Get "SavedGroups" for an organization and build a map of the SavedGroup's Id to the actual array of IDs, respecting the type.
   const allGroups =
     typeof savedGroups === "undefined"
-      ? await getAllSavedGroups(organization.id, {
-          includeLargeSavedGroupValues: true,
-        })
+      ? await getAllSavedGroups(organization.id)
       : savedGroups;
 
   function getGroupValues(
@@ -493,16 +502,16 @@ export type FeatureDefinitionsResponseArgs = {
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
+  includeRuleIds?: boolean;
   attributes?: SDKAttributeSchema;
   secureAttributeSalt?: string;
   projects: string[];
   capabilities: SDKCapability[];
   savedGroups: SavedGroupInterface[];
-  savedGroupAttributeKeys?: Record<string, string>;
   savedGroupReferencesEnabled?: boolean;
   organization: OrganizationInterface;
 };
-async function getFeatureDefinitionsResponse({
+export async function getFeatureDefinitionsResponse({
   features,
   experiments,
   dateUpdated,
@@ -511,12 +520,12 @@ async function getFeatureDefinitionsResponse({
   includeDraftExperiments,
   includeExperimentNames,
   includeRedirectExperiments,
+  includeRuleIds,
   attributes,
   secureAttributeSalt,
   projects,
   capabilities,
   savedGroups,
-  savedGroupAttributeKeys,
   savedGroupReferencesEnabled = false,
   organization,
 }: FeatureDefinitionsResponseArgs) {
@@ -573,10 +582,6 @@ async function getFeatureDefinitionsResponse({
   const hasSecureAttributes = attributes?.some((a) =>
     ["secureString", "secureString[]"].includes(a.datatype)
   );
-  let savedGroupsValues = getSavedGroupsValuesFromInterfaces(
-    savedGroups,
-    organization
-  );
   if (attributes && hasSecureAttributes && secureAttributeSalt !== undefined) {
     features = applyFeatureHashing(features, attributes, secureAttributeSalt);
 
@@ -588,15 +593,17 @@ async function getFeatureDefinitionsResponse({
       );
     }
 
-    if (savedGroupAttributeKeys) {
-      savedGroupsValues = applySavedGroupHashing(
-        savedGroupsValues,
-        attributes,
-        savedGroupAttributeKeys,
-        secureAttributeSalt
-      );
-    }
+    savedGroups = applySavedGroupHashing(
+      savedGroups,
+      attributes,
+      secureAttributeSalt
+    );
   }
+
+  const savedGroupsValues = getSavedGroupsValuesFromInterfaces(
+    savedGroups,
+    organization
+  );
 
   features = scrubFeatures(
     features,
@@ -634,6 +641,17 @@ async function getFeatureDefinitionsResponse({
     }
   }
 
+  // `features` is a deep clone, so it's safe to delete fields directly
+  if (!includeRuleIds) {
+    for (const k in features) {
+      if (features[k]?.rules) {
+        for (const rule of features[k].rules) {
+          delete rule.id;
+        }
+      }
+    }
+  }
+
   if (!encryptionKey) {
     return {
       features,
@@ -651,10 +669,9 @@ async function getFeatureDefinitionsResponse({
     ? await encrypt(JSON.stringify(experiments || []), encryptionKey)
     : undefined;
 
-  const encryptedSavedGroups = await encrypt(
-    JSON.stringify(scrubbedSavedGroups),
-    encryptionKey
-  );
+  const encryptedSavedGroups = scrubbedSavedGroups
+    ? await encrypt(JSON.stringify(scrubbedSavedGroups), encryptionKey)
+    : undefined;
 
   return {
     features: {},
@@ -662,7 +679,6 @@ async function getFeatureDefinitionsResponse({
     dateUpdated,
     encryptedFeatures,
     ...(includeAutoExperiments && { encryptedExperiments }),
-    savedGroups: {},
     encryptedSavedGroups: encryptedSavedGroups,
   };
 }
@@ -677,6 +693,7 @@ export type FeatureDefinitionArgs = {
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
+  includeRuleIds?: boolean;
   hashSecureAttributes?: boolean;
   savedGroupReferencesEnabled?: boolean;
 };
@@ -701,6 +718,7 @@ export async function getFeatureDefinitions({
   includeDraftExperiments,
   includeExperimentNames,
   includeRedirectExperiments,
+  includeRuleIds,
   hashSecureAttributes,
   savedGroupReferencesEnabled,
 }: FeatureDefinitionArgs): Promise<FeatureDefinitionSDKPayload> {
@@ -722,25 +740,17 @@ export async function getFeatureDefinitions({
       }
       let attributes: SDKAttributeSchema | undefined = undefined;
       let secureAttributeSalt: string | undefined = undefined;
-      let savedGroupAttributeKeys:
-        | Record<string, string>
-        | undefined = undefined;
       const { features, experiments, savedGroupsInUse } = cached.contents;
       const usedSavedGroups = await getSavedGroupsById(
         savedGroupsInUse,
         context.org.id
       );
       if (hashSecureAttributes) {
-        if (orgHasPremiumFeature(context.org, "hash-secure-attributes")) {
-          secureAttributeSalt = context.org.settings?.secureAttributeSalt;
-          attributes = context.org.settings?.attributeSchema;
-          savedGroupAttributeKeys = Object.fromEntries(
-            usedSavedGroups.map((savedGroup) => [
-              savedGroup.id,
-              savedGroup.attributeKey || "",
-            ])
-          );
-        }
+        // Note: We don't check for whether the org has the hash-secure-attributes premium feature here because
+        // if they ever get downgraded for any reason we would be exposing secure attributes in the payload
+        // which would expose private data publicly.
+        secureAttributeSalt = context.org.settings?.secureAttributeSalt;
+        attributes = context.org.settings?.attributeSchema;
       }
 
       return await getFeatureDefinitionsResponse({
@@ -752,12 +762,12 @@ export async function getFeatureDefinitions({
         includeDraftExperiments,
         includeExperimentNames,
         includeRedirectExperiments,
+        includeRuleIds,
         attributes,
         secureAttributeSalt,
         projects: projects || [],
         capabilities,
         savedGroups: usedSavedGroups || [],
-        savedGroupAttributeKeys,
         savedGroupReferencesEnabled,
         organization: context.org,
       });
@@ -769,29 +779,13 @@ export async function getFeatureDefinitions({
   let attributes: SDKAttributeSchema | undefined = undefined;
   let secureAttributeSalt: string | undefined = undefined;
   if (hashSecureAttributes) {
-    if (orgHasPremiumFeature(context.org, "hash-secure-attributes")) {
-      secureAttributeSalt = context.org.settings?.secureAttributeSalt;
-      attributes = context.org.settings?.attributeSchema;
-    }
-  }
-  let savedGroupAttributeKeys: Record<string, string> | undefined = undefined;
-  const savedGroups = await getAllSavedGroups(context.org.id, {
-    includeLargeSavedGroupValues: true,
-  });
-
-  if (
-    hashSecureAttributes &&
-    orgHasPremiumFeature(context.org, "hash-secure-attributes")
-  ) {
-    secureAttributeSalt = context.org?.settings?.secureAttributeSalt;
+    // Note: We don't check for whether the org has the hash-secure-attributes premium feature here because
+    // if they ever get downgraded for any reason we would be exposing secure attributes in the payload
+    // which would expose private data publicly.
+    secureAttributeSalt = context.org.settings?.secureAttributeSalt;
     attributes = context.org.settings?.attributeSchema;
-    savedGroupAttributeKeys = Object.fromEntries(
-      savedGroups.map((savedGroup) => [
-        savedGroup.id,
-        savedGroup.attributeKey || "",
-      ])
-    );
   }
+  const savedGroups = await getAllSavedGroups(context.org.id);
 
   // Generate the feature definitions
   const features = await getAllFeatures(context);
@@ -864,12 +858,12 @@ export async function getFeatureDefinitions({
     includeDraftExperiments,
     includeExperimentNames,
     includeRedirectExperiments,
+    includeRuleIds,
     attributes,
     secureAttributeSalt,
     projects: projects || [],
     capabilities,
     savedGroups,
-    savedGroupAttributeKeys,
     savedGroupReferencesEnabled,
     organization: context.org,
   });
@@ -884,6 +878,7 @@ export function evaluateFeature({
   revision,
   scrubPrerequisites = true,
   skipRulesWithPrerequisites = true,
+  date = new Date(),
 }: {
   feature: FeatureInterface;
   attributes: ArchetypeAttributeValues;
@@ -893,6 +888,7 @@ export function evaluateFeature({
   revision: FeatureRevisionInterface;
   scrubPrerequisites?: boolean;
   skipRulesWithPrerequisites?: boolean;
+  date?: Date;
 }) {
   const results: FeatureTestResult[] = [];
   const savedGroups = getSavedGroupsValuesFromGroupMap(groupMap);
@@ -924,8 +920,9 @@ export function evaluateFeature({
         experimentMap,
         environment: env.id,
         revision,
-        returnRuleId: true,
+        date,
       });
+
       if (definition) {
         // Prerequisite scrubbing:
         const rulesWithPrereqs: FeatureDefinitionRule[] = [];
@@ -960,7 +957,7 @@ export function evaluateFeature({
             [feature.id]: definition,
           },
           savedGroups: savedGroups,
-          attributes: attributes,
+          attributes: attributes ? attributes : {},
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           log: (msg: string, ctx: any) => {
             const ruleId = ctx?.rule?.id ?? null;
@@ -982,6 +979,124 @@ export function evaluateFeature({
     }
     results.push(thisEnvResult);
   });
+  if (switchEnv) {
+    // change the NODE ENV back
+    process.env = {
+      ...process.env,
+      NODE_ENV: "production",
+    };
+  }
+  return results;
+}
+
+export async function evaluateAllFeatures({
+  features,
+  context,
+  attributeValues,
+  environments,
+  groupMap,
+}: {
+  features: FeatureInterface[];
+  context: ReqContext | ApiReqContext;
+  attributeValues: ArchetypeAttributeValues;
+  groupMap: GroupMap;
+  environments?: (Environment | undefined)[];
+}) {
+  const results: { [key: string]: FeatureTestResult }[] = [];
+  const savedGroups = getSavedGroupsValuesFromGroupMap(groupMap);
+
+  const allFeaturesRaw = await getAllFeatures(context);
+  const allFeatures: Record<string, FeatureDefinitionWithProject> = {};
+  if (allFeaturesRaw.length) {
+    allFeaturesRaw.map((f) => {
+      allFeatures[f.id] = {
+        ...f,
+        project: f.project,
+      };
+    });
+  }
+
+  // get all features definitions
+  const experimentMap = await getAllPayloadExperiments(context);
+  // I could loop through the feature's defined environments, but if environments change in the org,
+  // the values in the feature will be wrong.
+  if (!environments || environments.length === 0) {
+    return;
+  }
+
+  // change the NODE ENV so that we can get the debug log information:
+  let switchEnv = false;
+  if (process.env.NODE_ENV === "production") {
+    process.env = {
+      ...process.env,
+      NODE_ENV: "development",
+    };
+    switchEnv = true;
+  }
+
+  for (const env of environments) {
+    if (!env) {
+      continue;
+    }
+
+    const featurePayload = generateFeaturesPayload({
+      features: allFeaturesRaw,
+      environment: env.id,
+      experimentMap,
+      groupMap,
+      prereqStateCache: {},
+    });
+
+    // now we have all the definitions, lets evaluate them
+    const gb = new GrowthBook({
+      features: featurePayload,
+      savedGroups: savedGroups,
+      attributes: attributeValues,
+    });
+    gb.debug = true;
+
+    // now loop through all features to eval them:
+    for (const feature of features) {
+      const revision = await getRevision({
+        context,
+        organization: context.org.id,
+        featureId: feature.id,
+        version: parseInt(feature.version.toString()),
+      });
+      if (!revision) {
+        if (switchEnv) {
+          // change the NODE ENV back
+          process.env = {
+            ...process.env,
+            NODE_ENV: "production",
+          };
+        }
+        throw new Error("Could not find feature revision");
+      }
+      const thisFeatureEnvResult: FeatureTestResult = {
+        env: env.id,
+        result: null,
+        enabled: false,
+        defaultValue: revision.defaultValue,
+      };
+      if (featurePayload[feature.id]) {
+        const settings = feature.environmentSettings[env.id] ?? null;
+        if (settings) {
+          thisFeatureEnvResult.enabled = settings.enabled;
+        }
+        const log: [string, Record<string, unknown>][] = [];
+        // set the log for this feature so to avoid overwriting the log from other features
+        gb.log = (msg, ctx) => {
+          log.push([msg, ctx]);
+        };
+        // eval the feature
+        thisFeatureEnvResult.result = gb.evalFeature(feature.id);
+        thisFeatureEnvResult.log = log;
+      }
+      results.push({ [feature.id]: thisFeatureEnvResult });
+    }
+    gb.destroy();
+  }
   if (switchEnv) {
     // change the NODE ENV back
     process.env = {
@@ -1238,32 +1353,28 @@ export function applyExperimentHashing(
   });
 }
 
-// Specific hashing entrypoint for idList values
+// Specific hashing entrypoint for SavedGroup objects
 export function applySavedGroupHashing(
-  savedGroups: SavedGroupsValues,
+  savedGroups: SavedGroupInterface[],
   attributes: SDKAttributeSchema,
-  savedGroupAttributeKeys: Record<string, string>,
   salt: string
-): SavedGroupsValues {
-  return Object.fromEntries(
-    Object.entries(savedGroups).map(([savedGroupId, savedGroupItems]) => {
-      const attribute = attributes.find(
-        (attr) => attr.property === savedGroupAttributeKeys[savedGroupId]
-      );
-      return attribute
-        ? [
-            savedGroupId,
-            hashStrings({
-              obj: savedGroupItems,
-              salt,
-              attributes,
-              attribute,
-              doHash: attribute.hashAttribute,
-            }),
-          ]
-        : [savedGroupId, savedGroupItems];
-    })
-  );
+): SavedGroupInterface[] {
+  const clonedGroups = clone(savedGroups);
+  clonedGroups.forEach((group) => {
+    const attribute = attributes.find(
+      (attr) => attr.property === group.attributeKey
+    );
+    if (attribute) {
+      group.values = hashStrings({
+        obj: group.values,
+        salt,
+        attributes,
+        attribute,
+        doHash: shouldHash(attribute),
+      });
+    }
+  });
+  return clonedGroups;
 }
 
 interface hashStringsArgs {
@@ -1308,15 +1419,7 @@ any {
       // check if a new attribute is referenced, and whether we need to hash it
       // otherwise, inherit the previous attribute and hashing status
       attribute = attributes.find((a) => a.property === key) ?? attribute;
-      doHash = attribute
-        ? !!(
-            attribute?.datatype &&
-            ["secureString", "secureString[]"].includes(
-              attribute?.datatype ?? ""
-            ) &&
-            !["$inGroup", "$notInGroup"].includes(key)
-          )
-        : doHash;
+      doHash = attribute ? shouldHash(attribute, key) : doHash;
 
       newObj[key] = processVal({
         obj: obj[key],
@@ -1356,6 +1459,14 @@ any {
   }
 }
 
+function shouldHash(attribute: SDKAttribute, operator?: string) {
+  return !!(
+    attribute?.datatype &&
+    ["secureString", "secureString[]"].includes(attribute?.datatype ?? "") &&
+    (!operator || !["$inGroup", "$notInGroup"].includes(operator))
+  );
+}
+
 export function sha256(str: string, salt: string): string {
   return createHash("sha256")
     .update(salt + str)
@@ -1375,7 +1486,7 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
     }
 
     if (r.type === "experiment-ref") {
-      const experimentRule: ExperimentRefRule = {
+      const experimentRefRule: ExperimentRefRule = {
         // missing id will be filled in by addIdsToRules
         id: r.id ?? "",
         type: r.type,
@@ -1386,6 +1497,24 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           variationId: v.variationId,
           value: validateFeatureValue(feature, v.value),
         })),
+      };
+      return experimentRefRule;
+    } else if (r.type === "experiment") {
+      const values = r.values || r.value;
+      if (!values) {
+        throw new Error("Missing values");
+      }
+      const experimentRule: ExperimentRule = {
+        // missing id will be filled in by addIdsToRules
+        id: r.id ?? "",
+        type: r.type,
+        hashAttribute: r.hashAttribute ?? "",
+        coverage: r.coverage,
+        // missing tracking key will be filled in by addIdsToRules
+        trackingKey: r.trackingKey ?? "",
+        enabled: r.enabled != null ? r.enabled : true,
+        description: r.description ?? "",
+        values: values,
       };
       return experimentRule;
     } else if (r.type === "force") {

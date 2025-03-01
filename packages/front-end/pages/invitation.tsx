@@ -1,8 +1,9 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import Button from "@/components/Button";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useApi from "@/hooks/useApi";
 import { useAuth, redirectWithTimeout } from "@/services/auth";
+import { trackPageView } from "@/services/track";
 
 const InvitationPage = (): React.ReactElement => {
   const { apiCall } = useAuth();
@@ -12,6 +13,11 @@ const InvitationPage = (): React.ReactElement => {
     () => (window.location.search.match(/(^|&|\?)key=([a-zA-Z0-9]+)/) || [])[2],
     []
   );
+
+  // This page is before the user is part of an org, so need to manually fire a page load event
+  useEffect(() => {
+    trackPageView("/invitation");
+  }, []);
 
   // Get data about the invitation
   const { data, error: keyError } = useApi<{

@@ -3,43 +3,38 @@ import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
+import { generateTrackingKey } from "shared/experiments";
 import { v4 as uuidv4 } from "uuid";
 import {
   Changeset,
   ExperimentInterface,
+  ExperimentType,
   LegacyExperimentInterface,
   Variation,
-} from "../../types/experiment";
-import { ReqContext } from "../../types/organization";
-import { VisualChange } from "../../types/visual-changeset";
+} from "back-end/types/experiment";
+import { ReqContext } from "back-end/types/organization";
+import { VisualChange } from "back-end/types/visual-changeset";
 import {
   determineNextDate,
-  generateTrackingKey,
   toExperimentApiInterface,
-} from "../services/experiments";
-import {
-  ExperimentCreatedNotificationEvent,
-  ExperimentDeletedNotificationEvent,
-  ExperimentUpdatedNotificationEvent,
-} from "../events/notification-events";
-import { EventNotifier } from "../events/notifiers/EventNotifier";
-import { logger } from "../util/logger";
-import { upgradeExperimentDoc } from "../util/migrations";
+} from "back-end/src/services/experiments";
+import { logger } from "back-end/src/util/logger";
+import { upgradeExperimentDoc } from "back-end/src/util/migrations";
 import {
   refreshSDKPayloadCache,
   URLRedirectExperiment,
   VisualExperiment,
-} from "../services/features";
-import { SDKPayloadKey } from "../../types/sdk-payload";
-import { FeatureInterface } from "../../types/feature";
-import { getAffectedSDKPayloadKeys } from "../util/features";
-import { getEnvironmentIdsFromOrg } from "../services/organizations";
-import { ApiReqContext } from "../../types/api";
+} from "back-end/src/services/features";
+import { SDKPayloadKey } from "back-end/types/sdk-payload";
+import { FeatureInterface } from "back-end/types/feature";
+import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
+import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
+import { ApiReqContext } from "back-end/types/api";
 import {
   getCollection,
   removeMongooseFields,
   ToInterface,
-} from "../util/mongo.util";
+} from "back-end/src/util/mongo.util";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -62,8 +57,31 @@ type SortFilter = {
   [key in keyof Partial<FilterKeys>]: 1 | -1;
 };
 
+const banditResultObject = {
+  _id: false,
+  singleVariationResults: [
+    {
+      _id: false,
+      users: Number,
+      cr: Number,
+      ci: [Number],
+    },
+  ],
+  currentWeights: [Number],
+  updatedWeights: [Number],
+  srm: Number,
+  bestArmProbabilities: [Number],
+  additionalReward: Number,
+  seed: Number,
+  updateMessage: String,
+  error: String,
+  reweight: Boolean,
+  weightsWereUpdated: Boolean,
+};
+
 const experimentSchema = new mongoose.Schema({
   id: String,
+  uid: String,
   trackingKey: String,
   organization: {
     type: String,
@@ -192,6 +210,14 @@ const experimentSchema = new mongoose.Schema({
       seed: String,
       variationWeights: [Number],
       groups: [String],
+      banditEvents: [
+        {
+          _id: false,
+          date: Date,
+          banditResult: banditResultObject,
+          snapshotId: String,
+        },
+      ],
     },
   ],
   data: String,
@@ -215,6 +241,49 @@ const experimentSchema = new mongoose.Schema({
       },
     },
   ],
+  type: String,
+  banditStage: String,
+  banditStageDateStarted: Date,
+  banditScheduleValue: Number,
+  banditScheduleUnit: String,
+  banditBurnInValue: Number,
+  banditBurnInUnit: String,
+  customFields: {},
+  templateId: String,
+  shareLevel: String,
+  analysisSummary: {
+    _id: false,
+    snapshotId: String,
+    health: {
+      _id: false,
+      srm: Number,
+      multipleExposures: Number,
+      totalUsers: Number,
+      power: {
+        _id: false,
+        type: { type: String, enum: ["error", "success"] },
+        errorMessage: String,
+        isLowPowered: Boolean,
+        additionalDaysNeeded: Number,
+      },
+    },
+    resultsStatus: {
+      _id: false,
+      settings: {
+        _id: false,
+        sequentialTesting: Boolean,
+      },
+      variations: [
+        {
+          _id: false,
+          variationId: String,
+          goalMetrics: {},
+          guardrailMetrics: {},
+        },
+      ],
+    },
+  },
+  dismissedWarnings: [String],
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
@@ -274,12 +343,27 @@ export async function getExperimentById(
     : null;
 }
 
+export async function getExperimentByUid(
+  uid: string
+): Promise<ExperimentInterface | null> {
+  const doc = await getCollection(COLLECTION).findOne({
+    uid,
+  });
+
+  return doc ? toInterface(doc) : null;
+}
+
 export async function getAllExperiments(
   context: ReqContext | ApiReqContext,
   {
     project,
     includeArchived = false,
-  }: { project?: string; includeArchived?: boolean } = {}
+    type,
+  }: {
+    project?: string;
+    includeArchived?: boolean;
+    type?: ExperimentType;
+  } = {}
 ): Promise<ExperimentInterface[]> {
   const query: FilterQuery<ExperimentDocument> = {
     organization: context.org.id,
@@ -291,6 +375,12 @@ export async function getAllExperiments(
 
   if (!includeArchived) {
     query.archived = { $ne: true };
+  }
+
+  if (type === "multi-armed-bandit") {
+    query.type = "multi-armed-bandit";
+  } else if (type === "standard") {
+    query.type = { $in: ["standard", null] };
   }
 
   return await findExperiments(context, query);
@@ -372,20 +462,13 @@ export async function createExperiment({
 }): Promise<ExperimentInterface> {
   data.organization = context.org.id;
 
-  if (!data.trackingKey) {
-    // Try to generate a unique tracking key based on the experiment name
-    let n = 1;
-    let found: null | string = null;
-    while (n < 10 && !found) {
-      const key = generateTrackingKey(data.name || data.id || "", n);
-      if (!(await getExperimentByTrackingKey(context, key))) {
-        found = key;
-      }
-      n++;
-    }
+  if (!data.name) throw new Error("Cannot create experiment with empty name!");
 
-    // Fall back to uniqid if couldn't generate
-    data.trackingKey = found || uniqid();
+  if (!data.trackingKey) {
+    data.trackingKey = await generateTrackingKey(
+      data,
+      async (key: string) => await getExperimentByTrackingKey(context, key)
+    );
   }
 
   const nextUpdate = determineNextDate(
@@ -394,6 +477,7 @@ export async function createExperiment({
 
   const exp = await ExperimentModel.create({
     id: uniqid("exp_"),
+    uid: uuidv4().replace(/-/g, ""),
     // If this is a sample experiment, we'll override the id with data.id
     ...data,
     //set the default phase seed to uuid
@@ -436,8 +520,13 @@ export async function updateExperiment({
   bypassWebhooks?: boolean;
 }): Promise<ExperimentInterface> {
   // TODO: are there some changes where we don't want to update the dateUpdated?
-  const allChanges = { ...changes };
+  const allChanges = {
+    ...changes,
+  };
   allChanges.dateUpdated = new Date();
+
+  if (allChanges.name === "")
+    throw new Error("Cannot set empty name for experiment!");
 
   await ExperimentModel.updateOne(
     {
@@ -598,6 +687,35 @@ export async function getPastExperimentsByDatasource(
   }));
 }
 
+export async function getExperimentsUsingMetric(
+  context: ReqContext | ApiReqContext,
+  metricId: string,
+  limit?: number
+): Promise<ExperimentInterface[]> {
+  const experiments = await findExperiments(
+    context,
+    {
+      organization: context.org.id,
+      $or: [
+        { metrics: metricId },
+        { goalMetrics: metricId },
+        { guardrails: metricId },
+        { guardrailMetrics: metricId },
+        { secondaryMetrics: metricId },
+        { activationMetric: metricId },
+      ],
+      archived: {
+        $ne: true,
+      },
+    },
+    // hard cap at 1000 to prevent too many results
+    limit !== undefined ? limit : 1000,
+    { _id: -1 }
+  );
+
+  return experiments;
+}
+
 export async function getRecentExperimentsUsingMetric(
   context: ReqContext | ApiReqContext,
   metricId: string
@@ -726,11 +844,10 @@ const findExperiment = async ({
  * @param experiment
  * @return event.id
  */
-const logExperimentCreated = async (
+export const logExperimentCreated = async (
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface
-): Promise<string | undefined> => {
-  const { org: organization } = context;
+) => {
   const apiExperiment = await toExperimentApiInterface(context, experiment);
 
   // If experiment is part of the SDK payload, it affects all environments
@@ -739,24 +856,19 @@ const logExperimentCreated = async (
     ? getEnvironmentIdsFromOrg(context.org)
     : [];
 
-  const payload: ExperimentCreatedNotificationEvent = {
+  await createEvent({
+    context,
     object: "experiment",
-    event: "experiment.created",
-    user: context.auditUser,
+    objectId: experiment.id,
+    event: "created",
     data: {
-      current: apiExperiment,
+      object: apiExperiment,
     },
     projects: [apiExperiment.project],
     tags: apiExperiment.tags,
     environments: changedEnvs,
     containsSecrets: false,
-  };
-
-  const emittedEvent = await createEvent(organization.id, payload);
-  if (emittedEvent) {
-    new EventNotifier(emittedEvent.id).perform();
-    return emittedEvent.id;
-  }
+  });
 };
 
 /**
@@ -764,7 +876,7 @@ const logExperimentCreated = async (
  * @param current
  * @return previous
  */
-const logExperimentUpdated = async ({
+export const logExperimentUpdated = async ({
   context,
   current,
   previous,
@@ -772,11 +884,12 @@ const logExperimentUpdated = async ({
   context: ReqContext | ApiReqContext;
   current: ExperimentInterface;
   previous: ExperimentInterface;
-}): Promise<string | undefined> => {
+}) => {
   const previousApiExperimentPromise = toExperimentApiInterface(
     context,
     previous
   );
+
   const currentApiExperimentPromise = toExperimentApiInterface(
     context,
     current
@@ -789,17 +902,19 @@ const logExperimentUpdated = async ({
   // If experiment is part of the SDK payload, it affects all environments
   // Otherwise, it doesn't affect any
   const hasPayloadChanges = hasChangesForSDKPayloadRefresh(previous, current);
+
   const changedEnvs = hasPayloadChanges
     ? getEnvironmentIdsFromOrg(context.org)
     : [];
 
-  const payload: ExperimentUpdatedNotificationEvent = {
+  await createEvent({
+    context,
     object: "experiment",
-    event: "experiment.updated",
-    user: context.auditUser,
+    objectId: current.id,
+    event: "updated",
     data: {
-      previous: previousApiExperiment,
-      current: currentApiExperiment,
+      object: currentApiExperiment,
+      previous_object: previousApiExperiment,
     },
     projects: Array.from(
       new Set([previousApiExperiment.project, currentApiExperiment.project])
@@ -809,13 +924,7 @@ const logExperimentUpdated = async ({
     ),
     environments: changedEnvs,
     containsSecrets: false,
-  };
-
-  const emittedEvent = await createEvent(context.org.id, payload);
-  if (emittedEvent) {
-    new EventNotifier(emittedEvent.id).perform();
-    return emittedEvent.id;
-  }
+  });
 };
 
 /**
@@ -861,7 +970,10 @@ export async function deleteAllExperimentsForAProject({
     .toArray();
 
   for (const experiment of experimentsToDelete) {
-    await experiment.delete();
+    await ExperimentModel.deleteOne({
+      id: experiment.id,
+      organization: context.org.id,
+    });
     VisualChangesetModel.deleteMany({ experiment: experiment.id });
     await onExperimentDelete(context, toInterface(experiment));
   }
@@ -1131,7 +1243,7 @@ export async function getExperimentsUsingSegment(
 export const logExperimentDeleted = async (
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface
-): Promise<string | undefined> => {
+) => {
   const apiExperiment = await toExperimentApiInterface(context, experiment);
 
   // If experiment is part of the SDK payload, it affects all environments
@@ -1140,24 +1252,19 @@ export const logExperimentDeleted = async (
     ? getEnvironmentIdsFromOrg(context.org)
     : [];
 
-  const payload: ExperimentDeletedNotificationEvent = {
+  await createEvent({
+    context,
     object: "experiment",
-    event: "experiment.deleted",
-    user: context.auditUser,
+    objectId: experiment.id,
+    event: "deleted",
     data: {
-      previous: apiExperiment,
+      object: apiExperiment,
     },
     projects: [apiExperiment.project],
     environments: changedEnvs,
     tags: apiExperiment.tags,
     containsSecrets: false,
-  };
-
-  const emittedEvent = await createEvent(context.org.id, payload);
-  if (emittedEvent) {
-    new EventNotifier(emittedEvent.id).perform();
-    return emittedEvent.id;
-  }
+  });
 };
 
 // type guard

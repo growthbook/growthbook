@@ -1,7 +1,7 @@
 import { QueryInterface, QueryStatistics } from "back-end/types/query";
 import { ReactElement } from "react";
-import { MdInfoOutline } from "react-icons/md";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { GBInfo } from "@/components/Icons";
 
 const numberFormatter = Intl.NumberFormat();
 
@@ -60,7 +60,7 @@ export default function QueryStatsRow({
           <BooleanQueryStatDisplay
             stat={
               <>
-                Pipeline Mode <MdInfoOutline className="text-info" />
+                Pipeline Mode <GBInfo />
               </>
             }
             values={usingPipelineMode ? [true] : [false]}
@@ -82,9 +82,9 @@ export default function QueryStatsRow({
           commercialFeature="multi-metric-queries"
         >
           <div className="col-auto mb-2">
-            <em>
-              Fact Optimized <MdInfoOutline className="text-info" />
-            </em>
+            <span className="uppercase-title">
+              Fact Optimized <GBInfo />
+            </span>
             :{" "}
             <strong>
               {queries.length === 1
@@ -155,7 +155,8 @@ function BooleanQueryStatDisplay({
 
   return (
     <div className="col-auto mb-2">
-      <em>{stat}</em>: <strong>{display}</strong>
+      <span className="uppercase-title">{stat}</span>:{" "}
+      <strong>{display}</strong>
     </div>
   );
 }
@@ -184,7 +185,8 @@ export function NumericQueryStatDisplay({
 
   return (
     <div className="col-auto mb-2">
-      <em>{stat}</em>: <strong title={sum + ""}>{display}</strong>
+      <span className="uppercase-title">{stat}</span>:{" "}
+      <strong title={sum + ""}>{display}</strong>
     </div>
   );
 }

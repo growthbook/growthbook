@@ -5,7 +5,7 @@ export type GroupMap = Map<
   string,
   Pick<
     SavedGroupInterface,
-    "type" | "condition" | "attributeKey" | "passByReferenceOnly"
+    "type" | "condition" | "attributeKey" | "useEmptyListGroup"
   > & {
     values?: (string | number)[];
   }
@@ -23,6 +23,7 @@ export interface SavedGroupInterface {
   dateUpdated: Date;
   dateCreated: Date;
   description?: string;
-  passByReferenceOnly?: boolean;
+  projects?: string[];
+  useEmptyListGroup?: boolean;
 }
 export type SavedGroupType = "condition" | "list";

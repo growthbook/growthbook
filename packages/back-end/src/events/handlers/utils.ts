@@ -1,7 +1,10 @@
 import isEqual from "lodash/isEqual";
 import intersection from "lodash/intersection";
-import { NotificationEvent } from "../notification-events";
-import { ApiFeature } from "../../../types/openapi";
+import {
+  NotificationEvent,
+  LegacyNotificationEvent,
+} from "back-end/src/events/notification-events";
+import { ApiFeature } from "back-end/types/openapi";
 
 export type FilterDataForNotificationEvent = {
   tags: string[];
@@ -9,7 +12,7 @@ export type FilterDataForNotificationEvent = {
 };
 
 export const getFilterDataForNotificationEvent = (
-  event: NotificationEvent
+  event: NotificationEvent | LegacyNotificationEvent
 ): FilterDataForNotificationEvent | null => {
   return {
     tags: event.tags || [],
@@ -23,7 +26,7 @@ export const filterEventForEnvironments = ({
   event,
   environments,
 }: {
-  event: NotificationEvent;
+  event: NotificationEvent | LegacyNotificationEvent;
   environments: string[];
 }): boolean => {
   // if the environments are not specified, notify for all environments

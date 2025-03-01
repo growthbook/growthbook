@@ -1,4 +1,4 @@
-import { ApiReqContext } from "../../../types/api";
+import { ApiReqContext } from "back-end/types/api";
 
 export const validatePayload = async (
   context: ApiReqContext,
@@ -8,12 +8,14 @@ export const validatePayload = async (
     projects = [],
     toggleOnList = false,
     defaultState = false,
+    parent,
   }: {
     id: string;
     description?: string;
     projects?: string[];
     toggleOnList?: boolean;
     defaultState?: boolean;
+    parent?: string;
   }
 ) => {
   if (id === "") throw Error("Environment ID cannot empty!");
@@ -30,5 +32,9 @@ export const validatePayload = async (
       );
   }
 
-  return { id, projects, description, toggleOnList, defaultState };
+  if (parent && !context.hasPremiumFeature("environment-inheritance")) {
+    throw new Error("Environment inheritance requires an enterprise license");
+  }
+
+  return { id, projects, description, toggleOnList, defaultState, parent };
 };

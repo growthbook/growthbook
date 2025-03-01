@@ -163,9 +163,10 @@ export default function CodeSnippetModal({
         />
       )}
       <Modal
+        trackingEventModalType=""
         close={close}
         secondaryCTA={secondaryCTA}
-        className="mb-4"
+        className="mb-4 appbox"
         bodyClassName="p-0"
         open={true}
         inline={inline}
@@ -187,7 +188,7 @@ export default function CodeSnippetModal({
         cta={cta}
       >
         <div
-          className="border-bottom mb-3 px-3 py-2 position-sticky bg-white shadow-sm"
+          className="border-bottom mb-3 px-3 py-2 position-sticky shadow-sm"
           style={{ top: 0, zIndex: 999 }}
         >
           <div className="row">
@@ -263,7 +264,7 @@ export default function CodeSnippetModal({
               </h4>
               {configOpen && (
                 <div className="appbox bg-light p-3">
-                  <table className="gbtable table table-bordered table-sm">
+                  <table className="table table-bordered table-sm">
                     <tbody>
                       <tr>
                         <th
@@ -390,22 +391,20 @@ export default function CodeSnippetModal({
                   setAttributesOpen(!attributesOpen);
                 }}
               >
-                Targeting Attributes (Optional){" "}
+                Targeting Attributes{" "}
                 {attributesOpen ? <FaAngleDown /> : <FaAngleRight />}
               </h4>
               {attributesOpen && (
-                <div className="appbox bg-light p-3">
+                <div className="appbox p-3">
                   <TargetingAttributeCodeSnippet
                     language={language}
                     hashSecureAttributes={hashSecureAttributes}
                     secureAttributeSalt={secureAttributeSalt}
+                    version={version}
                   />
 
                   {hashSecureAttributes && secureAttributes.length > 0 && (
-                    <div
-                      className="appbox mt-4"
-                      style={{ background: "rgb(209 236 241 / 25%)" }}
-                    >
+                    <div className="appbox mt-4">
                       <div className="alert alert-info mb-0">
                         <GBHashLock className="text-blue" /> This connection has{" "}
                         <strong>secure attribute hashing</strong> enabled. You

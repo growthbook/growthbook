@@ -5,6 +5,7 @@ import { FaExternalLinkAlt } from "react-icons/fa";
 import { DocLink } from "@/components/DocLink";
 import SelectField from "@/components/Forms/SelectField";
 import Code from "@/components/SyntaxHighlighting/Code";
+import Link from "@/components/Radix/Link";
 
 export default function GrowthBookSetupCodeSnippet({
   language,
@@ -63,6 +64,22 @@ window.growthbook_config.trackingCallback = (experiment, result) => {
           `.trim()}
             />
           </>
+        ) : eventTracker === "GA4" ? (
+          <div>
+            Events are tracked to Google Analytics automatically. No
+            configuration needed. <br />
+            <br />
+            If you are using GTM to load Google Analytics, you will need to
+            follow{" "}
+            <Link
+              href="https://docs.growthbook.io/guide/google-tag-manager-and-growthbook#4-tracking-via-datalayer-and-gtm"
+              target="_blank"
+            >
+              additional steps
+            </Link>{" "}
+            to make sure the experiment event data is passed to Google
+            Analytics.
+          </div>
         ) : (
           <div>
             Events are tracked in {eventTracker} automatically. No configuration
@@ -180,6 +197,58 @@ export default function MyApp() {
   if (language === "nodejs") {
     const useInit =
       paddedVersionString(version) >= paddedVersionString("1.0.0");
+    const useMultiUser =
+      paddedVersionString(version) >= paddedVersionString("1.3.1");
+
+    if (useMultiUser) {
+      return (
+        <>
+          Create and initialize a GrowthBook client
+          <Code
+            language="javascript"
+            code={`
+const { GrowthBookClient } = require("@growthbook/growthbook");
+
+const client = new GrowthBookClient({
+  apiHost: ${JSON.stringify(apiHost)},
+  clientKey: ${JSON.stringify(apiKey)},${
+              encryptionKey
+                ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},`
+                : ""
+            }
+  trackingCallback: (experiment, result, userContext) => {
+    // ${trackingComment}
+    console.log("Viewed Experiment", userContext.attributes.id, {
+      experimentId: experiment.key,
+      variationId: result.key
+    });
+  }
+});
+
+await client.init({ timeout: 1000 });
+          `.trim()}
+          />
+          Use a middleware to create a GrowthBook instance that is scoped to the
+          current user/request. Store this in the request object for use in
+          other routes.
+          <Code
+            language="javascript"
+            code={`
+app.use((req, res, next) => {
+  const userContext = {
+    attributes: {
+      id: req.user.id
+    }
+  }
+  
+  req.growthbook = client.createScopedInstance(userContext);
+});
+          `.trim()}
+          />
+        </>
+      );
+    }
+
     return (
       <>
         Add some polyfills for missing browser APIs
@@ -190,10 +259,11 @@ const { setPolyfills } = require("@growthbook/growthbook");
 setPolyfills({
   // Required for Node 17 or earlier
   fetch: require("cross-fetch"),${
-    encryptionKey &&
-    `
+    encryptionKey
+      ? `
   // Required for Node 18 or earlier
   SubtleCrypto: require("node:crypto").webcrypto.subtle,`
+      : ""
   }
   // Optional, can make feature rollouts faster
   EventSource: require("eventsource")
@@ -288,66 +358,47 @@ var gb: GrowthBookSDK = GrowthBookBuilder(
   if (language === "go") {
     return (
       <>
-        Helper function to load features from the GrowthBook API
+        Create GrowthBook client instance
         <Code
           language="go"
           code={`
 package main
 
 import (
+	"context"
+	"log"
+	"fmt"
+	"time"
 	"encoding/json"
-	"io"
-	"log"
-	"net/http"
-)
-
-// Features API response
-type GrowthBookApiResp struct {
-	Features json.RawMessage
-	Status   int
-}
-
-func GetFeatureMap() []byte {
-	// Fetch features JSON from api
-	resp, err := http.Get("${featuresEndpoint}")
-	if err != nil {
-		log.Println(err)
-	}
-	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
-	// Just return the features map from the API response
-	apiResp := &GrowthBookApiResp{}
-	_ = json.Unmarshal(body, apiResp)
-	return apiResp.Features
-}
-            `.trim()}
-        />
-        Create GrowthBook instance
-        <Code
-          language="go"
-          code={`
-package main
-
-import (
-	growthbook "github.com/growthbook/growthbook-golang"
-	"log"
+	gb "github.com/growthbook/growthbook-golang"
 )
 
 func main() {
-	featureMap := GetFeatureMap()
-	features := growthbook.ParseFeatureMap(featureMap)
-
-	context := growthbook.NewContext().
-		WithFeatures(features).
+	client, err := gb.NewClient(context.TODO(),
+		gb.WithClientKey("${apiKey || "MY_SDK_KEY"}"),${
+            encryptionKey ? `\n		gb.WithDecryptionKey("${encryptionKey}"),` : ""
+          }
+		gb.WithApiHost("${apiHost}"),
+		gb.WithPollDataSource(30 * time.Second),
 		// ${trackingComment}
-		WithTrackingCallback(func(experiment *growthbook.Experiment, result *growthbook.ExperimentResult) {
+		gb.WithExperimentCallback(func(ctx context.Context, experiment *gb.Experiment, result *gb.ExperimentResult, extra any) {
 			log.Println("Viewed Experiment")
 			log.Println("Experiment Id", experiment.Key)
-			log.Println("Variation Id", result.VariationID)
-		})
-	gb := growthbook.New(context)
-}
-            `.trim()}
+			log.Println("Variation Id", result.VariationId)
+		}),
+	)
+
+	if err != nil {
+		log.Fatal("Client start failed", "error", err)
+		return
+	}
+	defer client.Close()
+
+	if err := client.EnsureLoaded(context.TODO()); err != nil {
+		log.Fatal("Client data load failed", "error", err)
+		return
+	}
+}`.trim()}
         />
       </>
     );

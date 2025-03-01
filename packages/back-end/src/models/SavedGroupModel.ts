@@ -2,13 +2,13 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
 import { SavedGroupInterface } from "shared/src/types";
-import { ApiSavedGroup } from "../../types/openapi";
+import { ApiSavedGroup } from "back-end/types/openapi";
 import {
   CreateSavedGroupProps,
   LegacySavedGroupInterface,
   UpdateSavedGroupProps,
-} from "../../types/saved-group";
-import { migrateSavedGroup } from "../util/migrations";
+} from "back-end/types/saved-group";
+import { migrateSavedGroup } from "back-end/src/util/migrations";
 
 const savedGroupSchema = new mongoose.Schema({
   id: {
@@ -31,7 +31,9 @@ const savedGroupSchema = new mongoose.Schema({
   },
   attributeKey: String,
   description: String,
-  passByReferenceOnly: Boolean,
+  projects: [String],
+  // Previously, empty saved groups were ignored in the SDK payload, making all $inGroup operations return true
+  useEmptyListGroup: Boolean,
 });
 
 type SavedGroupDocument = mongoose.Document & LegacySavedGroupInterface;
@@ -40,10 +42,6 @@ const SavedGroupModel = mongoose.model<LegacySavedGroupInterface>(
   "savedGroup",
   savedGroupSchema
 );
-
-interface GetAllSavedGroupsOptions {
-  includeLargeSavedGroupValues?: boolean;
-}
 
 const toInterface = (doc: SavedGroupDocument): SavedGroupInterface => {
   const legacy = omit(
@@ -73,32 +71,17 @@ export async function createSavedGroup(
     organization,
     dateCreated: new Date(),
     dateUpdated: new Date(),
+    useEmptyListGroup: true,
   });
   return toInterface(newGroup);
 }
 
 export async function getAllSavedGroups(
-  organization: string,
-  options: GetAllSavedGroupsOptions = {}
+  organization: string
 ): Promise<SavedGroupInterface[]> {
-  const savedGroups: SavedGroupDocument[] =
-    // Query legacy saved groups separately from large (pass-by-reference-only) groups
-    // and conditionally include the values for the latter
-    (
-      await Promise.all([
-        SavedGroupModel.find({
-          organization,
-          passByReferenceOnly: { $in: [null, false] },
-        }),
-        SavedGroupModel.find(
-          {
-            organization,
-            passByReferenceOnly: true,
-          },
-          options.includeLargeSavedGroupValues ? {} : { values: 0 }
-        ),
-      ])
-    ).flat();
+  const savedGroups: SavedGroupDocument[] = await SavedGroupModel.find({
+    organization,
+  });
   return savedGroups.map(toInterface);
 }
 
@@ -147,6 +130,16 @@ export async function updateSavedGroupById(
   return changes;
 }
 
+export async function removeProjectFromSavedGroups(
+  project: string,
+  organization: string
+) {
+  await SavedGroupModel.updateMany(
+    { organization, projects: project },
+    { $pull: { projects: project } }
+  );
+}
+
 export async function deleteSavedGroupById(id: string, organization: string) {
   await SavedGroupModel.deleteOne({
     id,
@@ -168,6 +161,6 @@ export function toSavedGroupApiInterface(
     dateUpdated: savedGroup.dateUpdated.toISOString(),
     owner: savedGroup.owner || "",
     description: savedGroup.description,
-    passByReferenceOnly: savedGroup.passByReferenceOnly,
+    projects: savedGroup.projects || [],
   };
 }

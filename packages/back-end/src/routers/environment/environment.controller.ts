@@ -1,24 +1,25 @@
 import type { Response } from "express";
 import z from "zod";
 import { isEqual } from "lodash";
-import { findSDKConnectionsByOrganization } from "../../models/SdkConnectionModel";
-import { triggerSingleSDKWebhookJobs } from "../../jobs/updateAllJobs";
+import { DEFAULT_ENVIRONMENT_IDS } from "shared/util";
+import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
+import { triggerSingleSDKWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
   auditDetailsUpdate,
-} from "../../services/audit";
-import { removeEnvironmentFromSlackIntegration } from "../../models/SlackIntegrationModel";
-import { AuthRequest } from "../../types/AuthRequest";
-import { PrivateApiErrorResponse } from "../../../types/api";
+} from "back-end/src/services/audit";
+import { removeEnvironmentFromSlackIntegration } from "back-end/src/models/SlackIntegrationModel";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { PrivateApiErrorResponse } from "back-end/types/api";
 import {
   getEnvironments,
   getContextFromReq,
-} from "../../services/organizations";
-import { EventUserForResponseLocals } from "../../events/event-types";
-import { Environment } from "../../../types/organization";
-import { addEnvironmentToOrganizationEnvironments } from "../../util/environments";
-import { updateOrganization } from "../../models/OrganizationModel";
+} from "back-end/src/services/organizations";
+import { EventUserForResponseLocals } from "back-end/src/events/event-types";
+import { Environment } from "back-end/types/organization";
+import { addEnvironmentToOrganizationEnvironments } from "back-end/src/util/environments";
+import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import {
   createEnvValidator,
   deleteEnvValidator,
@@ -268,6 +269,14 @@ export const postEnvironment = async (
       status: 400,
       message: `Environment ${environment.id} already exists`,
     });
+  }
+
+  if (environment.parent && !DEFAULT_ENVIRONMENT_IDS.includes(environment.id)) {
+    throw new Error(
+      `Manual environment inheritance only valid for environments ${DEFAULT_ENVIRONMENT_IDS.join(
+        ", "
+      )}. For programmatic control use the API endpoint instead.`
+    );
   }
 
   const updatedEnvironments = addEnvironmentToOrganizationEnvironments(

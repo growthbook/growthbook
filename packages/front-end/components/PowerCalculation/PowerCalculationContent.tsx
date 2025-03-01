@@ -1,15 +1,17 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import clsx from "clsx";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { ensureAndReturn } from "@/types/utils";
-import { GBHeadingArrowLeft } from "@/components/Icons";
 import {
   PowerCalculationParams,
   PowerCalculationResults,
   PowerCalculationSuccessResults,
   StatsEngineSettings,
-} from "./types";
+} from "shared/power";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import Button from "@/components/Radix/Button";
+import Callout from "@/components/Radix/Callout";
+import { ensureAndReturn } from "@/types/utils";
+import { GBHeadingArrowLeft } from "@/components/Icons";
 import PowerCalculationStatsEngineSettingsModal from "./PowerCalculationStatsEngineSettingsModal";
 
 const engineType = {
@@ -26,7 +28,6 @@ const percentFormatter = (
     : new Intl.NumberFormat(undefined, {
         style: "percent",
         maximumFractionDigits: digits,
-        // @ts-expect-error TS is outdated: https://caniuse.com/mdn-javascript_builtins_intl_numberformat_numberformat_options_parameter_options_roundingmode_parameter
         roundingMode: "floor",
       }).format(v);
 
@@ -85,12 +86,17 @@ const AnalysisSettings = ({
           <div className="col-7">
             <h2>Analysis Settings</h2>
             <p>
-              {params.nVariations} Variations ·{" "}
-              {engineType[params.statsEngineSettings.type]} (Sequential Testing{" "}
-              {params.statsEngineSettings.sequentialTesting
-                ? "enabled"
-                : "disabled"}
-              ) ·{" "}
+              {engineType[params.statsEngineSettings.type]}
+              {params.statsEngineSettings.type === "frequentist"
+                ? ` (Sequential Testing 
+              ${
+                params.statsEngineSettings.sequentialTesting
+                  ? "enabled"
+                  : "disabled"
+              })
+              `
+                : ""}{" "}
+              ·{" "}
               <Link
                 href="#"
                 onClick={() => setShowStatsEngineSettingsModal(true)}
@@ -98,26 +104,9 @@ const AnalysisSettings = ({
                 Edit
               </Link>
             </p>
-            {results.type === "error" ? (
-              <div className="alert alert-warning">
-                Computation failed: {results.description}
-              </div>
-            ) : (
-              <div className="alert alert-info w-75">
-                <span className="font-weight-bold">
-                  Run experiment for{" "}
-                  {formatWeeks({
-                    weeks: results.weekThreshold,
-                    nWeeks: params.nWeeks,
-                  })}
-                </span>{" "}
-                to achieve {percentFormatter(params.targetPower)} power for all
-                metrics.
-              </div>
-            )}
           </div>
           <div className="vr"></div>
-          <div className="col-4 align-self-end mb-4">
+          <div className="col-4 align-self-end">
             <div className="font-weight-bold mb-2"># of Variations</div>
             <div className="form-group d-flex mb-0 flex-row">
               <input
@@ -127,24 +116,15 @@ const AnalysisSettings = ({
                   !isValidCurrentVariations && "border border-danger"
                 )}
                 value={currentVariations}
-                onChange={(e) =>
-                  setCurrentVariations(
-                    e.target.value !== "" ? Number(e.target.value) : undefined
-                  )
-                }
+                min={2}
+                max={12}
+                onChange={(e) => {
+                  const varNum =
+                    e.target.value !== "" ? Number(e.target.value) : undefined;
+                  setCurrentVariations(varNum);
+                  updateVariations(varNum ?? 0);
+                }}
               />
-              <button
-                disabled={
-                  currentVariations === params.nVariations ||
-                  !isValidCurrentVariations
-                }
-                onClick={() =>
-                  updateVariations(ensureAndReturn(currentVariations))
-                }
-                className="btn border border-primary text-primary"
-              >
-                Update
-              </button>
             </div>
             <small
               className={clsx(
@@ -158,6 +138,14 @@ const AnalysisSettings = ({
             </small>
           </div>
         </div>
+
+        {results.type === "error" ? (
+          <div className="row p-4">
+            <Callout status="error">
+              Computation failed: {results.description}
+            </Callout>
+          </div>
+        ) : null}
       </div>
     </>
   );
@@ -173,18 +161,19 @@ const MetricLabel = ({
   <>
     <div className="font-weight-bold">{name}</div>
     <div className="small">
-      Effect Size {percentFormatter(effectSize, { digits: 1 })}
+      Effect Size {percentFormatter(effectSize, { digits: 4 })}
     </div>
   </>
 );
 
 const SampleSizeAndRuntime = ({
   params,
-  sampleSizeAndRuntime,
+  results,
 }: {
   params: PowerCalculationParams;
-  sampleSizeAndRuntime: PowerCalculationSuccessResults["sampleSizeAndRuntime"];
+  results: PowerCalculationSuccessResults;
 }) => {
+  const sampleSizeAndRuntime = results.sampleSizeAndRuntime;
   const [selectedRow, setSelectedRow] = useState(
     Object.keys(sampleSizeAndRuntime)[0]
   );
@@ -243,7 +232,7 @@ const SampleSizeAndRuntime = ({
                             {type === "binomial" ? "Proportion" : "Mean"}
                           </div>
                         </td>
-                        <td>{percentFormatter(effectSize, { digits: 1 })}</td>
+                        <td>{percentFormatter(effectSize, { digits: 4 })}</td>
                         <td>
                           {target
                             ? `${formatWeeks({
@@ -260,7 +249,6 @@ const SampleSizeAndRuntime = ({
             </div>
             <div className="col-4">
               <div className="card alert alert-info">
-                <div className="card-title uppercase-title mb-0">Summary</div>
                 <h4>{selectedName}</h4>
                 <p>
                   Reliably detecting a lift of{" "}
@@ -585,9 +573,6 @@ export default function PowerCalculationContent({
       <div className="row mb-4">
         <div className="col">
           <div className="d-flex justify-space-between align-items-center">
-            <span className="badge badge-purple text-uppercase mr-2">
-              Alpha
-            </span>
             <h1>Power Calculator</h1>
           </div>
         </div>
@@ -598,25 +583,18 @@ export default function PowerCalculationContent({
           experiment duration.
         </div>
         <div className="col-auto pr-0">
-          <button
-            className="btn btn-outline-primary float-right"
-            onClick={edit}
-            type="button"
-          >
+          <Button variant={"outline"} onClick={edit}>
             Edit
-          </button>
+          </Button>
         </div>
-        <div className="col-auto pl-1">
-          <button
-            className="btn btn-primary float-right"
+        <div className="col-auto">
+          <Button
             onClick={() => newCalculation()}
-            type="button"
+            icon={<GBHeadingArrowLeft />}
+            ml={"1"}
           >
-            <span className="h4 pr-2 m-0 d-inline-block align-top">
-              <GBHeadingArrowLeft />
-            </span>
             New Calculation
-          </button>
+          </Button>
         </div>
       </div>
       <AnalysisSettings
@@ -625,16 +603,13 @@ export default function PowerCalculationContent({
         updateVariations={updateVariations}
         updateStatsEngineSettings={updateStatsEngineSettings}
       />
-      {results.type !== "error" && (
+      {results.type !== "error" ? (
         <>
-          <SampleSizeAndRuntime
-            params={params}
-            sampleSizeAndRuntime={results.sampleSizeAndRuntime}
-          />
+          <SampleSizeAndRuntime params={params} results={results} />
           <PowerOverTime params={params} results={results} />
           <MinimumDetectableEffect params={params} results={results} />
         </>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -12,16 +12,16 @@ import md5 from "md5";
 import {
   getLicenseMetaData,
   getUserCodesForOrg,
-} from "../services/licenseData";
-import { getUserLicenseCodes } from "../services/users";
-import { AuthRequest } from "../types/AuthRequest";
-import { getContextFromReq } from "../services/organizations";
+} from "back-end/src/services/licenseData";
+import { getUserLicenseCodes } from "back-end/src/services/users";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   getAllInviteEmailsInDb,
   updateOrganization,
-} from "../models/OrganizationModel";
-import { PrivateApiErrorResponse } from "../../types/api";
-import { updateSubscriptionInDb } from "../services/stripe";
+} from "back-end/src/models/OrganizationModel";
+import { PrivateApiErrorResponse } from "back-end/types/api";
+import { updateSubscriptionInDb } from "back-end/src/services/stripe";
 
 /**
  * An endpoint mostly used to refresh the license data manually, if they

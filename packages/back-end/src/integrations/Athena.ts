@@ -1,8 +1,14 @@
-import { decryptDataSourceParams } from "../services/datasource";
-import { cancelAthenaQuery, runAthenaQuery } from "../services/athena";
-import { ExternalIdCallback, QueryResponse } from "../types/Integration";
-import { AthenaConnectionParams } from "../../types/integrations/athena";
-import { FormatDialect } from "../util/sql";
+import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import {
+  cancelAthenaQuery,
+  runAthenaQuery,
+} from "back-end/src/services/athena";
+import {
+  ExternalIdCallback,
+  QueryResponse,
+} from "back-end/src/types/Integration";
+import { AthenaConnectionParams } from "back-end/types/integrations/athena";
+import { FormatDialect } from "back-end/src/util/sql";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Athena extends SqlIntegration {
@@ -49,7 +55,19 @@ export default class Athena extends SqlIntegration {
     return `date_diff('day', ${startCol}, ${endCol})`;
   }
   ensureFloat(col: string): string {
-    return `CAST(${col} as double)`;
+    return `CAST(${col} AS double)`;
+  }
+  hasCountDistinctHLL(): boolean {
+    return true;
+  }
+  hllAggregate(col: string): string {
+    return `APPROX_SET(${col})`;
+  }
+  hllReaggregate(col: string): string {
+    return `MERGE(${col})`;
+  }
+  hllCardinality(col: string): string {
+    return `CARDINALITY(${col})`;
   }
   getDefaultDatabase() {
     return this.params.catalog || "";

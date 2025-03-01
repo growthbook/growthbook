@@ -1,19 +1,20 @@
 import { useMemo, useState, useEffect } from "react";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
-import PowerCalculationSettingsModal from "@/components/PowerCalculation/PowerCalculationSettingsModal";
-import EmptyPowerCalculation from "@/components/PowerCalculation/EmptyPowerCalculation";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import PowerCalculationContent from "@/components/PowerCalculation/PowerCalculationContent";
-
 import {
+  powerMetricWeeks,
   PowerCalculationParams,
   PowerCalculationResults,
   PartialPowerCalculationParams,
   FullModalPowerCalculationParams,
   StatsEngineSettings,
-} from "@/components/PowerCalculation/types";
-
-import { powerMetricWeeks } from "@/components/PowerCalculation/stats";
+} from "shared/power";
+import PowerCalculationSettingsModal, {
+  PowerModalPages,
+} from "@/components/PowerCalculation/PowerCalculationSettingsModal";
+import EmptyPowerCalculation from "@/components/PowerCalculation/EmptyPowerCalculation";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import PowerCalculationContent from "@/components/PowerCalculation/PowerCalculationContent";
+import track from "@/services/track";
 
 const WEEKS = 9;
 const INITIAL_FORM_PARAMS = { metrics: {} } as const;
@@ -40,7 +41,7 @@ const PowerCalculationPage = (): React.ReactElement => {
     ? JSON.parse(initialJSONParams)
     : INITIAL_PAGE_SETTINGS;
 
-  const [showModal, setShowModal] = useState(false);
+  const [showModal, setShowModal] = useState<PowerModalPages | null>(null);
 
   const [powerCalculationParams, setPowerCalculationParams] = useState<
     FullModalPowerCalculationParams | undefined
@@ -106,45 +107,57 @@ const PowerCalculationPage = (): React.ReactElement => {
 
   const results: PowerCalculationResults | undefined = useMemo(() => {
     if (!finalParams) return;
-
     return powerMetricWeeks(finalParams);
   }, [finalParams]);
   return (
     <div className="contents power-calculator container-fluid pagecontents">
       {showModal && (
         <PowerCalculationSettingsModal
-          close={() => setShowModal(false)}
+          close={() => setShowModal(null)}
           onSuccess={(p) => {
+            track("power-calculation-settings-update", {
+              type: "success",
+              source: p.metricValuesData.source,
+              numMetrics: p.metrics.length,
+              metricsMetaData: Object.keys(p.metrics).map((m: string) => {
+                const metric = p.metrics[m];
+                return {
+                  type: metric.type,
+                  effectSize: metric.effectSize,
+                };
+              }),
+            });
             setSettingsModalParams(p);
             setPowerCalculationParams(p);
             setStatsEngineSettings(modalStatsEngineSettings);
-            setShowModal(false);
+            setShowModal(null);
           }}
           statsEngineSettings={modalStatsEngineSettings}
           params={settingsModalParams}
+          startPage={showModal}
         />
       )}
       {finalParams === undefined && (
-        <EmptyPowerCalculation showModal={() => setShowModal(true)} />
+        <EmptyPowerCalculation showModal={() => setShowModal("select")} />
       )}
-      {results && finalParams && powerCalculationParams && (
+      {results && finalParams && powerCalculationParams ? (
         <PowerCalculationContent
           params={finalParams}
           results={results}
           edit={() => {
             setSettingsModalParams(powerCalculationParams);
             setModalStatsEngineSettings(statsEngineSettings);
-            setShowModal(true);
+            setShowModal("set-params");
           }}
           updateVariations={setVariations}
           updateStatsEngineSettings={setStatsEngineSettings}
           newCalculation={() => {
             setModalStatsEngineSettings(defaultStatsEngineSettings);
             setSettingsModalParams(INITIAL_FORM_PARAMS);
-            setShowModal(true);
+            setShowModal("select");
           }}
         />
-      )}
+      ) : null}
     </div>
   );
 };

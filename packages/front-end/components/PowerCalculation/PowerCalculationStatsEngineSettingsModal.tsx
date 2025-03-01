@@ -1,12 +1,11 @@
 import { useState } from "react";
-import { FaExternalLinkAlt } from "react-icons/fa";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
-import RadioSelector from "@/components/Forms/RadioSelector";
-import { DocLink } from "@/components/DocLink";
-import Toggle from "@/components/Forms/Toggle";
+import { StatsEngineSettings } from "shared/power";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
-import { StatsEngineSettings } from "./types";
+import RadioGroup from "@/components/Radix/RadioGroup";
+
+type StatsEngineWithSequential = "bayesian" | "frequentist" | "sequential";
 
 export type Props = {
   close: () => void;
@@ -24,12 +23,19 @@ export default function PowerCalculationStatsEngineSettingsModal({
     orgSettings.sequentialTestingTuningParameter ||
     DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
   const [currentParams, setCurrentParams] = useState(params);
+  const currentEngine =
+    currentParams.type === "bayesian"
+      ? "bayesian"
+      : currentParams.sequentialTesting
+      ? "sequential"
+      : "frequentist";
 
   return (
     <Modal
+      trackingEventModalType=""
       open
       size="lg"
-      header="Analysis Settings"
+      header="Choose Statistics Engine"
       close={close}
       includeCloseCta={false}
       cta="Update"
@@ -47,92 +53,46 @@ export default function PowerCalculationStatsEngineSettingsModal({
         </button>
       }
     >
-      <div className="form-group">
-        <label>
-          <span className="mr-auto font-weight-bold">
-            Choose Statistical Engine
-          </span>{" "}
-        </label>
-        <RadioSelector
-          name="ruleType"
-          value={currentParams.type}
+      <div>
+        <RadioGroup
+          value={currentEngine}
           options={[
             {
-              key: "bayesian",
-              description: (
-                <div className="container">
-                  <div className="row">
-                    <span className="text-muted mr-1">Bayesian</span>
-                    {orgSettings.statsEngine === "bayesian"
-                      ? "(Org default)"
-                      : ""}
-                  </div>
-                </div>
-              ),
+              value: "bayesian",
+              label: `Bayesian${
+                orgSettings.statsEngine === "bayesian" ? " (Org default)" : ""
+              }`,
             },
             {
-              key: "frequentist",
-              description: (
-                <div className="container">
-                  <div className="row">
-                    <span className="mr-1 font-weight-bold">Frequentist</span>
-                    {orgSettings.statsEngine === "frequentist"
-                      ? "(Org default)"
-                      : ""}
-                  </div>
-                  <div className="row mt-2">
-                    <span>
-                      Enable Sequential Testing to look at your experiment
-                      results as many times as you like while preserving the
-                      false positive rate.{" "}
-                      <DocLink docSection="statisticsSequential">
-                        Learn More <FaExternalLinkAlt />
-                      </DocLink>
-                    </span>
-                    <div className="mt-3 form-group">
-                      <div className="row align-items-start">
-                        <div className="col-auto">
-                          <Toggle
-                            id="sequentialTestingToggle"
-                            value={!!currentParams.sequentialTesting}
-                            setValue={(value) =>
-                              setCurrentParams({
-                                ...currentParams,
-                                ...(value
-                                  ? {
-                                      sequentialTesting: sequentialTestingTuningParameter,
-                                    }
-                                  : { sequentialTesting: false }),
-                              })
-                            }
-                          />
-                        </div>
-                        <div>
-                          <div>
-                            <span className="font-weight-bold">
-                              Sequential Testing
-                            </span>{" "}
-                            (Org default:{" "}
-                            {orgSettings.sequentialTestingEnabled
-                              ? "ON"
-                              : "OFF"}
-                            )
-                          </div>
-                          <div className="mt-2">
-                            Results will be calculated with the org’s default
-                            tuning parameter: {sequentialTestingTuningParameter}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ),
+              value: "frequentist",
+              label: `Frequentist${
+                orgSettings.statsEngine === "frequentist" &&
+                !orgSettings.sequentialTestingEnabled
+                  ? " (Org default)"
+                  : ""
+              }`,
+            },
+            {
+              value: "sequential",
+              label: `Frequentist, with Sequential Testing${
+                orgSettings.statsEngine === "frequentist" &&
+                orgSettings.sequentialTestingEnabled
+                  ? " (Org default)"
+                  : ""
+              }`,
+              description: `Sequential Testing enables safe peeking at results but makes confidence intervals wider.`,
             },
           ]}
-          setValue={(type: typeof currentParams.type) =>
-            setCurrentParams({ ...currentParams, type })
-          }
+          setValue={(type: StatsEngineWithSequential) => {
+            setCurrentParams({
+              type: type === "sequential" ? "frequentist" : type,
+              sequentialTesting:
+                type === "sequential"
+                  ? sequentialTestingTuningParameter
+                  : false,
+            });
+          }}
+          mt="3"
         />
       </div>
     </Modal>

@@ -1,10 +1,14 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  ExperimentType,
+} from "back-end/types/experiment";
 import { useMemo } from "react";
 import useApi from "./useApi";
 
 export function useExperiments(
   project?: string,
-  includeArchived: boolean = false
+  includeArchived: boolean = false,
+  type?: ExperimentType
 ) {
   const { data, error, mutate } = useApi<{
     experiments: ExperimentInterfaceStringDates[];
@@ -12,7 +16,7 @@ export function useExperiments(
   }>(
     `/experiments?project=${project || ""}&includeArchived=${
       includeArchived ? "1" : ""
-    }`
+    }&type=${type || ""}`
   );
 
   const experiments = useMemo(() => data?.experiments || [], [data]);

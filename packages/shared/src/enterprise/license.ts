@@ -35,6 +35,7 @@ export type CommercialFeature =
   | "advanced-permissions"
   | "encrypt-features-endpoint"
   | "schedule-feature-flag"
+  | "custom-metadata"
   | "override-metrics"
   | "regression-adjustment"
   | "sequential-testing"
@@ -42,6 +43,7 @@ export type CommercialFeature =
   | "audit-logging"
   | "visual-editor"
   | "archetypes"
+  | "simulate"
   | "cloud-proxy"
   | "hash-secure-attributes"
   | "livechat"
@@ -61,11 +63,52 @@ export type CommercialFeature =
   | "multiple-sdk-webhooks"
   | "custom-roles"
   | "quantile-metrics"
+  | "retention-metrics"
   | "custom-markdown"
   | "experiment-impact"
-  | "large-saved-groups";
+  | "metric-populations"
+  | "large-saved-groups"
+  | "multi-armed-bandits"
+  | "metric-groups"
+  | "environment-inheritance"
+  | "templates"
+  | "historical-power"
+  | "decision-framework";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
+
+export type SubscriptionInfo = {
+  billingPlatform: "stripe";
+  externalId: string;
+  trialEnd: Date | null;
+  status: "active" | "canceled" | "past_due" | "trialing" | "";
+  hasPaymentMethod: boolean;
+};
+
+export function getStripeSubscriptionStatus(
+  status: Stripe.Subscription.Status
+): SubscriptionInfo["status"] {
+  if (status === "past_due") return "past_due";
+  if (status === "canceled") return "canceled";
+  if (status === "active") return "active";
+  if (status === "trialing") return "trialing";
+  return "";
+}
+
+export function getSubscriptionFromLicense(
+  license: Partial<LicenseInterface>
+): SubscriptionInfo | null {
+  if (license.stripeSubscription) {
+    return {
+      billingPlatform: "stripe",
+      externalId: license.stripeSubscription.id,
+      trialEnd: license.stripeSubscription.trialEnd,
+      status: getStripeSubscriptionStatus(license.stripeSubscription.status),
+      hasPaymentMethod: !!license.stripeSubscription.hasPaymentMethod,
+    };
+  }
+  return null;
+}
 
 export interface LicenseInterface {
   id: string; // Unique ID for the license key
@@ -88,6 +131,7 @@ export interface LicenseInterface {
     tooltipText: string; // The text to show in the tooltip
     showAllUsers: boolean; // True if all users should see the notice rather than just the admins
   };
+  billingPlatform: "stripe" | "";
   stripeSubscription?: {
     id: string;
     qty: number;
@@ -156,6 +200,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "sequential-testing",
     "visual-editor",
     "archetypes",
+    "simulate",
     "cloud-proxy",
     "hash-secure-attributes",
     "livechat",
@@ -166,6 +211,11 @@ export const accountFeatures: CommercialFeaturesMap = {
     "redirects",
     "multiple-sdk-webhooks",
     "quantile-metrics",
+    "retention-metrics",
+    "metric-populations",
+    "multi-armed-bandits",
+    "historical-power",
+    "decision-framework",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -177,6 +227,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "sequential-testing",
     "visual-editor",
     "archetypes",
+    "simulate",
     "cloud-proxy",
     "hash-secure-attributes",
     "livechat",
@@ -187,6 +238,11 @@ export const accountFeatures: CommercialFeaturesMap = {
     "redirects",
     "multiple-sdk-webhooks",
     "quantile-metrics",
+    "retention-metrics",
+    "metric-populations",
+    "multi-armed-bandits",
+    "historical-power",
+    "decision-framework",
   ]),
   enterprise: new Set<CommercialFeature>([
     "scim",
@@ -195,6 +251,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "audit-logging",
     "encrypt-features-endpoint",
     "schedule-feature-flag",
+    "custom-metadata",
     "override-metrics",
     "regression-adjustment",
     "sequential-testing",
@@ -202,6 +259,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "multi-metric-queries",
     "visual-editor",
     "archetypes",
+    "simulate",
     "cloud-proxy",
     "hash-secure-attributes",
     "json-validation",
@@ -219,10 +277,18 @@ export const accountFeatures: CommercialFeaturesMap = {
     "redirects",
     "multiple-sdk-webhooks",
     "quantile-metrics",
+    "retention-metrics",
     "custom-roles",
     "custom-markdown",
     "experiment-impact",
+    "metric-populations",
     "large-saved-groups",
+    "multi-armed-bandits",
+    "metric-groups",
+    "environment-inheritance",
+    "templates",
+    "historical-power",
+    "decision-framework",
   ]),
 };
 
@@ -237,8 +303,32 @@ type MinimalOrganization = {
   };
 };
 
+export function getLowestPlanPerFeature(
+  accountFeatures: CommercialFeaturesMap
+): Partial<Record<CommercialFeature, AccountPlan>> {
+  const lowestPlanPerFeature: Partial<
+    Record<CommercialFeature, AccountPlan>
+  > = {};
+
+  // evaluate in order from highest to lowest plan
+  const plansFromHighToLow: AccountPlan[] = [
+    "enterprise",
+    "pro_sso",
+    "pro",
+    "starter",
+    "oss",
+  ];
+  plansFromHighToLow.forEach((accountPlan) => {
+    accountFeatures[accountPlan].forEach((feature) => {
+      lowestPlanPerFeature[feature] = accountPlan;
+    });
+  });
+
+  return lowestPlanPerFeature;
+}
+
 export function isActiveSubscriptionStatus(
-  status?: Stripe.Subscription.Status
+  status?: Stripe.Subscription.Status | SubscriptionInfo["status"]
 ) {
   return ["active", "trialing", "past_due"].includes(status || "");
 }
@@ -994,9 +1084,10 @@ function shouldLimitAccessDueToExpiredLicense(
 
   // Limit access if it is a pro or pro_sso license and it has been canceled regardless of the dateExpires.
   // (If a payment failed stripe will cancel the subscription but the dateExpires will still be in the future.)
+  const subscription = getSubscriptionFromLicense(licenseData);
   if (
     ["pro", "pro_sso"].includes(licenseData.plan || "") &&
-    licenseData.stripeSubscription?.status === "canceled"
+    subscription?.status === "canceled"
   ) {
     return true;
   }

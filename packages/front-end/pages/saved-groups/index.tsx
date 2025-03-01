@@ -2,6 +2,12 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { SavedGroupInterface } from "shared/src/types";
 import { FaExternalLinkAlt } from "react-icons/fa";
+import { FeatureInterface } from "back-end/types/feature";
+import {
+  ExperimentInterface,
+  ExperimentInterfaceStringDates,
+} from "back-end/types/experiment";
+import { isEmpty } from "lodash";
 import IdLists from "@/components/SavedGroups/IdLists";
 import ConditionGroups from "@/components/SavedGroups/ConditionGroups";
 import { useUser } from "@/services/UserContext";
@@ -12,35 +18,63 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
 import HistoryTable from "@/components/HistoryTable";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
-import Tab from "@/components/Tabs/Tab";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/components/Radix/Tabs";
 
 export const getSavedGroupMessage = (
-  featuresUsingSavedGroups: Set<string> | undefined
+  featuresUsingSavedGroups?: FeatureInterface[],
+  experimentsUsingSavedGroups?: Array<
+    ExperimentInterface | ExperimentInterfaceStringDates
+  >
 ) => {
   return async () => {
-    if (featuresUsingSavedGroups && featuresUsingSavedGroups?.size > 0) {
+    if (
+      !isEmpty(featuresUsingSavedGroups) ||
+      !isEmpty(experimentsUsingSavedGroups)
+    ) {
       return (
         <div>
           <p className="alert alert-danger">
             <strong>Whoops!</strong> Before you can delete this saved group, you
-            will need to update the feature
-            {featuresUsingSavedGroups.size > 1 && "s"} listed below by removing
-            any targeting conditions that rely on this saved group.
+            will need to update the item
+            {(featuresUsingSavedGroups?.length || 0) +
+              (experimentsUsingSavedGroups?.length || 0) >
+              1 && "s"}{" "}
+            listed below by removing any targeting conditions that rely on this
+            saved group.
           </p>
           <ul
             className="border rounded bg-light pt-3 pb-3 overflow-auto"
             style={{ maxHeight: "200px" }}
           >
-            {[...featuresUsingSavedGroups].map((feature) => {
+            {(featuresUsingSavedGroups || []).map((feature) => {
               return (
-                <li key={feature}>
+                <li key={feature.id}>
                   <div className="d-flex">
                     <Link
-                      href={`/features/${feature}`}
+                      href={`/features/${feature.id}`}
                       className="btn btn-link pt-1 pb-1"
                     >
-                      {feature}
+                      {feature.id}
+                    </Link>
+                  </div>
+                </li>
+              );
+            })}
+
+            {(experimentsUsingSavedGroups || []).map((experiment) => {
+              return (
+                <li key={experiment.id}>
+                  <div className="d-flex">
+                    <Link
+                      href={`/experiment/${experiment.id}`}
+                      className="btn btn-link pt-1 pb-1"
+                    >
+                      {experiment.name}
                     </Link>
                   </div>
                 </li>
@@ -64,7 +98,6 @@ export default function SavedGroupsPage() {
   const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
   const attributeSchema = useAttributeSchema();
-  const [tab, setTab] = useState<string | null>("conditionGroups");
   const [idLists, conditionGroups] = useMemo(() => {
     const idLists: SavedGroupInterface[] = [];
     const conditionGroups: SavedGroupInterface[] = [];
@@ -156,54 +189,39 @@ export default function SavedGroupsPage() {
         </div>
       ) : (
         <>
-          <ControlledTabs
-            orientation="horizontal"
-            defaultTab="conditionGroups"
-            tabContentsClassName="tab-content-full"
-            active={tab}
-            setActive={(tab) => {
-              setTab(tab);
-            }}
-          >
-            <Tab
-              id="conditionGroups"
-              padding={false}
-              anchor="conditionGroups"
-              display={
-                <>
-                  Condition Groups{" "}
-                  <span className="round-text-background text-main">
-                    {conditionGroups.length}
-                  </span>
-                </>
-              }
-            >
+          <Tabs defaultValue="conditionGroups">
+            <TabsList>
+              <TabsTrigger value="conditionGroups">
+                Condition Groups
+                <span className="ml-2 round-text-background text-main">
+                  {conditionGroups.length}
+                </span>
+              </TabsTrigger>
+              <TabsTrigger value="idLists">
+                ID Lists
+                <span className="ml-2 round-text-background text-main">
+                  {idLists.length}
+                </span>
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="conditionGroups">
               <ConditionGroups
                 groups={savedGroups}
                 mutate={mutateDefinitions}
               />
-            </Tab>
-            <Tab
-              id="idLists"
-              padding={false}
-              anchor="idLists"
-              display={
-                <>
-                  ID Lists{" "}
-                  <span className="round-text-background text-main">
-                    {idLists.length}
-                  </span>
-                </>
-              }
-            >
+            </TabsContent>
+
+            <TabsContent value="idLists">
               <IdLists groups={savedGroups} mutate={mutateDefinitions} />
-            </Tab>
-          </ControlledTabs>
+            </TabsContent>
+          </Tabs>
         </>
       )}
 
       {auditModal && (
         <Modal
+          trackingEventModalType=""
           open={true}
           header="Audit Log"
           close={() => setAuditModal(false)}

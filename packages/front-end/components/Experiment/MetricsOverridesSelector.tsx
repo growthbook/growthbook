@@ -9,9 +9,10 @@ import {
 import { isUndefined } from "lodash";
 import {
   getConversionWindowHours,
+  getDelayWindowHours,
   isBinomialMetric,
   isFactMetric,
-  isRatioMetric,
+  isRetentionMetric,
 } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -133,26 +134,20 @@ export default function MetricsOverridesSelector({
           );
           let regressionAdjustmentAvailableForMetric = true;
           let regressionAdjustmentAvailableForMetricReason = <></>;
-          if (
-            metricDefinition &&
-            isFactMetric(metricDefinition) &&
-            isRatioMetric(metricDefinition)
-          ) {
-            regressionAdjustmentAvailableForMetric = false;
-            regressionAdjustmentAvailableForMetricReason = (
-              <>Not available for ratio metrics.</>
-            );
-          }
           if (metricDefinition?.denominator) {
             const denominator = allMetricDefinitions.find(
               (m) => m.id === metricDefinition.denominator
             );
-            if (denominator && !isBinomialMetric(denominator)) {
+            if (
+              denominator &&
+              !isFactMetric(denominator) &&
+              !isBinomialMetric(denominator)
+            ) {
               regressionAdjustmentAvailableForMetric = false;
               regressionAdjustmentAvailableForMetricReason = (
                 <>
                   Not available for metrics where the denominator is a{" "}
-                  <em>binomial</em> type.
+                  <em>{denominator.type}</em> type.
                 </>
               );
             }
@@ -218,7 +213,7 @@ export default function MetricsOverridesSelector({
 
               <div>
                 <label className="mb-1">
-                  <strong className="text-body">
+                  <strong>
                     <MetricName id={metricDefinition?.id || ""} />
                   </strong>
                 </label>
@@ -286,17 +281,27 @@ export default function MetricsOverridesSelector({
                       </div>
                       {(form.watch(`metricOverrides.${i}.windowType`) ??
                         metricDefinition?.windowSettings?.type) ===
-                      "conversion" ? (
+                        "conversion" ||
+                      (metricDefinition &&
+                        isRetentionMetric(metricDefinition)) ? (
                         <div className="row m-1 mr-1 px-1">
                           <div className="col">
                             <Field
-                              label="Metric Delay (hours)"
+                              label={
+                                metricDefinition &&
+                                isRetentionMetric(metricDefinition)
+                                  ? "Retention Window (hours)"
+                                  : "Metric Delay (hours)"
+                              }
                               placeholder="default"
                               helpText={
                                 <div className="text-right">
                                   default:{" "}
                                   {metricDefinition?.windowSettings
-                                    .delayHours ?? 0}
+                                    ? getDelayWindowHours(
+                                        metricDefinition.windowSettings
+                                      )
+                                    : 0}
                                 </div>
                               }
                               labelClassName="small mb-1"
@@ -313,6 +318,12 @@ export default function MetricsOverridesSelector({
                             <Field
                               label="Conversion Window (hours)"
                               placeholder="default"
+                              disabled={
+                                (form.watch(
+                                  `metricOverrides.${i}.windowType`
+                                ) ?? metricDefinition?.windowSettings?.type) !==
+                                "conversion"
+                              }
                               helpText={
                                 <div className="text-right">
                                   default:{" "}
@@ -354,7 +365,12 @@ export default function MetricsOverridesSelector({
                         <div className="row m-1 mr-1 px-1">
                           <div className="col">
                             <Field
-                              label="Metric Delay (hours)"
+                              label={
+                                metricDefinition &&
+                                isRetentionMetric(metricDefinition)
+                                  ? "Retention Window (hours)"
+                                  : "Metric Delay (hours)"
+                              }
                               placeholder="default"
                               helpText={
                                 <div className="text-right">
@@ -363,8 +379,11 @@ export default function MetricsOverridesSelector({
                                     metricDefinition?.windowSettings?.type ?? ""
                                   )
                                     ? "No delay"
-                                    : metricDefinition?.windowSettings
-                                        .delayHours}
+                                    : metricDefinition
+                                    ? getConversionWindowHours(
+                                        metricDefinition.windowSettings
+                                      )
+                                    : 0}
                                 </div>
                               }
                               labelClassName="small mb-1"

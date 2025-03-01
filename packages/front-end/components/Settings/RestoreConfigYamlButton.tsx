@@ -143,8 +143,9 @@ export default function RestoreConfigYamlButton({
             ) {
               const windowSetting: MetricWindowSettings = {
                 type: "conversion",
-                delayHours:
+                delayValue:
                   n.conversionDelayHours ?? DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+                delayUnit: "hours",
                 windowValue:
                   n.conversionWindowHours ?? DEFAULT_METRIC_WINDOW_HOURS,
                 windowUnit: "hours",
@@ -152,6 +153,14 @@ export default function RestoreConfigYamlButton({
               n.windowSettings = windowSetting;
               delete n.conversionWindowDelay;
               delete n.conversionDelayHours;
+            } else if (n.windowSettings.delayValue === undefined) {
+              const windowSettings: MetricWindowSettings = {
+                ...n.windowSettings,
+                delayValue: n.windowSettings.delayHours ?? 0,
+                delayUnit: n.windowSettings.delayUnit ?? "hours",
+              };
+              n.windowSettings = windowSettings;
+              delete n.windowSettings.delayHours;
             }
             if (n.userIdType || n.anonymousIdType) {
               throw new Error(`
@@ -236,6 +245,7 @@ export default function RestoreConfigYamlButton({
     <div>
       {open && (
         <PagedModal
+          trackingEventModalType="import-settings-config-yaml"
           close={() => setOpen(false)}
           header="Import from config.yml"
           step={step}
@@ -259,6 +269,7 @@ export default function RestoreConfigYamlButton({
         >
           <Page
             display="Select File"
+            enabled
             validate={async () => {
               const { config } = form.getValues();
               const json = load(config);

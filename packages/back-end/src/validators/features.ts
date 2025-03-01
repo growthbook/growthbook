@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { statsEngines } from "back-end/src/util/constants";
 import { eventUser } from "./events";
 
 export const simpleSchemaFieldValidator = z.object({
@@ -105,12 +106,14 @@ export const namespaceValue = z
 
 export type NamespaceValue = z.infer<typeof namespaceValue>;
 
-/**
- * @deprecated
- */
+export const experimentType = ["standard", "multi-armed-bandit"] as const;
+export const banditStageType = ["explore", "exploit", "paused"] as const;
+
 const experimentRule = baseRule
   .extend({
-    type: z.literal("experiment"),
+    type: z.literal("experiment"), // refers to RuleType, not experiment.type
+    experimentType: z.enum(experimentType).optional(),
+    hypothesis: z.string().optional(),
     trackingKey: z.string(),
     hashAttribute: z.string(),
     fallbackAttribute: z.string().optional(),
@@ -120,7 +123,27 @@ const experimentRule = baseRule
     minBucketVersion: z.number().optional(),
     namespace: namespaceValue.optional(),
     coverage: z.number().optional(),
+    datasource: z.string().optional(),
+    exposureQueryId: z.string().optional(),
+    goalMetrics: z.array(z.string()).optional(),
+    secondaryMetrics: z.array(z.string()).optional(),
+    guardrailMetrics: z.array(z.string()).optional(),
+    activationMetric: z.string().optional(),
+    segment: z.string().optional(),
+    skipPartialData: z.boolean().optional(),
     values: z.array(experimentValue),
+    regressionAdjustmentEnabled: z.boolean().optional(),
+    sequentialTestingEnabled: z.boolean().optional(),
+    sequentialTestingTuningParameter: z.number().optional(),
+    statsEngine: z.enum(statsEngines).optional(),
+    banditStage: z.enum(banditStageType).optional(),
+    banditStageDateStarted: z.date().optional(),
+    banditScheduleValue: z.number().optional(),
+    banditScheduleUnit: z.enum(["hours", "days"]).optional(),
+    banditBurnInValue: z.number().optional(),
+    banditBurnInUnit: z.enum(["hours", "days"]).optional(),
+    templateId: z.string().optional(),
+    customFields: z.record(z.any()).optional(),
   })
   .strict();
 
@@ -233,6 +256,7 @@ export const featureInterface = z
     environmentSettings: z.record(z.string(), featureEnvironment),
     linkedExperiments: z.array(z.string()).optional(),
     jsonSchema: JSONSchemaDef.optional(),
+    customFields: z.record(z.any()).optional(),
 
     /** @deprecated */
     legacyDraft: z.union([featureRevisionInterface, z.null()]).optional(),
@@ -244,3 +268,17 @@ export const featureInterface = z
   .strict();
 
 export type FeatureInterface = z.infer<typeof featureInterface>;
+
+const computedFeatureInterface = featureInterface
+  .extend({
+    projectId: z.string(),
+    projectName: z.string(),
+    projectIsDeReferenced: z.boolean(),
+    savedGroups: z.array(z.string()),
+    stale: z.boolean(),
+    staleReason: z.string(),
+    ownerName: z.string(),
+  })
+  .strict();
+
+export type ComputedFeatureInterface = z.infer<typeof computedFeatureInterface>;

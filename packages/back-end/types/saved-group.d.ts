@@ -3,7 +3,7 @@ import { SavedGroupInterface, SavedGroupType } from "shared/src/types";
 import {
   postSavedGroupBodyValidator,
   putSavedGroupBodyValidator,
-} from "../src/routers/saved-group/saved-group.validators";
+} from "back-end/src/routers/saved-group/saved-group.validators";
 
 /**
  * @deprecated

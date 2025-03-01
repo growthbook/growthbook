@@ -1,12 +1,12 @@
-import { EventWebHookNotifier } from "../../src/events/handlers/webhooks/EventWebHookNotifier";
-import { getEventWebHookSignatureForPayload } from "../../src/events/handlers/webhooks/event-webhooks-utils";
-import { cancellableFetch } from "../../src/util/http.util";
+import { EventWebHookNotifier } from "back-end/src/events/handlers/webhooks/EventWebHookNotifier";
+import { getEventWebHookSignatureForPayload } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
+import { cancellableFetch } from "back-end/src/util/http.util";
 
-jest.mock("../../src/events/handlers/webhooks/event-webhooks-utils", () => ({
+jest.mock("back-end/src/events/handlers/webhooks/event-webhooks-utils", () => ({
   getEventWebHookSignatureForPayload: jest.fn(),
 }));
 
-jest.mock("../../src/util/http.util", () => ({
+jest.mock("back-end/src/util/http.util", () => ({
   cancellableFetch: jest.fn(),
 }));
 
@@ -38,6 +38,7 @@ describe("EventWebHookNotifier", () => {
         body: '"the payload"',
         headers: {
           "Content-Type": "application/json",
+          "User-Agent": "GrowthBook Webhook",
           "X-GrowthBook-Signature": "some-signature",
         },
         method: "POST",
@@ -77,6 +78,7 @@ describe("EventWebHookNotifier", () => {
         body: '"the payload"',
         headers: {
           "Content-Type": "application/json",
+          "User-Agent": "GrowthBook Webhook",
           "X-GrowthBook-Signature": "some-signature",
         },
         method: "POST",
@@ -112,6 +114,7 @@ describe("EventWebHookNotifier", () => {
         body: '"the payload"',
         headers: {
           "Content-Type": "application/json",
+          "User-Agent": "GrowthBook Webhook",
           "X-GrowthBook-Signature": "some-signature",
         },
         method: "PATCH",
@@ -148,6 +151,7 @@ describe("EventWebHookNotifier", () => {
         body: '"the payload"',
         headers: {
           "Content-Type": "application/json",
+          "User-Agent": "GrowthBook Webhook",
           "X-GrowthBook-Signature": "some-signature",
           foo: "bar",
         },

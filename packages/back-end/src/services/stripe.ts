@@ -1,13 +1,12 @@
 import { Stripe } from "stripe";
-import { isActiveSubscriptionStatus } from "shared/enterprise";
-import { STRIPE_SECRET } from "../util/secrets";
+import { STRIPE_SECRET } from "back-end/src/util/secrets";
 import {
   findOrganizationByStripeCustomerId,
   updateOrganization,
   updateOrganizationByStripeId,
-} from "../models/OrganizationModel";
-import { OrganizationInterface } from "../../types/organization";
-import { logger } from "../util/logger";
+} from "back-end/src/models/OrganizationModel";
+import { OrganizationInterface } from "back-end/types/organization";
+import { logger } from "back-end/src/util/logger";
 
 // TODO: Get rid of this file once all license data has moved off all organizations
 export const stripe = new Stripe(STRIPE_SECRET || "", {
@@ -89,51 +88,6 @@ export async function updateSubscriptionInDb(
   await updateOrganizationByStripeId(stripeCustomerId, update);
 
   return { organization: org, subscription, hasPaymentMethod };
-}
-
-const priceData: {
-  [key: string]: Stripe.Price;
-} = {};
-export async function getPrice(priceId: string): Promise<Stripe.Price | null> {
-  if (priceData[priceId]) return priceData[priceId];
-
-  if (!STRIPE_SECRET) {
-    return null;
-  }
-
-  try {
-    priceData[priceId] = await stripe.prices.retrieve(priceId, {
-      expand: ["tiers"],
-    });
-    return priceData[priceId];
-  } catch (e) {
-    logger.error(e, "Failed to get price data from Stripe");
-    return null;
-  }
-}
-
-const discountData: {
-  [key: string]: Stripe.Coupon;
-} = {};
-export async function getCoupon(
-  discountCode?: string
-): Promise<Stripe.Coupon | null> {
-  if (!discountCode) return null;
-  if (discountData[discountCode]) return discountData[discountCode];
-
-  if (!STRIPE_SECRET) return null;
-
-  try {
-    discountData[discountCode] = await stripe.coupons.retrieve(discountCode);
-    return discountData[discountCode];
-  } catch (e) {
-    logger.error(e, "Failed to get coupon data from Stripe");
-    return null;
-  }
-}
-
-export function hasActiveSubscription(org: OrganizationInterface) {
-  return isActiveSubscriptionStatus(org.subscription?.status);
 }
 
 export async function getStripeCustomerId(org: OrganizationInterface) {

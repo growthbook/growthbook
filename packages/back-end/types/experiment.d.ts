@@ -3,7 +3,7 @@ import {
   Variation,
   MetricOverride,
   ExperimentInterface,
-} from "../src/validators/experiments";
+} from "back-end/src/validators/experiments";
 import { ExperimentRefVariation, FeatureInterface } from "./feature";
 
 export {
@@ -11,13 +11,34 @@ export {
   ImplementationType,
   MetricOverride,
   ExperimentStatus,
+  ExperimentType,
   ExperimentPhase,
+  BanditStageType,
+  ExperimentAnalysisSettings,
+  ExperimentAnalysisSummaryResultsStatus,
+  ExperimentAnalysisSummaryVariationStatus,
   ExperimentInterface,
   ExperimentNotification,
   ExperimentResultsType,
   Screenshot,
   Variation,
-} from "../src/validators/experiments";
+} from "back-end/src/validators/experiments";
+
+export {
+  ExperimentTemplateInterface,
+  CreateTemplateProps,
+  UpdateTemplateProps,
+} from "back-end/src/routers/experiment-template/template.validators";
+
+export type DecisionFrameworkExperimentRecommendationStatus =
+  | { status: "days-left"; daysLeft: number }
+  | { status: "ship-now" }
+  | { status: "rollback-now" }
+  | { status: "ready-for-review" };
+
+export type DecisionFrameworkData = DecisionFrameworkExperimentRecommendationStatus & {
+  tooltip?: string;
+};
 
 export type ExperimentPhaseType = "ramp" | "main" | "holdout";
 

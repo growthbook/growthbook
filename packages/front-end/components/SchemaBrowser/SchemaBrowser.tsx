@@ -1,5 +1,5 @@
-import { InformationSchemaInterface } from "@back-end/src/types/Integration";
-import { DataSourceInterfaceWithParams } from "@back-end/types/datasource";
+import { InformationSchemaInterface } from "back-end/src/types/Integration";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import React, { Fragment, useCallback, useEffect, useState } from "react";
 import Collapsible from "react-collapsible";
 import { FaAngleDown, FaAngleRight, FaTable } from "react-icons/fa";
@@ -157,7 +157,6 @@ export default function SchemaBrowser({
         datasourceName={datasource.name}
         datasourceId={datasource.id}
         canRunQueries={canRunQueries}
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'InformationSchemaInterface | undefined' is n... Remove this comment to see the full error message
         informationSchema={informationSchema}
         setFetching={setFetching}
         fetching={fetching}
@@ -209,10 +208,18 @@ export default function SchemaBrowser({
                               }
                             }}
                             trigger={
-                              datasource.type === ("bigquery" || "postgres") ? (
+                              ["bigquery", "postgres"].includes(
+                                datasource.type
+                              ) ? (
                                 <>
                                   <FaAngleRight />
                                   {`${database.databaseName}.${schema.schemaName}`}
+                                </>
+                              ) : datasource.type ===
+                                "growthbook_clickhouse" ? (
+                                <>
+                                  <FaAngleRight />
+                                  Tables
                                 </>
                               ) : (
                                 <>
@@ -222,10 +229,18 @@ export default function SchemaBrowser({
                               )
                             }
                             triggerWhenOpen={
-                              datasource.type === ("bigquery" || "postgres") ? (
+                              ["bigquery", "postgres"].includes(
+                                datasource.type
+                              ) ? (
                                 <>
                                   <FaAngleDown />
                                   {`${database.databaseName}.${schema.schemaName}`}
+                                </>
+                              ) : datasource.type ===
+                                "growthbook_clickhouse" ? (
+                                <>
+                                  <FaAngleRight />
+                                  Tables
                                 </>
                               ) : (
                                 <>
@@ -295,12 +310,15 @@ export default function SchemaBrowser({
         </>
       </SchemaBrowserWrapper>
       {error && <div className="alert alert-danger mt-2 mb-0">{error}</div>}
-      <DatasourceTableData
-        canRunQueries={canRunQueries}
-        tableId={currentTable}
-        datasourceId={datasource.id}
-        setError={setError}
-      />
+      {currentTable ? (
+        <DatasourceTableData
+          datasource={datasource}
+          canRunQueries={canRunQueries}
+          tableId={currentTable}
+          datasourceId={datasource.id}
+          setError={setError}
+        />
+      ) : null}
     </div>
   );
 }

@@ -4,12 +4,15 @@ import {
   UpdateSavedGroupProps,
 } from "back-end/types/saved-group";
 import { useForm } from "react-hook-form";
-import { validateAndFixCondition } from "shared/util";
+import {
+  isIdListSupportedDatatype,
+  validateAndFixCondition,
+} from "shared/util";
 import { FaPlusCircle } from "react-icons/fa";
 import { SavedGroupInterface, SavedGroupType } from "shared/src/types";
+import clsx from "clsx";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
-import useMembers from "@/hooks/useMembers";
 import { useAttributeSchema } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
@@ -18,6 +21,9 @@ import SelectField from "@/components/Forms/SelectField";
 import ConditionInput from "@/components/Features/ConditionInput";
 import { IdListItemInput } from "@/components/SavedGroups/IdListItemInput";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
+import SelectOwner from "../Owner/SelectOwner";
 
 const SavedGroupForm: FC<{
   close: () => void;
@@ -25,13 +31,14 @@ const SavedGroupForm: FC<{
   type: SavedGroupType;
 }> = ({ close, current, type }) => {
   const { apiCall } = useAuth();
-  const { memberUsernameOptions } = useMembers();
 
   const [conditionKey, forceConditionRender] = useIncrementer();
 
   const attributeSchema = useAttributeSchema();
 
   const { mutateDefinitions } = useDefinitions();
+
+  const { projects, project } = useDefinitions();
 
   const [errorMessage, setErrorMessage] = useState("");
   const [showDescription, setShowDescription] = useState(false);
@@ -52,16 +59,14 @@ const SavedGroupForm: FC<{
       type,
       values: current.values || [],
       description: current.description || "",
-      passByReferenceOnly: current.passByReferenceOnly || false,
+      projects: current.projects || (project ? [project] : []),
     },
   });
 
-  const [disableSubmit, setDisableSubmit] = useState(false);
-
-  const [
-    attributeTargetingSdkIssues,
-    setAttributeTargetingSdkIssues,
-  ] = useState(false);
+  const projectsOptions = projects.map((p) => ({
+    label: p.name,
+    value: p.id,
+  }));
 
   const isValid =
     !!form.watch("groupName") &&
@@ -74,9 +79,11 @@ const SavedGroupForm: FC<{
       close={() => setUpgradeModal(false)}
       reason=""
       source="large-saved-groups"
+      commercialFeature="large-saved-groups"
     />
   ) : (
     <Modal
+      trackingEventModalType="saved-group-form"
       close={close}
       open={true}
       size="lg"
@@ -84,7 +91,7 @@ const SavedGroupForm: FC<{
         type === "condition" ? "Condition Group" : "ID List"
       }`}
       cta={current.id ? "Save" : "Submit"}
-      ctaEnabled={isValid && !disableSubmit && !attributeTargetingSdkIssues}
+      ctaEnabled={isValid}
       submit={form.handleSubmit(async (value) => {
         if (type === "condition") {
           const conditionRes = validateAndFixCondition(value.condition, (c) => {
@@ -104,7 +111,7 @@ const SavedGroupForm: FC<{
             owner: value.owner,
             values: value.values,
             description: value.description,
-            passByReferenceOnly: value.passByReferenceOnly,
+            projects: value.projects,
           };
           await apiCall(`/saved-groups/${current.id}`, {
             method: "PUT",
@@ -169,17 +176,22 @@ const SavedGroupForm: FC<{
           <FaPlusCircle /> Add a description
         </p>
       )}
+      <MultiSelectField
+        label="Projects"
+        labelClassName="font-weight-bold"
+        placeholder="All Projects"
+        value={form.watch("projects") || []}
+        onChange={(projects) => form.setValue("projects", projects)}
+        options={projectsOptions}
+        sort={false}
+        closeMenuOnSelect={true}
+      />
       {current.id && (
-        <SelectField
-          label="Owner"
-          labelClassName="font-weight-bold"
-          value={form.watch("owner") || ""}
-          onChange={(v) => form.setValue("owner", v)}
+        <SelectOwner
+          resourceType="savedGroup"
           placeholder="Optional"
-          options={memberUsernameOptions.map((m) => ({
-            value: m.display,
-            label: m.display,
-          }))}
+          value={form.watch("owner")}
+          onChange={(v) => form.setValue("owner", v)}
         />
       )}
       {type === "condition" ? (
@@ -191,7 +203,6 @@ const SavedGroupForm: FC<{
           emptyText="No conditions specified."
           title="Include all users who match the following"
           require
-          setAttributeTargetingSdkIssues={setAttributeTargetingSdkIssues}
         />
       ) : (
         <>
@@ -207,22 +218,43 @@ const SavedGroupForm: FC<{
               value: a.property,
               label: a.property,
             }))}
+            isOptionDisabled={({ label }) => {
+              const attr = attributeSchema.find(
+                (attr) => attr.property === label
+              );
+              if (!attr) return false;
+              return !isIdListSupportedDatatype(attr.datatype);
+            }}
+            formatOptionLabel={({ label }) => {
+              const attr = attributeSchema.find(
+                (attr) => attr.property === label
+              );
+              if (!attr) return label;
+              const unsupported = !isIdListSupportedDatatype(attr.datatype);
+              return (
+                <div className={clsx(unsupported ? "disabled" : "")}>
+                  {label}
+                  {unsupported && (
+                    <span className="float-right">
+                      <Tooltip
+                        body="The datatype for this attribute key isn't valid for ID Lists. Try using a Condition Group instead"
+                        tipPosition="top"
+                      >
+                        unsupported datatype
+                      </Tooltip>
+                    </span>
+                  )}
+                </div>
+              );
+            }}
             helpText={current.attributeKey && "This field cannot be edited."}
           />
           {!current.id && (
             <IdListItemInput
               values={form.watch("values") || []}
-              passByReferenceOnly={false}
-              bypassSmallListSizeLimit={false}
               setValues={(newValues) => {
                 form.setValue("values", newValues);
               }}
-              setPassByReferenceOnly={(passByReferenceOnly) =>
-                form.setValue("passByReferenceOnly", passByReferenceOnly)
-              }
-              groupReferencedByUnsupportedSdks={false}
-              disableSubmit={disableSubmit}
-              setDisableSubmit={setDisableSubmit}
               openUpgradeModal={() => setUpgradeModal(true)}
             />
           )}

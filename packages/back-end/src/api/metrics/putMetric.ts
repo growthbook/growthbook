@@ -1,11 +1,11 @@
-import { createApiRequestHandler } from "../../util/handler";
-import { getMetricById, updateMetric } from "../../models/MetricModel";
-import { PutMetricResponse } from "../../../types/openapi";
-import { putMetricValidator } from "../../validators/openapi";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { getMetricById, updateMetric } from "back-end/src/models/MetricModel";
+import { PutMetricResponse } from "back-end/types/openapi";
+import { putMetricValidator } from "back-end/src/validators/openapi";
 import {
   putMetricApiPayloadIsValid,
   putMetricApiPayloadToMetricInterface,
-} from "../../services/experiments";
+} from "back-end/src/services/experiments";
 
 export const putMetric = createApiRequestHandler(putMetricValidator)(
   async (req): Promise<PutMetricResponse> => {
@@ -13,6 +13,10 @@ export const putMetric = createApiRequestHandler(putMetricValidator)(
 
     if (!metric) {
       throw new Error("Metric not found");
+    }
+
+    if (req.body.projects) {
+      await req.context.models.projects.ensureProjectsExist(req.body.projects);
     }
 
     const validationResult = putMetricApiPayloadIsValid(req.body);

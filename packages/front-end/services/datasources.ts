@@ -8,7 +8,7 @@ import {
 } from "back-end/types/datasource";
 import { MetricType } from "back-end/types/metric";
 
-function camelToUnderscore(orig) {
+function camelToUnderscore(orig: string) {
   return orig
     .replace(/\s+/g, "_")
     .replace(/([A-Z]+)([A-Z][a-z])/, "$1_$2")
@@ -47,7 +47,7 @@ FROM
 WHERE
   ((_TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}') OR
    (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO "yyyyMMdd"}}' AND 'intraday_{{date endDateISO "yyyyMMdd"}}'))
-  AND event_name = 'experiment_viewed'  
+  AND event_name = 'experiment_viewed'
   AND experiment_id_param.key = 'experiment_id'
   AND variation_id_param.key = 'variation_id'
   AND ${userCol} is not null
@@ -228,7 +228,8 @@ const SegmentSchema: SchemaInterface = {
   experimentDimensions: ["source", "medium", "device", "browser"],
   getExperimentSQL: (tablePrefix, userId, options) => {
     const exposureTableName =
-      camelToUnderscore(options?.exposureTableName) || "experiment_viewed";
+      camelToUnderscore(options?.exposureTableName || "") ||
+      "experiment_viewed";
     return `SELECT
   ${userId},
   received_at as timestamp,
@@ -240,10 +241,10 @@ const SegmentSchema: SchemaInterface = {
     WHEN context_user_agent LIKE '%Mobile%' THEN 'Mobile'
     ELSE 'Tablet/Desktop' END
   ) as device,
-  (CASE 
+  (CASE
     WHEN context_user_agent LIKE '% Firefox%' THEN 'Firefox'
     WHEN context_user_agent LIKE '% OPR%' THEN 'Opera'
-    WHEN context_user_agent LIKE '% Edg%' THEN ' Edge' 
+    WHEN context_user_agent LIKE '% Edg%' THEN ' Edge'
     WHEN context_user_agent LIKE '% Chrome%' THEN 'Chrome'
     WHEN context_user_agent LIKE '% Safari%' THEN 'Safari'
     ELSE 'Other' END
@@ -282,7 +283,8 @@ const RudderstackSchema: SchemaInterface = {
   experimentDimensions: ["device", "browser"],
   getExperimentSQL: (tablePrefix, userId, options) => {
     const exposureTableName =
-      camelToUnderscore(options?.exposureTableName) || "experiment_viewed";
+      camelToUnderscore(options?.exposureTableName || "") ||
+      "experiment_viewed";
     return `SELECT
   ${userId},
   received_at as timestamp,
@@ -292,10 +294,10 @@ const RudderstackSchema: SchemaInterface = {
     WHEN context_user_agent LIKE '%Mobile%' THEN 'Mobile'
     ELSE 'Tablet/Desktop' END
   ) as device,
-  (CASE 
+  (CASE
     WHEN context_user_agent LIKE '% Firefox%' THEN 'Firefox'
     WHEN context_user_agent LIKE '% OPR%' THEN 'Opera'
-    WHEN context_user_agent LIKE '% Edg%' THEN ' Edge' 
+    WHEN context_user_agent LIKE '% Edg%' THEN ' Edge'
     WHEN context_user_agent LIKE '% Chrome%' THEN 'Chrome'
     WHEN context_user_agent LIKE '% Safari%' THEN 'Safari'
     ELSE 'Other' END
@@ -332,20 +334,20 @@ const MatomoSchema: SchemaInterface = {
       userId === "user_id"
         ? `visit.user_id`
         : `conv(hex(events.idvisitor), 16, 16)`;
-    return `SELECT 
+    return `SELECT
   ${userStr} as ${userId},
-  events.server_time as timestamp, 
-  experiment.name as experiment_id, 
+  events.server_time as timestamp,
+  experiment.name as experiment_id,
   SUBSTRING(variation.name, ${variationPrefixLength + 1}) as variation_id,
   visit.config_device_model as device,
   visit.config_os as OS,
   visit.location_country as country
-FROM ${tPrefix}_log_link_visit_action events 
-INNER JOIN ${tPrefix}_log_action experiment 
-  ON(events.idaction_event_action = experiment.idaction AND experiment.\`type\` = 11) 
-INNER JOIN ${tPrefix}_log_action variation 
-  ON(events.idaction_name = variation.idaction AND variation.\`type\` = 12) 
-INNER JOIN ${tPrefix}_log_visit visit 
+FROM ${tPrefix}_log_link_visit_action events
+INNER JOIN ${tPrefix}_log_action experiment
+  ON(events.idaction_event_action = experiment.idaction AND experiment.\`type\` = 11)
+INNER JOIN ${tPrefix}_log_action variation
+  ON(events.idaction_name = variation.idaction AND variation.\`type\` = 12)
+INNER JOIN ${tPrefix}_log_visit visit
   ON (events.idvisit = visit.idvisit)
 WHERE events.idaction_event_category = (SELECT idaction FROM ${tPrefix}_log_action mla1 WHERE mla1.name = "${categoryName}" AND mla1.type = 10)
    AND SUBSTRING(variation.name, ${variationPrefixLength + 1}) != ""
@@ -381,7 +383,8 @@ const FreshpaintSchema: SchemaInterface = {
   experimentDimensions: ["source", "medium", "campaign", "os", "browser"],
   getExperimentSQL: (tablePrefix, userId, options) => {
     const exposureTableName =
-      camelToUnderscore(options?.exposureTableName) || "experiment_viewed";
+      camelToUnderscore(options?.exposureTableName || "") ||
+      "experiment_viewed";
     return `SELECT
   ${userId},
   time as timestamp,
@@ -434,7 +437,8 @@ const HeapSchema: SchemaInterface = {
   ],
   getExperimentSQL: (tablePrefix, userId, options) => {
     const exposureTableName =
-      camelToUnderscore(options?.exposureTableName) || "experiment_viewed";
+      camelToUnderscore(options?.exposureTableName || "") ||
+      "experiment_viewed";
     return `SELECT
   ${userId},
   time as timestamp,
@@ -471,7 +475,7 @@ const FullStorySchema: SchemaInterface = {
   experimentDimensions: ["source"],
   getExperimentSQL: (tablePrefix, userId) => {
     // const exposureTableName =
-    //   camelToUnderscore(options?.exposureTableName) || "experiment_viewed";
+    //   camelToUnderscore(options?.exposureTableName || "") || "experiment_viewed";
     return `
 -- Modify the below query to match your exported data
 SELECT
@@ -488,7 +492,7 @@ FROM
 WHERE
   _TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}'
   AND event_type = 'custom'
-  AND exp_event_properties.event_name = 'experiment_viewed'  
+  AND exp_event_properties.event_name = 'experiment_viewed'
   AND experiment_id_param.key = 'experiment_id'
   AND variation_id_param.key = 'variation_id'
   AND ${userId} is not null
@@ -541,7 +545,7 @@ function getSchemaObject(type?: SchemaFormat) {
   return CustomSchema;
 }
 
-function getTablePrefix(params: DataSourceParams) {
+export function getTablePrefix(params: DataSourceParams) {
   // Postgres / Redshift
   if ("defaultSchema" in params && params.defaultSchema) {
     return params.defaultSchema + ".";

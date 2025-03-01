@@ -1,12 +1,12 @@
 import {
   getEventWebHookById,
   getAllEventWebHooksForEvent,
-} from "../../../models/EventWebhookModel";
-import { NotificationEventHandler } from "../../notifiers/EventNotifier";
+} from "back-end/src/models/EventWebhookModel";
+import { NotificationEventHandler } from "back-end/src/events/notifiers/EventNotifier";
 import {
   getFilterDataForNotificationEvent,
   filterEventForEnvironments,
-} from "../utils";
+} from "back-end/src/events/handlers/utils";
 import { EventWebHookNotifier } from "./EventWebHookNotifier";
 
 /**
@@ -20,8 +20,12 @@ export const webHooksEventHandler: NotificationEventHandler = async (event) => {
 
   const eventWebHooks = await (async () => {
     if (event.data.event === "webhook.test") {
+      const webhookId = event.version
+        ? event.data.data.object.webhookId
+        : event.data.data.webhookId;
+
       const webhook = await getEventWebHookById(
-        event.data.data.webhookId,
+        webhookId,
         event.organizationId
       );
 

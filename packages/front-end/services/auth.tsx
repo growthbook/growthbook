@@ -20,6 +20,7 @@ import { roleSupportsEnvLimit } from "shared/permissions";
 import Modal from "@/components/Modal";
 import { DocLink } from "@/components/DocLink";
 import Welcome from "@/components/Auth/Welcome";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { getApiHost, getAppOrigin, isCloud, isSentryEnabled } from "./env";
 import { LOCALSTORAGE_PROJECT_KEY } from "./DefinitionsContext";
 
@@ -198,9 +199,10 @@ export async function redirectWithTimeout(url: string, timeout: number = 5000) {
   await new Promise((resolve) => setTimeout(resolve, timeout));
 }
 
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({
-  children,
-}) => {
+export const AuthProvider: React.FC<{
+  exitOnNoAuth?: boolean;
+  children: ReactNode;
+}> = ({ exitOnNoAuth = true, children }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState("");
   const [orgId, setOrgId] = useState<string | null>(null);
@@ -215,16 +217,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const router = useRouter();
   const initialOrgId = router.query.org ? router.query.org + "" : null;
 
+  const [, setProject] = useLocalStorage(LOCALSTORAGE_PROJECT_KEY, "");
+
   async function init() {
     const resp = await refreshToken();
     if ("token" in resp) {
       setInitError("");
       setToken(resp.token);
       setLoading(false);
+    } else if (!exitOnNoAuth) {
+      setInitError("");
+      setLoading(false);
     } else if ("redirectURI" in resp) {
       if (resp.confirm) {
         setAuthComponent(
           <Modal
+            trackingEventModalType=""
             open={true}
             submit={async () => {
               await redirectWithTimeout(resp.redirectURI);
@@ -265,8 +273,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       setAuthComponent(
         <Welcome
           firstTime={resp.newInstallation}
-          onSuccess={(t) => {
+          onSuccess={(t, pid) => {
             setToken(t);
+            if (pid) {
+              setProject(pid);
+            }
             setAuthComponent(null);
           }}
         />
@@ -283,6 +294,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       setInitError(e.message);
       console.error(e);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const orgList = [...organizations];
@@ -421,6 +433,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   if (initError) {
     return (
       <Modal
+        trackingEventModalType=""
         header="logo"
         open={true}
         cta="Try Again"
@@ -446,6 +459,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   if (sessionError) {
     return (
       <Modal
+        trackingEventModalType=""
         open={true}
         cta="OK"
         submit={async () => {

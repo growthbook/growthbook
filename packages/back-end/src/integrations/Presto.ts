@@ -1,10 +1,10 @@
 /// <reference types="../../typings/presto-client" />
 import { Client, IPrestoClientOptions } from "presto-client";
-import { QueryStatistics } from "@back-end/types/query";
-import { decryptDataSourceParams } from "../services/datasource";
-import { PrestoConnectionParams } from "../../types/integrations/presto";
-import { FormatDialect } from "../util/sql";
-import { QueryResponse } from "../types/Integration";
+import { QueryStatistics } from "back-end/types/query";
+import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { PrestoConnectionParams } from "back-end/types/integrations/presto";
+import { FormatDialect } from "back-end/src/util/sql";
+import { QueryResponse } from "back-end/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 // eslint-disable-next-line
@@ -115,6 +115,18 @@ export default class Presto extends SqlIntegration {
   }
   ensureFloat(col: string): string {
     return `CAST(${col} AS DOUBLE)`;
+  }
+  hasCountDistinctHLL(): boolean {
+    return true;
+  }
+  hllAggregate(col: string): string {
+    return `APPROX_SET(${col})`;
+  }
+  hllReaggregate(col: string): string {
+    return `MERGE(${col})`;
+  }
+  hllCardinality(col: string): string {
+    return `CARDINALITY(${col})`;
   }
   getDefaultDatabase() {
     return this.params.catalog || "";

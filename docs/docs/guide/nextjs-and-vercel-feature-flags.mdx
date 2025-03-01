@@ -1,0 +1,322 @@
+---
+title: How to Integrate GrowthBook with Next.js, Vercel Edge Config, and Vercel Feature Flags
+description: Step-by-step guide to integrating GrowthBook feature flags into your Next.js application deployed on Vercel. Includes using Edge Config, the Vercel Toolbar, and best practices.
+slug: nextjs-and-vercel-feature-flags
+---
+
+import ExternalLink from '@site/src/components/ExternalLink'
+
+# Integrating GrowthBook with Next.js and Vercel Feature Flags
+
+This tutorial shows you how to use GrowthBook with Vercel's Edge Config and Feature Flags SDK to manage feature flags in a Next.js app. You'll need a Next app deployed on Vercel to follow along.
+
+While it's not necessary to use GrowthBook with Vercel's platform (see our other [guides on adding GrowthBook to Next.js](/guide/)), this setup provides several benefits:
+
+- **Performance**: [Vercel Edge Config<ExternalLink />](https://vercel.com/docs/storage/edge-config)&nbsp;&nbsp;is a global data store that provides near-instantaneous access to your data, making it perfect for handling feature flags.
+- **Streamlined**: The GrowthBook SDK automatically sends feature flag values to Vercel Edge Config, keeping your data in sync.
+- **Developer Experience**: The Vercel Toolbar enables your team to inspect feature flags, locally override their values, and see changes.
+
+## Use Vercel Edge Config to Store GrowthBook Feature Flags
+
+To set up Edge Config:
+
+1. Log in to Vercel and select your project. Navigate to **Storage**.
+2. Create a new **Edge Config** and save the **ID** (starting with `ecfg_`) to use later. If you're part of a team in Vercel, also save your Team ID. Note that even personal accounts may have a team.
+3. Navigate to **Account Settings** &rarr; **Tokens** and create a Vercel API Token. Save the value to use in the next step.
+
+## Create a GrowthBook SDK Webhook
+
+In GrowthBook:
+
+1. Navigate to **SDK Connections**. Open or create a JavaScript SDK connection.
+2. Add a new **SDK Webhook** and set the type to `Vercel Edge Config`.
+3. Add your Edge Config ID, Vercel API Token, and Team ID.
+
+![GrowthBook SDK Webhook](/images/guides/vercel-edge-sdk-connection.webp)
+
+After you add the webhook, click **Test** to verify it's working correctly.
+
+:::note
+
+If you receive an `items exceed size limit` error, it means your feature flag payload is too large.
+Vercel limits the [size of your Edge Config store<ExternalLink />](https://vercel.com/docs/storage/edge-config/edge-config-limits#limits-by-plan) depending on your plan. You can either reduce the number of flags or upgrade your Vercel plan.
+
+:::
+
+## Configure Next.js
+
+In your Next app, install the required dependencies:
+
+```bash npm2yarn
+npm install @growthbook/growthbook @vercel/flags @vercel/edge-config
+```
+
+### flags.ts
+
+Create a `utils/flags.ts` file in your project. This file configures the GrowthBook SDK and defines some helper functions to use feature flags throughout your app.
+
+```typescript
+import {
+  Attributes,
+  GrowthBook,
+  GrowthBookPayload,
+  WidenPrimitives,
+} from "@growthbook/growthbook";
+import { cookies } from "next/headers";
+import { cache } from "react";
+import { get } from "@vercel/edge-config";
+import { unstable_flag as flag } from "@vercel/flags/next";
+import { ApiData, JsonValue } from "@vercel/flags";
+
+const GROWTHBOOK_DOMAIN = "https://app.growthbook.io";
+const EDGE_CONFIG_KEY = "gb_payload";
+
+// Get targeting attributes from cookies/headers
+function getAttributes(): Attributes {
+  const cookieStore = cookies();
+  return {
+    id: cookieStore.get("gbuuid")?.value,
+  };
+}
+
+/* **** Do not edit below this line **** */
+
+// Get feature definitions from Edge Config
+async function getPayload(): Promise<GrowthBookPayload> {
+  try {
+    const payload: GrowthBookPayload | undefined = await get(EDGE_CONFIG_KEY);
+    if (typeof payload !== "string") {
+      console.log("Invalid GrowthBook payload", payload);
+      return {};
+    }
+    return JSON.parse(payload);
+  } catch (e) {
+    console.log("Error parsing GrowthBook payload", e);
+  }
+
+  return {}; // Return empty payload as a fallback
+}
+
+// Return a memoized GrowthBook instance for a request
+const getGrowthBookInstance = cache(async () => {
+  return new GrowthBook({ attributes: getAttributes() }).initSync({
+    payload: await getPayload(),
+  });
+});
+
+// Generate feature flag definitions for the Vercel Toolbar
+export async function getFlagApiData(): Promise<ApiData> {
+  const payload = await getPayload();
+  const data: ApiData = {};
+  Object.entries(payload.features || {}).forEach(([key, value]) => {
+    const options = new Set<JsonValue>([value.defaultValue]);
+
+    // For boolean flags, make sure true/false are always added as options
+    if (value.defaultValue === false) options.add(true);
+    if (value.defaultValue === true) options.add(false);
+
+    // Loop through rules and add all the possible values
+    (value.rules || []).forEach((rule) => {
+      // Force and rollout rules
+      if (rule.force) {
+        options.add(rule.force);
+      }
+      // Experiment rules
+      if (rule.variations) {
+        rule.variations.forEach((variation) => options.add(variation));
+      }
+    });
+
+    data.definitions = data.definitions || {};
+    data.definitions[key] = {
+      origin: `${GROWTHBOOK_DOMAIN}/features/${key}`,
+      options: Array.from(options).map((value) => ({ value })),
+    };
+  });
+
+  return data;
+}
+
+// Helper function to get tracking data for experiments
+export interface FlagTrackData {
+  feature: string;
+  experimentId: string;
+  variationId: string;
+  hashAttribute: string;
+  hashValue: string;
+}
+
+export async function getTrackData(): Promise<FlagTrackData[]> {
+  const gb = await getGrowthBookInstance();
+  const calls = gb.getDeferredTrackingCalls();
+
+  return calls.map((call) => ({
+    feature: call.result.featureId ?? "",
+    experimentId: call.experiment.key,
+    variationId: call.result.key,
+    hashAttribute: call.result.hashAttribute,
+    hashValue: call.result.hashValue,
+  }));
+}
+
+// Helper function to evaluate a feature flag
+export function getFlagValue<T extends JsonValue>(
+  key: string,
+  defaultValue: T
+) {
+  return flag<T | WidenPrimitives<T>>({
+    key,
+    defaultValue,
+    options: [],
+    decide: async () => {
+      const gb = await getGrowthBookInstance();
+      return gb.getFeatureValue(key, defaultValue);
+    },
+  })();
+}
+```
+
+### TrackFlags.tsx
+
+Create a `utils/TrackFlags.ts` file in your project. This client component sends a tracking event whenever a user is exposed to an A/B test. Replace the `console.log` with your own tracking callback.
+
+```typescript
+"use client";
+import { useEffect } from "react";
+import { FlagTrackData } from "./flags";
+
+// Only fire tracking calls once per page load
+const trackedExperiments = new Set<string>();
+
+export function TrackFlags({ data }: { data: FlagTrackData[] }) {
+  useEffect(() => {
+    data.forEach((info) => {
+      const props = {
+        experimentId: info.experimentId,
+        variationId: info.variationId,
+        [info.hashAttribute]: info.hashValue,
+      };
+
+      const key = JSON.stringify(props);
+      if (trackedExperiments.has(key)) return;
+      trackedExperiments.add(key);
+
+      // TODO: Send tracking call to analytics (GA4, Segment, etc.)
+      console.log(`Experiment Viewed`, props);
+    });
+  });
+
+  return null;
+}
+```
+
+### Set Up Environment Variables
+
+Pull in environment variables from your Vercel project:
+
+```bash
+npx vercel env pull
+```
+
+This command creates an `.env.local` file in your project with the `EDGE_CONFIG` key.
+
+## Create Feature Flags in GrowthBook
+
+In GrowthBook, create 2 new feature flags:
+
+| Key          | Type    | Default Value |
+| ------------ | ------- | ------------- |
+| `showBanner` | boolean | `true`        |
+| `headerText` | string  | `My Header`   |
+
+Your flags should look like this:
+
+![Feature flags configured in GrowthBook](/images/guides/vercel-ff-features.webp)
+
+These simple flags demonstrate everything you need to know to create more complex feature flags with targeting rules, percent rollouts, and A/B tests.
+
+## Use Feature Flags in Your Next.js App
+
+Open `page.tsx` (or your main component) and add:
+
+```tsx
+import { getFlagValue, getTrackData } from "@/utils/flags";
+import { TrackFlags } from "@/utils/TrackFlags";
+
+export default async function Home() {
+  // If the app can't connect to GrowthBook, it will use the default (second) values
+  const showBanner = await getFlagValue<boolean>("showBanner", false);
+  const headerText = await getFlagValue<string>("headerText", "fallback");
+
+  // If any A/B tests were run as part of the above flags, we want to track them client-side
+  const trackData = await getTrackData();
+
+  return (
+    <div>
+      {showBanner && <div>A Banner!</div>}
+      <h1>{headerText}</h1>
+      <TrackFlags data={trackData} />
+    </div>
+  )
+}
+```
+
+Start your development server:
+
+```bash npm2yarn
+npm run dev
+```
+
+Now you can see your feature flags in action!
+
+## 🎉 Bonus: The Vercel Toolbar
+
+Use the Vercel Toolbar to locally override flag values and see real-time changes.
+
+![Vercel Toolbar](/images/guides/vercel-toolbar.webp)
+
+### Enable the Toolbar
+
+Create a new file, `app/.well-known/vercel/flags/route.ts`, in your project:
+
+```ts
+import { type NextRequest, NextResponse } from "next/server";
+import { ApiData, verifyAccess } from "@vercel/flags";
+import { getFlagApiData } from "@/utils/flags";
+
+export async function GET(request: NextRequest) {
+  const access = await verifyAccess(request.headers.get("Authorization"));
+  if (!access) return NextResponse.json(null, { status: 401 });
+
+  const data = await getFlagApiData();
+
+  return NextResponse.json<ApiData>(data);
+}
+```
+
+### Set Up the `FLAGS_SECRET` Environment Variable
+
+1. Generate a new secret key:
+
+```bash
+node -e "console.log(crypto.randomBytes(32).toString('base64url'))"
+```
+
+2. In your Vercel project settings, create a new environment variable called `FLAGS_SECRET`. Paste the generated key as the value.
+
+3. Locally, run `npx vercel env pull` to update your `.env.local` file with the new environment variable.
+
+See [Vercel's docs<ExternalLink />](https://vercel.com/docs/workflow-collaboration/feature-flags/supporting-feature-flags#flags_secret-environment-variable) for more info.
+
+### Refresh and Explore
+
+With everything in place, it's time to see the Vercel Toolbar in action. Refresh your app and click the toggle icon to see feature flag values and override them.
+
+You've got the power!
+
+<div style={{width:"100%",height:0,paddingBottom:"66%",position:"relative"}}>
+<iframe src="https://giphy.com/embed/BtEw37CXZti8yfq3Ke" width="100%" height="100%" style={{position:"absolute"}} frameBorder="0" className="giphy-embed" allowFullScreen></iframe></div>
+
+## Conclusion
+
+You've successfully integrated GrowthBook with Next.js and Vercel Feature Flags, giving you fine-grained control over your features, improved performance with Edge Config, and a streamlined development workflow. Now get out there and start experimenting 🧪

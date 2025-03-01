@@ -1,7 +1,7 @@
-import { SegmentInterface } from "@back-end/types/segment";
-import { getConfigSegments, usingFileConfig } from "../init/config";
-import { segmentValidator } from "../routers/segment/segment.validators";
-import { STORE_SEGMENTS_IN_MONGO } from "../util/secrets";
+import { SegmentInterface } from "back-end/types/segment";
+import { getConfigSegments, usingFileConfig } from "back-end/src/init/config";
+import { segmentValidator } from "back-end/src/routers/segment/segment.validators";
+import { STORE_SEGMENTS_IN_MONGO } from "back-end/src/util/secrets";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -23,17 +23,20 @@ type LegacySegmentInterface = Omit<SegmentInterface, "type"> & {
 };
 
 export class SegmentModel extends BaseClass {
-  protected canRead(): boolean {
-    return this.context.permissions.canReadSingleProjectResource("");
+  protected canRead(doc: SegmentInterface): boolean {
+    return this.context.hasPermission("readData", doc.projects || []);
   }
-  protected canCreate(): boolean {
-    return this.context.permissions.canCreateSegment();
+  protected canCreate(doc: SegmentInterface): boolean {
+    return this.context.permissions.canCreateSegment(doc);
   }
-  protected canUpdate(): boolean {
-    return this.context.permissions.canUpdateSegment();
+  protected canUpdate(
+    existing: SegmentInterface,
+    updates: SegmentInterface
+  ): boolean {
+    return this.context.permissions.canUpdateSegment(existing, updates);
   }
-  protected canDelete(): boolean {
-    return this.context.permissions.canDeleteSegment();
+  protected canDelete(doc: SegmentInterface): boolean {
+    return this.context.permissions.canDeleteSegment(doc);
   }
   protected useConfigFile(): boolean {
     if (usingFileConfig() && !STORE_SEGMENTS_IN_MONGO) {

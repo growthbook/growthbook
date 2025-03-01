@@ -63,12 +63,14 @@ export default function VerifyingEmailModal() {
         close={() => setShowUpgradeModal(false)}
         reason="To fix an error verifying email."
         source="verify email"
+        commercialFeature={null}
       />
     );
   }
 
   return (
     <Modal
+      trackingEventModalType=""
       open={true}
       cta="Invite Members"
       error={verifyEmailError}

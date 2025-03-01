@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
-import { ApiDimension } from "../../types/openapi";
-import { DimensionInterface } from "../../types/dimension";
-import { getConfigDimensions, usingFileConfig } from "../init/config";
+import { ApiDimension } from "back-end/types/openapi";
+import { DimensionInterface } from "back-end/types/dimension";
+import { getConfigDimensions, usingFileConfig } from "back-end/src/init/config";
 
 const dimensionSchema = new mongoose.Schema({
   id: String,

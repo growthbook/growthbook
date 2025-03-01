@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import { isProjectListValidForProject } from "shared/util";
 import { useEffect, useState } from "react";
-import { FaExternalLinkAlt } from "react-icons/fa";
+import { FaAngleDown, FaAngleRight, FaExternalLinkAlt } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -18,9 +18,9 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
-import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { usesEventName } from "@/components/Metrics/MetricForm";
+import EditFactTableSQLModal from "@/components/FactTables/EditFactTableSQLModal";
 
 export interface Props {
   existing?: FactTableInterface;
@@ -43,6 +43,8 @@ export default function FactTableModal({ existing, close }: Props) {
     showAdditionalColumnMessage,
     setShowAdditionalColumnMessage,
   ] = useState(false);
+
+  const [showIdentifierTypes, setShowIdentifierTypes] = useState(false);
 
   const { apiCall } = useAuth();
 
@@ -90,26 +92,23 @@ export default function FactTableModal({ existing, close }: Props) {
   return (
     <>
       {sqlOpen && (
-        <EditSqlModal
+        <EditFactTableSQLModal
           close={() => setSqlOpen(false)}
-          datasourceId={form.watch("datasource")}
-          placeholder={
-            "SELECT\n      user_id as user_id, timestamp as timestamp\nFROM\n      test"
-          }
-          requiredColumns={new Set(["timestamp", ...form.watch("userIdTypes")])}
-          value={form.watch("sql")}
-          save={async (sql) => {
+          factTable={{
+            datasource: form.watch("datasource"),
+            sql: form.watch("sql"),
+            eventName: form.watch("eventName"),
+            userIdTypes: form.watch("userIdTypes"),
+          }}
+          save={async ({ sql, userIdTypes, eventName }) => {
             form.setValue("sql", sql);
-          }}
-          templateVariables={{
-            eventName: form.watch("eventName") || "",
-          }}
-          setTemplateVariables={({ eventName }) => {
-            form.setValue("eventName", eventName || "");
+            form.setValue("userIdTypes", userIdTypes);
+            form.setValue("eventName", eventName);
           }}
         />
       )}
       <Modal
+        trackingEventModalType=""
         open={true}
         close={close}
         cta={"Save"}
@@ -191,22 +190,6 @@ export default function FactTableModal({ existing, close }: Props) {
           />
         )}
 
-        {selectedDataSource && (
-          <MultiSelectField
-            value={form.watch("userIdTypes")}
-            onChange={(types) => {
-              form.setValue("userIdTypes", types);
-            }}
-            options={(selectedDataSource.settings.userIdTypes || []).map(
-              ({ userIdType }) => ({
-                value: userIdType,
-                label: userIdType,
-              })
-            )}
-            label="Identifier Types Supported"
-          />
-        )}
-
         {selectedDataSource && usesEventName(form.watch("sql")) && (
           <Field
             label="Event Name in Database"
@@ -216,7 +199,7 @@ export default function FactTableModal({ existing, close }: Props) {
           />
         )}
 
-        {selectedDataSource && (
+        {selectedDataSource && !existing?.id && (
           <div className="form-group">
             <label>Query</label>
             {showAdditionalColumnMessage && (
@@ -247,6 +230,39 @@ export default function FactTableModal({ existing, close }: Props) {
               </button>
             </div>
           </div>
+        )}
+
+        {selectedDataSource && !existing?.id && (
+          <>
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setShowIdentifierTypes(!showIdentifierTypes);
+              }}
+            >
+              Edit Identifier Types{" "}
+              {showIdentifierTypes ? <FaAngleDown /> : <FaAngleRight />}
+            </a>
+            {showIdentifierTypes && (
+              <div className="pt-1">
+                <MultiSelectField
+                  value={form.watch("userIdTypes")}
+                  onChange={(types) => {
+                    form.setValue("userIdTypes", types);
+                  }}
+                  options={(selectedDataSource.settings.userIdTypes || []).map(
+                    ({ userIdType }) => ({
+                      value: userIdType,
+                      label: userIdType,
+                    })
+                  )}
+                  helpText="The default values were auto-detected from your SQL query."
+                  autoFocus={true}
+                />
+              </div>
+            )}
+          </>
         )}
       </Modal>
     </>

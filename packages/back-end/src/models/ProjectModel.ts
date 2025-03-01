@@ -1,13 +1,11 @@
-import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { z } from "zod";
-import { ApiProject } from "../../types/openapi";
-import { statsEngines } from "../util/constants";
+import { ApiProject } from "back-end/types/openapi";
+import { statsEngines } from "back-end/src/util/constants";
 import { baseSchema, MakeModelClass } from "./BaseModel";
-
 export const statsEnginesValidator = z.enum(statsEngines);
 
 export const projectSettingsValidator = z.object({
-  statsEngine: statsEnginesValidator.default(DEFAULT_STATS_ENGINE).optional(),
+  statsEngine: statsEnginesValidator.optional(),
 });
 
 export const projectValidator = baseSchema
@@ -64,7 +62,6 @@ export class ProjectModel extends BaseClass {
 
   protected migrate(doc: MigratedProject) {
     const settings = {
-      statsEngine: DEFAULT_STATS_ENGINE,
       ...(doc.settings || {}),
     };
 
@@ -79,6 +76,17 @@ export class ProjectModel extends BaseClass {
     return super.updateById(id, { settings });
   }
 
+  public async ensureProjectsExist(projectIds: string[]) {
+    const projects = await this.getByIds(projectIds);
+    if (projects.length !== projectIds.length) {
+      throw new Error(
+        `Invalid project ids: ${projectIds
+          .filter((id) => !projects.find((p) => p.id === id))
+          .join(", ")}`
+      );
+    }
+  }
+
   public toApiInterface(project: ProjectInterface): ApiProject {
     return {
       id: project.id,
@@ -87,7 +95,7 @@ export class ProjectModel extends BaseClass {
       dateCreated: project.dateCreated.toISOString(),
       dateUpdated: project.dateUpdated.toISOString(),
       settings: {
-        statsEngine: project.settings?.statsEngine || DEFAULT_STATS_ENGINE,
+        statsEngine: project.settings?.statsEngine,
       },
     };
   }

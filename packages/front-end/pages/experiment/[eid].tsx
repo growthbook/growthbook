@@ -5,12 +5,9 @@ import {
 } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
-import React, { ReactElement, useState } from "react";
+import React, { ReactElement, useEffect, useState } from "react";
 import { IdeaInterface } from "back-end/types/idea";
-import {
-  getAffectedEnvsForExperiment,
-  includeExperimentInPayload,
-} from "shared/util";
+import { includeExperimentInPayload } from "shared/util";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
@@ -19,7 +16,6 @@ import StopExperimentForm from "@/components/Experiment/StopExperimentForm";
 import EditVariationsForm from "@/components/Experiment/EditVariationsForm";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
-import EditProjectForm from "@/components/Experiment/EditProjectForm";
 import { useAuth } from "@/services/auth";
 import SnapshotProvider from "@/components/Experiment/SnapshotProvider";
 import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
@@ -29,7 +25,6 @@ import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Tooltip from "@/components/Tooltip/Tooltip";
 
 const ExperimentPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -41,7 +36,6 @@ const ExperimentPage = (): ReactElement => {
   const [variationsModalOpen, setVariationsModalOpen] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [tagsModalOpen, setTagsModalOpen] = useState(false);
-  const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [phaseModalOpen, setPhaseModalOpen] = useState(false);
   const [editPhasesOpen, setEditPhasesOpen] = useState(false);
   const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
@@ -55,12 +49,19 @@ const ExperimentPage = (): ReactElement => {
     idea?: IdeaInterface;
     visualChangesets: VisualChangesetInterface[];
     linkedFeatures: LinkedFeatureInfo[];
+    envs: string[];
     urlRedirects: URLRedirectInterface[];
   }>(`/experiment/${eid}`);
 
   useSwitchOrg(data?.experiment?.organization ?? null);
 
   const { apiCall } = useAuth();
+
+  useEffect(() => {
+    if (data?.experiment?.type === "multi-armed-bandit") {
+      router.replace(window.location.href.replace("experiment/", "bandit/"));
+    }
+  }, [data, router]);
 
   if (error) {
     return <div>There was a problem loading the experiment</div>;
@@ -74,6 +75,7 @@ const ExperimentPage = (): ReactElement => {
     visualChangesets = [],
     linkedFeatures = [],
     urlRedirects = [],
+    envs = [],
   } = data;
 
   const canEditExperiment =
@@ -81,7 +83,6 @@ const ExperimentPage = (): ReactElement => {
     !experiment.archived;
 
   let canRunExperiment = !experiment.archived;
-  const envs = getAffectedEnvsForExperiment({ experiment });
   if (envs.length > 0) {
     if (!permissionsUtil.canRunExperiment(experiment, envs)) {
       canRunExperiment = false;
@@ -99,7 +100,6 @@ const ExperimentPage = (): ReactElement => {
     ? () => setDuplicateModalOpen(true)
     : null;
   const editTags = canEditExperiment ? () => setTagsModalOpen(true) : null;
-  const editProject = canRunExperiment ? () => setProjectModalOpen(true) : null;
   const newPhase = canRunExperiment ? () => setPhaseModalOpen(true) : null;
   const editPhases = canRunExperiment ? () => setEditPhasesOpen(true) : null;
   const editPhase = canRunExperiment
@@ -117,12 +117,13 @@ const ExperimentPage = (): ReactElement => {
     );
 
   return (
-    <div>
+    <>
       {metricsModalOpen && (
         <EditMetricsForm
           experiment={experiment}
           cancel={() => setMetricsModalOpen(false)}
           mutate={mutate}
+          source="eid"
         />
       )}
       {stopModalOpen && (
@@ -130,6 +131,7 @@ const ExperimentPage = (): ReactElement => {
           close={() => setStopModalOpen(false)}
           mutate={mutate}
           experiment={experiment}
+          source="eid"
         />
       )}
       {variationsModalOpen && (
@@ -137,6 +139,7 @@ const ExperimentPage = (): ReactElement => {
           experiment={experiment}
           cancel={() => setVariationsModalOpen(false)}
           mutate={mutate}
+          source="eid"
         />
       )}
       {duplicateModalOpen && (
@@ -147,7 +150,8 @@ const ExperimentPage = (): ReactElement => {
             name: experiment.name + " (Copy)",
             trackingKey: "",
           }}
-          source="duplicate"
+          source="duplicate-eid"
+          duplicate={true}
         />
       )}
       {tagsModalOpen && (
@@ -161,38 +165,7 @@ const ExperimentPage = (): ReactElement => {
           }}
           cancel={() => setTagsModalOpen(false)}
           mutate={mutate}
-        />
-      )}
-      {projectModalOpen && (
-        <EditProjectForm
-          label={
-            <>
-              Projects{" "}
-              <Tooltip
-                body={
-                  "The dropdown below has been filtered to only include projects where you have permission to update Experiments"
-                }
-              />
-            </>
-          }
-          cancel={() => setProjectModalOpen(false)}
-          permissionRequired={(project) =>
-            permissionsUtil.canUpdateExperiment({ project }, {})
-          }
-          mutate={mutate}
-          current={experiment.project}
-          apiEndpoint={`/experiment/${experiment.id}`}
-          additionalMessage={
-            experiment.status !== "draft" &&
-            (experiment.linkedFeatures?.length ||
-              experiment.hasVisualChangesets ||
-              experiment.hasURLRedirects) ? (
-              <div className="alert alert-danger">
-                Changing the project may prevent your linked Feature Flags,
-                Visual Changes, and URL Redirects from being sent to users.
-              </div>
-            ) : null
-          }
+          source="eid"
         />
       )}
       {phaseModalOpen && (
@@ -200,6 +173,7 @@ const ExperimentPage = (): ReactElement => {
           close={() => setPhaseModalOpen(false)}
           mutate={mutate}
           experiment={experiment}
+          source="eid"
         />
       )}
       {editPhaseId !== null && (
@@ -209,6 +183,7 @@ const ExperimentPage = (): ReactElement => {
           mutate={mutate}
           i={editPhaseId}
           editTargeting={editTargeting}
+          source="eid"
         />
       )}
       {editPhasesOpen && (
@@ -217,6 +192,7 @@ const ExperimentPage = (): ReactElement => {
           mutateExperiment={mutate}
           experiment={experiment}
           editTargeting={editTargeting}
+          source="eid"
         />
       )}
       {targetingModalOpen && (
@@ -225,6 +201,7 @@ const ExperimentPage = (): ReactElement => {
           mutate={mutate}
           experiment={experiment}
           safeToEdit={safeToEdit}
+          // source="eid"
         />
       )}
 
@@ -238,30 +215,28 @@ const ExperimentPage = (): ReactElement => {
         ]}
       />
 
-      <div className="container-fluid">
-        <SnapshotProvider experiment={experiment}>
-          <TabbedPage
-            experiment={experiment}
-            linkedFeatures={linkedFeatures}
-            mutate={mutate}
-            visualChangesets={visualChangesets}
-            urlRedirects={urlRedirects}
-            editMetrics={editMetrics}
-            editResult={editResult}
-            editVariations={editVariations}
-            duplicate={duplicate}
-            editProject={editProject}
-            editTags={editTags}
-            newPhase={newPhase}
-            editPhases={editPhases}
-            editPhase={editPhase}
-            editTargeting={editTargeting}
-            checklistItemsRemaining={checklistItemsRemaining}
-            setChecklistItemsRemaining={setChecklistItemsRemaining}
-          />
-        </SnapshotProvider>
-      </div>
-    </div>
+      <SnapshotProvider experiment={experiment}>
+        <TabbedPage
+          experiment={experiment}
+          linkedFeatures={linkedFeatures}
+          mutate={mutate}
+          visualChangesets={visualChangesets}
+          urlRedirects={urlRedirects}
+          editMetrics={editMetrics}
+          editResult={editResult}
+          editVariations={editVariations}
+          duplicate={duplicate}
+          editTags={editTags}
+          newPhase={newPhase}
+          editPhases={editPhases}
+          editPhase={editPhase}
+          envs={envs}
+          editTargeting={editTargeting}
+          checklistItemsRemaining={checklistItemsRemaining}
+          setChecklistItemsRemaining={setChecklistItemsRemaining}
+        />
+      </SnapshotProvider>
+    </>
   );
 };
 

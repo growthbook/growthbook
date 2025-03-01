@@ -148,7 +148,7 @@ export default function ExperimentImpactTab({
               </div>
             ) : (
               <div className="my-1">
-                <ExperimentStatusIndicator status={e.experiment.status} />
+                <ExperimentStatusIndicator experimentData={e.experiment} />
               </div>
             )}
           </div>
@@ -198,10 +198,16 @@ export default function ExperimentImpactTab({
           ) : null}
 
           <div className="mt-4" style={{ maxHeight: 500, overflowY: "auto" }}>
-            <table className="table bg-white border">
+            <table className="table border">
               <thead className="bg-light">
                 <tr>
-                  <th>Experiment</th>
+                  <th>
+                    Experiment
+                    <Tooltip
+                      className="ml-1"
+                      body={"Does not include Bandits"}
+                    />
+                  </th>
                   <th>Date Ended</th>
                   <th>Status</th>
                   <th>
