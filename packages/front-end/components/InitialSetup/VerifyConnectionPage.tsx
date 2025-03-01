@@ -118,6 +118,37 @@ const VerifyConnectionPage = ({
           <DocLink docSection={docs}>
             View documentation <PiArrowRight />
           </DocLink>
+          <div className="mt-4 mb-3">
+            <h4
+              className="cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault();
+                setInstallationOpen(!installationOpen);
+              }}
+            >
+              Installation{" "}
+              {installationOpen ? <FaAngleDown /> : <FaAngleRight />}
+            </h4>
+            {installationOpen && (
+              <div className="appbox bg-light p-3">
+                <InstallationCodeSnippet
+                  language={currentConnection.languages[0]}
+                  eventTracker={eventTracker}
+                  setEventTracker={setEventTracker}
+                  apiHost={apiHost}
+                  apiKey={currentConnection.key}
+                  encryptionKey={
+                    currentConnection.encryptPayload
+                      ? currentConnection.encryptionKey
+                      : undefined
+                  }
+                  remoteEvalEnabled={
+                    currentConnection.remoteEvalEnabled || false
+                  }
+                />
+              </div>
+            )}
+          </div>
           <div className="mb-3">
             <h4
               className="cursor-pointer"
@@ -144,42 +175,10 @@ const VerifyConnectionPage = ({
                     currentConnection.remoteEvalEnabled || false
                   }
                   eventTracker={eventTracker}
-                  setEventTracker={setEventTracker}
                 />
               </div>
             )}
           </div>
-          <div className="mt-4 mb-3">
-            <h4
-              className="cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault();
-                setInstallationOpen(!installationOpen);
-              }}
-            >
-              Installation{" "}
-              {installationOpen ? <FaAngleDown /> : <FaAngleRight />}
-            </h4>
-            {installationOpen && (
-              <div className="appbox bg-light p-3">
-                <InstallationCodeSnippet
-                  language={currentConnection.languages[0]}
-                  eventTracker={eventTracker}
-                  apiHost={apiHost}
-                  apiKey={currentConnection.key}
-                  encryptionKey={
-                    currentConnection.encryptPayload
-                      ? currentConnection.encryptionKey
-                      : undefined
-                  }
-                  remoteEvalEnabled={
-                    currentConnection.remoteEvalEnabled || false
-                  }
-                />
-              </div>
-            )}
-          </div>
-
           {!(language.match(/^edge-/) || language === "other") && (
             <div className="mb-3">
               <h4

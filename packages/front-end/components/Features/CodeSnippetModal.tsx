@@ -338,6 +338,34 @@ export default function CodeSnippetModal({
                 className="cursor-pointer"
                 onClick={(e) => {
                   e.preventDefault();
+                  setInstallationOpen(!installationOpen);
+                }}
+              >
+                Installation{" "}
+                {installationOpen ? <FaAngleDown /> : <FaAngleRight />}
+              </h4>
+              {installationOpen && (
+                <div className="appbox bg-light p-3">
+                  <InstallationCodeSnippet
+                    language={language}
+                    eventTracker={eventTracker}
+                    setEventTracker={setEventTracker}
+                    apiHost={apiHost}
+                    apiKey={clientKey}
+                    encryptionKey={encryptionKey}
+                    remoteEvalEnabled={remoteEvalEnabled}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {language !== "other" && (
+            <div className="mb-3">
+              <h4
+                className="cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
                   setSetupOpen(!setupOpen);
                 }}
               >
@@ -353,33 +381,6 @@ export default function CodeSnippetModal({
                     encryptionKey={encryptionKey}
                     remoteEvalEnabled={remoteEvalEnabled}
                     eventTracker={eventTracker}
-                    setEventTracker={setEventTracker}
-                  />
-                </div>
-              )}
-            </div>
-          )}
-          {language !== "other" && (
-            <div className="mb-3">
-              <h4
-                className="cursor-pointer"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setInstallationOpen(!installationOpen);
-                }}
-              >
-                Installation{" "}
-                {installationOpen ? <FaAngleDown /> : <FaAngleRight />}
-              </h4>
-              {installationOpen && (
-                <div className="appbox bg-light p-3">
-                  <InstallationCodeSnippet
-                    language={language}
-                    eventTracker={eventTracker}
-                    apiHost={apiHost}
-                    apiKey={clientKey}
-                    encryptionKey={encryptionKey}
-                    remoteEvalEnabled={remoteEvalEnabled}
                   />
                 </div>
               )}
@@ -399,7 +400,7 @@ export default function CodeSnippetModal({
                 {attributesOpen ? <FaAngleDown /> : <FaAngleRight />}
               </h4>
               {attributesOpen && (
-                <div className="appbox p-3">
+                <div className="appbox bg-light p-3">
                   <TargetingAttributeCodeSnippet
                     language={language}
                     hashSecureAttributes={hashSecureAttributes}
