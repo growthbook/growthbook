@@ -1,4 +1,3 @@
-import { ApiKeyInterface } from "back-end/types/apikey";
 import { TeamInterface } from "back-end/types/team";
 import {
   EnvScopedPermission,
@@ -106,7 +105,6 @@ export interface UserContextValue {
   effectiveAccountPlan?: AccountPlan;
   licenseError: string;
   commercialFeatures: CommercialFeature[];
-  apiKeys: ApiKeyInterface[];
   organization: Partial<OrganizationInterface>;
   seatsInUse: number;
   roles: Role[];
@@ -147,7 +145,6 @@ export const UserContext = createContext<UserContextValue>({
   refreshOrganization: async () => {
     // Do nothing
   },
-  apiKeys: [],
   organization: {},
   subscription: null,
   licenseError: "",
@@ -497,7 +494,6 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         commercialFeatureLowestPlan: currentOrg?.commercialFeatureLowestPlan,
         licenseError: currentOrg?.licenseError || "",
         commercialFeatures: currentOrg?.commercialFeatures || [],
-        apiKeys: currentOrg?.apiKeys || [],
         organization: organization || {},
         seatsInUse: currentOrg?.seatsInUse || 0,
         teams,
