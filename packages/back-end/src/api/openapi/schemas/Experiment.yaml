@@ -4,6 +4,7 @@ required:
   - dateCreated
   - dateUpdated
   - name
+  - type
   - project
   - hypothesis
   - description
@@ -28,6 +29,11 @@ properties:
     format: date-time
   name:
     type: string
+  type:
+    type: string
+    enum:
+      - "standard"
+      - "multi-armed-bandit"
   project:
     type: string
   hypothesis:
@@ -175,3 +181,11 @@ properties:
         type: string
       excludeFromPayload:
         type: boolean
+
+  shareLevel:
+    type: string
+    enum:
+      - "public"
+      - "organization"
+  publicUrl:
+    type: string

@@ -1288,14 +1288,24 @@ export function getNewDraftExperimentsToPublish({
 
   const draftExperiments = getMatchingRules(
     feature,
-    (rule) =>
-      // New experiment rule that hasn't been published yet and is in a draft state
-      rule.enabled !== false &&
-      rule.type === "experiment-ref" &&
-      !liveExperimentIds.has(rule.experimentId) &&
-      experimentsMap.get(rule.experimentId)?.status === "draft" &&
+    (rule) => {
+      if (rule.enabled === false) return false;
+      if (rule.type !== "experiment-ref") return false;
+
+      const exp = experimentsMap.get(rule.experimentId);
+      if (!exp) return false;
+
+      // Skip experiment rules that are already live
+      if (liveExperimentIds.has(rule.experimentId)) return false;
+
+      if (exp.status !== "draft") return false;
+      if (exp.archived) return false;
+
       // Skip experiments with visual changesets. Those need to be started from the experiment page
-      !experimentsMap.get(rule.experimentId)?.hasVisualChangesets,
+      if (exp.hasVisualChangesets) return false;
+
+      return true;
+    },
     environmentIds,
     revision
   )

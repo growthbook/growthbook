@@ -6,6 +6,7 @@ const docSections = {
   features: "/app/features",
   experimentConfiguration: "/app/experiment-configuration",
   experimentResults: "/app/experiment-results",
+  experimentDecisionFramework: "/app/experiment-decisions",
   stickyBucketing: "/app/sticky-bucketing",
   metrics: "/app/metrics",
   factTables: "/app/metrics",
