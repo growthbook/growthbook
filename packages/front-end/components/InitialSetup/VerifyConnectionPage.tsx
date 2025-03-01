@@ -164,6 +164,7 @@ const VerifyConnectionPage = ({
               <div className="appbox bg-light p-3">
                 <InstallationCodeSnippet
                   language={currentConnection.languages[0]}
+                  eventTracker={eventTracker}
                   apiHost={apiHost}
                   apiKey={currentConnection.key}
                   encryptionKey={
