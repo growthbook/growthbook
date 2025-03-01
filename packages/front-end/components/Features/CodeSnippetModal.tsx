@@ -94,6 +94,7 @@ export default function CodeSnippetModal({
   const [installationOpen, setInstallationOpen] = useState(true);
   const [setupOpen, setSetupOpen] = useState(true);
   const [usageOpen, setUsageOpen] = useState(true);
+  const [eventTracker, setEventTracker] = useState("GA4");
   const [attributesOpen, setAttributesOpen] = useState(true);
 
   const settings = useOrgSettings();
@@ -337,20 +338,22 @@ export default function CodeSnippetModal({
                 className="cursor-pointer"
                 onClick={(e) => {
                   e.preventDefault();
-                  setInstallationOpen(!installationOpen);
+                  setSetupOpen(!setupOpen);
                 }}
               >
-                Installation{" "}
-                {installationOpen ? <FaAngleDown /> : <FaAngleRight />}
+                Setup {setupOpen ? <FaAngleDown /> : <FaAngleRight />}
               </h4>
-              {installationOpen && (
+              {setupOpen && (
                 <div className="appbox bg-light p-3">
-                  <InstallationCodeSnippet
+                  <GrowthBookSetupCodeSnippet
                     language={language}
+                    version={version}
                     apiHost={apiHost}
                     apiKey={clientKey}
                     encryptionKey={encryptionKey}
                     remoteEvalEnabled={remoteEvalEnabled}
+                    eventTracker={eventTracker}
+                    setEventTracker={setEventTracker}
                   />
                 </div>
               )}
@@ -362,16 +365,17 @@ export default function CodeSnippetModal({
                 className="cursor-pointer"
                 onClick={(e) => {
                   e.preventDefault();
-                  setSetupOpen(!setupOpen);
+                  setInstallationOpen(!installationOpen);
                 }}
               >
-                Setup {setupOpen ? <FaAngleDown /> : <FaAngleRight />}
+                Installation{" "}
+                {installationOpen ? <FaAngleDown /> : <FaAngleRight />}
               </h4>
-              {setupOpen && (
+              {installationOpen && (
                 <div className="appbox bg-light p-3">
-                  <GrowthBookSetupCodeSnippet
+                  <InstallationCodeSnippet
                     language={language}
-                    version={version}
+                    eventTracker={eventTracker}
                     apiHost={apiHost}
                     apiKey={clientKey}
                     encryptionKey={encryptionKey}

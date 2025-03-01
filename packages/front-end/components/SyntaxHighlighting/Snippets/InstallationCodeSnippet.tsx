@@ -1,5 +1,6 @@
 import { SDKLanguage } from "back-end/types/sdk-connection";
 import Code from "@/components/SyntaxHighlighting/Code";
+import Link from "@/components/Radix/Link";
 
 export default function InstallationCodeSnippet({
   language,
@@ -7,25 +8,59 @@ export default function InstallationCodeSnippet({
   apiHost,
   encryptionKey,
   remoteEvalEnabled,
+  eventTracker,
 }: {
   language: SDKLanguage;
   apiKey: string;
   apiHost: string;
   encryptionKey?: string;
   remoteEvalEnabled: boolean;
+  eventTracker?: string;
 }) {
-  const nocodeSnippet = `
+  const nocodeSnippet =
+    eventTracker && eventTracker === "GTM"
+      ? `
+<script>
+(function(s) {
+  s=document.createElement('script'); s.async=true;
+  s.dataset.apiHost=${JSON.stringify(apiHost)};
+  s.dataset.clientKey=${JSON.stringify(apiKey)};${
+          encryptionKey
+            ? `\n   s.dataset.decryptionKey=${JSON.stringify(encryptionKey)};`
+            : ""
+        }${remoteEvalEnabled ? `\n  s.dataset.remoteEval="true"` : ""}
+  s.src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js";
+  document.head.appendChild(s);
+})();
+</script>      
+      `
+      : `
 <script async
   data-api-host=${JSON.stringify(apiHost)}
   data-client-key=${JSON.stringify(apiKey)}${
-    encryptionKey
-      ? `\n  data-decryption-key=${JSON.stringify(encryptionKey)}`
-      : ""
-  }${remoteEvalEnabled ? `\n  data-remote-eval="true"` : ""}
+          encryptionKey
+            ? `\n  data-decryption-key=${JSON.stringify(encryptionKey)}`
+            : ""
+        }${remoteEvalEnabled ? `\n  data-remote-eval="true"` : ""}
   src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
 ></script>
             `.trim();
 
+  if (eventTracker && eventTracker === "GTM") {
+    return (
+      <>
+        Add a custom HTML tag in Google Tag Manager to install GrowthBook. See
+        our{" "}
+        <Link
+          href="https://docs.growthbook.io/guide/google-tag-manager-and-growthbook#4-tracking-via-datalayer-and-gtm"
+          target="_blank"
+        >
+          step-by-step guide.
+        </Link>
+        <Code language="html" code={nocodeSnippet} />
+      </>
+    );
+  }
   if (language === "nocode-shopify") {
     return (
       <>

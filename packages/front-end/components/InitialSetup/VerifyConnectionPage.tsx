@@ -43,6 +43,7 @@ const VerifyConnectionPage = ({
   const [setupOpen, setSetupOpen] = useState(true);
   const [attributesOpen, setAttributesOpen] = useState(true);
   const [inviting, setInviting] = useState(false);
+  const [eventTracker, setEventTracker] = useState("GA4");
 
   const { refreshOrganization, organization } = useUser();
   const settings = useOrgSettings();
@@ -117,6 +118,37 @@ const VerifyConnectionPage = ({
           <DocLink docSection={docs}>
             View documentation <PiArrowRight />
           </DocLink>
+          <div className="mb-3">
+            <h4
+              className="cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault();
+                setSetupOpen(!setupOpen);
+              }}
+            >
+              Setup {setupOpen ? <FaAngleDown /> : <FaAngleRight />}
+            </h4>
+            {setupOpen && (
+              <div className="appbox bg-light p-3">
+                <GrowthBookSetupCodeSnippet
+                  language={currentConnection.languages[0]}
+                  version={currentConnection.sdkVersion}
+                  apiHost={apiHost}
+                  apiKey={currentConnection.key}
+                  encryptionKey={
+                    currentConnection.encryptPayload
+                      ? currentConnection.encryptionKey
+                      : undefined
+                  }
+                  remoteEvalEnabled={
+                    currentConnection.remoteEvalEnabled || false
+                  }
+                  eventTracker={eventTracker}
+                  setEventTracker={setEventTracker}
+                />
+              </div>
+            )}
+          </div>
           <div className="mt-4 mb-3">
             <h4
               className="cursor-pointer"
@@ -146,35 +178,7 @@ const VerifyConnectionPage = ({
               </div>
             )}
           </div>
-          <div className="mb-3">
-            <h4
-              className="cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault();
-                setSetupOpen(!setupOpen);
-              }}
-            >
-              Setup {setupOpen ? <FaAngleDown /> : <FaAngleRight />}
-            </h4>
-            {setupOpen && (
-              <div className="appbox bg-light p-3">
-                <GrowthBookSetupCodeSnippet
-                  language={currentConnection.languages[0]}
-                  version={currentConnection.sdkVersion}
-                  apiHost={apiHost}
-                  apiKey={currentConnection.key}
-                  encryptionKey={
-                    currentConnection.encryptPayload
-                      ? currentConnection.encryptionKey
-                      : undefined
-                  }
-                  remoteEvalEnabled={
-                    currentConnection.remoteEvalEnabled || false
-                  }
-                />
-              </div>
-            )}
-          </div>
+
           {!(language.match(/^edge-/) || language === "other") && (
             <div className="mb-3">
               <h4

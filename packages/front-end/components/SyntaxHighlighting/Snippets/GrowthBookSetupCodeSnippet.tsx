@@ -1,5 +1,4 @@
 import { SDKLanguage } from "back-end/types/sdk-connection";
-import { useState } from "react";
 import { paddedVersionString } from "@growthbook/growthbook";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { DocLink } from "@/components/DocLink";
@@ -14,6 +13,8 @@ export default function GrowthBookSetupCodeSnippet({
   apiHost,
   encryptionKey,
   remoteEvalEnabled,
+  eventTracker = "GA4",
+  setEventTracker = () => {},
 }: {
   language: SDKLanguage;
   version?: string;
@@ -21,11 +22,13 @@ export default function GrowthBookSetupCodeSnippet({
   apiHost: string;
   encryptionKey?: string;
   remoteEvalEnabled: boolean;
+  eventTracker: string;
+  setEventTracker: (value: string) => void;
 }) {
   const featuresEndpoint = apiHost + "/api/features/" + apiKey;
   const trackingComment = "TODO: Use your real analytics tracking system";
 
-  const [eventTracker, setEventTracker] = useState("GA4");
+  //const [eventTracker, setEventTracker] = useState("GA4");
 
   if (language.match(/^nocode/)) {
     return (
@@ -36,6 +39,7 @@ export default function GrowthBookSetupCodeSnippet({
             labelClassName="mr-2"
             options={[
               { label: "Google Analytics 4", value: "GA4" },
+              { label: "Google Analytics 4 via GTM", value: "GTM" },
               { label: "Segment.io", value: "segment" },
               { label: "Other", value: "other" },
             ]}
@@ -79,6 +83,11 @@ window.growthbook_config.trackingCallback = (experiment, result) => {
             </Link>{" "}
             to make sure the experiment event data is passed to Google
             Analytics.
+          </div>
+        ) : eventTracker === "GTM" ? (
+          <div>
+            Events are tracked to Google Analytics automatically. No
+            configuration needed.
           </div>
         ) : (
           <div>
