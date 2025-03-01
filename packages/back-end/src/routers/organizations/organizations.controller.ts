@@ -11,7 +11,7 @@ import {
   getSubscriptionFromLicense,
   licenseInit,
   LicenseInterface,
-} from "enterprise";
+} from "shared/enterprise";
 import { experimentHasLinkedChanges } from "shared/util";
 import {
   getRoles,

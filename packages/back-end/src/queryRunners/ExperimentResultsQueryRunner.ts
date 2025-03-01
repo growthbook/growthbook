@@ -1,4 +1,7 @@
-import { analyzeExperimentPower, orgHasPremiumFeature } from "enterprise";
+import {
+  analyzeExperimentPower,
+  orgHasPremiumFeature,
+} from "shared/enterprise";
 import { addDays } from "date-fns";
 import {
   expandMetricGroups,

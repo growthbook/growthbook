@@ -1,5 +1,5 @@
 import React, { FC, useState } from "react";
-import { CommercialFeature } from "enterprise";
+import { CommercialFeature } from "shared/enterprise";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import LinkButton from "@/components/Radix/LinkButton";
 import Button from "@/components/Radix/Button";
