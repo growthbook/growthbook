@@ -15,7 +15,7 @@ import * as LicenseModelModule from "../src/enterprise/models/licenseModel";
 const LicenseModel = LicenseModelModule.LicenseModel;
 
 jest.mock("node-fetch");
-jest.mock("../src/models/licenseModel");
+jest.mock("../src/enterprise/models/licenseModel");
 
 const mockedFetch = fetch as jest.MockedFunction<typeof fetch>;
 

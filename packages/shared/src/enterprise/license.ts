@@ -368,7 +368,7 @@ export function orgHasPremiumFeature(
 function getPublicKey(): Buffer {
   try {
     const data = fs.readFileSync(
-      path.join(__dirname, "..", "license_public_key.pem")
+      path.join(__dirname, "license_public_key.pem")
     );
     return data;
   } catch (err) {
