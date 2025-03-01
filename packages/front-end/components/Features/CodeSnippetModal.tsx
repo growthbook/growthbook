@@ -94,6 +94,7 @@ export default function CodeSnippetModal({
   const [installationOpen, setInstallationOpen] = useState(true);
   const [setupOpen, setSetupOpen] = useState(true);
   const [usageOpen, setUsageOpen] = useState(true);
+  const [eventTracker, setEventTracker] = useState("GA4");
   const [attributesOpen, setAttributesOpen] = useState(true);
 
   const settings = useOrgSettings();
@@ -347,6 +348,8 @@ export default function CodeSnippetModal({
                 <div className="appbox bg-light p-3">
                   <InstallationCodeSnippet
                     language={language}
+                    eventTracker={eventTracker}
+                    setEventTracker={setEventTracker}
                     apiHost={apiHost}
                     apiKey={clientKey}
                     encryptionKey={encryptionKey}
@@ -356,6 +359,7 @@ export default function CodeSnippetModal({
               )}
             </div>
           )}
+
           {language !== "other" && (
             <div className="mb-3">
               <h4
@@ -376,6 +380,7 @@ export default function CodeSnippetModal({
                     apiKey={clientKey}
                     encryptionKey={encryptionKey}
                     remoteEvalEnabled={remoteEvalEnabled}
+                    eventTracker={eventTracker}
                   />
                 </div>
               )}
@@ -395,7 +400,7 @@ export default function CodeSnippetModal({
                 {attributesOpen ? <FaAngleDown /> : <FaAngleRight />}
               </h4>
               {attributesOpen && (
-                <div className="appbox p-3">
+                <div className="appbox bg-light p-3">
                   <TargetingAttributeCodeSnippet
                     language={language}
                     hashSecureAttributes={hashSecureAttributes}
