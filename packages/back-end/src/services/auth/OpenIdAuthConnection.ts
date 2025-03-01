@@ -10,7 +10,7 @@ import {
 
 import jwtExpress, { RequestHandler } from "express-jwt";
 import jwks from "jwks-rsa";
-import { SSO_CONFIG } from "enterprise";
+import { SSO_CONFIG } from "shared/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { MemoryCache } from "back-end/src/services/cache";
 import {

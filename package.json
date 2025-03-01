@@ -12,9 +12,9 @@
     "doc-gen": "cd docs && yarn && yarn gen",
     "unused-export-check": "wsrun -m unused-export-check",
     "test": "wsrun -m test",
-    "dev:apps": "wsrun -p 'back-end' -p 'front-end' -p 'shared' -p 'enterprise' -c dev",
+    "dev:apps": "wsrun -p 'back-end' -p 'front-end' -p 'shared' -c dev",
     "dev": ". $(cd packages/stats && poetry env info --path)/bin/activate && yarn dev:apps",
-    "build:deps": "wsrun -p '@growthbook/growthbook' -p '@growthbook/growthbook-react' -p 'shared' -p 'enterprise' -t -c build",
+    "build:deps": "wsrun -p '@growthbook/growthbook' -p '@growthbook/growthbook-react' -p 'shared' -t -c build",
     "build:app": "wsrun -p 'back-end' -p 'front-end' -c build",
     "build": "yarn build:deps && yarn build:app",
     "start": "wsrun -p 'back-end' -p 'front-end' --no-prefix -c start",
@@ -80,7 +80,7 @@
       }
     ]
   },
-  "license": "MIT",
+  "license": "Mixed",
   "engines": {
     "node": ">=18"
   }
