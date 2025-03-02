@@ -36,6 +36,7 @@ const docSections = {
   buildYourOwn: "/lib/build-your-own",
   sdks: "/lib",
   javascript: "/lib/js",
+  javascriptAutoAttributes: "/lib/js#auto-attributes",
   tsx: "/lib/react",
   go: "/lib/go",
   kotlin: "/lib/kotlin",

@@ -43,7 +43,7 @@ const VerifyConnectionPage = ({
   const [setupOpen, setSetupOpen] = useState(true);
   const [attributesOpen, setAttributesOpen] = useState(true);
   const [inviting, setInviting] = useState(false);
-  const [eventTracker, setEventTracker] = useState("GA4");
+  const [eventTracker, setEventTracker] = useState("");
 
   const { refreshOrganization, organization } = useUser();
   const settings = useOrgSettings();
@@ -175,6 +175,7 @@ const VerifyConnectionPage = ({
                     currentConnection.remoteEvalEnabled || false
                   }
                   eventTracker={eventTracker}
+                  setEventTracker={setEventTracker}
                 />
               </div>
             )}
@@ -198,6 +199,8 @@ const VerifyConnectionPage = ({
                     hashSecureAttributes={hashSecureAttributes}
                     secureAttributeSalt={secureAttributeSalt}
                     version={currentConnection.sdkVersion}
+                    apiHost={apiHost}
+                    apiKey={currentConnection.key}
                   />
 
                   {hashSecureAttributes && secureAttributes.length > 0 && (

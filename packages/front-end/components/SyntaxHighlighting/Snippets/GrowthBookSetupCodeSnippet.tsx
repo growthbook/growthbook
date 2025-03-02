@@ -1,9 +1,12 @@
 import { SDKLanguage } from "back-end/types/sdk-connection";
 import { paddedVersionString } from "@growthbook/growthbook";
 import { FaExternalLinkAlt } from "react-icons/fa";
+import React from "react";
 import { DocLink } from "@/components/DocLink";
 import Code from "@/components/SyntaxHighlighting/Code";
-import Link from "@/components/Radix/Link";
+import EventTrackerSelector, {
+  pluginSupportedTrackers,
+} from "@/components/SyntaxHighlighting/Snippets/EventTrackerSelector";
 
 export default function GrowthBookSetupCodeSnippet({
   language,
@@ -13,6 +16,7 @@ export default function GrowthBookSetupCodeSnippet({
   encryptionKey,
   remoteEvalEnabled,
   eventTracker = "GA4",
+  setEventTracker,
 }: {
   language: SDKLanguage;
   version?: string;
@@ -21,6 +25,7 @@ export default function GrowthBookSetupCodeSnippet({
   encryptionKey?: string;
   remoteEvalEnabled: boolean;
   eventTracker: string;
+  setEventTracker: (value: string) => void;
 }) {
   const featuresEndpoint = apiHost + "/api/features/" + apiKey;
   const trackingComment = "TODO: Use your real analytics tracking system";
@@ -50,18 +55,7 @@ window.growthbook_config.trackingCallback = (experiment, result) => {
         ) : eventTracker === "GA4" ? (
           <div>
             Events are tracked to Google Analytics automatically. No
-            configuration needed. <br />
-            <br />
-            If you are using GTM to load Google Analytics, you will need to
-            follow{" "}
-            <Link
-              href="https://docs.growthbook.io/guide/google-tag-manager-and-growthbook#4-tracking-via-datalayer-and-gtm"
-              target="_blank"
-            >
-              additional steps
-            </Link>{" "}
-            to make sure the experiment event data is passed to Google
-            Analytics.
+            configuration needed.
           </div>
         ) : eventTracker === "GTM" ? (
           <div>
@@ -83,40 +77,24 @@ window.growthbook_config.trackingCallback = (experiment, result) => {
   }
 
   if (language === "javascript") {
-    const useInit =
-      paddedVersionString(version) >= paddedVersionString("1.0.0");
+    const jsCode = getJSCodeSnippet({
+      apiHost,
+      apiKey,
+      encryptionKey,
+      remoteEvalEnabled,
+      version,
+      eventTracker,
+    });
+
     return (
       <>
-        Create a GrowthBook instance
-        <Code
-          language="javascript"
-          code={`
-import { GrowthBook } from "@growthbook/growthbook";
-
-const growthbook = new GrowthBook({
-  apiHost: ${JSON.stringify(apiHost)},
-  clientKey: ${JSON.stringify(apiKey)},${
-            encryptionKey
-              ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},`
-              : ""
-          }${remoteEvalEnabled ? `\n  remoteEval: true,` : ""}
-  enableDevMode: true,${!useInit ? `\n  subscribeToChanges: true,` : ""}
-  trackingCallback: (experiment, result) => {
-    // ${trackingComment}
-    console.log("Viewed Experiment", {
-      experimentId: experiment.key,
-      variationId: result.key
-    });
-  }
-});
-
-// Wait for features to be available${
-            useInit
-              ? `\nawait growthbook.init({ streaming: true });`
-              : `\nawait growthbook.loadFeatures();`
-          }
-`.trim()}
+        <EventTrackerSelector
+          eventTracker={eventTracker}
+          setEventTracker={setEventTracker}
         />
+        Create a GrowthBook instance. Read more about our{" "}
+        <DocLink docSection="javascript">Javascript SDK</DocLink>
+        <Code language="javascript" code={jsCode} />
       </>
     );
   }
@@ -1157,3 +1135,164 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
     </p>
   );
 }
+
+const getJSCodeSnippet = ({
+  apiHost,
+  apiKey,
+  encryptionKey,
+  remoteEvalEnabled,
+  version,
+  eventTracker,
+}: {
+  apiHost: string;
+  apiKey: string;
+  encryptionKey?: string;
+  remoteEvalEnabled: boolean;
+  version?: string;
+  eventTracker: string;
+}) => {
+  const useInit = paddedVersionString(version) >= paddedVersionString("1.0.0");
+  const usePlugins =
+    paddedVersionString(version) >= paddedVersionString("1.3.0");
+
+  const trackingComment =
+    "This is where you would send an event to your analytics provider";
+
+  let jsCode = "";
+
+  // use the plug in system for supported trackers:
+  if (usePlugins && pluginSupportedTrackers.includes(eventTracker)) {
+    jsCode = `
+import { GrowthBook } from "@growthbook/growthbook";
+import { thirdPartyTrackingPlugin } from "@growthbook/growthbook/plugins";
+
+// Optional settings for the plugin
+const pluginOptions = {
+  trackers: ${
+    eventTracker === "GA4" || eventTracker === "GTM"
+      ? `["ga4", "gtm"]`
+      : `["${eventTracker}"]`
+  },
+}
+const growthbook = new GrowthBook({
+  apiHost: ${JSON.stringify(apiHost)},
+  clientKey: ${JSON.stringify(apiKey)},${
+      encryptionKey
+        ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},`
+        : ""
+    }${remoteEvalEnabled ? `\n  remoteEval: true,` : ""}
+  enableDevMode: true,${!useInit ? `\n  subscribeToChanges: true,` : ""}
+  plugins: [
+    thirdPartyTrackingPlugin(pluginOptions),
+  ],
+});
+
+// Wait for features to be available${
+      useInit
+        ? `\nawait growthbook.init({ streaming: true });`
+        : `\nawait growthbook.loadFeatures();`
+    }
+`;
+  } else {
+    // non plugin system:
+    const trackingCallback =
+      eventTracker === "GA4" || eventTracker === "GTM"
+        ? `
+  if (window.gtag) {
+      window.gtag("event", "experiment_viewed", {
+        experiment_id: experiment.key,
+        variation_id: result.key,
+      });
+    } else {
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({
+        event: "experiment_viewed",
+        experiment_id: experiment.key,
+        variation_id: result.key,
+      });
+    }`
+        : eventTracker === "segment"
+        ? `
+  analytics.track("Experiment Viewed", {
+      experimentId: experiment.key,
+      variationId: result.key,
+    });
+`
+        : eventTracker === "mixpanel"
+        ? `
+  mixpanel.track("$experiment_started", {
+      "Experiment name": experiment.key,
+      "Variant name": result.key,
+      $source: "growthbook",
+    });
+`
+        : eventTracker === "matomo"
+        ? `
+  window["_paq"] = window._paq || [];
+    window._paq.push([
+      "trackEvent",
+      "ExperimentViewed",
+      experiment.key,
+      "v" + result.key,
+    ]);
+`
+        : eventTracker === "amplitude"
+        ? `
+  amplitude.track('Experiment Viewed', {experimentId: experiment.key, variantId: result.key});
+`
+        : eventTracker === "rudderstack"
+        ? `
+  rudderanalytics.track("Experiment Viewed", {
+      experimentId: experiment.key,
+      variationId: result.key,
+    });
+`
+        : eventTracker === "snowplow"
+        ? `
+  if (window.snowplow) {
+      window.snowplow("trackSelfDescribingEvent", {
+        event: {
+          schema: "iglu:io.growthbook/experiment_viewed/jsonschema/1-0-0",
+          data: {
+            experimentId: e.key,
+            variationId: r.key,
+            hashAttribute: r.hashAttribute,
+            hashValue: r.hashValue,
+          },
+        },
+      });
+    }
+`
+        : `
+  // ${trackingComment}
+    console.log("Viewed Experiment", {
+      experimentId: experiment.key,
+      variationId: result.key
+    });
+`;
+
+    jsCode = `import { GrowthBook } from "@growthbook/growthbook";
+
+const growthbook = new GrowthBook({
+  apiHost: ${JSON.stringify(apiHost)},
+  clientKey: ${JSON.stringify(apiKey)},${
+      encryptionKey
+        ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},`
+        : ""
+    }${remoteEvalEnabled ? `\n  remoteEval: true,` : ""}
+  enableDevMode: true,${!useInit ? `\n  subscribeToChanges: true,` : ""}
+  trackingCallback: (experiment, result) => {
+    ${trackingCallback.trim()}
+  },
+});
+
+// Wait for features to be available${
+      useInit
+        ? `\nawait growthbook.init({ streaming: true });`
+        : `\nawait growthbook.loadFeatures();`
+    }
+`;
+  }
+
+  return jsCode.trim();
+};

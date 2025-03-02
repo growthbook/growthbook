@@ -3,8 +3,12 @@ import { SDKLanguage } from "back-end/types/sdk-connection";
 import stringify from "json-stringify-pretty-compact";
 import { SDKAttributeSchema } from "back-end/types/organization";
 import { paddedVersionString } from "@growthbook/growthbook";
+import { Box, Flex } from "@radix-ui/themes";
 import { useAttributeSchema } from "@/services/features";
 import Code from "@/components/SyntaxHighlighting/Code";
+import { pluginSupportedTrackers } from "@/components/SyntaxHighlighting/Snippets/EventTrackerSelector";
+import { DocLink } from "@/components/DocLink";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 function phpArrayFormat(json: unknown) {
   return stringify(json)
@@ -89,18 +93,21 @@ export default function TargetingAttributeCodeSnippet({
   hashSecureAttributes = false,
   secureAttributeSalt = "",
   version,
+  eventTracker,
+  apiHost,
+  apiKey,
 }: {
   language: SDKLanguage;
   hashSecureAttributes?: boolean;
   secureAttributeSalt?: string;
   version?: string;
+  eventTracker?: string;
+  apiHost: string;
+  apiKey: string;
 }) {
-  const introText = (
-    <span>
-      Replace the placeholders with your real targeting attribute values. This
-      enables you to target feature flags based on user attributes.
-    </span>
-  );
+  let introText =
+    "Replace the placeholders with your real targeting attribute values. This enables you to target feature flags based on user attributes.";
+  const introElements: JSX.Element[] = [];
 
   const attributeSchema = useAttributeSchema();
   const exampleAttributes = getExampleAttributes({
@@ -109,6 +116,113 @@ export default function TargetingAttributeCodeSnippet({
     secureAttributeSalt,
   });
 
+  const attributesSnippets: JSX.Element[] = [];
+
+  const usePlugins =
+    paddedVersionString(version) >= paddedVersionString("1.3.0");
+
+  if (
+    usePlugins &&
+    pluginSupportedTrackers.includes(eventTracker ?? "") &&
+    language === "javascript"
+  ) {
+    introText =
+      "Or, you can define attributes manually. Replace the placeholders with your real targeting attribute values. This enables you to target feature flags based on user attributes.";
+    introElements.unshift(
+      <>
+        <p>
+          You can use GrowthBook&apos;s plugins to automatically set some
+          targeting attributes{" "}
+          <Tooltip
+            body={
+              <>
+                <p>The following attributes will be set by the plugin:</p>
+                <ul>
+                  <li>
+                    <strong>id</strong>
+                  </li>
+                  <li>
+                    <strong>url</strong>
+                  </li>
+                  <li>
+                    <strong>path</strong>
+                  </li>
+                  <li>
+                    <strong>host</strong>
+                  </li>
+                  <li>
+                    <strong>query</strong>
+                  </li>
+                  <li>
+                    <strong>deviceType</strong>
+                  </li>
+                  <li>
+                    <strong>browser</strong>
+                  </li>
+                  <li>
+                    <strong>utmSource</strong>
+                  </li>
+                  <li>
+                    <strong>utmMedium</strong>
+                  </li>
+                  <li>
+                    <strong>utmCampaign</strong>
+                  </li>
+                  <li>
+                    <strong>utmTerm</strong>
+                  </li>
+                  <li>
+                    <strong>utmContent</strong>
+                  </li>
+                </ul>
+              </>
+            }
+          />
+          <br />
+          Read more about this{" "}
+          <DocLink docSection="javascriptAutoAttributes">here</DocLink>.
+        </p>
+        <Code
+          language="javascript"
+          code={`
+import { autoAttributesPlugin } from "@growthbook/growthbook/plugins";
+
+const gb = new GrowthBook({
+  apiHost: ${JSON.stringify(apiHost)},
+  clientKey: ${JSON.stringify(apiKey)},
+  plugins: [
+    autoAttributesPlugin({}),
+  ],
+});
+`.trim()}
+        />
+      </>
+    );
+  }
+
+  const extraInfoAfter =
+    eventTracker === "mixpanel" ? (
+      <Box>
+        Mixpanel requires addition steps to add the ID attribute from Mixpanel
+        <Code
+          language="javascript"
+          code={`
+// Add the mixpanel user id to the GrowthBook attributes when it loads:
+mixpanel.init("[YOUR PROJECT TOKEN]", {
+  debug: true,
+  loaded: function (mx) {
+    growthbook.setAttributes({
+      ...growthbook.getAttributes(),
+      id: mx.get_distinct_id(),
+    });
+  },
+});  
+`.trim()}
+        />
+      </Box>
+    ) : (
+      <></>
+    );
   if (language.match(/^nocode/)) {
     const defaultAttributes = [
       "id",
@@ -129,14 +243,13 @@ export default function TargetingAttributeCodeSnippet({
     );
 
     if (additionalAttributes.length) {
-      return (
+      attributesSnippets.push(
         <>
           <p>
             Some attributes are set automatically, but you will need to manually
             set the following ones. This must be added BEFORE the GrowthBook
             snippet.
           </p>
-          {introText}
           <Code
             language="html"
             code={`
@@ -146,25 +259,25 @@ window.growthbook_config.attributes = ${stringify(
               Object.fromEntries(additionalAttributes)
             )};
 </script>
-          `}
+          `.trim()}
           />
         </>
       );
+    } else {
+      attributesSnippets.push(
+        <>
+          <div>
+            All of your attributes are set automatically, no configuration
+            required.
+          </div>
+        </>
+      );
     }
-
-    return (
-      <>
-        <div>
-          All of your attributes are set automatically, no configuration
-          required.
-        </div>
-      </>
-    );
   }
+
   if (language === "javascript") {
-    return (
+    attributesSnippets.push(
       <>
-        {introText}
         <Code
           language="javascript"
           code={`growthbook.setAttributes(${stringify(exampleAttributes)});`}
@@ -173,9 +286,8 @@ window.growthbook_config.attributes = ${stringify(
     );
   }
   if (language === "react") {
-    return (
+    attributesSnippets.push(
       <>
-        {introText}
         <Code
           language="tsx"
           code={`growthbook.setAttributes(${stringify(exampleAttributes)});`}
@@ -197,9 +309,8 @@ window.growthbook_config.attributes = ${stringify(
     });
 
     if (useMultiUser) {
-      return (
+      attributesSnippets.push(
         <>
-          {introText}
           <Code
             language="javascript"
             code={`
@@ -214,27 +325,25 @@ app.use((req, res, next) => {
           />
         </>
       );
-    }
-
-    return (
-      <>
-        {introText}
-        <Code
-          language="javascript"
-          code={`
+    } else {
+      attributesSnippets.push(
+        <>
+          <Code
+            language="javascript"
+            code={`
 app.use(function(req, res, next) {
   req.growthbook.setAttributes(${indentLines(stringify(exampleAttributes), 2)});
   next();
 })
 `.trim()}
-        />
-      </>
-    );
+          />
+        </>
+      );
+    }
   }
   if (language === "android") {
-    return (
+    attributesSnippets.push(
       <>
-        {introText}
         <Code
           language="kotlin"
           code={`
@@ -252,9 +361,8 @@ gb.setAttributes(attrs)
     );
   }
   if (language === "ios") {
-    return (
+    attributesSnippets.push(
       <>
-        {introText}
         <Code
           language="swift"
           code={`
@@ -266,9 +374,8 @@ gb.setAttributes(attrs)
     );
   }
   if (language === "go") {
-    return (
+    attributesSnippets.push(
       <>
-        {introText}
         <Code
           language="go"
           code={`
@@ -284,9 +391,8 @@ client,err := client.WithAttributes(gb.Attributes(jsonMap))
     );
   }
   if (language === "ruby") {
-    return (
+    attributesSnippets.push(
       <>
-        {introText}
         <Code
           language="ruby"
           code={`gb.attributes=${stringify(exampleAttributes).replace(
@@ -298,9 +404,8 @@ client,err := client.WithAttributes(gb.Attributes(jsonMap))
     );
   }
   if (language === "php") {
-    return (
+    attributesSnippets.push(
       <>
-        {introText}
         <Code
           language="php"
           code={`$growthbook->withAttributes(${phpArrayFormat(
@@ -311,9 +416,8 @@ client,err := client.WithAttributes(gb.Attributes(jsonMap))
     );
   }
   if (language === "python") {
-    return (
+    attributesSnippets.push(
       <>
-        {introText}
         <Code
           language="python"
           code={`gb.set_attributes(${stringify(exampleAttributes)
@@ -325,9 +429,8 @@ client,err := client.WithAttributes(gb.Attributes(jsonMap))
     );
   }
   if (language === "java") {
-    return (
+    attributesSnippets.push(
       <>
-        {introText}
         <Code
           language="java"
           code={`
@@ -347,9 +450,8 @@ growthBook.setAttributes(userAttributesJson);
     );
   }
   if (language === "flutter") {
-    return (
+    attributesSnippets.push(
       <>
-        {introText}
         <Code
           language="dart"
           code={`
@@ -366,9 +468,8 @@ gb.setAttributes(attrs);
     );
   }
   if (language === "csharp") {
-    return (
+    attributesSnippets.push(
       <>
-        {introText}
         <Code
           language="csharp"
           code={`
@@ -385,9 +486,8 @@ gb.SetAttributes(attrs);
     );
   }
   if (language === "elixir") {
-    return (
+    attributesSnippets.push(
       <>
-        {introText}
         <Code
           language="elixir"
           code={`
@@ -409,7 +509,16 @@ context = %GrowthBook.Context{
     );
   }
 
-  return null;
+  introElements.push(<Box>{introText}</Box>);
+  attributesSnippets.unshift(...introElements);
+  attributesSnippets.push(extraInfoAfter);
+  return (
+    <Flex direction="column" width="100%" gap="3">
+      {attributesSnippets.map((snippet, index) => (
+        <Box key={index}>{snippet}</Box>
+      ))}
+    </Flex>
+  );
 }
 
 function sha256(str: string, salt: string): string {
