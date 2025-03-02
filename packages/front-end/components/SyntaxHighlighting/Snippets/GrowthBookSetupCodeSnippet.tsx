@@ -54,8 +54,8 @@ export default function GrowthBookSetupCodeSnippet({
           </div>
         ) : (
           <>
-            You will need to add your own custom experiment tracking callback
-            BEFORE the GrowthBook snippet above:
+            You will need to add your own experiment tracking callback BEFORE
+            the GrowthBook snippet above:
             <Code
               language="html"
               code={`

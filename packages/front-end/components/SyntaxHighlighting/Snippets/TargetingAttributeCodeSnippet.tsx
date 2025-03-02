@@ -200,13 +200,19 @@ const gb = new GrowthBook({
     );
   }
 
-  const extraInfoAfter =
-    eventTracker === "mixpanel" ? (
-      <Box>
-        Mixpanel requires addition steps to add the ID attribute from Mixpanel
-        <Code
-          language="javascript"
-          code={`
+  const extraInfoAfter: JSX.Element[] = [];
+
+  // if the language has an event tracker dropdown (ie: javascript) and may require additional config to get the ID, we show the additional steps required.
+  if (language === "javascript") {
+    if (eventTracker === "mixpanel") {
+      extraInfoAfter.push(
+        <Box>
+          If you want to use Mixpanel&apos;s distinct ID for assignment you need
+          to pass this id to GrowthBook. This might need to be adjusted to wait
+          for Mixpanel to load.
+          <Code
+            language="javascript"
+            code={`
 // Add the mixpanel user id to the GrowthBook attributes when it loads:
 mixpanel.init("[YOUR PROJECT TOKEN]", {
   debug: true,
@@ -218,11 +224,85 @@ mixpanel.init("[YOUR PROJECT TOKEN]", {
   },
 });  
 `.trim()}
-        />
-      </Box>
-    ) : (
-      <></>
-    );
+          />
+        </Box>
+      );
+    } else if (eventTracker === "rudderstack") {
+      extraInfoAfter.push(
+        <Box>
+          If you want to use RudderStack&apos;s id for assignment (recommended)
+          the ID needs to be passed to GrowthBook. This may need to be adjusted
+          to match your naming.
+          <Code
+            language="javascript"
+            code={`// Add in Rudderstack anonId when loaded
+rudderstack.getAnonymousId().then((id) => {
+  growthbook.setAttributes({ ...growthbook.getAttributes(), id });
+});`.trim()}
+          />
+        </Box>
+      );
+    } else if (eventTracker === "snowplow") {
+      extraInfoAfter.push(
+        <Box>
+          Snowplow requires an addition step to add the ID attribute from
+          Snowplow
+          <Code
+            language="javascript"
+            code={`// Add in Snowplow domainId when loaded
+window.snowplow(function() {
+  var sp = this.sp;
+  var domainUserId = sp.getDomainUserId();
+  growthbook.setAttributes({
+    ...growthbook.getAttributes(),
+    id: domainUserId,
+  });
+});`.trim()}
+          />
+        </Box>
+      );
+    } else if (eventTracker === "matomo") {
+      extraInfoAfter.push(
+        <Box>
+          If you want to use Matomo&apos;s visitor ID for assignment
+          (recommended) you need to pass in this ID to GrowthBook.
+          <Code
+            language="javascript"
+            code={`// add the Matomo anonId when loaded
+let visitor_id;
+if ("_paq" in window) {
+  _paq.push([
+    function () {
+      visitor_id = this.getVisitorId();
+      growthbook.setAttributes({
+        ...growthbook.getAttributes(),
+        id: visitor_id,
+      });
+    },
+  ]);
+}`.trim()}
+          />
+        </Box>
+      );
+    } else if (eventTracker === "amplitude") {
+      extraInfoAfter.push(
+        <Box>
+          If you would like to use Amplitude&apos;s device ID for assignment
+          (recommended), the ID needs to be passed to GrowthBook. This might
+          need to be adjusted to wait for Amplitude to load.
+          <Code
+            language="javascript"
+            code={`// Add the Amplitude user id to the GrowthBook attributes when it loads:
+const ampDeviceId = amplitude.getInstance().getDeviceId();
+growthbook.setAttributes({ ...growthbook.getAttributes(), id: ampDeviceId });`.trim()}
+          />
+        </Box>
+      );
+    }
+  }
+
+  // Start of the Language Specific Snippets
+
   if (language.match(/^nocode/)) {
     const defaultAttributes = [
       "id",
@@ -511,7 +591,7 @@ context = %GrowthBook.Context{
 
   introElements.push(<Box>{introText}</Box>);
   attributesSnippets.unshift(...introElements);
-  attributesSnippets.push(extraInfoAfter);
+  attributesSnippets.push(...extraInfoAfter);
   return (
     <Flex direction="column" width="100%" gap="3">
       {attributesSnippets.map((snippet, index) => (
