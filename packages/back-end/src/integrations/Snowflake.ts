@@ -1,4 +1,4 @@
-import { snowflakeCreateTableOptions } from "enterprise";
+import { snowflakeCreateTableOptions } from "shared/enterprise";
 import { SnowflakeConnectionParams } from "back-end/types/integrations/snowflake";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { runSnowflakeQuery } from "back-end/src/services/snowflake";

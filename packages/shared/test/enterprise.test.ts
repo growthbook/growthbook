@@ -1,4 +1,4 @@
-import { getAccountPlan } from "../src";
+import { getAccountPlan } from "../src/enterprise";
 
 describe("Entitlements", () => {
   it("Determines account plan", () => {

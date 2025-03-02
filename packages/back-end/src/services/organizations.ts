@@ -11,7 +11,7 @@ import {
   getSubscriptionFromLicense,
   SubscriptionInfo,
   getStripeSubscriptionStatus,
-} from "enterprise";
+} from "shared/enterprise";
 import {
   areProjectRolesValid,
   isRoleValid,

@@ -71,9 +71,9 @@ if (IS_CLOUD) {
 
 ### Adding new commercial features
 
-If you want to add a new commercial feature, you need to edit the `enterprise` package:
+All back-end code for commercial features should live under the `src/enterprise` directory. The front-end and shared packages have their own `enterprise` directories as well which can be used as needed.
 
-- `packages/enterprise/src/license.ts` - Add to the `CommercialFeature` union type and edit the `accountFeatures` map, which defines which plans have access to which features
+You will also need to edit `packages/shared/src/enterprise/license.ts`. Add to the `CommercialFeature` union type and edit the `accountFeatures` map, which defines which plans have access to which features
 
 ## Data Model Classes
 

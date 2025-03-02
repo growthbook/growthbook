@@ -1,10 +1,13 @@
-Copyright (c) 2023 GrowthBook, Inc.
+Copyright (c) 2025 GrowthBook, Inc.
 
 Portions of this software are licensed as follows:
 
-* All content that resides under the "packages/enterprise/" directory of this repository is licensed under the license defined in "packages/enterprise/LICENSE".
-* All third party components incorporated into the GrowthBook Software are licensed under the original license provided by the owner of the applicable component.
-* Content outside of the above mentioned directories or restrictions above is available under the "MIT Expat" license as defined below.
+- All content that resides under the following directories of this repository are licensed under the GrowthBook Enterprise License, which is defined in the LICENSE file contained in the directories.
+  - packages/back-end/src/enterprise
+  - packages/front-end/enterprise
+  - packages/shared/src/enterprise
+- All third party components incorporated into the GrowthBook Software are licensed under the original license provided by the owner of the applicable component.
+- Content outside of the above mentioned directories or restrictions above is available under the "MIT Expat" license as defined below.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
