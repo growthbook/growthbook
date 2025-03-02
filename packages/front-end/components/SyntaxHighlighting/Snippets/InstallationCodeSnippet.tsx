@@ -31,7 +31,7 @@ export default function InstallationCodeSnippet({
   s.dataset.apiHost=${JSON.stringify(apiHost)};
   s.dataset.clientKey=${JSON.stringify(apiKey)};${
           encryptionKey
-            ? `\n   s.dataset.decryptionKey=${JSON.stringify(encryptionKey)};`
+            ? `\n  s.dataset.decryptionKey=${JSON.stringify(encryptionKey)};`
             : ""
         }${remoteEvalEnabled ? `\n  s.dataset.remoteEval="true";` : ""}
   s.src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js";

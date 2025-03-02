@@ -33,26 +33,7 @@ export default function GrowthBookSetupCodeSnippet({
   if (language.match(/^nocode/)) {
     return (
       <>
-        {eventTracker === "other" ? (
-          <>
-            You will need to add your own custom experiment tracking callback
-            BEFORE the GrowthBook snippet above:
-            <Code
-              language="html"
-              code={`
-<script>
-window.growthbook_config = window.growthbook_config || {};
-window.growthbook_config.trackingCallback = (experiment, result) => {
-  customEventTracker("Viewed Experiment", {
-    experiment_id: experiment.key,
-    variation_id: result.key
-  })
-};
-</script>
-          `.trim()}
-            />
-          </>
-        ) : eventTracker === "GA4" ? (
+        {eventTracker === "GA4" ? (
           <div>
             Events are tracked to Google Analytics automatically. No
             configuration needed.
@@ -66,11 +47,27 @@ window.growthbook_config.trackingCallback = (experiment, result) => {
             </DocLink>
             .
           </div>
-        ) : (
+        ) : eventTracker === "segment" ? (
           <div>
             Events are tracked in {eventTracker} automatically. No configuration
             needed.
           </div>
+        ) : (
+          <>
+            You will need to add your own custom experiment tracking callback
+            BEFORE the GrowthBook snippet above:
+            <Code
+              language="html"
+              code={`
+<script>
+window.growthbook_config = window.growthbook_config || {};
+window.growthbook_config.trackingCallback = (experiment, result) => {
+  ${getTrackingCallback(eventTracker).trim()}
+};
+</script>
+          `.trim()}
+            />
+          </>
         )}
       </>
     );
@@ -1136,6 +1133,83 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
   );
 }
 
+const getTrackingCallback = (eventTracker) => {
+  return eventTracker === "GA4" || eventTracker === "GTM"
+    ? `
+  if (window.gtag) {
+      window.gtag("event", "experiment_viewed", {
+        experiment_id: experiment.key,
+        variation_id: result.key,
+      });
+    } else {
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({
+        event: "experiment_viewed",
+        experiment_id: experiment.key,
+        variation_id: result.key,
+      });
+    }`
+    : eventTracker === "segment"
+    ? `
+  analytics.track("Experiment Viewed", {
+      experimentId: experiment.key,
+      variationId: result.key,
+    });
+`
+    : eventTracker === "mixpanel"
+    ? `
+  mixpanel.track("$experiment_started", {
+      "Experiment name": experiment.key,
+      "Variant name": result.key,
+      $source: "growthbook",
+    });
+`
+    : eventTracker === "matomo"
+    ? `
+  window["_paq"] = window._paq || [];
+    window._paq.push([
+      "trackEvent",
+      "ExperimentViewed",
+      experiment.key,
+      "v" + result.key,
+    ]);
+`
+    : eventTracker === "amplitude"
+    ? `
+  amplitude.track('Experiment Viewed', {experimentId: experiment.key, variantId: result.key});
+`
+    : eventTracker === "rudderstack"
+    ? `
+  rudderanalytics.track("Experiment Viewed", {
+      experimentId: experiment.key,
+      variationId: result.key,
+    });
+`
+    : eventTracker === "snowplow"
+    ? `
+  if (window.snowplow) {
+      window.snowplow("trackSelfDescribingEvent", {
+        event: {
+          schema: "iglu:io.growthbook/experiment_viewed/jsonschema/1-0-0",
+          data: {
+            experimentId: e.key,
+            variationId: r.key,
+            hashAttribute: r.hashAttribute,
+            hashValue: r.hashValue,
+          },
+        },
+      });
+    }
+`
+    : `
+  // This is where you would send an event to your analytics provider
+    console.log("Viewed Experiment", {
+      experimentId: experiment.key,
+      variationId: result.key
+    });
+`;
+};
+
 const getJSCodeSnippet = ({
   apiHost,
   apiKey,
@@ -1154,9 +1228,6 @@ const getJSCodeSnippet = ({
   const useInit = paddedVersionString(version) >= paddedVersionString("1.0.0");
   const usePlugins =
     paddedVersionString(version) >= paddedVersionString("1.3.0");
-
-  const trackingComment =
-    "This is where you would send an event to your analytics provider";
 
   let jsCode = "";
 
@@ -1195,81 +1266,7 @@ const growthbook = new GrowthBook({
 `;
   } else {
     // non plugin system:
-    const trackingCallback =
-      eventTracker === "GA4" || eventTracker === "GTM"
-        ? `
-  if (window.gtag) {
-      window.gtag("event", "experiment_viewed", {
-        experiment_id: experiment.key,
-        variation_id: result.key,
-      });
-    } else {
-      window.dataLayer = window.dataLayer || [];
-      window.dataLayer.push({
-        event: "experiment_viewed",
-        experiment_id: experiment.key,
-        variation_id: result.key,
-      });
-    }`
-        : eventTracker === "segment"
-        ? `
-  analytics.track("Experiment Viewed", {
-      experimentId: experiment.key,
-      variationId: result.key,
-    });
-`
-        : eventTracker === "mixpanel"
-        ? `
-  mixpanel.track("$experiment_started", {
-      "Experiment name": experiment.key,
-      "Variant name": result.key,
-      $source: "growthbook",
-    });
-`
-        : eventTracker === "matomo"
-        ? `
-  window["_paq"] = window._paq || [];
-    window._paq.push([
-      "trackEvent",
-      "ExperimentViewed",
-      experiment.key,
-      "v" + result.key,
-    ]);
-`
-        : eventTracker === "amplitude"
-        ? `
-  amplitude.track('Experiment Viewed', {experimentId: experiment.key, variantId: result.key});
-`
-        : eventTracker === "rudderstack"
-        ? `
-  rudderanalytics.track("Experiment Viewed", {
-      experimentId: experiment.key,
-      variationId: result.key,
-    });
-`
-        : eventTracker === "snowplow"
-        ? `
-  if (window.snowplow) {
-      window.snowplow("trackSelfDescribingEvent", {
-        event: {
-          schema: "iglu:io.growthbook/experiment_viewed/jsonschema/1-0-0",
-          data: {
-            experimentId: e.key,
-            variationId: r.key,
-            hashAttribute: r.hashAttribute,
-            hashValue: r.hashValue,
-          },
-        },
-      });
-    }
-`
-        : `
-  // ${trackingComment}
-    console.log("Viewed Experiment", {
-      experimentId: experiment.key,
-      variationId: result.key
-    });
-`;
+    const trackingCallback = getTrackingCallback(eventTracker);
 
     jsCode = `import { GrowthBook } from "@growthbook/growthbook";
 
