@@ -1,10 +1,10 @@
-import { ExperimentSnapshotTraffic } from "back-end/types/experiment-snapshot";
-import { MetricPowerResponseFromStatsEngine } from "back-end/types/stats";
 import {
   calculateMidExperimentPowerSingle,
   getAverageExposureOverLastNDays,
   MidExperimentPowerParamsSingle,
-} from "../src";
+} from "shared/enterprise";
+import { ExperimentSnapshotTraffic } from "back-end/types/experiment-snapshot";
+import { MetricPowerResponseFromStatsEngine } from "back-end/types/stats";
 
 describe("getAverageExposureOverLastNDays", () => {
   it("should get average exposure over last 3 days", () => {
