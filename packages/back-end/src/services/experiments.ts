@@ -2749,12 +2749,14 @@ export async function getChangesToStartExperiment(
 
   const changes: Changeset = {};
 
-  // use the current date as the phase start date
-  phases[lastIndex] = {
-    ...phases[lastIndex],
-    dateStarted: new Date(),
-  };
-  changes.phases = phases;
+  // If the experiment doesn't have any results yet, reset the phase start date to now
+  if (!experiment.analysisSummary?.snapshotId) {
+    phases[lastIndex] = {
+      ...phases[lastIndex],
+      dateStarted: new Date(),
+    };
+    changes.phases = phases;
+  }
 
   // Bandit-specific changes
   if (experiment.type === "multi-armed-bandit") {
