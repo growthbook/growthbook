@@ -134,7 +134,11 @@ export const postFactTable = async (
 };
 
 export const putFactTable = async (
-  req: AuthRequest<UpdateFactTableProps, { id: string }>,
+  req: AuthRequest<
+    UpdateFactTableProps,
+    { id: string },
+    { forceColumnRefresh?: string }
+  >,
   res: Response<{ status: 200 }>
 ) => {
   const data = req.body;
@@ -155,7 +159,7 @@ export const putFactTable = async (
   }
 
   // Update the columns
-  if (needsColumnRefresh(data)) {
+  if (req.query?.forceColumnRefresh || needsColumnRefresh(data)) {
     data.columns = await runRefreshColumnsQuery(context, datasource, {
       ...factTable,
       ...data,
