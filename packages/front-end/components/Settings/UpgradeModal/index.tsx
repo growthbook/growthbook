@@ -101,7 +101,6 @@ export default function UpgradeModal({
     isCloud() && freeTrialAvailable && lowestPlan !== "enterprise"
       ? growthbook.getFeatureValue("pro-upgrade-modal", "OFF")
       : "OFF";
-
   const daysToGo = license?.dateExpires ? daysLeft(license.dateExpires) : 0;
 
   const hasCanceledSubscription =
@@ -435,14 +434,14 @@ export default function UpgradeModal({
     );
   }
 
-  function onSubmit() {
+  async function onSubmit() {
     if (
       featureFlagValue === "UPGRADE-ONLY" ||
       trialAndUpgradePreference === "upgrade"
     ) {
-      startPro();
+      await startPro();
     } else {
-      startProTrial(name, email);
+      await startProTrial(name, email);
     }
   }
 
@@ -530,7 +529,7 @@ export default function UpgradeModal({
               <PiCaretRight />
             </>
           }
-          submit={featureFlagValue !== "OFF" ? () => onSubmit() : undefined}
+          submit={featureFlagValue !== "OFF" ? onSubmit : undefined}
         >
           {!permissionsUtil.canManageBilling() ? (
             <div className="text-center mt-4 mb-5">
