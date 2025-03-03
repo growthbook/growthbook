@@ -34,6 +34,7 @@ import {
   runColumnTopValuesQuery,
 } from "back-end/src/jobs/refreshFactTableColumns";
 import { logger } from "back-end/src/util/logger";
+import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
 
 export const getFactTables = async (
   req: AuthRequest,
@@ -154,14 +155,16 @@ export const putFactTable = async (
   }
 
   // Update the columns
-  data.columns = await runRefreshColumnsQuery(context, datasource, {
-    ...factTable,
-    ...data,
-  } as FactTableInterface);
-  data.columnsError = null;
+  if (needsColumnRefresh(data)) {
+    data.columns = await runRefreshColumnsQuery(context, datasource, {
+      ...factTable,
+      ...data,
+    } as FactTableInterface);
+    data.columnsError = null;
 
-  if (!data.columns.some((col) => !col.deleted)) {
-    throw new Error("SQL did not return any rows");
+    if (!data.columns.some((col) => !col.deleted)) {
+      throw new Error("SQL did not return any rows");
+    }
   }
 
   await updateFactTable(context, factTable, data);
