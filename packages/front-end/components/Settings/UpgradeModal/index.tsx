@@ -529,11 +529,7 @@ export default function UpgradeModal({
               <PiCaretRight />
             </>
           }
-          submit={
-            featureFlagValue !== "OFF"
-              ? async () => await onSubmit()
-              : undefined
-          }
+          submit={featureFlagValue !== "OFF" ? onSubmit : undefined}
         >
           {!permissionsUtil.canManageBilling() ? (
             <div className="text-center mt-4 mb-5">
