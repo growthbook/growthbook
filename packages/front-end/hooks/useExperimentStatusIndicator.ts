@@ -132,7 +132,7 @@ function getStatusIndicatorData(
       ? getDetailedStatusIndicatorData(getDaysLeftStatus({ daysNeeded }))
       : undefined;
 
-    if (healthSummary) {
+    if (healthSummary?.totalUsers) {
       const srmHealthData = getSRMHealthData({
         srm: healthSummary.srm,
         srmThreshold: healthSettings.srmThreshold,

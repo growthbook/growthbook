@@ -161,7 +161,7 @@ export type ExperimentAnalysisSettings = z.infer<
 export const experimentAnalysisSummaryHealth = z.object({
   srm: z.number(),
   multipleExposures: z.number(),
-  totalUsers: z.number(),
+  totalUsers: z.number().nullable(),
   power: z
     .discriminatedUnion("type", [
       z.object({
