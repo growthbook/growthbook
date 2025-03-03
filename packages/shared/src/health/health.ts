@@ -113,7 +113,7 @@ export function getSRMValue(
       // if no dimension && only one overall result (e.g. no dim splits)
       if (
         snapshot.type === "standard" &&
-        snapshot.analyses?.[0].results.length === 1
+        snapshot.analyses?.[0]?.results?.length === 1
       ) {
         return snapshot.analyses?.[0]?.results?.[0]?.srm;
       }

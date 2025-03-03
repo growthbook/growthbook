@@ -2814,17 +2814,18 @@ export async function updateExperimentAnalysisSummary({
 
   const standardSnapshot =
     experimentSnapshot.type === "standard" &&
-    experimentSnapshot.analyses?.[0].results.length === 1;
-  const totalUsers = overallTraffic?.variationUnits.length
-    ? overallTraffic.variationUnits.reduce((acc, a) => acc + a, 0)
-    : standardSnapshot
-    ? // fall back to first result for standard snapshots if overall traffic
-      // is missing
-      experimentSnapshot?.analyses?.[0]?.results?.[0]?.variations?.reduce(
-        (acc, a) => acc + a.users,
-        0
-      )
-    : null;
+    experimentSnapshot.analyses?.[0]?.results?.length === 1;
+  const totalUsers =
+    (overallTraffic?.variationUnits.length
+      ? overallTraffic.variationUnits.reduce((acc, a) => acc + a, 0)
+      : standardSnapshot
+      ? // fall back to first result for standard snapshots if overall traffic
+        // is missing
+        experimentSnapshot?.analyses?.[0]?.results?.[0]?.variations?.reduce(
+          (acc, a) => acc + a.users,
+          0
+        )
+      : null) ?? null;
 
   const srm = getSRMValue(experiment.type ?? "standard", experimentSnapshot);
 
