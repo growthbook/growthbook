@@ -512,7 +512,7 @@ export default function ResultsTableTooltip({
             {!addLiftWarning && data.rowResults.enoughData ? (
               <div
                 className={clsx(
-                  "results-prior text-muted rounded d-flex justify-content-center mt-2",
+                  "results-prior text-muted rounded d-flex justify-content-center my-2",
                   data.rowResults.resultsStatus
                 )}
               >
@@ -562,7 +562,7 @@ export default function ResultsTableTooltip({
 
             {hasFlaggedItems ? (
               <div
-                className="results-flagged-items d-flex align-items-start mt-2"
+                className="results-flagged-items d-flex align-items-start"
                 style={{ gap: 12 }}
               >
                 {!data.rowResults.enoughData ? (
