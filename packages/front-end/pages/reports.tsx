@@ -12,14 +12,16 @@ import Toggle from "@/components/Forms/Toggle";
 import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
 import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 const ReportsPage = (): React.ReactElement => {
   const router = useRouter();
+  const { project } = useDefinitions();
 
   const { data, error } = useApi<{
     reports: ReportInterface[];
     experiments: ExperimentInterface[];
-  }>(`/reports`);
+  }>(`/reports?project=${project || ""}`);
   const [onlyMyReports, setOnlyMyReports] = useState(true);
 
   const { userId, getUserDisplay } = useUser();

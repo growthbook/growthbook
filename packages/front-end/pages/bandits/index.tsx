@@ -340,6 +340,13 @@ const ExperimentsPage = (): React.ReactElement => {
                   </PremiumTooltip>
                 )}
               </div>
+              <div className="mt-5">
+                <img
+                  src="/images/empty-states/bandits.png"
+                  alt="Bandits"
+                  style={{ width: "100%", maxWidth: "740px", height: "auto" }}
+                />
+              </div>
             </div>
           ) : (
             <>
@@ -356,7 +363,7 @@ const ExperimentsPage = (): React.ReactElement => {
                           key={tab}
                           className={clsx("border mb-0", {
                             "badge-purple font-weight-bold": active,
-                            "bg-white text-secondary": !active,
+                            "text-secondary": !active,
                             "rounded-left": i === 0,
                             "rounded-right":
                               tab === "archived" ||
@@ -366,6 +373,7 @@ const ExperimentsPage = (): React.ReactElement => {
                             fontSize: "1em",
                             opacity: active ? 1 : 0.8,
                             padding: "6px 12px",
+                            backgroundColor: active ? "" : "var(--color-panel)",
                           }}
                           onClick={(e) => {
                             e.preventDefault();

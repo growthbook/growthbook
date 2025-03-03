@@ -15,7 +15,7 @@ import track from "@/services/track";
 import { appendQueryParamsToURL } from "@/services/utils";
 import { useAuth } from "@/services/auth";
 import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
-import EditDOMMutatonsModal from "@/components/Experiment/EditDOMMutationsModal";
+import EditDOMMutationsModal from "@/components/Experiment/EditDOMMutationsModal";
 import LinkedChange from "@/components/Experiment/LinkedChange";
 import Badge from "@/components/Radix/Badge";
 import Button from "@/components/Radix/Button";
@@ -352,7 +352,7 @@ export const VisualChangesetTable: FC<Props> = ({
         const visualChangeTypesSet: Set<string> = new Set();
         vc.visualChanges.forEach((c) => {
           if (c.domMutations.length > 0) {
-            visualChangeTypesSet.add("Copy");
+            visualChangeTypesSet.add("Text");
           }
           if (c.css) {
             visualChangeTypesSet.add("CSS");
@@ -362,7 +362,7 @@ export const VisualChangesetTable: FC<Props> = ({
           }
         });
 
-        const visualChangeTypesDict: string[] = ["Copy", "CSS", "Javascript"];
+        const visualChangeTypesDict: string[] = ["Text", "CSS", "Javascript"];
         const visualChangeTypes: string[] = [...visualChangeTypesSet].sort(
           (a, b) =>
             visualChangeTypesDict.indexOf(a) - visualChangeTypesDict.indexOf(b)
@@ -397,7 +397,7 @@ export const VisualChangesetTable: FC<Props> = ({
       ) : null}
 
       {editingVisualChange ? (
-        <EditDOMMutatonsModal
+        <EditDOMMutationsModal
           experiment={experiment}
           visualChange={editingVisualChange.visualChange}
           close={() => setEditingVisualChange(null)}

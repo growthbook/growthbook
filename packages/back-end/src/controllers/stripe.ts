@@ -13,7 +13,7 @@ import {
   getPaymentMethodsByLicenseKey,
   updateDefaultPaymentMethod,
   deletePaymentMethodById,
-} from "enterprise";
+} from "shared/enterprise";
 import { PaymentMethod } from "shared/src/types/subscriptions";
 import { APP_ORIGIN, STRIPE_WEBHOOK_SECRET } from "back-end/src/util/secrets";
 import { AuthRequest } from "back-end/src/types/AuthRequest";

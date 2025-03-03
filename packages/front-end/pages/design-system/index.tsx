@@ -745,6 +745,10 @@ export default function DesignSystemPage() {
               status: "draft",
               variations: [],
               phases: [],
+              goalMetrics: [],
+              guardrailMetrics: [],
+              secondaryMetrics: [],
+              datasource: "ds_abc123",
             }}
           />
           <ExperimentStatusIndicator
@@ -753,6 +757,10 @@ export default function DesignSystemPage() {
               status: "running",
               variations: [],
               phases: [],
+              goalMetrics: [],
+              guardrailMetrics: [],
+              secondaryMetrics: [],
+              datasource: "ds_abc123",
             }}
           />
           <ExperimentStatusIndicator
@@ -761,6 +769,10 @@ export default function DesignSystemPage() {
               status: "stopped",
               variations: [],
               phases: [],
+              goalMetrics: [],
+              guardrailMetrics: [],
+              secondaryMetrics: [],
+              datasource: "ds_abc123",
             }}
           />
           <ExperimentStatusIndicator
@@ -770,6 +782,10 @@ export default function DesignSystemPage() {
               results: "dnf",
               variations: [],
               phases: [],
+              goalMetrics: [],
+              guardrailMetrics: [],
+              secondaryMetrics: [],
+              datasource: "ds_abc123",
             }}
           />
           <ExperimentStatusIndicator
@@ -779,6 +795,10 @@ export default function DesignSystemPage() {
               results: "inconclusive",
               variations: [],
               phases: [],
+              goalMetrics: [],
+              guardrailMetrics: [],
+              secondaryMetrics: [],
+              datasource: "ds_abc123",
             }}
           />
           <ExperimentStatusIndicator
@@ -788,6 +808,10 @@ export default function DesignSystemPage() {
               results: "won",
               variations: [],
               phases: [],
+              goalMetrics: [],
+              guardrailMetrics: [],
+              secondaryMetrics: [],
+              datasource: "ds_abc123",
             }}
           />
           <ExperimentStatusIndicator
@@ -797,6 +821,10 @@ export default function DesignSystemPage() {
               results: "lost",
               variations: [],
               phases: [],
+              goalMetrics: [],
+              guardrailMetrics: [],
+              secondaryMetrics: [],
+              datasource: "ds_abc123",
             }}
           />
           <ExperimentStatusIndicator
@@ -805,6 +833,10 @@ export default function DesignSystemPage() {
               status: "running",
               variations: [],
               phases: [],
+              goalMetrics: [],
+              guardrailMetrics: [],
+              secondaryMetrics: [],
+              datasource: "ds_abc123",
             }}
           />
         </Flex>

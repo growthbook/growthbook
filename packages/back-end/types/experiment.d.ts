@@ -15,6 +15,8 @@ export {
   ExperimentPhase,
   BanditStageType,
   ExperimentAnalysisSettings,
+  ExperimentAnalysisSummaryResultsStatus,
+  ExperimentAnalysisSummaryVariationStatus,
   ExperimentInterface,
   ExperimentNotification,
   ExperimentResultsType,
@@ -27,6 +29,16 @@ export {
   CreateTemplateProps,
   UpdateTemplateProps,
 } from "back-end/src/routers/experiment-template/template.validators";
+
+export type DecisionFrameworkExperimentRecommendationStatus =
+  | { status: "days-left"; daysLeft: number }
+  | { status: "ship-now" }
+  | { status: "rollback-now" }
+  | { status: "ready-for-review" };
+
+export type DecisionFrameworkData = DecisionFrameworkExperimentRecommendationStatus & {
+  tooltip?: string;
+};
 
 export type ExperimentPhaseType = "ramp" | "main" | "holdout";
 

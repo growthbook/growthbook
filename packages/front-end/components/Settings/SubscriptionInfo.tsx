@@ -45,6 +45,7 @@ export default function SubscriptionInfo() {
           close={() => setUpgradeModal(false)}
           reason="Your subscription has expired."
           source="billing-renew"
+          commercialFeature={null}
         />
       )}
       <div className="col-auto mb-3">

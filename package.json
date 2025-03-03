@@ -12,9 +12,9 @@
     "doc-gen": "cd docs && yarn && yarn gen",
     "unused-export-check": "wsrun -m unused-export-check",
     "test": "wsrun -m test",
-    "dev:apps": "wsrun -p 'back-end' -p 'front-end' -p 'shared' -p 'enterprise' -c dev",
+    "dev:apps": "wsrun -p 'back-end' -p 'front-end' -p 'shared' -c dev",
     "dev": ". $(cd packages/stats && poetry env info --path)/bin/activate && yarn dev:apps",
-    "build:deps": "wsrun -p '@growthbook/growthbook' -p '@growthbook/growthbook-react' -p 'shared' -p 'enterprise' -t -c build",
+    "build:deps": "wsrun -p '@growthbook/growthbook' -p '@growthbook/growthbook-react' -p 'shared' -t -c build",
     "build:app": "wsrun -p 'back-end' -p 'front-end' -c build",
     "build": "yarn build:deps && yarn build:app",
     "start": "wsrun -p 'back-end' -p 'front-end' --no-prefix -c start",
@@ -26,7 +26,8 @@
     "generate-api-types": "yarn workspace back-end generate-api-types",
     "ci": "yarn lint:ci && yarn run type-check && yarn run test",
     "postinstall": "patch-package",
-    "generate-sdk-report": "yarn workspace shared generate-sdk-report"
+    "generate-sdk-report": "yarn workspace shared generate-sdk-report",
+    "bump-sdk-version": "yarn workspace @growthbook/growthbook bump-version"
   },
   "workspaces": [
     "packages/*"
@@ -67,7 +68,7 @@
     ]
   },
   "resolutions": {
-    "@growthbook/growthbook": "1.4.0"
+    "@growthbook/growthbook": "1.4.1"
   },
   "prettier": {
     "overrides": [
@@ -79,7 +80,7 @@
       }
     ]
   },
-  "license": "MIT",
+  "license": "Mixed",
   "engines": {
     "node": ">=18"
   }

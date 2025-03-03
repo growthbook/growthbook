@@ -330,6 +330,11 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "experimentation-analysis/decision-framework",
+          label: "Experiment Decision Framework",
+        },
+        {
+          type: "doc",
           id: "running-experiments/making-changes",
           label: "Make Changes to Experiments",
         },
@@ -596,7 +601,7 @@ const sidebars = {
         {
           type: "doc",
           id: "tools/chrome-extension",
-          label: "Chrome Extension",
+          label: "Browser Extension",
         },
         {
           type: "doc",

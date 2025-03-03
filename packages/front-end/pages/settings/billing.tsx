@@ -1,5 +1,5 @@
 import { FC, useEffect, useState } from "react";
-import { LicenseInterface } from "enterprise";
+import { LicenseInterface } from "shared/enterprise";
 import SubscriptionInfo from "@/components/Settings/SubscriptionInfo";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useUser } from "@/services/UserContext";
@@ -69,6 +69,7 @@ const BillingPage: FC = () => {
           close={() => setUpgradeModal(false)}
           reason=""
           source="billing-free"
+          commercialFeature={null}
         />
       )}
       <h1>Billing Settings</h1>

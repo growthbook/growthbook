@@ -29,7 +29,7 @@ import TagsFilter, {
   useTagsFilter,
 } from "@/components/Tags/TagsFilter";
 import { useWatching } from "@/services/WatchProvider";
-import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+import { ExperimentStatusDetailsWithDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
@@ -54,25 +54,9 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import ViewSampleDataButton from "@/components/GetStarted/ViewSampleDataButton";
 import EmptyState from "@/components/EmptyState";
 import Callout from "@/components/Radix/Callout";
+import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
 
 const NUM_PER_PAGE = 20;
-
-// Most actionable status have higher numbers
-function getExperimentStatusSortOrder(
-  e: ExperimentInterfaceStringDates
-): number {
-  if (e.archived) return 0;
-  if (e.status === "stopped") {
-    if (e.results === "dnf") return 1;
-    if (e.results === "inconclusive") return 2;
-    if (e.results === "lost") return 3;
-    if (e.results === "won") return 4;
-    return 5;
-  }
-  if (e.status === "draft") return 6;
-  if (e.status === "running") return 7;
-  return 8;
-}
 
 export function experimentDate(exp: ExperimentInterfaceStringDates): string {
   return (
@@ -124,6 +108,7 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const { getUserDisplay, userId, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
+  const getExperimentStatusIndicator = useExperimentStatusIndicator();
 
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -133,7 +118,8 @@ const ExperimentsPage = (): React.ReactElement => {
       const projectId = exp.project;
       const projectName = projectId ? getProjectById(projectId)?.name : "";
       const projectIsDeReferenced = projectId && !projectName;
-      const statusSortOrder = getExperimentStatusSortOrder(exp);
+      const statusIndicator = getExperimentStatusIndicator(exp);
+      const statusSortOrder = statusIndicator.sortOrder;
       const lastPhase = exp.phases?.[exp.phases?.length - 1] || {};
       const rawSavedGroup = lastPhase?.savedGroups || [];
       const savedGroupIds = rawSavedGroup.map((g) => g.ids).flat();
@@ -156,6 +142,7 @@ const ExperimentsPage = (): React.ReactElement => {
           ? "drafts"
           : exp.status,
         date: experimentDate(exp),
+        statusIndicator,
         statusSortOrder,
       };
     },
@@ -365,6 +352,10 @@ const ExperimentsPage = (): React.ReactElement => {
     };
   }
 
+  const needsStatusColumn = tabs.length != 1;
+  const needsResultColumn =
+    !tabs.length || tabs.includes("stopped") || tabs.includes("running");
+
   const addExperimentDropdownButton = (
     <DropdownMenu
       trigger={
@@ -500,7 +491,7 @@ const ExperimentsPage = (): React.ReactElement => {
                                 key={tab}
                                 className={clsx("border mb-0", {
                                   "badge-purple font-weight-bold": active,
-                                  "bg-white text-secondary": !active,
+                                  "text-secondary": !active,
                                   "rounded-left": i === 0,
                                   "rounded-right":
                                     tab === "archived" ||
@@ -510,6 +501,9 @@ const ExperimentsPage = (): React.ReactElement => {
                                   fontSize: "1em",
                                   opacity: active ? 1 : 0.8,
                                   padding: "6px 12px",
+                                  backgroundColor: active
+                                    ? ""
+                                    : "var(--white-a1)",
                                 }}
                                 onClick={(e) => {
                                   e.preventDefault();
@@ -585,12 +579,18 @@ const ExperimentsPage = (): React.ReactElement => {
                           <SortableTH field="tags">Tags</SortableTH>
                           <SortableTH field="ownerName">Owner</SortableTH>
                           <SortableTH field="date">Date</SortableTH>
-                          <SortableTH
-                            field="statusSortOrder"
-                            style={{ minWidth: "150px" }}
-                          >
-                            Status
-                          </SortableTH>
+                          {needsStatusColumn && needsResultColumn ? (
+                            <>
+                              <SortableTH field="statusSortOrder">
+                                Status
+                              </SortableTH>
+                              <th></th>
+                            </>
+                          ) : needsStatusColumn || needsResultColumn ? (
+                            <SortableTH field="statusSortOrder">
+                              Status
+                            </SortableTH>
+                          ) : null}
                         </tr>
                       </thead>
                       <tbody>
@@ -693,9 +693,25 @@ const ExperimentsPage = (): React.ReactElement => {
                                   : ""}{" "}
                                 {date(e.date)}
                               </td>
-                              <td className="nowrap" data-title="Status:">
-                                <ExperimentStatusIndicator experimentData={e} />
-                              </td>
+                              {needsStatusColumn ? (
+                                <td className="nowrap" data-title="Status:">
+                                  {e.statusIndicator.tooltip &&
+                                  !e.statusIndicator.detailedStatus ? (
+                                    <Tooltip body={e.statusIndicator.tooltip}>
+                                      {e.statusIndicator.status}
+                                    </Tooltip>
+                                  ) : (
+                                    e.statusIndicator.status
+                                  )}
+                                </td>
+                              ) : null}
+                              {needsResultColumn ? (
+                                <td className="nowrap" data-title="Details:">
+                                  <ExperimentStatusDetailsWithDot
+                                    statusIndicatorData={e.statusIndicator}
+                                  />
+                                </td>
+                              ) : null}
                             </tr>
                           );
                         })}

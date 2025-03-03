@@ -1,4 +1,4 @@
-import { snowflakeCreateTableOptions } from "enterprise";
+import { snowflakeCreateTableOptions } from "shared/enterprise";
 import { SnowflakeConnectionParams } from "back-end/types/integrations/snowflake";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { runSnowflakeQuery } from "back-end/src/services/snowflake";
@@ -26,7 +26,7 @@ export default class Snowflake extends SqlIntegration {
     return "snowflake";
   }
   getSensitiveParamKeys(): string[] {
-    return ["password"];
+    return ["password", "privateKey", "privateKeyPassword"];
   }
   runQuery(sql: string): Promise<QueryResponse> {
     return runSnowflakeQuery(this.params, sql);
