@@ -1,4 +1,4 @@
-import { MidExperimentPowerCalculationResult } from "enterprise/src/power";
+import { MidExperimentPowerCalculationResult } from "shared/enterprise";
 import { BanditResult } from "back-end/src/validators/experiments";
 import {
   MetricSettingsForStatsEngine,

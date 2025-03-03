@@ -1,6 +1,4 @@
 import crypto from "crypto";
-import fs from "fs";
-import path from "path";
 import fetch from "node-fetch";
 import type Stripe from "stripe";
 import pino from "pino";
@@ -10,6 +8,7 @@ import { stringToBoolean } from "shared/util";
 import { ProxyAgent } from "proxy-agent";
 import cloneDeep from "lodash/cloneDeep";
 import { getLicenseByKey, LicenseModel } from "./models/licenseModel";
+import { LICENSE_PUBLIC_KEY } from "./public-key";
 
 export const LICENSE_SERVER_URL =
   process.env.LICENSE_SERVER_URL ||
@@ -366,17 +365,7 @@ export function orgHasPremiumFeature(
 }
 
 function getPublicKey(): Buffer {
-  try {
-    const data = fs.readFileSync(
-      path.join(__dirname, "..", "license_public_key.pem")
-    );
-    return data;
-  } catch (err) {
-    logger.error(
-      "Failed to find Growthbook public key file for license verification"
-    );
-    throw err;
-  }
+  return Buffer.from(LICENSE_PUBLIC_KEY);
 }
 
 function getVerifiedLicenseData(key: string): Partial<LicenseInterface> {

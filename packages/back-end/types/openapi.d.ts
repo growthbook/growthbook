@@ -996,6 +996,8 @@ export interface components {
       /** Format: date-time */
       dateUpdated: string;
       name: string;
+      /** @enum {string} */
+      type: "standard" | "multi-armed-bandit";
       project: string;
       hypothesis: string;
       description: string;
@@ -1108,6 +1110,9 @@ export interface components {
         releasedVariationId: string;
         excludeFromPayload: boolean;
       };
+      /** @enum {string} */
+      shareLevel?: "public" | "organization";
+      publicUrl?: string;
     };
     ExperimentSnapshot: {
       id: string;
@@ -3703,6 +3708,8 @@ export interface operations {
                 /** Format: date-time */
                 dateUpdated: string;
                 name: string;
+                /** @enum {string} */
+                type: "standard" | "multi-armed-bandit";
                 project: string;
                 hypothesis: string;
                 description: string;
@@ -3815,6 +3822,9 @@ export interface operations {
                   releasedVariationId: string;
                   excludeFromPayload: boolean;
                 };
+                /** @enum {string} */
+                shareLevel?: "public" | "organization";
+                publicUrl?: string;
               })[];
           }) & {
             limit: number;
@@ -3916,6 +3926,8 @@ export interface operations {
             })[];
           /** @description Controls whether regression adjustment (CUPED) is enabled for experiment analyses */
           regressionAdjustmentEnabled?: boolean;
+          /** @enum {string} */
+          shareLevel?: "public" | "organization";
         };
       };
     };
@@ -3930,6 +3942,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @enum {string} */
+              type: "standard" | "multi-armed-bandit";
               project: string;
               hypothesis: string;
               description: string;
@@ -4042,6 +4056,9 @@ export interface operations {
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
               };
+              /** @enum {string} */
+              shareLevel?: "public" | "organization";
+              publicUrl?: string;
             };
           };
         };
@@ -4067,6 +4084,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @enum {string} */
+              type: "standard" | "multi-armed-bandit";
               project: string;
               hypothesis: string;
               description: string;
@@ -4179,6 +4198,9 @@ export interface operations {
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
               };
+              /** @enum {string} */
+              shareLevel?: "public" | "organization";
+              publicUrl?: string;
             };
           };
         };
@@ -4278,6 +4300,8 @@ export interface operations {
             })[];
           /** @description Controls whether regression adjustment (CUPED) is enabled for experiment analyses */
           regressionAdjustmentEnabled?: boolean;
+          /** @enum {string} */
+          shareLevel?: "public" | "organization";
         };
       };
     };
@@ -4292,6 +4316,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @enum {string} */
+              type: "standard" | "multi-armed-bandit";
               project: string;
               hypothesis: string;
               description: string;
@@ -4404,6 +4430,9 @@ export interface operations {
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
               };
+              /** @enum {string} */
+              shareLevel?: "public" | "organization";
+              publicUrl?: string;
             };
           };
         };
@@ -5358,6 +5387,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @enum {string} */
+              type: "standard" | "multi-armed-bandit";
               project: string;
               hypothesis: string;
               description: string;
@@ -5470,6 +5501,9 @@ export interface operations {
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
               };
+              /** @enum {string} */
+              shareLevel?: "public" | "organization";
+              publicUrl?: string;
             };
           };
         };

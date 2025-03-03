@@ -1,9 +1,7 @@
 import { SDKLanguage } from "back-end/types/sdk-connection";
-import { useState } from "react";
 import { paddedVersionString } from "@growthbook/growthbook";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { DocLink } from "@/components/DocLink";
-import SelectField from "@/components/Forms/SelectField";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Link from "@/components/Radix/Link";
 
@@ -14,6 +12,7 @@ export default function GrowthBookSetupCodeSnippet({
   apiHost,
   encryptionKey,
   remoteEvalEnabled,
+  eventTracker = "GA4",
 }: {
   language: SDKLanguage;
   version?: string;
@@ -21,30 +20,14 @@ export default function GrowthBookSetupCodeSnippet({
   apiHost: string;
   encryptionKey?: string;
   remoteEvalEnabled: boolean;
+  eventTracker: string;
 }) {
   const featuresEndpoint = apiHost + "/api/features/" + apiKey;
   const trackingComment = "TODO: Use your real analytics tracking system";
 
-  const [eventTracker, setEventTracker] = useState("GA4");
-
   if (language.match(/^nocode/)) {
     return (
       <>
-        <div className="form-inline mb-3">
-          <SelectField
-            label="Event Tracking System"
-            labelClassName="mr-2"
-            options={[
-              { label: "Google Analytics 4", value: "GA4" },
-              { label: "Segment.io", value: "segment" },
-              { label: "Other", value: "other" },
-            ]}
-            sort={false}
-            value={eventTracker}
-            onChange={(value) => setEventTracker(value)}
-          />
-        </div>
-
         {eventTracker === "other" ? (
           <>
             You will need to add your own custom experiment tracking callback
@@ -79,6 +62,15 @@ window.growthbook_config.trackingCallback = (experiment, result) => {
             </Link>{" "}
             to make sure the experiment event data is passed to Google
             Analytics.
+          </div>
+        ) : eventTracker === "GTM" ? (
+          <div>
+            Create a custom event trigger in Google Tag Manager to track
+            experiment events to GA4. See our guide to{" "}
+            <DocLink docSection="gtmCustomTracking">
+              custom event tracking with GTM
+            </DocLink>
+            .
           </div>
         ) : (
           <div>

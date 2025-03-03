@@ -1,13 +1,13 @@
 ---
-title: GrowthBook DevTools - Chrome Extension for Feature Flags & A/B Testing
-description: Learn how to use GrowthBook DevTools, a Chrome extension for inspecting, debugging, and modifying feature flags and A/B tests in real time. Improve experiment workflows effortlessly.
-sidebar_label: DevTools Chrome Extension
+title: GrowthBook DevTools - Browser Extension for Feature Flags & A/B Testing
+description: Learn how to use GrowthBook DevTools, a browser extension (Chrome and Firefox) for inspecting, debugging, and modifying feature flags and A/B tests in real time. Improve experiment workflows effortlessly.
+sidebar_label: DevTools Browser Extension
 slug: chrome-extension
 ---
 
 import MaxWidthImage from "@site/src/components/MaxWidthImage";
 
-GrowthBook DevTools are a Chrome extension that helps you inspect, debug, and modify feature flags and experiments in real time. Whether you're troubleshooting an experiment or tweaking a feature flag, DevTools gives you full visibility and control—right in your browser.
+GrowthBook DevTools is a browser extension for Chrome and Firefox that helps you inspect, debug, and modify feature flags and experiments in real time. Whether you're troubleshooting an experiment or tweaking a feature flag, DevTools gives you full visibility and control—right in your browser.
 
 <video autoPlay loop muted style={{width: '100%', height: "auto", aspectRatio: 16/9, border: "1px solid var(--color-border)"}} width={1920} height={1080}>
     <source src="/videos/devtools-demo.mp4" type="video/mp4" />
@@ -15,7 +15,7 @@ GrowthBook DevTools are a Chrome extension that helps you inspect, debug, and mo
 
 ## Requirements
 
-GrowthBook DevTools is compatible with Chrome, Edge, Arc, and most other browsers that enable Chrome extensions.
+GrowthBook DevTools is compatible with Chrome (including Edge, Arc, and most other browsers that enable Chrome extensions) and Firefox.
 
 It works with most GrowthBook client SDKs, including the HTML Script Tag, JavaScript SDK, and React SDK (client-rendered).
 
@@ -29,9 +29,11 @@ This allows DevTools to connect and display feature flags, experiments, and attr
 
 ## Installation
 
-GrowthBook DevTools is available on the [Chrome Web Store](https://chromewebstore.google.com/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia). To install:
+The GrowthBook DevTools browser extension is available for both Chrome and Firefox.
 
-- Click **Add to Chrome**
+GrowthBook DevTools is available for Chrome on the [Chrome Web Store](https://chromewebstore.google.com/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) and for Firefox on [addons.mozilla.org](https://addons.mozilla.org/en-US/firefox/addon/growthbook-devtools/). To install:
+
+- Click **Add to Chrome** / **Add to Firefox**
 - Confirm the installation when prompted
 
 Once installed, GrowthBook DevTools automatically detects and connects to the GrowthBook SDK whenever it’s active on a website ✨
@@ -53,11 +55,11 @@ A green dot on the GrowthBook icon means DevTools are successfully connected.
 
 ![Quick access devtools](/images/devtools-quickaccess.webp)
 
-### 2. Chrome Developer Tools Panel
+### 2. Developer Tools Panel
 
-Ideal for when you need more space or want to inspect feature flags alongside other Chrome Developer Tools.
+Ideal for when you need more space or want to inspect feature flags alongside other browser developer tools.
 
-- Open Chrome Developer Tools with `Cmd` + `Option` + `I` (Mac) or `Ctrl` + `Shift` + `I` (Windows/Linux).
+- Open the Developer Tools with `Cmd` + `Option` + `I` (Mac) or `Ctrl` + `Shift` + `I` (Windows/Linux).
 - Click the **GrowthBook** tab in the Developer Tools panel. (If it’s hidden, check the overflow menu ».)
 
 ![Chrome devtools panel](/images/devtools-panel.webp)
@@ -171,7 +173,7 @@ GrowthBook DevTools works great out of the box, but if you want even more power,
 To enables these features:
 
 - Click on the cog icon ⚙️
-- Add a personal access token. (Use the **Access Token** link to create a token in GrowthBook.)
+- Add a Personal Access Token. (Use the **Access Token** link to create a token in GrowthBook.)
 - If self-hosting, uncheck **GrowthBook Cloud** and enter your API details.
 - Click **Save**.
 
