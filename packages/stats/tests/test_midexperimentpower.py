@@ -29,6 +29,7 @@ from gbstats.models.statistics import (
 from gbstats.power.midexperimentpower import (
     MidExperimentPowerConfig,
     MidExperimentPower,
+    MidExperimentPowerUseExperimentData,
 )
 
 
@@ -128,3 +129,57 @@ class TestMidExperimentPower(TestCase):
             )
         else:
             raise ValueError("scaling_factor_bayes is None")
+
+
+class TestMidExperimentPowerUseExperimentData(TestCase):
+    def setUp(self):
+        n_a = 1000
+        n_b = 1000
+        stat_a_seq = SampleMeanStatistic(
+            n=n_a, sum=1827.1147009267286, sum_squares=99289.75051582431
+        )
+        stat_b_seq = SampleMeanStatistic(
+            n=n_b, sum=2236.14907837543, sum_squares=104082.6977047063
+        )
+
+        config = SequentialConfig(
+            difference_type="relative",
+            traffic_percentage=1,
+            phase_length_days=1,
+            total_users=None,
+            alpha=0.05,
+            test_value=0,
+        )
+        result = SequentialTwoSidedTTest(
+            stat_a_seq, stat_b_seq, config=config
+        ).compute_result()
+
+        num_goal_metrics = 1
+        num_variations = 2
+        seq_power_config = MidExperimentPowerConfig(
+            target_power=0.8,
+            target_mde=1,
+            sequential=True,
+            sequential_tuning_parameter=5000,
+            num_goal_metrics=num_goal_metrics,
+            num_variations=num_variations,
+        )
+
+        self.power_object = MidExperimentPowerUseExperimentData(
+            stat_a_seq, stat_b_seq, result, config, seq_power_config
+        )
+
+    def test_calculate_midexperiment_power_seq(self):
+        scaling_factor_true = 1.265625
+        self.result_seq = self.power_object.calculate_scaling_factor()
+        if self.result_seq.scaling_factor:
+            self.assertAlmostEqual(
+                self.power_object.power(self.result_seq.scaling_factor),
+                0.80073386288385,
+                places=5,
+            )
+            self.assertAlmostEqual(
+                self.result_seq.scaling_factor, scaling_factor_true, places=5
+            )
+        else:
+            raise ValueError("scaling_factor_seq is None")

@@ -15,6 +15,7 @@ import { eachDayOfInterval, formatISO, subDays } from "date-fns";
 
 export interface MidExperimentPowerParams {
   alpha: number;
+  pValueCorrected: boolean;
   sequential: boolean;
   sequentialTuningParameter: number;
   daysRemaining: number;
@@ -34,6 +35,7 @@ export interface MidExperimentSingleVariationParams {
 
 export interface MidExperimentPowerParamsSingle {
   alpha: number;
+  pValueCorrected: boolean;
   sequential: boolean;
   sequentialTuningParameter: number;
   daysRemaining: number;
@@ -144,6 +146,13 @@ export function calculateMidExperimentPowerSingle(
       "New daily users must be greater than 0."
     );
   }
+  if (params.daysRemaining <= 0) {
+    return calculateMidExperimentPowerSingleError(
+      metricId,
+      variation,
+      "Days remaining must be greater than 0."
+    );
+  }
   const response = params.variation;
   if (response?.errorMessage) {
     return calculateMidExperimentPowerSingleError(
@@ -225,6 +234,7 @@ export function calculateMidExperimentPowerSingle(
     /*bayesian power*/
     totalPower = calculateMidExperimentPowerBayes(
       params.alpha,
+      params.pValueCorrected,
       params.numVariations,
       params.numGoalMetrics,
       targetMDE,
@@ -234,27 +244,52 @@ export function calculateMidExperimentPowerSingle(
     );
   } else {
     /*freq power*/
-    let halfwidth: number;
     if (params.sequential) {
-      const s2 = sigmahat2Delta * firstPeriodPairwiseSampleSize;
-      const nTotal =
-        firstPeriodPairwiseSampleSize * (scalingFactorLowPowerWarning + 1);
-      halfwidth = sequentialIntervalHalfwidth(
-        s2,
-        nTotal,
-        params.sequentialTuningParameter,
-        params.alpha / numTests
-      );
+      if (response.deltaPosterior === undefined) {
+        return calculateMidExperimentPowerSingleError(
+          metricId,
+          variation,
+          "Missing deltaPosterior and sequential = True."
+        );
+      }
+      if (response.sigma2Posterior === undefined) {
+        return calculateMidExperimentPowerSingleError(
+          metricId,
+          variation,
+          "Missing sigma2Posterior and sequential = True."
+        );
+      }
+      if (response.sigma2Posterior === 0) {
+        return calculateMidExperimentPowerSingleError(
+          metricId,
+          variation,
+          "sigma2Posterior cannot be 0."
+        );
+      }
+      const powerParams: MidExperimentPowerParamsSingleSeq = {
+        alpha: params.alpha,
+        pValueCorrected: params.pValueCorrected,
+        sequentialTuningParameter: params.sequentialTuningParameter,
+        numGoalMetrics: params.numGoalMetrics,
+        numVariations: params.numVariations,
+        sigmahat2Delta: response.sigmahat2Delta,
+        deltaPosterior: response.deltaPosterior,
+        sigma2Posterior: response.sigma2Posterior,
+        firstPeriodPairwiseSampleSize: firstPeriodPairwiseSampleSize,
+        targetMDE: response.targetMDE,
+        scalingFactor: scalingFactorLowPowerWarning,
+      };
+      totalPower = calculateMidExperimentPowerSeq(powerParams);
     } else {
-      halfwidth =
+      const halfwidth =
         Math.sqrt(adjustedVariance) *
         normal.quantile(1 - params.alpha / (2 * numTests), 0, 1);
+      totalPower = calculateMidExperimentPowerFreq(
+        targetMDE,
+        halfwidth,
+        adjustedVariance
+      );
     }
-    totalPower = calculateMidExperimentPowerFreq(
-      targetMDE,
-      halfwidth,
-      adjustedVariance
-    );
   }
   /*calculate users needed for additional duration*/
   const additionalUsersNeeded = Math.ceil(
@@ -273,8 +308,10 @@ export function calculateMidExperimentPowerSingle(
   return powerResults;
 }
 
-function calculateMidExperimentPowerBayes(
+/*this method does not use experimental data, as it does not control for multiple looks*/
+export function calculateMidExperimentPowerBayes(
   alpha: number,
+  pValueCorrected: boolean,
   numVariations: number,
   numGoalMetrics: number,
   targetMDE: number,
@@ -282,7 +319,12 @@ function calculateMidExperimentPowerBayes(
   priorLiftMean: number,
   priorLiftVariance: number
 ): number {
-  const multiplier = calculateMultiplier(alpha, numVariations, numGoalMetrics);
+  const multiplier = calculateMultiplier(
+    alpha,
+    pValueCorrected,
+    numVariations,
+    numGoalMetrics
+  );
   const posterior_precision = 1 / priorLiftVariance + 1 / variance;
   const num1 = variance * Math.sqrt(posterior_precision) * multiplier;
   const num2 = (variance * priorLiftMean) / priorLiftVariance;
@@ -293,7 +335,8 @@ function calculateMidExperimentPowerBayes(
   return powerPos + powerNeg;
 }
 
-function calculateMidExperimentPowerFreq(
+/*this method does not use experimental data, as it does not control for multiple looks*/
+export function calculateMidExperimentPowerFreq(
   targetMDE: number,
   halfwidth: number,
   variance: number
@@ -308,12 +351,83 @@ function calculateMidExperimentPowerFreq(
   return powerPos + powerNeg;
 }
 
-function calculateMultiplier(
-  alpha: number,
+export interface MidExperimentPowerParamsSingleSeq {
+  alpha: number;
+  pValueCorrected: boolean;
+  sequentialTuningParameter: number;
+  numGoalMetrics: number;
+  numVariations: number;
+  sigmahat2Delta: number;
+  deltaPosterior: number;
+  sigma2Posterior: number;
+  firstPeriodPairwiseSampleSize: number;
+  targetMDE: number;
+  scalingFactor: number; //use scalingFactorLowPowerWarning
+}
+
+function calculateNumTests(
+  pValueCorrected: boolean,
   numVariations: number,
   numGoalMetrics: number
 ): number {
-  const numTests = (numVariations - 1) * numGoalMetrics;
+  return pValueCorrected ? (numVariations - 1) * numGoalMetrics : 1;
+}
+
+/*this method uses experimental data, as it controls for multiple looks*/
+export function calculateMidExperimentPowerSeq(
+  params: MidExperimentPowerParamsSingleSeq
+): number {
+  const {
+    alpha,
+    pValueCorrected,
+    sequentialTuningParameter,
+    numGoalMetrics,
+    numVariations,
+    sigmahat2Delta,
+    deltaPosterior,
+    sigma2Posterior,
+    firstPeriodPairwiseSampleSize,
+    targetMDE,
+    scalingFactor,
+  } = params;
+  const numTests = calculateNumTests(
+    pValueCorrected,
+    numVariations,
+    numGoalMetrics
+  );
+  const s2 = sigmahat2Delta * firstPeriodPairwiseSampleSize;
+  const nTotal = firstPeriodPairwiseSampleSize * (scalingFactor + 1);
+  const halfwidth = sequentialIntervalHalfwidth(
+    s2,
+    nTotal,
+    sequentialTuningParameter,
+    alpha / numTests
+  );
+  const marginalVar = sigma2Posterior + sigmahat2Delta / scalingFactor;
+  const num1 = (halfwidth * marginalVar) / sigma2Posterior;
+  const num2 =
+    ((sigmahat2Delta / scalingFactor) * deltaPosterior) / sigma2Posterior;
+  const num3 = targetMDE;
+  const vPrime = sigmahat2Delta / scalingFactor;
+  const den = Math.sqrt(vPrime);
+  const numPos = num1 - num2 - num3;
+  const numNeg = -num1 - num2 - num3;
+  const powerPos = 1 - normal.cdf(numPos / den, 0, 1);
+  const powerNeg = normal.cdf(numNeg / den, 0, 1);
+  return powerPos + powerNeg;
+}
+
+function calculateMultiplier(
+  alpha: number,
+  pValueCorrected: boolean,
+  numVariations: number,
+  numGoalMetrics: number
+): number {
+  const numTests = calculateNumTests(
+    pValueCorrected,
+    numVariations,
+    numGoalMetrics
+  );
   return normal.quantile(1 - alpha / (2 * numTests), 0, 1);
 }
 
@@ -324,6 +438,7 @@ export function calculateMidExperimentPower(
     sequentialTuningParameter,
     sequential,
     alpha,
+    pValueCorrected,
     daysRemaining,
     firstPeriodSampleSize,
     newDailyUsers,
@@ -366,6 +481,7 @@ export function calculateMidExperimentPower(
         const powerParams: MidExperimentPowerParamsSingle = {
           sequential: sequential,
           alpha: alpha,
+          pValueCorrected: pValueCorrected,
           sequentialTuningParameter: sequentialTuningParameter,
           daysRemaining: daysRemaining,
           firstPeriodSampleSize: firstPeriodSampleSize,
@@ -480,12 +596,15 @@ export function analyzeExperimentPower({
     0
   );
 
+  const pValueCorrected = analysis.settings.pValueCorrection != null;
+
   const power = calculateMidExperimentPower({
     sequentialTuningParameter:
       analysis.settings.sequentialTestingTuningParameter ??
       DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     sequential: analysis.settings.sequentialTesting ?? false,
     alpha: analysis.settings.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
+    pValueCorrected: pValueCorrected,
     daysRemaining: targetDaysRemaining,
     firstPeriodSampleSize: firstPeriodSampleSize,
     newDailyUsers: newDailyUsers,

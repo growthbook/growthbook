@@ -23,6 +23,7 @@ from gbstats.bayesian.bandits import (
 
 from gbstats.power.midexperimentpower import (
     MidExperimentPower,
+    MidExperimentPowerUseExperimentData,
     MidExperimentPowerConfig,
 )
 
@@ -348,18 +349,22 @@ def analyze_metric_df(
                     sequential=analysis.sequential_testing_enabled,
                     sequential_tuning_parameter=analysis.sequential_tuning_parameter,
                 )
-                mid_experiment_power = MidExperimentPower(
-                    test.stat_a, test.stat_b, res, config, power_config
-                )
-
+                if analysis.sequential_testing_enabled:
+                    mid_experiment_power = MidExperimentPowerUseExperimentData(
+                        test.stat_a, test.stat_b, res, config, power_config
+                    )
+                else:
+                    mid_experiment_power = MidExperimentPower(
+                        test.stat_a, test.stat_b, res, config, power_config
+                    )
                 s[
                     f"v{i}_first_period_pairwise_users"
                 ] = mid_experiment_power.pairwise_sample_size
                 s[f"v{i}_target_mde"] = metric.target_mde
                 s[f"v{i}_sigmahat_2_delta"] = mid_experiment_power.sigmahat_2_delta
                 # need to uncomment this after I have added these attributes
-                # s[f"v{i}_delta_posterior"] = mid_experiment_power.delta_posterior
-                # s[f"v{i}_sigma_2_posterior"] = mid_experiment_power.sigma_2_posterior
+                s[f"v{i}_delta_posterior"] = mid_experiment_power.delta_posterior
+                s[f"v{i}_sigma_2_posterior"] = mid_experiment_power.sigma_2_posterior
                 if mid_experiment_power.prior_effect:
                     s[f"v{i}_prior_proper"] = mid_experiment_power.prior_effect.proper
                     s[f"v{i}_prior_lift_mean"] = mid_experiment_power.prior_effect.mean
