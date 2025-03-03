@@ -1,4 +1,4 @@
-import { CommercialFeature } from "enterprise";
+import { CommercialFeature } from "shared/enterprise";
 import React from "react";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";

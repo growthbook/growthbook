@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Flex } from "@radix-ui/themes";
 import { FaCheckCircle } from "react-icons/fa";
 import { PiCaretRight } from "react-icons/pi";
-import { CommercialFeature } from "enterprise";
+import { CommercialFeature } from "shared/enterprise";
 import { growthbook } from "@/services/utils";
 import { useUser } from "@/services/UserContext";
 import { getGrowthBookBuild, isCloud } from "@/services/env";

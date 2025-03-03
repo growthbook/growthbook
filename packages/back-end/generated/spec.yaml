@@ -1540,6 +1540,11 @@ paths:
                 regressionAdjustmentEnabled:
                   type: boolean
                   description: Controls whether regression adjustment (CUPED) is enabled for experiment analyses
+                shareLevel:
+                  type: string
+                  enum:
+                    - public
+                    - organization
       responses:
         '200':
           content:
@@ -1791,6 +1796,11 @@ paths:
                 regressionAdjustmentEnabled:
                   type: boolean
                   description: Controls whether regression adjustment (CUPED) is enabled for experiment analyses
+                shareLevel:
+                  type: string
+                  enum:
+                    - public
+                    - organization
       responses:
         '200':
           content:
@@ -5757,6 +5767,7 @@ components:
         - dateCreated
         - dateUpdated
         - name
+        - type
         - project
         - hypothesis
         - description
@@ -5781,6 +5792,11 @@ components:
           format: date-time
         name:
           type: string
+        type:
+          type: string
+          enum:
+            - standard
+            - multi-armed-bandit
         project:
           type: string
         hypothesis:
@@ -5929,6 +5945,13 @@ components:
               type: string
             excludeFromPayload:
               type: boolean
+        shareLevel:
+          type: string
+          enum:
+            - public
+            - organization
+        publicUrl:
+          type: string
     ExperimentSnapshot:
       type: object
       required:

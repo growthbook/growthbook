@@ -75,6 +75,9 @@ const docSections = {
   customMarkdown: "/using/growthbook-best-practices#custom-markdown",
   savedGroups: "/features/targeting#saved-groups",
   ga4BigQuery: "/guide/GA4-google-analytics",
+  gtmSetup: "/guide/google-tag-manager-and-growthbook",
+  gtmCustomTracking:
+    "/guide/google-tag-manager-and-growthbook#4-tracking-via-datalayer-and-gtm",
   apiPostEnvironment: "/api#tag/environments/operation/postEnvironment",
   idLists: "/features/targeting#id-lists",
 };
