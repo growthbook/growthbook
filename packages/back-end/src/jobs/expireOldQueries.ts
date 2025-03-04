@@ -12,7 +12,10 @@ import {
   findRunningPastExperimentsByQueryId,
   updatePastExperiments,
 } from "back-end/src/models/PastExperimentsModel";
-import { getStaleQueries } from "back-end/src/models/QueryModel";
+import {
+  getStaleQueries,
+  getStaleQueuedQueries,
+} from "back-end/src/models/QueryModel";
 import {
   findReportsByQueryId,
   updateReport,
@@ -20,7 +23,8 @@ import {
 import { trackJob } from "back-end/src/services/otel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
-const JOB_NAME = "expireOldQueries";
+const RUNNING_QUERIES_JOB_NAME = "expireOldQueries";
+const QUEUED_QUERIES_JOB_NAME = "expireQueuedQueries";
 
 function updateQueryStatus(queries: Queries, ids: Set<string>) {
   queries.forEach((q) => {
@@ -30,8 +34,9 @@ function updateQueryStatus(queries: Queries, ids: Set<string>) {
   });
 }
 
-const expireOldQueries = trackJob(JOB_NAME, async () => {
-  const queries = await getStaleQueries();
+const expireQueries = async (
+  queries: { id: string; organization: string }[]
+) => {
   const queryIds = new Set(queries.map((q) => q.id));
   const orgIds = new Set(queries.map((q) => q.organization));
 
@@ -99,13 +104,30 @@ const expireOldQueries = trackJob(JOB_NAME, async () => {
       error: "Queries were interupted. Please try refreshing the list.",
     });
   }
+};
+
+const expireQueuedQueriesJob = trackJob(QUEUED_QUERIES_JOB_NAME, async () => {
+  expireQueries(await getStaleQueuedQueries());
 });
 
-export default async function (agenda: Agenda) {
-  agenda.define(JOB_NAME, expireOldQueries);
+const expireOldQueriesJob = trackJob(RUNNING_QUERIES_JOB_NAME, async () => {
+  expireQueries(await getStaleQueries());
+});
 
-  const job = agenda.create(JOB_NAME, {});
+export async function expireOldQueries(agenda: Agenda) {
+  agenda.define(RUNNING_QUERIES_JOB_NAME, expireOldQueriesJob);
+
+  const job = agenda.create(RUNNING_QUERIES_JOB_NAME, {});
   job.unique({});
   job.repeatEvery("1 minute");
+  await job.save();
+}
+
+export async function expireQueuedQueries(agenda: Agenda) {
+  agenda.define(QUEUED_QUERIES_JOB_NAME, expireQueuedQueriesJob);
+
+  const job = agenda.create(RUNNING_QUERIES_JOB_NAME, {});
+  job.unique({});
+  job.repeatEvery("24 hours");
   await job.save();
 }
