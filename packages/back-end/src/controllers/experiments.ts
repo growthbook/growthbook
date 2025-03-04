@@ -1450,7 +1450,11 @@ export async function postExperimentStatus(
     status === "running" &&
     phases?.length > 0
   ) {
-    Object.assign(changes, getChangesToStartExperiment(context, experiment));
+    const additionalChanges: Changeset = await getChangesToStartExperiment(
+      context,
+      experiment
+    );
+    Object.assign(changes, additionalChanges);
   }
   // If starting or drafting a stopped experiment, clear the phase end date
   // and perform any needed bandit cleanup

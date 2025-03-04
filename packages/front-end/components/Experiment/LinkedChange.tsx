@@ -106,7 +106,7 @@ export default function LinkedChange({
                         experiment?.status === "draft" &&
                         hasVisualEditorFeature &&
                         vc && (
-                          <>
+                          <Box onClick={(e) => e.stopPropagation()}>
                             <OpenVisualEditorLink
                               visualChangeset={vc}
                               useLink={true}
@@ -126,7 +126,7 @@ export default function LinkedChange({
                               }
                             />
                             <Box>&middot;</Box>
-                          </>
+                          </Box>
                         )}
                       <Box className="text-muted">
                         {(changes?.length || 0) > 0
@@ -140,19 +140,34 @@ export default function LinkedChange({
                     {changeType === "visual" &&
                       vc?.id &&
                       deleteVisualChangeset && (
-                        <DeleteButton
-                          className="btn-sm ml-4"
-                          useRadix={true}
-                          text="Delete"
-                          stopPropagation={true}
-                          onClick={() => {
-                            deleteVisualChangeset(vc.id);
-                          }}
-                          displayName="Visual Changes"
-                        />
+                        <Box onClick={(e) => e.stopPropagation()}>
+                          <DeleteButton
+                            className="btn-sm ml-4"
+                            useRadix={true}
+                            text="Delete"
+                            stopPropagation={true}
+                            onClick={() => {
+                              deleteVisualChangeset(vc.id);
+                            }}
+                            displayName="Visual Changes"
+                          />
+                        </Box>
                       )}
                     {!expanded && (
-                      <Button variant="ghost">Expand to edit</Button>
+                      <>
+                        <Button variant="ghost">Edit details</Button>
+                      </>
+                    )}
+                    {canEditVisualChangesets && vc && (
+                      <Box onClick={(e) => e.stopPropagation()}>
+                        <OpenVisualEditorLink
+                          visualChangeset={vc}
+                          useLink={true}
+                          button={
+                            <Button variant="soft">Launch Visual Editor</Button>
+                          }
+                        />
+                      </Box>
                     )}
                   </Flex>
                 </>

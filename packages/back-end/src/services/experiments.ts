@@ -37,7 +37,7 @@ import {
   isFactMetricId,
   isMetricJoinable,
 } from "shared/experiments";
-import { orgHasPremiumFeature } from "enterprise";
+import { orgHasPremiumFeature } from "shared/enterprise";
 import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
 import { MetricPriorSettings } from "back-end/types/fact-table";
@@ -94,6 +94,7 @@ import {
 } from "back-end/types/experiment";
 import { findDimensionById } from "back-end/src/models/DimensionModel";
 import {
+  APP_ORIGIN,
   DEFAULT_CONVERSION_WINDOW_HOURS,
   EXPERIMENT_REFRESH_FREQUENCY,
 } from "back-end/src/util/secrets";
@@ -1327,6 +1328,8 @@ export async function toExperimentApiInterface(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface
 ): Promise<ApiExperiment> {
+  const appOrigin = (APP_ORIGIN ?? "").replace(/\/$/, "");
+
   let project: ProjectInterface | null = null;
   const organization = context.org;
   if (experiment.project) {
@@ -1342,6 +1345,7 @@ export async function toExperimentApiInterface(
   return {
     id: experiment.id,
     name: experiment.name || "",
+    type: experiment.type || "standard",
     project: experiment.project || "",
     hypothesis: experiment.hypothesis || "",
     description: experiment.description || "",
@@ -1424,6 +1428,12 @@ export async function toExperimentApiInterface(
             releasedVariationId: experiment.releasedVariationId || "",
             excludeFromPayload: !!experiment.excludeFromPayload,
           },
+        }
+      : null),
+    shareLevel: experiment.shareLevel || "organization",
+    ...(experiment.shareLevel === "public" && experiment.uid
+      ? {
+          publicUrl: `${appOrigin}/public/e/${experiment.uid}`,
         }
       : null),
   };
@@ -2436,6 +2446,7 @@ export function postExperimentApiPayloadToInterface(
     regressionAdjustmentEnabled:
       payload.regressionAdjustmentEnabled ??
       !!organization?.settings?.regressionAdjustmentEnabled,
+    shareLevel: payload.shareLevel,
   };
 }
 
@@ -2475,6 +2486,7 @@ export function updateExperimentApiPayloadToInterface(
     statsEngine,
     regressionAdjustmentEnabled,
     secondaryMetrics,
+    shareLevel,
   } = payload;
   return {
     ...(trackingKey ? { trackingKey } : {}),
@@ -2548,6 +2560,7 @@ export function updateExperimentApiPayloadToInterface(
           }),
         }
       : {}),
+    ...(shareLevel !== undefined ? { shareLevel } : {}),
     dateUpdated: new Date(),
   };
 }
@@ -2734,12 +2747,14 @@ export async function getChangesToStartExperiment(
 
   const changes: Changeset = {};
 
-  // use the current date as the phase start date
-  phases[lastIndex] = {
-    ...phases[lastIndex],
-    dateStarted: new Date(),
-  };
-  changes.phases = phases;
+  // If the experiment doesn't have any results yet, reset the phase start date to now
+  if (!experiment.analysisSummary?.snapshotId) {
+    phases[lastIndex] = {
+      ...phases[lastIndex],
+      dateStarted: new Date(),
+    };
+    changes.phases = phases;
+  }
 
   // Bandit-specific changes
   if (experiment.type === "multi-armed-bandit") {
@@ -2810,14 +2825,24 @@ export async function getExperimentAnalysisSummary({
   const overallTraffic = experimentSnapshot.health?.traffic?.overall;
   const snapshotHealthPower = experimentSnapshot.health?.power;
 
-  const totalUsers = overallTraffic?.variationUnits?.reduce(
-    (acc, a) => acc + a,
-    0
-  );
+  const standardSnapshot =
+    experimentSnapshot.type === "standard" &&
+    experimentSnapshot.analyses?.[0]?.results?.length === 1;
+  const totalUsers =
+    (overallTraffic?.variationUnits.length
+      ? overallTraffic.variationUnits.reduce((acc, a) => acc + a, 0)
+      : standardSnapshot
+      ? // fall back to first result for standard snapshots if overall traffic
+        // is missing
+        experimentSnapshot?.analyses?.[0]?.results?.[0]?.variations?.reduce(
+          (acc, a) => acc + a.users,
+          0
+        )
+      : null) ?? null;
 
   const srm = getSRMValue(experiment.type ?? "standard", experimentSnapshot);
 
-  if (overallTraffic && totalUsers !== undefined && srm !== undefined) {
+  if (overallTraffic && srm !== undefined) {
     analysisSummary.health = {
       srm,
       multipleExposures: experimentSnapshot.multipleExposures,

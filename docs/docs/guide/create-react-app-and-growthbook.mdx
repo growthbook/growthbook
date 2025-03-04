@@ -147,7 +147,7 @@ And wrap the img element in an IfFeatureEnabled component:
 
 Now, if you refresh your app, the A/B test should be running! If you're part of the lucky 50% that are in the B variation (no logo), it should be pretty obvious. If you happen to be in the A variations, you can verify you're in the test by looking in DevTools for our trackingCallback console.log.
 
-You can test out different variations by deleting the visitor_id from localStorage and refreshing your app. Repeat a few times and you should see each version of the page about half of the time. If you want an easier and faster way to QA the variations, you can download the GrowthBook Chrome DevTools Extension.
+You can test out different variations by deleting the visitor_id from localStorage and refreshing your app. Repeat a few times and you should see each version of the page about half of the time. If you want an easier and faster way to QA the variations, you can download the GrowthBook DevTools Browser Extension.
 
 ## 5. Analyze Results
 
@@ -166,5 +166,5 @@ There's so much more you can do with GrowthBook beyond a simple on/off A/B test.
 
 - Add complex targeting and rollout rules for your features
 - Read the full [React SDK Docs](/lib/react) for more details and ways to use feature flags
-- Install the [Chrome DevTools Extension](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) to test different variations and scenarios
+- Install the [Chrome](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) or [Firefox](https://addons.mozilla.org/en-US/firefox/addon/growthbook-devtools/) DevTools Browser Extension to test different variations and scenarios
 - Read about the [powerful statistics engine](/statistics/overview) that is used to analyze experiment results.

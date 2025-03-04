@@ -94,10 +94,13 @@ export default function ColumnList({ factTable }: Props) {
           <Button
             color="link"
             onClick={async () => {
-              await apiCall(`/fact-tables/${factTable.id}`, {
-                method: "PUT",
-                body: JSON.stringify({}),
-              });
+              await apiCall(
+                `/fact-tables/${factTable.id}?forceColumnRefresh=1`,
+                {
+                  method: "PUT",
+                  body: JSON.stringify({}),
+                }
+              );
               mutateDefinitions();
             }}
           >

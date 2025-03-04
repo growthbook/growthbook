@@ -746,6 +746,7 @@ Triggered when an experiment is created
             dateCreated: string;
             dateUpdated: string;
             name: string;
+            type: "standard" | "multi-armed-bandit";
             project: string;
             hypothesis: string;
             description: string;
@@ -847,6 +848,8 @@ Triggered when an experiment is created
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
             } | undefined;
+            shareLevel?: ("public" | "organization") | undefined;
+            publicUrl?: string | undefined;
         };
     };
     user: {
@@ -885,6 +888,7 @@ Triggered when an experiment is updated
             dateCreated: string;
             dateUpdated: string;
             name: string;
+            type: "standard" | "multi-armed-bandit";
             project: string;
             hypothesis: string;
             description: string;
@@ -986,12 +990,15 @@ Triggered when an experiment is updated
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
             } | undefined;
+            shareLevel?: ("public" | "organization") | undefined;
+            publicUrl?: string | undefined;
         };
         previous_attributes: {
             id?: string | undefined;
             dateCreated?: string | undefined;
             dateUpdated?: string | undefined;
             name?: string | undefined;
+            type?: ("standard" | "multi-armed-bandit") | undefined;
             project?: string | undefined;
             hypothesis?: string | undefined;
             description?: string | undefined;
@@ -1093,6 +1100,8 @@ Triggered when an experiment is updated
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
             } | undefined) | undefined;
+            shareLevel?: (("public" | "organization") | undefined) | undefined;
+            publicUrl?: (string | undefined) | undefined;
         };
     };
     user: {
@@ -1131,6 +1140,7 @@ Triggered when an experiment is deleted
             dateCreated: string;
             dateUpdated: string;
             name: string;
+            type: "standard" | "multi-armed-bandit";
             project: string;
             hypothesis: string;
             description: string;
@@ -1232,6 +1242,8 @@ Triggered when an experiment is deleted
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
             } | undefined;
+            shareLevel?: ("public" | "organization") | undefined;
+            publicUrl?: string | undefined;
         };
     };
     user: {

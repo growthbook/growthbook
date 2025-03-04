@@ -59,6 +59,7 @@ export default function JSONValidation({ feature, mutate }: Props) {
           close={() => setUpgradeModal(false)}
           reason="To get access to JSON Validation,"
           source="json-validation"
+          commercialFeature="json-validation"
         />
       )}
       <Flex align="center">

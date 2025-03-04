@@ -4,7 +4,7 @@ import {
   getMetricResultStatus,
   getRunningExperimentStatus,
 } from "shared/experiments";
-import { accountFeatures, getEffectiveAccountPlan } from "enterprise";
+import { accountFeatures, getEffectiveAccountPlan } from "shared/enterprise";
 import { StatsEngine } from "back-end/types/stats";
 import { Context } from "back-end/src/models/BaseModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
@@ -491,6 +491,8 @@ export const notifyExperimentChange = async ({
     const lastStatus = getRunningExperimentStatus({
       experimentData: {
         ...experiment,
+        // use current experiment but the old analysis summary to compute
+        // old experiment status
         analysisSummary: lastAnalysisSummary ? lastAnalysisSummary : undefined,
       },
       healthSettings,

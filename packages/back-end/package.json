@@ -21,7 +21,7 @@
     "generate-dummy-data": "ts-node ./test/data-generator/new-generator.ts",
     "test-integration-queries": "./test/integrations/integration-query-test.sh",
     "watch-compile": "swc src -w --out-dir dist",
-    "watch-dev": "delay 1 && nodemon --exec 'node --enable-source-maps' --watch dist --watch '../shared/dist' --watch '../enterprise/dist' -e js ./dist/server.js",
+    "watch-dev": "delay 1 && nodemon --exec 'node --enable-source-maps' --watch dist --watch '../shared/dist' -e js ./dist/server.js",
     "migrate-encryption-key": "node dist/scripts/migrate-encryption-key.js",
     "generate-api-models": "node src/scripts/generate-doc-models-for-openapi-schemas.mjs",
     "generate-api-types": "yarn generate-api-models && swagger-cli bundle -t yaml src/api/openapi/openapi.tmp.yaml -o generated/spec.yaml && node src/scripts/generate-openapi.mjs"
@@ -66,7 +66,6 @@
     "crypto-js": "^4.2.0",
     "date-fns": "^2.15.0",
     "dotenv": "^8.2.0",
-    "enterprise": "0.0.1",
     "errorhandler": "^1.5.1",
     "express": "^4.17.1",
     "express-async-handler": "^1.1.4",
@@ -165,5 +164,5 @@
     "swagger-cli": "^4.0.4",
     "ts-node": "^10.9.1"
   },
-  "license": "MIT"
+  "license": "Mixed"
 }
