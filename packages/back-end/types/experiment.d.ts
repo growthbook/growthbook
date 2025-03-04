@@ -30,14 +30,6 @@ export {
   UpdateTemplateProps,
 } from "back-end/src/routers/experiment-template/template.validators";
 
-export interface EditMetricsFormInterface {
-  goalMetrics: string[];
-  secondaryMetrics: string[];
-  guardrailMetrics: string[];
-  activationMetric: string;
-  metricOverrides: MetricOverride[];
-}
-
 export type DecisionFrameworkExperimentRecommendationStatus =
   | { status: "days-left"; daysLeft: number }
   | { status: "ship-now" }

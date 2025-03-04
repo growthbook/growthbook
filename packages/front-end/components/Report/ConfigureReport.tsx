@@ -1,12 +1,8 @@
-import {
-  ExperimentSnapshotReportInterface,
-  ExperimentSnapshotReportInterfaceWithoutMetrics,
-} from "back-end/types/report";
+import { ExperimentSnapshotReportInterface } from "back-end/types/report";
 import React, { RefObject, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   AttributionModel,
-  EditMetricsFormInterface,
   ExperimentInterfaceStringDates,
 } from "back-end/types/experiment";
 import { getValidDate } from "shared/dates";
@@ -65,9 +61,7 @@ export default function ConfigureReport({
   const { apiCall } = useAuth();
   const [datePickerKey, incrementDatePickerKey] = useIncrementer();
 
-  const form = useForm<
-    Partial<ExperimentSnapshotReportInterfaceWithoutMetrics>
-  >({
+  const form = useForm<Partial<ExperimentSnapshotReportInterface>>({
     defaultValues: {
       ...report,
       experimentAnalysisSettings: {
@@ -85,15 +79,6 @@ export default function ConfigureReport({
             )
           : null,
       },
-    },
-  });
-  const metricForm = useForm<EditMetricsFormInterface>({
-    defaultValues: {
-      goalMetrics: report.experimentAnalysisSettings.goalMetrics,
-      secondaryMetrics: report.experimentAnalysisSettings.secondaryMetrics,
-      guardrailMetrics: report.experimentAnalysisSettings.guardrailMetrics,
-      activationMetric: report.experimentAnalysisSettings.activationMetric,
-      metricOverrides: report.experimentAnalysisSettings.metricOverrides,
     },
   });
   const submit = form.handleSubmit(async (value) => {
@@ -118,7 +103,6 @@ export default function ConfigureReport({
               d.getTimezoneOffset() * 60 * 1000
           )
         : null,
-      ...metricForm.getValues(),
     };
 
     await apiCall<{
@@ -174,9 +158,9 @@ export default function ConfigureReport({
   const isBandit = experiment?.type === "multi-armed-bandit";
 
   const hasMetrics =
-    metricForm.watch("goalMetrics").length > 0 ||
-    metricForm.watch("guardrailMetrics").length > 0 ||
-    metricForm.watch("secondaryMetrics").length > 0;
+    form.watch("experimentAnalysisSettings.goalMetrics").length > 0 ||
+    form.watch("experimentAnalysisSettings.guardrailMetrics").length > 0 ||
+    form.watch("experimentAnalysisSettings.secondaryMetrics").length > 0;
 
   if (upgradeModal) {
     return (
@@ -438,17 +422,32 @@ export default function ConfigureReport({
               noPercentileGoalMetrics={
                 experiment?.type === "multi-armed-bandit"
               }
-              goalMetrics={metricForm.watch("goalMetrics") ?? []}
-              secondaryMetrics={metricForm.watch("secondaryMetrics") ?? []}
-              guardrailMetrics={metricForm.watch("guardrailMetrics") ?? []}
+              goalMetrics={
+                form.watch("experimentAnalysisSettings.goalMetrics") ?? []
+              }
+              secondaryMetrics={
+                form.watch("experimentAnalysisSettings.secondaryMetrics") ?? []
+              }
+              guardrailMetrics={
+                form.watch("experimentAnalysisSettings.guardrailMetrics") ?? []
+              }
               setGoalMetrics={(goalMetrics) =>
-                metricForm.setValue("goalMetrics", goalMetrics)
+                form.setValue(
+                  "experimentAnalysisSettings.goalMetrics",
+                  goalMetrics
+                )
               }
               setSecondaryMetrics={(secondaryMetrics) =>
-                metricForm.setValue("secondaryMetrics", secondaryMetrics)
+                form.setValue(
+                  "experimentAnalysisSettings.secondaryMetrics",
+                  secondaryMetrics
+                )
               }
               setGuardrailMetrics={(guardrailMetrics) =>
-                metricForm.setValue("guardrailMetrics", guardrailMetrics)
+                form.setValue(
+                  "experimentAnalysisSettings.guardrailMetrics",
+                  guardrailMetrics
+                )
               }
             />
             <hr className="my-4" />
@@ -483,9 +482,9 @@ export default function ConfigureReport({
               />
             )}
             {hasMetrics && !isBandit && experiment && (
-              <div className="form-group mb-2">
+              <div className="form-group mt-4 mb-2">
                 <PremiumTooltip commercialFeature="override-metrics">
-                  <label className="font-weight-bold mb-1">
+                  <label className="font-weight-bold mb-0">
                     Metric Overrides
                   </label>
                 </PremiumTooltip>
@@ -495,7 +494,18 @@ export default function ConfigureReport({
                 </small>
                 <MetricsOverridesSelector
                   experiment={experiment}
-                  form={metricForm}
+                  form={form}
+                  fieldMap={{
+                    goalMetrics: "experimentAnalysisSettings.goalMetrics",
+                    guardrailMetrics:
+                      "experimentAnalysisSettings.guardrailMetrics",
+                    secondaryMetrics:
+                      "experimentAnalysisSettings.secondaryMetrics",
+                    activationMetric:
+                      "experimentAnalysisSettings.activationMetric",
+                    metricOverrides:
+                      "experimentAnalysisSettings.metricOverrides",
+                  }}
                   disabled={!hasOverrideMetricsFeature}
                   setHasMetricOverrideRiskError={(v: boolean) =>
                     setHasMetricOverrideRiskError(v)
@@ -574,9 +584,14 @@ export default function ConfigureReport({
               }
               initialOption="None"
               onlyBinomial
-              value={metricForm.watch("activationMetric") || ""}
+              value={
+                form.watch("experimentAnalysisSettings.activationMetric") || ""
+              }
               onChange={(value) =>
-                metricForm.setValue("activationMetric", value || "")
+                form.setValue(
+                  "experimentAnalysisSettings.activationMetric",
+                  value || ""
+                )
               }
               helpText="Users must convert on this metric before being included"
             />

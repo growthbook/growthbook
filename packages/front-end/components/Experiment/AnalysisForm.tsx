@@ -7,7 +7,6 @@ import {
 } from "react-hook-form";
 import {
   AttributionModel,
-  EditMetricsFormInterface,
   ExperimentInterfaceStringDates,
 } from "back-end/types/experiment";
 import { FaQuestionCircle } from "react-icons/fa";
@@ -38,6 +37,7 @@ import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
 import {
+  EditMetricsFormInterface,
   fixMetricOverridesBeforeSaving,
   getDefaultMetricOverridesFormValue,
 } from "./EditMetricsForm";
@@ -779,11 +779,13 @@ const AnalysisForm: FC<{
             {hasMetrics && !isBandit && (
               <div className="form-group mb-2">
                 <PremiumTooltip commercialFeature="override-metrics">
-                                <label className="font-weight-bold mb-1">Metric Overrides</label>
-
+                  <label className="font-weight-bold mb-1">
+                    Metric Overrides
+                  </label>
                 </PremiumTooltip>
                 <small className="form-text text-muted mb-2">
-                    Override metric behaviors within this experiment. Leave any fields empty that you do not want to override.
+                  Override metric behaviors within this experiment. Leave any
+                  fields empty that you do not want to override.
                 </small>
                 <MetricsOverridesSelector
                   experiment={experiment}

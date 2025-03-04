@@ -1,7 +1,6 @@
 import { FC, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
-  EditMetricsFormInterface,
   ExperimentInterfaceStringDates,
   MetricOverride,
 } from "back-end/types/experiment";
@@ -25,6 +24,14 @@ import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
 import MetricSelector from "./MetricSelector";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
+
+export interface EditMetricsFormInterface {
+  goalMetrics: string[];
+  secondaryMetrics: string[];
+  guardrailMetrics: string[];
+  activationMetric: string;
+  metricOverrides: MetricOverride[];
+}
 
 export function getDefaultMetricOverridesFormValue(
   overrides: MetricOverride[],
