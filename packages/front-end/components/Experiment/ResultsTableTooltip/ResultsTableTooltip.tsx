@@ -1,3 +1,4 @@
+import Link from "next/link";
 import React, { DetailedHTMLProps, HTMLAttributes, useEffect } from "react";
 import {
   ExperimentReportVariationWithIndex,
@@ -15,7 +16,7 @@ import {
   BsArrowReturnRight,
 } from "react-icons/bs";
 import clsx from "clsx";
-import { FaArrowDown, FaArrowUp } from "react-icons/fa";
+import { FaArrowDown, FaArrowUp, FaQuestionCircle } from "react-icons/fa";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { RxInfoCircled } from "react-icons/rx";
 import { MdSwapCalls } from "react-icons/md";
@@ -595,10 +596,15 @@ export default function ResultsTableTooltip({
                         data.rowResults.riskMeta.riskStatus
                       )}
                     >
-                      <HiOutlineExclamationCircle
-                        size={18}
-                        className="flag-icon"
-                      />
+                      <Link
+                        href="https://docs.growthbook.io/using/experimenting#bayesian-results"
+                        target="_blank"
+                      >
+                        <FaQuestionCircle
+                          size={12}
+                          style={{ marginRight: "8px" }}
+                        />
+                      </Link>
                       <div className="risk">
                         <div className="risk-value">
                           risk: {data.rowResults.riskMeta.relativeRiskFormatted}
