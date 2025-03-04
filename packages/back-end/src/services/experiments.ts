@@ -2842,7 +2842,7 @@ export async function getExperimentAnalysisSummary({
 
   const srm = getSRMValue(experiment.type ?? "standard", experimentSnapshot);
 
-  if (overallTraffic && srm !== undefined) {
+  if (srm !== undefined) {
     analysisSummary.health = {
       srm,
       multipleExposures: experimentSnapshot.multipleExposures,
