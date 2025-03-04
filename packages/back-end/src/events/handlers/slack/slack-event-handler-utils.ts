@@ -490,7 +490,7 @@ const buildSlackMessageForExperimentWarningEvent = (
           data.usersCount
         )} users (${percentFormatter(
           data.percent
-        )}%) saw multiple variations and were automatically removed from results.`;
+        )}) saw multiple variations and were automatically removed from results.`;
 
       return {
         text: text(data.experimentName),

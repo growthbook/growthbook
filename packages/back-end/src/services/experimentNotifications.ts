@@ -414,8 +414,8 @@ export const notifySignificance = async ({
 export const notifyDecision = async ({
   context,
   experiment,
-  lastStatus,
   currentStatus,
+  lastStatus,
 }: {
   context: Context;
   experiment: ExperimentInterface;

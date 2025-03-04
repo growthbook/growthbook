@@ -37,6 +37,7 @@ export type DecisionFrameworkExperimentRecommendationStatus =
   | { status: "ready-for-review" };
 
 export type ExperimentUnhealthyData = {
+  // if key exists, the status is unhealthy
   srm?: boolean;
   multipleExposures?: { rawDecimal: number; totalUsers: number };
   lowPowered?: boolean;

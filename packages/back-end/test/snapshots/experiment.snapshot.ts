@@ -86,14 +86,3 @@ export const experimentSnapshot = {
   fallbackAttribute: "",
   minBucketVersion: 0,
 };
-
-export const experimentSnapshotHealthReadyForDecision = {
-  srm: 0.5,
-  multipleExposures: 0,
-  totalUsers: 1000,
-  power: {
-    type: "success",
-    isLowPowered: false,
-    additionalDaysNeeded: 0,
-  },
-};
