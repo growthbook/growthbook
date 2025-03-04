@@ -94,7 +94,7 @@ export default function CodeSnippetModal({
   const [installationOpen, setInstallationOpen] = useState(true);
   const [setupOpen, setSetupOpen] = useState(true);
   const [usageOpen, setUsageOpen] = useState(true);
-  const [eventTracker, setEventTracker] = useState("GA4");
+  const [eventTracker, setEventTracker] = useState("");
   const [attributesOpen, setAttributesOpen] = useState(true);
 
   const settings = useOrgSettings();
@@ -381,6 +381,7 @@ export default function CodeSnippetModal({
                     encryptionKey={encryptionKey}
                     remoteEvalEnabled={remoteEvalEnabled}
                     eventTracker={eventTracker}
+                    setEventTracker={setEventTracker}
                   />
                 </div>
               )}
@@ -406,6 +407,7 @@ export default function CodeSnippetModal({
                     hashSecureAttributes={hashSecureAttributes}
                     secureAttributeSalt={secureAttributeSalt}
                     version={version}
+                    eventTracker={eventTracker}
                   />
 
                   {hashSecureAttributes && secureAttributes.length > 0 && (
