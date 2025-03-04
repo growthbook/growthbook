@@ -17,6 +17,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { postBulkImportFactsValidator } from "back-end/src/validators/openapi";
 import { getCreateMetricPropsFromBody } from "back-end/src/api/fact-metrics/postFactMetric";
 import { getUpdateFactMetricPropsFromBody } from "back-end/src/api/fact-metrics/updateFactMetric";
+import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
 
 export const postBulkImportFacts = createApiRequestHandler(
   postBulkImportFactsValidator
@@ -102,7 +103,9 @@ export const postBulkImportFacts = createApiRequestHandler(
           }
 
           await updateFactTable(req.context, existing, data);
-          await queueFactTableColumnsRefresh(existing);
+          if (needsColumnRefresh(data)) {
+            await queueFactTableColumnsRefresh(existing);
+          }
           factTableMap.set(existing.id, {
             ...existing,
             ...data,

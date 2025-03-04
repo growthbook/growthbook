@@ -2749,12 +2749,14 @@ export async function getChangesToStartExperiment(
 
   const changes: Changeset = {};
 
-  // use the current date as the phase start date
-  phases[lastIndex] = {
-    ...phases[lastIndex],
-    dateStarted: new Date(),
-  };
-  changes.phases = phases;
+  // If the experiment doesn't have any results yet, reset the phase start date to now
+  if (!experiment.analysisSummary?.snapshotId) {
+    phases[lastIndex] = {
+      ...phases[lastIndex],
+      dateStarted: new Date(),
+    };
+    changes.phases = phases;
+  }
 
   // Bandit-specific changes
   if (experiment.type === "multi-armed-bandit") {
@@ -2825,14 +2827,24 @@ export async function updateExperimentAnalysisSummary({
   const overallTraffic = experimentSnapshot.health?.traffic?.overall;
   const snapshotHealthPower = experimentSnapshot.health?.power;
 
-  const totalUsers = overallTraffic?.variationUnits?.reduce(
-    (acc, a) => acc + a,
-    0
-  );
+  const standardSnapshot =
+    experimentSnapshot.type === "standard" &&
+    experimentSnapshot.analyses?.[0]?.results?.length === 1;
+  const totalUsers =
+    (overallTraffic?.variationUnits.length
+      ? overallTraffic.variationUnits.reduce((acc, a) => acc + a, 0)
+      : standardSnapshot
+      ? // fall back to first result for standard snapshots if overall traffic
+        // is missing
+        experimentSnapshot?.analyses?.[0]?.results?.[0]?.variations?.reduce(
+          (acc, a) => acc + a.users,
+          0
+        )
+      : null) ?? null;
 
   const srm = getSRMValue(experiment.type ?? "standard", experimentSnapshot);
 
-  if (overallTraffic && totalUsers !== undefined && srm !== undefined) {
+  if (overallTraffic && srm !== undefined) {
     analysisSummary.health = {
       srm,
       multipleExposures: experimentSnapshot.multipleExposures,
