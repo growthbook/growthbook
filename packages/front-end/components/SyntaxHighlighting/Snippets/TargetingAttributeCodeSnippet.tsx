@@ -6,9 +6,7 @@ import { paddedVersionString } from "@growthbook/growthbook";
 import { Box, Flex } from "@radix-ui/themes";
 import { useAttributeSchema } from "@/services/features";
 import Code from "@/components/SyntaxHighlighting/Code";
-import { pluginSupportedTrackers } from "@/components/SyntaxHighlighting/Snippets/EventTrackerSelector";
 import { DocLink } from "@/components/DocLink";
-import Tooltip from "@/components/Tooltip/Tooltip";
 
 function phpArrayFormat(json: unknown) {
   return stringify(json)
@@ -94,20 +92,15 @@ export default function TargetingAttributeCodeSnippet({
   secureAttributeSalt = "",
   version,
   eventTracker,
-  apiHost,
-  apiKey,
 }: {
   language: SDKLanguage;
   hashSecureAttributes?: boolean;
   secureAttributeSalt?: string;
   version?: string;
   eventTracker?: string;
-  apiHost: string;
-  apiKey: string;
 }) {
   let introText =
     "Replace the placeholders with your real targeting attribute values. This enables you to target feature flags based on user attributes.";
-  const introElements: JSX.Element[] = [];
 
   const attributeSchema = useAttributeSchema();
   const exampleAttributes = getExampleAttributes({
@@ -116,97 +109,76 @@ export default function TargetingAttributeCodeSnippet({
     secureAttributeSalt,
   });
 
+  const defaultAttributes = [
+    "id",
+    "url",
+    "path",
+    "host",
+    "query",
+    "deviceType",
+    "browser",
+    "utmSource",
+    "utmMedium",
+    "utmCampaign",
+    "utmTerm",
+    "utmContent",
+  ];
+  const additionalAttributes = Object.entries(exampleAttributes).filter(
+    ([k]) => !defaultAttributes.includes(k)
+  );
+
   const attributesSnippets: JSX.Element[] = [];
 
-  const usePlugins =
-    paddedVersionString(version) >= paddedVersionString("1.3.0");
+  // Start of the Language Specific Snippets
+  if (language === "javascript" || language === "react") {
+    const usePlugins =
+      paddedVersionString(version) >= paddedVersionString("1.4.0");
 
-  if (
-    usePlugins &&
-    pluginSupportedTrackers.includes(eventTracker ?? "") &&
-    language === "javascript"
-  ) {
-    introText =
-      "Or, you can define attributes manually. Replace the placeholders with your real targeting attribute values. This enables you to target feature flags based on user attributes.";
-    introElements.unshift(
-      <>
-        <Box>
-          You can use GrowthBook&apos;s plugins to automatically set some
-          targeting attributes{" "}
-          <Tooltip
-            body={
-              <>
-                <p>The following attributes will be set by the plugin:</p>
-                <ul>
-                  <li>
-                    <strong>id</strong>
-                  </li>
-                  <li>
-                    <strong>url</strong>
-                  </li>
-                  <li>
-                    <strong>path</strong>
-                  </li>
-                  <li>
-                    <strong>host</strong>
-                  </li>
-                  <li>
-                    <strong>query</strong>
-                  </li>
-                  <li>
-                    <strong>deviceType</strong>
-                  </li>
-                  <li>
-                    <strong>browser</strong>
-                  </li>
-                  <li>
-                    <strong>utmSource</strong>
-                  </li>
-                  <li>
-                    <strong>utmMedium</strong>
-                  </li>
-                  <li>
-                    <strong>utmCampaign</strong>
-                  </li>
-                  <li>
-                    <strong>utmTerm</strong>
-                  </li>
-                  <li>
-                    <strong>utmContent</strong>
-                  </li>
-                </ul>
-              </>
-            }
+    if (usePlugins) {
+      introText = "";
+      attributesSnippets.push(
+        <>
+          <Box mb="2">
+            Targeting attributes allow you to target feature flags to specific
+            users or groups of users.
+          </Box>
+          <Box>
+            The Auto Attributes Plugin automatically sets some common targeting
+            attributes for you. Read more about this{" "}
+            <DocLink docSection="javascriptAutoAttributes">here</DocLink>.
+          </Box>
+        </>
+      );
+
+      if (additionalAttributes.length) {
+        attributesSnippets.push(
+          <>
+            <Box>
+              The following attributes must be added manually. Replace
+              placeholders with your real targeting values.
+            </Box>
+            <Code
+              language="javascript"
+              code={`growthbook.updateAttributes(${stringify(
+                Object.fromEntries(additionalAttributes)
+              )});`.trim()}
+            />
+          </>
+        );
+      }
+    } else {
+      attributesSnippets.push(
+        <>
+          <Code
+            language="javascript"
+            code={`growthbook.setAttributes(${stringify(exampleAttributes)});`}
           />
-        </Box>
-        <Box my="2">
-          Read more about this{" "}
-          <DocLink docSection="javascriptAutoAttributes">here</DocLink>.
-        </Box>
-        <Code
-          language="javascript"
-          code={`
-import { autoAttributesPlugin } from "@growthbook/growthbook/plugins";
+        </>
+      );
+    }
 
-const gb = new GrowthBook({
-  apiHost: ${JSON.stringify(apiHost)},
-  clientKey: ${JSON.stringify(apiKey)},
-  plugins: [
-    autoAttributesPlugin({}),
-  ],
-});
-`.trim()}
-        />
-      </>
-    );
-  }
-
-  const extraInfoAfter: JSX.Element[] = [];
-
-  // if the language has an event tracker dropdown (ie: javascript) and may require additional config to get the ID, we show the additional steps required.
-  if (language === "javascript") {
     if (eventTracker === "mixpanel") {
-      extraInfoAfter.push(
+      attributesSnippets.push(
         <Box>
           If you want to use Mixpanel&apos;s distinct ID for assignment you need
           to pass this id to GrowthBook. This might need to be adjusted to wait
@@ -218,9 +190,8 @@ const gb = new GrowthBook({
 mixpanel.init("[YOUR PROJECT TOKEN]", {
   debug: true,
   loaded: function (mx) {
-    growthbook.setAttributes({
-      ...growthbook.getAttributes(),
-      id: mx.get_distinct_id(),
+    growthbook.updateAttributes({
+      distinct_id: mx.get_distinct_id(),
     });
   },
 });  
@@ -229,7 +200,7 @@ mixpanel.init("[YOUR PROJECT TOKEN]", {
         </Box>
       );
     } else if (eventTracker === "rudderstack") {
-      extraInfoAfter.push(
+      attributesSnippets.push(
         <Box>
           If you want to use RudderStack&apos;s id for assignment (recommended)
           the ID needs to be passed to GrowthBook. This may need to be adjusted
@@ -237,14 +208,14 @@ mixpanel.init("[YOUR PROJECT TOKEN]", {
           <Code
             language="javascript"
             code={`// Add in Rudderstack anonId when loaded
-rudderstack.getAnonymousId().then((id) => {
-  growthbook.setAttributes({ ...growthbook.getAttributes(), id });
+rudderstack.getAnonymousId().then((anonymous_id) => {
+  growthbook.updateAttributes({ anonymous_id });
 });`.trim()}
           />
         </Box>
       );
     } else if (eventTracker === "snowplow") {
-      extraInfoAfter.push(
+      attributesSnippets.push(
         <Box>
           Snowplow requires an addition step to add the ID attribute from
           Snowplow
@@ -252,18 +223,15 @@ rudderstack.getAnonymousId().then((id) => {
             language="javascript"
             code={`// Add in Snowplow domainId when loaded
 window.snowplow(function() {
-  var sp = this.sp;
-  var domainUserId = sp.getDomainUserId();
-  growthbook.setAttributes({
-    ...growthbook.getAttributes(),
-    id: domainUserId,
+  growthbook.updateAttributes({
+    domain_user_id: this.sp.getDomainUserId(),
   });
 });`.trim()}
           />
         </Box>
       );
     } else if (eventTracker === "matomo") {
-      extraInfoAfter.push(
+      attributesSnippets.push(
         <Box>
           If you want to use Matomo&apos;s visitor ID for assignment
           (recommended) you need to pass in this ID to GrowthBook.
@@ -274,10 +242,8 @@ let visitor_id;
 if ("_paq" in window) {
   _paq.push([
     function () {
-      visitor_id = this.getVisitorId();
-      growthbook.setAttributes({
-        ...growthbook.getAttributes(),
-        id: visitor_id,
+      growthbook.updateAttributes({
+        visitor_id: this.getVisitorId(),
       });
     },
   ]);
@@ -286,43 +252,24 @@ if ("_paq" in window) {
         </Box>
       );
     } else if (eventTracker === "amplitude") {
-      extraInfoAfter.push(
+      attributesSnippets.push(
         <Box>
           If you would like to use Amplitude&apos;s device ID for assignment
           (recommended), the ID needs to be passed to GrowthBook. This might
           need to be adjusted to wait for Amplitude to load.
           <Code
             language="javascript"
-            code={`// Add the Amplitude user id to the GrowthBook attributes when it loads:
-const ampDeviceId = amplitude.getInstance().getDeviceId();
-growthbook.setAttributes({ ...growthbook.getAttributes(), id: ampDeviceId });`.trim()}
+            code={`// Add the Amplitude device id to the GrowthBook attributes when it loads:
+growthbook.updateAttributes({ 
+  device_id: amplitude.getInstance().getDeviceId() 
+});`.trim()}
           />
         </Box>
       );
     }
   }
 
-  // Start of the Language Specific Snippets
-
   if (language.match(/^nocode/)) {
-    const defaultAttributes = [
-      "id",
-      "url",
-      "path",
-      "host",
-      "query",
-      "deviceType",
-      "browser",
-      "utmSource",
-      "utmMedium",
-      "utmCampaign",
-      "utmTerm",
-      "utmContent",
-    ];
-    const additionalAttributes = Object.entries(exampleAttributes).filter(
-      ([k]) => !defaultAttributes.includes(k)
-    );
-
     if (additionalAttributes.length) {
       attributesSnippets.push(
         <>
@@ -356,26 +303,6 @@ window.growthbook_config.attributes = ${stringify(
     }
   }
 
-  if (language === "javascript") {
-    attributesSnippets.push(
-      <>
-        <Code
-          language="javascript"
-          code={`growthbook.setAttributes(${stringify(exampleAttributes)});`}
-        />
-      </>
-    );
-  }
-  if (language === "react") {
-    attributesSnippets.push(
-      <>
-        <Code
-          language="tsx"
-          code={`growthbook.setAttributes(${stringify(exampleAttributes)});`}
-        />
-      </>
-    );
-  }
   if (language === "nodejs") {
     const useMultiUser =
       paddedVersionString(version) >= paddedVersionString("1.3.1");
@@ -590,9 +517,10 @@ context = %GrowthBook.Context{
     );
   }
 
-  introElements.push(<Box>{introText}</Box>);
-  attributesSnippets.unshift(...introElements);
-  attributesSnippets.push(...extraInfoAfter);
+  if (introText) {
+    attributesSnippets.unshift(<Box>{introText}</Box>);
+  }
+
   return (
     <Flex direction="column" width="100%" gap="3">
       {attributesSnippets.map((snippet, index) => (

@@ -408,8 +408,6 @@ export default function CodeSnippetModal({
                     secureAttributeSalt={secureAttributeSalt}
                     version={version}
                     eventTracker={eventTracker}
-                    apiHost={apiHost}
-                    apiKey={clientKey}
                   />
 
                   {hashSecureAttributes && secureAttributes.length > 0 && (

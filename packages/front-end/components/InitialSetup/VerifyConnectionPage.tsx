@@ -199,8 +199,6 @@ const VerifyConnectionPage = ({
                     hashSecureAttributes={hashSecureAttributes}
                     secureAttributeSalt={secureAttributeSalt}
                     version={currentConnection.sdkVersion}
-                    apiHost={apiHost}
-                    apiKey={currentConnection.key}
                   />
 
                   {hashSecureAttributes && secureAttributes.length > 0 && (
