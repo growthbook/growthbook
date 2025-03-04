@@ -1,9 +1,9 @@
 import { SDKLanguage } from "back-end/types/sdk-connection";
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import { Box } from "@radix-ui/themes";
 import Code from "@/components/SyntaxHighlighting/Code";
-import SelectField from "@/components/Forms/SelectField";
 import { DocLink } from "@/components/DocLink";
+import EventTrackerSelector from "@/components/SyntaxHighlighting/Snippets/EventTrackerSelector";
 
 export default function InstallationCodeSnippet({
   language,
@@ -31,7 +31,7 @@ export default function InstallationCodeSnippet({
   s.dataset.apiHost=${JSON.stringify(apiHost)};
   s.dataset.clientKey=${JSON.stringify(apiKey)};${
           encryptionKey
-            ? `\n   s.dataset.decryptionKey=${JSON.stringify(encryptionKey)};`
+            ? `\n  s.dataset.decryptionKey=${JSON.stringify(encryptionKey)};`
             : ""
         }${remoteEvalEnabled ? `\n  s.dataset.remoteEval="true";` : ""}
   s.src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js";
@@ -51,16 +51,19 @@ export default function InstallationCodeSnippet({
 ></script>
             `.trim();
 
-  const clientSideLanguages = [
-    "nocode-webflow",
-    "nocode-wordpress",
-    "nocode-shopify",
-    "nocode-other",
-  ];
+  const clientSideLanguages = useMemo(
+    () => [
+      "nocode-webflow",
+      "nocode-wordpress",
+      "nocode-shopify",
+      "nocode-other",
+    ],
+    []
+  );
 
   const getInstallationCodeSnippet = useCallback(
     (language: SDKLanguage) => {
-      if (eventTracker === "GTM") {
+      if (eventTracker === "GTM" && clientSideLanguages.includes(language)) {
         return (
           <>
             Add the GrowthBook snippet to your Google Tag Manager as a Custom
@@ -328,27 +331,16 @@ yarn add @growthbook/edge-utils`.trim()}
 
       return <em>Depends on your platform</em>;
     },
-    [eventTracker, nocodeSnippet]
+    [clientSideLanguages, eventTracker, nocodeSnippet]
   );
 
   return (
     <>
       {clientSideLanguages.includes(language) && (
-        <div className="form-inline mb-3">
-          <SelectField
-            label="Event Tracking System"
-            labelClassName="mr-2"
-            options={[
-              { label: "Google Analytics 4", value: "GA4" },
-              { label: "Google Analytics 4 via GTM", value: "GTM" },
-              { label: "Segment.io", value: "segment" },
-              { label: "Other", value: "other" },
-            ]}
-            sort={false}
-            value={eventTracker}
-            onChange={(value) => setEventTracker(value)}
-          />
-        </div>
+        <EventTrackerSelector
+          eventTracker={eventTracker}
+          setEventTracker={setEventTracker}
+        />
       )}
       <Box>{getInstallationCodeSnippet(language)}</Box>
     </>
