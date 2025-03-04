@@ -171,6 +171,7 @@ const NorthStar: FC<{
               includeFacts={true}
               includeGroups={false}
               excludeQuantiles={true}
+              noManual={true}
             />
           </div>
           <Field label="Title" {...form.register("title")} />
