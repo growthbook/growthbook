@@ -66,7 +66,7 @@ class TestTwoSidedTTest(TestCase):
         expected_rounded_dict = asdict(
             FrequentistTestResult(
                 expected=0.7 - 0.41,
-                ci=(0.04538, 0.53462),
+                ci=[0.04538, 0.53462],
                 uplift=Uplift("normal", 0.29, 0.12478),
                 p_value=0.02016,
             )
@@ -197,6 +197,57 @@ class TestSequentialTTest(TestCase):
         self.assertTrue(
             (result_above.ci[0] < result_near.ci[0])
             and (result_above.ci[1] > result_near.ci[1])
+        )
+
+
+class TestOneSidedGreaterTTest(TestCase):
+    def test_one_sided_ttest(self):
+        stat_a = SampleMeanStatistic(sum=1396.87, sum_squares=52377.9767, n=3407)
+        stat_b = SampleMeanStatistic(sum=2422.7, sum_squares=134698.29, n=3461)
+        result_dict = asdict(OneSidedTTest(stat_a, stat_b).compute_result())
+        expected_rounded_dict = asdict(
+            FrequentistTestResult(
+                expected=round_((0.7 - 0.41) / 0.41),
+                ci=[-0.03526, 1.44989],
+                uplift=Uplift("normal", 0.70732, 0.37879),
+                p_value=0.06191,
+            )
+        )
+
+        self.assertDictEqual(_round_result_dict(result_dict), expected_rounded_dict)
+
+    def test_one_sided_ttest_absolute(self):
+        stat_a = SampleMeanStatistic(sum=1396.87, sum_squares=52377.9767, n=3407)
+        stat_b = SampleMeanStatistic(sum=2422.7, sum_squares=134698.29, n=3461)
+        result_dict = asdict(
+            OneSidedTTest(
+                stat_a,
+                stat_b,
+                FrequentistConfig(difference_type="absolute"),
+            ).compute_result()
+        )
+        expected_rounded_dict = asdict(
+            FrequentistTestResult(
+                expected=0.7 - 0.41,
+                ci=[0.04538, 0.53462],
+                uplift=Uplift("normal", 0.29, 0.12478),
+                p_value=0.02016,
+            )
+        )
+
+        self.assertDictEqual(_round_result_dict(result_dict), expected_rounded_dict)
+
+    def test_two_sided_ttest_binom(self):
+        stat_a = ProportionStatistic(sum=14, n=28)
+        stat_b = ProportionStatistic(sum=16, n=30)
+        result_dict = asdict(TwoSidedTTest(stat_a, stat_b).compute_result())
+        expected_rounded_dict = asdict(
+            FrequentistTestResult(
+                expected=round_((16 / 30 - 0.5) / 0.5),
+                ci=[-0.47767, 0.61101],
+                uplift=Uplift("normal", 0.06667, 0.2717),
+                p_value=0.80707,
+            )
         )
 
 
