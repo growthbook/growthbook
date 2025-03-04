@@ -1,8 +1,12 @@
-import { ExperimentSnapshotReportInterface } from "back-end/types/report";
+import {
+  ExperimentSnapshotReportInterface,
+  ExperimentSnapshotReportInterfaceWithoutMetrics,
+} from "back-end/types/report";
 import React, { RefObject, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   AttributionModel,
+  EditMetricsFormInterface,
   ExperimentInterfaceStringDates,
 } from "back-end/types/experiment";
 import { getValidDate } from "shared/dates";
@@ -27,6 +31,7 @@ import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetrics
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
+import MetricsOverridesSelector from "@/components/Experiment/MetricsOverridesSelector";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBCuped, GBInfo, GBSequential } from "@/components/Icons";
@@ -37,6 +42,8 @@ import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useIncrementer } from "@/hooks/useIncrementer";
+import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 
 type TabOptions = "overview" | "metrics" | "analysis" | "variations";
 export default function ConfigureReport({
@@ -58,7 +65,9 @@ export default function ConfigureReport({
   const { apiCall } = useAuth();
   const [datePickerKey, incrementDatePickerKey] = useIncrementer();
 
-  const form = useForm<Partial<ExperimentSnapshotReportInterface>>({
+  const form = useForm<
+    Partial<ExperimentSnapshotReportInterfaceWithoutMetrics>
+  >({
     defaultValues: {
       ...report,
       experimentAnalysisSettings: {
@@ -76,6 +85,15 @@ export default function ConfigureReport({
             )
           : null,
       },
+    },
+  });
+  const metricForm = useForm<EditMetricsFormInterface>({
+    defaultValues: {
+      goalMetrics: report.experimentAnalysisSettings.goalMetrics,
+      secondaryMetrics: report.experimentAnalysisSettings.secondaryMetrics,
+      guardrailMetrics: report.experimentAnalysisSettings.guardrailMetrics,
+      activationMetric: report.experimentAnalysisSettings.activationMetric,
+      metricOverrides: report.experimentAnalysisSettings.metricOverrides,
     },
   });
   const submit = form.handleSubmit(async (value) => {
@@ -100,6 +118,7 @@ export default function ConfigureReport({
               d.getTimezoneOffset() * 60 * 1000
           )
         : null,
+      ...metricForm.getValues(),
     };
 
     await apiCall<{
@@ -118,6 +137,10 @@ export default function ConfigureReport({
   const [tab, setTab] = useState<TabOptions>("overview");
   const [useToday, setUseToday] = useState(
     !form.watch("experimentAnalysisSettings.dateEnded")
+  );
+  const [upgradeModal, setUpgradeModal] = useState(false);
+  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] = useState(
+    false
   );
 
   const { data: experimentData } = useApi<{
@@ -146,9 +169,25 @@ export default function ConfigureReport({
   const hasSequentialTestingFeature = hasCommercialFeature(
     "sequential-testing"
   );
+  const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
 
   const isBandit = experiment?.type === "multi-armed-bandit";
 
+  const hasMetrics =
+    metricForm.watch("goalMetrics").length > 0 ||
+    metricForm.watch("guardrailMetrics").length > 0 ||
+    metricForm.watch("secondaryMetrics").length > 0;
+
+  if (upgradeModal) {
+    return (
+      <UpgradeModal
+        close={() => setUpgradeModal(false)}
+        reason="To override metric conversion windows,"
+        source="override-metrics"
+        commercialFeature="override-metrics"
+      />
+    );
+  }
   return (
     <Modal
       open={true}
@@ -157,6 +196,7 @@ export default function ConfigureReport({
       header={`Edit Analysis`}
       useRadixButton={true}
       cta="Save and refresh"
+      ctaEnabled={!hasMetricOverrideRiskError}
       submit={submit}
       size="lg"
       bodyClassName="px-0 pt-0"
@@ -398,32 +438,17 @@ export default function ConfigureReport({
               noPercentileGoalMetrics={
                 experiment?.type === "multi-armed-bandit"
               }
-              goalMetrics={
-                form.watch("experimentAnalysisSettings.goalMetrics") ?? []
-              }
-              secondaryMetrics={
-                form.watch("experimentAnalysisSettings.secondaryMetrics") ?? []
-              }
-              guardrailMetrics={
-                form.watch("experimentAnalysisSettings.guardrailMetrics") ?? []
-              }
+              goalMetrics={metricForm.watch("goalMetrics") ?? []}
+              secondaryMetrics={metricForm.watch("secondaryMetrics") ?? []}
+              guardrailMetrics={metricForm.watch("guardrailMetrics") ?? []}
               setGoalMetrics={(goalMetrics) =>
-                form.setValue(
-                  "experimentAnalysisSettings.goalMetrics",
-                  goalMetrics
-                )
+                metricForm.setValue("goalMetrics", goalMetrics)
               }
               setSecondaryMetrics={(secondaryMetrics) =>
-                form.setValue(
-                  "experimentAnalysisSettings.secondaryMetrics",
-                  secondaryMetrics
-                )
+                metricForm.setValue("secondaryMetrics", secondaryMetrics)
               }
               setGuardrailMetrics={(guardrailMetrics) =>
-                form.setValue(
-                  "experimentAnalysisSettings.guardrailMetrics",
-                  guardrailMetrics
-                )
+                metricForm.setValue("guardrailMetrics", guardrailMetrics)
               }
             />
             <hr className="my-4" />
@@ -456,6 +481,34 @@ export default function ConfigureReport({
                   },
                 ]}
               />
+            )}
+            {hasMetrics && !isBandit && experiment && (
+              <div className="form-group mb-2">
+                <PremiumTooltip commercialFeature="override-metrics">
+                  <label className="font-weight-bold mb-1">
+                    Metric Overrides
+                  </label>
+                </PremiumTooltip>
+                <small className="form-text text-muted mb-2">
+                  Override metric behaviors within this experiment. Leave any
+                  fields empty that you do not want to override.
+                </small>
+                <MetricsOverridesSelector
+                  experiment={experiment}
+                  form={metricForm}
+                  disabled={!hasOverrideMetricsFeature}
+                  setHasMetricOverrideRiskError={(v: boolean) =>
+                    setHasMetricOverrideRiskError(v)
+                  }
+                />
+                {!hasOverrideMetricsFeature && (
+                  <UpgradeMessage
+                    showUpgradeModal={() => setUpgradeModal(true)}
+                    commercialFeature="override-metrics"
+                    upgradeMessage="override metrics"
+                  />
+                )}
+              </div>
             )}
           </TabsContent>
 
@@ -521,14 +574,9 @@ export default function ConfigureReport({
               }
               initialOption="None"
               onlyBinomial
-              value={
-                form.watch("experimentAnalysisSettings.activationMetric") || ""
-              }
+              value={metricForm.watch("activationMetric") || ""}
               onChange={(value) =>
-                form.setValue(
-                  "experimentAnalysisSettings.activationMetric",
-                  value || ""
-                )
+                metricForm.setValue("activationMetric", value || "")
               }
               helpText="Users must convert on this metric before being included"
             />

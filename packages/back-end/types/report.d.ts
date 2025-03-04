@@ -11,6 +11,7 @@ import {
   MetricOverride,
   Variation,
   ExperimentAnalysisSettings,
+  EditMetricsFormInterface,
 } from "./experiment";
 import { SnapshotVariation } from "./experiment-snapshot";
 import { Queries } from "./query";
@@ -38,6 +39,10 @@ export interface ExperimentSnapshotReportInterface extends ReportInterfaceBase {
   experimentMetadata: ExperimentReportMetadata;
   experimentAnalysisSettings: ExperimentReportAnalysisSettings;
 }
+
+export type ExperimentSnapshotReportInterfaceWithoutMetrics = Omit<ExperimentSnapshotReportInterface, "experimentAnalysisSettings"> & {
+  experimentAnalysisSettings: Omit<ExperimentReportAnalysisSettings, keyof EditMetricsFormInterface>;
+};
 
 export type ExperimentReportAnalysisSettings = ExperimentAnalysisSettings &
   ExperimentSnapshotReportArgs;

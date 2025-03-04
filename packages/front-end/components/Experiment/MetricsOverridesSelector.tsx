@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { EditMetricsFormInterface, ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useFieldArray, UseFormReturn } from "react-hook-form";
 import { FaTimes } from "react-icons/fa";
 import {
@@ -25,7 +25,6 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import MetricName from "@/components/Metrics/MetricName";
 import {
-  EditMetricsFormInterface,
   getDefaultMetricOverridesFormValue,
 } from "./EditMetricsForm";
 import MetricSelector from "./MetricSelector";
