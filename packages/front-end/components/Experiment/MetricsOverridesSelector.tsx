@@ -14,7 +14,6 @@ import {
   isFactMetric,
   isRetentionMetric,
 } from "shared/experiments";
-import { ExperimentSnapshotReportInterface } from "back-end/types/report";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import Toggle from "@/components/Forms/Toggle";
@@ -25,10 +24,7 @@ import { capitalizeFirstLetter } from "@/services/utils";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import MetricName from "@/components/Metrics/MetricName";
-import {
-  EditMetricsFormInterface,
-  getDefaultMetricOverridesFormValue,
-} from "./EditMetricsForm";
+import { getDefaultMetricOverridesFormValue } from "./EditMetricsForm";
 import MetricSelector from "./MetricSelector";
 
 const defaultFieldMap = {
@@ -47,9 +43,8 @@ export default function MetricsOverridesSelector({
   fieldMap = defaultFieldMap,
 }: {
   experiment: ExperimentInterfaceStringDates;
-  form: UseFormReturn<
-    EditMetricsFormInterface | Partial<ExperimentSnapshotReportInterface>
-  >;
+  // eslint-disable-next-line
+  form: UseFormReturn<any>;
   disabled: boolean;
   setHasMetricOverrideRiskError: (boolean) => void;
   fieldMap?: typeof defaultFieldMap;
