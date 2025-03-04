@@ -12,10 +12,7 @@ import {
   findRunningPastExperimentsByQueryId,
   updatePastExperiments,
 } from "back-end/src/models/PastExperimentsModel";
-import {
-  getStaleQueries,
-  getStaleQueuedQueries,
-} from "back-end/src/models/QueryModel";
+import { getStaleQueries } from "back-end/src/models/QueryModel";
 import {
   findReportsByQueryId,
   updateReport,
@@ -23,10 +20,13 @@ import {
 import { trackJob } from "back-end/src/services/otel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
-const RUNNING_QUERIES_JOB_NAME = "expireOldQueries";
-const QUEUED_QUERIES_JOB_NAME = "expireQueuedQueries";
+import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { ReportInterface } from "back-end/types/report";
+import { MetricInterface } from "back-end/types/metric";
+import { PastExperimentsInterface } from "back-end/types/past-experiments";
+const JOB_NAME = "expireOldQueries";
 
-function updateQueryStatus(queries: Queries, ids: Set<string>) {
+export function updateQueryStatus(queries: Queries, ids: Set<string>) {
   queries.forEach((q) => {
     if (ids.has(q.query)) {
       q.status = "failed";
@@ -34,20 +34,10 @@ function updateQueryStatus(queries: Queries, ids: Set<string>) {
   });
 }
 
-const expireQueries = async (
-  queries: { id: string; organization: string }[]
-) => {
-  const queryIds = new Set(queries.map((q) => q.id));
-  const orgIds = new Set(queries.map((q) => q.organization));
-
-  if (queryIds.size > 0) {
-    logger.info("Found " + queryIds.size + " stale queries");
-  } else {
-    logger.debug("Found no stale queries");
-  }
-
-  // Look for matching snapshots and update the status
-  const snapshots = await findRunningSnapshotsByQueryId([...queryIds]);
+export async function updateSnapshotsStatus(
+  snapshots: ExperimentSnapshotInterface[],
+  queryIds: Set<string>
+) {
   for (let i = 0; i < snapshots.length; i++) {
     const snapshot = snapshots[i];
     logger.info("Updating status of snapshot " + snapshot.id);
@@ -63,9 +53,12 @@ const expireQueries = async (
       context: await getContextForAgendaJobByOrgId(snapshot.organization),
     });
   }
+}
 
-  // Look for matching reports and update the status
-  const reports = await findReportsByQueryId([...queryIds]);
+export async function udpateReportsStatus(
+  reports: ReportInterface[],
+  queryIds: Set<string>
+) {
   for (let i = 0; i < reports.length; i++) {
     const report = reports[i];
     if (report.type !== "experiment") continue;
@@ -76,9 +69,12 @@ const expireQueries = async (
       queries: report.queries,
     });
   }
+}
 
-  // Look for matching metrics and update the status
-  const metrics = await findRunningMetricsByQueryId([...orgIds], [...queryIds]);
+export async function updateMetricsStatus(
+  metrics: MetricInterface[],
+  queryIds: Set<string>
+) {
   for (let i = 0; i < metrics.length; i++) {
     const metric = metrics[i];
     logger.info("Updating status of metric " + metric.id);
@@ -89,12 +85,12 @@ const expireQueries = async (
         "Queries were interupted. Please try re-running the analysis.",
     });
   }
+}
 
-  // Look for matching pastExperiments and update the status
-  const pastExperiments = await findRunningPastExperimentsByQueryId(
-    [...orgIds],
-    [...queryIds]
-  );
+export async function updatePastExperimentsStatus(
+  pastExperiments: PastExperimentsInterface[],
+  queryIds: Set<string>
+) {
   for (let i = 0; i < pastExperiments.length; i++) {
     const pastExperiment = pastExperiments[i];
     logger.info("Updating status of pastExperiment " + pastExperiment.id);
@@ -104,30 +100,44 @@ const expireQueries = async (
       error: "Queries were interupted. Please try refreshing the list.",
     });
   }
-};
-
-const expireQueuedQueriesJob = trackJob(QUEUED_QUERIES_JOB_NAME, async () => {
-  expireQueries(await getStaleQueuedQueries());
-});
-
-const expireOldQueriesJob = trackJob(RUNNING_QUERIES_JOB_NAME, async () => {
-  expireQueries(await getStaleQueries());
-});
-
-export async function expireOldQueries(agenda: Agenda) {
-  agenda.define(RUNNING_QUERIES_JOB_NAME, expireOldQueriesJob);
-
-  const job = agenda.create(RUNNING_QUERIES_JOB_NAME, {});
-  job.unique({});
-  job.repeatEvery("1 minute");
-  await job.save();
 }
 
-export async function expireQueuedQueries(agenda: Agenda) {
-  agenda.define(QUEUED_QUERIES_JOB_NAME, expireQueuedQueriesJob);
+const expireOldQueries = trackJob(JOB_NAME, async () => {
+  const queries = await getStaleQueries();
+  const queryIds = new Set(queries.map((q) => q.id));
+  const orgIds = new Set(queries.map((q) => q.organization));
 
-  const job = agenda.create(RUNNING_QUERIES_JOB_NAME, {});
+  if (queryIds.size > 0) {
+    logger.info("Found " + queryIds.size + " stale queries");
+  } else {
+    logger.debug("Found no stale queries");
+  }
+
+  // Look for matching snapshots and update the status
+  const snapshots = await findRunningSnapshotsByQueryId([...queryIds]);
+  await updateSnapshotsStatus(snapshots, queryIds);
+
+  // Look for matching reports and update the status
+  const reports = await findReportsByQueryId([...queryIds]);
+  await udpateReportsStatus(reports, queryIds);
+
+  // Look for matching metrics and update the status
+  const metrics = await findRunningMetricsByQueryId([...orgIds], [...queryIds]);
+  await updateMetricsStatus(metrics, queryIds);
+
+  // Look for matching pastExperiments and update the status
+  const pastExperiments = await findRunningPastExperimentsByQueryId(
+    [...orgIds],
+    [...queryIds]
+  );
+  await updatePastExperimentsStatus(pastExperiments, queryIds);
+});
+
+export default async function (agenda: Agenda) {
+  agenda.define(JOB_NAME, expireOldQueries);
+
+  const job = agenda.create(JOB_NAME, {});
   job.unique({});
-  job.repeatEvery("24 hours");
+  job.repeatEvery("1 minute");
   await job.save();
 }
