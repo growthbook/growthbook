@@ -130,7 +130,7 @@ export default function TargetingAttributeCodeSnippet({
       "Or, you can define attributes manually. Replace the placeholders with your real targeting attribute values. This enables you to target feature flags based on user attributes.";
     introElements.unshift(
       <>
-        <p>
+        <Box>
           You can use GrowthBook&apos;s plugins to automatically set some
           targeting attributes{" "}
           <Tooltip
@@ -178,10 +178,11 @@ export default function TargetingAttributeCodeSnippet({
               </>
             }
           />
-          <br />
+        </Box>
+        <Box my="2">
           Read more about this{" "}
           <DocLink docSection="javascriptAutoAttributes">here</DocLink>.
-        </p>
+        </Box>
         <Code
           language="javascript"
           code={`
