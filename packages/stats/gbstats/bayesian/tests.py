@@ -148,8 +148,6 @@ class EffectBayesianABTest(BayesianABTest):
         config: EffectBayesianConfig = EffectBayesianConfig(),
     ):
         super().__init__(stat_a, stat_b, config)
-        self.stat_a = stat_a
-        self.stat_b = stat_b
         self.config = config
 
     def compute_result(self):
