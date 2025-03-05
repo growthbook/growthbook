@@ -79,7 +79,10 @@ export default function AddPaymentMethodModal({
           <Text as="label" className="mb-0 pr-1">
             Set as Default Payment Method
           </Text>
-          <Tooltip body="The first payment method you add is automatically set as the default.">
+          <Tooltip
+            body="The first payment method you add is automatically set as the default."
+            shouldDisplay={numOfMethods === 0}
+          >
             <Toggle
               disabled={numOfMethods === 0}
               id={"defaultValue"}
