@@ -11,6 +11,10 @@ from gbstats.frequentist.tests import (
     SequentialConfig,
     SequentialTwoSidedTTest,
     TwoSidedTTest,
+    OneSidedTreatmentGreaterTTest,
+    OneSidedTreatmentLesserTTest,
+    SequentialOneSidedTreatmentGreaterTTest,
+    SequentialOneSidedTreatmentLesserTTest,
 )
 from gbstats.models.statistics import (
     ProportionStatistic,
@@ -201,53 +205,198 @@ class TestSequentialTTest(TestCase):
 
 
 class TestOneSidedGreaterTTest(TestCase):
+    def setUp(self):
+        self.stat_a = SampleMeanStatistic(sum=1396.87, sum_squares=52377.9767, n=3000)
+        self.stat_b = SampleMeanStatistic(sum=2422.7, sum_squares=134698.29, n=3461)
+
     def test_one_sided_ttest(self):
-        stat_a = SampleMeanStatistic(sum=1396.87, sum_squares=52377.9767, n=3407)
-        stat_b = SampleMeanStatistic(sum=2422.7, sum_squares=134698.29, n=3461)
-        result_dict = asdict(OneSidedTTest(stat_a, stat_b).compute_result())
+        result_dict = asdict(
+            OneSidedTreatmentGreaterTTest(self.stat_a, self.stat_b).compute_result()
+        )
         expected_rounded_dict = asdict(
             FrequentistTestResult(
-                expected=round_((0.7 - 0.41) / 0.41),
-                ci=[-0.03526, 1.44989],
-                uplift=Uplift("normal", 0.70732, 0.37879),
-                p_value=0.06191,
+                expected=0.5033610858562358,
+                ci=[-0.045136675850396046, np.inf],
+                uplift=Uplift(
+                    dist="normal", mean=0.5033610858562358, stddev=0.3334122146400735
+                ),
+                p_value=0.06558262868467746,
+                error_message=None,
             )
         )
-
-        self.assertDictEqual(_round_result_dict(result_dict), expected_rounded_dict)
+        self.assertDictEqual(
+            _round_result_dict(result_dict), _round_result_dict(expected_rounded_dict)
+        )
 
     def test_one_sided_ttest_absolute(self):
-        stat_a = SampleMeanStatistic(sum=1396.87, sum_squares=52377.9767, n=3407)
-        stat_b = SampleMeanStatistic(sum=2422.7, sum_squares=134698.29, n=3461)
         result_dict = asdict(
-            OneSidedTTest(
-                stat_a,
-                stat_b,
+            OneSidedTreatmentGreaterTTest(
+                self.stat_a,
+                self.stat_b,
                 FrequentistConfig(difference_type="absolute"),
             ).compute_result()
         )
         expected_rounded_dict = asdict(
             FrequentistTestResult(
-                expected=0.7 - 0.41,
-                ci=[0.04538, 0.53462],
-                uplift=Uplift("normal", 0.29, 0.12478),
-                p_value=0.02016,
+                expected=0.23437666666666668,
+                ci=[0.020791480063255735, np.inf],
+                uplift=Uplift(
+                    dist="normal", mean=0.23437666666666668, stddev=0.12983081254184736
+                ),
+                p_value=0.03554272489873023,
+                error_message=None,
             )
         )
+        self.assertDictEqual(
+            _round_result_dict(result_dict), _round_result_dict(expected_rounded_dict)
+        )
 
-        self.assertDictEqual(_round_result_dict(result_dict), expected_rounded_dict)
 
-    def test_two_sided_ttest_binom(self):
-        stat_a = ProportionStatistic(sum=14, n=28)
-        stat_b = ProportionStatistic(sum=16, n=30)
-        result_dict = asdict(TwoSidedTTest(stat_a, stat_b).compute_result())
+class TestOneSidedLesserTTest(TestCase):
+    def setUp(self):
+        self.stat_a = SampleMeanStatistic(sum=1396.87, sum_squares=52377.9767, n=3000)
+        self.stat_b = SampleMeanStatistic(sum=2422.7, sum_squares=134698.29, n=3461)
+
+    def test_one_sided_ttest(self):
+        result_dict = asdict(
+            OneSidedTreatmentLesserTTest(self.stat_a, self.stat_b).compute_result()
+        )
         expected_rounded_dict = asdict(
             FrequentistTestResult(
-                expected=round_((16 / 30 - 0.5) / 0.5),
-                ci=[-0.47767, 0.61101],
-                uplift=Uplift("normal", 0.06667, 0.2717),
-                p_value=0.80707,
+                expected=0.5033610858562358,
+                ci=[-np.inf, 1.0518588475628676],
+                uplift=Uplift(
+                    dist="normal", mean=0.5033610858562358, stddev=0.3334122146400735
+                ),
+                p_value=0.9344173713153225,
+                error_message=None,
             )
+        )
+        self.assertDictEqual(
+            _round_result_dict(result_dict), _round_result_dict(expected_rounded_dict)
+        )
+
+    def test_one_sided_ttest_absolute(self):
+        result_dict = asdict(
+            OneSidedTreatmentLesserTTest(
+                self.stat_a,
+                self.stat_b,
+                FrequentistConfig(difference_type="absolute"),
+            ).compute_result()
+        )
+        expected_rounded_dict = asdict(
+            FrequentistTestResult(
+                expected=0.23437666666666668,
+                ci=[-np.inf, 0.44796185327007765],
+                uplift=Uplift(
+                    dist="normal", mean=0.23437666666666668, stddev=0.12983081254184736
+                ),
+                p_value=0.9644572751012698,
+                error_message=None,
+            )
+        )
+        self.assertDictEqual(
+            _round_result_dict(result_dict), _round_result_dict(expected_rounded_dict)
+        )
+
+
+class TestSequentialOneSidedGreaterTTest(TestCase):
+    def setUp(self):
+        self.stat_a = SampleMeanStatistic(sum=1396.87, sum_squares=52377.9767, n=3000)
+        self.stat_b = SampleMeanStatistic(sum=2422.7, sum_squares=134698.29, n=3461)
+
+    def test_one_sided_ttest(self):
+        result_dict = asdict(
+            SequentialOneSidedTreatmentGreaterTTest(
+                self.stat_a, self.stat_b
+            ).compute_result()
+        )
+        expected_rounded_dict = asdict(
+            FrequentistTestResult(
+                expected=0.5033610858562358,
+                ci=[-0.42635008449631073, np.inf],
+                uplift=Uplift(
+                    dist="normal", mean=0.5033610858562358, stddev=0.3334122146400735
+                ),
+                p_value=0.5,
+                error_message=None,
+            )
+        )
+        self.assertDictEqual(
+            _round_result_dict(result_dict), _round_result_dict(expected_rounded_dict)
+        )
+
+    def test_one_sided_ttest_absolute(self):
+        result_dict = asdict(
+            SequentialOneSidedTreatmentGreaterTTest(
+                self.stat_a,
+                self.stat_b,
+                SequentialConfig(difference_type="absolute"),
+            ).compute_result()
+        )
+        expected_rounded_dict = asdict(
+            FrequentistTestResult(
+                expected=0.23437666666666668,
+                ci=[-0.1276531312110359, np.inf],
+                uplift=Uplift(
+                    dist="normal", mean=0.23437666666666668, stddev=0.12983081254184736
+                ),
+                p_value=0.4157426519775391,
+                error_message=None,
+            )
+        )
+        self.assertDictEqual(
+            _round_result_dict(result_dict), _round_result_dict(expected_rounded_dict)
+        )
+
+
+class TestSequentialOneSidedLesserTTest(TestCase):
+    def setUp(self):
+        self.stat_a = SampleMeanStatistic(sum=1396.87, sum_squares=52377.9767, n=3000)
+        self.stat_b = SampleMeanStatistic(sum=2422.7, sum_squares=134698.29, n=3461)
+
+    def test_one_sided_ttest(self):
+        result_dict = asdict(
+            SequentialOneSidedTreatmentLesserTTest(
+                self.stat_a, self.stat_b
+            ).compute_result()
+        )
+        expected_rounded_dict = asdict(
+            FrequentistTestResult(
+                expected=0.5033610858562358,
+                ci=[-np.inf, 1.4330722562087823],
+                uplift=Uplift(
+                    dist="normal", mean=0.5033610858562358, stddev=0.3334122146400735
+                ),
+                p_value=0.5,
+                error_message=None,
+            )
+        )
+        self.assertDictEqual(
+            _round_result_dict(result_dict), _round_result_dict(expected_rounded_dict)
+        )
+
+    def test_one_sided_ttest_absolute(self):
+        result_dict = asdict(
+            SequentialOneSidedTreatmentLesserTTest(
+                self.stat_a,
+                self.stat_b,
+                SequentialConfig(difference_type="absolute"),
+            ).compute_result()
+        )
+        expected_rounded_dict = asdict(
+            FrequentistTestResult(
+                expected=0.23437666666666668,
+                ci=[-np.inf, 0.5964064645443692],
+                uplift=Uplift(
+                    dist="normal", mean=0.23437666666666668, stddev=0.12983081254184736
+                ),
+                p_value=0.5,
+                error_message=None,
+            )
+        )
+        self.assertDictEqual(
+            _round_result_dict(result_dict), _round_result_dict(expected_rounded_dict)
         )
 
 
