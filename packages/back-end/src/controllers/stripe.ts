@@ -10,13 +10,18 @@ import {
   postNewProTrialSubscriptionToLicenseServer,
   postNewSubscriptionSuccessToLicenseServer,
 } from "shared/enterprise";
+import { PaymentMethod } from "shared/src/types/subscriptions";
 import { APP_ORIGIN, STRIPE_WEBHOOK_SECRET } from "back-end/src/util/secrets";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getNumberOfUniqueMembersAndInvites,
   getContextFromReq,
 } from "back-end/src/services/organizations";
-import { updateSubscriptionInDb, stripe } from "back-end/src/services/stripe";
+import {
+  updateSubscriptionInDb,
+  stripe,
+  formatBrandName,
+} from "back-end/src/services/stripe";
 import { DailyUsage, UsageLimits } from "back-end/types/organization";
 import { sendStripeTrialWillEndEmail } from "back-end/src/services/email";
 import { logger } from "back-end/src/util/logger";
@@ -26,6 +31,12 @@ import {
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
 import { getDailyCDNUsageForOrg } from "back-end/src/services/clickhouse";
+import {
+  createSetupIntent,
+  deletePaymentMethodById,
+  updateDefaultPaymentMethod,
+  getPaymentMethodsByLicenseKey,
+} from "back-end/src/enterprise/billing/index";
 
 function withLicenseServerErrorHandling<T>(
   fn: (req: AuthRequest<T>, res: Response) => Promise<void>
@@ -263,6 +274,153 @@ export async function postWebhook(req: Request, res: Response) {
   }
 
   res.status(200).send("Ok");
+}
+
+export async function postSetupIntent(
+  req: AuthRequest<null, null>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { org } = context;
+
+  try {
+    if (!org.licenseKey) {
+      throw new Error("No license key found for organization");
+    }
+    const { clientSecret } = await createSetupIntent(org.licenseKey);
+    return res.status(200).json({ clientSecret });
+  } catch (e) {
+    return res.status(400).json({ status: 400, message: e.message });
+  }
+}
+
+export async function updateCustomerDefaultPayment(
+  req: AuthRequest<{ paymentMethodId: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { org } = context;
+  const { paymentMethodId } = req.body;
+
+  try {
+    if (!org.licenseKey) {
+      throw new Error("No license key found for organization");
+    }
+    await updateDefaultPaymentMethod(org.licenseKey, paymentMethodId);
+  } catch (e) {
+    return res.status(400).json({ status: 400, message: e.message });
+  }
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function fetchPaymentMethods(
+  req: AuthRequest<null, null>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { org } = context;
+  try {
+    if (!org.licenseKey) {
+      throw new Error("No license key found for organization");
+    }
+    const {
+      paymentMethods,
+      defaultPaymentMethod,
+    }: {
+      paymentMethods: Stripe.PaymentMethod[];
+      defaultPaymentMethod: string | undefined;
+    } = await getPaymentMethodsByLicenseKey(org.licenseKey);
+
+    if (!paymentMethods.length) {
+      return res.status(200).json({ status: 200, cards: [] });
+    }
+
+    const formattedPaymentMethods: PaymentMethod[] = paymentMethods.map(
+      (method) => {
+        const isDefault = method.id === defaultPaymentMethod;
+        if (method.card) {
+          return {
+            id: method.id,
+            type: "card",
+            last4: method.card.last4,
+            brand: formatBrandName(method.card.brand),
+            expMonth: method.card.exp_month,
+            expYear: method.card.exp_year,
+            isDefault,
+            wallet: method.card.wallet?.type
+              ? formatBrandName(method.card.wallet.type)
+              : undefined,
+          };
+        } else if (method.us_bank_account) {
+          return {
+            id: method.id,
+            type: "us_bank_account",
+            last4: method.us_bank_account.last4 || "",
+            brand: formatBrandName(
+              method.us_bank_account.bank_name || method.type
+            ),
+            isDefault,
+          };
+        } else {
+          return {
+            id: method.id,
+            type: "unknown",
+            brand: formatBrandName(method.type),
+            isDefault,
+          };
+        }
+      }
+    );
+
+    return res
+      .status(200)
+      .json({ status: 200, paymentMethods: formattedPaymentMethods });
+  } catch (e) {
+    return res.status(400).json({ status: 400, message: e.message });
+  }
+}
+
+export async function deletePaymentMethod(
+  req: AuthRequest<{ paymentMethodId: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { org } = context;
+  const { paymentMethodId } = req.body;
+
+  try {
+    if (!org.licenseKey) {
+      throw new Error("No license key found for organization");
+    }
+    await deletePaymentMethodById(org.licenseKey, paymentMethodId);
+  } catch (e) {
+    return res.status(400).json({ status: 400, message: e.message });
+  }
+  res.status(200).json({
+    status: 200,
+  });
 }
 
 export async function getUsage(

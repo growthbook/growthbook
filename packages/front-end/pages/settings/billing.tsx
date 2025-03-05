@@ -5,6 +5,7 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import PaymentInfo from "@/enterprise/components/Billing/PaymentInfo";
 
 const BillingPage: FC = () => {
   const [upgradeModal, setUpgradeModal] = useState(false);
@@ -71,26 +72,30 @@ const BillingPage: FC = () => {
           commercialFeature={null}
         />
       )}
-
       <h1>Billing Settings</h1>
       <div className="appbox p-3 border">
         {subscription?.status ? (
-          <SubscriptionInfo />
+          <>
+            <PaymentInfo />
+            <SubscriptionInfo />
+          </>
         ) : canSubscribe ? (
-          <div className="alert alert-warning mb-0">
-            <div className="d-flex align-items-center">
-              <div>
-                You are currently on the <strong>Free Plan</strong>.
+          <div className="bg-white p-3">
+            <div className="alert alert-warning mb-0">
+              <div className="d-flex align-items-center">
+                <div>
+                  You are currently on the <strong>Starter Plan</strong>.
+                </div>
+                <button
+                  className="btn btn-primary ml-auto"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setUpgradeModal(true);
+                  }}
+                >
+                  Upgrade Now
+                </button>
               </div>
-              <button
-                className="btn btn-primary ml-auto"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setUpgradeModal(true);
-                }}
-              >
-                Upgrade Now
-              </button>
             </div>
           </div>
         ) : (
