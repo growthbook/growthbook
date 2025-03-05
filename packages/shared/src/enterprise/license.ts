@@ -82,8 +82,6 @@ export type SubscriptionInfo = {
   trialEnd: Date | null;
   status: "active" | "canceled" | "past_due" | "trialing" | "";
   hasPaymentMethod: boolean;
-  // TODO: Remove once all orgs have moved license info off of the org
-  hasLicense: boolean;
 };
 
 export function getStripeSubscriptionStatus(
@@ -106,7 +104,6 @@ export function getSubscriptionFromLicense(
       trialEnd: license.stripeSubscription.trialEnd,
       status: getStripeSubscriptionStatus(license.stripeSubscription.status),
       hasPaymentMethod: !!license.stripeSubscription.hasPaymentMethod,
-      hasLicense: !!license.id,
     };
   }
   return null;

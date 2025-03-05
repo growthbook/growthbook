@@ -28,12 +28,11 @@ export default function PaymentInfo() {
   const [error, setError] = useState<string | undefined>(undefined);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(false);
-  const { subscription } = useUser();
+  const { subscription, organization } = useUser();
   const { apiCall } = useAuth();
   // TODO: Remove once all orgs have moved license info off of the org - only limit by isCloud()
   // The licenseKey is required to look up payment methods
-  const canShowPaymentInfo = isCloud() && subscription?.hasLicense;
-
+  const canShowPaymentInfo = isCloud() && !!organization.licenseKey;
   const fetchPaymentMethods = useCallback(async () => {
     setLoading(true);
     try {
