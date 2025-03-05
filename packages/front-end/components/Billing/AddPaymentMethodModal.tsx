@@ -4,12 +4,11 @@ import {
   useElements,
   useStripe,
 } from "@stripe/react-stripe-js";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
+import Checkbox from "@/components/Radix/Checkbox";
 import { useAuth } from "@/services/auth";
 import { useStripeContext } from "@/hooks/useStripeContext";
 import Modal from "../Modal";
-import Toggle from "../Forms/Toggle";
-import Tooltip from "../Tooltip/Tooltip";
 
 interface Props {
   onClose: () => void;
@@ -75,25 +74,17 @@ export default function AddPaymentMethodModal({
     >
       <>
         <PaymentElement />
-        <Flex align="center" justify="end" className="pt-3">
-          <Text as="label" className="mb-0 pr-1">
-            Set as Default Payment Method
-          </Text>
-          <Tooltip
-            body="The first payment method you add is automatically set as the default."
-            shouldDisplay={numOfMethods === 0}
-          >
-            <Toggle
-              disabled={numOfMethods === 0}
-              id={"defaultValue"}
-              label="Default value"
+        {numOfMethods > 0 ? (
+          <Flex align="center" justify="end" className="pt-3">
+            <Checkbox
+              label="Set as Default Payment Method"
               value={defaultPaymentMethod}
               setValue={() => {
                 setDefaultPaymentMethod(!defaultPaymentMethod);
               }}
             />
-          </Tooltip>
-        </Flex>
+          </Flex>
+        ) : null}
       </>
     </Modal>
   );

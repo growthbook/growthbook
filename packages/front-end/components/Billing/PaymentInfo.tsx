@@ -8,6 +8,7 @@ import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import { isCloud } from "@/services/env";
+import { growthbook } from "@/services/utils";
 import { GBAddCircle } from "../Icons";
 import Callout from "../Radix/Callout";
 import Badge from "../Radix/Badge";
@@ -32,7 +33,11 @@ export default function PaymentInfo() {
   const { apiCall } = useAuth();
   // TODO: Remove once all orgs have moved license info off of the org - only limit by isCloud()
   // The licenseKey is required to look up payment methods
-  const canShowPaymentInfo = isCloud() && !!organization.licenseKey;
+  const canShowPaymentInfo =
+    isCloud() &&
+    !!organization.licenseKey &&
+    growthbook.getFeatureValue("ff_payment-info", false);
+
   const fetchPaymentMethods = useCallback(async () => {
     setLoading(true);
     try {
@@ -51,8 +56,9 @@ export default function PaymentInfo() {
   }, [apiCall]);
 
   async function setPaymentMethodAsDefault() {
-    if (!defaultPaymentMethod)
+    if (!defaultPaymentMethod) {
       throw new Error("Must specify payment method id");
+    }
     try {
       await apiCall("/subscription/payment-methods/set-default", {
         method: "POST",
@@ -62,10 +68,10 @@ export default function PaymentInfo() {
       });
       const updatedPaymentMethodData = paymentMethods.map((paymentMethod) => {
         const updatedPaymentMethod = paymentMethod;
-        if (paymentMethod.isDefault) {
-          paymentMethod.isDefault = false;
-        } else if (paymentMethod.id === defaultPaymentMethod) {
+        if (paymentMethod.id === defaultPaymentMethod) {
           paymentMethod.isDefault = true;
+        } else if (paymentMethod.isDefault) {
+          paymentMethod.isDefault = false;
         }
         return updatedPaymentMethod;
       });
@@ -77,11 +83,11 @@ export default function PaymentInfo() {
 
   async function detachPaymentMethod(paymentMethodId: string) {
     try {
-      const methodIndex = paymentMethods.findIndex(
+      const methodIndex = paymentMethods?.findIndex(
         (method) => method.id === paymentMethodId
       );
 
-      if (paymentMethods.length === 1 && subscription?.status !== "canceled") {
+      if (paymentMethods?.length === 1 && subscription?.status !== "canceled") {
         throw new Error(
           "Unable to delete payment method. You must have at least 1 payment method on file."
         );
@@ -110,7 +116,7 @@ export default function PaymentInfo() {
     if (canShowPaymentInfo) {
       fetchPaymentMethods();
     }
-  }, [apiCall, canShowPaymentInfo, fetchPaymentMethods, subscription]);
+  }, [canShowPaymentInfo, fetchPaymentMethods]);
 
   if (!canShowPaymentInfo) return null;
 
@@ -121,7 +127,7 @@ export default function PaymentInfo() {
           <AddPaymentMethodModal
             onClose={() => setPaymentMethodModal(false)}
             refetch={() => fetchPaymentMethods()}
-            numOfMethods={paymentMethods.length}
+            numOfMethods={paymentMethods?.length}
           />
         </StripeProvider>
       ) : null}
@@ -144,10 +150,10 @@ export default function PaymentInfo() {
           <div>
             <Tooltip
               body="You can only have up to 3 payment methods on file"
-              shouldDisplay={paymentMethods.length > 2}
+              shouldDisplay={paymentMethods?.length > 2}
             >
               <Button
-                disabled={paymentMethods.length > 2}
+                disabled={paymentMethods?.length > 2}
                 onClick={() => {
                   setPaymentMethodModal(true);
                   track("Edit Payment Method Modal", {
@@ -164,7 +170,7 @@ export default function PaymentInfo() {
           </div>
         </Flex>
         {error ? (
-          <Callout status="warning">{error}</Callout>
+          <Callout status="error">{error}</Callout>
         ) : (
           <>
             {loading ? (
@@ -173,7 +179,7 @@ export default function PaymentInfo() {
               </Flex>
             ) : (
               <>
-                {!paymentMethods.length ? (
+                {!paymentMethods?.length ? (
                   <Flex
                     justify="center"
                     align="center"
