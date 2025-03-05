@@ -47,6 +47,8 @@ export const experimentTemplateInterface = z
       prerequisites: z.array(featurePrerequisite).optional(),
       condition: z.string().default("{}"),
     }),
+
+    // TODO: add analysis plan
   })
   .strict();
 export type ExperimentTemplateInterface = z.infer<
