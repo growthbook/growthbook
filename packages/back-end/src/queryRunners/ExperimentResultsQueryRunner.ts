@@ -21,10 +21,6 @@ import {
 import { MetricInterface } from "back-end/types/metric";
 import { Queries, QueryPointer, QueryStatus } from "back-end/types/query";
 import { SegmentInterface } from "back-end/types/segment";
-import {
-  findSnapshotById,
-  updateSnapshot,
-} from "back-end/src/models/ExperimentSnapshotModel";
 import { parseDimensionId } from "back-end/src/services/experiments";
 import {
   analyzeExperimentResults,
@@ -512,7 +508,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   }
 
   async getLatestModel(): Promise<ExperimentSnapshotInterface> {
-    const obj = await findSnapshotById(this.model.organization, this.model.id);
+    const obj = await this.context.models.experimentSnapshots.getById(
+      this.model.id
+    );
     if (!obj)
       throw new Error("Could not load snapshot model: " + this.model.id);
     return obj;
@@ -543,12 +541,10 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
           ? "error"
           : "success",
     };
-    await updateSnapshot({
-      organization: this.model.organization,
-      id: this.model.id,
-      updates,
-      context: this.context,
-    });
+    await this.context.models.experimentSnapshots.updateById(
+      this.model.id,
+      updates
+    );
     if (
       this.model.report &&
       ["failed", "partially-succeeded", "succeeded"].includes(status)

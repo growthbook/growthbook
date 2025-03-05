@@ -18,11 +18,6 @@ import {
 import { getExperimentWatchers } from "back-end/src/models/WatchModel";
 import { logger } from "back-end/src/util/logger";
 import {
-  ExperimentSnapshotDocument,
-  getDefaultAnalysisResults,
-  getLatestSnapshot,
-} from "back-end/src/models/ExperimentSnapshotModel";
-import {
   ExperimentInterface,
   ExperimentNotification,
 } from "back-end/types/experiment";
@@ -30,6 +25,8 @@ import { ExperimentReportResultDimension } from "back-end/types/report";
 import { ResourceEvents } from "back-end/src/events/base-types";
 import { ensureAndReturn } from "back-end/src/util/types";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
+import { ExperimentSnapshotInterface } from "back-end/src/validators/experiment-snapshot";
+import { getDefaultAnalysisResults } from "back-end/src/models/ExperimentSnapshotModel";
 import {
   getConfidenceLevelsForOrg,
   getEnvironmentIdsFromOrg,
@@ -138,7 +135,7 @@ export const notifyMultipleExposures = async ({
   context: Context;
   experiment: ExperimentInterface;
   results: ExperimentReportResultDimension;
-  snapshot: ExperimentSnapshotDocument;
+  snapshot: ExperimentSnapshotInterface;
 }) => {
   const totalUsers = results.variations.reduce(
     (totalUsersCount, { users }) => totalUsersCount + users,
@@ -293,7 +290,7 @@ export const computeExperimentChanges = async ({
 }: {
   context: Context;
   experiment: ExperimentInterface;
-  snapshot: ExperimentSnapshotDocument;
+  snapshot: ExperimentSnapshotInterface;
 }): Promise<ExperimentSignificanceChange[]> => {
   const currentAnalysis = getSnapshotAnalysis(currentSnapshot);
   const currentVariations = currentAnalysis?.results?.[0]?.variations;
@@ -301,11 +298,13 @@ export const computeExperimentChanges = async ({
     return [];
   }
 
-  const lastSnapshot = await getLatestSnapshot({
-    experiment: experiment.id,
-    phase: experiment.phases.length - 1,
-    beforeSnapshot: currentSnapshot,
-  });
+  const lastSnapshot = await context.models.experimentSnapshots.getLatestSnapshot(
+    {
+      experiment: experiment.id,
+      phase: experiment.phases.length - 1,
+      beforeSnapshot: currentSnapshot,
+    }
+  );
   const lastAnalysis = lastSnapshot
     ? getSnapshotAnalysis(lastSnapshot)
     : undefined;
@@ -406,7 +405,7 @@ export const notifySignificance = async ({
 }: {
   context: Context;
   experiment: ExperimentInterface;
-  snapshot: ExperimentSnapshotDocument;
+  snapshot: ExperimentSnapshotInterface;
 }) => {
   const experimentChanges = await computeExperimentChanges({
     context,
@@ -446,7 +445,7 @@ export const notifyExperimentChange = async ({
   snapshot,
 }: {
   context: Context;
-  snapshot: ExperimentSnapshotDocument;
+  snapshot: ExperimentSnapshotInterface;
 }) => {
   const experiment = await getExperimentById(context, snapshot.experiment);
   if (!experiment) throw new Error("Error while fetching experiment!");
@@ -458,7 +457,8 @@ export const notifyExperimentChange = async ({
   // do not fire significance events for old snapshots that have no type
   if (snapshot.type === undefined) return;
   // do not fire for snapshots where statistics are manually entered in the UI
-  if (snapshot.manual) return;
+  // TODO: Do we still need this check? Will we ever have legacy snapshots hitting this function?
+  // if (snapshot?.manual) return;
 
   await notifySignificance({ context, experiment, snapshot });
 

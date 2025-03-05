@@ -46,10 +46,6 @@ import {
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
-import {
-  createExperimentSnapshotModel,
-  getLatestSnapshot,
-} from "back-end/src/models/ExperimentSnapshotModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import {
   getDefaultExperimentAnalysisSettings,
@@ -305,7 +301,7 @@ export async function createReportSnapshot({
         "Unable to create snapshot for report: invalid experiment"
       );
     snapshotData =
-      (await getLatestSnapshot({
+      (await context.models.experimentSnapshots.getLatestSnapshot({
         experiment: experiment.id,
         phase: Math.max(experiment.phases.length - 1, 0),
         type: "standard",
@@ -420,10 +416,9 @@ export async function createReportSnapshot({
     snapshotData.health.traffic.dimension = {};
   }
 
-  const snapshot = await createExperimentSnapshotModel({
-    data: snapshotData,
-    context,
-  });
+  const snapshot = await context.models.experimentSnapshots.create(
+    snapshotData
+  );
 
   const integration = getSourceIntegrationObject(context, datasource, true);
 

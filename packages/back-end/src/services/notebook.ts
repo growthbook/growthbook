@@ -3,7 +3,6 @@ import { PythonShell } from "python-shell";
 import { getSnapshotAnalysis } from "shared/util";
 import { hoursBetween } from "shared/dates";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
-import { findSnapshotById } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -81,7 +80,7 @@ export async function generateExperimentNotebook(
   snapshotId: string
 ): Promise<string> {
   // Get snapshot
-  const snapshot = await findSnapshotById(context.org.id, snapshotId);
+  const snapshot = await context.models.experimentSnapshots.getById(snapshotId);
   if (!snapshot) {
     throw new Error("Cannot find snapshot");
   }

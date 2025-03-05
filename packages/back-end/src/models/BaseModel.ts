@@ -426,18 +426,6 @@ export abstract class BaseModel<
     return migrated;
   }
 
-  protected async _aggregate(pipeline: PipelineStage[]) {
-    const rawDocs = await this._dangerousGetCollection()
-      .aggregate(pipeline)
-      .toArray();
-
-    const migrated = rawDocs.map((d) =>
-      this.migrate(this._removeMongooseFields(d))
-    );
-
-    return migrated;
-  }
-
   protected async _createOne(
     rawData: CreateProps<z.infer<T>>,
     writeOptions?: WriteOptions

@@ -70,12 +70,6 @@ import {
 } from "back-end/src/models/MetricModel";
 import { checkSrm, sumSquaresFromStats } from "back-end/src/util/stats";
 import { addTags } from "back-end/src/models/TagModel";
-import {
-  addOrUpdateSnapshotAnalysis,
-  createExperimentSnapshotModel,
-  getLatestSnapshotMultipleExperiments,
-  updateSnapshotAnalysis,
-} from "back-end/src/models/ExperimentSnapshotModel";
 import { Dimension } from "back-end/src/types/Integration";
 import {
   Condition,
@@ -153,6 +147,7 @@ import {
 } from "./stats";
 import {
   getConfidenceLevelsForOrg,
+  getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,
   getMetricDefaultsForOrg,
   getPValueThresholdForOrg,
@@ -645,7 +640,7 @@ export async function createManualSnapshot({
     triggeredBy: "manual",
   };
 
-  return await createExperimentSnapshotModel({ data, context });
+  return await context.models.experimentSnapshots.create(data);
 }
 
 export async function parseDimensionId(
@@ -1063,7 +1058,7 @@ export async function createSnapshot({
     });
   }
 
-  const snapshot = await createExperimentSnapshotModel({ data, context });
+  const snapshot = await context.models.experimentSnapshots.create(data);
 
   const integration = getSourceIntegrationObject(context, datasource, true);
 
@@ -1106,7 +1101,7 @@ export async function _getSnapshots(
     // get the latest phase
     experimentPhaseMap.set(e.id, e.phases.length - 1);
   });
-  return await getLatestSnapshotMultipleExperiments(
+  return await context.models.experimentSnapshots.getLatestSnapshotMultipleExperiments(
     experimentPhaseMap,
     dimension,
     withResults
@@ -1166,7 +1161,7 @@ async function getSnapshotAnalyses(
 
       // promise to add analysis to mongo record if it does not exist, overwrite if it does
       createAnalysisPromises.push(() =>
-        addOrUpdateSnapshotAnalysis({
+        context.models.experimentSnapshots.addOrUpdateSnapshotAnalysis({
           organization: organization.id,
           id: snapshot.id,
           analysis,
@@ -1253,6 +1248,7 @@ export async function createSnapshotAnalysis(
   if (!isAnalysisAllowed(snapshot.settings, analysisSettings)) {
     throw new Error("Analysis not allowed with this snapshot");
   }
+  const context = getContextForAgendaJobByOrgObject(organization);
 
   const totalQueries = snapshot.queries.length;
   const failedQueries = snapshot.queries.filter((q) => q.status === "failed");
@@ -1268,7 +1264,7 @@ export async function createSnapshotAnalysis(
     dateCreated: new Date(),
   };
   // and analysis to mongo record if it does not exist, overwrite if it does
-  addOrUpdateSnapshotAnalysis({
+  context.models.experimentSnapshots.addOrUpdateSnapshotAnalysis({
     organization: organization.id,
     id: snapshot.id,
     analysis,
@@ -1292,7 +1288,7 @@ export async function createSnapshotAnalysis(
   analysis.status = "success";
   analysis.error = undefined;
 
-  updateSnapshotAnalysis({
+  context.models.experimentSnapshots.updateSnapshotAnalysis({
     organization: organization.id,
     id: snapshot.id,
     analysis,

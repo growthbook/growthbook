@@ -15,11 +15,6 @@ import {
   getExperimentById,
   getExperimentsByIds,
 } from "back-end/src/models/ExperimentModel";
-import {
-  createExperimentSnapshotModel,
-  findLatestRunningSnapshotByReportId,
-  findSnapshotById,
-} from "back-end/src/models/ExperimentSnapshotModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   createReport,
@@ -55,7 +50,9 @@ export async function postReportFromSnapshot(
 
   const reportArgs = req.body || {};
 
-  const snapshot = await findSnapshotById(org.id, req.params.snapshot);
+  const snapshot = await context.models.experimentSnapshots.getById(
+    req.params.snapshot
+  );
   if (!snapshot) {
     throw new Error("Invalid snapshot id");
   }
@@ -142,7 +139,7 @@ export async function postReportFromSnapshot(
 
   // Save the snapshot
   snapshot.report = doc.id;
-  await createExperimentSnapshotModel({ data: snapshot, context });
+  await context.models.experimentSnapshots.create(snapshot);
 
   await req.audit({
     event: "experiment.analysis",
@@ -254,7 +251,7 @@ export async function getReportPublic(
 
   const snapshot =
     report.type === "experiment-snapshot"
-      ? (await findSnapshotById(report.organization, report.snapshot)) ||
+      ? (await context.models.experimentSnapshots.getById(report.snapshot)) ||
         undefined
       : undefined;
 
@@ -342,7 +339,7 @@ export async function refreshReport(
     }
 
     const snapshot =
-      (await findSnapshotById(report.organization, report.snapshot)) ||
+      (await context.models.experimentSnapshots.getById(report.snapshot)) ||
       undefined;
 
     try {
@@ -586,8 +583,7 @@ export async function cancelReport(
 
   if (report.type === "experiment-snapshot") {
     const snapshot = report.snapshot
-      ? (await findLatestRunningSnapshotByReportId(
-          report.organization,
+      ? (await context.models.experimentSnapshots.findLatestRunningByReportId(
           report.id
         )) || undefined
       : undefined;

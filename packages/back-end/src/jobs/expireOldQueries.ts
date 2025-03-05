@@ -1,10 +1,6 @@
 import Agenda from "agenda";
 import { Queries } from "back-end/types/query";
 import {
-  findRunningSnapshotsByQueryId,
-  updateSnapshot,
-} from "back-end/src/models/ExperimentSnapshotModel";
-import {
   findRunningMetricsByQueryId,
   updateMetricQueriesAndStatus,
 } from "back-end/src/models/MetricModel";
@@ -42,20 +38,17 @@ const expireOldQueries = trackJob(JOB_NAME, async () => {
   }
 
   // Look for matching snapshots and update the status
+  // TODO: How do we get the context here?
   const snapshots = await findRunningSnapshotsByQueryId([...queryIds]);
   for (let i = 0; i < snapshots.length; i++) {
     const snapshot = snapshots[i];
+    const context = await getContextForAgendaJobByOrgId(snapshot.organization);
     logger.info("Updating status of snapshot " + snapshot.id);
     updateQueryStatus(snapshot.queries, queryIds);
-    await updateSnapshot({
-      organization: snapshot.organization,
-      id: snapshot.id,
-      updates: {
-        error: "Queries were interupted. Please try updating results again.",
-        status: "error",
-        queries: snapshot.queries,
-      },
-      context: await getContextForAgendaJobByOrgId(snapshot.organization),
+    await context.models.experimentSnapshots.updateById(snapshot.id, {
+      error: "Queries were interupted. Please try updating results again.",
+      status: "error",
+      queries: snapshot.queries,
     });
   }
 

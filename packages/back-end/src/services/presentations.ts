@@ -7,7 +7,6 @@ import {
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 import { ExperimentInterface } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
 
@@ -38,10 +37,12 @@ export async function getPresentationSnapshots(
   const promises = experiments.map(async (experiment) => {
     // get best phase to show:
     const phase = experiment.phases.length - 1;
-    const snapshot = await getLatestSnapshot({
-      experiment: experiment.id,
-      phase,
-    });
+    const snapshot = await context.models.experimentSnapshots.getLatestSnapshot(
+      {
+        experiment: experiment.id,
+        phase,
+      }
+    );
     withSnapshots.push({
       experiment,
       snapshot: snapshot ? snapshot : null,

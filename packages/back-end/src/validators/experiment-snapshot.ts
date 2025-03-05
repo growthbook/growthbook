@@ -21,8 +21,10 @@ const experimentSnapshotTrafficObject = z.object({
     z.string(),
     z.array(experimentSnapshotTrafficDimensionObject)
   ),
-  error: z.string().optional(),
-  errorCode: z.enum(["NO_ROWS_IN_UNIT_QUERY", "TOO_MANY_ROWS"]).or(z.string()),
+  error: z
+    .enum(["NO_ROWS_IN_UNIT_QUERY", "TOO_MANY_ROWS"])
+    .or(z.string())
+    .optional(),
 });
 
 const experimentSnapshotHealthObject = z.object({
@@ -118,6 +120,10 @@ const experimentSnapshotAnalysisObject = z.object({
   results: z.array(experimentReportResultDimensionObject),
 });
 
+export type ExperimentSnapshotAnalysis = z.infer<
+  typeof experimentSnapshotAnalysisObject
+>;
+
 const dimensionForSnapshotObject = z.object({
   id: z.string(),
   settings: z
@@ -155,6 +161,8 @@ const metricForSnapshotObject = z.object({
     })
     .optional(),
 });
+
+export type MetricForSnapshot = z.infer<typeof metricForSnapshotObject>;
 
 const snapshotSettingsVariationValidator = z.object({
   id: z.string(),
@@ -199,29 +207,30 @@ const experimentSnapshotSettingsObject = z.object({
   banditSettings: snapshotBanditSettingsValidator.optional(),
 });
 
-const experimentSnapshotSchema = z.object({
-  id: z.string(),
-  organization: z.string(),
-  experiment: z.string(),
-  phase: z.number(),
-  dimenstion: z.string().nullable(),
-  type: z.enum(["standard", "exploratory", "report"]).optional(),
-  triggeredBy: z.enum(["manual", "schedule"]).optional(),
-  report: z.string().optional(),
-  dateCreated: z.date(),
-  dateUpdated: z.date(),
-  runStarted: z.date(),
-  manual: z.boolean(),
-  error: z.string(),
-  queries: z.array(queryPointerValidator),
-  unknownVariations: z.array(z.string()),
-  multipleExposures: z.number(),
-  status: z.enum(["running", "success", "error"]),
-  settings: experimentSnapshotSettingsObject,
-  analyses: z.array(experimentSnapshotAnalysisObject),
-  banditResult: banditResult.optional(),
-  health: experimentSnapshotHealthObject.optional(),
-});
+export const experimentSnapshotSchema = z
+  .object({
+    id: z.string(),
+    organization: z.string(),
+    experiment: z.string(),
+    phase: z.number(),
+    dimension: z.string().nullable(),
+    type: z.enum(["standard", "exploratory", "report"]).optional(),
+    triggeredBy: z.enum(["manual", "schedule"]).optional(),
+    report: z.string().optional(),
+    dateCreated: z.date(),
+    dateUpdated: z.date(),
+    runStarted: z.date().nullable(),
+    error: z.string().optional(),
+    queries: z.array(queryPointerValidator),
+    unknownVariations: z.array(z.string()),
+    multipleExposures: z.number(),
+    status: z.enum(["running", "success", "error"]),
+    settings: experimentSnapshotSettingsObject,
+    analyses: z.array(experimentSnapshotAnalysisObject),
+    banditResult: banditResult.optional(),
+    health: experimentSnapshotHealthObject.optional(),
+  })
+  .strict();
 
 export type ExperimentSnapshotInterface = z.infer<
   typeof experimentSnapshotSchema
@@ -255,6 +264,7 @@ export const legacyExperimentSnapshotValidator = experimentSnapshotSchema
     sequentialTestingTuningParameter: z.number().optional(),
     manual: z.boolean(),
   })
+  .omit({ dateUpdated: true })
   .strict();
 
 export type LegacyExperimentSnapshotInterface = z.infer<
