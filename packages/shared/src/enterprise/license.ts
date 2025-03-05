@@ -493,7 +493,11 @@ export class LicenseServerError extends Error {
   }
 }
 
-async function callLicenseServer(url: string, body: string, method = "POST") {
+export async function callLicenseServer(
+  url: string,
+  body: string,
+  method = "POST"
+) {
   const agentOptions = getAgentOptions();
 
   const options = {
