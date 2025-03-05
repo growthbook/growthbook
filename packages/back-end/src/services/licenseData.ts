@@ -1,7 +1,7 @@
 import path from "path";
 import fs from "fs";
 import md5 from "md5";
-import { LicenseUserCodes } from "enterprise";
+import { LicenseUserCodes } from "shared/enterprise";
 import { findAllSDKConnectionsAcrossAllOrgs } from "back-end/src/models/SdkConnectionModel";
 import { getInstallationId } from "back-end/src/models/InstallationModel";
 import { IS_CLOUD } from "back-end/src/util/secrets";
