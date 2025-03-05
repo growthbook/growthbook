@@ -2,13 +2,7 @@ import { Bar } from "@visx/shape";
 import { scaleBand, scaleLinear } from "@visx/scale";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
-import React, {
-  createContext,
-  ReactNode,
-  useContext,
-  useEffect,
-  useState,
-} from "react";
+import React, { createContext, ReactNode, useContext, useEffect } from "react";
 import {
   FeatureUsageData,
   FeatureUsageTimeSeries,
@@ -76,19 +70,19 @@ export function FeatureUsageProvider({
     }
   );
 
-  const [isTabFocused, setIsTabFocused] = useState(true);
-
   useEffect(() => {
     if (!featureUsage) return;
     if (lookback !== "15minute") return;
 
-    const updateInterval = () => {
+    let timer: NodeJS.Timeout;
+
+    const updateInterval = (focused = true) => {
       const hasData = featureUsage.usage?.overall?.total > 0;
       let interval = featureUsageAutoRefreshInterval["withoutData"];
       if (hasData) {
         interval = featureUsageAutoRefreshInterval["withData"];
       }
-      if (!isTabFocused) {
+      if (!document.hasFocus || !focused) {
         interval = featureUsageAutoRefreshInterval["unfocused"];
       }
 
@@ -98,26 +92,27 @@ export function FeatureUsageProvider({
       }
     };
 
-    let timer: NodeJS.Timeout;
     updateInterval();
 
     const handleFocus = () => {
-      setIsTabFocused(true);
-      updateInterval();
+      updateInterval(true);
     };
 
     const handleBlur = () => {
-      setIsTabFocused(false);
-      updateInterval();
+      updateInterval(false);
     };
 
-    document.addEventListener("visibilitychange", updateInterval);
+    document.addEventListener("visibilitychange", () => {
+      updateInterval();
+    });
     window.addEventListener("focus", handleFocus);
     window.addEventListener("blur", handleBlur);
 
     return () => {
       clearInterval(timer);
-      document.removeEventListener("visibilitychange", updateInterval);
+      document.removeEventListener("visibilitychange", () => {
+        updateInterval(true);
+      });
       window.removeEventListener("focus", handleFocus);
       window.removeEventListener("blur", handleBlur);
     };
@@ -126,7 +121,6 @@ export function FeatureUsageProvider({
     featureUsage,
     featureUsageAutoRefreshInterval,
     mutateFeatureUsage,
-    isTabFocused,
   ]);
 
   return (
