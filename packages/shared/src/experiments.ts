@@ -542,7 +542,7 @@ export function getMetricSampleSize(
         baselineValue: baseline?.stats?.count,
         variationValue: stats?.stats?.count,
       }
-    : { baselineValue: baseline.value, variationValue: stats.value };
+    : { baselineValue: baseline.users, variationValue: stats.users };
 }
 
 export function hasEnoughData(
