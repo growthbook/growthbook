@@ -10,8 +10,8 @@ import { loadStripe } from "@stripe/stripe-js";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
-import Callout from "../Radix/Callout";
-import LoadingOverlay from "../LoadingOverlay";
+import Callout from "@/components/Radix/Callout";
+import LoadingOverlay from "@/components/LoadingOverlay";
 
 interface StripeContextProps {
   clientSecret: string | null;
