@@ -9,10 +9,6 @@ import {
   postNewProSubscriptionToLicenseServer,
   postNewProTrialSubscriptionToLicenseServer,
   postNewSubscriptionSuccessToLicenseServer,
-  createSetupIntent,
-  getPaymentMethodsByLicenseKey,
-  updateDefaultPaymentMethod,
-  deletePaymentMethodById,
 } from "shared/enterprise";
 import { PaymentMethod } from "shared/src/types/subscriptions";
 import { APP_ORIGIN, STRIPE_WEBHOOK_SECRET } from "back-end/src/util/secrets";
@@ -35,6 +31,12 @@ import {
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
 import { getDailyCDNUsageForOrg } from "back-end/src/services/clickhouse";
+import {
+  createSetupIntent,
+  deletePaymentMethodById,
+  updateDefaultPaymentMethod,
+  getPaymentMethodsByLicenseKey,
+} from "back-end/src/enterprise/billing/index";
 
 function withLicenseServerErrorHandling<T>(
   fn: (req: AuthRequest<T>, res: Response) => Promise<void>

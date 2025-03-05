@@ -493,7 +493,11 @@ export class LicenseServerError extends Error {
   }
 }
 
-async function callLicenseServer(url: string, body: string, method = "POST") {
+export async function callLicenseServer(
+  url: string,
+  body: string,
+  method = "POST"
+) {
   const agentOptions = getAgentOptions();
 
   const options = {
@@ -675,62 +679,6 @@ export async function postResendEmailVerificationEmailToLicenseServer(
       appOrigin: APP_ORIGIN,
     })
   );
-}
-
-export async function createSetupIntent(licenseKey: string) {
-  const url = `${LICENSE_SERVER_URL}subscription/setup-intent`;
-  const res = await callLicenseServer(
-    url,
-    JSON.stringify({
-      licenseKey,
-      cloudSecret: process.env.CLOUD_SECRET,
-    })
-  );
-  return res;
-}
-
-export async function getPaymentMethodsByLicenseKey(licenseKey: string) {
-  const url = `${LICENSE_SERVER_URL}subscription/payment-methods`;
-  const res = await callLicenseServer(
-    url,
-    JSON.stringify({
-      licenseKey,
-      cloudSecret: process.env.CLOUD_SECRET,
-    })
-  );
-  return res;
-}
-
-export async function updateDefaultPaymentMethod(
-  licenseKey: string,
-  paymentMethodId: string
-) {
-  const url = `${LICENSE_SERVER_URL}subscription/payment-methods/set-default`;
-  const res = await callLicenseServer(
-    url,
-    JSON.stringify({
-      licenseKey,
-      paymentMethodId,
-      cloudSecret: process.env.CLOUD_SECRET,
-    })
-  );
-  return res;
-}
-
-export async function deletePaymentMethodById(
-  licenseKey: string,
-  paymentMethodId: string
-) {
-  const url = `${LICENSE_SERVER_URL}subscription/payment-methods/detach`;
-  const res = await callLicenseServer(
-    url,
-    JSON.stringify({
-      licenseKey,
-      paymentMethodId,
-      cloudSecret: process.env.CLOUD_SECRET,
-    })
-  );
-  return res;
 }
 
 // Creates or replaces the license in the MongoDB cache in case the license server goes down.
