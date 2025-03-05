@@ -10,14 +10,17 @@ import {
 } from "back-end/types/visual-changeset";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
+import { FaAngleRight } from "react-icons/fa";
 import track from "@/services/track";
 import { appendQueryParamsToURL } from "@/services/utils";
 import { useAuth } from "@/services/auth";
 import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
-import EditDOMMutatonsModal from "@/components/Experiment/EditDOMMutationsModal";
+import EditDOMMutationsModal from "@/components/Experiment/EditDOMMutationsModal";
 import LinkedChange from "@/components/Experiment/LinkedChange";
 import Badge from "@/components/Radix/Badge";
 import Button from "@/components/Radix/Button";
+import Code from "@/components/SyntaxHighlighting/Code";
+import Link from "@/components/Radix/Link";
 
 type Props = {
   experiment: ExperimentInterfaceStringDates;
@@ -36,6 +39,8 @@ const drawChange = ({
   setEditingVisualChange,
   simpleUrlPatterns,
   regexUrlPatterns,
+  showChangeset,
+  setShowChangeset,
 }: {
   i: number;
   vc: VisualChangesetInterface;
@@ -50,6 +55,8 @@ const drawChange = ({
   }) => void;
   simpleUrlPatterns: VisualChangesetURLPattern[];
   regexUrlPatterns: VisualChangesetURLPattern[];
+  showChangeset: number[];
+  setShowChangeset: (value: number[]) => void;
 }) => {
   return (
     <>
@@ -140,67 +147,113 @@ const drawChange = ({
                 [experiment.trackingKey]: j,
               });
               return (
-                <Flex
-                  justify="between"
-                  width="100%"
-                  key={j}
-                  gap="4"
-                  py="2"
-                  my="2"
-                  style={{ borderBottom: "1px solid var(--slate-a4)" }}
-                >
+                <Box key={j}>
                   <Flex
-                    align="start"
+                    width="100%"
+                    direction="column"
                     gap="2"
-                    flexBasis="30%"
-                    flexShrink="0"
-                    className={`variation with-variation-label border-right-0 variation${j}`}
+                    py="2"
+                    my="2"
+                    style={{ borderBottom: "1px solid var(--slate-a4)" }}
                   >
-                    <span
-                      className="label mt-1"
-                      style={{ width: 20, height: 20 }}
-                    >
-                      {i}
-                    </span>
-                    <Flex direction="column">
-                      <span
-                        className="d-inline-block text-ellipsis font-weight-semibold"
-                        title={v.name}
+                    <Flex justify="between">
+                      <Flex
+                        align="start"
+                        gap="2"
+                        flexBasis="30%"
+                        flexShrink="0"
+                        className={`variation with-variation-label border-right-0 variation${j}`}
                       >
-                        {v.name}
-                      </span>
-                      <Text size="1" style={{ color: "var(--color-text-mid)" }}>
-                        {numChanges} visual change
-                        {numChanges === 1 ? "" : "s"}
-                      </Text>
+                        <span
+                          className="label mt-1"
+                          style={{ width: 20, height: 20 }}
+                        >
+                          {i}
+                        </span>
+                        <Flex direction="column">
+                          <span
+                            className="d-inline-block text-ellipsis font-weight-semibold"
+                            title={v.name}
+                          >
+                            {v.name}
+                          </span>
+                          <Link
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setShowChangeset(
+                                showChangeset.includes(j)
+                                  ? showChangeset.filter((item) => item !== j)
+                                  : [...showChangeset, j]
+                              );
+                            }}
+                          >
+                            <Text
+                              size="1"
+                              wrap="nowrap"
+                              style={{ color: "var(--color-text-mid)" }}
+                            >
+                              {numChanges} visual change
+                              {numChanges === 1 ? "" : "s"}
+                              <FaAngleRight
+                                className="chevron"
+                                style={{
+                                  transform: `rotate(${
+                                    showChangeset.includes(j) ? "90deg" : "0deg"
+                                  })`,
+                                }}
+                              />
+                            </Text>
+                          </Link>
+                        </Flex>
+                      </Flex>
+                      <Flex gap="2" align="center" justify="end">
+                        <Button variant="ghost">
+                          <a target="_blank" rel="noreferrer" href={editorUrl}>
+                            Preview{" "}
+                            <PiArrowSquareOut
+                              className="ml-1"
+                              style={{ position: "relative", top: "-2px" }}
+                            />
+                          </a>
+                        </Button>
+                        {canEditVisualChangesets && (
+                          <Button
+                            variant="soft"
+                            onClick={() => {
+                              setEditingVisualChange({
+                                visualChange: changes,
+                                visualChangeIndex: j,
+                                visualChangeset: vc,
+                              });
+                            }}
+                          >
+                            Edit
+                          </Button>
+                        )}
+                      </Flex>
                     </Flex>
-                  </Flex>
-                  <Flex gap="2" align="center" justify="end">
-                    <Button variant="ghost">
-                      <a target="_blank" rel="noreferrer" href={editorUrl}>
-                        Preview{" "}
-                        <PiArrowSquareOut
-                          className="ml-1"
-                          style={{ position: "relative", top: "-2px" }}
+                    {showChangeset.includes(j) && (
+                      <Box>
+                        <Code
+                          language="json"
+                          code={JSON.stringify(
+                            Object.fromEntries(
+                              Object.entries(changes).filter(
+                                ([key]) =>
+                                  key !== "id" &&
+                                  key !== "variation" &&
+                                  key !== "description"
+                              )
+                            ),
+                            null,
+                            2
+                          )}
                         />
-                      </a>
-                    </Button>
-                    {canEditVisualChangesets && (
-                      <Button
-                        variant="soft"
-                        onClick={() => {
-                          setEditingVisualChange({
-                            visualChange: changes,
-                            visualChangeIndex: j,
-                            visualChangeset: vc,
-                          });
-                        }}
-                      >
-                        Edit
-                      </Button>
+                      </Box>
                     )}
                   </Flex>
-                </Flex>
+                </Box>
               );
             })}
           </Box>
@@ -218,6 +271,7 @@ export const VisualChangesetTable: FC<Props> = ({
 }: Props) => {
   const { variations } = experiment;
   const { apiCall } = useAuth();
+  const [showChangeset, setShowChangeset] = useState<number[]>([]);
 
   const [
     editingVisualChangeset,
@@ -291,12 +345,14 @@ export const VisualChangesetTable: FC<Props> = ({
           setEditingVisualChange,
           simpleUrlPatterns,
           regexUrlPatterns,
+          showChangeset,
+          setShowChangeset,
         });
 
         const visualChangeTypesSet: Set<string> = new Set();
         vc.visualChanges.forEach((c) => {
           if (c.domMutations.length > 0) {
-            visualChangeTypesSet.add("Copy");
+            visualChangeTypesSet.add("Text");
           }
           if (c.css) {
             visualChangeTypesSet.add("CSS");
@@ -306,7 +362,7 @@ export const VisualChangesetTable: FC<Props> = ({
           }
         });
 
-        const visualChangeTypesDict: string[] = ["Copy", "CSS", "Javascript"];
+        const visualChangeTypesDict: string[] = ["Text", "CSS", "Javascript"];
         const visualChangeTypes: string[] = [...visualChangeTypesSet].sort(
           (a, b) =>
             visualChangeTypesDict.indexOf(a) - visualChangeTypesDict.indexOf(b)
@@ -341,7 +397,7 @@ export const VisualChangesetTable: FC<Props> = ({
       ) : null}
 
       {editingVisualChange ? (
-        <EditDOMMutatonsModal
+        <EditDOMMutationsModal
           experiment={experiment}
           visualChange={editingVisualChange.visualChange}
           close={() => setEditingVisualChange(null)}

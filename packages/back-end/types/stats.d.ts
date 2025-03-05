@@ -22,6 +22,7 @@ interface BaseVariationResponse {
   };
   ci?: [number, number];
   errorMessage?: string;
+  power?: MetricPowerResponseFromStatsEngine;
 }
 
 interface BayesianVariationResponse extends BaseVariationResponse {
@@ -32,6 +33,20 @@ interface BayesianVariationResponse extends BaseVariationResponse {
 
 interface FrequentistVariationResponse extends BaseVariationResponse {
   pValue?: number;
+}
+
+// Keep in sync with gbstats PowerResponse
+export interface MetricPowerResponseFromStatsEngine {
+  status: string;
+  errorMessage?: string;
+  firstPeriodPairwiseSampleSize?: number;
+  targetMDE: number;
+  sigmahat2Delta?: number;
+  priorProper?: boolean;
+  priorLiftMean?: number;
+  priorLiftVariance?: number;
+  upperBoundAchieved?: boolean;
+  scalingFactor?: number;
 }
 
 interface BaseDimensionResponse {

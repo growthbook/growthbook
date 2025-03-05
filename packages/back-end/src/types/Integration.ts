@@ -57,6 +57,7 @@ export type FactMetricData = {
   capCoalesceMetric: string;
   capCoalesceDenominator: string;
   capCoalesceCovariate: string;
+  capCoalesceDenominatorCovariate: string;
   minMetricDelay: number;
   raMetricSettings: {
     hours: number;

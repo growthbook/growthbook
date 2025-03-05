@@ -17,7 +17,7 @@ import type {
   CommercialFeature,
   LicenseInterface,
   SubscriptionInfo,
-} from "enterprise";
+} from "shared/enterprise";
 import { SSOConnectionInterface } from "back-end/types/sso-connection";
 import { useRouter } from "next/router";
 import {

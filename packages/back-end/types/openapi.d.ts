@@ -420,6 +420,7 @@ export interface components {
         minPercentChange: number;
         maxPercentChange: number;
         minSampleSize: number;
+        targetMDE: number;
       };
       sql?: {
         identifierTypes: (string)[];
@@ -978,6 +979,7 @@ export interface components {
       includeDraftExperiments?: boolean;
       includeExperimentNames?: boolean;
       includeRedirectExperiments?: boolean;
+      includeRuleIds?: boolean;
       key: string;
       proxyEnabled: boolean;
       proxyHost: string;
@@ -994,6 +996,8 @@ export interface components {
       /** Format: date-time */
       dateUpdated: string;
       name: string;
+      /** @enum {string} */
+      type: "standard" | "multi-armed-bandit";
       project: string;
       hypothesis: string;
       description: string;
@@ -1106,6 +1110,9 @@ export interface components {
         releasedVariationId: string;
         excludeFromPayload: boolean;
       };
+      /** @enum {string} */
+      shareLevel?: "public" | "organization";
+      publicUrl?: string;
     };
     ExperimentSnapshot: {
       id: string;
@@ -1504,6 +1511,7 @@ export interface components {
       minPercentChange: number;
       maxPercentChange: number;
       minSampleSize: number;
+      targetMDE: number;
       /**
        * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
        * @enum {string}
@@ -3298,6 +3306,7 @@ export interface operations {
                 includeDraftExperiments?: boolean;
                 includeExperimentNames?: boolean;
                 includeRedirectExperiments?: boolean;
+                includeRuleIds?: boolean;
                 key: string;
                 proxyEnabled: boolean;
                 proxyHost: string;
@@ -3334,6 +3343,7 @@ export interface operations {
           includeDraftExperiments?: boolean;
           includeExperimentNames?: boolean;
           includeRedirectExperiments?: boolean;
+          includeRuleIds?: boolean;
           proxyEnabled?: boolean;
           proxyHost?: string;
           hashSecureAttributes?: boolean;
@@ -3366,6 +3376,7 @@ export interface operations {
               includeDraftExperiments?: boolean;
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
+              includeRuleIds?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -3412,6 +3423,7 @@ export interface operations {
               includeDraftExperiments?: boolean;
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
+              includeRuleIds?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -3447,6 +3459,7 @@ export interface operations {
           includeDraftExperiments?: boolean;
           includeExperimentNames?: boolean;
           includeRedirectExperiments?: boolean;
+          includeRuleIds?: boolean;
           proxyEnabled?: boolean;
           proxyHost?: string;
           hashSecureAttributes?: boolean;
@@ -3479,6 +3492,7 @@ export interface operations {
               includeDraftExperiments?: boolean;
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
+              includeRuleIds?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -3543,6 +3557,7 @@ export interface operations {
               includeDraftExperiments?: boolean;
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
+              includeRuleIds?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -3693,6 +3708,8 @@ export interface operations {
                 /** Format: date-time */
                 dateUpdated: string;
                 name: string;
+                /** @enum {string} */
+                type: "standard" | "multi-armed-bandit";
                 project: string;
                 hypothesis: string;
                 description: string;
@@ -3805,6 +3822,9 @@ export interface operations {
                   releasedVariationId: string;
                   excludeFromPayload: boolean;
                 };
+                /** @enum {string} */
+                shareLevel?: "public" | "organization";
+                publicUrl?: string;
               })[];
           }) & {
             limit: number;
@@ -3906,6 +3926,8 @@ export interface operations {
             })[];
           /** @description Controls whether regression adjustment (CUPED) is enabled for experiment analyses */
           regressionAdjustmentEnabled?: boolean;
+          /** @enum {string} */
+          shareLevel?: "public" | "organization";
         };
       };
     };
@@ -3920,6 +3942,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @enum {string} */
+              type: "standard" | "multi-armed-bandit";
               project: string;
               hypothesis: string;
               description: string;
@@ -4032,6 +4056,9 @@ export interface operations {
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
               };
+              /** @enum {string} */
+              shareLevel?: "public" | "organization";
+              publicUrl?: string;
             };
           };
         };
@@ -4057,6 +4084,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @enum {string} */
+              type: "standard" | "multi-armed-bandit";
               project: string;
               hypothesis: string;
               description: string;
@@ -4169,6 +4198,9 @@ export interface operations {
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
               };
+              /** @enum {string} */
+              shareLevel?: "public" | "organization";
+              publicUrl?: string;
             };
           };
         };
@@ -4268,6 +4300,8 @@ export interface operations {
             })[];
           /** @description Controls whether regression adjustment (CUPED) is enabled for experiment analyses */
           regressionAdjustmentEnabled?: boolean;
+          /** @enum {string} */
+          shareLevel?: "public" | "organization";
         };
       };
     };
@@ -4282,6 +4316,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @enum {string} */
+              type: "standard" | "multi-armed-bandit";
               project: string;
               hypothesis: string;
               description: string;
@@ -4394,6 +4430,9 @@ export interface operations {
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
               };
+              /** @enum {string} */
+              shareLevel?: "public" | "organization";
+              publicUrl?: string;
             };
           };
         };
@@ -4694,6 +4733,7 @@ export interface operations {
                   minPercentChange: number;
                   maxPercentChange: number;
                   minSampleSize: number;
+                  targetMDE: number;
                 };
                 sql?: {
                   identifierTypes: (string)[];
@@ -4844,6 +4884,8 @@ export interface operations {
             /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
             maxPercentChange?: number;
             minSampleSize?: number;
+            /** @description The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments. */
+            targetMDE?: number;
           };
           /** @description Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified. */
           sql?: {
@@ -4958,6 +5000,7 @@ export interface operations {
                 minPercentChange: number;
                 maxPercentChange: number;
                 minSampleSize: number;
+                targetMDE: number;
               };
               sql?: {
                 identifierTypes: (string)[];
@@ -5078,6 +5121,7 @@ export interface operations {
                 minPercentChange: number;
                 maxPercentChange: number;
                 minSampleSize: number;
+                targetMDE: number;
               };
               sql?: {
                 identifierTypes: (string)[];
@@ -5225,6 +5269,8 @@ export interface operations {
             /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
             maxPercentChange?: number;
             minSampleSize?: number;
+            /** @description The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments. */
+            targetMDE?: number;
           };
           /** @description Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed. */
           sql?: {
@@ -5341,6 +5387,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @enum {string} */
+              type: "standard" | "multi-armed-bandit";
               project: string;
               hypothesis: string;
               description: string;
@@ -5453,6 +5501,9 @@ export interface operations {
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
               };
+              /** @enum {string} */
+              shareLevel?: "public" | "organization";
+              publicUrl?: string;
             };
           };
         };
@@ -6895,6 +6946,7 @@ export interface operations {
                 minPercentChange: number;
                 maxPercentChange: number;
                 minSampleSize: number;
+                targetMDE: number;
                 /**
                  * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                  * @enum {string}
@@ -7029,6 +7081,8 @@ export interface operations {
           /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
           maxPercentChange?: number;
           minSampleSize?: number;
+          /** @description The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments. */
+          targetMDE?: number;
           /**
            * @description Set this to "api" to disable editing in the GrowthBook UI 
            * @enum {string}
@@ -7114,6 +7168,7 @@ export interface operations {
               minPercentChange: number;
               maxPercentChange: number;
               minSampleSize: number;
+              targetMDE: number;
               /**
                * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
@@ -7214,6 +7269,7 @@ export interface operations {
               minPercentChange: number;
               maxPercentChange: number;
               minSampleSize: number;
+              targetMDE: number;
               /**
                * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
@@ -7336,6 +7392,7 @@ export interface operations {
           /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
           maxPercentChange?: number;
           minSampleSize?: number;
+          targetMDE?: number;
           /**
            * @description Set this to "api" to disable editing in the GrowthBook UI 
            * @enum {string}
@@ -7421,6 +7478,7 @@ export interface operations {
               minPercentChange: number;
               maxPercentChange: number;
               minSampleSize: number;
+              targetMDE: number;
               /**
                * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
@@ -7617,6 +7675,8 @@ export interface operations {
                 /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
                 maxPercentChange?: number;
                 minSampleSize?: number;
+                /** @description The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments. */
+                targetMDE?: number;
                 /**
                  * @description Set this to "api" to disable editing in the GrowthBook UI 
                  * @enum {string}

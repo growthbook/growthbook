@@ -4,7 +4,7 @@ import { Request } from "express";
 import { BaseLogger, Level } from "pino";
 import { ApiRequestLocals } from "back-end/types/api";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { ENVIRONMENT, IS_CLOUD, LOG_LEVEL } from "./secrets";
+import { ENVIRONMENT, IS_CLOUD, LOG_BASE, LOG_LEVEL } from "./secrets";
 
 const redactPaths = [
   "req.headers.authorization",
@@ -69,6 +69,14 @@ const isValidLevel = (input: unknown): input is Level => {
   ] as const).includes(input as Level);
 };
 
+// Only pass `base` if defined or null
+const logBase =
+  typeof LOG_BASE === "undefined"
+    ? {}
+    : {
+        base: LOG_BASE,
+      };
+
 export const httpLogger = pinoHttp({
   autoLogging: ENVIRONMENT === "production",
   level: isValidLevel(LOG_LEVEL) ? LOG_LEVEL : "info",
@@ -77,6 +85,7 @@ export const httpLogger = pinoHttp({
     remove: true,
   },
   customProps: getCustomLogProps,
+  ...logBase,
 });
 
 /**

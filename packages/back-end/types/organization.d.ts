@@ -12,7 +12,7 @@ import {
   CommercialFeature,
   LicenseInterface,
   SubscriptionInfo,
-} from "enterprise";
+} from "shared/enterprise";
 import { environment } from "back-end/src/routers/environment/environment.validators";
 import type { ReqContextClass } from "back-end/src/services/context";
 import { attributeDataTypes } from "back-end/src/util/organization.util";
@@ -148,6 +148,7 @@ export interface MetricDefaults {
   windowSettings?: MetricWindowSettings;
   cappingSettings?: MetricCappingSettings;
   priorSettings?: MetricPriorSettings;
+  targetMDE?: number;
 }
 
 export interface Namespaces {
@@ -240,6 +241,9 @@ export interface OrganizationSettings {
   banditBurnInValue?: number;
   banditBurnInUnit?: "hours" | "days";
   requireExperimentTemplates?: boolean;
+  experimentMinLengthDays?: number;
+  experimentMaxLengthDays?: number;
+  decisionFrameworkEnabled?: boolean;
 }
 
 export interface OrganizationConnections {

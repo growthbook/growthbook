@@ -207,7 +207,7 @@ const MetricTooltipBody = ({
       <h4>
         <MetricName id={metric.id} showOfficialLabel disableTooltip />
       </h4>
-      <table className="table gbtable appbox mb-0">
+      <table className="table gbtable mb-0">
         <tbody>
           {metricInfo
             .filter((i) => i.show)

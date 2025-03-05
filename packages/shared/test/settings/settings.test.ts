@@ -159,7 +159,9 @@ describe("settings", () => {
           ).toEqual(false);
           expect(
             metricSettings_testvar_2.regressionAdjustmentEnabled.meta.reason
-          ).toEqual("denominator is count");
+          ).toEqual(
+            "denominator is count. CUPED available for ratio metrics only if based on fact tables."
+          );
         });
       });
     });

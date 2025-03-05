@@ -1064,6 +1064,8 @@ paths:
                   type: boolean
                 includeRedirectExperiments:
                   type: boolean
+                includeRuleIds:
+                  type: boolean
                 proxyEnabled:
                   type: boolean
                 proxyHost:
@@ -1150,6 +1152,8 @@ paths:
                 includeExperimentNames:
                   type: boolean
                 includeRedirectExperiments:
+                  type: boolean
+                includeRuleIds:
                   type: boolean
                 proxyEnabled:
                   type: boolean
@@ -1536,6 +1540,11 @@ paths:
                 regressionAdjustmentEnabled:
                   type: boolean
                   description: Controls whether regression adjustment (CUPED) is enabled for experiment analyses
+                shareLevel:
+                  type: string
+                  enum:
+                    - public
+                    - organization
       responses:
         '200':
           content:
@@ -1787,6 +1796,11 @@ paths:
                 regressionAdjustmentEnabled:
                   type: boolean
                   description: Controls whether regression adjustment (CUPED) is enabled for experiment analyses
+                shareLevel:
+                  type: string
+                  enum:
+                    - public
+                    - organization
       responses:
         '200':
           content:
@@ -2161,6 +2175,10 @@ paths:
                     minSampleSize:
                       type: number
                       minimum: 0
+                    targetMDE:
+                      type: number
+                      description: 'The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments.'
+                      minimum: 0
                 sql:
                   type: object
                   description: 'Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified.'
@@ -2470,6 +2488,10 @@ paths:
                       minimum: 0
                     minSampleSize:
                       type: number
+                      minimum: 0
+                    targetMDE:
+                      type: number
+                      description: 'The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments.'
                       minimum: 0
                 sql:
                   type: object
@@ -4296,6 +4318,10 @@ paths:
                 minSampleSize:
                   type: number
                   minimum: 0
+                targetMDE:
+                  type: number
+                  description: 'The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments.'
+                  minimum: 0
                 managedBy:
                   type: string
                   description: Set this to "api" to disable editing in the GrowthBook UI
@@ -4561,6 +4587,9 @@ paths:
                   description: 'Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%)'
                   minimum: 0
                 minSampleSize:
+                  type: number
+                  minimum: 0
+                targetMDE:
                   type: number
                   minimum: 0
                 managedBy:
@@ -4964,6 +4993,7 @@ components:
             - minPercentChange
             - maxPercentChange
             - minSampleSize
+            - targetMDE
           properties:
             goal:
               type: string
@@ -5068,6 +5098,8 @@ components:
             maxPercentChange:
               type: number
             minSampleSize:
+              type: number
+            targetMDE:
               type: number
         sql:
           type: object
@@ -5710,6 +5742,8 @@ components:
           type: boolean
         includeRedirectExperiments:
           type: boolean
+        includeRuleIds:
+          type: boolean
         key:
           type: string
         proxyEnabled:
@@ -5733,6 +5767,7 @@ components:
         - dateCreated
         - dateUpdated
         - name
+        - type
         - project
         - hypothesis
         - description
@@ -5757,6 +5792,11 @@ components:
           format: date-time
         name:
           type: string
+        type:
+          type: string
+          enum:
+            - standard
+            - multi-armed-bandit
         project:
           type: string
         hypothesis:
@@ -5905,6 +5945,13 @@ components:
               type: string
             excludeFromPayload:
               type: boolean
+        shareLevel:
+          type: string
+          enum:
+            - public
+            - organization
+        publicUrl:
+          type: string
     ExperimentSnapshot:
       type: object
       required:
@@ -6502,6 +6549,7 @@ components:
         - minPercentChange
         - maxPercentChange
         - minSampleSize
+        - targetMDE
         - managedBy
         - dateCreated
         - dateUpdated
@@ -6690,6 +6738,8 @@ components:
         maxPercentChange:
           type: number
         minSampleSize:
+          type: number
+        targetMDE:
           type: number
         managedBy:
           type: string
