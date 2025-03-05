@@ -7,8 +7,8 @@ import {
 import { Flex } from "@radix-ui/themes";
 import Checkbox from "@/components/Radix/Checkbox";
 import { useAuth } from "@/services/auth";
+import Modal from "@/components/Modal";
 import { useStripeContext } from "@/hooks/useStripeContext";
-import Modal from "../Modal";
 
 interface Props {
   onClose: () => void;

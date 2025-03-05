@@ -9,16 +9,16 @@ import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import { isCloud } from "@/services/env";
 import { growthbook } from "@/services/utils";
-import { GBAddCircle } from "../Icons";
-import Callout from "../Radix/Callout";
-import Badge from "../Radix/Badge";
-import MoreMenu from "../Dropdown/MoreMenu";
-import DeleteButton from "../DeleteButton/DeleteButton";
-import Modal from "../Modal";
-import LoadingSpinner from "../LoadingSpinner";
+import Modal from "@/components/Modal";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import Button from "@/components/Radix/Button";
+import { GBAddCircle } from "@/components/Icons";
+import Callout from "@/components/Radix/Callout";
+import Badge from "@/components/Radix/Badge";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { StripeProvider } from "../Billing/StripeProvider";
-import Tooltip from "../Tooltip/Tooltip";
-import Button from "../Radix/Button";
 import AddPaymentMethodModal from "./AddPaymentMethodModal";
 
 export default function PaymentInfo() {

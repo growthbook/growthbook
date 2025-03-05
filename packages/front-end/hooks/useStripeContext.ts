@@ -1,5 +1,5 @@
 import { useContext } from "react";
-import { StripeContext } from "@/components/Billing/StripeProvider";
+import { StripeContext } from "@/enterprise/components/Billing/StripeProvider";
 
 export const useStripeContext = () => {
   const context = useContext(StripeContext);

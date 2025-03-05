@@ -5,7 +5,7 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import PaymentInfo from "@/components/Billing/PaymentInfo";
+import PaymentInfo from "@/enterprise/components/Billing/PaymentInfo";
 
 const BillingPage: FC = () => {
   const [upgradeModal, setUpgradeModal] = useState(false);
