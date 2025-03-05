@@ -370,6 +370,38 @@ from
         { column: "empty", datatype: "" },
       ]);
     });
+
+    it("can determine JSON field keys and values", () => {
+      expect(
+        determineColumnTypes([
+          {
+            x: JSON.stringify({
+              a: 123,
+              b: "hello",
+              c: false,
+              d: null,
+              e: null,
+            }),
+          },
+          {
+            x: JSON.stringify({ d: 123, f: "foo" }),
+          },
+        ])
+      ).toEqual([
+        {
+          column: "x",
+          datatype: "json",
+          jsonFields: {
+            a: "number",
+            b: "string",
+            c: "boolean",
+            d: "number",
+            f: "string",
+          },
+        },
+      ]);
+    });
+
     it("can skip over null values", () => {
       expect(
         determineColumnTypes([

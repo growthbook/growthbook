@@ -4,11 +4,14 @@ export const factTableColumnTypeValidator = z.enum([
   "string",
   "date",
   "boolean",
+  "json",
   "other",
   "",
 ]);
 
 export const numberFormatValidator = z.enum(["", "currency", "time:seconds"]);
+
+export const jsonColumnFieldsValidator = z.record(factTableColumnTypeValidator);
 
 export const createColumnPropsValidator = z
   .object({
@@ -17,6 +20,7 @@ export const createColumnPropsValidator = z
     description: z.string(),
     numberFormat: numberFormatValidator,
     datatype: factTableColumnTypeValidator,
+    jsonFields: jsonColumnFieldsValidator.optional(),
     deleted: z.boolean().optional(),
     alwaysInlineFilter: z.boolean().optional(),
     topValues: z.array(z.string()).optional(),
@@ -29,6 +33,7 @@ export const updateColumnPropsValidator = z
     description: z.string().optional(),
     numberFormat: numberFormatValidator.optional(),
     datatype: factTableColumnTypeValidator.optional(),
+    jsonFields: z.record(factTableColumnTypeValidator).optional(),
     alwaysInlineFilter: z.boolean().optional(),
     topValues: z.array(z.string()).optional(),
     deleted: z.boolean().optional(),
