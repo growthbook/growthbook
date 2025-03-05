@@ -27,6 +27,7 @@ import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetrics
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
+import MetricsOverridesSelector from "@/components/Experiment/MetricsOverridesSelector";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBCuped, GBInfo, GBSequential } from "@/components/Icons";
@@ -37,6 +38,8 @@ import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useIncrementer } from "@/hooks/useIncrementer";
+import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 
 type TabOptions = "overview" | "metrics" | "analysis" | "variations";
 export default function ConfigureReport({
@@ -119,6 +122,10 @@ export default function ConfigureReport({
   const [useToday, setUseToday] = useState(
     !form.watch("experimentAnalysisSettings.dateEnded")
   );
+  const [upgradeModal, setUpgradeModal] = useState(false);
+  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] = useState(
+    false
+  );
 
   const { data: experimentData } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -146,9 +153,25 @@ export default function ConfigureReport({
   const hasSequentialTestingFeature = hasCommercialFeature(
     "sequential-testing"
   );
+  const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
 
   const isBandit = experiment?.type === "multi-armed-bandit";
 
+  const hasMetrics =
+    form.watch("experimentAnalysisSettings.goalMetrics").length > 0 ||
+    form.watch("experimentAnalysisSettings.guardrailMetrics").length > 0 ||
+    form.watch("experimentAnalysisSettings.secondaryMetrics").length > 0;
+
+  if (upgradeModal) {
+    return (
+      <UpgradeModal
+        close={() => setUpgradeModal(false)}
+        reason="To override metric conversion windows,"
+        source="override-metrics"
+        commercialFeature="override-metrics"
+      />
+    );
+  }
   return (
     <Modal
       open={true}
@@ -157,6 +180,7 @@ export default function ConfigureReport({
       header={`Edit Analysis`}
       useRadixButton={true}
       cta="Save and refresh"
+      ctaEnabled={!hasMetricOverrideRiskError}
       submit={submit}
       size="lg"
       bodyClassName="px-0 pt-0"
@@ -456,6 +480,45 @@ export default function ConfigureReport({
                   },
                 ]}
               />
+            )}
+            {hasMetrics && !isBandit && experiment && (
+              <div className="form-group mt-4 mb-2">
+                <PremiumTooltip commercialFeature="override-metrics">
+                  <label className="font-weight-bold mb-0">
+                    Metric Overrides
+                  </label>
+                </PremiumTooltip>
+                <small className="form-text text-muted mb-2">
+                  Override metric behaviors within this experiment. Leave any
+                  fields empty that you do not want to override.
+                </small>
+                <MetricsOverridesSelector
+                  experiment={experiment}
+                  form={form}
+                  fieldMap={{
+                    goalMetrics: "experimentAnalysisSettings.goalMetrics",
+                    guardrailMetrics:
+                      "experimentAnalysisSettings.guardrailMetrics",
+                    secondaryMetrics:
+                      "experimentAnalysisSettings.secondaryMetrics",
+                    activationMetric:
+                      "experimentAnalysisSettings.activationMetric",
+                    metricOverrides:
+                      "experimentAnalysisSettings.metricOverrides",
+                  }}
+                  disabled={!hasOverrideMetricsFeature}
+                  setHasMetricOverrideRiskError={(v: boolean) =>
+                    setHasMetricOverrideRiskError(v)
+                  }
+                />
+                {!hasOverrideMetricsFeature && (
+                  <UpgradeMessage
+                    showUpgradeModal={() => setUpgradeModal(true)}
+                    commercialFeature="override-metrics"
+                    upgradeMessage="override metrics"
+                  />
+                )}
+              </div>
             )}
           </TabsContent>
 

@@ -77,6 +77,7 @@ const MetricsSelector: FC<{
   excludeQuantiles?: boolean;
   forceSingleMetric?: boolean;
   noPercentile?: boolean;
+  noManual?: boolean;
   disabled?: boolean;
   helpText?: ReactNode;
 }> = ({
@@ -91,6 +92,7 @@ const MetricsSelector: FC<{
   excludeQuantiles,
   forceSingleMetric = false,
   noPercentile = false,
+  noManual = false,
   disabled,
   helpText,
 }) => {
@@ -108,6 +110,7 @@ const MetricsSelector: FC<{
       .filter((m) =>
         noPercentile ? m.cappingSettings.type !== "percentile" : true
       )
+      .filter((m) => (noManual ? m.datasource : true))
       .map((m) => ({
         id: m.id,
         name: m.name,
