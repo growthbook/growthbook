@@ -3,6 +3,7 @@ anyOf:
   - $ref: "./FeatureRolloutRule.yaml"
   - $ref: "./FeatureExperimentRule.yaml"
   - $ref: "./FeatureExperimentRefRule.yaml"
+  - $ref: "./FeatureSafeRolloutRule.yaml"
 discriminator:
   propertyName: type
   mapping:
@@ -10,3 +11,4 @@ discriminator:
     rollout: "#/components/schemas/FeatureRolloutRule"
     experiment: "#/components/schemas/FeatureExperimentRule"
     experiment-ref: "#/components/schemas/FeatureExperimentRefRule"
+    safe-rollout: "#/components/schemas/FeatureSafeRolloutRule"
