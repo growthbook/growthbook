@@ -123,7 +123,7 @@ export async function getUserCodesForOrg(
   const readOnlyMembersSet: Set<string> = new Set([]);
   let invitesSet: Set<string> = new Set([]);
 
-  let organizations = [];
+  let organizations: OrgMemberInfo[] = [];
   let users: { id: string; email: string }[] = [];
   let teams: TeamInterface[] = [];
 
