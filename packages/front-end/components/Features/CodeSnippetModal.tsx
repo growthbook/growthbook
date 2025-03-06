@@ -101,7 +101,7 @@ export default function CodeSnippetModal({
   );
   useEffect(() => {
     if (currentConnection) {
-      setEventTracker(currentConnection.eventTracker || "");
+      setEventTracker(currentConnection?.eventTracker || "");
     }
   }, [currentConnection]);
 
