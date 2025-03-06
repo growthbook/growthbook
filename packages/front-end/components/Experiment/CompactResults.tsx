@@ -1,6 +1,5 @@
 import { FC, useMemo } from "react";
 import { MdSwapCalls } from "react-icons/md";
-import { ExperimentTimeSeriesInterface } from "back-end/src/routers/experiment-time-series/experiment-time-series.validators";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -16,6 +15,7 @@ import {
   PValueCorrection,
   StatsEngine,
 } from "back-end/types/stats";
+import { ExperimentTimeSeries } from "back-end/src/validators/experiment-time-series";
 import Link from "next/link";
 import { FaAngleRight, FaTimes, FaUsers } from "react-icons/fa";
 import Collapsible from "react-collapsible";
@@ -86,7 +86,7 @@ const CompactResults: FC<{
   experimentType?: ExperimentType;
   ssrPolyfills?: SSRPolyfills;
   hideDetails?: boolean;
-  timeSeries?: ExperimentTimeSeriesInterface;
+  timeSeries?: ExperimentTimeSeries;
 }> = ({
   editMetrics,
   variations,
