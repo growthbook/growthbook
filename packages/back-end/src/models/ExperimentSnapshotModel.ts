@@ -265,7 +265,7 @@ export async function updateSnapshot({
         context,
         experiment: updatedExperiment,
         snapshot: experimentSnapshotModel,
-        lastAnalysisSummary: experimentModel.analysisSummary,
+        previousAnalysisSummary: experimentModel.analysisSummary,
       });
     }
   }

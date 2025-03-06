@@ -4,7 +4,7 @@ import {
   getMetricResultStatus,
   getRunningExperimentStatus,
 } from "shared/experiments";
-import { accountFeatures, getEffectiveAccountPlan } from "shared/enterprise";
+import { orgHasPremiumFeature } from "shared/enterprise";
 import { StatsEngine } from "back-end/types/stats";
 import { Context } from "back-end/src/models/BaseModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
@@ -133,14 +133,10 @@ export const notifyMultipleExposures = async ({
   experiment: ExperimentInterface;
   currentStatus: RunningExperimentStatusData;
 }) => {
-  if (currentStatus.status !== "unhealthy") {
-    return;
-  }
-  const multipleExposureData = currentStatus.unhealthyData.multipleExposures;
-  if (!multipleExposureData) {
-    return;
-  }
-  const triggered = true;
+  const multipleExposureData =
+    currentStatus.status === "unhealthy" &&
+    currentStatus.unhealthyData.multipleExposures;
+  const triggered = !!multipleExposureData;
 
   await memoizeNotification({
     context,
@@ -459,20 +455,18 @@ export const notifyExperimentChange = async ({
   context,
   experiment,
   snapshot,
-  lastAnalysisSummary,
+  previousAnalysisSummary,
 }: {
   context: Context;
   experiment: ExperimentInterface;
   snapshot: ExperimentSnapshotDocument;
-  lastAnalysisSummary?: ExperimentAnalysisSummary;
+  previousAnalysisSummary?: ExperimentAnalysisSummary;
 }) => {
   await notifySignificance({ context, experiment, snapshot });
 
   const healthSettings = getHealthSettings(
     context.org.settings,
-    [...accountFeatures[getEffectiveAccountPlan(context.org)]].includes(
-      "decision-framework"
-    )
+    orgHasPremiumFeature(context.org, "decision-framework")
   );
   const currentStatus = getRunningExperimentStatus({
     experimentData: experiment,
@@ -493,7 +487,9 @@ export const notifyExperimentChange = async ({
         ...experiment,
         // use current experiment but the old analysis summary to compute
         // old experiment status
-        analysisSummary: lastAnalysisSummary ? lastAnalysisSummary : undefined,
+        analysisSummary: previousAnalysisSummary
+          ? previousAnalysisSummary
+          : undefined,
       },
       healthSettings,
     });

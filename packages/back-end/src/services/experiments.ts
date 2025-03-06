@@ -2906,7 +2906,7 @@ export async function updateExperimentAnalysisSummary({
     experimentSnapshot,
   });
 
-  return await updateExperiment({
+  return updateExperiment({
     context,
     experiment,
     changes: {
