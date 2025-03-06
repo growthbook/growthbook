@@ -15,6 +15,8 @@ import Modal from "@/components/Modal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import RadioCards from "@/components/Radix/RadioCards";
+import CloudProUpgradeModal from "@/enterprise/components/Billing/CloudProUpgradeModal";
+import { StripeProvider } from "@/enterprise/components/Billing/StripeProvider";
 import styles from "./index.module.scss";
 import CloudTrialConfirmationModal from "./CloudTrialConfirmationModal";
 import LicenseSuccessModal from "./LicenseSuccessModal";
@@ -56,11 +58,13 @@ export default function UpgradeModal({
     showCloudEnterpriseTrialSuccess,
     setShowCloudEnterpriseTrialSuccess,
   ] = useState(false);
+  const [showCloudProUpgrade, setShowCloudProUpgrade] = useState(false);
   const [showCloudProTrial, setShowCloudProTrial] = useState(false);
   const [showCloudProTrialSuccess, setShowCloudProTrialSuccess] = useState(
     false
   );
-
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
   const {
     name,
     email,
@@ -114,6 +118,10 @@ export default function UpgradeModal({
     freeTrialAvailable,
   };
 
+  const useInlineUpgradeForm =
+    //MKTODO: Is there more logic we need to add here?
+    isCloud() && growthbook.getFeatureValue("ff_embedded-payment-form", false);
+
   useEffect(() => {
     track("View Upgrade Modal", trackContext);
     // Even if accountPlan gets update during this upgrade process, we don't want to call this track call multiple times
@@ -151,7 +159,8 @@ export default function UpgradeModal({
         } else {
           setError("Unknown response");
         }
-      } else {
+        // MKTODO: Switch this to the default else case
+      } else if (!useInlineUpgradeForm) {
         const resp = await apiCall<{
           status: number;
           session?: { url?: string };
@@ -172,6 +181,19 @@ export default function UpgradeModal({
         } else {
           setError("Failed to start checkout");
         }
+      } else {
+        // If the embedPaymentMethodForm is true, we need to manually create the subscription
+        const { sessionId, clientSecret } = await apiCall<{
+          sessionId: string;
+          clientSecret: string;
+          // MKTODO: This URL could be cleaner
+        }>(`/subscription/new-pro-subscription`, {
+          method: "POST",
+        });
+        setClientSecret(clientSecret);
+        setSubscriptionId(sessionId);
+        setShowCloudProUpgrade(true);
+        setLoading(false);
       }
     } catch (e) {
       setLoading(false);
@@ -509,6 +531,16 @@ export default function UpgradeModal({
           header={`🎉 Your 14-day Enterprise Trial starts now!`}
           isTrial={true}
         />
+      ) : //MKTODO: This could be cleaner
+      showCloudProUpgrade && clientSecret && subscriptionId ? (
+        <StripeProvider initialClientSecret={clientSecret}>
+          <CloudProUpgradeModal
+            close={() => setShowCloudProUpgrade(false)}
+            seatsInUse={seatsInUse}
+            subscriptionId={subscriptionId}
+            closeParent={close}
+          />
+        </StripeProvider>
       ) : (
         <Modal
           trackingEventModalType="upgrade-modal"

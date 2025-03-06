@@ -6,9 +6,11 @@ import {
   getLicense,
   licenseInit,
   postCreateBillingSessionToLicenseServer,
+  postNewProSubscriptionInlineToLicenseServer,
   postNewProSubscriptionToLicenseServer,
   postNewProTrialSubscriptionToLicenseServer,
   postNewSubscriptionSuccessToLicenseServer,
+  syncNewSubscriptionToLicenseServer,
 } from "shared/enterprise";
 import { PaymentMethod } from "shared/src/types/subscriptions";
 import { APP_ORIGIN, STRIPE_WEBHOOK_SECRET } from "back-end/src/util/secrets";
@@ -94,6 +96,32 @@ export const postNewProTrialSubscription = withLicenseServerErrorHandling(
   }
 );
 
+//MKTODO: Rename this
+export const postNewProSubscriptionInline = withLicenseServerErrorHandling(
+  async function (req: AuthRequest, res: Response) {
+    const context = getContextFromReq(req);
+
+    if (!context.permissions.canManageBilling()) {
+      context.permissions.throwPermissionError();
+    }
+
+    const { org, userName } = context;
+
+    const qty = getNumberOfUniqueMembersAndInvites(org);
+
+    const result = await postNewProSubscriptionInlineToLicenseServer(
+      org.id,
+      org.name,
+      org.ownerEmail,
+      userName,
+      qty
+    );
+    await updateOrganization(org.id, { licenseKey: result.license.id });
+
+    res.status(200).json(result);
+  }
+);
+
 export const postNewProSubscription = withLicenseServerErrorHandling(
   async function (req: AuthRequest<{ returnUrl: string }>, res: Response) {
     let { returnUrl } = req.body;
@@ -121,6 +149,31 @@ export const postNewProSubscription = withLicenseServerErrorHandling(
       returnUrl
     );
     await updateOrganization(org.id, { licenseKey: result.license.id });
+
+    res.status(200).json(result);
+  }
+);
+
+export const updateOrgWithNewSubscription = withLicenseServerErrorHandling(
+  async function (req: AuthRequest<{ subscriptionId: string }>, res: Response) {
+    const context = getContextFromReq(req);
+
+    if (!context.permissions.canManageBilling()) {
+      context.permissions.throwPermissionError();
+    }
+
+    const { org } = context;
+
+    const license = await getLicense(org.licenseKey);
+
+    if (!license?.id) {
+      throw new Error("No license found for organization");
+    }
+
+    const result = await syncNewSubscriptionToLicenseServer(
+      license.id,
+      req.body.subscriptionId
+    );
 
     res.status(200).json(result);
   }

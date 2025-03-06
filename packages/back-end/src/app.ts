@@ -419,6 +419,13 @@ if (IS_CLOUD) {
     "/subscription/payment-methods/set-default",
     stripeController.updateCustomerDefaultPayment
   );
+  app.post(
+    //MKTODO: Rename?
+    "/subscription/new-pro-subscription",
+    stripeController.postNewProSubscriptionInline
+  );
+  //MKTODO: Rename?
+  app.post("/subscription/sync", stripeController.updateOrgWithNewSubscription);
 }
 app.post("/subscription/new", stripeController.postNewProSubscription);
 app.post("/subscription/manage", stripeController.postCreateBillingSession);
