@@ -101,6 +101,7 @@ const Results: FC<{
     setAnalysisSettings,
     mutateSnapshot: mutate,
     loading: snapshotLoading,
+    timeSeries,
   } = useSnapshot();
 
   const queryStatusData = getQueryStatus(latest?.queries || [], latest?.error);
@@ -371,6 +372,7 @@ const Results: FC<{
             baselineRow={baselineRow}
             multipleExposures={snapshot.multipleExposures || 0}
             results={analysis.results[0]}
+            timeSeries={timeSeries}
             queryStatusData={queryStatusData}
             reportDate={snapshot.dateCreated}
             startDate={phaseObj?.dateStarted ?? ""}

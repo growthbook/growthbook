@@ -1,5 +1,6 @@
 import { FC, useMemo } from "react";
 import { MdSwapCalls } from "react-icons/md";
+import { ExperimentTimeSeriesInterface } from "back-end/src/routers/experiment-time-series/experiment-time-series.validators";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -85,6 +86,7 @@ const CompactResults: FC<{
   experimentType?: ExperimentType;
   ssrPolyfills?: SSRPolyfills;
   hideDetails?: boolean;
+  timeSeries?: ExperimentTimeSeriesInterface;
 }> = ({
   editMetrics,
   variations,
@@ -118,6 +120,7 @@ const CompactResults: FC<{
   experimentType,
   ssrPolyfills,
   hideDetails,
+  timeSeries,
 }) => {
   const { getExperimentMetricById, metricGroups, ready } = useDefinitions();
 
@@ -220,6 +223,10 @@ const CompactResults: FC<{
         }),
         metricSnapshotSettings,
         resultGroup,
+        timeSeries: timeSeries?.results.map((it) => ({
+          date: it.analysisDate,
+          variations: it.metrics[metricId].variations,
+        })),
       };
     }
 
@@ -290,6 +297,7 @@ const CompactResults: FC<{
     ssrPolyfills,
     getExperimentMetricById,
     metricFilter,
+    timeSeries?.results,
   ]);
 
   const isBandit = experimentType === "multi-armed-bandit";

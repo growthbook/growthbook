@@ -24,6 +24,7 @@ import cloneDeep from "lodash/cloneDeep";
 import { getValidDate } from "shared/dates";
 import { isNil, omit } from "lodash";
 import { FactTableInterface } from "back-end/types/fact-table";
+import { VariationsSnapshotMetric } from "back-end/src/routers/experiment-time-series/experiment-time-series.validators";
 import {
   ExperimentMetricInterface,
   getMetricResultStatus,
@@ -52,6 +53,7 @@ export type ExperimentTableRow = {
   rowClass?: string;
   metricSnapshotSettings?: MetricSnapshotSettings;
   resultGroup: "goal" | "secondary" | "guardrail";
+  timeSeries?: { date: Date; variations: VariationsSnapshotMetric[] }[];
 };
 
 export function getRisk(
@@ -403,6 +405,7 @@ export type RowResults = {
   relativeRisk: number;
   riskMeta: RiskMeta;
   guardrailWarning: string;
+  timeSeries?: { date: Date; variations: VariationsSnapshotMetric[] }[];
 };
 export type RiskMeta = {
   riskStatus: "ok" | "warning" | "danger";
