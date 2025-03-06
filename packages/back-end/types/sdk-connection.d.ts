@@ -26,6 +26,7 @@ export type EditSDKConnectionParams = {
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;
   remoteEvalEnabled?: boolean;
+  eventTracker?: string;
 };
 export type CreateSDKConnectionParams = {
   organization: string;
@@ -54,6 +55,7 @@ export interface SDKConnectionInterface {
   id: string;
   organization: string;
   name: string;
+  eventTracker?: string;
   dateCreated: Date;
   dateUpdated: Date;
 

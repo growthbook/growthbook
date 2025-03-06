@@ -1,4 +1,4 @@
-import React, { useState, useEffect, ReactElement } from "react";
+import React, { useState, useEffect, ReactElement, useCallback } from "react";
 import {
   SDKConnectionInterface,
   SDKLanguage,
@@ -27,6 +27,8 @@ import TargetingAttributeCodeSnippet from "@/components/SyntaxHighlighting/Snipp
 import SelectField from "@/components/Forms/SelectField";
 import CheckSDKConnectionModal from "@/components/GuidedGetStarted/CheckSDKConnectionModal";
 import MultivariateFeatureCodeSnippet from "@/components/SyntaxHighlighting/Snippets/MultivariateFeatureCodeSnippet";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useAuth } from "@/services/auth";
 import SDKLanguageSelector from "./SDKConnections/SDKLanguageSelector";
 import { languageMapping } from "./SDKConnections/SDKLanguageLogo";
 
@@ -73,7 +75,7 @@ export default function CodeSnippetModal({
   allowChangingConnection?: boolean;
 }) {
   const [currentConnectionId, setCurrentConnectionId] = useState("");
-
+  const { apiCall } = useAuth();
   useEffect(() => {
     setCurrentConnectionId(
       currentConnectionId || sdkConnection?.id || connections?.[0]?.id || ""
@@ -94,11 +96,42 @@ export default function CodeSnippetModal({
   const [installationOpen, setInstallationOpen] = useState(true);
   const [setupOpen, setSetupOpen] = useState(true);
   const [usageOpen, setUsageOpen] = useState(true);
-  const [eventTracker, setEventTracker] = useState("");
+  const [eventTracker, setEventTracker] = useState(
+    currentConnection?.eventTracker || ""
+  );
+  useEffect(() => {
+    if (currentConnection) {
+      setEventTracker(currentConnection.eventTracker || "");
+    }
+  }, [currentConnection]);
+
   const [attributesOpen, setAttributesOpen] = useState(true);
 
   const settings = useOrgSettings();
   const attributeSchema = useAttributeSchema();
+
+  const permissionsUtil = usePermissionsUtil();
+  const canUpdate = currentConnection
+    ? permissionsUtil.canUpdateSDKConnection(currentConnection, {})
+    : false;
+  const updateEventTracker = useCallback(
+    async (value: string) => {
+      try {
+        if (canUpdate && currentConnectionId) {
+          await apiCall(`/sdk-connections/${currentConnectionId}`, {
+            method: "PUT",
+            body: JSON.stringify({
+              eventTracker: value,
+            }),
+          });
+        }
+        setEventTracker(value);
+      } catch (e) {
+        setEventTracker(value);
+      }
+    },
+    [currentConnectionId, setEventTracker]
+  );
 
   useEffect(() => {
     if (!currentConnection) return;
@@ -349,7 +382,7 @@ export default function CodeSnippetModal({
                   <InstallationCodeSnippet
                     language={language}
                     eventTracker={eventTracker}
-                    setEventTracker={setEventTracker}
+                    setEventTracker={updateEventTracker}
                     apiHost={apiHost}
                     apiKey={clientKey}
                     encryptionKey={encryptionKey}
@@ -381,7 +414,7 @@ export default function CodeSnippetModal({
                     encryptionKey={encryptionKey}
                     remoteEvalEnabled={remoteEvalEnabled}
                     eventTracker={eventTracker}
-                    setEventTracker={setEventTracker}
+                    setEventTracker={updateEventTracker}
                   />
                 </div>
               )}
