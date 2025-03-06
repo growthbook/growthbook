@@ -13,11 +13,7 @@
     "strictBindCallApply": true,
     "strictPropertyInitialization": true,
     "rootDir": "src",
-    "resolveJsonModule": true,
-    "baseUrl": ".",
-    "paths": {
-      "enterprise/license": ["packages/shared/src/enterprise/license.ts"]
-    }
+    "resolveJsonModule": true
   },
   "include": ["src/**/*", "typings.d.ts"]
 }

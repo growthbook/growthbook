@@ -6,10 +6,7 @@ import { findAllSDKConnectionsAcrossAllOrgs } from "back-end/src/models/SdkConne
 import { getInstallationId } from "back-end/src/models/InstallationModel";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { getInstallationDatasources } from "back-end/src/models/DataSourceModel";
-import {
-  DefaultMemberRole,
-  OrganizationInterface,
-} from "back-end/types/organization";
+import { DefaultMemberRole, OrgMemberInfo } from "back-end/types/organization";
 import { getAllOrgMemberInfoInDb } from "back-end/src/models/OrganizationModel";
 import {
   getUserIdsAndEmailsForAllUsersInDb,
@@ -80,7 +77,7 @@ function isReadOnlyRole(role: DefaultMemberRole): boolean {
 }
 
 function getMemberRoles(
-  orgs: OrganizationInterface[],
+  orgs: OrgMemberInfo[],
   memberId: string,
   teamIdToTeamMap: {
     [key: string]: TeamInterface;
@@ -120,13 +117,13 @@ function getMemberRoles(
 }
 
 export async function getUserCodesForOrg(
-  org: OrganizationInterface
+  org: OrgMemberInfo
 ): Promise<LicenseUserCodes> {
   const fullMembersSet: Set<string> = new Set([]);
   const readOnlyMembersSet: Set<string> = new Set([]);
   let invitesSet: Set<string> = new Set([]);
 
-  let organizations: OrganizationInterface[] = [];
+  let organizations = [];
   let users: { id: string; email: string }[] = [];
   let teams: TeamInterface[] = [];
 
@@ -165,6 +162,10 @@ export async function getUserCodesForOrg(
 
   for (const userId of Object.keys(userIdsToEmailHash)) {
     const roles = getMemberRoles(organizations, userId, teamIdToTeamMap);
+    if (roles.length === 0) {
+      // an orphaned user, skip
+      continue;
+    }
     const isReadOnly = roles.every(isReadOnlyRole);
     const emailHash = userIdsToEmailHash[userId];
 

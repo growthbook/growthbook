@@ -12,6 +12,7 @@ import {
   MemberRoleWithProjects,
   OrganizationInterface,
   OrganizationMessage,
+  OrgMemberInfo,
   Role,
 } from "back-end/types/organization";
 import { upgradeOrganizationDoc } from "back-end/src/util/migrations";
@@ -303,15 +304,15 @@ export async function findOrganizationByStripeCustomerId(id: string) {
   return doc ? toInterface(doc) : null;
 }
 
-export async function getAllOrgMemberInfoInDb() {
+export async function getAllOrgMemberInfoInDb(): Promise<OrgMemberInfo[]> {
   if (IS_CLOUD) {
     throw new Error("getAllOrgMemberInfoInDb() is not supported on cloud");
   }
   return await OrganizationModel.find(
     {},
     {
-      "invites.email": 1,
       id: 1,
+      "invites.email": 1,
       "members.id": 1,
       "members.role": 1,
       "members.projectRoles.role": 1,

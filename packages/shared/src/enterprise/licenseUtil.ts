@@ -152,7 +152,7 @@ export interface LicenseInterface {
     [installationId: string]: {
       date: string;
       userHashes: string[];
-      licenseUserCodes: LicenseUserCodes;
+      licenseUserCodes?: LicenseUserCodes;
     };
   }; // Map of first 7 chars of user email shas to the last time they were in a usage request
   archived: boolean; // True if this license has been deleted/archived
