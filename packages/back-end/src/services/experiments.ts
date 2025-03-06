@@ -1162,7 +1162,6 @@ async function getSnapshotAnalyses(
       // promise to add analysis to mongo record if it does not exist, overwrite if it does
       createAnalysisPromises.push(() =>
         context.models.experimentSnapshots.addOrUpdateSnapshotAnalysis({
-          organization: organization.id,
           id: snapshot.id,
           analysis,
         })
@@ -1265,7 +1264,6 @@ export async function createSnapshotAnalysis(
   };
   // and analysis to mongo record if it does not exist, overwrite if it does
   context.models.experimentSnapshots.addOrUpdateSnapshotAnalysis({
-    organization: organization.id,
     id: snapshot.id,
     analysis,
   });
@@ -1289,7 +1287,6 @@ export async function createSnapshotAnalysis(
   analysis.error = undefined;
 
   context.models.experimentSnapshots.updateSnapshotAnalysis({
-    organization: organization.id,
     id: snapshot.id,
     analysis,
   });

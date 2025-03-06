@@ -1700,11 +1700,7 @@ export async function deleteExperimentPhase(
     changes,
   });
 
-  await context.models.experimentSnapshots.updateOnPhaseDelete(
-    org.id,
-    id,
-    phaseIndex
-  );
+  await context.models.experimentSnapshots.updateOnPhaseDelete(id, phaseIndex);
 
   // Add audit entry
   await req.audit({

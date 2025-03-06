@@ -15,13 +15,7 @@ import { updateExperimentAnalysisSummary } from "back-end/src/services/experimen
 import { MakeModelClass, UpdateProps } from "./BaseModel";
 import { getExperimentById } from "./ExperimentModel";
 
-type WriteOptions = {
-  checkCircularDependencies?: boolean;
-  skipSDKRefresh?: boolean;
-};
-
 export type AddOrUpdateSnapshotAnalysisParams = {
-  organization: string;
   id: string;
   analysis: ExperimentSnapshotAnalysis;
 };
@@ -81,8 +75,7 @@ export class ExperimentSnapshotModel extends BaseClass {
   protected async afterUpdate(
     _existing: ExperimentSnapshotInterface,
     _updates: UpdateProps<ExperimentSnapshotInterface>,
-    newDoc: ExperimentSnapshotInterface,
-    _writeOptions?: WriteOptions
+    newDoc: ExperimentSnapshotInterface
   ) {
     const shouldUpdateExperimentAnalysisSummary =
       newDoc.type === "standard" && newDoc.status === "success";
@@ -109,10 +102,7 @@ export class ExperimentSnapshotModel extends BaseClass {
     await notifyExperimentChange({ context: this.context, snapshot: newDoc });
   }
 
-  protected async afterCreate(
-    doc: ExperimentSnapshotInterface,
-    _writeOptions?: WriteOptions
-  ) {
+  protected async afterCreate(doc: ExperimentSnapshotInterface) {
     await notifyExperimentChange({ context: this.context, snapshot: doc });
   }
 
@@ -131,12 +121,9 @@ export class ExperimentSnapshotModel extends BaseClass {
     return snapshots.map((doc) => this.migrate(doc));
   }
 
-  public async updateOnPhaseDelete(
-    organization: string,
-    experiment: string,
-    phase: number
-  ) {
+  public async updateOnPhaseDelete(experiment: string, phase: number) {
     const snapshotCollection = await super._dangerousGetCollection();
+    const organization = this.context.org.id;
     // Delete all snapshots for the phase
     await snapshotCollection.deleteMany({
       organization,
@@ -162,15 +149,14 @@ export class ExperimentSnapshotModel extends BaseClass {
   }
 
   public async updateSnapshotAnalysis({
-    organization,
     id,
     analysis,
   }: {
-    organization: string;
     id: string;
     analysis: ExperimentSnapshotAnalysis;
   }) {
     const snapshotCollection = await super._dangerousGetCollection();
+    const organization = this.context.org.id;
 
     await snapshotCollection.updateOne(
       {
@@ -200,7 +186,8 @@ export class ExperimentSnapshotModel extends BaseClass {
   public async addOrUpdateSnapshotAnalysis(
     params: AddOrUpdateSnapshotAnalysisParams
   ) {
-    const { organization, id, analysis } = params;
+    const { id, analysis } = params;
+    const organization = this.context.org.id;
     const snapshotCollection = await super._dangerousGetCollection();
     // looks for snapshots with this ID but WITHOUT these analysis settings
     const experimentSnapshotModel = await snapshotCollection.updateOne(
@@ -216,7 +203,7 @@ export class ExperimentSnapshotModel extends BaseClass {
     // if analysis already exist, no documents will be returned by above query
     // so instead find and update existing analysis in DB
     if (experimentSnapshotModel.matchedCount === 0) {
-      await this.updateSnapshotAnalysis({ organization, id, analysis });
+      await this.updateSnapshotAnalysis({ id, analysis });
     }
   }
 

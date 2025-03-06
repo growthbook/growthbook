@@ -661,7 +661,6 @@ export async function writeSnapshotAnalyses(
 
     promises.push(async () =>
       context.models.experimentSnapshots.updateSnapshotAnalysis({
-        organization,
         id: snapshot,
         analysis: analysisObj,
       })
