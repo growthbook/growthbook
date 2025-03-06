@@ -507,10 +507,16 @@ export async function getSnapshot(
     type,
   });
 
+  const timeSeries = await context.models.experimentTimeSeries.findByExperimentAndPhase(
+    id,
+    parseInt(phase)
+  );
+
   res.status(200).json({
     status: 200,
     snapshot,
     latest,
+    timeSeries,
   });
 }
 

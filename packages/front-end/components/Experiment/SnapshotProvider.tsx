@@ -1,5 +1,6 @@
 import React, { useState, ReactNode, useContext } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ExperimentTimeSeriesInterface } from "back-end/src/routers/experiment-time-series/experiment-time-series.validators";
 import {
   SnapshotType,
   ExperimentSnapshotAnalysis,
@@ -28,6 +29,7 @@ const snapshotContext = React.createContext<{
   setSnapshotType: (snapshotType: SnapshotType | undefined) => void;
   loading?: boolean;
   error?: Error;
+  timeSeries?: ExperimentTimeSeriesInterface;
 }>({
   phase: 0,
   dimension: "",
@@ -65,6 +67,7 @@ export default function SnapshotProvider({
     snapshot: ExperimentSnapshotInterface;
     latest?: ExperimentSnapshotInterface;
     dimensionless?: ExperimentSnapshotInterface;
+    timeSeries?: ExperimentTimeSeriesInterface;
   }>(
     `/experiment/${experiment.id}/snapshot/${phase}` +
       (dimension ? "/" + dimension : "") +
@@ -100,6 +103,7 @@ export default function SnapshotProvider({
         setSnapshotType,
         error,
         loading: isValidating,
+        timeSeries: data?.timeSeries,
       }}
     >
       {children}

@@ -15,6 +15,7 @@ import {
   PValueCorrection,
   StatsEngine,
 } from "back-end/types/stats";
+import { ExperimentTimeSeries } from "back-end/src/validators/experiment-time-series";
 import Link from "next/link";
 import { FaAngleRight, FaTimes, FaUsers } from "react-icons/fa";
 import Collapsible from "react-collapsible";
@@ -85,6 +86,7 @@ const CompactResults: FC<{
   experimentType?: ExperimentType;
   ssrPolyfills?: SSRPolyfills;
   hideDetails?: boolean;
+  timeSeries?: ExperimentTimeSeries;
 }> = ({
   editMetrics,
   variations,
@@ -118,6 +120,7 @@ const CompactResults: FC<{
   experimentType,
   ssrPolyfills,
   hideDetails,
+  timeSeries,
 }) => {
   const { getExperimentMetricById, metricGroups, ready } = useDefinitions();
 
@@ -220,6 +223,10 @@ const CompactResults: FC<{
         }),
         metricSnapshotSettings,
         resultGroup,
+        timeSeries: timeSeries?.results.map((it) => ({
+          date: it.analysisDate,
+          variations: it.metrics[metricId].variations,
+        })),
       };
     }
 
@@ -290,6 +297,7 @@ const CompactResults: FC<{
     ssrPolyfills,
     getExperimentMetricById,
     metricFilter,
+    timeSeries?.results,
   ]);
 
   const isBandit = experimentType === "multi-armed-bandit";
