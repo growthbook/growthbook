@@ -50,7 +50,7 @@ import {
 } from "back-end/src/validators/experiments";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { promiseAllChunks } from "back-end/src/util/promise";
-import { Context } from "back-end/src/models/BaseModel";
+import { Context, CreateProps } from "back-end/src/models/BaseModel";
 import {
   ExperimentAnalysisParamsContextData,
   ExperimentSnapshotAnalysis,
@@ -998,13 +998,11 @@ export async function createSnapshot({
     datasource,
   });
 
-  const data: ExperimentSnapshotInterface = {
+  const data: CreateProps<ExperimentSnapshotInterface> = {
     id: uniqid("snp_"),
-    organization: experiment.organization,
     experiment: experiment.id,
     runStarted: new Date(),
     error: "",
-    dateCreated: new Date(),
     phase: phaseIndex,
     queries: [],
     dimension: dimension || null,

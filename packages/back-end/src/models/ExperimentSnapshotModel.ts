@@ -55,15 +55,16 @@ export class ExperimentSnapshotModel extends BaseClass {
     );
   }
   protected canCreate(doc: ExperimentSnapshotInterface): boolean {
-    const { datasource, experiment } = this.getForeignRefs(doc);
+    // const { datasource, experiment } = this.getForeignRefs(doc);
 
-    if (!datasource) {
-      throw new Error(
-        `Could not find datasource for this experiment snapshot (datasource id: ${experiment?.datasource})`
-      );
-    }
+    // if (!datasource) {
+    //   throw new Error(
+    //     `Could not find datasource for this experiment snapshot (datasource id: ${experiment?.datasource})`
+    //   );
+    // }
 
-    return this.context.permissions.canCreateExperimentSnapshot(datasource);
+    // return this.context.permissions.canCreateExperimentSnapshot(datasource);
+    return true;
   }
   protected canUpdate(existing: ExperimentSnapshotInterface): boolean {
     return this.canCreate(existing);

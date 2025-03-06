@@ -41,7 +41,7 @@ const metricStatsObject = z.object({
 
 const metricPowerResponseFromStatsEngineObject = z.object({
   status: z.string(),
-  errorMessage: z.string().optional(),
+  errorMessage: z.string().optional().nullable(),
   firstPeriodPairwiseSampleSize: z.number().optional(),
   targetMDE: z.number(),
   sigmahat2Delta: z.number().optional(),
@@ -81,8 +81,8 @@ const snapshotMetricObject = z.object({
     )
     .optional(),
   chanceToWin: z.number().optional(),
-  errorMessage: z.string().optional(),
-  power: metricPowerResponseFromStatsEngineObject.optional(),
+  errorMessage: z.string().optional().nullable(),
+  power: metricPowerResponseFromStatsEngineObject.optional().nullable(),
 });
 
 const snapshotVariationObject = z.object({
@@ -227,7 +227,7 @@ export const experimentSnapshotSchema = z
     status: z.enum(["running", "success", "error"]),
     settings: experimentSnapshotSettingsObject,
     analyses: z.array(experimentSnapshotAnalysisObject),
-    banditResult: banditResult.optional(),
+    banditResult: banditResult.optional().nullable(),
     health: experimentSnapshotHealthObject.optional(),
   })
   .strict();
