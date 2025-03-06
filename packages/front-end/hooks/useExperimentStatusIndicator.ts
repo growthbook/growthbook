@@ -104,7 +104,7 @@ function getDetailedRunningStatusIndicatorData(
         sortOrder: 8 + sortOrderDecimal,
       };
     }
-    case "before-min":
+    case "before-min-duration":
       return {
         color: "indigo",
         status: "Running",

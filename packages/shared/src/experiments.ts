@@ -1189,7 +1189,7 @@ export function getRunningExperimentStatus({
   // 3. If early in the experiment, just say running with a tooltip
   if (beforeMinDuration) {
     return {
-      status: "before-min",
+      status: "before-min-duration",
       tooltip: `Estimated days left or decision recommendations will appear after the minimum experiment duration of ${healthSettings.experimentMinLengthDays} is reached.`,
     };
   }
