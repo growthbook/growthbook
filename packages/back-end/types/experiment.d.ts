@@ -47,7 +47,7 @@ export type RunningExperimentStatus =
   | DecisionFrameworkExperimentRecommendationStatus
   | { status: "no-data" }
   | { status: "unhealthy"; unhealthyData: ExperimentUnhealthyData }
-  | { status: "before-min" };
+  | { status: "before-min-duration" };
 
 export type RunningExperimentStatusData = RunningExperimentStatus & {
   tooltip?: string;
