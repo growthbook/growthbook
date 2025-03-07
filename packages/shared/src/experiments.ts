@@ -25,10 +25,10 @@ import {
   DataSourceInterfaceWithParams,
   DataSourceSettings,
 } from "back-end/types/datasource";
-import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { StatsEngine } from "back-end/types/stats";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import uniqid from "uniqid";
+import { SnapshotMetric } from "back-end/src/validators/experiment-snapshot";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,

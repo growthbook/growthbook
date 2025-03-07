@@ -41,16 +41,18 @@ import { logger } from "back-end/src/util/logger";
 import {
   ExperimentAnalysisParamsContextData,
   ExperimentMetricAnalysisParams,
-  ExperimentSnapshotAnalysisSettings,
-  ExperimentSnapshotSettings,
-  ExperimentSnapshotTraffic,
-  ExperimentSnapshotTrafficDimension,
   SnapshotBanditSettings,
-  SnapshotSettingsVariation,
 } from "back-end/types/experiment-snapshot";
 import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "back-end/src/integrations/SqlIntegration";
 import { applyMetricOverrides } from "back-end/src/util/integration";
+import {
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotSettings,
+  ExperimentSnapshotTraffic,
+  ExperimentSnapshotTrafficDimension,
+  SnapshotSettingsVariation,
+} from "back-end/src/validators/experiment-snapshot";
 import { getContextForAgendaJobByOrgId } from "./organizations";
 
 // Keep these interfaces in sync with gbstats

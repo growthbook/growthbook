@@ -1,17 +1,17 @@
 import { z } from "zod";
 import normal from "@stdlib/stats/base/dists/normal";
 import {
-  ExperimentSnapshotAnalysis,
-  ExperimentSnapshotTraffic,
-  SnapshotSettingsVariation,
-} from "back-end/types/experiment-snapshot";
-import {
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
-import { MetricPowerResponseFromStatsEngine } from "back-end/types/stats";
 import { sequentialDiscriminant, sequentialRho } from "shared/power";
 import { eachDayOfInterval, formatISO, subDays } from "date-fns";
+import {
+  ExperimentSnapshotAnalysis,
+  ExperimentSnapshotTraffic,
+  MetricPowerResponseFromStatsEngine,
+  SnapshotSettingsVariation,
+} from "back-end/src/validators/experiment-snapshot";
 
 export interface MidExperimentPowerParams {
   alpha: number;
@@ -28,7 +28,7 @@ export interface MidExperimentPowerParams {
 export interface MidExperimentSingleVariationParams {
   // For a single variation, we need to know the power for each metric.
   metrics: {
-    [metricId: string]: MetricPowerResponseFromStatsEngine | undefined;
+    [metricId: string]: MetricPowerResponseFromStatsEngine | undefined | null;
   };
 }
 
@@ -41,13 +41,13 @@ export interface MidExperimentPowerParamsSingle {
   newDailyUsers: number;
   numGoalMetrics: number;
   numVariations: number;
-  variation?: MetricPowerResponseFromStatsEngine;
+  variation?: MetricPowerResponseFromStatsEngine | null;
 }
 
 export const MetricVariationPowerResultValidator = z.object({
   metricId: z.string(),
   variation: z.number(),
-  errorMessage: z.string().optional(),
+  errorMessage: z.string().optional().nullable(),
   power: z.number().optional(),
   isLowPowered: z.boolean().optional(),
   effectSize: z.number().optional(),
@@ -152,7 +152,7 @@ export function calculateMidExperimentPowerSingle(
       response.errorMessage
     );
   }
-  if (response.firstPeriodPairwiseSampleSize === undefined) {
+  if (response?.firstPeriodPairwiseSampleSize === undefined) {
     return calculateMidExperimentPowerSingleError(
       metricId,
       variation,
@@ -353,7 +353,7 @@ export function calculateMidExperimentPower(
       metricVariationCounter += 1;
       if (variationMetricData === undefined) {
         metricVariationFailure += 1;
-      } else if (variationMetricData.status === "unsuccessful") {
+      } else if (variationMetricData?.status === "unsuccessful") {
         metricVariationFailure += 1;
         metricVariationPowerArray.push({
           metricId: metricId,

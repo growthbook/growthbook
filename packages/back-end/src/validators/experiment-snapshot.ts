@@ -15,6 +15,10 @@ const experimentSnapshotTrafficDimensionObject = z.object({
   variationUnits: z.array(z.number()),
 });
 
+export type ExperimentSnapshotTrafficDimension = z.infer<
+  typeof experimentSnapshotTrafficDimensionObject
+>;
+
 const experimentSnapshotTrafficObject = z.object({
   overall: experimentSnapshotTrafficDimensionObject,
   dimension: z.record(
@@ -27,10 +31,18 @@ const experimentSnapshotTrafficObject = z.object({
     .optional(),
 });
 
+export type ExperimentSnapshotTraffic = z.infer<
+  typeof experimentSnapshotTrafficObject
+>;
+
 const experimentSnapshotHealthObject = z.object({
   traffic: experimentSnapshotTrafficObject,
   power: MidExperimentPowerCalculationResultValidator.optional(),
 });
+
+export type ExperimentSnapshotHealth = z.infer<
+  typeof experimentSnapshotHealthObject
+>;
 
 const metricStatsObject = z.object({
   users: z.number(),
@@ -51,6 +63,10 @@ const metricPowerResponseFromStatsEngineObject = z.object({
   upperBoundAchieved: z.boolean().optional(),
   scalingFactor: z.number().optional(),
 });
+
+export type MetricPowerResponseFromStatsEngine = z.infer<
+  typeof metricPowerResponseFromStatsEngineObject
+>;
 
 const snapshotMetricObject = z.object({
   value: z.number(),
@@ -85,6 +101,8 @@ const snapshotMetricObject = z.object({
   power: metricPowerResponseFromStatsEngineObject.optional().nullable(),
 });
 
+export type SnapshotMetric = z.infer<typeof snapshotMetricObject>;
+
 const snapshotVariationObject = z.object({
   users: z.number(),
   metrics: z.record(z.string(), snapshotMetricObject),
@@ -111,6 +129,10 @@ const experimentSnapshotAnalysisSettingsValidator = z.object({
   baselineVariationIndex: z.number().optional(),
   numGoalMetrics: z.number(),
 });
+
+export type ExperimentSnapshotAnalysisSettings = z.infer<
+  typeof experimentSnapshotAnalysisSettingsValidator
+>;
 
 const experimentSnapshotAnalysisObject = z.object({
   settings: experimentSnapshotAnalysisSettingsValidator,
@@ -169,6 +191,10 @@ const snapshotSettingsVariationValidator = z.object({
   weight: z.number(),
 });
 
+export type SnapshotSettingsVariation = z.infer<
+  typeof snapshotSettingsVariationValidator
+>;
+
 const snapshotBanditSettingsValidator = z.object({
   reweight: z.boolean(),
   decisionMetric: z.string(),
@@ -206,6 +232,10 @@ const experimentSnapshotSettingsObject = z.object({
   coverage: z.number().optional(),
   banditSettings: snapshotBanditSettingsValidator.optional(),
 });
+
+export type ExperimentSnapshotSettings = z.infer<
+  typeof experimentSnapshotSettingsObject
+>;
 
 export const experimentSnapshotSchema = z
   .object({

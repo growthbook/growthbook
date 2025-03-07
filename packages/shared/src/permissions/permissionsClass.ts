@@ -726,9 +726,12 @@ export class Permissions {
   };
 
   public canCreateExperimentSnapshot = (
-    datasource: Pick<DataSourceInterface, "projects">
+    experiment: Pick<ExperimentInterface, "project">
   ): boolean => {
-    return this.canRunExperimentQueries(datasource);
+    return this.checkProjectFilterPermission(
+      { projects: experiment.project ? [experiment.project] : [] },
+      "runQueries"
+    );
   };
 
   public canRunMetricQueries = (

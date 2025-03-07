@@ -53,10 +53,6 @@ import { promiseAllChunks } from "back-end/src/util/promise";
 import { Context, CreateProps } from "back-end/src/models/BaseModel";
 import {
   ExperimentAnalysisParamsContextData,
-  ExperimentSnapshotAnalysis,
-  ExperimentSnapshotAnalysisSettings,
-  ExperimentSnapshotInterface,
-  ExperimentSnapshotSettings,
   SnapshotTriggeredBy,
   SnapshotType,
   SnapshotVariation,
@@ -130,6 +126,12 @@ import { ApiReqContext } from "back-end/types/api";
 import { ProjectInterface } from "back-end/types/project";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import {
+  ExperimentSnapshotAnalysis,
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotInterface,
+  ExperimentSnapshotSettings,
+} from "back-end/src/validators/experiment-snapshot";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import {
   getIntegrationFromDatasourceId,
@@ -610,15 +612,12 @@ export async function createManualSnapshot({
     metricMap
   );
 
-  const data: ExperimentSnapshotInterface = {
-    id: uniqid("snp_"),
-    organization: experiment.organization,
+  const data: CreateProps<ExperimentSnapshotInterface> = {
     experiment: experiment.id,
     dimension: null,
     phase: phaseIndex,
     queries: [],
     runStarted: new Date(),
-    dateCreated: new Date(),
     status: "success",
     settings: snapshotSettings,
     unknownVariations: [],
@@ -872,7 +871,7 @@ export function updateExperimentBanditSettings({
   }
   const phase = changes.phases.length - 1;
 
-  const banditResult: BanditResult | undefined = snapshot?.banditResult;
+  const banditResult: BanditResult | undefined | null = snapshot?.banditResult;
   const snapshotDateCreated =
     snapshot?.analyses?.[0]?.dateCreated ?? new Date();
 
@@ -999,7 +998,6 @@ export async function createSnapshot({
   });
 
   const data: CreateProps<ExperimentSnapshotInterface> = {
-    id: uniqid("snp_"),
     experiment: experiment.id,
     runStarted: new Date(),
     error: "",

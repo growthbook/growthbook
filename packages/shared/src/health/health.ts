@@ -1,5 +1,5 @@
+import { ExperimentSnapshotInterface } from "back-end/src/validators/experiment-snapshot";
 import { ExperimentType } from "back-end/src/validators/experiments";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 
 type MultipleExposureHealthStatus =
   | "not-enough-traffic"

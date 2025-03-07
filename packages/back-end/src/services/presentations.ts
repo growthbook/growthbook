@@ -6,9 +6,9 @@ import {
 } from "back-end/types/presentation";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 import { ExperimentInterface } from "back-end/types/experiment";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
+import { ExperimentSnapshotInterface } from "back-end/src/validators/experiment-snapshot";
 
 //import {query} from "back-end/src/config/postgres";
 

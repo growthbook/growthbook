@@ -1,17 +1,17 @@
 import { FilterQuery, PipelineStage } from "mongoose";
 import omit from "lodash/omit";
+import isEqual from "lodash/isEqual";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
   experimentSnapshotSchema,
-} from "back-end/src/validators/experiment-snapshot";
-import {
   LegacyExperimentSnapshotInterface,
-  SnapshotType,
-} from "back-end/types/experiment-snapshot";
+} from "back-end/src/validators/experiment-snapshot";
+import { SnapshotType } from "back-end/types/experiment-snapshot";
 import { migrateSnapshot } from "back-end/src/util/migrations";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
 import { updateExperimentAnalysisSummary } from "back-end/src/services/experiments";
+import { ExperimentInterface } from "back-end/src/validators/experiments";
 import { MakeModelClass, UpdateProps } from "./BaseModel";
 import { getExperimentById } from "./ExperimentModel";
 
@@ -55,22 +55,19 @@ export class ExperimentSnapshotModel extends BaseClass {
     );
   }
   protected canCreate(doc: ExperimentSnapshotInterface): boolean {
-    // const { datasource, experiment } = this.getForeignRefs(doc);
+    const { experiment } = this.getForeignRefs(doc);
 
-    // if (!datasource) {
-    //   throw new Error(
-    //     `Could not find datasource for this experiment snapshot (datasource id: ${experiment?.datasource})`
-    //   );
-    // }
-
-    // return this.context.permissions.canCreateExperimentSnapshot(datasource);
-    return true;
+    return experiment ? this.canCreateSnapshot(experiment) : false;
   }
   protected canUpdate(existing: ExperimentSnapshotInterface): boolean {
     return this.canCreate(existing);
   }
   protected canDelete(doc: ExperimentSnapshotInterface): boolean {
     return this.canCreate(doc);
+  }
+
+  private canCreateSnapshot(experiment: ExperimentInterface) {
+    return this.context.permissions.canCreateExperimentSnapshot(experiment);
   }
 
   protected async afterUpdate(
@@ -122,9 +119,17 @@ export class ExperimentSnapshotModel extends BaseClass {
     return snapshots.map((doc) => this.migrate(doc));
   }
 
-  public async updateOnPhaseDelete(experiment: string, phase: number) {
+  public async updateOnPhaseDelete(
+    experiment: ExperimentInterface,
+    phase: number
+  ) {
     const snapshotCollection = await super._dangerousGetCollection();
     const organization = this.context.org.id;
+
+    if (!this.canCreateSnapshot(experiment)) {
+      throw new Error("You do not have access to update this resource");
+    }
+
     // Delete all snapshots for the phase
     await snapshotCollection.deleteMany({
       organization,
@@ -156,25 +161,21 @@ export class ExperimentSnapshotModel extends BaseClass {
     id: string;
     analysis: ExperimentSnapshotAnalysis;
   }) {
-    const snapshotCollection = await super._dangerousGetCollection();
-    const organization = this.context.org.id;
+    const snapshot = await super.getById(id);
 
-    await snapshotCollection.updateOne(
-      {
-        organization,
-        id,
-        "analyses.settings": analysis.settings,
-      },
-      {
-        $set: { "analyses.$": analysis },
-      }
+    if (!snapshot) throw new Error("Could not find resource to update");
+
+    const index = snapshot.analyses.findIndex((a) =>
+      isEqual(a.settings, analysis.settings)
     );
 
-    const experimentSnapshotModel = await snapshotCollection.findOne({
-      id,
-      organization,
-    });
-    if (!experimentSnapshotModel) throw "Internal error";
+    if (index === -1) {
+      throw new Error("Could not find resource to update");
+    }
+
+    snapshot.analyses[index] = analysis;
+
+    await super.updateById(id, { analyses: snapshot.analyses });
 
     // Not notifying on new analysis because new analyses in an existing snapshot
     // are akin to ad-hoc snapshots
@@ -188,22 +189,23 @@ export class ExperimentSnapshotModel extends BaseClass {
     params: AddOrUpdateSnapshotAnalysisParams
   ) {
     const { id, analysis } = params;
-    const organization = this.context.org.id;
-    const snapshotCollection = await super._dangerousGetCollection();
-    // looks for snapshots with this ID but WITHOUT these analysis settings
-    const experimentSnapshotModel = await snapshotCollection.updateOne(
-      {
-        organization,
-        id,
-        "analyses.settings": { $ne: analysis.settings },
-      },
-      {
-        $push: { analyses: analysis },
-      }
+
+    const snapshot = await this.getById(id);
+    if (!snapshot) throw new Error("Could not find resource to update");
+
+    // Check if an analysis with the same settings already exists
+    const exists = snapshot.analyses.some((a) =>
+      isEqual(a.settings, analysis.settings)
     );
-    // if analysis already exist, no documents will be returned by above query
-    // so instead find and update existing analysis in DB
-    if (experimentSnapshotModel.matchedCount === 0) {
+
+    if (!exists) {
+      // If no matching analysis exists, add the new one
+      const updatedAnalyses = [...snapshot.analyses, analysis];
+
+      // Save the updated document back to the database
+      await this.updateById(id, { analyses: updatedAnalyses });
+    } else {
+      // if analysis already exists, find and update existing analysis in DB
       await this.updateSnapshotAnalysis({ id, analysis });
     }
   }
@@ -221,7 +223,7 @@ export class ExperimentSnapshotModel extends BaseClass {
       queries: { $elemMatch: { status: "running" } },
     });
 
-    return snapshot ? this.migrate(snapshot) : null;
+    return snapshot;
   }
 
   public async getLatestSnapshot({
@@ -268,7 +270,7 @@ export class ExperimentSnapshotModel extends BaseClass {
       }
     );
     if (all[0]) {
-      return this.migrate(all[0]);
+      return all[0];
     }
 
     // Otherwise, try getting old snapshot records
@@ -281,7 +283,7 @@ export class ExperimentSnapshotModel extends BaseClass {
       limit: 1,
     });
 
-    return all[0] ? this.migrate(all[0]) : null;
+    return all[0];
   }
 
   // Gets latest snapshots per experiment-phase pair

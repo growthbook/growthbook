@@ -92,8 +92,6 @@ import {
   auditDetailsUpdate,
 } from "back-end/src/services/audit";
 import {
-  ExperimentSnapshotAnalysisSettings,
-  ExperimentSnapshotInterface,
   SnapshotTriggeredBy,
   SnapshotType,
 } from "back-end/types/experiment-snapshot";
@@ -117,6 +115,10 @@ import { CreateURLRedirectProps } from "back-end/types/url-redirect";
 import { logger } from "back-end/src/util/logger";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
+import {
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotInterface,
+} from "back-end/src/validators/experiment-snapshot";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
@@ -1700,7 +1702,10 @@ export async function deleteExperimentPhase(
     changes,
   });
 
-  await context.models.experimentSnapshots.updateOnPhaseDelete(id, phaseIndex);
+  await context.models.experimentSnapshots.updateOnPhaseDelete(
+    experiment,
+    phaseIndex
+  );
 
   // Add audit entry
   await req.audit({

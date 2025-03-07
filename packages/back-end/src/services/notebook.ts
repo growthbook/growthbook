@@ -15,7 +15,7 @@ import { ApiReqContext } from "back-end/types/api";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,
-} from "back-end/types/experiment-snapshot";
+} from "back-end/src/validators/experiment-snapshot";
 import { getSnapshotSettingsFromReportArgs } from "./reports";
 import {
   DataForStatsEngine,

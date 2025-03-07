@@ -12,12 +12,6 @@ import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
 import { daysBetween } from "shared/dates";
 import chunk from "lodash/chunk";
 import { ApiReqContext } from "back-end/types/api";
-import {
-  ExperimentSnapshotAnalysis,
-  ExperimentSnapshotHealth,
-  ExperimentSnapshotInterface,
-  ExperimentSnapshotSettings,
-} from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import { Queries, QueryPointer, QueryStatus } from "back-end/types/query";
 import { SegmentInterface } from "back-end/types/segment";
@@ -44,6 +38,12 @@ import { FactMetricInterface } from "back-end/types/fact-table";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { BanditResult } from "back-end/types/stats";
 import { updateReport } from "back-end/src/models/ReportModel";
+import {
+  ExperimentSnapshotAnalysis,
+  ExperimentSnapshotHealth,
+  ExperimentSnapshotInterface,
+  ExperimentSnapshotSettings,
+} from "back-end/src/validators/experiment-snapshot";
 import {
   QueryRunner,
   QueryMap,
