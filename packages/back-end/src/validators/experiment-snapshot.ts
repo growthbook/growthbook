@@ -61,7 +61,7 @@ const metricPowerResponseFromStatsEngineObject = z.object({
   priorLiftMean: z.number().optional(),
   priorLiftVariance: z.number().optional(),
   upperBoundAchieved: z.boolean().optional(),
-  scalingFactor: z.number().optional(),
+  scalingFactor: z.number().optional().nullable(),
 });
 
 export type MetricPowerResponseFromStatsEngine = z.infer<

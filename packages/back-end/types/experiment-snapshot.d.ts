@@ -4,12 +4,12 @@ import {
 } from "back-end/src/services/stats";
 import {
   ExperimentSnapshotAnalysis,
+  ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
   SnapshotMetric,
 } from "back-end/src/validators/experiment-snapshot";
 import { MetricInterface } from "./metric";
-import { DifferenceType, StatsEngine } from "./stats";
 import { ExperimentReportVariation } from "./report";
 import { DimensionInterface } from "./dimension";
 import { ExperimentInterfaceStringDates } from "./experiment";
@@ -56,19 +56,6 @@ export interface DimensionForSnapshot {
   // Dimension settings at the time the snapshot was created
   // Used to show an "out-of-date" warning on the front-end
   settings?: Pick<DimensionInterface, "datasource" | "userIdType" | "sql">;
-}
-
-export interface ExperimentSnapshotAnalysisSettings {
-  dimensions: string[];
-  statsEngine: StatsEngine;
-  regressionAdjusted?: boolean;
-  sequentialTesting?: boolean;
-  sequentialTestingTuningParameter?: number;
-  differenceType: DifferenceType;
-  pValueCorrection?: null | "holm-bonferroni" | "benjamini-hochberg";
-  pValueThreshold?: number;
-  baselineVariationIndex?: number;
-  numGoalMetrics: number;
 }
 
 export type SnapshotType = "standard" | "exploratory" | "report";
