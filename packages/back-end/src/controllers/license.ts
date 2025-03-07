@@ -8,18 +8,13 @@ import {
   postResendEmailVerificationEmailToLicenseServer,
   postVerifyEmailToLicenseServer,
 } from "shared/enterprise";
-import md5 from "md5";
 import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
-import { getUserLicenseCodes } from "back-end/src/services/users";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import {
-  getAllInviteEmailsInDb,
-  updateOrganization,
-} from "back-end/src/models/OrganizationModel";
+import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import { updateSubscriptionInDb } from "back-end/src/services/stripe";
 
@@ -72,11 +67,7 @@ export async function getLicenseReport(req: AuthRequest, res: Response) {
 
   const timestamp = new Date().toISOString();
   const licenseMetaData = await getLicenseMetaData();
-  const userEmailCodes = await getUserLicenseCodes();
-  const inviteEmails = await getAllInviteEmailsInDb();
-  const inviteEmailCodes: string[] = inviteEmails.map((email) => {
-    return md5(email).slice(0, 8);
-  });
+  const userEmailCodes = await getUserCodesForOrg(context.org);
 
   // Create a hmac signature of the license data
   const hmac = crypto.createHmac("sha256", licenseMetaData.installationId);
@@ -85,7 +76,6 @@ export async function getLicenseReport(req: AuthRequest, res: Response) {
     timestamp,
     licenseMetaData,
     userEmailCodes,
-    inviteEmailCodes,
   };
 
   return res.status(200).json({
