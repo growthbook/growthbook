@@ -28,8 +28,8 @@ import {
   DataSourceProperties,
 } from "back-end/types/datasource";
 import { MetricInterface } from "back-end/types/metric";
-import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
 import { applyMetricOverrides } from "back-end/src/util/integration";
+import { ExperimentSnapshotSettings } from "back-end/src/validators/experiment-snapshot";
 
 export function getOauth2Client() {
   return new google.auth.OAuth2(

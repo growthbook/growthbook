@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MidExperimentPowerCalculationResultValidator } from "enterprise";
+import { MidExperimentPowerCalculationResultValidator } from "shared/enterprise";
 import { statsEnginesValidator } from "back-end/src/models/ProjectModel";
 import {
   cappingSettingsValidator,
