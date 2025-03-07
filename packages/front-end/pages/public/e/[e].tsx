@@ -1,7 +1,7 @@
 import {
   ExperimentReportSSRData,
 } from "back-end/types/report";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { ExperimentSnapshotInterface } from "back-end/src/validators/experiment-snapshot";
 import Head from "next/head";
 import {ExperimentInterfaceStringDates, ExperimentPhaseStringDates, LinkedFeatureInfo} from "back-end/types/experiment";
 import { truncateString } from "shared/util";

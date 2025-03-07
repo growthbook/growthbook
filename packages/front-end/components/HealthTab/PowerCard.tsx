@@ -3,7 +3,7 @@ import { useSWRConfig } from "swr";
 import { Box, Flex, Separator, Text, Tooltip } from "@radix-ui/themes";
 import { PiArrowSquareOut, PiInfo, PiX } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { ExperimentSnapshotInterface } from "back-end/src/validators/experiment-snapshot";
 import Link from "@/components/Radix/Link";
 import Callout from "@/components/Radix/Callout";
 import Button from "@/components/Radix/Button";

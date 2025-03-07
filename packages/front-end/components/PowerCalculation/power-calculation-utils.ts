@@ -5,8 +5,8 @@ import {
   ratioVarianceFromSums,
 } from "shared/util";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { PopulationDataInterface } from "back-end/types/population-data";
+import { ExperimentSnapshotInterface } from "back-end/src/validators/experiment-snapshot";
 import { PowerCalculationForm } from "@/components/PowerCalculation/PowerCalculationSettingsModal";
 import { AuthContextValue } from "@/services/auth";
 

@@ -1,9 +1,9 @@
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { ExperimentSnapshotReportInterface } from "back-end/types/report";
 import { getSnapshotAnalysis } from "shared/util";
 import { ago, date, datetime, getValidDate } from "shared/dates";
 import React, { RefObject, useEffect, useState } from "react";
 import { PiEye } from "react-icons/pi";
+import { ExperimentSnapshotInterface } from "back-end/src/validators/experiment-snapshot";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import RunQueriesButton from "@/components/Queries/RunQueriesButton";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";

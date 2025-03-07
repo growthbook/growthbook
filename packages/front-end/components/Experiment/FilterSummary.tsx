@@ -3,9 +3,9 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
 } from "back-end/types/experiment";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { FaQuestionCircle } from "react-icons/fa";
 import { datetime } from "shared/dates";
+import { ExperimentSnapshotInterface } from "back-end/src/validators/experiment-snapshot";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
 import Modal from "@/components/Modal";

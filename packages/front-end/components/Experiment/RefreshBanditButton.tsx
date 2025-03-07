@@ -1,9 +1,9 @@
 import React, { FC, useEffect, useMemo, useState } from "react";
 import { BsArrowRepeat } from "react-icons/bs";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { FaCaretDown, FaExclamationCircle } from "react-icons/fa";
 import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
+import { ExperimentSnapshotInterface } from "back-end/src/validators/experiment-snapshot";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { trackSnapshot } from "@/services/track";

@@ -9,7 +9,7 @@ import {
 import React, { ReactElement, useMemo, useState } from "react";
 import { GiPieChart } from "react-icons/gi";
 import { HiCursorClick } from "react-icons/hi";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { ExperimentSnapshotInterface } from "back-end/src/validators/experiment-snapshot";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import clsx from "clsx";
 import {

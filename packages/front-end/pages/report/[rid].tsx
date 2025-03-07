@@ -4,7 +4,7 @@ import React, { useRef, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { IdeaInterface } from "back-end/types/idea";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { ExperimentSnapshotInterface } from "back-end/src/validators/experiment-snapshot";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
