@@ -457,8 +457,7 @@ export const notifyExperimentChange = async ({
   // do not fire significance events for old snapshots that have no type
   if (snapshot.type === undefined) return;
   // do not fire for snapshots where statistics are manually entered in the UI
-  // TODO: Do we still need this check? Will we ever have legacy snapshots hitting this function?
-  // if (snapshot?.manual) return;
+  if (snapshot?.settings.manual) return;
 
   await notifySignificance({ context, experiment, snapshot });
 

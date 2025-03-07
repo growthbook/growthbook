@@ -209,6 +209,9 @@ const snapshotBanditSettingsValidator = z.object({
   ),
 });
 
+// Settings that control which queries are run
+// Used to determine which types of analyses are possible
+// Also used to determine when to show "out-of-date" in the UI
 const experimentSnapshotSettingsObject = z.object({
   manual: z.boolean(),
   dimensions: z.array(dimensionForSnapshotObject),
@@ -239,25 +242,33 @@ export type ExperimentSnapshotSettings = z.infer<
 
 export const experimentSnapshotSchema = z
   .object({
+    // Fields that uniquely define the snapshot
     id: z.string(),
     organization: z.string(),
     experiment: z.string(),
     phase: z.number(),
     dimension: z.string().nullable(),
-    type: z.enum(["standard", "exploratory", "report"]).optional(),
-    triggeredBy: z.enum(["manual", "schedule"]).optional(),
-    report: z.string().optional(),
+
+    // Status and meta info about the snapshot run
+    error: z.string().optional(),
     dateCreated: z.date(),
     dateUpdated: z.date(),
     runStarted: z.date().nullable(),
-    error: z.string().optional(),
-    queries: z.array(queryPointerValidator),
-    unknownVariations: z.array(z.string()),
-    multipleExposures: z.number(),
     status: z.enum(["running", "success", "error"]),
     settings: experimentSnapshotSettingsObject,
+    type: z.enum(["standard", "exploratory", "report"]).optional(),
+    triggeredBy: z.enum(["manual", "schedule"]).optional(),
+    report: z.string().optional(),
+
+    // List of queries that were run as part of this snapshot
+    queries: z.array(queryPointerValidator),
+
+    // Results
+    unknownVariations: z.array(z.string()),
+    multipleExposures: z.number(),
     analyses: z.array(experimentSnapshotAnalysisObject),
     banditResult: banditResult.optional().nullable(),
+
     health: experimentSnapshotHealthObject.optional(),
   })
   .strict();

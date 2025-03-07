@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import uniqid from "uniqid";
-import mongoose, { FilterQuery, PipelineStage } from "mongoose";
+import mongoose, { FilterQuery } from "mongoose";
 import { Collection } from "mongodb";
 import omit from "lodash/omit";
 import { z } from "zod";
-import { isEqual, orderBy, pick } from "lodash";
+import { isEqual, pick } from "lodash";
 import { evalCondition } from "@growthbook/growthbook";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/organization";
