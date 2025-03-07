@@ -420,12 +420,13 @@ if (IS_CLOUD) {
     stripeController.updateCustomerDefaultPayment
   );
   app.post(
-    //MKTODO: Rename?
-    "/subscription/new-pro-subscription",
-    stripeController.postNewProSubscriptionInline
+    "/subscription/new-inline-pro",
+    stripeController.postNewInlineProSubscription
   );
-  //MKTODO: Rename?
-  app.post("/subscription/sync", stripeController.updateOrgWithNewSubscription);
+  app.post(
+    "/subscription/new-inline-pro/success",
+    stripeController.postInlineProSubscriptionSuccess
+  );
 }
 app.post("/subscription/new", stripeController.postNewProSubscription);
 app.post("/subscription/manage", stripeController.postCreateBillingSession);

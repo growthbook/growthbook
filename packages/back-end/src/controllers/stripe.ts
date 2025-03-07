@@ -6,11 +6,11 @@ import {
   getLicense,
   licenseInit,
   postCreateBillingSessionToLicenseServer,
-  postNewProSubscriptionInlineToLicenseServer,
+  postNewInlineProSubscriptionToLicenseServer,
   postNewProSubscriptionToLicenseServer,
   postNewProTrialSubscriptionToLicenseServer,
   postNewSubscriptionSuccessToLicenseServer,
-  syncNewSubscriptionToLicenseServer,
+  postNewInlineSubscriptionSuccessToLicenseServer,
 } from "shared/enterprise";
 import { PaymentMethod } from "shared/src/types/subscriptions";
 import { APP_ORIGIN, STRIPE_WEBHOOK_SECRET } from "back-end/src/util/secrets";
@@ -96,8 +96,7 @@ export const postNewProTrialSubscription = withLicenseServerErrorHandling(
   }
 );
 
-//MKTODO: Rename this
-export const postNewProSubscriptionInline = withLicenseServerErrorHandling(
+export const postNewInlineProSubscription = withLicenseServerErrorHandling(
   async function (req: AuthRequest, res: Response) {
     const context = getContextFromReq(req);
 
@@ -109,7 +108,7 @@ export const postNewProSubscriptionInline = withLicenseServerErrorHandling(
 
     const qty = getNumberOfUniqueMembersAndInvites(org);
 
-    const result = await postNewProSubscriptionInlineToLicenseServer(
+    const result = await postNewInlineProSubscriptionToLicenseServer(
       org.id,
       org.name,
       org.ownerEmail,
@@ -154,7 +153,7 @@ export const postNewProSubscription = withLicenseServerErrorHandling(
   }
 );
 
-export const updateOrgWithNewSubscription = withLicenseServerErrorHandling(
+export const postInlineProSubscriptionSuccess = withLicenseServerErrorHandling(
   async function (req: AuthRequest<{ subscriptionId: string }>, res: Response) {
     const context = getContextFromReq(req);
 
@@ -170,8 +169,7 @@ export const updateOrgWithNewSubscription = withLicenseServerErrorHandling(
       throw new Error("No license found for organization");
     }
 
-    const result = await syncNewSubscriptionToLicenseServer(
-      license.id,
+    const result = await postNewInlineSubscriptionSuccessToLicenseServer(
       req.body.subscriptionId
     );
 

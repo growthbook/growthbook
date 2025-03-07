@@ -49,8 +49,8 @@ export default function CloudProUpgradeModal({
 
       // Should we make a call to set this as the user's default payment?
 
-      // update the license with the new subscription
-      await apiCall("/subscription/sync", {
+      // add stripeSubscription to the license object
+      await apiCall("/subscription/new-inline-pro/success", {
         method: "POST",
         body: JSON.stringify({
           subscriptionId,
@@ -66,7 +66,6 @@ export default function CloudProUpgradeModal({
 
   return (
     <Modal
-      // MKTODO: Add trackingEventModalType
       trackingEventModalType="upgrade-to-pro"
       trackingEventModalSource="upgrade-modal"
       open={true}

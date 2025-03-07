@@ -119,7 +119,6 @@ export default function UpgradeModal({
   };
 
   const useInlineUpgradeForm =
-    //MKTODO: Is there more logic we need to add here?
     isCloud() && growthbook.getFeatureValue("ff_embedded-payment-form", false);
 
   useEffect(() => {
@@ -159,8 +158,20 @@ export default function UpgradeModal({
         } else {
           setError("Unknown response");
         }
-        // MKTODO: Switch this to the default else case
-      } else if (!useInlineUpgradeForm) {
+      } else if (useInlineUpgradeForm) {
+        // Create a new subscription and return the client secret and session id
+        const { sessionId, clientSecret } = await apiCall<{
+          sessionId: string;
+          clientSecret: string;
+        }>(`/subscription/new-inline-pro`, {
+          method: "POST",
+        });
+        setClientSecret(clientSecret);
+        setSubscriptionId(sessionId);
+        setShowCloudProUpgrade(true);
+        setLoading(false);
+      } else {
+        // Otherwise, this creates a new checkout session and will redirect to the Stripe checkout page
         const resp = await apiCall<{
           status: number;
           session?: { url?: string };
@@ -181,19 +192,6 @@ export default function UpgradeModal({
         } else {
           setError("Failed to start checkout");
         }
-      } else {
-        // If the embedPaymentMethodForm is true, we need to manually create the subscription
-        const { sessionId, clientSecret } = await apiCall<{
-          sessionId: string;
-          clientSecret: string;
-          // MKTODO: This URL could be cleaner
-        }>(`/subscription/new-pro-subscription`, {
-          method: "POST",
-        });
-        setClientSecret(clientSecret);
-        setSubscriptionId(sessionId);
-        setShowCloudProUpgrade(true);
-        setLoading(false);
       }
     } catch (e) {
       setLoading(false);
@@ -531,8 +529,7 @@ export default function UpgradeModal({
           header={`🎉 Your 14-day Enterprise Trial starts now!`}
           isTrial={true}
         />
-      ) : //MKTODO: This could be cleaner
-      showCloudProUpgrade && clientSecret && subscriptionId ? (
+      ) : showCloudProUpgrade && clientSecret && subscriptionId ? (
         <StripeProvider initialClientSecret={clientSecret}>
           <CloudProUpgradeModal
             close={() => setShowCloudProUpgrade(false)}

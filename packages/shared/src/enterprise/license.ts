@@ -598,31 +598,27 @@ export async function postNewProSubscriptionToLicenseServer(
   );
 }
 
-//MKTODO: Rename?
-export async function syncNewSubscriptionToLicenseServer(
-  licenseKey: string,
+export async function postNewInlineSubscriptionSuccessToLicenseServer(
   subscriptionId: string
 ) {
-  const url = `${LICENSE_SERVER_URL}subscription/sync`;
+  const url = `${LICENSE_SERVER_URL}subscription/new-inline-pro/success`;
   return callLicenseServer(
     url,
     JSON.stringify({
       cloudSecret: process.env.CLOUD_SECRET,
-      licenseKey,
       subscriptionId,
     })
   );
 }
 
-//MKTODO: Rename?
-export async function postNewProSubscriptionInlineToLicenseServer(
+export async function postNewInlineProSubscriptionToLicenseServer(
   organizationId: string,
   companyName: string,
   ownerEmail: string,
   name: string,
   seats: number
 ) {
-  const url = `${LICENSE_SERVER_URL}subscription/new-pro-subscription`;
+  const url = `${LICENSE_SERVER_URL}subscription/new-inline-pro`;
   return callLicenseServer(
     url,
     JSON.stringify({
