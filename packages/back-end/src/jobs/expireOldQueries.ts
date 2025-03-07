@@ -38,8 +38,16 @@ const expireOldQueries = trackJob(JOB_NAME, async () => {
   }
 
   // Look for matching snapshots and update the status
-  // TODO: How do we get the context here?
-  const snapshots = await findRunningSnapshotsByQueryId([...queryIds]);
+  // go through each orgId, get the context, and then findRunningSnapshotsByQueryId and append to snapshots
+  const snapshots = [];
+  for (const orgId of orgIds) {
+    const context = await getContextForAgendaJobByOrgId(orgId);
+    const results = await context.models.experimentSnapshots.findRunningByQueryId(
+      [...queryIds]
+    );
+    snapshots.push(...results);
+  }
+
   for (let i = 0; i < snapshots.length; i++) {
     const snapshot = snapshots[i];
     const context = await getContextForAgendaJobByOrgId(snapshot.organization);

@@ -34,7 +34,7 @@ export const postExperimentSnapshot = createApiRequestHandler(
       );
     }
 
-    if (!req.context.permissions.canCreateExperimentSnapshot(datasource)) {
+    if (!req.context.permissions.canRunExperimentQueries(datasource)) {
       req.context.permissions.throwPermissionError();
     }
     // If this endpoint begins to allow new settings, `canCreateExperimentSnapshot`

@@ -384,13 +384,11 @@ export async function createReportSnapshot({
   // Fill in and sanitize the model
   snapshotData = {
     ...snapshotData,
-    id: uniqid("snp_"),
     type: "report",
     report: report.id,
     triggeredBy: "manual",
     error: "",
     runStarted: new Date(),
-    dateCreated: new Date(),
     status: "running",
     dimension: report.experimentAnalysisSettings.dimension || null,
     settings: snapshotSettings,
@@ -417,7 +415,7 @@ export async function createReportSnapshot({
   }
 
   const snapshot = await context.models.experimentSnapshots.create(
-    snapshotData
+    omit(snapshotData, ["id", "dateCreated", "dateUpdated", "organization"])
   );
 
   const integration = getSourceIntegrationObject(context, datasource, true);

@@ -24,12 +24,6 @@ const BaseClass = MakeModelClass({
   schema: experimentSnapshotSchema,
   collectionName: "experimentsnapshots",
   idPrefix: "snp_",
-  auditLog: {
-    entity: "experimentSnapshot",
-    createEvent: "experimentSnapshot.create",
-    updateEvent: "experimentSnapshot.update",
-    deleteEvent: "experimentSnapshot.delete",
-  },
   globallyUniqueIds: false,
   additionalIndexes: [
     {
@@ -116,7 +110,7 @@ export class ExperimentSnapshotModel extends BaseClass {
       queries: { $elemMatch: { query: { $in: ids }, status: "running" } },
     });
 
-    return snapshots.map((doc) => this.migrate(doc));
+    return snapshots;
   }
 
   public async updateOnPhaseDelete(
