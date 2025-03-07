@@ -533,6 +533,7 @@ export abstract class QueryRunner<
       await updateQuery(doc, {
         startedAt: new Date(),
         status: "running",
+        heartbeat: new Date(),
       });
     }
 
