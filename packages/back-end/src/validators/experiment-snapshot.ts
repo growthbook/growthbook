@@ -138,7 +138,7 @@ const experimentSnapshotAnalysisObject = z.object({
   settings: experimentSnapshotAnalysisSettingsValidator,
   dateCreated: z.date(),
   status: z.enum(["running", "success", "error"]),
-  error: z.string().optional(),
+  error: z.string().optional().nullable(),
   results: z.array(experimentReportResultDimensionObject),
 });
 
