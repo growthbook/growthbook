@@ -421,7 +421,6 @@ export async function createReportSnapshot({
 
   const snapshot = await createExperimentSnapshotModel({
     data: snapshotData,
-    context,
   });
 
   const integration = getSourceIntegrationObject(context, datasource, true);

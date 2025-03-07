@@ -9,6 +9,9 @@
 | **[experiment.deleted](#experimentdeleted)** | Triggered when an experiment is deleted |
 | **[experiment.warning](#experimentwarning)** | Triggered when a warning condition is detected on an experiment |
 | **[experiment.info.significance](#experimentinfosignificance)** | Triggered when a goal or guardrail metric reaches significance in an experiment (e.g. either above 95% or below 5% chance to win). Be careful using this without Sequential Testing as it can lead to peeking problems. |
+| **[experiment.decision.ship](#experimentdecisionship)** | Triggered when an experiment is ready to ship a variation. |
+| **[experiment.decision.rollback](#experimentdecisionrollback)** | Triggered when an experiment should be rolled back to the control. |
+| **[experiment.decision.review](#experimentdecisionreview)** | Triggered when an experiment has reached the desired power point, but the results may be ambiguous. |
 | **[user.login](#userlogin)** | Triggered when a user logs in |
 
   
@@ -1333,6 +1336,117 @@ Triggered when a goal or guardrail metric reaches significance in an experiment 
             statsEngine: string;
             criticalValue: number;
             winning: boolean;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### experiment.decision.ship
+
+Triggered when an experiment is ready to ship a variation.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "experiment.decision.ship";
+    object: "experiment";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            experimentName: string;
+            experimentId: string;
+            decisionDescription?: string | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### experiment.decision.rollback
+
+Triggered when an experiment should be rolled back to the control.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "experiment.decision.rollback";
+    object: "experiment";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            experimentName: string;
+            experimentId: string;
+            decisionDescription?: string | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### experiment.decision.review
+
+Triggered when an experiment has reached the desired power point, but the results may be ambiguous.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "experiment.decision.review";
+    object: "experiment";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            experimentName: string;
+            experimentId: string;
+            decisionDescription?: string | undefined;
         };
     };
     user: {
