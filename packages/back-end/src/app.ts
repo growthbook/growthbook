@@ -419,6 +419,14 @@ if (IS_CLOUD) {
     "/subscription/payment-methods/set-default",
     stripeController.updateCustomerDefaultPayment
   );
+  app.post(
+    "/subscription/new-inline-pro",
+    stripeController.postNewInlineProSubscription
+  );
+  app.post(
+    "/subscription/new-inline-pro/success",
+    stripeController.postInlineProSubscriptionSuccess
+  );
 }
 app.post("/subscription/new", stripeController.postNewProSubscription);
 app.post("/subscription/manage", stripeController.postCreateBillingSession);

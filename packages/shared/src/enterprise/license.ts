@@ -598,6 +598,41 @@ export async function postNewProSubscriptionToLicenseServer(
   );
 }
 
+export async function postNewInlineSubscriptionSuccessToLicenseServer(
+  subscriptionId: string
+) {
+  const url = `${LICENSE_SERVER_URL}subscription/new-inline-pro/success`;
+  return callLicenseServer(
+    url,
+    JSON.stringify({
+      cloudSecret: process.env.CLOUD_SECRET,
+      subscriptionId,
+    })
+  );
+}
+
+export async function postNewInlineProSubscriptionToLicenseServer(
+  organizationId: string,
+  companyName: string,
+  ownerEmail: string,
+  name: string,
+  seats: number
+) {
+  const url = `${LICENSE_SERVER_URL}subscription/new-inline-pro`;
+  return callLicenseServer(
+    url,
+    JSON.stringify({
+      appOrigin: APP_ORIGIN,
+      cloudSecret: process.env.CLOUD_SECRET,
+      organizationId,
+      companyName,
+      ownerEmail,
+      name,
+      seats,
+    })
+  );
+}
+
 export async function postNewSubscriptionSuccessToLicenseServer(
   checkoutSessionId: string
 ): Promise<LicenseInterface> {
