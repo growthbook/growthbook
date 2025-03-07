@@ -160,14 +160,14 @@ export default function UpgradeModal({
         }
       } else if (useInlineUpgradeForm) {
         // Create a new subscription and return the client secret and session id
-        const { sessionId, clientSecret } = await apiCall<{
-          sessionId: string;
+        const { subscriptionId, clientSecret } = await apiCall<{
+          subscriptionId: string;
           clientSecret: string;
         }>(`/subscription/new-inline-pro`, {
           method: "POST",
         });
         setClientSecret(clientSecret);
-        setSubscriptionId(sessionId);
+        setSubscriptionId(subscriptionId);
         setShowCloudProUpgrade(true);
         setLoading(false);
       } else {
@@ -194,6 +194,7 @@ export default function UpgradeModal({
         }
       }
     } catch (e) {
+      console.log("caught the error", e);
       setLoading(false);
       setError(e.message);
     }
