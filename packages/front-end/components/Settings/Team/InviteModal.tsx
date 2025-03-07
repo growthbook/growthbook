@@ -73,6 +73,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
         close={close}
         source="invite team"
         reason={showUpgradeModal}
+        commercialFeature={null}
       />
     );
   }

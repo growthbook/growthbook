@@ -12,7 +12,7 @@ import {
   CommercialFeature,
   LicenseInterface,
   SubscriptionInfo,
-} from "enterprise";
+} from "shared/enterprise";
 import { environment } from "back-end/src/routers/environment/environment.validators";
 import type { ReqContextClass } from "back-end/src/services/context";
 import { attributeDataTypes } from "back-end/src/util/organization.util";
@@ -268,6 +268,18 @@ export interface VercelConnection {
 export type OrganizationMessage = {
   message: string;
   level: "info" | "danger" | "warning";
+};
+
+// The type used to get member data to calculate usage counts for licenses
+export type OrgMemberInfo = {
+  id: string;
+  invites: { email: string }[];
+  members: {
+    id: string;
+    role: string;
+    projectRoles?: { role: string }[];
+    teams?: string[];
+  }[];
 };
 
 export interface OrganizationInterface {

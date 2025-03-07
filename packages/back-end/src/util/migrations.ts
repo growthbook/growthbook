@@ -6,7 +6,7 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
-import { accountFeatures, getAccountPlan } from "enterprise";
+import { accountFeatures, getAccountPlan } from "shared/enterprise";
 import { omit } from "lodash";
 import { SavedGroupInterface } from "shared/src/types";
 import { v4 as uuidv4 } from "uuid";

@@ -1,3 +1,4 @@
+import { isBinomialMetric } from "../../experiments";
 import { Settings, SettingsContext, SettingsResolver } from "../types";
 
 const regressionAdjustmentResolver = (
@@ -42,12 +43,14 @@ const regressionAdjustmentResolver = (
         ? "disabled by metric override"
         : "experiment-level metric override applied";
     }
-
-    // denominator metric checks
+    //denominator metric checks
     if (regressionAdjustmentEnabled) {
-      if (ctx.scopes?.denominatorMetric?.type === "count") {
+      if (
+        ctx.scopes?.denominatorMetric &&
+        !isBinomialMetric(ctx.scopes?.denominatorMetric)
+      ) {
         regressionAdjustmentEnabled = false;
-        reason = "denominator is count";
+        reason = `denominator is ${ctx.scopes?.denominatorMetric.type}. CUPED available for ratio metrics only if based on fact tables.`;
       }
     }
 

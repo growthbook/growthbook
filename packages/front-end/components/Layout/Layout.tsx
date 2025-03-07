@@ -407,6 +407,7 @@ const Layout = (): React.ReactElement => {
           close={() => setUpgradeModal(false)}
           reason=""
           source="layout"
+          commercialFeature={null}
         />
       )}
       {settings?.customized && (

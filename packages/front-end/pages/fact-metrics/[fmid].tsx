@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useState } from "react";
-import { FaChartLine, FaExternalLinkAlt, FaTimes } from "react-icons/fa";
+import { FaChartLine, FaExternalLinkAlt } from "react-icons/fa";
 import { FactTableInterface } from "back-end/types/fact-table";
 import {
   getAggregateFilters,
@@ -204,15 +204,6 @@ export default function FactMetricPage() {
     !factMetric.managedBy;
   const canDelete =
     permissionsUtil.canDeleteFactMetric(factMetric) && !factMetric.managedBy;
-
-  let regressionAdjustmentAvailableForMetric = true;
-  let regressionAdjustmentAvailableForMetricReason = <></>;
-  if (factMetric.metricType === "ratio") {
-    regressionAdjustmentAvailableForMetric = false;
-    regressionAdjustmentAvailableForMetricReason = (
-      <>Not available for ratio metrics.</>
-    );
-  }
 
   const factTable = getFactTableById(factMetric.numerator.factTableId);
   const denominatorFactTable = getFactTableById(
@@ -794,14 +785,7 @@ export default function FactMetricPage() {
                       <GBCuped size={14} /> Regression Adjustment (CUPED)
                     </span>
                   </li>
-                  {!regressionAdjustmentAvailableForMetric ? (
-                    <li className="mb-2">
-                      <div className="text-muted small">
-                        <FaTimes className="text-danger" />{" "}
-                        {regressionAdjustmentAvailableForMetricReason}
-                      </div>
-                    </li>
-                  ) : factMetric?.regressionAdjustmentOverride ? (
+                  {factMetric?.regressionAdjustmentOverride ? (
                     <>
                       <li className="mb-2">
                         <span className="text-gray">

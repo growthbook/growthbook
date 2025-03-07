@@ -304,13 +304,11 @@ const ExperimentsPage = (): React.ReactElement => {
                 <h1>Adaptively experiment with bandits.</h1>
                 <p className="">Run adaptive experiments with Bandits.</p>
               </div>
-              <div
-                className="d-flex justify-content-center pt-2"
-                style={{ gap: "1rem" }}
-              >
+              <div className="d-flex justify-content-center pt-2">
                 <LinkButton
                   href="/getstarted/experiment-guide"
                   variant="outline"
+                  mr="4"
                 >
                   Setup Instructions
                 </LinkButton>
@@ -339,6 +337,13 @@ const ExperimentsPage = (): React.ReactElement => {
                     </Button>
                   </PremiumTooltip>
                 )}
+              </div>
+              <div className="mt-5">
+                <img
+                  src="/images/empty-states/bandits.png"
+                  alt="Bandits"
+                  style={{ width: "100%", maxWidth: "740px", height: "auto" }}
+                />
               </div>
             </div>
           ) : (

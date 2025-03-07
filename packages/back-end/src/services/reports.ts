@@ -15,7 +15,6 @@ import {
   expandMetricGroups,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
-import uniqid from "uniqid";
 import { getScopedSettings } from "shared/settings";
 import uniq from "lodash/uniq";
 import { pick, omit } from "lodash";
@@ -345,7 +344,6 @@ export async function createReportSnapshot({
   const denominatorMetrics = denominatorMetricIds
     .map((m) => metricMap.get(m) || null)
     .filter(isDefined) as MetricInterface[];
-
   const {
     settingsForSnapshotMetrics,
     regressionAdjustmentEnabled,

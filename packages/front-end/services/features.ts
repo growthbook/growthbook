@@ -433,7 +433,7 @@ export function getVariationColor(i: number, experimentTheme = false) {
       ]
     : [
         /* This should match the variant colors defined in _colors.scss */
-        "var(--blue-10)",
+        "var(--blue-8)",
         "var(--teal-10)",
         "var(--orange-10)",
         "var(--pink-10)",
@@ -1055,10 +1055,15 @@ export function condToJson(
     } else if (operator === "$notEmpty") {
       obj[field]["$size"] = { $gt: 0 };
     } else if (operator === "$in" || operator === "$nin") {
-      obj[field][operator] = value
-        .split(",")
-        .map((x) => x.trim())
-        .map((x) => parseValue(x, attributes.get(field)?.datatype));
+      // Allow for the empty list
+      if (value === "") {
+        obj[field][operator] = [];
+      } else {
+        obj[field][operator] = value
+          .split(",")
+          .map((x) => x.trim())
+          .map((x) => parseValue(x, attributes.get(field)?.datatype));
+      }
     } else if (operator === "$inGroup" || operator === "$notInGroup") {
       obj[field][operator] = value;
     } else {
@@ -1283,14 +1288,24 @@ export function getNewDraftExperimentsToPublish({
 
   const draftExperiments = getMatchingRules(
     feature,
-    (rule) =>
-      // New experiment rule that hasn't been published yet and is in a draft state
-      rule.enabled !== false &&
-      rule.type === "experiment-ref" &&
-      !liveExperimentIds.has(rule.experimentId) &&
-      experimentsMap.get(rule.experimentId)?.status === "draft" &&
+    (rule) => {
+      if (rule.enabled === false) return false;
+      if (rule.type !== "experiment-ref") return false;
+
+      const exp = experimentsMap.get(rule.experimentId);
+      if (!exp) return false;
+
+      // Skip experiment rules that are already live
+      if (liveExperimentIds.has(rule.experimentId)) return false;
+
+      if (exp.status !== "draft") return false;
+      if (exp.archived) return false;
+
       // Skip experiments with visual changesets. Those need to be started from the experiment page
-      !experimentsMap.get(rule.experimentId)?.hasVisualChangesets,
+      if (exp.hasVisualChangesets) return false;
+
+      return true;
+    },
     environmentIds,
     revision
   )

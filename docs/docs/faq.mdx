@@ -39,7 +39,7 @@ The `trackingCallback` only fires when a user is included in an experiment. If y
 - The experiment has reduced coverage. For example, if it's only running for 10% of users and you are in the 90% that are excluded.
 - There is another feature rule that is taking precedence over the experiment.
 
-If you are using the Javascript or React SDK in a browser environment, you can install the [GrowthBook DevTools Chrome Extension](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) to help you debug.
+If you are using the Javascript or React SDK in a browser environment, you can install the GrowthBook DevTools Browser Extension for [Chrome](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) or [Firefox](https://addons.mozilla.org/en-US/firefox/addon/growthbook-devtools/) to help you debug.
 
 **Note**: To use the plugin, you will need to pass `enableDevMode: true` when creating your GrowthBook instance.
 
@@ -114,10 +114,10 @@ If you are using feature flags, **we strongly recommend** adding a caching layer
 - Make sure the S3 bucket is publically accessible
 - Make sure CORS settings are correct. Add your URLs to the AllowedOrigins array or set to "\*"
 
-## How do I use the Chrome DevTools Extension?
+## How do I use the DevTools browser extension?
 
 - Make sure you are using the React or Javascript SDK
-- Install the [Chrome DevTools Extension](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia)
+- Install the [Chrome](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) or [Firefox](https://addons.mozilla.org/en-US/firefox/addon/growthbook-devtools/) DevTools Browser Extension
 - Pass the `enableDevMode: true` option into the GrowthBook constructor
 
 ```ts

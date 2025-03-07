@@ -1444,7 +1444,11 @@ export async function postExperimentStatus(
     status === "running" &&
     phases?.length > 0
   ) {
-    Object.assign(changes, getChangesToStartExperiment(context, experiment));
+    const additionalChanges: Changeset = await getChangesToStartExperiment(
+      context,
+      experiment
+    );
+    Object.assign(changes, additionalChanges);
   }
   // If starting or drafting a stopped experiment, clear the phase end date
   // and perform any needed bandit cleanup
@@ -1664,6 +1668,13 @@ export async function deleteExperimentPhase(
 
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
+  }
+
+  if (experiment.phases.length === 1) {
+    res.status(400).json({
+      status: 400,
+      message: "Cannot delete the only phase",
+    });
   }
 
   const linkedFeatureIds = experiment.linkedFeatures || [];
@@ -2287,7 +2298,6 @@ export async function createExperimentSnapshot({
   const denominatorMetrics = denominatorMetricIds
     .map((m) => metricMap.get(m) || null)
     .filter(isDefined) as MetricInterface[];
-
   const {
     settingsForSnapshotMetrics,
     regressionAdjustmentEnabled,

@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { CommercialFeature } from "enterprise";
+import { CommercialFeature } from "shared/enterprise";
 import {
   SDKCapability,
   getConnectionsSDKCapabilities,
@@ -174,8 +174,8 @@ export default function AddLinkedChanges({
   };
 
   const possibleSections = Object.keys(sections);
-
   const sectionsToRender = possibleSections.filter((s) => sections[s].render);
+  if (!sectionsToRender.length) return null;
 
   return (
     <div className="appbox px-4 py-3 my-4">

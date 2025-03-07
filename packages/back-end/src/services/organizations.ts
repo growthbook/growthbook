@@ -11,7 +11,7 @@ import {
   getSubscriptionFromLicense,
   SubscriptionInfo,
   getStripeSubscriptionStatus,
-} from "enterprise";
+} from "shared/enterprise";
 import {
   areProjectRolesValid,
   isRoleValid,
@@ -1141,6 +1141,7 @@ export async function getContextForAgendaJobByOrgId(
   return getContextForAgendaJobByOrgObject(organization);
 }
 
+// TODO: Remove once all orgs have moved license info off of the org
 export function getSubscriptionFromOrg(
   organization: OrganizationInterface
 ): SubscriptionInfo | null {

@@ -202,3 +202,8 @@ properties:
   regressionAdjustmentEnabled:
     type: boolean
     description: Controls whether regression adjustment (CUPED) is enabled for experiment analyses
+  shareLevel:
+    type: string
+    enum:
+      - "public"
+      - "organization"

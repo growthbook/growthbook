@@ -800,7 +800,7 @@ export default function ExperimentHeader({
               <DropdownMenuGroup>
                 {canRunExperiment &&
                   !isBandit &&
-                  experiment.status !== "draft" && (
+                  (experiment.status !== "draft" || hasResults) && (
                     <DropdownMenuItem
                       onClick={() => {
                         setStatusModal(true);

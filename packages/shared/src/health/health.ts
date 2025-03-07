@@ -102,8 +102,23 @@ export function getSRMValue(
     case "multi-armed-bandit":
       return snapshot.banditResult?.srm;
 
-    case "standard":
-      return snapshot.health?.traffic?.overall?.srm;
+    case "standard": {
+      const healthQuerySRM = snapshot.health?.traffic?.overall?.srm;
+
+      if (healthQuerySRM !== undefined) {
+        return healthQuerySRM;
+      }
+      // fall back to main results SRM for no dimension split snapshots
+      // and without health query SRM
+      // if no dimension && only one overall result (e.g. no dim splits)
+      if (
+        snapshot.type === "standard" &&
+        snapshot.analyses?.[0]?.results?.length === 1
+      ) {
+        return snapshot.analyses?.[0]?.results?.[0]?.srm;
+      }
+      return undefined;
+    }
 
     default: {
       const _exhaustiveCheck: never = experimentType;

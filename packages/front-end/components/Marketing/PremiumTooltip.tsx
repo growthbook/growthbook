@@ -1,4 +1,4 @@
-import { CommercialFeature } from "enterprise";
+import { CommercialFeature } from "shared/enterprise";
 import { CSSProperties, HTMLAttributes, ReactNode } from "react";
 import clsx from "clsx";
 import { Flex, Text } from "@radix-ui/themes";

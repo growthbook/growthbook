@@ -1,19 +1,12 @@
-import { Tooltip } from "@radix-ui/themes";
+import { Flex, Tooltip } from "@radix-ui/themes";
 import Badge from "@/components/Radix/Badge";
 import {
   ExperimentData,
+  StatusIndicatorData,
   useExperimentStatusIndicator,
 } from "@/hooks/useExperimentStatusIndicator";
 
 type LabelFormat = "full" | "status-only" | "detail-only";
-
-export type StatusIndicatorData = {
-  color: React.ComponentProps<typeof Badge>["color"];
-  variant: React.ComponentProps<typeof Badge>["variant"];
-  status: string;
-  detailedStatus?: string;
-  tooltip?: string;
-};
 
 export default function ExperimentStatusIndicator({
   experimentData,
@@ -33,6 +26,41 @@ export default function ExperimentStatusIndicator({
   );
 }
 
+export function ExperimentStatusDetailsWithDot({
+  statusIndicatorData,
+}: {
+  statusIndicatorData: StatusIndicatorData;
+}) {
+  const {
+    color,
+    status,
+    detailedStatus,
+    needsAttention,
+    tooltip,
+  } = statusIndicatorData;
+
+  if (!detailedStatus) return null;
+
+  const contents =
+    needsAttention || status === "Stopped" ? (
+      <Flex gap="1" align="center">
+        <div
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: 8,
+            backgroundColor: `var(--${color}-9)`,
+          }}
+        ></div>
+        {detailedStatus}
+      </Flex>
+    ) : (
+      <div>{detailedStatus}</div>
+    );
+
+  return tooltip ? <Tooltip content={tooltip}>{contents}</Tooltip> : contents;
+}
+
 export function RawExperimentStatusIndicator({
   statusIndicatorData,
   labelFormat = "full",
@@ -40,19 +68,13 @@ export function RawExperimentStatusIndicator({
   statusIndicatorData: StatusIndicatorData;
   labelFormat?: LabelFormat;
 }) {
-  const {
-    color,
-    variant,
-    status,
-    detailedStatus,
-    tooltip,
-  } = statusIndicatorData;
+  const { color, status, detailedStatus, tooltip } = statusIndicatorData;
   const label = getFormattedLabel(labelFormat, status, detailedStatus);
 
   const badge = (
     <Badge
       color={color}
-      variant={variant}
+      variant={"solid"}
       radius="full"
       label={label}
       style={{

@@ -127,6 +127,7 @@ const ExperimentGuide = (): React.ReactElement => {
           close={() => setUpgradeModal(false)}
           reason=""
           source="get-started-experiment-guide"
+          commercialFeature={null}
         />
       )}
       <h1 className="mb-3">{title}</h1>
