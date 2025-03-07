@@ -130,7 +130,7 @@ export function calculateMidExperimentPowerSingle(
   metricId: string,
   variation: number
 ): MetricVariationPowerResult {
-  if (params.variation === undefined) {
+  if (!params.variation) {
     return calculateMidExperimentPowerSingleError(
       metricId,
       variation,
@@ -152,49 +152,49 @@ export function calculateMidExperimentPowerSingle(
       response.errorMessage
     );
   }
-  if (response?.firstPeriodPairwiseSampleSize === undefined) {
+  if (response?.firstPeriodPairwiseSampleSize === null) {
     return calculateMidExperimentPowerSingleError(
       metricId,
       variation,
       "Missing firstPeriodPairwiseSampleSize."
     );
   }
-  if (response.targetMDE === undefined) {
+  if (response?.targetMDE === null) {
     return calculateMidExperimentPowerSingleError(
       metricId,
       variation,
       "Missing targetMDE."
     );
   }
-  if (response.sigmahat2Delta === undefined) {
+  if (response?.sigmahat2Delta === null) {
     return calculateMidExperimentPowerSingleError(
       metricId,
       variation,
       "Missing sigmahat2Delta."
     );
   }
-  if (response.priorProper === undefined) {
+  if (response?.priorProper === null) {
     return calculateMidExperimentPowerSingleError(
       metricId,
       variation,
       "Missing priorProper."
     );
   }
-  if (response.priorProper && response.priorLiftMean === undefined) {
+  if (response?.priorProper && response.priorLiftMean === null) {
     return calculateMidExperimentPowerSingleError(
       metricId,
       variation,
       "Missing priorLiftMean."
     );
   }
-  if (response.priorProper && response.priorLiftVariance === undefined) {
+  if (response?.priorProper && response.priorLiftVariance === null) {
     return calculateMidExperimentPowerSingleError(
       metricId,
       variation,
       "Missing priorLiftVariance."
     );
   }
-  if (response.scalingFactor === undefined) {
+  if (response?.scalingFactor === null) {
     return calculateMidExperimentPowerSingleError(
       metricId,
       variation,

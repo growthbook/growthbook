@@ -51,17 +51,18 @@ const metricStatsObject = z.object({
   mean: z.number(),
 });
 
+// Keep in sync with gbstats PowerResponse
 const metricPowerResponseFromStatsEngineObject = z.object({
   status: z.string(),
-  errorMessage: z.string().optional().nullable(),
-  firstPeriodPairwiseSampleSize: z.number().optional(),
+  errorMessage: z.string().nullable(),
+  firstPeriodPairwiseSampleSize: z.number().nullable(),
   targetMDE: z.number(),
-  sigmahat2Delta: z.number().optional(),
-  priorProper: z.boolean().optional(),
-  priorLiftMean: z.number().optional(),
-  priorLiftVariance: z.number().optional(),
-  upperBoundAchieved: z.boolean().optional(),
-  scalingFactor: z.number().optional().nullable(),
+  sigmahat2Delta: z.number().nullable(),
+  priorProper: z.boolean().nullable(),
+  priorLiftMean: z.number().nullable(),
+  priorLiftVariance: z.number().nullable(),
+  upperBoundAchieved: z.boolean().nullable(),
+  scalingFactor: z.number().nullable(),
 });
 
 export type MetricPowerResponseFromStatsEngine = z.infer<

@@ -36,16 +36,16 @@ import {
 } from "back-end/types/feature";
 import { OrganizationInterface } from "back-end/types/organization";
 import {
-  ExperimentSnapshotInterface,
-  LegacyExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
-import {
   ExperimentReportResultDimension,
   LegacyReportInterface,
 } from "back-end/types/report";
 import { Queries } from "back-end/types/query";
-import { ExperimentPhase } from "back-end/types/experiment";
+import { AttributionModel, ExperimentPhase } from "back-end/types/experiment";
 import { LegacySavedGroupInterface } from "back-end/types/saved-group";
+import {
+  ExperimentSnapshotInterface,
+  LegacyExperimentSnapshotInterface,
+} from "../src/validators/experiment-snapshot";
 
 describe("Fact Metric Migration", () => {
   it("upgrades delay hours", () => {
@@ -1531,6 +1531,7 @@ describe("Snapshot Migration", () => {
       experiment: "exp_123",
       phase: 1,
       dateCreated: now,
+      dateUpdated: now,
       runStarted: now,
       queries: queries,
       dimension: "pre:date",
@@ -1656,6 +1657,7 @@ describe("Snapshot Migration", () => {
       experiment: "exp_123",
       phase: 1,
       dateCreated: now,
+      dateUpdated: now,
       runStarted: now,
       queries: [],
       dimension: "",
@@ -1751,6 +1753,7 @@ describe("Snapshot Migration", () => {
       experiment: "exp_123",
       phase: 1,
       dateCreated: now,
+      dateUpdated: now,
       runStarted: null,
       queries: [],
       dimension: "",
@@ -1857,7 +1860,7 @@ describe("Report Migration", () => {
       ...baseLegacyReport,
       args: {
         ...baseLegacyReport.args,
-        attributionModel: "allExposures",
+        attributionModel: "allExposures" as AttributionModel,
       },
     };
 

@@ -1,5 +1,6 @@
 export { StatsEngine } from "back-end/src/models/ProjectModel";
 
+import { MetricPowerResponseFromStatsEngine } from "back-end/src/validators/experiment-snapshot";
 import type { MetricStats } from "./metric";
 
 export type PValueCorrection = null | "benjamini-hochberg" | "holm-bonferroni";
@@ -33,20 +34,6 @@ interface BayesianVariationResponse extends BaseVariationResponse {
 
 interface FrequentistVariationResponse extends BaseVariationResponse {
   pValue?: number;
-}
-
-// Keep in sync with gbstats PowerResponse
-export interface MetricPowerResponseFromStatsEngine {
-  status: string;
-  errorMessage?: string;
-  firstPeriodPairwiseSampleSize?: number;
-  targetMDE: number;
-  sigmahat2Delta?: number;
-  priorProper?: boolean;
-  priorLiftMean?: number;
-  priorLiftVariance?: number;
-  upperBoundAchieved?: boolean;
-  scalingFactor?: number;
 }
 
 interface BaseDimensionResponse {
