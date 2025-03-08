@@ -15,19 +15,9 @@ import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
 import { daysBetween } from "shared/dates";
 import chunk from "lodash/chunk";
 import { ApiReqContext } from "back-end/types/api";
-import {
-  ExperimentSnapshotAnalysis,
-  ExperimentSnapshotHealth,
-  ExperimentSnapshotInterface,
-  ExperimentSnapshotSettings,
-} from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import { Queries, QueryPointer, QueryStatus } from "back-end/types/query";
 import { SegmentInterface } from "back-end/types/segment";
-import {
-  findSnapshotById,
-  updateSnapshot,
-} from "back-end/src/models/ExperimentSnapshotModel";
 import { parseDimensionId } from "back-end/src/services/experiments";
 import {
   analyzeExperimentResults,
@@ -51,6 +41,12 @@ import { FactMetricInterface } from "back-end/types/fact-table";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { BanditResult } from "back-end/types/stats";
 import { updateReport } from "back-end/src/models/ReportModel";
+import {
+  ExperimentSnapshotAnalysis,
+  ExperimentSnapshotHealth,
+  ExperimentSnapshotInterface,
+  ExperimentSnapshotSettings,
+} from "back-end/src/validators/experiment-snapshot";
 import {
   QueryRunner,
   QueryMap,
@@ -515,7 +511,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   }
 
   async getLatestModel(): Promise<ExperimentSnapshotInterface> {
-    const obj = await findSnapshotById(this.model.organization, this.model.id);
+    const obj = await this.context.models.experimentSnapshots.getById(
+      this.model.id
+    );
     if (!obj)
       throw new Error("Could not load snapshot model: " + this.model.id);
     return obj;
@@ -546,12 +544,10 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
           ? "error"
           : "success",
     };
-    await updateSnapshot({
-      organization: this.model.organization,
-      id: this.model.id,
-      updates,
-      context: this.context,
-    });
+    await this.context.models.experimentSnapshots.updateById(
+      this.model.id,
+      updates
+    );
     if (
       this.model.report &&
       ["failed", "partially-succeeded", "succeeded"].includes(status)

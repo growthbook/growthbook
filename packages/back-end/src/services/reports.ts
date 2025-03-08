@@ -15,7 +15,6 @@ import {
   expandMetricGroups,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
-import uniqid from "uniqid";
 import { getScopedSettings } from "shared/settings";
 import uniq from "lodash/uniq";
 import { pick, omit } from "lodash";
@@ -31,12 +30,7 @@ import {
   ExperimentPhase,
   MetricOverride,
 } from "back-end/types/experiment";
-import {
-  ExperimentSnapshotAnalysisSettings,
-  ExperimentSnapshotInterface,
-  ExperimentSnapshotSettings,
-  MetricForSnapshot,
-} from "back-end/types/experiment-snapshot";
+import { MetricForSnapshot } from "back-end/types/experiment-snapshot";
 import { OrganizationSettings, ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -46,10 +40,6 @@ import {
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
-import {
-  createExperimentSnapshotModel,
-  getLatestSnapshot,
-} from "back-end/src/models/ExperimentSnapshotModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import {
   getDefaultExperimentAnalysisSettings,
@@ -63,6 +53,11 @@ import { ReqContextClass } from "back-end/src/services/context";
 import { getMetricsByIds } from "back-end/src/models/MetricModel";
 import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
 import { ProjectInterface } from "back-end/types/project";
+import {
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotInterface,
+  ExperimentSnapshotSettings,
+} from "back-end/src/validators/experiment-snapshot";
 
 export function getReportVariations(
   experiment: ExperimentInterface,
@@ -305,7 +300,7 @@ export async function createReportSnapshot({
         "Unable to create snapshot for report: invalid experiment"
       );
     snapshotData =
-      (await getLatestSnapshot({
+      (await context.models.experimentSnapshots.getLatestSnapshot({
         experiment: experiment.id,
         phase: Math.max(experiment.phases.length - 1, 0),
         type: "standard",
@@ -387,13 +382,11 @@ export async function createReportSnapshot({
   // Fill in and sanitize the model
   snapshotData = {
     ...snapshotData,
-    id: uniqid("snp_"),
     type: "report",
     report: report.id,
     triggeredBy: "manual",
     error: "",
     runStarted: new Date(),
-    dateCreated: new Date(),
     status: "running",
     dimension: report.experimentAnalysisSettings.dimension || null,
     settings: snapshotSettings,
@@ -419,10 +412,9 @@ export async function createReportSnapshot({
     snapshotData.health.traffic.dimension = {};
   }
 
-  const snapshot = await createExperimentSnapshotModel({
-    data: snapshotData,
-    context,
-  });
+  const snapshot = await context.models.experimentSnapshots.create(
+    omit(snapshotData, ["id", "dateCreated", "dateUpdated", "organization"])
+  );
 
   const integration = getSourceIntegrationObject(context, datasource, true);
 

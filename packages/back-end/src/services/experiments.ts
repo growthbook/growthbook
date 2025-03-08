@@ -50,13 +50,9 @@ import {
 } from "back-end/src/validators/experiments";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { promiseAllChunks } from "back-end/src/util/promise";
-import { Context } from "back-end/src/models/BaseModel";
+import { Context, CreateProps } from "back-end/src/models/BaseModel";
 import {
   ExperimentAnalysisParamsContextData,
-  ExperimentSnapshotAnalysis,
-  ExperimentSnapshotAnalysisSettings,
-  ExperimentSnapshotInterface,
-  ExperimentSnapshotSettings,
   SnapshotTriggeredBy,
   SnapshotType,
   SnapshotVariation,
@@ -70,12 +66,6 @@ import {
 } from "back-end/src/models/MetricModel";
 import { checkSrm, sumSquaresFromStats } from "back-end/src/util/stats";
 import { addTags } from "back-end/src/models/TagModel";
-import {
-  addOrUpdateSnapshotAnalysis,
-  createExperimentSnapshotModel,
-  getLatestSnapshotMultipleExperiments,
-  updateSnapshotAnalysis,
-} from "back-end/src/models/ExperimentSnapshotModel";
 import { Dimension } from "back-end/src/types/Integration";
 import {
   Condition,
@@ -137,6 +127,12 @@ import { ApiReqContext } from "back-end/types/api";
 import { ProjectInterface } from "back-end/types/project";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import {
+  ExperimentSnapshotAnalysis,
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotInterface,
+  ExperimentSnapshotSettings,
+} from "back-end/src/validators/experiment-snapshot";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import {
   getIntegrationFromDatasourceId,
@@ -154,6 +150,7 @@ import {
 } from "./stats";
 import {
   getConfidenceLevelsForOrg,
+  getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,
   getMetricDefaultsForOrg,
   getPValueThresholdForOrg,
@@ -616,15 +613,12 @@ export async function createManualSnapshot({
     metricMap
   );
 
-  const data: ExperimentSnapshotInterface = {
-    id: uniqid("snp_"),
-    organization: experiment.organization,
+  const data: CreateProps<ExperimentSnapshotInterface> = {
     experiment: experiment.id,
     dimension: null,
     phase: phaseIndex,
     queries: [],
     runStarted: new Date(),
-    dateCreated: new Date(),
     status: "success",
     settings: snapshotSettings,
     unknownVariations: [],
@@ -646,7 +640,7 @@ export async function createManualSnapshot({
     triggeredBy: "manual",
   };
 
-  return await createExperimentSnapshotModel({ data, context });
+  return await context.models.experimentSnapshots.create(data);
 }
 
 export async function parseDimensionId(
@@ -878,7 +872,7 @@ export function updateExperimentBanditSettings({
   }
   const phase = changes.phases.length - 1;
 
-  const banditResult: BanditResult | undefined = snapshot?.banditResult;
+  const banditResult: BanditResult | undefined | null = snapshot?.banditResult;
   const snapshotDateCreated =
     snapshot?.analyses?.[0]?.dateCreated ?? new Date();
 
@@ -1004,13 +998,10 @@ export async function createSnapshot({
     datasource,
   });
 
-  const data: ExperimentSnapshotInterface = {
-    id: uniqid("snp_"),
-    organization: experiment.organization,
+  const data: CreateProps<ExperimentSnapshotInterface> = {
     experiment: experiment.id,
     runStarted: new Date(),
     error: "",
-    dateCreated: new Date(),
     phase: phaseIndex,
     queries: [],
     dimension: dimension || null,
@@ -1064,7 +1055,7 @@ export async function createSnapshot({
     });
   }
 
-  const snapshot = await createExperimentSnapshotModel({ data, context });
+  const snapshot = await context.models.experimentSnapshots.create(data);
 
   const integration = getSourceIntegrationObject(context, datasource, true);
 
@@ -1107,7 +1098,7 @@ export async function _getSnapshots(
     // get the latest phase
     experimentPhaseMap.set(e.id, e.phases.length - 1);
   });
-  return await getLatestSnapshotMultipleExperiments(
+  return await context.models.experimentSnapshots.getLatestSnapshotMultipleExperiments(
     experimentPhaseMap,
     dimension,
     withResults
@@ -1167,8 +1158,7 @@ async function getSnapshotAnalyses(
 
       // promise to add analysis to mongo record if it does not exist, overwrite if it does
       createAnalysisPromises.push(() =>
-        addOrUpdateSnapshotAnalysis({
-          organization: organization.id,
+        context.models.experimentSnapshots.addOrUpdateSnapshotAnalysis({
           id: snapshot.id,
           analysis,
         })
@@ -1254,6 +1244,7 @@ export async function createSnapshotAnalysis(
   if (!isAnalysisAllowed(snapshot.settings, analysisSettings)) {
     throw new Error("Analysis not allowed with this snapshot");
   }
+  const context = getContextForAgendaJobByOrgObject(organization);
 
   const totalQueries = snapshot.queries.length;
   const failedQueries = snapshot.queries.filter((q) => q.status === "failed");
@@ -1269,8 +1260,7 @@ export async function createSnapshotAnalysis(
     dateCreated: new Date(),
   };
   // and analysis to mongo record if it does not exist, overwrite if it does
-  addOrUpdateSnapshotAnalysis({
-    organization: organization.id,
+  context.models.experimentSnapshots.addOrUpdateSnapshotAnalysis({
     id: snapshot.id,
     analysis,
   });
@@ -1293,8 +1283,7 @@ export async function createSnapshotAnalysis(
   analysis.status = "success";
   analysis.error = undefined;
 
-  updateSnapshotAnalysis({
-    organization: organization.id,
+  context.models.experimentSnapshots.updateSnapshotAnalysis({
     id: snapshot.id,
     analysis,
   });

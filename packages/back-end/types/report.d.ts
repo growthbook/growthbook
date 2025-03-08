@@ -155,7 +155,7 @@ export type LegacyReportInterface = Omit<ExperimentReportInterface, "args"> & {
   > & {
     metricRegressionAdjustmentStatuses?: LegacyMetricRegressionAdjustmentStatus[];
     metrics?: string[];
-    guardrails?: [];
+    guardrails?: string[];
     goalMetrics?: string[];
     guardrailMetrics?: string[];
     secondaryMetrics?: string[];

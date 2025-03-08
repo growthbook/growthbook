@@ -57,13 +57,6 @@ import {
   syncVisualChangesWithVariations,
   updateVisualChangeset,
 } from "back-end/src/models/VisualChangesetModel";
-import {
-  deleteSnapshotById,
-  findSnapshotById,
-  getLatestSnapshot,
-  updateSnapshot,
-  updateSnapshotsOnPhaseDelete,
-} from "back-end/src/models/ExperimentSnapshotModel";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
@@ -99,8 +92,6 @@ import {
   auditDetailsUpdate,
 } from "back-end/src/services/audit";
 import {
-  ExperimentSnapshotAnalysisSettings,
-  ExperimentSnapshotInterface,
   SnapshotTriggeredBy,
   SnapshotType,
 } from "back-end/types/experiment-snapshot";
@@ -124,6 +115,10 @@ import { CreateURLRedirectProps } from "back-end/types/url-redirect";
 import { logger } from "back-end/src/util/logger";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
+import {
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotInterface,
+} from "back-end/src/validators/experiment-snapshot";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
@@ -368,7 +363,7 @@ export async function getExperimentPublic(
   const phase = experiment.phases.length - 1;
 
   const snapshot =
-    (await getLatestSnapshot({
+    (await context.models.experimentSnapshots.getLatestSnapshot({
       experiment: experiment.id,
       phase,
       type: "standard",
@@ -433,7 +428,7 @@ async function _getSnapshot({
     phase = String(experimentObj.phases.length - 1);
   }
 
-  return await getLatestSnapshot({
+  return await context.models.experimentSnapshots.getLatestSnapshot({
     experiment: experimentObj.id,
     phase: parseInt(phase),
     dimension,
@@ -519,11 +514,10 @@ export async function getSnapshotById(
   res: Response
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
 
   const { id } = req.params;
 
-  const snapshot = await findSnapshotById(org.id, id);
+  const snapshot = await context.models.experimentSnapshots.getById(id);
   if (!snapshot) {
     return res.status(400).json({
       status: 400,
@@ -1719,7 +1713,10 @@ export async function deleteExperimentPhase(
     changes,
   });
 
-  await updateSnapshotsOnPhaseDelete(org.id, id, phaseIndex);
+  await context.models.experimentSnapshots.updateOnPhaseDelete(
+    experiment,
+    phaseIndex
+  );
 
   // Add audit entry
   await req.audit({
@@ -2187,9 +2184,8 @@ export async function cancelSnapshot(
   res: Response
 ) {
   const context = getContextFromReq(req);
-  const { org } = context;
   const { id } = req.params;
-  const snapshot = await findSnapshotById(org.id, id);
+  const snapshot = await context.models.experimentSnapshots.getById(id);
   if (!snapshot) {
     return res.status(400).json({
       status: 400,
@@ -2217,7 +2213,7 @@ export async function cancelSnapshot(
     integration
   );
   await queryRunner.cancelQueries();
-  await deleteSnapshotById(org.id, snapshot.id);
+  await context.models.experimentSnapshots.deleteById(snapshot.id);
 
   res.status(200).json({ status: 200 });
 }
@@ -2513,7 +2509,7 @@ export async function postSnapshotAnalysis(
   const { org } = context;
 
   const { id } = req.params;
-  const snapshot = await findSnapshotById(org.id, id);
+  const snapshot = await context.models.experimentSnapshots.getById(id);
   if (!snapshot) {
     res.status(404).json({
       status: 404,
@@ -2538,11 +2534,8 @@ export async function postSnapshotAnalysis(
     snapshot.settings.coverage =
       experiment.phases[phaseIndex ?? latestPhase].coverage;
     // JIT migrate snapshots to have
-    await updateSnapshot({
-      organization: org.id,
-      id,
-      updates: { settings: snapshot.settings },
-      context,
+    await context.models.experimentSnapshots.updateById(id, {
+      settings: snapshot.settings,
     });
   }
 

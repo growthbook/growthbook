@@ -26,11 +26,11 @@ import { ExperimentInterface } from "back-end/types/experiment";
 import { ExperimentRefRule, FeatureInterface } from "back-end/types/feature";
 import { MetricInterface } from "back-end/types/metric";
 import { ProjectInterface } from "back-end/types/project";
-import { ExperimentSnapshotAnalysisSettings } from "back-end/types/experiment-snapshot";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { createFeature } from "back-end/src/models/FeatureModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { MetricWindowSettings } from "back-end/types/fact-table";
+import { ExperimentSnapshotAnalysisSettings } from "back-end/src/validators/experiment-snapshot";
 
 // region Constants for Demo Datasource
 

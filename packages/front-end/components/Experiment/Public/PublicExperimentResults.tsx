@@ -1,4 +1,4 @@
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { ExperimentSnapshotInterface } from "back-end/src/validators/experiment-snapshot";
 import {
   MetricSnapshotSettings,
 } from "back-end/types/report";

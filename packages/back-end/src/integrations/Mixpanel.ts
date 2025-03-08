@@ -34,7 +34,7 @@ import {
   getMixpanelPropertyColumn,
 } from "back-end/src/util/mixpanel";
 import { compileSqlTemplate } from "back-end/src/util/sql";
-import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
+import { ExperimentSnapshotSettings } from "back-end/src/validators/experiment-snapshot";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 
 export default class Mixpanel implements SourceIntegrationInterface {

@@ -9,7 +9,7 @@ import {
   SchemaFormat,
 } from "back-end/types/datasource";
 import { DimensionInterface } from "back-end/types/dimension";
-import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
+import { ExperimentSnapshotSettings } from "back-end/src/validators/experiment-snapshot";
 import { MetricInterface, MetricType } from "back-end/types/metric";
 import { QueryStatistics } from "back-end/types/query";
 import { SegmentInterface } from "back-end/types/segment";

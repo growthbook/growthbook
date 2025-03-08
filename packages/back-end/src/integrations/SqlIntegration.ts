@@ -90,7 +90,7 @@ import {
   replaceCountStar,
 } from "back-end/src/util/sql";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
-import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
+import { ExperimentSnapshotSettings } from "back-end/src/validators/experiment-snapshot";
 import { SQLVars, TemplateVariables } from "back-end/types/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { logger } from "back-end/src/util/logger";

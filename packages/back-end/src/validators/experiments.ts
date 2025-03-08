@@ -22,11 +22,11 @@ export const singleVariationResult = z.object({
 });
 
 export const banditResult = z.object({
-  singleVariationResults: z.array(singleVariationResult).optional(),
+  singleVariationResults: z.array(singleVariationResult).optional().nullable(),
   currentWeights: z.array(z.number()),
   updatedWeights: z.array(z.number()),
   srm: z.number().optional(),
-  bestArmProbabilities: z.array(z.number()).optional(),
+  bestArmProbabilities: z.array(z.number()).optional().nullable(),
   seed: z.number().optional(),
   updateMessage: z.string().optional(),
   error: z.string().optional(),

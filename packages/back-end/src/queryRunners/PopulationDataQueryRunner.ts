@@ -24,7 +24,7 @@ import {
   PopulationDataInterface,
   PopulationDataMetric,
 } from "back-end/types/population-data";
-import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
+import { ExperimentSnapshotSettings } from "back-end/src/validators/experiment-snapshot";
 import { SegmentInterface } from "back-end/types/segment";
 import {
   QueryRunner,

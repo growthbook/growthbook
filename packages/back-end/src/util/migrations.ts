@@ -36,13 +36,13 @@ import {
   ExperimentInterface,
   LegacyExperimentInterface,
 } from "back-end/types/experiment";
-import {
-  LegacyExperimentSnapshotInterface,
-  ExperimentSnapshotInterface,
-  MetricForSnapshot,
-} from "back-end/types/experiment-snapshot";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { LegacySavedGroupInterface } from "back-end/types/saved-group";
+import {
+  ExperimentSnapshotInterface,
+  LegacyExperimentSnapshotInterface,
+  MetricForSnapshot,
+} from "back-end/src/validators/experiment-snapshot";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
 function roundVariationWeight(num: number): number {
@@ -881,7 +881,7 @@ export function migrateSnapshot(
     snapshot.runStarted = null;
   }
 
-  return snapshot;
+  return { ...snapshot, dateUpdated: snapshot.dateCreated };
 }
 
 export function migrateSavedGroup(

@@ -41,17 +41,19 @@ import { logger } from "back-end/src/util/logger";
 import {
   ExperimentAnalysisParamsContextData,
   ExperimentMetricAnalysisParams,
+  SnapshotBanditSettings,
+} from "back-end/types/experiment-snapshot";
+import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
+import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "back-end/src/integrations/SqlIntegration";
+import { applyMetricOverrides } from "back-end/src/util/integration";
+import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,
   ExperimentSnapshotTraffic,
   ExperimentSnapshotTrafficDimension,
-  SnapshotBanditSettings,
   SnapshotSettingsVariation,
-} from "back-end/types/experiment-snapshot";
-import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
-import { updateSnapshotAnalysis } from "back-end/src/models/ExperimentSnapshotModel";
-import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "back-end/src/integrations/SqlIntegration";
-import { applyMetricOverrides } from "back-end/src/util/integration";
+} from "back-end/src/validators/experiment-snapshot";
+import { getContextForAgendaJobByOrgId } from "./organizations";
 
 // Keep these interfaces in sync with gbstats
 export interface AnalysisSettingsForStatsEngine {
@@ -637,13 +639,15 @@ export async function writeSnapshotAnalyses(
   paramsMap: Map<string, ExperimentAnalysisParamsContextData>
 ) {
   const promises: (() => Promise<void>)[] = [];
-  results.map((result) => {
+  results.map(async (result) => {
     const params = paramsMap.get(result.id);
     if (!params) return;
 
     const { organization, snapshot, snapshotSettings } = params.context;
     const { analyses, queryResults } = params.params;
     const { analysisObj, unknownVariations } = params.data;
+
+    const context = await getContextForAgendaJobByOrgId(organization);
 
     if (result.error) {
       analysisObj.results = [];
@@ -666,8 +670,7 @@ export async function writeSnapshotAnalyses(
     }
 
     promises.push(async () =>
-      updateSnapshotAnalysis({
-        organization,
+      context.models.experimentSnapshots.updateSnapshotAnalysis({
         id: snapshot,
         analysis: analysisObj,
       })

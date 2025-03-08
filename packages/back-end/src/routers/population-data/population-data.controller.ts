@@ -6,7 +6,7 @@ import {
 } from "back-end/src/services/datasource";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
+import { ExperimentSnapshotSettings } from "back-end/src/validators/experiment-snapshot";
 import { PopulationDataInterface } from "back-end/types/population-data";
 import {
   PopulationDataQueryRunner,
