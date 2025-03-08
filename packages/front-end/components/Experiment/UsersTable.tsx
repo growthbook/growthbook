@@ -5,8 +5,8 @@ import {
   ExperimentReportVariation,
 } from "back-end/types/report";
 import { OrganizationSettings } from "back-end/types/organization";
+import { DEFAULT_SRM_THRESHOLD } from "shared/constants";
 import { formatTrafficSplit } from "@/services/utils";
-import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { pValueFormatter } from "@/services/experiments";
 

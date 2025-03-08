@@ -2,57 +2,32 @@ import {
   ExperimentInterfaceStringDates,
   Variation,
 } from "back-end/types/experiment";
-import { FC } from "react";
+import { FC, useState } from "react";
+import { Box, Flex, Grid, Heading, Text } from "@radix-ui/themes";
+import { PiCameraLight, PiCameraPlusLight } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { trafficSplitPercentages } from "@/services/utils";
 import Carousel from "@/components/Carousel";
 import ScreenshotUpload from "@/components/EditExperiment/ScreenshotUpload";
 import AuthorizedImage from "@/components/AuthorizedImage";
+import Button from "@/components/Radix/Button";
+import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselModal";
 
 const imageCache = {};
 
 const ScreenshotCarousel: FC<{
-  index: number;
   variation: Variation;
-  canEditExperiment: boolean;
-  experiment: ExperimentInterfaceStringDates;
-  mutate?: () => void;
   maxChildHeight?: number;
-}> = ({
-  canEditExperiment,
-  experiment,
-  index,
-  variation,
-  mutate,
-  maxChildHeight,
-}) => {
-  const { apiCall } = useAuth();
-
+  onClick?: (i: number) => void;
+}> = ({ variation, maxChildHeight, onClick }) => {
+  const [allowClick, setAllowClick] = useState(true);
   return (
     <Carousel
-      deleteImage={
-        !canEditExperiment
-          ? undefined
-          : async (j) => {
-              const { status, message } = await apiCall<{
-                status: number;
-                message?: string;
-              }>(`/experiment/${experiment.id}/variation/${index}/screenshot`, {
-                method: "DELETE",
-                body: JSON.stringify({
-                  url: variation.screenshots[j].path,
-                }),
-              });
-
-              if (status >= 400) {
-                throw new Error(
-                  message || "There was an error deleting the image"
-                );
-              }
-
-              mutate?.();
-            }
-      }
+      onClick={(i) => {
+        if (allowClick && onClick) {
+          onClick(i);
+        }
+      }}
       maxChildHeight={maxChildHeight}
     >
       {variation.screenshots.map((s) => (
@@ -66,6 +41,28 @@ const ScreenshotCarousel: FC<{
             height: "100%",
             objectFit: "contain",
           }}
+          onErrorMsg={(msg) => {
+            setAllowClick(false);
+            return (
+              <Flex
+                title={msg}
+                align="center"
+                justify="center"
+                className="appbox mb-0"
+                width="100%"
+                style={{
+                  backgroundColor: "var(--slate-a3)",
+                  height: maxChildHeight + "px",
+                  width: "100%",
+                  color: "var(--slate-a9)",
+                }}
+              >
+                <Text size="8">
+                  <PiCameraLight />
+                </Text>
+              </Flex>
+            );
+          }}
         />
       ))}
     </Carousel>
@@ -75,14 +72,18 @@ const ScreenshotCarousel: FC<{
 interface Props {
   experiment: ExperimentInterfaceStringDates;
   canEditExperiment: boolean;
+  // for some experiments, screenshots don't make sense - this is for a future state where you can mark exp as such.
+  allowImages?: boolean;
   mutate?: () => void;
 }
 
 const VariationsTable: FC<Props> = ({
   experiment,
   canEditExperiment,
+  allowImages = true,
   mutate,
 }) => {
+  const { apiCall } = useAuth();
   const { variations } = experiment;
   const phases = experiment.phases || [];
   const lastPhaseIndex = phases.length - 1;
@@ -90,107 +91,194 @@ const VariationsTable: FC<Props> = ({
   const weights = lastPhase?.variationWeights ?? null;
   const percentages =
     (weights?.length || 0) > 0 ? trafficSplitPercentages(weights) : null;
+  const [openCarousel, setOpenCarousel] = useState<{
+    variationId: string;
+    index: number;
+  } | null>(null);
 
   const hasDescriptions = variations.some((v) => !!v.description?.trim());
   const hasUniqueIDs = variations.some((v, i) => v.key !== i + "");
+  const hasAnyImages = variations.some((v) => v.screenshots.length > 0);
 
-  return (
-    <div>
-      <div
-        className="fade-mask-1rem"
+  // set some variables for the display of the component - could make options
+  const cols = variations.length > 4 ? 4 : variations.length;
+  const gap = "4";
+  const maxImageHeight = hasAnyImages ? 200 : 110; // shrink the image height if there are no images
+
+  const noImageBox = () => {
+    return (
+      <Flex
+        align="center"
+        justify="center"
+        className="appbox mb-0"
+        width="100%"
         style={{
-          overflowX: "auto",
+          backgroundColor: "var(--slate-a3)",
+          height: maxImageHeight + "px",
+          color: "var(--slate-a9)",
         }}
       >
-        <table
-          className="table table-bordered mx-3 bg-light mw100-1rem"
-          style={{ width: "auto" }}
-        >
-          <thead>
-            <tr>
-              {variations.map((v, i) => (
-                <th
-                  key={i}
-                  className={`variation with-variation-label variation${i}`}
-                  style={{ borderBottom: 0 }}
-                >
-                  <span className="label">{i}</span>
-                  <span className="name">{v.name}</span>
-                </th>
-              ))}
-            </tr>
-            <tr>
-              {variations.map((v, i) => (
-                <th
-                  className={`variation with-variation-border-bottom variation${i} pt-0 pb-1 align-bottom font-weight-normal`}
-                  style={{ borderTop: 0 }}
-                  key={i}
-                  scope="col"
-                >
-                  {hasDescriptions ? <div>{v.description}</div> : null}
-                  {hasUniqueIDs ? (
-                    <code className="small">ID: {v.key}</code>
-                  ) : null}
-                  {experiment.type !== "multi-armed-bandit" &&
-                  percentages?.[i] !== undefined ? (
-                    <div className="text-right text-muted">
-                      Split: {percentages[i].toFixed(0)}%
-                    </div>
-                  ) : null}
-                </th>
-              ))}
-            </tr>
-          </thead>
+        <Text size="8">
+          {canEditExperiment ? <PiCameraPlusLight /> : <PiCameraLight />}
+        </Text>
+      </Flex>
+    );
+  };
 
-          <tbody>
-            <tr>
-              {variations.map((v, i) => (
-                <td
-                  key={i}
-                  className={`align-middle ${canEditExperiment ? "pb-1" : ""}`}
-                  style={{
-                    minWidth: "17.5rem",
-                    maxWidth: "27rem",
-                    width: `${80 / Math.min(variations.length || 1, 4)}rem`,
-                    height: "inherit",
-                    borderBottom: canEditExperiment ? 0 : undefined,
-                  }}
-                >
-                  <div className="d-flex justify-content-center align-items-center flex-column h-100">
+  return (
+    <Box mx="4">
+      <Grid
+        gap={gap}
+        columns={{
+          initial: "1",
+          xs: "2",
+          sm: cols === 2 ? "2" : "3",
+          md: cols.toString(),
+        }}
+      >
+        {variations.map((v, i) => (
+          <Box
+            key={i}
+            p="5"
+            pb="3"
+            className={`appbox mb-0 position-relative variation variation${i} with-variation-label`}
+          >
+            <Box
+              className={`variation variation${i} with-variation-color`}
+              style={{
+                position: "absolute",
+                left: 0,
+                top: 0,
+                right: 0,
+                height: "6px",
+              }}
+            />
+            <Flex gap="2" direction="column" justify="between" height="100%">
+              <Box>
+                <Box mb="3">
+                  <Flex gap="0">
+                    <Box className="">
+                      <span className="circle-label label">{i}</span>
+                    </Box>
+                    <Heading as="h4" size="3" mb="0">
+                      {v.name}
+                    </Heading>
+                  </Flex>
+                </Box>
+                {allowImages && (
+                  <Box>
                     {v.screenshots.length > 0 ? (
                       <ScreenshotCarousel
                         key={i}
-                        index={i}
                         variation={v}
-                        canEditExperiment={canEditExperiment}
-                        experiment={experiment}
-                        mutate={mutate}
-                        maxChildHeight={200}
+                        maxChildHeight={maxImageHeight}
+                        onClick={(j) => {
+                          setOpenCarousel({ variationId: v.id, index: j });
+                        }}
                       />
+                    ) : (
+                      <>
+                        {canEditExperiment ? (
+                          <>
+                            <ScreenshotUpload
+                              variation={i}
+                              experiment={experiment.id}
+                              onSuccess={() => mutate?.()}
+                            >
+                              {noImageBox()}
+                            </ScreenshotUpload>
+                          </>
+                        ) : (
+                          <>{noImageBox()}</>
+                        )}
+                      </>
+                    )}
+                  </Box>
+                )}
+              </Box>
+              <Box>
+                {hasDescriptions ? <Box>{v.description}</Box> : null}
+                {hasUniqueIDs ? (
+                  <code className="small">ID: {v.key}</code>
+                ) : null}
+                <Flex align="center" justify="between">
+                  <Box>
+                    {experiment.type !== "multi-armed-bandit" &&
+                    percentages?.[i] !== undefined ? (
+                      <Box>Split: {percentages[i].toFixed(0)}%</Box>
                     ) : null}
-                  </div>
-                </td>
-              ))}
-            </tr>
-            {canEditExperiment && (
-              <tr>
-                {variations.map((v, i) => (
-                  <td key={`b${i}`} className="py-0" style={{ borderTop: 0 }}>
-                    <div>
-                      <ScreenshotUpload
-                        variation={i}
-                        experiment={experiment.id}
-                        onSuccess={() => mutate?.()}
-                      />
-                    </div>
-                  </td>
-                ))}
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
+                  </Box>
+                  {allowImages && (
+                    <Flex align="center" justify="end" gap="2">
+                      {v.screenshots.length > 0 ? (
+                        <Text className="text-muted">
+                          {v.screenshots.length} image
+                          {v.screenshots.length > 1 ? "s" : ""}
+                        </Text>
+                      ) : null}
+                      {canEditExperiment && (
+                        <div>
+                          <ScreenshotUpload
+                            variation={i}
+                            experiment={experiment.id}
+                            onSuccess={() => mutate?.()}
+                          >
+                            <Button
+                              variant="ghost"
+                              style={{ padding: 0, margin: 0 }}
+                            >
+                              Add{v.screenshots.length > 0 ? "" : " image"}
+                            </Button>
+                          </ScreenshotUpload>
+                        </div>
+                      )}
+                    </Flex>
+                  )}
+                </Flex>
+              </Box>
+            </Flex>
+          </Box>
+        ))}
+      </Grid>
+      {openCarousel && (
+        <ExperimentCarouselModal
+          experiment={experiment}
+          currentVariation={openCarousel.variationId}
+          currentScreenshot={openCarousel.index}
+          imageCache={imageCache}
+          close={() => {
+            setOpenCarousel(null);
+          }}
+          mutate={mutate}
+          deleteImage={
+            !canEditExperiment
+              ? undefined
+              : async (variantIndex, screenshotPath) => {
+                  const { status, message } = await apiCall<{
+                    status: number;
+                    message?: string;
+                  }>(
+                    `/experiment/${experiment.id}/variation/${variantIndex}/screenshot`,
+                    {
+                      method: "DELETE",
+                      body: JSON.stringify({
+                        url: screenshotPath,
+                      }),
+                    }
+                  );
+
+                  if (status >= 400) {
+                    throw new Error(
+                      message || "There was an error deleting the image"
+                    );
+                  }
+
+                  mutate?.();
+                }
+          }
+        />
+      )}
+    </Box>
   );
 };
 

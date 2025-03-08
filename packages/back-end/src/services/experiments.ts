@@ -25,21 +25,29 @@ import {
   MatchingRule,
   validateCondition,
 } from "shared/util";
+import { getSRMValue } from "shared/health";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
   getEqualWeights,
+  getMetricResultStatus,
   getMetricSnapshotSettings,
   isFactMetric,
   isFactMetricId,
   isMetricJoinable,
 } from "shared/experiments";
-import { orgHasPremiumFeature } from "enterprise";
+import { orgHasPremiumFeature } from "shared/enterprise";
 import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
 import { MetricPriorSettings } from "back-end/types/fact-table";
-import { BanditResult } from "back-end/src/validators/experiments";
+import {
+  ExperimentAnalysisSummaryVariationStatus,
+  BanditResult,
+  ExperimentAnalysisSummary,
+  ExperimentAnalysisSummaryResultsStatus,
+  GoalMetricResult,
+} from "back-end/src/validators/experiments";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { Context } from "back-end/src/models/BaseModel";
@@ -86,6 +94,7 @@ import {
 } from "back-end/types/experiment";
 import { findDimensionById } from "back-end/src/models/DimensionModel";
 import {
+  APP_ORIGIN,
   DEFAULT_CONVERSION_WINDOW_HOURS,
   EXPERIMENT_REFRESH_FREQUENCY,
 } from "back-end/src/util/secrets";
@@ -143,7 +152,12 @@ import {
   runSnapshotAnalysis,
   writeSnapshotAnalyses,
 } from "./stats";
-import { getEnvironmentIdsFromOrg } from "./organizations";
+import {
+  getConfidenceLevelsForOrg,
+  getEnvironmentIdsFromOrg,
+  getMetricDefaultsForOrg,
+  getPValueThresholdForOrg,
+} from "./organizations";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -355,6 +369,7 @@ export function getDefaultExperimentAnalysisSettings(
     differenceType: "relative",
     pValueThreshold:
       organization.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
+    numGoalMetrics: experiment.goalMetrics.length,
   };
 }
 
@@ -1315,6 +1330,8 @@ export async function toExperimentApiInterface(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface
 ): Promise<ApiExperiment> {
+  const appOrigin = (APP_ORIGIN ?? "").replace(/\/$/, "");
+
   let project: ProjectInterface | null = null;
   const organization = context.org;
   if (experiment.project) {
@@ -1330,6 +1347,7 @@ export async function toExperimentApiInterface(
   return {
     id: experiment.id,
     name: experiment.name || "",
+    type: experiment.type || "standard",
     project: experiment.project || "",
     hypothesis: experiment.hypothesis || "",
     description: experiment.description || "",
@@ -1412,6 +1430,12 @@ export async function toExperimentApiInterface(
             releasedVariationId: experiment.releasedVariationId || "",
             excludeFromPayload: !!experiment.excludeFromPayload,
           },
+        }
+      : null),
+    shareLevel: experiment.shareLevel || "organization",
+    ...(experiment.shareLevel === "public" && experiment.uid
+      ? {
+          publicUrl: `${appOrigin}/public/e/${experiment.uid}`,
         }
       : null),
   };
@@ -2248,6 +2272,7 @@ export function toMetricApiInterface(
         metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0.5,
       minSampleSize:
         metric.minSampleSize ?? metricDefaults?.minimumSampleSize ?? 150,
+      targetMDE: metric.targetMDE ?? metricDefaults?.targetMDE ?? 0.1,
       riskThresholdDanger: metric.loseRisk ?? 0.0125,
       riskThresholdSuccess: metric.winRisk ?? 0.0025,
       windowSettings: metric.windowSettings
@@ -2423,6 +2448,7 @@ export function postExperimentApiPayloadToInterface(
     regressionAdjustmentEnabled:
       payload.regressionAdjustmentEnabled ??
       !!organization?.settings?.regressionAdjustmentEnabled,
+    shareLevel: payload.shareLevel,
   };
 }
 
@@ -2441,6 +2467,7 @@ export function updateExperimentApiPayloadToInterface(
     trackingKey,
     project,
     owner,
+    datasourceId,
     assignmentQueryId,
     hashAttribute,
     hashVersion,
@@ -2461,11 +2488,13 @@ export function updateExperimentApiPayloadToInterface(
     statsEngine,
     regressionAdjustmentEnabled,
     secondaryMetrics,
+    shareLevel,
   } = payload;
   return {
     ...(trackingKey ? { trackingKey } : {}),
     ...(project !== undefined ? { project } : {}),
     ...(owner !== undefined ? { owner } : {}),
+    ...(datasourceId ? { datasource: datasourceId } : {}),
     ...(assignmentQueryId ? { assignmentQueryId } : {}),
     ...(hashAttribute ? { hashAttribute } : {}),
     ...(hashVersion ? { hashVersion } : {}),
@@ -2533,6 +2562,7 @@ export function updateExperimentApiPayloadToInterface(
           }),
         }
       : {}),
+    ...(shareLevel !== undefined ? { shareLevel } : {}),
     dateUpdated: new Date(),
   };
 }
@@ -2708,4 +2738,254 @@ export async function getLinkedFeatureInfo(
   });
 
   return linkedFeatureInfo.filter((info) => info.state !== "discarded");
+}
+
+export async function getChangesToStartExperiment(
+  context: ReqContext,
+  experiment: ExperimentInterface
+) {
+  const phases = [...experiment.phases];
+  const lastIndex = phases.length - 1;
+
+  const changes: Changeset = {};
+
+  // If the experiment doesn't have any results yet, reset the phase start date to now
+  if (!experiment.analysisSummary?.snapshotId) {
+    phases[lastIndex] = {
+      ...phases[lastIndex],
+      dateStarted: new Date(),
+    };
+    changes.phases = phases;
+  }
+
+  // Bandit-specific changes
+  if (experiment.type === "multi-armed-bandit") {
+    const { settings } = getScopedSettings({
+      organization: context.org,
+      experiment,
+    });
+
+    // Multiple events (not just the seed 0th event) means this bandit phase was already running somehow.
+    // If multiple events, don't flush.
+    const preserveExistingBanditEvents =
+      (phases[lastIndex]?.banditEvents?.length ?? 0) > 1;
+    Object.assign(
+      changes,
+      resetExperimentBanditSettings({
+        experiment,
+        changes,
+        settings,
+        preserveExistingBanditEvents,
+      })
+    );
+
+    // validate datasources
+    let datasource: DataSourceInterface | null = null;
+    if (!experiment.datasource) {
+      throw new Error("Missing datasource");
+    }
+    datasource = await getDataSourceById(context, experiment.datasource);
+    if (!datasource) {
+      throw new Error("Invalid datasource: " + experiment.datasource);
+    }
+
+    // validate goal metric
+    if (!experiment?.goalMetrics?.[0]) {
+      throw new Error("Missing goal metric");
+    }
+
+    const metric = await getExperimentMetricById(
+      context,
+      experiment.goalMetrics[0]
+    );
+    if (!metric) {
+      throw new Error("Invalid metric: " + experiment.goalMetrics[0]);
+    }
+    if (metric.cappingSettings.type === "percentile") {
+      throw new Error("Goal metric must not use percentile capping");
+    }
+  }
+
+  changes.status = "running";
+
+  return changes;
+}
+
+export async function updateExperimentAnalysisSummary({
+  context,
+  experiment,
+  experimentSnapshot,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+  experimentSnapshot: ExperimentSnapshotInterface;
+}) {
+  const analysisSummary: ExperimentAnalysisSummary = {
+    snapshotId: experimentSnapshot.id,
+  };
+
+  const overallTraffic = experimentSnapshot.health?.traffic?.overall;
+  const snapshotHealthPower = experimentSnapshot.health?.power;
+
+  const standardSnapshot =
+    experimentSnapshot.type === "standard" &&
+    experimentSnapshot.analyses?.[0]?.results?.length === 1;
+  const totalUsers =
+    (overallTraffic?.variationUnits.length
+      ? overallTraffic.variationUnits.reduce((acc, a) => acc + a, 0)
+      : standardSnapshot
+      ? // fall back to first result for standard snapshots if overall traffic
+        // is missing
+        experimentSnapshot?.analyses?.[0]?.results?.[0]?.variations?.reduce(
+          (acc, a) => acc + a.users,
+          0
+        )
+      : null) ?? null;
+
+  const srm = getSRMValue(experiment.type ?? "standard", experimentSnapshot);
+
+  if (overallTraffic && srm !== undefined) {
+    analysisSummary.health = {
+      srm,
+      multipleExposures: experimentSnapshot.multipleExposures,
+      totalUsers,
+    };
+
+    if (snapshotHealthPower?.type === "error") {
+      const errorMessage = snapshotHealthPower.metricVariationPowerResults.find(
+        (r) => r.errorMessage !== undefined
+      )?.errorMessage;
+
+      analysisSummary.health.power = {
+        type: "error",
+        errorMessage:
+          errorMessage ?? "An error occurred while calculating power",
+      };
+    } else if (snapshotHealthPower?.type === "success") {
+      analysisSummary.health.power = {
+        type: "success",
+        isLowPowered: snapshotHealthPower.isLowPowered,
+        additionalDaysNeeded: snapshotHealthPower.additionalDaysNeeded,
+      };
+    }
+  }
+
+  const relativeAnalysis = experimentSnapshot.analyses.find(
+    (v) => v.settings.differenceType === "relative"
+  );
+
+  if (relativeAnalysis) {
+    const overallResults = relativeAnalysis.results?.[0];
+    // redundant check for dimension
+    if (overallResults && overallResults.name === "") {
+      const resultsStatus = await computeResultsStatus({
+        context,
+        relativeAnalysis,
+        experiment,
+      });
+
+      if (resultsStatus) {
+        analysisSummary.resultsStatus = resultsStatus;
+      }
+    }
+  }
+
+  await updateExperiment({
+    context,
+    experiment,
+    changes: {
+      analysisSummary,
+    },
+  });
+}
+
+async function computeResultsStatus({
+  context,
+  relativeAnalysis,
+  experiment,
+}: {
+  context: ReqContext;
+  relativeAnalysis: ExperimentSnapshotAnalysis;
+  experiment: ExperimentInterface;
+}): Promise<ExperimentAnalysisSummaryResultsStatus | undefined> {
+  const statsEngine = relativeAnalysis.settings.statsEngine;
+  const { ciUpper, ciLower } = getConfidenceLevelsForOrg(context);
+  const metricDefaults = getMetricDefaultsForOrg(context);
+  const pValueThreshold = getPValueThresholdForOrg(context);
+  const metricMap = await getMetricMap(context);
+
+  const variations = relativeAnalysis.results[0]?.variations;
+  if (!variations || !variations.length) {
+    return;
+  }
+
+  const variationStatuses: ExperimentAnalysisSummaryVariationStatus[] = [];
+  const baselineVariation = variations[0];
+
+  for (let i = 1; i < variations.length; i++) {
+    // try to get id from experiment object
+    const variationId = experiment.variations?.[i]?.id;
+    const currentVariation = variations[i];
+    const variationStatus: ExperimentAnalysisSummaryVariationStatus = {
+      variationId: variationId ?? i + "",
+      goalMetrics: {},
+      guardrailMetrics: {},
+    };
+    for (const m in currentVariation.metrics) {
+      const goalMetric = experiment.goalMetrics.includes(m);
+      const guardrailMetric = experiment.guardrailMetrics.includes(m);
+      if (goalMetric || guardrailMetric) {
+        const baselineMetric = baselineVariation.metrics?.[m];
+        const currentMetric = currentVariation.metrics?.[m];
+        if (!currentMetric || !baselineMetric) continue;
+
+        const metric = metricMap.get(m);
+        if (!metric) continue;
+
+        const resultsStatus = getMetricResultStatus({
+          metric,
+          metricDefaults,
+          baseline: baselineMetric,
+          stats: currentMetric,
+          ciLower,
+          ciUpper,
+          pValueThreshold,
+          statsEngine: statsEngine,
+        });
+
+        if (goalMetric) {
+          const metricStatus: GoalMetricResult = {
+            status: "neutral",
+            superStatSigStatus: "neutral",
+          };
+          if (resultsStatus.resultsStatus === "won") {
+            metricStatus.status = "won";
+          } else if (resultsStatus.resultsStatus === "lost") {
+            metricStatus.status = "lost";
+          }
+
+          if (resultsStatus.clearSignalResultsStatus === "won") {
+            metricStatus.superStatSigStatus = "won";
+          } else if (resultsStatus.resultsStatus === "lost") {
+            metricStatus.superStatSigStatus = "lost";
+          }
+          variationStatus.goalMetrics[metric.id] = metricStatus;
+        }
+
+        if (guardrailMetric) {
+          variationStatus.guardrailMetrics[metric.id] = {
+            status: resultsStatus.resultsStatus === "lost" ? "lost" : "neutral",
+          };
+        }
+      }
+    }
+    variationStatuses.push(variationStatus);
+  }
+
+  return {
+    variations: variationStatuses,
+    settings: {
+      sequentialTesting: relativeAnalysis.settings.sequentialTesting ?? false,
+    },
+  };
 }

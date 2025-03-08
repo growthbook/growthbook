@@ -38,9 +38,19 @@ export interface PowerCalculationParams {
   nVariations: number;
   nWeeks: number;
   alpha: number;
-  usersPerWeek: number;
+  usersPerWeek: number; // TODO extend to have different data per week
   targetPower: number;
   statsEngineSettings: StatsEngineSettings;
+  metricValuesData: {
+    source: "manual" | "segment" | "experiment" | "factTable";
+    sourceName?: string;
+    sourceId?: string;
+    identifierType?: string;
+    populationId?: string;
+    datasource?: string;
+    error?: string;
+  };
+  customizedMetrics?: boolean;
 }
 
 export type FullModalPowerCalculationParams = Omit<
@@ -64,6 +74,12 @@ export type PartialPowerCalculationParams = Partial<
 > & {
   metrics: {
     [id: string]: PartialMetricParams;
+  };
+  savedData?: {
+    usersPerWeek: number;
+    metrics: {
+      [id: string]: PartialMetricParams;
+    };
   };
 };
 
@@ -102,7 +118,7 @@ export const config = checkConfig({
     minValue: 0,
   },
   effectSize: {
-    title: "Effect Size",
+    title: "Expected Effect Size",
     type: "percent",
     tooltip:
       "This is the relative effect size that you anticipate for your experiment. Setting this allows us to compute the number of weeks needed to reliably detect an effect of this size or larger.",
@@ -214,7 +230,7 @@ const validEntry = (
   const { maxValue, minValue } = c;
 
   if (minValue !== undefined && v <= minValue) return false;
-  if (maxValue !== undefined && maxValue < v) return false;
+  if (maxValue !== undefined && maxValue <= v) return false;
 
   return true;
 };
@@ -381,13 +397,26 @@ export function powerStandardError(
   );
 }
 
-export function calculateRho(
+export function sequentialRho(
   alpha: number,
   sequentialTuningParameter: number
 ): number {
   return Math.sqrt(
     (-2 * Math.log(alpha) + Math.log(-2 * Math.log(alpha) + 1)) /
       sequentialTuningParameter
+  );
+}
+
+export function sequentialDiscriminant(
+  n: number,
+  rho: number,
+  alpha: number
+): number {
+  return (
+    (2 *
+      (n * Math.pow(rho, 2) + 1) *
+      Math.log(Math.sqrt(n * Math.pow(rho, 2) + 1) / alpha)) /
+    Math.pow(n * rho, 2)
   );
 }
 
@@ -398,12 +427,8 @@ export function sequentialPowerSequentialVariance(
   sequentialTuningParameter: number
 ): number {
   const standardErrorSampleMean = Math.sqrt(variance / n);
-  const rho = calculateRho(alpha, sequentialTuningParameter);
-  const partUnderRadical =
-    (2 *
-      (n * Math.pow(rho, 2) + 1) *
-      Math.log(Math.sqrt(n * Math.pow(rho, 2) + 1) / alpha)) /
-    Math.pow(n * rho, 2);
+  const rho = sequentialRho(alpha, sequentialTuningParameter);
+  const partUnderRadical = sequentialDiscriminant(n, rho, alpha);
   const zSequential = Math.sqrt(n) * Math.sqrt(partUnderRadical);
   const zStar = normal.quantile(1.0 - 0.5 * alpha, 0, 1);
   const standardErrorSequential =
@@ -471,10 +496,6 @@ export function powerEstFrequentist(
   twoTailed: boolean = true,
   sequentialTesting: false | number
 ): number {
-  const zStar = twoTailed
-    ? normal.quantile(1.0 - 0.5 * alpha, 0, 1)
-    : normal.quantile(1.0 - alpha, 0, 1);
-
   let standardError = 0;
   const sequentialTuningParameter = getSequentialTuningParameter(
     sequentialTesting
@@ -491,7 +512,20 @@ export function powerEstFrequentist(
   } else {
     standardError = powerStandardError(metric, n / nVariations, true);
   }
-  const standardizedEffectSize = metric.effectSize / standardError;
+  return powerFrequentist(metric.effectSize, standardError, alpha, twoTailed);
+}
+
+export function powerFrequentist(
+  effectSize: number,
+  standardError: number,
+  alpha: number = 0.05,
+  twoTailed: boolean = true
+): number {
+  const zStar = twoTailed
+    ? normal.quantile(1.0 - 0.5 * alpha, 0, 1)
+    : normal.quantile(1.0 - alpha, 0, 1);
+
+  const standardizedEffectSize = effectSize / standardError;
   const upperCutpoint = zStar - standardizedEffectSize;
   let power = 1 - normal.cdf(upperCutpoint, 0, 1);
   if (twoTailed) {
@@ -803,10 +837,34 @@ export function getCutpoint(
     nPerVariation,
     relative
   );
+  const proper = getMetricPriorParams(metric).proper;
+  return calculateCutpoint(
+    alpha,
+    upper,
+    proper,
+    tauHatVariance,
+    posteriorPrecision,
+    priorMeanSpecified,
+    priorVarianceSpecified,
+    priorMeanDGP,
+    marginalVarianceTauHat
+  );
+}
+
+export function calculateCutpoint(
+  alpha: number,
+  upper: boolean,
+  proper: boolean,
+  tauHatVariance: number,
+  posteriorPrecision: number,
+  priorMeanSpecified: number,
+  priorVarianceSpecified: number,
+  priorMeanDGP: number,
+  marginalVarianceTauHat: number
+): number {
   const zStar = normal.quantile(1.0 - 0.5 * alpha, 0, 1);
   const upperSign = upper ? 1 : -1;
-  const properInt = getMetricPriorParams(metric).proper ? 1 : 0;
-
+  const properInt = proper ? 1 : 0;
   const numerator =
     upperSign * tauHatVariance * Math.sqrt(posteriorPrecision) * zStar -
     (properInt * (tauHatVariance * priorMeanSpecified)) /

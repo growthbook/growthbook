@@ -165,6 +165,7 @@ export default function SDKConnectionsList() {
             sdkVersion: initialModalSelectedLanguage
               ? getLatestSDKVersion(initialModalSelectedLanguage)
               : undefined,
+            includeRuleIds: true,
           }}
           close={() => setModalOpen(false)}
           mutate={mutate}
@@ -292,17 +293,19 @@ export default function SDKConnectionsList() {
                         })}
                         style={{ gap: "0.5rem" }}
                       >
-                        <ProjectBadges
-                          projectIds={
-                            filteredProjectIdsWithDisallowed.length
-                              ? filteredProjectIdsWithDisallowed
-                              : undefined
-                          }
-                          invalidProjectIds={disallowedProjectIds}
-                          invalidProjectMessage="This project is not allowed in the selected environment and will not be included in the SDK payload."
-                          resourceType="sdk connection"
-                          skipMargin={true}
-                        />
+                        {!showAllEnvironmentProjects && (
+                          <ProjectBadges
+                            projectIds={
+                              filteredProjectIdsWithDisallowed.length
+                                ? filteredProjectIdsWithDisallowed
+                                : undefined
+                            }
+                            invalidProjectIds={disallowedProjectIds}
+                            invalidProjectMessage="This project is not allowed in the selected environment and will not be included in the SDK payload."
+                            resourceType="sdk connection"
+                            skipMargin={true}
+                          />
+                        )}
                       </div>
                     </td>
                   )}

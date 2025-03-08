@@ -4,7 +4,7 @@ import {
 } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { includeExperimentInPayload, isDefined } from "shared/util";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useRouter } from "next/router";
@@ -15,7 +15,10 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
 import Modal from "@/components/Modal";
 import HistoryTable from "@/components/HistoryTable";
-import { openVisualEditor } from "@/components/OpenVisualEditorLink";
+import {
+  getBrowserDevice,
+  openVisualEditor,
+} from "@/components/OpenVisualEditorLink";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -185,12 +188,17 @@ export default function TabbedPage({
     .filter(isDefined)
     .map((u) => u.name || u.email);
 
+  const { browser, deviceType } = useMemo(() => {
+    const ua = navigator.userAgent;
+    return getBrowserDevice(ua);
+  }, []);
+
   const safeToEdit = experiment.status !== "running" || !hasLiveLinkedChanges;
 
   const isBandit = experiment.type === "multi-armed-bandit";
   const trackSource = "tabbed-page";
   return (
-    <div>
+    <>
       {auditModal && (
         <Modal
           trackingEventModalType=""
@@ -226,7 +234,12 @@ export default function TabbedPage({
           close={() => setVisualEditorModal(false)}
           onCreate={async (vc) => {
             // Try to immediately open the visual editor
-            await openVisualEditor(vc, apiCall);
+            await openVisualEditor({
+              vc,
+              apiCall,
+              browser,
+              deviceType,
+            });
           }}
           cta="Open Visual Editor"
           source={trackSource}
@@ -258,6 +271,7 @@ export default function TabbedPage({
         />
       )}
       {/* TODO: Update Experiment Header props to include redirect and pipe through to StartExperimentBanner */}
+
       <ExperimentHeader
         experiment={experiment}
         envs={envs}
@@ -281,10 +295,11 @@ export default function TabbedPage({
         verifiedConnections={verifiedConnections}
         linkedFeatures={linkedFeatures}
       />
-      <div className="container pagecontents pb-4 px-3">
+
+      <div className="container-fluid pagecontents">
         {experiment.project ===
           getDemoDatasourceProjectIdForOrganization(organization.id) && (
-          <div className="alert alert-info mb-3 d-flex align-items-center mt-3">
+          <div className="alert alert-info d-flex align-items-center mb-0 mt-2">
             <div className="flex-1">
               This experiment is part of our sample dataset. You can safely
               delete this once you are done exploring.
@@ -297,9 +312,7 @@ export default function TabbedPage({
             </div>
           </div>
         )}
-        <div className="mt-3">
-          <CustomMarkdown page={"experiment"} variables={variables} />
-        </div>
+        <CustomMarkdown page={"experiment"} variables={variables} />
 
         {experiment.status === "stopped" && (
           <div className="pt-3">
@@ -346,7 +359,7 @@ export default function TabbedPage({
             linkedFeatures={linkedFeatures}
             visualChangesets={visualChangesets}
             editTargeting={editTargeting}
-            verifiedConnections={verifiedConnections}
+            matchingConnections={matchingConnections}
             checklistItemsRemaining={checklistItemsRemaining}
             setChecklistItemsRemaining={setChecklistItemsRemaining}
             envs={envs}
@@ -369,7 +382,7 @@ export default function TabbedPage({
             <div className="mt-3 mb-2 text-center d-print-none">
               <Button
                 onClick={() => setTabAndScroll("results")}
-                size="lg"
+                size="md"
                 icon={<FaChartBar />}
               >
                 View Results
@@ -381,7 +394,9 @@ export default function TabbedPage({
           <div
             className={
               // todo: standardize explore & results tabs across experiment types
-              isBandit && tab === "results" ? "d-block" : "d-none d-print-block"
+              isBandit && tab === "results"
+                ? "container-fluid pagecontents d-block pt-0"
+                : "d-none d-print-block"
             }
           >
             <BanditSummaryResultsTab
@@ -391,59 +406,60 @@ export default function TabbedPage({
             />
           </div>
         ) : null}
-        <div
-          className={
-            // todo: standardize explore & results tabs across experiment types
-            (!isBandit && tab === "results") || (isBandit && tab === "explore")
-              ? "d-block pt-2"
-              : "d-none d-print-block"
-          }
-        >
-          {/* TODO: Update ResultsTab props to include redirect and pipe through to StartExperimentBanner */}
-          <ResultsTab
-            experiment={experiment}
-            mutate={mutate}
-            editMetrics={editMetrics}
-            editPhases={editPhases}
-            editResult={editResult}
-            newPhase={newPhase}
-            connections={connections}
-            envs={envs}
-            setTab={setTabAndScroll}
-            visualChangesets={visualChangesets}
-            editTargeting={editTargeting}
-            isTabActive={tab === "results"}
-            safeToEdit={safeToEdit}
-            baselineRow={baselineRow}
-            setBaselineRow={setBaselineRow}
-            differenceType={differenceType}
-            setDifferenceType={setDifferenceType}
-            variationFilter={variationFilter}
-            setVariationFilter={setVariationFilter}
-            metricFilter={metricFilter}
-            setMetricFilter={setMetricFilter}
-          />
-        </div>
-        <div
-          className={tab === "health" ? "d-block pt-2" : "d-none d-print-block"}
-        >
-          <HealthTab
-            experiment={experiment}
-            onHealthNotify={handleIncrementHealthNotifications}
-            onSnapshotUpdate={handleSnapshotChange}
-            resetResultsSettings={() => {
-              setBaselineRow(0);
-              setDifferenceType("relative");
-              setVariationFilter([]);
-            }}
-          />
-        </div>
+      </div>
+      <div
+        className={
+          // todo: standardize explore & results tabs across experiment types
+          (!isBandit && tab === "results") || (isBandit && tab === "explore")
+            ? "container-fluid pagecontents d-block pt-0"
+            : "d-none d-print-block"
+        }
+      >
+        {/* TODO: Update ResultsTab props to include redirect and pipe through to StartExperimentBanner */}
+        <ResultsTab
+          experiment={experiment}
+          mutate={mutate}
+          editMetrics={editMetrics}
+          editPhases={editPhases}
+          editResult={editResult}
+          newPhase={newPhase}
+          connections={connections}
+          envs={envs}
+          setTab={setTabAndScroll}
+          visualChangesets={visualChangesets}
+          editTargeting={editTargeting}
+          isTabActive={tab === "results"}
+          safeToEdit={safeToEdit}
+          baselineRow={baselineRow}
+          setBaselineRow={setBaselineRow}
+          differenceType={differenceType}
+          setDifferenceType={setDifferenceType}
+          variationFilter={variationFilter}
+          setVariationFilter={setVariationFilter}
+          metricFilter={metricFilter}
+          setMetricFilter={setMetricFilter}
+        />
+      </div>
+      <div
+        className={
+          tab === "health"
+            ? "container-fluid pagecontents d-block pt-0"
+            : "d-none d-print-block"
+        }
+      >
+        <HealthTab
+          experiment={experiment}
+          onHealthNotify={handleIncrementHealthNotifications}
+          onSnapshotUpdate={handleSnapshotChange}
+          resetResultsSettings={() => {
+            setBaselineRow(0);
+            setDifferenceType("relative");
+            setVariationFilter([]);
+          }}
+        />
       </div>
 
-      <div
-        className="bg-white mt-4 px-4 border-top"
-        style={{ marginLeft: -8, marginRight: -8 }}
-      >
+      <div className="mt-4 px-4 border-top pb-3">
         <div className="pt-2 pt-4 pb-5 container pagecontents">
           <div className="h3 mb-4">Comments</div>
           <DiscussionThread
@@ -454,6 +470,6 @@ export default function TabbedPage({
           />
         </div>
       </div>
-    </div>
+    </>
   );
 }

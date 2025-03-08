@@ -30,7 +30,7 @@ export default function PublicExperimentMetaInfo({
 
   const shareLinkButton =
     experiment.shareLevel !== "public" ? null : copySuccess ? (
-      <Button style={{ width: 150 }} icon={<PiCheck />}>
+      <Button style={{ width: 130 }} icon={<PiCheck />}>
         Link copied
       </Button>
     ) : (
@@ -43,16 +43,16 @@ export default function PublicExperimentMetaInfo({
             type: experiment.shareLevel,
           });
         }}
-        style={{ width: 150 }}
+        style={{ width: 130 }}
       >
         Copy Link
       </Button>
     );
 
   return (
-        <div className="container-fluid pagecontents d-flex mb-3">
+        <div className="container-fluid pagecontents d-flex my-3 px-3">
           <div className="flex-1">
-            <h1 className="mt-1 mb-3 mr-2">
+            <h1 className="mb-3 mr-2">
               {experiment.name}
               <div
                 className="d-inline-block ml-2 position-relative"

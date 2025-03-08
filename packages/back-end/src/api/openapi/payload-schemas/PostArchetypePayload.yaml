@@ -1,0 +1,19 @@
+type: object
+required:
+  - name
+  - isPublic
+properties:
+  name:
+    type: string
+  description:
+    type: string
+  isPublic:
+    type: boolean
+    description: Whether to make this Archetype available to other team members
+  attributes:
+    type: object
+    description: The attributes to set when using this Archetype
+  projects:
+    type: array
+    items:
+      type: string

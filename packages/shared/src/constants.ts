@@ -18,6 +18,7 @@ export const DEFAULT_PROPER_PRIOR_STDDEV = 0.3;
 export const DEFAULT_MAX_PERCENT_CHANGE = 0.5;
 export const DEFAULT_MIN_PERCENT_CHANGE = 0.005;
 export const DEFAULT_MIN_SAMPLE_SIZE = 150;
+export const DEFAULT_TARGET_MDE = 0.1;
 
 // Regression Adjustment (CUPED):
 export const DEFAULT_REGRESSION_ADJUSTMENT_ENABLED = false;
@@ -40,3 +41,32 @@ export const AUTOMATIC_DIMENSION_OTHER_NAME = "__Other__";
 // export const variant_3 = "#e83e8c";
 
 export const GROWTHBOOK_SECURE_ATTRIBUTE_SALT = "eg8amUur5GunJXCfgjwB";
+
+export const OWNER_JOB_TITLES = {
+  engineer: "Engineer",
+  dataScientist: "Data Scientist",
+  projectManager: "Project Manager",
+  marketer: "Marketer",
+  designer: "Designer",
+  other: "Other",
+} as const;
+
+export const USAGE_INTENTS = {
+  featureFlags: "Feature Flags",
+  experiments: "Experiments",
+} as const;
+
+// Health
+export const DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD = 10;
+export const DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD = 0.01;
+
+export const DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION = 8;
+export const DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION = 5;
+export const DEFAULT_SRM_THRESHOLD = 0.001;
+
+export const DEFAULT_DECISION_FRAMEWORK_ENABLED = false;
+
+// Power
+export const DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS = 3;
+export const DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS = undefined; // undefined means no limit
+export const FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS = 180;

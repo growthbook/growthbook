@@ -6,10 +6,10 @@ import {
   ReactNode,
   useState,
 } from "react";
-import { Responsive } from "@radix-ui/themes/dist/cjs/props";
-import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
+import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
+import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 
-export type Color = "violet" | "red";
+export type Color = "violet" | "red" | "gray";
 export type Variant = "solid" | "soft" | "outline" | "ghost";
 export type Size = "xs" | "sm" | "md" | "lg";
 
@@ -23,8 +23,10 @@ export type Props = {
   setError?: (error: string | null) => void;
   icon?: ReactNode;
   iconPosition?: "left" | "right";
+  stopPropagation?: boolean;
   children: string | string[] | ReactNode;
   style?: CSSProperties;
+  tabIndex?: number;
 } & MarginProps &
   Pick<ButtonProps, "title" | "type" | "aria-label">;
 
@@ -47,12 +49,13 @@ const Button = forwardRef<HTMLButtonElement, Props>(
       onClick,
       color = "violet",
       variant = "solid",
-      size = "md",
+      size = "sm",
       disabled,
       loading: _externalLoading,
       setError,
       icon,
       iconPosition = "left",
+      stopPropagation,
       type = "button",
       children,
       ...otherProps
@@ -70,6 +73,7 @@ const Button = forwardRef<HTMLButtonElement, Props>(
           onClick
             ? async (e) => {
                 e.preventDefault();
+                if (stopPropagation) e.stopPropagation();
                 if (loading) return;
                 setLoading(true);
                 setError?.(null);
@@ -98,3 +102,68 @@ const Button = forwardRef<HTMLButtonElement, Props>(
 );
 Button.displayName = "Button";
 export default Button;
+
+type WhiteButtonProps = Omit<Props, "color">;
+export const WhiteButton = forwardRef<HTMLButtonElement, WhiteButtonProps>(
+  function WhiteButton(
+    {
+      onClick,
+      variant = "solid",
+      size = "sm",
+      disabled,
+      loading: _externalLoading,
+      setError,
+      icon,
+      iconPosition = "left",
+      type = "button",
+      children,
+      tabIndex,
+      ...otherProps
+    }: WhiteButtonProps,
+    ref: ForwardedRef<HTMLButtonElement>
+  ) {
+    const [_internalLoading, setLoading] = useState(false);
+    const loading = _externalLoading || _internalLoading;
+
+    return (
+      <RadixButton
+        ref={ref}
+        {...otherProps}
+        onClick={
+          onClick
+            ? async (e) => {
+                e.preventDefault();
+                if (loading) return;
+                setLoading(true);
+                setError?.(null);
+                try {
+                  await onClick();
+                } catch (error) {
+                  setError?.(error.message);
+                }
+                setLoading(false);
+              }
+            : undefined
+        }
+        variant={variant}
+        size={getRadixSize(size)}
+        disabled={disabled}
+        loading={loading}
+        type={type}
+        style={{
+          width: "100%",
+          backgroundColor: variant === "outline" ? "" : "var(--white-a12)",
+          color:
+            variant === "outline" ? "var(--white-a12)" : "var(--black-a12)",
+          boxShadow:
+            variant === "outline" ? "inset 0 0 0 1px var(--white-a8)" : "",
+        }}
+        tabIndex={tabIndex}
+      >
+        {icon && iconPosition === "left" ? icon : null}
+        <Text weight="medium">{children}</Text>
+        {icon && iconPosition === "right" ? icon : null}
+      </RadixButton>
+    );
+  }
+);

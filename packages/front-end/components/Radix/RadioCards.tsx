@@ -1,5 +1,5 @@
 import { Flex, Text, RadioCards as RadixRadioCards } from "@radix-ui/themes";
-import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
+import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { forwardRef, ReactElement } from "react";
 
 export type RadioOptions = {

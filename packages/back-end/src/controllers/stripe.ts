@@ -2,18 +2,16 @@ import { Request, Response } from "express";
 import { Stripe } from "stripe";
 import {
   LicenseServerError,
+  getEffectiveAccountPlan,
   getLicense,
   licenseInit,
   postCreateBillingSessionToLicenseServer,
   postNewProSubscriptionToLicenseServer,
   postNewProTrialSubscriptionToLicenseServer,
   postNewSubscriptionSuccessToLicenseServer,
-} from "enterprise";
-import {
-  APP_ORIGIN,
-  STRIPE_PRICE,
-  STRIPE_WEBHOOK_SECRET,
-} from "back-end/src/util/secrets";
+} from "shared/enterprise";
+import { PaymentMethod } from "shared/src/types/subscriptions";
+import { APP_ORIGIN, STRIPE_WEBHOOK_SECRET } from "back-end/src/util/secrets";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getNumberOfUniqueMembersAndInvites,
@@ -22,10 +20,9 @@ import {
 import {
   updateSubscriptionInDb,
   stripe,
-  getCoupon,
-  getPrice,
+  formatBrandName,
 } from "back-end/src/services/stripe";
-import { SubscriptionQuote } from "back-end/types/organization";
+import { DailyUsage, UsageLimits } from "back-end/types/organization";
 import { sendStripeTrialWillEndEmail } from "back-end/src/services/email";
 import { logger } from "back-end/src/util/logger";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
@@ -33,6 +30,13 @@ import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
+import { getDailyCDNUsageForOrg } from "back-end/src/services/clickhouse";
+import {
+  createSetupIntent,
+  deletePaymentMethodById,
+  updateDefaultPaymentMethod,
+  getPaymentMethodsByLicenseKey,
+} from "back-end/src/enterprise/billing/index";
 
 function withLicenseServerErrorHandling<T>(
   fn: (req: AuthRequest<T>, res: Response) => Promise<void>
@@ -121,58 +125,6 @@ export const postNewProSubscription = withLicenseServerErrorHandling(
     res.status(200).json(result);
   }
 );
-
-export async function getSubscriptionQuote(req: AuthRequest, res: Response) {
-  const context = getContextFromReq(req);
-
-  if (!context.permissions.canManageBilling()) {
-    context.permissions.throwPermissionError();
-  }
-
-  const { org } = context;
-
-  let discountAmount, discountMessage, unitPrice, currentSeatsPaidFor;
-
-  //TODO: Remove once all orgs have moved license info off of the org
-  if (!org.licenseKey) {
-    const price = await getPrice(org.priceId || STRIPE_PRICE);
-    unitPrice = (price?.unit_amount || 2000) / 100;
-
-    const coupon = await getCoupon(org.discountCode);
-    discountAmount = (-1 * (coupon?.amount_off || 0)) / 100;
-    discountMessage = coupon?.name || "";
-    currentSeatsPaidFor = org.subscription?.qty || 0;
-  } else {
-    const license = await getLicense(org.licenseKey);
-
-    unitPrice = license?.stripeSubscription?.price || 20;
-    discountAmount = license?.stripeSubscription?.discountAmount || 0;
-    discountMessage = license?.stripeSubscription?.discountMessage || "";
-    currentSeatsPaidFor = license?.stripeSubscription?.qty || 0;
-  }
-
-  // TODO: handle pricing tiers
-  const additionalSeatPrice = unitPrice;
-  const activeAndInvitedUsers = getNumberOfUniqueMembersAndInvites(org);
-  const subtotal = activeAndInvitedUsers * unitPrice;
-  const total = Math.max(0, subtotal + discountAmount);
-
-  const quote: SubscriptionQuote = {
-    activeAndInvitedUsers,
-    currentSeatsPaidFor,
-    unitPrice,
-    discountAmount,
-    discountMessage,
-    subtotal,
-    total,
-    additionalSeatPrice,
-  };
-
-  return res.status(200).json({
-    status: 200,
-    quote,
-  });
-}
 
 export const postCreateBillingSession = withLicenseServerErrorHandling(
   async function (req: AuthRequest, res: Response) {
@@ -322,4 +274,197 @@ export async function postWebhook(req: Request, res: Response) {
   }
 
   res.status(200).send("Ok");
+}
+
+export async function postSetupIntent(
+  req: AuthRequest<null, null>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { org } = context;
+
+  try {
+    if (!org.licenseKey) {
+      throw new Error("No license key found for organization");
+    }
+    const { clientSecret } = await createSetupIntent(org.licenseKey);
+    return res.status(200).json({ clientSecret });
+  } catch (e) {
+    return res.status(400).json({ status: 400, message: e.message });
+  }
+}
+
+export async function updateCustomerDefaultPayment(
+  req: AuthRequest<{ paymentMethodId: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { org } = context;
+  const { paymentMethodId } = req.body;
+
+  try {
+    if (!org.licenseKey) {
+      throw new Error("No license key found for organization");
+    }
+    await updateDefaultPaymentMethod(org.licenseKey, paymentMethodId);
+  } catch (e) {
+    return res.status(400).json({ status: 400, message: e.message });
+  }
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function fetchPaymentMethods(
+  req: AuthRequest<null, null>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { org } = context;
+  try {
+    if (!org.licenseKey) {
+      throw new Error("No license key found for organization");
+    }
+    const {
+      paymentMethods,
+      defaultPaymentMethod,
+    }: {
+      paymentMethods: Stripe.PaymentMethod[];
+      defaultPaymentMethod: string | undefined;
+    } = await getPaymentMethodsByLicenseKey(org.licenseKey);
+
+    if (!paymentMethods.length) {
+      return res.status(200).json({ status: 200, cards: [] });
+    }
+
+    const formattedPaymentMethods: PaymentMethod[] = paymentMethods.map(
+      (method) => {
+        const isDefault = method.id === defaultPaymentMethod;
+        if (method.card) {
+          return {
+            id: method.id,
+            type: "card",
+            last4: method.card.last4,
+            brand: formatBrandName(method.card.brand),
+            expMonth: method.card.exp_month,
+            expYear: method.card.exp_year,
+            isDefault,
+            wallet: method.card.wallet?.type
+              ? formatBrandName(method.card.wallet.type)
+              : undefined,
+          };
+        } else if (method.us_bank_account) {
+          return {
+            id: method.id,
+            type: "us_bank_account",
+            last4: method.us_bank_account.last4 || "",
+            brand: formatBrandName(
+              method.us_bank_account.bank_name || method.type
+            ),
+            isDefault,
+          };
+        } else {
+          return {
+            id: method.id,
+            type: "unknown",
+            brand: formatBrandName(method.type),
+            isDefault,
+          };
+        }
+      }
+    );
+
+    return res
+      .status(200)
+      .json({ status: 200, paymentMethods: formattedPaymentMethods });
+  } catch (e) {
+    return res.status(400).json({ status: 400, message: e.message });
+  }
+}
+
+export async function deletePaymentMethod(
+  req: AuthRequest<{ paymentMethodId: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { org } = context;
+  const { paymentMethodId } = req.body;
+
+  try {
+    if (!org.licenseKey) {
+      throw new Error("No license key found for organization");
+    }
+    await deletePaymentMethodById(org.licenseKey, paymentMethodId);
+  } catch (e) {
+    return res.status(400).json({ status: 400, message: e.message });
+  }
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function getUsage(
+  req: AuthRequest<unknown, unknown, { monthsAgo?: number }>,
+  res: Response<{ status: 200; cdnUsage: DailyUsage[]; limits: UsageLimits }>
+) {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canViewUsage()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const monthsAgo = Math.round(req.query.monthsAgo || 0);
+  if (monthsAgo < 0 || monthsAgo > 12) {
+    throw new Error("Usage data only available for the past 12 months");
+  }
+
+  const { org } = context;
+
+  // Beginning of the month
+  const start = new Date();
+  start.setMonth(start.getMonth() - monthsAgo);
+  start.setDate(1);
+  start.setHours(0, 0, 0, 0);
+
+  // End of the month
+  const end = new Date();
+  end.setMonth(end.getMonth() - monthsAgo + 1);
+  end.setDate(0);
+  end.setHours(23, 59, 59, 999);
+
+  const cdnUsage = await getDailyCDNUsageForOrg(org.id, start, end);
+
+  const limits: UsageLimits = {
+    cdnRequests: null,
+    cdnBandwidth: null,
+  };
+
+  const plan = getEffectiveAccountPlan(org);
+  if (plan === "starter" || plan === "pro" || plan === "pro_sso") {
+    // 10 million requests, no bandwidth limit
+    // TODO: Store this limit as part of the license/org instead of hard-coding
+    limits.cdnRequests = 10_000_000;
+  }
+
+  res.json({ status: 200, cdnUsage, limits });
 }

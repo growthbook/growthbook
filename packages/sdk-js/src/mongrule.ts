@@ -81,7 +81,7 @@ function evalConditionValue(
     return value * 1 === condition;
   }
   if (typeof condition === "boolean") {
-    return !!value === condition;
+    return value !== null && !!value === condition;
   }
 
   if (condition === null) {

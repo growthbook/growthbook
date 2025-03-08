@@ -12,7 +12,12 @@ from gbstats.messages import (
     ZERO_SCALED_VARIATION_MESSAGE,
     NO_UNITS_IN_VARIATION_MESSAGE,
 )
-from gbstats.models.statistics import TestStatistic, ScaledImpactStatistic
+from gbstats.models.statistics import (
+    TestStatistic,
+    ScaledImpactStatistic,
+    RegressionAdjustedStatistic,
+    RegressionAdjustedRatioStatistic,
+)
 from gbstats.models.tests import BaseABTest, BaseConfig, TestResult, Uplift
 from gbstats.utils import variance_of_ratios, isinstance_union
 
@@ -52,6 +57,61 @@ def frequentist_variance(var_a, mean_a, n_a, var_b, mean_b, n_b, relative) -> fl
         return var_b / n_b + var_a / n_a
 
 
+def frequentist_variance_relative_cuped(
+    stat_a: RegressionAdjustedStatistic, stat_b: RegressionAdjustedStatistic
+) -> float:
+    den_trt = stat_b.n * stat_a.unadjusted_mean**2
+    den_ctrl = stat_a.n * stat_a.unadjusted_mean**2
+    if den_trt == 0 or den_ctrl == 0:
+        return 0  # avoid division by zero
+    theta = stat_a.theta if stat_a.theta else 0
+    num_trt = (
+        stat_b.post_statistic.variance
+        + theta**2 * stat_b.pre_statistic.variance
+        - 2 * theta * stat_b.covariance
+    )
+    v_trt = num_trt / den_trt
+    const = -stat_b.post_statistic.mean
+    num_a = (
+        stat_a.post_statistic.variance * const**2 / (stat_a.post_statistic.mean**2)
+    )
+    num_b = 2 * theta * stat_a.covariance * const / stat_a.post_statistic.mean
+    num_c = theta**2 * stat_a.pre_statistic.variance
+    v_ctrl = (num_a + num_b + num_c) / den_ctrl
+    return v_trt + v_ctrl
+
+
+def frequentist_variance_relative_cuped_ratio(
+    stat_a: RegressionAdjustedRatioStatistic, stat_b: RegressionAdjustedRatioStatistic
+) -> float:
+    if stat_a.unadjusted_mean == 0 or stat_a.d_statistic_post.mean == 0:
+        return 0  # avoid division by zero
+    g_abs = stat_b.mean - stat_a.mean
+    g_rel_den = np.abs(stat_a.unadjusted_mean)
+    nabla_ctrl_0_num = -(g_rel_den + g_abs) / stat_a.d_statistic_post.mean
+    nabla_ctrl_0_den = g_rel_den**2
+    nabla_ctrl_0 = nabla_ctrl_0_num / nabla_ctrl_0_den
+    nabla_ctrl_1_num = (
+        stat_a.m_statistic_post.mean * g_rel_den / stat_a.d_statistic_post.mean**2
+        + stat_a.m_statistic_post.mean * g_abs / stat_a.d_statistic_post.mean**2
+    )
+    nabla_ctrl_1_den = g_rel_den**2
+    nabla_ctrl_1 = nabla_ctrl_1_num / nabla_ctrl_1_den
+    nabla_a = np.array(
+        [
+            nabla_ctrl_0,
+            nabla_ctrl_1,
+            -stat_a.nabla[2] / g_rel_den,
+            -stat_a.nabla[3] / g_rel_den,
+        ]
+    )
+    nabla_b = stat_b.nabla / g_rel_den
+    return (
+        nabla_a.T.dot(stat_a.lambda_matrix).dot(nabla_a) / stat_a.n
+        + nabla_b.T.dot(stat_b.lambda_matrix).dot(nabla_b) / stat_b.n
+    )
+
+
 class TTest(BaseABTest):
     def __init__(
         self,
@@ -79,15 +139,28 @@ class TTest(BaseABTest):
 
     @property
     def variance(self) -> float:
-        return frequentist_variance(
-            self.stat_a.variance,
-            self.stat_a.unadjusted_mean,
-            self.stat_a.n,
-            self.stat_b.variance,
-            self.stat_b.unadjusted_mean,
-            self.stat_b.n,
-            self.relative,
-        )
+        if (
+            isinstance(self.stat_a, RegressionAdjustedStatistic)
+            and isinstance(self.stat_b, RegressionAdjustedStatistic)
+            and self.relative
+        ):
+            return frequentist_variance_relative_cuped(self.stat_a, self.stat_b)
+        elif (
+            isinstance(self.stat_a, RegressionAdjustedRatioStatistic)
+            and isinstance(self.stat_b, RegressionAdjustedRatioStatistic)
+            and self.relative
+        ):
+            return frequentist_variance_relative_cuped_ratio(self.stat_a, self.stat_b)
+        else:
+            return frequentist_variance(
+                self.stat_a.variance,
+                self.stat_a.unadjusted_mean,
+                self.stat_a.n,
+                self.stat_b.variance,
+                self.stat_b.unadjusted_mean,
+                self.stat_b.n,
+                self.relative,
+            )
 
     @property
     def point_estimate(self) -> float:
@@ -169,6 +242,7 @@ class TTest(BaseABTest):
                 mean=self.point_estimate,
                 stddev=np.sqrt(self.variance),
             ),
+            error_message=None,
         )
         if self.scaled:
             result = self.scale_result(result)
@@ -191,6 +265,7 @@ class TTest(BaseABTest):
                         mean=result.uplift.mean * adjustment,
                         stddev=result.uplift.stddev * adjustment,
                     ),
+                    error_message=None,
                 )
             else:
                 return self._default_output(NO_UNITS_IN_VARIATION_MESSAGE)

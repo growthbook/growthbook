@@ -127,7 +127,6 @@ export default function ResultsTab({
   const denominatorMetrics = denominatorMetricIds
     .map((m) => getMetricById(m as string))
     .filter(isDefined);
-
   const orgSettings = useOrgSettings();
 
   const {
@@ -200,7 +199,7 @@ export default function ResultsTab({
         </Callout>
       ) : null}
 
-      <div className="bg-white border">
+      <div className="appbox">
         {analysisSettingsOpen && (
           <AnalysisForm
             cancel={() => setAnalysisSettingsOpen(false)}
@@ -318,7 +317,7 @@ export default function ResultsTab({
         </div>
       </div>
       {snapshot && (
-        <div className="bg-white border mt-4">
+        <div className="appbox mt-4">
           <div className="row mx-2 py-3 d-flex align-items-center">
             <div className="col ml-2">
               <div className="h3">Custom Reports</div>

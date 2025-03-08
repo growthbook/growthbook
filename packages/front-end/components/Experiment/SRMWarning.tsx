@@ -1,12 +1,12 @@
 import { FC, useState } from "react";
 import { ExperimentReportVariation } from "back-end/types/report";
-import { MdInfoOutline } from "react-icons/md";
+import { DEFAULT_SRM_THRESHOLD } from "shared/constants";
 import { useUser } from "@/services/UserContext";
-import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
 import track from "@/services/track";
 import { pValueFormatter } from "@/services/experiments";
 import Modal from "@/components/Modal";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { GBInfo } from "@/components/Icons";
 import { ExperimentTab } from "./TabbedPage";
 import { useSnapshot } from "./SnapshotProvider";
 import VariationUsersTable from "./TabbedPage/VariationUsersTable";
@@ -40,7 +40,7 @@ const LearnMore = ({
       <span>
         <Tooltip body={body}>
           <span className="a">
-            Learn More <MdInfoOutline style={{ color: "#029dd1" }} />
+            Learn More <GBInfo />
           </span>
         </Tooltip>
       </span>

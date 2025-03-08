@@ -157,6 +157,7 @@ export function getAnalysisSettingsFromReportArgs(
     pValueThreshold: args.pValueThreshold,
     differenceType: args.differenceType ?? "relative",
     baselineVariationIndex: 0,
+    numGoalMetrics: args.goalMetrics.length,
   };
 }
 export function getSnapshotSettingsFromReportArgs(
@@ -348,7 +349,6 @@ export async function createReportSnapshot({
   const denominatorMetrics = denominatorMetricIds
     .map((m) => metricMap.get(m) || null)
     .filter(isDefined) as MetricInterface[];
-
   const {
     settingsForSnapshotMetrics,
     regressionAdjustmentEnabled,

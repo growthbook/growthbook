@@ -27,6 +27,7 @@ import {
   useSelectOptions,
 } from "@/components/Forms/SelectField";
 import Field, { FieldProps } from "@/components/Forms/Field";
+import { ColorOption } from "@/components/Tags/TagsInput";
 
 const SortableMultiValue = SortableElement(
   (props: MultiValueProps<SingleValue>) => {
@@ -85,7 +86,7 @@ export type MultiSelectFieldProps = Omit<
   initialOption?: string;
   onChange: (value: string[]) => void;
   sort?: boolean;
-  customStyles?: StylesConfig;
+  customStyles?: StylesConfig<ColorOption, true>;
   customClassName?: string;
   closeMenuOnSelect?: boolean;
   creatable?: boolean;
@@ -147,7 +148,20 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
             classNamePrefix="gb-multi-select"
             helperClass="multi-select-container"
             axis="xy"
-            onSortEnd={onSortEnd}
+            onSortEnd={(s, e) => {
+              onSortEnd(s, e);
+              // The following is a hack to clean up elements that might be
+              // left in the dom after dragging. Hopefully we can remove this
+              // if react-select and react-sortable fixes it.
+              setTimeout(() => {
+                const nodes = document.querySelectorAll(
+                  "body > .multi-select-container"
+                );
+                nodes.forEach((n) => {
+                  n.remove();
+                });
+              }, 100);
+            }}
             distance={4}
             getHelperDimensions={({ node }) => node.getBoundingClientRect()}
             id={id}
@@ -160,8 +174,6 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
               onChange(selected?.map((s) => s.value) ?? []);
             }}
             components={{
-              // eslint-disable-next-line
-              // @ts-expect-error We're failing to provide a required index prop to SortableElement
               MultiValue: SortableMultiValue,
               MultiValueLabel: SortableMultiValueLabel,
               Option: OptionWithTitle,

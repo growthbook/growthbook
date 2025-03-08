@@ -7,8 +7,11 @@ import {
   getEffectiveAccountPlan,
   getLicense,
   getLicenseError,
+  getLowestPlanPerFeature,
+  getSubscriptionFromLicense,
   licenseInit,
-} from "enterprise";
+  LicenseInterface,
+} from "shared/enterprise";
 import { experimentHasLinkedChanges } from "shared/util";
 import {
   getRoles,
@@ -36,7 +39,6 @@ import {
   addPendingMemberToOrg,
   expandOrgMembers,
   findVerifiedOrgsForNewUser,
-  getContextForAgendaJobByOrgObject,
   getContextFromReq,
   getInviteUrl,
   getNumberOfUniqueMembersAndInvites,
@@ -45,6 +47,7 @@ import {
   isEnterpriseSSO,
   removeMember,
   revokeInvite,
+  getSubscriptionFromOrg,
 } from "back-end/src/services/organizations";
 import {
   getNonSensitiveParams,
@@ -53,6 +56,8 @@ import {
 import { updatePassword } from "back-end/src/services/users";
 import { getAllTags } from "back-end/src/models/TagModel";
 import {
+  GetOrganizationResponse,
+  CreateOrganizationPostBody,
   Invite,
   MemberRoleWithProjects,
   NamespaceUsage,
@@ -652,7 +657,10 @@ export async function putInviteRole(
   }
 }
 
-export async function getOrganization(req: AuthRequest, res: Response) {
+export async function getOrganization(
+  req: AuthRequest,
+  res: Response<GetOrganizationResponse | { status: 200; organization: null }>
+) {
   if (!req.organization) {
     return res.status(200).json({
       status: 200,
@@ -665,12 +673,12 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     invites,
     members,
     ownerEmail,
+    demographicData,
     name,
     id,
     url,
     subscription,
     freeSeats,
-    connections,
     settings,
     disableSelfServeBilling,
     licenseKey,
@@ -679,17 +687,15 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     setupEventTracker,
   } = org;
 
-  let license;
+  let license: Partial<LicenseInterface> | null = null;
   if (licenseKey || process.env.LICENSE_KEY) {
     // automatically set the license data based on org license key
     license = getLicense(licenseKey || process.env.LICENSE_KEY);
     if (!license || (license.organizationId && license.organizationId !== id)) {
       try {
-        license = await licenseInit(
-          org,
-          getUserCodesForOrg,
-          getLicenseMetaData
-        );
+        license =
+          (await licenseInit(org, getUserCodesForOrg, getLicenseMetaData)) ||
+          null;
       } catch (e) {
         // eslint-disable-next-line no-console
         console.error("setting license failed", e);
@@ -741,6 +747,8 @@ export async function getOrganization(req: AuthRequest, res: Response) {
 
   const watch = await getWatchedByUser(org.id, userId);
 
+  const commercialFeatureLowestPlan = getLowestPlanPerFeature(accountFeatures);
+
   return res.status(200).json({
     status: 200,
     apiKeys,
@@ -749,18 +757,23 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     effectiveAccountPlan: getEffectiveAccountPlan(org),
     licenseError: getLicenseError(org),
     commercialFeatures: [...accountFeatures[getEffectiveAccountPlan(org)]],
+    commercialFeatureLowestPlan: commercialFeatureLowestPlan,
     roles: getRoles(org),
     members: expandedMembers,
     currentUserPermissions,
     teams: teamsWithMembers,
     license,
+    subscription: license
+      ? getSubscriptionFromLicense(license)
+      : getSubscriptionFromOrg(org),
     watching: {
       experiments: watch?.experiments || [],
       features: watch?.features || [],
     },
     organization: {
-      invites: filteredInvites,
+      invites: filteredInvites as Invite[],
       ownerEmail,
+      demographicData,
       externalId,
       name,
       id,
@@ -768,10 +781,10 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       subscription,
       licenseKey,
       freeSeats,
+      enterprise: org.enterprise,
       disableSelfServeBilling,
       freeTrialDate: org.freeTrialDate,
       discountCode: org.discountCode || "",
-      slackTeam: connections?.slack?.team,
       customRoles: org.customRoles,
       deactivatedRoles: org.deactivatedRoles,
       settings: {
@@ -1154,11 +1167,6 @@ export async function postInvite(
   });
 }
 
-interface SignupBody {
-  company: string;
-  externalId: string;
-}
-
 export async function deleteMember(
   req: AuthRequest<null, { id: string }>,
   res: Response
@@ -1236,9 +1244,12 @@ export async function deleteInvite(
   });
 }
 
-export async function signup(req: AuthRequest<SignupBody>, res: Response) {
+export async function signup(
+  req: AuthRequest<CreateOrganizationPostBody>,
+  res: Response
+) {
   // Note: Request will not have an organization at this point. Do not use getContextFromReq
-  const { company, externalId } = req.body;
+  const { company, externalId, demographicData } = req.body;
 
   const orgs = await hasOrganization();
   // Only allow one organization per site unless IS_MULTI_ORG is true
@@ -1276,9 +1287,11 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
       name: company,
       verifiedDomain,
       externalId,
+      demographicData,
     });
 
-    const context = getContextForAgendaJobByOrgObject(org);
+    req.organization = org;
+    const context = getContextFromReq(req);
 
     const project = await context.models.projects.create({
       name: "My First Project",

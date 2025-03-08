@@ -69,6 +69,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
           close={() => setUpgradeModal(false)}
           reason=""
           source="get-started-experiment-guide"
+          commercialFeature={null}
         />
       )}
       <h1 className="mb-3">Analyze Imported Experiments</h1>
@@ -212,7 +213,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
               </div>
               <div className="col">
                 <Link
-                  href="/experiments"
+                  href="/experiments?analyzeExisting=true"
                   style={{
                     fontSize: "17px",
                     fontWeight: 600,

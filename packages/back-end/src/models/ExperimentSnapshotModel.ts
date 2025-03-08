@@ -8,8 +8,10 @@ import {
 } from "back-end/types/experiment-snapshot";
 import { migrateSnapshot } from "back-end/src/util/migrations";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
+import { updateExperimentAnalysisSummary } from "back-end/src/services/experiments";
 import { queriesSchema } from "./QueryModel";
 import { Context } from "./BaseModel";
+import { getExperimentById } from "./ExperimentModel";
 
 const experimentSnapshotTrafficObject = {
   _id: false,
@@ -123,6 +125,25 @@ const experimentSnapshotSchema = new mongoose.Schema({
       },
       error: String,
     },
+    power: {
+      _id: false,
+      type: { type: String },
+      power: Number,
+      isLowPowered: Boolean,
+      additionalDaysNeeded: Number,
+      metricVariationPowerResults: [
+        {
+          _id: false,
+          metricId: String,
+          variation: Number,
+          errorMessage: String,
+          power: Number,
+          isLowPowered: Boolean,
+          effectSize: Number,
+          additionalDaysNeeded: Number,
+        },
+      ],
+    },
   },
   hasRawQueries: Boolean,
   queryFilter: String,
@@ -218,6 +239,29 @@ export async function updateSnapshot({
     organization,
   });
   if (!experimentSnapshotModel) throw "Internal error";
+
+  const shouldUpdateExperimentAnalysisSummary =
+    experimentSnapshotModel.type === "standard" &&
+    experimentSnapshotModel.status === "success";
+
+  if (shouldUpdateExperimentAnalysisSummary) {
+    const experimentModel = await getExperimentById(
+      context,
+      experimentSnapshotModel.experiment
+    );
+
+    const isLatestPhase = experimentModel
+      ? experimentSnapshotModel.phase === experimentModel.phases.length - 1
+      : false;
+
+    if (experimentModel && isLatestPhase) {
+      await updateExperimentAnalysisSummary({
+        context,
+        experiment: experimentModel,
+        experimentSnapshot: experimentSnapshotModel,
+      });
+    }
+  }
 
   await notifyExperimentChange({
     context,

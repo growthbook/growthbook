@@ -10,13 +10,14 @@ import {
   Role,
   ProjectScopedPermission,
   UserPermissions,
-  SubscriptionQuote,
+  GetOrganizationResponse,
 } from "back-end/types/organization";
 import type {
   AccountPlan,
   CommercialFeature,
   LicenseInterface,
-} from "enterprise";
+  SubscriptionInfo,
+} from "shared/enterprise";
 import { SSOConnectionInterface } from "back-end/types/sso-connection";
 import { useRouter } from "next/router";
 import {
@@ -33,6 +34,7 @@ import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
 import { Permissions, userHasPermission } from "shared/permissions";
 import { getValidDate } from "shared/dates";
 import sha256 from "crypto-js/sha256";
+import { useFeature } from "@growthbook/growthbook-react";
 import {
   getGrowthBookBuild,
   getSuperadminDefaultRole,
@@ -45,28 +47,7 @@ import {
 import useApi from "@/hooks/useApi";
 import { useAuth, UserOrganizations } from "@/services/auth";
 import { getJitsuClient, trackPageView } from "@/services/track";
-import { growthbook } from "@/services/utils";
-
-type OrgSettingsResponse = {
-  organization: OrganizationInterface;
-  members: ExpandedMember[];
-  seatsInUse: number;
-  roles: Role[];
-  apiKeys: ApiKeyInterface[];
-  enterpriseSSO: SSOConnectionInterface | null;
-  accountPlan: AccountPlan;
-  effectiveAccountPlan: AccountPlan;
-  licenseError: string;
-  commercialFeatures: CommercialFeature[];
-  license: LicenseInterface;
-  licenseKey?: string;
-  currentUserPermissions: UserPermissions;
-  teams: TeamInterface[];
-  watching: {
-    experiments: string[];
-    features: string[];
-  };
-};
+import { getOrGeneratePageId, growthbook } from "@/services/utils";
 
 export interface PermissionFunctions {
   check(permission: GlobalPermission): boolean;
@@ -111,7 +92,8 @@ export interface UserContextValue {
   name?: string;
   email?: string;
   superAdmin?: boolean;
-  license?: LicenseInterface;
+  license?: Partial<LicenseInterface> | null;
+  subscription: SubscriptionInfo | null;
   user?: ExpandedMember;
   users: Map<string, ExpandedMember>;
   getUserDisplay: (id: string, fallback?: boolean) => string;
@@ -119,7 +101,7 @@ export interface UserContextValue {
   refreshOrganization: () => Promise<void>;
   permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
   settings: OrganizationSettings;
-  enterpriseSSO?: SSOConnectionInterface;
+  enterpriseSSO?: Partial<SSOConnectionInterface> | null;
   accountPlan?: AccountPlan;
   effectiveAccountPlan?: AccountPlan;
   licenseError: string;
@@ -131,12 +113,14 @@ export interface UserContextValue {
   teams?: Team[];
   error?: string;
   hasCommercialFeature: (feature: CommercialFeature) => boolean;
+  commercialFeatureLowestPlan?: Partial<Record<CommercialFeature, AccountPlan>>;
   permissionsUtil: Permissions;
-  quote: SubscriptionQuote | null;
   watching: {
     experiments: string[];
     features: string[];
   };
+  canSubscribe: boolean;
+  freeSeats: number;
 }
 
 interface UserResponse {
@@ -165,6 +149,7 @@ export const UserContext = createContext<UserContextValue>({
   },
   apiKeys: [],
   organization: {},
+  subscription: null,
   licenseError: "",
   seatsInUse: 0,
   teams: [],
@@ -177,11 +162,12 @@ export const UserContext = createContext<UserContextValue>({
     },
     projects: {},
   }),
-  quote: null,
   watching: {
     experiments: [],
     features: [],
   },
+  canSubscribe: false,
+  freeSeats: 3,
 });
 
 export function useUser() {
@@ -202,6 +188,8 @@ export function getCurrentUser() {
 export function UserContextProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, orgId, setOrganizations } = useAuth();
 
+  const selfServePricingEnabled = useFeature("self-serve-billing").on;
+
   const { data, mutate: mutateUser, error } = useApi<UserResponse>(`/user`, {
     shouldRun: () => isAuthenticated,
     orgScoped: false,
@@ -217,7 +205,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     data: currentOrg,
     mutate: refreshOrganization,
     error: orgLoadingError,
-  } = useApi<OrgSettingsResponse>(`/organization`, {
+  } = useApi<GetOrganizationResponse>(`/organization`, {
     shouldRun: () => !!orgId,
   });
 
@@ -314,6 +302,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     growthbook.updateAttributes({
       anonymous_id,
       id: data?.userId || "",
+      user_id: data?.userId || "",
       superAdmin: data?.superAdmin || false,
       cloud: isCloud(),
       multiOrg: isMultiOrg(),
@@ -322,8 +311,17 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       buildSHA: build.sha,
       buildDate: build.date,
       buildVersion: build.lastVersion,
+      orgOwnerJobTitle:
+        currentOrg?.organization?.demographicData?.ownerJobTitle,
+      orgOwnerUsageIntents:
+        currentOrg?.organization?.demographicData?.ownerUsageIntents,
     });
-  }, [data?.superAdmin, data?.userId]);
+  }, [
+    data?.superAdmin,
+    data?.userId,
+    currentOrg?.organization?.demographicData?.ownerJobTitle,
+    currentOrg?.organization?.demographicData?.ownerUsageIntents,
+  ]);
 
   // Org GrowthBook attributes
   useEffect(() => {
@@ -334,7 +332,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       orgDateCreated: currentOrg?.organization?.dateCreated
         ? getValidDate(currentOrg.organization.dateCreated).toISOString()
         : "",
-      accountPlan: currentOrg?.effectiveAccountPlan || "unknown",
+      accountPlan: currentOrg?.effectiveAccountPlan || "loading",
       hasLicenseKey: !!currentOrg?.organization?.licenseKey,
       freeSeats: currentOrg?.organization?.freeSeats || 3,
       discountCode: currentOrg?.organization?.discountCode || "",
@@ -346,6 +344,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     growthbook.setURL(window.location.href);
     growthbook.updateAttributes({
       url: router?.pathname || "",
+      page_id: getOrGeneratePageId(),
     });
   }, [router?.pathname]);
 
@@ -430,24 +429,6 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     [users]
   );
 
-  // Get a quote for upgrading
-  const { data: quoteData, mutate: mutateQuote } = useApi<{
-    quote: SubscriptionQuote;
-  }>(`/subscription/quote`, {
-    shouldRun: () =>
-      !!currentOrg?.organization &&
-      isAuthenticated &&
-      !!orgId &&
-      permissionsUtil.canManageBilling(),
-    autoRevalidate: false,
-  });
-  const freeSeats = currentOrg?.organization?.freeSeats || 3;
-  useEffect(() => {
-    mutateQuote();
-  }, [freeSeats, mutateQuote]);
-
-  const quote = quoteData?.quote || null;
-
   const watching = useMemo(() => {
     return {
       experiments: currentOrg?.watching?.experiments || [],
@@ -459,6 +440,37 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (data) setReady(true);
   }, [data]);
+
+  const organization: Partial<OrganizationInterface> | undefined =
+    currentOrg?.organization;
+  const subscription = currentOrg?.subscription || null;
+  const license = currentOrg?.license;
+
+  const canSubscribe = useMemo(() => {
+    const disableSelfServeBilling =
+      organization?.disableSelfServeBilling || false;
+
+    if (disableSelfServeBilling) return false;
+
+    if (organization?.enterprise) return false; //TODO: Remove this once we have moved the license off the organization
+
+    if (license?.plan === "enterprise") return false;
+
+    // if already on pro, they must have a subscription - some self-hosted pro have an annual contract not directly through stripe.
+    if (
+      license &&
+      ["pro", "pro_sso"].includes(license.plan || "") &&
+      !subscription?.externalId
+    )
+      return false;
+
+    if (!selfServePricingEnabled) return false;
+
+    if (["active", "trialing", "past_due"].includes(subscription?.status || ""))
+      return false;
+
+    return true;
+  }, [organization, license, subscription, selfServePricingEnabled]);
 
   return (
     <UserContext.Provider
@@ -477,20 +489,23 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         permissions,
         permissionsUtil,
         settings: currentOrg?.organization?.settings || {},
-        license: currentOrg?.license,
+        license,
+        subscription,
         enterpriseSSO: currentOrg?.enterpriseSSO || undefined,
         accountPlan: currentOrg?.accountPlan,
         effectiveAccountPlan: currentOrg?.effectiveAccountPlan,
+        commercialFeatureLowestPlan: currentOrg?.commercialFeatureLowestPlan,
         licenseError: currentOrg?.licenseError || "",
         commercialFeatures: currentOrg?.commercialFeatures || [],
         apiKeys: currentOrg?.apiKeys || [],
-        organization: currentOrg?.organization || {},
+        organization: organization || {},
         seatsInUse: currentOrg?.seatsInUse || 0,
         teams,
         error: error?.message || orgLoadingError?.message,
         hasCommercialFeature: (feature) => commercialFeatures.has(feature),
-        quote: quote,
         watching: watching,
+        canSubscribe,
+        freeSeats: organization?.freeSeats || 3,
       }}
     >
       {children}

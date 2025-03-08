@@ -58,3 +58,5 @@ FactMetric:
   $ref: "./FactMetric.yaml"
 Member:
   $ref: "./Member.yaml"
+Archetype:
+  $ref: "./Archetype.yaml"

@@ -15,12 +15,17 @@ export type Option = SingleValue | GroupedValue;
 export function isSingleValue(option: Option): option is SingleValue {
   return typeof (option as SingleValue).value === "string";
 }
+export type FormatOptionLabelType = (
+  value: SingleValue,
+  meta: FormatOptionLabelMeta<SingleValue>
+) => ReactNode;
 
 export type SelectFieldProps = Omit<
   FieldProps,
   "value" | "onChange" | "options" | "multi" | "initialOption" | "placeholder"
 > & {
   value: string;
+  markRequired?: boolean;
   placeholder?: string;
   options: (SingleValue | GroupedValue)[];
   initialOption?: string;
@@ -28,15 +33,13 @@ export type SelectFieldProps = Omit<
   sort?: boolean;
   createable?: boolean;
   formatCreateLabel?: (value: string) => string;
-  formatOptionLabel?: (
-    value: SingleValue,
-    meta: FormatOptionLabelMeta<SingleValue>
-  ) => ReactNode;
+  formatOptionLabel?: FormatOptionLabelType;
   formatGroupLabel?: (value: GroupedValue) => ReactNode;
   isSearchable?: boolean;
   isClearable?: boolean;
   onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
   isOptionDisabled?: (_: Option) => boolean;
+  forceUndefinedValueToNull?: boolean;
 };
 
 export function useSelectOptions(
@@ -73,7 +76,6 @@ export function useSelectOptions(
       clone.unshift(o);
       m.set("", o);
     }
-
     return [m, clone] as const;
   }, [options, initialOption]);
 }
@@ -91,6 +93,13 @@ export const ReactSelectProps = {
       return {
         ...styles,
         backgroundColor: "var(--form-multivalue-background-color)",
+        color: "var(--form-multivalue-text-color) !important",
+      };
+    },
+    multiValueLabel: (styles) => {
+      return {
+        ...styles,
+        color: "var(--form-multivalue-text-color)",
       };
     },
     multiValueRemove: (styles) => {
@@ -158,6 +167,8 @@ const SelectField: FC<SelectFieldProps> = ({
   isClearable = false,
   onPaste,
   isOptionDisabled,
+  // forces re-render when input is undefined
+  forceUndefinedValueToNull = false,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -261,7 +272,6 @@ const SelectField: FC<SelectFieldProps> = ({
                 formatOptionLabel={formatOptionLabel}
                 formatGroupLabel={formatGroupLabel}
                 isSearchable={!!isSearchable}
-                // @ts-expect-error onPaste is passed to Input
                 onPaste={onPaste}
                 components={{
                   Input,
@@ -282,12 +292,11 @@ const SelectField: FC<SelectFieldProps> = ({
                 }}
                 onBlur={onBlur}
                 autoFocus={autoFocus}
-                value={selected}
+                value={forceUndefinedValueToNull ? selected ?? null : selected}
                 placeholder={initialOption ?? placeholder}
                 formatOptionLabel={formatOptionLabel}
                 formatGroupLabel={formatGroupLabel}
                 isSearchable={!!isSearchable}
-                // @ts-expect-error onPaste is passed to Input
                 onPaste={onPaste}
                 components={{
                   Input,

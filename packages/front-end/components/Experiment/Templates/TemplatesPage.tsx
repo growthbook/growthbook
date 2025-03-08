@@ -1,7 +1,7 @@
-import { Box, Text } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { ExperimentTemplateInterface } from "back-end/types/experiment";
-import { useState } from "react";
+import React, { useState } from "react";
 import { omit } from "lodash";
 import { useRouter } from "next/router";
 import { isProjectListValidForProject } from "shared/util";
@@ -19,6 +19,8 @@ import { useAuth } from "@/services/auth";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAddComputedFields, useSearch } from "@/services/search";
+import PremiumEmptyState from "@/components/PremiumEmptyState";
+import EmptyState from "@/components/EmptyState";
 
 interface Props {
   setOpenTemplateModal: (
@@ -96,6 +98,20 @@ export const TemplatesPage = ({
     return <div className="alert alert-danger">{error.message}</div>;
   }
 
+  if (!hasTemplatesFeature) {
+    return (
+      <>
+        <PremiumEmptyState
+          title="Create Reusable Experiment Templates"
+          description="Save time configuring experiment details, and ensure consistency
+            across your team and projects."
+          commercialFeature="templates"
+          reason="Experiment Templates No Access"
+          learnMoreLink="https://docs.growthbook.io/running-experiments/experiment-templates"
+        />
+      </>
+    );
+  }
   return hasTemplates ? (
     <Box>
       <table className="appbox table gbtable">
@@ -205,24 +221,24 @@ export const TemplatesPage = ({
           close={() => setShowUpgradeModal(false)}
           source="templates"
           reason="Create reusable experiment templates"
+          commercialFeature="templates"
         />
       )}
-      <div className="appbox p-5 text-center">
-        <h1>Create Reusable Experiment Templates</h1>
-        <Text size="3">
-          Save time configuring experiment details, and ensure consistency
-          across your team and projects.
-        </Text>
-        <div className="mt-3">
+      <EmptyState
+        title="Create Reusable Experiment Templates"
+        description="Save time configuring experiment details, and ensure consistency
+          across your team and projects."
+        leftButton={
           <LinkButton
             href="https://docs.growthbook.io/running-experiments/experiment-templates"
             variant="outline"
-            mr="3"
             external={true}
           >
             View docs
           </LinkButton>
-          {canCreate ? (
+        }
+        rightButton={
+          canCreate ? (
             <Button onClick={() => setOpenTemplateModal({})}>
               Create Template
             </Button>
@@ -234,9 +250,9 @@ export const TemplatesPage = ({
             >
               Upgrade Plan
             </Button>
-          )}
-        </div>
-      </div>
+          )
+        }
+      ></EmptyState>
     </>
   );
 };

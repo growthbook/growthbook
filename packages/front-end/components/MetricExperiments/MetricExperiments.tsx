@@ -14,8 +14,10 @@ import {
   SnapshotMetric,
 } from "back-end/types/experiment-snapshot";
 import {
+  ExperimentPhaseStringDates,
   ExperimentResultsType,
   ExperimentStatus,
+  Variation,
 } from "back-end/types/experiment";
 import useApi from "@/hooks/useApi";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
@@ -49,6 +51,7 @@ interface MetricExperimentData {
   status: ExperimentStatus;
   results?: ExperimentResultsType;
   archived: boolean;
+  variations: Variation[];
   statsEngine: StatsEngine;
   variationId: number;
   variationName: string;
@@ -59,6 +62,11 @@ interface MetricExperimentData {
   shipped?: boolean;
   resultsStatus?: string;
   directionalStatus?: "winning" | "losing";
+  phases: ExperimentPhaseStringDates[];
+  guardrailMetrics: string[];
+  goalMetrics: string[];
+  secondaryMetrics: string[];
+  datasource: string;
 }
 
 const NUM_PER_PAGE = 50;
@@ -99,9 +107,15 @@ function MetricExperimentResultTab({
         status: e.status,
         results: e.results,
         archived: e.archived,
+        variations: e.variations,
         statsEngine: statsEngine,
         variationId: i,
         variationName: v.name,
+        phases: e.phases,
+        goalMetrics: e.goalMetrics,
+        guardrailMetrics: e.guardrailMetrics,
+        secondaryMetrics: e.secondaryMetrics,
+        datasource: e.datasource,
       };
       if (!bandits && baseline && variationResults[i]) {
         const {
@@ -224,7 +238,7 @@ function MetricExperimentResultTab({
 
   return (
     <div>
-      <table className="table bg-white border">
+      <table className="table appbox">
         <thead className="bg-light">
           <tr>
             <SortableTH field="name">Experiment</SortableTH>

@@ -95,6 +95,10 @@ export interface paths {
     /** Deletes a single SDK connection */
     delete: operations["deleteSdkConnection"];
   };
+  "/sdk-connections/lookup/{key}": {
+    /** Find a single sdk connection by its key */
+    get: operations["lookupSdkConnectionByKey"];
+  };
   "/data-sources": {
     /** Get all data sources */
     get: operations["listDataSources"];
@@ -232,6 +236,20 @@ export interface paths {
     put: operations["putAttribute"];
     /** Deletes a single attribute */
     delete: operations["deleteAttribute"];
+  };
+  "/archetypes": {
+    /** Get the organization's archetypes */
+    get: operations["listArchetypes"];
+    /** Create a single archetype */
+    post: operations["postArchetype"];
+  };
+  "/archetypes/${id}": {
+    /** Get a single archetype */
+    get: operations["getArchetype"];
+    /** Update a single archetype */
+    put: operations["putArchetype"];
+    /** Deletes a single archetype */
+    delete: operations["deleteArchetype"];
   };
   "/members": {
     /** Get all organization members */
@@ -402,6 +420,7 @@ export interface components {
         minPercentChange: number;
         maxPercentChange: number;
         minSampleSize: number;
+        targetMDE: number;
       };
       sql?: {
         identifierTypes: (string)[];
@@ -960,6 +979,7 @@ export interface components {
       includeDraftExperiments?: boolean;
       includeExperimentNames?: boolean;
       includeRedirectExperiments?: boolean;
+      includeRuleIds?: boolean;
       key: string;
       proxyEnabled: boolean;
       proxyHost: string;
@@ -976,6 +996,8 @@ export interface components {
       /** Format: date-time */
       dateUpdated: string;
       name: string;
+      /** @enum {string} */
+      type: "standard" | "multi-armed-bandit";
       project: string;
       hypothesis: string;
       description: string;
@@ -1088,6 +1110,9 @@ export interface components {
         releasedVariationId: string;
         excludeFromPayload: boolean;
       };
+      /** @enum {string} */
+      shareLevel?: "public" | "organization";
+      publicUrl?: string;
     };
     ExperimentSnapshot: {
       id: string;
@@ -1486,6 +1511,7 @@ export interface components {
       minPercentChange: number;
       maxPercentChange: number;
       minSampleSize: number;
+      targetMDE: number;
       /**
        * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
        * @enum {string}
@@ -1517,6 +1543,18 @@ export interface components {
       dateCreated?: string;
       /** Format: date-time */
       dateUpdated?: string;
+    };
+    Archetype: {
+      id: string;
+      dateCreated: string;
+      dateUpdated: string;
+      name: string;
+      description?: string;
+      owner: string;
+      isPublic: boolean;
+      /** @description The attributes to set when using this Archetype */
+      attributes: any;
+      projects?: (string)[];
     };
   };
   responses: {
@@ -3268,6 +3306,7 @@ export interface operations {
                 includeDraftExperiments?: boolean;
                 includeExperimentNames?: boolean;
                 includeRedirectExperiments?: boolean;
+                includeRuleIds?: boolean;
                 key: string;
                 proxyEnabled: boolean;
                 proxyHost: string;
@@ -3304,6 +3343,7 @@ export interface operations {
           includeDraftExperiments?: boolean;
           includeExperimentNames?: boolean;
           includeRedirectExperiments?: boolean;
+          includeRuleIds?: boolean;
           proxyEnabled?: boolean;
           proxyHost?: string;
           hashSecureAttributes?: boolean;
@@ -3336,6 +3376,7 @@ export interface operations {
               includeDraftExperiments?: boolean;
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
+              includeRuleIds?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -3382,6 +3423,7 @@ export interface operations {
               includeDraftExperiments?: boolean;
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
+              includeRuleIds?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -3417,6 +3459,7 @@ export interface operations {
           includeDraftExperiments?: boolean;
           includeExperimentNames?: boolean;
           includeRedirectExperiments?: boolean;
+          includeRuleIds?: boolean;
           proxyEnabled?: boolean;
           proxyHost?: string;
           hashSecureAttributes?: boolean;
@@ -3449,6 +3492,7 @@ export interface operations {
               includeDraftExperiments?: boolean;
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
+              includeRuleIds?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -3476,6 +3520,53 @@ export interface operations {
         content: {
           "application/json": {
             deletedId: string;
+          };
+        };
+      };
+    };
+  };
+  lookupSdkConnectionByKey: {
+    /** Find a single sdk connection by its key */
+    parameters: {
+        /** @description The key of the requested sdkConnection */
+      path: {
+        key: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            sdkConnection: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              organization: string;
+              languages: (string)[];
+              sdkVersion?: string;
+              environment: string;
+              /** @description Use 'projects' instead. This is only for backwards compatibility and contains the first project only. */
+              project: string;
+              projects?: (string)[];
+              encryptPayload: boolean;
+              encryptionKey: string;
+              includeVisualExperiments?: boolean;
+              includeDraftExperiments?: boolean;
+              includeExperimentNames?: boolean;
+              includeRedirectExperiments?: boolean;
+              includeRuleIds?: boolean;
+              key: string;
+              proxyEnabled: boolean;
+              proxyHost: string;
+              proxySigningKey: string;
+              sseEnabled?: boolean;
+              hashSecureAttributes?: boolean;
+              remoteEvalEnabled?: boolean;
+              savedGroupReferencesEnabled?: boolean;
+            };
           };
         };
       };
@@ -3617,6 +3708,8 @@ export interface operations {
                 /** Format: date-time */
                 dateUpdated: string;
                 name: string;
+                /** @enum {string} */
+                type: "standard" | "multi-armed-bandit";
                 project: string;
                 hypothesis: string;
                 description: string;
@@ -3729,6 +3822,9 @@ export interface operations {
                   releasedVariationId: string;
                   excludeFromPayload: boolean;
                 };
+                /** @enum {string} */
+                shareLevel?: "public" | "organization";
+                publicUrl?: string;
               })[];
           }) & {
             limit: number;
@@ -3830,6 +3926,8 @@ export interface operations {
             })[];
           /** @description Controls whether regression adjustment (CUPED) is enabled for experiment analyses */
           regressionAdjustmentEnabled?: boolean;
+          /** @enum {string} */
+          shareLevel?: "public" | "organization";
         };
       };
     };
@@ -3844,6 +3942,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @enum {string} */
+              type: "standard" | "multi-armed-bandit";
               project: string;
               hypothesis: string;
               description: string;
@@ -3956,6 +4056,9 @@ export interface operations {
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
               };
+              /** @enum {string} */
+              shareLevel?: "public" | "organization";
+              publicUrl?: string;
             };
           };
         };
@@ -3981,6 +4084,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @enum {string} */
+              type: "standard" | "multi-armed-bandit";
               project: string;
               hypothesis: string;
               description: string;
@@ -4093,6 +4198,9 @@ export interface operations {
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
               };
+              /** @enum {string} */
+              shareLevel?: "public" | "organization";
+              publicUrl?: string;
             };
           };
         };
@@ -4110,6 +4218,8 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
+          /** @description Only can be set if existing experiment does not have a datasource */
+          datasourceId?: string;
           assignmentQueryId?: string;
           trackingKey?: string;
           /** @description Name of the experiment */
@@ -4190,6 +4300,8 @@ export interface operations {
             })[];
           /** @description Controls whether regression adjustment (CUPED) is enabled for experiment analyses */
           regressionAdjustmentEnabled?: boolean;
+          /** @enum {string} */
+          shareLevel?: "public" | "organization";
         };
       };
     };
@@ -4204,6 +4316,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @enum {string} */
+              type: "standard" | "multi-armed-bandit";
               project: string;
               hypothesis: string;
               description: string;
@@ -4316,6 +4430,9 @@ export interface operations {
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
               };
+              /** @enum {string} */
+              shareLevel?: "public" | "organization";
+              publicUrl?: string;
             };
           };
         };
@@ -4616,6 +4733,7 @@ export interface operations {
                   minPercentChange: number;
                   maxPercentChange: number;
                   minSampleSize: number;
+                  targetMDE: number;
                 };
                 sql?: {
                   identifierTypes: (string)[];
@@ -4766,6 +4884,8 @@ export interface operations {
             /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
             maxPercentChange?: number;
             minSampleSize?: number;
+            /** @description The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments. */
+            targetMDE?: number;
           };
           /** @description Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified. */
           sql?: {
@@ -4880,6 +5000,7 @@ export interface operations {
                 minPercentChange: number;
                 maxPercentChange: number;
                 minSampleSize: number;
+                targetMDE: number;
               };
               sql?: {
                 identifierTypes: (string)[];
@@ -5000,6 +5121,7 @@ export interface operations {
                 minPercentChange: number;
                 maxPercentChange: number;
                 minSampleSize: number;
+                targetMDE: number;
               };
               sql?: {
                 identifierTypes: (string)[];
@@ -5147,6 +5269,8 @@ export interface operations {
             /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
             maxPercentChange?: number;
             minSampleSize?: number;
+            /** @description The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments. */
+            targetMDE?: number;
           };
           /** @description Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed. */
           sql?: {
@@ -5263,6 +5387,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @enum {string} */
+              type: "standard" | "multi-armed-bandit";
               project: string;
               hypothesis: string;
               description: string;
@@ -5375,6 +5501,9 @@ export interface operations {
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
               };
+              /** @enum {string} */
+              shareLevel?: "public" | "organization";
+              publicUrl?: string;
             };
           };
         };
@@ -5910,6 +6039,154 @@ export interface operations {
         content: {
           "application/json": {
             deletedProperty: string;
+          };
+        };
+      };
+    };
+  };
+  listArchetypes: {
+    /** Get the organization's archetypes */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            archetypes: ({
+                id: string;
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                description?: string;
+                owner: string;
+                isPublic: boolean;
+                /** @description The attributes to set when using this Archetype */
+                attributes: any;
+                projects?: (string)[];
+              })[];
+          };
+        };
+      };
+    };
+  };
+  postArchetype: {
+    /** Create a single archetype */
+    requestBody: {
+      content: {
+        "application/json": {
+          name: string;
+          description?: string;
+          /** @description Whether to make this Archetype available to other team members */
+          isPublic: boolean;
+          /** @description The attributes to set when using this Archetype */
+          attributes?: any;
+          projects?: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            archetype: {
+              id: string;
+              dateCreated: string;
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              owner: string;
+              isPublic: boolean;
+              /** @description The attributes to set when using this Archetype */
+              attributes: any;
+              projects?: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  getArchetype: {
+    /** Get a single archetype */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            archetype: {
+              id: string;
+              dateCreated: string;
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              owner: string;
+              isPublic: boolean;
+              /** @description The attributes to set when using this Archetype */
+              attributes: any;
+              projects?: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  putArchetype: {
+    /** Update a single archetype */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          name?: string;
+          description?: string;
+          /** @description Whether to make this Archetype available to other team members */
+          isPublic?: boolean;
+          /** @description The attributes to set when using this Archetype */
+          attributes?: any;
+          projects?: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            archetype: {
+              id: string;
+              dateCreated: string;
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              owner: string;
+              isPublic: boolean;
+              /** @description The attributes to set when using this Archetype */
+              attributes: any;
+              projects?: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteArchetype: {
+    /** Deletes a single archetype */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
           };
         };
       };
@@ -6669,6 +6946,7 @@ export interface operations {
                 minPercentChange: number;
                 maxPercentChange: number;
                 minSampleSize: number;
+                targetMDE: number;
                 /**
                  * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                  * @enum {string}
@@ -6803,6 +7081,8 @@ export interface operations {
           /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
           maxPercentChange?: number;
           minSampleSize?: number;
+          /** @description The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments. */
+          targetMDE?: number;
           /**
            * @description Set this to "api" to disable editing in the GrowthBook UI 
            * @enum {string}
@@ -6888,6 +7168,7 @@ export interface operations {
               minPercentChange: number;
               maxPercentChange: number;
               minSampleSize: number;
+              targetMDE: number;
               /**
                * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
@@ -6988,6 +7269,7 @@ export interface operations {
               minPercentChange: number;
               maxPercentChange: number;
               minSampleSize: number;
+              targetMDE: number;
               /**
                * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
@@ -7110,6 +7392,7 @@ export interface operations {
           /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
           maxPercentChange?: number;
           minSampleSize?: number;
+          targetMDE?: number;
           /**
            * @description Set this to "api" to disable editing in the GrowthBook UI 
            * @enum {string}
@@ -7195,6 +7478,7 @@ export interface operations {
               minPercentChange: number;
               maxPercentChange: number;
               minSampleSize: number;
+              targetMDE: number;
               /**
                * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
@@ -7391,6 +7675,8 @@ export interface operations {
                 /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
                 maxPercentChange?: number;
                 minSampleSize?: number;
+                /** @description The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments. */
+                targetMDE?: number;
                 /**
                  * @description Set this to "api" to disable editing in the GrowthBook UI 
                  * @enum {string}
@@ -7479,6 +7765,7 @@ export type ApiFactTable = z.infer<typeof openApiValidators.apiFactTableValidato
 export type ApiFactTableFilter = z.infer<typeof openApiValidators.apiFactTableFilterValidator>;
 export type ApiFactMetric = z.infer<typeof openApiValidators.apiFactMetricValidator>;
 export type ApiMember = z.infer<typeof openApiValidators.apiMemberValidator>;
+export type ApiArchetype = z.infer<typeof openApiValidators.apiArchetypeValidator>;
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
@@ -7502,6 +7789,7 @@ export type PostSdkConnectionResponse = operations["postSdkConnection"]["respons
 export type GetSdkConnectionResponse = operations["getSdkConnection"]["responses"]["200"]["content"]["application/json"];
 export type PutSdkConnectionResponse = operations["putSdkConnection"]["responses"]["200"]["content"]["application/json"];
 export type DeleteSdkConnectionResponse = operations["deleteSdkConnection"]["responses"]["200"]["content"]["application/json"];
+export type LookupSdkConnectionByKeyResponse = operations["lookupSdkConnectionByKey"]["responses"]["200"]["content"]["application/json"];
 export type ListDataSourcesResponse = operations["listDataSources"]["responses"]["200"]["content"]["application/json"];
 export type GetDataSourceResponse = operations["getDataSource"]["responses"]["200"]["content"]["application/json"];
 export type ListExperimentsResponse = operations["listExperiments"]["responses"]["200"]["content"]["application/json"];
@@ -7533,6 +7821,11 @@ export type ListAttributesResponse = operations["listAttributes"]["responses"]["
 export type PostAttributeResponse = operations["postAttribute"]["responses"]["200"]["content"]["application/json"];
 export type PutAttributeResponse = operations["putAttribute"]["responses"]["200"]["content"]["application/json"];
 export type DeleteAttributeResponse = operations["deleteAttribute"]["responses"]["200"]["content"]["application/json"];
+export type ListArchetypesResponse = operations["listArchetypes"]["responses"]["200"]["content"]["application/json"];
+export type PostArchetypeResponse = operations["postArchetype"]["responses"]["200"]["content"]["application/json"];
+export type GetArchetypeResponse = operations["getArchetype"]["responses"]["200"]["content"]["application/json"];
+export type PutArchetypeResponse = operations["putArchetype"]["responses"]["200"]["content"]["application/json"];
+export type DeleteArchetypeResponse = operations["deleteArchetype"]["responses"]["200"]["content"]["application/json"];
 export type ListMembersResponse = operations["listMembers"]["responses"]["200"]["content"]["application/json"];
 export type DeleteMemberResponse = operations["deleteMember"]["responses"]["200"]["content"]["application/json"];
 export type UpdateMemberRoleResponse = operations["updateMemberRole"]["responses"]["200"]["content"]["application/json"];

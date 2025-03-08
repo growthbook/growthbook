@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { CommercialFeature } from "enterprise";
+import { CommercialFeature } from "shared/enterprise";
 import {
   SDKCapability,
   getConnectionsSDKCapabilities,
@@ -117,12 +117,14 @@ const AddLinkedChangeRow = ({
               <div className="btn btn-link p-0 disabled">{cta}</div>
             </PremiumTooltip>
           ) : (
-            <Tooltip
-              body={`The SDKs in this project don't support ${header}. Upgrade your SDK(s) or add a supported SDK.`}
-              tipPosition="top"
-            >
-              <div className="btn btn-link disabled p-0">{cta}</div>
-            </Tooltip>
+            <div>
+              <Tooltip
+                body={`The SDKs in this project don't support ${header}. Upgrade your SDK(s) or add a supported SDK.`}
+                tipPosition="top"
+              >
+                <div className="btn btn-link disabled p-0">{cta}</div>
+              </Tooltip>
+            </div>
           )}
         </div>
         <p className="mt-2 mb-1">{description}</p>
@@ -172,8 +174,8 @@ export default function AddLinkedChanges({
   };
 
   const possibleSections = Object.keys(sections);
-
   const sectionsToRender = possibleSections.filter((s) => sections[s].render);
+  if (!sectionsToRender.length) return null;
 
   return (
     <div className="appbox px-4 py-3 my-4">

@@ -292,11 +292,6 @@ const CompactResults: FC<{
     metricFilter,
   ]);
 
-  const users = useMemo(() => {
-    const vars = results?.variations;
-    return variations.map((v, i) => vars?.[i]?.users || 0);
-  }, [results, variations]);
-
   const isBandit = experimentType === "multi-armed-bandit";
 
   return (
@@ -337,7 +332,7 @@ const CompactResults: FC<{
               />
             )}
             <MultipleExposureWarning
-              users={users}
+              totalUsers={totalUsers}
               multipleExposures={multipleExposures}
             />
           </div>
@@ -499,6 +494,7 @@ export function getRenderLabelColumn(
         }
         tipPosition="right"
         className="d-inline-block font-weight-bold metric-label"
+        popperClassName="dark-theme"
         usePortal={true}
       >
         {" "}

@@ -502,6 +502,7 @@ export type FeatureDefinitionsResponseArgs = {
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
+  includeRuleIds?: boolean;
   attributes?: SDKAttributeSchema;
   secureAttributeSalt?: string;
   projects: string[];
@@ -519,6 +520,7 @@ export async function getFeatureDefinitionsResponse({
   includeDraftExperiments,
   includeExperimentNames,
   includeRedirectExperiments,
+  includeRuleIds,
   attributes,
   secureAttributeSalt,
   projects,
@@ -639,6 +641,17 @@ export async function getFeatureDefinitionsResponse({
     }
   }
 
+  // `features` is a deep clone, so it's safe to delete fields directly
+  if (!includeRuleIds) {
+    for (const k in features) {
+      if (features[k]?.rules) {
+        for (const rule of features[k].rules) {
+          delete rule.id;
+        }
+      }
+    }
+  }
+
   if (!encryptionKey) {
     return {
       features,
@@ -680,6 +693,7 @@ export type FeatureDefinitionArgs = {
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
+  includeRuleIds?: boolean;
   hashSecureAttributes?: boolean;
   savedGroupReferencesEnabled?: boolean;
 };
@@ -704,6 +718,7 @@ export async function getFeatureDefinitions({
   includeDraftExperiments,
   includeExperimentNames,
   includeRedirectExperiments,
+  includeRuleIds,
   hashSecureAttributes,
   savedGroupReferencesEnabled,
 }: FeatureDefinitionArgs): Promise<FeatureDefinitionSDKPayload> {
@@ -747,6 +762,7 @@ export async function getFeatureDefinitions({
         includeDraftExperiments,
         includeExperimentNames,
         includeRedirectExperiments,
+        includeRuleIds,
         attributes,
         secureAttributeSalt,
         projects: projects || [],
@@ -842,6 +858,7 @@ export async function getFeatureDefinitions({
     includeDraftExperiments,
     includeExperimentNames,
     includeRedirectExperiments,
+    includeRuleIds,
     attributes,
     secureAttributeSalt,
     projects: projects || [],
@@ -903,7 +920,6 @@ export function evaluateFeature({
         experimentMap,
         environment: env.id,
         revision,
-        returnRuleId: true,
         date,
       });
 
