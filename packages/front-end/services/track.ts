@@ -14,7 +14,7 @@ import { StatsEngine } from "back-end/types/stats";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
+} from "back-end/src/validators/experiment-snapshot";
 import { ExperimentReportInterface } from "back-end/types/report";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { growthbook } from "@/services/utils";
