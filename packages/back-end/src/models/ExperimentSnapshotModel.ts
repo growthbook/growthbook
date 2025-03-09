@@ -9,6 +9,7 @@ import {
 import { migrateSnapshot } from "back-end/src/util/migrations";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
 import { updateExperimentAnalysisSummary } from "back-end/src/services/experiments";
+import { updateExperimentTimeSeries } from "back-end/src/services/experimentTimeSeries";
 import { queriesSchema } from "./QueryModel";
 import { Context } from "./BaseModel";
 import { getExperimentById } from "./ExperimentModel";
@@ -259,6 +260,11 @@ export async function updateSnapshot({
         context,
         experiment: experimentModel,
         experimentSnapshot: experimentSnapshotModel,
+      });
+
+      await updateExperimentTimeSeries({
+        context,
+        experiment: experimentModel,
       });
     }
   }
@@ -515,3 +521,34 @@ export async function createExperimentSnapshotModel({
 export const getDefaultAnalysisResults = (
   snapshot: ExperimentSnapshotDocument
 ) => snapshot.analyses?.[0]?.results?.[0];
+
+export async function getAllSnapshotsForTimeSeries({
+  experiment,
+  phase,
+  dimension,
+}: {
+  experiment: string;
+  phase: number;
+  dimension?: string;
+}): Promise<ExperimentSnapshotInterface[] | null> {
+  const snapshots = await ExperimentSnapshotModel.find(
+    {
+      experiment,
+      phase,
+      dimension: dimension || null,
+      type: "standard", // not include reports or bandit
+      status: "success", // only include successful snapshots
+    },
+    null,
+    {
+      sort: { dateCreated: -1 },
+      limit: 1000, // TODO(adriel): What should this be?
+    }
+  );
+
+  if (snapshots.length === 0) {
+    return null;
+  }
+
+  return snapshots.map(toInterface);
+}
