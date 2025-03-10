@@ -1,5 +1,7 @@
-import { ExperimentSnapshotTraffic } from "back-end/types/experiment-snapshot";
-import { MetricPowerResponseFromStatsEngine } from "back-end/types/stats";
+import {
+  ExperimentSnapshotTraffic,
+  MetricPowerResponseFromStatsEngine,
+} from "back-end/src/validators/experiment-snapshot";
 import {
   frequentistVariance,
   powerEstFrequentist,
@@ -192,7 +194,9 @@ describe("backend", () => {
         type: "frequentist",
         sequentialTesting: false,
       },
-      metricValuesSource: "manual",
+      metricValuesData: {
+        source: "manual",
+      },
     };
     const powerSettingsBayesian: PowerCalculationParams = {
       usersPerWeek: usersPerWeek,
@@ -205,7 +209,9 @@ describe("backend", () => {
         type: "bayesian",
         sequentialTesting: false,
       },
-      metricValuesSource: "manual",
+      metricValuesData: {
+        source: "manual",
+      },
     };
     const powerSolution = [
       0.073,
@@ -299,7 +305,7 @@ describe("backend", () => {
     const w0Bayesian = undefined;
     let w1Bayesian = 0;
     if (resultsTS.type === "success") {
-      powerMultiple = resultsTS.weeks.reduce(
+      powerMultiple = resultsTS.weeks.reduce<number[]>(
         (result, { metrics }) =>
           Object.values(metrics).reduce(
             (result, { power }) => [...result, power],
@@ -307,7 +313,7 @@ describe("backend", () => {
           ),
         []
       );
-      mdeMultiple = resultsTS.weeks.reduce(
+      mdeMultiple = resultsTS.weeks.reduce<number[]>(
         (result, { metrics }) =>
           Object.values(metrics).reduce(
             (result, { effectSize }) => [...result, effectSize],
@@ -325,7 +331,7 @@ describe("backend", () => {
       }
     }
     if (resultsTSBayesian.type === "success") {
-      powerMultipleBayesian = resultsTSBayesian.weeks.reduce(
+      powerMultipleBayesian = resultsTSBayesian.weeks.reduce<number[]>(
         (result, { metrics }) =>
           Object.values(metrics).reduce(
             (result, { power }) => [...result, power],
@@ -333,7 +339,7 @@ describe("backend", () => {
           ),
         []
       );
-      mdeMultipleBayesian = resultsTSBayesian.weeks.reduce(
+      mdeMultipleBayesian = resultsTSBayesian.weeks.reduce<number[]>(
         (result, { metrics }) =>
           Object.values(metrics).reduce(
             (result, { effectSize }) => [...result, effectSize],
@@ -376,7 +382,10 @@ describe("backend", () => {
         type: "frequentist",
         sequentialTesting: 5000,
       },
-      metricValuesSource: "manual",
+      metricValuesData: {
+        source: "manual",
+      },
+      // metricValuesSource: "manual",
     };
     const powerSolution = [
       0.05936,
@@ -426,7 +435,7 @@ describe("backend", () => {
     let w0: number | undefined = undefined;
     const w1 = undefined;
     if (resultsTS.type === "success") {
-      powerMultiple = resultsTS.weeks.reduce(
+      powerMultiple = resultsTS.weeks.reduce<number[]>(
         (result, { metrics }) =>
           Object.values(metrics).reduce(
             (result, { power }) => [...result, power],
@@ -434,7 +443,7 @@ describe("backend", () => {
           ),
         []
       );
-      mdeMultiple = resultsTS.weeks.reduce(
+      mdeMultiple = resultsTS.weeks.reduce<number[]>(
         (result, { metrics }) =>
           Object.values(metrics).reduce(
             (result, { effectSize }) => [...result, effectSize],
@@ -600,6 +609,8 @@ it("midExperimentPower", () => {
     priorProper: false,
     upperBoundAchieved: false,
     scalingFactor: scalingFactorFreq,
+    priorLiftMean: null,
+    priorLiftVariance: null,
   };
   const gbstatsResponseSeq: MetricPowerResponseFromStatsEngine = {
     status: "successful",
@@ -610,6 +621,8 @@ it("midExperimentPower", () => {
     priorProper: false,
     upperBoundAchieved: false,
     scalingFactor: scalingFactorSeq,
+    priorLiftMean: null,
+    priorLiftVariance: null,
   };
   const gbstatsResponseBayes: MetricPowerResponseFromStatsEngine = {
     status: "successful",
