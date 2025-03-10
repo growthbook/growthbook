@@ -7,23 +7,23 @@ import { useState } from "react";
 import Modal from "@/components/Modal";
 import { useStripeContext } from "@/hooks/useStripeContext";
 import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
 
 interface Props {
   close: () => void;
   closeParent: () => void;
   seatsInUse: number;
-  subscriptionId: string;
 }
 
 export default function CloudProUpgradeModal({
   close,
   seatsInUse,
   closeParent,
-  subscriptionId,
 }: Props) {
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const { clientSecret } = useStripeContext();
+  const { refreshOrganization } = useUser();
   const { apiCall } = useAuth();
   const elements = useElements();
   const stripe = useStripe();
@@ -40,7 +40,7 @@ export default function CloudProUpgradeModal({
         );
       }
 
-      // Add the payment method to the customer & finalize subscription
+      // Add payment method to customer in stripe
       await stripe.confirmPayment({
         elements,
         clientSecret,
@@ -49,13 +49,11 @@ export default function CloudProUpgradeModal({
 
       // Should we make a call to set this as the user's default payment?
 
-      // add stripeSubscription to the license object
-      await apiCall("/subscription/new-inline-pro/success", {
+      // Now that payment is confirmed, create the subscription
+      await apiCall("/subscription/new-inline-pro", {
         method: "POST",
-        body: JSON.stringify({
-          subscriptionId,
-        }),
       });
+      refreshOrganization(); // Is there a better way to do this?
       setLoading(false);
       setSuccess(true);
     } catch (e) {

@@ -420,12 +420,12 @@ if (IS_CLOUD) {
     stripeController.updateCustomerDefaultPayment
   );
   app.post(
-    "/subscription/new-inline-pro",
-    stripeController.postNewInlineProSubscription
+    "/subscription/setup-intent",
+    stripeController.postNewProSubscriptionIntent
   );
   app.post(
-    "/subscription/new-inline-pro/success",
-    stripeController.postInlineProSubscriptionSuccess
+    "/subscription/new-inline-pro",
+    stripeController.postInlineProSubscription
   );
 }
 app.post("/subscription/new", stripeController.postNewProSubscription);

@@ -64,7 +64,6 @@ export default function UpgradeModal({
     false
   );
   const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
   const {
     name,
     email,
@@ -159,15 +158,13 @@ export default function UpgradeModal({
           setError("Unknown response");
         }
       } else if (useInlineUpgradeForm) {
-        // Create a new subscription and return the client secret and session id
-        const { subscriptionId, clientSecret } = await apiCall<{
-          subscriptionId: string;
+        // Creates new license, stripeCustomerId, and orbCustomerId
+        const { clientSecret } = await apiCall<{
           clientSecret: string;
-        }>(`/subscription/new-inline-pro`, {
+        }>(`/subscription/setup-intent`, {
           method: "POST",
         });
         setClientSecret(clientSecret);
-        setSubscriptionId(subscriptionId);
         setShowCloudProUpgrade(true);
         setLoading(false);
       } else {
@@ -530,12 +527,11 @@ export default function UpgradeModal({
           header={`🎉 Your 14-day Enterprise Trial starts now!`}
           isTrial={true}
         />
-      ) : showCloudProUpgrade && clientSecret && subscriptionId ? (
+      ) : showCloudProUpgrade && clientSecret ? (
         <StripeProvider initialClientSecret={clientSecret}>
           <CloudProUpgradeModal
             close={() => setShowCloudProUpgrade(false)}
             seatsInUse={seatsInUse}
-            subscriptionId={subscriptionId}
             closeParent={close}
           />
         </StripeProvider>

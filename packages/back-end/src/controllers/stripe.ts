@@ -6,11 +6,11 @@ import {
   getLicense,
   licenseInit,
   postCreateBillingSessionToLicenseServer,
-  postNewInlineProSubscriptionToLicenseServer,
+  postNewProSubscriptionIntentToLicenseServer,
   postNewProSubscriptionToLicenseServer,
   postNewProTrialSubscriptionToLicenseServer,
   postNewSubscriptionSuccessToLicenseServer,
-  postNewInlineSubscriptionSuccessToLicenseServer,
+  postNewInlineSubscriptionToLicenseServer,
 } from "shared/enterprise";
 import { PaymentMethod } from "shared/src/types/subscriptions";
 import { APP_ORIGIN, STRIPE_WEBHOOK_SECRET } from "back-end/src/util/secrets";
@@ -96,7 +96,7 @@ export const postNewProTrialSubscription = withLicenseServerErrorHandling(
   }
 );
 
-export const postNewInlineProSubscription = withLicenseServerErrorHandling(
+export const postNewProSubscriptionIntent = withLicenseServerErrorHandling(
   async function (req: AuthRequest, res: Response) {
     const context = getContextFromReq(req);
 
@@ -108,7 +108,7 @@ export const postNewInlineProSubscription = withLicenseServerErrorHandling(
 
     const qty = getNumberOfUniqueMembersAndInvites(org);
 
-    const result = await postNewInlineProSubscriptionToLicenseServer(
+    const result = await postNewProSubscriptionIntentToLicenseServer(
       org.id,
       org.name,
       org.ownerEmail,
@@ -152,9 +152,9 @@ export const postNewProSubscription = withLicenseServerErrorHandling(
     res.status(200).json(result);
   }
 );
-
-export const postInlineProSubscriptionSuccess = withLicenseServerErrorHandling(
-  async function (req: AuthRequest<{ subscriptionId: string }>, res: Response) {
+// MKTODO: Take in plan details (plan level, isTrial, etc)?
+export const postInlineProSubscription = withLicenseServerErrorHandling(
+  async function (req: AuthRequest, res: Response) {
     const context = getContextFromReq(req);
 
     if (!context.permissions.canManageBilling()) {
@@ -165,12 +165,12 @@ export const postInlineProSubscriptionSuccess = withLicenseServerErrorHandling(
 
     const license = await getLicense(org.licenseKey);
 
-    if (!license?.id) {
+    if (!license?.id || !license.organizationId) {
       throw new Error("No license found for organization");
     }
 
-    const result = await postNewInlineSubscriptionSuccessToLicenseServer(
-      req.body.subscriptionId
+    const result = await postNewInlineSubscriptionToLicenseServer(
+      license.organizationId
     );
 
     res.status(200).json(result);

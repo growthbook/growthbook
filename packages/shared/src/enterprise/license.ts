@@ -598,20 +598,20 @@ export async function postNewProSubscriptionToLicenseServer(
   );
 }
 
-export async function postNewInlineSubscriptionSuccessToLicenseServer(
-  subscriptionId: string
+export async function postNewInlineSubscriptionToLicenseServer(
+  organizationId: string
 ) {
-  const url = `${LICENSE_SERVER_URL}subscription/new-inline-pro/success`;
+  const url = `${LICENSE_SERVER_URL}subscription/new-inline-pro`;
   return callLicenseServer(
     url,
     JSON.stringify({
       cloudSecret: process.env.CLOUD_SECRET,
-      subscriptionId,
+      organizationId,
     })
   );
 }
 
-export async function postNewInlineProSubscriptionToLicenseServer(
+export async function postNewProSubscriptionIntentToLicenseServer(
   organizationId: string,
   companyName: string,
   ownerEmail: string,
