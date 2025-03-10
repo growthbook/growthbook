@@ -304,13 +304,11 @@ const ExperimentsPage = (): React.ReactElement => {
                 <h1>Adaptively experiment with bandits.</h1>
                 <p className="">Run adaptive experiments with Bandits.</p>
               </div>
-              <div
-                className="d-flex justify-content-center pt-2"
-                style={{ gap: "1rem" }}
-              >
+              <div className="d-flex justify-content-center pt-2">
                 <LinkButton
                   href="/getstarted/experiment-guide"
                   variant="outline"
+                  mr="4"
                 >
                   Setup Instructions
                 </LinkButton>

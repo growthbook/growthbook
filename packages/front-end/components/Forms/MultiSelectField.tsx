@@ -27,6 +27,7 @@ import {
   useSelectOptions,
 } from "@/components/Forms/SelectField";
 import Field, { FieldProps } from "@/components/Forms/Field";
+import { ColorOption } from "@/components/Tags/TagsInput";
 
 const SortableMultiValue = SortableElement(
   (props: MultiValueProps<SingleValue>) => {
@@ -85,7 +86,7 @@ export type MultiSelectFieldProps = Omit<
   initialOption?: string;
   onChange: (value: string[]) => void;
   sort?: boolean;
-  customStyles?: StylesConfig;
+  customStyles?: StylesConfig<ColorOption, true>;
   customClassName?: string;
   closeMenuOnSelect?: boolean;
   creatable?: boolean;

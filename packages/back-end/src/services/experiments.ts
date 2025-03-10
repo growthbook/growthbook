@@ -705,9 +705,7 @@ export function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
   return new Date(Date.now() + hours * 60 * 60 * 1000);
 }
 
-export function determineNextBanditSchedule(
-  exp: ExperimentInterface
-): Date | undefined {
+export function determineNextBanditSchedule(exp: ExperimentInterface): Date {
   const start = (
     exp?.banditStageDateStarted ??
     exp.phases?.[exp.phases.length - 1]?.dateStarted ??
@@ -1049,16 +1047,16 @@ export async function createSnapshot({
 
   if (scheduleNextSnapshot) {
     const nextUpdate =
-      (experiment.type !== "multi-armed-bandit"
+      experiment.type !== "multi-armed-bandit"
         ? determineNextDate(organization.settings?.updateSchedule || null)
-        : determineNextBanditSchedule(experiment)) || undefined;
+        : determineNextBanditSchedule(experiment);
 
     await updateExperiment({
       context,
       experiment,
       changes: {
         lastSnapshotAttempt: new Date(),
-        nextSnapshotAttempt: nextUpdate,
+        ...(nextUpdate ? { nextSnapshotAttempt: nextUpdate } : {}),
         autoSnapshots: nextUpdate !== null,
       },
     });

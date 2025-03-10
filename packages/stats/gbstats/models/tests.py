@@ -74,7 +74,6 @@ class BaseABTest(ABC):
             else:
                 self.stat_a.theta = theta
                 self.stat_b.theta = theta
-
         if (
             isinstance(self.stat_b, RegressionAdjustedRatioStatistic)
             and isinstance(self.stat_a, RegressionAdjustedRatioStatistic)
