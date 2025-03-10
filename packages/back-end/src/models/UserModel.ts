@@ -12,6 +12,7 @@ import {
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 
 const userSchema = new mongoose.Schema({
   id: {
@@ -210,24 +211,21 @@ export async function hasUser() {
   return !!doc;
 }
 
-export async function getAllUserEmailsAcrossAllOrgs(): Promise<string[]> {
-  const users = await UserModel.aggregate([
-    {
-      $lookup: {
-        from: "organizations",
-        localField: "id",
-        foreignField: "members.id",
-        as: "orgs",
-      },
-    },
-    {
-      $match: {
-        "orgs.0": { $exists: true },
-      },
-    },
-  ]).allowDiskUse(true);
+export async function getUserIdsAndEmailsForAllUsersInDb() {
+  if (IS_CLOUD) {
+    throw new Error(
+      "getUserIdsAndEmailsForAllUsersInDb() is not supported on cloud"
+    );
+  }
 
-  return users.map((u) => u.email);
+  const users = await getCollection(COLLECTION)
+    .find({}, { projection: { email: 1, id: 1 } })
+    .toArray();
+
+  return users.map((u) => ({
+    id: u.id,
+    email: u.email,
+  }));
 }
 
 export async function getEmailFromUserId(userId: string) {

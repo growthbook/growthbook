@@ -28,7 +28,7 @@ import TagsFilter, {
   useTagsFilter,
 } from "@/components/Tags/TagsFilter";
 import { useWatching } from "@/services/WatchProvider";
-import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+import { ExperimentStatusDetailsWithDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
@@ -232,6 +232,10 @@ const ExperimentsPage = (): React.ReactElement => {
       setTabs([...newTabs]);
     };
   }
+
+  const needsStatusColumn = tabs.length != 1;
+  const needsResultColumn =
+    !tabs.length || tabs.includes("stopped") || tabs.includes("running");
 
   const addExperimentDropdownButton = (
     <DropdownMenu
@@ -456,12 +460,18 @@ const ExperimentsPage = (): React.ReactElement => {
                           <SortableTH field="tags">Tags</SortableTH>
                           <SortableTH field="ownerName">Owner</SortableTH>
                           <SortableTH field="date">Date</SortableTH>
-                          <SortableTH
-                            field="statusSortOrder"
-                            style={{ minWidth: "150px" }}
-                          >
-                            Status
-                          </SortableTH>
+                          {needsStatusColumn && needsResultColumn ? (
+                            <>
+                              <SortableTH field="statusSortOrder">
+                                Status
+                              </SortableTH>
+                              <th></th>
+                            </>
+                          ) : needsStatusColumn || needsResultColumn ? (
+                            <SortableTH field="statusSortOrder">
+                              Status
+                            </SortableTH>
+                          ) : null}
                         </tr>
                       </thead>
                       <tbody>
@@ -564,9 +574,25 @@ const ExperimentsPage = (): React.ReactElement => {
                                   : ""}{" "}
                                 {date(e.date)}
                               </td>
-                              <td className="nowrap" data-title="Status:">
-                                <ExperimentStatusIndicator experimentData={e} />
-                              </td>
+                              {needsStatusColumn ? (
+                                <td className="nowrap" data-title="Status:">
+                                  {e.statusIndicator.tooltip &&
+                                  !e.statusIndicator.detailedStatus ? (
+                                    <Tooltip body={e.statusIndicator.tooltip}>
+                                      {e.statusIndicator.status}
+                                    </Tooltip>
+                                  ) : (
+                                    e.statusIndicator.status
+                                  )}
+                                </td>
+                              ) : null}
+                              {needsResultColumn ? (
+                                <td className="nowrap" data-title="Details:">
+                                  <ExperimentStatusDetailsWithDot
+                                    statusIndicatorData={e.statusIndicator}
+                                  />
+                                </td>
+                              ) : null}
                             </tr>
                           );
                         })}

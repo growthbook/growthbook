@@ -20,6 +20,7 @@ import {
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
 import { Box, Heading } from "@radix-ui/themes";
+import { isBinomialMetric } from "shared/experiments";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import DiscussionThread from "@/components/DiscussionThread";
@@ -115,6 +116,7 @@ const MetricPage: FC = () => {
     getMinSampleSizeForMetric,
     getMinPercentageChangeForMetric,
     getMaxPercentageChangeForMetric,
+    getTargetMDEForMetric,
   } = useOrganizationMetricDefaults();
 
   const form = useForm<{ name: string; description: string }>();
@@ -163,11 +165,12 @@ const MetricPage: FC = () => {
   const denominator = metric.denominator
     ? metrics.find((m) => m.id === metric.denominator)
     : undefined;
-  if (denominator && denominator.type === "count") {
+  if (denominator && !isBinomialMetric(denominator)) {
     regressionAdjustmentAvailableForMetric = false;
     regressionAdjustmentAvailableForMetricReason = (
       <>
-        Not available for ratio metrics with <em>count</em> denominators.
+        Not available for non-fact ratio metrics with{" "}
+        <em>{denominator.type}</em> denominators.
       </>
     );
   }
@@ -1254,13 +1257,12 @@ const MetricPage: FC = () => {
                       {getMinPercentageChangeForMetric(metric) * 100}%
                     </span>
                   </li>
-                  {/* TODO(mid-experiment-power): Uncomment */}
-                  {/* <li className="mb-2">
+                  <li className="mb-2">
                     <span className="text-gray">Target MDE:</span>{" "}
                     <span className="font-weight-bold">
                       {getTargetMDEForMetric(metric) * 100}%
                     </span>
-                  </li> */}
+                  </li>
                 </ul>
               </RightRailSectionGroup>
 

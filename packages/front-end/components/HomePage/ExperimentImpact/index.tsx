@@ -593,7 +593,7 @@ export default function ExperimentImpact({
 
             <TabsContent value="summary">
               <div className="px-3 pt-3">
-                <table className="table bg-white text-center w-auto mb-0">
+                <table className="table text-center w-auto mb-0">
                   <thead>
                     <tr>
                       <th style={{ width: 150 }} className="border-top-0" />

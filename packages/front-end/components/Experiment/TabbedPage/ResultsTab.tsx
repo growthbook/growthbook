@@ -127,7 +127,6 @@ export default function ResultsTab({
   const denominatorMetrics = denominatorMetricIds
     .map((m) => getMetricById(m as string))
     .filter(isDefined);
-
   const orgSettings = useOrgSettings();
 
   const {

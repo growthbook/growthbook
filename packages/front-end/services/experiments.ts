@@ -48,6 +48,7 @@ import { useAddComputedFields, useSearch } from "@/services/search";
 import { experimentDate } from "@/pages/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
+import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
 import { getDefaultRuleValue, NewExperimentRefRule } from "./features";
 
 export type ExperimentTableRow = {
@@ -391,22 +392,22 @@ export function setAdjustedCIs(
   return;
 }
 
-// Most actionable status have higher numbers
-function getExperimentStatusSortOrder(
-  e: ExperimentInterfaceStringDates
-): number {
-  if (e.archived) return 0;
-  if (e.status === "stopped") {
-    if (e.results === "dnf") return 1;
-    if (e.results === "inconclusive") return 2;
-    if (e.results === "lost") return 3;
-    if (e.results === "won") return 4;
-    return 5;
-  }
-  if (e.status === "draft") return 6;
-  if (e.status === "running") return 7;
-  return 8;
-}
+// // Most actionable status have higher numbers
+// function getExperimentStatusSortOrder(
+//   e: ExperimentInterfaceStringDates
+// ): number {
+//   if (e.archived) return 0;
+//   if (e.status === "stopped") {
+//     if (e.results === "dnf") return 1;
+//     if (e.results === "inconclusive") return 2;
+//     if (e.results === "lost") return 3;
+//     if (e.results === "won") return 4;
+//     return 5;
+//   }
+//   if (e.status === "draft") return 6;
+//   if (e.status === "running") return 7;
+//   return 8;
+// }
 
 export function useExperimentSearch({
   allExperiments,
@@ -428,6 +429,7 @@ export function useExperimentSearch({
     getSavedGroupById,
   } = useDefinitions();
   const { getUserDisplay } = useUser();
+  const getExperimentStatusIndicator = useExperimentStatusIndicator();
 
   const experiments: ComputedExperimentInterface[] = useAddComputedFields(
     allExperiments,
@@ -435,7 +437,8 @@ export function useExperimentSearch({
       const projectId = exp.project;
       const projectName = projectId ? getProjectById(projectId)?.name : "";
       const projectIsDeReferenced = projectId && !projectName;
-      const statusSortOrder = getExperimentStatusSortOrder(exp);
+      const statusIndicator = getExperimentStatusIndicator(exp);
+      const statusSortOrder = statusIndicator.sortOrder;
       const lastPhase = exp.phases?.[exp.phases?.length - 1] || {};
       const rawSavedGroup = lastPhase?.savedGroups || [];
       const savedGroupIds = rawSavedGroup.map((g) => g.ids).flat();
@@ -458,6 +461,7 @@ export function useExperimentSearch({
           ? "drafts"
           : exp.status,
         date: experimentDate(exp),
+        statusIndicator,
         statusSortOrder,
       };
     },

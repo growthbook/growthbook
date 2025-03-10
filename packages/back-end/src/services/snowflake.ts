@@ -1,3 +1,4 @@
+import { createPrivateKey } from "crypto";
 import { createConnection } from "snowflake-sdk";
 import { SnowflakeConnectionParams } from "back-end/types/integrations/snowflake";
 import { QueryResponse } from "back-end/src/types/Integration";
@@ -33,10 +34,36 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
   //remove out the .us-west-2 from the account name
   const account = conn.account.replace(/\.us-west-2$/, "");
 
+  let authenticationDetails;
+  if (conn.authMethod === "key-pair") {
+    try {
+      const privateKeyObject = createPrivateKey({
+        key: conn.privateKey!,
+        format: "pem",
+        passphrase: conn.privateKeyPassword,
+      });
+
+      authenticationDetails = {
+        authenticator: "SNOWFLAKE_JWT",
+        privateKey: privateKeyObject.export({
+          format: "pem",
+          type: "pkcs8",
+        }),
+      };
+    } catch (e) {
+      throw new Error("Invalid private key or private key password");
+    }
+  } else {
+    authenticationDetails = {
+      password: conn.password,
+    };
+  }
+
   const connection = createConnection({
     account,
     username: conn.username,
-    password: conn.password,
+    ...authenticationDetails,
+
     database: conn.database,
     schema: conn.schema,
     warehouse: conn.warehouse,

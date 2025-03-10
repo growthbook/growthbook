@@ -39,12 +39,13 @@ export default function SubscriptionInfo() {
     stripeSubscription?.cancel_at_period_end;
 
   return (
-    <>
+    <div className="p-3">
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
           reason="Your subscription has expired."
           source="billing-renew"
+          commercialFeature={null}
         />
       )}
       <div className="col-auto mb-3">
@@ -150,6 +151,6 @@ export default function SubscriptionInfo() {
           </div>
         )}
       </div>
-    </>
+    </div>
   );
 }

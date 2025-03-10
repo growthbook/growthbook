@@ -12,6 +12,7 @@ import {
   MemberRoleWithProjects,
   OrganizationInterface,
   OrganizationMessage,
+  OrgMemberInfo,
   Role,
 } from "back-end/types/organization";
 import { upgradeOrganizationDoc } from "back-end/src/util/migrations";
@@ -303,25 +304,21 @@ export async function findOrganizationByStripeCustomerId(id: string) {
   return doc ? toInterface(doc) : null;
 }
 
-export async function getAllInviteEmailsInDb() {
+export async function getAllOrgMemberInfoInDb(): Promise<OrgMemberInfo[]> {
   if (IS_CLOUD) {
-    throw new Error("getAllInviteEmailsInDb() is not supported on cloud");
+    throw new Error("getAllOrgMemberInfoInDb() is not supported on cloud");
   }
-
-  const organizations = await OrganizationModel.find(
+  return await OrganizationModel.find(
     {},
-    { "invites.email": 1 }
+    {
+      id: 1,
+      "invites.email": 1,
+      "members.id": 1,
+      "members.role": 1,
+      "members.projectRoles.role": 1,
+      "members.teams": 1,
+    }
   );
-
-  const inviteEmails: string[] = organizations.reduce(
-    (emails: string[], organization) => {
-      const orgEmails = organization.invites.map((invite) => invite.email);
-      return emails.concat(orgEmails);
-    },
-    []
-  );
-
-  return inviteEmails;
 }
 
 export async function getSelfHostedOrganization() {

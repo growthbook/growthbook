@@ -374,6 +374,9 @@ const Modal: FC<ModalProps> = ({
         position: inline ? "relative" : undefined,
         zIndex: inline ? 1 : increasedElevation ? 1550 : undefined,
       }}
+      onClick={(e) => {
+        e.stopPropagation();
+      }}
     >
       <div
         className={`modal-dialog modal-${size}`}

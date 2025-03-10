@@ -221,6 +221,7 @@ export const TemplatesPage = ({
           close={() => setShowUpgradeModal(false)}
           source="templates"
           reason="Create reusable experiment templates"
+          commercialFeature="templates"
         />
       )}
       <EmptyState

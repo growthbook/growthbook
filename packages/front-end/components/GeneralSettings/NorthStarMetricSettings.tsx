@@ -34,6 +34,7 @@ export default function NorthStarMetricSettings() {
                       includeFacts={true}
                       includeGroups={false}
                       excludeQuantiles={true}
+                      noManual={true}
                     />
                   </div>
                   <Field

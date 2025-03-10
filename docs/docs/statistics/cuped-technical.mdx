@@ -7,9 +7,11 @@ slug: cuped-technical
 
 # Technical CUPED details
 
-Here we document the technical details behind GrowthBook CUPED variance estimates.
+Here we document the technical details behind GrowthBook CUPED variance estimates. We begin with [revenue metrics](/statistics/cuped-technical#revenue-metric), and then move to [ratio metrics](/statistics/cuped-technical#ratio-metric).
 
-We use the notation below. We describe our approach in terms of revenue, but any binomial or count metric can be substituted.
+## Mean or Binomial Metric
+
+We use the notation below. We describe our approach in terms of revenue, but any Mean or Binomial metric can be substituted.
 
 1. Define $Y_{C}$ $\left(Y_{T}\right)$ as the observed post-exposure revenue for a user exposed to control (treatment).
 2. Define $X_{C}$ $\left(X_{T}\right)$ as the observed pre-exposure revenue for a user exposed to control (treatment).
@@ -18,7 +20,7 @@ We use the notation below. We describe our approach in terms of revenue, but any
 5. Define $\mu_{C}$ $\left(\mu_{T}\right)$ as the population average post-exposure revenue for users exposed to control (treatment).
 6. Define $N_{C}$ $\left(N_{T}\right)$ as the number of users exposed to control (treatment).
 
-## Absolute case
+## Mean or Binomial Metric, Absolute case
 
 For absolute inference, our target parameter is
 
@@ -52,7 +54,7 @@ $$
 
 Our estimated variance of $\hat{\Delta}_{A}$ is $\hat{\sigma}^{2}_{\Delta_{A}} = V_{adj, C} + V_{adj, T}$.
 
-## Relative case
+## Mean or Binomial Metric, Relative case
 
 For relative inference (i.e., estimating lift), the parameter of interest is
 
@@ -196,7 +198,7 @@ $$
 + \theta\sigma_{XY,C} \\
 \frac{\sigma_{XY,C}
 \left(
--\boldsymbol{\beta}[1] + \theta\boldsymbol{\beta}[2]  - \theta\boldsymbol{\beta}[4]
+-\boldsymbol{\beta}[1] + \theta\boldsymbol{\beta}[2]  - \theta\boldsymbol{\beta}[4]⚠︎
 \right)}{\boldsymbol{\beta}[3]}
 +\theta\sigma^{2}_{X,C}
 \end{pmatrix}
@@ -258,3 +260,283 @@ $$
 $$
 
 which leverages the fact that the pre-exposure revenue population means are equal due to randomization.
+
+## Ratio Metric
+
+Throughout define the $k^{\text{th}}$ element of vector $\textbf{x}$ as $\textbf{x}[k]$.  
+Below we define parameters.
+
+1. Under control, define the numerator (denominator) post-exposure population mean as $\mu_{MYC}$ ($\mu_{DYC}$).
+2. Under treatment, define the numerator (denominator) post-exposure population mean as $\mu_{MYT}$ ($\mu_{DYT}$).
+3. Under control, define the numerator (denominator) pre-exposure population mean as $\mu_{MXC}$ ($\mu_{DXC}$).
+4. Under treatment, define the numerator (denominator) pre-exposure population mean as $\mu_{MXT}$ ($\mu_{DXT}$).
+
+Due to randomization, $\mu_{MXC}$ equals $\mu_{DXC}$ and $\mu_{MXT}$ $\mu_{DXT}$, but for bookkeeping purposes, it is easier to have separate parameters.
+
+## Ratio Metric, Absolute case
+
+For ratio metrics the absolute parameter of interest is
+
+$$
+\begin{align}
+\Delta_{a}&=
+\frac{\mu_{MYT}}{\mu_{DYT}} - \frac{\mu_{MYC}}{\mu_{DYC}}.
+\end{align}
+$$
+
+Below we define statistics.
+
+1. Under control, define the numerator (denominator) post-exposure sample mean as $\bar{M}_{YC}$ ($\bar{D}_{YC}$).
+2. Under treatment, define the numerator (denominator) post-exposure sample mean as $\bar{M}_{YT}$ ($\bar{D}_{YT}$).
+3. Under control, define the numerator (denominator) pre-exposure sample mean as $\bar{M}_{XC}$ ($\bar{D}_{XC}$).
+4. Under treatment, define the numerator (denominator) pre-exposure sample mean as $\bar{M}_{XT}$ ($\bar{D}_{XT}$).
+
+Define:
+
+1. $\boldsymbol{\beta}_{0} = \left[\mu_{MYT}, \mu_{DYT}, \mu_{MXT}, \mu_{DXT}, \mu_{MYC}, \mu_{DYC}, \mu_{MXC}, \mu_{DXC}\right]$.
+2. $\hat{\boldsymbol{\beta}} = \left[\bar{M}_{YT}, \bar{D}_{YT}, \bar{M}_{XT}, \bar{D}_{XT},
+\bar{M}_{YC}, \bar{D}_{YC}, \bar{M}_{XC}, \bar{D}_{XC}
+\right]$.
+3. $\boldsymbol{\Lambda}_{T} = \text{Cov}\left[\bar{M}_{YT}, \bar{D}_{YT}, \bar{M}_{XT}, \bar{D}\_{XT},\right]
+   N*{T}^{-1}
+   \begin{pmatrix}
+   \text{Var}\left(M_{YT}\right) & & &\\
+   \text{Cov}\left(M_{YT}, D_{YT}\right) & \text{Var}\left(D_{YT}\right) & & \\
+   \text{Cov}\left(M_{YT}, M_{XT}\right) & \text{Cov}\left(D_{YT}, M_{XT}\right) & \text{Var}\left(M_{XT}\right) & \\
+   \text{Cov}\left(M_{YT}, D_{XT}\right) & \text{Cov}\left(D_{YT}, D_{XT}\right) & \text{Cov}\left(M_{XT}, D_{XT}\right) & \text{Var}\left(D_{XT}\right) \\
+   \end{pmatrix}$
+4. $\boldsymbol{\Lambda}_{C} = \text{Cov}\left[\bar{M}_{YC}, \bar{D}_{YC}, \bar{M}_{XC}, \bar{D}\_{XC},\right]
+   N*{C}^{-1}
+   \begin{pmatrix}
+   \text{Var}\left(M_{YC}\right) & & &\\
+   \text{Cov}\left(M_{YC}, D_{YC}\right) & \text{Var}\left(D_{YC}\right) & & \\
+   \text{Cov}\left(M_{YC}, M_{XC}\right) & \text{Cov}\left(D_{YC}, M_{XC}\right) & \text{Var}\left(M_{XC}\right) & \\
+   \text{Cov}\left(M_{YC}, D_{XC}\right) & \text{Cov}\left(D_{YC}, D_{XC}\right) & \text{Cov}\left(M_{XC}, D_{XC}\right) & \text{Var}\left(D_{XC}\right) \\
+   \end{pmatrix}$
+5. $\boldsymbol{\Lambda} = \text{Cov}\left(\hat{\boldsymbol{\beta}}\right)
+   \begin{pmatrix}
+   \boldsymbol{\Lambda}_{T} & \underset{4\times4}{\textbf{0}}\\
+   \underset{4\times4}{\textbf{0}} & \boldsymbol{\Lambda}_{C} \\
+   \end{pmatrix}$
+
+Define the function
+
+$$
+\begin{align}
+g\left(\boldsymbol{\beta}; \theta\right)_{a}&= \left(\frac{\boldsymbol{\beta}[1]}{\boldsymbol{\beta}[2]} - \theta\frac{\boldsymbol{\beta}[3]}{\boldsymbol{\beta}[4]} \right)
+-\left(\frac{\boldsymbol{\beta}[5]}{\boldsymbol{\beta}[6]} - \theta\frac{\boldsymbol{\beta}[7]}{\boldsymbol{\beta}[8]} \right).
+\end{align}
+$$
+
+The CUPED estimator is
+
+$$
+\begin{align}
+\hat{\Delta}_{a}&=g_{a}(\hat{\boldsymbol{\beta}}; \theta)
+\\&=
+\left(\frac{\hat{\boldsymbol{\beta}}[1]}{\hat{\boldsymbol{\beta}}[2]} - \theta\frac{\hat{\boldsymbol{\beta}}[3]}{\hat{\boldsymbol{\beta}}[4]} \right)
+-\left(\frac{\hat{\boldsymbol{\beta}}[5]}{\hat{\boldsymbol{\beta}}[6]} - \theta\frac{\hat{\boldsymbol{\beta}}[7]}{\hat{\boldsymbol{\beta}}[8]} \right).
+\end{align}
+$$
+
+Define the vector of partial derivatives as $\boldsymbol{\nabla}_{a}\left(\boldsymbol{\beta}; \theta\right) = \frac{\partial g_{a}(\boldsymbol{\beta})}{\partial\boldsymbol{\beta}}$.
+
+$$
+\begin{align*}
+\boldsymbol{\nabla}[1] &= \frac{1}{\boldsymbol{\beta}[2]}
+\\\boldsymbol{\nabla}[2] &= \frac{-\boldsymbol{\beta}[1]}{\boldsymbol{\beta}[2]^2}
+\\\boldsymbol{\nabla}[3] &= \frac{-\theta}{\boldsymbol{\beta}[4]}
+\\\boldsymbol{\nabla}[4] &= \frac{\theta\boldsymbol{\beta}[3]}{\boldsymbol{\beta}[4]^2}
+\\\boldsymbol{\nabla}[5] &= \frac{-1}{\boldsymbol{\beta}[6]}
+\\\boldsymbol{\nabla}[6] &= \frac{\boldsymbol{\beta}[5]}{\boldsymbol{\beta}[6]^2}
+\\\boldsymbol{\nabla}[7] &= \frac{\theta}{\boldsymbol{\beta}[8]}
+\\\boldsymbol{\nabla}[8] &= \frac{-\theta\boldsymbol{\beta}[7]}{\boldsymbol{\beta}[8]^2}.
+\end{align*}
+$$
+
+Note that $\boldsymbol{\nabla}_{a}\left(\hat{\boldsymbol{\beta}}; \theta\right)$
+
+$$
+\begin{align*}
+ \boldsymbol{\nabla}[1] &= \frac{1}{\bar{D}_{YT}}
+\\\boldsymbol{\nabla}[2] &= \frac{-\bar{M}_{YT}}{\bar{D}_{YT}^{2}}
+\\\boldsymbol{\nabla}[3] &= \frac{-\theta}{\bar{D}_{XT}}
+\\\boldsymbol{\nabla}[4] &= \frac{\theta\bar{M}_{XT}}{\bar{D}_{XT}^2}
+\\\boldsymbol{\nabla}[5] &= \frac{-1}{\bar{D}_{YC}}
+\\\boldsymbol{\nabla}[6] &= \frac{\bar{M}_{YC}}{\bar{D}_{YC}^2}
+\\\boldsymbol{\nabla}[7] &= \frac{\theta}{\bar{D}_{XC}}
+\\\boldsymbol{\nabla}[8] &= \frac{-\theta\bar{M}_{XC}}{\bar{D}_{XC}^2}.
+ \end{align*}
+$$
+
+By the central limit theorem,
+$$\hat{\Delta}_{a} = g(\hat{\boldsymbol{\beta}}) \stackrel{}{\sim}\mathcal{N}\left(\Delta_{r} = g\left(\boldsymbol{\beta}\right), \boldsymbol{\nabla}_{a}^{\top}\Lambda\boldsymbol{\nabla}_{a} \right)$$.
+
+Decompose $\boldsymbol{\nabla}_{a}$ into its first four elements ($\boldsymbol{\nabla}_{a, T}$) and its last four elements ($\boldsymbol{\nabla}_{a, C}$).
+Our variance of interest is
+
+$$
+\begin{align}
+\hat{\sigma}^{2}_{\Delta_{a}}&=
+\boldsymbol{\nabla}_{a}\left(\hat{\boldsymbol{\beta}}; \theta\right)^{\top}\boldsymbol{\Lambda}\boldsymbol{\nabla}_{a}\left(\hat{\boldsymbol{\beta}}; \theta\right)
+\nonumber\\
+&= \boldsymbol{\nabla}_{a, T}^{\top}\boldsymbol{\Lambda}_{T}\boldsymbol{\nabla}_{a, T}
++ \boldsymbol{\nabla}_{a, C}^{\top}\boldsymbol{\Lambda}_{C}\boldsymbol{\nabla}_{a, C}.
+\end{align}
+$$
+
+All of these moments are available via CupedRatioRegressionAdjustedStatistics.
+
+## Optimal regression coefficient for ratio metrics
+
+The optimal $\theta$ minimizes Equation (14).
+We can write
+
+$$
+\begin{align*}
+\boldsymbol{\nabla}_{a, T}^{\top}\boldsymbol{\Lambda}_{T}\boldsymbol{\nabla}_{a, T}&=\boldsymbol{\nabla}_{a, T}[1:2]^{\top}\boldsymbol{\Lambda}_{T}[1:2, 1:2]\boldsymbol{\nabla}_{a, T}[1:2]
+\nonumber\\&+2\boldsymbol{\nabla}_{a, T}[1:2]^{\top}\boldsymbol{\Lambda}_{T}[3:4, 1:2]\boldsymbol{\nabla}_{a, T}[3:4]+\boldsymbol{\nabla}_{a, T}[3:4]^{\top}\boldsymbol{\Lambda}_{T}[3:4, 3:4]\boldsymbol{\nabla}_{a, T}[3:4]
+\nonumber\\
+&=c_{T} + 2\theta
+\left[\frac{1}{\boldsymbol{\beta}[2]},  \frac{-\boldsymbol{\beta}[1]}{\boldsymbol{\beta}[2]^2}  \right]^{\top}
+\boldsymbol{\Lambda}_{T}[3:4, 1:2]\left[\frac{-1}{\boldsymbol{\beta}[4]}, \frac{\boldsymbol{\beta}[3]}{\boldsymbol{\beta}[4]^2} \right]
++
+\theta^{2}\left[\frac{-1}{\boldsymbol{\beta}[4]}, \frac{\boldsymbol{\beta}[3]}{\boldsymbol{\beta}[4]^2}\right]^{\top}\boldsymbol{\Lambda}_{T}[3:4, 3:4]\left[\frac{-1}{\boldsymbol{\beta}[4]}, \frac{\boldsymbol{\beta}[3]}{\boldsymbol{\beta}[4]^2}\right]
+\end{align*}
+$$
+
+where $c_{T}$ is free of $\theta$.
+
+Similarly we can write
+
+$$
+\begin{align*}
+\boldsymbol{\nabla}_{a, C}^{\top}\boldsymbol{\Lambda}_{C}\boldsymbol{\nabla}_{a, C}&=
+c_{C} + 2\theta
+\left[\frac{-1}{\boldsymbol{\beta}[2]},  \frac{\boldsymbol{\beta}[1]}{\boldsymbol{\beta}[2]^2}  \right]^{\top}
+\boldsymbol{\Lambda}_{C}[3:4, 1:2]\left[\frac{1}{\boldsymbol{\beta}[4]}, \frac{-\boldsymbol{\beta}[3]}{\boldsymbol{\beta}[4]^2} \right]
++
+\theta^{2}\left[\frac{-1}{\boldsymbol{\beta}[8]}, \frac{\boldsymbol{\beta}[7]}{\boldsymbol{\beta}[8]^2}\right]^{\top}\boldsymbol{\Lambda}_{C}[3:4, 3:4]\left[\frac{-1}{\boldsymbol{\beta}[8]}, \frac{\boldsymbol{\beta}[7]}{\boldsymbol{\beta}[8]^2}\right]
+\end{align*}
+$$
+
+where $c_{C}$ is a constant free of $\theta$.
+
+Differentiating the sum of these two equations with respect to $\theta$ and setting equal to zero shows that the minimum of this quadratic form occurs at
+
+$$
+\begin{align}
+\theta_{\text{opt}} &=
+-\frac{
+\left[\frac{-1}{\boldsymbol{\beta}[2]},  \frac{\boldsymbol{\beta}[1]}{\boldsymbol{\beta}[2]^2}  \right]^{\top}
+\boldsymbol{\Lambda}_{C}[3:4, 1:2]\left[\frac{1}{\boldsymbol{\beta}[4]}, \frac{-\boldsymbol{\beta}[3]}{\boldsymbol{\beta}[4]^2} \right] +
+\left[\frac{1}{\boldsymbol{\beta}[2]},  \frac{-\boldsymbol{\beta}[1]}{\boldsymbol{\beta}[2]^2}  \right]^{\top}
+\boldsymbol{\Lambda}_{T}[3:4, 1:2]\left[\frac{-1}{\boldsymbol{\beta}[4]}, \frac{\boldsymbol{\beta}[3]}{\boldsymbol{\beta}[4]^2} \right]
+}{\left[\frac{-1}{\boldsymbol{\beta}[8]}, \frac{\boldsymbol{\beta}[7]}{\boldsymbol{\beta}[8]^2}\right]^{\top}\boldsymbol{\Lambda}_{C}[3:4, 3:4]\left[\frac{-1}{\boldsymbol{\beta}[8]}, \frac{\boldsymbol{\beta}[7]}{\boldsymbol{\beta}[8]^2}\right] +
+\left[\frac{-1}{\boldsymbol{\beta}[4]}, \frac{\boldsymbol{\beta}[3]}{\boldsymbol{\beta}[4]^2}\right]^{\top}\boldsymbol{\Lambda}_{T}[3:4, 3:4]\left[\frac{-1}{\boldsymbol{\beta}[4]}, \frac{\boldsymbol{\beta}[3]}{\boldsymbol{\beta}[4]^2}\right]
+}.
+\end{align}
+$$
+
+The numerator represents the sum of the covariances, the denominator the sum of the variances.
+This is the same $\theta$ as is presented in Appendix B of ([Deng et al. 2013](https://exp-platform.com/Documents/2013-02-CUPED-ImprovingSensitivityOfControlledExperiments.pdf)).
+
+## Ratio Metric, Relative case
+
+For relative inference much of the approach in the previous section works, we simply need to define the appropriate $g$ function and its partial derivatives.
+
+For ratio metrics the relative parameter of interest is
+
+$$
+\begin{align}
+\Delta_{r}&=\frac{\frac{\mu_{MTY}}{\mu_{DTY}} - \frac{\mu_{MCY}}{\mu_{DCY}}}{\frac{\mu_{MCY}}{\mu_{DCY}}}
+\\&= \frac{\frac{\mu_{MTY}}{\mu_{DTY}}}{\frac{\mu_{MCY}}{\mu_{DCY}}} - 1.
+\end{align}
+$$
+
+Define the function
+
+$$
+\begin{align}
+g\left(\boldsymbol{\beta}; \theta\right)_{r}&=
+\frac{
+\left(\frac{\boldsymbol{\beta}[1]}{\boldsymbol{\beta}[2]} - \theta\frac{\boldsymbol{\beta}[3]}{\boldsymbol{\beta}[4]} \right)
+-\left(\frac{\boldsymbol{\beta}[5]}{\boldsymbol{\beta}[6]} - \theta\frac{\boldsymbol{\beta}[7]}{\boldsymbol{\beta}[8]} \right)
+}{\frac{\boldsymbol{\beta}[5]}{\boldsymbol{\beta}[6]}}
+\end{align}
+$$
+
+We can consistently estimate Equation (18) with the CUPED estimator
+$$g\left(\hat{\boldsymbol{\beta}}; \theta\right)_{r}.$$
+
+Define the numerator in Equation (18) as $g\left(\boldsymbol{\beta}; \theta\right)_{r, num}$ and the denominator as $g\left(\boldsymbol{\beta}; \theta\right)_{r, den}$.
+
+Define the vector of partial derivatives as $\boldsymbol{\nabla}_{r}\left(\boldsymbol{\beta}; \theta\right) = \frac{\partial g_{r}(\boldsymbol{\beta})}{\partial\boldsymbol{\beta}}$.
+
+$$
+\begin{align*}
+\boldsymbol{\nabla}[1] &= \frac{\frac{1}{\boldsymbol{\beta}[2]} }{g\left(\boldsymbol{\beta}; \theta\right)_{r, den}}
+\\\boldsymbol{\nabla}[2] &= \frac{\frac{-\boldsymbol{\beta}[1]}{\boldsymbol{\beta}[2]^2}}{g\left(\boldsymbol{\beta}; \theta\right)_{r, den}}
+\\\boldsymbol{\nabla}[3] &=
+  \frac{
+    \frac{-\theta}{\boldsymbol{\beta}[4]}
+  }{g\left(\boldsymbol{\beta}; \theta\right)_{r, den}}
+\\\boldsymbol{\nabla}[4] &= \frac{\frac{\theta\boldsymbol{\beta}[3]}{\boldsymbol{\beta}[4]^2}}{g\left(\boldsymbol{\beta}; \theta\right)_{r, den}}
+\\\boldsymbol{\nabla}[5] &=
+  \frac{
+    \frac{-g\left(\boldsymbol{\beta}; \theta\right)_{r, den}}{\boldsymbol{\beta}[6]} - \frac{g\left(\boldsymbol{\beta}; \theta\right)_{r, num}}{\boldsymbol{\beta}[6]}
+  }{g\left(\boldsymbol{\beta}; \theta\right)_{r, den}^{2}}
+\\\boldsymbol{\nabla}[6] &=
+  \frac{
+    \frac{\boldsymbol{\beta}[5]g\left(\boldsymbol{\beta}; \theta\right)_{r, den}}{\boldsymbol{\beta}[6]^2} +
+      \frac{\boldsymbol{\beta}[5]g\left(\boldsymbol{\beta}; \theta\right)_{r, num}}{\boldsymbol{\beta}[6]^2}
+  }{g\left(\boldsymbol{\beta}; \theta\right)_{r, den}^{2}}
+\\\boldsymbol{\nabla}[7] &=
+  \frac{\frac{\theta}{\boldsymbol{\beta}[8]}
+  }{g\left(\boldsymbol{\beta}; \theta\right)_{r, den}}
+\\\boldsymbol{\nabla}[8] &=
+  \frac{
+    \frac{-\theta\boldsymbol{\beta}[7]}{\boldsymbol{\beta}[8]^2}
+  }{g\left(\boldsymbol{\beta}; \theta\right)_{r, den}}.
+\end{align*}
+$$
+
+Note that
+
+$$
+\begin{align*}
+g\left(\hat{\boldsymbol{\beta}}; \theta\right)_{r, num} &= \left(\frac{\bar{M}_{YT}}{\bar{D}_{YT}} - \theta\frac{\bar{M}_{XT}}{\bar{D}_{XT}} \right)
+-\left(\frac{\bar{M}_{YC}}{\bar{D}_{YC}} - \theta\frac{\bar{M}_{XC}}{\bar{D}_{XC}} \right)
+\\g\left(\hat{\boldsymbol{\beta}}; \theta\right)_{r, den} &= \frac{\bar{M}_{YC}}{\bar{D}_{YC}}
+\end{align*}
+$$
+
+Note that $\boldsymbol{\nabla}_{r}\left(\hat{\boldsymbol{\beta}}; \theta\right)$ is equal to
+
+$$
+\begin{align*}
+\boldsymbol{\nabla}[1] &= \frac{\frac{1}{\bar{D}_{YT}}}{g\left(\hat{\boldsymbol{\beta}}; \theta\right)_{r, den}}
+\\\boldsymbol{\nabla}[2] &= \frac{\frac{-\bar{M}_{YT}}{\bar{D}_{YT}^{2}}}{g\left(\hat{\boldsymbol{\beta}}; \theta\right)_{r, den}}
+\\\boldsymbol{\nabla}[3] &=
+ \frac{
+   \frac{-\theta}{\bar{D}_{XT}}
+ }{g\left(\hat{\boldsymbol{\beta}}; \theta\right)_{r, den}}
+\\\boldsymbol{\nabla}[4] &= \frac{\frac{\theta\bar{M}_{XT}}{\bar{D}_{XT}^2}}{g\left(\hat{\boldsymbol{\beta}}; \theta\right)_{r, den}}
+\\\boldsymbol{\nabla}[5] &=
+ \frac{
+   \frac{-g\left(\hat{\boldsymbol{\beta}}; \theta\right)_{r, den}}{\bar{D}_{YC}} - \frac{g\left(\hat{\boldsymbol{\beta}}; \theta\right)_{r, num}}{\bar{D}_{YC}}
+ }{g\left(\hat{\boldsymbol{\beta}}; \theta\right)_{r, den}^{2}}
+\\\boldsymbol{\nabla}[6] &=
+ \frac{
+   \frac{\bar{M}_{YC}g\left(\hat{\boldsymbol{\beta}}; \theta\right)_{r, den}}{\bar{D}_{YC}^2} +
+     \frac{\bar{M}_{YC}g\left(\hat{\boldsymbol{\beta}}; \theta\right)_{r, num}}{\bar{D}_{YC}^2}
+ }{g\left(\hat{\boldsymbol{\beta}}; \theta\right)_{r, den}^{2}}
+\\\boldsymbol{\nabla}[7] &=
+ \frac{\frac{\theta}{\bar{D}_{XC}}
+ }{g\left(\hat{\boldsymbol{\beta}}; \theta\right)_{r, den}}
+\\\boldsymbol{\nabla}[8] &=
+ \frac{
+   \frac{-\theta\bar{M}_{XC}}{\bar{D}_{XC}^2}.
+ }{g\left(\hat{\boldsymbol{\beta}}; \theta\right)_{r, den}}.
+  \end{align*}
+$$

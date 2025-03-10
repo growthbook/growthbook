@@ -5,6 +5,7 @@ import {
   ExperimentInterface,
 } from "back-end/src/validators/experiments";
 import { ExperimentRefVariation, FeatureInterface } from "./feature";
+import { StatusIndicatorData } from "front-end/hooks/useExperimentStatusIndicator";
 
 export {
   AttributionModel,
@@ -15,6 +16,8 @@ export {
   ExperimentPhase,
   BanditStageType,
   ExperimentAnalysisSettings,
+  ExperimentAnalysisSummaryResultsStatus,
+  ExperimentAnalysisSummaryVariationStatus,
   ExperimentInterface,
   ExperimentNotification,
   ExperimentResultsType,
@@ -27,6 +30,16 @@ export {
   CreateTemplateProps,
   UpdateTemplateProps,
 } from "back-end/src/routers/experiment-template/template.validators";
+
+export type DecisionFrameworkExperimentRecommendationStatus =
+  | { status: "days-left"; daysLeft: number }
+  | { status: "ship-now" }
+  | { status: "rollback-now" }
+  | { status: "ready-for-review" };
+
+export type DecisionFrameworkData = DecisionFrameworkExperimentRecommendationStatus & {
+  tooltip?: string;
+};
 
 export type ExperimentPhaseType = "ramp" | "main" | "holdout";
 
@@ -116,6 +129,7 @@ export type ComputedExperimentInterface = ExperimentInterfaceStringDates & {
   tab: string;
   date: string;
   statusSortOrder: number;
+  statusIndicator: StatusIndicatorData;
 };
 
 export type Changeset = Partial<ExperimentInterface>;

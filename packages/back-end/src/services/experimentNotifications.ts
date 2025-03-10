@@ -17,7 +17,6 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { getExperimentWatchers } from "back-end/src/models/WatchModel";
 import { logger } from "back-end/src/util/logger";
-import { ensureAndReturn } from "back-end/src/util/types";
 import {
   ExperimentSnapshotDocument,
   getDefaultAnalysisResults,
@@ -29,6 +28,8 @@ import {
 } from "back-end/types/experiment";
 import { ExperimentReportResultDimension } from "back-end/types/report";
 import { ResourceEvents } from "back-end/src/events/base-types";
+import { ensureAndReturn } from "back-end/src/util/types";
+import { getExperimentMetricById } from "back-end/src/services/experiments";
 import {
   getConfidenceLevelsForOrg,
   getEnvironmentIdsFromOrg,
@@ -36,7 +37,6 @@ import {
   getPValueThresholdForOrg,
 } from "./organizations";
 import { isEmailEnabled, sendExperimentChangesEmail } from "./email";
-import { getExperimentMetricById } from "./experiments";
 
 // This ensures that the two types remain equal.
 
@@ -311,6 +311,7 @@ export const computeExperimentChanges = async ({
     : undefined;
   const lastVariations = lastAnalysis?.results?.[0]?.variations;
 
+  // TODO refactor to only do once per update
   // get the org level settings for significance:
   const statsEngine = currentAnalysis.settings.statsEngine;
   const { ciUpper, ciLower } = getConfidenceLevelsForOrg(context);
