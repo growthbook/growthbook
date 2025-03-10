@@ -65,8 +65,8 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO growthbook_u
 
 ## 4: Add Redshift as a Data Source in GrowthBook
 
-1. In GrowthBook, go to Settings &rarr; Data Sources.
-2. Click “Add Data Source” and choose Redshift.
+1. In GrowthBook, go to **Settings** &rarr; **Data Sources.**
+2. **Click Add Data Source** and choose **Redshift**.
 3. Enter the details from Step 1:
 
    - Host: (Your Workgroup Endpoint for Serverless or Cluster Endpoint for Provisioned)
@@ -76,6 +76,8 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO growthbook_u
    - Password: (Your secure password)
    - Require SSL: ✅ Enabled
 
-4. Click Next to test the connection.
+4. Click **Next** to test the connection.
 
 ![Redshift GrowthBook connection](/images/guides/redshift-connection-in-gb.png)
+
+🚀 Now, GrowthBook can securely query your Redshift database!
