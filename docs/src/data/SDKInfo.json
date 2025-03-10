@@ -82,11 +82,7 @@
         "url": "https://packagist.org/packages/growthbook/growthbook"
       }
     ],
-    "capabilities": [
-      "bucketingV2",
-      "encryption",
-      "looseUnmarshalling"
-    ]
+    "capabilities": ["bucketingV2", "encryption", "looseUnmarshalling"]
   },
   "node": {
     "name": "Node SDK",

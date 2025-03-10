@@ -614,6 +614,12 @@ const sidebars = {
           className: "pill-new",
           label: "GrowthBook CLI",
         },
+        {
+          type: "doc",
+          id: "integrations/clarity",
+          label: "Microsoft Clarity (Heatmaps)",
+          className: "pill-new",
+        },
       ],
     },
     {

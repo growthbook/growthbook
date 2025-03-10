@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import omit from "lodash/omit";
-import { LicenseInterface } from "../license";
+import { LicenseInterface } from "../licenseUtil";
 
 const licenseSchema = new mongoose.Schema({
   id: String, // Unique ID for the license key
@@ -13,6 +13,9 @@ const licenseSchema = new mongoose.Schema({
   plan: String, // The plan (pro, enterprise, etc.) for this license
   archived: { type: Boolean, default: false }, // True if this license has been deleted/archived
   seatsInUse: { type: Number, default: 0 }, // Number of seats currently in use
+  fullMemberSeatsInUse: { type: Number }, // Number of member seats currently in use
+  readOnlySeatsInUse: { type: Number }, // Number of read only seats currently in use
+  inviteSeatsInUse: { type: Number }, // Number of invite seats currently in use
   remoteDowngrade: { type: Boolean, default: false }, // True if this license was downgraded remotely
   message: {
     text: String, // The text to show in the account notice
@@ -27,7 +30,16 @@ const licenseSchema = new mongoose.Schema({
   discountMessage: String, // The message of the discount
   installationUsers: {
     type: Map,
-    of: { _id: false, date: Date, userHashes: [String] },
+    of: {
+      _id: false,
+      date: Date,
+      userHashes: [String],
+      licenseUserCodes: {
+        invites: [String],
+        fullMembers: [String],
+        readOnlyMembers: [String],
+      },
+    },
   }, // Map of first 7 chars of user email shas to the last time they were in a usage request
   usingMongoCache: { type: Boolean, default: true }, // True if the license is using the mongo cache
   firstFailedFetchDate: Date, // Date of the first failed fetch

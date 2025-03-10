@@ -149,7 +149,11 @@ export interface LicenseInterface {
   };
   freeTrialDate?: Date; // Date the free trial was started
   installationUsers: {
-    [installationId: string]: { date: string; userHashes: string[] };
+    [installationId: string]: {
+      date: string;
+      userHashes: string[];
+      licenseUserCodes?: LicenseUserCodes;
+    };
   }; // Map of first 7 chars of user email shas to the last time they were in a usage request
   archived: boolean; // True if this license has been deleted/archived
   dateUpdated: string; // Date the license was last updated
@@ -708,7 +712,7 @@ function verifyAndSetCachedLicenseData(license: LicenseInterface) {
 
 async function getLicenseDataFromServer(
   licenseId: string,
-  userLicenseCodes: string[],
+  licenseUserCodes: LicenseUserCodes,
   metaData: LicenseMetaData
 ): Promise<LicenseInterface> {
   logger.info("Getting license data from server for " + licenseId);
@@ -717,7 +721,7 @@ async function getLicenseDataFromServer(
   const license = await callLicenseServer(
     url,
     JSON.stringify({
-      userHashes: userLicenseCodes,
+      licenseUserCodes: licenseUserCodes,
       metaData,
     }),
     "PUT"
@@ -729,17 +733,17 @@ async function getLicenseDataFromServer(
 async function updateLicenseFromServer(
   licenseKey: string,
   org: MinimalOrganization,
-  getUserCodesForOrg: (org: MinimalOrganization) => Promise<string[]>,
+  getUserCodesForOrg: (org: MinimalOrganization) => Promise<LicenseUserCodes>,
   getLicenseMetaData: () => Promise<LicenseMetaData>,
   mongoCache: LicenseInterface | null
 ) {
   let license: LicenseInterface;
   try {
-    const userLicenseCodes = await getUserCodesForOrg(org);
+    const licenseUserCodes = await getUserCodesForOrg(org);
     const metaData = await getLicenseMetaData();
     license = await getLicenseDataFromServer(
       licenseKey,
-      userLicenseCodes,
+      licenseUserCodes,
       metaData
     );
     verifyAndSetServerLicenseData(license);
@@ -768,6 +772,12 @@ async function updateLicenseFromServer(
   return license;
 }
 
+export interface LicenseUserCodes {
+  invites: string[];
+  fullMembers: string[];
+  readOnlyMembers: string[];
+}
+
 export interface LicenseMetaData {
   installationId: string;
   gitSha: string;
@@ -788,7 +798,7 @@ export let backgroundUpdateLicenseFromServerForTests: Promise<void | LicenseInte
 
 export async function licenseInit(
   org?: MinimalOrganization,
-  getUserCodesForOrg?: (org: MinimalOrganization) => Promise<string[]>,
+  getUserCodesForOrg?: (org: MinimalOrganization) => Promise<LicenseUserCodes>,
   getLicenseMetaData?: () => Promise<LicenseMetaData>,
   forceRefresh = false
 ): Promise<Partial<LicenseInterface> | undefined> {
