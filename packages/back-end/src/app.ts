@@ -8,6 +8,7 @@ import asyncHandler from "express-async-handler";
 import compression from "compression";
 import * as Sentry from "@sentry/node";
 import { populationDataRouter } from "back-end/src/routers/population-data/population-data.router";
+import analysisPlanRouter from "back-end/src/enterprise/routers/analysis-plan/analysis-plan.router";
 import { usingFileConfig } from "./init/config";
 import { AuthRequest } from "./types/AuthRequest";
 import {
@@ -599,6 +600,9 @@ app.get(
 
 // Experiment Templates
 app.use("/templates", templateRouter);
+
+// Analysis Plans
+app.use("/analysis-plans", analysisPlanRouter);
 
 // URL Redirects
 app.use("/url-redirects", urlRedirectRouter);

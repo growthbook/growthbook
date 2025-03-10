@@ -1,108 +1,108 @@
-import type { Response } from "express";
-import { z } from "zod";
-import { orgHasPremiumFeature } from "shared/enterprise";
-import { getContextFromReq } from "back-end/src/services/organizations";
+import { Response } from "express";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { EventUserForResponseLocals } from "back-end/src/events/event-types";
-import { PrivateApiErrorResponse } from "back-end/types/api";
+import { getContextFromReq } from "back-end/src/services/organizations";
 import {
-  createTemplateValidator,
-  ExperimentTemplateInterface,
-  UpdateTemplateProps,
-} from "./template.validators";
+  AnalysisPlanInterface,
+  CreateAnalysisPlanProps,
+  UpdateAnalysisPlanProps,
+} from "./analysis-plan.validators";
 
+/**
+ * GET /analysis-plans
+ * Get all analysis plans for the organization
+ * @param req
+ * @param res
+ */
 export const getAnalysisPlans = async (
   req: AuthRequest,
-  res: Response<{ status: 200; templates: ExperimentTemplateInterface[] }>
+  res: Response<{ status: 200; analysisPlans: AnalysisPlanInterface[] }>
 ) => {
   const context = getContextFromReq(req);
 
-  const templates = await context.models.experimentTemplates.getAll();
+  // Get all analysis plans
+  const analysisPlans = await context.models.analysisPlans.getAll();
 
-  const filteredTemplates = templates.filter((t) => {
-    return context.permissions.canReadSingleProjectResource(t.project);
+  res.status(200).json({
+    status: 200,
+    analysisPlans,
+  });
+};
+
+/**
+ * GET /analysis-plans/:id
+ * Get a specific analysis plan by ID
+ * @param req
+ * @param res
+ */
+export const getAnalysisPlanById = async (
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{ status: 200; analysisPlan: AnalysisPlanInterface }>
+) => {
+  const context = getContextFromReq(req);
+
+  const analysisPlan = await context.models.analysisPlans.getById(
+    req.params.id
+  );
+
+  if (!analysisPlan) {
+    throw new Error("Could not find analysis plan with that id");
+  }
+
+  res.status(200).json({
+    status: 200,
+    analysisPlan,
+  });
+};
+
+/**
+ * POST /analysis-plans
+ * Create a new analysis plan
+ * @param req
+ * @param res
+ */
+export const postAnalysisPlan = async (
+  req: AuthRequest<CreateAnalysisPlanProps>,
+  res: Response<{ status: 200; analysisPlan: AnalysisPlanInterface }>
+) => {
+  const context = getContextFromReq(req);
+  const data = req.body;
+
+  // Create the analysis plan
+  const analysisPlan = await context.models.analysisPlans.create({
+    project: data.project || "",
+    name: data.name,
+    description: data.description || "",
+    rules: data.rules,
+    owner: context.userId,
   });
 
   res.status(200).json({
     status: 200,
-    templates: filteredTemplates,
+    analysisPlan,
   });
-};
-
-export type CreateTemplateProps = z.infer<typeof createTemplateValidator>;
-
-// region POST /templates
-
-type CreateTemplateResponse = {
-  status: 200;
-  template: ExperimentTemplateInterface;
 };
 
 /**
- * POST /Templates
- * Create a Template resource
+ * DELETE /analysis-plans/:id
+ * Delete an analysis plan
  * @param req
  * @param res
  */
-export const postTemplate = async (
-  req: AuthRequest<CreateTemplateProps>,
-  res: Response<
-    CreateTemplateResponse | PrivateApiErrorResponse,
-    EventUserForResponseLocals
-  >
-) => {
-  const context = getContextFromReq(req);
-  const { userId } = context;
-  const template = req.body;
-
-  if (!orgHasPremiumFeature(context.org, "templates")) {
-    return res.status(403).json({
-      status: 403,
-      message:
-        "Organization does not have premium feature: Experiment Templates",
-    });
-  }
-
-  if (!context.permissions.canCreateExperimentTemplate(template)) {
-    context.permissions.throwPermissionError();
-  }
-
-  const doc = await context.models.experimentTemplates.create({
-    ...template,
-    owner: userId,
-  });
-
-  res.status(200).json({
-    status: 200,
-    template: doc,
-  });
-};
-
-// endregion POST /templates
-
-/**
- * DELETE /Templates/:id
- * Delete a Template resource
- * @param req
- * @param res
- */
-export const deleteTemplate = async (
+export const deleteAnalysisPlan = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<{ status: 200 }>
 ) => {
   const context = getContextFromReq(req);
 
-  const template = await context.models.experimentTemplates.getById(
+  const analysisPlan = await context.models.analysisPlans.getById(
     req.params.id
   );
-  if (!template) {
-    throw new Error("Could not find template with that id");
-  }
-  if (!context.permissions.canDeleteExperimentTemplate(template)) {
-    context.permissions.throwPermissionError();
+
+  if (!analysisPlan) {
+    throw new Error("Could not find analysis plan with that id");
   }
 
-  await context.models.experimentTemplates.deleteById(req.params.id);
+  await context.models.analysisPlans.deleteById(req.params.id);
 
   res.status(200).json({
     status: 200,
@@ -110,40 +110,34 @@ export const deleteTemplate = async (
 };
 
 /**
- * PUT /Templates/:id
- * Update a Template resource
+ * PUT /analysis-plans/:id
+ * Update an analysis plan
  * @param req
  * @param res
  */
-export const putTemplate = async (
-  req: AuthRequest<UpdateTemplateProps, { id: string }>,
-  res: Response<{ status: 200; template: ExperimentTemplateInterface }>
+export const putAnalysisPlan = async (
+  req: AuthRequest<UpdateAnalysisPlanProps, { id: string }>,
+  res: Response<{ status: 200; analysisPlan: AnalysisPlanInterface }>
 ) => {
   const context = getContextFromReq(req);
-  const templateUpdates = req.body;
+  const updates = req.body;
 
-  const existingTemplate = await context.models.experimentTemplates.getById(
+  const existingAnalysisPlan = await context.models.analysisPlans.getById(
     req.params.id
   );
-  if (!existingTemplate) {
-    throw new Error("Could not find template with that id");
-  }
-  if (
-    !context.permissions.canUpdateExperimentTemplate(
-      existingTemplate,
-      templateUpdates
-    )
-  ) {
-    context.permissions.throwPermissionError();
+
+  if (!existingAnalysisPlan) {
+    throw new Error("Could not find analysis plan with that id");
   }
 
-  const updatedTemplate = await context.models.experimentTemplates.updateById(
+  // Update the analysis plan
+  const updatedAnalysisPlan = await context.models.analysisPlans.updateById(
     req.params.id,
-    templateUpdates
+    updates
   );
 
   res.status(200).json({
     status: 200,
-    template: updatedTemplate,
+    analysisPlan: updatedAnalysisPlan,
   });
 };

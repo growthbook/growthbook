@@ -1,5 +1,8 @@
-import { MakeModelClass } from "./BaseModel";
-import { AnalysisPlanInterface, analysisPlanInterface } from "back-end/src/enterprise/routers/analysis-plan/analysis-plan.validators";
+import { MakeModelClass } from "back-end/src/models/BaseModel";
+import {
+  AnalysisPlanInterface,
+  analysisPlanInterface,
+} from "back-end/src/enterprise/routers/analysis-plan/analysis-plan.validators";
 
 const BaseClass = MakeModelClass({
   schema: analysisPlanInterface,
@@ -35,6 +38,4 @@ export class AnalysisPlanModel extends BaseClass {
   protected canDelete(doc: AnalysisPlanInterface): boolean {
     return this.context.permissions.canDeleteExperimentTemplate(doc);
   }
-
-  // TODO: Implement this for OpenAPI
 }

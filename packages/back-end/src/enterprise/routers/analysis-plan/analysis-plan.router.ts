@@ -1,44 +1,32 @@
 import express from "express";
 import { z } from "zod";
 import { wrapController } from "back-end/src/routers/wrapController";
-import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
-import * as rawTemplateController from "./template.controller";
-import {
-  createTemplateValidator,
-  updateTemplateValidator,
-} from "./template.validators";
+import * as rawAnalysisPlanController from "./analysis-plan.controller";
 
 const router = express.Router();
 
-const templateController = wrapController(rawTemplateController);
+const analysisPlanController = wrapController(rawAnalysisPlanController);
 
-const templateParams = z.object({ id: z.string() }).strict();
+const analysisPlanParams = z.object({ id: z.string() }).strict();
 
-router.get("/", templateController.getTemplates);
+// GET /analysis-plans
+// Get all analysis plans
+router.get("/", analysisPlanController.getAnalysisPlans);
 
-router.post(
-  "/",
-  validateRequestMiddleware({
-    body: createTemplateValidator,
-  }),
-  templateController.postTemplate
-);
+// GET /analysis-plans/:id
+// Get a specific analysis plan by ID
+router.get("/:id", analysisPlanController.getAnalysisPlanById);
 
-router.delete(
-  "/:id",
-  validateRequestMiddleware({
-    params: templateParams,
-  }),
-  templateController.deleteTemplate
-);
+// POST /analysis-plans
+// Create a new analysis plan
+router.post("/", analysisPlanController.postAnalysisPlan);
 
-router.put(
-  "/:id",
-  validateRequestMiddleware({
-    params: templateParams,
-    body: updateTemplateValidator,
-  }),
-  templateController.putTemplate
-);
+// DELETE /analysis-plans/:id
+// Delete an analysis plan
+router.delete("/:id", analysisPlanController.deleteAnalysisPlan);
 
-export { router as templateRouter };
+// PUT /analysis-plans/:id
+// Update an analysis plan
+router.put("/:id", analysisPlanController.putAnalysisPlan);
+
+export default router;

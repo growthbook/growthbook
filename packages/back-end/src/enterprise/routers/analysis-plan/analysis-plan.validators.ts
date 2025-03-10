@@ -1,28 +1,19 @@
 import { z } from "zod";
+import { CreateProps, UpdateProps } from "back-end/types/models";
 
-export const analysisPlanRule = z
-  .object({
-    goalMetricStatus: z.enum([
-      "allStatSigWinner",
-      "allStatSigLoser",
-      "anyStatSigWinnerNoneStatSigLoser",
-      "neutral",
-      "anyStatSigLoser",
-    ]),
-    guardrailMetricStatus: z.enum([
-      "anyStatSigLoser", 
-      "anyTrendingLoser", 
-      "neutral",
-    ]),
-    decision: z.enum(["ship", "rollback", "review"]),
-  })
+export const analysisPlanCondition = z.object({
+  match: z.enum(["all", "any", "none"]),
+  metrics: z.enum(["goals", "guardrails"]),
+  direction: z.enum(["statsigWinner", "statsigLoser", "trendingLoser"]),
+});
 
-// Clinical trial
-// Gold standard
+export const analysisPlanRule = z.object({
+  conditions: z.array(analysisPlanCondition),
+  action: z.enum(["ship", "rollback", "review"]),
+});
 
-// Coin Flip
-// Do no harm
-// Two-way door
+export type AnalysisPlanCondition = z.infer<typeof analysisPlanCondition>;
+export type AnalysisPlanRule = z.infer<typeof analysisPlanRule>;
 
 export const analysisPlanInterface = z
   .object({
@@ -37,8 +28,11 @@ export const analysisPlanInterface = z
     description: z.string().optional(),
 
     rules: z.array(analysisPlanRule),
+    defaultAction: z.enum(["ship", "rollback", "review"]),
   })
   .strict();
-export type AnalysisPlanInterface = z.infer<
-  typeof analysisPlanInterface
->;
+
+// TODO move to type file
+export type CreateAnalysisPlanProps = CreateProps<AnalysisPlanInterface>;
+export type UpdateAnalysisPlanProps = UpdateProps<AnalysisPlanInterface>;
+export type AnalysisPlanInterface = z.infer<typeof analysisPlanInterface>;

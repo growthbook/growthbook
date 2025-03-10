@@ -49,6 +49,7 @@ export const entityEvents = {
   factTable: ["autocreate"],
   customField: ["create", "update", "delete"],
   experimentTemplate: ["create", "update", "delete"],
+  analysisPlan: ["create", "update", "delete"],
 } as const;
 
 export type EntityEvents = typeof entityEvents;
