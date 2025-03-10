@@ -9,7 +9,9 @@ import MaxWidthImage from "@site/src/components/MaxWidthImage";
 
 Connecting Amazon Redshift to GrowthBook allows you to analyze experiment data and metrics directly from your data warehouse.
 
-This tutorial walks through focuses on Redshift Serverless, but the steps are similar for provisioned Redshift instances.
+::: note
+This guide focuses on Redshift Serverless, but the steps are similar for provisioned Redshift instances.
+:::
 
 ## 1: Find Connection Details
 
@@ -48,6 +50,10 @@ This string comprises the following parts:
 ![Redshift Inbound Rules](/images/guides/redshift-inbound-rules.png)
 </MaxWidthImage>
 
+::: note
+Enabling public access makes your database accessible from the internet. Ensure your security group settings are restrictive.
+:::
+
 ## 3: Create a Read-Only User
 
 To prevent unauthorized changes, use a dedicated read-only user for GrowthBook.
@@ -60,6 +66,10 @@ CREATE USER growthbook_user WITH PASSWORD 'securepassword';
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO growthbook_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO growthbook_user;
 ```
+
+::: tip
+If your data is in a different schema (e.g., analytics), replace public with your schema name.
+:::
 
 3. Use this user when connecting GrowthBook.
 
@@ -74,7 +84,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO growthbook_u
    - Database: (Your database name, e.g., `dev`)
    - User: `growthbook_user`
    - Password: (Your secure password)
-   - Require SSL: ✅ Enabled
+   - Require SSL: Recommended but may depend on your Redshift setup.
 
 4. Click **Next** to test the connection.
 
