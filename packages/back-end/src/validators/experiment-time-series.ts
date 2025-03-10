@@ -19,13 +19,6 @@ const experimentTimeSeriesMetric = z.object({
     .optional(),
   pValue: z.number().optional(),
   pValueAdjusted: z.number().optional(),
-  uplift: z
-    .object({
-      dist: z.string(),
-      mean: z.number().optional(),
-      stddev: z.number().optional(),
-    })
-    .optional(),
   chanceToWin: z.number().optional(),
   errorMessage: z.string().nullish(),
 });
