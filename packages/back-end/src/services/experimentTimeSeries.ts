@@ -18,7 +18,7 @@ export async function updateExperimentTimeSeries({
     phase: experiment.phases.length - 1,
   });
 
-  if (allSnapshots && allSnapshots.length > 0) {
+  if (allSnapshots.length > 0) {
     const experimentTimeSeries = convertExperimentSnapshotsToTimeSeries({
       experiment,
       snapshots: allSnapshots,

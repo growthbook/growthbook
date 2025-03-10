@@ -530,7 +530,7 @@ export async function getAllSnapshotsForTimeSeries({
   experiment: string;
   phase: number;
   dimension?: string;
-}): Promise<ExperimentSnapshotInterface[] | null> {
+}): Promise<ExperimentSnapshotInterface[]> {
   const snapshots = await ExperimentSnapshotModel.find(
     {
       experiment,
@@ -542,13 +542,9 @@ export async function getAllSnapshotsForTimeSeries({
     null,
     {
       sort: { dateCreated: -1 },
-      limit: 1000, // TODO(adriel): What should this be?
+      limit: 200,
     }
   );
-
-  if (snapshots.length === 0) {
-    return null;
-  }
 
   return snapshots.map(toInterface);
 }
