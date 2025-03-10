@@ -1,12 +1,12 @@
 import React, { useState, ReactNode, useContext } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { SnapshotType } from "back-end/types/experiment-snapshot";
+import { getSnapshotAnalysis } from "shared/util";
 import {
-  SnapshotType,
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
-import { getSnapshotAnalysis } from "shared/util";
+} from "back-end/src/validators/experiment-snapshot";
 import useApi from "@/hooks/useApi";
 
 const snapshotContext = React.createContext<{

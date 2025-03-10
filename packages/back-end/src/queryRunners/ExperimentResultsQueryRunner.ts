@@ -534,7 +534,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   }): Promise<ExperimentSnapshotInterface> {
     const updates: Partial<ExperimentSnapshotInterface> = {
       queries,
-      runStarted,
+      ...(runStarted && { runStarted }),
       error,
       ...result,
       status:
