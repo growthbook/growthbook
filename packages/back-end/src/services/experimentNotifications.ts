@@ -2,7 +2,7 @@ import { includeExperimentInPayload, getSnapshotAnalysis } from "shared/util";
 import {
   getHealthSettings,
   getMetricResultStatus,
-  getRunningExperimentStatus,
+  getExperimentResultStatus,
 } from "shared/experiments";
 import { orgHasPremiumFeature } from "shared/enterprise";
 import { StatsEngine } from "back-end/types/stats";
@@ -19,7 +19,7 @@ import {
   ExperimentHealthSettings,
   ExperimentInterface,
   ExperimentNotification,
-  RunningExperimentStatusData,
+  ExperimentResultStatusData,
 } from "back-end/types/experiment";
 import { ResourceEvents } from "back-end/src/events/base-types";
 import { ensureAndReturn } from "back-end/src/util/types";
@@ -131,7 +131,7 @@ export const notifyMultipleExposures = async ({
 }: {
   context: Context;
   experiment: ExperimentInterface;
-  currentStatus: RunningExperimentStatusData;
+  currentStatus: ExperimentResultStatusData;
 }) => {
   const multipleExposureData =
     currentStatus.status === "unhealthy" &&
@@ -172,7 +172,7 @@ export const notifySrm = async ({
 }: {
   context: Context;
   experiment: ExperimentInterface;
-  currentStatus: RunningExperimentStatusData;
+  currentStatus: ExperimentResultStatusData;
   healthSettings: ExperimentHealthSettings;
 }) => {
   const triggered =
@@ -415,8 +415,8 @@ export const notifyDecision = async ({
 }: {
   context: Context;
   experiment: ExperimentInterface;
-  currentStatus: RunningExperimentStatusData;
-  lastStatus?: RunningExperimentStatusData;
+  currentStatus: ExperimentResultStatusData;
+  lastStatus?: ExperimentResultStatusData;
 }) => {
   if (
     currentStatus.status === "ship-now" ||
@@ -468,7 +468,7 @@ export const notifyExperimentChange = async ({
     context.org.settings,
     orgHasPremiumFeature(context.org, "decision-framework")
   );
-  const currentStatus = getRunningExperimentStatus({
+  const currentStatus = getExperimentResultStatus({
     experimentData: experiment,
     healthSettings,
   });
@@ -482,7 +482,7 @@ export const notifyExperimentChange = async ({
 
     await notifySrm({ context, experiment, currentStatus, healthSettings });
 
-    const lastStatus = getRunningExperimentStatus({
+    const lastStatus = getExperimentResultStatus({
       experimentData: {
         ...experiment,
         // use current experiment but the old analysis summary to compute

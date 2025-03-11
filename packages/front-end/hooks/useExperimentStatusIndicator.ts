@@ -1,11 +1,11 @@
 import {
   getHealthSettings,
-  getRunningExperimentStatus,
+  getExperimentResultStatus,
 } from "shared/experiments";
 import {
   ExperimentHealthSettings,
   ExperimentDataForStatusStringDates,
-  RunningExperimentStatusData,
+  ExperimentResultStatusData,
 } from "back-end/types/experiment";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
@@ -35,7 +35,7 @@ export function useExperimentStatusIndicator() {
 }
 
 function getDetailedRunningStatusIndicatorData(
-  decisionData: RunningExperimentStatusData
+  decisionData: ExperimentResultStatusData
 ): StatusIndicatorData {
   switch (decisionData.status) {
     case "rollback-now":
@@ -136,7 +136,7 @@ export function getStatusIndicatorData(
   }
 
   if (experimentData.status == "running") {
-    const runningStatusData = getRunningExperimentStatus({
+    const runningStatusData = getExperimentResultStatus({
       experimentData,
       healthSettings,
     });

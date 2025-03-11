@@ -22,7 +22,7 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentDataForStatus,
   MetricOverride,
-  RunningExperimentStatusData,
+  ExperimentResultStatusData,
   ExperimentUnhealthyData,
   ExperimentDataForStatusStringDates,
 } from "back-end/types/experiment";
@@ -915,7 +915,7 @@ export function getDecisionFrameworkStatus({
   goalMetrics: string[];
   guardrailMetrics: string[];
   daysNeeded?: number;
-}): RunningExperimentStatusData | undefined {
+}): ExperimentResultStatusData | undefined {
   const powerReached = daysNeeded === 0;
   const sequentialTesting = resultsStatus?.settings?.sequentialTesting;
 
@@ -1057,13 +1057,13 @@ function getDaysLeftStatus({
   }
 }
 
-export function getRunningExperimentStatus({
+export function getExperimentResultStatus({
   experimentData,
   healthSettings,
 }: {
   experimentData: ExperimentDataForStatus | ExperimentDataForStatusStringDates;
   healthSettings: ExperimentHealthSettings;
-}): RunningExperimentStatusData | undefined {
+}): ExperimentResultStatusData | undefined {
   const unhealthyData: ExperimentUnhealthyData = {};
   const healthSummary = experimentData.analysisSummary?.health;
   const resultsStatus = experimentData.analysisSummary?.resultsStatus;

@@ -43,13 +43,13 @@ export type ExperimentUnhealthyData = {
   lowPowered?: boolean;
 };
 
-export type RunningExperimentStatus =
+export type ExperimentResultStatus =
   | DecisionFrameworkExperimentRecommendationStatus
   | { status: "no-data" }
   | { status: "unhealthy"; unhealthyData: ExperimentUnhealthyData }
   | { status: "before-min-duration" };
 
-export type RunningExperimentStatusData = RunningExperimentStatus & {
+export type ExperimentResultStatusData = ExperimentResultStatus & {
   tooltip?: string;
 };
 
