@@ -1,11 +1,11 @@
 import {
-  experimentTemplateInterface,
-  ExperimentTemplateInterface,
-} from "back-end/src/routers/experiment-template/template.validators";
+  SafeRolloutSnapshotInterface,
+  safeRolloutSnapshotInterface,
+} from "back-end/src/validators/features";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
-  schema: experimentTemplateInterface,
+  schema: safeRolloutSnapshotInterface,
   collectionName: "saferolloutsnapshots",
   idPrefix: "srsnp__",
   auditLog: {
@@ -19,30 +19,26 @@ const BaseClass = MakeModelClass({
 
 export class SafeRolloutSnapshotModel extends BaseClass {
   // CRUD permission checks
-  protected canCreate(doc: ExperimentTemplateInterface): boolean {
-    return this.context.permissions.canCreateExperimentTemplate(doc);
+  protected canCreate(doc: SafeRolloutSnapshotInterface): boolean {
+    // TODO: Fix me when permission checks are implemented
+    return true;
   }
-  protected canRead(doc: ExperimentTemplateInterface): boolean {
-    return this.context.hasPermission("readData", doc.project || "");
-  }
-  protected canUpdate(
-    existing: ExperimentTemplateInterface,
-    updates: ExperimentTemplateInterface
-  ): boolean {
-    return this.context.permissions.canUpdateExperimentTemplate(
-      existing,
-      updates
+  protected canRead(doc: SafeRolloutSnapshotInterface): boolean {
+    const { datasource } = this.getForeignRefs(doc);
+
+    return this.context.permissions.canReadMultiProjectResource(
+      datasource?.projects
     );
   }
-  protected canDelete(doc: ExperimentTemplateInterface): boolean {
-    return this.context.permissions.canDeleteExperimentTemplate(doc);
+  protected canUpdate(
+    existing: SafeRolloutSnapshotInterface,
+    updates: SafeRolloutSnapshotInterface
+  ): boolean {
+    // TODO: Fix me when permission checks are implemented
+    return true;
   }
-
-  // TODO: Implement this for OpenAPI
-  //   public toApiInterface(project: ProjectInterface): ApiProject {
-  //     return {
-  //       id: project.id,
-  //       name: project.name,
-  //     };
-  //   }
+  protected canDelete(doc: SafeRolloutSnapshotInterface): boolean {
+    // TODO: Fix me when permission checks are implemented
+    return true;
+  }
 }
