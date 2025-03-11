@@ -1,4 +1,4 @@
-import { KnownBlock } from "@slack/web-api";
+import { KnownBlock } from "@slack/types";
 import formatNumber from "number-format.js";
 import { logger } from "back-end/src/util/logger";
 import { cancellableFetch } from "back-end/src/util/http.util";
