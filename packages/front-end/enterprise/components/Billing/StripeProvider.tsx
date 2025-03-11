@@ -12,6 +12,7 @@ import { useAuth } from "@/services/auth";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import Callout from "@/components/Radix/Callout";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import { getStripePublishableKey } from "@/services/env";
 
 interface StripeContextProps {
   clientSecret: string | null;
@@ -37,8 +38,7 @@ export function StripeProvider({
   );
   const [error, setError] = useState<string | undefined>(undefined);
 
-  const stripePublishableKey =
-    process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "";
+  const stripePublishableKey = getStripePublishableKey();
 
   const stripePromise = useMemo(
     () => (stripePublishableKey ? loadStripe(stripePublishableKey) : null),
@@ -74,7 +74,8 @@ export function StripeProvider({
     if (stripePublishableKey) setupStripe();
   }, [setupStripe, stripePublishableKey]);
 
-  if (!stripePublishableKey) return null;
+  if (!stripePublishableKey)
+    return <Callout status="error">Missing Stripe Publishable Key</Callout>;
   if (error) return <Callout status="error">{error}</Callout>;
   if (!clientSecret || !stripePromise) return <LoadingOverlay />;
 
