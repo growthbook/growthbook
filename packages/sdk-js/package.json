@@ -58,16 +58,7 @@
   },
   "author": "Jeremy Dorn",
   "dependencies": {
-    "@octokit/auth-app": "7.1.5",
-    "@octokit/core": "6.1.4",
-    "@octokit/oauth-methods": "5.1.4",
-    "bootstrap": "5.3.3",
-    "dom-mutator": "^0.6.0",
-    "express-jwt": "8.5.1",
-    "jsonwebtoken": "9.0.2",
-    "jwks-rsa": "3.1.0",
-    "next": "14.2.24",
-    "openai": "4.86.2"
+    "dom-mutator": "^0.6.0"
   },
   "devDependencies": {
     "@babel/cli": "^7.19.3",
@@ -92,7 +83,7 @@
     "npm-run-all": "^4.1.5",
     "rimraf": "^3.0.2",
     "rollup": "^2.56.3",
-    "rollup-plugin-terser": "^4.0.3",
+    "rollup-plugin-terser": "^7.0.2",
     "ts-jest": "^27.0.5",
     "typescript": "5.6.3"
   },
