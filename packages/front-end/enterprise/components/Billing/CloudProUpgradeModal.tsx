@@ -50,7 +50,7 @@ export default function CloudProUpgradeModal({
       // Should we make a call to set this as the user's default payment?
 
       // Now that payment is confirmed, create the subscription
-      await apiCall("/subscription/new-inline-pro", {
+      await apiCall("/subscription/start-new-pro", {
         method: "POST",
       });
       refreshOrganization(); // Is there a better way to do this?
@@ -100,7 +100,7 @@ export default function CloudProUpgradeModal({
                 {seatsInUse === 1 ? "" : "s"} x $20/month)
               </strong>{" "}
               will be added this month&apos;s invoice and your credit card will
-              be charged immediately.
+              be charged on the 1st of the following month.
             </p>
             <PaymentElement />
           </>

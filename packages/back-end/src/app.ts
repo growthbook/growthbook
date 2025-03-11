@@ -424,7 +424,7 @@ if (IS_CLOUD) {
     stripeController.postNewProSubscriptionIntent
   );
   app.post(
-    "/subscription/new-inline-pro",
+    "/subscription/start-new-pro",
     stripeController.postInlineProSubscription
   );
 }

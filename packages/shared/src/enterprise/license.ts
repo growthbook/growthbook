@@ -601,7 +601,7 @@ export async function postNewProSubscriptionToLicenseServer(
 export async function postNewInlineSubscriptionToLicenseServer(
   organizationId: string
 ) {
-  const url = `${LICENSE_SERVER_URL}subscription/new-inline-pro`;
+  const url = `${LICENSE_SERVER_URL}subscription/start-new-pro`;
   return callLicenseServer(
     url,
     JSON.stringify({
@@ -618,7 +618,7 @@ export async function postNewProSubscriptionIntentToLicenseServer(
   name: string,
   seats: number
 ) {
-  const url = `${LICENSE_SERVER_URL}subscription/new-inline-pro`;
+  const url = `${LICENSE_SERVER_URL}subscription/setup-subscription-intent`;
   return callLicenseServer(
     url,
     JSON.stringify({
