@@ -13,6 +13,7 @@ import RadioGroup from "@/components/Radix/RadioGroup";
 import { GBInfo } from "@/components/Icons";
 import Frame from "@/components/Radix/Frame";
 import { DocLink } from "@/components/DocLink";
+import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteriaModal";
 import StatsEngineSettings from "./StatsEngineSettings";
 import StickyBucketingSettings from "./StickyBucketingSettings";
 
@@ -32,6 +33,10 @@ export default function ExperimentSettings({
     () => queryParams.get("editCheckListModal") || false
   );
 
+  const [decisionCriteriaModalOpen, setDecisionCriteriaModalOpen] = useState(
+    false
+  );
+
   const srmThreshold = form.watch("srmThreshold");
   const srmHighlightColor =
     srmThreshold && (srmThreshold > 0.01 || srmThreshold < 0.001)
@@ -46,6 +51,17 @@ export default function ExperimentSettings({
 
   return (
     <>
+      {decisionCriteriaModalOpen && (
+        <DecisionCriteriaModal
+          open={decisionCriteriaModalOpen}
+          onClose={() => setDecisionCriteriaModalOpen(false)}
+          onSave={(criteria) => {
+            console.log("Saved decision criteria:", criteria);
+            setDecisionCriteriaModalOpen(false);
+          }}
+          trackingEventModalSource="experiment_settings"
+        />
+      )}
       <Frame>
         <Flex gap="4">
           <Box width="220px" flexShrink="0">
@@ -216,13 +232,13 @@ export default function ExperimentSettings({
                         label: "Respect Conversion Windows",
                         value: "firstExposure",
                         description:
-                          "For metrics with conversion windows, build a single conversion window off of each user’s first exposure.",
+                          "For metrics with conversion windows, build a single conversion window off of each user's first exposure.",
                       },
                       {
                         label: "Ignore Conversion Windows",
                         value: "experimentDuration",
                         description:
-                          "Count all metric values from user’s first exposure to the end of the experiment.",
+                          "Count all metric values from user's first exposure to the end of the experiment.",
                       },
                     ]}
                     value={form.watch("attributionModel")}
@@ -462,7 +478,7 @@ export default function ExperimentSettings({
                     </label>
                   </Box>
                 </Flex>
-                <Box mb="4">
+                <Box>
                   <Text size="2">
                     Minimum experiment runtime
                     <Tooltip content="Estimated duration and shipping recommendations are not made until an experiment has been running for this many days.">
@@ -492,6 +508,20 @@ export default function ExperimentSettings({
                     />
                   </Box>
                 </Box>
+                <Flex align="start" direction="column" flexGrow="1" pt="6">
+                  <Box mb="4">
+                    <PremiumTooltip commercialFeature="decision-framework">
+                      <Button
+                        onClick={() => setDecisionCriteriaModalOpen(true)}
+                        color="violet"
+                        variant="soft"
+                        size="sm"
+                      >
+                        Configure Shipping Criteria
+                      </Button>
+                    </PremiumTooltip>
+                  </Box>
+                </Flex>
               </Box>
             </Box>
           </Flex>

@@ -30,6 +30,8 @@ export {
   UpdateTemplateProps,
 } from "back-end/src/routers/experiment-template/template.validators";
 
+export { DecisionCriteriaInterface } from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.validators";
+
 export type DecisionFrameworkExperimentRecommendationStatus =
   | { status: "days-left"; daysLeft: number }
   | { status: "ship-now" }
