@@ -138,29 +138,15 @@ export const postCreateBillingSession = withLicenseServerErrorHandling(
 
     const license = await getLicense(org.licenseKey);
 
-    let url;
-    let status;
-    if (license?.id) {
-      const results = await postCreateBillingSessionToLicenseServer(license.id);
-      url = results.url;
-      status = results.status;
-    } else {
-      // TODO: Remove once all orgs have moved license info off of the org
-      if (!org.stripeCustomerId) {
-        throw new Error("Missing customer id");
-      }
-
-      ({ url } = await stripe.billingPortal.sessions.create({
-        customer: org.stripeCustomerId,
-        return_url: `${APP_ORIGIN}/settings/billing?org=${org.id}`,
-      }));
-
-      status = 200;
+    if (!license?.id) {
+      throw new Error("No license key found for organization");
     }
 
-    res.status(status).json({
-      status: status,
-      url,
+    const results = await postCreateBillingSessionToLicenseServer(license.id);
+
+    res.status(results.status).json({
+      status: results.status,
+      url: results.url,
     });
   }
 );
