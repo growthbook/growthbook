@@ -320,19 +320,6 @@ function OrganizationRow({
               {isCloud() && (
                 <>
                   <div className="row">
-                    <div className="col-2 text-right">
-                      Subscription (legacy):
-                    </div>
-                    <div className="col-auto font-weight-bold">
-                      {organization?.subscription?.planNickname
-                        ? organization?.subscription?.planNickname +
-                          " (" +
-                          organization?.subscription?.status +
-                          ")"
-                        : "none"}
-                    </div>
-                  </div>
-                  <div className="row">
                     <div className="col-2 text-right">Enterprise (legacy):</div>
                     <div className="col-auto font-weight-bold">
                       {organization?.enterprise ? "yes" : "no"}
@@ -344,22 +331,12 @@ function OrganizationRow({
                       {organization?.licenseKey ? organization.licenseKey : "-"}
                     </div>
                   </div>
-                  {((license ||
-                    licenseLoading ||
-                    organization?.subscription?.status === "active") && (
+                  {((license || licenseLoading) && (
                     <div className="row">
                       <div className="col-2 text-right">Seats</div>
                       <div className="col-auto font-weight-bold">
                         {licenseLoading && <LoadingSpinner />}
                         {license && license.seats}
-                        {!licenseLoading && !license && (
-                          <>
-                            {organization?.subscription?.qty &&
-                            organization?.subscription?.status === "active"
-                              ? organization.subscription.qty
-                              : ""}
-                          </>
-                        )}
                       </div>
                     </div>
                   )) || // Only show free seats if they are on a free plan, ie. there is no license, no subscription, nor are they on a legacy enterprise

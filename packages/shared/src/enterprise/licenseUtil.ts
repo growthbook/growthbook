@@ -77,7 +77,7 @@ export type CommercialFeature =
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export type SubscriptionInfo = {
-  billingPlatform: "stripe" | "orb";
+  billingPlatform?: "stripe" | "orb";
   externalId: string;
   trialEnd: Date | null;
   status: "active" | "canceled" | "past_due" | "trialing" | "";
@@ -88,7 +88,7 @@ export type SubscriptionInfo = {
   pendingCancelation: boolean;
 };
 
-export function getStripeSubscriptionStatus(
+function getStripeSubscriptionStatus(
   status: Stripe.Subscription.Status
 ): SubscriptionInfo["status"] {
   if (status === "past_due") return "past_due";
@@ -370,7 +370,6 @@ export function getAccountPlan(org: MinimalOrganization): AccountPlan {
     }
     if (org.enterprise) return "enterprise";
     if (org.restrictAuthSubPrefix || org.restrictLoginMethod) return "pro_sso";
-    if (isActiveSubscriptionStatus(org.subscription?.status)) return "pro";
     return "starter";
   }
 
