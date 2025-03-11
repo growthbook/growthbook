@@ -9,7 +9,7 @@ import {
   getLicenseError,
   backgroundUpdateLicenseFromServerForTests,
   LicenseInterface,
-} from "../src/enterprise/license";
+} from "../src/enterprise/licenseUtil";
 import * as LicenseModelModule from "../src/enterprise/models/licenseModel";
 
 const LicenseModel = LicenseModelModule.LicenseModel;
@@ -21,7 +21,11 @@ const mockedFetch = fetch as jest.MockedFunction<typeof fetch>;
 
 describe("src/license", () => {
   const env = process.env;
-  const userLicenseCodes = ["code1", "code2"];
+  const userLicenseCodes = {
+    fullMembers: ["code1", "code2"],
+    readOnlyMembers: [],
+    invites: [],
+  };
   const metaData = {
     installationId: "installation-04ed35f0-806c-4ecb-b148-051bc42dd3e1",
     gitSha: "gitSha",
@@ -57,6 +61,11 @@ describe("src/license", () => {
       "installation-04ed35f0-806c-4ecb-b148-051bc42dd3e1": {
         date: "2023-11-17T19:48:38.562Z",
         userHashes: ["6ef56f32"],
+        licenseUserCodes: {
+          fullMembers: ["6ef56f32"],
+          readOnlyMembers: [],
+          invites: [],
+        },
       },
     },
     signedChecksum:
@@ -598,7 +607,7 @@ describe("src/license", () => {
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                userHashes: userLicenseCodes,
+                licenseUserCodes: userLicenseCodes,
                 metaData,
               }),
             })
@@ -629,7 +638,7 @@ describe("src/license", () => {
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                userHashes: userLicenseCodes,
+                licenseUserCodes: userLicenseCodes,
                 metaData,
               }),
             })
@@ -667,7 +676,7 @@ describe("src/license", () => {
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                userHashes: userLicenseCodes,
+                licenseUserCodes: userLicenseCodes,
                 metaData,
               }),
             })
@@ -771,7 +780,7 @@ describe("src/license", () => {
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                userHashes: userLicenseCodes,
+                licenseUserCodes: userLicenseCodes,
                 metaData,
               }),
             })
