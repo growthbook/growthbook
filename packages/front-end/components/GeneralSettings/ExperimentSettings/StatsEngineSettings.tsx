@@ -24,6 +24,7 @@ import FrequentistTab from "./FrequentistTab";
 import BayesianTab from "./BayesianTab";
 
 interface FormValues {
+  decisionFrameworkEnabled: boolean;
   metricDefaults: MetricDefaults;
   statsEngine: StatsEngine;
   confidenceLevel: number;
@@ -126,7 +127,57 @@ export default function StatsEngineSettings() {
 
   return (
     <Box className="mb-3 form-group align-items-start" width="100%">
-      <Box className="border rounded" mb="6" p="4">
+      <h4>Stats Engine Settings</h4>
+
+      <StatsEngineSelect
+        label="Default statistics engine to use (Bayesian is most common)"
+        allowUndefined={false}
+        showDefault={true}
+        value={form.watch("statsEngine")}
+        onChange={(value) => {
+          form.setValue("statsEngine", value);
+        }}
+        labelClassName="mr-2"
+      />
+
+      <div className="mt-3">
+        <Tabs
+          value={statsEngineTab}
+          onValueChange={(v) => setStatsEngineTab(v)}
+        >
+          <TabsList>
+            <TabsTrigger value="bayesian">Bayesian</TabsTrigger>
+            <TabsTrigger value="frequentist">Frequentist</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="frequentist">
+            <Box mt="4">
+              <FrequentistTab
+                {...{
+                  pHighlightColor,
+                  pWarningMsg,
+                  regressionAdjustmentDaysHighlightColor,
+                  regressionAdjustmentDaysWarningMsg,
+                  form,
+                }}
+              />
+            </Box>
+          </TabsContent>
+          <TabsContent value="bayesian">
+            <Box mt="4">
+              <BayesianTab
+                {...{
+                  highlightColor,
+                  warningMsg,
+                  form,
+                }}
+              />
+            </Box>
+          </TabsContent>
+        </Tabs>
+      </div>
+
+      <Box className="appbox" mb="6" p="4">
         <Heading as="h4" size="3" mb="4">
           <PremiumTooltip commercialFeature="regression-adjustment">
             Regression Adjustment (CUPED)
@@ -199,56 +250,6 @@ export default function StatsEngineSettings() {
           </Box>
         </Flex>
       </Box>
-
-      <h4>Stats Engine Settings</h4>
-
-      <StatsEngineSelect
-        label="Default statistics engine to use (Bayesian is most common)"
-        allowUndefined={false}
-        showDefault={true}
-        value={form.watch("statsEngine")}
-        onChange={(value) => {
-          form.setValue("statsEngine", value);
-        }}
-        labelClassName="mr-2"
-      />
-
-      <div className="mt-3">
-        <Tabs
-          value={statsEngineTab}
-          onValueChange={(v) => setStatsEngineTab(v)}
-        >
-          <TabsList>
-            <TabsTrigger value="bayesian">Bayesian</TabsTrigger>
-            <TabsTrigger value="frequentist">Frequentist</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="frequentist">
-            <Box mt="4">
-              <FrequentistTab
-                {...{
-                  pHighlightColor,
-                  pWarningMsg,
-                  regressionAdjustmentDaysHighlightColor,
-                  regressionAdjustmentDaysWarningMsg,
-                  form,
-                }}
-              />
-            </Box>
-          </TabsContent>
-          <TabsContent value="bayesian">
-            <Box mt="4">
-              <BayesianTab
-                {...{
-                  highlightColor,
-                  warningMsg,
-                  form,
-                }}
-              />
-            </Box>
-          </TabsContent>
-        </Tabs>
-      </div>
     </Box>
   );
 }

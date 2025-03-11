@@ -31,6 +31,7 @@ const AddOrphanedUserModal: FC<{
         close={close}
         source="add orphaned user"
         reason={"To enable advanced permissioning,"}
+        commercialFeature="advanced-permissions"
       />
     );
   }
@@ -40,7 +41,7 @@ const AddOrphanedUserModal: FC<{
     ["pro", "pro_sso", "enterprise"].includes(effectiveAccountPlan || "") &&
     license &&
     license.hardCap &&
-    license.seats < seatsInUse + 1
+    (license?.seats || 0) < seatsInUse + 1
   ) {
     return (
       <Modal

@@ -3,6 +3,7 @@ import { SDKAttribute, SDKAttributeSchema } from "back-end/types/organization";
 import { ArchetypeAttributeValues } from "back-end/types/archetype";
 import { datetime } from "shared/dates";
 import isEqual from "lodash/isEqual";
+import { Switch } from "@radix-ui/themes";
 import { useAttributeSchema } from "@/services/features";
 import Field from "@/components/Forms/Field";
 import {
@@ -12,7 +13,6 @@ import {
   TabsContent,
 } from "@/components/Radix/Tabs";
 import SelectField from "@/components/Forms/SelectField";
-import Toggle from "@/components/Forms/Toggle";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import DatePicker from "@/components/DatePicker";
 import styles from "./AttributeForm.module.scss";
@@ -153,10 +153,11 @@ export default function AttributeForm({
           <div className="col-6">{attribute.property}</div>
           <div className="col-6">
             {attribute.datatype === "boolean" ? (
-              <Toggle
+              <Switch
+                my="1"
                 id={"form-toggle" + attribute.property}
-                value={!!attributeFormValues.get(attribute.property)}
-                setValue={(value) => {
+                checked={!!attributeFormValues.get(attribute.property)}
+                onCheckedChange={(value) => {
                   attributeFormValues.set(attribute.property, value);
                   updateFormValues();
                 }}
@@ -216,12 +217,23 @@ export default function AttributeForm({
                   />
                 )}
               </>
+            ) : attribute.datatype === "number" ? (
+              <Field
+                className=""
+                type="number"
+                value={value as string}
+                onChange={(e) => {
+                  attributeFormValues.set(attribute.property, e.target.value);
+                  updateFormValues();
+                }}
+              />
             ) : (
               <Field
                 className=""
                 value={value as string}
                 onChange={(e) => {
                   attributeFormValues.set(attribute.property, e.target.value);
+                  updateFormValues();
                 }}
               />
             )}
@@ -258,7 +270,7 @@ export default function AttributeForm({
           </TabsList>
 
           <div
-            className={`${styles.attributeBox} pb-2 bg-light round`}
+            className={`${styles.attributeBox} pb-2 round appbox`}
             style={{ borderTopRightRadius: 0 }}
           >
             <TabsContent value="simple">

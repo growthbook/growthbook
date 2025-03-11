@@ -401,10 +401,31 @@ app.post(
   "/subscription/new-pro-trial",
   stripeController.postNewProTrialSubscription
 );
+
+if (IS_CLOUD) {
+  app.post(
+    "/subscription/payment-methods/setup-intent",
+    stripeController.postSetupIntent
+  );
+  app.get(
+    "/subscription/payment-methods",
+    stripeController.fetchPaymentMethods
+  );
+  app.post(
+    "/subscription/payment-methods/detach",
+    stripeController.deletePaymentMethod
+  );
+  app.post(
+    "/subscription/payment-methods/set-default",
+    stripeController.updateCustomerDefaultPayment
+  );
+}
 app.post("/subscription/new", stripeController.postNewProSubscription);
-app.get("/subscription/quote", stripeController.getSubscriptionQuote);
 app.post("/subscription/manage", stripeController.postCreateBillingSession);
 app.post("/subscription/success", stripeController.postSubscriptionSuccess);
+
+app.get("/billing/usage", stripeController.getUsage);
+
 app.get("/queries/:ids", datasourcesController.getQueries);
 app.post("/query/test", datasourcesController.testLimitedQuery);
 app.post("/dimension-slices", datasourcesController.postDimensionSlices);

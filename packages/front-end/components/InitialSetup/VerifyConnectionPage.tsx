@@ -43,6 +43,7 @@ const VerifyConnectionPage = ({
   const [setupOpen, setSetupOpen] = useState(true);
   const [attributesOpen, setAttributesOpen] = useState(true);
   const [inviting, setInviting] = useState(false);
+  const [eventTracker, setEventTracker] = useState("");
 
   const { refreshOrganization, organization } = useUser();
   const settings = useOrgSettings();
@@ -132,6 +133,8 @@ const VerifyConnectionPage = ({
               <div className="appbox bg-light p-3">
                 <InstallationCodeSnippet
                   language={currentConnection.languages[0]}
+                  eventTracker={eventTracker}
+                  setEventTracker={setEventTracker}
                   apiHost={apiHost}
                   apiKey={currentConnection.key}
                   encryptionKey={
@@ -171,6 +174,8 @@ const VerifyConnectionPage = ({
                   remoteEvalEnabled={
                     currentConnection.remoteEvalEnabled || false
                   }
+                  eventTracker={eventTracker}
+                  setEventTracker={setEventTracker}
                 />
               </div>
             )}

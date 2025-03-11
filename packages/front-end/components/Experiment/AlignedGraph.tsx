@@ -64,8 +64,8 @@ const AlignedGraph: FC<Props> = ({
   significant = false,
   showAxis = false,
   axisOnly = false,
-  zeroLineWidth = 3,
-  zeroLineOffset = 1,
+  zeroLineWidth = 1,
+  zeroLineOffset = 0,
   metricForFormatting,
   graphWidth = 500,
   height = 30,
@@ -89,23 +89,23 @@ const AlignedGraph: FC<Props> = ({
 
   const metricFormatterOptions = { currency: metricDisplayCurrency };
 
-  const axisColor = "var(--text-link-hover-color)";
-  const zeroLineColor = "#0077b6";
-  const gridColor = "#0077b633";
+  const axisColor = "var(--color-text-mid)";
+  const zeroLineColor = "var(--color-text-low)";
+  const gridColor = "var(--slate-a3)";
   let barColor = "#aaa";
-  let sigBarColorPos = "#099476";
-  let sigBarColorNeg = "#d35a5a";
+  let sigBarColorPos = "var(--jade-10)";
+  let sigBarColorNeg = "var(--red-10)";
   let barColorOk = "#55ab95";
   let barColorWarning = "#d99132";
   let barColorDanger = "#d94032";
-  const barThickness = 20;
+  const barThickness = 18;
   const barHeight = Math.floor(height / 2) - barThickness / 2;
-  const violinOpacitySignificant = 0.8;
+  const violinOpacitySignificant = 0.9;
   const violinOpacityNotSignificant = 0.4;
   if (barFillType !== "color" && isHovered) {
     barColor = "#a0a0a0";
-    sigBarColorPos = "#39cb45";
-    sigBarColorNeg = "#e34040";
+    sigBarColorPos = "var(--jade-11)";
+    sigBarColorNeg = "var(--red-11)";
     barColorOk = "#4ec2a5";
     barColorWarning = "#ea9526";
     barColorDanger = "#e83223";
@@ -232,6 +232,7 @@ const AlignedGraph: FC<Props> = ({
               fill: axisColor,
               fontSize: 12,
               y: -10,
+              x: currentX + 3,
               fontFamily: "sans-serif",
               textAnchor: "middle",
             } as const;
@@ -404,9 +405,9 @@ const AlignedGraph: FC<Props> = ({
                     />
                   )}
                   <Line
-                    fill="#000000"
-                    strokeWidth={3}
-                    stroke={"#0008"}
+                    fill={"var(--slate-a9)"}
+                    strokeWidth={1}
+                    stroke={"var(--slate-a9)"}
                     from={{ x: xScale(expected ?? 0), y: barHeight }}
                     to={{
                       x: xScale(expected ?? 0),

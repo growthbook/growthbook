@@ -91,6 +91,8 @@ export const resolvers: Record<
   banditScheduleUnit: genDefaultResolver("banditScheduleUnit"),
   banditBurnInValue: genDefaultResolver("banditBurnInValue"),
   banditBurnInUnit: genDefaultResolver("banditBurnInUnit"),
+  experimentMinLengthDays: genDefaultResolver("experimentMinLengthDays"),
+  experimentMaxLengthDays: genDefaultResolver("experimentMaxLengthDays"),
   // TODO prior resolvers
 };
 

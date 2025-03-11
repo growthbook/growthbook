@@ -10,7 +10,6 @@ import {
   checkIfRevisionNeedsReview,
   evaluatePrerequisiteState,
   filterEnvironmentsByFeature,
-  getValidation,
   mergeResultHasChanges,
   PrerequisiteStateResult,
 } from "shared/util";
@@ -19,7 +18,12 @@ import { BiHide, BiShow } from "react-icons/bi";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Link from "next/link";
 import { BsClock } from "react-icons/bs";
-import { PiCheckCircleFill, PiCircleDuotone, PiFileX } from "react-icons/pi";
+import {
+  PiCheckCircleFill,
+  PiCircleDuotone,
+  PiFileX,
+  PiInfo,
+} from "react-icons/pi";
 import { FeatureUsageLookback } from "back-end/src/types/Integration";
 import { Box, Flex, Heading, Switch, Text } from "@radix-ui/themes";
 import { RxListBullet } from "react-icons/rx";
@@ -46,8 +50,6 @@ import DraftModal from "@/components/Features/DraftModal";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
 import DiscussionThread from "@/components/DiscussionThread";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import EditSchemaModal from "@/components/Features/EditSchemaModal";
-import Code from "@/components/SyntaxHighlighting/Code";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import EventUser from "@/components/Avatar/EventUser";
@@ -69,13 +71,13 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Badge from "@/components/Radix/Badge";
 import Frame from "@/components/Radix/Frame";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import JSONValidation from "@/components/Features/JSONValidation";
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";
 import { PrerequisiteAlerts } from "./PrerequisiteTargetingField";
 import PrerequisiteModal from "./PrerequisiteModal";
 import RequestReviewModal from "./RequestReviewModal";
-import JSONSchemaDescription from "./JSONSchemaDescription";
 import FeatureUsageGraph, { useFeatureUsage } from "./FeatureUsageGraph";
 import FeatureRules from "./FeatureRules";
 
@@ -113,8 +115,6 @@ export default function FeaturesOverview({
 
   const settings = useOrgSettings();
   const [edit, setEdit] = useState(false);
-  const [editValidator, setEditValidator] = useState(false);
-  const [showSchema, setShowSchema] = useState(false);
   const [draftModal, setDraftModal] = useState(false);
   const [reviewModal, setReviewModal] = useState(false);
   const [conflictModal, setConflictModal] = useState(false);
@@ -212,9 +212,6 @@ export default function FeaturesOverview({
 
   const currentVersion = version || baseFeature.version;
 
-  const { jsonSchema, validationEnabled, schemaDateUpdated } = getValidation(
-    feature
-  );
   const baseVersion = revision?.baseVersion || feature.version;
   const baseRevision = revisions.find((r) => r.version === baseVersion);
   let requireReviews = false;
@@ -239,7 +236,6 @@ export default function FeaturesOverview({
   const revisionHasChanges =
     !!mergeResult && mergeResultHasChanges(mergeResult);
 
-  const hasJsonValidator = hasCommercialFeature("json-validation");
   const canManageCustomFields = permissionsUtil.canManageCustomFields();
 
   const projectId = feature.project;
@@ -645,7 +641,7 @@ export default function FeaturesOverview({
               The default value and rules will be ignored.
             </div>
             {prerequisites.length > 0 ? (
-              <table className="table border bg-white mb-2 w-100">
+              <table className="table border mb-2 w-100">
                 <thead>
                   <tr className="bg-light">
                     <th
@@ -911,82 +907,19 @@ export default function FeaturesOverview({
 
         {feature.valueType === "json" && (
           <Box mb="4">
-            <Heading as="h3" size="4">
-              JSON Validation{" "}
-              <Tooltip
-                body={
-                  "Prevent typos and mistakes by specifying validation rules using JSON Schema or our Simple Validation Builder"
-                }
-              />
-            </Heading>
+            <Flex>
+              <Heading as="h3" size="4">
+                <PremiumTooltip
+                  commercialFeature="json-validation"
+                  body="Prevent typos and mistakes by specifying validation rules using JSON Schema or our Simple Validation Builder"
+                >
+                  JSON Validation{" "}
+                  <PiInfo style={{ color: "var(--violet-11)" }} />
+                </PremiumTooltip>
+              </Heading>
+            </Flex>
             <Frame>
-              <Box>
-                {hasJsonValidator && jsonSchema ? (
-                  <>
-                    <div className="d-flex align-items-center">
-                      <strong>
-                        {validationEnabled ? "Enabled" : "Disabled"}
-                      </strong>
-
-                      {schemaDateUpdated && (
-                        <div className="text-muted ml-3">
-                          Updated{" "}
-                          {schemaDateUpdated ? ago(schemaDateUpdated) : ""}
-                        </div>
-                      )}
-
-                      {validationEnabled ? (
-                        <div className="ml-auto">
-                          <a
-                            href="#"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setShowSchema(!showSchema);
-                            }}
-                          >
-                            <small>
-                              {showSchema
-                                ? "Hide JSON Schema"
-                                : "Show JSON Schema"}
-                            </small>
-                          </a>
-                        </div>
-                      ) : null}
-                    </div>
-                    {validationEnabled ? (
-                      <JSONSchemaDescription jsonSchema={jsonSchema} />
-                    ) : null}
-                    {showSchema && validationEnabled && (
-                      <div className="mt-4">
-                        <Code
-                          language="json"
-                          code={JSON.stringify(jsonSchema, null, 2)}
-                        />
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div>
-                    <em>No validation added.</em>
-                  </div>
-                )}
-
-                {hasJsonValidator && canEdit && (
-                  <div className="mt-3">
-                    <Button
-                      variant="ghost"
-                      onClick={() => {
-                        setEditValidator(true);
-                      }}
-                    >
-                      <span className="h4 pr-2 m-0 d-inline-block align-top">
-                        {validationEnabled ? <GBEdit /> : <GBAddCircle />}
-                      </span>
-                      {validationEnabled ? "Edit" : "Add"} JSON Validation
-                    </Button>
-                  </div>
-                )}
-              </Box>
+              <JSONValidation feature={feature} mutate={mutate} />
             </Frame>
           </Box>
         )}
@@ -1094,19 +1027,19 @@ export default function FeaturesOverview({
                   )}
                 </Flex>
                 <Box mt="2" mb="1">
-                  <div className="d-flex">
-                    <div>
+                  <Flex width="100%">
+                    <Box flexGrow="1">
                       <ForceSummary
                         value={getFeatureDefaultValue(feature)}
                         feature={feature}
                       />
-                    </div>
+                    </Box>
                     {featureUsage && (
-                      <div className="ml-auto">
+                      <Box className="ml-auto">
                         <FeatureUsageGraph data={featureUsage?.defaultValue} />
-                      </div>
+                      </Box>
                     )}
-                  </div>
+                  </Flex>
                 </Box>
               </Box>
               <Box className="appbox" mt="4" p="5" px="6">
@@ -1185,13 +1118,6 @@ export default function FeaturesOverview({
             mutate={mutate}
             version={currentVersion}
             setVersion={setVersion}
-          />
-        )}
-        {editValidator && (
-          <EditSchemaModal
-            close={() => setEditValidator(false)}
-            feature={feature}
-            mutate={mutate}
           />
         )}
         {editProjectModal && (

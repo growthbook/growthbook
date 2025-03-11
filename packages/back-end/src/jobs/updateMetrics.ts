@@ -57,6 +57,10 @@ export default async function (agenda: Agenda) {
 
         const metric = await getMetricById(context, id, true);
         if (!metric) return;
+
+        // Skip manual metrics
+        if (!metric.datasource) return;
+
         // Skip if metric was already refreshed recently
         if (
           metric.runStarted &&
