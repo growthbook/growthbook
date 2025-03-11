@@ -2,7 +2,7 @@ import { FC } from "react";
 import {
   ExperimentSnapshotInterface,
   ExperimentSnapshotAnalysis,
-} from "back-end/types/experiment-snapshot";
+} from "back-end/src/validators/experiment-snapshot";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { MetricInterface, MetricStats } from "back-end/types/metric";
 import { useForm } from "react-hook-form";

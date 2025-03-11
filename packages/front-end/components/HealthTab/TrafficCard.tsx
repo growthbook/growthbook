@@ -1,7 +1,7 @@
 import {
   ExperimentSnapshotTraffic,
   ExperimentSnapshotTrafficDimension,
-} from "back-end/types/experiment-snapshot";
+} from "back-end/src/validators/experiment-snapshot";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { useEffect, useMemo, useState } from "react";
 import { getValidDate } from "shared/dates";

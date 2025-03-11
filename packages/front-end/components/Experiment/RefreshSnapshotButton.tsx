@@ -5,7 +5,7 @@ import {
   ExperimentSnapshotInterface,
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
-} from "back-end/types/experiment-snapshot";
+} from "back-end/src/validators/experiment-snapshot";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { trackSnapshot } from "@/services/track";

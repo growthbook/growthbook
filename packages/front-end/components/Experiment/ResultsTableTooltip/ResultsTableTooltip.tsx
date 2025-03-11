@@ -4,7 +4,7 @@ import {
   ExperimentReportVariationWithIndex,
   MetricSnapshotSettings,
 } from "back-end/types/report";
-import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+import { SnapshotMetric } from "back-end/src/validators/experiment-snapshot";
 import {
   DifferenceType,
   PValueCorrection,

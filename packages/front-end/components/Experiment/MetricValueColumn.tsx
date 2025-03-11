@@ -1,4 +1,4 @@
-import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+import { SnapshotMetric } from "back-end/src/validators/experiment-snapshot";
 import {
   CSSProperties,
   DetailedHTMLProps,

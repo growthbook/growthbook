@@ -1,4 +1,4 @@
-import { ExperimentSnapshotTraffic } from "back-end/types/experiment-snapshot";
+import { ExperimentSnapshotTraffic } from "back-end/src/validators/experiment-snapshot";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { useEffect, useLayoutEffect, useMemo } from "react";
 import { getSRMHealthData } from "shared/health";

@@ -3,7 +3,7 @@ import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
+} from "back-end/src/validators/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
 import { DifferenceType } from "back-end/types/stats";
 import { FaCheck } from "react-icons/fa";

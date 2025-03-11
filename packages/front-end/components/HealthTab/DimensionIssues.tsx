@@ -1,4 +1,4 @@
-import { ExperimentSnapshotTrafficDimension } from "back-end/types/experiment-snapshot";
+import { ExperimentSnapshotTrafficDimension } from "back-end/src/validators/experiment-snapshot";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { useMemo, useState } from "react";
 import {

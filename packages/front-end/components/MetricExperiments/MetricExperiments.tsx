@@ -9,16 +9,14 @@ import {
   isFactMetric,
 } from "shared/experiments";
 import { StatsEngine } from "back-end/types/stats";
-import {
-  ExperimentWithSnapshot,
-  SnapshotMetric,
-} from "back-end/types/experiment-snapshot";
+import { ExperimentWithSnapshot } from "back-end/types/experiment-snapshot";
 import {
   ExperimentPhaseStringDates,
   ExperimentResultsType,
   ExperimentStatus,
   Variation,
 } from "back-end/types/experiment";
+import { SnapshotMetric } from "back-end/src/validators/experiment-snapshot";
 import useApi from "@/hooks/useApi";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import ChangeColumn from "@/components/Experiment/ChangeColumn";

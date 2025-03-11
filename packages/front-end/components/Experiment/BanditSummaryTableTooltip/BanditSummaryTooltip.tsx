@@ -1,5 +1,5 @@
 import React, { DetailedHTMLProps, HTMLAttributes, useEffect } from "react";
-import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+import { SnapshotMetric } from "back-end/src/validators/experiment-snapshot";
 import { BsXCircle } from "react-icons/bs";
 import clsx from "clsx";
 import { MdSwapCalls } from "react-icons/md";
