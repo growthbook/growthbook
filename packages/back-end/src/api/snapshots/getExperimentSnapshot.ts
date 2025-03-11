@@ -9,6 +9,7 @@ export const getExperimentSnapshot = createApiRequestHandler(
     const snapshot = await req.context.models.experimentSnapshots.getById(
       req.params.id
     );
+
     if (!snapshot) {
       throw new Error("Snapshot not found or no permission to access");
     }

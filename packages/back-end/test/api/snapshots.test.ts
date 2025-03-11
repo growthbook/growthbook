@@ -1,8 +1,9 @@
 import request from "supertest";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
-import { findSnapshotById } from "back-end/src/models/ExperimentSnapshotModel";
 import { snapshotFactory } from "back-end/test/factories/Snapshot.factory";
+import { ExperimentSnapshotModel } from "../../src/models/ExperimentSnapshotModel";
+import { BaseModel, Context } from "../../src/models/BaseModel";
 import { setupApp } from "./api.setup";
 
 jest.mock("back-end/src/models/DataSourceModel", () => ({
@@ -13,9 +14,13 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
   getExperimentById: jest.fn(),
 }));
 
-jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
-  findSnapshotById: jest.fn(),
-}));
+jest.mock("back-end/src/models/ExperimentSnapshotModel", () => {
+  const ExperimentSnapshotModel = {
+    getById: jest.fn(),
+    getLatestSnapshot: jest.fn(),
+  };
+  return { ExperimentSnapshotModel: jest.fn(() => ExperimentSnapshotModel) };
+});
 
 describe("snapshots API", () => {
   const { app, setReqContext } = setupApp();
@@ -25,12 +30,22 @@ describe("snapshots API", () => {
   });
 
   const org = { id: "org" };
+  const auditLogMock = jest.fn();
+
+  const defaultContext = ({
+    org,
+    auditLog: auditLogMock,
+  } as unknown) as Context;
 
   it("can get a snapshot", async () => {
+    const experimentSnapshotModel = new ExperimentSnapshotModel(defaultContext);
     setReqContext({
       org,
       permissions: {
         canReadSingleProjectResource: () => true,
+      },
+      models: {
+        experimentSnapshots: experimentSnapshotModel,
       },
     });
 
@@ -38,8 +53,22 @@ describe("snapshots API", () => {
       organization: org.id,
     });
 
-    findSnapshotById.mockReturnValueOnce(snapshot);
-    getExperimentById.mockReturnValueOnce({ id: snapshot.experiment });
+    const dangerousGetCollectionSpy = jest.spyOn(
+      BaseModel.prototype,
+      "_dangerousGetCollection"
+    );
+
+    dangerousGetCollectionSpy.mockImplementation(() => ({
+      findOne: jest.fn().mockReturnValueOnce(snapshot),
+    }));
+
+    const getForeignRefsSpy = jest.spyOn(BaseModel.prototype, "getForeignRefs");
+    getForeignRefsSpy.mockReturnValueOnce({
+      experiment: { id: snapshot.experiment, project: "prj_1" },
+    });
+    // (experimentSnapshotModel.getById as jest.Mock).mockReturnValueOnce(
+    //   snapshot
+    // );
 
     const response = await request(app)
       .get("/api/v1/snapshots/snp_1")
@@ -56,10 +85,14 @@ describe("snapshots API", () => {
   });
 
   it("checks permission on experiment when getting a snapshot", async () => {
+    const experimentSnapshotModel = new ExperimentSnapshotModel(defaultContext);
     setReqContext({
       org,
       permissions: {
         canReadSingleProjectResource: () => false,
+      },
+      models: {
+        experimentSnapshots: experimentSnapshotModel,
       },
     });
 
@@ -67,13 +100,23 @@ describe("snapshots API", () => {
       organization: org.id,
     });
 
-    // check is on getExperimentById, not findSnapshotById
-    findSnapshotById.mockReturnValueOnce(snapshot);
+    const dangerousGetCollectionSpy = jest.spyOn(
+      BaseModel.prototype,
+      "_dangerousGetCollection"
+    );
+
+    dangerousGetCollectionSpy.mockImplementation(() => ({
+      findOne: jest.fn().mockReturnValueOnce(snapshot),
+    }));
+
+    const getForeignRefsSpy = jest.spyOn(BaseModel.prototype, "getForeignRefs");
+    getForeignRefsSpy.mockReturnValueOnce({
+      experiment: { id: snapshot.experiment, project: "prj_1" },
+    });
 
     const response = await request(app)
       .get("/api/v1/snapshots/snp_1")
       .set("Authorization", "Bearer foo");
-    console.log(response.body);
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
@@ -117,7 +160,7 @@ describe("snapshots API", () => {
     setReqContext({
       org,
       permissions: {
-        canCreateExperimentSnapshot: () => false,
+        canRunExperimentQueries: () => false,
         throwPermissionError: () => {
           throw new Error("permission error");
         },

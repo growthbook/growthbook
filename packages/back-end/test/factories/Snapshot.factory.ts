@@ -1,5 +1,5 @@
 import { Factory } from "fishery";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { ExperimentSnapshotInterface } from "../../src/validators/experiment-snapshot";
 
 export const snapshotFactory = Factory.define<ExperimentSnapshotInterface>(
   ({ sequence, params }) => ({
@@ -10,6 +10,7 @@ export const snapshotFactory = Factory.define<ExperimentSnapshotInterface>(
     dimension: null,
 
     dateCreated: new Date(),
+    dateUpdated: new Date(),
     runStarted: null,
 
     status: params.status ?? "success",
