@@ -25,7 +25,13 @@ from gbstats.models.statistics import (
 from gbstats.models.tests import Uplift
 
 DECIMALS = 5
-round_ = partial(np.round, decimals=DECIMALS)
+
+
+def round_if_not_none(x: float, decimals: int):
+    return np.round(x, decimals) if x is not None else None
+
+
+round_ = partial(round_if_not_none, decimals=DECIMALS)
 
 
 def _round_result_dict(result_dict):
@@ -49,15 +55,17 @@ class TestTwoSidedTTest(TestCase):
         result_dict = asdict(TwoSidedTTest(stat_a, stat_b).compute_result())
         expected_rounded_dict = asdict(
             FrequentistTestResult(
-                expected=round_((0.7 - 0.41) / 0.41),
+                expected=0.70732,
                 ci=[-0.03526, 1.44989],
                 uplift=Uplift("normal", 0.70732, 0.37879),
                 p_value=0.06191,
                 error_message=None,
             )
         )
-
-        self.assertDictEqual(_round_result_dict(result_dict), expected_rounded_dict)
+        if result_dict["p_value"]:
+            self.assertDictEqual(_round_result_dict(result_dict), expected_rounded_dict)
+        else:
+            raise ValueError("p_value is None for TwoSidedTTest")
 
     def test_two_sided_ttest_absolute(self):
         stat_a = SampleMeanStatistic(sum=1396.87, sum_squares=52377.9767, n=3407)
@@ -162,7 +170,7 @@ class TestTwoSidedTTest(TestCase):
                 p_value=0.85771,
             )
         )
-        self.assertEqual(_round_result_dict(result_dict), expected_dict)
+        self.assertDictEqual(_round_result_dict(result_dict), expected_dict)
 
 
 class TestSequentialTTest(TestCase):
@@ -342,8 +350,9 @@ class TestOneSidedGreaterTTest(TestCase):
                 uplift=Uplift(
                     dist="normal", mean=0.5033610858562358, stddev=0.3334122146400735
                 ),
-                p_value=0.06558262868467746,
                 error_message=None,
+                p_value=0.06558262868467746,
+                p_value_error_message=None,
             )
         )
         self.assertDictEqual(
@@ -365,8 +374,9 @@ class TestOneSidedGreaterTTest(TestCase):
                 uplift=Uplift(
                     dist="normal", mean=0.23437666666666668, stddev=0.12983081254184736
                 ),
-                p_value=0.03554272489873023,
                 error_message=None,
+                p_value=0.03554272489873023,
+                p_value_error_message=None,
             )
         )
         self.assertDictEqual(
@@ -390,8 +400,9 @@ class TestOneSidedLesserTTest(TestCase):
                 uplift=Uplift(
                     dist="normal", mean=0.5033610858562358, stddev=0.3334122146400735
                 ),
-                p_value=0.9344173713153225,
                 error_message=None,
+                p_value=0.9344173713153225,
+                p_value_error_message=None,
             )
         )
         self.assertDictEqual(
@@ -413,8 +424,9 @@ class TestOneSidedLesserTTest(TestCase):
                 uplift=Uplift(
                     dist="normal", mean=0.23437666666666668, stddev=0.12983081254184736
                 ),
-                p_value=0.9644572751012698,
                 error_message=None,
+                p_value=0.9644572751012698,
+                p_value_error_message=None,
             )
         )
         self.assertDictEqual(
@@ -436,12 +448,13 @@ class TestSequentialOneSidedGreaterTTest(TestCase):
         expected_rounded_dict = asdict(
             FrequentistTestResult(
                 expected=0.5033610858562358,
-                ci=[-0.42635008449631073, np.inf],
+                ci=[-0.42356454602790883, np.inf],
                 uplift=Uplift(
                     dist="normal", mean=0.5033610858562358, stddev=0.3334122146400735
                 ),
-                p_value=0.5,
                 error_message=None,
+                p_value=0.4999,
+                p_value_error_message=None,
             )
         )
         self.assertDictEqual(
@@ -459,12 +472,13 @@ class TestSequentialOneSidedGreaterTTest(TestCase):
         expected_rounded_dict = asdict(
             FrequentistTestResult(
                 expected=0.23437666666666668,
-                ci=[-0.1276531312110359, np.inf],
+                ci=[-0.12656844172804982, np.inf],
                 uplift=Uplift(
                     dist="normal", mean=0.23437666666666668, stddev=0.12983081254184736
                 ),
-                p_value=0.4157426519775391,
                 error_message=None,
+                p_value=0.4999,
+                p_value_error_message=None,
             )
         )
         self.assertDictEqual(
@@ -486,12 +500,13 @@ class TestSequentialOneSidedLesserTTest(TestCase):
         expected_rounded_dict = asdict(
             FrequentistTestResult(
                 expected=0.5033610858562358,
-                ci=[-np.inf, 1.4330722562087823],
+                ci=[-np.inf, 1.4302867177403806],
                 uplift=Uplift(
                     dist="normal", mean=0.5033610858562358, stddev=0.3334122146400735
                 ),
-                p_value=0.5,
                 error_message=None,
+                p_value=0.4999,
+                p_value_error_message=None,
             )
         )
         self.assertDictEqual(
@@ -509,12 +524,13 @@ class TestSequentialOneSidedLesserTTest(TestCase):
         expected_rounded_dict = asdict(
             FrequentistTestResult(
                 expected=0.23437666666666668,
-                ci=[-np.inf, 0.5964064645443692],
+                ci=[-np.inf, 0.5953217750613832],
                 uplift=Uplift(
                     dist="normal", mean=0.23437666666666668, stddev=0.12983081254184736
                 ),
-                p_value=0.5,
                 error_message=None,
+                p_value=0.4999,
+                p_value_error_message=None,
             )
         )
         self.assertDictEqual(
