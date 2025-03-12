@@ -4,6 +4,9 @@ import { redirectWithTimeout, useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
+import { planNameFromAccountPlan } from "@/services/utils";
+import Modal from "../Modal";
+import Callout from "../Radix/Callout";
 import UpgradeModal from "./UpgradeModal";
 
 export default function SubscriptionInfo() {
@@ -14,9 +17,11 @@ export default function SubscriptionInfo() {
     canSubscribe,
     organization,
     license,
+    accountPlan,
   } = useUser();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
+  const [cancelSubscriptionModal, setCancelSubscriptionModal] = useState(false);
 
   //TODO: Remove this once we have moved the license off the organization
   const stripeSubscription =
@@ -47,6 +52,32 @@ export default function SubscriptionInfo() {
           source="billing-renew"
           commercialFeature={null}
         />
+      )}
+      {cancelSubscriptionModal && (
+        <Modal
+          open={true}
+          header="Are you sure you want to cancel?"
+          trackingEventModalType="cancel-subscription"
+          close={() => setCancelSubscriptionModal(false)}
+          cta="Yes, Cancel Subscription"
+          closeCta="Keep Subscription"
+          submitColor="danger"
+          submit={async () => {
+            await apiCall("/subscription/cancel", { method: "POST" });
+          }}
+        >
+          <>
+            <p>
+              If you cancel, you will continue to have access to your
+              <strong> {planNameFromAccountPlan(accountPlan)} Plan </strong>
+              features until your current billing period ends on {nextBillDate}.
+            </p>
+            <Callout status="warning">
+              You account can still acrue CDN usage charges. If you&apos;d like
+              to prevent that, you can disable live feature flags.
+            </Callout>
+          </>
+        </Modal>
       )}
       <div className="col-auto mb-3">
         <strong>Current Plan:</strong> {isCloud() ? "Cloud" : "Self-Hosted"} Pro
@@ -150,6 +181,16 @@ export default function SubscriptionInfo() {
             </button>
           </div>
         )}
+        {subscription?.billingPlatform === "orb" &&
+        subscription?.status === "active" &&
+        !pendingCancelation ? (
+          <Button
+            onClick={() => setCancelSubscriptionModal(true)}
+            color="danger"
+          >
+            Cancel Subscription
+          </Button>
+        ) : null}
       </div>
     </div>
   );
