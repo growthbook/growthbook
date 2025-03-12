@@ -261,7 +261,8 @@ class TTest(BaseABTest):
             return self._default_output(ZERO_NEGATIVE_VARIANCE_MESSAGE)
         if self.sequential_one_sided_test and self.alpha >= 0.5:
             return self._default_output(
-                "ALPHA_GREATER_THAN_0.5_FOR_SEQUENTIAL_ONE_SIDED_TEST"
+                error_message=None,
+                p_value_error_message="ALPHA_GREATER_THAN_0.5_FOR_SEQUENTIAL_ONE_SIDED_TEST",
             )
 
         p_value_result = self.compute_p_value()
