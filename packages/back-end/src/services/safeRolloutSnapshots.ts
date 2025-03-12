@@ -116,7 +116,7 @@ export function getSnapshotSettingsFromSafeRolloutArgs(
     queryFilter: settings.queryFilter || "",
     skipPartialData: false,
     defaultMetricPriorSettings: defaultMetricPriorSettings,
-    regressionAdjustmentEnabled: !!settings.regressionAdjustmentEnabled,
+    regressionAdjustmentEnabled: false,
     goalMetrics: [],
     secondaryMetrics: [],
     guardrailMetrics: settings.guardrailMetrics,
