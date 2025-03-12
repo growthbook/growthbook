@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
-
 from pydantic.dataclasses import dataclass
 
 from gbstats.models.statistics import (
@@ -80,7 +79,7 @@ class BaseABTest(ABC):
             and (self.stat_a.theta is None or self.stat_b.theta is None)
         ):
             theta = compute_theta_regression_adjusted_ratio(self.stat_a, self.stat_b)
-            if theta == 0:
+            if abs(theta) < 1e-8:
                 # revert to non-RA under the hood if no variance in a time period
                 self.stat_a = RatioStatistic(
                     n=self.stat_a.n,
