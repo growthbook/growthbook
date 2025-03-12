@@ -6,6 +6,7 @@ import {
   ExperimentSnapshotInterface,
   LegacyExperimentSnapshotInterface,
 } from "back-end/types/experiment-snapshot";
+import { logger } from "back-end/src/util/logger";
 import { migrateSnapshot } from "back-end/src/util/migrations";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
 import { updateExperimentAnalysisSummary } from "back-end/src/services/experiments";
@@ -262,10 +263,22 @@ export async function updateSnapshot({
         experimentSnapshot: experimentSnapshotModel,
       });
 
-      await updateExperimentTimeSeries({
-        context,
-        experiment: experimentModel,
-      });
+      try {
+        await updateExperimentTimeSeries({
+          context,
+          experiment: experimentModel,
+          experimentSnapshot: experimentSnapshotModel,
+        });
+      } catch (error) {
+        logger.error(
+          {
+            err: error,
+            experimentId: experimentModel.id,
+            snapshotId: experimentSnapshotModel.id,
+          },
+          "Unable to update experiment time series"
+        );
+      }
     }
   }
 
@@ -521,30 +534,3 @@ export async function createExperimentSnapshotModel({
 export const getDefaultAnalysisResults = (
   snapshot: ExperimentSnapshotDocument
 ) => snapshot.analyses?.[0]?.results?.[0];
-
-export async function getAllSnapshotsForTimeSeries({
-  experiment,
-  phase,
-  dimension,
-}: {
-  experiment: string;
-  phase: number;
-  dimension?: string;
-}): Promise<ExperimentSnapshotInterface[]> {
-  const snapshots = await ExperimentSnapshotModel.find(
-    {
-      experiment,
-      phase,
-      dimension: dimension || null,
-      type: "standard", // not include reports or bandit
-      status: "success", // only include successful snapshots
-    },
-    null,
-    {
-      sort: { dateCreated: -1 },
-      limit: 200,
-    }
-  );
-
-  return snapshots.map(toInterface);
-}

@@ -755,17 +755,6 @@ export class Permissions {
     return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
-  // TODO: This does not make a lot of sense given that we want to do this transparently, if we user created a
-  // snapshot we want to update the timeseries regardless as the permissions check should've happened when
-  // the snapshot was created.
-  public canCreateExperimentTimeSeries = (
-    experiment: Pick<ExperimentInterface, "project">
-  ): boolean => {
-    return this.canRunExperimentQueries({
-      projects: experiment.project ? [experiment.project] : [],
-    });
-  };
-
   // ENV_SCOPED_PERMISSIONS
   public canPublishFeature = (
     feature: Pick<FeatureInterface, "project">,

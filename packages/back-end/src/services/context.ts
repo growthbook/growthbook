@@ -34,7 +34,7 @@ import { SegmentModel } from "back-end/src/models/SegmentModel";
 import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
 import { PopulationDataModel } from "back-end/src/models/PopulationDataModel";
 import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplateModel";
-import { ExperimentTimeSeriesModel } from "back-end/src/models/ExperimentTimeSeriesModel";
+import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -55,7 +55,7 @@ export class ReqContextClass {
     metricGroups: MetricGroupModel;
     segments: SegmentModel;
     experimentTemplates: ExperimentTemplatesModel;
-    experimentTimeSeries: ExperimentTimeSeriesModel;
+    metricTimeSeries: MetricTimeSeriesModel;
   };
   private initModels() {
     this.models = {
@@ -68,7 +68,7 @@ export class ReqContextClass {
       metricGroups: new MetricGroupModel(this),
       segments: new SegmentModel(this),
       experimentTemplates: new ExperimentTemplatesModel(this),
-      experimentTimeSeries: new ExperimentTimeSeriesModel(this),
+      metricTimeSeries: new MetricTimeSeriesModel(this),
     };
   }
 

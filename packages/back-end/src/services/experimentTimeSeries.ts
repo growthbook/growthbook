@@ -1,129 +1,98 @@
 import md5 from "md5";
-import { addHours } from "date-fns";
+import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { ReqContext } from "back-end/types/organization";
 import { ExperimentInterface } from "back-end/src/validators/experiments";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import { CreateExperimentTimeSeries } from "back-end/src//validators/experiment-time-series";
-import { getAllSnapshotsForTimeSeries } from "back-end/src/models/ExperimentSnapshotModel";
+import {
+  ExperimentSnapshotInterface,
+  SnapshotMetric,
+} from "back-end/types/experiment-snapshot";
+import {
+  MetricTimeSeriesDataPoint,
+  MetricTimeSeriesVariation,
+} from "back-end/src/validators/metric-time-series";
 
 export async function updateExperimentTimeSeries({
   context,
   experiment,
+  experimentSnapshot,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
+  experimentSnapshot: ExperimentSnapshotInterface;
 }) {
-  const allSnapshots = await getAllSnapshotsForTimeSeries({
-    experiment: experiment.id,
-    phase: experiment.phases.length - 1,
-  });
+  const metricsIds = getAllMetricIdsFromExperiment(experiment);
+  const relativeAnalysis = experimentSnapshot.analyses.find(
+    (analysis) => analysis.settings.differenceType === "relative"
+  );
+  const absoluteAnalysis = experimentSnapshot.analyses.find(
+    (analysis) => analysis.settings.differenceType === "absolute"
+  );
+  const scaledAnalysis = experimentSnapshot.analyses.find(
+    (analysis) => analysis.settings.differenceType === "scaled"
+  );
 
-  if (allSnapshots.length > 0) {
-    const experimentTimeSeries = convertExperimentSnapshotsToTimeSeries({
-      experiment,
-      snapshots: allSnapshots,
-    });
-
-    await context.models.experimentTimeSeries.createOrUpdate(
-      experimentTimeSeries
-    );
+  // NB: Using relative as a base, but it should match absolute & scaled
+  const variations = relativeAnalysis?.results[0]?.variations;
+  if (!variations || variations.length === 0) {
+    return;
   }
+
+  const timeSeriesVariationsPerMetricId = metricsIds.reduce((acc, metricId) => {
+    acc[metricId] = variations.map((_, variationIndex) => ({
+      name: experiment.variations[variationIndex].name,
+      relative: convertSnapshotMetricToMetricTimeSeriesDataPoint(
+        relativeAnalysis?.results[0]?.variations[variationIndex]?.metrics[
+          metricId
+        ]
+      ),
+      absolute: convertSnapshotMetricToMetricTimeSeriesDataPoint(
+        absoluteAnalysis?.results[0]?.variations[variationIndex]?.metrics[
+          metricId
+        ]
+      ),
+      scaled: convertSnapshotMetricToMetricTimeSeriesDataPoint(
+        scaledAnalysis?.results[0]?.variations[variationIndex]?.metrics[
+          metricId
+        ]
+      ),
+    }));
+
+    return acc;
+  }, {} as Record<string, MetricTimeSeriesVariation[]>);
+
+  await context.models.metricTimeSeries.bulkCreateOrUpdate(
+    metricsIds.map((metricId) => ({
+      source: "experiment",
+      sourceId: experiment.id,
+      metricId,
+      lastSettingsHash: md5(JSON.stringify(experimentSnapshot.settings)),
+      dataPoints: [
+        {
+          date: experimentSnapshot.dateCreated,
+          variations: timeSeriesVariationsPerMetricId[metricId],
+        },
+      ],
+    }))
+  );
 }
 
-export function convertExperimentSnapshotsToTimeSeries({
-  experiment,
-  snapshots,
-}: {
-  experiment: ExperimentInterface;
-  snapshots: ExperimentSnapshotInterface[];
-}): CreateExperimentTimeSeries {
-  const timeSeriesResults = snapshots.map((s) =>
-    convertSingleSnapshotToTimeSeries(experiment, s)
-  );
+function convertSnapshotMetricToMetricTimeSeriesDataPoint(
+  metric: SnapshotMetric | undefined
+): MetricTimeSeriesDataPoint | undefined {
+  if (!metric) {
+    return undefined;
+  }
 
-  // Limit the number of results, to avoid uncapped growing document
-  const reducedDataPoints = downsampleTimeSeriesData(timeSeriesResults);
-
-  const experimentTimeSeries: CreateExperimentTimeSeries = {
-    experiment: experiment.id,
-    phase: experiment.phases.length - 1,
-    results: reducedDataPoints,
-  };
-
-  return experimentTimeSeries;
-}
-
-function convertSingleSnapshotToTimeSeries(
-  experiment: ExperimentInterface,
-  snapshot: ExperimentSnapshotInterface
-): CreateExperimentTimeSeries["results"][number] {
-  const analyses = Object.fromEntries(
-    snapshot.analyses
-      .filter((a) => a.results.length > 0 && a.results[0].variations.length > 0)
-      .map((a) => {
-        return [a.settings.differenceType, a];
-      })
-  );
-
+  // NB: Explicitly naming all fields to benefit from type safety
+  // when SnapshotMetric and MetricTimeSeriesDataPoint change
   return {
-    snapshotId: snapshot.id,
-    analysisDate: snapshot.dateCreated,
-    settingsHash: md5(
-      JSON.stringify({ ...snapshot.settings, metricSettings: [] })
-    ),
-    metrics: Object.fromEntries(
-      snapshot.settings.metricSettings.map((metricSetting) => {
-        return [
-          metricSetting.id,
-          {
-            metricSettingsHash: md5(JSON.stringify(metricSetting)),
-            variations: snapshot.settings.variations.map((_, index) => ({
-              id: experiment.variations[index].id,
-              name: experiment.variations[index].name,
-              absoluteData:
-                analyses["absolute"]?.results[0]?.variations[index].metrics[
-                  metricSetting.id
-                ],
-              relativeData:
-                analyses["relative"]?.results[0]?.variations[index].metrics[
-                  metricSetting.id
-                ],
-              scaledData:
-                analyses["scaled"]?.results[0]?.variations[index].metrics[
-                  metricSetting.id
-                ],
-            })),
-          },
-        ];
-      })
-    ),
+    value: metric.value,
+    denominator: metric.denominator,
+    expected: metric.expected,
+    ci: metric.ci,
+    stats: metric.stats,
+    pValue: metric.pValue,
+    pValueAdjusted: metric.pValueAdjusted,
+    chanceToWin: metric.chanceToWin,
   };
-}
-
-function downsampleTimeSeriesData(
-  timeSeriesDataPoints: CreateExperimentTimeSeries["results"]
-): CreateExperimentTimeSeries["results"] {
-  const MAX_RESULTS = 60;
-
-  const results = [...timeSeriesDataPoints];
-  let iter = 0;
-  for (let i = results.length; results.length > MAX_RESULTS; i--) {
-    const hours = 24 * (iter <= 0 ? 1 : iter <= 2 ? 7 : iter <= 3 ? 30 : 90);
-
-    if (
-      i > 0 &&
-      i < results.length - 1 &&
-      addHours(results[i].analysisDate, hours - 2) >=
-        results[i - 1].analysisDate
-    ) {
-      results.splice(i, 1);
-    }
-
-    if (i === 0) {
-      i = results.length;
-      iter++;
-    }
-  }
-
-  return results;
 }
