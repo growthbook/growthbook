@@ -485,7 +485,7 @@ class SequentialOneSidedTreatmentLesserTTest(SequentialTTest):
         tol = 1e-6
         max_iters = 100
         min_alpha = 1e-5
-        max_alpha = 0.5
+        max_alpha = 0.4999
         this_config = SequentialConfig(difference_type=difference_type, alpha=min_alpha)
         this_test = (
             SequentialOneSidedTreatmentLesserTTest
