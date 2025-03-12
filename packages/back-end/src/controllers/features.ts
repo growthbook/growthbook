@@ -15,6 +15,7 @@ import {
   getConnectionSDKCapabilities,
   SDKCapability,
 } from "shared/sdk-versioning";
+import { v4 as uuidv4 } from "uuid";
 import {
   ExperimentRefRule,
   FeatureInterface,
@@ -1179,6 +1180,14 @@ export async function postFeatureRule(
     defaultValueChanged: false,
     settings: org?.settings,
   });
+  // set a rule see if the safe rollout was not copied
+  if (rule.type === "safe-rollout" && !rule.seed) {
+    rule.seed = uuidv4();
+  }
+  if (rule.type === "safe-rollout" && !rule.trackingKey) {
+    rule.trackingKey = uuidv4();
+  }
+
   await addFeatureRule(
     revision,
     environment,

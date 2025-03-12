@@ -223,6 +223,10 @@ export default function RuleModal({
   }, [isCyclic, prerequisiteTargetingSdkIssues]);
 
   const [conditionKey, forceConditionRender] = useIncrementer();
+  const RolloutPages =
+    form.watch("type") === "safe-rollout"
+      ? ["Overview", "Metrics"]
+      : ["Overview"];
 
   function changeRuleType(v: string) {
     const existingCondition = form.watch("condition");
@@ -787,23 +791,27 @@ export default function RuleModal({
           />
         )}
 
-        {ruleType === "rollout" && (
-          <RolloutFields
-            feature={feature}
-            environment={environment}
-            defaultValues={defaultValues}
-            version={version}
-            revisions={revisions}
-            setPrerequisiteTargetingSdkIssues={
-              setPrerequisiteTargetingSdkIssues
-            }
-            isCyclic={isCyclic}
-            cyclicFeatureId={cyclicFeatureId}
-            conditionKey={conditionKey}
-            scheduleToggleEnabled={scheduleToggleEnabled}
-            setScheduleToggleEnabled={setScheduleToggleEnabled}
-          />
-        )}
+        {(ruleType === "rollout" || ruleType === "safe-rollout") &&
+          RolloutPages.map((p, i) => (
+            <Page display={p} key={i}>
+              <RolloutFields
+                step={i}
+                feature={feature}
+                environment={environment}
+                defaultValues={defaultValues}
+                version={version}
+                revisions={revisions}
+                setPrerequisiteTargetingSdkIssues={
+                  setPrerequisiteTargetingSdkIssues
+                }
+                isCyclic={isCyclic}
+                cyclicFeatureId={cyclicFeatureId}
+                conditionKey={conditionKey}
+                scheduleToggleEnabled={scheduleToggleEnabled}
+                setScheduleToggleEnabled={setScheduleToggleEnabled}
+              />
+            </Page>
+          ))}
 
         {(ruleType === "experiment-ref" || ruleType === "experiment") &&
         experimentType === "experiment" ? (
