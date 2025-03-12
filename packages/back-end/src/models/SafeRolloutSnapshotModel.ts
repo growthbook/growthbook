@@ -1,7 +1,7 @@
 import {
   SafeRolloutSnapshotInterface,
   safeRolloutSnapshotInterface,
-} from "back-end/src/validators/features";
+} from "back-end/src/validators/safe-rollout";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({

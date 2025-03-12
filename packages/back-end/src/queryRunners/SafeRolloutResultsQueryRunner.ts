@@ -1,5 +1,4 @@
 import { ExperimentMetricInterface } from "shared/experiments";
-import { ExperimentSnapshotAnalysis } from "back-end/types/experiment-snapshot";
 import { Queries, QueryStatus } from "back-end/types/query";
 import {
   ExperimentReportInterface,
@@ -10,6 +9,11 @@ import { getReportById, updateReport } from "back-end/src/models/ReportModel";
 import { getSnapshotSettingsFromReportArgs } from "back-end/src/services/reports";
 import { analyzeExperimentResults } from "back-end/src/services/stats";
 import {
+  SafeRolloutSnapshotAnalysis,
+  SafeRolloutSnapshotHealth,
+  SafeRolloutSnapshotInterface,
+} from "back-end/src/validators/safe-rollout";
+import {
   ExperimentResultsQueryParams,
   startExperimentResultQueries,
 } from "./ExperimentResultsQueryRunner";
@@ -18,18 +22,19 @@ import { QueryRunner, QueryMap } from "./QueryRunner";
 export type SnapshotResult = {
   unknownVariations: string[];
   multipleExposures: number;
-  analyses: ExperimentSnapshotAnalysis[];
+  analyses: SafeRolloutSnapshotAnalysis[];
+  health?: SafeRolloutSnapshotHealth;
 };
 
-export type ReportQueryParams = {
+export type SafeRolloutQueryParams = {
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
 };
 
 export class SafeRolloutResultsQueryRunner extends QueryRunner<
-  SafeRolloutR,
-  ReportQueryParams,
-  ExperimentReportResults
+  SafeRolloutSnapshotInterface,
+  SafeRolloutQueryParams,
+  SnapshotResult
 > {
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
 
@@ -40,18 +45,18 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
     );
   }
 
-  async startQueries(params: ReportQueryParams): Promise<Queries> {
+  async startQueries(params: SafeRolloutQueryParams): Promise<Queries> {
     this.metricMap = params.metricMap;
 
     const { snapshotSettings } = getSnapshotSettingsFromReportArgs(
-      this.model.args,
+      this.model.settings,
       params.metricMap
     );
 
     const experimentParams: ExperimentResultsQueryParams = {
       metricMap: params.metricMap,
       snapshotSettings,
-      variationNames: this.model.args.variations.map((v) => v.name),
+      variationNames: this.model.variations.map((v) => v.name),
       queryParentId: this.model.id,
       factTableMap: params.factTableMap,
     };
@@ -72,7 +77,7 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
 
       // todo: bandits? (probably not needed)
       const { results } = await analyzeExperimentResults({
-        variationNames: this.model.args.variations.map((v) => v.name),
+        variationNames: this.model.settings.variations.map((v) => v.name),
         queryData: queryMap,
         metricMap: this.metricMap,
         snapshotSettings,
@@ -83,10 +88,12 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
 
     throw new Error("Unsupported report type");
   }
-  async getLatestModel(): Promise<ExperimentReportInterface> {
-    const obj = await getReportById(this.model.organization, this.model.id);
-    if (!obj) throw new Error("Could not load report model");
-    return obj as ExperimentReportInterface;
+  async getLatestModel(): Promise<SafeRolloutSnapshotInterface> {
+    const obj = await this.context.models.safeRolloutSnapshots.getById(
+      this.model.id
+    );
+    if (!obj) throw new Error("Could not load snapshot model");
+    return obj;
   }
   async updateModel({
     queries,
@@ -99,14 +106,17 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
     runStarted?: Date | undefined;
     result?: ExperimentReportResults | undefined;
     error?: string | undefined;
-  }): Promise<ExperimentReportInterface> {
-    const updates: Partial<ExperimentReportInterface> = {
+  }): Promise<SafeRolloutSnapshotInterface> {
+    const updates: Partial<SafeRolloutSnapshotInterface> = {
       queries,
       runStarted,
       error: error || "",
       results: result,
     };
-    await updateReport(this.model.organization, this.model.id, updates);
+    await this.context.models.safeRolloutSnapshots.updateById(
+      this.model.id,
+      updates
+    );
     return {
       ...this.model,
       ...updates,
