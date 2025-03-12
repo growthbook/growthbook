@@ -11,6 +11,7 @@ import {
   postNewProTrialSubscriptionToLicenseServer,
   postNewSubscriptionSuccessToLicenseServer,
   postNewInlineSubscriptionToLicenseServer,
+  postCancelSubscriptionToLicenseServer,
 } from "shared/enterprise";
 import { PaymentMethod } from "shared/src/types/subscriptions";
 import { APP_ORIGIN, STRIPE_WEBHOOK_SECRET } from "back-end/src/util/secrets";
@@ -242,6 +243,28 @@ export const postSubscriptionSuccess = withLicenseServerErrorHandling(
     });
   }
 );
+
+export async function cancelSubscription(req: AuthRequest, res: Response) {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { org } = context;
+
+  const license = await getLicense(org.licenseKey);
+
+  if (!license?.id) {
+    throw new Error("No license found for organization");
+  }
+
+  await postCancelSubscriptionToLicenseServer(license.id);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
 
 export async function postWebhook(req: Request, res: Response) {
   const payload: Buffer = req.body;
