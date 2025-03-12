@@ -15,6 +15,13 @@ import {
   OrganizationSettings,
 } from "back-end/types/organization";
 import {
+  DecisionCriteriaAction,
+  DecisionCriteriaCondition,
+  DecisionCriteriaInterface,
+  DecisionCriteriaRule,
+  DecisionFrameworkExperimentRecommendationStatus,
+  ExperimentAnalysisSummaryResultsStatus,
+  ExperimentAnalysisSummaryVariationStatus,
   ExperimentInterface,
   ExperimentInterfaceStringDates,
   MetricOverride,
@@ -869,4 +876,262 @@ export function isMetricJoinable(
   }
 
   return false;
+}
+
+// TODO remove when we land edf-notifs
+export type ExperimentUnhealthyData = {
+  // if key exists, the status is unhealthy
+  srm?: boolean;
+  multipleExposures?: { rawDecimal: number; totalUsers: number };
+  lowPowered?: boolean;
+};
+
+export type ExperimentResultStatus =
+  | DecisionFrameworkExperimentRecommendationStatus
+  | { status: "no-data" }
+  | { status: "unhealthy"; unhealthyData: ExperimentUnhealthyData }
+  | { status: "before-min-duration" };
+
+export type ExperimentResultStatusData = ExperimentResultStatus & {
+  tooltip?: string;
+};
+
+export function evaluateDecisionRuleOnVariation({
+  rule,
+  variationStatus,
+  goalMetrics,
+  guardrailMetrics,
+  requireSuperStatSig,
+}: {
+  rule: DecisionCriteriaRule;
+  variationStatus: ExperimentAnalysisSummaryVariationStatus;
+  goalMetrics: string[];
+  guardrailMetrics: string[];
+  requireSuperStatSig: boolean;
+}): DecisionCriteriaAction | undefined {
+  
+  const { conditions, action } = rule;
+
+
+  const allConditionsMet = conditions.every((condition) => {
+
+    // TODO trending loser
+    const desiredStatus = condition.direction === "statsigWinner" ? "won" : condition.direction === "statsigLoser" ? "lost" : "neutral";
+    if (condition.metrics === "goals") {
+      const metrics = goalMetrics;
+      const metricResults = variationStatus.goalMetrics;
+
+      const fieldToCheck = requireSuperStatSig ? "superStatSigStatus" : "status";
+      if (condition.match === "all") {
+        return metrics.every((m) => metricResults[m]?.[fieldToCheck] === desiredStatus);
+      } else if (condition.match === "any") {
+        return metrics.some((m) => metricResults[m]?.[fieldToCheck] === desiredStatus);
+      } else if (condition.match === "none") {
+        return metrics.every((m) => metricResults[m]?.[fieldToCheck] !== desiredStatus);
+      }
+    } else if (condition.metrics === "guardrails") {
+      const metrics = guardrailMetrics;
+      const metricResults = variationStatus.guardrailMetrics;
+
+      // TODO trending loser
+      if (condition.match === "all") {
+        return metrics.every((m) => metricResults[m]?.status === desiredStatus);
+      } else if (condition.match === "any") {
+        return metrics.some((m) => metricResults[m]?.status === desiredStatus);
+      } else if (condition.match === "none") {
+        return metrics.every((m) => metricResults[m]?.status !== desiredStatus);
+      }
+    }
+
+  });
+
+  if (allConditionsMet) {
+    return action;
+  }
+
+  return undefined;
+}
+
+// TODO ladder up to overall evaluation
+export function getVariationDecisions({
+  resultsStatus,
+  decisionCriteria,
+  goalMetrics,
+  guardrailMetrics,
+  requireSuperStatSig,
+}: {
+  resultsStatus: ExperimentAnalysisSummaryResultsStatus;
+  decisionCriteria: DecisionCriteriaInterface;
+  goalMetrics: string[];
+  guardrailMetrics: string[];
+  requireSuperStatSig: boolean;
+}): {
+  variationId: string;
+  decisionCriteriaAction: DecisionCriteriaAction
+}[] {
+  const results: {
+    variationId: string;
+    decisionCriteriaAction: DecisionCriteriaAction
+  }[] = [];
+
+  const { rules } = decisionCriteria;
+
+  resultsStatus.variations.forEach((variation) => {
+    for (const rule of rules) {
+      const action = evaluateDecisionRuleOnVariation({
+        rule,
+        variationStatus: variation,
+        goalMetrics,
+        guardrailMetrics,
+        requireSuperStatSig,
+      });
+      if (action) {
+        results.push({
+          variationId: variation.variationId,
+          decisionCriteriaAction: action,
+        });
+        break;
+      }
+    };
+  });
+
+  return results;
+}
+
+export function getDecisionFrameworkStatus({
+  resultsStatus,
+  goalMetrics,
+  guardrailMetrics,
+  daysNeeded,
+}: {
+  resultsStatus: ExperimentAnalysisSummaryResultsStatus;
+  decisionCriteria: DecisionCriteriaInterface;
+  goalMetrics: string[];
+  guardrailMetrics: string[];
+  daysNeeded?: number;
+}): ExperimentResultStatusData | undefined {
+  const powerReached = daysNeeded === 0;
+  const sequentialTesting = resultsStatus?.settings?.sequentialTesting;
+
+  // Rendering a decision with regular stat sig metrics is only valid
+  // if you have reached your needed power or if you used sequential testing
+  const decisionReady = powerReached || sequentialTesting;
+
+  let hasWinner = false;
+  let hasWinnerWithGuardrailFailure = false;
+  let hasSuperStatsigWinner = false;
+  let hasSuperStatsigWinnerWithGuardrailFailure = false;
+  let nVariationsLosing = 0;
+  let nVariationsWithSuperStatSigLoser = 0;
+  // if any variation is a clear winner with no guardrail issues, ship now
+  for (const variationResult of resultsStatus.variations) {
+    const allSuperStatSigWon = goalMetrics.every(
+      (m) => variationResult.goalMetrics?.[m]?.superStatSigStatus === "won"
+    );
+    const anyGuardrailFailure = guardrailMetrics.some(
+      (m) => variationResult.guardrailMetrics?.[m]?.status === "lost"
+    );
+
+    if (decisionReady) {
+      const allStatSigGood = goalMetrics.every(
+        (m) => variationResult.goalMetrics?.[m]?.status === "won"
+      );
+      if (allStatSigGood && !anyGuardrailFailure) {
+        hasWinner = true;
+      }
+
+      if (allStatSigGood && anyGuardrailFailure) {
+        hasWinnerWithGuardrailFailure = true;
+      }
+
+      if (
+        goalMetrics.every(
+          (m) => variationResult.goalMetrics?.[m]?.status === "lost"
+        )
+      ) {
+        nVariationsLosing += 1;
+      }
+    }
+
+    if (allSuperStatSigWon && !anyGuardrailFailure) {
+      hasSuperStatsigWinner = true;
+    }
+
+    if (allSuperStatSigWon && anyGuardrailFailure) {
+      hasSuperStatsigWinnerWithGuardrailFailure = true;
+    }
+
+    if (
+      goalMetrics.every(
+        (m) => variationResult.goalMetrics?.[m]?.superStatSigStatus === "lost"
+      )
+    ) {
+      nVariationsWithSuperStatSigLoser += 1;
+    }
+  }
+
+  const tooltipLanguage = powerReached
+    ? ` and experiment has reached the target statistical power.`
+    : sequentialTesting
+    ? ` and sequential testing is enabled, allowing decisions as soon as statistical significance is reached.`
+    : ".";
+
+  if (hasWinner) {
+    return {
+      status: "ship-now",
+      tooltip: `All goal metrics are statistically significant in the desired direction for a test variation${tooltipLanguage}`,
+    };
+  }
+
+  // if no winner without guardrail failure, call out a winner with a guardrail failure
+  if (hasWinnerWithGuardrailFailure) {
+    return {
+      status: "ready-for-review",
+      tooltip: `All goal metrics are statistically significant in the desired direction for a test variation${tooltipLanguage} However, one or more guardrails are failing`,
+    };
+  }
+
+  // If all variations failing, roll back now
+  if (
+    nVariationsLosing === resultsStatus.variations.length &&
+    nVariationsLosing > 0
+  ) {
+    return {
+      status: "rollback-now",
+      tooltip: `All goal metrics are statistically significant in the undesired direction${tooltipLanguage}`,
+    };
+  }
+
+  // TODO if super stat sig enabled
+  if (hasSuperStatsigWinner) {
+    return {
+      status: "ship-now",
+      tooltip: `The experiment has not yet reached the target statistical power, however, the goal metrics have clear, statistically significant lifts in the desired direction.`,
+    };
+  }
+
+  // if no winner without guardrail failure, call out a winner with a guardrail failure
+  if (hasSuperStatsigWinnerWithGuardrailFailure) {
+    return {
+      status: "ready-for-review",
+      tooltip: `All goal metrics have clear, statistically significant lifts in the desired direction for a test variation. However, one or more guardrails are failing`,
+    };
+  }
+
+  if (
+    nVariationsWithSuperStatSigLoser === resultsStatus.variations.length &&
+    nVariationsWithSuperStatSigLoser > 0
+  ) {
+    return {
+      status: "rollback-now",
+      tooltip: `The experiment has not yet reached the target statistical power, however, the goal metrics have clear, statistically significant lifts in the undesired direction.`,
+    };
+  }
+
+  if (powerReached) {
+    return {
+      status: "ready-for-review",
+      tooltip: `The experiment has reached the target statistical power, but does not have conclusive results.`,
+    };
+  }
 }

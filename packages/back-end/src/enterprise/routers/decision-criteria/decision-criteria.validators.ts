@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { CreateProps, UpdateProps } from "back-end/types/models";
 
+export const decisionCriteriaAction = z.enum(["ship", "rollback", "review"]);
+
 export const decisionCriteriaCondition = z.object({
   match: z.enum(["all", "any", "none"]),
   metrics: z.enum(["goals", "guardrails"]),
@@ -9,9 +11,11 @@ export const decisionCriteriaCondition = z.object({
 
 export const decisionCriteriaRule = z.object({
   conditions: z.array(decisionCriteriaCondition),
-  action: z.enum(["ship", "rollback", "review"]),
+  action: decisionCriteriaAction,
 });
 
+
+export type DecisionCriteriaAction = z.infer<typeof decisionCriteriaAction>;
 export type DecisionCriteriaCondition = z.infer<
   typeof decisionCriteriaCondition
 >;
@@ -30,7 +34,7 @@ export const decisionCriteriaInterface = z
     description: z.string().optional(),
 
     rules: z.array(decisionCriteriaRule),
-    defaultAction: z.enum(["ship", "rollback", "review"]),
+    defaultAction: decisionCriteriaAction,
   })
   .strict();
 
