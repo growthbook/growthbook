@@ -1598,15 +1598,6 @@ export default function FactMetricModal({
           }
         }
 
-        if (values.numerator.aggregateFilterColumn) {
-          // Validate that the value is correct
-          getAggregateFilters({
-            columnRef: values.numerator,
-            column: values.numerator.aggregateFilterColumn,
-            ignoreInvalid: false,
-          });
-        }
-
         if (
           values.numerator.aggregateFilterColumn &&
           values.metricType === "ratio"
