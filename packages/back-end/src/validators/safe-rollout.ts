@@ -6,7 +6,6 @@ import {
   windowSettingsValidator,
 } from "back-end/src/routers/fact-table/fact-table.validators";
 import { statsEnginesValidator } from "back-end/src/models/ProjectModel";
-import { attributionModel } from "./experiments";
 import { queryPointerValidator } from "./queries";
 
 const metricStatsObject = z.object({
@@ -19,15 +18,15 @@ const metricStatsObject = z.object({
 // Keep in sync with gbstats PowerResponse
 const metricPowerResponseFromStatsEngineObject = z.object({
   status: z.string(),
-  errorMessage: z.string().nullable(),
-  firstPeriodPairwiseSampleSize: z.number().nullable(),
+  errorMessage: z.string().optional(),
+  firstPeriodPairwiseSampleSize: z.number().optional(),
   targetMDE: z.number(),
-  sigmahat2Delta: z.number().nullable(),
-  priorProper: z.boolean().nullable(),
-  priorLiftMean: z.number().nullable(),
-  priorLiftVariance: z.number().nullable(),
-  upperBoundAchieved: z.boolean().nullable(),
-  scalingFactor: z.number().nullable(),
+  sigmahat2Delta: z.number().optional(),
+  priorProper: z.boolean().optional(),
+  priorLiftMean: z.number().optional(),
+  priorLiftVariance: z.number().optional(),
+  upperBoundAchieved: z.boolean().optional(),
+  scalingFactor: z.number().optional(),
 });
 
 const snapshotMetricObject = z.object({
@@ -59,8 +58,8 @@ const snapshotMetricObject = z.object({
     )
     .optional(),
   chanceToWin: z.number().optional(),
-  errorMessage: z.string().optional().nullable(),
-  power: metricPowerResponseFromStatsEngineObject.optional().nullable(),
+  errorMessage: z.string().optional(),
+  power: metricPowerResponseFromStatsEngineObject.optional(),
 });
 
 const experimentSnapshotTrafficDimensionObject = z.object({
@@ -171,7 +170,7 @@ const experimentReportResultDimensionObject = z.object({
   variations: z.array(snapshotVariationObject),
 });
 
-const experimentSnapshotAnalysisSettingsValidator = z.object({
+const safeRolloutSnapshotAnalysisSettingsValidator = z.object({
   dimensions: z.array(z.string()),
   statsEngine: statsEnginesValidator,
   regressionAdjusted: z.boolean().optional(),
@@ -187,11 +186,15 @@ const experimentSnapshotAnalysisSettingsValidator = z.object({
   numGoalMetrics: z.number(),
 });
 
+export type SafeRolloutSnapshotAnalysisSettings = z.infer<
+  typeof safeRolloutSnapshotAnalysisSettingsValidator
+>;
+
 const experimentSnapshotAnalysisObject = z.object({
-  settings: experimentSnapshotAnalysisSettingsValidator,
+  settings: safeRolloutSnapshotAnalysisSettingsValidator,
   dateCreated: z.date(),
   status: z.enum(["running", "success", "error"]),
-  error: z.string().optional().nullable(),
+  error: z.string().optional(),
   results: z.array(experimentReportResultDimensionObject),
 });
 
