@@ -20,6 +20,7 @@ from gbstats.models.statistics import (
 )
 from gbstats.models.tests import BaseABTest, BaseConfig, TestResult, Uplift
 from gbstats.utils import variance_of_ratios, isinstance_union
+from typing import Literal
 
 
 # Configs
@@ -34,11 +35,24 @@ class SequentialConfig(FrequentistConfig):
     sequential_tuning_parameter: float = 5000
 
 
+PValueErrorMessage = Literal[
+    "NUMERICAL_PVALUE_NOT_CONVERGED",
+    "ALPHA_GREATER_THAN_0.5_FOR_SEQUENTIAL_ONE_SIDED_TEST",
+]
+
+
 # Results
 @dataclass
 class FrequentistTestResult(TestResult):
     p_value: Optional[float] = None
     error_message: Optional[str] = None
+    p_value_error_message: Optional[PValueErrorMessage] = None
+
+
+@dataclass
+class PValueResult:
+    p_value: Optional[float | None] = None
+    p_value_error_message: Optional[PValueErrorMessage] = None
 
 
 def frequentist_diff(mean_a, mean_b, relative, mean_a_unadjusted=None) -> float:
@@ -192,13 +206,17 @@ class TTest(BaseABTest):
     def p_value(self) -> float | None:
         pass
 
+    # one object with p_value and error_message, or two separate objects?  seems like one.  look at how you compute for sequential.
+
     @property
     @abstractmethod
     def confidence_interval(self) -> List[float]:
         pass
 
     def _default_output(
-        self, error_message: Optional[str] = None
+        self,
+        error_message: Optional[str] = None,
+        p_value_error_message: Optional[PValueErrorMessage] = None,
     ) -> FrequentistTestResult:
         """Return uninformative output when AB test analysis can't be performed
         adequately
@@ -213,7 +231,18 @@ class TTest(BaseABTest):
                 stddev=0,
             ),
             error_message=error_message,
+            p_value_error_message=p_value_error_message,
         )
+
+    def compute_p_value(self) -> PValueResult:
+        return PValueResult(
+            p_value=self.p_value,
+            p_value_error_message=None,
+        )
+
+    @property
+    def sequential_one_sided_test(self) -> bool:
+        return False
 
     def compute_result(self) -> FrequentistTestResult:
         """Compute the test statistics and return them
@@ -230,19 +259,24 @@ class TTest(BaseABTest):
             return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
         if self._has_zero_variance():
             return self._default_output(ZERO_NEGATIVE_VARIANCE_MESSAGE)
-        if self.p_value is None:
-            return self._default_output("one-sided p-value computation failed.")
+        if self.sequential_one_sided_test and self.alpha >= 0.5:
+            return self._default_output(
+                "ALPHA_GREATER_THAN_0.5_FOR_SEQUENTIAL_ONE_SIDED_TEST"
+            )
+
+        p_value_result = self.compute_p_value()
 
         result = FrequentistTestResult(
             expected=self.point_estimate,
             ci=self.confidence_interval,
-            p_value=self.p_value,
+            p_value=p_value_result.p_value,
             uplift=Uplift(
                 dist="normal",
                 mean=self.point_estimate,
                 stddev=np.sqrt(self.variance),
             ),
             error_message=None,
+            p_value_error_message=p_value_result.p_value_error_message,
         )
         if self.scaled:
             result = self.scale_result(result)
@@ -266,6 +300,7 @@ class TTest(BaseABTest):
                         stddev=result.uplift.stddev * adjustment,
                     ),
                     error_message=None,
+                    p_value_error_message=result.p_value_error_message,
                 )
             else:
                 return self._default_output(NO_UNITS_IN_VARIATION_MESSAGE)
@@ -326,16 +361,17 @@ class OneSidedTreatmentLesserTTest(TTest):
         )
 
 
-def sequential_rho(alpha, sequential_tuning_parameter) -> float:
+def sequential_rho(alpha, sequential_tuning_parameter, two_sided=True) -> float:
     # eq 161 in https://arxiv.org/pdf/2103.06476v7.pdf
+    alpha_arg = alpha if two_sided else 2 * alpha
     return np.sqrt(
-        (-2 * np.log(alpha) + np.log(-2 * np.log(alpha) + 1))
+        (-2 * np.log(alpha_arg) + np.log(-2 * np.log(alpha_arg) + 1))
         / sequential_tuning_parameter
     )
 
 
 def sequential_interval_halfwidth(s2, n, sequential_tuning_parameter, alpha) -> float:
-    rho = sequential_rho(alpha, sequential_tuning_parameter)
+    rho = sequential_rho(alpha, sequential_tuning_parameter, two_sided=True)
     # eq 9 in Waudby-Smith et al. 2023 https://arxiv.org/pdf/2103.06476v7.pdf
     return np.sqrt(s2) * np.sqrt(
         (
@@ -349,7 +385,7 @@ def sequential_interval_halfwidth(s2, n, sequential_tuning_parameter, alpha) -> 
 def sequential_interval_halfwidth_one_sided(
     s2, n, sequential_tuning_parameter, alpha
 ) -> float:
-    rho = sequential_rho(alpha, sequential_tuning_parameter)
+    rho = sequential_rho(alpha, sequential_tuning_parameter, two_sided=False)
     # eq 134 in https://arxiv.org/pdf/2103.06476v7.pdf
     part_1 = s2
     part_2 = 2 * (n * np.power(rho, 2) + 1) / (np.power(n * rho, 2))
@@ -377,7 +413,9 @@ class SequentialTTest(TTest):
     @property
     def rho(self) -> float:
         # eq 161 in https://arxiv.org/pdf/2103.06476v7.pdf
-        return sequential_rho(self.alpha, self.sequential_tuning_parameter)
+        return sequential_rho(
+            self.alpha, self.sequential_tuning_parameter, two_sided=True
+        )
 
     @property
     @abstractmethod
@@ -388,7 +426,6 @@ class SequentialTTest(TTest):
 class SequentialTwoSidedTTest(SequentialTTest):
     @property
     def halfwidth(self) -> float:
-        # eq 9 in Waudby-Smith et al. 2023 https://arxiv.org/pdf/2103.06476v7.pdf
         s2 = self.variance * self.n
         return sequential_interval_halfwidth(
             s2, self.n, self.sequential_tuning_parameter, self.alpha
@@ -414,12 +451,15 @@ class SequentialTwoSidedTTest(SequentialTTest):
 
 class SequentialOneSidedTreatmentLesserTTest(SequentialTTest):
     @property
+    def sequential_one_sided_test(self) -> bool:
+        return True
+
+    @property
     def lesser(self) -> bool:
         return True
 
     @property
     def halfwidth(self) -> float:
-        # eq 9 in Waudby-Smith et al. 2023 https://arxiv.org/pdf/2103.06476v7.pdf
         s2 = self.variance * self.n
         return sequential_interval_halfwidth_one_sided(
             s2,
@@ -436,7 +476,9 @@ class SequentialOneSidedTreatmentLesserTTest(SequentialTTest):
 
     @property
     def p_value(self) -> float | None:
-        # eq 9 in Waudby-Smith et al. 2023 https://arxiv.org/pdf/2103.06476v7.pdf
+        return None
+
+    def compute_p_value(self) -> PValueResult:
         difference_type = (
             "relative" if self.relative else "scaled" if self.scaled else "absolute"
         )
@@ -457,24 +499,36 @@ class SequentialOneSidedTreatmentLesserTTest(SequentialTTest):
         # smaller alpha => bigger confidence interval;
         if self.lesser:
             if this_ci_small[ci_index] < 0:
-                return min_alpha
+                return PValueResult(
+                    p_value=min_alpha,
+                    p_value_error_message=None,
+                )
             this_config.alpha = max_alpha
             # bigger alpha => smaller confidence interval;
             this_ci_big = this_test(
                 self.stat_a, self.stat_b, this_config
             ).confidence_interval
             if this_ci_big[ci_index] > 0:
-                return max_alpha
+                return PValueResult(
+                    p_value=max_alpha,
+                    p_value_error_message=None,
+                )
         else:
             if this_ci_small[ci_index] > 0:
-                return min_alpha
+                return PValueResult(
+                    p_value=min_alpha,
+                    p_value_error_message=None,
+                )
             this_config.alpha = max_alpha
             # bigger alpha => smaller confidence interval;
             this_ci_big = this_test(
                 self.stat_a, self.stat_b, this_config
             ).confidence_interval
             if this_ci_big[ci_index] < 0:
-                return max_alpha
+                return PValueResult(
+                    p_value=max_alpha,
+                    p_value_error_message=None,
+                )
         iters = 0
         this_alpha = 0.5 * (min_alpha + max_alpha)
         diff = 0
@@ -499,9 +553,15 @@ class SequentialOneSidedTreatmentLesserTTest(SequentialTTest):
                 break
         converged = abs(diff) < tol and iters != max_iters
         if converged:
-            return this_alpha
+            return PValueResult(
+                p_value=this_alpha,
+                p_value_error_message=None,
+            )
         else:
-            return None
+            return PValueResult(
+                p_value=None,
+                p_value_error_message="NUMERICAL_PVALUE_NOT_CONVERGED",
+            )
 
 
 class SequentialOneSidedTreatmentGreaterTTest(SequentialOneSidedTreatmentLesserTTest):

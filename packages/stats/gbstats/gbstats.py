@@ -291,6 +291,7 @@ def analyze_metric_df(
             df[f"v{i}_stddev"] = None
             df[f"v{i}_expected"] = 0
             df[f"v{i}_p_value"] = None
+            df[f"v{i}_p_value_error_message"] = None
             df[f"v{i}_risk"] = None
             df[f"v{i}_prob_beat_baseline"] = None
             df[f"v{i}_uplift"] = None
@@ -387,6 +388,8 @@ def analyze_metric_df(
             elif isinstance(res, FrequentistTestResult):
                 if res.p_value is not None:
                     s[f"v{i}_p_value"] = res.p_value
+                else:
+                    s[f"v{i}_p_value_error_message"] = res.p_value_error_message
             if test.stat_a.unadjusted_mean <= 0:
                 # negative or missing control mean
                 s[f"v{i}_expected"] = 0
@@ -481,7 +484,10 @@ def format_variation_result(
             )
         else:
             power_response = None
-        frequentist = row[f"{prefix}_p_value"] is not None
+        frequentist = (
+            row[f"{prefix}_p_value"] is not None
+            or row[f"{prefix}_p_value_error_message"] is not None
+        )
         testResult = {
             "expected": row[f"{prefix}_expected"],
             "uplift": row[f"{prefix}_uplift"],
@@ -494,6 +500,7 @@ def format_variation_result(
                 **testResult,
                 power=power_response,
                 pValue=row[f"{prefix}_p_value"],
+                pValueErrorMessage=row[f"{prefix}_p_value_error_message"],
             )
         else:
             return BayesianVariationResponse(
