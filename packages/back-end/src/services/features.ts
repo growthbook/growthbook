@@ -1251,7 +1251,10 @@ export function getApiFeatureObj({
       : revision?.publishedBy?.name;
 
   const revisionDefs = revisions?.map((rev) => {
-    const environmentRules: Record<string, FeatureRule[]> = {};
+    const environmentRules: Record<
+      string,
+      (Omit<FeatureRule, "enabled"> & { enabled: boolean })[]
+    > = {};
     const environmentDefinitions: Record<string, string> = {};
     environments.forEach((env) => {
       const rules = (rev?.rules?.[env] || []).map((rule) => ({
@@ -1268,7 +1271,10 @@ export function getApiFeatureObj({
         enabled: !!rule.enabled,
       }));
       const definition = getFeatureDefinition({
-        feature: { ...feature, environmentSettings: {[env]: { enabled: true, rules} } },
+        feature: {
+          ...feature,
+          environmentSettings: { [env]: { enabled: true, rules } },
+        },
         groupMap,
         experimentMap,
         environment: env,
@@ -1278,9 +1284,7 @@ export function getApiFeatureObj({
       environmentDefinitions[env] = JSON.stringify(definition);
     });
     const publishedBy =
-      rev?.publishedBy?.type === "api_key"
-        ? "API"
-        : rev?.publishedBy?.name;
+      rev?.publishedBy?.type === "api_key" ? "API" : rev?.publishedBy?.name;
     return {
       baseVersion: rev.baseVersion,
       version: rev.version,
