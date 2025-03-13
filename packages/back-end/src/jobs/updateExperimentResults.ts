@@ -123,7 +123,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
   });
 
   if (organization?.settings?.updateSchedule?.type === "never") {
-    // Disable auto snapshots for the experiment so it doesn't keep trying to update
+    // Disable auto snapshots for the experiment so it doesn't keep trying to update (non-bandits only)
+    if (experiment.type === "multi-armed-bandit") return;
     await updateExperiment({
       context,
       experiment,
