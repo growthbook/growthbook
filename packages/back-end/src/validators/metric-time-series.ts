@@ -1,45 +1,55 @@
 import { z } from "zod";
 
-const metricTimeSeriesTag = z.enum([
-  "triggered-alert",
-  "metric-settings-changed",
-  "experiment-settings-changed",
-]);
-export type MetricTimeSeriesTag = z.infer<typeof metricTimeSeriesTag>;
-
-export const metricTimeSeriesDataPoint = z
+const metricTimeSeriesValue = z
   .object({
     value: z.number(),
     denominator: z.number().optional(),
     expected: z.number().optional(),
     ci: z.tuple([z.number(), z.number()]).optional(),
-    stats: z
-      .object({
-        users: z.number(),
-        mean: z.number(),
-        stddev: z.number(),
-      })
-      .optional(),
     pValue: z.number().optional(),
     pValueAdjusted: z.number().optional(),
     chanceToWin: z.number().optional(),
   })
   .strict();
-export type MetricTimeSeriesDataPoint = z.infer<
-  typeof metricTimeSeriesDataPoint
->;
+export type MetricTimeSeriesValue = z.infer<typeof metricTimeSeriesValue>;
 
 const metricTimeSeriesVariation = z.object({
   name: z.string(),
-  relative: metricTimeSeriesDataPoint.optional(),
-  absolute: metricTimeSeriesDataPoint.optional(),
-  scaled: metricTimeSeriesDataPoint.optional(),
+  // Moved to a higher in the tree as it is the same for all analyses types
+  stats: z
+    .object({
+      users: z.number(),
+      mean: z.number(),
+      stddev: z.number(),
+    })
+    .optional(),
+  relative: metricTimeSeriesValue.optional(),
+  absolute: metricTimeSeriesValue.optional(),
+  scaled: metricTimeSeriesValue.optional(),
 });
 export type MetricTimeSeriesVariation = z.infer<
   typeof metricTimeSeriesVariation
 >;
 
-export const metricTimeSeries = z
+const metricTimeSeriesDataPointTag = z.enum([
+  "triggered-alert",
+  "metric-settings-changed",
+  "experiment-settings-changed",
+]);
+export type MetricTimeSeriesDataPointTag = z.infer<
+  typeof metricTimeSeriesDataPointTag
+>;
+
+const metricTimeSeriesDataPoint = z.object({
+  date: z.date(),
+  variations: z.array(metricTimeSeriesVariation),
+  tags: z.array(metricTimeSeriesDataPointTag).optional(),
+});
+export type MetricTimeSeriesDataPoint = z.infer<
+  typeof metricTimeSeriesDataPoint
+>;
+
+export const metricTimeSeriesSchema = z
   .object({
     id: z.string(),
     organization: z.string(),
@@ -50,20 +60,16 @@ export const metricTimeSeries = z
     source: z.enum(["experiment"]),
     sourceId: z.string(),
 
-    lastSettingsHash: z.string(),
+    lastExperimentSettingsHash: z.string(),
+    lastMetricSettingsHash: z.string(),
 
-    dataPoints: z.array(
-      z.object({
-        date: z.date(),
-        variations: z.array(metricTimeSeriesVariation),
-        tags: z.array(metricTimeSeriesTag).optional(),
-      })
-    ),
+    // One per snapshot in the case of experiment MetricTimeSeries
+    dataPoints: z.array(metricTimeSeriesDataPoint),
   })
   .strict();
-export type MetricTimeSeries = z.infer<typeof metricTimeSeries>;
+export type MetricTimeSeries = z.infer<typeof metricTimeSeriesSchema>;
 
-export const createMetricTimeSeries = metricTimeSeries.omit({
+const createMetricTimeSeries = metricTimeSeriesSchema.omit({
   id: true,
   organization: true,
   dateCreated: true,

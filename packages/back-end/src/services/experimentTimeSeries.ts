@@ -4,10 +4,12 @@ import { ReqContext } from "back-end/types/organization";
 import { ExperimentInterface } from "back-end/src/validators/experiments";
 import {
   ExperimentSnapshotInterface,
+  ExperimentSnapshotSettings,
+  MetricForSnapshot,
   SnapshotMetric,
 } from "back-end/types/experiment-snapshot";
 import {
-  MetricTimeSeriesDataPoint,
+  MetricTimeSeriesValue,
   MetricTimeSeriesVariation,
 } from "back-end/src/validators/metric-time-series";
 
@@ -40,17 +42,17 @@ export async function updateExperimentTimeSeries({
   const timeSeriesVariationsPerMetricId = metricsIds.reduce((acc, metricId) => {
     acc[metricId] = variations.map((_, variationIndex) => ({
       name: experiment.variations[variationIndex].name,
-      relative: convertSnapshotMetricToMetricTimeSeriesDataPoint(
+      relative: convertMetricToMetricValue(
         relativeAnalysis?.results[0]?.variations[variationIndex]?.metrics[
           metricId
         ]
       ),
-      absolute: convertSnapshotMetricToMetricTimeSeriesDataPoint(
+      absolute: convertMetricToMetricValue(
         absoluteAnalysis?.results[0]?.variations[variationIndex]?.metrics[
           metricId
         ]
       ),
-      scaled: convertSnapshotMetricToMetricTimeSeriesDataPoint(
+      scaled: convertMetricToMetricValue(
         scaledAnalysis?.results[0]?.variations[variationIndex]?.metrics[
           metricId
         ]
@@ -60,12 +62,25 @@ export async function updateExperimentTimeSeries({
     return acc;
   }, {} as Record<string, MetricTimeSeriesVariation[]>);
 
+  const experimentHash = getExperimentSettingsHash(experimentSnapshot.settings);
+
   await context.models.metricTimeSeries.bulkCreateOrUpdate(
     metricsIds.map((metricId) => ({
       source: "experiment",
       sourceId: experiment.id,
       metricId,
-      lastSettingsHash: md5(JSON.stringify(experimentSnapshot.settings)),
+      lastExperimentSettingsHash: experimentHash,
+      lastMetricSettingsHash: getMetricSettingsHash(
+        experimentSnapshot.settings.metricSettings.find(
+          (metric) => metric.id === metricId
+        )!
+      ),
+      // TODO: Fix this
+      stats: {
+        users: "123",
+        mean: "123",
+        stddev: "123",
+      },
       dataPoints: [
         {
           date: experimentSnapshot.dateCreated,
@@ -76,9 +91,9 @@ export async function updateExperimentTimeSeries({
   );
 }
 
-function convertSnapshotMetricToMetricTimeSeriesDataPoint(
+function convertMetricToMetricValue(
   metric: SnapshotMetric | undefined
-): MetricTimeSeriesDataPoint | undefined {
+): MetricTimeSeriesValue | undefined {
   if (!metric) {
     return undefined;
   }
@@ -90,9 +105,21 @@ function convertSnapshotMetricToMetricTimeSeriesDataPoint(
     denominator: metric.denominator,
     expected: metric.expected,
     ci: metric.ci,
-    stats: metric.stats,
     pValue: metric.pValue,
     pValueAdjusted: metric.pValueAdjusted,
     chanceToWin: metric.chanceToWin,
   };
+}
+
+const hashObject = (obj: object) => md5(JSON.stringify(obj));
+
+function getExperimentSettingsHash(
+  snapshotSettings: ExperimentSnapshotSettings
+): string {
+  // TODO: Which keys to keep?
+  return hashObject({ ...snapshotSettings, metricSettings: [] });
+}
+
+function getMetricSettingsHash(metricSettings: MetricForSnapshot): string {
+  return hashObject(metricSettings);
 }
