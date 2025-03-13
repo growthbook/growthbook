@@ -555,7 +555,7 @@ This checks if `attributeValue` is an array, and if so at least one of the array
 
 ### private paddedVersionString(input): string
 
-This function can be used to help with the evaluation of the version string comparsion.
+This function can be used to help with the evaluation of the version string comparison.
 
 There are 6 operators that are used for comparing version strings, e.g. `v1.2.3` or `1.2.3`:
 
@@ -949,7 +949,7 @@ There are a bunch of ordered steps to run an experiment:
         ```ts
         ranges = experiment.ranges || getBucketRanges(
           experiment.variations.length,
-          experiment.converage ?? 1,
+          experiment.coverage ?? 1,
           experiment.weights ?? []
         );
         n = hash(
