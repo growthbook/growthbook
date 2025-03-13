@@ -5,11 +5,11 @@ import type {
   UserScopedGrowthBook,
 } from "../GrowthBookClient";
 
-export type Trackers = "gtag" | "gtm" | "segment";
+export type Trackers = "ga4" | "gtm" | "segment";
 
 export function thirdPartyTrackingPlugin({
   additionalCallback,
-  trackers = ["gtag", "gtm", "segment"],
+  trackers = ["ga4", "gtm", "segment"],
 }: {
   additionalCallback?: TrackingCallback;
   trackers?: Trackers[];
@@ -29,7 +29,7 @@ export function thirdPartyTrackingPlugin({
       }
 
       // GA4 - gtag
-      if (trackers.includes("gtag") && window.gtag) {
+      if (trackers.includes("ga4") && window.gtag) {
         let gtagResolve;
         const gtagPromise = new Promise((resolve) => {
           gtagResolve = resolve;

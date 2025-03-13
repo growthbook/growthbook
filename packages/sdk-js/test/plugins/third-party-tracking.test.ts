@@ -38,7 +38,7 @@ describe("thirdPartyTrackingPlugin", () => {
   });
   it("should call gtag if enabled", async () => {
     const plugin = thirdPartyTrackingPlugin({
-      trackers: ["gtag"],
+      trackers: ["ga4"],
     });
 
     window.gtag = jest.fn();
@@ -67,7 +67,7 @@ describe("thirdPartyTrackingPlugin", () => {
   });
   it("should call gtm if enabled", async () => {
     const plugin = thirdPartyTrackingPlugin({
-      trackers: ["gtag", "gtm"],
+      trackers: ["ga4", "gtm"],
     });
 
     window.dataLayer = [];
