@@ -2,13 +2,14 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { useMemo, useState } from "react";
 import { getScopedSettings } from "shared/settings";
 import { upperFirst } from "lodash";
-import { expandMetricGroups } from "shared/experiments";
+import { expandMetricGroups, getMetricLink } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import Link from "@/components/Radix/Link";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -93,26 +94,26 @@ export default function AnalysisSettings({
     ssrPolyfills?.metricGroups,
   ]);
 
-  const goals: string[] = [];
+  const goals: { name: string; id: string }[] = [];
   expandedGoals.forEach((m) => {
     const name =
       ssrPolyfills?.getExperimentMetricById?.(m)?.name ||
       getExperimentMetricById(m)?.name;
-    if (name) goals.push(name);
+    if (name) goals.push({ name, id: m });
   });
-  const secondary: string[] = [];
+  const secondary: { name: string; id: string }[] = [];
   expandedSecondaries.forEach((m) => {
     const name =
       ssrPolyfills?.getExperimentMetricById?.(m)?.name ||
       getExperimentMetricById(m)?.name;
-    if (name) secondary.push(name);
+    if (name) secondary.push({ name, id: m });
   });
-  const guardrails: string[] = [];
+  const guardrails: { name: string; id: string }[] = [];
   expandedGuardrails.forEach((m) => {
     const name =
       ssrPolyfills?.getExperimentMetricById?.(m)?.name ||
       getExperimentMetricById(m)?.name;
-    if (name) guardrails.push(name);
+    if (name) guardrails.push({ name, id: m });
   });
 
   const isBandit = experiment.type === "multi-armed-bandit";
@@ -212,7 +213,13 @@ export default function AnalysisSettings({
                 <ul className="list-unstyled mb-0">
                   {goals.map((metric, i) => {
                     if (isBandit && i > 0) return null;
-                    return <li key={`goal-${i}`}>{metric}</li>;
+                    return (
+                      <li key={`goal-${i}`}>
+                        <Link href={getMetricLink(metric.id)}>
+                          {metric.name}
+                        </Link>
+                      </li>
+                    );
                   })}
                 </ul>
               ) : (
@@ -227,7 +234,9 @@ export default function AnalysisSettings({
               {secondary.length ? (
                 <ul className="list-unstyled mb-0">
                   {secondary.map((metric, i) => (
-                    <li key={`secondary-${i}`}>{metric}</li>
+                    <li key={`secondary-${i}`}>
+                      <Link href={getMetricLink(metric.id)}>{metric.name}</Link>
+                    </li>
                   ))}
                 </ul>
               ) : (
@@ -242,7 +251,9 @@ export default function AnalysisSettings({
               {guardrails.length ? (
                 <ul className="list-unstyled mb-0">
                   {guardrails.map((metric, i) => (
-                    <li key={`guardrail-${i}`}>{metric}</li>
+                    <li key={`guardrail-${i}`}>
+                      <Link href={getMetricLink(metric.id)}>{metric.name}</Link>
+                    </li>
                   ))}
                 </ul>
               ) : (

@@ -1,35 +1,30 @@
 import { includeExperimentInPayload, getSnapshotAnalysis } from "shared/util";
-import { getMetricResultStatus } from "shared/experiments";
-import { getMultipleExposureHealthData, getSRMHealthData } from "shared/health";
 import {
-  DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
-  DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
-  DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
-  DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
-  DEFAULT_SRM_THRESHOLD,
-} from "shared/constants";
+  getHealthSettings,
+  getMetricResultStatus,
+  getExperimentResultStatus,
+} from "shared/experiments";
+import { orgHasPremiumFeature } from "shared/enterprise";
 import { StatsEngine } from "back-end/types/stats";
 import { Context } from "back-end/src/models/BaseModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
-import {
-  getExperimentById,
-  updateExperiment,
-} from "back-end/src/models/ExperimentModel";
+import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { getExperimentWatchers } from "back-end/src/models/WatchModel";
 import { logger } from "back-end/src/util/logger";
 import {
   ExperimentSnapshotDocument,
-  getDefaultAnalysisResults,
   getLatestSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import {
+  ExperimentHealthSettings,
   ExperimentInterface,
   ExperimentNotification,
+  ExperimentResultStatusData,
 } from "back-end/types/experiment";
-import { ExperimentReportResultDimension } from "back-end/types/report";
 import { ResourceEvents } from "back-end/src/events/base-types";
 import { ensureAndReturn } from "back-end/src/util/types";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
+import { ExperimentAnalysisSummary } from "back-end/src/validators/experiments";
 import {
   getConfidenceLevelsForOrg,
   getEnvironmentIdsFromOrg,
@@ -132,29 +127,16 @@ export const notifyAutoUpdate = ({
 export const notifyMultipleExposures = async ({
   context,
   experiment,
-  results,
-  snapshot,
+  currentStatus,
 }: {
   context: Context;
   experiment: ExperimentInterface;
-  results: ExperimentReportResultDimension;
-  snapshot: ExperimentSnapshotDocument;
+  currentStatus: ExperimentResultStatusData;
 }) => {
-  const totalUsers = results.variations.reduce(
-    (totalUsersCount, { users }) => totalUsersCount + users,
-    0
-  );
-
-  const multipleExposureHealth = getMultipleExposureHealthData({
-    multipleExposuresCount: snapshot.multipleExposures,
-    totalUsersCount: totalUsers,
-    minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
-    minPercentThreshold:
-      context.org.settings?.multipleExposureMinPercent ??
-      DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
-  });
-
-  const triggered = multipleExposureHealth.status === "unhealthy";
+  const multipleExposureData =
+    currentStatus.status === "unhealthy" &&
+    currentStatus.unhealthyData.multipleExposures;
+  const triggered = !!multipleExposureData;
 
   await memoizeNotification({
     context,
@@ -173,8 +155,8 @@ export const notifyMultipleExposures = async ({
             type: "multiple-exposures",
             experimentId: experiment.id,
             experimentName: experiment.name,
-            usersCount: snapshot.multipleExposures,
-            percent: multipleExposureHealth.rawDecimal,
+            usersCount: multipleExposureData.totalUsers,
+            percent: multipleExposureData.rawDecimal,
           },
         },
       });
@@ -185,32 +167,16 @@ export const notifyMultipleExposures = async ({
 export const notifySrm = async ({
   context,
   experiment,
-  results,
+  currentStatus,
+  healthSettings,
 }: {
   context: Context;
   experiment: ExperimentInterface;
-  results: ExperimentReportResultDimension;
+  currentStatus: ExperimentResultStatusData;
+  healthSettings: ExperimentHealthSettings;
 }) => {
-  const srmThreshold =
-    context.org.settings?.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
-
-  const totalUsers = results.variations.reduce(
-    (totalUsersCount, { users }) => totalUsersCount + users,
-    0
-  );
-
-  const srmHealth = getSRMHealthData({
-    srm: results.srm,
-    srmThreshold,
-    totalUsersCount: totalUsers,
-    numOfVariations: experiment.variations.length,
-    minUsersPerVariation:
-      experiment.type === "multi-armed-bandit"
-        ? DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION
-        : DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
-  });
-
-  const triggered = srmHealth === "unhealthy";
+  const triggered =
+    currentStatus.status === "unhealthy" && !!currentStatus.unhealthyData.srm;
 
   await memoizeNotification({
     context,
@@ -229,7 +195,7 @@ export const notifySrm = async ({
             type: "srm",
             experimentId: experiment.id,
             experimentName: experiment.name,
-            threshold: srmThreshold,
+            threshold: healthSettings.srmThreshold,
           },
         },
       });
@@ -441,37 +407,92 @@ export const notifySignificance = async ({
   );
 };
 
-export const notifyExperimentChange = async ({
+export const notifyDecision = async ({
   context,
-  snapshot,
+  experiment,
+  currentStatus,
+  lastStatus,
 }: {
   context: Context;
-  snapshot: ExperimentSnapshotDocument;
+  experiment: ExperimentInterface;
+  currentStatus: ExperimentResultStatusData;
+  lastStatus?: ExperimentResultStatusData;
 }) => {
-  const experiment = await getExperimentById(context, snapshot.experiment);
-  if (!experiment) throw new Error("Error while fetching experiment!");
+  if (
+    currentStatus.status === "ship-now" ||
+    currentStatus.status === "rollback-now" ||
+    currentStatus.status === "ready-for-review"
+  ) {
+    const eventType: "ship" | "rollback" | "review" = (() => {
+      switch (currentStatus.status) {
+        case "ship-now":
+          return "ship";
+        case "ready-for-review":
+          return "review";
+        case "rollback-now":
+          return "rollback";
+      }
+    })();
 
-  // do not fire significance or error events for exploratory analyses
-  if (snapshot.type === "exploratory") return;
-  // do not fire significance or error events for reports
-  if (snapshot.type === "report") return;
-  // do not fire significance events for old snapshots that have no type
-  if (snapshot.type === undefined) return;
-  // do not fire for snapshots where statistics are manually entered in the UI
-  if (snapshot.manual) return;
+    if (currentStatus.status !== lastStatus?.status) {
+      dispatchEvent({
+        context,
+        experiment,
+        event: `decision.${eventType}`,
+        data: {
+          object: {
+            experimentId: experiment.id,
+            experimentName: experiment.name,
+            decisionDescription: currentStatus.tooltip,
+          },
+        },
+      });
+    }
+  }
+};
 
+export const notifyExperimentChange = async ({
+  context,
+  experiment,
+  snapshot,
+  previousAnalysisSummary,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  snapshot: ExperimentSnapshotDocument;
+  previousAnalysisSummary?: ExperimentAnalysisSummary;
+}) => {
   await notifySignificance({ context, experiment, snapshot });
 
-  const results = getDefaultAnalysisResults(snapshot);
+  const healthSettings = getHealthSettings(
+    context.org.settings,
+    orgHasPremiumFeature(context.org, "decision-framework")
+  );
+  const currentStatus = getExperimentResultStatus({
+    experimentData: experiment,
+    healthSettings,
+  });
 
-  if (results) {
+  if (currentStatus) {
     await notifyMultipleExposures({
       context,
       experiment,
-      results,
-      snapshot,
+      currentStatus,
     });
 
-    await notifySrm({ context, experiment, results });
+    await notifySrm({ context, experiment, currentStatus, healthSettings });
+
+    const lastStatus = getExperimentResultStatus({
+      experimentData: {
+        ...experiment,
+        // use current experiment but the old analysis summary to compute
+        // old experiment status
+        analysisSummary: previousAnalysisSummary
+          ? previousAnalysisSummary
+          : undefined,
+      },
+      healthSettings,
+    });
+    await notifyDecision({ context, experiment, lastStatus, currentStatus });
   }
 };
