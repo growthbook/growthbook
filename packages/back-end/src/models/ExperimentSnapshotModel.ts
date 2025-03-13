@@ -255,18 +255,20 @@ export async function updateSnapshot({
       : false;
 
     if (experimentModel && isLatestPhase) {
-      await updateExperimentAnalysisSummary({
+      const updatedExperiment = await updateExperimentAnalysisSummary({
         context,
         experiment: experimentModel,
         experimentSnapshot: experimentSnapshotModel,
       });
+
+      await notifyExperimentChange({
+        context,
+        experiment: updatedExperiment,
+        snapshot: experimentSnapshotModel,
+        previousAnalysisSummary: experimentModel.analysisSummary,
+      });
     }
   }
-
-  await notifyExperimentChange({
-    context,
-    snapshot: experimentSnapshotModel,
-  });
 }
 
 export type AddOrUpdateSnapshotAnalysisParams = {
@@ -502,13 +504,10 @@ export async function getLatestSnapshotMultipleExperiments(
 
 export async function createExperimentSnapshotModel({
   data,
-  context,
 }: {
   data: ExperimentSnapshotInterface;
-  context: Context;
 }): Promise<ExperimentSnapshotInterface> {
   const created = await ExperimentSnapshotModel.create(data);
-  await notifyExperimentChange({ context, snapshot: created });
   return toInterface(created);
 }
 
