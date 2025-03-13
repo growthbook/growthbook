@@ -484,17 +484,13 @@ def format_variation_result(
             )
         else:
             power_response = None
-        frequentist = (
-            row[f"{prefix}_p_value"] is not None
-            or row[f"{prefix}_p_value_error_message"] is not None
-        )
         testResult = {
             "expected": row[f"{prefix}_expected"],
             "uplift": row[f"{prefix}_uplift"],
             "ci": row[f"{prefix}_ci"],
             "errorMessage": row[f"{prefix}_error_message"],
         }
-        if frequentist:
+        if row["engine"] == "frequentist":
             return FrequentistVariationResponse(
                 **metricResult,
                 **testResult,

@@ -45,7 +45,6 @@ PValueErrorMessage = Literal[
 @dataclass
 class FrequentistTestResult(TestResult):
     p_value: Optional[float] = None
-    error_message: Optional[str] = None
     p_value_error_message: Optional[PValueErrorMessage] = None
 
 
@@ -205,8 +204,6 @@ class TTest(BaseABTest):
     @abstractmethod
     def p_value(self) -> float | None:
         pass
-
-    # one object with p_value and error_message, or two separate objects?  seems like one.  look at how you compute for sequential.
 
     @property
     @abstractmethod
