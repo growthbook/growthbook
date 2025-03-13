@@ -335,6 +335,9 @@ export function getChecklistItems({
       }
 
       if (item.completionType === "auto" && item.propertyKey) {
+        if (isBandit && item.propertyKey === "hypothesis") {
+          return;
+        }
         items.push({
           display: <>{item.task}</>,
           status: isChecklistItemComplete(
