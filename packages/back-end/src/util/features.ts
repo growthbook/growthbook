@@ -558,6 +558,42 @@ export function getFeatureDefinition({
           if (r.hashAttribute) {
             rule.hashAttribute = r.hashAttribute;
           }
+        } else if (r.type === "safe-rollout") {
+          rule.coverage = r.coverage;
+
+          rule.hashAttribute = r.hashAttribute;
+
+          rule.seed = r.seed;
+
+          rule.hashVersion = 2;
+
+          if (r.status === "released") {
+            const variationValue = r.variationValue;
+            if (!variationValue) return null;
+
+            // If a variation has been rolled out to 100%
+            rule.force = getJSONValue(feature.valueType, variationValue);
+          } else if (r.status === "rolled-back") {
+            const controlValue = r.controlValue;
+            if (!controlValue) return null;
+
+            // Return control value if rolled back. Feature default value might not be the same as the control value.
+            rule.force = getJSONValue(feature.valueType, controlValue);
+          } else {
+            rule.variations = [
+              getJSONValue(feature.valueType, r.controlValue),
+              getJSONValue(feature.valueType, r.variationValue),
+            ];
+            const varWeights = 0.5;
+            rule.weights = [varWeights, varWeights];
+            rule.key = r.trackingKey; // UUID
+            rule.meta = [
+              { key: "0", name: "Control" },
+              { key: "1", name: "Variation" },
+            ];
+            rule.phase = "0";
+            rule.name = `${feature.id} - Safe Rollout`;
+          }
         }
         return rule;
       })
