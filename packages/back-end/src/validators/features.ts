@@ -182,7 +182,7 @@ export const safeRolloutRule = baseRule
     datasource: z.string(),
     exposureQueryId: z.string(),
     controlValue: z.string(),
-    variationValue: z.string(),
+    value: z.string(),
     coverage: z.number(),
     hashAttribute: z.string(),
     seed: z.string(),
