@@ -1,6 +1,9 @@
 import { omit } from "lodash";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
-import { getAggregateFilters, getSelectedColumnDatatype } from "shared/experiments";
+import {
+  getAggregateFilters,
+  getSelectedColumnDatatype,
+} from "shared/experiments";
 import {
   ColumnRef,
   FactMetricInterface,
@@ -28,7 +31,6 @@ const BaseClass = MakeModelClass({
   globallyUniqueIds: false,
   readonlyFields: ["datasource"],
 });
-
 
 // extra checks on user filter
 function validateUserFilter({
@@ -61,7 +63,9 @@ function validateUserFilter({
       column: numerator.aggregateFilterColumn,
     });
     if (
-      !(columnType === "number" || numerator.aggregateFilterColumn === "$$count")
+      !(
+        columnType === "number" || numerator.aggregateFilterColumn === "$$count"
+      )
     ) {
       throw new Error(
         `Aggregate filter column '${numerator.aggregateFilterColumn}' must be a numeric column or "$$count".`
@@ -188,7 +192,10 @@ export class FactMetricModel extends BaseClass {
     }
 
     // validate user filter
-    if (data.numerator.aggregateFilterColumn || data.numerator.aggregateFilter) {
+    if (
+      data.numerator.aggregateFilterColumn ||
+      data.numerator.aggregateFilter
+    ) {
       validateUserFilter({
         metricType: data.metricType,
         numerator: data.numerator,
