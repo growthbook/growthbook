@@ -23,6 +23,7 @@ import HelperText from "@/components/Radix/HelperText";
 import Badge from "@/components/Radix/Badge";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Callout from "@/components/Radix/Callout";
+import SafeRolloutSummary from "@/components/Features/SafeRolloutSummary";
 import ConditionDisplay from "./ConditionDisplay";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
@@ -266,6 +267,16 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       coverage={rule.coverage ?? 1}
                       feature={feature}
                       hashAttribute={rule.hashAttribute || ""}
+                    />
+                  )}
+                  {rule.type === "safe-rollout" && (
+                    <SafeRolloutSummary
+                      value={rule.value ?? ""}
+                      coverage={rule.coverage ?? 1}
+                      feature={feature}
+                      hashAttribute={rule.hashAttribute || ""}
+                      guardrailMetrics={rule.guardrailMetrics || []}
+                      controlValue={rule.controlValue}
                     />
                   )}
                   {rule.type === "experiment" && (
