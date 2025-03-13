@@ -179,6 +179,78 @@ Triggered when a feature is created
                 date: string;
                 publishedBy: string;
             };
+            revisions?: {
+                baseVersion: number;
+                version: number;
+                comment: string;
+                date: string;
+                status: string;
+                publishedBy?: string | undefined;
+                rules: {
+                    [x: string]: ({
+                        description: string;
+                        condition: string;
+                        savedGroupTargeting?: {
+                            matchType: "all" | "any" | "none";
+                            savedGroups: string[];
+                        }[] | undefined;
+                        id: string;
+                        enabled: boolean;
+                        type: "force";
+                        value: string;
+                    } | {
+                        description: string;
+                        condition: string;
+                        savedGroupTargeting?: {
+                            matchType: "all" | "any" | "none";
+                            savedGroups: string[];
+                        }[] | undefined;
+                        id: string;
+                        enabled: boolean;
+                        type: "rollout";
+                        value: string;
+                        coverage: number;
+                        hashAttribute: string;
+                    } | {
+                        description: string;
+                        condition: string;
+                        id: string;
+                        enabled: boolean;
+                        type: "experiment";
+                        trackingKey?: string | undefined;
+                        hashAttribute?: string | undefined;
+                        fallbackAttribute?: string | undefined;
+                        disableStickyBucketing?: boolean | undefined;
+                        bucketVersion?: number | undefined;
+                        minBucketVersion?: number | undefined;
+                        namespace?: {
+                            enabled: boolean;
+                            name: string;
+                            range: number[];
+                        } | undefined;
+                        coverage?: number | undefined;
+                        value?: {
+                            value: string;
+                            weight: number;
+                            name?: string | undefined;
+                        }[] | undefined;
+                    } | {
+                        description: string;
+                        id: string;
+                        enabled: boolean;
+                        type: "experiment-ref";
+                        condition?: string | undefined;
+                        variations: {
+                            value: string;
+                            variationId: string;
+                        }[];
+                        experimentId: string;
+                    })[];
+                };
+                definitions?: {
+                    [x: string]: string;
+                } | undefined;
+            }[] | undefined;
         };
     };
     user: {
@@ -365,6 +437,78 @@ Triggered when a feature is updated
                 date: string;
                 publishedBy: string;
             };
+            revisions?: {
+                baseVersion: number;
+                version: number;
+                comment: string;
+                date: string;
+                status: string;
+                publishedBy?: string | undefined;
+                rules: {
+                    [x: string]: ({
+                        description: string;
+                        condition: string;
+                        savedGroupTargeting?: {
+                            matchType: "all" | "any" | "none";
+                            savedGroups: string[];
+                        }[] | undefined;
+                        id: string;
+                        enabled: boolean;
+                        type: "force";
+                        value: string;
+                    } | {
+                        description: string;
+                        condition: string;
+                        savedGroupTargeting?: {
+                            matchType: "all" | "any" | "none";
+                            savedGroups: string[];
+                        }[] | undefined;
+                        id: string;
+                        enabled: boolean;
+                        type: "rollout";
+                        value: string;
+                        coverage: number;
+                        hashAttribute: string;
+                    } | {
+                        description: string;
+                        condition: string;
+                        id: string;
+                        enabled: boolean;
+                        type: "experiment";
+                        trackingKey?: string | undefined;
+                        hashAttribute?: string | undefined;
+                        fallbackAttribute?: string | undefined;
+                        disableStickyBucketing?: boolean | undefined;
+                        bucketVersion?: number | undefined;
+                        minBucketVersion?: number | undefined;
+                        namespace?: {
+                            enabled: boolean;
+                            name: string;
+                            range: number[];
+                        } | undefined;
+                        coverage?: number | undefined;
+                        value?: {
+                            value: string;
+                            weight: number;
+                            name?: string | undefined;
+                        }[] | undefined;
+                    } | {
+                        description: string;
+                        id: string;
+                        enabled: boolean;
+                        type: "experiment-ref";
+                        condition?: string | undefined;
+                        variations: {
+                            value: string;
+                            variationId: string;
+                        }[];
+                        experimentId: string;
+                    })[];
+                };
+                definitions?: {
+                    [x: string]: string;
+                } | undefined;
+            }[] | undefined;
         };
         previous_attributes: {
             id?: string | undefined;
@@ -519,6 +663,78 @@ Triggered when a feature is updated
                 date: string;
                 publishedBy: string;
             } | undefined;
+            revisions?: ({
+                baseVersion: number;
+                version: number;
+                comment: string;
+                date: string;
+                status: string;
+                publishedBy?: string | undefined;
+                rules: {
+                    [x: string]: ({
+                        description: string;
+                        condition: string;
+                        savedGroupTargeting?: {
+                            matchType: "all" | "any" | "none";
+                            savedGroups: string[];
+                        }[] | undefined;
+                        id: string;
+                        enabled: boolean;
+                        type: "force";
+                        value: string;
+                    } | {
+                        description: string;
+                        condition: string;
+                        savedGroupTargeting?: {
+                            matchType: "all" | "any" | "none";
+                            savedGroups: string[];
+                        }[] | undefined;
+                        id: string;
+                        enabled: boolean;
+                        type: "rollout";
+                        value: string;
+                        coverage: number;
+                        hashAttribute: string;
+                    } | {
+                        description: string;
+                        condition: string;
+                        id: string;
+                        enabled: boolean;
+                        type: "experiment";
+                        trackingKey?: string | undefined;
+                        hashAttribute?: string | undefined;
+                        fallbackAttribute?: string | undefined;
+                        disableStickyBucketing?: boolean | undefined;
+                        bucketVersion?: number | undefined;
+                        minBucketVersion?: number | undefined;
+                        namespace?: {
+                            enabled: boolean;
+                            name: string;
+                            range: number[];
+                        } | undefined;
+                        coverage?: number | undefined;
+                        value?: {
+                            value: string;
+                            weight: number;
+                            name?: string | undefined;
+                        }[] | undefined;
+                    } | {
+                        description: string;
+                        id: string;
+                        enabled: boolean;
+                        type: "experiment-ref";
+                        condition?: string | undefined;
+                        variations: {
+                            value: string;
+                            variationId: string;
+                        }[];
+                        experimentId: string;
+                    })[];
+                };
+                definitions?: {
+                    [x: string]: string;
+                } | undefined;
+            }[] | undefined) | undefined;
         };
     };
     user: {
@@ -705,6 +921,78 @@ Triggered when a feature is deleted
                 date: string;
                 publishedBy: string;
             };
+            revisions?: {
+                baseVersion: number;
+                version: number;
+                comment: string;
+                date: string;
+                status: string;
+                publishedBy?: string | undefined;
+                rules: {
+                    [x: string]: ({
+                        description: string;
+                        condition: string;
+                        savedGroupTargeting?: {
+                            matchType: "all" | "any" | "none";
+                            savedGroups: string[];
+                        }[] | undefined;
+                        id: string;
+                        enabled: boolean;
+                        type: "force";
+                        value: string;
+                    } | {
+                        description: string;
+                        condition: string;
+                        savedGroupTargeting?: {
+                            matchType: "all" | "any" | "none";
+                            savedGroups: string[];
+                        }[] | undefined;
+                        id: string;
+                        enabled: boolean;
+                        type: "rollout";
+                        value: string;
+                        coverage: number;
+                        hashAttribute: string;
+                    } | {
+                        description: string;
+                        condition: string;
+                        id: string;
+                        enabled: boolean;
+                        type: "experiment";
+                        trackingKey?: string | undefined;
+                        hashAttribute?: string | undefined;
+                        fallbackAttribute?: string | undefined;
+                        disableStickyBucketing?: boolean | undefined;
+                        bucketVersion?: number | undefined;
+                        minBucketVersion?: number | undefined;
+                        namespace?: {
+                            enabled: boolean;
+                            name: string;
+                            range: number[];
+                        } | undefined;
+                        coverage?: number | undefined;
+                        value?: {
+                            value: string;
+                            weight: number;
+                            name?: string | undefined;
+                        }[] | undefined;
+                    } | {
+                        description: string;
+                        id: string;
+                        enabled: boolean;
+                        type: "experiment-ref";
+                        condition?: string | undefined;
+                        variations: {
+                            value: string;
+                            variationId: string;
+                        }[];
+                        experimentId: string;
+                    })[];
+                };
+                definitions?: {
+                    [x: string]: string;
+                } | undefined;
+            }[] | undefined;
         };
     };
     user: {

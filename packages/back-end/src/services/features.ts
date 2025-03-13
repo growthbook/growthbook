@@ -1201,12 +1201,14 @@ export function getApiFeatureObj({
   groupMap,
   experimentMap,
   revision,
+  revisions,
 }: {
   feature: FeatureInterface;
   organization: OrganizationInterface;
   groupMap: GroupMap;
   experimentMap: Map<string, ExperimentInterface>;
   revision: FeatureRevisionInterface | null;
+  revisions?: FeatureRevisionInterface[];
 }): ApiFeature {
   const defaultValue = feature.defaultValue;
   const featureEnvironments: Record<string, ApiFeatureEnvironment> = {};
@@ -1247,6 +1249,50 @@ export function getApiFeatureObj({
     revision?.publishedBy?.type === "api_key"
       ? "API"
       : revision?.publishedBy?.name;
+
+  const revisionDefs = revisions?.map((rev) => {
+    const environmentRules: Record<string, FeatureRule[]> = {};
+    const environmentDefinitions: Record<string, string> = {};
+    environments.forEach((env) => {
+      const rules = (rev?.rules?.[env] || []).map((rule) => ({
+        ...rule,
+        coverage:
+          rule.type === "rollout" || rule.type === "experiment"
+            ? rule.coverage ?? 1
+            : 1,
+        condition: rule.condition || "",
+        savedGroupTargeting: (rule.savedGroups || []).map((s) => ({
+          matchType: s.match,
+          savedGroups: s.ids,
+        })),
+        enabled: !!rule.enabled,
+      }));
+      const definition = getFeatureDefinition({
+        feature: { ...feature, environmentSettings: {[env]: { enabled: true, rules} } },
+        groupMap,
+        experimentMap,
+        environment: env,
+      });
+
+      environmentRules[env] = rules;
+      environmentDefinitions[env] = JSON.stringify(definition);
+    });
+    const publishedBy =
+      rev?.publishedBy?.type === "api_key"
+        ? "API"
+        : rev?.publishedBy?.name;
+    return {
+      baseVersion: rev.baseVersion,
+      version: rev.version,
+      comment: rev?.comment || "",
+      date: rev?.dateCreated.toISOString() || "",
+      status: rev?.status,
+      publishedBy,
+      rules: environmentRules,
+      definitions: environmentDefinitions,
+    };
+  });
+
   const featureRecord: ApiFeature = {
     id: feature.id,
     description: feature.description || "",
@@ -1265,6 +1311,7 @@ export function getApiFeatureObj({
       publishedBy: publishedBy || "",
       version: feature.version,
     },
+    revisions: revisionDefs,
   };
 
   return featureRecord;
