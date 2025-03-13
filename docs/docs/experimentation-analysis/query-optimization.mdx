@@ -9,18 +9,11 @@ slug: /app/query-optimization
 
 GrowthBook is designed to run efficient database queries out-of-the-box, but for large datasets or complex metrics, there are a few settings and techniques you can use to optimize your queries.
 
-1. Use SQL template variables to take advantage of date partitioning
-2. Use Fact Tables to define metrics
-3. Enable Fact Table Query Optimization (Enterprise only)
-4. Enable Data Pipeline Mode (Enterprise only)
-5. Utilize materialized views
-6. Pre-aggregated your data
-
 ## SQL Template Variables
 
 GrowthBook always includes a date filter in the SQL queries it generates, but because the queries are complex with multiple nested subqueries, database engines are not always able to fully take advantage of these filters.
 
-If you have a date-partitioned table, you can use template variables within the SQL you enter in GrowthBook to provide better hints to your database.
+If you have a date-partitioned table, you can use template variables within the SQL you enter in GrowthBook to provide better hints to your database. This applies to metrics, fact table, and experiment assignment queries.
 
 Here's an example of a simple Fact Table definition that uses template variables:
 
