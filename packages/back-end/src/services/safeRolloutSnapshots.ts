@@ -5,7 +5,7 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
 } from "shared/constants";
-import { isDefined } from "shared/util";
+import { isAnalysisAllowed, isDefined } from "shared/util";
 import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
@@ -14,13 +14,26 @@ import {
 } from "shared/experiments";
 import {
   MetricForSnapshot,
+  SafeRolloutSnapshotAnalysis,
   SafeRolloutSnapshotAnalysisSettings,
   SafeRolloutSnapshotInterface,
 } from "back-end/src/validators/safe-rollout";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,
+  SnapshotTriggeredBy,
+  SnapshotType,
 } from "back-end/types/experiment-snapshot";
+import { CreateProps } from "../models/BaseModel";
+import { getDataSourceById } from "../models/DataSourceModel";
+import { SafeRolloutResultsQueryRunner } from "../queryRunners/SafeRolloutResultsQueryRunner";
+import { FactTableMap } from "../models/FactTableModel";
+import { MetricSnapshotSettings } from "back-end/types/report";
+import { getSnapshotSettings } from "./experiments";
+import { ApiReqContext } from "back-end/types/api";
+import { ReqContext } from "back-end/types/organization";
+import { FeatureInterface, SafeRolloutRule } from "../validators/features";
+import { getSourceIntegrationObject } from "./datasource";
 
 export function getMetricForSnapshot(
   id: string | null | undefined,
@@ -57,12 +70,18 @@ export function getMetricForSnapshot(
       properPrior: false,
       properPriorMean: 0,
       properPriorStdDev: DEFAULT_PROPER_PRIOR_STDDEV,
-      regressionAdjustmentDays: DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
-      regressionAdjustmentEnabled: false,
+      regressionAdjustmentDays:
+        metricSnapshotSettings?.computedSettings?.regressionAdjustmentDays ??
+        DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+      regressionAdjustmentEnabled:
+        metricSnapshotSettings?.computedSettings?.regressionAdjustmentEnabled ??
+        false,
       regressionAdjustmentAvailable:
         metricSnapshotSettings?.computedSettings
           ?.regressionAdjustmentAvailable ?? true,
-      regressionAdjustmentReason: "",
+      regressionAdjustmentReason:
+        metricSnapshotSettings?.computedSettings?.regressionAdjustmentReason ??
+        "",
     },
   };
 }
@@ -73,8 +92,8 @@ export function getAnalysisSettingsFromSafeRolloutArgs(
   return {
     dimensions: args.dimensions,
     statsEngine: "frequentist",
-    regressionAdjusted: false,
-    pValueCorrection: null,
+    regressionAdjusted: args.regressionAdjusted,
+    pValueCorrection: args.pValueCorrection,
     sequentialTesting: true,
     sequentialTestingTuningParameter: args.sequentialTestingTuningParameter,
     pValueThreshold: args.pValueThreshold,
@@ -116,7 +135,7 @@ export function getSnapshotSettingsFromSafeRolloutArgs(
     queryFilter: settings.queryFilter || "",
     skipPartialData: false,
     defaultMetricPriorSettings: defaultMetricPriorSettings,
-    regressionAdjustmentEnabled: false,
+    regressionAdjustmentEnabled: !!settings.regressionAdjustmentEnabled,
     goalMetrics: [],
     secondaryMetrics: [],
     guardrailMetrics: settings.guardrailMetrics,
@@ -132,4 +151,127 @@ export function getSnapshotSettingsFromSafeRolloutArgs(
   );
 
   return { snapshotSettings, analysisSettings };
+}
+
+export async function createSnapshot({
+  feature,
+  safeRollout,
+  context,
+  triggeredBy,
+  phaseIndex,
+  useCache = false,
+  defaultAnalysisSettings,
+  additionalAnalysisSettings,
+  settingsForSnapshotMetrics,
+  metricMap,
+  factTableMap,
+  reweight,
+}: {
+  feature: FeatureInterface;
+  safeRollout: SafeRolloutRule;
+  context: ReqContext | ApiReqContext;
+  triggeredBy: SnapshotTriggeredBy;
+  phaseIndex: number;
+  useCache?: boolean;
+  defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings;
+  additionalAnalysisSettings: ExperimentSnapshotAnalysisSettings[];
+  settingsForSnapshotMetrics: MetricSnapshotSettings[];
+  metricMap: Map<string, ExperimentMetricInterface>;
+  factTableMap: FactTableMap;
+  reweight?: boolean;
+}): Promise<SafeRolloutResultsQueryRunner> {
+  const { org: organization } = context;
+  const dimension = defaultAnalysisSettings.dimensions[0] || null;
+  const metricGroups = await context.models.metricGroups.getAll();
+
+  const datasource = await getDataSourceById(context, safeRollout.datasource);
+  if (!datasource) {
+    throw new Error("Could not load data source");
+  }
+
+  const snapshotSettings = getSnapshotSettings({
+    safeRollout,
+    phaseIndex,
+    orgPriorSettings: organization.settings?.metricDefaults?.priorSettings,
+    settings: defaultAnalysisSettings,
+    settingsForSnapshotMetrics,
+    metricMap,
+    factTableMap,
+    metricGroups,
+    reweight,
+    datasource,
+  });
+
+  const data: CreateProps<SafeRolloutSnapshotInterface> = {
+    featureId: feature.id,
+    safeRolloutRuleId: safeRollout.id,
+    runStarted: new Date(),
+    error: "",
+    queries: [],
+    dimension: dimension || null,
+    settings: snapshotSettings,
+    triggeredBy,
+    multipleExposures: 0,
+    analyses: [
+      {
+        dateCreated: new Date(),
+        results: [],
+        settings: defaultAnalysisSettings,
+        status: "running",
+      },
+      ...additionalAnalysisSettings
+        .filter((a) => isAnalysisAllowed(snapshotSettings, a))
+        .map((a) => {
+          const analysis: SafeRolloutSnapshotAnalysis = {
+            dateCreated: new Date(),
+            results: [],
+            settings: a,
+            status: "running",
+          };
+          return analysis;
+        }),
+    ],
+    status: "running",
+  };
+
+  // let scheduleNextSnapshot = true;
+  // if (experiment.type === "multi-armed-bandit" && type !== "standard") {
+  //   // explore tab actions should never trigger the next schedule for bandits
+  //   scheduleNextSnapshot = false;
+  // }
+
+  // if (scheduleNextSnapshot) {
+  //   const nextUpdate =
+  //     experiment.type !== "multi-armed-bandit"
+  //       ? determineNextDate(organization.settings?.updateSchedule || null)
+  //       : determineNextBanditSchedule(experiment);
+
+  //   await updateExperiment({
+  //     context,
+  //     experiment,
+  //     changes: {
+  //       lastSnapshotAttempt: new Date(),
+  //       ...(nextUpdate ? { nextSnapshotAttempt: nextUpdate } : {}),
+  //       autoSnapshots: nextUpdate !== null,
+  //     },
+  //   });
+  // }
+
+  const snapshot = await context.models.safeRolloutSnapshots.create(data);
+
+  const integration = getSourceIntegrationObject(context, datasource, true);
+
+  const queryRunner = new SafeRolloutResultsQueryRunner(
+    context,
+    snapshot,
+    integration,
+    useCache
+  );
+
+  await queryRunner.startAnalysis({
+    metricMap,
+    factTableMap,
+  });
+
+  return queryRunner;
 }

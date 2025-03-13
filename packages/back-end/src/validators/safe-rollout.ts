@@ -208,19 +208,18 @@ export const safeRolloutSnapshotInterface = z
     organization: z.string(),
     safeRolloutRuleId: z.string(),
     featureId: z.string(),
-    datasource: z.string(),
-    dimension: z.string(),
+    dimension: z.string().nullable(),
     dateCreated: z.date(),
     dateUpdated: z.date(),
     error: z.string().optional(),
     runStarted: z.date(),
     status: z.enum(["running", "success", "error"]),
     settings: safeRolloutSnapshotSettings,
-    triggeredBy: z.enum(["manual", "scheduled"]),
+    triggeredBy: z.enum(["manual", "schedule"]),
     queries: z.array(queryPointerValidator),
     multipleExposures: z.number(),
     analyses: z.array(experimentSnapshotAnalysisObject),
-    health: experimentSnapshotHealthObject,
+    health: experimentSnapshotHealthObject.optional(),
   })
   .strict();
 
