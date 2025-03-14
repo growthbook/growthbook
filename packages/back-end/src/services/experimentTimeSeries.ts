@@ -3,6 +3,7 @@ import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { ReqContext } from "back-end/types/organization";
 import { ExperimentInterface } from "back-end/src/validators/experiments";
 import {
+  ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
   MetricForSnapshot,
@@ -22,6 +23,8 @@ export async function updateExperimentTimeSeries({
   experiment: ExperimentInterface;
   experimentSnapshot: ExperimentSnapshotInterface;
 }) {
+  // TODO: Should we only include in the time series snapshots that are dimensionless?
+
   const metricsIds = getAllMetricIdsFromExperiment(experiment);
   const relativeAnalysis = experimentSnapshot.analyses.find(
     (analysis) => analysis.settings.differenceType === "relative"
@@ -62,7 +65,10 @@ export async function updateExperimentTimeSeries({
     return acc;
   }, {} as Record<string, MetricTimeSeriesVariation[]>);
 
-  const experimentHash = getExperimentSettingsHash(experimentSnapshot.settings);
+  const experimentHash = getExperimentSettingsHash(
+    experimentSnapshot.settings,
+    relativeAnalysis.settings
+  );
 
   await context.models.metricTimeSeries.bulkCreateOrUpdate(
     metricsIds.map((metricId) => ({
@@ -114,12 +120,56 @@ function convertMetricToMetricValue(
 const hashObject = (obj: object) => md5(JSON.stringify(obj));
 
 function getExperimentSettingsHash(
-  snapshotSettings: ExperimentSnapshotSettings
+  snapshotSettings: ExperimentSnapshotSettings,
+  snapshotAnalysisSettings: ExperimentSnapshotAnalysisSettings
 ): string {
-  // TODO: Which keys to keep?
-  return hashObject({ ...snapshotSettings, metricSettings: [] });
+  return hashObject({
+    // snapshotSettings
+    activationMetric: snapshotSettings.activationMetric,
+    attributionModel: snapshotSettings.attributionModel,
+    queryFilter: snapshotSettings.queryFilter,
+    segment: snapshotSettings.segment,
+    skipPartialData: snapshotSettings.skipPartialData,
+    datasourceId: snapshotSettings.datasourceId,
+    exposureQueryId: snapshotSettings.exposureQueryId,
+    startDate: snapshotSettings.startDate,
+    regressionAdjustmentEnabled: snapshotSettings.regressionAdjustmentEnabled,
+    experimentId: snapshotSettings.experimentId,
+
+    // analysisSettings
+    dimensions: snapshotAnalysisSettings.dimensions,
+    statsEngine: snapshotAnalysisSettings.statsEngine,
+    regressionAdjusted: snapshotAnalysisSettings.regressionAdjusted,
+    sequentialTesting: snapshotAnalysisSettings.sequentialTesting,
+    sequentialTestingTuningParameter:
+      snapshotAnalysisSettings.sequentialTestingTuningParameter,
+    baselineVariationIndex: snapshotAnalysisSettings.baselineVariationIndex,
+    pValueCorrection: snapshotAnalysisSettings.pValueCorrection,
+  });
 }
 
-function getMetricSettingsHash(metricSettings: MetricForSnapshot): string {
-  return hashObject(metricSettings);
+type MetricSettingsForTimeSeries = MetricForSnapshot;
+// &
+//   Pick<
+//     FactMetricInterface,
+//     | "metricType"
+//     | "numerator"
+//     | "denominator"
+//     | "cappingSettings"
+//     | "quantileSettings"
+//   >;
+
+function getMetricSettingsHash(
+  metricSettings: MetricSettingsForTimeSeries
+): string {
+  return hashObject({
+    settings: metricSettings.settings,
+    computedSettings: metricSettings.computedSettings,
+    // metricType: metricSettings.metricType,
+    // numerator: metricSettings.numerator,
+    // denominator: metricSettings.denominator,
+    // cappingSettings: metricSettings.cappingSettings,
+    // quantileSettings: metricSettings.quantileSettings,
+    // TODO: Add information from FactTableInterface
+  });
 }
