@@ -1,5 +1,8 @@
 import md5 from "md5";
-import { getAllMetricIdsFromExperiment } from "shared/experiments";
+import {
+  getAllMetricIdsFromExperiment,
+  isFactMetricId,
+} from "shared/experiments";
 import { ReqContext } from "back-end/types/organization";
 import { ExperimentInterface } from "back-end/src/validators/experiments";
 import {
@@ -13,6 +16,11 @@ import {
   MetricTimeSeriesValue,
   MetricTimeSeriesVariation,
 } from "back-end/src/validators/metric-time-series";
+import {
+  FactMetricInterface,
+  FactTableInterface,
+} from "back-end/types/fact-table";
+import { getFactTableMap } from "back-end/src/models/FactTableModel";
 
 export async function updateExperimentTimeSeries({
   context,
@@ -70,6 +78,14 @@ export async function updateExperimentTimeSeries({
     relativeAnalysis.settings
   );
 
+  let factMetrics: FactMetricInterface[] | undefined = undefined;
+  let factTableMap: Map<string, FactTableInterface> | undefined = undefined;
+  const factMetricsIds: string[] = metricsIds.filter(isFactMetricId);
+  if (factMetricsIds.length > 0) {
+    factMetrics = await context.models.factMetrics.getByIds(factMetricsIds);
+    factTableMap = await getFactTableMap(context);
+  }
+
   await context.models.metricTimeSeries.bulkCreateOrUpdate(
     metricsIds.map((metricId) => ({
       source: "experiment",
@@ -77,9 +93,12 @@ export async function updateExperimentTimeSeries({
       metricId,
       lastExperimentSettingsHash: experimentHash,
       lastMetricSettingsHash: getMetricSettingsHash(
+        metricId,
         experimentSnapshot.settings.metricSettings.find(
-          (metric) => metric.id === metricId
-        )!
+          (it) => it.id === metricId
+        )!,
+        factMetrics,
+        factTableMap
       ),
       // TODO: Fix this
       stats: {
@@ -148,28 +167,47 @@ function getExperimentSettingsHash(
   });
 }
 
-type MetricSettingsForTimeSeries = MetricForSnapshot;
-// &
-//   Pick<
-//     FactMetricInterface,
-//     | "metricType"
-//     | "numerator"
-//     | "denominator"
-//     | "cappingSettings"
-//     | "quantileSettings"
-//   >;
-
 function getMetricSettingsHash(
-  metricSettings: MetricSettingsForTimeSeries
+  metricId: string,
+  metricSettings: MetricForSnapshot,
+  factMetrics?: FactMetricInterface[],
+  factTableMap?: Map<string, FactTableInterface>
 ): string {
-  return hashObject({
-    settings: metricSettings.settings,
-    computedSettings: metricSettings.computedSettings,
-    // metricType: metricSettings.metricType,
-    // numerator: metricSettings.numerator,
-    // denominator: metricSettings.denominator,
-    // cappingSettings: metricSettings.cappingSettings,
-    // quantileSettings: metricSettings.quantileSettings,
-    // TODO: Add information from FactTableInterface
-  });
+  const factMetric = factMetrics?.find((metric) => metric.id === metricId);
+  if (!factMetric) {
+    return hashObject(metricSettings);
+  } else {
+    const numeratorFactTableId = factMetric.numerator.factTableId;
+    const numeratorFactTable = numeratorFactTableId
+      ? factTableMap?.get(numeratorFactTableId)
+      : undefined;
+
+    const denominatorFactTableId = factMetric.denominator?.factTableId;
+    const denominatorFactTable = denominatorFactTableId
+      ? factTableMap?.get(denominatorFactTableId)
+      : undefined;
+
+    const numeratorFilters = numeratorFactTable?.filters.filter((it) =>
+      factMetric.numerator.filters.includes(it.id)
+    );
+
+    // TODO: Some of these have a `updatedate`, should we include it or filter it out?
+    return hashObject({
+      ...metricSettings,
+      metricType: factMetric.metricType,
+      numerator: factMetric.numerator,
+      denominator: factMetric.denominator,
+      cappingSettings: factMetric.cappingSettings,
+      quantileSettings: factMetric.quantileSettings,
+      numeratorFactTable: {
+        sql: numeratorFactTable?.sql,
+        eventName: numeratorFactTable?.eventName,
+        filters: numeratorFilters,
+      },
+      denominatorFactTable: {
+        sql: denominatorFactTable?.sql,
+        eventName: denominatorFactTable?.eventName,
+      },
+    });
+  }
 }
