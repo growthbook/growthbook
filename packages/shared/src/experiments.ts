@@ -16,7 +16,6 @@ import {
 } from "back-end/types/organization";
 import {
   DecisionCriteriaAction,
-  DecisionCriteriaCondition,
   DecisionCriteriaInterface,
   DecisionCriteriaRule,
   DecisionFrameworkExperimentRecommendationStatus,
@@ -909,25 +908,35 @@ export function evaluateDecisionRuleOnVariation({
   guardrailMetrics: string[];
   requireSuperStatSig: boolean;
 }): DecisionCriteriaAction | undefined {
-  
   const { conditions, action } = rule;
 
-
   const allConditionsMet = conditions.every((condition) => {
-
     // TODO trending loser
-    const desiredStatus = condition.direction === "statsigWinner" ? "won" : condition.direction === "statsigLoser" ? "lost" : "neutral";
+    const desiredStatus =
+      condition.direction === "statsigWinner"
+        ? "won"
+        : condition.direction === "statsigLoser"
+        ? "lost"
+        : "neutral";
     if (condition.metrics === "goals") {
       const metrics = goalMetrics;
       const metricResults = variationStatus.goalMetrics;
 
-      const fieldToCheck = requireSuperStatSig ? "superStatSigStatus" : "status";
+      const fieldToCheck = requireSuperStatSig
+        ? "superStatSigStatus"
+        : "status";
       if (condition.match === "all") {
-        return metrics.every((m) => metricResults[m]?.[fieldToCheck] === desiredStatus);
+        return metrics.every(
+          (m) => metricResults[m]?.[fieldToCheck] === desiredStatus
+        );
       } else if (condition.match === "any") {
-        return metrics.some((m) => metricResults[m]?.[fieldToCheck] === desiredStatus);
+        return metrics.some(
+          (m) => metricResults[m]?.[fieldToCheck] === desiredStatus
+        );
       } else if (condition.match === "none") {
-        return metrics.every((m) => metricResults[m]?.[fieldToCheck] !== desiredStatus);
+        return metrics.every(
+          (m) => metricResults[m]?.[fieldToCheck] !== desiredStatus
+        );
       }
     } else if (condition.metrics === "guardrails") {
       const metrics = guardrailMetrics;
@@ -942,7 +951,6 @@ export function evaluateDecisionRuleOnVariation({
         return metrics.every((m) => metricResults[m]?.status !== desiredStatus);
       }
     }
-
   });
 
   if (allConditionsMet) {
@@ -967,11 +975,11 @@ export function getVariationDecisions({
   requireSuperStatSig: boolean;
 }): {
   variationId: string;
-  decisionCriteriaAction: DecisionCriteriaAction
+  decisionCriteriaAction: DecisionCriteriaAction;
 }[] {
   const results: {
     variationId: string;
-    decisionCriteriaAction: DecisionCriteriaAction
+    decisionCriteriaAction: DecisionCriteriaAction;
   }[] = [];
 
   const { rules } = decisionCriteria;
@@ -992,7 +1000,7 @@ export function getVariationDecisions({
         });
         break;
       }
-    };
+    }
   });
 
   return results;

@@ -30,7 +30,13 @@ export {
   UpdateTemplateProps,
 } from "back-end/src/routers/experiment-template/template.validators";
 
-export { DecisionCriteriaInterface, DecisionCriteriaAction, DecisionCriteriaCondition, DecisionCriteriaRule } from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.validators";
+export {
+  DecisionCriteriaInterface,
+  DecisionCriteriaData,
+  DecisionCriteriaAction,
+  DecisionCriteriaCondition,
+  DecisionCriteriaRule,
+} from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.validators";
 
 export type DecisionFrameworkExperimentRecommendationStatus =
   | { status: "days-left"; daysLeft: number }

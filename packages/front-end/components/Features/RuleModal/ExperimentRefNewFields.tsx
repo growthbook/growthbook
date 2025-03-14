@@ -5,7 +5,7 @@ import {
   FeatureRule,
   SavedGroupTargeting,
 } from "back-end/types/feature";
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import Collapsible from "react-collapsible";
 import { Flex, Tooltip, Text } from "@radix-ui/themes";
@@ -48,9 +48,6 @@ import {
   filterCustomFieldsForSectionAndProject,
   useCustomFields,
 } from "@/hooks/useCustomFields";
-import Toggle from "@/components/Forms/Toggle";
-import { DecisionCriteriaInterface } from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.validators";
-import { useAuth } from "@/services/auth";
 
 export default function ExperimentRefNewFields({
   step,
@@ -124,9 +121,6 @@ export default function ExperimentRefNewFields({
   isTemplate?: boolean;
 }) {
   const form = useFormContext();
-  const { apiCall } = useAuth();
-  const [decisionCriterias, setDecisionCriterias] = useState<DecisionCriteriaInterface[]>([]);
-  const [loadingDecisionCriteria, setLoadingDecisionCriteria] = useState(false);
 
   const {
     segments,
@@ -184,28 +178,6 @@ export default function ExperimentRefNewFields({
     "experiment",
     project
   );
-
-  // Fetch decision criteria when the component loads
-  useEffect(() => {
-    const fetchDecisionCriteria = async () => {
-      try {
-        setLoadingDecisionCriteria(true);
-        const response = await apiCall<{
-          status: number;
-          decisionCriteria: DecisionCriteriaInterface[];
-        }>("/decision-criteria");
-        if (response?.decisionCriteria) {
-          setDecisionCriterias(response.decisionCriteria);
-        }
-      } catch (error) {
-        console.error("Error fetching decision criteria:", error);
-      } finally {
-        setLoadingDecisionCriteria(false);
-      }
-    };
-
-    fetchDecisionCriteria();
-  }, [apiCall]);
 
   return (
     <>
@@ -616,106 +588,6 @@ export default function ExperimentRefNewFields({
             </div>
           </Collapsible>
         </>
-      ) : null}
-      {step === 4 ? (
-        <div className="px-2">
-          <div className="form-group">
-            <Toggle
-              id="measurement_only"
-              label="Measurement Only Experiment"
-              value={form.watch("isMeasurementOnly") || false}
-              setValue={(value) => form.setValue("isMeasurementOnly", value)}
-              helpText="Enable for A/A tests, holdouts, or other experiments where you're only measuring impact without making a ship/rollback decision"
-            />
-          </div>
-
-          {!form.watch("isMeasurementOnly") && (
-            <>
-              <div className="form-group">
-                <label>Target Minimum Detectable Effect (MDE)</label>
-                <div className="mb-3">
-                  <Text size="2" color="gray">
-                    Specify the smallest effect size you want to reliably detect for each goal metric.
-                    This helps determine if your experiment has enough statistical power.
-                  </Text>
-                </div>
-                {form.watch("goalMetrics")?.map((metricId) => {
-                  const metric = datasource?.metrics?.find(m => m.id === metricId);
-                  return (
-                    <div key={metricId} className="mb-2">
-                      <div className="d-flex align-items-center">
-                        <div className="flex-grow-1">{metric?.name || metricId}</div>
-                        <div style={{ width: "120px" }}>
-                          <div className="input-group">
-                            <input
-                              type="number"
-                              className="form-control"
-                              min="0"
-                              step="0.01"
-                              value={form.watch(`targetMDE.${metricId}`) || ""}
-                              onChange={(e) => {
-                                const value = parseFloat(e.target.value);
-                                if (!isNaN(value) && value >= 0) {
-                                  form.setValue(`targetMDE.${metricId}`, value);
-                                } else {
-                                  form.setValue(`targetMDE.${metricId}`, undefined);
-                                }
-                              }}
-                              placeholder="e.g. 0.05"
-                            />
-                            <div className="input-group-append">
-                              <span className="input-group-text">%</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-                {(!form.watch("goalMetrics") || form.watch("goalMetrics").length === 0) && (
-                  <Callout status="warning">
-                    Please add goal metrics in the Metrics step to set target MDE values.
-                  </Callout>
-                )}
-              </div>
-
-              <div className="form-group mt-4">
-                <label>Decision Criteria</label>
-                <div className="mb-3">
-                  <Text size="2" color="gray">
-                    Select a decision criteria to automatically determine whether to ship, rollback, or review your experiment based on results.
-                  </Text>
-                </div>
-                {loadingDecisionCriteria ? (
-                  <div>Loading decision criteria...</div>
-                ) : (
-                  <SelectField
-                    value={form.watch("decisionCriteriaId") || ""}
-                    onChange={(value) => form.setValue("decisionCriteriaId", value)}
-                    options={decisionCriterias.map((criteria) => ({
-                      value: criteria.id,
-                      label: criteria.name,
-                    }))}
-                    initialOption="None"
-                    formatOptionLabel={({ label, value }) => {
-                      const criteria = decisionCriterias.find(c => c.id === value);
-                      return (
-                        <Flex direction="column" gap="1">
-                          <Text>{label}</Text>
-                          {criteria?.description && (
-                            <Text size="1" color="gray">
-                              {criteria.description}
-                            </Text>
-                          )}
-                        </Flex>
-                      );
-                    }}
-                  />
-                )}
-              </div>
-            </>
-          )}
-        </div>
       ) : null}
     </>
   );

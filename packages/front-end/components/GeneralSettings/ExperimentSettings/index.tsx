@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useFormContext } from "react-hook-form";
-import { Box, Flex, Heading, Text, Tooltip } from "@radix-ui/themes";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import Checkbox from "@/components/Radix/Checkbox";
 import { hasFileConfig } from "@/services/env";
 import { useUser } from "@/services/UserContext";
@@ -12,10 +12,9 @@ import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListM
 import RadioGroup from "@/components/Radix/RadioGroup";
 import { GBInfo } from "@/components/Icons";
 import Frame from "@/components/Radix/Frame";
-import { DocLink } from "@/components/DocLink";
-import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteriaModal";
 import StatsEngineSettings from "./StatsEngineSettings";
 import StickyBucketingSettings from "./StickyBucketingSettings";
+import DecisionFrameworkSettings from "./DecisionFrameworkSettings";
 
 export default function ExperimentSettings({
   cronString,
@@ -33,10 +32,6 @@ export default function ExperimentSettings({
     () => queryParams.get("editCheckListModal") || false
   );
 
-  const [decisionCriteriaModalOpen, setDecisionCriteriaModalOpen] = useState(
-    false
-  );
-
   const srmThreshold = form.watch("srmThreshold");
   const srmHighlightColor =
     srmThreshold && (srmThreshold > 0.01 || srmThreshold < 0.001)
@@ -51,17 +46,6 @@ export default function ExperimentSettings({
 
   return (
     <>
-      {decisionCriteriaModalOpen && (
-        <DecisionCriteriaModal
-          open={decisionCriteriaModalOpen}
-          onClose={() => setDecisionCriteriaModalOpen(false)}
-          onSave={(criteria) => {
-            console.log("Saved decision criteria:", criteria);
-            setDecisionCriteriaModalOpen(false);
-          }}
-          trackingEventModalSource="experiment_settings"
-        />
-      )}
       <Frame>
         <Flex gap="4">
           <Box width="220px" flexShrink="0">
@@ -430,99 +414,9 @@ export default function ExperimentSettings({
               </Box>
             </Box>
 
+            {/* Decision Framework Settings */}
             <Box mb="4" width="100%">
-              <Box className="appbox p-3">
-                <Heading size="3" className="font-weight-semibold" mb="2">
-                  Experiment Decision Framework
-                  <PremiumTooltip
-                    commercialFeature="decision-framework"
-                    style={{ display: "inline-flex" }}
-                  />
-                </Heading>
-                <Box mb="4">
-                  <Text size="2" style={{ color: "var(--color-text-mid)" }}>
-                    Calculates the estimated duration of your experiment using
-                    target minimum detectable effects and makes shipping
-                    recommendations.{" "}
-                    <DocLink docSection={"experimentDecisionFramework"}>
-                      Learn More
-                    </DocLink>
-                  </Text>
-                </Box>
-                <Flex
-                  display="inline-flex"
-                  gap="3"
-                  mb="4"
-                  align="center"
-                  justify="center"
-                >
-                  <Checkbox
-                    mb="0"
-                    value={
-                      !hasCommercialFeature("decision-framework")
-                        ? false
-                        : form.watch("decisionFrameworkEnabled")
-                    }
-                    setValue={(v) =>
-                      form.setValue("decisionFrameworkEnabled", v)
-                    }
-                    id="toggle-decisionFrameworkEnabled"
-                    disabled={!hasCommercialFeature("decision-framework")}
-                  />
-                  <Box>
-                    <label
-                      htmlFor="toggle-decisionFrameworkEnabled"
-                      className="font-weight-semibold mb-0"
-                    >
-                      Enable experiment decision framework
-                    </label>
-                  </Box>
-                </Flex>
-                <Box>
-                  <Text size="2">
-                    Minimum experiment runtime
-                    <Tooltip content="Estimated duration and shipping recommendations are not made until an experiment has been running for this many days.">
-                      <Flex
-                        ml="2"
-                        mb="2px"
-                        display="inline-flex"
-                        style={{ verticalAlign: "middle" }}
-                      >
-                        <GBInfo />
-                      </Flex>
-                    </Tooltip>
-                  </Text>
-                  <Box mt="1" width="150px">
-                    <Field
-                      type="number"
-                      append="days"
-                      step="1"
-                      min="0"
-                      disabled={
-                        !form.watch("decisionFrameworkEnabled") ||
-                        !hasCommercialFeature("decision-framework")
-                      }
-                      {...form.register("experimentMinLengthDays", {
-                        valueAsNumber: true,
-                      })}
-                    />
-                  </Box>
-                </Box>
-                <Flex align="start" direction="column" flexGrow="1" pt="6">
-                  <Box mb="4">
-                    <PremiumTooltip commercialFeature="decision-framework">
-                      <Button
-                        onClick={() => setDecisionCriteriaModalOpen(true)}
-                        color="violet"
-                        variant="soft"
-                        size="sm"
-                      >
-                        Configure Shipping Criteria
-                      </Button>
-                    </PremiumTooltip>
-                  </Box>
-                </Flex>
-              </Box>
+              <DecisionFrameworkSettings />
             </Box>
           </Flex>
         </Flex>

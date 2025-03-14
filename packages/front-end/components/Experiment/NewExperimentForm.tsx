@@ -68,8 +68,6 @@ import { useTemplates } from "@/hooks/useTemplates";
 import { convertTemplateToExperiment } from "@/services/experiments";
 import PremiumTooltip from "../Marketing/PremiumTooltip";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
-import { DecisionCriteriaInterface } from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.validators";
-import DecisionCriteriaSelector from "@/components/DecisionCriteria/DecisionCriteriaSelector";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -219,9 +217,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const orgStickyBucketing = !!settings.useStickyBucketing;
   const lastPhase = (initialValue?.phases?.length ?? 1) - 1;
 
-  const [decisionCriterias, setDecisionCriterias] = useState<DecisionCriteriaInterface[]>([]);
-  const [loadingDecisionCriteria, setLoadingDecisionCriteria] = useState(false);
-
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
       project: initialValue?.project || project || "",
@@ -304,9 +299,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       banditBurnInValue: scopedSettings.banditBurnInValue.value,
       banditBurnInUnit: scopedSettings.banditScheduleUnit.value,
       templateId: initialValue?.templateId || "",
-      isMeasurementOnly: initialValue?.isMeasurementOnly || false,
-      targetMDE: initialValue?.targetMDE || {},
-      decisionCriteriaId: initialValue?.decisionCriteriaId || "",
     },
   });
 
@@ -508,28 +500,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     setValueAs: (s) => s?.trim(),
   });
   const trackingKeyFieldHandlers = form.register("trackingKey");
-
-  // Fetch decision criteria when the form loads
-  useEffect(() => {
-    const fetchDecisionCriteria = async () => {
-      try {
-        setLoadingDecisionCriteria(true);
-        const response = await apiCall<{
-          status: number;
-          decisionCriteria: DecisionCriteriaInterface[];
-        }>("/decision-criteria");
-        if (response?.decisionCriteria) {
-          setDecisionCriterias(response.decisionCriteria);
-        }
-      } catch (error) {
-        console.error("Error fetching decision criteria:", error);
-      } finally {
-        setLoadingDecisionCriteria(false);
-      }
-    };
-
-    fetchDecisionCriteria();
-  }, [apiCall]);
 
   return (
     <FormProvider {...form}>
@@ -754,7 +724,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         </Page>
 
         {!isBandit && (isNewExperiment || duplicate)
-          ? ["Overview", "Traffic", "Targeting", "Metrics", "Analysis Plan"].map((p, i) => {
+          ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => {
               // skip, custom overview page above
               if (i === 0) return null;
               return (
@@ -826,7 +796,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     orgStickyBucketing={orgStickyBucketing}
                   />
                 </Page>
-              )
+              );
             })
           : null}
 

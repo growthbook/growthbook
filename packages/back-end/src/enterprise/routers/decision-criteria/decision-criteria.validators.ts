@@ -14,7 +14,6 @@ export const decisionCriteriaRule = z.object({
   action: decisionCriteriaAction,
 });
 
-
 export type DecisionCriteriaAction = z.infer<typeof decisionCriteriaAction>;
 export type DecisionCriteriaCondition = z.infer<
   typeof decisionCriteriaCondition
@@ -38,7 +37,10 @@ export const decisionCriteriaInterface = z
   })
   .strict();
 
-// TODO move to type file
+export type DecisionCriteriaData = Omit<
+  DecisionCriteriaInterface,
+  "organization" | "project" | "owner" | "dateCreated" | "dateUpdated"
+>;
 export type CreateDecisionCriteriaProps = CreateProps<DecisionCriteriaInterface>;
 export type UpdateDecisionCriteriaProps = UpdateProps<DecisionCriteriaInterface>;
 export type DecisionCriteriaInterface = z.infer<
