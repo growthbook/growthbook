@@ -2422,7 +2422,6 @@ export async function postSnapshot(
         orgPriorSettings: metricDefaults.priorSettings,
         analysisSettings,
         metricMap,
-        context,
       });
       res.status(200).json({
         status: 200,
