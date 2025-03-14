@@ -137,7 +137,7 @@ export async function getFeatureRevisionsByStatus({
   const docs = await FeatureRevisionModel.find({
     organization,
     featureId,
-    ...(status ? {status} : {}),
+    ...(status ? { status } : {}),
   });
   return docs.map((m) => toInterface(m, context));
 }
