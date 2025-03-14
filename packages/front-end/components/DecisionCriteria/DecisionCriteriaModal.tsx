@@ -34,15 +34,6 @@ type DecisionCriteriaBase = Pick<
   "name" | "description" | "rules" | "defaultAction"
 >;
 
-// Define the props for the DecisionCriteriaModal component
-interface DecisionCriteriaModalProps {
-  open: boolean;
-  onClose: () => void;
-  onSave: (decisionCriteria: DecisionCriteriaBase) => void;
-  initialPlan?: DecisionCriteriaInterface;
-  trackingEventModalSource?: string;
-}
-
 // Define the form data type
 interface DecisionCriteriaFormData extends DecisionCriteriaBase {
   rules: DecisionCriteriaRuleUI[];
@@ -81,93 +72,9 @@ const ACTION_OPTIONS = [
   { value: "review", label: "Review" },
 ];
 
-// Default decision criteria for new users
-const DEFAULT_DECISION_CRITERIA: DecisionCriteriaUI[] = [
-  {
-    id: "gb_strict-rollout",
-    name: "Clear Signals",
-    description:
-      "The default plan to only ship or rollback with clear goal metric signal or to rollback with a guardrail failure.",
-    rules: [
-      {
-        conditions: [
-          {
-            match: "all",
-            metrics: "goals",
-            direction: "statsigWinner",
-          },
-          {
-            match: "none",
-            metrics: "guardrails",
-            direction: "statsigLoser",
-          },
-        ],
-        action: "ship",
-      },
-      {
-        conditions: [
-          {
-            match: "any",
-            metrics: "guardrails",
-            direction: "statsigLoser",
-          },
-        ],
-        action: "rollback",
-      },
-      {
-        conditions: [
-          {
-            match: "all",
-            metrics: "goals",
-            direction: "statsigLoser",
-          },
-        ],
-        action: "rollback",
-      },
-    ],
-    defaultAction: "review",
-  },
-  {
-    id: "gb_do-no-harm",
-    name: "Do No Harm",
-    description:
-      "Ship so long as no guardrails and no goal metrics are failing. This is the most permissive plan, and can be useful if the costs of shipping are very low.",
-    rules: [
-      {
-        conditions: [
-          {
-            match: "none",
-            metrics: "goals",
-            direction: "statsigLoser",
-          },
-          {
-            match: "none",
-            metrics: "guardrails",
-            direction: "statsigLoser",
-          },
-        ],
-        action: "ship",
-      },
-    ],
-    defaultAction: "rollback",
-  },
-];
-
-// Define the Step component for PagedModal
-interface StepProps {
-  display: string | ReactNode;
-  enabled?: boolean;
-  validate?: () => Promise<void>;
-  customNext?: () => void;
-  children: ReactNode;
-}
-
-const Step: FC<StepProps> = ({ children }) => {
-  return <>{children}</>;
-};
-
 const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
   open,
+  decisionCriteria,
   onClose,
   onSave,
   initialPlan,
@@ -175,10 +82,6 @@ const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
 }) => {
   const { apiCall } = useAuth();
   const [step, setStep] = useState(0);
-  const [decisionCriterias, setDecisionCriterias] = useState<
-    DecisionCriteriaUI[]
-  >(DEFAULT_DECISION_CRITERIA);
-  const [loading, setLoading] = useState(true);
   const [selectedCriteriaId, setSelectedCriteriaId] = useState<string | null>(
     initialPlan?.id || null
   );
@@ -493,28 +396,13 @@ const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
 
     onSave(decisionCriteria);
   };
-
-  // Validate the first step
-  const validateFirstStep = async () => {
-    if (selectedCriteriaId === null && step === 0) {
-      // If creating a new decision criteria, move to the next step
-      return;
-    }
-  };
-
-  // Validate the second step
-  const validateSecondStep = async () => {
-    if (!form.getValues("name").trim()) {
-      throw new Error("Name is required");
-    }
-  };
-
   // Only render the modal if it's open
   if (!open) return null;
 
   return (
-    <PagedModal
-      header="Modift Decision Criteria"
+      <Modal
+
+      header="Modify Decision Criteria"
       subHeader="Define rules for automatic decision making based on experiment results"
       close={onClose}
       submit={handleSave}
@@ -524,71 +412,6 @@ const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
       setStep={setStep}
       trackingEventModalType="decision_criteria_create"
       trackingEventModalSource={trackingEventModalSource}
-    >
-      <Step
-        display="Select or Create Decision Criteria"
-        enabled={true}
-        validate={validateFirstStep}
-      >
-        <Flex direction="column" gap="3">
-          {loading ? (
-            <Text>Loading decision criteria...</Text>
-          ) : (
-            <>
-              <Flex direction="column" gap="2">
-                {decisionCriterias.length > 0 && (
-                  <>
-                    <Text weight="bold" size="2">
-                      Existing Decision Criteria
-                    </Text>
-                    <RadioCards
-                      width="100%"
-                      columns="1"
-                      value={selectedCriteriaId || ""}
-                      setValue={(value) => setSelectedCriteriaId(value)}
-                      options={decisionCriterias.map((criteria) => ({
-                        value: criteria.id,
-                        label: criteria.name,
-                        description: (
-                          <Flex direction="column" gap="1">
-                            {criteria.description && (
-                              <Text size="1" color="gray">
-                                {criteria.description}
-                              </Text>
-                            )}
-                            <Text size="1" color="gray">
-                              {criteria.rules.length} rule
-                              {criteria.rules.length !== 1 ? "s" : ""}
-                            </Text>
-                          </Flex>
-                        ),
-                      }))}
-                    />
-                  </>
-                )}
-
-                <Box mt="3">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setSelectedCriteriaId(null);
-                      setStep(1);
-                    }}
-                  >
-                    <FaPlusCircle />
-                    <Text ml="1">Create New Decision Criteria</Text>
-                  </Button>
-                </Box>
-              </Flex>
-            </>
-          )}
-        </Flex>
-      </Step>
-
-      <Step
-        display="Configure Decision Criteria"
-        enabled={true}
-        validate={validateSecondStep}
       >
         <Flex direction="column" gap="2">
           <Flex direction="column" gap="1">
