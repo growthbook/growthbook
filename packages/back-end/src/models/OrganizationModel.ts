@@ -263,6 +263,11 @@ export async function findAllOrganizations(
   return { organizations: docs.map(toInterface), total };
 }
 
+export async function findOrganizationsWithLicenseKey() {
+  const docs = await OrganizationModel.find({ licenseKey: { $exists: true } });
+  return docs.map(toInterface);
+}
+
 export async function findOrganizationById(id: string) {
   const doc = await getCollection(COLLECTION).findOne({ id });
   return doc ? toInterface(doc) : null;

@@ -3,10 +3,17 @@
  * This will allow us to make sure that any installation that hasn't contacted us within
  * a day may have had their connection to us blocked, and their license would then be
  * void within a week if something is not done to unblock the connection.
+ *
+ * For cloud installations this will ensure that any seats added to the organization
+ * from the api or scim will be reflected in the license data and can update their
+ * subscription accordingly.
  */
 import Agenda from "agenda";
 import { licenseInit } from "shared/enterprise";
-import { getSelfHostedOrganization } from "back-end/src/models/OrganizationModel";
+import {
+  findOrganizationsWithLicenseKey,
+  getSelfHostedOrganization,
+} from "back-end/src/models/OrganizationModel";
 import { trackJob } from "back-end/src/services/otel";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
@@ -18,12 +25,24 @@ const UPDATE_LICENSES_JOB_NAME = "updateLicenses";
 
 const updateLicense = trackJob(UPDATE_LICENSES_JOB_NAME, async () => {
   if (IS_CLOUD) {
-    return;
-  }
-
-  const org = await getSelfHostedOrganization();
-  if (org) {
-    licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
+    const orgs = await findOrganizationsWithLicenseKey();
+    // initialize the licenses at a rate of 1 per second to not overwhelm the license server
+    for (const org of orgs) {
+      licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
+      await new Promise((resolve) =>
+        setTimeout(
+          resolve,
+          process.env.LICENSE_UPDATE_DELAY
+            ? parseInt(process.env.LICENSE_UPDATE_DELAY)
+            : 1000
+        )
+      );
+    }
+  } else {
+    const org = await getSelfHostedOrganization();
+    if (org) {
+      licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
+    }
   }
 });
 
