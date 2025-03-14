@@ -1,13 +1,22 @@
 import { FC, useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { Flex, Grid, Text } from "@radix-ui/themes";
-import { FaPlusCircle, FaTrash } from "react-icons/fa";
+import { Box, Flex, IconButton, Separator, Text } from "@radix-ui/themes";
+import { FaPlusCircle } from "react-icons/fa";
 import {
   DecisionCriteriaInterface,
   DecisionCriteriaCondition,
   DecisionCriteriaRule,
   DecisionCriteriaData,
 } from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.validators";
+import {
+  PiArrowDown,
+  PiArrowDownRight,
+  PiArrowUp,
+  PiCheck,
+  PiEye,
+  PiMinusCircle,
+  PiTrash,
+} from "react-icons/pi";
 import { Select, SelectItem } from "@/components/Radix/Select";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
@@ -47,23 +56,78 @@ const METRICS_OPTIONS = [
 ];
 
 // Direction options for goals
-const GOAL_DIRECTION_OPTIONS = [
-  { value: "statsigWinner", label: "Stat Sig Good" },
-  { value: "statsigLoser", label: "Stat Sig Bad" },
-  { value: "trendingLoser", label: "Trending Bad" },
+const GOAL_DIRECTION_OPTIONS: {
+  value: "statsigWinner" | "statsigLoser" | "trendingLoser";
+  label: string;
+  color: "green" | "red" | "amber";
+  icon: React.ReactNode;
+}[] = [
+  {
+    value: "statsigWinner",
+    label: "Stat Sig Good",
+    color: "green",
+    icon: <PiArrowUp color="green" />,
+  },
+  {
+    value: "statsigLoser",
+    label: "Stat Sig Bad",
+    color: "red",
+    icon: <PiArrowDown color="red" />,
+  },
+  {
+    value: "trendingLoser",
+    label: "Trending Bad",
+    color: "amber",
+    icon: <PiArrowDownRight color="amber" />,
+  },
 ];
 
 // Direction options for guardrails
-const GUARDRAIL_DIRECTION_OPTIONS = [
-  { value: "statsigLoser", label: "Stat Sig Bad" },
-  { value: "trendingLoser", label: "Trending Bad" },
+const GUARDRAIL_DIRECTION_OPTIONS: {
+  value: "statsigLoser" | "trendingLoser";
+  label: string;
+  color: "red" | "amber";
+  icon: React.ReactNode;
+}[] = [
+  {
+    value: "statsigLoser",
+    label: "Stat Sig Bad",
+    color: "red",
+    icon: <PiArrowDown color="red" />,
+  },
+  {
+    value: "trendingLoser",
+    label: "Trending Bad",
+    color: "amber",
+    icon: <PiArrowDownRight color="amber" />,
+  },
 ];
 
 // Action options
-const ACTION_OPTIONS = [
-  { value: "ship", label: "Ship" },
-  { value: "rollback", label: "Rollback" },
-  { value: "review", label: "Review" },
+const ACTION_OPTIONS: {
+  value: "ship" | "rollback" | "review";
+  label: string;
+  color: "green" | "red" | "amber";
+  icon: React.ReactNode;
+}[] = [
+  {
+    value: "ship",
+    label: "Ship",
+    color: "green",
+    icon: <PiCheck color="green" />,
+  },
+  {
+    value: "rollback",
+    label: "Rollback",
+    color: "red",
+    icon: <PiMinusCircle color="red" />,
+  },
+  {
+    value: "review",
+    label: "Review",
+    color: "amber",
+    icon: <PiEye color="amber" />,
+  },
 ];
 
 interface DecisionCriteriaModalProps {
@@ -250,6 +314,8 @@ const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
       action,
     }));
 
+    // validate no guardrail good
+
     // Use the existing API endpoint structure but with our new naming
     const updatedCriteria = {
       name: formData.name,
@@ -331,58 +397,45 @@ const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
           Rules
         </Text>
         <Text size="2">
-          Rules are evaluated in order. If a rule matches, the action is
+          Rules are evaluated in order. If a rule matches, an action is
           recommended and no further rules are evaluated.
         </Text>
 
         {form.watch("rules").map((rule, ruleIndex) => (
           <Flex
             key={rule.id}
+            className="appbox mb-1 mt-1"
             direction="column"
-            gap="1"
-            style={{
-              padding: "10px",
-              border: "1px solid var(--gray-5)",
-              borderRadius: "6px",
-            }}
+            gap="2"
+            p="2"
           >
             <Flex justify="between" align="center" mb="1">
               <Text weight="bold" size="2">
                 Rule {ruleIndex + 1}
               </Text>
-              {form.watch("rules").length > 1 && !disabled && (
-                <Text
-                  as="span"
-                  color="crimson"
+              {ruleIndex > 0 && !disabled && (
+                <IconButton
+                  variant="ghost"
+                  color="red"
                   size="1"
-                  style={{ cursor: "pointer" }}
                   onClick={() => removeRule(rule.id)}
                 >
-                  <FaTrash size={10} className="mr-1" />
-                  remove
-                </Text>
+                  <PiTrash />
+                </IconButton>
               )}
             </Flex>
 
             {rule.conditions.map((condition, conditionIndex) => (
-              <Flex key={condition.id} direction="column" gap="1">
-                <Grid columns="12" gap="1" align="center" width="100%">
-                  <Flex
-                    width="100%"
-                    justify="start"
-                    style={{ gridColumn: "span 1" }}
-                  >
-                    <Text
-                      size="2"
-                      color={conditionIndex > 0 ? "gray" : undefined}
-                    >
-                      {conditionIndex === 0 ? "If" : "AND"}
+              <Flex key={condition.id} direction="column">
+                <Flex align="center" gap="4" width="100%">
+                  <Box width="40px">
+                    <Text size="2" color={"gray"}>
+                      {conditionIndex === 0 ? "If" : "and"}
                     </Text>
-                  </Flex>
+                  </Box>
 
-                  <Flex width="100%" style={{ gridColumn: "span 3" }}>
+                  <Box style={{ flex: 1 }}>
                     <Select
-                      label=""
                       value={condition.match}
                       setValue={(value) =>
                         updateCondition(rule.id, condition.id, "match", value)
@@ -395,11 +448,10 @@ const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
                         </SelectItem>
                       ))}
                     </Select>
-                  </Flex>
+                  </Box>
 
-                  <Flex width="100%" style={{ gridColumn: "span 3" }}>
+                  <Box style={{ flex: 1 }}>
                     <Select
-                      label=""
                       value={condition.metrics}
                       setValue={(value) =>
                         updateCondition(rule.id, condition.id, "metrics", value)
@@ -412,11 +464,10 @@ const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
                         </SelectItem>
                       ))}
                     </Select>
-                  </Flex>
+                  </Box>
 
-                  <Flex width="100%" style={{ gridColumn: "span 3" }}>
+                  <Box style={{ flex: 1 }}>
                     <Select
-                      label=""
                       value={condition.direction}
                       setValue={(value) =>
                         updateCondition(
@@ -433,27 +484,34 @@ const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
                         : GUARDRAIL_DIRECTION_OPTIONS
                       ).map((option) => (
                         <SelectItem key={option.value} value={option.value}>
-                          {option.label}
+                          <Flex align="center" gap="1">
+                            {option.icon}
+                            <Text key={option.value} color={option.color}>
+                              {option.label}
+                            </Text>
+                          </Flex>
                         </SelectItem>
                       ))}
                     </Select>
-                  </Flex>
+                  </Box>
 
-                  <Flex justify="end" style={{ gridColumn: "span 2" }}>
-                    {rule.conditions.length > 1 && !disabled && (
-                      <Text
-                        as="span"
-                        color="crimson"
+                  <Box width="40px" style={{ textAlign: "right" }}>
+                    {conditionIndex > 0 && !disabled && (
+                      <IconButton
+                        variant="ghost"
+                        color="red"
                         size="1"
-                        style={{ cursor: "pointer" }}
                         onClick={() => removeCondition(rule.id, condition.id)}
                       >
-                        <FaTrash size={10} style={{ marginRight: "4px" }} />
-                        remove
-                      </Text>
+                        <PiTrash />
+                      </IconButton>
                     )}
-                  </Flex>
-                </Grid>
+                  </Box>
+                </Flex>
+
+                {conditionIndex < rule.conditions.length - 1 && (
+                  <Separator size="4" mt="2" />
+                )}
               </Flex>
             ))}
 
@@ -479,19 +537,18 @@ const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
               )}
             </Flex>
 
-            <Grid columns="12" gap="1" align="center" width="100%">
-              <Flex
-                width="100%"
-                justify="start"
-                style={{ gridColumn: "span 1" }}
-              >
+            <Flex gap="4" align="center" width="100%">
+              <Box width="70px">
                 <Text weight="medium" size="2">
                   Then
                 </Text>
-              </Flex>
-              <Flex width="100%" style={{ gridColumn: "span 11" }}>
+              </Box>
+              <Flex
+                width="100%"
+                align="center"
+                style={{ gridColumn: "span 11" }}
+              >
                 <Select
-                  label=""
                   value={rule.action}
                   setValue={(value) =>
                     updateRuleAction(
@@ -503,12 +560,15 @@ const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
                 >
                   {ACTION_OPTIONS.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
-                      {option.label}
+                      <Flex align="center" gap="1">
+                        {option.icon}
+                        <Text color={option.color}>{option.label}</Text>
+                      </Flex>
                     </SelectItem>
                   ))}
                 </Select>
               </Flex>
-            </Grid>
+            </Flex>
           </Flex>
         ))}
         <Flex justify="start" mt="1" mb="1">
@@ -522,50 +582,40 @@ const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
               }}
             >
               <Flex align="center" gap="1">
-                <FaPlusCircle size={12} />
+                <FaPlusCircle size={10} />
                 <span>Add rule</span>
               </Flex>
             </Text>
           )}
         </Flex>
 
-        {/* Add the "Else Then Review" rule */}
-        <Flex
-          direction="column"
-          gap="1"
-          style={{
-            padding: "10px",
-            border: "1px solid var(--gray-5)",
-            borderRadius: "6px",
-            backgroundColor: "var(--gray-2)",
-          }}
-        >
-          <Grid columns="12" gap="1" align="center" width="100%">
-            <Flex width="100%" justify="start" style={{ gridColumn: "span 2" }}>
+        <Flex direction="column" gap="1" className="appbox bg-light p-2 mb-0">
+          <Flex gap="4" align="center" width="100%">
+            <Box width="70px">
               <Text weight="medium" size="2">
                 Otherwise
               </Text>
-            </Flex>
-            <Flex width="100%" style={{ gridColumn: "span 10" }}>
-              <Select
-                label=""
-                value={form.watch("defaultAction")}
-                setValue={(value) =>
-                  form.setValue(
-                    "defaultAction",
-                    value as "ship" | "rollback" | "review"
-                  )
-                }
-                disabled={disabled}
-              >
-                {ACTION_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </Select>
-            </Flex>
-          </Grid>
+            </Box>
+            <Select
+              value={form.watch("defaultAction")}
+              setValue={(value) =>
+                form.setValue(
+                  "defaultAction",
+                  value as "ship" | "rollback" | "review"
+                )
+              }
+              disabled={disabled}
+            >
+              {ACTION_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  <Flex align="center" gap="1">
+                    {option.icon}
+                    <Text color={option.color}>{option.label}</Text>
+                  </Flex>
+                </SelectItem>
+              ))}
+            </Select>
+          </Flex>
         </Flex>
       </Flex>
     </Modal>

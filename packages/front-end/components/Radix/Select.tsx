@@ -4,7 +4,7 @@ import { forwardRef, ReactNode } from "react";
 import HelperText from "./HelperText";
 
 type SelectProps = {
-  label: string;
+  label?: string;
   defaultValue?: string;
   disabled?: boolean;
   error?: string;
@@ -30,9 +30,11 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
 ) {
   return (
     <Flex direction="column" {...containerProps} ref={ref}>
-      <Text as="label" size="3" weight="medium">
-        {label}
-      </Text>
+      {label !== undefined && (
+        <Text as="label" size="3" weight="medium">
+          {label}
+        </Text>
+      )}
       <RadixSelect.Root
         defaultValue={defaultValue}
         size="3"
