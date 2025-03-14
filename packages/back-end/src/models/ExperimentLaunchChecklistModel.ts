@@ -25,7 +25,7 @@ const experimentLaunchChecklistSchema = new mongoose.Schema({
           "hypothesis",
           "project",
           "tag",
-          "screenshots",  
+          "screenshots",
           "customField",
           "prerequisiteTargeting",
         ],
