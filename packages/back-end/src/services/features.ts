@@ -83,6 +83,7 @@ import { promiseAllChunks } from "back-end/src/util/promise";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import {
   ApiFeature,
+  ApiFeatureWithRevisions,
   ApiFeatureEnvironment,
   ApiFeatureRule,
 } from "back-end/types/openapi";
@@ -1298,7 +1299,7 @@ export function getApiFeatureObj({
     };
   });
 
-  const featureRecord: ApiFeature = {
+  const featureRecord: ApiFeatureWithRevisions = {
     id: feature.id,
     description: feature.description || "",
     archived: !!feature.archived,

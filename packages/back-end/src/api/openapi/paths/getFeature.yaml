@@ -30,4 +30,4 @@ responses:
             - feature
           properties:
             feature:
-              $ref: "../schemas/Feature.yaml"
+              $ref: "../schemas/FeatureWithRevisions.yaml"
