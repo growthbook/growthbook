@@ -282,28 +282,6 @@ export async function updateOrganization(
   );
 }
 
-export async function updateOrganizationByStripeId(
-  stripeCustomerId: string,
-  update: Partial<OrganizationInterface>
-) {
-  await OrganizationModel.updateOne(
-    {
-      stripeCustomerId,
-    },
-    {
-      $set: update,
-    }
-  );
-}
-
-export async function findOrganizationByStripeCustomerId(id: string) {
-  const doc = await OrganizationModel.findOne({
-    stripeCustomerId: id,
-  });
-
-  return doc ? toInterface(doc) : null;
-}
-
 export async function getAllOrgMemberInfoInDb(): Promise<OrgMemberInfo[]> {
   if (IS_CLOUD) {
     throw new Error("getAllOrgMemberInfoInDb() is not supported on cloud");

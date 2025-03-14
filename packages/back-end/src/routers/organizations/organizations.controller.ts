@@ -47,7 +47,6 @@ import {
   isEnterpriseSSO,
   removeMember,
   revokeInvite,
-  getSubscriptionFromOrg,
 } from "back-end/src/services/organizations";
 import {
   getNonSensitiveParams,
@@ -677,7 +676,6 @@ export async function getOrganization(
     name,
     id,
     url,
-    subscription,
     freeSeats,
     settings,
     disableSelfServeBilling,
@@ -763,9 +761,7 @@ export async function getOrganization(
     currentUserPermissions,
     teams: teamsWithMembers,
     license,
-    subscription: license
-      ? getSubscriptionFromLicense(license)
-      : getSubscriptionFromOrg(org),
+    subscription: license ? getSubscriptionFromLicense(license) : null,
     watching: {
       experiments: watch?.experiments || [],
       features: watch?.features || [],
@@ -778,7 +774,6 @@ export async function getOrganization(
       name,
       id,
       url,
-      subscription,
       licenseKey,
       freeSeats,
       enterprise: org.enterprise,

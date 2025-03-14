@@ -1,7 +1,6 @@
 import { useRouter } from "next/router";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { date, daysLeft } from "shared/dates";
-import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -9,7 +8,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 export default function AccountPlanNotices() {
   const permissionsUtil = usePermissionsUtil();
   const router = useRouter();
-  const { license, licenseError, subscription, seatsInUse } = useUser();
+  const { license, licenseError, seatsInUse } = useUser();
 
   const canManageBilling = permissionsUtil.canManageBilling();
 
@@ -21,43 +20,6 @@ export default function AccountPlanNotices() {
         </div>
       </Tooltip>
     );
-  }
-
-  // GrowthBook Cloud-specific Notices
-  // TODO: Get rid of this logic once we have migrated all organizations to use the license key
-  if (isCloud() && canManageBilling && !license) {
-    // On an active trial
-    const trialRemaining = subscription?.trialEnd
-      ? daysLeft(subscription?.trialEnd)
-      : -1;
-    if (subscription?.status === "trialing" && trialRemaining >= 0) {
-      return (
-        <button
-          className="alert alert-warning py-1 px-2 mb-0 d-none d-md-block mr-1"
-          onClick={(e) => {
-            e.preventDefault();
-            router.push("/settings/billing");
-          }}
-        >
-          <div className="badge badge-warning">{trialRemaining}</div> day
-          {trialRemaining === 1 ? "" : "s"} left in trial
-        </button>
-      );
-    }
-    // Payment past due
-    if (subscription?.status === "past_due") {
-      return (
-        <button
-          className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1"
-          onClick={(e) => {
-            e.preventDefault();
-            router.push("/settings/billing");
-          }}
-        >
-          <FaExclamationTriangle /> payment past due
-        </button>
-      );
-    }
   }
 
   // Notices for accounts using a license key that result in a downgrade to starter
