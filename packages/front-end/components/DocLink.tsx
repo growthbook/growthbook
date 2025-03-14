@@ -18,6 +18,12 @@ const docSections = {
   eventWebhooks: "/app/webhooks/event-webhooks",
   sdkWebhooks: "/app/webhooks/sdk-webhooks",
   "sdkWebhooks#payload-format": "/app/webhooks/sdk-webhooks#payload-format",
+  bandits: "/bandits/overview",
+  targeting: "/features/targeting",
+  namespaces: "/features/rules#namespaces",
+  environments: "/features/environments",
+  archetypes: "/features/rules#archetype",
+  team: "/account/user-permissions",
   //DataSourceType
   athena: "/app/datasources#aws-athena",
   mixpanel: "/guide/mixpanel",
@@ -81,6 +87,7 @@ const docSections = {
     "/guide/google-tag-manager-and-growthbook#4-tracking-via-datalayer-and-gtm",
   apiPostEnvironment: "/api#tag/environments/operation/postEnvironment",
   idLists: "/features/targeting#id-lists",
+  queryOptimization: "/app/query-optimization",
 };
 
 export type DocSection = keyof typeof docSections;
@@ -88,18 +95,29 @@ export type DocSection = keyof typeof docSections;
 const urlPathMapping: Record<string, DocSection> = {
   "/": "home",
   "/features": "features",
+  "/bandits": "bandits",
+  "/bandit": "bandits",
   "/experiment": "experimentResults",
   "/experiments": "experimentConfiguration",
   "/metric": "metrics",
   "/metrics": "metrics",
+  "/fact-tables": "factTables",
+  "/fact-metrics": "metrics",
   "/power-calculator": "powerCalculator",
   "/segments": "datasources",
   "/dimensions": "dimensions",
   "/datasources": "datasources",
   "/dashboard": "experimentConfiguration",
   "/settings/keys": "api",
-  "/environments": "api",
+  "/account/personal-access-tokens": "api",
+  "/environments": "environments",
   "/settings/webhooks": "eventWebhooks",
+  "/sdks": "sdks",
+  "/attributes": "targeting",
+  "/namespaces": "namespaces",
+  "/saved-groups": "savedGroups",
+  "/archetypes": "archetypes",
+  "/settings/team": "team",
 };
 
 //for testing use "http://localhost:3200"

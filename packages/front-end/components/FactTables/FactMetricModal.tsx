@@ -1592,19 +1592,23 @@ export default function FactMetricModal({
           values.numerator.aggregation = undefined;
         }
 
+        // reset aggregate filter for certain metrics
+        if (
+          values.metricType !== "proportion" &&
+          values.metricType !== "retention"
+        ) {
+          values.numerator.aggregateFilterColumn = undefined;
+          values.numerator.aggregateFilter = undefined;
+        }
+
+        if (!values.numerator.aggregateFilterColumn) {
+          values.numerator.aggregateFilter = undefined;
+        }
+
         if (values.cappingSettings?.type) {
           if (!values.cappingSettings.value) {
             throw new Error("Capped Value cannot be 0");
           }
-        }
-
-        if (values.numerator.aggregateFilterColumn) {
-          // Validate that the value is correct
-          getAggregateFilters({
-            columnRef: values.numerator,
-            column: values.numerator.aggregateFilterColumn,
-            ignoreInvalid: false,
-          });
         }
 
         if (
