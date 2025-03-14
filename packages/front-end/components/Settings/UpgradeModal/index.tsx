@@ -15,6 +15,8 @@ import Modal from "@/components/Modal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import RadioCards from "@/components/Radix/RadioCards";
+import CloudProUpgradeModal from "@/enterprise/components/Billing/CloudProUpgradeModal";
+import { StripeProvider } from "@/enterprise/components/Billing/StripeProvider";
 import styles from "./index.module.scss";
 import CloudTrialConfirmationModal from "./CloudTrialConfirmationModal";
 import LicenseSuccessModal from "./LicenseSuccessModal";
@@ -56,11 +58,12 @@ export default function UpgradeModal({
     showCloudEnterpriseTrialSuccess,
     setShowCloudEnterpriseTrialSuccess,
   ] = useState(false);
+  const [showCloudProUpgrade, setShowCloudProUpgrade] = useState(false);
   const [showCloudProTrial, setShowCloudProTrial] = useState(false);
   const [showCloudProTrialSuccess, setShowCloudProTrialSuccess] = useState(
     false
   );
-
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
   const {
     name,
     email,
@@ -114,6 +117,9 @@ export default function UpgradeModal({
     freeTrialAvailable,
   };
 
+  const useInlineUpgradeForm =
+    isCloud() && growthbook.getFeatureValue("ff_embedded-payment-form", false);
+
   useEffect(() => {
     track("View Upgrade Modal", trackContext);
     // Even if accountPlan gets update during this upgrade process, we don't want to call this track call multiple times
@@ -151,7 +157,18 @@ export default function UpgradeModal({
         } else {
           setError("Unknown response");
         }
+      } else if (useInlineUpgradeForm) {
+        // Creates new license, stripeCustomerId, and orbCustomerId
+        const { clientSecret } = await apiCall<{
+          clientSecret: string;
+        }>(`/subscription/setup-intent`, {
+          method: "POST",
+        });
+        setClientSecret(clientSecret);
+        setShowCloudProUpgrade(true);
+        setLoading(false);
       } else {
+        // Otherwise, this creates a new checkout session and will redirect to the Stripe checkout page
         const resp = await apiCall<{
           status: number;
           session?: { url?: string };
@@ -174,6 +191,7 @@ export default function UpgradeModal({
         }
       }
     } catch (e) {
+      console.log("caught the error", e);
       setLoading(false);
       setError(e.message);
     }
@@ -509,6 +527,14 @@ export default function UpgradeModal({
           header={`🎉 Your 14-day Enterprise Trial starts now!`}
           isTrial={true}
         />
+      ) : showCloudProUpgrade && clientSecret ? (
+        <StripeProvider initialClientSecret={clientSecret}>
+          <CloudProUpgradeModal
+            close={() => setShowCloudProUpgrade(false)}
+            seatsInUse={seatsInUse}
+            closeParent={close}
+          />
+        </StripeProvider>
       ) : (
         <Modal
           trackingEventModalType="upgrade-modal"

@@ -602,6 +602,41 @@ export async function postNewProSubscriptionToLicenseServer(
   );
 }
 
+export async function postNewInlineSubscriptionToLicenseServer(
+  organizationId: string
+) {
+  const url = `${LICENSE_SERVER_URL}subscription/start-new-pro`;
+  return callLicenseServer(
+    url,
+    JSON.stringify({
+      cloudSecret: process.env.CLOUD_SECRET,
+      organizationId,
+    })
+  );
+}
+
+export async function postNewProSubscriptionIntentToLicenseServer(
+  organizationId: string,
+  companyName: string,
+  ownerEmail: string,
+  name: string,
+  seats: number
+) {
+  const url = `${LICENSE_SERVER_URL}subscription/setup-subscription-intent`;
+  return callLicenseServer(
+    url,
+    JSON.stringify({
+      appOrigin: APP_ORIGIN,
+      cloudSecret: process.env.CLOUD_SECRET,
+      organizationId,
+      companyName,
+      ownerEmail,
+      name,
+      seats,
+    })
+  );
+}
+
 export async function postNewSubscriptionSuccessToLicenseServer(
   checkoutSessionId: string
 ): Promise<LicenseInterface> {
