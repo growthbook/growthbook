@@ -117,7 +117,7 @@ export const postNewProSubscriptionIntent = withLicenseServerErrorHandling(
     );
     await updateOrganization(org.id, { licenseKey: result.license.id });
 
-    res.status(200).json(result);
+    res.status(200).json({ clientSecret: result.clientSecret });
   }
 );
 
@@ -165,13 +165,11 @@ export const postInlineProSubscription = withLicenseServerErrorHandling(
 
     const license = await getLicense(org.licenseKey);
 
-    if (!license?.id || !license.organizationId) {
+    if (!license) {
       throw new Error("No license found for organization");
     }
 
-    const result = await postNewInlineSubscriptionToLicenseServer(
-      license.organizationId
-    );
+    const result = await postNewInlineSubscriptionToLicenseServer(org.id);
 
     res.status(200).json(result);
   }

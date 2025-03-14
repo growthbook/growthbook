@@ -41,7 +41,7 @@ export default function CloudProUpgradeModal({
       }
 
       // Add payment method to customer in stripe
-      await stripe.confirmPayment({
+      await stripe.confirmSetup({
         elements,
         clientSecret,
         redirect: "if_required",
