@@ -81,7 +81,11 @@ import {
 import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
-import { ApiFeature, ApiFeatureEnvironment } from "back-end/types/openapi";
+import {
+  ApiFeature,
+  ApiFeatureEnvironment,
+  ApiFeatureRule,
+} from "back-end/types/openapi";
 import {
   ExperimentInterface,
   ExperimentPhase,
@@ -1251,10 +1255,7 @@ export function getApiFeatureObj({
       : revision?.publishedBy?.name;
 
   const revisionDefs = revisions?.map((rev) => {
-    const environmentRules: Record<
-      string,
-      (Omit<FeatureRule, "enabled"> & { enabled: boolean })[]
-    > = {};
+    const environmentRules: Record<string, ApiFeatureRule[]> = {};
     const environmentDefinitions: Record<string, string> = {};
     environments.forEach((env) => {
       const rules = (rev?.rules?.[env] || []).map((rule) => ({
