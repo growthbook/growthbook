@@ -669,6 +669,256 @@ export interface components {
         publishedBy: string;
       };
     };
+    FeatureWithRevisions: ({
+      id: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      archived: boolean;
+      description: string;
+      owner: string;
+      project: string;
+      /** @enum {string} */
+      valueType: "boolean" | "string" | "number" | "json";
+      defaultValue: string;
+      tags: (string)[];
+      environments: {
+        [key: string]: ({
+          enabled: boolean;
+          defaultValue: string;
+          rules: (({
+              description: string;
+              condition: string;
+              savedGroupTargeting?: ({
+                  /** @enum {string} */
+                  matchType: "all" | "any" | "none";
+                  savedGroups: (string)[];
+                })[];
+              id: string;
+              enabled: boolean;
+              /** @enum {string} */
+              type: "force";
+              value: string;
+            }) | ({
+              description: string;
+              condition: string;
+              savedGroupTargeting?: ({
+                  /** @enum {string} */
+                  matchType: "all" | "any" | "none";
+                  savedGroups: (string)[];
+                })[];
+              id: string;
+              enabled: boolean;
+              /** @enum {string} */
+              type: "rollout";
+              value: string;
+              coverage: number;
+              hashAttribute: string;
+            }) | {
+              description: string;
+              condition: string;
+              id: string;
+              enabled: boolean;
+              /** @enum {string} */
+              type: "experiment";
+              trackingKey?: string;
+              hashAttribute?: string;
+              fallbackAttribute?: string;
+              disableStickyBucketing?: boolean;
+              bucketVersion?: number;
+              minBucketVersion?: number;
+              namespace?: {
+                enabled: boolean;
+                name: string;
+                range: (number)[];
+              };
+              coverage?: number;
+              value?: ({
+                  value: string;
+                  weight: number;
+                  name?: string;
+                })[];
+            } | {
+              description: string;
+              id: string;
+              enabled: boolean;
+              /** @enum {string} */
+              type: "experiment-ref";
+              condition?: string;
+              variations: ({
+                  value: string;
+                  variationId: string;
+                })[];
+              experimentId: string;
+            })[];
+          /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
+          definition?: string;
+          draft?: {
+            enabled: boolean;
+            defaultValue: string;
+            rules: (({
+                description: string;
+                condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "force";
+                value: string;
+              }) | ({
+                description: string;
+                condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "rollout";
+                value: string;
+                coverage: number;
+                hashAttribute: string;
+              }) | {
+                description: string;
+                condition: string;
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "experiment";
+                trackingKey?: string;
+                hashAttribute?: string;
+                fallbackAttribute?: string;
+                disableStickyBucketing?: boolean;
+                bucketVersion?: number;
+                minBucketVersion?: number;
+                namespace?: {
+                  enabled: boolean;
+                  name: string;
+                  range: (number)[];
+                };
+                coverage?: number;
+                value?: ({
+                    value: string;
+                    weight: number;
+                    name?: string;
+                  })[];
+              } | {
+                description: string;
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "experiment-ref";
+                condition?: string;
+                variations: ({
+                    value: string;
+                    variationId: string;
+                  })[];
+                experimentId: string;
+              })[];
+            /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
+            definition?: string;
+          };
+        }) | undefined;
+      };
+      prerequisites?: ({
+          parentId: string;
+          parentCondition: string;
+        })[];
+      revision: {
+        version: number;
+        comment: string;
+        /** Format: date-time */
+        date: string;
+        publishedBy: string;
+      };
+    }) & ({
+      revisions?: ({
+          baseVersion: number;
+          version: number;
+          comment: string;
+          /** Format: date-time */
+          date: string;
+          status: string;
+          publishedBy?: string;
+          rules: {
+            [key: string]: ((({
+                description: string;
+                condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "force";
+                value: string;
+              }) | ({
+                description: string;
+                condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "rollout";
+                value: string;
+                coverage: number;
+                hashAttribute: string;
+              }) | {
+                description: string;
+                condition: string;
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "experiment";
+                trackingKey?: string;
+                hashAttribute?: string;
+                fallbackAttribute?: string;
+                disableStickyBucketing?: boolean;
+                bucketVersion?: number;
+                minBucketVersion?: number;
+                namespace?: {
+                  enabled: boolean;
+                  name: string;
+                  range: (number)[];
+                };
+                coverage?: number;
+                value?: ({
+                    value: string;
+                    weight: number;
+                    name?: string;
+                  })[];
+              } | {
+                description: string;
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "experiment-ref";
+                condition?: string;
+                variations: ({
+                    value: string;
+                    variationId: string;
+                  })[];
+                experimentId: string;
+              })[]) | undefined;
+          };
+          definitions?: {
+            [key: string]: string | undefined;
+          };
+        })[];
+    });
     FeatureEnvironment: {
       enabled: boolean;
       defaultValue: string;
@@ -2185,6 +2435,10 @@ export interface operations {
   getFeature: {
     /** Get a single feature */
     parameters: {
+        /** @description Also return feature revisions (all, draft, or published statuses) */
+      query: {
+        withRevisions?: "all" | "drafts" | "published" | "none";
+      };
         /** @description The id of the requested resource */
       path: {
         id: string;
@@ -2194,7 +2448,7 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            feature: {
+            feature: ({
               id: string;
               /** Format: date-time */
               dateCreated: string;
@@ -2363,7 +2617,87 @@ export interface operations {
                 date: string;
                 publishedBy: string;
               };
-            };
+            }) & ({
+              revisions?: ({
+                  baseVersion: number;
+                  version: number;
+                  comment: string;
+                  /** Format: date-time */
+                  date: string;
+                  status: string;
+                  publishedBy?: string;
+                  rules: {
+                    [key: string]: ((({
+                        description: string;
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        id: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "force";
+                        value: string;
+                      }) | ({
+                        description: string;
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        id: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "rollout";
+                        value: string;
+                        coverage: number;
+                        hashAttribute: string;
+                      }) | {
+                        description: string;
+                        condition: string;
+                        id: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "experiment";
+                        trackingKey?: string;
+                        hashAttribute?: string;
+                        fallbackAttribute?: string;
+                        disableStickyBucketing?: boolean;
+                        bucketVersion?: number;
+                        minBucketVersion?: number;
+                        namespace?: {
+                          enabled: boolean;
+                          name: string;
+                          range: (number)[];
+                        };
+                        coverage?: number;
+                        value?: ({
+                            value: string;
+                            weight: number;
+                            name?: string;
+                          })[];
+                      } | {
+                        description: string;
+                        id: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "experiment-ref";
+                        condition?: string;
+                        variations: ({
+                            value: string;
+                            variationId: string;
+                          })[];
+                        experimentId: string;
+                      })[]) | undefined;
+                  };
+                  definitions?: {
+                    [key: string]: string | undefined;
+                  };
+                })[];
+            });
           };
         };
       };
@@ -7775,6 +8109,7 @@ export type ApiEnvironment = z.infer<typeof openApiValidators.apiEnvironmentVali
 export type ApiAttribute = z.infer<typeof openApiValidators.apiAttributeValidator>;
 export type ApiSegment = z.infer<typeof openApiValidators.apiSegmentValidator>;
 export type ApiFeature = z.infer<typeof openApiValidators.apiFeatureValidator>;
+export type ApiFeatureWithRevisions = z.infer<typeof openApiValidators.apiFeatureWithRevisionsValidator>;
 export type ApiFeatureEnvironment = z.infer<typeof openApiValidators.apiFeatureEnvironmentValidator>;
 export type ApiFeatureRule = z.infer<typeof openApiValidators.apiFeatureRuleValidator>;
 export type ApiFeatureDefinition = z.infer<typeof openApiValidators.apiFeatureDefinitionValidator>;
