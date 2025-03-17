@@ -190,6 +190,8 @@ export const safeRolloutRule = baseRule
     status: z.enum(safeRolloutStatus),
     maxDurationDays: z.number(),
     startedAt: z.date(),
+    lastSnapshotAttempt: z.date().optional(),
+    nextSnapshotAttempt: z.date().optional(),
   })
   .strict();
 
