@@ -1,4 +1,5 @@
 import uniqid from "uniqid";
+import { formatISO } from "date-fns";
 import {
   metricTimeSeriesSchema,
   MetricTimeSeries,
@@ -165,7 +166,7 @@ export class MetricTimeSeriesModel extends BaseClass {
       newTimeSeries.singleDataPoint.tags.push("metric-settings-changed");
     }
 
-    const dataPoints = this.capDataPoints([
+    const dataPoints = this.limitTimeSeriesDataPoints([
       ...existing.dataPoints,
       newTimeSeries.singleDataPoint,
     ]);
@@ -193,8 +194,38 @@ export class MetricTimeSeriesModel extends BaseClass {
     });
   }
 
-  private capDataPoints(dataPoints: MetricTimeSeries["dataPoints"]) {
-    // TODO: Implement this
-    return dataPoints;
+  /**
+   * Organizes data points by day and limits the total to 300 most recent points
+   * Keeps all tagged data points and at least one untagged point per day
+   */
+  private limitTimeSeriesDataPoints(
+    dataPoints: MetricTimeSeries["dataPoints"]
+  ) {
+    const lastDataPointPerDay = dataPoints.reduceRight((acc, dataPoint) => {
+      const dateKey = formatISO(dataPoint.date, { representation: "date" });
+      if (dataPoint.tags && dataPoint.tags.length > 0) {
+        if (!acc.has(dateKey)) {
+          acc.set(dateKey, []);
+        }
+        acc.get(dateKey)!.push(dataPoint);
+      } else {
+        if (!acc.has(dateKey)) {
+          acc.set(dateKey, [dataPoint]);
+        }
+      }
+      return acc;
+    }, new Map<string, typeof dataPoints>());
+
+    // Order of array is defined by order of insertion, which is the opposite of the desired order
+    const sortedDataPoints = Array.from(lastDataPointPerDay.values())
+      .flat()
+      .reverse();
+
+    if (sortedDataPoints.length <= 300) {
+      return sortedDataPoints;
+    }
+
+    // Drop the oldest data points (earliest in the array order)
+    return sortedDataPoints.slice(-300);
   }
 }
