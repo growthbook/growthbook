@@ -13,6 +13,7 @@ import {
   SnapshotMetric,
 } from "back-end/types/experiment-snapshot";
 import {
+  CreateMetricTimeSeriesSingleDataPoint,
   MetricTimeSeriesValue,
   MetricTimeSeriesVariation,
 } from "back-end/src/validators/metric-time-series";
@@ -26,33 +27,63 @@ export async function updateExperimentTimeSeries({
   context,
   experiment,
   experimentSnapshot,
+  notificationsTriggered,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
   experimentSnapshot: ExperimentSnapshotInterface;
+  notificationsTriggered: string[];
 }) {
-  // TODO: Should we only include in the time series snapshots that are dimensionless?
+  // Only update time series for dimensionless snapshots, but if we want to
+  // support dimensions for time series, we should revisit this
+  if (
+    experimentSnapshot.dimension !== null &&
+    experimentSnapshot.dimension !== ""
+  ) {
+    return;
+  }
 
   const metricsIds = getAllMetricIdsFromExperiment(experiment);
   const relativeAnalysis = experimentSnapshot.analyses.find(
-    (analysis) => analysis.settings.differenceType === "relative"
+    (analysis) =>
+      analysis.settings.differenceType === "relative" &&
+      analysis.settings.baselineVariationIndex === 0
   );
   const absoluteAnalysis = experimentSnapshot.analyses.find(
-    (analysis) => analysis.settings.differenceType === "absolute"
+    (analysis) =>
+      analysis.settings.differenceType === "absolute" &&
+      analysis.settings.baselineVariationIndex === 0
   );
   const scaledAnalysis = experimentSnapshot.analyses.find(
-    (analysis) => analysis.settings.differenceType === "scaled"
+    (analysis) =>
+      analysis.settings.differenceType === "scaled" &&
+      analysis.settings.baselineVariationIndex === 0
   );
 
+  // We should always have this, otherwise the snapshot has not
+  // been analyzed and we won't have useful data to update the time series with
   // NB: Using relative as a base, but it should match absolute & scaled
   const variations = relativeAnalysis?.results[0]?.variations;
   if (!variations || variations.length === 0) {
     return;
   }
 
+  let factMetrics: FactMetricInterface[] | undefined = undefined;
+  let factTableMap: Map<string, FactTableInterface> | undefined = undefined;
+  const factMetricsIds: string[] = metricsIds.filter(isFactMetricId);
+  if (factMetricsIds.length > 0) {
+    factMetrics = await context.models.factMetrics.getByIds(factMetricsIds);
+    factTableMap = await getFactTableMap(context);
+  }
+
   const timeSeriesVariationsPerMetricId = metricsIds.reduce((acc, metricId) => {
     acc[metricId] = variations.map((_, variationIndex) => ({
       name: experiment.variations[variationIndex].name,
+      stats:
+        // NB: Using relative as a base to save space because it matches relative & absolute
+        relativeAnalysis?.results[0]?.variations[variationIndex]?.metrics[
+          metricId
+        ]?.stats,
       relative: convertMetricToMetricValue(
         relativeAnalysis?.results[0]?.variations[variationIndex]?.metrics[
           metricId
@@ -78,16 +109,8 @@ export async function updateExperimentTimeSeries({
     relativeAnalysis.settings
   );
 
-  let factMetrics: FactMetricInterface[] | undefined = undefined;
-  let factTableMap: Map<string, FactTableInterface> | undefined = undefined;
-  const factMetricsIds: string[] = metricsIds.filter(isFactMetricId);
-  if (factMetricsIds.length > 0) {
-    factMetrics = await context.models.factMetrics.getByIds(factMetricsIds);
-    factTableMap = await getFactTableMap(context);
-  }
-
-  await context.models.metricTimeSeries.bulkCreateOrUpdate(
-    metricsIds.map((metricId) => ({
+  const metricTimeSeriesSingleDataPoints: CreateMetricTimeSeriesSingleDataPoint[] = metricsIds.map(
+    (metricId) => ({
       source: "experiment",
       sourceId: experiment.id,
       metricId,
@@ -100,19 +123,16 @@ export async function updateExperimentTimeSeries({
         factMetrics,
         factTableMap
       ),
-      // TODO: Fix this
-      stats: {
-        users: "123",
-        mean: "123",
-        stddev: "123",
+      singleDataPoint: {
+        date: experimentSnapshot.dateCreated,
+        variations: timeSeriesVariationsPerMetricId[metricId],
       },
-      dataPoints: [
-        {
-          date: experimentSnapshot.dateCreated,
-          variations: timeSeriesVariationsPerMetricId[metricId],
-        },
-      ],
-    }))
+      tags: notificationsTriggered.length > 0 ? ["triggered-alert"] : undefined,
+    })
+  );
+
+  await context.models.metricTimeSeries.upsertMultipleSingleDataPoint(
+    metricTimeSeriesSingleDataPoints
   );
 }
 

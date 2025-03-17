@@ -1,7 +1,9 @@
+import uniqid from "uniqid";
 import {
   metricTimeSeriesSchema,
   MetricTimeSeries,
   CreateMetricTimeSeries,
+  CreateMetricTimeSeriesSingleDataPoint,
 } from "back-end/src/validators/metric-time-series";
 import { MakeModelClass } from "./BaseModel";
 
@@ -37,7 +39,7 @@ export class MetricTimeSeriesModel extends BaseClass {
     return true;
   }
 
-  public async getMetricTimeSeriesBySource(
+  public async getBySourceAndMetricIds(
     source: MetricTimeSeries["source"],
     sourceId: MetricTimeSeries["sourceId"],
     metricIds: Array<MetricTimeSeries["metricId"]>
@@ -45,7 +47,7 @@ export class MetricTimeSeriesModel extends BaseClass {
     return this._find({ source, sourceId, metricId: { $in: metricIds } });
   }
 
-  public async deleteMetricTimeSeriesBySource(
+  public async deleteAllBySource(
     source: MetricTimeSeries["source"],
     sourceId: MetricTimeSeries["sourceId"]
   ) {
@@ -55,76 +57,74 @@ export class MetricTimeSeriesModel extends BaseClass {
     });
   }
 
-  public async bulkCreate(metricTimeSeries: CreateMetricTimeSeries[]) {
-    // TODO: Fix this as it's not safe
-    await this.deleteMetricTimeSeriesBySource(
-      metricTimeSeries[0].source,
-      metricTimeSeries[0].sourceId
+  public async getByTimeSeries(
+    metricTimeSeriesIdentifiers: Pick<
+      CreateMetricTimeSeries,
+      "source" | "sourceId" | "metricId"
+    >[]
+  ) {
+    const metricTimeSeriesPerSource = new Map<string, string[]>();
+    metricTimeSeriesIdentifiers.forEach((mts) => {
+      const sourceIdentifier = `${mts.source}::${mts.sourceId}`;
+      if (!metricTimeSeriesPerSource.has(sourceIdentifier)) {
+        metricTimeSeriesPerSource.set(sourceIdentifier, []);
+      }
+      metricTimeSeriesPerSource.get(sourceIdentifier)!.push(mts.metricId);
+    });
+
+    const allPromises = Array.from(
+      metricTimeSeriesPerSource.entries()
+    ).map(([sourceIdentifier, metricIds]) =>
+      this.getBySourceAndMetricIds(
+        sourceIdentifier.split("::")[0] as MetricTimeSeries["source"],
+        sourceIdentifier.split("::")[1],
+        metricIds
+      )
     );
 
-    await this._dangerousGetCollection().insertMany(
-      metricTimeSeries.map((mts) => ({
-        ...mts,
-        id: this._generateId(),
-        organization: this.context.org.id,
-        dateCreated: new Date(),
-        dateUpdated: new Date(),
-      }))
-    );
+    const allResults = await Promise.all(allPromises);
+    return allResults.flat();
   }
 
-  public async bulkCreateOrUpdate(metricTimeSeries: CreateMetricTimeSeries[]) {
-    const existingMetricTimeSeries = await this.getMetricTimeSeriesBySource(
-      metricTimeSeries[0].source,
-      metricTimeSeries[0].sourceId,
-      metricTimeSeries.map((mts) => mts.metricId)
+  /**
+   * If the existing source/metricId record already exists, it will be updated with the
+   * new data point being added to the end of the dataPoints array.
+   * If the record does not exist, it will be created.
+   */
+  public async upsertMultipleSingleDataPoint(
+    metricTimeSeries: CreateMetricTimeSeriesSingleDataPoint[]
+  ) {
+    const existingMetricTimeSeries = await this.getByTimeSeries(
+      metricTimeSeries
     );
 
-    const updates: MetricTimeSeries[] = [];
     const toCreate: CreateMetricTimeSeries[] = [];
+    const toUpdate: MetricTimeSeries[] = [];
 
     metricTimeSeries.forEach((mts) => {
       const existing = existingMetricTimeSeries.find(
-        (emts) => emts.metricId === mts.metricId
+        (existing) =>
+          existing.source === mts.source &&
+          existing.sourceId === mts.sourceId &&
+          existing.metricId === mts.metricId
       );
 
       if (existing) {
-        if (
-          mts.lastExperimentSettingsHash !== existing.lastExperimentSettingsHash
-        ) {
-          mts.dataPoints[0].tags = ["experiment-settings-changed"];
-        }
-
-        if (mts.lastMetricSettingsHash !== existing.lastMetricSettingsHash) {
-          mts.dataPoints[0].tags = ["metric-settings-changed"];
-        }
-
-        updates.push({
-          ...existing,
-          ...mts,
-          dataPoints: [...existing.dataPoints, ...mts.dataPoints],
-          dateUpdated: new Date(),
-        });
+        toUpdate.push(this.getUpdatedMetricTimeSeries(existing, mts));
       } else {
-        toCreate.push({
-          ...mts,
-          // @ts-expect-error - ignore these, need to figure out a better way
-          id: this._generateId(),
-          organization: this.context.org.id,
-          dateCreated: new Date(),
-          dateUpdated: new Date(),
-        });
+        toCreate.push(this.getNewMetricTimeSeries(mts));
       }
     });
 
-    // TODO: Should we integrate with BaseModel and add hooks?
     if (toCreate.length > 0) {
-      await this._dangerousGetCollection().insertMany(toCreate);
+      await this._dangerousGetCollection().insertMany(toCreate, {
+        ignoreUndefined: true,
+      });
     }
 
-    if (updates.length > 0) {
+    if (toUpdate.length > 0) {
       await this._dangerousGetCollection().bulkWrite(
-        updates.map((u) => ({
+        toUpdate.map((u) => ({
           updateOne: {
             filter: { id: u.id },
             update: {
@@ -136,8 +136,65 @@ export class MetricTimeSeriesModel extends BaseClass {
               },
             },
           },
-        }))
+        })),
+        { ignoreUndefined: true }
       );
     }
+  }
+
+  private getUpdatedMetricTimeSeries(
+    existing: MetricTimeSeries,
+    newTimeSeries: CreateMetricTimeSeriesSingleDataPoint
+  ): MetricTimeSeries {
+    if (
+      newTimeSeries.lastExperimentSettingsHash !==
+      existing.lastExperimentSettingsHash
+    ) {
+      if (!newTimeSeries.singleDataPoint.tags) {
+        newTimeSeries.singleDataPoint.tags = [];
+      }
+      newTimeSeries.singleDataPoint.tags.push("experiment-settings-changed");
+    }
+
+    if (
+      newTimeSeries.lastMetricSettingsHash !== existing.lastMetricSettingsHash
+    ) {
+      if (!newTimeSeries.singleDataPoint.tags) {
+        newTimeSeries.singleDataPoint.tags = [];
+      }
+      newTimeSeries.singleDataPoint.tags.push("metric-settings-changed");
+    }
+
+    const dataPoints = this.capDataPoints([
+      ...existing.dataPoints,
+      newTimeSeries.singleDataPoint,
+    ]);
+
+    return metricTimeSeriesSchema.strip().parse({
+      ...existing,
+      lastMetricSettingsHash: newTimeSeries.lastMetricSettingsHash,
+      lastExperimentSettingsHash: newTimeSeries.lastExperimentSettingsHash,
+      dataPoints,
+      dateUpdated: new Date(),
+    });
+  }
+
+  private getNewMetricTimeSeries(
+    newTimeSeries: CreateMetricTimeSeriesSingleDataPoint
+  ): MetricTimeSeries {
+    return metricTimeSeriesSchema.strip().parse({
+      ...newTimeSeries,
+      dataPoints: [newTimeSeries.singleDataPoint],
+
+      id: uniqid("mts_"),
+      organization: this.context.org.id,
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    });
+  }
+
+  private capDataPoints(dataPoints: MetricTimeSeries["dataPoints"]) {
+    // TODO: Implement this
+    return dataPoints;
   }
 }

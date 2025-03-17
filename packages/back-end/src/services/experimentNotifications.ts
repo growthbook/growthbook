@@ -162,6 +162,8 @@ export const notifyMultipleExposures = async ({
       });
     },
   });
+
+  return triggered;
 };
 
 export const notifySrm = async ({
@@ -201,6 +203,9 @@ export const notifySrm = async ({
       });
     },
   });
+
+  // Not entirely true, as this just means if it is unhealthy, but we would not send multiple notifications
+  return triggered;
 };
 
 type ExperimentSignificanceChange = {
@@ -385,12 +390,14 @@ export const notifySignificance = async ({
   if (experiment.type === "multi-armed-bandit") return;
 
   // send email if enabled and the snapshot is scheduled standard analysis
+  let emailSent = false;
   if (
     isEmailEnabled() &&
     snapshot.triggeredBy === "schedule" &&
     snapshot.type === "standard"
   ) {
     await sendSignificanceEmail(experiment, experimentChanges);
+    emailSent = true;
   }
 
   await Promise.all(
@@ -405,6 +412,8 @@ export const notifySignificance = async ({
       })
     )
   );
+
+  return emailSent;
 };
 
 export const notifyDecision = async ({
@@ -447,8 +456,12 @@ export const notifyDecision = async ({
           },
         },
       });
+
+      return true;
     }
   }
+
+  return false;
 };
 
 export const notifyExperimentChange = async ({
@@ -462,7 +475,16 @@ export const notifyExperimentChange = async ({
   snapshot: ExperimentSnapshotDocument;
   previousAnalysisSummary?: ExperimentAnalysisSummary;
 }) => {
-  await notifySignificance({ context, experiment, snapshot });
+  const notificationsTriggered: string[] = [];
+
+  const triggeredSignificance = await notifySignificance({
+    context,
+    experiment,
+    snapshot,
+  });
+  if (triggeredSignificance) {
+    notificationsTriggered.push("significance");
+  }
 
   const healthSettings = getHealthSettings(
     context.org.settings,
@@ -474,13 +496,24 @@ export const notifyExperimentChange = async ({
   });
 
   if (currentStatus) {
-    await notifyMultipleExposures({
+    const triggeredMultipleExposures = await notifyMultipleExposures({
       context,
       experiment,
       currentStatus,
     });
+    if (triggeredMultipleExposures) {
+      notificationsTriggered.push("multiple-exposures");
+    }
 
-    await notifySrm({ context, experiment, currentStatus, healthSettings });
+    const triggeredSrm = await notifySrm({
+      context,
+      experiment,
+      currentStatus,
+      healthSettings,
+    });
+    if (triggeredSrm) {
+      notificationsTriggered.push("srm");
+    }
 
     const lastStatus = getExperimentResultStatus({
       experimentData: {
@@ -493,6 +526,16 @@ export const notifyExperimentChange = async ({
       },
       healthSettings,
     });
-    await notifyDecision({ context, experiment, lastStatus, currentStatus });
+    const triggeredDecision = await notifyDecision({
+      context,
+      experiment,
+      lastStatus,
+      currentStatus,
+    });
+    if (triggeredDecision) {
+      notificationsTriggered.push("decision");
+    }
   }
+
+  return notificationsTriggered;
 };

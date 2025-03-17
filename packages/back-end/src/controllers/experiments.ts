@@ -3238,10 +3238,7 @@ export async function refreshTimeSeries(
     throw new Error("Experiment not found");
   }
 
-  await context.models.metricTimeSeries.deleteMetricTimeSeriesBySource(
-    "experiment",
-    id
-  );
+  await context.models.metricTimeSeries.deleteAllBySource("experiment", id);
 
   const allSnapshots = await getAllSnapshotsForTimeSeries({
     experiment: id,
@@ -3254,6 +3251,7 @@ export async function refreshTimeSeries(
       context,
       experiment,
       experimentSnapshot: snapshot,
+      notificationsTriggered: [],
     });
   }
 

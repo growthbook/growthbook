@@ -263,7 +263,7 @@ export async function updateSnapshot({
         experimentSnapshot: experimentSnapshotModel,
       });
 
-      await notifyExperimentChange({
+      const notificationsTriggered = await notifyExperimentChange({
         context,
         experiment: updatedExperiment,
         snapshot: experimentSnapshotModel,
@@ -275,6 +275,7 @@ export async function updateSnapshot({
           context,
           experiment: experimentModel,
           experimentSnapshot: experimentSnapshotModel,
+          notificationsTriggered,
         });
       } catch (error) {
         logger.error(
