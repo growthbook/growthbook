@@ -4,7 +4,7 @@ import type Stripe from "stripe";
 import pino from "pino";
 import { pick, sortBy } from "lodash";
 import AsyncLock from "async-lock";
-import { stringToBoolean } from "shared/util";
+import { parseProcessLogBase, stringToBoolean } from "shared/util";
 import { ProxyAgent } from "proxy-agent";
 import cloneDeep from "lodash/cloneDeep";
 import { getLicenseByKey, LicenseModel } from "./models/licenseModel";
@@ -17,7 +17,11 @@ export const LICENSE_SERVER_URL =
 // mimic behavior in back-end/src/util/secrets.ts
 const APP_ORIGIN = process.env.APP_ORIGIN || "http://localhost:3000";
 
-const logger = pino();
+const logBase = parseProcessLogBase();
+
+const logger = pino({
+  ...logBase,
+});
 
 export type AccountPlan = "oss" | "starter" | "pro" | "pro_sso" | "enterprise";
 const accountPlans: Set<AccountPlan> = new Set([
