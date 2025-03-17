@@ -58,8 +58,8 @@ const snapshotMetricObject = z.object({
     )
     .optional(),
   chanceToWin: z.number().optional(),
-  errorMessage: z.string().optional(),
-  power: metricPowerResponseFromStatsEngineObject.optional(),
+  errorMessage: z.string().optional().nullable(),
+  power: metricPowerResponseFromStatsEngineObject.optional().nullable(),
 });
 
 const experimentSnapshotTrafficDimensionObject = z.object({
@@ -211,7 +211,7 @@ export const safeRolloutSnapshotInterface = z
     dimension: z.string().nullable(),
     dateCreated: z.date(),
     dateUpdated: z.date(),
-    error: z.string().optional(),
+    error: z.string().optional().nullable(),
     runStarted: z.date(),
     status: z.enum(["running", "success", "error"]),
     settings: safeRolloutSnapshotSettings,

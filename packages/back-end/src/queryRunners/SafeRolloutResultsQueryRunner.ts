@@ -3,6 +3,7 @@ import { daysBetween } from "shared/dates";
 import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
 import { addDays } from "date-fns";
 import { analyzeExperimentPower } from "shared/enterprise";
+import { omit } from "lodash";
 import { Queries, QueryStatus } from "back-end/types/query";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import {
@@ -16,6 +17,7 @@ import {
   analyzeExperimentTraffic,
 } from "back-end/src/services/stats";
 import { ExperimentAggregateUnitsQueryResponseRows } from "back-end/src/types/Integration";
+import { logger } from "back-end/src/util/logger";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 import {
   ExperimentResultsQueryParams,
@@ -145,7 +147,7 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
           trafficHealth,
           targetDaysRemaining,
           analysis: relativeAnalysis,
-          goalMetrics: [], // TODO: Should we place guardrails metrics here instead?
+          goalMetrics: this.model.settings.guardrailMetrics,
           variationsSettings: this.model.settings.variations,
         });
       }
@@ -163,6 +165,7 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
   }
 
   async updateModel({
+    status,
     queries,
     runStarted,
     result,
@@ -174,11 +177,18 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
     result?: SnapshotResult;
     error?: string;
   }): Promise<SafeRolloutSnapshotInterface> {
+    if (result?.unknownVariations.length) {
+      logger.error(
+        new Error("more than 2 variations"),
+        "more than two variations on a saferollout"
+      );
+    }
+    const strippedResult = omit(result, ["unknownVariations"]);
     const updates: Partial<SafeRolloutSnapshotInterface> = {
       queries,
       runStarted,
       error,
-      ...result,
+      ...strippedResult,
       status:
         status === "running"
           ? "running"

@@ -45,8 +45,8 @@ export interface SnapshotMetric {
     y: number;
   }[];
   chanceToWin?: number;
-  errorMessage?: string;
-  power?: MetricPowerResponseFromStatsEngine;
+  errorMessage?: string | null;
+  power?: MetricPowerResponseFromStatsEngine | null;
 }
 
 export interface SnapshotVariation {
