@@ -100,7 +100,7 @@ export default function CloudProUpgradeModal({
                 {seatsInUse === 1 ? "" : "s"} x $20/month)
               </strong>{" "}
               will be added this month&apos;s invoice and your credit card will
-              be charged on the 1st of the following month.
+              be charged immediately.
             </p>
             <PaymentElement />
           </>
