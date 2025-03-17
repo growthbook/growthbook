@@ -19,7 +19,6 @@ import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton"
 import Tooltip from "@/components/Tooltip/Tooltip";
 import track from "@/services/track";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Link from "../Radix/Link";
 
 export default function ResultMoreMenu({
   experiment,
@@ -64,12 +63,6 @@ export default function ResultMoreMenu({
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
 
-  const handleRefreshTimeSeries = async () => {
-    await apiCall(`/experiments/${experiment?.id}/refresh-time-series`, {
-      method: "POST",
-    });
-  };
-
   const canEdit = permissionsUtil.canViewExperimentModal(project);
 
   const canDownloadJupyterNotebook =
@@ -79,9 +72,6 @@ export default function ResultMoreMenu({
 
   return (
     <MoreMenu autoCloseOnClick={false}>
-      <Link className="dropdown-item py-2" onClick={handleRefreshTimeSeries}>
-        Refresh Time Series
-      </Link>
       {(queries?.length ?? 0) > 0 && (
         <ViewAsyncQueriesButton
           queries={queries?.map((q) => q.query) ?? []}

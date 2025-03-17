@@ -601,12 +601,6 @@ app.delete(
   experimentsController.deleteVisualChangeset
 );
 
-// Refresh Time Series
-app.post(
-  "/experiments/:id/refresh-time-series",
-  experimentsController.refreshTimeSeries
-);
-
 // Visual editor auth
 app.get(
   "/visual-editor/key",
