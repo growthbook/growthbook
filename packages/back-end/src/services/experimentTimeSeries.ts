@@ -62,7 +62,6 @@ export async function updateExperimentTimeSeries({
 
   // We should always have this, otherwise the snapshot has not
   // been analyzed and we won't have useful data to update the time series with
-  // NB: Using relative as a base, but it should match absolute & scaled
   const variations = relativeAnalysis?.results[0]?.variations;
   if (!variations || variations.length === 0) {
     return;

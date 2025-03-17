@@ -53,12 +53,13 @@ export class MetricTimeSeriesModel extends BaseClass {
     sourceId: MetricTimeSeries["sourceId"]
   ) {
     await this._dangerousGetCollection().deleteMany({
+      organization: this.context.org.id,
       source,
       sourceId,
     });
   }
 
-  public async getByTimeSeries(
+  public async findMany(
     metricTimeSeriesIdentifiers: Pick<
       CreateMetricTimeSeries,
       "source" | "sourceId" | "metricId"
@@ -95,9 +96,7 @@ export class MetricTimeSeriesModel extends BaseClass {
   public async upsertMultipleSingleDataPoint(
     metricTimeSeries: CreateMetricTimeSeriesSingleDataPoint[]
   ) {
-    const existingMetricTimeSeries = await this.getByTimeSeries(
-      metricTimeSeries
-    );
+    const existingMetricTimeSeries = await this.findMany(metricTimeSeries);
 
     const toCreate: CreateMetricTimeSeries[] = [];
     const toUpdate: MetricTimeSeries[] = [];

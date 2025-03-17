@@ -163,7 +163,9 @@ export const notifyMultipleExposures = async ({
     },
   });
 
-  return triggered;
+  return (
+    triggered && !experiment.pastNotifications?.includes("multiple-exposures")
+  );
 };
 
 export const notifySrm = async ({
@@ -204,8 +206,7 @@ export const notifySrm = async ({
     },
   });
 
-  // Not entirely true, as this just means if it is unhealthy, but we would not send multiple notifications
-  return triggered;
+  return triggered && !experiment.pastNotifications?.includes("srm");
 };
 
 type ExperimentSignificanceChange = {
@@ -378,16 +379,16 @@ export const notifySignificance = async ({
   context: Context;
   experiment: ExperimentInterface;
   snapshot: ExperimentSnapshotDocument;
-}) => {
+}): Promise<boolean> => {
   const experimentChanges = await computeExperimentChanges({
     context,
     experiment,
     snapshot,
   });
 
-  if (!experimentChanges.length) return;
+  if (!experimentChanges.length) return false;
   // no notifications for bandits yet, will add 95% event later
-  if (experiment.type === "multi-armed-bandit") return;
+  if (experiment.type === "multi-armed-bandit") return false;
 
   // send email if enabled and the snapshot is scheduled standard analysis
   let emailSent = false;

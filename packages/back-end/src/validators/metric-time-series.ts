@@ -15,7 +15,7 @@ export type MetricTimeSeriesValue = z.infer<typeof metricTimeSeriesValue>;
 
 const metricTimeSeriesVariation = z.object({
   name: z.string(),
-  // Moved to a higher in the tree as it is the same for all analyses types
+  // Moved higher in the tree as it is the same for all analysis types
   stats: z
     .object({
       users: z.number(),
@@ -62,8 +62,6 @@ export const metricTimeSeriesSchema = z
 
     lastExperimentSettingsHash: z.string(),
     lastMetricSettingsHash: z.string(),
-
-    // One per snapshot in the case of experiment MetricTimeSeries
     dataPoints: z.array(metricTimeSeriesDataPoint),
   })
   .strict();
