@@ -155,6 +155,7 @@ export default function UpgradeModal({
         const resp = await apiCall<{
           status: number;
           session?: { url?: string };
+          created?: boolean;
         }>(`/subscription/new`, {
           method: "POST",
           body: JSON.stringify({
@@ -169,6 +170,14 @@ export default function UpgradeModal({
             trackContext
           );
           await redirectWithTimeout(resp.session.url);
+        } else if (resp.created) {
+          track(
+            "Created new subscription with existing default payment method",
+            trackContext
+          );
+          await redirectWithTimeout(
+            "/settings/team?subscription-success-session=true"
+          );
         } else {
           setError("Failed to start checkout");
         }
