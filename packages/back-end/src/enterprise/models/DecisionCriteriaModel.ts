@@ -1,8 +1,5 @@
 import { MakeModelClass } from "back-end/src/models/BaseModel";
-import {
-  DecisionCriteriaInterface,
-  decisionCriteriaInterface,
-} from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.validators";
+import { decisionCriteriaInterface } from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.validators";
 
 const BaseClass = MakeModelClass({
   schema: decisionCriteriaInterface,
@@ -17,25 +14,19 @@ const BaseClass = MakeModelClass({
   globallyUniqueIds: false,
 });
 
+// TODO: project scoping or make more permissive
 export class DecisionCriteriaModel extends BaseClass {
   // CRUD permission checks
-  protected canCreate(doc: DecisionCriteriaInterface): boolean {
-    // TODO permissions
-    return this.context.permissions.canCreateExperimentTemplate(doc);
+  protected canCreate(): boolean {
+    return this.context.permissions.canCreateDecisionCriteria();
   }
-  protected canRead(doc: DecisionCriteriaInterface): boolean {
-    return this.context.hasPermission("readData", doc.project || "");
+  protected canRead(): boolean {
+    return true;
   }
-  protected canUpdate(
-    existing: DecisionCriteriaInterface,
-    updates: DecisionCriteriaInterface
-  ): boolean {
-    return this.context.permissions.canUpdateExperimentTemplate(
-      existing,
-      updates
-    );
+  protected canUpdate(): boolean {
+    return this.context.permissions.canUpdateDecisionCriteria();
   }
-  protected canDelete(doc: DecisionCriteriaInterface): boolean {
-    return this.context.permissions.canDeleteExperimentTemplate(doc);
+  protected canDelete(): boolean {
+    return this.context.permissions.canDeleteDecisionCriteria();
   }
 }
