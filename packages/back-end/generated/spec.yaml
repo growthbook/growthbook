@@ -174,6 +174,9 @@ tags:
   - name: FeatureRule_model
     x-displayName: FeatureRule
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRule" />
+  - name: FeatureWithRevisions_model
+    x-displayName: FeatureWithRevisions
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureWithRevisions" />
   - name: Member_model
     x-displayName: Member
     description: <SchemaDefinition schemaRef="#/components/schemas/Member" />
@@ -539,6 +542,17 @@ paths:
     get:
       parameters:
         - $ref: '#/components/parameters/id'
+        - in: query
+          name: withRevisions
+          schema:
+            type: string
+            enum:
+              - all
+              - drafts
+              - published
+              - none
+          required: false
+          description: 'Also return feature revisions (all, draft, or published statuses)'
       summary: Get a single feature
       tags:
         - features
@@ -558,7 +572,7 @@ paths:
                   - feature
                 properties:
                   feature:
-                    $ref: '#/components/schemas/Feature'
+                    $ref: '#/components/schemas/FeatureWithRevisions'
     post:
       summary: Partially update a feature
       parameters:
@@ -5403,6 +5417,47 @@ components:
               format: date-time
             publishedBy:
               type: string
+    FeatureWithRevisions:
+      allOf:
+        - $ref: '#/components/schemas/Feature'
+        - type: object
+          properties:
+            revisions:
+              type: array
+              items:
+                type: object
+                required:
+                  - baseVersion
+                  - version
+                  - comment
+                  - date
+                  - status
+                  - rules
+                properties:
+                  baseVersion:
+                    type: integer
+                  version:
+                    type: integer
+                  comment:
+                    type: string
+                  date:
+                    type: string
+                    format: date-time
+                  status:
+                    type: string
+                  publishedBy:
+                    type: string
+                  rules:
+                    type: object
+                    additionalProperties:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/FeatureRule'
+                  definitions:
+                    type: object
+                    additionalProperties:
+                      type: string
+                      description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
     FeatureEnvironment:
       type: object
       required:
@@ -6936,6 +6991,7 @@ x-tagGroups:
       - FeatureForceRule_model
       - FeatureRolloutRule_model
       - FeatureRule_model
+      - FeatureWithRevisions_model
       - Member_model
       - Metric_model
       - Organization_model

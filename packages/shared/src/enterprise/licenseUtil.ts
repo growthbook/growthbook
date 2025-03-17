@@ -77,14 +77,18 @@ export type CommercialFeature =
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export type SubscriptionInfo = {
-  billingPlatform: "stripe";
+  billingPlatform?: "stripe" | "orb";
   externalId: string;
   trialEnd: Date | null;
   status: "active" | "canceled" | "past_due" | "trialing" | "";
   hasPaymentMethod: boolean;
+  nextBillDate: string;
+  dateToBeCanceled: string;
+  cancelationDate: string;
+  pendingCancelation: boolean;
 };
 
-export function getStripeSubscriptionStatus(
+function getStripeSubscriptionStatus(
   status: Stripe.Subscription.Status
 ): SubscriptionInfo["status"] {
   if (status === "past_due") return "past_due";
@@ -97,16 +101,23 @@ export function getStripeSubscriptionStatus(
 export function getSubscriptionFromLicense(
   license: Partial<LicenseInterface>
 ): SubscriptionInfo | null {
-  if (license.stripeSubscription) {
-    return {
-      billingPlatform: "stripe",
-      externalId: license.stripeSubscription.id,
-      trialEnd: license.stripeSubscription.trialEnd,
-      status: getStripeSubscriptionStatus(license.stripeSubscription.status),
-      hasPaymentMethod: !!license.stripeSubscription.hasPaymentMethod,
-    };
-  }
-  return null;
+  const sub =
+    license.billingPlatform === "orb"
+      ? license.orbSubscription
+      : license.stripeSubscription;
+  if (!sub) return null;
+
+  return {
+    billingPlatform: license.billingPlatform || "stripe",
+    externalId: sub.id,
+    trialEnd: sub.trialEnd,
+    status: getStripeSubscriptionStatus(sub.status),
+    hasPaymentMethod: !!sub.hasPaymentMethod,
+    nextBillDate: new Date((sub.current_period_end || 0) * 1000).toDateString(),
+    dateToBeCanceled: new Date((sub.cancel_at || 0) * 1000).toDateString(),
+    cancelationDate: new Date((sub.canceled_at || 0) * 1000).toDateString(),
+    pendingCancelation: sub.status !== "canceled" && !!sub.cancel_at_period_end,
+  };
 }
 
 export interface LicenseInterface {
@@ -130,7 +141,7 @@ export interface LicenseInterface {
     tooltipText: string; // The text to show in the tooltip
     showAllUsers: boolean; // True if all users should see the notice rather than just the admins
   };
-  billingPlatform: "stripe" | "";
+  billingPlatform: "stripe" | "orb" | "";
   stripeSubscription?: {
     id: string;
     qty: number;
@@ -146,6 +157,19 @@ export interface LicenseInterface {
     discountAmount?: number; // The amount of the discount
     discountMessage?: string; // The message of the discount
     hasPaymentMethod?: boolean;
+  };
+  orbSubscription?: {
+    id: string;
+    customerId: string;
+    qty: number;
+    trialEnd: Date | null;
+    status: Stripe.Subscription.Status;
+    current_period_end: number;
+    cancel_at: number | null;
+    canceled_at: number | null;
+    cancel_at_period_end: boolean;
+    planId: string;
+    hasPaymentMethod: boolean;
   };
   freeTrialDate?: Date; // Date the free trial was started
   installationUsers: {
@@ -346,7 +370,6 @@ export function getAccountPlan(org: MinimalOrganization): AccountPlan {
     }
     if (org.enterprise) return "enterprise";
     if (org.restrictAuthSubPrefix || org.restrictLoginMethod) return "pro_sso";
-    if (isActiveSubscriptionStatus(org.subscription?.status)) return "pro";
     return "starter";
   }
 
