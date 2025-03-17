@@ -3259,3 +3259,28 @@ export async function refreshTimeSeries(
     success: true,
   });
 }
+
+export async function getTimeSeries(
+  req: AuthRequest<null, { id: string }, { metricIds: string[] }>,
+  res: Response
+) {
+  const { id } = req.params;
+  const { metricIds } = req.query;
+  const context = getContextFromReq(req);
+  if (!id) {
+    throw new Error("id is required");
+  }
+  if (!metricIds || !Array.isArray(metricIds)) {
+    throw new Error("metricIds array is required");
+  }
+
+  const timeSeries = await context.models.metricTimeSeries.getBySourceAndMetricIds(
+    "experiment",
+    id,
+    metricIds
+  );
+
+  res.status(200).json({
+    timeSeries,
+  });
+}
