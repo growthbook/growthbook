@@ -379,7 +379,7 @@ const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
             />
           </div>
           <Text weight="bold" size="2">
-            Decription
+            Description
           </Text>
           <div className="form-group">
             <textarea

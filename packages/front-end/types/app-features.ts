@@ -64,4 +64,5 @@ export type AppFeatures = {
   "pro-upgrade-modal": string;
   "ff_payment-info": boolean;
   "cdn-usage-data": boolean;
+  "decision-framework-criteria": boolean;
 };

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { Box, Flex, Heading, Text, Tooltip } from "@radix-ui/themes";
 import { FaPlusCircle } from "react-icons/fa";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { DecisionCriteriaData } from "back-end/types/experiment";
 import Checkbox from "@/components/Radix/Checkbox";
 import Button from "@/components/Radix/Button";
@@ -22,6 +23,8 @@ interface DecisionFrameworkSettingsProps {
 const DecisionFrameworkSettings: React.FC<DecisionFrameworkSettingsProps> = () => {
   const { hasCommercialFeature } = useUser();
   const form = useFormContext();
+
+  const gb = useGrowthBook();
 
   const { data, mutate } = useApi<{
     status: number;
@@ -127,51 +130,55 @@ const DecisionFrameworkSettings: React.FC<DecisionFrameworkSettingsProps> = () =
                   />
                 </Box>
               </Box>
-              <Flex align="start" direction="column">
-                <Box mb="4">
-                  <Flex align="center" gap="1" justify="between">
-                    <Heading size="2" mb="2">
-                      Default Decision Criteria
-                    </Heading>
-                    <Box mb="4">
-                      <Button
-                        variant="ghost"
-                        mt="3"
-                        onClick={() => {
-                          setSelectedCriteria(undefined);
-                          setDecisionCriteriaModalOpen(true);
-                        }}
-                      >
-                        <Flex align="center" gap="1">
-                          <FaPlusCircle size={12} />
-                          <span>Add custom</span>
-                        </Flex>
-                      </Button>
-                    </Box>
-                  </Flex>
+              {gb.isOn("decision-framework-criteria") ? (
+                <Flex align="start" direction="column">
+                  <Box mb="4">
+                    <Flex align="center" gap="1" justify="between">
+                      <Heading size="2" mb="2">
+                        Default Decision Criteria
+                      </Heading>
+                      <Box mb="4">
+                        <Button
+                          variant="ghost"
+                          mt="3"
+                          onClick={() => {
+                            setSelectedCriteria(undefined);
+                            setDecisionCriteriaModalOpen(true);
+                          }}
+                        >
+                          <Flex align="center" gap="1">
+                            <FaPlusCircle size={12} />
+                            <span>Add custom</span>
+                          </Flex>
+                        </Button>
+                      </Box>
+                    </Flex>
 
-                  <DecisionCriteriaTable
-                    defaultCriteriaId={
-                      form.watch("defaultDecisionCriteriaId") ??
-                      DEFAULT_DECISION_CRITERIA[0].id
-                    }
-                    setDefaultCriteriaId={(id) =>
-                      form.setValue("defaultDecisionCriteriaId", id)
-                    }
-                    selectedCriteria={selectedCriteria}
-                    setSelectedCriteria={setSelectedCriteria}
-                    setDecisionCriteriaModalDisabled={
-                      setDecisionCriteriaModalDisabled
-                    }
-                    setDecisionCriteriaModalOpen={setDecisionCriteriaModalOpen}
-                    decisionCriterias={[
-                      ...DEFAULT_DECISION_CRITERIA,
-                      ...(data?.decisionCriteria || []),
-                    ]}
-                    mutate={mutate}
-                  />
-                </Box>
-              </Flex>
+                    <DecisionCriteriaTable
+                      defaultCriteriaId={
+                        form.watch("defaultDecisionCriteriaId") ??
+                        DEFAULT_DECISION_CRITERIA[0].id
+                      }
+                      setDefaultCriteriaId={(id) =>
+                        form.setValue("defaultDecisionCriteriaId", id)
+                      }
+                      selectedCriteria={selectedCriteria}
+                      setSelectedCriteria={setSelectedCriteria}
+                      setDecisionCriteriaModalDisabled={
+                        setDecisionCriteriaModalDisabled
+                      }
+                      setDecisionCriteriaModalOpen={
+                        setDecisionCriteriaModalOpen
+                      }
+                      decisionCriterias={[
+                        ...DEFAULT_DECISION_CRITERIA,
+                        ...(data?.decisionCriteria || []),
+                      ]}
+                      mutate={mutate}
+                    />
+                  </Box>
+                </Flex>
+              ) : null}
             </>
           )}
       </Box>
