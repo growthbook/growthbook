@@ -33,7 +33,6 @@
     "packages/*"
   ],
   "dependencies": {
-    "@dqbd/tiktoken": "^1.0.20",
     "patch-package": "^8.0.0",
     "wsrun": "^5.2.4"
   },
