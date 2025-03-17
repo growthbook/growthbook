@@ -90,6 +90,12 @@ export const simpleCompletion = async ({
 }) => {
   const openai = getOpenAI();
 
+  // Content moderation check
+  const moderationResponse = await openai.moderations.create({ input: prompt });
+  if (moderationResponse.results.some((r) => r.flagged)) {
+    throw new Error("Prompt was flagged by OpenAI moderation");
+  }
+
   const messages: ChatCompletionRequestMessage[] = [
     {
       role: "user",
