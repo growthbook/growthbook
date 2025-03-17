@@ -8,6 +8,7 @@ import { eventUser } from "back-end/src/validators/events";
 import { userLoginInterface } from "back-end/src/validators/users";
 import { experimentWarningNotificationPayload } from "back-end/src/validators/experiment-warnings";
 import { experimentInfoSignificance } from "back-end/src/validators/experiment-info";
+import { experimentDecisionNotificationPayload } from "back-end/src/validators/experiment-decision";
 import { EventUser } from "./event-types";
 
 type WebhookEntry = {
@@ -71,6 +72,18 @@ export const notificationEvents = {
     "info.significance": {
       schema: experimentInfoSignificance,
       description: `Triggered when a goal or guardrail metric reaches significance in an experiment (e.g. either above 95% or below 5% chance to win). Be careful using this without Sequential Testing as it can lead to peeking problems.`,
+    },
+    "decision.ship": {
+      schema: experimentDecisionNotificationPayload,
+      description: `Triggered when an experiment is ready to ship a variation.`,
+    },
+    "decision.rollback": {
+      schema: experimentDecisionNotificationPayload,
+      description: `Triggered when an experiment should be rolled back to the control.`,
+    },
+    "decision.review": {
+      schema: experimentDecisionNotificationPayload,
+      description: `Triggered when an experiment has reached the desired power point, but the results may be ambiguous.`,
     },
   },
   user: {

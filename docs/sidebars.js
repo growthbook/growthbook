@@ -281,6 +281,11 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "experimentation-analysis/query-optimization",
+          label: "Query Optimization",
+        },
+        {
+          type: "doc",
           id: "experimentation-analysis/data-pipeline",
           label: "Data Pipeline",
         },
