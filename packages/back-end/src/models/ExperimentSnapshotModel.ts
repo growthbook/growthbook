@@ -247,33 +247,35 @@ export async function updateSnapshot({
     experimentSnapshotModel.status === "success";
 
   if (shouldUpdateExperimentAnalysisSummary) {
-    const experimentModel = await getExperimentById(
+    const currentExperimentModel = await getExperimentById(
       context,
       experimentSnapshotModel.experiment
     );
 
-    const isLatestPhase = experimentModel
-      ? experimentSnapshotModel.phase === experimentModel.phases.length - 1
+    const isLatestPhase = currentExperimentModel
+      ? experimentSnapshotModel.phase ===
+        currentExperimentModel.phases.length - 1
       : false;
 
-    if (experimentModel && isLatestPhase) {
-      const updatedExperiment = await updateExperimentAnalysisSummary({
+    if (currentExperimentModel && isLatestPhase) {
+      const updatedExperimentModel = await updateExperimentAnalysisSummary({
         context,
-        experiment: experimentModel,
+        experiment: currentExperimentModel,
         experimentSnapshot: experimentSnapshotModel,
       });
 
       const notificationsTriggered = await notifyExperimentChange({
         context,
-        experiment: updatedExperiment,
+        experiment: updatedExperimentModel,
         snapshot: experimentSnapshotModel,
-        previousAnalysisSummary: experimentModel.analysisSummary,
+        previousAnalysisSummary: currentExperimentModel.analysisSummary,
       });
 
       try {
         await updateExperimentTimeSeries({
           context,
-          experiment: experimentModel,
+          experiment: updatedExperimentModel,
+          previousAnalysisSummary: currentExperimentModel.analysisSummary,
           experimentSnapshot: experimentSnapshotModel,
           notificationsTriggered,
         });
@@ -281,7 +283,7 @@ export async function updateSnapshot({
         logger.error(
           {
             err: error,
-            experimentId: experimentModel.id,
+            experimentId: currentExperimentModel.id,
             snapshotId: experimentSnapshotModel.id,
           },
           "Unable to update experiment time series"

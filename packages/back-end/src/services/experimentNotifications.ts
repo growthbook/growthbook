@@ -379,7 +379,7 @@ export const notifySignificance = async ({
   context: Context;
   experiment: ExperimentInterface;
   snapshot: ExperimentSnapshotDocument;
-}): Promise<boolean> => {
+}) => {
   const experimentChanges = await computeExperimentChanges({
     context,
     experiment,
@@ -391,14 +391,12 @@ export const notifySignificance = async ({
   if (experiment.type === "multi-armed-bandit") return false;
 
   // send email if enabled and the snapshot is scheduled standard analysis
-  let emailSent = false;
   if (
     isEmailEnabled() &&
     snapshot.triggeredBy === "schedule" &&
     snapshot.type === "standard"
   ) {
     await sendSignificanceEmail(experiment, experimentChanges);
-    emailSent = true;
   }
 
   await Promise.all(
@@ -413,8 +411,6 @@ export const notifySignificance = async ({
       })
     )
   );
-
-  return emailSent;
 };
 
 export const notifyDecision = async ({
@@ -478,14 +474,11 @@ export const notifyExperimentChange = async ({
 }) => {
   const notificationsTriggered: string[] = [];
 
-  const triggeredSignificance = await notifySignificance({
+  await notifySignificance({
     context,
     experiment,
     snapshot,
   });
-  if (triggeredSignificance) {
-    notificationsTriggered.push("significance");
-  }
 
   const healthSettings = getHealthSettings(
     context.org.settings,

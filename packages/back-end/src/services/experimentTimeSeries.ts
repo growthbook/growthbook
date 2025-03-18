@@ -4,7 +4,13 @@ import {
   isFactMetricId,
 } from "shared/experiments";
 import { ReqContext } from "back-end/types/organization";
-import { ExperimentInterface } from "back-end/src/validators/experiments";
+import {
+  ExperimentAnalysisSummary,
+  ExperimentAnalysisSummaryResultsStatus,
+  ExperimentInterface,
+  GoalMetricStatus,
+  GuardrailMetricStatus,
+} from "back-end/src/validators/experiments";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
@@ -25,11 +31,13 @@ import { getFactTableMap } from "back-end/src/models/FactTableModel";
 
 export async function updateExperimentTimeSeries({
   context,
+  previousAnalysisSummary,
   experiment,
   experimentSnapshot,
   notificationsTriggered,
 }: {
   context: ReqContext;
+  previousAnalysisSummary?: ExperimentAnalysisSummary;
   experiment: ExperimentInterface;
   experimentSnapshot: ExperimentSnapshotInterface;
   notificationsTriggered: string[];
@@ -112,6 +120,12 @@ export async function updateExperimentTimeSeries({
     relativeAnalysis.settings
   );
 
+  // As we tag the whole snapshot, we just care if any metric has a significant difference from the previous status
+  const hasSignificantDifference = getHasSignificantDifference(
+    previousAnalysisSummary,
+    experiment.analysisSummary
+  );
+
   const metricTimeSeriesSingleDataPoints: CreateMetricTimeSeriesSingleDataPoint[] = metricsIds.map(
     (metricId) => ({
       source: "experiment",
@@ -130,7 +144,10 @@ export async function updateExperimentTimeSeries({
         date: experimentSnapshot.dateCreated,
         variations: timeSeriesVariationsPerMetricId[metricId],
       },
-      tags: notificationsTriggered.length > 0 ? ["triggered-alert"] : undefined,
+      tags:
+        notificationsTriggered.length > 0 || hasSignificantDifference
+          ? ["triggered-alert"]
+          : undefined,
     })
   );
 
@@ -236,4 +253,42 @@ function getMetricSettingsHash(
       },
     });
   }
+}
+
+function getHasSignificantDifference(
+  previousAnalysisSummary: ExperimentAnalysisSummary,
+  currentAnalysisSummary: ExperimentAnalysisSummary
+) {
+  const currentResults = currentAnalysisSummary?.resultsStatus;
+  if (!currentResults) {
+    // Unable to compare
+    return false;
+  }
+
+  const isSignificant = (status: GoalMetricStatus | GuardrailMetricStatus) =>
+    status === "won" || status === "lost";
+
+  const parseToMap = (results: ExperimentAnalysisSummaryResultsStatus) => {
+    return new Map(
+      results.variations.flatMap((variation) =>
+        Object.entries(variation.guardrailMetrics).map(([metricId, metric]) => [
+          `${variation.variationId}-${metricId}`,
+          metric.status,
+        ])
+      )
+    );
+  };
+
+  const currentMetricsParsed = parseToMap(currentResults);
+
+  const previousResults = previousAnalysisSummary?.resultsStatus;
+  if (!previousResults) {
+    return Object.values(currentMetricsParsed).some(isSignificant);
+  }
+
+  const previousResultsMap = parseToMap(previousResults);
+  return Object.entries(currentMetricsParsed).some(
+    ([metricKey, status]) =>
+      isSignificant(status) && previousResultsMap.get(metricKey) !== status
+  );
 }
