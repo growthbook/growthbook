@@ -44,18 +44,18 @@ export class SafeRolloutSnapshotModel extends BaseClass {
   }
 
   public async getLatestSnapshot({
-    experiment,
+    safeRollout,
     dimension,
     beforeSnapshot,
     withResults = true,
   }: {
-    experiment: string;
+    safeRollout: string;
     dimension?: string;
     beforeSnapshot?: SafeRolloutSnapshotInterface;
     withResults?: boolean;
   }) {
     const query: FilterQuery<SafeRolloutSnapshotInterface> = {
-      experiment,
+      safeRolloutRuleId: safeRollout,
       dimension: dimension || null,
     };
 
