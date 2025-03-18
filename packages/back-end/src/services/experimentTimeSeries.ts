@@ -214,7 +214,6 @@ function getMetricSettingsHash(
       factMetric.numerator.filters.includes(it.id)
     );
 
-    // TODO: Some of these have a `updatedate`, should we include it or filter it out?
     return hashObject({
       ...metricSettings,
       metricType: factMetric.metricType,
@@ -225,7 +224,11 @@ function getMetricSettingsHash(
       numeratorFactTable: {
         sql: numeratorFactTable?.sql,
         eventName: numeratorFactTable?.eventName,
-        filters: numeratorFilters,
+        filters: numeratorFilters?.map((it) => ({
+          id: it.id,
+          name: it.name,
+          value: it.value,
+        })),
       },
       denominatorFactTable: {
         sql: denominatorFactTable?.sql,
