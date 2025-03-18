@@ -47,17 +47,20 @@ export async function updateExperimentTimeSeries({
   const relativeAnalysis = experimentSnapshot.analyses.find(
     (analysis) =>
       analysis.settings.differenceType === "relative" &&
-      analysis.settings.baselineVariationIndex === 0
+      (analysis.settings.baselineVariationIndex === undefined ||
+        analysis.settings.baselineVariationIndex === 0)
   );
   const absoluteAnalysis = experimentSnapshot.analyses.find(
     (analysis) =>
       analysis.settings.differenceType === "absolute" &&
-      analysis.settings.baselineVariationIndex === 0
+      (analysis.settings.baselineVariationIndex === undefined ||
+        analysis.settings.baselineVariationIndex === 0)
   );
   const scaledAnalysis = experimentSnapshot.analyses.find(
     (analysis) =>
       analysis.settings.differenceType === "scaled" &&
-      analysis.settings.baselineVariationIndex === 0
+      (analysis.settings.baselineVariationIndex === undefined ||
+        analysis.settings.baselineVariationIndex === 0)
   );
 
   // We should always have this, otherwise the snapshot has not
@@ -77,6 +80,7 @@ export async function updateExperimentTimeSeries({
 
   const timeSeriesVariationsPerMetricId = metricsIds.reduce((acc, metricId) => {
     acc[metricId] = variations.map((_, variationIndex) => ({
+      id: experiment.variations[variationIndex].id,
       name: experiment.variations[variationIndex].name,
       stats:
         // NB: Using relative as a base to save space because it matches relative & absolute

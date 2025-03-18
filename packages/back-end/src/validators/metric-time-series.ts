@@ -14,6 +14,7 @@ const metricTimeSeriesValue = z
 export type MetricTimeSeriesValue = z.infer<typeof metricTimeSeriesValue>;
 
 const metricTimeSeriesVariation = z.object({
+  id: z.string(),
   name: z.string(),
   // Moved higher in the tree as it is the same for all analysis types
   stats: z
