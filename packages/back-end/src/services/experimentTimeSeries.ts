@@ -51,7 +51,12 @@ export async function updateExperimentTimeSeries({
     return;
   }
 
-  const metricsIds = getAllMetricIdsFromExperiment(experiment);
+  const metricGroups = await context.models.metricGroups.getAll();
+  const metricsIds = getAllMetricIdsFromExperiment(
+    experimentSnapshot.settings,
+    false,
+    metricGroups
+  );
   const relativeAnalysis = experimentSnapshot.analyses.find(
     (analysis) =>
       analysis.settings.differenceType === "relative" &&
@@ -136,7 +141,7 @@ export async function updateExperimentTimeSeries({
         metricId,
         experimentSnapshot.settings.metricSettings.find(
           (it) => it.id === metricId
-        )!,
+        ),
         factMetrics,
         factTableMap
       ),
