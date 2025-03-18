@@ -141,7 +141,7 @@ export async function updateExperimentTimeSeries({
         metricId,
         experimentSnapshot.settings.metricSettings.find(
           (it) => it.id === metricId
-        ),
+        )!,
         factMetrics,
         factTableMap
       ),
