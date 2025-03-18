@@ -9,12 +9,6 @@ const BaseClass = MakeModelClass({
   schema: safeRolloutSnapshotInterface,
   collectionName: "saferolloutsnapshots",
   idPrefix: "srsnp__",
-  auditLog: {
-    entity: "safeRolloutSnapshot",
-    createEvent: "safeRolloutSnapshot.create",
-    updateEvent: "safeRolloutSnapshot.update",
-    deleteEvent: "safeRolloutSnapshot.delete",
-  },
   globallyUniqueIds: false,
 });
 
