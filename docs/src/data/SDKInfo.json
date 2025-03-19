@@ -450,7 +450,6 @@
       "stickyBucketing"
     ]
   },
-  "examples": [],
   "flutter": {
     "name": "Flutter SDK",
     "version": "3.9.5",
