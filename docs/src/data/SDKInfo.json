@@ -404,6 +404,7 @@
     "name": "Lambda@Edge App & SDK",
     "version": "0.0.24",
     "github": "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-lambda",
+    "examples": [],
     "packageRepos": [
       {
         "name": "npm",
@@ -429,6 +430,7 @@
     "name": "Edge App (base)",
     "version": "0.2.4",
     "github": "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-utils",
+    "examples": [],
     "packageRepos": [
       {
         "name": "npm",
