@@ -61,9 +61,9 @@ export const createSnapshot = async (
 };
 // endregion POST /safeRollout/snapshot
 
-// region PUT /safeRollout/:id/cancelSnapshot
+// region POST /safeRollout/:id/cancelSnapshot
 /**
- * PUT /safeRollout/:id/cancelSnapshot
+ * POST /safeRollout/:id/cancelSnapshot
  * Cancel a Snapshot resource
  * @param req
  * @param res
@@ -88,7 +88,7 @@ export const cancelSnapshot = async (
   //   if (!safeRollout) {
   //     return res.status(404).json({
   //       status: 404,
-  //       message: "Experiment not found",
+  //       message: "Safe Rollout not found",
   //     });
   //   }
 
@@ -107,4 +107,4 @@ export const cancelSnapshot = async (
 
   res.status(200).json({ status: 200 });
 };
-// endregion PUT /safeRollout/:id/cancelSnapshot
+// endregion POST /safeRollout/:id/cancelSnapshot
