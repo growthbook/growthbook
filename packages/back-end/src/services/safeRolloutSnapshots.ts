@@ -413,19 +413,15 @@ export async function createSnapshot({
 export async function createSafeRolloutSnapshot({
   context,
   safeRollout,
-  datasource,
   dimension,
   useCache = true,
   triggeredBy,
-  projectId,
 }: {
   context: ReqContext;
   safeRollout: SafeRolloutRule;
-  datasource: DataSourceInterface;
   dimension: string | undefined;
   useCache?: boolean;
   triggeredBy?: SnapshotTriggeredBy;
-  projectId?: string;
 }): Promise<{
   snapshot: SafeRolloutSnapshotInterface;
   queryRunner: SafeRolloutResultsQueryRunner;
