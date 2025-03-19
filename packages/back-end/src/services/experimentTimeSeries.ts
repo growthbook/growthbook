@@ -141,7 +141,7 @@ export async function updateExperimentTimeSeries({
         metricId,
         experimentSnapshot.settings.metricSettings.find(
           (it) => it.id === metricId
-        )!,
+        ),
         factMetrics,
         factTableMap
       ),
@@ -214,13 +214,13 @@ function getExperimentSettingsHash(
 
 function getMetricSettingsHash(
   metricId: string,
-  metricSettings: MetricForSnapshot,
+  metricSettings?: MetricForSnapshot,
   factMetrics?: FactMetricInterface[],
   factTableMap?: Map<string, FactTableInterface>
 ): string {
   const factMetric = factMetrics?.find((metric) => metric.id === metricId);
   if (!factMetric) {
-    return hashObject(metricSettings);
+    return hashObject(metricSettings ?? { id: metricId });
   } else {
     const numeratorFactTableId = factMetric.numerator.factTableId;
     const numeratorFactTable = numeratorFactTableId
@@ -275,12 +275,22 @@ function getHasSignificantDifference(
 
   const parseToMap = (results: ExperimentAnalysisSummaryResultsStatus) => {
     return new Map(
-      results.variations.flatMap((variation) =>
-        Object.entries(variation.guardrailMetrics).map(([metricId, metric]) => [
-          `${variation.variationId}-${metricId}`,
-          metric.status,
-        ])
-      )
+      results.variations.flatMap((variation) => ({
+        ...(variation?.goalMetrics
+          ? Object.entries(variation.goalMetrics).map(([metricId, metric]) => [
+              `${variation.variationId}-${metricId}`,
+              metric.status,
+            ])
+          : []),
+        ...(variation?.guardrailMetrics
+          ? Object.entries(
+              variation.guardrailMetrics
+            ).map(([metricId, metric]) => [
+              `${variation.variationId}-${metricId}`,
+              metric.status,
+            ])
+          : []),
+      }))
     );
   };
 
