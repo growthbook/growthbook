@@ -26,14 +26,16 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       req.context.permissions.throwPermissionError();
     }
 
-    const datasource = await getDataSourceById(req.context, datasourceId);
-
-    if (!datasource) {
+    const datasource = datasourceId
+      ? await getDataSourceById(req.context, datasourceId)
+      : null;
+    if (datasourceId && !datasource) {
       throw new Error(`Invalid data source: ${datasourceId}`);
     }
 
     // check for associated assignment query id
     if (
+      datasource &&
       !datasource.settings.queries?.exposure?.some(
         (q) => q.id === req.body.assignmentQueryId
       )

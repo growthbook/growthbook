@@ -11,37 +11,10 @@ import UpgradeModal from "./UpgradeModal";
 
 export default function SubscriptionInfo() {
   const { apiCall } = useAuth();
-  const {
-    subscription,
-    seatsInUse,
-    canSubscribe,
-    organization,
-    license,
-    accountPlan,
-  } = useUser();
+  const { subscription, seatsInUse, canSubscribe, accountPlan } = useUser();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
   const [cancelSubscriptionModal, setCancelSubscriptionModal] = useState(false);
-
-  //TODO: Remove this once we have moved the license off the organization
-  const stripeSubscription =
-    license?.stripeSubscription || organization?.subscription;
-
-  const nextBillDate = new Date(
-    (stripeSubscription?.current_period_end || 0) * 1000
-  ).toDateString();
-
-  const dateToBeCanceled = new Date(
-    (stripeSubscription?.cancel_at || 0) * 1000
-  ).toDateString();
-
-  const cancelationDate = new Date(
-    (stripeSubscription?.canceled_at || 0) * 1000
-  ).toDateString();
-
-  const pendingCancelation =
-    stripeSubscription?.status !== "canceled" &&
-    stripeSubscription?.cancel_at_period_end;
 
   return (
     <div className="p-3">
@@ -70,7 +43,8 @@ export default function SubscriptionInfo() {
             <p>
               If you cancel, you will continue to have access to your
               <strong> {planNameFromAccountPlan(accountPlan)} Plan </strong>
-              features until your current billing period ends on {nextBillDate}.
+              features until your current billing period ends on{" "}
+              {subscription?.nextBillDate}.
             </p>
             <Callout status="warning">
               You account can still acrue CDN usage charges. If you&apos;d like
@@ -91,58 +65,59 @@ export default function SubscriptionInfo() {
       <div className="col-md-12 mb-3">
         <strong>Number Of Seats:</strong> {seatsInUse || 0}
       </div>
-      {subscription?.status !== "canceled" && !pendingCancelation && (
-        <div className="col-md-12 mb-3">
-          <div>
-            <strong>Next Bill Date: </strong>
-            {nextBillDate}
+      {subscription?.status !== "canceled" &&
+        !subscription?.pendingCancelation && (
+          <div className="col-md-12 mb-3">
+            <div>
+              <strong>Next Bill Date: </strong>
+              {subscription?.nextBillDate}
+            </div>
+            {subscription?.hasPaymentMethod === true ? (
+              <div
+                className="mt-3 px-3 py-2 alert alert-success row"
+                style={{ maxWidth: 650 }}
+              >
+                <div className="col-auto px-1">
+                  <FaCheckCircle />
+                </div>
+                <div className="col">
+                  You have a valid payment method on file. You will be billed
+                  automatically on this date.
+                </div>
+              </div>
+            ) : subscription?.hasPaymentMethod === false ? (
+              <div
+                className="mt-3 px-3 py-2 alert alert-warning row"
+                style={{ maxWidth: 550 }}
+              >
+                <div className="col-auto px-1">
+                  <FaExclamationTriangle />
+                </div>
+                <div className="col">
+                  <p>
+                    You do not have a valid payment method on file. Your
+                    subscription will be cancelled on this date unless you add a
+                    valid payment method.
+                  </p>
+                  <p className="mb-0">
+                    Click <strong>View Plan Details</strong> below to add a
+                    payment method.
+                  </p>
+                </div>
+              </div>
+            ) : null}
           </div>
-          {subscription?.hasPaymentMethod === true ? (
-            <div
-              className="mt-3 px-3 py-2 alert alert-success row"
-              style={{ maxWidth: 650 }}
-            >
-              <div className="col-auto px-1">
-                <FaCheckCircle />
-              </div>
-              <div className="col">
-                You have a valid payment method on file. You will be billed
-                automatically on this date.
-              </div>
-            </div>
-          ) : subscription?.hasPaymentMethod === false ? (
-            <div
-              className="mt-3 px-3 py-2 alert alert-warning row"
-              style={{ maxWidth: 550 }}
-            >
-              <div className="col-auto px-1">
-                <FaExclamationTriangle />
-              </div>
-              <div className="col">
-                <p>
-                  You do not have a valid payment method on file. Your
-                  subscription will be cancelled on this date unless you add a
-                  valid payment method.
-                </p>
-                <p className="mb-0">
-                  Click <strong>View Plan Details</strong> below to add a
-                  payment method.
-                </p>
-              </div>
-            </div>
-          ) : null}
-        </div>
-      )}
-      {pendingCancelation && dateToBeCanceled && (
+        )}
+      {subscription?.pendingCancelation && subscription?.dateToBeCanceled && (
         <div className="col-md-12 mb-3 alert alert-danger">
           Your plan will be canceled, but is still available until the end of
           your billing period on
-          {` ${dateToBeCanceled}.`}
+          {` ${subscription?.dateToBeCanceled}.`}
         </div>
       )}
       {subscription?.status === "canceled" && (
         <div className="col-md-12 mb-3 alert alert-danger">
-          Your plan was canceled on {` ${cancelationDate}.`}
+          Your plan was canceled on {` ${subscription?.cancelationDate}.`}
         </div>
       )}
       <div className="col-md-12 mt-4 mb-3 d-flex flex-row px-0">
@@ -183,7 +158,8 @@ export default function SubscriptionInfo() {
         )}
         {subscription?.billingPlatform === "orb" &&
         subscription?.status === "active" &&
-        !pendingCancelation ? (
+        subscription?.nextBillDate &&
+        !subscription?.pendingCancelation ? (
           <Button
             onClick={() => setCancelSubscriptionModal(true)}
             color="danger"

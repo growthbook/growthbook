@@ -4,7 +4,7 @@ import type Stripe from "stripe";
 import pino from "pino";
 import { pick, sortBy } from "lodash";
 import AsyncLock from "async-lock";
-import { stringToBoolean } from "shared/util";
+import { parseProcessLogBase, stringToBoolean } from "shared/util";
 import { ProxyAgent } from "proxy-agent";
 import cloneDeep from "lodash/cloneDeep";
 import { getLicenseByKey, LicenseModel } from "./models/licenseModel";
@@ -17,7 +17,11 @@ export const LICENSE_SERVER_URL =
 // mimic behavior in back-end/src/util/secrets.ts
 const APP_ORIGIN = process.env.APP_ORIGIN || "http://localhost:3000";
 
-const logger = pino();
+const logBase = parseProcessLogBase();
+
+const logger = pino({
+  ...logBase,
+});
 
 export type AccountPlan = "oss" | "starter" | "pro" | "pro_sso" | "enterprise";
 const accountPlans: Set<AccountPlan> = new Set([
@@ -77,14 +81,18 @@ export type CommercialFeature =
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export type SubscriptionInfo = {
-  billingPlatform: "stripe";
+  billingPlatform?: "stripe" | "orb";
   externalId: string;
   trialEnd: Date | null;
   status: "active" | "canceled" | "past_due" | "trialing" | "";
   hasPaymentMethod: boolean;
+  nextBillDate: string;
+  dateToBeCanceled: string;
+  cancelationDate: string;
+  pendingCancelation: boolean;
 };
 
-export function getStripeSubscriptionStatus(
+function getStripeSubscriptionStatus(
   status: Stripe.Subscription.Status
 ): SubscriptionInfo["status"] {
   if (status === "past_due") return "past_due";
@@ -97,16 +105,23 @@ export function getStripeSubscriptionStatus(
 export function getSubscriptionFromLicense(
   license: Partial<LicenseInterface>
 ): SubscriptionInfo | null {
-  if (license.stripeSubscription) {
-    return {
-      billingPlatform: "stripe",
-      externalId: license.stripeSubscription.id,
-      trialEnd: license.stripeSubscription.trialEnd,
-      status: getStripeSubscriptionStatus(license.stripeSubscription.status),
-      hasPaymentMethod: !!license.stripeSubscription.hasPaymentMethod,
-    };
-  }
-  return null;
+  const sub =
+    license.billingPlatform === "orb"
+      ? license.orbSubscription
+      : license.stripeSubscription;
+  if (!sub) return null;
+
+  return {
+    billingPlatform: license.billingPlatform || "stripe",
+    externalId: sub.id,
+    trialEnd: sub.trialEnd,
+    status: getStripeSubscriptionStatus(sub.status),
+    hasPaymentMethod: !!sub.hasPaymentMethod,
+    nextBillDate: new Date((sub.current_period_end || 0) * 1000).toDateString(),
+    dateToBeCanceled: new Date((sub.cancel_at || 0) * 1000).toDateString(),
+    cancelationDate: new Date((sub.canceled_at || 0) * 1000).toDateString(),
+    pendingCancelation: sub.status !== "canceled" && !!sub.cancel_at_period_end,
+  };
 }
 
 export interface LicenseInterface {
@@ -130,7 +145,7 @@ export interface LicenseInterface {
     tooltipText: string; // The text to show in the tooltip
     showAllUsers: boolean; // True if all users should see the notice rather than just the admins
   };
-  billingPlatform: "stripe" | "";
+  billingPlatform: "stripe" | "orb" | "";
   stripeSubscription?: {
     id: string;
     qty: number;
@@ -146,6 +161,19 @@ export interface LicenseInterface {
     discountAmount?: number; // The amount of the discount
     discountMessage?: string; // The message of the discount
     hasPaymentMethod?: boolean;
+  };
+  orbSubscription?: {
+    id: string;
+    customerId: string;
+    qty: number;
+    trialEnd: Date | null;
+    status: Stripe.Subscription.Status;
+    current_period_end: number;
+    cancel_at: number | null;
+    canceled_at: number | null;
+    cancel_at_period_end: boolean;
+    planId: string;
+    hasPaymentMethod: boolean;
   };
   freeTrialDate?: Date; // Date the free trial was started
   installationUsers: {
@@ -346,7 +374,6 @@ export function getAccountPlan(org: MinimalOrganization): AccountPlan {
     }
     if (org.enterprise) return "enterprise";
     if (org.restrictAuthSubPrefix || org.restrictLoginMethod) return "pro_sso";
-    if (isActiveSubscriptionStatus(org.subscription?.status)) return "pro";
     return "starter";
   }
 
@@ -603,7 +630,8 @@ export async function postNewProSubscriptionToLicenseServer(
 }
 
 export async function postNewInlineSubscriptionToLicenseServer(
-  organizationId: string
+  organizationId: string,
+  nonInviteSeatQty: number
 ) {
   const url = `${LICENSE_SERVER_URL}subscription/start-new-pro`;
   return callLicenseServer(
@@ -611,6 +639,7 @@ export async function postNewInlineSubscriptionToLicenseServer(
     JSON.stringify({
       cloudSecret: process.env.CLOUD_SECRET,
       organizationId,
+      nonInviteSeatQty,
     })
   );
 }
@@ -619,8 +648,7 @@ export async function postNewProSubscriptionIntentToLicenseServer(
   organizationId: string,
   companyName: string,
   ownerEmail: string,
-  name: string,
-  seats: number
+  name: string
 ) {
   const url = `${LICENSE_SERVER_URL}subscription/setup-subscription-intent`;
   return callLicenseServer(
@@ -632,7 +660,6 @@ export async function postNewProSubscriptionIntentToLicenseServer(
       companyName,
       ownerEmail,
       name,
-      seats,
     })
   );
 }

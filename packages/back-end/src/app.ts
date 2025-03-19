@@ -211,15 +211,6 @@ app.use(async (req, res, next) => {
 // Visual Designer js file (does not require JWT or cors)
 app.get("/js/:key.js", getExperimentsScript);
 
-// Stripe webhook (needs raw body)
-app.post(
-  "/stripe/webhook",
-  bodyParser.raw({
-    type: "application/json",
-  }),
-  stripeController.postWebhook
-);
-
 // Slack app (body is urlencoded)
 app.post(
   "/ideas/slack",

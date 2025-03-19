@@ -72,8 +72,9 @@ export default function UpgradeModal({
     effectiveAccountPlan,
     commercialFeatureLowestPlan,
     subscription,
-    seatsInUse,
+    users,
   } = useUser();
+  const numOfCurrentMembers = users.size || 1;
   const permissionsUtil = usePermissionsUtil();
 
   const { organization, refreshOrganization } = useUser();
@@ -440,11 +441,11 @@ export default function UpgradeModal({
                 className="pl-1"
               />
             </span>
-            <label>~${seatsInUse * 20} / month</label>
+            <label>~${numOfCurrentMembers * 20} / month</label>
           </Flex>
           <p className="mb-0 text-secondary">
-            $20 per seat per month, {seatsInUse} current seat
-            {seatsInUse > 1 ? "s" : ""}
+            $20 per seat per month, {numOfCurrentMembers} current seat
+            {numOfCurrentMembers > 1 ? "s" : ""}
           </p>
         </div>
         {enterpriseCallout}
@@ -531,7 +532,7 @@ export default function UpgradeModal({
         <StripeProvider initialClientSecret={clientSecret}>
           <CloudProUpgradeModal
             close={() => setShowCloudProUpgrade(false)}
-            seatsInUse={seatsInUse}
+            numOfCurrentMembers={numOfCurrentMembers}
             closeParent={close}
           />
         </StripeProvider>
@@ -575,28 +576,14 @@ export default function UpgradeModal({
                       <div className="row bg-main-color p-3 mb-3 rounded">
                         <span>You are currently using the </span>
                         <b className="mx-1"> {licensePlanText} </b> version of
-                        Growthbook with{" "}
-                        <Link
-                          href="/settings/team"
-                          className="mx-1 font-weight-bold"
-                        >
-                          {currentUsers} team members
-                        </Link>
-                        ↗
+                        Growthbook.
                       </div>
                     ) : daysToGo < 0 ? (
                       <div className="row p-3 mb-3 rounded alert-danger">
                         {" "}
                         <span>
                           Your old <b className="mx-1">{licensePlanText}</b>{" "}
-                          version of Growthbook with{" "}
-                          <Link
-                            href="/settings/team"
-                            className="mx-1 font-weight-bold"
-                          >
-                            {currentUsers} team members
-                          </Link>
-                          ↗ expired. Renew below.
+                          version of Growthbook expired. Renew below.
                         </span>
                       </div>
                     ) : (
@@ -604,14 +591,7 @@ export default function UpgradeModal({
                         {" "}
                         <span>
                           Your old <b className="mx-1">{licensePlanText}</b>{" "}
-                          version of Growthbook with{" "}
-                          <Link
-                            href="/settings/team"
-                            className="mx-1 font-weight-bold"
-                          >
-                            {currentUsers} team members
-                          </Link>
-                          ↗ was cancelled. Renew below.
+                          version of Growthbook was cancelled. Renew below.
                         </span>
                       </div>
                     ))}
