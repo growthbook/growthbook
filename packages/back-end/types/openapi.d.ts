@@ -4182,7 +4182,7 @@ export interface operations {
       content: {
         "application/json": {
           /** @description ID for the [DataSource](#tag/DataSource_model) */
-          datasourceId: string;
+          datasourceId?: string;
           /** @description The ID property of one of the assignment query objects associated with the datasource */
           assignmentQueryId: string;
           trackingKey: string;
