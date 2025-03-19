@@ -3,10 +3,10 @@ import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { SafeRolloutSnapshotInterface } from "back-end/src/validators/safe-rollout";
 import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnapshots";
-import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { SafeRolloutRule } from "back-end/src/validators/features";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { SafeRolloutResultsQueryRunner } from "back-end/src/queryRunners/SafeRolloutResultsQueryRunner";
+import { getFeature } from "back-end/src/models/FeatureModel";
 
 // region GET /safeRollout/:id/snapshot
 /**
@@ -82,15 +82,31 @@ export const cancelSnapshot = async (
     });
   }
 
-  // Create a helper function to get the safe rollout by id
-  //   const safeRollout = await getExperimentById(context, snapshot.experiment);
+  const feature = await getFeature(context, snapshot.featureId);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+  // loop through environment settings in the feature and through the rules to find a safe rollout with snapshot.safeRolloutRuleId
+  let safeRollout: SafeRolloutRule | undefined;
+  for (const [envKey, environment] of Object.entries(
+    feature.environmentSettings
+  )) {
+    for (const rule of environment.rules) {
+      if (
+        rule.id === snapshot.safeRolloutRuleId &&
+        rule.type === "safe-rollout"
+      ) {
+        safeRollout = rule;
+      }
+    }
+  }
 
-  //   if (!safeRollout) {
-  //     return res.status(404).json({
-  //       status: 404,
-  //       message: "Safe Rollout not found",
-  //     });
-  //   }
+  if (!safeRollout) {
+    return res.status(404).json({
+      status: 404,
+      message: "Safe Rollout not found",
+    });
+  }
 
   const integration = await getIntegrationFromDatasourceId(
     context,
