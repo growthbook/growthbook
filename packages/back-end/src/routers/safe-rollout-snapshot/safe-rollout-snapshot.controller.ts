@@ -7,11 +7,12 @@ import { SafeRolloutRule } from "back-end/src/validators/features";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { SafeRolloutResultsQueryRunner } from "back-end/src/queryRunners/SafeRolloutResultsQueryRunner";
 import { getFeature } from "back-end/src/models/FeatureModel";
+import { SNAPSHOT_TIMEOUT } from "back-end/src/controllers/experiments";
 
 // region GET /safeRollout/:id/snapshot
 /**
  * GET /safeRollout/:id/snapshot
- * Create a Template resource
+ * Get the latest snapshot for a safe rollout
  * @param req
  * @param res
  */
@@ -33,25 +34,106 @@ export const getLatestSnapshot = async (
 
 // endregion GET /safeRollout/:id/snapshot
 
-// region POST /safeRollout/snapshot
+// region GET /safeRollout/:id/snapshot/:dimension
 /**
- * POST /safeRollout/snapshot
+ * GET /safeRollout/:id/snapshot/:dimension
+ * Get a snapshot for a safe rollout by dimension
+ * @param req
+ * @param res
+ */
+export async function getSnapshotWithDimension(
+  req: AuthRequest<null, { id: string; dimension: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { id, dimension } = req.params;
+
+  const snapshot = await context.models.safeRolloutSnapshots.getLatestSnapshot({
+    safeRollout: id,
+    dimension,
+  });
+  const latest = await context.models.safeRolloutSnapshots.getLatestSnapshot({
+    safeRollout: id,
+    dimension,
+    withResults: false,
+  });
+
+  const dimensionless =
+    snapshot?.dimension === ""
+      ? snapshot
+      : await context.models.safeRolloutSnapshots.getLatestSnapshot({
+          safeRollout: id,
+        });
+
+  res.status(200).json({
+    status: 200,
+    snapshot,
+    latest,
+    dimensionless,
+  });
+}
+
+// endregion GET /safeRollout/:id/snapshot/:dimension
+
+// region POST /safeRollout/:id/snapshot
+/**
+ * POST /safeRollout/:id/snapshot
  * Create a Snapshot resource
  * @param req
  * @param res
  */
 export const createSnapshot = async (
-  req: AuthRequest<SafeRolloutRule>,
-  res: Response<{ status: 200; snapshot: SafeRolloutSnapshotInterface }>
+  req: AuthRequest<
+    {
+      featureId: string;
+      dimension?: string;
+    },
+    { id: string },
+    { force?: string }
+  >,
+  res: Response<{
+    status: 200 | 404;
+    snapshot?: SafeRolloutSnapshotInterface;
+    message?: string;
+  }>
 ) => {
   const context = getContextFromReq(req);
-  const safeRollout = req.body;
+  const { dimension, featureId } = req.body;
+  const { id } = req.params;
+  const useCache = !req.query["force"];
 
-  const { snapshot, queryRunner } = await createSafeRolloutSnapshot({
+  const feature = await getFeature(context, featureId);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  let safeRollout: SafeRolloutRule | undefined;
+  for (const [envKey, environment] of Object.entries(
+    feature.environmentSettings
+  )) {
+    for (const rule of environment.rules) {
+      if (rule.id === id && rule.type === "safe-rollout") {
+        safeRollout = rule;
+      }
+    }
+  }
+
+  if (!safeRollout) {
+    return res.status(404).json({
+      status: 404,
+      message: "Safe Rollout not found",
+    });
+  }
+
+  // This is doing an expensive analytics SQL query, so may take a long time
+  // Set timeout to 30 minutes
+  req.setTimeout(SNAPSHOT_TIMEOUT);
+
+  const { snapshot } = await createSafeRolloutSnapshot({
     context,
     safeRollout,
-    dimension: "",
-    useCache: true,
+    dimension,
+    useCache,
   });
 
   res.status(200).json({
@@ -59,12 +141,12 @@ export const createSnapshot = async (
     snapshot,
   });
 };
-// endregion POST /safeRollout/snapshot
+// endregion POST /safeRollout/:id/snapshot
 
-// region POST /safeRollout/:id/cancelSnapshot
+// region POST /safeRollout/snapshot/:id/cancelSnapshot
 /**
- * POST /safeRollout/:id/cancelSnapshot
- * Cancel a Snapshot resource
+ * POST /safeRollout/snapshot/:id/cancelSnapshot
+ * Cancel a Snapshot
  * @param req
  * @param res
  */
@@ -123,4 +205,4 @@ export const cancelSnapshot = async (
 
   res.status(200).json({ status: 200 });
 };
-// endregion POST /safeRollout/:id/cancelSnapshot
+// endregion POST /safeRollout/snapshot/:id/cancelSnapshot

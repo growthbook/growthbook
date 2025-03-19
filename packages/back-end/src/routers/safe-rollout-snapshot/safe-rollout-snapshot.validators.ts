@@ -1,6 +1,6 @@
 import { z } from "zod";
 
 export const createSafeRolloutSnapshotValidator = z.object({
-  safeRolloutId: z.string(),
+  dimension: z.string().optional(),
   featureId: z.string(),
 });
