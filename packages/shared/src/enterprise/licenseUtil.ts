@@ -626,7 +626,8 @@ export async function postNewProSubscriptionToLicenseServer(
 }
 
 export async function postNewInlineSubscriptionToLicenseServer(
-  organizationId: string
+  organizationId: string,
+  nonInviteSeatQty: number
 ) {
   const url = `${LICENSE_SERVER_URL}subscription/start-new-pro`;
   return callLicenseServer(
@@ -634,6 +635,7 @@ export async function postNewInlineSubscriptionToLicenseServer(
     JSON.stringify({
       cloudSecret: process.env.CLOUD_SECRET,
       organizationId,
+      nonInviteSeatQty,
     })
   );
 }
@@ -642,8 +644,7 @@ export async function postNewProSubscriptionIntentToLicenseServer(
   organizationId: string,
   companyName: string,
   ownerEmail: string,
-  name: string,
-  seats: number
+  name: string
 ) {
   const url = `${LICENSE_SERVER_URL}subscription/setup-subscription-intent`;
   return callLicenseServer(
@@ -655,7 +656,6 @@ export async function postNewProSubscriptionIntentToLicenseServer(
       companyName,
       ownerEmail,
       name,
-      seats,
     })
   );
 }

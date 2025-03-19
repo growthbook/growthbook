@@ -100,14 +100,11 @@ export const postNewProSubscriptionIntent = withLicenseServerErrorHandling(
 
     const { org, userName } = context;
 
-    const qty = getNumberOfUniqueMembersAndInvites(org);
-
     const result = await postNewProSubscriptionIntentToLicenseServer(
       org.id,
       org.name,
       org.ownerEmail,
-      userName,
-      qty
+      userName
     );
     await updateOrganization(org.id, { licenseKey: result.license.id });
 
@@ -163,7 +160,12 @@ export const postInlineProSubscription = withLicenseServerErrorHandling(
       throw new Error("No license found for organization");
     }
 
-    const result = await postNewInlineSubscriptionToLicenseServer(org.id);
+    const nonInviteSeatQty = org.members.length;
+
+    const result = await postNewInlineSubscriptionToLicenseServer(
+      org.id,
+      nonInviteSeatQty
+    );
 
     res.status(200).json(result);
   }

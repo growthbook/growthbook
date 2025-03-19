@@ -12,12 +12,12 @@ import { useUser } from "@/services/UserContext";
 interface Props {
   close: () => void;
   closeParent: () => void;
-  seatsInUse: number;
+  numOfCurrentMembers: number;
 }
 
 export default function CloudProUpgradeModal({
   close,
-  seatsInUse,
+  numOfCurrentMembers,
   closeParent,
 }: Props) {
   const [success, setSuccess] = useState(false);
@@ -96,8 +96,8 @@ export default function CloudProUpgradeModal({
               Pro accounts cost <strong>$20/month per user</strong>. After
               upgrading, an amount of{" "}
               <strong>
-                ${seatsInUse * 20} ({seatsInUse} seat
-                {seatsInUse === 1 ? "" : "s"} x $20/month)
+                ${numOfCurrentMembers * 20} ({numOfCurrentMembers} seat
+                {numOfCurrentMembers === 1 ? "" : "s"} x $20/month)
               </strong>{" "}
               will be added this month&apos;s invoice and your credit card will
               be charged immediately.
