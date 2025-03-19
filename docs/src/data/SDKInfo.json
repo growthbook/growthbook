@@ -339,19 +339,102 @@
     ]
   },
   "edgeCloudflare": {
-    "name": "Cloudflare Edge SDK",
-    "version": "0.2.1",
+    "name": "Cloudflare Workers App & SDK",
+    "version": "0.2.4",
     "github": "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare",
     "examples": [
       {
-        "url": "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-utils",
-        "name": "Edge Utils"
+        "url": "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare/example",
+        "name": "Example worker"
       }
     ],
     "packageRepos": [
       {
         "name": "npm",
-        "url": "https://www.npmjs.com/package/@growthbook/growthbook-proxy"
+        "url": "https://www.npmjs.com/package/@growthbook/edge-cloudflare"
+      }
+    ],
+    "capabilities": [
+      "savedGroupReferences",
+      "looseUnmarshalling",
+      "encryption",
+      "streaming",
+      "bucketingV2",
+      "visualEditor",
+      "semverTargeting",
+      "visualEditorJS",
+      "visualEditorDragDrop",
+      "prerequisites",
+      "redirects",
+      "stickyBucketing"
+    ]
+  },
+  "edgeFastly": {
+    "name": "Fastly Compute App & SDK",
+    "version": "0.2.4",
+    "github": "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-fastly",
+    "examples": [
+      {
+        "url": "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-fastly/example",
+        "name": "Example compute worker"
+      }
+    ],
+    "packageRepos": [
+      {
+        "name": "npm",
+        "url": "https://www.npmjs.com/package/@growthbook/edge-fastly"
+      }
+    ],
+    "capabilities": [
+      "savedGroupReferences",
+      "looseUnmarshalling",
+      "encryption",
+      "streaming",
+      "bucketingV2",
+      "visualEditor",
+      "semverTargeting",
+      "visualEditorJS",
+      "visualEditorDragDrop",
+      "prerequisites",
+      "redirects",
+      "stickyBucketing"
+    ]
+  },
+  "edgeLambda": {
+    "name": "Lambda@Edge App & SDK",
+    "version": "0.0.24",
+    "github": "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-lambda",
+    "examples": [],
+    "packageRepos": [
+      {
+        "name": "npm",
+        "url": "https://www.npmjs.com/package/@growthbook/edge-lambda"
+      }
+    ],
+    "capabilities": [
+      "savedGroupReferences",
+      "looseUnmarshalling",
+      "encryption",
+      "streaming",
+      "bucketingV2",
+      "visualEditor",
+      "semverTargeting",
+      "visualEditorJS",
+      "visualEditorDragDrop",
+      "prerequisites",
+      "redirects",
+      "stickyBucketing"
+    ]
+  },
+  "edgeUtils": {
+    "name": "Edge App (base)",
+    "version": "0.2.4",
+    "github": "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-utils",
+    "examples": [],
+    "packageRepos": [
+      {
+        "name": "npm",
+        "url": "https://www.npmjs.com/package/@growthbook/edge-utils"
       }
     ],
     "capabilities": [
