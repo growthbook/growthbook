@@ -376,6 +376,6 @@ export type DailyUsage = {
 };
 
 export type UsageLimits = {
-  cdnRequests: number | null;
-  cdnBandwidth: number | null;
+  cdnRequests: number | "unlimited";
+  cdnBandwidth: number | "unlimited";
 };

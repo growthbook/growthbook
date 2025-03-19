@@ -2,7 +2,6 @@ import { Response } from "express";
 import { Stripe } from "stripe";
 import {
   LicenseServerError,
-  getEffectiveAccountPlan,
   getLicense,
   licenseInit,
   postCreateBillingSessionToLicenseServer,
@@ -19,6 +18,7 @@ import {
 import { formatBrandName } from "back-end/src/services/stripe";
 import { DailyUsage, UsageLimits } from "back-end/types/organization";
 import { logger } from "back-end/src/util/logger";
+import { getOrgUsageLimits } from "back-end/src/util/mongo.util";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import {
   getLicenseMetaData,
@@ -350,17 +350,7 @@ export async function getUsage(
 
   const cdnUsage = await getDailyCDNUsageForOrg(org.id, start, end);
 
-  const limits: UsageLimits = {
-    cdnRequests: null,
-    cdnBandwidth: null,
-  };
-
-  const plan = getEffectiveAccountPlan(org);
-  if (plan === "starter" || plan === "pro" || plan === "pro_sso") {
-    // 10 million requests, no bandwidth limit
-    // TODO: Store this limit as part of the license/org instead of hard-coding
-    limits.cdnRequests = 10_000_000;
-  }
+  const limits = await getOrgUsageLimits(org.id);
 
   res.json({ status: 200, cdnUsage, limits });
 }
