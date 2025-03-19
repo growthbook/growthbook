@@ -57,13 +57,13 @@ export default function SdkResources({ sdk }: { sdk: keyof typeof sdkInfo }) {
         {githubName}
       </InfoContainer>
 
-      {packageRepos.map((repo) => (
+      {packageRepos?.map((repo) => (
         <InfoContainer key={repo.name} href={repo.url} icon={<Package />}>
           {repo.name}
         </InfoContainer>
       ))}
 
-      {examples.map(({ url, name }) => (
+      {examples?.map(({ url, name }) => (
         <InfoContainer key={name} href={url} icon={<FileCode />}>
           {name}
         </InfoContainer>
