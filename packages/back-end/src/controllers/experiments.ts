@@ -3260,6 +3260,17 @@ export async function refreshTimeSeries(
   });
 }
 
+export async function getAllTimeSeries(
+  req: AuthRequest<null, { id: string }, { metricIds: string[] }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const all = await context.models.metricTimeSeries.getAll();
+  res.status(200).json({
+    timeSeries: all,
+  });
+}
+
 export async function getTimeSeries(
   req: AuthRequest<null, { id: string }, { metricIds: string[] }>,
   res: Response
