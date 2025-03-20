@@ -609,6 +609,8 @@ app.post(
   experimentsController.refreshTimeSeries
 );
 
+app.get("/time-series", experimentsController.getAllTimeSeries);
+
 app.get("/experiments/:id/time-series", experimentsController.getTimeSeries);
 
 // Visual editor auth
