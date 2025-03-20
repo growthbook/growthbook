@@ -27,7 +27,7 @@ export default async function (agenda: Agenda) {
     const rules = await getSafeRolloutRulesToUpdate();
 
     for (const rule of rules) {
-      await queueExperimentUpdate(rule.organization, rule.id);
+      await queueSafeRolloutSnapshotUpdate(rule.organization, rule.id);
     }
   });
 
@@ -48,7 +48,10 @@ export default async function (agenda: Agenda) {
     await updateResultsJob.save();
   }
 
-  async function queueExperimentUpdate(organization: string, ruleId: string) {
+  async function queueSafeRolloutSnapshotUpdate(
+    organization: string,
+    ruleId: string
+  ) {
     const job = agenda.create(UPDATE_SINGLE_SAFE_ROLLOUT_RULE, {
       organization,
       ruleId,
@@ -82,8 +85,9 @@ async function updateSingleSafeRolloutRule(
     await createSafeRolloutSnapshot({
       context,
       safeRollout,
-      datasource,
+      triggeredBy: "schedule",
     });
+    // TODO: update the revision and the live version for the feature
     await updateSafeRolloutRule(context, {
       ...safeRollout,
       nextSnapshotAttempt: new Date(Date.now() + UPDATE_EVERY),

@@ -1183,6 +1183,7 @@ export async function postFeatureRule(
 
   // Validate that specified metrics exist and belong to the organization for safe-rollout rules
   if (rule.type === "safe-rollout") {
+    rule.autoSnapshots = true; // MVP this is going to be true by default
     const metricIds = rule.guardrailMetrics;
     if (metricIds.length) {
       const map = await getMetricMap(context);
