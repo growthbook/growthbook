@@ -114,12 +114,12 @@ export function getAnalysisSettingsFromSafeRolloutArgs(
     differenceType: "absolute",
     baselineVariationIndex: 0,
     numGoalMetrics: 0,
+    oneSidedIntervals: true,
   };
 }
 
 export function getSnapshotSettingsFromSafeRolloutArgs(
-  args: SafeRolloutSnapshotInterface,
-  metricMap: Map<string, ExperimentMetricInterface>
+  args: SafeRolloutSnapshotInterface
 ): {
   snapshotSettings: ExperimentSnapshotSettings;
   analysisSettings: ExperimentSnapshotAnalysisSettings;

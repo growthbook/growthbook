@@ -79,7 +79,7 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
     const {
       snapshotSettings,
       analysisSettings,
-    } = getSnapshotSettingsFromSafeRolloutArgs(this.model, this.metricMap);
+    } = getSnapshotSettingsFromSafeRolloutArgs(this.model);
 
     const { results: analysesResults } = await analyzeExperimentResults({
       queryData: queryMap,
