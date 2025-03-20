@@ -24,7 +24,7 @@ interface BaseVariationResponse {
     mean?: number;
     stddev?: number;
   };
-  ci?: [number, number];
+  ci?: [number?, number?];
   errorMessage?: string;
   power?: MetricPowerResponseFromStatsEngine;
 }
