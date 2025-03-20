@@ -53,7 +53,7 @@ export interface Props {
   checklistItemsRemaining: number | null;
   envs: string[];
   setChecklistItemsRemaining: (value: number | null) => void;
-  editVariations?: (() => void) | null;
+  editVariations?: ((onlySafeToEditVariationMetadata: boolean) => void) | null;
   visualChangesets: VisualChangesetInterface[];
   urlRedirects: URLRedirectInterface[];
   newPhase?: (() => void) | null;

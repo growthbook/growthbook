@@ -57,6 +57,8 @@ const ExperimentPage = (): ReactElement => {
 
   const { apiCall } = useAuth();
 
+  const [onlySafeToEditVariationMetadata, setOnlySafeToEditVariationMetadata] = useState(false);
+
   useEffect(() => {
     if (data?.experiment?.type === "multi-armed-bandit") {
       router.replace(window.location.href.replace("experiment/", "bandit/"));
@@ -94,7 +96,10 @@ const ExperimentPage = (): ReactElement => {
     : null;
   const editResult = canRunExperiment ? () => setStopModalOpen(true) : null;
   const editVariations = canRunExperiment
-    ? () => setVariationsModalOpen(true)
+    ? (onlySafeToEditVariationMetadata: boolean) => {
+        setOnlySafeToEditVariationMetadata(onlySafeToEditVariationMetadata)
+        setVariationsModalOpen(true)
+    }
     : null;
   const duplicate = canEditExperiment
     ? () => setDuplicateModalOpen(true)
@@ -138,6 +143,7 @@ const ExperimentPage = (): ReactElement => {
         <EditVariationsForm
           experiment={experiment}
           cancel={() => setVariationsModalOpen(false)}
+          onlySafeToEditVariationMetadata={onlySafeToEditVariationMetadata}
           mutate={mutate}
           source="eid"
         />

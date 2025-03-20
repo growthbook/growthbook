@@ -52,6 +52,7 @@ export interface Props {
   showDescriptions?: boolean;
   simple?: boolean;
   sortableClassName?: string;
+  onlySafeToEditVariationMetadata?: boolean;
 }
 
 export default function FeatureVariationsInput({
@@ -81,6 +82,7 @@ export default function FeatureVariationsInput({
   showDescriptions,
   simple,
   sortableClassName,
+  onlySafeToEditVariationMetadata,
 }: Props) {
   const weights = variations?.map((v) => v.weight) || [];
   const isEqualWeights = weights?.every(
@@ -177,6 +179,7 @@ export default function FeatureVariationsInput({
             label="Number of Variations"
             type="number"
             value={numberOfVariations}
+            disabled={!onlySafeToEditVariationMetadata}
             onChange={(e) => setNumberOfVariations(e?.target?.value ?? "2")}
             onBlur={(e) => {
               let n = parseInt(e?.target?.value ?? numberOfVariations);
@@ -243,7 +246,7 @@ export default function FeatureVariationsInput({
                       min={0}
                       max={100}
                       step="1"
-                      disabled={!!disableCoverage}
+                      disabled={!!disableCoverage && !onlySafeToEditVariationMetadata}
                     />
                     <span>%</span>
                   </div>
@@ -291,7 +294,8 @@ export default function FeatureVariationsInput({
                       Split
                       {!disableVariations &&
                         !disableCustomSplit &&
-                        !editingSplits && (
+                        !editingSplits &&
+                        onlySafeToEditVariationMetadata &&(
                           <Tooltip
                             body="Customize split"
                             usePortal={true}
@@ -356,6 +360,7 @@ export default function FeatureVariationsInput({
                           !disableVariations ? setVariations : undefined
                         }
                         setWeight={!disableVariations ? setWeight : undefined}
+                        onlySafeToEditVariationMetadata={onlySafeToEditVariationMetadata}
                         customSplit={editingSplits}
                         valueType={valueType}
                         valueAsId={valueAsId}
@@ -371,12 +376,12 @@ export default function FeatureVariationsInput({
                 )}
               </tbody>
               <tfoot>
-                {!disableVariations && variations && setWeight && (
+                {!disableVariations && variations && setWeight && onlySafeToEditVariationMetadata && (
                   <tr>
                     <td colSpan={10}>
                       <div className="row">
                         <div className="col">
-                          {valueType !== "boolean" && setVariations && (
+                          {valueType !== "boolean" && setVariations && onlySafeToEditVariationMetadata && (
                             <a
                               role="button"
                               className="btn btn-link link-purple font-weight-bold p-0"
