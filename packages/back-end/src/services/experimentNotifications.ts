@@ -155,7 +155,7 @@ export const notifyMultipleExposures = async ({
             type: "multiple-exposures",
             experimentId: experiment.id,
             experimentName: experiment.name,
-            usersCount: multipleExposureData.totalUsers,
+            usersCount: multipleExposureData.multipleExposedUsers,
             percent: multipleExposureData.rawDecimal,
           },
         },

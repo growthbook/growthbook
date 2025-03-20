@@ -721,7 +721,7 @@ describe("experiments events", () => {
         unhealthyData: {
           multipleExposures: {
             rawDecimal: 0.1,
-            totalUsers: 10,
+            multipleExposedUsers: 10,
           },
         },
       },
