@@ -144,7 +144,6 @@ featureSchema.index({ id: 1, organization: 1 }, { unique: true });
 featureSchema.index({ organization: 1, project: 1 });
 
 type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
-
 export const FeatureModel = mongoose.model<LegacyFeatureInterface>(
   "Feature",
   featureSchema
@@ -388,6 +387,20 @@ export async function deleteAllFeaturesForAProject({
   }
 }
 
+export async function getSafeRolloutRulesForFeature(orgId: string) {
+  const safeRollouts = await FeatureModel.find({
+    organization: orgId,
+    "rules.type": "safe-rollout",
+  });
+  const safeRolloutRules = safeRollouts
+    .map((feature) => {
+      const rule = feature.rules?.find((r) => r.type === "safe-rollout");
+      if (!rule) return null;
+      return rule;
+    })
+    .filter(Boolean);
+  return safeRolloutRules;
+}
 export const createFeatureEvent = async <
   Event extends ResourceEvents<"feature">
 >(eventData: {

@@ -119,6 +119,7 @@ import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
 import { FeatureUsageLookback } from "back-end/src/types/Integration";
 import { getChangesToStartExperiment } from "back-end/src/services/experiments";
+import { getMetricMap } from "back-end/src/models/MetricModel";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
@@ -1179,6 +1180,44 @@ export async function postFeatureRule(
     defaultValueChanged: false,
     settings: org?.settings,
   });
+
+  // Validate that specified metrics exist and belong to the organization for safe-rollout rules
+  if (rule.type === "safe-rollout") {
+    const metricIds = rule.guardrailMetrics;
+    if (metricIds.length) {
+      const map = await getMetricMap(context);
+      for (let i = 0; i < metricIds.length; i++) {
+        const metric = map.get(metricIds[i]);
+        if (metric) {
+          // Make sure it is tied to the same datasource as the experiment
+          if (rule.datasource && metric.datasource !== rule.datasource) {
+            throw new Error(
+              "Metrics must be tied to the same datasource as the experiment: " +
+                metricIds[i]
+            );
+          }
+        } else {
+          // check to see if this metric is actually a metric group
+          const metricGroup = await context.models.metricGroups.getById(
+            metricIds[i]
+          );
+          if (metricGroup) {
+            // Make sure it is tied to the same datasource as the experiment
+            if (rule.datasource && metricGroup.datasource !== rule.datasource) {
+              throw new Error(
+                "Metrics must be tied to the same datasource as the experiment: " +
+                  metricIds[i]
+              );
+            }
+          } else {
+            // new metric that's not recognized...
+            throw new Error("Invalid metric specified: " + metricIds[i]);
+          }
+        }
+      }
+    }
+  }
+
   await addFeatureRule(
     revision,
     environment,

@@ -125,6 +125,24 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
       const relativeAnalysis = this.model.analyses.find(
         (a) => a.settings.differenceType === "relative"
       );
+      if (relativeAnalysis) {
+        relativeAnalysis.results = relativeAnalysis.results.map((r: any) => ({
+          ...r,
+          variations: r.variations.map((v: any) => ({
+            ...v,
+            metrics: Object.fromEntries(
+              Object.entries(v.metrics).map(([key, metric]: [string, any]) => [
+                key,
+                {
+                  ...metric,
+                  errorMessage: metric.errorMessage || undefined,
+                  power: metric.power || undefined,
+                },
+              ])
+            ),
+          })),
+        }));
+      }
 
       const isEligibleForMidExperimentPowerAnalysis =
         relativeAnalysis && rows && rows.length;

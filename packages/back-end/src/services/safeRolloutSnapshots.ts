@@ -422,7 +422,7 @@ export async function createSafeRolloutSnapshot({
   context: ReqContext;
   safeRollout: SafeRolloutRule;
   datasource: DataSourceInterface;
-  dimension: string | undefined;
+  dimension?: string;
   useCache?: boolean;
   triggeredBy?: SnapshotTriggeredBy;
   projectId?: string;
