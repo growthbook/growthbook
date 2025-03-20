@@ -22,9 +22,8 @@ export interface Props {
   visualChangesets: VisualChangesetInterface[];
   urlRedirects: URLRedirectInterface[];
   mutate: () => void;
-  safeToEdit: boolean;
   editTargeting?: (() => void) | null;
-  editVariations?: ((onlySafeToEditVariationMetadata: boolean) => void) | null;
+  editVariations?: (() => void) | null;
   setFeatureModal: (open: boolean) => void;
   setVisualEditorModal: (open: boolean) => void;
   setUrlRedirectModal: (open: boolean) => void;
@@ -37,7 +36,6 @@ export default function Implementation({
   visualChangesets,
   urlRedirects,
   mutate,
-  safeToEdit,
   editTargeting,
   editVariations,
   setFeatureModal,
@@ -78,7 +76,7 @@ export default function Implementation({
           </Heading>
           <div className="flex-1" />
           {showEditVariations ? (
-            <Button variant="ghost" onClick={() => editVariations(safeToEdit)}>
+            <Button variant="ghost" onClick={editVariations}>
               Edit
             </Button>
           ) : null}

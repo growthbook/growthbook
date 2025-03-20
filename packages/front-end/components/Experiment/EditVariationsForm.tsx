@@ -17,8 +17,13 @@ const EditVariationsForm: FC<{
   cancel: () => void;
   mutate: () => void;
   source?: string;
-}> = ({ experiment, onlySafeToEditVariationMetadata, cancel, mutate, source }) => {
-
+}> = ({
+  experiment,
+  onlySafeToEditVariationMetadata,
+  cancel,
+  mutate,
+  source,
+}) => {
   const lastPhaseIndex = experiment.phases.length - 1;
   const lastPhase: ExperimentPhaseStringDates | undefined =
     experiment.phases[lastPhaseIndex];
