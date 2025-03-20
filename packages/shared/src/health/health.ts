@@ -40,8 +40,6 @@ export function getMultipleExposureHealthData({
 
   const data = {
     rawDecimal: multipleExposureDecimal,
-    multipleExposedUsers: multipleExposuresCount,
-    totalUsers: totalUsersCount,
   };
 
   if (!hasEnoughData) {
