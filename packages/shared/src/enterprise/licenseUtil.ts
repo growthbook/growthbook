@@ -105,14 +105,12 @@ function getStripeSubscriptionStatus(
 export function getSubscriptionFromLicense(
   license: Partial<LicenseInterface>
 ): SubscriptionInfo | null {
-  const sub =
-    license.billingPlatform === "orb"
-      ? license.orbSubscription
-      : license.stripeSubscription;
+  const sub = license.orbSubscription || license.stripeSubscription;
+
   if (!sub) return null;
 
   return {
-    billingPlatform: license.billingPlatform || "stripe",
+    billingPlatform: license.orbSubscription ? "orb" : "stripe",
     externalId: sub.id,
     trialEnd: sub.trialEnd,
     status: getStripeSubscriptionStatus(sub.status),
@@ -145,7 +143,6 @@ export interface LicenseInterface {
     tooltipText: string; // The text to show in the tooltip
     showAllUsers: boolean; // True if all users should see the notice rather than just the admins
   };
-  billingPlatform: "stripe" | "orb" | "";
   stripeSubscription?: {
     id: string;
     qty: number;
