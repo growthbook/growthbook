@@ -12,7 +12,6 @@ import FeatureLinkedChanges from "@/components/Experiment/LinkedChanges/FeatureL
 import VisualLinkedChanges from "@/components/Experiment/LinkedChanges/VisualLinkedChanges";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import VariationsTable from "@/components/Experiment/VariationsTable";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import TrafficAndTargeting from "@/components/Experiment/TabbedPage/TrafficAndTargeting";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
 import Callout from "@/components/Radix/Callout";
@@ -23,7 +22,6 @@ export interface Props {
   visualChangesets: VisualChangesetInterface[];
   urlRedirects: URLRedirectInterface[];
   mutate: () => void;
-  safeToEdit: boolean;
   editTargeting?: (() => void) | null;
   editVariations?: (() => void) | null;
   setFeatureModal: (open: boolean) => void;
@@ -38,7 +36,6 @@ export default function Implementation({
   visualChangesets,
   urlRedirects,
   mutate,
-  safeToEdit,
   editTargeting,
   editVariations,
   setFeatureModal,
@@ -66,7 +63,7 @@ export default function Implementation({
     linkedFeatures.length > 0 ||
     experiment.hasURLRedirects;
 
-  const showEditVariations = editVariations && safeToEdit;
+  const showEditVariations = editVariations;
 
   return (
     <div className="my-4">
@@ -79,18 +76,9 @@ export default function Implementation({
           </Heading>
           <div className="flex-1" />
           {showEditVariations ? (
-            <Tooltip
-              shouldDisplay={!safeToEdit}
-              body="Cannot edit variations while the experiment is running."
-            >
-              <Button
-                variant="ghost"
-                disabled={!safeToEdit}
-                onClick={editVariations}
-              >
-                Edit
-              </Button>
-            </Tooltip>
+            <Button variant="ghost" onClick={editVariations}>
+              Edit
+            </Button>
           ) : null}
         </div>
 
