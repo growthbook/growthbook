@@ -155,7 +155,7 @@ class Bandits(ABC):
                 resid_squared[positive_expected]
                 / self.counts_expected[positive_expected]
             )
-            df = self.num_variations - 1
+            df = self.num_periods_historical * (self.num_variations - 1)
             return float(1 - chi2.cdf(test_stat, df=df))
         else:
             return 1
