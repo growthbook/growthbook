@@ -2,6 +2,7 @@ import "./init/aliases";
 import app from "./app";
 import { logger } from "./util/logger";
 import { getAgendaInstance } from "./services/queueing";
+import { closeMongoUsageDb } from "./util/mongo.util";
 
 const server = app.listen(app.get("port"), () => {
   logger.info(
@@ -40,6 +41,7 @@ function onClose() {
     const agenda = getAgendaInstance();
     await agenda.stop();
     logger.info("Agenda closed");
+    await closeMongoUsageDb();
     process.exit(0);
   });
 }
