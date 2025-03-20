@@ -206,6 +206,10 @@ If you see this warning, it is likely because you ran `yarn setup` from within a
 
 To resolve this, ensure you are not using a Python virtual environment and re-run `yarn setup` from the project root.
 
+## Contributor License Agreeement (CLA)
+
+All contributors are required to sign GrowthBook's [CLA](./CLA.md), which ensures the community is free to use your contributions. When opening your first pull request, an automated action will prompt you to review and sign the CLA via a comment. Agreement is required for all pull requests.
+
 ## Getting Help
 
 Join our [Slack community](https://slack.growthbook.io?ref=contributing) if you need help getting set up or want to chat. We're also happy to hop on a call and do some pair programming.
