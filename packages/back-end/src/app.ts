@@ -73,8 +73,8 @@ const adminController = wrapController(adminControllerRaw);
 import * as licenseControllerRaw from "./controllers/license";
 const licenseController = wrapController(licenseControllerRaw);
 
-import * as stripeControllerRaw from "./controllers/stripe";
-const stripeController = wrapController(stripeControllerRaw);
+import * as subscriptionControllerRaw from "./controllers/subscription";
+const subscriptionController = wrapController(subscriptionControllerRaw);
 
 import * as vercelControllerRaw from "./controllers/vercel";
 const vercelController = wrapController(vercelControllerRaw);
@@ -390,32 +390,46 @@ app.use("/environment", environmentRouter);
 app.post("/oauth/google", datasourcesController.postGoogleOauthRedirect);
 app.post(
   "/subscription/new-pro-trial",
-  stripeController.postNewProTrialSubscription
+  subscriptionController.postNewProTrialSubscription
 );
 
 if (IS_CLOUD) {
   app.post(
     "/subscription/payment-methods/setup-intent",
-    stripeController.postSetupIntent
+    subscriptionController.postSetupIntent
   );
   app.get(
     "/subscription/payment-methods",
-    stripeController.fetchPaymentMethods
+    subscriptionController.fetchPaymentMethods
   );
   app.post(
     "/subscription/payment-methods/detach",
-    stripeController.deletePaymentMethod
+    subscriptionController.deletePaymentMethod
   );
   app.post(
     "/subscription/payment-methods/set-default",
-    stripeController.updateCustomerDefaultPayment
+    subscriptionController.updateCustomerDefaultPayment
+  );
+  app.post(
+    "/subscription/setup-intent",
+    subscriptionController.postNewProSubscriptionIntent
+  );
+  app.post(
+    "/subscription/start-new-pro",
+    subscriptionController.postInlineProSubscription
   );
 }
-app.post("/subscription/new", stripeController.postNewProSubscription);
-app.post("/subscription/manage", stripeController.postCreateBillingSession);
-app.post("/subscription/success", stripeController.postSubscriptionSuccess);
+app.post("/subscription/new", subscriptionController.postNewProSubscription);
+app.post(
+  "/subscription/manage",
+  subscriptionController.postCreateBillingSession
+);
+app.post(
+  "/subscription/success",
+  subscriptionController.postSubscriptionSuccess
+);
 
-app.get("/billing/usage", stripeController.getUsage);
+app.get("/billing/usage", subscriptionController.getUsage);
 
 app.get("/queries/:ids", datasourcesController.getQueries);
 app.post("/query/test", datasourcesController.testLimitedQuery);

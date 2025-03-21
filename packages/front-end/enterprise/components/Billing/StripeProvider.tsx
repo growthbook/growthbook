@@ -4,11 +4,11 @@ import {
   useCallback,
   useMemo,
   createContext,
+  ReactNode,
 } from "react";
 import { Elements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
 import { useAuth } from "@/services/auth";
-import { useUser } from "@/services/UserContext";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import Callout from "@/components/Radix/Callout";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -23,12 +23,19 @@ export const StripeContext = createContext<StripeContextProps | undefined>(
   undefined
 );
 
-export function StripeProvider({ children }) {
+export function StripeProvider({
+  children,
+  initialClientSecret,
+}: {
+  children: ReactNode;
+  initialClientSecret?: string;
+}) {
   const { apiCall } = useAuth();
-  const { subscription } = useUser();
   const { theme } = useAppearanceUITheme();
 
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [clientSecret, setClientSecret] = useState<string | null>(
+    initialClientSecret || null
+  );
   const [error, setError] = useState<string | undefined>(undefined);
 
   const stripePublishableKey = getStripePublishableKey();
@@ -39,30 +46,29 @@ export function StripeProvider({ children }) {
   );
 
   const setupStripe = useCallback(async () => {
-    if (!subscription) {
-      setError("Adding a card requires a subscription");
-      return;
-    }
     if (!stripePublishableKey) {
       setError("Missing Stripe Publishable Key");
       return;
     }
 
-    try {
-      const {
-        clientSecret,
-      }: {
-        clientSecret: string;
-      } = await apiCall("/subscription/payment-methods/setup-intent", {
-        method: "POST",
-      });
+    if (!clientSecret) {
+      try {
+        // otherwise we need to get a client secret
+        const {
+          clientSecret,
+        }: {
+          clientSecret: string;
+        } = await apiCall("/subscription/payment-methods/setup-intent", {
+          method: "POST",
+        });
 
-      setClientSecret(clientSecret);
-    } catch (error) {
-      console.error("Failed to get client secret:", error);
-      setError(error.message);
+        setClientSecret(clientSecret);
+      } catch (error) {
+        console.error("Failed to get client secret:", error);
+        setError(error.message);
+      }
     }
-  }, [apiCall, subscription, stripePublishableKey]);
+  }, [apiCall, clientSecret, stripePublishableKey]);
 
   useEffect(() => {
     if (stripePublishableKey) setupStripe();

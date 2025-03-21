@@ -25,7 +25,6 @@ const licenseSchema = new mongoose.Schema({
   },
   orbSubscription: {},
   stripeSubscription: {},
-  billingPlatform: String,
   price: Number, // The price of the license
   discountAmount: Number, // The amount of the discount
   discountMessage: String, // The message of the discount

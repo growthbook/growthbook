@@ -8,9 +8,13 @@ import UpgradeModal from "./UpgradeModal";
 
 export default function SubscriptionInfo() {
   const { apiCall } = useAuth();
-  const { subscription, seatsInUse, canSubscribe } = useUser();
+  const { subscription, seatsInUse, canSubscribe, users } = useUser();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
+
+  // Orb subscriptions only count members, not members + invites like Stripe Subscriptions
+  const subscriptionSeats =
+    subscription?.billingPlatform === "orb" ? users.size : seatsInUse;
 
   return (
     <div className="p-3">
@@ -32,7 +36,7 @@ export default function SubscriptionInfo() {
         )}
       </div>
       <div className="col-md-12 mb-3">
-        <strong>Number Of Seats:</strong> {seatsInUse || 0}
+        <strong>Number Of Seats:</strong> {subscriptionSeats || 0}
       </div>
       {subscription?.status !== "canceled" &&
         !subscription?.pendingCancelation && (
@@ -90,28 +94,30 @@ export default function SubscriptionInfo() {
         </div>
       )}
       <div className="col-md-12 mt-4 mb-3 d-flex flex-row px-0">
-        <div className="col-auto">
-          <Button
-            color="primary"
-            onClick={async () => {
-              const res = await apiCall<{ url: string }>(
-                `/subscription/manage`,
-                {
-                  method: "POST",
+        {subscription?.billingPlatform === "stripe" ? (
+          <div className="col-auto">
+            <Button
+              color="primary"
+              onClick={async () => {
+                const res = await apiCall<{ url: string }>(
+                  `/subscription/manage`,
+                  {
+                    method: "POST",
+                  }
+                );
+                if (res && res.url) {
+                  await redirectWithTimeout(res.url);
+                } else {
+                  throw new Error("Unknown response");
                 }
-              );
-              if (res && res.url) {
-                await redirectWithTimeout(res.url);
-              } else {
-                throw new Error("Unknown response");
-              }
-            }}
-          >
-            {subscription?.status !== "canceled"
-              ? "View Plan Details"
-              : "View Previous Invoices"}
-          </Button>
-        </div>
+              }}
+            >
+              {subscription?.status !== "canceled"
+                ? "View Plan Details"
+                : "View Previous Invoices"}
+            </Button>
+          </div>
+        ) : null}
         {subscription?.status === "canceled" && canSubscribe && (
           <div className="col-auto">
             <button

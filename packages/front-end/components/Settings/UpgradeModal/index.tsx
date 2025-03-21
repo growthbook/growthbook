@@ -15,6 +15,8 @@ import Modal from "@/components/Modal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import RadioCards from "@/components/Radix/RadioCards";
+import CloudProUpgradeModal from "@/enterprise/components/Billing/CloudProUpgradeModal";
+import { StripeProvider } from "@/enterprise/components/Billing/StripeProvider";
 import styles from "./index.module.scss";
 import CloudTrialConfirmationModal from "./CloudTrialConfirmationModal";
 import LicenseSuccessModal from "./LicenseSuccessModal";
@@ -56,11 +58,13 @@ export default function UpgradeModal({
     showCloudEnterpriseTrialSuccess,
     setShowCloudEnterpriseTrialSuccess,
   ] = useState(false);
+  const [cloudProUpgradeSetup, setCloudProUpgradeSetup] = useState<{
+    clientSecret: string;
+  } | null>(null);
   const [showCloudProTrial, setShowCloudProTrial] = useState(false);
   const [showCloudProTrialSuccess, setShowCloudProTrialSuccess] = useState(
     false
   );
-
   const {
     name,
     email,
@@ -69,8 +73,9 @@ export default function UpgradeModal({
     effectiveAccountPlan,
     commercialFeatureLowestPlan,
     subscription,
-    seatsInUse,
+    users,
   } = useUser();
+  const numOfCurrentMembers = users.size || 1;
   const permissionsUtil = usePermissionsUtil();
 
   const { organization, refreshOrganization } = useUser();
@@ -114,6 +119,9 @@ export default function UpgradeModal({
     freeTrialAvailable,
   };
 
+  const useInlineUpgradeForm =
+    isCloud() && growthbook.getFeatureValue("ff_embedded-payment-form", false);
+
   useEffect(() => {
     track("View Upgrade Modal", trackContext);
     // Even if accountPlan gets update during this upgrade process, we don't want to call this track call multiple times
@@ -151,7 +159,17 @@ export default function UpgradeModal({
         } else {
           setError("Unknown response");
         }
+      } else if (useInlineUpgradeForm) {
+        // Sets up in-app upgrade
+        const { clientSecret } = await apiCall<{
+          clientSecret: string;
+        }>(`/subscription/setup-intent`, {
+          method: "POST",
+        });
+        setCloudProUpgradeSetup({ clientSecret });
+        setLoading(false);
       } else {
+        // Otherwise, this creates a new checkout session and will redirect to the Stripe checkout page
         const resp = await apiCall<{
           status: number;
           session?: { url?: string };
@@ -422,11 +440,11 @@ export default function UpgradeModal({
                 className="pl-1"
               />
             </span>
-            <label>~${seatsInUse * 20} / month</label>
+            <label>~${numOfCurrentMembers * 20} / month</label>
           </Flex>
           <p className="mb-0 text-secondary">
-            $20 per seat per month, {seatsInUse} current seat
-            {seatsInUse > 1 ? "s" : ""}
+            $20 per seat per month, {numOfCurrentMembers} current seat
+            {numOfCurrentMembers > 1 ? "s" : ""}
           </p>
         </div>
         {enterpriseCallout}
@@ -509,6 +527,14 @@ export default function UpgradeModal({
           header={`🎉 Your 14-day Enterprise Trial starts now!`}
           isTrial={true}
         />
+      ) : cloudProUpgradeSetup ? (
+        <StripeProvider initialClientSecret={cloudProUpgradeSetup.clientSecret}>
+          <CloudProUpgradeModal
+            close={() => setCloudProUpgradeSetup(null)}
+            numOfCurrentMembers={numOfCurrentMembers}
+            closeParent={close}
+          />
+        </StripeProvider>
       ) : (
         <Modal
           trackingEventModalType="upgrade-modal"
@@ -549,28 +575,14 @@ export default function UpgradeModal({
                       <div className="row bg-main-color p-3 mb-3 rounded">
                         <span>You are currently using the </span>
                         <b className="mx-1"> {licensePlanText} </b> version of
-                        Growthbook with{" "}
-                        <Link
-                          href="/settings/team"
-                          className="mx-1 font-weight-bold"
-                        >
-                          {currentUsers} team members
-                        </Link>
-                        ↗
+                        Growthbook.
                       </div>
                     ) : daysToGo < 0 ? (
                       <div className="row p-3 mb-3 rounded alert-danger">
                         {" "}
                         <span>
                           Your old <b className="mx-1">{licensePlanText}</b>{" "}
-                          version of Growthbook with{" "}
-                          <Link
-                            href="/settings/team"
-                            className="mx-1 font-weight-bold"
-                          >
-                            {currentUsers} team members
-                          </Link>
-                          ↗ expired. Renew below.
+                          version of Growthbook expired. Renew below.
                         </span>
                       </div>
                     ) : (
@@ -578,14 +590,7 @@ export default function UpgradeModal({
                         {" "}
                         <span>
                           Your old <b className="mx-1">{licensePlanText}</b>{" "}
-                          version of Growthbook with{" "}
-                          <Link
-                            href="/settings/team"
-                            className="mx-1 font-weight-bold"
-                          >
-                            {currentUsers} team members
-                          </Link>
-                          ↗ was cancelled. Renew below.
+                          version of Growthbook was cancelled. Renew below.
                         </span>
                       </div>
                     ))}
