@@ -108,7 +108,7 @@ export interface ModelConfig<T extends BaseSchema, Entity extends EntityType> {
   schema: T;
   collectionName: string;
   idPrefix?: string;
-  auditLog: AuditLogConfig<Entity>;
+  auditLog?: AuditLogConfig<Entity>;
   globallyUniqueIds?: boolean;
   skipDateUpdatedFields?: (keyof z.infer<T>)[];
   readonlyFields?: (keyof z.infer<T>)[];
@@ -473,22 +473,24 @@ export abstract class BaseModel<
 
     await this._dangerousGetCollection().insertOne(doc);
 
-    try {
-      await this.context.auditLog({
-        entity: {
-          object: this.config.auditLog.entity,
-          id: doc.id,
-          name:
-            ("name" in doc && typeof doc.name === "string" && doc.name) || "",
-        },
-        event: this.config.auditLog.createEvent,
-        details: auditDetailsCreate(doc),
-      } as AuditInterfaceTemplate<E>);
-    } catch (e) {
-      this.context.logger.error(
-        e,
-        `Error creating audit log for ${this.config.auditLog.createEvent}`
-      );
+    if (this.config.auditLog) {
+      try {
+        await this.context.auditLog({
+          entity: {
+            object: this.config.auditLog.entity,
+            id: doc.id,
+            name:
+              ("name" in doc && typeof doc.name === "string" && doc.name) || "",
+          },
+          event: this.config.auditLog.createEvent,
+          details: auditDetailsCreate(doc),
+        } as AuditInterfaceTemplate<E>);
+      } catch (e) {
+        this.context.logger.error(
+          e,
+          `Error creating audit log for ${this.config.auditLog.createEvent}`
+        );
+      }
     }
 
     await this.afterCreate(doc, writeOptions);
@@ -583,26 +585,28 @@ export abstract class BaseModel<
       }
     );
 
-    const auditEvent = options?.auditEvent || this.config.auditLog.updateEvent;
-    try {
-      await this.context.auditLog({
-        entity: {
-          object: this.config.auditLog.entity,
-          id: doc.id,
-          name:
-            ("name" in newDoc &&
-              typeof newDoc.name === "string" &&
-              newDoc.name) ||
-            "",
-        },
-        event: auditEvent,
-        details: auditDetailsUpdate(doc, newDoc),
-      } as AuditInterfaceTemplate<E>);
-    } catch (e) {
-      this.context.logger.error(
-        e,
-        `Error creating audit log for ${auditEvent}`
-      );
+    const auditEvent = options?.auditEvent || this.config.auditLog?.updateEvent;
+    if (this.config.auditLog) {
+      try {
+        await this.context.auditLog({
+          entity: {
+            object: this.config.auditLog.entity,
+            id: doc.id,
+            name:
+              ("name" in newDoc &&
+                typeof newDoc.name === "string" &&
+                newDoc.name) ||
+              "",
+          },
+          event: auditEvent,
+          details: auditDetailsUpdate(doc, newDoc),
+        } as AuditInterfaceTemplate<E>);
+      } catch (e) {
+        this.context.logger.error(
+          e,
+          `Error creating audit log for ${auditEvent}`
+        );
+      }
     }
 
     await this.afterUpdate(doc, updates, newDoc, options?.writeOptions);
@@ -632,22 +636,24 @@ export abstract class BaseModel<
       id: doc.id,
     });
 
-    try {
-      await this.context.auditLog({
-        entity: {
-          object: this.config.auditLog.entity,
-          id: doc.id,
-          name:
-            ("name" in doc && typeof doc.name === "string" && doc.name) || "",
-        },
-        event: this.config.auditLog.deleteEvent,
-        details: auditDetailsDelete(doc),
-      } as AuditInterfaceTemplate<E>);
-    } catch (e) {
-      this.context.logger.error(
-        e,
-        `Error creating audit log for ${this.config.auditLog.deleteEvent}`
-      );
+    if (this.config.auditLog) {
+      try {
+        await this.context.auditLog({
+          entity: {
+            object: this.config.auditLog.entity,
+            id: doc.id,
+            name:
+              ("name" in doc && typeof doc.name === "string" && doc.name) || "",
+          },
+          event: this.config.auditLog.deleteEvent,
+          details: auditDetailsDelete(doc),
+        } as AuditInterfaceTemplate<E>);
+      } catch (e) {
+        this.context.logger.error(
+          e,
+          `Error creating audit log for ${this.config.auditLog.deleteEvent}`
+        );
+      }
     }
 
     await this.afterDelete(doc, writeOptions);

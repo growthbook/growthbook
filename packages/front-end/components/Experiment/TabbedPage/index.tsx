@@ -367,7 +367,6 @@ export default function TabbedPage({
           <Implementation
             experiment={experiment}
             mutate={mutate}
-            safeToEdit={safeToEdit}
             editVariations={editVariations}
             setFeatureModal={setFeatureModal}
             setVisualEditorModal={setVisualEditorModal}

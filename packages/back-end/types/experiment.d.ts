@@ -39,7 +39,10 @@ export type DecisionFrameworkExperimentRecommendationStatus =
 export type ExperimentUnhealthyData = {
   // if key exists, the status is unhealthy
   srm?: boolean;
-  multipleExposures?: { rawDecimal: number; totalUsers: number };
+  multipleExposures?: {
+    rawDecimal: number;
+    multipleExposedUsers: number;
+  };
   lowPowered?: boolean;
 };
 

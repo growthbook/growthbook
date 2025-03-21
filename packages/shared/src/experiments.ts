@@ -1127,7 +1127,7 @@ export function getExperimentResultStatus({
     if (multipleExposuresHealthData.status === "unhealthy") {
       unhealthyData.multipleExposures = {
         rawDecimal: multipleExposuresHealthData.rawDecimal,
-        totalUsers: healthSummary.totalUsers,
+        multipleExposedUsers: healthSummary.multipleExposures,
       };
     }
 
