@@ -144,7 +144,7 @@ export const postNewProSubscription = withLicenseServerErrorHandling(
     res.status(200).json(result);
   }
 );
-// MKTODO: Take in plan details (plan level, isTrial, etc)?
+
 export const postInlineProSubscription = withLicenseServerErrorHandling(
   async function (req: AuthRequest, res: Response) {
     const context = getContextFromReq(req);

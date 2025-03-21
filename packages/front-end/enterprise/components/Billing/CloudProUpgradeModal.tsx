@@ -47,13 +47,11 @@ export default function CloudProUpgradeModal({
         redirect: "if_required",
       });
 
-      // Should we make a call to set this as the user's default payment?
-
       // Now that payment is confirmed, create the subscription
       await apiCall("/subscription/start-new-pro", {
         method: "POST",
       });
-      refreshOrganization(); // Is there a better way to do this?
+      refreshOrganization();
       setLoading(false);
       setSuccess(true);
     } catch (e) {
