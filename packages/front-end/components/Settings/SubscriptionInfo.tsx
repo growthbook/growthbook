@@ -17,6 +17,7 @@ export default function SubscriptionInfo() {
     canSubscribe,
     accountPlan,
     users,
+    refreshOrganization,
   } = useUser();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
@@ -47,6 +48,7 @@ export default function SubscriptionInfo() {
           submitColor="danger"
           submit={async () => {
             await apiCall("/subscription/cancel", { method: "POST" });
+            refreshOrganization();
           }}
         >
           <>

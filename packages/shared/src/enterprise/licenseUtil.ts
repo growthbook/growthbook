@@ -736,10 +736,13 @@ export async function postCreateTrialEnterpriseLicenseToLicenseServer(
 
 export async function postCancelSubscriptionToLicenseServer(licenseId: string) {
   const url = `${LICENSE_SERVER_URL}subscription/cancel`;
-  return await callLicenseServer(
+  const license = await callLicenseServer(
     url,
     JSON.stringify({ licenseId, cloudSecret: process.env.CLOUD_SECRET })
   );
+
+  verifyAndSetServerLicenseData(license);
+  return license;
 }
 
 export async function postResendEmailVerificationEmailToLicenseServer(
