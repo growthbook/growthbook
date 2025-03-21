@@ -2,7 +2,7 @@ import "./init/aliases";
 import app from "./app";
 import { logger } from "./util/logger";
 import { getAgendaInstance } from "./services/queueing";
-import { closeMongoUsageDb } from "./util/mongo.util";
+import { closeMongoUsageDb } from "./services/usage";
 
 const server = app.listen(app.get("port"), () => {
   logger.info(

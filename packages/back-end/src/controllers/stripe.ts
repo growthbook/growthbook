@@ -18,7 +18,7 @@ import {
 import { formatBrandName } from "back-end/src/services/stripe";
 import { DailyUsage, UsageLimits } from "back-end/types/organization";
 import { logger } from "back-end/src/util/logger";
-import { getOrgUsageLimits } from "back-end/src/util/mongo.util";
+import { getOrgUsageLimits } from "back-end/src/services/usage";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import {
   getLicenseMetaData,
