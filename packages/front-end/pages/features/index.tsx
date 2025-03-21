@@ -185,7 +185,9 @@ export default function FeaturesPage() {
             >
               <tr>
                 <th></th>
-                <SortableTH field="id">Feature Key</SortableTH>
+                <SortableTH field="id" style={{ minWidth: 200 }}>
+                  Feature Key
+                </SortableTH>
                 {showProjectColumn && <th>Project</th>}
                 <SortableTH field="tags">Tags</SortableTH>
                 {toggleEnvs.map((en) => (
