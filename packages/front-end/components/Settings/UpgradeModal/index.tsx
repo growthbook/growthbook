@@ -58,12 +58,13 @@ export default function UpgradeModal({
     showCloudEnterpriseTrialSuccess,
     setShowCloudEnterpriseTrialSuccess,
   ] = useState(false);
-  const [showCloudProUpgrade, setShowCloudProUpgrade] = useState(false);
+  const [cloudProUpgradeSetup, setCloudProUpgradeSetup] = useState<{
+    clientSecret: string;
+  } | null>(null);
   const [showCloudProTrial, setShowCloudProTrial] = useState(false);
   const [showCloudProTrialSuccess, setShowCloudProTrialSuccess] = useState(
     false
   );
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
   const {
     name,
     email,
@@ -159,14 +160,13 @@ export default function UpgradeModal({
           setError("Unknown response");
         }
       } else if (useInlineUpgradeForm) {
-        // Creates new license, stripeCustomerId, and orbCustomerId
+        // Sets up in-app upgrade
         const { clientSecret } = await apiCall<{
           clientSecret: string;
         }>(`/subscription/setup-intent`, {
           method: "POST",
         });
-        setClientSecret(clientSecret);
-        setShowCloudProUpgrade(true);
+        setCloudProUpgradeSetup({ clientSecret });
         setLoading(false);
       } else {
         // Otherwise, this creates a new checkout session and will redirect to the Stripe checkout page
@@ -192,7 +192,6 @@ export default function UpgradeModal({
         }
       }
     } catch (e) {
-      console.log("caught the error", e);
       setLoading(false);
       setError(e.message);
     }
@@ -528,10 +527,10 @@ export default function UpgradeModal({
           header={`🎉 Your 14-day Enterprise Trial starts now!`}
           isTrial={true}
         />
-      ) : showCloudProUpgrade && clientSecret ? (
-        <StripeProvider initialClientSecret={clientSecret}>
+      ) : cloudProUpgradeSetup ? (
+        <StripeProvider initialClientSecret={cloudProUpgradeSetup.clientSecret}>
           <CloudProUpgradeModal
-            close={() => setShowCloudProUpgrade(false)}
+            close={() => setCloudProUpgradeSetup(null)}
             numOfCurrentMembers={numOfCurrentMembers}
             closeParent={close}
           />

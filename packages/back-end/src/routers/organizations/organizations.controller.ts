@@ -692,8 +692,8 @@ export async function getOrganization(
     if (
       !license ||
       (license.organizationId && license.organizationId !== id) ||
-      //MKTODO: Is there a better way to handle this?
-      (license && !license.stripeSubscription)
+      (license && !license.stripeSubscription) ||
+      (license && !license.orbSubscription)
     ) {
       try {
         license =
@@ -701,9 +701,10 @@ export async function getOrganization(
             org,
             getUserCodesForOrg,
             getLicenseMetaData,
-            // if licese is set, but no stripe subscription, force refresh
-            // this can happen when a new subscription is created
-            !license?.stripeSubscription ? true : false
+            // if license is set, but no stripe or orb subscription, force refresh
+            !license?.stripeSubscription || !license?.orbSubscription
+              ? true
+              : false
           )) || null;
       } catch (e) {
         // eslint-disable-next-line no-console
