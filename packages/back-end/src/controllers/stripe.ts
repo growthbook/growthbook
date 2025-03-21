@@ -116,6 +116,16 @@ export const postNewProSubscription = withLicenseServerErrorHandling(
     );
     await updateOrganization(org.id, { licenseKey: result.license.id });
 
+    if (result.created) {
+      // update license info from the license server as the new subscription should be added.
+      await licenseInit(
+        req.organization,
+        getUserCodesForOrg,
+        getLicenseMetaData,
+        true
+      );
+    }
+
     res.status(200).json(result);
   }
 );
