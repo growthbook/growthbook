@@ -100,7 +100,9 @@ export function getSRMValue(
 ): number | undefined {
   switch (experimentType) {
     case "multi-armed-bandit":
-      return snapshot.banditResult?.srm;
+      return (
+        snapshot.health?.traffic?.overall?.srm ?? snapshot.banditResult?.srm
+      );
 
     case "standard": {
       const healthQuerySRM = snapshot.health?.traffic?.overall?.srm;

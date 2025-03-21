@@ -21,6 +21,7 @@ import {
   AUTOMATIC_DIMENSION_OTHER_NAME,
   DEFAULT_TEST_QUERY_DAYS,
   DEFAULT_METRIC_HISTOGRAM_BINS,
+  BANDIT_SRM_DIMENSION_NAME,
 } from "shared/constants";
 import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
@@ -90,7 +91,11 @@ import {
   replaceCountStar,
 } from "back-end/src/util/sql";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
-import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
+import {
+  ExperimentSnapshotSettings,
+  SnapshotBanditSettings,
+  SnapshotSettingsVariation,
+} from "back-end/types/experiment-snapshot";
 import { SQLVars, TemplateVariables } from "back-end/types/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { logger } from "back-end/src/util/logger";
@@ -1339,7 +1344,7 @@ export default abstract class SqlIntegration
       rows: rows.map((row) => {
         return {
           variation: row.variation ?? "",
-          units: parseInt(row.units) || 0,
+          units: parseFloat(row.units) || 0,
           dimension_value: row.dimension_value ?? "",
           dimension_name: row.dimension_name ?? "",
         };
@@ -2034,6 +2039,47 @@ export default abstract class SqlIntegration
     )`;
   }
 
+  getBanditWeightCTE(
+    banditSettings: SnapshotBanditSettings,
+    variations: SnapshotSettingsVariation[]
+  ): string | undefined {
+    if (!banditSettings) {
+      return undefined;
+    }
+
+    let anyMissingValues = false;
+    const variationPeriodWeights = banditSettings.historicalWeights
+      .map((w) => {
+        return w.weights.map((weight, index) => {
+          const variationId = variations?.[index]?.id;
+          if (!variationId) {
+            anyMissingValues = true;
+          }
+          return { weight, variationId: variationId, date: w.date };
+        });
+      })
+      .flat();
+
+    if (anyMissingValues) {
+      return undefined;
+    }
+
+    return `
+    , __weightsByBanditPeriod AS (
+      SELECT
+        ${variationPeriodWeights
+          .map(
+            (w) => `
+          '${w.weight}' as weight
+          , ${this.toTimestamp(w.date)} as bandit_period
+          , '${w.variationId}' as variation
+        `
+          )
+          .join(",")}
+      )
+    `;
+  }
+
   getExperimentAggregateUnitsQuery(
     params: ExperimentAggregateUnitsQueryParams
   ): string {
@@ -2053,6 +2099,13 @@ export default abstract class SqlIntegration
     );
 
     const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
+
+    const banditDates = settings.banditSettings?.historicalWeights.map(
+      (w) => w.date
+    );
+    const banditWeightCTE = settings.banditSettings
+      ? this.getBanditWeightCTE(settings.banditSettings, settings.variations)
+      : undefined;
 
     // Get any required identity join queries
     const { baseIdType, idJoinSQL } = this.getIdentitiesCTE({
@@ -2092,6 +2145,7 @@ export default abstract class SqlIntegration
           , ${this.formatDate(
             this.dateTrunc("first_exposure_timestamp")
           )} AS dim_exposure_date
+          ${banditDates ? `, ${this.getBanditCaseWhen(banditDates)}` : ""}
           ${experimentDimensions.map((d) => `, dim_exp_${d.id}`).join("\n")}
           ${
             activationMetric
@@ -2105,8 +2159,8 @@ export default abstract class SqlIntegration
         FROM ${
           useUnitsTable ? `${params.unitsTableFullName}` : "__experimentUnits"
         }
-      ),
-      __unitsByDimension AS (
+      )
+      , __unitsByDimension AS (
         -- One row per variation per dimension slice
         ${[
           "dim_exposure_date",
@@ -2118,27 +2172,91 @@ export default abstract class SqlIntegration
               d,
               activationMetric && d !== "dim_activated"
                 ? "WHERE dim_activated = 'Activated'"
-                : ""
+                : "",
+              !!banditDates && !!banditWeightCTE
             )
           )
           .join("\nUNION ALL\n")}
       )
+      ${
+        banditDates && banditWeightCTE
+          ? `
+        , ${banditWeightCTE}
+        , __unitsByVariationBanditPeriod AS (
+          SELECT
+            d.variation AS variation
+            , d.bandit_period AS bandit_period
+            , COUNT(*) AS units
+          FROM__distinctUnits d
+          GROUP BY
+            d.variation
+            , d.bandit_period
+        )
+        , __totalUnitsByBanditPeriod AS (
+          SELECT
+            bandit_period
+            , SUM(units) AS total_units
+          FROM __unitsByVariationBanditPeriod
+          GROUP BY
+            bandit_period
+        )
+        , __expectedUnitsByVariationBanditPeriod AS (
+          SELECT
+            u.variation AS variation
+            , SUM(u.units) AS units
+            , SUM(t.total_units * w.weight) AS expected_units
+          FROM __unitsByVariationBanditPeriod u
+          LEFT JOIN __weightsByBanditPeriod w 
+            ON (w.variation = u.variation AND w.bandit_period = u.bandit_period)
+          LEFT JOIN __totalUnitsByBanditPeriod t
+            ON (t.bandit_period = u.bandit_period)
+          GROUP BY
+            u.variation
+        )
+        , __banditSrm AS (
+          SELECT
+            MAX('') AS variation
+            , MAX('${BANDIT_SRM_DIMENSION_NAME}') AS dimension_name,
+            , MAX('') AS dimension_value
+            , SUM(POW(expected_units - units, 2) / expected_units) AS units
+          FROM __expectedUnitsByVariationBanditPeriod u
+          GROUP BY
+            ''
+        )
+      `
+          : ""
+      }
+
       ${this.selectStarLimit(
         "__unitsByDimension",
         MAX_ROWS_UNIT_AGGREGATE_QUERY
       )}
+      ${
+        banditDates && banditWeightCTE
+          ? `
+        UNION ALL
+        SELECT
+          *
+        FROM __banditSrm
+      `
+          : ""
+      }
     `,
       this.getFormatDialect()
     );
   }
 
-  getUnitCountCTE(dimensionColumn: string, whereClause?: string): string {
+  getUnitCountCTE(
+    dimensionColumn: string,
+    whereClause?: string,
+    ensureFloat?: boolean
+  ): string {
     return ` -- ${dimensionColumn}
     SELECT
       variation AS variation
       , ${dimensionColumn} AS dimension_value
       , MAX(${this.castToString(`'${dimensionColumn}'`)}) AS dimension_name
-      , COUNT(*) AS units
+      , ${ensureFloat ? this.ensureFloat("COUNT(*)") : "COUNT(*)"} AS units
     FROM
       __distinctUnits
     ${whereClause ?? ""}

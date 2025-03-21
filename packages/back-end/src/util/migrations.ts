@@ -562,6 +562,16 @@ export function upgradeExperimentDoc(
           range: [0, 1],
         };
       }
+
+      // move bandit SRM to health.srm
+      if (phase.banditEvents) {
+        phase.banditEvents = phase.banditEvents.map((event) => ({
+          ...event,
+          health: {
+            srm: event.banditResult.srm,
+          },
+        }));
+      }
     });
   }
 
