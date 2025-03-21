@@ -689,23 +689,11 @@ export async function getOrganization(
   if (licenseKey || process.env.LICENSE_KEY) {
     // automatically set the license data based on org license key
     license = getLicense(licenseKey || process.env.LICENSE_KEY);
-    if (
-      !license ||
-      (license.organizationId && license.organizationId !== id) ||
-      (license && !license.stripeSubscription) ||
-      (license && !license.orbSubscription)
-    ) {
+    if (!license || (license.organizationId && license.organizationId !== id)) {
       try {
         license =
-          (await licenseInit(
-            org,
-            getUserCodesForOrg,
-            getLicenseMetaData,
-            // if license is set, but no stripe or orb subscription, force refresh
-            !license?.stripeSubscription || !license?.orbSubscription
-              ? true
-              : false
-          )) || null;
+          (await licenseInit(org, getUserCodesForOrg, getLicenseMetaData)) ||
+          null;
       } catch (e) {
         // eslint-disable-next-line no-console
         console.error("setting license failed", e);

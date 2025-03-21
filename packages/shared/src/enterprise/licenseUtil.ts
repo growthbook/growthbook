@@ -631,7 +631,7 @@ export async function postNewInlineSubscriptionToLicenseServer(
   nonInviteSeatQty: number
 ) {
   const url = `${LICENSE_SERVER_URL}subscription/start-new-pro`;
-  return callLicenseServer(
+  const license = await callLicenseServer(
     url,
     JSON.stringify({
       cloudSecret: process.env.CLOUD_SECRET,
@@ -639,6 +639,9 @@ export async function postNewInlineSubscriptionToLicenseServer(
       nonInviteSeatQty,
     })
   );
+
+  verifyAndSetServerLicenseData(license);
+  return license;
 }
 
 export async function postNewProSubscriptionIntentToLicenseServer(
@@ -648,7 +651,7 @@ export async function postNewProSubscriptionIntentToLicenseServer(
   name: string
 ) {
   const url = `${LICENSE_SERVER_URL}subscription/setup-subscription-intent`;
-  return callLicenseServer(
+  return await callLicenseServer(
     url,
     JSON.stringify({
       appOrigin: APP_ORIGIN,
