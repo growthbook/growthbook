@@ -11,6 +11,7 @@ import {
   postNewProTrialSubscriptionToLicenseServer,
   postNewSubscriptionSuccessToLicenseServer,
   postNewInlineSubscriptionToLicenseServer,
+  postCancelSubscriptionToLicenseServer,
 } from "shared/enterprise";
 import { PaymentMethod } from "shared/src/types/subscriptions";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -222,6 +223,28 @@ export const postSubscriptionSuccess = withLicenseServerErrorHandling(
     });
   }
 );
+
+export async function cancelSubscription(req: AuthRequest, res: Response) {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { org } = context;
+
+  const license = await getLicense(org.licenseKey);
+
+  if (!license?.id) {
+    throw new Error("No license found for organization");
+  }
+
+  await postCancelSubscriptionToLicenseServer(license.id);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
 
 export async function postSetupIntent(
   req: AuthRequest<null, null>,
