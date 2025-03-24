@@ -40,9 +40,24 @@ export {
 
 export type DecisionFrameworkExperimentRecommendationStatus =
   | { status: "days-left"; daysLeft: number }
-  | { status: "ship-now" }
-  | { status: "rollback-now" }
-  | { status: "ready-for-review" };
+  | {
+      status: "ship-now";
+      variationIds: string[];
+      powerReached: boolean;
+      sequentialUsed: boolean;
+    }
+  | {
+      status: "rollback-now";
+      variationIds: string[];
+      powerReached: boolean;
+      sequentialUsed: boolean;
+    }
+  | {
+      status: "ready-for-review";
+      variationIds: string[];
+      powerReached: boolean;
+      sequentialUsed: boolean;
+    };
 
 export type ExperimentUnhealthyData = {
   // if key exists, the status is unhealthy

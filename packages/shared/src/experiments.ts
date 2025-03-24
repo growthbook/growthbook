@@ -16,7 +16,6 @@ import {
 } from "back-end/types/organization";
 import {
   DecisionCriteriaAction,
-  DecisionCriteriaInterface,
   DecisionCriteriaRule,
   DecisionFrameworkExperimentRecommendationStatus,
   ExperimentAnalysisSummaryVariationStatus,
@@ -893,7 +892,6 @@ export function isMetricJoinable(
   return false;
 }
 
-
 export function evaluateDecisionRuleOnVariation({
   rule,
   variationStatus,
@@ -943,11 +941,17 @@ export function evaluateDecisionRuleOnVariation({
 
       // TODO trending loser
       if (condition.match === "all") {
-        return metrics.every((m) => metricResults?.[m]?.status === desiredStatus);
-      } else if (condition.match === "any") { 
-        return metrics.some((m) => metricResults?.[m]?.status === desiredStatus);
+        return metrics.every(
+          (m) => metricResults?.[m]?.status === desiredStatus
+        );
+      } else if (condition.match === "any") {
+        return metrics.some(
+          (m) => metricResults?.[m]?.status === desiredStatus
+        );
       } else if (condition.match === "none") {
-        return metrics.every((m) => metricResults?.[m]?.status !== desiredStatus);
+        return metrics.every(
+          (m) => metricResults?.[m]?.status !== desiredStatus
+        );
       }
     }
   });
@@ -968,7 +972,7 @@ export function getVariationDecisions({
   requireSuperStatSig,
 }: {
   resultsStatus: ExperimentAnalysisSummaryResultsStatus;
-  decisionCriteria: DecisionCriteriaInterface;
+  decisionCriteria: DecisionCriteriaData;
   goalMetrics: string[];
   guardrailMetrics: string[];
   requireSuperStatSig: boolean;
@@ -1004,7 +1008,7 @@ export function getVariationDecisions({
 
   return results;
 }
-  
+
 export function getHealthSettings(
   settings?: OrganizationSettings,
   hasDecisionFramework?: boolean
@@ -1031,7 +1035,7 @@ export function getDecisionFrameworkStatus({
   daysNeeded,
 }: {
   resultsStatus: ExperimentAnalysisSummaryResultsStatus;
-  decisionCriteria?: DecisionCriteriaData;
+  decisionCriteria: DecisionCriteriaData;
   goalMetrics: string[];
   guardrailMetrics: string[];
   daysNeeded?: number;
@@ -1043,133 +1047,94 @@ export function getDecisionFrameworkStatus({
   // if you have reached your needed power or if you used sequential testing
   const decisionReady = powerReached || sequentialTesting;
 
-  let hasWinner = false;
-  let hasWinnerWithGuardrailFailure = false;
-  let hasSuperStatsigWinner = false;
-  let hasSuperStatsigWinnerWithGuardrailFailure = false;
-  let nVariationsLosing = 0;
-  let nVariationsWithSuperStatSigLoser = 0;
+  if (decisionReady) {
+    const variationDecisions = getVariationDecisions({
+      resultsStatus,
+      decisionCriteria,
+      goalMetrics,
+      guardrailMetrics,
+      requireSuperStatSig: false,
+    });
 
-  const usedDecisionCriteria = decisionCriteria ?? DEFAULT_DECISION_CRITERIA;
-
-  const variationDecisions = getVariationDecisions({
-    resultsStatus,
-    decisionCriteria,
-    goalMetrics,
-    guardrailMetrics,
-    requireSuperStatSig: false
-  });
-
-  // if any variation is a clear winner with no guardrail issues, ship now
-  for (const variationResult of resultsStatus.variations) {
-    const allSuperStatSigWon = goalMetrics.every(
-      (m) => variationResult.goalMetrics?.[m]?.superStatSigStatus === "won"
+    const allRollbackNow = variationDecisions.every(
+      (d) => d.decisionCriteriaAction === "rollback"
     );
-    const anyGuardrailFailure = guardrailMetrics.some(
-      (m) => variationResult.guardrailMetrics?.[m]?.status === "lost"
+    if (allRollbackNow) {
+      return {
+        status: "rollback-now",
+        variationIds: variationDecisions.map(({ variationId }) => variationId),
+        sequentialUsed: sequentialTesting,
+        powerReached: powerReached,
+      };
+    }
+
+    const anyShipNow = variationDecisions.some(
+      (d) => d.decisionCriteriaAction === "ship"
     );
+    if (anyShipNow) {
+      return {
+        status: "ship-now",
+        variationIds: variationDecisions
+          .filter((d) => d.decisionCriteriaAction === "ship")
+          .map(({ variationId }) => variationId),
+        sequentialUsed: sequentialTesting,
+        powerReached: powerReached,
+      };
+    }
 
-    if (decisionReady) {
-      const allStatSigGood = goalMetrics.every(
-        (m) => variationResult.goalMetrics?.[m]?.status === "won"
-      );
-      if (allStatSigGood && !anyGuardrailFailure) {
-        hasWinner = true;
-      }
-
-      if (allStatSigGood && anyGuardrailFailure) {
-        hasWinnerWithGuardrailFailure = true;
-      }
-
+    // only return ready for review if power is reached, not for premature
+    // sequential results
+    if (powerReached) {
       if (
-        goalMetrics.every(
-          (m) => variationResult.goalMetrics?.[m]?.status === "lost"
-        )
+        variationDecisions.some((d) => d.decisionCriteriaAction === "review")
       ) {
-        nVariationsLosing += 1;
+        return {
+          status: "ready-for-review",
+          variationIds: variationDecisions
+            .filter((d) => d.decisionCriteriaAction === "review")
+            .map(({ variationId }) => variationId),
+          sequentialUsed: sequentialTesting,
+          powerReached: powerReached,
+        };
       }
     }
+  } else {
+    // only return ship or rollback for super stat sig metrics
+    const superStatSigVariationDecisions = getVariationDecisions({
+      resultsStatus,
+      decisionCriteria,
+      goalMetrics,
+      guardrailMetrics,
+      requireSuperStatSig: true,
+    });
 
-    if (allSuperStatSigWon && !anyGuardrailFailure) {
-      hasSuperStatsigWinner = true;
+    const allRollbackNow = superStatSigVariationDecisions.every(
+      (d) => d.decisionCriteriaAction === "rollback"
+    );
+    if (allRollbackNow) {
+      return {
+        status: "rollback-now",
+        variationIds: superStatSigVariationDecisions.map(
+          ({ variationId }) => variationId
+        ),
+        sequentialUsed: sequentialTesting,
+        powerReached: powerReached,
+      };
     }
 
-    if (allSuperStatSigWon && anyGuardrailFailure) {
-      hasSuperStatsigWinnerWithGuardrailFailure = true;
+    const anyShipNow = superStatSigVariationDecisions.some(
+      (d) => d.decisionCriteriaAction === "ship"
+    );
+    if (anyShipNow) {
+      return {
+        status: "ship-now",
+        variationIds: superStatSigVariationDecisions
+          .filter((d) => d.decisionCriteriaAction === "ship")
+          .map(({ variationId }) => variationId),
+        sequentialUsed: sequentialTesting,
+        powerReached: powerReached,
+      };
     }
-
-    if (
-      goalMetrics.every(
-        (m) => variationResult.goalMetrics?.[m]?.superStatSigStatus === "lost"
-      )
-    ) {
-      nVariationsWithSuperStatSigLoser += 1;
-    }
-  }
-
-  const tooltipLanguage = powerReached
-    ? ` and experiment has reached the target statistical power.`
-    : sequentialTesting
-    ? ` and sequential testing is enabled, allowing decisions as soon as statistical significance is reached.`
-    : ".";
-
-  if (hasWinner) {
-    return {
-      status: "ship-now",
-      tooltip: `All goal metrics are statistically significant in the desired direction for a test variation${tooltipLanguage}`,
-    };
-  }
-
-  // if no winner without guardrail failure, call out a winner with a guardrail failure
-  if (hasWinnerWithGuardrailFailure) {
-    return {
-      status: "ready-for-review",
-      tooltip: `All goal metrics are statistically significant in the desired direction for a test variation${tooltipLanguage} However, one or more guardrails are failing`,
-    };
-  }
-
-  // If all variations failing, roll back now
-  if (
-    nVariationsLosing === resultsStatus.variations.length &&
-    nVariationsLosing > 0
-  ) {
-    return {
-      status: "rollback-now",
-      tooltip: `All goal metrics are statistically significant in the undesired direction${tooltipLanguage}`,
-    };
-  }
-
-  // TODO if super stat sig enabled
-  if (hasSuperStatsigWinner) {
-    return {
-      status: "ship-now",
-      tooltip: `The experiment has not yet reached the target statistical power, however, the goal metrics have clear, statistically significant lifts in the desired direction.`,
-    };
-  }
-
-  // if no winner without guardrail failure, call out a winner with a guardrail failure
-  if (hasSuperStatsigWinnerWithGuardrailFailure) {
-    return {
-      status: "ready-for-review",
-      tooltip: `All goal metrics have clear, statistically significant lifts in the desired direction for a test variation. However, one or more guardrails are failing`,
-    };
-  }
-
-  if (
-    nVariationsWithSuperStatSigLoser === resultsStatus.variations.length &&
-    nVariationsWithSuperStatSigLoser > 0
-  ) {
-    return {
-      status: "rollback-now",
-      tooltip: `The experiment has not yet reached the target statistical power, however, the goal metrics have clear, statistically significant lifts in the undesired direction.`,
-    };
-  }
-
-  if (powerReached) {
-    return {
-      status: "ready-for-review",
-      tooltip: `The experiment has reached the target statistical power, but does not have conclusive results.`,
-    };
   }
 }
 
@@ -1191,9 +1156,11 @@ function getDaysLeftStatus({
 export function getExperimentResultStatus({
   experimentData,
   healthSettings,
+  decisionCriteria,
 }: {
   experimentData: ExperimentDataForStatus | ExperimentDataForStatusStringDates;
   healthSettings: ExperimentHealthSettings;
+  decisionCriteria?: DecisionCriteriaData;
 }): ExperimentResultStatusData | undefined {
   const unhealthyData: ExperimentUnhealthyData = {};
   const healthSummary = experimentData.analysisSummary?.health;
@@ -1222,7 +1189,7 @@ export function getExperimentResultStatus({
   const decisionStatus = resultsStatus
     ? getDecisionFrameworkStatus({
         resultsStatus,
-        decisionCriteria: experimentData.decisionCriteria,
+        decisionCriteria: decisionCriteria ?? DEFAULT_DECISION_CRITERIA,
         goalMetrics: experimentData.goalMetrics,
         guardrailMetrics: experimentData.guardrailMetrics,
         daysNeeded,

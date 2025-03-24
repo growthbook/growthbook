@@ -73,5 +73,5 @@ const secondaryDecisionCriteria: DecisionCriteriaData = {
 
 export const DEFAULT_DECISION_CRITERIAS: DecisionCriteriaData[] = [
   DEFAULT_DECISION_CRITERIA,
-  secondaryDecisionCriteria
+  secondaryDecisionCriteria,
 ];

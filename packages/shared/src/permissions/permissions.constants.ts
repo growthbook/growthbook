@@ -367,7 +367,8 @@ export const POLICY_METADATA_MAP: Record<
   },
   DecisionCriteriaFullAccess: {
     displayName: "Decision Criteria Full Access",
-    description: "Create, edit, and delete decision criteria, part of the experiment decision framework.",
+    description:
+      "Create, edit, and delete decision criteria, part of the experiment decision framework.",
   },
 };
 
