@@ -1,7 +1,7 @@
 import {
   getHealthSettings,
   getExperimentResultStatus,
-} from "shared/experiments";
+} from "shared/enterprise";
 import {
   ExperimentHealthSettings,
   ExperimentDataForStatusStringDates,

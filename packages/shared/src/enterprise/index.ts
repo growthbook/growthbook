@@ -2,4 +2,4 @@ export * from "./licenseUtil";
 export * from "./sso";
 export * from "./pipeline";
 export * from "./power";
-export * from "./decisionCriteria";
+export * from "./decision-criteria";
