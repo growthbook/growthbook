@@ -6,9 +6,11 @@ import {
   getLicense,
   licenseInit,
   postCreateBillingSessionToLicenseServer,
+  postNewProSubscriptionIntentToLicenseServer,
   postNewProSubscriptionToLicenseServer,
   postNewProTrialSubscriptionToLicenseServer,
   postNewSubscriptionSuccessToLicenseServer,
+  postNewInlineSubscriptionToLicenseServer,
 } from "shared/enterprise";
 import { PaymentMethod } from "shared/src/types/subscriptions";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -88,6 +90,28 @@ export const postNewProTrialSubscription = withLicenseServerErrorHandling(
   }
 );
 
+export const postNewProSubscriptionIntent = withLicenseServerErrorHandling(
+  async function (req: AuthRequest, res: Response) {
+    const context = getContextFromReq(req);
+
+    if (!context.permissions.canManageBilling()) {
+      context.permissions.throwPermissionError();
+    }
+
+    const { org, userName } = context;
+
+    const result = await postNewProSubscriptionIntentToLicenseServer(
+      org.id,
+      org.name,
+      org.ownerEmail,
+      userName
+    );
+    await updateOrganization(org.id, { licenseKey: result.license.id });
+
+    res.status(200).json({ clientSecret: result.clientSecret });
+  }
+);
+
 export const postNewProSubscription = withLicenseServerErrorHandling(
   async function (req: AuthRequest<{ returnUrl: string }>, res: Response) {
     let { returnUrl } = req.body;
@@ -115,6 +139,33 @@ export const postNewProSubscription = withLicenseServerErrorHandling(
       returnUrl
     );
     await updateOrganization(org.id, { licenseKey: result.license.id });
+
+    res.status(200).json(result);
+  }
+);
+
+export const postInlineProSubscription = withLicenseServerErrorHandling(
+  async function (req: AuthRequest, res: Response) {
+    const context = getContextFromReq(req);
+
+    if (!context.permissions.canManageBilling()) {
+      context.permissions.throwPermissionError();
+    }
+
+    const { org } = context;
+
+    const license = await getLicense(org.licenseKey);
+
+    if (!license) {
+      throw new Error("No license found for organization");
+    }
+
+    const nonInviteSeatQty = org.members.length;
+
+    const result = await postNewInlineSubscriptionToLicenseServer(
+      org.id,
+      nonInviteSeatQty
+    );
 
     res.status(200).json(result);
   }
