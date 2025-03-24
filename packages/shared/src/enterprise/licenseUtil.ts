@@ -521,11 +521,15 @@ export class LicenseServerError extends Error {
   }
 }
 
-export async function callLicenseServer(
-  url: string,
-  body: string,
-  method = "POST"
-) {
+export async function callLicenseServer({
+  url,
+  body,
+  method = "POST",
+}: {
+  url: string;
+  body?: string;
+  method?: string;
+}) {
   const agentOptions = getAgentOptions();
 
   const options = {
@@ -572,12 +576,12 @@ export async function postVerifyEmailToLicenseServer(
   emailVerificationToken: string
 ) {
   const url = `${LICENSE_SERVER_URL}license/verify-email`;
-  return callLicenseServer(
+  return callLicenseServer({
     url,
-    JSON.stringify({
+    body: JSON.stringify({
       emailVerificationToken,
-    })
-  );
+    }),
+  });
 }
 
 export async function postNewProTrialSubscriptionToLicenseServer(
@@ -588,9 +592,9 @@ export async function postNewProTrialSubscriptionToLicenseServer(
   seats: number
 ) {
   const url = `${LICENSE_SERVER_URL}subscription/new-pro-trial`;
-  return callLicenseServer(
+  return callLicenseServer({
     url,
-    JSON.stringify({
+    body: JSON.stringify({
       organizationId,
       companyName,
       name,
@@ -598,8 +602,8 @@ export async function postNewProTrialSubscriptionToLicenseServer(
       seats,
       appOrigin: APP_ORIGIN,
       cloudSecret: process.env.CLOUD_SECRET,
-    })
-  );
+    }),
+  });
 }
 
 export async function postNewProSubscriptionToLicenseServer(
@@ -611,9 +615,9 @@ export async function postNewProSubscriptionToLicenseServer(
   returnUrl: string
 ) {
   const url = `${LICENSE_SERVER_URL}subscription/new`;
-  return callLicenseServer(
+  return callLicenseServer({
     url,
-    JSON.stringify({
+    body: JSON.stringify({
       appOrigin: APP_ORIGIN,
       cloudSecret: process.env.CLOUD_SECRET,
       organizationId,
@@ -622,8 +626,8 @@ export async function postNewProSubscriptionToLicenseServer(
       name,
       seats,
       returnUrl,
-    })
-  );
+    }),
+  });
 }
 
 export async function postNewInlineSubscriptionToLicenseServer(
@@ -631,14 +635,14 @@ export async function postNewInlineSubscriptionToLicenseServer(
   nonInviteSeatQty: number
 ) {
   const url = `${LICENSE_SERVER_URL}subscription/start-new-pro`;
-  const license = await callLicenseServer(
+  const license = await callLicenseServer({
     url,
-    JSON.stringify({
+    body: JSON.stringify({
       cloudSecret: process.env.CLOUD_SECRET,
       organizationId,
       nonInviteSeatQty,
-    })
-  );
+    }),
+  });
 
   verifyAndSetServerLicenseData(license);
   return license;
@@ -651,42 +655,42 @@ export async function postNewProSubscriptionIntentToLicenseServer(
   name: string
 ) {
   const url = `${LICENSE_SERVER_URL}subscription/setup-subscription-intent`;
-  return await callLicenseServer(
+  return await callLicenseServer({
     url,
-    JSON.stringify({
+    body: JSON.stringify({
       appOrigin: APP_ORIGIN,
       cloudSecret: process.env.CLOUD_SECRET,
       organizationId,
       companyName,
       ownerEmail,
       name,
-    })
-  );
+    }),
+  });
 }
 
 export async function postNewSubscriptionSuccessToLicenseServer(
   checkoutSessionId: string
 ): Promise<LicenseInterface> {
   const url = `${LICENSE_SERVER_URL}subscription/success`;
-  return await callLicenseServer(
+  return await callLicenseServer({
     url,
-    JSON.stringify({
+    body: JSON.stringify({
       checkoutSessionId,
-    })
-  );
+    }),
+  });
 }
 
 export async function postCreateBillingSessionToLicenseServer(
   licenseId: string
 ): Promise<{ url: string; status: number }> {
   const url = `${LICENSE_SERVER_URL}subscription/manage`;
-  return await callLicenseServer(
+  return await callLicenseServer({
     url,
-    JSON.stringify({
+    body: JSON.stringify({
       appOrigin: APP_ORIGIN,
       licenseId,
-    })
-  );
+    }),
+  });
 }
 
 export async function postSubscriptionUpdateToLicenseServer(
@@ -694,13 +698,13 @@ export async function postSubscriptionUpdateToLicenseServer(
   seats: number
 ): Promise<LicenseInterface> {
   const url = `${LICENSE_SERVER_URL}subscription/update`;
-  const license = await callLicenseServer(
+  const license = await callLicenseServer({
     url,
-    JSON.stringify({
+    body: JSON.stringify({
       licenseId,
       seats,
-    })
-  );
+    }),
+  });
 
   verifyAndSetServerLicenseData(license);
   return license;
@@ -720,9 +724,9 @@ export async function postCreateTrialEnterpriseLicenseToLicenseServer(
   }
 ) {
   const url = `${LICENSE_SERVER_URL}license/new-enterprise-trial`;
-  return await callLicenseServer(
+  return await callLicenseServer({
     url,
-    JSON.stringify({
+    body: JSON.stringify({
       email,
       name,
       organizationId,
@@ -730,21 +734,21 @@ export async function postCreateTrialEnterpriseLicenseToLicenseServer(
       context,
       appOrigin: APP_ORIGIN,
       cloudSecret: process.env.CLOUD_SECRET,
-    })
-  );
+    }),
+  });
 }
 
 export async function postResendEmailVerificationEmailToLicenseServer(
   organizationId: string
 ) {
   const url = `${LICENSE_SERVER_URL}license/resend-license-email`;
-  return await callLicenseServer(
+  return await callLicenseServer({
     url,
-    JSON.stringify({
+    body: JSON.stringify({
       organizationId,
       appOrigin: APP_ORIGIN,
-    })
-  );
+    }),
+  });
 }
 
 // Creates or replaces the license in the MongoDB cache in case the license server goes down.
@@ -780,14 +784,14 @@ async function getLicenseDataFromServer(
   logger.info("Getting license data from server for " + licenseId);
   const url = `${LICENSE_SERVER_URL}license/${licenseId}/check`;
 
-  const license = await callLicenseServer(
+  const license = await callLicenseServer({
     url,
-    JSON.stringify({
+    body: JSON.stringify({
       licenseUserCodes: licenseUserCodes,
       metaData,
     }),
-    "PUT"
-  );
+    method: "PUT",
+  });
 
   return license;
 }

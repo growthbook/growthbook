@@ -20,7 +20,6 @@ import {
 import { formatBrandName } from "back-end/src/services/stripe";
 import { DailyUsage, UsageLimits } from "back-end/types/organization";
 import { logger } from "back-end/src/util/logger";
-import { getOrgUsageLimits } from "back-end/src/services/usage";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import {
   getLicenseMetaData,
@@ -401,7 +400,9 @@ export async function getUsage(
 
   const cdnUsage = await getDailyCDNUsageForOrg(org.id, start, end);
 
-  const limits = await getOrgUsageLimits(org.id);
+  const { requests: cdnRequests, bandwidth: cdnBandwidth } = (
+    await context.usage
+  ).limits;
 
-  res.json({ status: 200, cdnUsage, limits });
+  res.json({ status: 200, cdnUsage, limits: { cdnRequests, cdnBandwidth } });
 }
