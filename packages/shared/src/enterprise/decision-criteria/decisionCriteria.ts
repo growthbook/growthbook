@@ -55,6 +55,7 @@ export function evaluateDecisionRuleOnVariation({
       const fieldToCheck = requireSuperStatSig
         ? "superStatSigStatus"
         : "status";
+
       if (condition.match === "all") {
         return metrics.every(
           (m) => metricResults?.[m]?.[fieldToCheck] === desiredStatus
