@@ -9,6 +9,7 @@ import {
   getDefaultRole,
 } from "shared/permissions";
 import uniqid from "uniqid";
+import { LicenseInterface, accountFeatures } from "shared/enterprise";
 import { getWatchedByUser } from "back-end/src/models/WatchModel";
 import {
   UpdateSdkWebhookProps,
@@ -133,11 +134,9 @@ import {
 } from "back-end/src/services/licenseData";
 import { findSDKConnectionsByIds } from "back-end/src/models/SdkConnectionModel";
 import {
-  LicenseInterface,
   getLicense,
   licenseInit,
   getLowestPlanPerFeature,
-  accountFeatures,
   getAccountPlan,
   getEffectiveAccountPlan,
   getLicenseError,
