@@ -418,7 +418,7 @@ if (IS_CLOUD) {
     "/subscription/start-new-pro",
     subscriptionController.postInlineProSubscription
   );
-  app.post("/subscription/cancel", stripeController.cancelSubscription);
+  app.post("/subscription/cancel", subscriptionController.cancelSubscription);
 }
 app.post("/subscription/new", subscriptionController.postNewProSubscription);
 app.post(
