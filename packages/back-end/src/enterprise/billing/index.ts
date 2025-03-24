@@ -1,4 +1,4 @@
-import { callLicenseServer, LICENSE_SERVER_URL } from "shared/enterprise";
+import { LICENSE_SERVER_URL, callLicenseServer } from "back-end/src/enterprise";
 
 export async function createSetupIntent(licenseKey: string) {
   const url = `${LICENSE_SERVER_URL}subscription/setup-intent`;

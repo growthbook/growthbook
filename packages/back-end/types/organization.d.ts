@@ -10,7 +10,6 @@ import { z } from "zod";
 import {
   AccountPlan,
   CommercialFeature,
-  LicenseInterface,
   SubscriptionInfo,
 } from "shared/enterprise";
 import { environment } from "back-end/src/routers/environment/environment.validators";
@@ -19,6 +18,7 @@ import { attributeDataTypes } from "back-end/src/util/organization.util";
 import { ApiKeyInterface } from "back-end/types/apikey";
 import { SSOConnectionInterface } from "back-end/types/sso-connection";
 import { TeamInterface } from "back-end/types/team";
+import { LicenseInterface } from "back-end/src/enterprise";
 import { AttributionModel, ImplementationType } from "./experiment";
 import type { PValueCorrection, StatsEngine } from "./stats";
 import {

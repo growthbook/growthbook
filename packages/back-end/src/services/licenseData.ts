@@ -1,7 +1,6 @@
 import path from "path";
 import fs from "fs";
 import md5 from "md5";
-import { LicenseUserCodes } from "shared/enterprise";
 import { findAllSDKConnectionsAcrossAllOrgs } from "back-end/src/models/SdkConnectionModel";
 import { getInstallationId } from "back-end/src/models/InstallationModel";
 import { IS_CLOUD } from "back-end/src/util/secrets";
@@ -18,6 +17,7 @@ import {
   getTeamsForOrganization,
 } from "back-end/src/models/TeamModel";
 import { TeamInterface } from "back-end/types/team";
+import { LicenseUserCodes } from "back-end/src/enterprise";
 
 export async function getLicenseMetaData() {
   let installationId = "unknown";
