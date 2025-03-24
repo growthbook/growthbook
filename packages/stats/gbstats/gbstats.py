@@ -34,7 +34,12 @@ from gbstats.frequentist.tests import (
     SequentialConfig,
     SequentialTwoSidedTTest,
     TwoSidedTTest,
+    OneSidedTreatmentGreaterTTest,
+    OneSidedTreatmentLesserTTest,
+    SequentialOneSidedTreatmentLesserTTest,
+    SequentialOneSidedTreatmentGreaterTTest,
 )
+
 from gbstats.models.results import (
     BaselineResponse,
     BayesianVariationResponse,
@@ -209,7 +214,15 @@ def get_configured_test(
     test_index: int,
     analysis: AnalysisSettingsForStatsEngine,
     metric: MetricSettingsForStatsEngine,
-) -> Union[EffectBayesianABTest, SequentialTwoSidedTTest, TwoSidedTTest]:
+) -> Union[
+    EffectBayesianABTest,
+    SequentialTwoSidedTTest,
+    TwoSidedTTest,
+    OneSidedTreatmentGreaterTTest,
+    OneSidedTreatmentLesserTTest,
+    SequentialOneSidedTreatmentLesserTTest,
+    SequentialOneSidedTreatmentGreaterTTest,
+]:
 
     stat_a = variation_statistic_from_metric_row(row, "baseline", metric)
     stat_b = variation_statistic_from_metric_row(row, f"v{test_index}", metric)
@@ -220,27 +233,36 @@ def get_configured_test(
         "phase_length_days": analysis.phase_length_days,
         "difference_type": analysis.difference_type,
     }
-
     if analysis.stats_engine == "frequentist":
         if analysis.sequential_testing_enabled:
-            return SequentialTwoSidedTTest(
-                stat_a,
-                stat_b,
-                SequentialConfig(
-                    **base_config,
-                    alpha=analysis.alpha,
-                    sequential_tuning_parameter=analysis.sequential_tuning_parameter,
-                ),
+            sequential_config = SequentialConfig(
+                **base_config,
+                alpha=analysis.alpha,
+                sequential_tuning_parameter=analysis.sequential_tuning_parameter,
             )
+            if analysis.one_sided_intervals:
+                if metric.inverse:
+                    return SequentialOneSidedTreatmentGreaterTTest(
+                        stat_a, stat_b, sequential_config
+                    )
+                else:
+                    return SequentialOneSidedTreatmentLesserTTest(
+                        stat_a, stat_b, sequential_config
+                    )
+            else:
+                return SequentialTwoSidedTTest(stat_a, stat_b, sequential_config)
         else:
-            return TwoSidedTTest(
-                stat_a,
-                stat_b,
-                FrequentistConfig(
-                    **base_config,
-                    alpha=analysis.alpha,
-                ),
+            config = FrequentistConfig(
+                **base_config,
+                alpha=analysis.alpha,
             )
+            if analysis.one_sided_intervals:
+                if metric.inverse:
+                    return OneSidedTreatmentGreaterTTest(stat_a, stat_b, config)
+                else:
+                    return OneSidedTreatmentLesserTTest(stat_a, stat_b, config)
+            else:
+                return TwoSidedTTest(stat_a, stat_b, config)
     else:
         assert type(stat_a) is type(stat_b), "stat_a and stat_b must be of same type."
         prior = GaussianPrior(
@@ -276,7 +298,6 @@ def analyze_metric_df(
     analysis: AnalysisSettingsForStatsEngine,
 ) -> pd.DataFrame:
     num_variations = df.at[0, "variations"]
-
     # Add new columns to the dataframe with placeholder values
     df["srm_p"] = 0
     df["engine"] = analysis.stats_engine
@@ -291,6 +312,7 @@ def analyze_metric_df(
             df[f"v{i}_stddev"] = None
             df[f"v{i}_expected"] = 0
             df[f"v{i}_p_value"] = None
+            df[f"v{i}_p_value_error_message"] = None
             df[f"v{i}_risk"] = None
             df[f"v{i}_prob_beat_baseline"] = None
             df[f"v{i}_uplift"] = None
@@ -385,7 +407,10 @@ def analyze_metric_df(
                 s[f"v{i}_risk_type"] = res.risk_type
                 s[f"v{i}_prob_beat_baseline"] = res.chance_to_win
             elif isinstance(res, FrequentistTestResult):
-                s[f"v{i}_p_value"] = res.p_value
+                if res.p_value is not None:
+                    s[f"v{i}_p_value"] = res.p_value
+                else:
+                    s[f"v{i}_p_value_error_message"] = res.p_value_error_message
             if test.stat_a.unadjusted_mean <= 0:
                 # negative or missing control mean
                 s[f"v{i}_expected"] = 0
@@ -480,19 +505,19 @@ def format_variation_result(
             )
         else:
             power_response = None
-        frequentist = row[f"{prefix}_p_value"] is not None
         testResult = {
             "expected": row[f"{prefix}_expected"],
             "uplift": row[f"{prefix}_uplift"],
             "ci": row[f"{prefix}_ci"],
             "errorMessage": row[f"{prefix}_error_message"],
         }
-        if frequentist:
+        if row["engine"] == "frequentist":
             return FrequentistVariationResponse(
                 **metricResult,
                 **testResult,
                 power=power_response,
                 pValue=row[f"{prefix}_p_value"],
+                pValueErrorMessage=row[f"{prefix}_p_value_error_message"],
             )
         else:
             return BayesianVariationResponse(

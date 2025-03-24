@@ -79,7 +79,7 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
     const {
       snapshotSettings,
       analysisSettings,
-    } = getSnapshotSettingsFromSafeRolloutArgs(this.model, this.metricMap);
+    } = getSnapshotSettingsFromSafeRolloutArgs(this.model);
 
     const { results: analysesResults } = await analyzeExperimentResults({
       queryData: queryMap,
@@ -121,36 +121,6 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
       result.health = {
         traffic: trafficHealth,
       };
-
-      const relativeAnalysis = this.model.analyses.find(
-        (a) => a.settings.differenceType === "relative"
-      );
-
-      const isEligibleForMidExperimentPowerAnalysis =
-        relativeAnalysis && rows && rows.length;
-
-      if (isEligibleForMidExperimentPowerAnalysis) {
-        const today = new Date();
-        const phaseStartDate = this.model.settings.startDate;
-        const experimentMaxLengthDays = this.context.org.settings
-          ?.experimentMaxLengthDays;
-
-        const experimentTargetEndDate = addDays(
-          phaseStartDate,
-          experimentMaxLengthDays && experimentMaxLengthDays > 0
-            ? experimentMaxLengthDays
-            : FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS
-        );
-        const targetDaysRemaining = daysBetween(today, experimentTargetEndDate);
-        // NB: This does not run a SQL query, but it is a health check that depends on the trafficHealth
-        result.health.power = analyzeExperimentPower({
-          trafficHealth,
-          targetDaysRemaining,
-          analysis: relativeAnalysis,
-          goalMetrics: this.model.settings.guardrailMetrics,
-          variationsSettings: this.model.settings.variations,
-        });
-      }
     }
 
     return result;

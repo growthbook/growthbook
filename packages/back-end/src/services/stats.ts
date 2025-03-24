@@ -70,6 +70,7 @@ export interface AnalysisSettingsForStatsEngine {
   max_dimensions: number;
   traffic_percentage: number;
   num_goal_metrics: number;
+  one_sided_intervals?: boolean;
 }
 
 export interface BanditSettingsForStatsEngine {
@@ -191,6 +192,7 @@ export function getAnalysisSettingsForStatsEngine(
         : MAX_DIMENSIONS,
     traffic_percentage: coverage,
     num_goal_metrics: settings.numGoalMetrics,
+    one_sided_intervals: !!settings.oneSidedIntervals,
   };
 
   return analysisData;

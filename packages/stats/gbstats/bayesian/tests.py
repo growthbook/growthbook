@@ -120,10 +120,12 @@ class BayesianABTest(BaseABTest):
                 daily_traffic = self.total_users / (
                     self.traffic_percentage * self.phase_length_days
                 )
+                ci_lower = result.ci[0] * daily_traffic if result.ci[0] else None
+                ci_upper = result.ci[1] * daily_traffic if result.ci[1] else None
                 return BayesianTestResult(
                     chance_to_win=result.chance_to_win,
                     expected=result.expected * daily_traffic,
-                    ci=[result.ci[0] * daily_traffic, result.ci[1] * daily_traffic],
+                    ci=[ci_lower, ci_upper],
                     uplift=Uplift(
                         dist=result.uplift.dist,
                         mean=result.uplift.mean * daily_traffic,

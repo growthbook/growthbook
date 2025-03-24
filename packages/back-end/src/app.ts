@@ -122,6 +122,7 @@ import { metricGroupRouter } from "./routers/metric-group/metric-group.router";
 import { findOrCreateGeneratedHypothesis } from "./models/GeneratedHypothesis";
 import { getContextFromReq } from "./services/organizations";
 import { templateRouter } from "./routers/experiment-template/template.router";
+import { safeRolloutSnapshotRouter } from "./routers/safe-rollout-snapshot/safe-rollout-snapshot.router";
 
 const app = express();
 
@@ -598,6 +599,9 @@ app.put(
   "/experiment/:id/launch-checklist",
   experimentLaunchChecklistController.putManualLaunchChecklist
 );
+
+// Safe Rollouts
+app.use("/safe-rollout", safeRolloutSnapshotRouter);
 
 // Visual Changesets
 app.post(
