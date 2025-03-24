@@ -4,7 +4,7 @@ import type Stripe from "stripe";
 import pino from "pino";
 import { pick, sortBy } from "lodash";
 import AsyncLock from "async-lock";
-import { stringToBoolean } from "shared/util";
+import { parseProcessLogBase, stringToBoolean } from "shared/util";
 import { ProxyAgent } from "proxy-agent";
 import cloneDeep from "lodash/cloneDeep";
 import { getLicenseByKey, LicenseModel } from "./models/licenseModel";
@@ -17,7 +17,11 @@ export const LICENSE_SERVER_URL =
 // mimic behavior in back-end/src/util/secrets.ts
 const APP_ORIGIN = process.env.APP_ORIGIN || "http://localhost:3000";
 
-const logger = pino();
+const logBase = parseProcessLogBase();
+
+const logger = pino({
+  ...logBase,
+});
 
 export type AccountPlan = "oss" | "starter" | "pro" | "pro_sso" | "enterprise";
 const accountPlans: Set<AccountPlan> = new Set([
@@ -101,14 +105,12 @@ function getStripeSubscriptionStatus(
 export function getSubscriptionFromLicense(
   license: Partial<LicenseInterface>
 ): SubscriptionInfo | null {
-  const sub =
-    license.billingPlatform === "orb"
-      ? license.orbSubscription
-      : license.stripeSubscription;
+  const sub = license.orbSubscription || license.stripeSubscription;
+
   if (!sub) return null;
 
   return {
-    billingPlatform: license.billingPlatform || "stripe",
+    billingPlatform: license.orbSubscription ? "orb" : "stripe",
     externalId: sub.id,
     trialEnd: sub.trialEnd,
     status: getStripeSubscriptionStatus(sub.status),
@@ -141,7 +143,6 @@ export interface LicenseInterface {
     tooltipText: string; // The text to show in the tooltip
     showAllUsers: boolean; // True if all users should see the notice rather than just the admins
   };
-  billingPlatform: "stripe" | "orb" | "";
   stripeSubscription?: {
     id: string;
     qty: number;
@@ -621,6 +622,44 @@ export async function postNewProSubscriptionToLicenseServer(
       name,
       seats,
       returnUrl,
+    })
+  );
+}
+
+export async function postNewInlineSubscriptionToLicenseServer(
+  organizationId: string,
+  nonInviteSeatQty: number
+) {
+  const url = `${LICENSE_SERVER_URL}subscription/start-new-pro`;
+  const license = await callLicenseServer(
+    url,
+    JSON.stringify({
+      cloudSecret: process.env.CLOUD_SECRET,
+      organizationId,
+      nonInviteSeatQty,
+    })
+  );
+
+  verifyAndSetServerLicenseData(license);
+  return license;
+}
+
+export async function postNewProSubscriptionIntentToLicenseServer(
+  organizationId: string,
+  companyName: string,
+  ownerEmail: string,
+  name: string
+) {
+  const url = `${LICENSE_SERVER_URL}subscription/setup-subscription-intent`;
+  return await callLicenseServer(
+    url,
+    JSON.stringify({
+      appOrigin: APP_ORIGIN,
+      cloudSecret: process.env.CLOUD_SECRET,
+      organizationId,
+      companyName,
+      ownerEmail,
+      name,
     })
   );
 }
