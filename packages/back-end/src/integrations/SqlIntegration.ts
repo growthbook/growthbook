@@ -2039,7 +2039,7 @@ export default abstract class SqlIntegration
     )`;
   }
 
-  getBanditWeightCTE(
+  getBanditWeightCaseWhen(
     banditSettings: SnapshotBanditSettings,
     variations: SnapshotSettingsVariation[]
   ): string | undefined {
@@ -2065,19 +2065,17 @@ export default abstract class SqlIntegration
     }
 
     return `
-    , __weightsByBanditPeriod AS (
-      SELECT
-        ${variationPeriodWeights
-          .map(
-            (w) => `
-          '${w.weight}' as weight
-          , ${this.toTimestamp(w.date)} as bandit_period
-          , '${w.variationId}' as variation
-        `
-          )
-          .join(",")}
-      )
-    `;
+        CASE
+          ${variationPeriodWeights
+            .map((w) => {
+              return `WHEN variation = '${
+                w.variationId
+              }' AND bandit_period = ${this.toTimestamp(w.date)} THEN ${
+                w.weight
+              }`;
+            })
+            .join("\n")}
+        END AS weight`;
   }
 
   getExperimentAggregateUnitsQuery(
@@ -2103,8 +2101,11 @@ export default abstract class SqlIntegration
     const banditDates = settings.banditSettings?.historicalWeights.map(
       (w) => w.date
     );
-    const banditWeightCTE = settings.banditSettings
-      ? this.getBanditWeightCTE(settings.banditSettings, settings.variations)
+    const banditWeightCaseWhen = settings.banditSettings
+      ? this.getBanditWeightCaseWhen(
+          settings.banditSettings,
+          settings.variations
+        )
       : undefined;
 
     // Get any required identity join queries
@@ -2145,7 +2146,7 @@ export default abstract class SqlIntegration
           , ${this.formatDate(
             this.dateTrunc("first_exposure_timestamp")
           )} AS dim_exposure_date
-          ${banditDates ? `, ${this.getBanditCaseWhen(banditDates)}` : ""}
+          ${banditDates ? `${this.getBanditCaseWhen(banditDates)}` : ""}
           ${experimentDimensions.map((d) => `, dim_exp_${d.id}`).join("\n")}
           ${
             activationMetric
@@ -2173,24 +2174,25 @@ export default abstract class SqlIntegration
               activationMetric && d !== "dim_activated"
                 ? "WHERE dim_activated = 'Activated'"
                 : "",
-              !!banditDates && !!banditWeightCTE
+              !!banditDates && !!banditWeightCaseWhen
             )
           )
           .join("\nUNION ALL\n")}
       )
       ${
-        banditDates && banditWeightCTE
+        banditDates && banditWeightCaseWhen
           ? `
-        , ${banditWeightCTE}
         , __unitsByVariationBanditPeriod AS (
           SELECT
             d.variation AS variation
             , d.bandit_period AS bandit_period
+            , ${banditWeightCaseWhen}
             , COUNT(*) AS units
-          FROM__distinctUnits d
+          FROM __distinctUnits d
           GROUP BY
             d.variation
             , d.bandit_period
+            , weight
         )
         , __totalUnitsByBanditPeriod AS (
           SELECT
@@ -2203,11 +2205,10 @@ export default abstract class SqlIntegration
         , __expectedUnitsByVariationBanditPeriod AS (
           SELECT
             u.variation AS variation
+            , MAX('') AS constant
             , SUM(u.units) AS units
-            , SUM(t.total_units * w.weight) AS expected_units
+            , SUM(t.total_units * u.weight) AS expected_units
           FROM __unitsByVariationBanditPeriod u
-          LEFT JOIN __weightsByBanditPeriod w 
-            ON (w.variation = u.variation AND w.bandit_period = u.bandit_period)
           LEFT JOIN __totalUnitsByBanditPeriod t
             ON (t.bandit_period = u.bandit_period)
           GROUP BY
@@ -2216,31 +2217,32 @@ export default abstract class SqlIntegration
         , __banditSrm AS (
           SELECT
             MAX('') AS variation
-            , MAX('${BANDIT_SRM_DIMENSION_NAME}') AS dimension_name,
+            , MAX('${BANDIT_SRM_DIMENSION_NAME}') AS dimension_name
             , MAX('') AS dimension_value
             , SUM(POW(expected_units - units, 2) / expected_units) AS units
-          FROM __expectedUnitsByVariationBanditPeriod u
+          FROM __expectedUnitsByVariationBanditPeriod
           GROUP BY
-            ''
+            constant
+        ),
+        __unitsByDimensionWithBanditSrm AS (
+          SELECT
+            *
+          FROM __unitsByDimension
+          UNION ALL
+          SELECT
+            *
+          FROM __banditSrm
         )
       `
           : ""
       }
 
       ${this.selectStarLimit(
-        "__unitsByDimension",
+        banditDates && banditWeightCaseWhen
+          ? "__unitsByDimensionWithBanditSrm"
+          : "__unitsByDimension",
         MAX_ROWS_UNIT_AGGREGATE_QUERY
       )}
-      ${
-        banditDates && banditWeightCTE
-          ? `
-        UNION ALL
-        SELECT
-          *
-        FROM __banditSrm
-      `
-          : ""
-      }
     `,
       this.getFormatDialect()
     );
