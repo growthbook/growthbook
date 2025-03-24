@@ -65,8 +65,9 @@ export default function SubscriptionInfo() {
               {subscription?.nextBillDate}.
             </p>
             <Callout status="warning">
-              You account can still acrue CDN usage charges. If you&apos;d like
-              to prevent that, you can disable live feature flags.
+              You account can still accrue CDN usage charges. If you&apos;d like
+              to prevent that, you can remove Growthbook SDK from your code
+              base.
             </Callout>
           </>
         </Modal>
