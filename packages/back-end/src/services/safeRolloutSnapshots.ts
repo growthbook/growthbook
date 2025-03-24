@@ -38,7 +38,10 @@ import {
 import { MetricSnapshotSettings } from "back-end/types/report";
 import { MetricInterface } from "back-end/types/metric";
 import { getMetricMap } from "back-end/src/models/MetricModel";
-import { SafeRolloutRule } from "back-end/src/validators/features";
+import {
+  FeatureInterface,
+  SafeRolloutRule,
+} from "back-end/src/validators/features";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
@@ -49,6 +52,7 @@ import {
 } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { CreateProps } from "back-end/src/models/BaseModel";
+import { updateFeature } from "back-end/src/models/FeatureModel";
 import { determineNextDate, isJoinableMetric } from "./experiments";
 import { getSourceIntegrationObject } from "./datasource";
 
@@ -326,6 +330,7 @@ export async function createSnapshot({
   settingsForSnapshotMetrics,
   metricMap,
   factTableMap,
+  feature,
 }: {
   experiment: SafeRolloutRule;
   context: ReqContext | ApiReqContext;
@@ -335,6 +340,7 @@ export async function createSnapshot({
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
+  feature: FeatureInterface;
 }): Promise<SafeRolloutResultsQueryRunner> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
@@ -357,7 +363,7 @@ export async function createSnapshot({
   });
 
   const data: CreateProps<SafeRolloutSnapshotInterface> = {
-    featureId: experiment.id, // TODO: replace with actual feature id
+    featureId: feature.id, // TODO: replace with actual feature id
     safeRolloutRuleId: experiment.id,
     runStarted: new Date(),
     error: "",
@@ -380,17 +386,16 @@ export async function createSnapshot({
   const nextUpdate = determineNextDate(
     organization.settings?.updateSchedule || null
   );
-
   // TODO: Update safe rollout rule once we have a helper function to do so
-  // await updateExperiment({
-  //   context,
-  //   experiment,
-  //   changes: {
-  //     lastSnapshotAttempt: new Date(),
-  //     ...(nextUpdate ? { nextSnapshotAttempt: nextUpdate } : {}),
-  //     autoSnapshots: nextUpdate !== null,
-  //   },
-  // });
+  await updateFeature({
+    context,
+    feature,
+    changes: {
+      lastSnapshotAttempt: new Date(),
+      ...(nextUpdate ? { nextSnapshotAttempt: nextUpdate } : {}),
+      autoSnapshots: nextUpdate !== null,
+    },
+  });
 
   const snapshot = await context.models.safeRolloutSnapshots.create(data);
 

@@ -8,6 +8,10 @@ export type DifferenceType = "relative" | "absolute" | "scaled";
 
 export type RiskType = "relative" | "absolute";
 
+export type PValueErrorMessage =
+  | "NUMERICAL_PVALUE_NOT_CONVERGED"
+  | "ALPHA_GREATER_THAN_0.5_FOR_SEQUENTIAL_ONE_SIDED_TEST";
+
 interface BaseVariationResponse {
   cr: number;
   value: number;
@@ -20,7 +24,7 @@ interface BaseVariationResponse {
     mean?: number;
     stddev?: number;
   };
-  ci?: [number, number];
+  ci?: [number?, number?];
   errorMessage?: string;
   power?: MetricPowerResponseFromStatsEngine;
 }
@@ -33,6 +37,7 @@ interface BayesianVariationResponse extends BaseVariationResponse {
 
 interface FrequentistVariationResponse extends BaseVariationResponse {
   pValue?: number;
+  pValueErrorMessage?: PValueErrorMessage;
 }
 
 // Keep in sync with gbstats PowerResponse
