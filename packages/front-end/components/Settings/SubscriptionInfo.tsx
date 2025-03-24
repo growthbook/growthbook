@@ -27,6 +27,12 @@ export default function SubscriptionInfo() {
   const subscriptionSeats =
     subscription?.billingPlatform === "orb" ? users.size : seatsInUse;
 
+  const hasActiveOrbSubscription =
+    subscription?.billingPlatform === "orb" &&
+    subscription?.status === "active" &&
+    subscription?.nextBillDate &&
+    !subscription?.pendingCancelation;
+
   return (
     <div className="p-3">
       {upgradeModal && (
@@ -170,10 +176,7 @@ export default function SubscriptionInfo() {
             </button>
           </div>
         )}
-        {subscription?.billingPlatform === "orb" &&
-        subscription?.status === "active" &&
-        subscription?.nextBillDate &&
-        !subscription?.pendingCancelation ? (
+        {hasActiveOrbSubscription ? (
           <Button
             onClick={() => setCancelSubscriptionModal(true)}
             color="danger"
