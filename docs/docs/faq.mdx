@@ -135,13 +135,6 @@ const growthbook = new GrowthBook({
   enableDevMode: true,
 })
 ```
-## Are users counted multiple times in the experiment results?
-
-Deduplication ensures that each user is included only once in an experiment, even if they meet the eligibility criteria multiple times. This helps maintain accurate results and preserves data integrity.
-
-GrowthBook achieves deduplication by assigning a unique identifier (such as a `userID` or `sessionID`) to each user. When analyzing experiment data, it records only the first instance of a user’s exposure, preventing duplicate attributions.
-
-If a user participates in an experiment more than once (e.g., revisits the site multiple times), GrowthBook will count only their first recorded exposure.
 
 ### How do I use the DevTools browser extension?
 
@@ -252,6 +245,14 @@ You can [download this from PyPI](https://pypi.org/project/gbstats) using `pip i
 Go to **Settings** → **General** → **Experiment Settings**. Change the **Experiment Auto-Update Frequency** field to the desired values. Save your changes.
 
 ![Setting to update experiment data refresh](/images/experiment-refresh.png)
+
+### Are users counted multiple times in the experiment results?
+
+Deduplication ensures that each user is included only once in an experiment, even if they meet the eligibility criteria multiple times. This helps maintain accurate results and preserves data integrity.
+
+GrowthBook achieves deduplication by assigning a unique identifier (such as a `userID` or `sessionID`) to each user. When analyzing experiment data, it records only the first instance of a user’s exposure, preventing duplicate attributions.
+
+If a user participates in an experiment more than once (e.g., revisits the site multiple times), GrowthBook will count only their first recorded exposure.
 
 ## Other
 
