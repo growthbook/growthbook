@@ -19,11 +19,17 @@ import {
   DecisionCriteriaInterface,
   DecisionCriteriaRule,
   DecisionFrameworkExperimentRecommendationStatus,
-  ExperimentAnalysisSummaryResultsStatus,
   ExperimentAnalysisSummaryVariationStatus,
+  ExperimentAnalysisSummaryResultsStatus,
+  ExperimentHealthSettings,
   ExperimentInterface,
   ExperimentInterfaceStringDates,
+  ExperimentDataForStatus,
   MetricOverride,
+  ExperimentResultStatusData,
+  ExperimentUnhealthyData,
+  ExperimentDataForStatusStringDates,
+  DecisionCriteriaData,
 } from "back-end/types/experiment";
 import { MetricSnapshotSettings } from "back-end/types/report";
 import cloneDeep from "lodash/cloneDeep";
@@ -36,10 +42,20 @@ import { StatsEngine } from "back-end/types/stats";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import uniqid from "uniqid";
 import {
+  DEFAULT_DECISION_FRAMEWORK_ENABLED,
+  DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
+  DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
+  DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+  DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
+  DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+  DEFAULT_SRM_THRESHOLD,
 } from "./constants";
+import { daysBetween } from "./dates";
+import { getMultipleExposureHealthData, getSRMHealthData } from "./health";
+import { DEFAULT_DECISION_CRITERIA } from "./enterprise";
 
 export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
 
@@ -877,23 +893,6 @@ export function isMetricJoinable(
   return false;
 }
 
-// TODO remove when we land edf-notifs
-export type ExperimentUnhealthyData = {
-  // if key exists, the status is unhealthy
-  srm?: boolean;
-  multipleExposures?: { rawDecimal: number; totalUsers: number };
-  lowPowered?: boolean;
-};
-
-export type ExperimentResultStatus =
-  | DecisionFrameworkExperimentRecommendationStatus
-  | { status: "no-data" }
-  | { status: "unhealthy"; unhealthyData: ExperimentUnhealthyData }
-  | { status: "before-min-duration" };
-
-export type ExperimentResultStatusData = ExperimentResultStatus & {
-  tooltip?: string;
-};
 
 export function evaluateDecisionRuleOnVariation({
   rule,
@@ -927,15 +926,15 @@ export function evaluateDecisionRuleOnVariation({
         : "status";
       if (condition.match === "all") {
         return metrics.every(
-          (m) => metricResults[m]?.[fieldToCheck] === desiredStatus
+          (m) => metricResults?.[m]?.[fieldToCheck] === desiredStatus
         );
       } else if (condition.match === "any") {
         return metrics.some(
-          (m) => metricResults[m]?.[fieldToCheck] === desiredStatus
+          (m) => metricResults?.[m]?.[fieldToCheck] === desiredStatus
         );
       } else if (condition.match === "none") {
         return metrics.every(
-          (m) => metricResults[m]?.[fieldToCheck] !== desiredStatus
+          (m) => metricResults?.[m]?.[fieldToCheck] !== desiredStatus
         );
       }
     } else if (condition.metrics === "guardrails") {
@@ -944,11 +943,11 @@ export function evaluateDecisionRuleOnVariation({
 
       // TODO trending loser
       if (condition.match === "all") {
-        return metrics.every((m) => metricResults[m]?.status === desiredStatus);
-      } else if (condition.match === "any") {
-        return metrics.some((m) => metricResults[m]?.status === desiredStatus);
+        return metrics.every((m) => metricResults?.[m]?.status === desiredStatus);
+      } else if (condition.match === "any") { 
+        return metrics.some((m) => metricResults?.[m]?.status === desiredStatus);
       } else if (condition.match === "none") {
-        return metrics.every((m) => metricResults[m]?.status !== desiredStatus);
+        return metrics.every((m) => metricResults?.[m]?.status !== desiredStatus);
       }
     }
   });
@@ -1005,15 +1004,34 @@ export function getVariationDecisions({
 
   return results;
 }
+  
+export function getHealthSettings(
+  settings?: OrganizationSettings,
+  hasDecisionFramework?: boolean
+): ExperimentHealthSettings {
+  return {
+    decisionFrameworkEnabled:
+      (settings?.decisionFrameworkEnabled ??
+        DEFAULT_DECISION_FRAMEWORK_ENABLED) &&
+      !!hasDecisionFramework,
+    experimentMinLengthDays:
+      settings?.experimentMinLengthDays ?? DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
+    srmThreshold: settings?.srmThreshold ?? DEFAULT_SRM_THRESHOLD,
+    multipleExposureMinPercent:
+      settings?.multipleExposureMinPercent ??
+      DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
+  };
+}
 
 export function getDecisionFrameworkStatus({
   resultsStatus,
+  decisionCriteria,
   goalMetrics,
   guardrailMetrics,
   daysNeeded,
 }: {
   resultsStatus: ExperimentAnalysisSummaryResultsStatus;
-  decisionCriteria: DecisionCriteriaInterface;
+  decisionCriteria?: DecisionCriteriaData;
   goalMetrics: string[];
   guardrailMetrics: string[];
   daysNeeded?: number;
@@ -1031,6 +1049,17 @@ export function getDecisionFrameworkStatus({
   let hasSuperStatsigWinnerWithGuardrailFailure = false;
   let nVariationsLosing = 0;
   let nVariationsWithSuperStatSigLoser = 0;
+
+  const usedDecisionCriteria = decisionCriteria ?? DEFAULT_DECISION_CRITERIA;
+
+  const variationDecisions = getVariationDecisions({
+    resultsStatus,
+    decisionCriteria,
+    goalMetrics,
+    guardrailMetrics,
+    requireSuperStatSig: false
+  });
+
   // if any variation is a clear winner with no guardrail issues, ship now
   for (const variationResult of resultsStatus.variations) {
     const allSuperStatSigWon = goalMetrics.every(
@@ -1141,5 +1170,171 @@ export function getDecisionFrameworkStatus({
       status: "ready-for-review",
       tooltip: `The experiment has reached the target statistical power, but does not have conclusive results.`,
     };
+  }
+}
+
+function getDaysLeftStatus({
+  daysNeeded,
+}: {
+  daysNeeded: number;
+}): DecisionFrameworkExperimentRecommendationStatus | undefined {
+  // TODO: Right now midExperimentPowerEnable is controlling the whole "Days Left" status
+  // but we should probably split it when considering Experiment Runtime length without power
+  if (daysNeeded > 0) {
+    return {
+      status: "days-left",
+      daysLeft: daysNeeded,
+    };
+  }
+}
+
+export function getExperimentResultStatus({
+  experimentData,
+  healthSettings,
+}: {
+  experimentData: ExperimentDataForStatus | ExperimentDataForStatusStringDates;
+  healthSettings: ExperimentHealthSettings;
+}): ExperimentResultStatusData | undefined {
+  const unhealthyData: ExperimentUnhealthyData = {};
+  const healthSummary = experimentData.analysisSummary?.health;
+  const resultsStatus = experimentData.analysisSummary?.resultsStatus;
+
+  const lastPhase = experimentData.phases[experimentData.phases.length - 1];
+
+  const beforeMinDuration =
+    lastPhase?.dateStarted &&
+    daysBetween(lastPhase.dateStarted, new Date()) <
+      healthSettings.experimentMinLengthDays;
+
+  const withinFirstDay = lastPhase?.dateStarted
+    ? daysBetween(lastPhase.dateStarted, new Date()) < 1
+    : false;
+
+  const isLowPowered =
+    healthSummary?.power?.type === "success"
+      ? healthSummary.power.isLowPowered
+      : undefined;
+  const daysNeeded =
+    healthSummary?.power?.type === "success"
+      ? healthSummary.power.additionalDaysNeeded
+      : undefined;
+
+  const decisionStatus = resultsStatus
+    ? getDecisionFrameworkStatus({
+        resultsStatus,
+        decisionCriteria: experimentData.decisionCriteria,
+        goalMetrics: experimentData.goalMetrics,
+        guardrailMetrics: experimentData.guardrailMetrics,
+        daysNeeded,
+      })
+    : undefined;
+
+  const daysLeftStatus = daysNeeded
+    ? getDaysLeftStatus({ daysNeeded })
+    : undefined;
+
+  if (healthSummary?.totalUsers) {
+    const srmHealthData = getSRMHealthData({
+      srm: healthSummary.srm,
+      srmThreshold: healthSettings.srmThreshold,
+      totalUsersCount: healthSummary.totalUsers,
+      numOfVariations: experimentData.variations.length,
+      minUsersPerVariation:
+        experimentData.type === "multi-armed-bandit"
+          ? DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION
+          : DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+    });
+
+    if (srmHealthData === "unhealthy") {
+      unhealthyData.srm = true;
+    }
+
+    const multipleExposuresHealthData = getMultipleExposureHealthData({
+      multipleExposuresCount: healthSummary.multipleExposures,
+      totalUsersCount: healthSummary.totalUsers,
+      minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
+      minPercentThreshold: healthSettings.multipleExposureMinPercent,
+    });
+
+    if (multipleExposuresHealthData.status === "unhealthy") {
+      unhealthyData.multipleExposures = {
+        rawDecimal: multipleExposuresHealthData.rawDecimal,
+        multipleExposedUsers: healthSummary.multipleExposures,
+      };
+    }
+
+    if (
+      isLowPowered &&
+      healthSettings.decisionFrameworkEnabled &&
+      // override low powered status if shipping criteria are ready
+      // or before min duration
+      !decisionStatus &&
+      !beforeMinDuration &&
+      // ignore if user has dismissed the warning
+      !experimentData.dismissedWarnings?.includes("low-power")
+    ) {
+      unhealthyData.lowPowered = true;
+    }
+  }
+
+  const unhealthyStatuses = [
+    ...(unhealthyData.srm ? ["SRM"] : []),
+    ...(unhealthyData.multipleExposures ? ["Multiple exposures"] : []),
+    ...(unhealthyData.lowPowered ? ["Low powered"] : []),
+  ];
+  // 1. Always show unhealthy status if they exist
+  if (unhealthyStatuses.length > 0) {
+    return {
+      status: "unhealthy",
+      unhealthyData: unhealthyData,
+      tooltip: unhealthyStatuses.join(", "),
+    };
+  }
+
+  // 2. Show no data if no data is present
+  if (healthSummary?.totalUsers === 0 && !withinFirstDay) {
+    return {
+      status: "no-data",
+    };
+  }
+
+  // 2.5 - No data source configured for experiment
+  if (!experimentData.datasource) {
+    return {
+      status: "no-data",
+      tooltip: "No data source configured for experiment",
+    };
+  }
+
+  // 2.6 - No metrics configured for experiment
+  if (
+    !experimentData.goalMetrics?.length &&
+    !experimentData.secondaryMetrics?.length &&
+    !experimentData.guardrailMetrics?.length
+  ) {
+    return {
+      status: "no-data",
+      tooltip: "No metrics configured for experiment yet",
+    };
+  }
+
+  // 3. If early in the experiment, just say running with a tooltip
+  if (beforeMinDuration) {
+    return {
+      status: "before-min-duration",
+      tooltip: `Estimated days left or decision recommendations will appear after the minimum experiment duration of ${healthSettings.experimentMinLengthDays} is reached.`,
+    };
+  }
+
+  if (healthSettings.decisionFrameworkEnabled) {
+    // 4. if clear shipping status, show it
+    if (decisionStatus) {
+      return decisionStatus;
+    }
+
+    // 5. If no unhealthy status or clear shipping criteria, show days left data
+    if (daysLeftStatus) {
+      return daysLeftStatus;
+    }
   }
 }
