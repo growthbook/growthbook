@@ -928,7 +928,7 @@ export function evaluateFeature({
       });
 
       if (definition) {
-        // Prerequisiteda scrubbing:
+        // Prerequisite scrubbing:
         const rulesWithPrereqs: FeatureDefinitionRule[] = [];
         if (scrubPrerequisites) {
           definition.rules = definition.rules
