@@ -4,17 +4,34 @@ import { redirectWithTimeout, useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
+import { planNameFromAccountPlan } from "@/services/utils";
+import Modal from "../Modal";
+import Callout from "../Radix/Callout";
 import UpgradeModal from "./UpgradeModal";
 
 export default function SubscriptionInfo() {
   const { apiCall } = useAuth();
-  const { subscription, seatsInUse, canSubscribe, users } = useUser();
+  const {
+    subscription,
+    seatsInUse,
+    canSubscribe,
+    accountPlan,
+    users,
+    refreshOrganization,
+  } = useUser();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
+  const [cancelSubscriptionModal, setCancelSubscriptionModal] = useState(false);
 
   // Orb subscriptions only count members, not members + invites like Stripe Subscriptions
   const subscriptionSeats =
     subscription?.billingPlatform === "orb" ? users.size : seatsInUse;
+
+  const hasActiveOrbSubscription =
+    subscription?.billingPlatform === "orb" &&
+    subscription?.status === "active" &&
+    subscription?.nextBillDate &&
+    !subscription?.pendingCancelation;
 
   return (
     <div className="p-3">
@@ -25,6 +42,35 @@ export default function SubscriptionInfo() {
           source="billing-renew"
           commercialFeature={null}
         />
+      )}
+      {cancelSubscriptionModal && (
+        <Modal
+          open={true}
+          header="Are you sure you want to cancel?"
+          trackingEventModalType="cancel-subscription"
+          close={() => setCancelSubscriptionModal(false)}
+          cta="Yes, Cancel Subscription"
+          closeCta="Keep Subscription"
+          submitColor="danger"
+          submit={async () => {
+            await apiCall("/subscription/cancel", { method: "POST" });
+            refreshOrganization();
+          }}
+        >
+          <>
+            <p>
+              If you cancel, you will continue to have access to your
+              <strong> {planNameFromAccountPlan(accountPlan)} Plan </strong>
+              features until your current billing period ends on{" "}
+              {subscription?.nextBillDate}.
+            </p>
+            <Callout status="warning">
+              You account can still accrue CDN usage charges. If you&apos;d like
+              to prevent that, you can remove Growthbook SDK from your code
+              base.
+            </Callout>
+          </>
+        </Modal>
       )}
       <div className="col-auto mb-3">
         <strong>Current Plan:</strong> {isCloud() ? "Cloud" : "Self-Hosted"} Pro
@@ -131,6 +177,14 @@ export default function SubscriptionInfo() {
             </button>
           </div>
         )}
+        {hasActiveOrbSubscription ? (
+          <Button
+            onClick={() => setCancelSubscriptionModal(true)}
+            color="danger"
+          >
+            Cancel Subscription
+          </Button>
+        ) : null}
       </div>
     </div>
   );
