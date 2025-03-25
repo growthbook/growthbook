@@ -6,13 +6,14 @@ import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PaymentInfo from "@/enterprise/components/Billing/PaymentInfo";
+import OrbPortal from "@/enterprise/components/Billing/OrbPortal";
 
 const BillingPage: FC = () => {
   const [upgradeModal, setUpgradeModal] = useState(false);
 
   const permissionsUtil = usePermissionsUtil();
 
-  const { accountPlan, subscription, canSubscribe } = useUser();
+  const { accountPlan, subscription, canSubscribe, organization } = useUser();
 
   const { apiCall } = useAuth();
   const { refreshOrganization } = useUser();
@@ -72,13 +73,10 @@ const BillingPage: FC = () => {
           commercialFeature={null}
         />
       )}
-      <h1>Billing Settings</h1>
+      <h1>Plan Info</h1>
       <div className="appbox p-3 border">
         {subscription?.status ? (
-          <>
-            <PaymentInfo />
-            <SubscriptionInfo />
-          </>
+          <SubscriptionInfo />
         ) : canSubscribe ? (
           <div className="bg-white p-3">
             <div className="alert alert-warning mb-0">
@@ -105,6 +103,15 @@ const BillingPage: FC = () => {
           </p>
         )}
       </div>
+      {subscription?.status && organization.id ? (
+        <>
+          <PaymentInfo />
+          <div className="p-3 app-box border">
+            <h3>Invoices & Usage</h3>
+            <OrbPortal orgId={organization.id} />
+          </div>
+        </>
+      ) : null}
     </div>
   );
 };
