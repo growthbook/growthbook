@@ -22,6 +22,7 @@ const env: EnvironmentInitValue = {
   superadminDefaultRole: "readonly",
   ingestorOverride: "",
   stripePublishableKey: "",
+  orbToken: "",
 };
 
 export async function initEnv() {
@@ -107,4 +108,8 @@ export function getIngestorHost() {
 
 export function getStripePublishableKey() {
   return env.stripePublishableKey;
+}
+
+export function getOrbToken() {
+  return env.orbToken;
 }

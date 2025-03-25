@@ -2,24 +2,27 @@ import useSWR from "swr";
 import { useUser } from "@/services/UserContext";
 import Callout from "@/components/Radix/Callout";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import { getOrbToken } from "@/services/env";
 
-const fetcher = (url: string) =>
+const fetcher = (url: string, orbToken: string) =>
   fetch(url, {
     headers: {
-      Authorization: `Bearer ${process.env.NEXT_PUBLIC_ORB_API_KEY}`,
+      Authorization: `Bearer ${orbToken}`,
     },
   }).then((res) => res.json());
-const useOrbCustomerData = (organizationId: string) => {
+
+const useOrbCustomerData = (organizationId: string, orbToken: string) => {
   return useSWR(
     organizationId
       ? `https://api.withorb.com/v1/customers/external_customer_id/${organizationId}`
       : null,
-    fetcher
+    (url) => fetcher(url, orbToken)
   );
 };
 
 export default function OrbPortal({ orgId }: { orgId: string }) {
-  const { data, error, isLoading } = useOrbCustomerData(orgId);
+  const orbToken = getOrbToken();
+  const { data, error, isLoading } = useOrbCustomerData(orgId, orbToken);
   const { subscription } = useUser();
 
   if (subscription?.billingPlatform !== "orb" || !orgId) return null;
