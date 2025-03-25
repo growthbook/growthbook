@@ -322,7 +322,7 @@ rpds-py==0.20.1 ; python_version >= "3.8" and python_version < "4.0" \
     --hash=sha256:fa41a64ac5b08b292906e248549ab48b69c5428f3987b09689ab2441f267d04d \
     --hash=sha256:fbf15aff64a163db29a91ed0868af181d6f68ec1a3a7d5afcfe4501252840bad \
     --hash=sha256:fe00a9057d100e69b4ae4a094203a708d65b0f345ed546fdef86498bf5390982
-scipy==1.9.3 ; python_version >= "3.8" and python_version < "4.0" \
+scipy==1.10.0rc1 ; python_version >= "3.8" and python_version < "4.0" \
     --hash=sha256:06d2e1b4c491dc7d8eacea139a1b0b295f74e1a1a0f704c375028f8320d16e31 \
     --hash=sha256:0d54222d7a3ba6022fdf5773931b5d7c56efe41ede7f7128c7b1637700409108 \
     --hash=sha256:1884b66a54887e21addf9c16fb588720a8309a57b2e258ae1c7986d4444d3bc0 \
