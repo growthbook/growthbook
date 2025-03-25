@@ -784,11 +784,11 @@ def preprocess_bandits(
         inverse=metric.inverse,
     )
     if isinstance(bandit_stats[0], RatioStatistic):
-        return BanditsRatio(bandit_stats, bandit_settings.historical_weights, bandit_settings.current_weights, bandit_config)  # type: ignore
+        return BanditsRatio(bandit_stats, bandit_settings.current_weights, bandit_config)  # type: ignore
     elif isinstance(bandit_stats[0], RegressionAdjustedStatistic):
-        return BanditsCuped(bandit_stats, bandit_settings.historical_weights, bandit_settings.current_weights, bandit_config)  # type: ignore
+        return BanditsCuped(bandit_stats, bandit_settings.current_weights, bandit_config)  # type: ignore
     else:
-        return BanditsSimple(bandit_stats, bandit_settings.historical_weights, bandit_settings.current_weights, bandit_config)  # type: ignore
+        return BanditsSimple(bandit_stats, bandit_settings.current_weights, bandit_config)  # type: ignore
 
 
 def get_bandit_result(
