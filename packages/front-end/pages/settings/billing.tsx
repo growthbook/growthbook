@@ -103,13 +103,15 @@ const BillingPage: FC = () => {
           </p>
         )}
       </div>
-      {subscription?.status && organization.id ? (
+      {subscription?.status ? (
         <>
           <PaymentInfo />
-          <div className="p-3 app-box border">
-            <h3>Invoices & Usage</h3>
-            <OrbPortal orgId={organization.id} />
-          </div>
+          {organization.id && subscription.status === "active" ? (
+            <div className="p-3 app-box border">
+              <h3>Invoices & Usage</h3>
+              <OrbPortal orgId={organization.id} />
+            </div>
+          ) : null}
         </>
       ) : null}
     </div>
