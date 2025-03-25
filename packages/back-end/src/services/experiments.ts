@@ -582,7 +582,6 @@ export async function createManualSnapshot({
   orgPriorSettings,
   analysisSettings,
   metricMap,
-  context,
 }: {
   experiment: ExperimentInterface;
   phaseIndex: number;
@@ -593,7 +592,6 @@ export async function createManualSnapshot({
   orgPriorSettings: MetricPriorSettings | undefined;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
   metricMap: Map<string, ExperimentMetricInterface>;
-  context: Context;
 }) {
   const snapshotSettings = getSnapshotSettings({
     experiment,
@@ -646,7 +644,7 @@ export async function createManualSnapshot({
     triggeredBy: "manual",
   };
 
-  return await createExperimentSnapshotModel({ data, context });
+  return await createExperimentSnapshotModel({ data });
 }
 
 export async function parseDimensionId(
@@ -1062,7 +1060,7 @@ export async function createSnapshot({
     });
   }
 
-  const snapshot = await createExperimentSnapshotModel({ data, context });
+  const snapshot = await createExperimentSnapshotModel({ data });
 
   const integration = getSourceIntegrationObject(context, datasource, true);
 
@@ -2348,7 +2346,7 @@ export const toNamespaceRange = (
 export function postExperimentApiPayloadToInterface(
   payload: z.infer<typeof postExperimentValidator.bodySchema>,
   organization: OrganizationInterface,
-  datasource: DataSourceInterface
+  datasource: DataSourceInterface | null
 ): Omit<ExperimentInterface, "dateCreated" | "dateUpdated" | "id"> {
   const phases: ExperimentPhase[] = payload.phases?.map((p) => {
     const conditionRes = validateCondition(p.condition);
@@ -2397,7 +2395,7 @@ export function postExperimentApiPayloadToInterface(
 
   return {
     organization: organization.id,
-    datasource: datasource.id,
+    datasource: datasource?.id ?? "",
     archived: payload.archived ?? false,
     hashAttribute: payload.hashAttribute ?? "",
     hashVersion: payload.hashVersion ?? 2,
@@ -2407,7 +2405,7 @@ export function postExperimentApiPayloadToInterface(
     trackingKey: payload.trackingKey || "",
     exposureQueryId:
       payload.assignmentQueryId ||
-      datasource.settings.queries?.exposure?.[0]?.id ||
+      datasource?.settings.queries?.exposure?.[0]?.id ||
       "",
     name: payload.name || "",
     phases,
@@ -2809,7 +2807,7 @@ export async function getChangesToStartExperiment(
   return changes;
 }
 
-export async function updateExperimentAnalysisSummary({
+export async function getExperimentAnalysisSummary({
   context,
   experiment,
   experimentSnapshot,
@@ -2817,7 +2815,7 @@ export async function updateExperimentAnalysisSummary({
   context: ReqContext;
   experiment: ExperimentInterface;
   experimentSnapshot: ExperimentSnapshotInterface;
-}) {
+}): Promise<ExperimentAnalysisSummary> {
   const analysisSummary: ExperimentAnalysisSummary = {
     snapshotId: experimentSnapshot.id,
   };
@@ -2842,7 +2840,7 @@ export async function updateExperimentAnalysisSummary({
 
   const srm = getSRMValue(experiment.type ?? "standard", experimentSnapshot);
 
-  if (overallTraffic && srm !== undefined) {
+  if (srm !== undefined) {
     analysisSummary.health = {
       srm,
       multipleExposures: experimentSnapshot.multipleExposures,
@@ -2888,7 +2886,25 @@ export async function updateExperimentAnalysisSummary({
     }
   }
 
-  await updateExperiment({
+  return analysisSummary;
+}
+
+export async function updateExperimentAnalysisSummary({
+  context,
+  experiment,
+  experimentSnapshot,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+  experimentSnapshot: ExperimentSnapshotInterface;
+}): Promise<ExperimentInterface> {
+  const analysisSummary = await getExperimentAnalysisSummary({
+    context,
+    experiment,
+    experimentSnapshot,
+  });
+
+  return updateExperiment({
     context,
     experiment,
     changes: {
@@ -2967,10 +2983,16 @@ async function computeResultsStatus({
           } else if (resultsStatus.resultsStatus === "lost") {
             metricStatus.superStatSigStatus = "lost";
           }
+          if (!variationStatus.goalMetrics) {
+            variationStatus.goalMetrics = {};
+          }
           variationStatus.goalMetrics[metric.id] = metricStatus;
         }
 
         if (guardrailMetric) {
+          if (!variationStatus.guardrailMetrics) {
+            variationStatus.guardrailMetrics = {};
+          }
           variationStatus.guardrailMetrics[metric.id] = {
             status: resultsStatus.resultsStatus === "lost" ? "lost" : "neutral",
           };

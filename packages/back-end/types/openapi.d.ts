@@ -711,6 +711,319 @@ export interface components {
         publishedBy: string;
       };
     };
+    FeatureWithRevisions: ({
+      id: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      archived: boolean;
+      description: string;
+      owner: string;
+      project: string;
+      /** @enum {string} */
+      valueType: "boolean" | "string" | "number" | "json";
+      defaultValue: string;
+      tags: (string)[];
+      environments: {
+        [key: string]: ({
+          enabled: boolean;
+          defaultValue: string;
+          rules: (({
+              description: string;
+              condition: string;
+              savedGroupTargeting?: ({
+                  /** @enum {string} */
+                  matchType: "all" | "any" | "none";
+                  savedGroups: (string)[];
+                })[];
+              id: string;
+              enabled: boolean;
+              /** @enum {string} */
+              type: "force";
+              value: string;
+            }) | ({
+              description: string;
+              condition: string;
+              savedGroupTargeting?: ({
+                  /** @enum {string} */
+                  matchType: "all" | "any" | "none";
+                  savedGroups: (string)[];
+                })[];
+              id: string;
+              enabled: boolean;
+              /** @enum {string} */
+              type: "rollout";
+              value: string;
+              coverage: number;
+              hashAttribute: string;
+            }) | {
+              description: string;
+              condition: string;
+              id: string;
+              enabled: boolean;
+              /** @enum {string} */
+              type: "experiment";
+              trackingKey?: string;
+              hashAttribute?: string;
+              fallbackAttribute?: string;
+              disableStickyBucketing?: boolean;
+              bucketVersion?: number;
+              minBucketVersion?: number;
+              namespace?: {
+                enabled: boolean;
+                name: string;
+                range: (number)[];
+              };
+              coverage?: number;
+              value?: ({
+                  value: string;
+                  weight: number;
+                  name?: string;
+                })[];
+            } | {
+              description: string;
+              id: string;
+              enabled: boolean;
+              /** @enum {string} */
+              type: "experiment-ref";
+              condition?: string;
+              variations: ({
+                  value: string;
+                  variationId: string;
+                })[];
+              experimentId: string;
+            } | ({
+              condition: string;
+              savedGroupTargeting?: ({
+                  /** @enum {string} */
+                  matchType: "all" | "any" | "none";
+                  savedGroups: (string)[];
+                })[];
+              id: string;
+              trackingKey?: string;
+              enabled: boolean;
+              /** @enum {string} */
+              type: "safe-rollout";
+              values?: ({
+                  value: string;
+                  weight: number;
+                  name?: string;
+                })[];
+              coverage: number;
+              hashAttribute: string;
+              /** @enum {string} */
+              status?: "running" | "released" | "rolled-back";
+            }))[];
+          /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
+          definition?: string;
+          draft?: {
+            enabled: boolean;
+            defaultValue: string;
+            rules: (({
+                description: string;
+                condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "force";
+                value: string;
+              }) | ({
+                description: string;
+                condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "rollout";
+                value: string;
+                coverage: number;
+                hashAttribute: string;
+              }) | {
+                description: string;
+                condition: string;
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "experiment";
+                trackingKey?: string;
+                hashAttribute?: string;
+                fallbackAttribute?: string;
+                disableStickyBucketing?: boolean;
+                bucketVersion?: number;
+                minBucketVersion?: number;
+                namespace?: {
+                  enabled: boolean;
+                  name: string;
+                  range: (number)[];
+                };
+                coverage?: number;
+                value?: ({
+                    value: string;
+                    weight: number;
+                    name?: string;
+                  })[];
+              } | {
+                description: string;
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "experiment-ref";
+                condition?: string;
+                variations: ({
+                    value: string;
+                    variationId: string;
+                  })[];
+                experimentId: string;
+              } | ({
+                condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                id: string;
+                trackingKey?: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "safe-rollout";
+                values?: ({
+                    value: string;
+                    weight: number;
+                    name?: string;
+                  })[];
+                coverage: number;
+                hashAttribute: string;
+                /** @enum {string} */
+                status?: "running" | "released" | "rolled-back";
+              }))[];
+            /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
+            definition?: string;
+          };
+        }) | undefined;
+      };
+      prerequisites?: ({
+          parentId: string;
+          parentCondition: string;
+        })[];
+      revision: {
+        version: number;
+        comment: string;
+        /** Format: date-time */
+        date: string;
+        publishedBy: string;
+      };
+    }) & ({
+      revisions?: ({
+          baseVersion: number;
+          version: number;
+          comment: string;
+          /** Format: date-time */
+          date: string;
+          status: string;
+          publishedBy?: string;
+          rules: {
+            [key: string]: ((({
+                description: string;
+                condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "force";
+                value: string;
+              }) | ({
+                description: string;
+                condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "rollout";
+                value: string;
+                coverage: number;
+                hashAttribute: string;
+              }) | {
+                description: string;
+                condition: string;
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "experiment";
+                trackingKey?: string;
+                hashAttribute?: string;
+                fallbackAttribute?: string;
+                disableStickyBucketing?: boolean;
+                bucketVersion?: number;
+                minBucketVersion?: number;
+                namespace?: {
+                  enabled: boolean;
+                  name: string;
+                  range: (number)[];
+                };
+                coverage?: number;
+                value?: ({
+                    value: string;
+                    weight: number;
+                    name?: string;
+                  })[];
+              } | {
+                description: string;
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "experiment-ref";
+                condition?: string;
+                variations: ({
+                    value: string;
+                    variationId: string;
+                  })[];
+                experimentId: string;
+              } | ({
+                condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                id: string;
+                trackingKey?: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "safe-rollout";
+                values?: ({
+                    value: string;
+                    weight: number;
+                    name?: string;
+                  })[];
+                coverage: number;
+                hashAttribute: string;
+                /** @enum {string} */
+                status?: "running" | "released" | "rolled-back";
+              }))[]) | undefined;
+          };
+          definitions?: {
+            [key: string]: string | undefined;
+          };
+        })[];
+    });
     FeatureEnvironment: {
       enabled: boolean;
       defaultValue: string;
@@ -1560,6 +1873,10 @@ export interface components {
         aggregation?: "sum" | "max" | "count distinct";
         /** @description Array of Fact Table Filter Ids */
         filters: (string)[];
+        /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
+        aggregateFilterColumn?: string;
+        /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
+        aggregateFilter?: string;
       };
       denominator?: {
         factTableId: string;
@@ -2370,6 +2687,10 @@ export interface operations {
   getFeature: {
     /** Get a single feature */
     parameters: {
+        /** @description Also return feature revisions (all, draft, or published statuses) */
+      query: {
+        withRevisions?: "all" | "drafts" | "published" | "none";
+      };
         /** @description The id of the requested resource */
       path: {
         id: string;
@@ -2379,7 +2700,7 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            feature: {
+            feature: ({
               id: string;
               /** Format: date-time */
               dateCreated: string;
@@ -2590,7 +2911,108 @@ export interface operations {
                 date: string;
                 publishedBy: string;
               };
-            };
+            }) & ({
+              revisions?: ({
+                  baseVersion: number;
+                  version: number;
+                  comment: string;
+                  /** Format: date-time */
+                  date: string;
+                  status: string;
+                  publishedBy?: string;
+                  rules: {
+                    [key: string]: ((({
+                        description: string;
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        id: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "force";
+                        value: string;
+                      }) | ({
+                        description: string;
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        id: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "rollout";
+                        value: string;
+                        coverage: number;
+                        hashAttribute: string;
+                      }) | {
+                        description: string;
+                        condition: string;
+                        id: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "experiment";
+                        trackingKey?: string;
+                        hashAttribute?: string;
+                        fallbackAttribute?: string;
+                        disableStickyBucketing?: boolean;
+                        bucketVersion?: number;
+                        minBucketVersion?: number;
+                        namespace?: {
+                          enabled: boolean;
+                          name: string;
+                          range: (number)[];
+                        };
+                        coverage?: number;
+                        value?: ({
+                            value: string;
+                            weight: number;
+                            name?: string;
+                          })[];
+                      } | {
+                        description: string;
+                        id: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "experiment-ref";
+                        condition?: string;
+                        variations: ({
+                            value: string;
+                            variationId: string;
+                          })[];
+                        experimentId: string;
+                      } | ({
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        id: string;
+                        trackingKey?: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "safe-rollout";
+                        values?: ({
+                            value: string;
+                            weight: number;
+                            name?: string;
+                          })[];
+                        coverage: number;
+                        hashAttribute: string;
+                        /** @enum {string} */
+                        status?: "running" | "released" | "rolled-back";
+                      }))[]) | undefined;
+                  };
+                  definitions?: {
+                    [key: string]: string | undefined;
+                  };
+                })[];
+            });
           };
         };
       };
@@ -4159,7 +4581,7 @@ export interface operations {
       content: {
         "application/json": {
           /** @description ID for the [DataSource](#tag/DataSource_model) */
-          datasourceId: string;
+          datasourceId?: string;
           /** @description The ID property of one of the assignment query objects associated with the datasource */
           assignmentQueryId: string;
           trackingKey: string;
@@ -7205,6 +7627,10 @@ export interface operations {
                   aggregation?: "sum" | "max" | "count distinct";
                   /** @description Array of Fact Table Filter Ids */
                   filters: (string)[];
+                  /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
+                  aggregateFilterColumn?: string;
+                  /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
+                  aggregateFilter?: string;
                 };
                 denominator?: {
                   factTableId: string;
@@ -7307,6 +7733,10 @@ export interface operations {
             aggregation?: "sum" | "max" | "count distinct";
             /** @description Array of Fact Table Filter Ids */
             filters?: (string)[];
+            /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
+            aggregateFilterColumn?: string;
+            /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
+            aggregateFilter?: string;
           };
           /** @description Only when metricType is 'ratio' */
           denominator?: {
@@ -7427,6 +7857,10 @@ export interface operations {
                 aggregation?: "sum" | "max" | "count distinct";
                 /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
+                /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
+                aggregateFilterColumn?: string;
+                /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
+                aggregateFilter?: string;
               };
               denominator?: {
                 factTableId: string;
@@ -7528,6 +7962,10 @@ export interface operations {
                 aggregation?: "sum" | "max" | "count distinct";
                 /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
+                /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
+                aggregateFilterColumn?: string;
+                /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
+                aggregateFilter?: string;
               };
               denominator?: {
                 factTableId: string;
@@ -7629,6 +8067,10 @@ export interface operations {
             aggregation?: "sum" | "max" | "count distinct";
             /** @description Array of Fact Table Filter Ids */
             filters?: (string)[];
+            /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
+            aggregateFilterColumn?: string;
+            /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
+            aggregateFilter?: string;
           };
           /** @description Only when metricType is 'ratio' */
           denominator?: {
@@ -7737,6 +8179,10 @@ export interface operations {
                 aggregation?: "sum" | "max" | "count distinct";
                 /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
+                /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
+                aggregateFilterColumn?: string;
+                /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
+                aggregateFilter?: string;
               };
               denominator?: {
                 factTableId: string;
@@ -7901,6 +8347,10 @@ export interface operations {
                   aggregation?: "sum" | "max" | "count distinct";
                   /** @description Array of Fact Table Filter Ids */
                   filters?: (string)[];
+                  /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
+                  aggregateFilterColumn?: string;
+                  /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
+                  aggregateFilter?: string;
                 };
                 /** @description Only when metricType is 'ratio' */
                 denominator?: {
@@ -8058,6 +8508,7 @@ export type ApiEnvironment = z.infer<typeof openApiValidators.apiEnvironmentVali
 export type ApiAttribute = z.infer<typeof openApiValidators.apiAttributeValidator>;
 export type ApiSegment = z.infer<typeof openApiValidators.apiSegmentValidator>;
 export type ApiFeature = z.infer<typeof openApiValidators.apiFeatureValidator>;
+export type ApiFeatureWithRevisions = z.infer<typeof openApiValidators.apiFeatureWithRevisionsValidator>;
 export type ApiFeatureEnvironment = z.infer<typeof openApiValidators.apiFeatureEnvironmentValidator>;
 export type ApiFeatureRule = z.infer<typeof openApiValidators.apiFeatureRuleValidator>;
 export type ApiFeatureDefinition = z.infer<typeof openApiValidators.apiFeatureDefinitionValidator>;

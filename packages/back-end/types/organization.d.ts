@@ -291,6 +291,7 @@ export interface OrganizationInterface {
   name: string;
   ownerEmail: string;
   demographicData?: DemographicData;
+  /** @deprecated */
   stripeCustomerId?: string;
   restrictLoginMethod?: string;
   restrictAuthSubPrefix?: string;
@@ -300,6 +301,7 @@ export interface OrganizationInterface {
   disableSelfServeBilling?: boolean;
   freeTrialDate?: Date;
   enterprise?: boolean;
+  /** @deprecated */
   subscription?: {
     id: string;
     qty: number;
