@@ -2217,8 +2217,8 @@ export default abstract class SqlIntegration
         , __banditSrm AS (
           SELECT
             MAX('') AS variation
-            , MAX('${BANDIT_SRM_DIMENSION_NAME}') AS dimension_name
             , MAX('') AS dimension_value
+            , MAX('${BANDIT_SRM_DIMENSION_NAME}') AS dimension_name
             , SUM(POW(expected_units - units, 2) / expected_units) AS units
           FROM __expectedUnitsByVariationBanditPeriod
           GROUP BY
