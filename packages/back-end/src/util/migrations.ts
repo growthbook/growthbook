@@ -567,9 +567,12 @@ export function upgradeExperimentDoc(
       if (phase.banditEvents) {
         phase.banditEvents = phase.banditEvents.map((event) => ({
           ...event,
-          health: {
-            srm: event.banditResult.srm,
-          },
+          ...(event.banditResult?.srm !== undefined &&
+            event?.health?.srm === undefined && {
+              health: {
+                srm: event.banditResult.srm,
+              },
+            }),
         }));
       }
     });
