@@ -83,7 +83,12 @@ export async function postReportFromSnapshot(
     throw new Error("Unknown experiment phase");
   }
 
-  const analysis = getSnapshotAnalysis(snapshot);
+  const analysis = getSnapshotAnalysis(
+    snapshot,
+    snapshot.analyses.find(
+      (a) => a.settings.differenceType === reportArgs.differenceType
+    )?.settings
+  );
   if (!analysis) {
     throw new Error("Missing analysis settings");
   }
