@@ -100,8 +100,10 @@ export function getSRMValue(
 ): number | undefined {
   switch (experimentType) {
     case "multi-armed-bandit":
+      // get SRM from bandit result if available (only old bandit snapshots have SRM
+      // on the banditResult object)
       return (
-        snapshot.health?.traffic?.overall?.srm ?? snapshot.banditResult?.srm
+        snapshot.banditResult?.srm ?? snapshot.health?.traffic?.overall?.srm
       );
 
     case "standard": {
