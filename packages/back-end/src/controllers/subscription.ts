@@ -423,9 +423,9 @@ export async function getUsage(
 
   const cdnUsage = await getDailyCDNUsageForOrg(org.id, start, end);
 
-  const { requests: cdnRequests, bandwidth: cdnBandwidth } = (
-    await context.usage
-  ).limits;
+  const {
+    limits: { requests: cdnRequests, bandwidth: cdnBandwidth },
+  } = await context.usage;
 
   res.json({ status: 200, cdnUsage, limits: { cdnRequests, cdnBandwidth } });
 }
