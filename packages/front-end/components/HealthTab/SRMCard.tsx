@@ -25,7 +25,7 @@ interface Props {
   onNotify: (issue: IssueValue) => void;
   dataSource: DataSourceInterfaceWithParams | null;
   exposureQuery?: ExposureQuery;
-  healthTabConfigParams: HealthTabConfigParams;
+  healthTabConfigParams?: HealthTabConfigParams;
   canConfigHealthTab: boolean;
 }
 

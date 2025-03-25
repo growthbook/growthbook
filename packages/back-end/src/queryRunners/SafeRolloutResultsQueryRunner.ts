@@ -1,8 +1,4 @@
 import { ExperimentMetricInterface } from "shared/experiments";
-import { daysBetween } from "shared/dates";
-import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
-import { addDays } from "date-fns";
-import { analyzeExperimentPower } from "shared/enterprise";
 import { omit } from "lodash";
 import { Queries, QueryStatus } from "back-end/types/query";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
@@ -55,8 +51,7 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
     this.metricMap = params.metricMap;
 
     const { snapshotSettings } = getSnapshotSettingsFromSafeRolloutArgs(
-      this.model,
-      params.metricMap
+      this.model
     );
 
     const experimentParams: ExperimentResultsQueryParams = {

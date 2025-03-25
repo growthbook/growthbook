@@ -16,6 +16,10 @@ import { ExperimentReportVariation } from "back-end/types/report";
 import { VisualChange } from "back-end/types/visual-changeset";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { Environment } from "back-end/types/organization";
+import {
+  SafeRolloutSnapshotAnalysis,
+  SafeRolloutSnapshotInterface,
+} from "back-end/src/validators/safe-rollout";
 import { SavedGroupInterface } from "../types";
 import { featureHasEnvironment } from "./features";
 
@@ -83,9 +87,9 @@ export function getAffectedEnvsForExperiment({
 }
 
 export function getSnapshotAnalysis(
-  snapshot: ExperimentSnapshotInterface,
+  snapshot: ExperimentSnapshotInterface | SafeRolloutSnapshotInterface,
   analysisSettings?: ExperimentSnapshotAnalysisSettings | null
-): ExperimentSnapshotAnalysis | null {
+): ExperimentSnapshotAnalysis | SafeRolloutSnapshotAnalysis | null {
   // TODO make it so order doesn't matter
   return (
     (analysisSettings

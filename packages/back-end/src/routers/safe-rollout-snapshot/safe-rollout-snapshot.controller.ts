@@ -9,9 +9,9 @@ import { SafeRolloutResultsQueryRunner } from "back-end/src/queryRunners/SafeRol
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { SNAPSHOT_TIMEOUT } from "back-end/src/controllers/experiments";
 
-// region GET /safeRollout/:id/snapshot
+// region GET /safe-rollout/:id/snapshot
 /**
- * GET /safeRollout/:id/snapshot
+ * GET /safe-rollout/:id/snapshot
  * Get the latest snapshot for a safe rollout
  * @param req
  * @param res
@@ -21,6 +21,9 @@ export const getLatestSnapshot = async (
   res: Response<{ status: 200; snapshot: SafeRolloutSnapshotInterface }>
 ) => {
   const context = getContextFromReq(req);
+
+  console.log("HELLO");
+  console.log("getLatestSnapshot", req.params.id);
 
   const snapshot = await context.models.safeRolloutSnapshots.getLatestSnapshot({
     safeRollout: req.params.id,
@@ -73,11 +76,11 @@ export async function getSnapshotWithDimension(
   });
 }
 
-// endregion GET /safeRollout/:id/snapshot/:dimension
+// endregion GET /safe-rollout/:id/snapshot/:dimension
 
-// region POST /safeRollout/:id/snapshot
+// region POST /safe-rollout/:id/snapshot
 /**
- * POST /safeRollout/:id/snapshot
+ * POST /safe-rollout/:id/snapshot
  * Create a Snapshot resource
  * @param req
  * @param res
@@ -141,11 +144,11 @@ export const createSnapshot = async (
     snapshot,
   });
 };
-// endregion POST /safeRollout/:id/snapshot
+// endregion POST /safe-rollout/:id/snapshot
 
-// region POST /safeRollout/snapshot/:id/cancelSnapshot
+// region POST /safe-rollout/snapshot/:id/cancelSnapshot
 /**
- * POST /safeRollout/snapshot/:id/cancelSnapshot
+ * POST /safe-rollout/snapshot/:id/cancelSnapshot
  * Cancel a Snapshot
  * @param req
  * @param res
@@ -205,4 +208,4 @@ export const cancelSnapshot = async (
 
   res.status(200).json({ status: 200 });
 };
-// endregion POST /safeRollout/snapshot/:id/cancelSnapshot
+// endregion POST /safe-rollout/snapshot/:id/cancelSnapshot

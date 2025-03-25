@@ -15,7 +15,7 @@ const snapshotDimensionParams = z
   .strict();
 // Get the latest snapshot for a safe rollout rule
 router.get(
-  "/:id/latest",
+  "/:id/snapshot",
   validateRequestMiddleware({
     params: snapshotParams,
   }),
