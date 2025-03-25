@@ -106,7 +106,7 @@ const BillingPage: FC = () => {
       {subscription?.status ? (
         <>
           <PaymentInfo />
-          {organization.id && subscription.status === "active" ? (
+          {organization.id ? (
             <div className="p-3 app-box border">
               <h3>Invoices & Usage</h3>
               <OrbPortal orgId={organization.id} />
