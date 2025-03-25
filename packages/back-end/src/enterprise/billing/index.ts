@@ -64,7 +64,10 @@ export async function getUsageDataFromServer(
 
   const usage = await callLicenseServer({ url, method: "GET" });
 
-  return usage;
+  return {
+    ...usage,
+    cdn: { ...usage.cdn, lastUpdated: new Date(usage.cdn.lastUpdated) },
+  };
 }
 
 const keyToUsageData: Record<string, OrganizationUsage> = {};
