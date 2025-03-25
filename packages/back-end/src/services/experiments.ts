@@ -2346,7 +2346,7 @@ export const toNamespaceRange = (
 export function postExperimentApiPayloadToInterface(
   payload: z.infer<typeof postExperimentValidator.bodySchema>,
   organization: OrganizationInterface,
-  datasource: DataSourceInterface
+  datasource: DataSourceInterface | null
 ): Omit<ExperimentInterface, "dateCreated" | "dateUpdated" | "id"> {
   const phases: ExperimentPhase[] = payload.phases?.map((p) => {
     const conditionRes = validateCondition(p.condition);
@@ -2395,7 +2395,7 @@ export function postExperimentApiPayloadToInterface(
 
   return {
     organization: organization.id,
-    datasource: datasource.id,
+    datasource: datasource?.id ?? "",
     archived: payload.archived ?? false,
     hashAttribute: payload.hashAttribute ?? "",
     hashVersion: payload.hashVersion ?? 2,
@@ -2405,7 +2405,7 @@ export function postExperimentApiPayloadToInterface(
     trackingKey: payload.trackingKey || "",
     exposureQueryId:
       payload.assignmentQueryId ||
-      datasource.settings.queries?.exposure?.[0]?.id ||
+      datasource?.settings.queries?.exposure?.[0]?.id ||
       "",
     name: payload.name || "",
     phases,
@@ -2983,10 +2983,16 @@ async function computeResultsStatus({
           } else if (resultsStatus.resultsStatus === "lost") {
             metricStatus.superStatSigStatus = "lost";
           }
+          if (!variationStatus.goalMetrics) {
+            variationStatus.goalMetrics = {};
+          }
           variationStatus.goalMetrics[metric.id] = metricStatus;
         }
 
         if (guardrailMetric) {
+          if (!variationStatus.guardrailMetrics) {
+            variationStatus.guardrailMetrics = {};
+          }
           variationStatus.guardrailMetrics[metric.id] = {
             status: resultsStatus.resultsStatus === "lost" ? "lost" : "neutral",
           };

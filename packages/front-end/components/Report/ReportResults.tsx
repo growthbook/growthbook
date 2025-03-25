@@ -57,8 +57,16 @@ export default function ReportResults({
         1 / (report.experimentMetadata?.variations?.length || 2),
     })
   );
+  // find analysis matching the difference type
   const analysis = snapshot
-    ? getSnapshotAnalysis(snapshot) ?? undefined
+    ? getSnapshotAnalysis(
+        snapshot,
+        snapshot.analyses.find(
+          (a) =>
+            a.settings.differenceType ===
+            report.experimentAnalysisSettings.differenceType
+        )?.settings
+      ) ?? undefined
     : undefined;
   const queryStatusData = getQueryStatus(
     snapshot?.queries || [],

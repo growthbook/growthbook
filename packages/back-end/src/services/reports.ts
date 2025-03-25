@@ -364,13 +364,19 @@ export async function createReportSnapshot({
     hasRegressionAdjustmentFeature: true,
   });
 
-  const analysisSettings = getDefaultExperimentAnalysisSettings(
+  const defaultAnalysisSettings = getDefaultExperimentAnalysisSettings(
     statsEngine,
     report.experimentAnalysisSettings,
     organization,
     regressionAdjustmentEnabled,
     report.experimentAnalysisSettings.dimension
   );
+
+  const analysisSettings: ExperimentSnapshotAnalysisSettings = {
+    ...defaultAnalysisSettings,
+    differenceType:
+      report.experimentAnalysisSettings.differenceType ?? "relative",
+  };
 
   const snapshotSettings = getReportSnapshotSettings({
     report,

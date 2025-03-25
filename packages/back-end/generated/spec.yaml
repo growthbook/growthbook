@@ -1353,7 +1353,6 @@ paths:
               required:
                 - name
                 - variations
-                - datasourceId
                 - trackingKey
                 - assignmentQueryId
               properties:
