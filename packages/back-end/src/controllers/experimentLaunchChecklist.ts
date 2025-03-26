@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { orgHasPremiumFeature } from "shared/enterprise";
 import { ExperimentInterface } from "back-end/types/experiment";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
