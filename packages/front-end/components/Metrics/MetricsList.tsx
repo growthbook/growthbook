@@ -325,7 +325,7 @@ const MetricsList = (): React.ReactElement => {
         return item.type;
       },
       tag: (item) => item.tags,
-      project: (item) => item.projectNames,
+      project: (item) => [...item.projectNames, ...item.projects],
       datasource: (item) => [item.datasource, item.datasourceName],
     },
     filterResults,
