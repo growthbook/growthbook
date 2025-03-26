@@ -14,24 +14,6 @@ if (fs.existsSync(".env.local")) {
 
 export const LOG_LEVEL = process.env.LOG_LEVEL;
 
-let parsedLogBase:
-  | {
-      // eslint-disable-next-line
-      [key: string]: any;
-    }
-  | null
-  | undefined = undefined;
-try {
-  if (process.env.LOG_BASE === "null") {
-    parsedLogBase = null;
-  } else if (process.env.LOG_BASE) {
-    parsedLogBase = JSON.parse(process.env.LOG_BASE);
-  }
-} catch {
-  // Empty catch - don't pass a LOG_BASE
-}
-export const LOG_BASE = parsedLogBase;
-
 export const IS_CLOUD = stringToBoolean(process.env.IS_CLOUD);
 export const IS_MULTI_ORG = stringToBoolean(process.env.IS_MULTI_ORG);
 
@@ -126,9 +108,6 @@ export const EMAIL_HOST_USER = process.env.EMAIL_HOST_USER;
 export const EMAIL_HOST_PASSWORD = process.env.EMAIL_HOST_PASSWORD;
 export const EMAIL_FROM = process.env.EMAIL_FROM;
 export const SITE_MANAGER_EMAIL = process.env.SITE_MANAGER_EMAIL;
-
-export const STRIPE_SECRET = process.env.STRIPE_SECRET || "";
-export const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "";
 
 export const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET || "";
 
