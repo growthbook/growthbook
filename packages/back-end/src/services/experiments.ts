@@ -1342,6 +1342,7 @@ export async function toExperimentApiInterface(
   const activationMetric = experiment.activationMetric;
   return {
     id: experiment.id,
+    trackingKey: experiment.trackingKey,
     name: experiment.name || "",
     type: experiment.type || "standard",
     project: experiment.project || "",
@@ -1411,6 +1412,13 @@ export async function toExperimentApiInterface(
       regressionAdjustmentEnabled:
         experiment.regressionAdjustmentEnabled ??
         scopedSettings.regressionAdjustmentEnabled.value,
+      sequentialTestingEnabled:
+        experiment.sequentialTestingEnabled ??
+        scopedSettings.sequentialTestingEnabled.value,
+      sequentialTestingTuningParameter:
+        experiment.sequentialTestingTuningParameter ??
+        scopedSettings.sequentialTestingTuningParameter.value ??
+        DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
       ...(activationMetric
         ? {
             activationMetric: getExperimentMetric(experiment, activationMetric),
@@ -2398,7 +2406,15 @@ export function postExperimentApiPayloadToInterface(
     datasource: datasource?.id ?? "",
     archived: payload.archived ?? false,
     hashAttribute: payload.hashAttribute ?? "",
+    fallbackAttribute: payload.fallbackAttribute || "",
     hashVersion: payload.hashVersion ?? 2,
+    disableStickyBucketing: payload.disableStickyBucketing ?? false,
+    ...(payload.bucketVersion !== undefined
+      ? { bucketVersion: payload.bucketVersion }
+      : {}),
+    ...(payload.minBucketVersion !== undefined
+      ? { minBucketVersion: payload.minBucketVersion }
+      : {}),
     autoSnapshots: true,
     project: payload.project,
     owner: payload.owner || "",
@@ -2414,11 +2430,11 @@ export function postExperimentApiPayloadToInterface(
     hypothesis: payload.hypothesis || "",
     goalMetrics: payload.metrics || [],
     secondaryMetrics: payload.secondaryMetrics || [],
-    metricOverrides: [],
     guardrailMetrics: payload.guardrailMetrics || [],
-    activationMetric: "",
-    segment: "",
-    queryFilter: "",
+    activationMetric: payload.activationMetric || "",
+    metricOverrides: [],
+    segment: payload.segmentId || "",
+    queryFilter: payload.queryFilter || "",
     skipPartialData: payload.inProgressConversions === "strict",
     attributionModel: payload.attributionModel || "firstExposure",
     ...(payload.statsEngine ? { statsEngine: payload.statsEngine } : {}),
@@ -2438,9 +2454,13 @@ export function postExperimentApiPayloadToInterface(
     previewURL: "",
     targetURLRegex: "",
     ideaSource: "",
-    sequentialTestingEnabled: !!organization?.settings
-      ?.sequentialTestingEnabled,
-    sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    sequentialTestingEnabled:
+      payload.sequentialTestingEnabled ??
+      !!organization?.settings?.sequentialTestingEnabled,
+    sequentialTestingTuningParameter:
+      payload.sequentialTestingTuningParameter ??
+      organization?.settings?.sequentialTestingTuningParameter ??
+      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     regressionAdjustmentEnabled:
       payload.regressionAdjustmentEnabled ??
       !!organization?.settings?.regressionAdjustmentEnabled,
@@ -2467,12 +2487,18 @@ export function updateExperimentApiPayloadToInterface(
     assignmentQueryId,
     hashAttribute,
     hashVersion,
+    disableStickyBucketing,
+    bucketVersion,
+    minBucketVersion,
     name,
     tags,
     description,
     hypothesis,
     metrics,
     guardrailMetrics,
+    activationMetric,
+    segmentId,
+    queryFilter,
     archived,
     status,
     phases,
@@ -2483,6 +2509,8 @@ export function updateExperimentApiPayloadToInterface(
     attributionModel,
     statsEngine,
     regressionAdjustmentEnabled,
+    sequentialTestingEnabled,
+    sequentialTestingTuningParameter,
     secondaryMetrics,
     shareLevel,
   } = payload;
@@ -2494,6 +2522,9 @@ export function updateExperimentApiPayloadToInterface(
     ...(assignmentQueryId ? { assignmentQueryId } : {}),
     ...(hashAttribute ? { hashAttribute } : {}),
     ...(hashVersion ? { hashVersion } : {}),
+    ...(disableStickyBucketing !== undefined ? { disableStickyBucketing } : {}),
+    ...(bucketVersion !== undefined ? { bucketVersion } : {}),
+    ...(minBucketVersion !== undefined ? { minBucketVersion } : {}),
     ...(name ? { name } : {}),
     ...(tags ? { tags } : {}),
     ...(description !== undefined ? { description } : {}),
@@ -2501,6 +2532,9 @@ export function updateExperimentApiPayloadToInterface(
     ...(metrics ? { goalMetrics: metrics } : {}),
     ...(guardrailMetrics ? { guardrailMetrics } : {}),
     ...(secondaryMetrics ? { secondaryMetrics } : {}),
+    ...(activationMetric ? { activationMetric } : {}),
+    ...(segmentId ? { segment: segmentId } : {}),
+    ...(queryFilter !== undefined ? { queryFilter } : {}),
     ...(archived !== undefined ? { archived } : {}),
     ...(status ? { status } : {}),
     ...(releasedVariationId !== undefined ? { releasedVariationId } : {}),
@@ -2512,6 +2546,12 @@ export function updateExperimentApiPayloadToInterface(
     ...(statsEngine !== undefined ? { statsEngine } : {}),
     ...(regressionAdjustmentEnabled !== undefined
       ? { regressionAdjustmentEnabled }
+      : {}),
+    ...(sequentialTestingEnabled !== undefined
+      ? { sequentialTestingEnabled }
+      : {}),
+    ...(sequentialTestingTuningParameter !== undefined
+      ? { sequentialTestingTuningParameter }
       : {}),
     ...(variations
       ? {
