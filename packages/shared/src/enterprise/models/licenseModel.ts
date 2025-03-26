@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import omit from "lodash/omit";
-import { LicenseInterface } from "shared/enterprise";
+import { LicenseInterface } from "../licenseUtil";
 
 const licenseSchema = new mongoose.Schema({
   id: String, // Unique ID for the license key
