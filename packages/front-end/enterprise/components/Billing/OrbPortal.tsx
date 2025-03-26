@@ -1,45 +1,33 @@
-import useSWR from "swr";
-import { useUser } from "@/services/UserContext";
 import Callout from "@/components/Radix/Callout";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { getOrbToken } from "@/services/env";
+import useApi from "@/hooks/useApi";
+import { isCloud } from "@/services/env";
 
-const fetcher = (url: string, orbToken: string) =>
-  fetch(url, {
-    headers: {
-      Authorization: `Bearer ${orbToken}`,
-    },
-  }).then((res) => res.json());
+export default function OrbPortal() {
+  const { data, error, isLoading } = useApi<{
+    portalUrl: string;
+  }>(`/subscription/portal-url`);
 
-const useOrbCustomerData = (organizationId: string, orbToken: string) => {
-  return useSWR(
-    organizationId
-      ? `https://api.withorb.com/v1/customers/external_customer_id/${organizationId}`
-      : null,
-    (url) => fetcher(url, orbToken)
-  );
-};
-
-export default function OrbPortal({ orgId }: { orgId: string }) {
-  const orbToken = getOrbToken();
-  const { data, error, isLoading } = useOrbCustomerData(orgId, orbToken);
-  const { subscription } = useUser();
-
-  if (subscription?.billingPlatform !== "orb" || !orgId) return null;
+  if (!isCloud()) return null;
 
   if (isLoading) {
     return <LoadingOverlay />;
   }
 
-  if (error) {
-    return <Callout status="error">{error}</Callout>;
+  if (error || !data) {
+    return (
+      <Callout status="error">
+        {error?.message || "Unable to fetch customer portal."}
+      </Callout>
+    );
   }
 
   return (
-    <div className="pb-3 app-box">
-      {data.portal_url ? (
+    <div className="p-3 app-box border">
+      <h3>Invoices & Usage</h3>
+      {data.portalUrl ? (
         <iframe
-          src={data.portal_url}
+          src={data.portalUrl}
           style={{
             width: "100%",
             height: "100vh",

@@ -29,7 +29,6 @@ export interface EnvironmentInitValue {
   superadminDefaultRole: string;
   ingestorOverride: string;
   stripePublishableKey: string;
-  orbToken: string;
 }
 
 // Get env variables at runtime on the front-end while still using SSG
@@ -56,7 +55,6 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     USE_FILE_PROXY: USING_FILE_PROXY,
     SUPERADMIN_DEFAULT_ROLE,
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
-    ORB_TOKEN,
   } = process.env;
 
   const rootPath = path.join(__dirname, "..", "..", "..", "..", "..", "..");
@@ -131,7 +129,6 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     superadminDefaultRole: SUPERADMIN_DEFAULT_ROLE || "readonly",
     ingestorOverride: INGESTOR_HOST || "",
     stripePublishableKey: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "",
-    orbToken: ORB_TOKEN || "",
   };
 
   res.setHeader("Cache-Control", "max-age=3600").status(200).json(body);

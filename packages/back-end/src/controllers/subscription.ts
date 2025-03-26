@@ -34,6 +34,7 @@ import {
   updateDefaultPaymentMethod,
   getPaymentMethodsByLicenseKey,
 } from "back-end/src/enterprise/billing/index";
+import { createOrbClient } from "back-end/src/services/orb";
 
 function withLicenseServerErrorHandling<T>(
   fn: (req: AuthRequest<T>, res: Response) => Promise<void>
@@ -437,4 +438,36 @@ export async function getUsage(
   }
 
   res.json({ status: 200, cdnUsage, limits });
+}
+
+export async function getPortalUrl(
+  req: AuthRequest<null, null>,
+  res: Response<{ status: number; portalUrl?: string; message?: string }>
+) {
+  const context = getContextFromReq(req);
+
+  const { org } = context;
+
+  if (!context.permissions.canViewUsage()) {
+    context.permissions.throwPermissionError();
+  }
+
+  try {
+    const orbClient = createOrbClient();
+
+    const { portal_url } = await orbClient.customers.fetchByExternalId(org.id);
+
+    if (!portal_url) {
+      return res
+        .status(404)
+        .json({ status: 404, message: "No customer portal found" });
+    }
+
+    res.status(200).json({
+      status: 200,
+      portalUrl: portal_url,
+    });
+  } catch (e) {
+    return res.status(400).json({ status: 400, message: e.message });
+  }
 }

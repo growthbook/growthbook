@@ -13,7 +13,7 @@ const BillingPage: FC = () => {
 
   const permissionsUtil = usePermissionsUtil();
 
-  const { accountPlan, subscription, canSubscribe, organization } = useUser();
+  const { accountPlan, subscription, canSubscribe } = useUser();
 
   const { apiCall } = useAuth();
   const { refreshOrganization } = useUser();
@@ -106,12 +106,7 @@ const BillingPage: FC = () => {
       {subscription?.status ? (
         <>
           <PaymentInfo />
-          {organization.id ? (
-            <div className="p-3 app-box border">
-              <h3>Invoices & Usage</h3>
-              <OrbPortal orgId={organization.id} />
-            </div>
-          ) : null}
+          <OrbPortal />
         </>
       ) : null}
     </div>

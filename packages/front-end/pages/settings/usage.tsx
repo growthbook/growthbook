@@ -5,7 +5,7 @@ import OrbPortal from "@/enterprise/components/Billing/OrbPortal";
 
 export default function UsagePage() {
   const permissionsUtil = usePermissionsUtil();
-  const { subscription, organization } = useUser();
+  const { subscription } = useUser();
 
   if (!permissionsUtil.canViewUsage()) {
     return (
@@ -19,11 +19,7 @@ export default function UsagePage() {
 
   return (
     <div className="container-fluid pagecontents">
-      {subscription?.billingPlatform === "orb" && organization.id ? (
-        <OrbPortal orgId={organization.id} />
-      ) : (
-        <CloudUsage />
-      )}
+      {subscription?.billingPlatform === "orb" ? <OrbPortal /> : <CloudUsage />}
     </div>
   );
 }
