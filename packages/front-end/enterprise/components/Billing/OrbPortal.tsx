@@ -8,7 +8,13 @@ export default function OrbPortal() {
     portalUrl: string;
   }>(`/subscription/portal-url`);
 
-  if (!isCloud()) return null;
+  if (!isCloud()) {
+    return (
+      <Callout status="warning">
+        Usage data is only available on GrowthBook Cloud.
+      </Callout>
+    );
+  }
 
   if (isLoading) {
     return <LoadingOverlay />;
