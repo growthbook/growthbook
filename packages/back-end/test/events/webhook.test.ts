@@ -1,4 +1,3 @@
-import "openai/shims/node";
 import { setupApp } from "back-end/test/api/api.setup";
 import { EventNotifier } from "back-end/src/events/notifiers/EventNotifier";
 import {
