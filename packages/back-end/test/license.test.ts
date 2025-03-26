@@ -1,6 +1,7 @@
 import fetch, { Response } from "node-fetch";
 
 import cloneDeep from "lodash/cloneDeep";
+import { LicenseInterface } from "shared/enterprise";
 import {
   LICENSE_SERVER_URL,
   licenseInit,
@@ -8,9 +9,8 @@ import {
   resetInMemoryLicenseCache,
   getLicenseError,
   backgroundUpdateLicenseFromServerForTests,
-  LicenseInterface,
-} from "../src/enterprise/licenseUtil";
-import * as LicenseModelModule from "../src/enterprise/models/licenseModel";
+} from "back-end/src/enterprise/licenseUtil";
+import * as LicenseModelModule from "back-end/src/enterprise/models/licenseModel";
 
 const LicenseModel = LicenseModelModule.LicenseModel;
 
