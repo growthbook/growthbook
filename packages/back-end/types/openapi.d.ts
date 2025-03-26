@@ -4282,7 +4282,6 @@ export interface operations {
           regressionAdjustmentEnabled?: boolean;
           /** @description Only applicable to frequentist analyses */
           sequentialTestingEnabled?: boolean;
-          /** @description 5000 is default */
           sequentialTestingTuningParameter?: number;
           /** @enum {string} */
           shareLevel?: "public" | "organization";
@@ -4672,7 +4671,6 @@ export interface operations {
           regressionAdjustmentEnabled?: boolean;
           /** @description Only applicable to frequentist analyses */
           sequentialTestingEnabled?: boolean;
-          /** @description 5000 is default */
           sequentialTestingTuningParameter?: number;
           /** @enum {string} */
           shareLevel?: "public" | "organization";

@@ -215,7 +215,6 @@ properties:
     description: Only applicable to frequentist analyses
   sequentialTestingTuningParameter:
     type: number
-    description: 5000 is default
   shareLevel:
     type: string
     enum:

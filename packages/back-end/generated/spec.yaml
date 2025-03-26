@@ -1567,7 +1567,6 @@ paths:
                   description: Only applicable to frequentist analyses
                 sequentialTestingTuningParameter:
                   type: number
-                  description: 5000 is default
                 shareLevel:
                   type: string
                   enum:
@@ -1838,7 +1837,6 @@ paths:
                   description: Only applicable to frequentist analyses
                 sequentialTestingTuningParameter:
                   type: number
-                  description: 5000 is default
                 shareLevel:
                   type: string
                   enum:
