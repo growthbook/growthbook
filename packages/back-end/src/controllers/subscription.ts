@@ -1,5 +1,6 @@
 import { Response } from "express";
 import { Stripe } from "stripe";
+import { PaymentMethod } from "shared/src/types/subscriptions";
 import {
   LicenseServerError,
   getEffectiveAccountPlan,
@@ -12,8 +13,7 @@ import {
   postNewSubscriptionSuccessToLicenseServer,
   postNewInlineSubscriptionToLicenseServer,
   postCancelSubscriptionToLicenseServer,
-} from "shared/enterprise";
-import { PaymentMethod } from "shared/src/types/subscriptions";
+} from "back-end/src/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getNumberOfUniqueMembersAndInvites,
