@@ -743,6 +743,7 @@ Triggered when an experiment is created
     data: {
         object: {
             id: string;
+            trackingKey: string;
             dateCreated: string;
             dateUpdated: string;
             name: string;
@@ -800,6 +801,8 @@ Triggered when an experiment is created
                 attributionModel: "firstExposure" | "experimentDuration";
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean | undefined;
+                sequentialTestingEnabled?: boolean | undefined;
+                sequentialTestingTuningParameter?: number | undefined;
                 goals: {
                     metricId: string;
                     overrides: {
@@ -885,6 +888,7 @@ Triggered when an experiment is updated
     data: {
         object: {
             id: string;
+            trackingKey: string;
             dateCreated: string;
             dateUpdated: string;
             name: string;
@@ -942,6 +946,8 @@ Triggered when an experiment is updated
                 attributionModel: "firstExposure" | "experimentDuration";
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean | undefined;
+                sequentialTestingEnabled?: boolean | undefined;
+                sequentialTestingTuningParameter?: number | undefined;
                 goals: {
                     metricId: string;
                     overrides: {
@@ -995,6 +1001,7 @@ Triggered when an experiment is updated
         };
         previous_attributes: {
             id?: string | undefined;
+            trackingKey?: string | undefined;
             dateCreated?: string | undefined;
             dateUpdated?: string | undefined;
             name?: string | undefined;
@@ -1052,6 +1059,8 @@ Triggered when an experiment is updated
                 attributionModel: "firstExposure" | "experimentDuration";
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean | undefined;
+                sequentialTestingEnabled?: boolean | undefined;
+                sequentialTestingTuningParameter?: number | undefined;
                 goals: {
                     metricId: string;
                     overrides: {
@@ -1137,6 +1146,7 @@ Triggered when an experiment is deleted
     data: {
         object: {
             id: string;
+            trackingKey: string;
             dateCreated: string;
             dateUpdated: string;
             name: string;
@@ -1194,6 +1204,8 @@ Triggered when an experiment is deleted
                 attributionModel: "firstExposure" | "experimentDuration";
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean | undefined;
+                sequentialTestingEnabled?: boolean | undefined;
+                sequentialTestingTuningParameter?: number | undefined;
                 goals: {
                     metricId: string;
                     overrides: {
