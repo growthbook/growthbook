@@ -76,10 +76,13 @@ export const resolvers: Record<
     experiment: true,
     report: true,
   }),
-  sequentialTestingTuningParameter: genDefaultResolver("sequentialTestingTuningParameter", {
-    experiment: true,
-    report: true,
-  }),
+  sequentialTestingTuningParameter: genDefaultResolver(
+    "sequentialTestingTuningParameter",
+    {
+      experiment: true,
+      report: true,
+    }
+  ),
   attributionModel: genDefaultResolver("attributionModel", {
     project: "settings.attributionModel",
     experiment: true,

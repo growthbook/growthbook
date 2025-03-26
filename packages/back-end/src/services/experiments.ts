@@ -1412,9 +1412,11 @@ export async function toExperimentApiInterface(
       regressionAdjustmentEnabled:
         experiment.regressionAdjustmentEnabled ??
         scopedSettings.regressionAdjustmentEnabled.value,
-      sequentialTestingEnabled: experiment.sequentialTestingEnabled ??
+      sequentialTestingEnabled:
+        experiment.sequentialTestingEnabled ??
         scopedSettings.sequentialTestingEnabled.value,
-      sequentialTestingTuningParameter: experiment.sequentialTestingTuningParameter ??
+      sequentialTestingTuningParameter:
+        experiment.sequentialTestingTuningParameter ??
         scopedSettings.sequentialTestingTuningParameter.value ??
         DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
       ...(activationMetric
@@ -2407,8 +2409,12 @@ export function postExperimentApiPayloadToInterface(
     fallbackAttribute: payload.fallbackAttribute || "",
     hashVersion: payload.hashVersion ?? 2,
     disableStickyBucketing: payload.disableStickyBucketing ?? false,
-    ...(payload.bucketVersion !== undefined ? { bucketVersion: payload.bucketVersion } : {}),
-    ...(payload.minBucketVersion !== undefined ? { minBucketVersion: payload.minBucketVersion } : {}),
+    ...(payload.bucketVersion !== undefined
+      ? { bucketVersion: payload.bucketVersion }
+      : {}),
+    ...(payload.minBucketVersion !== undefined
+      ? { minBucketVersion: payload.minBucketVersion }
+      : {}),
     autoSnapshots: true,
     project: payload.project,
     owner: payload.owner || "",
@@ -2448,7 +2454,8 @@ export function postExperimentApiPayloadToInterface(
     previewURL: "",
     targetURLRegex: "",
     ideaSource: "",
-    sequentialTestingEnabled: payload.sequentialTestingEnabled ??
+    sequentialTestingEnabled:
+      payload.sequentialTestingEnabled ??
       !!organization?.settings?.sequentialTestingEnabled,
     sequentialTestingTuningParameter:
       payload.sequentialTestingTuningParameter ??
