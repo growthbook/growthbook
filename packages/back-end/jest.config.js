@@ -7,4 +7,5 @@ module.exports = {
   moduleNameMapper: {
     "^axios$": "axios/dist/axios.js",
   },
+  setupFiles: ["<rootDir>/jest.setup.ts"],
 };
