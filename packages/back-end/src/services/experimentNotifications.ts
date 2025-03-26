@@ -4,7 +4,7 @@ import {
   getMetricResultStatus,
   getExperimentResultStatus,
 } from "shared/experiments";
-import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { orgHasPremiumFeature } from "shared/enterprise";
 import { StatsEngine } from "back-end/types/stats";
 import { Context } from "back-end/src/models/BaseModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";

@@ -1,6 +1,13 @@
 import crypto from "crypto";
 import { Response } from "express";
-import { AccountPlan } from "shared/enterprise";
+import {
+  AccountPlan,
+  licenseInit,
+  LicenseServerError,
+  postCreateTrialEnterpriseLicenseToLicenseServer,
+  postResendEmailVerificationEmailToLicenseServer,
+  postVerifyEmailToLicenseServer,
+} from "shared/enterprise";
 import {
   getLicenseMetaData,
   getUserCodesForOrg,
@@ -9,13 +16,6 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { PrivateApiErrorResponse } from "back-end/types/api";
-import {
-  licenseInit,
-  postCreateTrialEnterpriseLicenseToLicenseServer,
-  LicenseServerError,
-  postResendEmailVerificationEmailToLicenseServer,
-  postVerifyEmailToLicenseServer,
-} from "back-end/src/enterprise";
 
 /**
  * An endpoint mostly used to refresh the license data manually, if they
