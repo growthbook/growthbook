@@ -51,6 +51,11 @@ Triggered when a feature is created
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
                         }[] | undefined;
+                        prerequisites?: {
+                            /** Feature ID */
+                            id: string;
+                            condition: string;
+                        }[] | undefined;
                         id: string;
                         enabled: boolean;
                         type: "force";
@@ -115,6 +120,11 @@ Triggered when a feature is created
                                 matchType: "all" | "any" | "none";
                                 savedGroups: string[];
                             }[] | undefined;
+                            prerequisites?: {
+                                /** Feature ID */
+                                id: string;
+                                condition: string;
+                            }[] | undefined;
                             id: string;
                             enabled: boolean;
                             type: "force";
@@ -172,10 +182,8 @@ Triggered when a feature is created
                     } | undefined;
                 };
             };
-            prerequisites?: {
-                parentId: string;
-                parentCondition: string;
-            }[] | undefined;
+            /** Feature IDs. Each feature must evaluate to `true` */
+            prerequisites?: string[] | undefined;
             revision: {
                 version: number;
                 comment: string;
@@ -237,6 +245,11 @@ Triggered when a feature is updated
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
                         }[] | undefined;
+                        prerequisites?: {
+                            /** Feature ID */
+                            id: string;
+                            condition: string;
+                        }[] | undefined;
                         id: string;
                         enabled: boolean;
                         type: "force";
@@ -300,6 +313,11 @@ Triggered when a feature is updated
                             savedGroupTargeting?: {
                                 matchType: "all" | "any" | "none";
                                 savedGroups: string[];
+                            }[] | undefined;
+                            prerequisites?: {
+                                /** Feature ID */
+                                id: string;
+                                condition: string;
                             }[] | undefined;
                             id: string;
                             enabled: boolean;
@@ -358,10 +376,8 @@ Triggered when a feature is updated
                     } | undefined;
                 };
             };
-            prerequisites?: {
-                parentId: string;
-                parentCondition: string;
-            }[] | undefined;
+            /** Feature IDs. Each feature must evaluate to `true` */
+            prerequisites?: string[] | undefined;
             revision: {
                 version: number;
                 comment: string;
@@ -390,6 +406,11 @@ Triggered when a feature is updated
                         savedGroupTargeting?: {
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
+                        }[] | undefined;
+                        prerequisites?: {
+                            /** Feature ID */
+                            id: string;
+                            condition: string;
                         }[] | undefined;
                         id: string;
                         enabled: boolean;
@@ -454,6 +475,11 @@ Triggered when a feature is updated
                             savedGroupTargeting?: {
                                 matchType: "all" | "any" | "none";
                                 savedGroups: string[];
+                            }[] | undefined;
+                            prerequisites?: {
+                                /** Feature ID */
+                                id: string;
+                                condition: string;
                             }[] | undefined;
                             id: string;
                             enabled: boolean;
@@ -512,10 +538,8 @@ Triggered when a feature is updated
                     } | undefined;
                 };
             } | undefined;
-            prerequisites?: ({
-                parentId: string;
-                parentCondition: string;
-            }[] | undefined) | undefined;
+            /** Feature IDs. Each feature must evaluate to `true` */
+            prerequisites?: (string[] | undefined) | undefined;
             revision?: {
                 version: number;
                 comment: string;
@@ -577,6 +601,11 @@ Triggered when a feature is deleted
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
                         }[] | undefined;
+                        prerequisites?: {
+                            /** Feature ID */
+                            id: string;
+                            condition: string;
+                        }[] | undefined;
                         id: string;
                         enabled: boolean;
                         type: "force";
@@ -641,6 +670,11 @@ Triggered when a feature is deleted
                                 matchType: "all" | "any" | "none";
                                 savedGroups: string[];
                             }[] | undefined;
+                            prerequisites?: {
+                                /** Feature ID */
+                                id: string;
+                                condition: string;
+                            }[] | undefined;
                             id: string;
                             enabled: boolean;
                             type: "force";
@@ -698,10 +732,8 @@ Triggered when a feature is deleted
                     } | undefined;
                 };
             };
-            prerequisites?: {
-                parentId: string;
-                parentCondition: string;
-            }[] | undefined;
+            /** Feature IDs. Each feature must evaluate to `true` */
+            prerequisites?: string[] | undefined;
             revision: {
                 version: number;
                 comment: string;
@@ -785,6 +817,10 @@ Triggered when an experiment is created
                     range: any[];
                 } | undefined;
                 targetingCondition: string;
+                prerequisites?: {
+                    id: string;
+                    condition: string;
+                }[] | undefined;
                 savedGroupTargeting?: {
                     matchType: "all" | "any" | "none";
                     savedGroups: string[];
@@ -934,6 +970,10 @@ Triggered when an experiment is updated
                     range: any[];
                 } | undefined;
                 targetingCondition: string;
+                prerequisites?: {
+                    id: string;
+                    condition: string;
+                }[] | undefined;
                 savedGroupTargeting?: {
                     matchType: "all" | "any" | "none";
                     savedGroups: string[];
@@ -1051,6 +1091,10 @@ Triggered when an experiment is updated
                     range: any[];
                 } | undefined;
                 targetingCondition: string;
+                prerequisites?: {
+                    id: string;
+                    condition: string;
+                }[] | undefined;
                 savedGroupTargeting?: {
                     matchType: "all" | "any" | "none";
                     savedGroups: string[];
@@ -1200,6 +1244,10 @@ Triggered when an experiment is deleted
                     range: any[];
                 } | undefined;
                 targetingCondition: string;
+                prerequisites?: {
+                    id: string;
+                    condition: string;
+                }[] | undefined;
                 savedGroupTargeting?: {
                     matchType: "all" | "any" | "none";
                     savedGroups: string[];

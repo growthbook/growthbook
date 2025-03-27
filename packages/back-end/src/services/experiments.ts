@@ -1381,6 +1381,7 @@ export async function toExperimentApiInterface(
         weight: p.variationWeights[i] || 0,
       })),
       targetingCondition: p.condition || "",
+      prerequisites: p.prerequisites || [],
       savedGroupTargeting: (p.savedGroups || []).map((s) => ({
         matchType: s.match,
         savedGroups: s.ids,
@@ -2370,6 +2371,14 @@ export function postExperimentApiPayloadToInterface(
     if (!conditionRes.success) {
       throw new Error(`Invalid targeting condition: ${conditionRes.error}`);
     }
+    p.prerequisites?.forEach((prerequisite) => {
+      const conditionRes = validateCondition(prerequisite.condition);
+      if (!conditionRes.success) {
+        throw new Error(
+          `Invalid prerequisite condition: ${conditionRes.error}`
+        );
+      }
+    });
 
     return {
       ...p,
@@ -2378,6 +2387,7 @@ export function postExperimentApiPayloadToInterface(
       reason: p.reason || "",
       coverage: p.coverage != null ? p.coverage : 1,
       condition: p.condition || "{}",
+      prerequisites: p.prerequisites || [],
       savedGroups: (p.savedGroupTargeting || []).map((s) => ({
         match: s.matchType,
         ids: s.savedGroups,
@@ -2599,6 +2609,14 @@ export function updateExperimentApiPayloadToInterface(
                 `Invalid targeting condition: ${conditionRes.error}`
               );
             }
+            p.prerequisites?.forEach((prerequisite) => {
+              const conditionRes = validateCondition(prerequisite.condition);
+              if (!conditionRes.success) {
+                throw new Error(
+                  `Invalid prerequisite condition: ${conditionRes.error}`
+                );
+              }
+            });
 
             return {
               ...p,
@@ -2607,6 +2625,7 @@ export function updateExperimentApiPayloadToInterface(
               reason: p.reason || "",
               coverage: p.coverage != null ? p.coverage : 1,
               condition: p.condition || "{}",
+              prerequisites: p.prerequisites || [],
               savedGroups: (p.savedGroupTargeting || []).map((s) => ({
                 match: s.matchType,
                 ids: s.savedGroups,

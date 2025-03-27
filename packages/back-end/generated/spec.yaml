@@ -377,6 +377,19 @@ paths:
                                         type: array
                                         items:
                                           type: string
+                                prerequisites:
+                                  type: array
+                                  items:
+                                    type: object
+                                    required:
+                                      - id
+                                      - condition
+                                    properties:
+                                      id:
+                                        type: string
+                                        description: Feature ID
+                                      condition:
+                                        type: string
                                 id:
                                   type: string
                                 enabled:
@@ -412,6 +425,37 @@ paths:
                                     - experiment-ref
                                 condition:
                                   type: string
+                                savedGroupTargeting:
+                                  type: array
+                                  items:
+                                    type: object
+                                    required:
+                                      - matchType
+                                      - savedGroups
+                                    properties:
+                                      matchType:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - any
+                                          - none
+                                      savedGroups:
+                                        type: array
+                                        items:
+                                          type: string
+                                prerequisites:
+                                  type: array
+                                  items:
+                                    type: object
+                                    required:
+                                      - id
+                                      - condition
+                                    properties:
+                                      id:
+                                        type: string
+                                        description: Feature ID
+                                      condition:
+                                        type: string
                                 variations:
                                   type: array
                                   items:
@@ -524,6 +568,11 @@ paths:
                           definition:
                             type: string
                             description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
+                prerequisites:
+                  type: array
+                  description: Feature IDs. Each feature must evaluate to `true`
+                  items:
+                    type: string
                 jsonSchema:
                   type: string
                   description: Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).
@@ -614,6 +663,11 @@ paths:
                   type: object
                   additionalProperties:
                     $ref: '#/paths/~1features/post/requestBody/content/application~1json/schema/properties/environments/additionalProperties'
+                prerequisites:
+                  type: array
+                  description: Feature IDs. Each feature must evaluate to `true`
+                  items:
+                    type: string
                 jsonSchema:
                   type: string
                   description: Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).
@@ -1538,6 +1592,19 @@ paths:
                             type: boolean
                       targetingCondition:
                         type: string
+                      prerequisites:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - id
+                            - condition
+                          properties:
+                            id:
+                              type: string
+                              description: Feature ID
+                            condition:
+                              type: string
                       reason:
                         type: string
                       condition:
@@ -1827,6 +1894,19 @@ paths:
                             type: boolean
                       targetingCondition:
                         type: string
+                      prerequisites:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - id
+                            - condition
+                          properties:
+                            id:
+                              type: string
+                              description: Feature ID
+                            condition:
+                              type: string
                       reason:
                         type: string
                       condition:
@@ -5455,16 +5535,9 @@ components:
             $ref: '#/components/schemas/FeatureEnvironment'
         prerequisites:
           type: array
+          description: Feature IDs. Each feature must evaluate to `true`
           items:
-            type: object
-            required:
-              - parentId
-              - parentCondition
-            properties:
-              parentId:
-                type: string
-              parentCondition:
-                type: string
+            type: string
         revision:
           type: object
           required:
@@ -5657,6 +5730,19 @@ components:
                 type: array
                 items:
                   type: string
+        prerequisites:
+          type: array
+          items:
+            type: object
+            required:
+              - id
+              - condition
+            properties:
+              id:
+                type: string
+                description: Feature ID
+              condition:
+                type: string
         id:
           type: string
         enabled:
@@ -6041,6 +6127,18 @@ components:
                     rangeEnd: number
               targetingCondition:
                 type: string
+              prerequisites:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - condition
+                  properties:
+                    id:
+                      type: string
+                    condition:
+                      type: string
               savedGroupTargeting:
                 type: array
                 items:

@@ -120,6 +120,10 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
       archived: !!req.body.archived,
       version: 1,
       environmentSettings: {},
+      prerequisites: (req.body?.prerequisites || []).map((p) => ({
+        id: p,
+        condition: `{"value": true}`,
+      })),
       tags,
     };
 
