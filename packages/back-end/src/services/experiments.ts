@@ -37,9 +37,9 @@ import {
   isFactMetricId,
   isMetricJoinable,
 } from "shared/experiments";
-import { orgHasPremiumFeature } from "shared/enterprise";
 import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import {
   ExperimentAnalysisSummaryVariationStatus,
@@ -582,7 +582,6 @@ export async function createManualSnapshot({
   orgPriorSettings,
   analysisSettings,
   metricMap,
-  context,
 }: {
   experiment: ExperimentInterface;
   phaseIndex: number;
@@ -593,7 +592,6 @@ export async function createManualSnapshot({
   orgPriorSettings: MetricPriorSettings | undefined;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
   metricMap: Map<string, ExperimentMetricInterface>;
-  context: Context;
 }) {
   const snapshotSettings = getSnapshotSettings({
     experiment,
@@ -646,7 +644,7 @@ export async function createManualSnapshot({
     triggeredBy: "manual",
   };
 
-  return await createExperimentSnapshotModel({ data, context });
+  return await createExperimentSnapshotModel({ data });
 }
 
 export async function parseDimensionId(
@@ -705,9 +703,7 @@ export function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
   return new Date(Date.now() + hours * 60 * 60 * 1000);
 }
 
-export function determineNextBanditSchedule(
-  exp: ExperimentInterface
-): Date | undefined {
+export function determineNextBanditSchedule(exp: ExperimentInterface): Date {
   const start = (
     exp?.banditStageDateStarted ??
     exp.phases?.[exp.phases.length - 1]?.dateStarted ??
@@ -1049,22 +1045,22 @@ export async function createSnapshot({
 
   if (scheduleNextSnapshot) {
     const nextUpdate =
-      (experiment.type !== "multi-armed-bandit"
+      experiment.type !== "multi-armed-bandit"
         ? determineNextDate(organization.settings?.updateSchedule || null)
-        : determineNextBanditSchedule(experiment)) || undefined;
+        : determineNextBanditSchedule(experiment);
 
     await updateExperiment({
       context,
       experiment,
       changes: {
         lastSnapshotAttempt: new Date(),
-        nextSnapshotAttempt: nextUpdate,
+        ...(nextUpdate ? { nextSnapshotAttempt: nextUpdate } : {}),
         autoSnapshots: nextUpdate !== null,
       },
     });
   }
 
-  const snapshot = await createExperimentSnapshotModel({ data, context });
+  const snapshot = await createExperimentSnapshotModel({ data });
 
   const integration = getSourceIntegrationObject(context, datasource, true);
 
@@ -1346,6 +1342,7 @@ export async function toExperimentApiInterface(
   const activationMetric = experiment.activationMetric;
   return {
     id: experiment.id,
+    trackingKey: experiment.trackingKey,
     name: experiment.name || "",
     type: experiment.type || "standard",
     project: experiment.project || "",
@@ -1415,6 +1412,13 @@ export async function toExperimentApiInterface(
       regressionAdjustmentEnabled:
         experiment.regressionAdjustmentEnabled ??
         scopedSettings.regressionAdjustmentEnabled.value,
+      sequentialTestingEnabled:
+        experiment.sequentialTestingEnabled ??
+        scopedSettings.sequentialTestingEnabled.value,
+      sequentialTestingTuningParameter:
+        experiment.sequentialTestingTuningParameter ??
+        scopedSettings.sequentialTestingTuningParameter.value ??
+        DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
       ...(activationMetric
         ? {
             activationMetric: getExperimentMetric(experiment, activationMetric),
@@ -2350,7 +2354,7 @@ export const toNamespaceRange = (
 export function postExperimentApiPayloadToInterface(
   payload: z.infer<typeof postExperimentValidator.bodySchema>,
   organization: OrganizationInterface,
-  datasource: DataSourceInterface
+  datasource: DataSourceInterface | null
 ): Omit<ExperimentInterface, "dateCreated" | "dateUpdated" | "id"> {
   const phases: ExperimentPhase[] = payload.phases?.map((p) => {
     const conditionRes = validateCondition(p.condition);
@@ -2399,17 +2403,25 @@ export function postExperimentApiPayloadToInterface(
 
   return {
     organization: organization.id,
-    datasource: datasource.id,
+    datasource: datasource?.id ?? "",
     archived: payload.archived ?? false,
     hashAttribute: payload.hashAttribute ?? "",
+    fallbackAttribute: payload.fallbackAttribute || "",
     hashVersion: payload.hashVersion ?? 2,
+    disableStickyBucketing: payload.disableStickyBucketing ?? false,
+    ...(payload.bucketVersion !== undefined
+      ? { bucketVersion: payload.bucketVersion }
+      : {}),
+    ...(payload.minBucketVersion !== undefined
+      ? { minBucketVersion: payload.minBucketVersion }
+      : {}),
     autoSnapshots: true,
     project: payload.project,
     owner: payload.owner || "",
     trackingKey: payload.trackingKey || "",
     exposureQueryId:
       payload.assignmentQueryId ||
-      datasource.settings.queries?.exposure?.[0]?.id ||
+      datasource?.settings.queries?.exposure?.[0]?.id ||
       "",
     name: payload.name || "",
     phases,
@@ -2418,11 +2430,11 @@ export function postExperimentApiPayloadToInterface(
     hypothesis: payload.hypothesis || "",
     goalMetrics: payload.metrics || [],
     secondaryMetrics: payload.secondaryMetrics || [],
-    metricOverrides: [],
     guardrailMetrics: payload.guardrailMetrics || [],
-    activationMetric: "",
-    segment: "",
-    queryFilter: "",
+    activationMetric: payload.activationMetric || "",
+    metricOverrides: [],
+    segment: payload.segmentId || "",
+    queryFilter: payload.queryFilter || "",
     skipPartialData: payload.inProgressConversions === "strict",
     attributionModel: payload.attributionModel || "firstExposure",
     ...(payload.statsEngine ? { statsEngine: payload.statsEngine } : {}),
@@ -2442,9 +2454,13 @@ export function postExperimentApiPayloadToInterface(
     previewURL: "",
     targetURLRegex: "",
     ideaSource: "",
-    sequentialTestingEnabled: !!organization?.settings
-      ?.sequentialTestingEnabled,
-    sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    sequentialTestingEnabled:
+      payload.sequentialTestingEnabled ??
+      !!organization?.settings?.sequentialTestingEnabled,
+    sequentialTestingTuningParameter:
+      payload.sequentialTestingTuningParameter ??
+      organization?.settings?.sequentialTestingTuningParameter ??
+      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     regressionAdjustmentEnabled:
       payload.regressionAdjustmentEnabled ??
       !!organization?.settings?.regressionAdjustmentEnabled,
@@ -2471,12 +2487,18 @@ export function updateExperimentApiPayloadToInterface(
     assignmentQueryId,
     hashAttribute,
     hashVersion,
+    disableStickyBucketing,
+    bucketVersion,
+    minBucketVersion,
     name,
     tags,
     description,
     hypothesis,
     metrics,
     guardrailMetrics,
+    activationMetric,
+    segmentId,
+    queryFilter,
     archived,
     status,
     phases,
@@ -2487,6 +2509,8 @@ export function updateExperimentApiPayloadToInterface(
     attributionModel,
     statsEngine,
     regressionAdjustmentEnabled,
+    sequentialTestingEnabled,
+    sequentialTestingTuningParameter,
     secondaryMetrics,
     shareLevel,
   } = payload;
@@ -2498,6 +2522,9 @@ export function updateExperimentApiPayloadToInterface(
     ...(assignmentQueryId ? { assignmentQueryId } : {}),
     ...(hashAttribute ? { hashAttribute } : {}),
     ...(hashVersion ? { hashVersion } : {}),
+    ...(disableStickyBucketing !== undefined ? { disableStickyBucketing } : {}),
+    ...(bucketVersion !== undefined ? { bucketVersion } : {}),
+    ...(minBucketVersion !== undefined ? { minBucketVersion } : {}),
     ...(name ? { name } : {}),
     ...(tags ? { tags } : {}),
     ...(description !== undefined ? { description } : {}),
@@ -2505,6 +2532,9 @@ export function updateExperimentApiPayloadToInterface(
     ...(metrics ? { goalMetrics: metrics } : {}),
     ...(guardrailMetrics ? { guardrailMetrics } : {}),
     ...(secondaryMetrics ? { secondaryMetrics } : {}),
+    ...(activationMetric ? { activationMetric } : {}),
+    ...(segmentId ? { segment: segmentId } : {}),
+    ...(queryFilter !== undefined ? { queryFilter } : {}),
     ...(archived !== undefined ? { archived } : {}),
     ...(status ? { status } : {}),
     ...(releasedVariationId !== undefined ? { releasedVariationId } : {}),
@@ -2516,6 +2546,12 @@ export function updateExperimentApiPayloadToInterface(
     ...(statsEngine !== undefined ? { statsEngine } : {}),
     ...(regressionAdjustmentEnabled !== undefined
       ? { regressionAdjustmentEnabled }
+      : {}),
+    ...(sequentialTestingEnabled !== undefined
+      ? { sequentialTestingEnabled }
+      : {}),
+    ...(sequentialTestingTuningParameter !== undefined
+      ? { sequentialTestingTuningParameter }
       : {}),
     ...(variations
       ? {
@@ -2811,7 +2847,7 @@ export async function getChangesToStartExperiment(
   return changes;
 }
 
-export async function updateExperimentAnalysisSummary({
+export async function getExperimentAnalysisSummary({
   context,
   experiment,
   experimentSnapshot,
@@ -2819,7 +2855,7 @@ export async function updateExperimentAnalysisSummary({
   context: ReqContext;
   experiment: ExperimentInterface;
   experimentSnapshot: ExperimentSnapshotInterface;
-}) {
+}): Promise<ExperimentAnalysisSummary> {
   const analysisSummary: ExperimentAnalysisSummary = {
     snapshotId: experimentSnapshot.id,
   };
@@ -2844,7 +2880,7 @@ export async function updateExperimentAnalysisSummary({
 
   const srm = getSRMValue(experiment.type ?? "standard", experimentSnapshot);
 
-  if (overallTraffic && srm !== undefined) {
+  if (srm !== undefined) {
     analysisSummary.health = {
       srm,
       multipleExposures: experimentSnapshot.multipleExposures,
@@ -2890,7 +2926,25 @@ export async function updateExperimentAnalysisSummary({
     }
   }
 
-  await updateExperiment({
+  return analysisSummary;
+}
+
+export async function updateExperimentAnalysisSummary({
+  context,
+  experiment,
+  experimentSnapshot,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+  experimentSnapshot: ExperimentSnapshotInterface;
+}): Promise<ExperimentInterface> {
+  const analysisSummary = await getExperimentAnalysisSummary({
+    context,
+    experiment,
+    experimentSnapshot,
+  });
+
+  return updateExperiment({
     context,
     experiment,
     changes: {
@@ -2969,10 +3023,16 @@ async function computeResultsStatus({
           } else if (resultsStatus.resultsStatus === "lost") {
             metricStatus.superStatSigStatus = "lost";
           }
+          if (!variationStatus.goalMetrics) {
+            variationStatus.goalMetrics = {};
+          }
           variationStatus.goalMetrics[metric.id] = metricStatus;
         }
 
         if (guardrailMetric) {
+          if (!variationStatus.guardrailMetrics) {
+            variationStatus.guardrailMetrics = {};
+          }
           variationStatus.guardrailMetrics[metric.id] = {
             status: resultsStatus.resultsStatus === "lost" ? "lost" : "neutral",
           };

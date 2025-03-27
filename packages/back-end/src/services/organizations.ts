@@ -3,16 +3,6 @@ import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
 import { Request } from "express";
 import {
-  getLicense,
-  isActiveSubscriptionStatus,
-  isAirGappedLicenseKey,
-  licenseInit,
-  postSubscriptionUpdateToLicenseServer,
-  getSubscriptionFromLicense,
-  SubscriptionInfo,
-  getStripeSubscriptionStatus,
-} from "shared/enterprise";
-import {
   areProjectRolesValid,
   isRoleValid,
   getDefaultRole,
@@ -89,6 +79,14 @@ import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
+import {
+  isAirGappedLicenseKey,
+  getLicense,
+  isActiveSubscriptionStatus,
+  getSubscriptionFromLicense,
+  postSubscriptionUpdateToLicenseServer,
+  licenseInit,
+} from "back-end/src/enterprise";
 import {
   encryptParams,
   getSourceIntegrationObject,
@@ -1139,19 +1137,4 @@ export async function getContextForAgendaJobByOrgId(
   }
 
   return getContextForAgendaJobByOrgObject(organization);
-}
-
-export function getSubscriptionFromOrg(
-  organization: OrganizationInterface
-): SubscriptionInfo | null {
-  if (organization.subscription) {
-    return {
-      billingPlatform: "stripe",
-      externalId: organization.subscription.id,
-      trialEnd: organization.subscription.trialEnd,
-      status: getStripeSubscriptionStatus(organization.subscription.status),
-      hasPaymentMethod: !!organization.subscription.hasPaymentMethod,
-    };
-  }
-  return null;
 }

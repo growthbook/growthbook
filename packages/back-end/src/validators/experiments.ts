@@ -194,11 +194,10 @@ export type GoalMetricResult = z.infer<typeof goalMetricResult>;
 
 export const experimentAnalysisSummaryVariationStatus = z.object({
   variationId: z.string(),
-  goalMetrics: z.record(z.string(), goalMetricResult),
-  guardrailMetrics: z.record(
-    z.string(),
-    z.object({ status: z.enum(guardrailMetricStatus) })
-  ),
+  goalMetrics: z.record(z.string(), goalMetricResult).optional(),
+  guardrailMetrics: z
+    .record(z.string(), z.object({ status: z.enum(guardrailMetricStatus) }))
+    .optional(),
 });
 export type ExperimentAnalysisSummaryVariationStatus = z.infer<
   typeof experimentAnalysisSummaryVariationStatus

@@ -62,5 +62,7 @@ export type AppFeatures = {
   "use-new-setup-flow-2": boolean;
   "show-impact-near-top": boolean;
   "pro-upgrade-modal": string;
+  "ff_payment-info": boolean;
+  "ff_embedded-payment-form": boolean;
   "cdn-usage-data": boolean;
 };

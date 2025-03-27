@@ -270,6 +270,18 @@ export type OrganizationMessage = {
   level: "info" | "danger" | "warning";
 };
 
+// The type used to get member data to calculate usage counts for licenses
+export type OrgMemberInfo = {
+  id: string;
+  invites: { email: string }[];
+  members: {
+    id: string;
+    role: string;
+    projectRoles?: { role: string }[];
+    teams?: string[];
+  }[];
+};
+
 export interface OrganizationInterface {
   id: string;
   url: string;
@@ -279,6 +291,7 @@ export interface OrganizationInterface {
   name: string;
   ownerEmail: string;
   demographicData?: DemographicData;
+  /** @deprecated */
   stripeCustomerId?: string;
   restrictLoginMethod?: string;
   restrictAuthSubPrefix?: string;
@@ -288,6 +301,7 @@ export interface OrganizationInterface {
   disableSelfServeBilling?: boolean;
   freeTrialDate?: Date;
   enterprise?: boolean;
+  /** @deprecated */
   subscription?: {
     id: string;
     qty: number;

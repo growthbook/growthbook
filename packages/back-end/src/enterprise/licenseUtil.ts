@@ -4,9 +4,21 @@ import type Stripe from "stripe";
 import pino from "pino";
 import { pick, sortBy } from "lodash";
 import AsyncLock from "async-lock";
-import { stringToBoolean } from "shared/util";
+import { parseProcessLogBase, stringToBoolean } from "shared/util";
 import { ProxyAgent } from "proxy-agent";
 import cloneDeep from "lodash/cloneDeep";
+import {
+  accountFeatures,
+  AccountPlan,
+  accountPlans,
+  CommercialFeature,
+  CommercialFeaturesMap,
+  LicenseData,
+  LicenseInterface,
+  LicenseMetaData,
+  LicenseUserCodes,
+  SubscriptionInfo,
+} from "shared/enterprise";
 import { getLicenseByKey, LicenseModel } from "./models/licenseModel";
 import { LICENSE_PUBLIC_KEY } from "./public-key";
 
@@ -17,74 +29,13 @@ export const LICENSE_SERVER_URL =
 // mimic behavior in back-end/src/util/secrets.ts
 const APP_ORIGIN = process.env.APP_ORIGIN || "http://localhost:3000";
 
-const logger = pino();
+const logBase = parseProcessLogBase();
 
-export type AccountPlan = "oss" | "starter" | "pro" | "pro_sso" | "enterprise";
-const accountPlans: Set<AccountPlan> = new Set([
-  "oss",
-  "starter",
-  "pro",
-  "pro_sso",
-  "enterprise",
-]);
+const logger = pino({
+  ...logBase,
+});
 
-export type CommercialFeature =
-  | "scim"
-  | "sso"
-  | "advanced-permissions"
-  | "encrypt-features-endpoint"
-  | "schedule-feature-flag"
-  | "custom-metadata"
-  | "override-metrics"
-  | "regression-adjustment"
-  | "sequential-testing"
-  | "pipeline-mode"
-  | "audit-logging"
-  | "visual-editor"
-  | "archetypes"
-  | "simulate"
-  | "cloud-proxy"
-  | "hash-secure-attributes"
-  | "livechat"
-  | "json-validation"
-  | "remote-evaluation"
-  | "multi-org"
-  | "custom-launch-checklist"
-  | "multi-metric-queries"
-  | "no-access-role"
-  | "teams"
-  | "sticky-bucketing"
-  | "require-approvals"
-  | "code-references"
-  | "prerequisites"
-  | "prerequisite-targeting"
-  | "redirects"
-  | "multiple-sdk-webhooks"
-  | "custom-roles"
-  | "quantile-metrics"
-  | "retention-metrics"
-  | "custom-markdown"
-  | "experiment-impact"
-  | "metric-populations"
-  | "large-saved-groups"
-  | "multi-armed-bandits"
-  | "metric-groups"
-  | "environment-inheritance"
-  | "templates"
-  | "historical-power"
-  | "decision-framework";
-
-export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
-
-export type SubscriptionInfo = {
-  billingPlatform: "stripe";
-  externalId: string;
-  trialEnd: Date | null;
-  status: "active" | "canceled" | "past_due" | "trialing" | "";
-  hasPaymentMethod: boolean;
-};
-
-export function getStripeSubscriptionStatus(
+function getStripeSubscriptionStatus(
   status: Stripe.Subscription.Status
 ): SubscriptionInfo["status"] {
   if (status === "past_due") return "past_due";
@@ -97,199 +48,22 @@ export function getStripeSubscriptionStatus(
 export function getSubscriptionFromLicense(
   license: Partial<LicenseInterface>
 ): SubscriptionInfo | null {
-  if (license.stripeSubscription) {
-    return {
-      billingPlatform: "stripe",
-      externalId: license.stripeSubscription.id,
-      trialEnd: license.stripeSubscription.trialEnd,
-      status: getStripeSubscriptionStatus(license.stripeSubscription.status),
-      hasPaymentMethod: !!license.stripeSubscription.hasPaymentMethod,
-    };
-  }
-  return null;
-}
+  const sub = license.orbSubscription || license.stripeSubscription;
 
-export interface LicenseInterface {
-  id: string; // Unique ID for the license key
-  companyName: string; // Name of the organization on the license
-  organizationId?: string; // OrganizationId (keys prior to 12/2022 do not contain this field)
-  seats: number; // Maximum number of seats on the license
-  hardCap: boolean; // True if this license has a hard cap on the number of seats
-  dateCreated: string; // Date the license was issued
-  dateExpires: string; // Date the license expires
-  name: string; // Name of the person who signed up for the license
-  email: string; // Billing email of the person who signed up for the license
-  emailVerified: boolean; // True if the email has been verified
-  isTrial: boolean; // True if this is a trial license
-  plan?: AccountPlan; // The assigned plan (pro, enterprise, etc.) for this license
-  seatsInUse: number; // Number of seats currently in use
-  remoteDowngrade: boolean; // True if the license was downgraded remotely
-  message?: {
-    text: string; // The text to show in the account notice
-    className: string; // The class name to apply to the account notice
-    tooltipText: string; // The text to show in the tooltip
-    showAllUsers: boolean; // True if all users should see the notice rather than just the admins
+  if (!sub) return null;
+
+  return {
+    billingPlatform: license.orbSubscription ? "orb" : "stripe",
+    externalId: sub.id,
+    trialEnd: sub.trialEnd,
+    status: getStripeSubscriptionStatus(sub.status),
+    hasPaymentMethod: !!sub.hasPaymentMethod,
+    nextBillDate: new Date((sub.current_period_end || 0) * 1000).toDateString(),
+    dateToBeCanceled: new Date((sub.cancel_at || 0) * 1000).toDateString(),
+    cancelationDate: new Date((sub.canceled_at || 0) * 1000).toDateString(),
+    pendingCancelation: sub.status !== "canceled" && !!sub.cancel_at_period_end,
   };
-  billingPlatform: "stripe" | "";
-  stripeSubscription?: {
-    id: string;
-    qty: number;
-    trialEnd: Date | null;
-    status: Stripe.Subscription.Status;
-    current_period_end: number;
-    cancel_at: number | null;
-    canceled_at: number | null;
-    cancel_at_period_end: boolean;
-    planNickname: string | null;
-    priceId?: string;
-    price?: number; // The price of the license
-    discountAmount?: number; // The amount of the discount
-    discountMessage?: string; // The message of the discount
-    hasPaymentMethod?: boolean;
-  };
-  freeTrialDate?: Date; // Date the free trial was started
-  installationUsers: {
-    [installationId: string]: { date: string; userHashes: string[] };
-  }; // Map of first 7 chars of user email shas to the last time they were in a usage request
-  archived: boolean; // True if this license has been deleted/archived
-  dateUpdated: string; // Date the license was last updated
-  usingMongoCache: boolean; // True if the license data was retrieved from the cache
-  firstFailedFetchDate?: Date; // Date of the first failed fetch
-  lastFailedFetchDate?: Date; // Date of the last failed fetch
-  lastServerErrorMessage?: string; // The last error message from a failed fetch
-  signedChecksum: string; // Checksum of the license data signed with the private key
 }
-
-// Old/Airgapped style license keys where the license data is encrypted in the key itself
-type LicenseData = {
-  // Unique id for the license key
-  ref: string;
-  // Name of organization on the license
-  sub: string;
-  // Organization ID (keys prior to 12/2022 do not contain this field)
-  org?: string;
-  // Max number of seats
-  qty: number;
-  // True if this license has a hard cap on the number of seats (keys prior to 03/2024 do not contain this field)
-  hardCap?: boolean;
-  // Date issued
-  iat: string;
-  // Expiration date
-  exp: string;
-  // If it's a trial or not
-  trial: boolean;
-  // The plan (pro, enterprise, etc.)
-  plan: AccountPlan;
-  /**
-   * Expiration date (old style)
-   * @deprecated
-   */
-  eat?: string;
-};
-
-export const accountFeatures: CommercialFeaturesMap = {
-  oss: new Set<CommercialFeature>([]),
-  starter: new Set<CommercialFeature>([]),
-  pro: new Set<CommercialFeature>([
-    "advanced-permissions",
-    "encrypt-features-endpoint",
-    "schedule-feature-flag",
-    "override-metrics",
-    "regression-adjustment",
-    "sequential-testing",
-    "visual-editor",
-    "archetypes",
-    "simulate",
-    "cloud-proxy",
-    "hash-secure-attributes",
-    "livechat",
-    "remote-evaluation",
-    "sticky-bucketing",
-    "code-references",
-    "prerequisites",
-    "redirects",
-    "multiple-sdk-webhooks",
-    "quantile-metrics",
-    "retention-metrics",
-    "metric-populations",
-    "multi-armed-bandits",
-    "historical-power",
-    "decision-framework",
-  ]),
-  pro_sso: new Set<CommercialFeature>([
-    "sso",
-    "advanced-permissions",
-    "encrypt-features-endpoint",
-    "schedule-feature-flag",
-    "override-metrics",
-    "regression-adjustment",
-    "sequential-testing",
-    "visual-editor",
-    "archetypes",
-    "simulate",
-    "cloud-proxy",
-    "hash-secure-attributes",
-    "livechat",
-    "remote-evaluation",
-    "sticky-bucketing",
-    "code-references",
-    "prerequisites",
-    "redirects",
-    "multiple-sdk-webhooks",
-    "quantile-metrics",
-    "retention-metrics",
-    "metric-populations",
-    "multi-armed-bandits",
-    "historical-power",
-    "decision-framework",
-  ]),
-  enterprise: new Set<CommercialFeature>([
-    "scim",
-    "sso",
-    "advanced-permissions",
-    "audit-logging",
-    "encrypt-features-endpoint",
-    "schedule-feature-flag",
-    "custom-metadata",
-    "override-metrics",
-    "regression-adjustment",
-    "sequential-testing",
-    "pipeline-mode",
-    "multi-metric-queries",
-    "visual-editor",
-    "archetypes",
-    "simulate",
-    "cloud-proxy",
-    "hash-secure-attributes",
-    "json-validation",
-    "livechat",
-    "remote-evaluation",
-    "multi-org",
-    "teams",
-    "custom-launch-checklist",
-    "no-access-role",
-    "sticky-bucketing",
-    "require-approvals",
-    "code-references",
-    "prerequisites",
-    "prerequisite-targeting",
-    "redirects",
-    "multiple-sdk-webhooks",
-    "quantile-metrics",
-    "retention-metrics",
-    "custom-roles",
-    "custom-markdown",
-    "experiment-impact",
-    "metric-populations",
-    "large-saved-groups",
-    "multi-armed-bandits",
-    "metric-groups",
-    "environment-inheritance",
-    "templates",
-    "historical-power",
-    "decision-framework",
-  ]),
-};
 
 type MinimalOrganization = {
   id: string;
@@ -342,7 +116,6 @@ export function getAccountPlan(org: MinimalOrganization): AccountPlan {
     }
     if (org.enterprise) return "enterprise";
     if (org.restrictAuthSubPrefix || org.restrictLoginMethod) return "pro_sso";
-    if (isActiveSubscriptionStatus(org.subscription?.status)) return "pro";
     return "starter";
   }
 
@@ -493,7 +266,11 @@ export class LicenseServerError extends Error {
   }
 }
 
-async function callLicenseServer(url: string, body: string, method = "POST") {
+export async function callLicenseServer(
+  url: string,
+  body: string,
+  method = "POST"
+) {
   const agentOptions = getAgentOptions();
 
   const options = {
@@ -594,6 +371,44 @@ export async function postNewProSubscriptionToLicenseServer(
   );
 }
 
+export async function postNewInlineSubscriptionToLicenseServer(
+  organizationId: string,
+  nonInviteSeatQty: number
+) {
+  const url = `${LICENSE_SERVER_URL}subscription/start-new-pro`;
+  const license = await callLicenseServer(
+    url,
+    JSON.stringify({
+      cloudSecret: process.env.CLOUD_SECRET,
+      organizationId,
+      nonInviteSeatQty,
+    })
+  );
+
+  verifyAndSetServerLicenseData(license);
+  return license;
+}
+
+export async function postNewProSubscriptionIntentToLicenseServer(
+  organizationId: string,
+  companyName: string,
+  ownerEmail: string,
+  name: string
+) {
+  const url = `${LICENSE_SERVER_URL}subscription/setup-subscription-intent`;
+  return await callLicenseServer(
+    url,
+    JSON.stringify({
+      appOrigin: APP_ORIGIN,
+      cloudSecret: process.env.CLOUD_SECRET,
+      organizationId,
+      companyName,
+      ownerEmail,
+      name,
+    })
+  );
+}
+
 export async function postNewSubscriptionSuccessToLicenseServer(
   checkoutSessionId: string
 ): Promise<LicenseInterface> {
@@ -664,6 +479,17 @@ export async function postCreateTrialEnterpriseLicenseToLicenseServer(
   );
 }
 
+export async function postCancelSubscriptionToLicenseServer(licenseId: string) {
+  const url = `${LICENSE_SERVER_URL}subscription/cancel`;
+  const license = await callLicenseServer(
+    url,
+    JSON.stringify({ licenseId, cloudSecret: process.env.CLOUD_SECRET })
+  );
+
+  verifyAndSetServerLicenseData(license);
+  return license;
+}
+
 export async function postResendEmailVerificationEmailToLicenseServer(
   organizationId: string
 ) {
@@ -704,7 +530,7 @@ function verifyAndSetCachedLicenseData(license: LicenseInterface) {
 
 async function getLicenseDataFromServer(
   licenseId: string,
-  userLicenseCodes: string[],
+  licenseUserCodes: LicenseUserCodes,
   metaData: LicenseMetaData
 ): Promise<LicenseInterface> {
   logger.info("Getting license data from server for " + licenseId);
@@ -713,7 +539,7 @@ async function getLicenseDataFromServer(
   const license = await callLicenseServer(
     url,
     JSON.stringify({
-      userHashes: userLicenseCodes,
+      licenseUserCodes: licenseUserCodes,
       metaData,
     }),
     "PUT"
@@ -725,17 +551,17 @@ async function getLicenseDataFromServer(
 async function updateLicenseFromServer(
   licenseKey: string,
   org: MinimalOrganization,
-  getUserCodesForOrg: (org: MinimalOrganization) => Promise<string[]>,
+  getUserCodesForOrg: (org: MinimalOrganization) => Promise<LicenseUserCodes>,
   getLicenseMetaData: () => Promise<LicenseMetaData>,
   mongoCache: LicenseInterface | null
 ) {
   let license: LicenseInterface;
   try {
-    const userLicenseCodes = await getUserCodesForOrg(org);
+    const licenseUserCodes = await getUserCodesForOrg(org);
     const metaData = await getLicenseMetaData();
     license = await getLicenseDataFromServer(
       licenseKey,
-      userLicenseCodes,
+      licenseUserCodes,
       metaData
     );
     verifyAndSetServerLicenseData(license);
@@ -764,16 +590,6 @@ async function updateLicenseFromServer(
   return license;
 }
 
-export interface LicenseMetaData {
-  installationId: string;
-  gitSha: string;
-  gitCommitDate: string;
-  sdkLanguages: string[];
-  dataSourceTypes: string[];
-  eventTrackers: string[];
-  isCloud: boolean;
-}
-
 const lock = new AsyncLock();
 
 // in-memory cache to avoid hitting the license server on every request
@@ -784,7 +600,7 @@ export let backgroundUpdateLicenseFromServerForTests: Promise<void | LicenseInte
 
 export async function licenseInit(
   org?: MinimalOrganization,
-  getUserCodesForOrg?: (org: MinimalOrganization) => Promise<string[]>,
+  getUserCodesForOrg?: (org: MinimalOrganization) => Promise<LicenseUserCodes>,
   getLicenseMetaData?: () => Promise<LicenseMetaData>,
   forceRefresh = false
 ): Promise<Partial<LicenseInterface> | undefined> {

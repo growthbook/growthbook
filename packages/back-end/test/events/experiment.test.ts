@@ -7,6 +7,7 @@ import {
 import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handlers/legacy";
 import { experimentSnapshot } from "back-end/test/snapshots/experiment.snapshot";
 import {
+  notifyDecision,
   notifyMultipleExposures,
   notifySrm,
 } from "back-end/src/services/experimentNotifications";
@@ -99,6 +100,8 @@ describe("experiments events", () => {
               inProgressConversions: "include",
               queryFilter: "",
               regressionAdjustmentEnabled: false,
+              sequentialTestingEnabled: false,
+              sequentialTestingTuningParameter: 5000,
               secondaryMetrics: [{ metricId: "metric-ccdd", overrides: {} }],
               segmentId: "",
               statsEngine: "bayesian",
@@ -121,6 +124,9 @@ describe("experiments events", () => {
                 variationId: "var_lyel822a",
               },
             ],
+            shareLevel: "organization",
+            trackingKey: "add-cart",
+            type: "standard",
           }),
         }),
         environments: [],
@@ -183,6 +189,8 @@ describe("experiments events", () => {
               inProgressConversions: "include",
               queryFilter: "",
               regressionAdjustmentEnabled: false,
+              sequentialTestingEnabled: false,
+              sequentialTestingTuningParameter: 5000,
               secondaryMetrics: [{ metricId: "metric-ccdd", overrides: {} }],
               segmentId: "",
               statsEngine: "bayesian",
@@ -205,6 +213,9 @@ describe("experiments events", () => {
                 variationId: "var_lyel822a",
               },
             ],
+            shareLevel: "organization",
+            trackingKey: "add-cart",
+            type: "standard",
           }),
         }),
         environments: [],
@@ -295,6 +306,8 @@ describe("experiments events", () => {
               inProgressConversions: "include",
               queryFilter: "",
               regressionAdjustmentEnabled: false,
+              sequentialTestingEnabled: false,
+              sequentialTestingTuningParameter: 5000,
               secondaryMetrics: [{ metricId: "metric-ccdd", overrides: {} }],
               segmentId: "",
               statsEngine: "bayesian",
@@ -317,6 +330,9 @@ describe("experiments events", () => {
                 variationId: "var_lyel822a",
               },
             ],
+            shareLevel: "organization",
+            trackingKey: "add-cart",
+            type: "standard",
           }),
           previous_attributes: { name: "Add To Cart" },
         }),
@@ -386,6 +402,8 @@ describe("experiments events", () => {
               inProgressConversions: "include",
               queryFilter: "",
               regressionAdjustmentEnabled: false,
+              sequentialTestingEnabled: false,
+              sequentialTestingTuningParameter: 5000,
               secondaryMetrics: [{ metricId: "metric-ccdd", overrides: {} }],
               segmentId: "",
               statsEngine: "bayesian",
@@ -408,6 +426,9 @@ describe("experiments events", () => {
                 variationId: "var_lyel822a",
               },
             ],
+            shareLevel: "organization",
+            trackingKey: "add-cart",
+            type: "standard",
           }),
           previous: expect.objectContaining({
             archived: false,
@@ -457,6 +478,8 @@ describe("experiments events", () => {
               inProgressConversions: "include",
               queryFilter: "",
               regressionAdjustmentEnabled: false,
+              sequentialTestingEnabled: false,
+              sequentialTestingTuningParameter: 5000,
               secondaryMetrics: [{ metricId: "metric-ccdd", overrides: {} }],
               segmentId: "",
               statsEngine: "bayesian",
@@ -479,6 +502,9 @@ describe("experiments events", () => {
                 variationId: "var_lyel822a",
               },
             ],
+            shareLevel: "organization",
+            trackingKey: "add-cart",
+            type: "standard",
           }),
         }),
         environments: [],
@@ -568,6 +594,8 @@ describe("experiments events", () => {
               inProgressConversions: "include",
               queryFilter: "",
               regressionAdjustmentEnabled: false,
+              sequentialTestingEnabled: false,
+              sequentialTestingTuningParameter: 5000,
               secondaryMetrics: [{ metricId: "metric-ccdd", overrides: {} }],
               segmentId: "",
               statsEngine: "bayesian",
@@ -590,6 +618,9 @@ describe("experiments events", () => {
                 variationId: "var_lyel822a",
               },
             ],
+            shareLevel: "organization",
+            trackingKey: "add-cart",
+            type: "standard",
           }),
         }),
         environments: [],
@@ -652,6 +683,8 @@ describe("experiments events", () => {
               inProgressConversions: "include",
               queryFilter: "",
               regressionAdjustmentEnabled: false,
+              sequentialTestingEnabled: false,
+              sequentialTestingTuningParameter: 5000,
               secondaryMetrics: [{ metricId: "metric-ccdd", overrides: {} }],
               segmentId: "",
               statsEngine: "bayesian",
@@ -674,6 +707,9 @@ describe("experiments events", () => {
                 variationId: "var_lyel822a",
               },
             ],
+            shareLevel: "organization",
+            trackingKey: "add-cart",
+            type: "standard",
           }),
         }),
         environments: [],
@@ -714,9 +750,16 @@ describe("experiments events", () => {
           apiKey: "aabbcc",
         },
       },
-      experiment: { id: "experiment-aabb", ...experimentSnapshot },
-      results: { variations: [{ users: 100 }] },
-      snapshot: { multipleExposures: 10, totalUsers: 100 },
+      experiment: experimentSnapshot,
+      currentStatus: {
+        status: "unhealthy",
+        unhealthyData: {
+          multipleExposures: {
+            rawDecimal: 0.1,
+            multipleExposedUsers: 10,
+          },
+        },
+      },
     });
 
     expect(rawPayload).toEqual(
@@ -793,9 +836,12 @@ describe("experiments events", () => {
           apiKey: "aabbcc",
         },
       },
-      experiment: { id: "experiment-aabb", ...experimentSnapshot },
-      results: { srm: 0.1, variations: [{ users: 50 }, { users: 50 }] },
-      snapshot: { multipleExposures: 10, totalUsers: 100 },
+      experiment: experimentSnapshot,
+      currentStatus: {
+        status: "unhealthy",
+        unhealthyData: { srm: true },
+      },
+      healthSettings: { srmThreshold: 0.5 },
     });
 
     expect(rawPayload).toEqual(
@@ -845,5 +891,250 @@ describe("experiments events", () => {
         type: "dashboard",
       },
     });
+  });
+
+  it("dispatches decision update when decision to ship", async () => {
+    let rawPayload;
+
+    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
+      if (data.event === "experiment.decision.ship") rawPayload = data;
+      return { toJSON: () => "" };
+    });
+
+    jest
+      .spyOn(ExperimentModel, "updateOne")
+      .mockImplementation(() => undefined);
+
+    const tooltip =
+      "All goal metrics are statistically significant in the desired direction for a test variation and experiment has reached the target statistical power.";
+    await notifyDecision({
+      context: {
+        org: org,
+        userId: "user-aabb",
+        email: "user@email.com",
+        userName: "User Name",
+        auditUser: {
+          type: "api_key",
+          apiKey: "aabbcc",
+        },
+      },
+      experiment: experimentSnapshot,
+      currentStatus: { status: "ship-now", tooltip: tooltip },
+    });
+
+    expect(rawPayload).toEqual(
+      expect.objectContaining({
+        api_version: expect.any(String),
+        containsSecrets: false,
+        created: expect.any(Number),
+        environments: [],
+        event: "experiment.decision.ship",
+        object: "experiment",
+        projects: [],
+        tags: [],
+        data: {
+          object: {
+            experimentId: "exp_dd4gxd4lyel8bwi",
+            experimentName: "Add To Cart",
+            decisionDescription: tooltip,
+          },
+        },
+        user: {
+          email: "user@email.com",
+          id: "user-aabb",
+          name: "User Name",
+          type: "dashboard",
+        },
+      })
+    );
+  });
+
+  it("dispatches decision update when decision to rollback", async () => {
+    let rawPayload;
+
+    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
+      if (data.event === "experiment.decision.rollback") rawPayload = data;
+      return { toJSON: () => "" };
+    });
+
+    jest
+      .spyOn(ExperimentModel, "updateOne")
+      .mockImplementation(() => undefined);
+
+    const tooltip =
+      "All goal metrics are statistically significant in the undesired direction and experiment has reached the target statistical power.";
+    await notifyDecision({
+      context: {
+        org: org,
+        userId: "user-aabb",
+        email: "user@email.com",
+        userName: "User Name",
+        auditUser: {
+          type: "api_key",
+          apiKey: "aabbcc",
+        },
+      },
+      experiment: experimentSnapshot,
+      currentStatus: { status: "rollback-now", tooltip: tooltip },
+    });
+
+    expect(rawPayload).toEqual(
+      expect.objectContaining({
+        api_version: expect.any(String),
+        containsSecrets: false,
+        created: expect.any(Number),
+        environments: [],
+        event: "experiment.decision.rollback",
+        object: "experiment",
+        projects: [],
+        tags: [],
+        data: {
+          object: {
+            experimentId: "exp_dd4gxd4lyel8bwi",
+            experimentName: "Add To Cart",
+            decisionDescription: tooltip,
+          },
+        },
+        user: {
+          email: "user@email.com",
+          id: "user-aabb",
+          name: "User Name",
+          type: "dashboard",
+        },
+      })
+    );
+  });
+
+  it("dispatches decision update when decision ready to review", async () => {
+    let rawPayload;
+
+    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
+      if (data.event === "experiment.decision.review") rawPayload = data;
+      return { toJSON: () => "" };
+    });
+
+    jest
+      .spyOn(ExperimentModel, "updateOne")
+      .mockImplementation(() => undefined);
+
+    const tooltip =
+      "All goal metrics are statistically significant in the desired direction for a test variation and experiment has reached the target statistical power. However, one or more guardrails are failing";
+    await notifyDecision({
+      context: {
+        org: org,
+        userId: "user-aabb",
+        email: "user@email.com",
+        userName: "User Name",
+        auditUser: {
+          type: "api_key",
+          apiKey: "aabbcc",
+        },
+      },
+      experiment: experimentSnapshot,
+      currentStatus: { status: "ready-for-review", tooltip: tooltip },
+    });
+
+    expect(rawPayload).toEqual(
+      expect.objectContaining({
+        api_version: expect.any(String),
+        containsSecrets: false,
+        created: expect.any(Number),
+        environments: [],
+        event: "experiment.decision.review",
+        object: "experiment",
+        projects: [],
+        tags: [],
+        data: {
+          object: {
+            experimentId: "exp_dd4gxd4lyel8bwi",
+            experimentName: "Add To Cart",
+            decisionDescription: tooltip,
+          },
+        },
+        user: {
+          email: "user@email.com",
+          id: "user-aabb",
+          name: "User Name",
+          type: "dashboard",
+        },
+      })
+    );
+  });
+
+  it("only dispatch decision update when status changes", async () => {
+    let rawPayload;
+
+    jest.spyOn(EventModel, "create").mockImplementation(({ data }) => {
+      if (data.event === "experiment.decision.review") rawPayload = data;
+      return { toJSON: () => "" };
+    });
+
+    jest
+      .spyOn(ExperimentModel, "updateOne")
+      .mockImplementation(() => undefined);
+
+    // no change
+    await notifyDecision({
+      context: {
+        org: org,
+        userId: "user-aabb",
+        email: "user@email.com",
+        userName: "User Name",
+        auditUser: {
+          type: "api_key",
+          apiKey: "aabbcc",
+        },
+      },
+      experiment: experimentSnapshot,
+      currentStatus: { status: "ready-for-review" },
+      lastStatus: { status: "ready-for-review" },
+    });
+
+    expect(rawPayload).toEqual(undefined);
+
+    // changes from rollback to review
+    const tooltip =
+      "All goal metrics are statistically significant in the desired direction for a test variation and experiment has reached the target statistical power. However, one or more guardrails are failing";
+    await notifyDecision({
+      context: {
+        org: org,
+        userId: "user-aabb",
+        email: "user@email.com",
+        userName: "User Name",
+        auditUser: {
+          type: "api_key",
+          apiKey: "aabbcc",
+        },
+      },
+      experiment: experimentSnapshot,
+      currentStatus: { status: "ready-for-review", tooltip: tooltip },
+      lastStatus: { status: "rollback-now" },
+    });
+
+    expect(rawPayload).toEqual(
+      expect.objectContaining({
+        api_version: expect.any(String),
+        containsSecrets: false,
+        created: expect.any(Number),
+        environments: [],
+        event: "experiment.decision.review",
+        object: "experiment",
+        projects: [],
+        tags: [],
+        data: {
+          object: {
+            experimentId: "exp_dd4gxd4lyel8bwi",
+            experimentName: "Add To Cart",
+            decisionDescription: tooltip,
+          },
+        },
+        user: {
+          email: "user@email.com",
+          id: "user-aabb",
+          name: "User Name",
+          type: "dashboard",
+        },
+      })
+    );
   });
 });

@@ -141,6 +141,7 @@ const BanditExperimentPage = (): ReactElement => {
         <EditVariationsForm
           experiment={experiment}
           cancel={() => setVariationsModalOpen(false)}
+          onlySafeToEditVariationMetadata={false}
           mutate={mutate}
           source="bid"
         />

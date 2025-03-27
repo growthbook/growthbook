@@ -73,8 +73,8 @@ const adminController = wrapController(adminControllerRaw);
 import * as licenseControllerRaw from "./controllers/license";
 const licenseController = wrapController(licenseControllerRaw);
 
-import * as stripeControllerRaw from "./controllers/stripe";
-const stripeController = wrapController(stripeControllerRaw);
+import * as subscriptionControllerRaw from "./controllers/subscription";
+const subscriptionController = wrapController(subscriptionControllerRaw);
 
 import * as vercelControllerRaw from "./controllers/vercel";
 const vercelController = wrapController(vercelControllerRaw);
@@ -210,15 +210,6 @@ app.use(async (req, res, next) => {
 
 // Visual Designer js file (does not require JWT or cors)
 app.get("/js/:key.js", getExperimentsScript);
-
-// Stripe webhook (needs raw body)
-app.post(
-  "/stripe/webhook",
-  bodyParser.raw({
-    type: "application/json",
-  }),
-  stripeController.postWebhook
-);
 
 // Slack app (body is urlencoded)
 app.post(
@@ -399,13 +390,47 @@ app.use("/environment", environmentRouter);
 app.post("/oauth/google", datasourcesController.postGoogleOauthRedirect);
 app.post(
   "/subscription/new-pro-trial",
-  stripeController.postNewProTrialSubscription
+  subscriptionController.postNewProTrialSubscription
 );
-app.post("/subscription/new", stripeController.postNewProSubscription);
-app.post("/subscription/manage", stripeController.postCreateBillingSession);
-app.post("/subscription/success", stripeController.postSubscriptionSuccess);
 
-app.get("/billing/usage", stripeController.getUsage);
+if (IS_CLOUD) {
+  app.post(
+    "/subscription/payment-methods/setup-intent",
+    subscriptionController.postSetupIntent
+  );
+  app.get(
+    "/subscription/payment-methods",
+    subscriptionController.fetchPaymentMethods
+  );
+  app.post(
+    "/subscription/payment-methods/detach",
+    subscriptionController.deletePaymentMethod
+  );
+  app.post(
+    "/subscription/payment-methods/set-default",
+    subscriptionController.updateCustomerDefaultPayment
+  );
+  app.post(
+    "/subscription/setup-intent",
+    subscriptionController.postNewProSubscriptionIntent
+  );
+  app.post(
+    "/subscription/start-new-pro",
+    subscriptionController.postInlineProSubscription
+  );
+  app.post("/subscription/cancel", subscriptionController.cancelSubscription);
+}
+app.post("/subscription/new", subscriptionController.postNewProSubscription);
+app.post(
+  "/subscription/manage",
+  subscriptionController.postCreateBillingSession
+);
+app.post(
+  "/subscription/success",
+  subscriptionController.postSubscriptionSuccess
+);
+
+app.get("/billing/usage", subscriptionController.getUsage);
 
 app.get("/queries/:ids", datasourcesController.getQueries);
 app.post("/query/test", datasourcesController.testLimitedQuery);

@@ -49,6 +49,9 @@ export const notificationEventNames = [
   "experiment.deleted",
   "experiment.warning",
   "experiment.info.significance",
+  "experiment.decision.ship",
+  "experiment.decision.rollback",
+  "experiment.decision.review",
   // User
   "user.login",
 ] as const;
@@ -90,6 +93,18 @@ export const eventWebHookEventOptions: {
   {
     id: "experiment.info.significance",
     name: "experiment.info.significance",
+  },
+  {
+    id: "experiment.decision.ship",
+    name: "experiment.decision.ship",
+  },
+  {
+    id: "experiment.decision.rollback",
+    name: "experiment.decision.rollback",
+  },
+  {
+    id: "experiment.decision.review",
+    name: "experiment.decision.review",
   },
 ];
 

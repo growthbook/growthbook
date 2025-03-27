@@ -281,6 +281,11 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "experimentation-analysis/query-optimization",
+          label: "Query Optimization",
+        },
+        {
+          type: "doc",
           id: "experimentation-analysis/data-pipeline",
           label: "Data Pipeline",
         },
@@ -613,6 +618,12 @@ const sidebars = {
           id: "tools/cli",
           className: "pill-new",
           label: "GrowthBook CLI",
+        },
+        {
+          type: "doc",
+          id: "integrations/clarity",
+          label: "Microsoft Clarity (Heatmaps)",
+          className: "pill-new",
         },
       ],
     },
