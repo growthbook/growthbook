@@ -140,7 +140,7 @@ export function getVariationDecisions({
         break;
       }
     }
-    // If no decision was reached, use the default action from the 
+    // If no decision was reached, use the default action from the
     // decision criteria
     if (!decisionReached) {
       results.push({
@@ -192,10 +192,10 @@ export function getDecisionFrameworkStatus({
   const decisionReady = powerReached || sequentialTesting;
 
   const tooltipLanguage = powerReached
-  ? ` and experiment has reached the target statistical power.`
-  : sequentialTesting
-  ? ` and sequential testing is enabled, allowing decisions as soon as statistical significance is reached.`
-  : ".";
+    ? ` and experiment has reached the target statistical power.`
+    : sequentialTesting
+    ? ` and sequential testing is enabled, allowing decisions as soon as statistical significance is reached.`
+    : ".";
 
   if (decisionReady) {
     const variationDecisions = getVariationDecisions({
