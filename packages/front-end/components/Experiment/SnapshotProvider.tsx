@@ -85,10 +85,16 @@ export default function SnapshotProvider({
         dimensionless: data?.dimensionless ?? data?.snapshot,
         latest: data?.latest,
         analysis: data?.snapshot
-          ? getSnapshotAnalysis(data?.snapshot, analysisSettings) ?? undefined
+          ? (getSnapshotAnalysis(
+              data?.snapshot,
+              analysisSettings
+            ) as ExperimentSnapshotAnalysis) ?? undefined
           : undefined,
         latestAnalysis: data?.latest
-          ? getSnapshotAnalysis(data?.latest, analysisSettings) ?? undefined
+          ? (getSnapshotAnalysis(
+              data?.latest,
+              analysisSettings
+            ) as ExperimentSnapshotAnalysis) ?? undefined
           : undefined,
         mutateSnapshot: mutate,
         phase,

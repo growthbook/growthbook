@@ -12,26 +12,37 @@ import { SNAPSHOT_TIMEOUT } from "back-end/src/controllers/experiments";
 // region GET /safe-rollout/:id/snapshot
 /**
  * GET /safe-rollout/:id/snapshot
- * Get the latest snapshot for a safe rollout
+ * Get the latest snapshot and the latest snapshot with results for a safe rollout
  * @param req
  * @param res
  */
 export const getLatestSnapshot = async (
   req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200; snapshot: SafeRolloutSnapshotInterface }>
+  res: Response<{
+    status: 200;
+    snapshot: SafeRolloutSnapshotInterface;
+    latest: SafeRolloutSnapshotInterface;
+  }>
 ) => {
   const context = getContextFromReq(req);
 
-  console.log("HELLO");
-  console.log("getLatestSnapshot", req.params.id);
+  const snapshot = await context.models.safeRolloutSnapshots.getSnapshotForSafeRollout(
+    {
+      safeRollout: req.params.id,
+    }
+  );
 
-  const snapshot = await context.models.safeRolloutSnapshots.getLatestSnapshot({
-    safeRollout: req.params.id,
-  });
+  const latest = await context.models.safeRolloutSnapshots.getSnapshotForSafeRollout(
+    {
+      safeRollout: req.params.id,
+      withResults: false,
+    }
+  );
 
   res.status(200).json({
     status: 200,
     snapshot,
+    latest,
   });
 };
 
@@ -51,20 +62,24 @@ export async function getSnapshotWithDimension(
   const context = getContextFromReq(req);
   const { id, dimension } = req.params;
 
-  const snapshot = await context.models.safeRolloutSnapshots.getLatestSnapshot({
-    safeRollout: id,
-    dimension,
-  });
-  const latest = await context.models.safeRolloutSnapshots.getLatestSnapshot({
-    safeRollout: id,
-    dimension,
-    withResults: false,
-  });
+  const snapshot = await context.models.safeRolloutSnapshots.getSnapshotForSafeRollout(
+    {
+      safeRollout: id,
+      dimension,
+    }
+  );
+  const latest = await context.models.safeRolloutSnapshots.getSnapshotForSafeRollout(
+    {
+      safeRollout: id,
+      dimension,
+      withResults: false,
+    }
+  );
 
   const dimensionless =
     snapshot?.dimension === ""
       ? snapshot
-      : await context.models.safeRolloutSnapshots.getLatestSnapshot({
+      : await context.models.safeRolloutSnapshots.getSnapshotForSafeRollout({
           safeRollout: id,
         });
 
@@ -109,6 +124,7 @@ export const createSnapshot = async (
   if (!feature) {
     throw new Error("Could not find feature");
   }
+  console.log({ feature });
 
   let safeRollout: SafeRolloutRule | undefined;
   for (const [envKey, environment] of Object.entries(
@@ -146,9 +162,9 @@ export const createSnapshot = async (
 };
 // endregion POST /safe-rollout/:id/snapshot
 
-// region POST /safe-rollout/snapshot/:id/cancelSnapshot
+// region POST /safe-rollout/snapshot/:id/cancel
 /**
- * POST /safe-rollout/snapshot/:id/cancelSnapshot
+ * POST /safe-rollout/snapshot/:id/cancel
  * Cancel a Snapshot
  * @param req
  * @param res
@@ -208,4 +224,4 @@ export const cancelSnapshot = async (
 
   res.status(200).json({ status: 200 });
 };
-// endregion POST /safe-rollout/snapshot/:id/cancelSnapshot
+// endregion POST /safe-rollout/snapshot/:id/cancel

@@ -1,5 +1,8 @@
-import { Box } from "@radix-ui/themes";
-import { SafeRolloutRule } from "back-end/src/validators/features";
+import { Box, Heading, Text } from "@radix-ui/themes";
+import {
+  FeatureInterface,
+  SafeRolloutRule,
+} from "back-end/src/validators/features";
 import { Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { ExperimentData } from "@/hooks/useExperimentStatusIndicator";
@@ -7,10 +10,14 @@ import ExperimentStatusIndicator from "../Experiment/TabbedPage/ExperimentStatus
 import TrafficCard from "../HealthTab/TrafficCard";
 import SRMCard from "../HealthTab/SRMCard";
 import Callout from "../Radix/Callout";
+import SafeRolloutSummary from "../Features/SafeRolloutSummary";
+import Frame from "../Radix/Frame";
 import { useSnapshot } from "./SnapshotProvider";
+import SafeRolloutResults from "./SafeRolloutResults";
 
 interface Props {
   safeRollout: SafeRolloutRule;
+  feature: FeatureInterface;
 }
 
 const variations = [
@@ -26,11 +33,18 @@ const variations = [
   },
 ];
 
-export default function SafeRolloutDetails({ safeRollout }: Props) {
+export default function SafeRolloutDetails({ safeRollout, feature }: Props) {
   const { error, snapshot, mutateSnapshot } = useSnapshot();
   const { getDatasourceById } = useDefinitions();
   const datasource = getDatasourceById(safeRollout.datasource);
 
+  const {
+    value,
+    coverage,
+    hashAttribute,
+    guardrailMetrics,
+    controlValue,
+  } = safeRollout;
   console.log({ snapshot });
 
   const exposureQuery = datasource?.settings.queries?.exposure?.find(
@@ -59,9 +73,26 @@ export default function SafeRolloutDetails({ safeRollout }: Props) {
           </Flex>
         </div>
         <h2>Overview</h2>
-        <Box>Targeting & Sampling goes here</Box>
+        <Frame>
+          <div className="mb-3">
+            <strong className="font-weight-semibold h4">
+              Targeting & Sampling
+            </strong>
+          </div>
+          <SafeRolloutSummary
+            value={value}
+            coverage={coverage}
+            feature={feature}
+            hashAttribute={hashAttribute}
+            guardrailMetrics={guardrailMetrics}
+            controlValue={controlValue}
+          />
+        </Frame>
+
         <h2>Results</h2>
-        <Box>Results go here</Box>
+        <Frame>
+          <SafeRolloutResults safeRollout={safeRollout} />
+        </Frame>
         {traffic && totalUsers ? (
           <>
             <TrafficCard

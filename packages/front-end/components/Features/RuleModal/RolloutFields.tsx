@@ -53,7 +53,7 @@ export default function RolloutFields({
       value: ds.id,
     })) || [];
   const dataSource = datasources?.find(
-    (ds) => ds.id === form.watch("dataSource")
+    (ds) => ds.id === form.watch("datasource")
   );
   const exposureQueries = dataSource?.settings?.queries?.exposure || [];
 
@@ -160,8 +160,8 @@ export default function RolloutFields({
             <SelectField
               label="Data source"
               options={dataSourceOptions}
-              value={form.watch("dataSource")}
-              onChange={(v) => form.setValue("dataSource", v)}
+              value={form.watch("datasource")}
+              onChange={(v) => form.setValue("datasource", v)}
               required
               placeholder="Select a data source"
               // Add a disabled state while loading

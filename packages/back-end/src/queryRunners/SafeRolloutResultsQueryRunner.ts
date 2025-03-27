@@ -151,7 +151,7 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
     const strippedResult = omit(result, ["unknownVariations"]);
     const updates: Partial<SafeRolloutSnapshotInterface> = {
       queries,
-      runStarted,
+      ...(runStarted && { runStarted }),
       error,
       ...strippedResult,
       status:

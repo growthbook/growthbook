@@ -28,13 +28,13 @@ export default function SafeRolloutSummary({
   const coveragePercent = (coverage / 2) * 100;
   return (
     <Box>
-      <div className="mb-3">
+      <div className="mb-2">
         <strong className="mr-2 font-weight-semibold">SAMPLE</strong> users by{" "}
         <span className="mr-1 border px-2 py-1 bg-light rounded">
           {hashAttribute}
         </span>
       </div>
-      <Box className="mb-3">
+      <Box className="mb-2">
         <Flex gap="3" align="center">
           <Box>
             <strong className="font-weight-semibold">SAFE ROLLOUT</strong>
@@ -99,7 +99,7 @@ export default function SafeRolloutSummary({
           <ValueDisplay value={value} type={type} />
         </Box>
       </Flex>
-      <Flex gap="3" className="mt-3">
+      <Flex gap="3" className="mt-2">
         <Box>
           <strong className="font-weight-semibold">COMPARE AGAINST</strong>
         </Box>
@@ -107,7 +107,7 @@ export default function SafeRolloutSummary({
           <ValueDisplay value={controlValue} type="boolean" />
         </Box>
       </Flex>
-      <Flex gap="3" className="mt-3">
+      <Flex gap="3" className="mt-2">
         <Box>
           <strong className="font-weight-semibold">MONITOR</strong>
         </Box>

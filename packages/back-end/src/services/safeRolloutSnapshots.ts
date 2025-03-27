@@ -30,11 +30,7 @@ import {
   SnapshotTriggeredBy,
 } from "back-end/types/experiment-snapshot";
 import { ApiReqContext } from "back-end/types/api";
-import {
-  OrganizationInterface,
-  OrganizationSettings,
-  ReqContext,
-} from "back-end/types/organization";
+import { OrganizationInterface, ReqContext } from "back-end/types/organization";
 import { MetricSnapshotSettings } from "back-end/types/report";
 import { MetricInterface } from "back-end/types/metric";
 import { getMetricMap } from "back-end/src/models/MetricModel";
@@ -49,7 +45,7 @@ import {
 } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { CreateProps } from "back-end/src/models/BaseModel";
-import { determineNextDate, isJoinableMetric } from "./experiments";
+import { isJoinableMetric } from "./experiments";
 import { getSourceIntegrationObject } from "./datasource";
 
 export function getMetricForSnapshot(
@@ -245,7 +241,7 @@ export function getDefaultExperimentAnalysisSettingsForSafeRollout(
 }
 
 function getSnapshotSettings({
-  experiment,
+  safeRollout,
   settings,
   orgPriorSettings,
   settingsForSnapshotMetrics,
@@ -254,7 +250,7 @@ function getSnapshotSettings({
   metricGroups,
   datasource,
 }: {
-  experiment: SafeRolloutRule;
+  safeRollout: SafeRolloutRule;
   settings: ExperimentSnapshotAnalysisSettings;
   orgPriorSettings: MetricPriorSettings | undefined;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
@@ -272,12 +268,12 @@ function getSnapshotSettings({
 
   const queries = datasource?.settings?.queries?.exposure || [];
   const exposureQuery = queries.find(
-    (q) => q.id === experiment.exposureQueryId
+    (q) => q.id === safeRollout.exposureQueryId
   );
 
   // expand metric groups and scrub unjoinable metrics
   const guardrailMetrics = expandMetricGroups(
-    experiment.guardrailMetrics,
+    safeRollout.guardrailMetrics,
     metricGroups
   ).filter((m) =>
     isJoinableMetric({
@@ -290,35 +286,35 @@ function getSnapshotSettings({
   );
 
   const metricSettings = expandMetricGroups(
-    getAllMetricIdsFromExperiment(experiment),
+    getAllMetricIdsFromExperiment(safeRollout),
     metricGroups
   )
     .map((m) => getMetricForSnapshot(m, metricMap, settingsForSnapshotMetrics))
     .filter(isDefined);
 
   return {
-    manual: !experiment.datasource,
+    manual: !safeRollout.datasource,
     queryFilter: "",
-    datasourceId: experiment.datasource || "",
+    datasourceId: safeRollout.datasource || "",
     dimensions: settings.dimensions.map((id) => ({ id })),
-    startDate: experiment.startedAt,
+    startDate: safeRollout.startedAt,
     endDate: new Date(),
-    experimentId: experiment.trackingKey || experiment.id,
+    experimentId: safeRollout.trackingKey || safeRollout.id,
     guardrailMetrics,
     regressionAdjustmentEnabled: !!settings.regressionAdjusted,
     defaultMetricPriorSettings: defaultPriorSettings,
-    exposureQueryId: experiment.exposureQueryId,
+    exposureQueryId: safeRollout.exposureQueryId,
     metricSettings,
     variations: [
       { id: "0", weight: 0.5 },
       { id: "1", weight: 0.5 },
     ],
-    coverage: experiment.coverage,
+    coverage: safeRollout.coverage,
   };
 }
 
 export async function createSnapshot({
-  experiment,
+  safeRollout,
   context,
   triggeredBy,
   useCache = false,
@@ -327,7 +323,7 @@ export async function createSnapshot({
   metricMap,
   factTableMap,
 }: {
-  experiment: SafeRolloutRule;
+  safeRollout: SafeRolloutRule;
   context: ReqContext | ApiReqContext;
   triggeredBy: SnapshotTriggeredBy;
   useCache?: boolean;
@@ -340,13 +336,13 @@ export async function createSnapshot({
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
   const metricGroups = await context.models.metricGroups.getAll();
 
-  const datasource = await getDataSourceById(context, experiment.datasource);
+  const datasource = await getDataSourceById(context, safeRollout.datasource);
   if (!datasource) {
     throw new Error("Could not load data source");
   }
 
   const snapshotSettings = getSnapshotSettings({
-    experiment,
+    safeRollout,
     orgPriorSettings: organization.settings?.metricDefaults?.priorSettings,
     settings: defaultAnalysisSettings,
     settingsForSnapshotMetrics,
@@ -357,8 +353,8 @@ export async function createSnapshot({
   });
 
   const data: CreateProps<SafeRolloutSnapshotInterface> = {
-    featureId: experiment.id, // TODO: replace with actual feature id
-    safeRolloutRuleId: experiment.id,
+    featureId: safeRollout.id, // TODO: replace with actual feature id
+    safeRolloutRuleId: safeRollout.id,
     runStarted: new Date(),
     error: "",
     queries: [],
@@ -377,11 +373,11 @@ export async function createSnapshot({
     status: "running",
   };
 
-  const nextUpdate = determineNextDate(
-    organization.settings?.updateSchedule || null
-  );
+  // TODO: Update safe rollout rule with update schedule once we have a helper function to do so
+  // const nextUpdate = determineNextDate(
+  //   organization.settings?.updateSchedule || null
+  // );
 
-  // TODO: Update safe rollout rule once we have a helper function to do so
   // await updateExperiment({
   //   context,
   //   experiment,
@@ -426,26 +422,11 @@ export async function createSafeRolloutSnapshot({
   snapshot: SafeRolloutSnapshotInterface;
   queryRunner: SafeRolloutResultsQueryRunner;
 }> {
-  // let project = null;
-  // if (projectId) {
-  //   project = await context.models.projects.getById(projectId);
-  // }
-
   const { org } = context;
-  const orgSettings: OrganizationSettings = org.settings as OrganizationSettings;
 
   const metricMap = await getMetricMap(context);
-  // const metricIds = getAllMetricIdsFromExperiment(safeRollout, false);
+  const factTableMap = await getFactTableMap(context);
 
-  // const allExperimentMetrics = metricIds.map((m) => metricMap.get(m) || null);
-  // const denominatorMetricIds = uniq<string>(
-  //   allExperimentMetrics
-  //     .map((m) => m?.denominator)
-  //     .filter((d) => d && typeof d === "string") as string[]
-  // );
-  // const denominatorMetrics = denominatorMetricIds
-  //   .map((m) => metricMap.get(m) || null)
-  //   .filter(isDefined) as MetricInterface[];
   const {
     settingsForSnapshotMetrics,
     regressionAdjustmentEnabled,
@@ -457,10 +438,8 @@ export async function createSafeRolloutSnapshot({
     dimension
   );
 
-  const factTableMap = await getFactTableMap(context);
-
   const queryRunner = await createSnapshot({
-    experiment: safeRollout,
+    safeRollout,
     context,
     useCache,
     defaultAnalysisSettings: analysisSettings,

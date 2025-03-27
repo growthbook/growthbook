@@ -44,7 +44,7 @@ router.post(
 
 // Cancel a running snapshot for a safe rollout rule
 router.post(
-  "/snapshot/:id/cancelSnapshot",
+  "/snapshot/:id/cancel",
   validateRequestMiddleware({
     params: snapshotParams,
   }),

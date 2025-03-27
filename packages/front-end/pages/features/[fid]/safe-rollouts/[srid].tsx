@@ -20,24 +20,24 @@ const SafeRolloutPage = (): ReactElement => {
   const router = useRouter();
   const { fid, srid } = router.query;
 
-  //TODO: make sure this endpoint is correct
-  // const { data, error, mutate } = useApi<{
-  //   feature: FeatureInterface;
-  // }>(`/features/${fid}`);
+  const { data, error, mutate } = useApi<{
+    feature: FeatureInterface;
+  }>(`/feature/${fid}`);
 
   // Is this needed for safe rollouts?
   //   useSwitchOrg(data?.experiment?.organization ?? null);\
 
   const fakeSafeRollout: SafeRolloutRule = {
-    id: "exp_2izgf19hmlp1x2efb",
+    // id: "exp_2izgf19hmlp1x2efb",
+    id: "fr_1l7r25wm8qnkm1l",
     description: "Fake Safe Rollout Description",
     type: "safe-rollout",
     trackingKey: "gbdemo-checkout-layout",
     datasource: "ds_2izgf19hmlp1x2cyi",
     exposureQueryId: "user_id",
     controlValue: "false",
-    variationValue: "true",
-    coverage: 1,
+    value: "true",
+    coverage: 0.5,
     hashAttribute: "id",
     status: "running",
     guardrailMetrics: [
@@ -55,14 +55,12 @@ const SafeRolloutPage = (): ReactElement => {
     nextSnapshotAttempt: new Date("2025-03-24T23:44:09.462+00:00"),
   };
 
-  // if (error) {
-  //   return <div>There was a problem loading the safe rollout</div>;
-  // }
-  // if (!data) {
-  //   return <LoadingOverlay />;
-  // }
-
-  // const { feature } = data;
+  if (error) {
+    return <div>There was a problem loading the safe rollout</div>;
+  }
+  if (!data) {
+    return <LoadingOverlay />;
+  }
 
   // const canEditExperiment =
   //   permissionsUtil.canViewExperimentModal(experiment.project) &&
@@ -87,8 +85,14 @@ const SafeRolloutPage = (): ReactElement => {
         ]}
       />
 
-      <SafeRolloutSnapshotProvider safeRollout={fakeSafeRollout}>
-        <SafeRolloutDetails safeRollout={fakeSafeRollout} />
+      <SafeRolloutSnapshotProvider
+        safeRollout={fakeSafeRollout}
+        feature={data?.feature}
+      >
+        <SafeRolloutDetails
+          safeRollout={fakeSafeRollout}
+          feature={data?.feature}
+        />
       </SafeRolloutSnapshotProvider>
     </>
   );

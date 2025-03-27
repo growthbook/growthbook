@@ -5,16 +5,23 @@ import {
   ExperimentSnapshotInterface,
 } from "back-end/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
+import {
+  FeatureInterface,
+  SafeRolloutRule,
+} from "back-end/src/validators/features";
+import {
+  SafeRolloutSnapshotAnalysis,
+  SafeRolloutSnapshotInterface,
+} from "back-end/src/validators/safe-rollout";
 import useApi from "@/hooks/useApi";
-import { SafeRolloutRule } from "back-end/src/validators/features";
-import { SafeRolloutSnapshotInterface } from "back-end/src/validators/safe-rollout";
 
 const snapshotContext = React.createContext<{
   safeRollout?: SafeRolloutRule;
+  feature?: FeatureInterface;
   snapshot?: SafeRolloutSnapshotInterface;
-  analysis?: ExperimentSnapshotAnalysis | undefined;
-  //   latestAnalysis?: ExperimentSnapshotAnalysis | undefined;
-  //   latest?: ExperimentSnapshotInterface;
+  analysis?: SafeRolloutSnapshotAnalysis | undefined;
+  latestAnalysis?: SafeRolloutSnapshotAnalysis | undefined;
+  latest?: SafeRolloutSnapshotInterface;
   //   dimensionless?: ExperimentSnapshotInterface;
   mutateSnapshot: () => void;
   dimension: string;
@@ -34,41 +41,43 @@ const snapshotContext = React.createContext<{
 
 export default function SafeRolloutSnapshotProvider({
   safeRollout,
+  feature,
   children,
 }: {
   safeRollout: SafeRolloutRule;
+  feature: FeatureInterface;
   children: ReactNode;
 }) {
   const [dimension, setDimension] = useState("");
 
   const { data, error, isValidating, mutate } = useApi<{
     snapshot: SafeRolloutSnapshotInterface;
-    // latest?: ExperimentSnapshotInterface;
-    // dimensionless?: ExperimentSnapshotInterface;
+    latest?: SafeRolloutSnapshotInterface;
   }>(`/safe-rollout/${safeRollout.id}/snapshot`);
 
   const defaultAnalysisSettings = data?.snapshot
     ? getSnapshotAnalysis(data?.snapshot)?.settings
     : null;
-  const [analysisSettings, setAnalysisSettings] = useState(
-    defaultAnalysisSettings
-  );
+
   return (
     <snapshotContext.Provider
       value={{
         safeRollout,
+        feature,
         snapshot: data?.snapshot,
         // dimensionless: data?.dimensionless ?? data?.snapshot,
-        // latest: data?.latest,
+        latest: data?.latest,
         analysis: data?.snapshot
-          ? getSnapshotAnalysis(data?.snapshot, analysisSettings) ?? undefined
+          ? getSnapshotAnalysis(data?.snapshot, defaultAnalysisSettings) ??
+            undefined
           : undefined,
-        // latestAnalysis: data?.latest
-        //   ? getSnapshotAnalysis(data?.latest, analysisSettings) ?? undefined
-        //   : undefined,
+        latestAnalysis: data?.latest
+          ? getSnapshotAnalysis(data?.latest, defaultAnalysisSettings) ??
+            undefined
+          : undefined,
         mutateSnapshot: mutate,
         dimension,
-        analysisSettings,
+        analysisSettings: defaultAnalysisSettings,
         setDimension,
         error,
         loading: isValidating,
