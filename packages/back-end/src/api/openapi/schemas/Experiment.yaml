@@ -1,6 +1,7 @@
 type: object
 required:
   - id
+  - trackingKey
   - dateCreated
   - dateUpdated
   - name
@@ -20,6 +21,8 @@ required:
   - settings
 properties:
   id:
+    type: string
+  trackingKey:
     type: string
   dateCreated:
     type: string

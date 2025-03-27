@@ -1,5 +1,6 @@
 import { Response } from "express";
 import { Stripe } from "stripe";
+import { PaymentMethod } from "shared/src/types/subscriptions";
 import {
   LicenseServerError,
   getEffectiveAccountPlan,
@@ -13,8 +14,7 @@ import {
   postNewInlineSubscriptionToLicenseServer,
   postCancelSubscriptionToLicenseServer,
   getPortalUrlFromServer,
-} from "shared/enterprise";
-import { PaymentMethod } from "shared/src/types/subscriptions";
+} from "back-end/src/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getNumberOfUniqueMembersAndInvites,
@@ -35,7 +35,6 @@ import {
   updateDefaultPaymentMethod,
   getPaymentMethodsByLicenseKey,
 } from "back-end/src/enterprise/billing/index";
-import { createOrbClient } from "back-end/src/services/orb";
 
 function withLicenseServerErrorHandling<T>(
   fn: (req: AuthRequest<T>, res: Response) => Promise<void>

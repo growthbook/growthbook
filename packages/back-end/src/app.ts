@@ -22,7 +22,6 @@ import {
   getExperimentConfig,
   getExperimentsScript,
 } from "./controllers/config";
-import { verifySlackRequestSignature } from "./services/slack";
 import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
 import { wrapController } from "./routers/wrapController";
 import apiRouter from "./api/api.router";
@@ -81,9 +80,6 @@ const vercelController = wrapController(vercelControllerRaw);
 
 import * as featuresControllerRaw from "./controllers/features";
 const featuresController = wrapController(featuresControllerRaw);
-
-import * as slackControllerRaw from "./controllers/slack";
-const slackController = wrapController(slackControllerRaw);
 
 import * as informationSchemasControllerRaw from "./controllers/informationSchemas";
 const informationSchemasController = wrapController(
@@ -210,16 +206,6 @@ app.use(async (req, res, next) => {
 
 // Visual Designer js file (does not require JWT or cors)
 app.get("/js/:key.js", getExperimentsScript);
-
-// Slack app (body is urlencoded)
-app.post(
-  "/ideas/slack",
-  bodyParser.urlencoded({
-    extended: true,
-    verify: verifySlackRequestSignature,
-  }),
-  slackController.postIdeas
-);
 
 // increase max payload json size to 1mb
 app.use(bodyParser.json({ limit: "1mb" }));

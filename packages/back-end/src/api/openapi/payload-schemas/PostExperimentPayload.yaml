@@ -41,6 +41,15 @@ properties:
     type: array
     items:
       type: string
+  activationMetric:
+    type: string
+    description: Users must convert on this metric before being included
+  segmentId:
+    type: string
+    description: Only users in this segment will be included
+  queryFilter:
+    type: string
+    description: WHERE clause to add to the default experiment query
   owner:
     type: string
     description: Email of the person who owns this experiment
@@ -201,6 +210,11 @@ properties:
   regressionAdjustmentEnabled:
     type: boolean
     description: Controls whether regression adjustment (CUPED) is enabled for experiment analyses
+  sequentialTestingEnabled:
+    type: boolean
+    description: Only applicable to frequentist analyses
+  sequentialTestingTuningParameter:
+    type: number
   shareLevel:
     type: string
     enum:
