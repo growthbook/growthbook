@@ -308,7 +308,8 @@ paths:
                         type: array
                         items:
                           anyOf:
-                            - type: object
+                            - title: Force Rule
+                              type: object
                               required:
                                 - type
                                 - value
@@ -347,7 +348,8 @@ paths:
                                     - force
                                 value:
                                   type: string
-                            - type: object
+                            - title: Rollout Rule
+                              type: object
                               required:
                                 - type
                                 - value
@@ -406,7 +408,8 @@ paths:
                                   description: Percent of traffic included in this experiment. Users not included in the experiment will skip this rule.
                                 hashAttribute:
                                   type: string
-                            - type: object
+                            - title: Experiment Rule
+                              type: object
                               required:
                                 - type
                                 - variations
@@ -471,6 +474,7 @@ paths:
                                 experimentId:
                                   type: string
                             - deprecated: true
+                              title: Experiment (legacy)
                               type: object
                               required:
                                 - condition
