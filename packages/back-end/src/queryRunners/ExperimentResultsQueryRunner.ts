@@ -1,7 +1,4 @@
-import {
-  analyzeExperimentPower,
-  orgHasPremiumFeature,
-} from "shared/enterprise";
+import { analyzeExperimentPower } from "shared/enterprise";
 import { addDays } from "date-fns";
 import {
   expandMetricGroups,
@@ -14,6 +11,7 @@ import {
 import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
 import { daysBetween } from "shared/dates";
 import chunk from "lodash/chunk";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiReqContext } from "back-end/types/api";
 import {
   ExperimentSnapshotAnalysis,
