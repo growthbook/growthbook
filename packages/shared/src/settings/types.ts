@@ -78,6 +78,8 @@ interface BaseSettings {
   pValueThreshold: number;
   regressionAdjustmentEnabled: boolean;
   regressionAdjustmentDays: number;
+  sequentialTestingEnabled: boolean;
+  sequentialTestingTuningParameter: number;
   attributionModel: AttributionModel;
   secureAttributeSalt: string;
   killswitchConfirmation: boolean;

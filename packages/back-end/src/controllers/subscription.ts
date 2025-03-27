@@ -1,29 +1,26 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import { Stripe } from "stripe";
+import { PaymentMethod } from "shared/src/types/subscriptions";
 import {
   LicenseServerError,
   getEffectiveAccountPlan,
   getLicense,
   licenseInit,
   postCreateBillingSessionToLicenseServer,
+  postNewProSubscriptionIntentToLicenseServer,
   postNewProSubscriptionToLicenseServer,
   postNewProTrialSubscriptionToLicenseServer,
   postNewSubscriptionSuccessToLicenseServer,
-} from "shared/enterprise";
-import { PaymentMethod } from "shared/src/types/subscriptions";
-import { APP_ORIGIN, STRIPE_WEBHOOK_SECRET } from "back-end/src/util/secrets";
+  postNewInlineSubscriptionToLicenseServer,
+  postCancelSubscriptionToLicenseServer,
+} from "back-end/src/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getNumberOfUniqueMembersAndInvites,
   getContextFromReq,
 } from "back-end/src/services/organizations";
-import {
-  updateSubscriptionInDb,
-  stripe,
-  formatBrandName,
-} from "back-end/src/services/stripe";
+import { formatBrandName } from "back-end/src/services/stripe";
 import { DailyUsage, UsageLimits } from "back-end/types/organization";
-import { sendStripeTrialWillEndEmail } from "back-end/src/services/email";
 import { logger } from "back-end/src/util/logger";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import {
@@ -94,6 +91,28 @@ export const postNewProTrialSubscription = withLicenseServerErrorHandling(
   }
 );
 
+export const postNewProSubscriptionIntent = withLicenseServerErrorHandling(
+  async function (req: AuthRequest, res: Response) {
+    const context = getContextFromReq(req);
+
+    if (!context.permissions.canManageBilling()) {
+      context.permissions.throwPermissionError();
+    }
+
+    const { org, userName } = context;
+
+    const result = await postNewProSubscriptionIntentToLicenseServer(
+      org.id,
+      org.name,
+      org.ownerEmail,
+      userName
+    );
+    await updateOrganization(org.id, { licenseKey: result.license.id });
+
+    res.status(200).json({ clientSecret: result.clientSecret });
+  }
+);
+
 export const postNewProSubscription = withLicenseServerErrorHandling(
   async function (req: AuthRequest<{ returnUrl: string }>, res: Response) {
     let { returnUrl } = req.body;
@@ -126,6 +145,33 @@ export const postNewProSubscription = withLicenseServerErrorHandling(
   }
 );
 
+export const postInlineProSubscription = withLicenseServerErrorHandling(
+  async function (req: AuthRequest, res: Response) {
+    const context = getContextFromReq(req);
+
+    if (!context.permissions.canManageBilling()) {
+      context.permissions.throwPermissionError();
+    }
+
+    const { org } = context;
+
+    const license = await getLicense(org.licenseKey);
+
+    if (!license) {
+      throw new Error("No license found for organization");
+    }
+
+    const nonInviteSeatQty = org.members.length;
+
+    const result = await postNewInlineSubscriptionToLicenseServer(
+      org.id,
+      nonInviteSeatQty
+    );
+
+    res.status(200).json(result);
+  }
+);
+
 export const postCreateBillingSession = withLicenseServerErrorHandling(
   async function (req: AuthRequest, res: Response) {
     const context = getContextFromReq(req);
@@ -138,29 +184,15 @@ export const postCreateBillingSession = withLicenseServerErrorHandling(
 
     const license = await getLicense(org.licenseKey);
 
-    let url;
-    let status;
-    if (license?.id) {
-      const results = await postCreateBillingSessionToLicenseServer(license.id);
-      url = results.url;
-      status = results.status;
-    } else {
-      // TODO: Remove once all orgs have moved license info off of the org
-      if (!org.stripeCustomerId) {
-        throw new Error("Missing customer id");
-      }
-
-      ({ url } = await stripe.billingPortal.sessions.create({
-        customer: org.stripeCustomerId,
-        return_url: `${APP_ORIGIN}/settings/billing?org=${org.id}`,
-      }));
-
-      status = 200;
+    if (!license?.id) {
+      throw new Error("No license key found for organization");
     }
 
-    res.status(status).json({
-      status: status,
-      url,
+    const results = await postCreateBillingSessionToLicenseServer(license.id);
+
+    res.status(results.status).json({
+      status: results.status,
+      url: results.url,
     });
   }
 );
@@ -192,88 +224,26 @@ export const postSubscriptionSuccess = withLicenseServerErrorHandling(
   }
 );
 
-export async function postWebhook(req: Request, res: Response) {
-  const payload: Buffer = req.body;
-  const sig = req.headers["stripe-signature"];
-  if (!sig) {
-    return res.status(400).send("Missing signature");
+export async function cancelSubscription(req: AuthRequest, res: Response) {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
   }
 
-  try {
-    const event = stripe.webhooks.constructEvent(
-      payload,
-      sig,
-      STRIPE_WEBHOOK_SECRET
-    );
+  const { org } = context;
 
-    switch (event.type) {
-      case "checkout.session.completed": {
-        const { subscription } = event.data
-          .object as Stripe.Response<Stripe.Checkout.Session>;
-        if (subscription) {
-          await updateSubscriptionInDb(subscription);
-        }
-        break;
-      }
+  const license = await getLicense(org.licenseKey);
 
-      case "invoice.paid":
-      case "invoice.payment_failed": {
-        const { subscription } = event.data
-          .object as Stripe.Response<Stripe.Invoice>;
-        if (subscription) {
-          await updateSubscriptionInDb(subscription);
-        }
-        break;
-      }
-
-      case "customer.subscription.created":
-      case "customer.subscription.deleted":
-      case "customer.subscription.updated": {
-        const subscription = event.data
-          .object as Stripe.Response<Stripe.Subscription>;
-
-        await updateSubscriptionInDb(subscription);
-        break;
-      }
-
-      case "customer.subscription.trial_will_end": {
-        const responseSubscription = event.data
-          .object as Stripe.Response<Stripe.Subscription>;
-        if (!responseSubscription) return;
-
-        const ret = await updateSubscriptionInDb(responseSubscription);
-        if (!ret) return;
-
-        const { organization, subscription, hasPaymentMethod } = ret;
-        const billingUrl = `${APP_ORIGIN}/settings/billing?org=${organization.id}`;
-        const endDate = subscription.trial_end
-          ? new Date(subscription.trial_end * 1000)
-          : null;
-
-        if (!endDate) {
-          logger.error(
-            "No trial end date found for subscription: " + subscription.id
-          );
-          return;
-        }
-
-        await sendStripeTrialWillEndEmail({
-          email: organization.ownerEmail,
-          organization: organization.name,
-          endDate,
-          hasPaymentMethod,
-          billingUrl,
-        });
-
-        break;
-      }
-    }
-  } catch (err) {
-    req.log.error(err, "Webhook error");
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+  if (!license?.id) {
+    throw new Error("No license found for organization");
   }
 
-  res.status(200).send("Ok");
+  await postCancelSubscriptionToLicenseServer(license.id);
+
+  res.status(200).json({
+    status: 200,
+  });
 }
 
 export async function postSetupIntent(
