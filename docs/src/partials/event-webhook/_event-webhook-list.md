@@ -102,6 +102,24 @@ Triggered when a feature is created
                             variationId: string;
                         }[];
                         experimentId: string;
+                    } | {
+                        condition: string;
+                        savedGroupTargeting?: {
+                            matchType: "all" | "any" | "none";
+                            savedGroups: string[];
+                        }[] | undefined;
+                        id: string;
+                        trackingKey?: string | undefined;
+                        enabled: boolean;
+                        type: "safe-rollout";
+                        values?: {
+                            value: string;
+                            weight: number;
+                            name?: string | undefined;
+                        }[] | undefined;
+                        coverage: number;
+                        hashAttribute: string;
+                        status?: ("running" | "released" | "rolled-back") | undefined;
                     })[];
                     /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string | undefined;
@@ -166,6 +184,24 @@ Triggered when a feature is created
                                 variationId: string;
                             }[];
                             experimentId: string;
+                        } | {
+                            condition: string;
+                            savedGroupTargeting?: {
+                                matchType: "all" | "any" | "none";
+                                savedGroups: string[];
+                            }[] | undefined;
+                            id: string;
+                            trackingKey?: string | undefined;
+                            enabled: boolean;
+                            type: "safe-rollout";
+                            values?: {
+                                value: string;
+                                weight: number;
+                                name?: string | undefined;
+                            }[] | undefined;
+                            coverage: number;
+                            hashAttribute: string;
+                            status?: ("running" | "released" | "rolled-back") | undefined;
                         })[];
                         /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                         definition?: string | undefined;
@@ -288,6 +324,24 @@ Triggered when a feature is updated
                             variationId: string;
                         }[];
                         experimentId: string;
+                    } | {
+                        condition: string;
+                        savedGroupTargeting?: {
+                            matchType: "all" | "any" | "none";
+                            savedGroups: string[];
+                        }[] | undefined;
+                        id: string;
+                        trackingKey?: string | undefined;
+                        enabled: boolean;
+                        type: "safe-rollout";
+                        values?: {
+                            value: string;
+                            weight: number;
+                            name?: string | undefined;
+                        }[] | undefined;
+                        coverage: number;
+                        hashAttribute: string;
+                        status?: ("running" | "released" | "rolled-back") | undefined;
                     })[];
                     /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string | undefined;
@@ -352,6 +406,24 @@ Triggered when a feature is updated
                                 variationId: string;
                             }[];
                             experimentId: string;
+                        } | {
+                            condition: string;
+                            savedGroupTargeting?: {
+                                matchType: "all" | "any" | "none";
+                                savedGroups: string[];
+                            }[] | undefined;
+                            id: string;
+                            trackingKey?: string | undefined;
+                            enabled: boolean;
+                            type: "safe-rollout";
+                            values?: {
+                                value: string;
+                                weight: number;
+                                name?: string | undefined;
+                            }[] | undefined;
+                            coverage: number;
+                            hashAttribute: string;
+                            status?: ("running" | "released" | "rolled-back") | undefined;
                         })[];
                         /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                         definition?: string | undefined;
@@ -442,6 +514,24 @@ Triggered when a feature is updated
                             variationId: string;
                         }[];
                         experimentId: string;
+                    } | {
+                        condition: string;
+                        savedGroupTargeting?: {
+                            matchType: "all" | "any" | "none";
+                            savedGroups: string[];
+                        }[] | undefined;
+                        id: string;
+                        trackingKey?: string | undefined;
+                        enabled: boolean;
+                        type: "safe-rollout";
+                        values?: {
+                            value: string;
+                            weight: number;
+                            name?: string | undefined;
+                        }[] | undefined;
+                        coverage: number;
+                        hashAttribute: string;
+                        status?: ("running" | "released" | "rolled-back") | undefined;
                     })[];
                     /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string | undefined;
@@ -506,6 +596,24 @@ Triggered when a feature is updated
                                 variationId: string;
                             }[];
                             experimentId: string;
+                        } | {
+                            condition: string;
+                            savedGroupTargeting?: {
+                                matchType: "all" | "any" | "none";
+                                savedGroups: string[];
+                            }[] | undefined;
+                            id: string;
+                            trackingKey?: string | undefined;
+                            enabled: boolean;
+                            type: "safe-rollout";
+                            values?: {
+                                value: string;
+                                weight: number;
+                                name?: string | undefined;
+                            }[] | undefined;
+                            coverage: number;
+                            hashAttribute: string;
+                            status?: ("running" | "released" | "rolled-back") | undefined;
                         })[];
                         /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                         definition?: string | undefined;
@@ -628,6 +736,24 @@ Triggered when a feature is deleted
                             variationId: string;
                         }[];
                         experimentId: string;
+                    } | {
+                        condition: string;
+                        savedGroupTargeting?: {
+                            matchType: "all" | "any" | "none";
+                            savedGroups: string[];
+                        }[] | undefined;
+                        id: string;
+                        trackingKey?: string | undefined;
+                        enabled: boolean;
+                        type: "safe-rollout";
+                        values?: {
+                            value: string;
+                            weight: number;
+                            name?: string | undefined;
+                        }[] | undefined;
+                        coverage: number;
+                        hashAttribute: string;
+                        status?: ("running" | "released" | "rolled-back") | undefined;
                     })[];
                     /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string | undefined;
@@ -692,6 +818,24 @@ Triggered when a feature is deleted
                                 variationId: string;
                             }[];
                             experimentId: string;
+                        } | {
+                            condition: string;
+                            savedGroupTargeting?: {
+                                matchType: "all" | "any" | "none";
+                                savedGroups: string[];
+                            }[] | undefined;
+                            id: string;
+                            trackingKey?: string | undefined;
+                            enabled: boolean;
+                            type: "safe-rollout";
+                            values?: {
+                                value: string;
+                                weight: number;
+                                name?: string | undefined;
+                            }[] | undefined;
+                            coverage: number;
+                            hashAttribute: string;
+                            status?: ("running" | "released" | "rolled-back") | undefined;
                         })[];
                         /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                         definition?: string | undefined;
