@@ -34,6 +34,7 @@ $growthbook = Growthbook\Growthbook::create()
 
 // Load feature flags from the GrowthBook API
 // Make sure to use caching in production! (see 'Loading Features' below)
+// Note: Prior to version 1.7.0, this method was called `loadFeatures` instead of `initialize`
 $growthbook->initialize("sdk-abc123", "https://cdn.growthbook.io");
 
 // Feature gating
