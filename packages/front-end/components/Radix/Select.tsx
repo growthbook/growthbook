@@ -12,6 +12,7 @@ type SelectProps = {
   value: string;
   setValue: (value: string) => void;
   children: React.ReactNode;
+  size?: "1" | "2" | "3";
 } & MarginProps;
 
 export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
@@ -24,6 +25,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
     children,
     value,
     setValue,
+    size = "3",
     ...containerProps
   }: SelectProps,
   ref
@@ -37,7 +39,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
       )}
       <RadixSelect.Root
         defaultValue={defaultValue}
-        size="3"
+        size={size}
         disabled={disabled}
         value={value}
         onValueChange={setValue}

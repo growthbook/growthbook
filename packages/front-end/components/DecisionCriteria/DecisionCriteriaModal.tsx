@@ -177,7 +177,7 @@ const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
             {
               id: generateId(),
               conditions: [createDefaultCondition()],
-              action: "review",
+              action: "ship",
             },
           ],
     });
@@ -343,6 +343,8 @@ const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
   // Only render the modal if it's open
   if (!open) return null;
 
+  const selectSize = "2";
+
   return (
     <Modal
       open={open}
@@ -429,6 +431,7 @@ const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
 
                   <Box style={{ flex: 1 }}>
                     <Select
+                      size={selectSize}
                       value={condition.match}
                       setValue={(value) =>
                         updateCondition(rule.id, condition.id, "match", value)
@@ -445,6 +448,7 @@ const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
 
                   <Box style={{ flex: 1 }}>
                     <Select
+                      size={selectSize}
                       value={condition.metrics}
                       setValue={(value) => {
                         if (value === "guardrails") {
@@ -474,6 +478,7 @@ const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
 
                   <Box style={{ flex: 1 }}>
                     <Select
+                      size={selectSize}
                       value={condition.direction}
                       setValue={(value) =>
                         updateCondition(
@@ -555,6 +560,7 @@ const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
                 style={{ gridColumn: "span 11" }}
               >
                 <Select
+                  size={selectSize}
                   value={rule.action}
                   setValue={(value) =>
                     updateRuleAction(
@@ -603,6 +609,7 @@ const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
               </Text>
             </Box>
             <Select
+              size={selectSize}
               value={form.watch("defaultAction")}
               setValue={(value) =>
                 form.setValue(

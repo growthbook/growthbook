@@ -58,20 +58,26 @@ const DecisionFrameworkSettings: React.FC<DecisionFrameworkSettingsProps> = () =
         />
       )}
       <Box className="appbox p-3">
-        <Heading size="3" className="font-weight-semibold" mb="4">
-          Experiment Decision Framework
-          <PremiumTooltip
-            commercialFeature="decision-framework"
-            style={{ display: "inline-flex" }}
-          />
-        </Heading>
+        <Flex justify="between">
+          <Heading size="3" className="font-weight-semibold" mb="4">
+            Experiment Decision Framework
+            <PremiumTooltip
+              commercialFeature="decision-framework"
+              style={{ display: "inline-flex" }}
+            />
+          </Heading>
+          <Box>
+            <Text wrap="nowrap">
+              <DocLink docSection={"experimentDecisionFramework"}>
+                View Docs
+              </DocLink>
+            </Text>
+          </Box>
+        </Flex>
         <Box mb="4">
           <Text size="2" style={{ color: "var(--color-text-mid)" }}>
             Calculates the estimated duration of your experiment using target
-            minimum detectable effects and makes shipping recommendations.{" "}
-            <DocLink docSection={"experimentDecisionFramework"}>
-              Learn More
-            </DocLink>
+            minimum detectable effects and makes shipping recommendations.
           </Text>
         </Box>
         <Flex
