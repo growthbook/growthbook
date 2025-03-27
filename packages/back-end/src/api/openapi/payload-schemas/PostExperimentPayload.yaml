@@ -16,6 +16,11 @@ properties:
   name:
     type: string
     description: Name of the experiment
+  type:
+    type: string
+    enum:
+      - "standard"
+      - "multi-armed-bandit"
   project:
     type: string
     description: Project ID which the experiment belongs to
@@ -180,6 +185,19 @@ properties:
               type: boolean
         targetingCondition:
           type: string
+        prerequisites:
+          type: array
+          items:
+            type: object
+            required:
+              - id
+              - condition
+            properties:
+              id:
+                type: string
+                description: "Feature ID"
+              condition:
+                type: string
         reason:
           type: string
         condition:
@@ -220,3 +238,17 @@ properties:
     enum:
       - "public"
       - "organization"
+  banditScheduleValue:
+    type: number
+  banditScheduleUnit:
+    type: string
+    enum:
+      - "days"
+      - "hours"
+  banditBurnInValue:
+    type: number
+  banditBurnInUnit:
+    type: string
+    enum:
+      - "days"
+      - "hours"
