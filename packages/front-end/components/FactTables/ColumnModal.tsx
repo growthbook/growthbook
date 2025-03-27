@@ -134,7 +134,6 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
       <SelectField
         label="Data Type"
         value={form.watch("datatype")}
-        helpText="Only `number` data types can be used to create metrics"
         onChange={(f) => form.setValue("datatype", f as FactTableColumnType)}
         initialOption="Unknown"
         required
