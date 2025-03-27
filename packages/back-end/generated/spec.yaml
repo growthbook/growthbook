@@ -1367,6 +1367,11 @@ paths:
                 name:
                   type: string
                   description: Name of the experiment
+                type:
+                  type: string
+                  enum:
+                    - standard
+                    - multi-armed-bandit
                 project:
                   type: string
                   description: Project ID which the experiment belongs to
@@ -1572,6 +1577,20 @@ paths:
                   enum:
                     - public
                     - organization
+                banditScheduleValue:
+                  type: number
+                banditScheduleUnit:
+                  type: string
+                  enum:
+                    - days
+                    - hours
+                banditBurnInValue:
+                  type: number
+                banditBurnInUnit:
+                  type: string
+                  enum:
+                    - days
+                    - hours
       responses:
         '200':
           content:
@@ -1637,6 +1656,11 @@ paths:
                 name:
                   type: string
                   description: Name of the experiment
+                type:
+                  type: string
+                  enum:
+                    - standard
+                    - multi-armed-bandit
                 project:
                   type: string
                   description: Project ID which the experiment belongs to
@@ -1842,6 +1866,20 @@ paths:
                   enum:
                     - public
                     - organization
+                banditScheduleValue:
+                  type: number
+                banditScheduleUnit:
+                  type: string
+                  enum:
+                    - days
+                    - hours
+                banditBurnInValue:
+                  type: number
+                banditBurnInUnit:
+                  type: string
+                  enum:
+                    - days
+                    - hours
       responses:
         '200':
           content:
@@ -6049,6 +6087,20 @@ components:
             - organization
         publicUrl:
           type: string
+        banditScheduleValue:
+          type: number
+        banditScheduleUnit:
+          type: string
+          enum:
+            - days
+            - hours
+        banditBurnInValue:
+          type: number
+        banditBurnInUnit:
+          type: string
+          enum:
+            - days
+            - hours
     ExperimentSnapshot:
       type: object
       required:

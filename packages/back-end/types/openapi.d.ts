@@ -1366,6 +1366,12 @@ export interface components {
       /** @enum {string} */
       shareLevel?: "public" | "organization";
       publicUrl?: string;
+      banditScheduleValue?: number;
+      /** @enum {string} */
+      banditScheduleUnit?: "days" | "hours";
+      banditBurnInValue?: number;
+      /** @enum {string} */
+      banditBurnInUnit?: "days" | "hours";
     };
     ExperimentSnapshot: {
       id: string;
@@ -4173,6 +4179,12 @@ export interface operations {
                 /** @enum {string} */
                 shareLevel?: "public" | "organization";
                 publicUrl?: string;
+                banditScheduleValue?: number;
+                /** @enum {string} */
+                banditScheduleUnit?: "days" | "hours";
+                banditBurnInValue?: number;
+                /** @enum {string} */
+                banditBurnInUnit?: "days" | "hours";
               })[];
           }) & {
             limit: number;
@@ -4198,6 +4210,8 @@ export interface operations {
           trackingKey: string;
           /** @description Name of the experiment */
           name: string;
+          /** @enum {string} */
+          type?: "standard" | "multi-armed-bandit";
           /** @description Project ID which the experiment belongs to */
           project?: string;
           /** @description Hypothesis of the experiment */
@@ -4285,6 +4299,12 @@ export interface operations {
           sequentialTestingTuningParameter?: number;
           /** @enum {string} */
           shareLevel?: "public" | "organization";
+          banditScheduleValue?: number;
+          /** @enum {string} */
+          banditScheduleUnit?: "days" | "hours";
+          banditBurnInValue?: number;
+          /** @enum {string} */
+          banditBurnInUnit?: "days" | "hours";
         };
       };
     };
@@ -4419,6 +4439,12 @@ export interface operations {
               /** @enum {string} */
               shareLevel?: "public" | "organization";
               publicUrl?: string;
+              banditScheduleValue?: number;
+              /** @enum {string} */
+              banditScheduleUnit?: "days" | "hours";
+              banditBurnInValue?: number;
+              /** @enum {string} */
+              banditBurnInUnit?: "days" | "hours";
             };
           };
         };
@@ -4564,6 +4590,12 @@ export interface operations {
               /** @enum {string} */
               shareLevel?: "public" | "organization";
               publicUrl?: string;
+              banditScheduleValue?: number;
+              /** @enum {string} */
+              banditScheduleUnit?: "days" | "hours";
+              banditBurnInValue?: number;
+              /** @enum {string} */
+              banditBurnInUnit?: "days" | "hours";
             };
           };
         };
@@ -4587,6 +4619,8 @@ export interface operations {
           trackingKey?: string;
           /** @description Name of the experiment */
           name?: string;
+          /** @enum {string} */
+          type?: "standard" | "multi-armed-bandit";
           /** @description Project ID which the experiment belongs to */
           project?: string;
           /** @description Hypothesis of the experiment */
@@ -4674,6 +4708,12 @@ export interface operations {
           sequentialTestingTuningParameter?: number;
           /** @enum {string} */
           shareLevel?: "public" | "organization";
+          banditScheduleValue?: number;
+          /** @enum {string} */
+          banditScheduleUnit?: "days" | "hours";
+          banditBurnInValue?: number;
+          /** @enum {string} */
+          banditBurnInUnit?: "days" | "hours";
         };
       };
     };
@@ -4808,6 +4848,12 @@ export interface operations {
               /** @enum {string} */
               shareLevel?: "public" | "organization";
               publicUrl?: string;
+              banditScheduleValue?: number;
+              /** @enum {string} */
+              banditScheduleUnit?: "days" | "hours";
+              banditBurnInValue?: number;
+              /** @enum {string} */
+              banditBurnInUnit?: "days" | "hours";
             };
           };
         };
@@ -5884,6 +5930,12 @@ export interface operations {
               /** @enum {string} */
               shareLevel?: "public" | "organization";
               publicUrl?: string;
+              banditScheduleValue?: number;
+              /** @enum {string} */
+              banditScheduleUnit?: "days" | "hours";
+              banditBurnInValue?: number;
+              /** @enum {string} */
+              banditBurnInUnit?: "days" | "hours";
             };
           };
         };

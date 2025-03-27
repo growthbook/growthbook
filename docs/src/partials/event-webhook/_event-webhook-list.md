@@ -853,6 +853,10 @@ Triggered when an experiment is created
             } | undefined;
             shareLevel?: ("public" | "organization") | undefined;
             publicUrl?: string | undefined;
+            banditScheduleValue?: number | undefined;
+            banditScheduleUnit?: ("days" | "hours") | undefined;
+            banditBurnInValue?: number | undefined;
+            banditBurnInUnit?: ("days" | "hours") | undefined;
         };
     };
     user: {
@@ -998,6 +1002,10 @@ Triggered when an experiment is updated
             } | undefined;
             shareLevel?: ("public" | "organization") | undefined;
             publicUrl?: string | undefined;
+            banditScheduleValue?: number | undefined;
+            banditScheduleUnit?: ("days" | "hours") | undefined;
+            banditBurnInValue?: number | undefined;
+            banditBurnInUnit?: ("days" | "hours") | undefined;
         };
         previous_attributes: {
             id?: string | undefined;
@@ -1111,6 +1119,10 @@ Triggered when an experiment is updated
             } | undefined) | undefined;
             shareLevel?: (("public" | "organization") | undefined) | undefined;
             publicUrl?: (string | undefined) | undefined;
+            banditScheduleValue?: (number | undefined) | undefined;
+            banditScheduleUnit?: (("days" | "hours") | undefined) | undefined;
+            banditBurnInValue?: (number | undefined) | undefined;
+            banditBurnInUnit?: (("days" | "hours") | undefined) | undefined;
         };
     };
     user: {
@@ -1256,6 +1268,10 @@ Triggered when an experiment is deleted
             } | undefined;
             shareLevel?: ("public" | "organization") | undefined;
             publicUrl?: string | undefined;
+            banditScheduleValue?: number | undefined;
+            banditScheduleUnit?: ("days" | "hours") | undefined;
+            banditBurnInValue?: number | undefined;
+            banditBurnInUnit?: ("days" | "hours") | undefined;
         };
     };
     user: {

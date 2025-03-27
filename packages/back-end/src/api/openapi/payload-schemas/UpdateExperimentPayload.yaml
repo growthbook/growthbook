@@ -10,6 +10,11 @@ properties:
   name:
     type: string
     description: Name of the experiment
+  type:
+    type: string
+    enum:
+      - "standard"
+      - "multi-armed-bandit"
   project:
     type: string
     description: Project ID which the experiment belongs to
@@ -213,3 +218,17 @@ properties:
     enum:
       - "public"
       - "organization"
+  banditScheduleValue:
+    type: number
+  banditScheduleUnit:
+    type: string
+    enum:
+      - "days"
+      - "hours"
+  banditBurnInValue:
+    type: number
+  banditBurnInUnit:
+    type: string
+    enum:
+      - "days"
+      - "hours"
