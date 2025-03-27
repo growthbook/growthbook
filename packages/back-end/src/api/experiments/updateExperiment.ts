@@ -139,6 +139,15 @@ export const updateExperiment = createApiRequestHandler(
       validateVariationIds(req.body.variations as Variation[]);
     }
 
+    if (
+      req.body.type &&
+      req.body.type !== (experiment.type || "standard") &&
+      experiment.status !== "draft" &&
+      req.body.status !== "draft"
+    ) {
+      throw new Error("Can only convert experiment types while in draft mode.");
+    }
+
     const updatedExperiment = await updateExperimentToDb({
       context: req.context,
       experiment: experiment,
