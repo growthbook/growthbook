@@ -761,16 +761,22 @@ export abstract class BaseModel<
     }
 
     // Remove any explicitly defined indexes that are no longer needed
-    this.config.indexesToRemove?.forEach((indexName) => {
-      this._dangerousGetCollection()
-        .dropIndex(indexName)
-        .catch((err) => {
-          logger.error(
-            `Error dropping index ${indexName} for ${this.config.collectionName}`,
-            err
-          );
-        });
-    });
+    const indexesToRemove = this.config.indexesToRemove;
+    if (indexesToRemove) {
+      const existingIndexes = this._dangerousGetCollection().listIndexes();
+      existingIndexes.forEach((index) => {
+        if (!indexesToRemove.includes(index.name)) return;
+
+        this._dangerousGetCollection()
+          .dropIndex(index.name)
+          .catch((err) => {
+            logger.error(
+              `Error dropping index ${index.name} for ${this.config.collectionName}`,
+              err
+            );
+          });
+      });
+    }
 
     // Create any additional indexes
     this.config.additionalIndexes?.forEach((index) => {
