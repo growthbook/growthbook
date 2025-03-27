@@ -172,6 +172,7 @@ export const safeRolloutStatus = [
   "running",
   "rolled-back",
   "released",
+  "draft",
 ] as const;
 export type SafeRolloutStatus = typeof safeRolloutStatus[number];
 
@@ -187,7 +188,7 @@ export const safeRolloutRule = baseRule
     hashAttribute: z.string(),
     seed: z.string(),
     guardrailMetrics: z.array(z.string()),
-    status: z.enum(safeRolloutStatus),
+    status: z.enum(safeRolloutStatus).default("draft"),
     maxDurationDays: z.number(),
     startedAt: z.date(),
     lastSnapshotAttempt: z.date().optional(),
