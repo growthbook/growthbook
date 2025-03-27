@@ -90,6 +90,8 @@ describe("default decision tree is correct", () => {
       variationIds: ["1"],
       sequentialUsed: false,
       powerReached: false,
+      tooltip:
+        "The experiment has not reached the target statistical power, however there are strong positive signals for a test variation.",
     });
 
     // super stat sig triggers rec with guardrail failure
@@ -111,6 +113,8 @@ describe("default decision tree is correct", () => {
       variationIds: ["1"],
       sequentialUsed: false,
       powerReached: false,
+      tooltip:
+        "The experiment has not reached the target statistical power, however there are strong negative signals for all test variations.",
     });
 
     // losing super stat sig triggers rec
@@ -129,6 +133,8 @@ describe("default decision tree is correct", () => {
       variationIds: ["1"],
       sequentialUsed: false,
       powerReached: false,
+      tooltip:
+        "The experiment has not reached the target statistical power, however there are strong negative signals for all test variations.",
     });
 
     // losing super stat sig on one variation not enough
@@ -171,6 +177,8 @@ describe("default decision tree is correct", () => {
       variationIds: ["1"],
       sequentialUsed: false,
       powerReached: true,
+      tooltip:
+        "Goal metrics are improving for a test variation with no failing guardrails  and experiment has reached the target statistical power.",
     });
 
     // neutral triggers no decision
@@ -191,6 +199,8 @@ describe("default decision tree is correct", () => {
       variationIds: ["1"],
       sequentialUsed: false,
       powerReached: true,
+      tooltip:
+        "The experiment has reached the target statistical power but the results are not conclusive.",
     });
 
     // Guardrail failure is now default to rollback
@@ -209,6 +219,8 @@ describe("default decision tree is correct", () => {
       variationIds: ["1"],
       sequentialUsed: false,
       powerReached: true,
+      tooltip:
+        "Guardrails are failing and/or goal metrics are not improving for all variations  and experiment has reached the target statistical power.",
     });
 
     // losing stat sig enough to trigger any rec
@@ -227,6 +239,8 @@ describe("default decision tree is correct", () => {
       variationIds: ["1"],
       sequentialUsed: false,
       powerReached: true,
+      tooltip:
+        "Guardrails are failing and/or goal metrics are not improving for all variations  and experiment has reached the target statistical power.",
     });
 
     // losing stat sig in two variations also triggers a rec
@@ -252,6 +266,8 @@ describe("default decision tree is correct", () => {
       variationIds: ["1", "2"],
       sequentialUsed: false,
       powerReached: true,
+      tooltip:
+        "Guardrails are failing and/or goal metrics are not improving for all variations  and experiment has reached the target statistical power.",
     });
 
     // losing stat sig in only one variation not enough, leads to ready for review
@@ -277,6 +293,8 @@ describe("default decision tree is correct", () => {
       variationIds: ["2"],
       sequentialUsed: false,
       powerReached: true,
+      tooltip:
+        "The experiment has reached the target statistical power but the results are not conclusive.",
     });
   });
 });
