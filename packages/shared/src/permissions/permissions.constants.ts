@@ -438,6 +438,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "TagsFullAccess",
       "DataSourceConfiguration",
       "TemplatesFullAccess",
+      "DecisionCriteriaFullAccess",
     ],
   },
   experimenter: {
