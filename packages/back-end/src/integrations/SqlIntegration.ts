@@ -336,6 +336,11 @@ export default abstract class SqlIntegration
     );
   }
 
+  extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
+    const raw = `json_extract_scalar(${jsonCol}, '$.${path}')`;
+    return isNumeric ? this.ensureFloat(raw) : raw;
+  }
+
   private getExposureQuery(
     exposureQueryId: string,
     userIdType?: "anonymous" | "user"
