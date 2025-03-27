@@ -190,7 +190,10 @@ export async function runRefreshColumnsQuery(
   });
 
   for (const col of columns) {
-    if (col.alwaysInlineFilter && canInlineFilterColumn(factTable, col)) {
+    if (
+      col.alwaysInlineFilter &&
+      canInlineFilterColumn(factTable, col.column)
+    ) {
       try {
         col.topValues = await runColumnTopValuesQuery(
           context,

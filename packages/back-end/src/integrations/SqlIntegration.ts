@@ -4592,8 +4592,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
       // Numerator column
       const value = this.getMetricColumns(m, factTableMap, "m", false).value;
-      const filters = getColumnRefWhereClause(factTable, m.numerator, (s) =>
-        this.escapeStringLiteral(s)
+      const filters = getColumnRefWhereClause(
+        factTable,
+        m.numerator,
+        this.escapeStringLiteral.bind(this),
+        this.extractJSONField.bind(this)
       );
 
       const column =
@@ -4617,8 +4620,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         }
 
         const value = this.getMetricColumns(m, factTableMap, "m", true).value;
-        const filters = getColumnRefWhereClause(factTable, m.denominator, (s) =>
-          this.escapeStringLiteral(s)
+        const filters = getColumnRefWhereClause(
+          factTable,
+          m.denominator,
+          this.escapeStringLiteral.bind(this),
+          this.extractJSONField.bind(this)
         );
         const column =
           filters.length > 0
@@ -4812,8 +4818,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
     // Add filters from the Metric
     if (isFact && factTable && columnRef) {
-      getColumnRefWhereClause(factTable, columnRef, (s) =>
-        this.escapeStringLiteral(s)
+      getColumnRefWhereClause(
+        factTable,
+        columnRef,
+        this.escapeStringLiteral.bind(this),
+        this.extractJSONField.bind(this)
       ).forEach((filterSQL) => {
         where.push(filterSQL);
       });

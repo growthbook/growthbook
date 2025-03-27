@@ -1,6 +1,5 @@
 import { MetricInterface } from "back-end/types/metric";
 import {
-  ColumnInterface,
   ColumnRef,
   FactMetricInterface,
   FactTableColumnType,
@@ -68,23 +67,62 @@ export function isFactMetric(
 }
 
 export function canInlineFilterColumn(
-  factTable: Pick<FactTableInterface, "userIdTypes">,
-  column: Pick<ColumnInterface, "column" | "datatype" | "deleted">
+  factTable: Pick<FactTableInterface, "userIdTypes" | "columns">,
+  column: string
 ): boolean {
-  if (column.deleted) return false;
-
-  if (column.datatype !== "string") return false;
-
   // If the column is one of the identifier columns, it is not eligible for prompting
-  if (factTable.userIdTypes.includes(column.column)) return false;
+  if (factTable.userIdTypes.includes(column)) return false;
 
-  return true;
+  // Might be a JSON column, look at nested field
+  const parts = column.split(".");
+  if (parts.length > 1) {
+    const col = factTable.columns.find((c) => c.column === parts[0]);
+    if (!col?.deleted && col?.datatype === "json") {
+      const field = col.jsonFields?.[parts.slice(1).join(".")];
+      if (field === "string") {
+        return true;
+      }
+    }
+  }
+
+  // Top-level column
+  if (
+    factTable.columns.some(
+      (c) => c.column === column && !c.deleted && c.datatype === "string"
+    )
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+export function getColumnExpression(
+  column: string,
+  factTable: Pick<FactTableInterface, "columns">,
+  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string
+): string {
+  const parts = column.split(".");
+  if (parts.length > 1) {
+    const col = factTable.columns.find((c) => c.column === parts[0]);
+    if (col?.datatype === "json") {
+      const path = parts.slice(1).join(".");
+
+      const field = col.jsonFields?.[path];
+      const isNumeric = field === "number";
+
+      return jsonExtract(parts[0], path, isNumeric);
+    }
+  }
+
+  return column;
 }
 
 export function getColumnRefWhereClause(
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">,
   columnRef: ColumnRef,
   escapeStringLiteral: (s: string) => string,
+  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string,
   showSourceComment = false
 ): string[] {
   const inlineFilters = columnRef.inlineFilters || {};
@@ -100,12 +138,14 @@ export function getColumnRefWhereClause(
         .map((v) => "'" + escapeStringLiteral(v) + "'")
     );
 
+    const columnExpr = getColumnExpression(column, factTable, jsonExtract);
+
     if (!escapedValues.size) {
       return;
     } else if (escapedValues.size === 1) {
-      where.add(`${column} = ${[...escapedValues][0]}`);
+      where.add(`${columnExpr} = ${[...escapedValues][0]}`);
     } else {
-      where.add(`${column} IN (\n  ${[...escapedValues].join(",\n  ")}\n)`);
+      where.add(`${columnExpr} IN (\n  ${[...escapedValues].join(",\n  ")}\n)`);
     }
   });
 

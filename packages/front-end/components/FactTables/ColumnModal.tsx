@@ -71,6 +71,20 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
     }
   };
 
+  const updatedColumn: ColumnInterface = {
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    ...existing,
+    column: form.watch("column"),
+    name: form.watch("name"),
+    description: form.watch("description"),
+    numberFormat: form.watch("numberFormat"),
+    datatype: form.watch("datatype"),
+    jsonFields: form.watch("jsonFields"),
+    alwaysInlineFilter: form.watch("alwaysInlineFilter"),
+    deleted: false,
+  };
+
   return (
     <Modal
       trackingEventModalType=""
@@ -90,14 +104,17 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             alwaysInlineFilter: value.alwaysInlineFilter,
           };
 
-          if (
-            data.alwaysInlineFilter &&
-            !canInlineFilterColumn(factTable, {
-              ...existing,
-              ...data,
-            })
-          ) {
-            data.alwaysInlineFilter = false;
+          // If the column can no longer be inline filtered
+          if (data.alwaysInlineFilter) {
+            const updatedFactTable = {
+              ...factTable,
+              columns: factTable.columns.map((c) =>
+                c.column === existing.column ? { ...c, ...data } : c
+              ),
+            };
+            if (!canInlineFilterColumn(updatedFactTable, existing.column)) {
+              data.alwaysInlineFilter = false;
+            }
           }
 
           if (data.datatype === "json") {
@@ -325,11 +342,13 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
         {...form.register("name")}
         placeholder={form.watch("column")}
       />
-      {canInlineFilterColumn(factTable, {
-        column: form.watch("column"),
-        datatype: form.watch("datatype"),
-        deleted: false,
-      }) && (
+      {canInlineFilterColumn(
+        {
+          ...factTable,
+          columns: [updatedColumn],
+        },
+        form.watch("column")
+      ) && (
         <Checkbox
           value={form.watch("alwaysInlineFilter") ?? false}
           setValue={(v) => form.setValue("alwaysInlineFilter", v === true)}
