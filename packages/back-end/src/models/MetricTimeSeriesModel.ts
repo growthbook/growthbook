@@ -25,6 +25,7 @@ const BaseClass = MakeModelClass({
       },
     },
   ],
+  indexesToRemove: ["organization_1_source_1_sourceId_1_metricId_1"],
 });
 
 export class MetricTimeSeriesModel extends BaseClass {

@@ -94,7 +94,6 @@ const informationSchemasController = wrapController(
 
 import { isEmailEnabled } from "./services/email";
 import { init } from "./init";
-import { migrations } from "./migrations";
 import { getCustomLogProps, httpLogger } from "./util/logger";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
@@ -136,7 +135,6 @@ if (SENTRY_DSN) {
 
 if (!process.env.NO_INIT && process.env.NODE_ENV !== "test") {
   init();
-  migrations();
 }
 
 app.set("port", process.env.PORT || 3100);
