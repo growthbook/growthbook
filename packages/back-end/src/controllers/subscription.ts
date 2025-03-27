@@ -12,6 +12,7 @@ import {
   postNewSubscriptionSuccessToLicenseServer,
   postNewInlineSubscriptionToLicenseServer,
   postCancelSubscriptionToLicenseServer,
+  getPortalUrlFromServer,
 } from "shared/enterprise";
 import { PaymentMethod } from "shared/src/types/subscriptions";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -453,19 +454,11 @@ export async function getPortalUrl(
   }
 
   try {
-    const orbClient = createOrbClient();
-
-    const { portal_url } = await orbClient.customers.fetchByExternalId(org.id);
-
-    if (!portal_url) {
-      return res
-        .status(404)
-        .json({ status: 404, message: "No customer portal found" });
-    }
+    const data = await getPortalUrlFromServer(org.id);
 
     res.status(200).json({
       status: 200,
-      portalUrl: portal_url,
+      portalUrl: data.portalUrl,
     });
   } catch (e) {
     return res.status(400).json({ status: 400, message: e.message });

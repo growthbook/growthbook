@@ -7,6 +7,7 @@ import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PaymentInfo from "@/enterprise/components/Billing/PaymentInfo";
 import OrbPortal from "@/enterprise/components/Billing/OrbPortal";
+import { isCloud } from "@/services/env";
 
 const BillingPage: FC = () => {
   const [upgradeModal, setUpgradeModal] = useState(false);
@@ -106,7 +107,9 @@ const BillingPage: FC = () => {
       {subscription?.status ? (
         <>
           <PaymentInfo />
-          <OrbPortal />
+          {isCloud() && subscription?.billingPlatform === "orb" ? (
+            <OrbPortal />
+          ) : null}
         </>
       ) : null}
     </div>

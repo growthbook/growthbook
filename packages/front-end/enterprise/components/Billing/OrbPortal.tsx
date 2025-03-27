@@ -1,20 +1,11 @@
 import Callout from "@/components/Radix/Callout";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useApi from "@/hooks/useApi";
-import { isCloud } from "@/services/env";
 
 export default function OrbPortal() {
   const { data, error, isLoading } = useApi<{
     portalUrl: string;
   }>(`/subscription/portal-url`);
-
-  if (!isCloud()) {
-    return (
-      <Callout status="warning">
-        Usage data is only available on GrowthBook Cloud.
-      </Callout>
-    );
-  }
 
   if (isLoading) {
     return <LoadingOverlay />;
