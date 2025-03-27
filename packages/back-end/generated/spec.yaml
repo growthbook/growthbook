@@ -1392,6 +1392,15 @@ paths:
                   type: array
                   items:
                     type: string
+                activationMetric:
+                  type: string
+                  description: Users must convert on this metric before being included
+                segmentId:
+                  type: string
+                  description: Only users in this segment will be included
+                queryFilter:
+                  type: string
+                  description: WHERE clause to add to the default experiment query
                 owner:
                   type: string
                   description: Email of the person who owns this experiment
@@ -1553,6 +1562,11 @@ paths:
                 regressionAdjustmentEnabled:
                   type: boolean
                   description: Controls whether regression adjustment (CUPED) is enabled for experiment analyses
+                sequentialTestingEnabled:
+                  type: boolean
+                  description: Only applicable to frequentist analyses
+                sequentialTestingTuningParameter:
+                  type: number
                 shareLevel:
                   type: string
                   enum:
@@ -1615,7 +1629,7 @@ paths:
               properties:
                 datasourceId:
                   type: string
-                  description: Only can be set if existing experiment does not have a datasource
+                  description: Can only be set if existing experiment does not have a datasource
                 assignmentQueryId:
                   type: string
                 trackingKey:
@@ -1648,6 +1662,15 @@ paths:
                   type: array
                   items:
                     type: string
+                activationMetric:
+                  type: string
+                  description: Users must convert on this metric before being included
+                segmentId:
+                  type: string
+                  description: Only users in this segment will be included
+                queryFilter:
+                  type: string
+                  description: WHERE clause to add to the default experiment query
                 owner:
                   type: string
                   description: Email of the person who owns this experiment
@@ -1809,6 +1832,11 @@ paths:
                 regressionAdjustmentEnabled:
                   type: boolean
                   description: Controls whether regression adjustment (CUPED) is enabled for experiment analyses
+                sequentialTestingEnabled:
+                  type: boolean
+                  description: Only applicable to frequentist analyses
+                sequentialTestingTuningParameter:
+                  type: number
                 shareLevel:
                   type: string
                   enum:
@@ -5830,6 +5858,7 @@ components:
       type: object
       required:
         - id
+        - trackingKey
         - dateCreated
         - dateUpdated
         - name
@@ -5849,6 +5878,8 @@ components:
         - settings
       properties:
         id:
+          type: string
+        trackingKey:
           type: string
         dateCreated:
           type: string
@@ -6096,6 +6127,10 @@ components:
             - frequentist
         regressionAdjustmentEnabled:
           type: boolean
+        sequentialTestingEnabled:
+          type: boolean
+        sequentialTestingTuningParameter:
+          type: number
         goals:
           type: array
           items:

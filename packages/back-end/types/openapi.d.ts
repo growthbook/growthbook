@@ -1241,6 +1241,7 @@ export interface components {
     };
     Experiment: {
       id: string;
+      trackingKey: string;
       /** Format: date-time */
       dateCreated: string;
       /** Format: date-time */
@@ -1308,6 +1309,8 @@ export interface components {
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
         regressionAdjustmentEnabled?: boolean;
+        sequentialTestingEnabled?: boolean;
+        sequentialTestingTuningParameter?: number;
         goals: ({
             metricId: string;
             overrides: {
@@ -1396,6 +1399,8 @@ export interface components {
       /** @enum {unknown} */
       statsEngine: "bayesian" | "frequentist";
       regressionAdjustmentEnabled?: boolean;
+      sequentialTestingEnabled?: boolean;
+      sequentialTestingTuningParameter?: number;
       goals: ({
           metricId: string;
           overrides: {
@@ -1468,6 +1473,8 @@ export interface components {
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
         regressionAdjustmentEnabled?: boolean;
+        sequentialTestingEnabled?: boolean;
+        sequentialTestingTuningParameter?: number;
         goals: ({
             metricId: string;
             overrides: {
@@ -4041,6 +4048,7 @@ export interface operations {
           "application/json": ({
             experiments: ({
                 id: string;
+                trackingKey: string;
                 /** Format: date-time */
                 dateCreated: string;
                 /** Format: date-time */
@@ -4108,6 +4116,8 @@ export interface operations {
                   /** @enum {unknown} */
                   statsEngine: "bayesian" | "frequentist";
                   regressionAdjustmentEnabled?: boolean;
+                  sequentialTestingEnabled?: boolean;
+                  sequentialTestingTuningParameter?: number;
                   goals: ({
                       metricId: string;
                       overrides: {
@@ -4198,6 +4208,12 @@ export interface operations {
           metrics?: (string)[];
           secondaryMetrics?: (string)[];
           guardrailMetrics?: (string)[];
+          /** @description Users must convert on this metric before being included */
+          activationMetric?: string;
+          /** @description Only users in this segment will be included */
+          segmentId?: string;
+          /** @description WHERE clause to add to the default experiment query */
+          queryFilter?: string;
           /** @description Email of the person who owns this experiment */
           owner?: string;
           archived?: boolean;
@@ -4264,6 +4280,9 @@ export interface operations {
             })[];
           /** @description Controls whether regression adjustment (CUPED) is enabled for experiment analyses */
           regressionAdjustmentEnabled?: boolean;
+          /** @description Only applicable to frequentist analyses */
+          sequentialTestingEnabled?: boolean;
+          sequentialTestingTuningParameter?: number;
           /** @enum {string} */
           shareLevel?: "public" | "organization";
         };
@@ -4275,6 +4294,7 @@ export interface operations {
           "application/json": {
             experiment: {
               id: string;
+              trackingKey: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -4342,6 +4362,8 @@ export interface operations {
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
+                sequentialTestingEnabled?: boolean;
+                sequentialTestingTuningParameter?: number;
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -4417,6 +4439,7 @@ export interface operations {
           "application/json": {
             experiment: {
               id: string;
+              trackingKey: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -4484,6 +4507,8 @@ export interface operations {
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
+                sequentialTestingEnabled?: boolean;
+                sequentialTestingTuningParameter?: number;
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -4556,7 +4581,7 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
-          /** @description Only can be set if existing experiment does not have a datasource */
+          /** @description Can only be set if existing experiment does not have a datasource */
           datasourceId?: string;
           assignmentQueryId?: string;
           trackingKey?: string;
@@ -4572,6 +4597,12 @@ export interface operations {
           metrics?: (string)[];
           secondaryMetrics?: (string)[];
           guardrailMetrics?: (string)[];
+          /** @description Users must convert on this metric before being included */
+          activationMetric?: string;
+          /** @description Only users in this segment will be included */
+          segmentId?: string;
+          /** @description WHERE clause to add to the default experiment query */
+          queryFilter?: string;
           /** @description Email of the person who owns this experiment */
           owner?: string;
           archived?: boolean;
@@ -4638,6 +4669,9 @@ export interface operations {
             })[];
           /** @description Controls whether regression adjustment (CUPED) is enabled for experiment analyses */
           regressionAdjustmentEnabled?: boolean;
+          /** @description Only applicable to frequentist analyses */
+          sequentialTestingEnabled?: boolean;
+          sequentialTestingTuningParameter?: number;
           /** @enum {string} */
           shareLevel?: "public" | "organization";
         };
@@ -4649,6 +4683,7 @@ export interface operations {
           "application/json": {
             experiment: {
               id: string;
+              trackingKey: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -4716,6 +4751,8 @@ export interface operations {
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
+                sequentialTestingEnabled?: boolean;
+                sequentialTestingTuningParameter?: number;
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -4843,6 +4880,8 @@ export interface operations {
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
+                sequentialTestingEnabled?: boolean;
+                sequentialTestingTuningParameter?: number;
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -5720,6 +5759,7 @@ export interface operations {
             };
             experiment?: {
               id: string;
+              trackingKey: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -5787,6 +5827,8 @@ export interface operations {
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
+                sequentialTestingEnabled?: boolean;
+                sequentialTestingTuningParameter?: number;
                 goals: ({
                     metricId: string;
                     overrides: {
