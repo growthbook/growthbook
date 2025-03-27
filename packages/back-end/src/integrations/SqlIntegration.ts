@@ -16,6 +16,7 @@ import {
   getAggregateFilters,
   isBinomialMetric,
   getDelayWindowHours,
+  getColumnExpression,
 } from "shared/experiments";
 import {
   AUTOMATIC_DIMENSION_OTHER_NAME,
@@ -334,6 +335,11 @@ export default abstract class SqlIntegration
     throw new Error(
       "COUNT DISTINCT is not supported for fact metrics in this data source."
     );
+  }
+
+  extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
+    const raw = `json_extract_scalar(${jsonCol}, '$.${path}')`;
+    return isNumeric ? this.ensureFloat(raw) : raw;
   }
 
   private getExposureQuery(
@@ -4587,8 +4593,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
       // Numerator column
       const value = this.getMetricColumns(m, factTableMap, "m", false).value;
-      const filters = getColumnRefWhereClause(factTable, m.numerator, (s) =>
-        this.escapeStringLiteral(s)
+      const filters = getColumnRefWhereClause(
+        factTable,
+        m.numerator,
+        this.escapeStringLiteral.bind(this),
+        this.extractJSONField.bind(this)
       );
 
       const column =
@@ -4612,8 +4621,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         }
 
         const value = this.getMetricColumns(m, factTableMap, "m", true).value;
-        const filters = getColumnRefWhereClause(factTable, m.denominator, (s) =>
-          this.escapeStringLiteral(s)
+        const filters = getColumnRefWhereClause(
+          factTable,
+          m.denominator,
+          this.escapeStringLiteral.bind(this),
+          this.extractJSONField.bind(this)
         );
         const column =
           filters.length > 0
@@ -4807,8 +4819,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
     // Add filters from the Metric
     if (isFact && factTable && columnRef) {
-      getColumnRefWhereClause(factTable, columnRef, (s) =>
-        this.escapeStringLiteral(s)
+      getColumnRefWhereClause(
+        factTable,
+        columnRef,
+        this.escapeStringLiteral.bind(this),
+        this.extractJSONField.bind(this)
       ).forEach((filterSQL) => {
         where.push(filterSQL);
       });
@@ -5188,7 +5203,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     factTableMap: FactTableMap,
     alias = "m",
     useDenominator?: boolean
-  ) {
+  ): { userIds: Record<string, string>; timestamp: string; value: string } {
     if (isFactMetric(metric)) {
       const userIds: Record<string, string> = {};
       getUserIdTypes(metric, factTableMap, useDenominator).forEach(
@@ -5198,6 +5213,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       );
 
       const columnRef = useDenominator ? metric.denominator : metric.numerator;
+
+      const factTable = factTableMap.get(columnRef?.factTableId || "");
 
       const hasAggregateFilter =
         getAggregateFilters({
@@ -5216,6 +5233,13 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         column === "$$distinctUsers" ||
         column === "$$count"
           ? "1"
+          : factTable && column
+          ? getColumnExpression(
+              column,
+              factTable,
+              this.extractJSONField.bind(this),
+              alias
+            )
           : `${alias}.${column}`;
 
       return {
