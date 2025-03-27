@@ -1308,7 +1308,7 @@ export function getApiFeatureObj({
     dateUpdated: feature.dateUpdated.toISOString(),
     defaultValue: feature.defaultValue,
     environments: featureEnvironments,
-    prerequisites: feature.prerequisites.map((p) => p.id),
+    prerequisites: (feature?.prerequisites || []).map((p) => p.id),
     owner: feature.owner || "",
     project: feature.project || "",
     tags: feature.tags || [],
