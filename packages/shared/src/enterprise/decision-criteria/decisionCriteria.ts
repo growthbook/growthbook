@@ -73,7 +73,6 @@ export function evaluateDecisionRuleOnVariation({
       const metrics = guardrailMetrics;
       const metricResults = variationStatus.guardrailMetrics;
 
-      // TODO trending loser
       if (condition.match === "all") {
         return metrics.every(
           (m) => metricResults?.[m]?.status === desiredStatus

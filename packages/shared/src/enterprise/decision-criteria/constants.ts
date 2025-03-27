@@ -10,6 +10,16 @@ export const DEFAULT_DECISION_CRITERIA: DecisionCriteriaData = {
     {
       conditions: [
         {
+          match: "any",
+          metrics: "guardrails",
+          direction: "statsigLoser",
+        },
+      ],
+      action: "rollback",
+    },
+    {
+      conditions: [
+        {
           match: "all",
           metrics: "goals",
           direction: "statsigWinner",
@@ -26,18 +36,13 @@ export const DEFAULT_DECISION_CRITERIA: DecisionCriteriaData = {
       conditions: [
         {
           match: "any",
-          metrics: "guardrails",
-          direction: "statsigLoser",
-        },
-      ],
-      action: "rollback",
-    },
-    {
-      conditions: [
-        {
-          match: "all",
           metrics: "goals",
           direction: "statsigLoser",
+        },
+        {
+          match: "none",
+          metrics: "goals",
+          direction: "statsigWinner",
         },
       ],
       action: "rollback",

@@ -4,6 +4,10 @@ import { Box, Flex, Heading, Text, Tooltip } from "@radix-ui/themes";
 import { FaPlusCircle } from "react-icons/fa";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { DecisionCriteriaData } from "back-end/types/experiment";
+import {
+  DEFAULT_DECISION_CRITERIA,
+  DEFAULT_DECISION_CRITERIAS,
+} from "shared/enterprise";
 import Checkbox from "@/components/Radix/Checkbox";
 import Button from "@/components/Radix/Button";
 import Field from "@/components/Forms/Field";
@@ -14,7 +18,6 @@ import DecisionCriteriaTable from "@/components/DecisionCriteria/DecisionCriteri
 import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteriaModal";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
-import { DEFAULT_DECISION_CRITERIA } from "@/components/DecisionCriteria/defaultDecisionCriteria";
 
 interface DecisionFrameworkSettingsProps {
   // No specific props needed as we use form context
@@ -157,7 +160,7 @@ const DecisionFrameworkSettings: React.FC<DecisionFrameworkSettingsProps> = () =
                     <DecisionCriteriaTable
                       defaultCriteriaId={
                         form.watch("defaultDecisionCriteriaId") ??
-                        DEFAULT_DECISION_CRITERIA[0].id
+                        DEFAULT_DECISION_CRITERIA.id
                       }
                       setDefaultCriteriaId={(id) =>
                         form.setValue("defaultDecisionCriteriaId", id)
@@ -171,7 +174,7 @@ const DecisionFrameworkSettings: React.FC<DecisionFrameworkSettingsProps> = () =
                         setDecisionCriteriaModalOpen
                       }
                       decisionCriterias={[
-                        ...DEFAULT_DECISION_CRITERIA,
+                        ...DEFAULT_DECISION_CRITERIAS,
                         ...(data?.decisionCriteria || []),
                       ]}
                       mutate={mutate}

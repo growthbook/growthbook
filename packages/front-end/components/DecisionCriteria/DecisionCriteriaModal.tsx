@@ -10,7 +10,6 @@ import {
 } from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.validators";
 import {
   PiArrowDown,
-  PiArrowDownRight,
   PiArrowUp,
   PiCheck,
   PiEye,
@@ -57,9 +56,9 @@ const METRICS_OPTIONS = [
 
 // Direction options for goals
 const GOAL_DIRECTION_OPTIONS: {
-  value: "statsigWinner" | "statsigLoser" | "trendingLoser";
+  value: "statsigWinner" | "statsigLoser";
   label: string;
-  color: "green" | "red" | "amber";
+  color: "green" | "red";
   icon: React.ReactNode;
 }[] = [
   {
@@ -74,19 +73,13 @@ const GOAL_DIRECTION_OPTIONS: {
     color: "red",
     icon: <PiArrowDown color="red" />,
   },
-  {
-    value: "trendingLoser",
-    label: "Trending Bad",
-    color: "amber",
-    icon: <PiArrowDownRight color="amber" />,
-  },
 ];
 
 // Direction options for guardrails
 const GUARDRAIL_DIRECTION_OPTIONS: {
-  value: "statsigLoser" | "trendingLoser";
+  value: "statsigLoser";
   label: string;
-  color: "red" | "amber";
+  color: "red";
   icon: React.ReactNode;
 }[] = [
   {
@@ -94,12 +87,6 @@ const GUARDRAIL_DIRECTION_OPTIONS: {
     label: "Stat Sig Bad",
     color: "red",
     icon: <PiArrowDown color="red" />,
-  },
-  {
-    value: "trendingLoser",
-    label: "Trending Bad",
-    color: "amber",
-    icon: <PiArrowDownRight color="amber" />,
   },
 ];
 
@@ -216,7 +203,6 @@ const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
     addRule();
   };
 
-  // Remove a rule by ID
   const removeRule = (id: string) => {
     const currentRules = form.getValues("rules");
     if (currentRules.length <= 1) return; // Ensure at least one rule remains
@@ -226,7 +212,6 @@ const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
     );
   };
 
-  // Add a condition to a rule
   const addCondition = (ruleId: string) => {
     const currentRules = form.getValues("rules");
     form.setValue(
@@ -242,7 +227,6 @@ const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
     );
   };
 
-  // Remove a condition from a rule
   const removeCondition = (ruleId: string, conditionId: string) => {
     const currentRules = form.getValues("rules");
     form.setValue(
@@ -263,7 +247,6 @@ const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
     );
   };
 
-  // Update a condition property
   const updateCondition = (
     ruleId: string,
     conditionId: string,
@@ -288,7 +271,6 @@ const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
     );
   };
 
-  // Update a rule's action
   const updateRuleAction = (
     ruleId: string,
     value: "ship" | "rollback" | "review"
@@ -302,7 +284,6 @@ const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
     );
   };
 
-  // Handle save
   const handleSave = async () => {
     const formData = form.getValues();
 
@@ -314,7 +295,19 @@ const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
       action,
     }));
 
-    // validate no guardrail good
+    // validate no guardrail has statsig winner
+    const guardrailWithStatsigWinner = rulesToSave.some((rule) =>
+      rule.conditions.some(
+        (condition) =>
+          condition.metrics === "guardrails" &&
+          condition.direction === "statsigWinner"
+      )
+    );
+    if (guardrailWithStatsigWinner) {
+      throw new Error(
+        "Guardrails cannot be checked for Stat Sig Good results."
+      );
+    }
 
     // Use the existing API endpoint structure but with our new naming
     const updatedCriteria = {
@@ -453,9 +446,22 @@ const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
                   <Box style={{ flex: 1 }}>
                     <Select
                       value={condition.metrics}
-                      setValue={(value) =>
-                        updateCondition(rule.id, condition.id, "metrics", value)
-                      }
+                      setValue={(value) => {
+                        if (value === "guardrails") {
+                          updateCondition(
+                            rule.id,
+                            condition.id,
+                            "direction",
+                            "statsigLoser"
+                          );
+                        }
+                        updateCondition(
+                          rule.id,
+                          condition.id,
+                          "metrics",
+                          value
+                        );
+                      }}
                       disabled={disabled}
                     >
                       {METRICS_OPTIONS.map((option) => (
@@ -477,7 +483,7 @@ const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
                           value
                         )
                       }
-                      disabled={disabled}
+                      disabled={disabled || condition.metrics === "guardrails"}
                     >
                       {(condition.metrics === "goals"
                         ? GOAL_DIRECTION_OPTIONS
