@@ -105,7 +105,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "manageSDKConnections",
     "manageSDKWebhooks",
   ],
-  DecisionCriteriaFullAccess: ["manageDecisionCriteria"],
+  DecisionCriteriaFullAccess: ["readData", "manageDecisionCriteria"],
   AttributesFullAccess: ["readData", "manageTargetingAttributes"],
   EnvironmentsFullAccess: ["readData", "manageEnvironments"],
   NamespacesFullAccess: ["readData", "manageNamespaces"],

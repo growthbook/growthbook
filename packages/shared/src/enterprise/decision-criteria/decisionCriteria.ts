@@ -25,6 +25,8 @@ import { daysBetween } from "../../dates";
 import { getMultipleExposureHealthData, getSRMHealthData } from "../../health";
 import { DEFAULT_DECISION_CRITERIA } from "./constants";
 
+// Evaluate a single rule on a variation result
+// Returns the action if the rule is met, otherwise undefined
 export function evaluateDecisionRuleOnVariation({
   rule,
   variationStatus,
@@ -41,7 +43,6 @@ export function evaluateDecisionRuleOnVariation({
   const { conditions, action } = rule;
 
   const allConditionsMet = conditions.every((condition) => {
-    // TODO trending loser
     const desiredStatus =
       condition.direction === "statsigWinner"
         ? "won"
@@ -96,6 +97,7 @@ export function evaluateDecisionRuleOnVariation({
   return undefined;
 }
 
+// Get the decision for each variation based on the decision criteria
 export function getVariationDecisions({
   resultsStatus,
   decisionCriteria,
@@ -138,6 +140,8 @@ export function getVariationDecisions({
         break;
       }
     }
+    // If no decision was reached, use the default action from the 
+    // decision criteria
     if (!decisionReached) {
       results.push({
         variationId: variation.variationId,
@@ -187,6 +191,12 @@ export function getDecisionFrameworkStatus({
   // if you have reached your needed power or if you used sequential testing
   const decisionReady = powerReached || sequentialTesting;
 
+  const tooltipLanguage = powerReached
+  ? ` and experiment has reached the target statistical power.`
+  : sequentialTesting
+  ? ` and sequential testing is enabled, allowing decisions as soon as statistical significance is reached.`
+  : ".";
+
   if (decisionReady) {
     const variationDecisions = getVariationDecisions({
       resultsStatus,
@@ -205,6 +215,7 @@ export function getDecisionFrameworkStatus({
         variationIds: variationDecisions.map(({ variationId }) => variationId),
         sequentialUsed: sequentialTesting,
         powerReached: powerReached,
+        tooltip: `Guardrails are failing and/or goal metrics are not improving for all variations ${tooltipLanguage}`,
       };
     }
 
@@ -219,6 +230,7 @@ export function getDecisionFrameworkStatus({
           .map(({ variationId }) => variationId),
         sequentialUsed: sequentialTesting,
         powerReached: powerReached,
+        tooltip: `Goal metrics are improving for a test variation with no failing guardrails ${tooltipLanguage}`,
       };
     }
 
@@ -235,6 +247,7 @@ export function getDecisionFrameworkStatus({
             .map(({ variationId }) => variationId),
           sequentialUsed: sequentialTesting,
           powerReached: powerReached,
+          tooltip: `The experiment has reached the target statistical power but the results are not conclusive.`,
         };
       }
     }
@@ -261,6 +274,7 @@ export function getDecisionFrameworkStatus({
         ),
         sequentialUsed: sequentialTesting,
         powerReached: powerReached,
+        tooltip: `The experiment has not reached the target statistical power, however there are strong negative signals for all test variations.`,
       };
     }
 
@@ -275,6 +289,7 @@ export function getDecisionFrameworkStatus({
           .map(({ variationId }) => variationId),
         sequentialUsed: sequentialTesting,
         powerReached: powerReached,
+        tooltip: `The experiment has not reached the target statistical power, however there are strong positive signals for a test variation.`,
       };
     }
   }

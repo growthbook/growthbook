@@ -564,8 +564,6 @@ describe("evaluateDecisionRuleOnVariation", () => {
     });
     expect(oneConditionNotMet).toBeUndefined();
   });
-
-  // TODO trending loser
 });
 
 describe("getVariationDecisions", () => {
