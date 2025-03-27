@@ -13,6 +13,7 @@ import {
   getAggregateFilters,
   getDecisionFrameworkStatus,
   getColumnExpression,
+  getSelectedColumnDatatype,
 } from "../src/experiments";
 
 describe("Experiments", () => {
@@ -637,6 +638,25 @@ describe("Experiments", () => {
         ).toBe("unknown_column");
       });
 
+      it("supports aliases", () => {
+        expect(
+          getColumnExpression(
+            `${jsonColumn.column}.b`,
+            factTable,
+            jsonExtract,
+            "m"
+          )
+        ).toBe(`m.${jsonColumn.column}:'b'::float`);
+
+        expect(
+          getColumnExpression(column.column, factTable, jsonExtract, "m")
+        ).toBe(`m.${column.column}`);
+
+        expect(
+          getColumnExpression("unknown", factTable, jsonExtract, "m")
+        ).toBe(`m.unknown`);
+      });
+
       it("assumes datatype of string for unknown JSON fields", () => {
         expect(
           getColumnExpression(
@@ -661,6 +681,78 @@ describe("Experiments", () => {
             jsonExtract
           )
         ).toBe(`${jsonColumn.column}:'unknown.unknown'`);
+      });
+    });
+    describe("getSelectedColumnDatatype", () => {
+      it("returns the datatype of the selected column", () => {
+        expect(
+          getSelectedColumnDatatype({ factTable, column: column.column })
+        ).toBe(column.datatype);
+        expect(
+          getSelectedColumnDatatype({ factTable, column: column2.column })
+        ).toBe(column2.datatype);
+        expect(
+          getSelectedColumnDatatype({ factTable, column: userIdColumn.column })
+        ).toBe(userIdColumn.datatype);
+        expect(
+          getSelectedColumnDatatype({ factTable, column: numericColumn.column })
+        ).toBe(numericColumn.datatype);
+        expect(
+          getSelectedColumnDatatype({ factTable, column: deletedColumn.column })
+        ).toBe(deletedColumn.datatype);
+        expect(
+          getSelectedColumnDatatype({ factTable, column: jsonColumn.column })
+        ).toBe(jsonColumn.datatype);
+      });
+
+      it("supports nested JSON fields", () => {
+        expect(
+          getSelectedColumnDatatype({
+            factTable,
+            column: `${jsonColumn.column}.a`,
+          })
+        ).toBe("string");
+        expect(
+          getSelectedColumnDatatype({
+            factTable,
+            column: `${jsonColumn.column}.b`,
+          })
+        ).toBe("number");
+        expect(
+          getSelectedColumnDatatype({
+            factTable,
+            column: `${jsonColumn.column}.c.d`,
+          })
+        ).toBe("string");
+        expect(
+          getSelectedColumnDatatype({
+            factTable,
+            column: `${jsonColumn.column}.c.e`,
+          })
+        ).toBe("number");
+      });
+
+      it("returns undefined for unknown columns", () => {
+        expect(
+          getSelectedColumnDatatype({ factTable, column: "unknown" })
+        ).toBe(undefined);
+
+        expect(
+          getSelectedColumnDatatype({
+            factTable,
+            column: `${jsonColumn.column}.unknown`,
+          })
+        ).toBe(undefined);
+      });
+
+      it("Can exclude deleted columns", () => {
+        expect(
+          getSelectedColumnDatatype({
+            factTable,
+            column: deletedColumn.column,
+            excludeDeleted: true,
+          })
+        ).toBe(undefined);
       });
     });
   });

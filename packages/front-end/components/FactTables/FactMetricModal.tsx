@@ -387,8 +387,10 @@ function ColumnRefSelector({
     factTable,
     includeCountDistinct: includeCountDistinct && aggregationType === "unit",
     includeCount: aggregationType === "unit",
+    includeNumericColumns: true,
     includeStringColumns:
       datasource.properties?.hasCountDistinctHLL && aggregationType === "unit",
+    includeJSONFields: true,
   });
 
   const selectedColumnDatatype = getSelectedColumnDatatype({

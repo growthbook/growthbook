@@ -73,34 +73,21 @@ export function canInlineFilterColumn(
   // If the column is one of the identifier columns, it is not eligible for prompting
   if (factTable.userIdTypes.includes(column)) return false;
 
-  // Might be a JSON column, look at nested field
-  const parts = column.split(".");
-  if (parts.length > 1) {
-    const col = factTable.columns.find((c) => c.column === parts[0]);
-    if (!col?.deleted && col?.datatype === "json") {
-      const field = col.jsonFields?.[parts.slice(1).join(".")];
-      if (field === "string") {
-        return true;
-      }
-    }
-  }
-
-  // Top-level column
   if (
-    factTable.columns.some(
-      (c) => c.column === column && !c.deleted && c.datatype === "string"
-    )
+    getSelectedColumnDatatype({ factTable, column, excludeDeleted: true }) !==
+    "string"
   ) {
-    return true;
+    return false;
   }
 
-  return false;
+  return true;
 }
 
 export function getColumnExpression(
   column: string,
   factTable: Pick<FactTableInterface, "columns">,
-  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string
+  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string,
+  alias: string = ""
 ): string {
   const parts = column.split(".");
   if (parts.length > 1) {
@@ -111,11 +98,15 @@ export function getColumnExpression(
       const field = col.jsonFields?.[path];
       const isNumeric = field === "number";
 
-      return jsonExtract(parts[0], path, isNumeric);
+      return jsonExtract(
+        alias ? `${alias}.${parts[0]}` : parts[0],
+        path,
+        isNumeric
+      );
     }
   }
 
-  return column;
+  return alias ? `${alias}.${column}` : column;
 }
 
 export function getColumnRefWhereClause(
@@ -294,12 +285,29 @@ export function getDelayWindowHours(
 export function getSelectedColumnDatatype({
   factTable,
   column,
+  excludeDeleted = false,
 }: {
-  factTable: FactTableInterface | null;
+  factTable: Pick<FactTableInterface, "columns"> | null;
   column: string;
+  excludeDeleted?: boolean;
 }): FactTableColumnType | undefined {
   if (!factTable) return undefined;
+
+  // Might be a JSON column, look at nested field
+  const parts = column.split(".");
+  if (parts.length > 1) {
+    const col = factTable.columns.find((c) => c.column === parts[0]);
+    if (col?.datatype === "json" && (!excludeDeleted || !col?.deleted)) {
+      const field = col.jsonFields?.[parts.slice(1).join(".")];
+      if (field) {
+        return field;
+      }
+    }
+  }
+
   const col = factTable.columns.find((c) => c.column === column);
+  if (excludeDeleted && (!col || col.deleted)) return undefined;
+
   return col?.datatype;
 }
 

@@ -16,6 +16,7 @@ import {
   getAggregateFilters,
   isBinomialMetric,
   getDelayWindowHours,
+  getColumnExpression,
 } from "shared/experiments";
 import {
   AUTOMATIC_DIMENSION_OTHER_NAME,
@@ -5202,7 +5203,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     factTableMap: FactTableMap,
     alias = "m",
     useDenominator?: boolean
-  ) {
+  ): { userIds: Record<string, string>; timestamp: string; value: string } {
     if (isFactMetric(metric)) {
       const userIds: Record<string, string> = {};
       getUserIdTypes(metric, factTableMap, useDenominator).forEach(
@@ -5212,6 +5213,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       );
 
       const columnRef = useDenominator ? metric.denominator : metric.numerator;
+
+      const factTable = factTableMap.get(columnRef?.factTableId || "");
 
       const hasAggregateFilter =
         getAggregateFilters({
@@ -5230,6 +5233,13 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         column === "$$distinctUsers" ||
         column === "$$count"
           ? "1"
+          : factTable && column
+          ? getColumnExpression(
+              column,
+              factTable,
+              this.extractJSONField.bind(this),
+              alias
+            )
           : `${alias}.${column}`;
 
       return {
