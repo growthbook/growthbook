@@ -325,6 +325,19 @@ export async function postVerifyEmailToLicenseServer(
   );
 }
 
+export async function getPortalUrlFromServer(
+  organizationId: string
+): Promise<{ portalUrl: string }> {
+  const url = `${LICENSE_SERVER_URL}subscription/portal-url`;
+  return callLicenseServer(
+    url,
+    JSON.stringify({
+      organizationId,
+      cloudSecret: process.env.CLOUD_SECRET,
+    })
+  );
+}
+
 export async function postNewProTrialSubscriptionToLicenseServer(
   organizationId: string,
   companyName: string,

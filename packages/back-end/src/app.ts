@@ -405,6 +405,7 @@ if (IS_CLOUD) {
     subscriptionController.postInlineProSubscription
   );
   app.post("/subscription/cancel", subscriptionController.cancelSubscription);
+  app.get("/subscription/portal-url", subscriptionController.getPortalUrl);
 }
 app.post("/subscription/new", subscriptionController.postNewProSubscription);
 app.post(
