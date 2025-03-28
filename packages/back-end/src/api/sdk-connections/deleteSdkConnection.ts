@@ -6,6 +6,7 @@ import {
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { deleteSdkConnectionValidator } from "back-end/src/validators/openapi";
 import { auditDetailsDelete } from "back-end/src/services/audit";
+import { findAllSdkWebhooksByConnection, deleteSdkWebhookById } from "back-end/src/models/WebhookModel";
 
 export const deleteSdkConnection = createApiRequestHandler(
   deleteSdkConnectionValidator
@@ -21,6 +22,12 @@ export const deleteSdkConnection = createApiRequestHandler(
 
     if (!req.context.permissions.canDeleteSDKConnection(sdkConnection))
       req.context.permissions.throwPermissionError();
+
+     // Fetch and delete associated webhooks
+     const webhooks = await findAllSdkWebhooksByConnection(req.context, sdkConnection.id);
+     for (const webhook of webhooks) {
+       await deleteSdkWebhookById(req.context, webhook.id);
+     }
 
     await deleteSDKConnectionById(req.context.org.id, sdkConnection.id);
 
