@@ -1,5 +1,14 @@
 import { callLicenseServer, LICENSE_SERVER_URL } from "shared/enterprise";
+import * as Sentry from "@sentry/node";
 import { OrganizationUsage } from "back-end/types/organization";
+
+export const FALLBACK_USAGE: OrganizationUsage = {
+  limits: { requests: "unlimited", bandwidth: "unlimited" },
+  cdn: {
+    lastUpdated: new Date(),
+    status: "under",
+  },
+};
 
 export async function createSetupIntent(licenseKey: string) {
   const url = `${LICENSE_SERVER_URL}subscription/setup-intent`;
@@ -60,14 +69,19 @@ export async function deletePaymentMethodById(
 export async function getUsageDataFromServer(
   organization: string
 ): Promise<OrganizationUsage> {
-  const url = `${LICENSE_SERVER_URL}cdn/${organization}/usage`;
+  try {
+    const url = `${LICENSE_SERVER_URL}cdn/${organization}/usage`;
 
-  const usage = await callLicenseServer({ url, method: "GET" });
+    const usage = await callLicenseServer({ url, method: "GET" });
 
-  return {
-    ...usage,
-    cdn: { ...usage.cdn, lastUpdated: new Date(usage.cdn.lastUpdated) },
-  };
+    return {
+      ...usage,
+      cdn: { ...usage.cdn, lastUpdated: new Date(usage.cdn.lastUpdated) },
+    };
+  } catch (err) {
+    Sentry.captureException(err);
+    return FALLBACK_USAGE;
+  }
 }
 
 type StoredUsage = {
