@@ -95,10 +95,8 @@ export async function getUsage(organization: string) {
   const cacheCutOff = new Date();
   cacheCutOff.setHours(cacheCutOff.getHours() - 1);
 
-  Object.keys(keyToUsageData).forEach((organization) => {
-    if (keyToUsageData[organization]?.timestamp <= cacheCutOff)
-      delete keyToUsageData[organization];
-  });
+  if (keyToUsageData[organization]?.timestamp <= cacheCutOff)
+    delete keyToUsageData[organization];
 
   if (keyToUsageData[organization]) return keyToUsageData[organization].usage;
 
