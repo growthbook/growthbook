@@ -1,5 +1,6 @@
 import { Response } from "express";
 import { Stripe } from "stripe";
+import { PaymentMethod } from "shared/src/types/subscriptions";
 import {
   LicenseServerError,
   getLicense,
@@ -11,8 +12,8 @@ import {
   postNewSubscriptionSuccessToLicenseServer,
   postNewInlineSubscriptionToLicenseServer,
   postCancelSubscriptionToLicenseServer,
-} from "shared/enterprise";
-import { PaymentMethod } from "shared/src/types/subscriptions";
+  getPortalUrlFromServer,
+} from "back-end/src/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getNumberOfUniqueMembersAndInvites,
@@ -428,4 +429,28 @@ export async function getUsage(
   } = await context.usage();
 
   res.json({ status: 200, cdnUsage, limits: { cdnRequests, cdnBandwidth } });
+}
+
+export async function getPortalUrl(
+  req: AuthRequest<null, null>,
+  res: Response<{ status: number; portalUrl?: string; message?: string }>
+) {
+  const context = getContextFromReq(req);
+
+  const { org } = context;
+
+  if (!context.permissions.canViewUsage()) {
+    context.permissions.throwPermissionError();
+  }
+
+  try {
+    const data = await getPortalUrlFromServer(org.id);
+
+    res.status(200).json({
+      status: 200,
+      portalUrl: data.portalUrl,
+    });
+  } catch (e) {
+    return res.status(400).json({ status: 400, message: e.message });
+  }
 }

@@ -85,6 +85,14 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           )
         : null;
 
+    const prerequisites =
+      req.body.prerequisites != null
+        ? req.body.prerequisites?.map((p) => ({
+            id: p,
+            condition: `{"value": true}`,
+          }))
+        : null;
+
     const jsonSchema =
       feature.valueType === "json" && req.body.jsonSchema != null
         ? parseJsonSchemaForEnterprise(req.organization, req.body.jsonSchema)
@@ -98,6 +106,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       ...(tags != null ? { tags } : {}),
       ...(defaultValue != null ? { defaultValue } : {}),
       ...(environmentSettings != null ? { environmentSettings } : {}),
+      ...(prerequisites != null ? { prerequisites } : {}),
       ...(jsonSchema != null ? { jsonSchema } : {}),
     };
 

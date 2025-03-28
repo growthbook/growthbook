@@ -135,6 +135,7 @@ export async function updateExperimentTimeSeries({
     (metricId) => ({
       source: "experiment",
       sourceId: experiment.id,
+      sourcePhase: experimentSnapshot.phase,
       metricId,
       lastExperimentSettingsHash: experimentHash,
       lastMetricSettingsHash: getMetricSettingsHash(

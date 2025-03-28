@@ -1,5 +1,8 @@
-import { callLicenseServer, LICENSE_SERVER_URL } from "shared/enterprise";
 import * as Sentry from "@sentry/node";
+import {
+  callLicenseServer,
+  LICENSE_SERVER_URL,
+} from "back-end/src/enterprise/licenseUtil";
 import { OrganizationUsage } from "back-end/types/organization";
 
 export const FALLBACK_USAGE: OrganizationUsage = {

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { validateFeatureValue } from "shared/util";
-import { orgHasPremiumFeature } from "shared/enterprise";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { PostFeatureResponse } from "back-end/types/openapi";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { postFeatureValidator } from "back-end/src/validators/openapi";
@@ -120,6 +120,10 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
       archived: !!req.body.archived,
       version: 1,
       environmentSettings: {},
+      prerequisites: (req.body?.prerequisites || []).map((p) => ({
+        id: p,
+        condition: `{"value": true}`,
+      })),
       tags,
     };
 
