@@ -68,8 +68,8 @@ export default function CloudUsage() {
 
   const usage = data?.cdnUsage || [];
   const limits: UsageLimits = data?.limits || {
-    cdnRequests: null,
-    cdnBandwidth: null,
+    cdnRequests: "unlimited",
+    cdnBandwidth: "unlimited",
   };
 
   const startDate = new Date();
@@ -99,7 +99,8 @@ export default function CloudUsage() {
       current.setUTCDate(current.getUTCDate() + 1);
     }
 
-    limits.cdnRequests = 10_000_000;
+    limits.cdnRequests = 1_000_000;
+    limits.cdnBandwidth = 5_000_000_000;
   }
 
   const totalRequests = usage.reduce((sum, u) => sum + u.requests, 0);
@@ -184,7 +185,9 @@ export default function CloudUsage() {
             formatValue={(v) => requestsFormatter.format(v)}
             start={startDate}
             end={endDate}
-            limitLine={limits.cdnRequests || null}
+            limitLine={
+              limits.cdnRequests === "unlimited" ? null : limits.cdnRequests
+            }
           />
         </Box>
       )}
@@ -199,7 +202,9 @@ export default function CloudUsage() {
             formatValue={formatBytes}
             start={startDate}
             end={endDate}
-            limitLine={limits.cdnBandwidth || null}
+            limitLine={
+              limits.cdnBandwidth === "unlimited" ? null : limits.cdnBandwidth
+            }
           />
         </Box>
       )}

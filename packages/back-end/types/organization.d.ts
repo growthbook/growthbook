@@ -375,7 +375,20 @@ export type DailyUsage = {
   bandwidth: number;
 };
 
+type UsageLimit = number | "unlimited";
+
 export type UsageLimits = {
-  cdnRequests: number | null;
-  cdnBandwidth: number | null;
+  cdnRequests: UsageLimit;
+  cdnBandwidth: UsageLimit;
+};
+
+export type OrganizationUsage = {
+  limits: {
+    requests: UsageLimit;
+    bandwidth: UsageLimit;
+  };
+  cdn: {
+    lastUpdated: Date;
+    status: "under" | "approaching" | "over";
+  };
 };
