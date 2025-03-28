@@ -1,9 +1,9 @@
 import { includeExperimentInPayload, getSnapshotAnalysis } from "shared/util";
+import { getMetricResultStatus } from "shared/experiments";
 import {
-  getHealthSettings,
-  getMetricResultStatus,
   getExperimentResultStatus,
-} from "shared/experiments";
+  getHealthSettings,
+} from "shared/enterprise";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { StatsEngine } from "back-end/types/stats";
 import { Context } from "back-end/src/models/BaseModel";
@@ -34,7 +34,6 @@ import {
 import { isEmailEnabled, sendExperimentChangesEmail } from "./email";
 
 // This ensures that the two types remain equal.
-
 const dispatchEvent = async <T extends ResourceEvents<"experiment">>({
   context,
   experiment,

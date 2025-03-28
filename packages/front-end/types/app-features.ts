@@ -65,4 +65,5 @@ export type AppFeatures = {
   "ff_payment-info": boolean;
   "ff_embedded-payment-form": boolean;
   "cdn-usage-data": boolean;
+  "decision-framework-criteria": boolean;
 };

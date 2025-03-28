@@ -4,7 +4,7 @@ import { forwardRef, ReactNode } from "react";
 import HelperText from "./HelperText";
 
 type SelectProps = {
-  label: string;
+  label?: string;
   defaultValue?: string;
   disabled?: boolean;
   error?: string;
@@ -12,6 +12,7 @@ type SelectProps = {
   value: string;
   setValue: (value: string) => void;
   children: React.ReactNode;
+  size?: "1" | "2" | "3";
 } & MarginProps;
 
 export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
@@ -24,18 +25,21 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
     children,
     value,
     setValue,
+    size = "3",
     ...containerProps
   }: SelectProps,
   ref
 ) {
   return (
     <Flex direction="column" {...containerProps} ref={ref}>
-      <Text as="label" size="3" weight="medium">
-        {label}
-      </Text>
+      {label !== undefined && (
+        <Text as="label" size="3" weight="medium">
+          {label}
+        </Text>
+      )}
       <RadixSelect.Root
         defaultValue={defaultValue}
-        size="3"
+        size={size}
         disabled={disabled}
         value={value}
         onValueChange={setValue}
