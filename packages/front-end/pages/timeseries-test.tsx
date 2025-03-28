@@ -1,10 +1,89 @@
 import { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
 import useApi from "@/hooks/useApi";
 import { formatNumber } from "@/services/metrics";
-import ExperimentDateGraph from "@/components/Experiment/ExperimentDateGraph";
+import ExperimentDateGraph, {
+  ExperimentDateGraphDataPoint,
+} from "@/components/Experiment/ExperimentDateGraph";
+import { daysBetween } from "shared/dates";
+import { addDays, eachDayOfInterval, subDays } from "date-fns";
+
+const previousWeek = eachDayOfInterval({
+  start: subDays(new Date(), 7),
+  end: new Date(),
+});
 
 const TimeSeriesTest = (): React.ReactElement => {
   const { data } = useApi<{ timeSeries: MetricTimeSeries[] }>(`/time-series`);
+
+  const renderTimeSeries = (t: MetricTimeSeries) => {
+    const additionalGraphDataPoints: ExperimentDateGraphDataPoint[] = [];
+    const sortedDataPoints = t.dataPoints.sort((a, b) => {
+      return new Date(a.date).getTime() - new Date(b.date).getTime();
+    });
+
+    const firstDate = sortedDataPoints[0].date;
+    const lastDate = sortedDataPoints[sortedDataPoints.length - 1].date;
+
+    const numOfDays = daysBetween(firstDate, lastDate);
+    if (numOfDays < 7) {
+      additionalGraphDataPoints.push({
+        d: addDays(new Date(lastDate), 7 - numOfDays),
+      });
+    }
+
+    return (
+      <div key={t.id}>
+        {t.sourceId}-{t.metricId}
+        <ExperimentDateGraph
+          yaxis="effect"
+          label="% Change"
+          variationNames={t.dataPoints[0].variations.map((v) => v.name)}
+          statsEngine="bayesian"
+          hasStats={true}
+          datapoints={[
+            ...t.dataPoints.map((r) => {
+              const point: ExperimentDateGraphDataPoint = {
+                d: new Date(r.date),
+                variations: r.variations.map((i) => {
+                  return {
+                    // ci: [-1.6625962930093463, 2.3292629596760124],
+                    ci: i[type]?.ci ?? undefined,
+                    // v: 4,
+                    v: i[type]?.value ?? 0,
+                    // v_formatted: "66.7%",
+                    v_formatted: `${i[type]?.value ?? 0}`,
+                    // users: 6,
+                    users: i.stats?.users,
+                    // p: 1,
+                    // p: 1,
+                    // ctw: 0.6282896511523738,
+                    ctw: i[type]?.chanceToWin ?? undefined,
+                    up: 0.01,
+                    // up: i[type]?.up ?? undefined,
+                  };
+                }),
+              };
+
+              if (
+                r.tags?.includes("experiment-settings-changed") &&
+                r.tags?.includes("metric-settings-changed")
+              ) {
+                point.helperText = "Experiment and metric settings changed";
+              } else if (r.tags?.includes("experiment-settings-changed")) {
+                point.helperText = "Experiment settings changed";
+              } else if (r.tags?.includes("metric-settings-changed")) {
+                point.helperText = "Metric settings changed";
+              }
+
+              return point;
+            }),
+            ...additionalGraphDataPoints,
+          ]}
+          formatter={formatNumber}
+        />
+      </div>
+    );
+  };
 
   if (!data) {
     return <>Loading...</>;
@@ -27,40 +106,7 @@ const TimeSeriesTest = (): React.ReactElement => {
     }
   })();
 
-  const timeSeries = data.timeSeries;
-
-  return (
-    <div>
-      {timeSeries.map((t) => {
-        return (
-          <div key={t.id}>
-            {t.source}-{t.sourceId}-{t.metricId}
-            <ExperimentDateGraph
-              yaxis="effect"
-              label="Something"
-              variationNames={t.dataPoints[0].variations.map((v) => v.name)}
-              datapoints={t.dataPoints.map((r) => {
-                return {
-                  d: new Date(r.date),
-                  variations: r.variations.map((i) => {
-                    return {
-                      v: i[type]?.value ?? 0,
-                      v_formatted: `${i[type]?.value ?? 0}`,
-                      users: i[type]?.denominator,
-                      p: i[type]?.pValue ?? undefined,
-                      ctw: i[type]?.chanceToWin ?? undefined,
-                      ci: i[type]?.ci ?? undefined,
-                    };
-                  }),
-                };
-              })}
-              formatter={formatNumber}
-            />
-          </div>
-        );
-      })}
-    </div>
-  );
+  return <div>{data.timeSeries.map(renderTimeSeries)}</div>;
 };
 
 export default TimeSeriesTest;

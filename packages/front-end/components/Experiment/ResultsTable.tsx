@@ -25,7 +25,7 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import { PiArrowsVertical } from "react-icons/pi";
+import { PiArrowsVertical, PiChartLine } from "react-icons/pi";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import {
@@ -59,6 +59,7 @@ import ChanceToWinColumn from "./ChanceToWinColumn";
 import MetricValueColumn from "./MetricValueColumn";
 import PercentGraph from "./PercentGraph";
 import MetricTimeSeriesGraph from "./MetricTimeSeriesGraph";
+import styles from "./ResultsTable.module.scss";
 
 export type ResultsTableProps = {
   id: string;
@@ -615,6 +616,7 @@ export default function ResultsTable({
                       domain,
                       ssrPolyfills,
                       handleExpand: () => handleExpand(row.metric.id),
+                      isExpanded: expandedMetrics.includes(row.metric.id),
                     })}
 
                   {orderedVariations.map((v, j) => {
@@ -632,6 +634,7 @@ export default function ResultsTable({
                         alreadyShownQueryError = true;
                         return drawEmptyRow({
                           handleExpand: () => handleExpand(row.metric.id),
+                          isExpanded: expandedMetrics.includes(row.metric.id),
                           key: j,
                           className:
                             "results-variation-row align-items-center error-row",
@@ -951,6 +954,7 @@ function drawEmptyRow({
   domain,
   ssrPolyfills,
   handleExpand,
+  isExpanded,
 }: {
   key?: number | string;
   className?: string;
@@ -962,7 +966,19 @@ function drawEmptyRow({
   domain: [number, number];
   ssrPolyfills?: SSRPolyfills;
   handleExpand: () => void;
+  isExpanded: boolean;
 }) {
+  const timeSeriesButton = (
+    <Link
+      className={clsx(styles.timeSeriesButton, {
+        [styles.active]: isExpanded,
+      })}
+      onClick={handleExpand}
+    >
+      <PiChartLine style={{ display: "block" }} />
+    </Link>
+  );
+
   return (
     <tr key={key} style={style} className={className}>
       <td colSpan={4}>{label}</td>
@@ -980,9 +996,7 @@ function drawEmptyRow({
       </td>
       <td>
         <div style={{ display: "flex", justifyContent: "end" }}>
-          <Link onClick={handleExpand}>
-            <PiArrowsVertical />
-          </Link>
+          {timeSeriesButton}
         </div>
       </td>
     </tr>

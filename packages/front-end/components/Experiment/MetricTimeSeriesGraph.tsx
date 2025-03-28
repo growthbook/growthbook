@@ -37,8 +37,9 @@ export default function MetricTimeSeriesGraph({
 
   return (
     <ExperimentDateGraph
+      hideVariationsSelector={true}
       yaxis="effect"
-      label="Something"
+      label=""
       variationNames={timeSeries.dataPoints[0].variations.map((v) => v.name)}
       datapoints={timeSeries.dataPoints.map((r) => {
         return {

@@ -19,6 +19,7 @@ import { BiCheckbox, BiCheckboxSquare } from "react-icons/bi";
 import { pValueFormatter } from "@/services/experiments";
 import { getVariationColor } from "@/services/features";
 import styles from "./ExperimentDateGraph.module.scss";
+import HelperText from "../Radix/HelperText";
 
 export interface DataPointVariation {
   v: number;
@@ -33,6 +34,7 @@ export interface DataPointVariation {
 export interface ExperimentDateGraphDataPoint {
   d: Date;
   variations?: DataPointVariation[]; // undefined === missing date
+  helperText?: string;
 }
 export interface ExperimentDateGraphProps {
   yaxis: "users" | "effect";
@@ -45,6 +47,7 @@ export interface ExperimentDateGraphProps {
   hasStats?: boolean;
   maxGapHours?: number;
   cumulative?: boolean;
+  hideVariationsSelector?: boolean;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -168,6 +171,12 @@ const getTooltipContents = (
           })}
         </tbody>
       </table>
+
+      {d.helperText ? (
+        <HelperText status="info" my="2" size="md">
+          {d.helperText}
+        </HelperText>
+      ) : null}
       <div className="text-sm-right mt-1 mr-1">{date(d.d as Date)}</div>
     </>
   );
@@ -233,6 +242,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
   hasStats = true,
   maxGapHours = 36,
   cumulative = false,
+  hideVariationsSelector = false,
 }) => {
   // yaxis = "users";
   const { containerRef, containerBounds } = useTooltipInPortal({
@@ -398,6 +408,8 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
           });
         };
 
+        const markers = datapoints.filter((d) => d.marker);
+
         return (
           <div className="position-relative">
             {tooltipData && (
@@ -418,61 +430,63 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                 )}
               </TooltipWithBounds>
             )}
-            <div className="d-flex align-items-start">
-              <div
-                className="d-flex flex-wrap px-3 mb-2"
-                style={{ gap: "0.25rem 1rem" }}
-              >
+            {!hideVariationsSelector && (
+              <div className="d-flex align-items-start">
                 <div
-                  key={"all"}
-                  className="nowrap cursor-pointer hover-highlight py-1 pr-1 rounded user-select-none"
-                  onClick={() => {
-                    if (!showVariations.every((sv) => sv)) {
-                      setShowVariations(variationNames.map(() => true));
-                    } else {
-                      setShowVariations(
-                        variationNames.map((_, i) => (i === 0 ? true : false))
-                      );
-                    }
-                  }}
+                  className="d-flex flex-wrap px-3 mb-2"
+                  style={{ gap: "0.25rem 1rem" }}
                 >
-                  {showVariations.every((sv) => sv) ? (
-                    <BiCheckboxSquare size={24} />
-                  ) : (
-                    <BiCheckbox size={24} />
-                  )}
-                  Show all
+                  <div
+                    key={"all"}
+                    className="nowrap cursor-pointer hover-highlight py-1 pr-1 rounded user-select-none"
+                    onClick={() => {
+                      if (!showVariations.every((sv) => sv)) {
+                        setShowVariations(variationNames.map(() => true));
+                      } else {
+                        setShowVariations(
+                          variationNames.map((_, i) => (i === 0 ? true : false))
+                        );
+                      }
+                    }}
+                  >
+                    {showVariations.every((sv) => sv) ? (
+                      <BiCheckboxSquare size={24} />
+                    ) : (
+                      <BiCheckbox size={24} />
+                    )}
+                    Show all
+                  </div>
+                  {variationNames.map((v, i) => {
+                    if (i === 0 && yaxis === "effect") return null;
+                    return (
+                      <div
+                        key={i}
+                        className="nowrap text-ellipsis cursor-pointer hover-highlight py-1 pr-1 rounded user-select-none"
+                        style={{
+                          maxWidth: 200,
+                          color: getVariationColor(i, true),
+                        }}
+                        onClick={() => {
+                          let sv = [...showVariations];
+                          sv[i] = !sv[i];
+                          if (sv.every((v) => !v)) {
+                            sv = variationNames.map((_, j) => i !== j);
+                          }
+                          setShowVariations(sv);
+                        }}
+                      >
+                        {showVariations[i] ? (
+                          <BiCheckboxSquare size={24} />
+                        ) : (
+                          <BiCheckbox size={24} />
+                        )}
+                        {v}
+                      </div>
+                    );
+                  })}
                 </div>
-                {variationNames.map((v, i) => {
-                  if (i === 0 && yaxis === "effect") return null;
-                  return (
-                    <div
-                      key={i}
-                      className="nowrap text-ellipsis cursor-pointer hover-highlight py-1 pr-1 rounded user-select-none"
-                      style={{
-                        maxWidth: 200,
-                        color: getVariationColor(i, true),
-                      }}
-                      onClick={() => {
-                        let sv = [...showVariations];
-                        sv[i] = !sv[i];
-                        if (sv.every((v) => !v)) {
-                          sv = variationNames.map((_, j) => i !== j);
-                        }
-                        setShowVariations(sv);
-                      }}
-                    >
-                      {showVariations[i] ? (
-                        <BiCheckboxSquare size={24} />
-                      ) : (
-                        <BiCheckbox size={24} />
-                      )}
-                      {v}
-                    </div>
-                  );
-                })}
               </div>
-            </div>
+            )}
             <div
               ref={containerRef}
               className={styles.dategraph}
@@ -537,6 +551,14 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                   height={yMax}
                   numTicks={numXTicks}
                   tickValues={numXTicks < 7 ? allXTicks : undefined}
+                />
+
+                <GridColumns
+                  scale={xScale}
+                  stroke="blue"
+                  height={yMax}
+                  numTicks={markers.length}
+                  tickValues={markers.map((m) => m.d)}
                 />
 
                 <Group clipPath="url(#experiment-date-graph-clip)">
