@@ -60,6 +60,7 @@ export const metricTimeSeriesSchema = z
     metricId: z.string(),
     source: z.enum(["experiment"]),
     sourceId: z.string(),
+    sourcePhase: z.number().optional(),
 
     lastExperimentSettingsHash: z.string(),
     lastMetricSettingsHash: z.string(),

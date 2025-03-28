@@ -1231,6 +1231,7 @@ export function getApiFeatureObj({
         matchType: s.match,
         savedGroups: s.ids,
       })),
+      prerequisites: rule.prerequisites || [],
       enabled: !!rule.enabled,
     }));
     const definition = getFeatureDefinition({
@@ -1269,6 +1270,7 @@ export function getApiFeatureObj({
           matchType: s.match,
           savedGroups: s.ids,
         })),
+        prerequisites: rule.prerequisites || [],
         enabled: !!rule.enabled,
       }));
       const definition = getFeatureDefinition({
@@ -1306,6 +1308,7 @@ export function getApiFeatureObj({
     dateUpdated: feature.dateUpdated.toISOString(),
     defaultValue: feature.defaultValue,
     environments: featureEnvironments,
+    prerequisites: (feature?.prerequisites || []).map((p) => p.id),
     owner: feature.owner || "",
     project: feature.project || "",
     tags: feature.tags || [],

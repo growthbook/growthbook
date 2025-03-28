@@ -1338,13 +1338,14 @@ export async function toExperimentApiInterface(
     project: project ?? undefined,
     // todo: experiment settings
   });
+  const experimentType = experiment.type || "standard";
 
   const activationMetric = experiment.activationMetric;
   return {
     id: experiment.id,
     trackingKey: experiment.trackingKey,
     name: experiment.name || "",
-    type: experiment.type || "standard",
+    type: experimentType,
     project: experiment.project || "",
     hypothesis: experiment.hypothesis || "",
     description: experiment.description || "",
@@ -1380,6 +1381,7 @@ export async function toExperimentApiInterface(
         weight: p.variationWeights[i] || 0,
       })),
       targetingCondition: p.condition || "",
+      prerequisites: p.prerequisites || [],
       savedGroupTargeting: (p.savedGroups || []).map((s) => ({
         matchType: s.match,
         savedGroups: s.ids,
@@ -1440,6 +1442,14 @@ export async function toExperimentApiInterface(
     ...(experiment.shareLevel === "public" && experiment.uid
       ? {
           publicUrl: `${appOrigin}/public/e/${experiment.uid}`,
+        }
+      : null),
+    ...(experimentType === "multi-armed-bandit"
+      ? {
+          banditScheduleValue: experiment.banditScheduleValue ?? 1,
+          banditScheduleUnit: experiment.banditScheduleUnit ?? "days",
+          banditBurnInValue: experiment.banditBurnInValue ?? 1,
+          banditBurnInUnit: experiment.banditBurnInUnit ?? "days",
         }
       : null),
   };
@@ -2361,6 +2371,14 @@ export function postExperimentApiPayloadToInterface(
     if (!conditionRes.success) {
       throw new Error(`Invalid targeting condition: ${conditionRes.error}`);
     }
+    p.prerequisites?.forEach((prerequisite) => {
+      const conditionRes = validateCondition(prerequisite.condition);
+      if (!conditionRes.success) {
+        throw new Error(
+          `Invalid prerequisite condition: ${conditionRes.error}`
+        );
+      }
+    });
 
     return {
       ...p,
@@ -2369,6 +2387,7 @@ export function postExperimentApiPayloadToInterface(
       reason: p.reason || "",
       coverage: p.coverage != null ? p.coverage : 1,
       condition: p.condition || "{}",
+      prerequisites: p.prerequisites || [],
       savedGroups: (p.savedGroupTargeting || []).map((s) => ({
         match: s.matchType,
         ids: s.savedGroups,
@@ -2401,7 +2420,7 @@ export function postExperimentApiPayloadToInterface(
     },
   ];
 
-  return {
+  const obj: Omit<ExperimentInterface, "dateCreated" | "dateUpdated" | "id"> = {
     organization: organization.id,
     datasource: datasource?.id ?? "",
     archived: payload.archived ?? false,
@@ -2424,6 +2443,7 @@ export function postExperimentApiPayloadToInterface(
       datasource?.settings.queries?.exposure?.[0]?.id ||
       "",
     name: payload.name || "",
+    type: payload.type || "standard",
     phases,
     tags: payload.tags || [],
     description: payload.description || "",
@@ -2466,6 +2486,22 @@ export function postExperimentApiPayloadToInterface(
       !!organization?.settings?.regressionAdjustmentEnabled,
     shareLevel: payload.shareLevel,
   };
+
+  const { settings } = getScopedSettings({
+    organization,
+  });
+
+  if (payload.type === "multi-armed-bandit") {
+    Object.assign(
+      obj,
+      resetExperimentBanditSettings({
+        experiment: (obj as unknown) as ExperimentInterface,
+        settings,
+      })
+    );
+  }
+
+  return obj;
 }
 
 /**
@@ -2477,7 +2513,9 @@ export function postExperimentApiPayloadToInterface(
  */
 export function updateExperimentApiPayloadToInterface(
   payload: z.infer<typeof updateExperimentValidator.bodySchema>,
-  experiment: ExperimentInterface
+  experiment: ExperimentInterface,
+  metricMap: Map<string, ExperimentMetricInterface>,
+  organization: OrganizationInterface
 ): Partial<ExperimentInterface> {
   const {
     trackingKey,
@@ -2491,6 +2529,7 @@ export function updateExperimentApiPayloadToInterface(
     bucketVersion,
     minBucketVersion,
     name,
+    type,
     tags,
     description,
     hypothesis,
@@ -2514,7 +2553,7 @@ export function updateExperimentApiPayloadToInterface(
     secondaryMetrics,
     shareLevel,
   } = payload;
-  return {
+  let changes: ExperimentInterface = {
     ...(trackingKey ? { trackingKey } : {}),
     ...(project !== undefined ? { project } : {}),
     ...(owner !== undefined ? { owner } : {}),
@@ -2526,6 +2565,7 @@ export function updateExperimentApiPayloadToInterface(
     ...(bucketVersion !== undefined ? { bucketVersion } : {}),
     ...(minBucketVersion !== undefined ? { minBucketVersion } : {}),
     ...(name ? { name } : {}),
+    ...(type ? { type } : {}),
     ...(tags ? { tags } : {}),
     ...(description !== undefined ? { description } : {}),
     ...(hypothesis !== undefined ? { hypothesis } : {}),
@@ -2571,6 +2611,14 @@ export function updateExperimentApiPayloadToInterface(
                 `Invalid targeting condition: ${conditionRes.error}`
               );
             }
+            p.prerequisites?.forEach((prerequisite) => {
+              const conditionRes = validateCondition(prerequisite.condition);
+              if (!conditionRes.success) {
+                throw new Error(
+                  `Invalid prerequisite condition: ${conditionRes.error}`
+                );
+              }
+            });
 
             return {
               ...p,
@@ -2579,6 +2627,7 @@ export function updateExperimentApiPayloadToInterface(
               reason: p.reason || "",
               coverage: p.coverage != null ? p.coverage : 1,
               condition: p.condition || "{}",
+              prerequisites: p.prerequisites || [],
               savedGroups: (p.savedGroupTargeting || []).map((s) => ({
                 match: s.matchType,
                 ids: s.savedGroups,
@@ -2600,7 +2649,44 @@ export function updateExperimentApiPayloadToInterface(
       : {}),
     ...(shareLevel !== undefined ? { shareLevel } : {}),
     dateUpdated: new Date(),
-  };
+  } as ExperimentInterface;
+
+  const { settings } = getScopedSettings({
+    organization,
+  });
+
+  // Clean up some vars for bandits, but only if safe to do so...
+  // If it's a draft, hasn't been run as a bandit before, and is/will be a MAB:
+  if (
+    experiment.status === "draft" &&
+    experiment.banditStage === undefined &&
+    ((changes.type === undefined && experiment.type === "multi-armed-bandit") ||
+      changes.type === "multi-armed-bandit")
+  ) {
+    changes = resetExperimentBanditSettings({
+      experiment,
+      metricMap,
+      changes,
+      settings,
+    }) as ExperimentInterface;
+  }
+  // If it's already a bandit and..
+  if (experiment.type === "multi-armed-bandit") {
+    // ...the schedule has changed, recompute next run
+    if (
+      changes.banditScheduleUnit !== undefined ||
+      changes.banditScheduleValue !== undefined ||
+      changes.banditBurnInUnit !== undefined ||
+      changes.banditBurnInValue !== undefined
+    ) {
+      changes.nextSnapshotAttempt = determineNextBanditSchedule({
+        ...experiment,
+        ...changes,
+      } as ExperimentInterface);
+    }
+  }
+
+  return changes;
 }
 
 export async function getSettingsForSnapshotMetrics(

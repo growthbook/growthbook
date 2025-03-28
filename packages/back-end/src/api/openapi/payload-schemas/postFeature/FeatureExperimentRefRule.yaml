@@ -17,6 +17,37 @@ properties:
       - experiment-ref
   condition:
     type: string
+  savedGroupTargeting:
+    type: array
+    items:
+      type: object
+      required:
+        - matchType
+        - savedGroups
+      properties:
+        matchType:
+          type: string
+          enum:
+            - "all"
+            - "any"
+            - "none"
+        savedGroups:
+          type: array
+          items:
+            type: string
+  prerequisites:
+    type: array
+    items:
+      type: object
+      required:
+        - id
+        - condition
+      properties:
+        id:
+          type: string
+          description: "Feature ID"
+        condition:
+          type: string
   variations:
     type: array
     items:
