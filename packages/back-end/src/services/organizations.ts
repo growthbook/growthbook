@@ -142,9 +142,13 @@ export function getContextFromReq(req: AuthRequest): ReqContext {
     throw new Error("Must be logged in");
   }
 
+  const {
+    organization: { id: orgId },
+  } = req;
+
   return new ReqContextClass({
     org: req.organization,
-    usage: getUsage(req.organization.id),
+    usage: () => getUsage(orgId),
     auditUser: {
       type: "dashboard",
       id: req.userId,
@@ -1121,7 +1125,7 @@ export function getContextForAgendaJobByOrgObject(
 ): ApiReqContext {
   return new ReqContextClass({
     org: organization,
-    usage: getUsage(organization.id),
+    usage: () => getUsage(organization.id),
     auditUser: null,
     // TODO: Limit background job permissions to the user who created the job
     role: "admin",
