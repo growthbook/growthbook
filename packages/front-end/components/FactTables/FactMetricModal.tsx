@@ -269,37 +269,50 @@ function getAggregationOptions(
 
 function RetentionWindowSelector({
   form,
+  isNew,
 }: {
   form: UseFormReturn<CreateFactMetricProps>;
+  isNew: boolean;
 }) {
+  const [useConversionWindow, setUseConversionWindow] = useState(
+    form.getValues("windowSettings.type") === "conversion"
+  );
+
   return (
     <div>
+      <label>Retention Window</label>
       <div className="appbox px-3 pt-3 bg-light">
         <div className="row align-items-center mb-3">
-          <div className="col-auto">Event must be at least</div>
+          <div className="col-auto" style={{ width: 60 }}>
+            Start:
+          </div>
           <div className="col-auto">
             <Field
               {...form?.register("windowSettings.delayValue", {
                 valueAsNumber: true,
               })}
               type="number"
-              min={1}
-              max={999}
+              max={99999}
               step={1}
               style={{ width: 70 }}
               required
               autoFocus
             />
           </div>
-          <div className="col-auto ">
+          <div className="col-auto">
             <SelectField
               value={form?.watch("windowSettings.delayUnit") ?? "days"}
               onChange={(value) => {
                 form.setValue(
                   "windowSettings.delayUnit",
-                  value as "days" | "hours" | "weeks"
+                  value as "minutes" | "hours" | "days" | "weeks"
+                );
+                form.setValue(
+                  "windowSettings.windowUnit",
+                  value as "minutes" | "hours" | "days" | "weeks"
                 );
               }}
+              style={{ width: 120 }}
               sort={false}
               options={[
                 {
@@ -322,6 +335,86 @@ function RetentionWindowSelector({
             />
           </div>
           <div className="col-auto">after experiment exposure</div>
+        </div>
+        <div className="row align-items-center mb-3" style={{ height: 38 }}>
+          <div className="col-auto" style={{ width: 60 }}>
+            End:
+          </div>
+          {useConversionWindow ? (
+            <>
+              <div className="col-auto">
+                <Field
+                  {...form?.register("windowSettings.windowValue", {
+                    valueAsNumber: true,
+                  })}
+                  type="number"
+                  min={form.watch("windowSettings.delayValue")}
+                  max={99999}
+                  step={1}
+                  style={{ width: 70 }}
+                  required
+                  autoFocus
+                />
+              </div>
+              <div className="col-auto">
+                <SelectField
+                  value={form?.watch("windowSettings.windowUnit")}
+                  onChange={() => {}}
+                  disabled={true}
+                  style={{ width: 120 }}
+                  sort={false}
+                  options={[
+                    {
+                      label: "Minutes",
+                      value: "minutes",
+                    },
+                    {
+                      label: "Hours",
+                      value: "hours",
+                    },
+                    {
+                      label: "Days",
+                      value: "days",
+                    },
+                    {
+                      label: "Weeks",
+                      value: "weeks",
+                    },
+                  ]}
+                />
+              </div>
+              <div className="col-auto">after experiment exposure</div>
+            </>
+          ) : (
+            <div className="col-auto">End of experiment</div>
+          )}
+          <div style={{ flex: 1 }} />
+          <div className="col-auto">
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                if (!useConversionWindow) {
+                  form.setValue("windowSettings.type", "conversion");
+                  if (isNew) {
+                    form.setValue(
+                      "windowSettings.windowUnit",
+                      form.getValues("windowSettings.delayUnit")
+                    );
+                    form.setValue(
+                      "windowSettings.windowValue",
+                      form.getValues("windowSettings.delayValue")
+                    );
+                  }
+                } else {
+                  form.setValue("windowSettings.type", "");
+                }
+                setUseConversionWindow(!useConversionWindow);
+              }}
+            >
+              {`(${useConversionWindow ? "remove" : "add"} end date)`}
+            </a>
+          </div>
         </div>
       </div>
     </div>
@@ -842,39 +935,44 @@ function getWHERE({
         windowSettings.delayValue
       } ${windowSettings.delayUnit ?? "days"}')`
     );
-  } else if (windowSettings.delayValue) {
-    whereParts.push(
-      `-- Only after seeing the experiment + delay\ntimestamp > (exposure_timestamp + '${windowSettings.delayValue} ${windowSettings.delayUnit}')`
-    );
-  } else {
-    whereParts.push(
-      `-- Only after seeing the experiment\ntimestamp > exposure_timestamp`
-    );
-  }
 
-  if (windowSettings.type === "lookback") {
-    whereParts.push(
-      `-- Lookback Metric Window\ntimestamp > (NOW() - '${windowSettings.windowValue} ${windowSettings.windowUnit}')`
-    );
-  } else if (windowSettings.type === "conversion") {
-    if (type === "retention") {
+    if (windowSettings.type === "conversion") {
       whereParts.push(
-        `-- Conversion Metric Window\ntimestamp < (exposure_timestamp + '${
-          windowSettings.delayValue
-        } ${windowSettings.delayUnit ?? "days"}' + '${
-          windowSettings.windowValue
-        } ${windowSettings.windowUnit}')`
+        `timestamp < (exposure_timestamp + '${windowSettings.delayValue} ${
+          windowSettings.delayUnit ?? "days"
+        }' + '${windowSettings.windowValue - windowSettings.delayValue} ${
+          windowSettings.windowUnit
+        }')`
       );
-    } else if (windowSettings.delayValue) {
+    }
+  } else {
+    if (windowSettings.delayValue) {
       whereParts.push(
-        `-- Conversion Metric Window\ntimestamp < (exposure_timestamp + '${windowSettings.delayValue} ${windowSettings.delayUnit}' + '${windowSettings.windowValue} ${windowSettings.windowUnit}')`
+        `-- Only after seeing the experiment + delay\ntimestamp > (exposure_timestamp + '${windowSettings.delayValue} ${windowSettings.delayUnit}')`
       );
     } else {
       whereParts.push(
-        `-- Conversion Metric Window\ntimestamp < (exposure_timestamp + '${windowSettings.windowValue} ${windowSettings.windowUnit}')`
+        `-- Only after seeing the experiment\ntimestamp > exposure_timestamp`
       );
     }
+
+    if (windowSettings.type === "lookback") {
+      whereParts.push(
+        `-- Lookback Metric Window\ntimestamp > (NOW() - '${windowSettings.windowValue} ${windowSettings.windowUnit}')`
+      );
+    } else if (windowSettings.type === "conversion") {
+      if (windowSettings.delayValue) {
+        whereParts.push(
+          `-- Conversion Metric Window\ntimestamp < (exposure_timestamp + '${windowSettings.delayValue} ${windowSettings.delayUnit}' + '${windowSettings.windowValue} ${windowSettings.windowUnit}')`
+        );
+      } else {
+        whereParts.push(
+          `-- Conversion Metric Window\ntimestamp < (exposure_timestamp + '${windowSettings.windowValue} ${windowSettings.windowUnit}')`
+        );
+      }
+    }
   }
+
   if (
     type === "quantile" &&
     quantileSettings.type === "event" &&
@@ -1408,7 +1506,6 @@ export default function FactMetricModal({
   const showSQLPreview = true;
 
   const [showExperimentSQL, setShowExperimentSQL] = useState(false);
-
   const {
     datasources,
     getDatasourceById,
@@ -1603,6 +1700,21 @@ export default function FactMetricModal({
 
         if (!values.numerator.aggregateFilterColumn) {
           values.numerator.aggregateFilter = undefined;
+        }
+
+        // reset conversion window for retention metrics
+        if (values.metricType === "retention") {
+          if (values.windowSettings.type === "conversion") {
+            values.windowSettings.windowUnit = values.windowSettings.delayUnit;
+            values.windowSettings.windowValue =
+              values.windowSettings.windowValue -
+              values.windowSettings.delayValue;
+            if (values.windowSettings.windowValue <= 0) {
+              throw new Error("Must use non-zero retention window length.");
+            }
+          } else {
+            values.windowSettings.type = "";
+          }
         }
 
         if (values.cappingSettings?.type) {
@@ -1945,15 +2057,12 @@ export default function FactMetricModal({
                     />
                   </div>
                   <div className="form-group">
-                    <RetentionWindowSelector form={form} />
+                    <RetentionWindowSelector form={form} isNew={isNew} />
                   </div>
                   <HelperText status="info">
                     The final metric value will be the percent of users in the
-                    experiment that match the retention event at least
-                    {` ${windowSettings?.windowValue || "X"} ${
-                      windowSettings?.windowUnit || "days"
-                    } `}
-                    after experiment exposure.
+                    experiment that match the retention event in the retention
+                    window above.
                   </HelperText>
                 </div>
               ) : type === "mean" ? (
@@ -2137,7 +2246,11 @@ export default function FactMetricModal({
                 <p>Select a metric type above</p>
               )}
 
-              <MetricWindowSettingsForm form={form} type={type} />
+              {type !== "retention" ? (
+                <MetricWindowSettingsForm form={form} type={type} />
+              ) : (
+                <div className="mb-3 mt-4"></div>
+              )}
 
               <SelectField
                 label="Metric Goal"
