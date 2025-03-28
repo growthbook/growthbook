@@ -70,22 +70,30 @@ export async function getUsageDataFromServer(
   };
 }
 
-const keyToUsageData: Record<string, OrganizationUsage> = {};
+type StoredUsage = {
+  timestamp: Date;
+  usage: OrganizationUsage;
+};
+
+const keyToUsageData: Record<string, StoredUsage> = {};
 
 export async function getUsage(organization: string) {
   const cacheCutOff = new Date();
   cacheCutOff.setHours(cacheCutOff.getHours() - 1);
 
   Object.keys(keyToUsageData).forEach((organization) => {
-    if (keyToUsageData[organization]?.cdn.lastUpdated <= cacheCutOff)
+    if (keyToUsageData[organization]?.timestamp <= cacheCutOff)
       delete keyToUsageData[organization];
   });
 
-  if (keyToUsageData[organization]) return keyToUsageData[organization];
+  if (keyToUsageData[organization]) return keyToUsageData[organization].usage;
 
   const usage = await getUsageDataFromServer(organization);
 
-  keyToUsageData[organization] = usage;
+  keyToUsageData[organization] = {
+    timestamp: new Date(),
+    usage,
+  };
 
   return usage;
 }
