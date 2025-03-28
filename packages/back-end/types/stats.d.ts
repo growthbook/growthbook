@@ -1,5 +1,6 @@
 export { StatsEngine } from "back-end/src/models/ProjectModel";
 
+import { BanditResult } from "back-end/src/validators/experiments";
 import type { MetricStats } from "./metric";
 
 export type PValueCorrection = null | "benjamini-hochberg" | "holm-bonferroni";
@@ -85,18 +86,6 @@ export type SingleVariationResult = {
   users?: number;
   cr?: number;
   ci?: [number, number];
-};
-
-export type BanditResult = {
-  singleVariationResults?: SingleVariationResult[];
-  currentWeights: number[];
-  updatedWeights: number[];
-  srm: number;
-  bestArmProbabilities?: number[];
-  seed: number;
-  updateMessage?: string;
-  error?: string;
-  reweight?: boolean;
 };
 
 export type MultipleExperimentMetricAnalysis = {

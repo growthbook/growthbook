@@ -43,7 +43,6 @@ import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import {
   ExperimentAnalysisSummaryVariationStatus,
-  BanditResult,
   ExperimentAnalysisSummary,
   ExperimentAnalysisSummaryResultsStatus,
   GoalMetricResult,
@@ -51,6 +50,15 @@ import {
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { Context } from "back-end/src/models/BaseModel";
+import {
+  BanditResult,
+  Changeset,
+  ExperimentInterface,
+  ExperimentPhase,
+  LinkedFeatureEnvState,
+  LinkedFeatureInfo,
+  LinkedFeatureState,
+} from "back-end/types/experiment";
 import {
   ExperimentAnalysisParamsContextData,
   ExperimentSnapshotAnalysis,
@@ -84,14 +92,6 @@ import {
   Operator,
 } from "back-end/types/metric";
 import { SegmentInterface } from "back-end/types/segment";
-import {
-  Changeset,
-  ExperimentInterface,
-  ExperimentPhase,
-  LinkedFeatureEnvState,
-  LinkedFeatureInfo,
-  LinkedFeatureState,
-} from "back-end/types/experiment";
 import { findDimensionById } from "back-end/src/models/DimensionModel";
 import {
   APP_ORIGIN,

@@ -41,7 +41,6 @@ class BanditWeightsSinglePeriod:
 class BanditSettingsForStatsEngine:
     var_names: List[str]
     var_ids: List[str]
-    historical_weights: Optional[List[BanditWeightsSinglePeriod]]
     current_weights: List[float]
     reweight: bool = True
     decision_metric: str = ""

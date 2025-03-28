@@ -3,6 +3,8 @@ import {
   Variation,
   MetricOverride,
   ExperimentInterface,
+  BanditResult,
+  BanditEvent,
 } from "back-end/src/validators/experiments";
 import { ExperimentRefVariation, FeatureInterface } from "./feature";
 
@@ -10,6 +12,7 @@ export {
   AttributionModel,
   ImplementationType,
   MetricOverride,
+  BanditResult,
   ExperimentStatus,
   ExperimentType,
   ExperimentPhase,
@@ -76,11 +79,20 @@ export interface VariationWithIndex extends Variation {
   index: number;
 }
 
+export type LegacyBanditResult = BanditResult & {
+  srm?: number;
+};
+
+export type LegacyBanditEvent = BanditEvent & {
+  banditResult: LegacyBanditResult;
+};
+
 export interface LegacyExperimentPhase extends ExperimentPhase {
   /** @deprecated */
   phase?: ExperimentPhaseType;
   /** @deprecated */
   groups?: string[];
+  banditEvents?: LegacyBanditEvent[];
 }
 
 export type ExperimentPhaseStringDates = Omit<

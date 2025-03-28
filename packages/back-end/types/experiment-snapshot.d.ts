@@ -19,7 +19,11 @@ import {
   LegacyMetricRegressionAdjustmentStatus,
 } from "./report";
 import { DimensionInterface } from "./dimension";
-import { AttributionModel, ExperimentInterfaceStringDates } from "./experiment";
+import {
+  AttributionModel,
+  ExperimentInterfaceStringDates,
+  LegacyBanditResult,
+} from "./experiment";
 import { MetricPriorSettings, MetricWindowSettings } from "./fact-table";
 
 export interface SnapshotMetric {
@@ -64,6 +68,7 @@ export type LegacyExperimentSnapshotInterface = ExperimentSnapshotInterface & {
   results?: ExperimentReportResultDimension[];
   regressionAdjustmentEnabled?: boolean;
   metricRegressionAdjustmentStatuses?: LegacyMetricRegressionAdjustmentStatus[];
+  banditResult?: LegacyBanditResult;
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
   queryFilter?: string;

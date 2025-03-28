@@ -24,7 +24,11 @@ export function checkSrm(users: number[], weights: number[]) {
     e = (e / totalWeight) * totalUsers;
     x += Math.pow(o - e, 2) / e;
   });
-  return 1 - chisquare.cdf(x, data.length - 1);
+  return chi2pvalue(x, data.length - 1);
+}
+
+export function chi2pvalue(x: number, df: number) {
+  return 1 - chisquare.cdf(x, df);
 }
 
 export function sumSquaresFromStats(
