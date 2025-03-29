@@ -55,7 +55,7 @@ backports-tarfile==1.2.0 ; python_version >= "3.8" and python_version < "3.12" \
 beautifulsoup4==4.13.3 ; python_version >= "3.8" and python_version < "4.0" \
     --hash=sha256:1bd32405dacc920b42b83ba01644747ed77456a65760e285fbc47633ceddaf8b \
     --hash=sha256:99045d7d3f08f91f0d656bc9b7efbae189426cd913d830294a15eefa0ea4df16
-black==22.3.0 ; python_version >= "3.8" and python_version < "4.0" \
+black==24.3.0 ; python_version >= "3.8" and python_version < "4.0" \
     --hash=sha256:06f9d8846f2340dfac80ceb20200ea5d1b3f181dd0556b47af4e8e0b24fa0a6b \
     --hash=sha256:10dbe6e6d2988049b4655b2b739f98785a884d4d6b85bc35133a8fb9a2233176 \
     --hash=sha256:2497f9c2386572e28921fa8bec7be3e51de6801f7459dffd6e62492531c47e09 \
@@ -328,7 +328,7 @@ coverage==7.6.1 ; python_version >= "3.8" and python_version < "4.0" \
     --hash=sha256:f5796e664fe802da4f57a168c85359a8fbf3eab5e55cd4e4569fbacecc903959 \
     --hash=sha256:fc5a77d0c516700ebad189b587de289a20a78324bc54baee03dd486f0855d234 \
     --hash=sha256:fd21f6ae3f08b41004dfb433fa895d858f3f5979e7762d052b12aef444e29afc
-cryptography==41.0.7 ; python_version >= "3.8" and python_version < "4.0" \
+cryptography==43.0.1 ; python_version >= "3.8" and python_version < "4.0" \
     --hash=sha256:079b85658ea2f59c4f43b70f8119a52414cdb7be34da5d019a77bf96d473b960 \
     --hash=sha256:09616eeaef406f99046553b8a40fbf8b1e70795a91885ba4c96a70793de5504a \
     --hash=sha256:13f93ce9bea8016c253b34afc6bd6a75993e5c40672ed5405a9c832f0d4a00bc \
