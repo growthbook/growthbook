@@ -18,6 +18,7 @@ import { ScaleLinear } from "d3-scale";
 import { BiCheckbox, BiCheckboxSquare } from "react-icons/bi";
 import { pValueFormatter } from "@/services/experiments";
 import { getVariationColor } from "@/services/features";
+import HelperText from "@/components/Radix/HelperText";
 import styles from "./ExperimentDateGraph.module.scss";
 
 export interface DataPointVariation {
@@ -33,6 +34,7 @@ export interface DataPointVariation {
 export interface ExperimentDateGraphDataPoint {
   d: Date;
   variations?: DataPointVariation[]; // undefined === missing date
+  helperText?: string;
 }
 export interface ExperimentDateGraphProps {
   yaxis: "users" | "effect";
@@ -45,6 +47,7 @@ export interface ExperimentDateGraphProps {
   hasStats?: boolean;
   maxGapHours?: number;
   cumulative?: boolean;
+  hideVariationsSelector?: boolean;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -168,6 +171,12 @@ const getTooltipContents = (
           })}
         </tbody>
       </table>
+
+      {d.helperText ? (
+        <HelperText status="info" my="2" size="md">
+          {d.helperText}
+        </HelperText>
+      ) : null}
       <div className="text-sm-right mt-1 mr-1">{date(d.d as Date)}</div>
     </>
   );
@@ -233,6 +242,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
   hasStats = true,
   maxGapHours = 36,
   cumulative = false,
+  hideVariationsSelector = false,
 }) => {
   // yaxis = "users";
   const { containerRef, containerBounds } = useTooltipInPortal({
@@ -418,61 +428,63 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                 )}
               </TooltipWithBounds>
             )}
-            <div className="d-flex align-items-start">
-              <div
-                className="d-flex flex-wrap px-3 mb-2"
-                style={{ gap: "0.25rem 1rem" }}
-              >
+            {!hideVariationsSelector && (
+              <div className="d-flex align-items-start">
                 <div
-                  key={"all"}
-                  className="nowrap cursor-pointer hover-highlight py-1 pr-1 rounded user-select-none"
-                  onClick={() => {
-                    if (!showVariations.every((sv) => sv)) {
-                      setShowVariations(variationNames.map(() => true));
-                    } else {
-                      setShowVariations(
-                        variationNames.map((_, i) => (i === 0 ? true : false))
-                      );
-                    }
-                  }}
+                  className="d-flex flex-wrap px-3 mb-2"
+                  style={{ gap: "0.25rem 1rem" }}
                 >
-                  {showVariations.every((sv) => sv) ? (
-                    <BiCheckboxSquare size={24} />
-                  ) : (
-                    <BiCheckbox size={24} />
-                  )}
-                  Show all
+                  <div
+                    key={"all"}
+                    className="nowrap cursor-pointer hover-highlight py-1 pr-1 rounded user-select-none"
+                    onClick={() => {
+                      if (!showVariations.every((sv) => sv)) {
+                        setShowVariations(variationNames.map(() => true));
+                      } else {
+                        setShowVariations(
+                          variationNames.map((_, i) => (i === 0 ? true : false))
+                        );
+                      }
+                    }}
+                  >
+                    {showVariations.every((sv) => sv) ? (
+                      <BiCheckboxSquare size={24} />
+                    ) : (
+                      <BiCheckbox size={24} />
+                    )}
+                    Show all
+                  </div>
+                  {variationNames.map((v, i) => {
+                    if (i === 0 && yaxis === "effect") return null;
+                    return (
+                      <div
+                        key={i}
+                        className="nowrap text-ellipsis cursor-pointer hover-highlight py-1 pr-1 rounded user-select-none"
+                        style={{
+                          maxWidth: 200,
+                          color: getVariationColor(i, true),
+                        }}
+                        onClick={() => {
+                          let sv = [...showVariations];
+                          sv[i] = !sv[i];
+                          if (sv.every((v) => !v)) {
+                            sv = variationNames.map((_, j) => i !== j);
+                          }
+                          setShowVariations(sv);
+                        }}
+                      >
+                        {showVariations[i] ? (
+                          <BiCheckboxSquare size={24} />
+                        ) : (
+                          <BiCheckbox size={24} />
+                        )}
+                        {v}
+                      </div>
+                    );
+                  })}
                 </div>
-                {variationNames.map((v, i) => {
-                  if (i === 0 && yaxis === "effect") return null;
-                  return (
-                    <div
-                      key={i}
-                      className="nowrap text-ellipsis cursor-pointer hover-highlight py-1 pr-1 rounded user-select-none"
-                      style={{
-                        maxWidth: 200,
-                        color: getVariationColor(i, true),
-                      }}
-                      onClick={() => {
-                        let sv = [...showVariations];
-                        sv[i] = !sv[i];
-                        if (sv.every((v) => !v)) {
-                          sv = variationNames.map((_, j) => i !== j);
-                        }
-                        setShowVariations(sv);
-                      }}
-                    >
-                      {showVariations[i] ? (
-                        <BiCheckboxSquare size={24} />
-                      ) : (
-                        <BiCheckbox size={24} />
-                      )}
-                      {v}
-                    </div>
-                  );
-                })}
               </div>
-            </div>
+            )}
             <div
               ref={containerRef}
               className={styles.dategraph}
@@ -523,6 +535,30 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                     height={height - margin[0] - margin[2]}
                   />
                 </clipPath>
+
+                {/* Warning tape pattern - diagonal stripes */}
+                <pattern
+                  id="warning-pattern"
+                  patternUnits="userSpaceOnUse"
+                  width="20"
+                  height="20"
+                  patternTransform="rotate(45)"
+                >
+                  <rect
+                    width="20"
+                    height="20"
+                    fill="var(--border-color-200)"
+                    opacity="0.1"
+                  />
+                  <rect
+                    x="0"
+                    y="0"
+                    width="10"
+                    height="20"
+                    fill="var(--border-color-300)"
+                    opacity="0.15"
+                  />
+                </pattern>
               </defs>
               <Group left={margin[3]} top={margin[0]}>
                 <GridRows
@@ -540,6 +576,27 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                 />
 
                 <Group clipPath="url(#experiment-date-graph-clip)">
+                  {/* Add shaded areas for data points with helperText */}
+                  {datapoints.map((d, idx) => {
+                    if (!d.helperText) return null;
+                    // Find the next point without helperText, or use the current point if it's the last one
+                    return (
+                      <AreaClosed
+                        key={`helper_shade_${idx}`}
+                        yScale={yScale}
+                        data={[
+                          { d: new Date(min), helperText: d.helperText },
+                          { d: d.d, helperText: d.helperText },
+                        ]}
+                        x={(dp) => xScale(dp.d) ?? 0}
+                        y0={0}
+                        y1={yMax}
+                        fill="url(#warning-pattern)"
+                        curve={curveMonotoneX}
+                      />
+                    );
+                  })}
+
                   {variationNames.map((v, i) => {
                     if (!showVariations[i]) return null;
                     if (yaxis === "effect" && i === 0) {

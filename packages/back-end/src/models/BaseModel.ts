@@ -823,7 +823,7 @@ export abstract class BaseModel<
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private _removeMongooseFields(doc: any) {
+  protected _removeMongooseFields(doc: any) {
     return omit(doc, ["__v", "_id"]) as unknown;
   }
 }

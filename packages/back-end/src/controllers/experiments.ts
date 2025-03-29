@@ -60,6 +60,7 @@ import {
 import {
   deleteSnapshotById,
   findSnapshotById,
+  getAllSnapshotsForTimeSeries,
   getLatestSnapshot,
   updateSnapshot,
   updateSnapshotsOnPhaseDelete,
@@ -124,6 +125,7 @@ import { CreateURLRedirectProps } from "back-end/types/url-redirect";
 import { logger } from "back-end/src/util/logger";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { generateExperimentReportSSRData } from "back-end/src/services/reports";
+import { updateExperimentTimeSeries } from "back-end/src/services/experimentTimeSeries";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
@@ -3221,5 +3223,81 @@ export async function findOrCreateVisualEditorToken(
 
   res.status(200).json({
     key: visualEditorKey.key,
+  });
+}
+
+export async function refreshTimeSeries(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+
+  const experiment = await getExperimentById(context, id);
+  if (!experiment) {
+    throw new Error("Experiment not found");
+  }
+
+  await context.models.metricTimeSeries.deleteAllBySource("experiment", id);
+
+  const allSnapshots = await getAllSnapshotsForTimeSeries({
+    experiment: id,
+    phase: experiment.phases.length - 1,
+  });
+
+  // Very naive approach to validate the logic of incremental updates
+  for (const snapshot of allSnapshots) {
+    await updateExperimentTimeSeries({
+      context,
+      experiment,
+      experimentSnapshot: snapshot,
+      notificationsTriggered: [],
+    });
+  }
+
+  res.status(200).json({
+    success: true,
+  });
+}
+
+export async function getAllTimeSeries(
+  req: AuthRequest<null, { id: string }, { metricIds: string[] }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const all = await context.models.metricTimeSeries.getAll();
+  res.status(200).json({
+    timeSeries: all,
+  });
+}
+
+export async function getTimeSeries(
+  req: AuthRequest<null, { id: string }, { metricIds: string[] }>,
+  res: Response
+) {
+  const { id } = req.params;
+  const { metricIds } = req.query;
+  const context = getContextFromReq(req);
+  if (!id) {
+    throw new Error("id is required");
+  }
+  if (!metricIds || !Array.isArray(metricIds)) {
+    throw new Error("metricIds array is required");
+  }
+
+  const experiment = await getExperimentById(context, id);
+  if (!experiment) {
+    throw new Error("Experiment not found");
+  }
+
+  const timeSeries = await context.models.metricTimeSeries.getBySourceAndMetricIds(
+    "experiment",
+    id,
+    experiment.phases.length - 1,
+    metricIds
+  );
+
+  res.status(200).json({
+    timeSeries,
   });
 }
