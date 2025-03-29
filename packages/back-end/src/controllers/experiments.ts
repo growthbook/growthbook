@@ -3285,9 +3285,15 @@ export async function getTimeSeries(
     throw new Error("metricIds array is required");
   }
 
+  const experiment = await getExperimentById(context, id);
+  if (!experiment) {
+    throw new Error("Experiment not found");
+  }
+
   const timeSeries = await context.models.metricTimeSeries.getBySourceAndMetricIds(
     "experiment",
     id,
+    experiment.phases.length - 1,
     metricIds
   );
 

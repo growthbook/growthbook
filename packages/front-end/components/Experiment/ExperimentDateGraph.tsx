@@ -18,8 +18,8 @@ import { ScaleLinear } from "d3-scale";
 import { BiCheckbox, BiCheckboxSquare } from "react-icons/bi";
 import { pValueFormatter } from "@/services/experiments";
 import { getVariationColor } from "@/services/features";
+import HelperText from "@/components/Radix/HelperText";
 import styles from "./ExperimentDateGraph.module.scss";
-import HelperText from "../Radix/HelperText";
 
 export interface DataPointVariation {
   v: number;
@@ -408,8 +408,6 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
           });
         };
 
-        const markers = datapoints.filter((d) => d.marker);
-
         return (
           <div className="position-relative">
             {tooltipData && (
@@ -537,6 +535,30 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                     height={height - margin[0] - margin[2]}
                   />
                 </clipPath>
+
+                {/* Warning tape pattern - diagonal stripes */}
+                <pattern
+                  id="warning-pattern"
+                  patternUnits="userSpaceOnUse"
+                  width="20"
+                  height="20"
+                  patternTransform="rotate(45)"
+                >
+                  <rect
+                    width="20"
+                    height="20"
+                    fill="var(--border-color-200)"
+                    opacity="0.1"
+                  />
+                  <rect
+                    x="0"
+                    y="0"
+                    width="10"
+                    height="20"
+                    fill="var(--border-color-300)"
+                    opacity="0.15"
+                  />
+                </pattern>
               </defs>
               <Group left={margin[3]} top={margin[0]}>
                 <GridRows
@@ -553,15 +575,28 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                   tickValues={numXTicks < 7 ? allXTicks : undefined}
                 />
 
-                <GridColumns
-                  scale={xScale}
-                  stroke="blue"
-                  height={yMax}
-                  numTicks={markers.length}
-                  tickValues={markers.map((m) => m.d)}
-                />
-
                 <Group clipPath="url(#experiment-date-graph-clip)">
+                  {/* Add shaded areas for data points with helperText */}
+                  {datapoints.map((d, idx) => {
+                    if (!d.helperText) return null;
+                    // Find the next point without helperText, or use the current point if it's the last one
+                    return (
+                      <AreaClosed
+                        key={`helper_shade_${idx}`}
+                        yScale={yScale}
+                        data={[
+                          { d: new Date(min), helperText: d.helperText },
+                          { d: d.d, helperText: d.helperText },
+                        ]}
+                        x={(dp) => xScale(dp.d) ?? 0}
+                        y0={0}
+                        y1={yMax}
+                        fill="url(#warning-pattern)"
+                        curve={curveMonotoneX}
+                      />
+                    );
+                  })}
+
                   {variationNames.map((v, i) => {
                     if (!showVariations[i]) return null;
                     if (yaxis === "effect" && i === 0) {

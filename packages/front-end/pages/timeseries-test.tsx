@@ -1,11 +1,11 @@
 import { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
+import { daysBetween } from "shared/dates";
+import { addDays, eachDayOfInterval, subDays } from "date-fns";
 import useApi from "@/hooks/useApi";
 import { formatNumber } from "@/services/metrics";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
 } from "@/components/Experiment/ExperimentDateGraph";
-import { daysBetween } from "shared/dates";
-import { addDays, eachDayOfInterval, subDays } from "date-fns";
 
 const previousWeek = eachDayOfInterval({
   start: subDays(new Date(), 7),
@@ -29,6 +29,21 @@ const TimeSeriesTest = (): React.ReactElement => {
       additionalGraphDataPoints.push({
         d: addDays(new Date(lastDate), 7 - numOfDays),
       });
+    }
+
+    // Add a test data point with helperText
+    if (sortedDataPoints.length > 2) {
+      // Add helperText to the middle point for testing
+      sortedDataPoints[Math.floor(sortedDataPoints.length / 2)].tags = [
+        "experiment-settings-changed",
+      ];
+
+      // Add helperText to one more point for testing
+      if (sortedDataPoints.length > 3) {
+        sortedDataPoints[Math.floor(sortedDataPoints.length * 0.75)].tags = [
+          "metric-settings-changed",
+        ];
+      }
     }
 
     return (
@@ -58,7 +73,7 @@ const TimeSeriesTest = (): React.ReactElement => {
                     // p: 1,
                     // ctw: 0.6282896511523738,
                     ctw: i[type]?.chanceToWin ?? undefined,
-                    up: 0.01,
+                    // up: 0.01,
                     // up: i[type]?.up ?? undefined,
                   };
                 }),

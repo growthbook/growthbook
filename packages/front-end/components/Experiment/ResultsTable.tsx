@@ -78,6 +78,8 @@ export type ResultsTableProps = {
   renderLabelColumn: (
     label: string,
     metric: ExperimentMetricInterface,
+    isExpanded: boolean,
+    handleExpand: (metricId: string) => void,
     row: ExperimentTableRow,
     maxRows?: number
   ) => string | ReactElement;
@@ -96,6 +98,8 @@ export type ResultsTableProps = {
   isBandit?: boolean;
   isGoalMetrics?: boolean;
   ssrPolyfills?: SSRPolyfills;
+  expandedMetrics: string[];
+  handleExpand: (metricId: string) => void;
 };
 
 const ROW_HEIGHT = 56;
@@ -136,6 +140,8 @@ export default function ResultsTable({
   noTooltip,
   isBandit,
   ssrPolyfills,
+  expandedMetrics,
+  handleExpand,
 }: ResultsTableProps) {
   // fix any potential filter conflicts
   if (variationFilter?.includes(baselineRow)) {
@@ -166,14 +172,6 @@ export default function ResultsTable({
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [graphCellWidth, setGraphCellWidth] = useState(800);
   const [tableCellScale, setTableCellScale] = useState(1);
-  const [expandedMetrics, setExpandedMetrics] = useState<string[]>([]);
-  const handleExpand = (metricId: string) => {
-    setExpandedMetrics((prev) =>
-      prev.includes(metricId)
-        ? prev.filter((id) => id !== metricId)
-        : [...prev, metricId]
-    );
-  };
 
   function onResize() {
     if (!tableContainerRef?.current?.clientWidth) return;
@@ -609,14 +607,18 @@ export default function ResultsTable({
                   {!compactResults &&
                     drawEmptyRow({
                       className: "results-label-row",
-                      label: renderLabelColumn(row.label, row.metric, row),
+                      label: renderLabelColumn(
+                        row.label,
+                        row.metric,
+                        expandedMetrics?.includes(row.metric.id) ?? false,
+                        handleExpand,
+                        row
+                      ),
                       graphCellWidth,
                       rowHeight: METRIC_LABEL_ROW_HEIGHT,
                       id,
                       domain,
                       ssrPolyfills,
-                      handleExpand: () => handleExpand(row.metric.id),
-                      isExpanded: expandedMetrics.includes(row.metric.id),
                     })}
 
                   {orderedVariations.map((v, j) => {
@@ -633,8 +635,6 @@ export default function ResultsTable({
                       if (!alreadyShownQueryError) {
                         alreadyShownQueryError = true;
                         return drawEmptyRow({
-                          handleExpand: () => handleExpand(row.metric.id),
-                          isExpanded: expandedMetrics.includes(row.metric.id),
                           key: j,
                           className:
                             "results-variation-row align-items-center error-row",
@@ -645,6 +645,9 @@ export default function ResultsTable({
                                   {renderLabelColumn(
                                     row.label,
                                     row.metric,
+                                    expandedMetrics?.includes(row.metric.id) ??
+                                      false,
+                                    handleExpand,
                                     row
                                   )}
                                 </div>
@@ -732,7 +735,15 @@ export default function ResultsTable({
                                 </span>
                               </div>
                             ) : (
-                              renderLabelColumn(row.label, row.metric, row, 3)
+                              renderLabelColumn(
+                                row.label,
+                                row.metric,
+                                expandedMetrics?.includes(row.metric.id) ??
+                                  false,
+                                handleExpand,
+                                row,
+                                3
+                              )
                             )}
                           </td>
                           {j > 0 ? (
@@ -912,12 +923,14 @@ export default function ResultsTable({
                     );
                   })}
                   {expandedMetrics.includes(row.metric.id) ? (
-                    <tr key={`${id}_time_series_row_${row.metric.id}}`}>
+                    <tr>
                       <td colSpan={6}>
-                        <MetricTimeSeriesGraph
-                          metric={row.metric}
-                          experimentId={id}
-                        />
+                        <div className={styles.expanding}>
+                          <MetricTimeSeriesGraph
+                            metric={row.metric}
+                            experimentId={id}
+                          />
+                        </div>
                       </td>
                     </tr>
                   ) : null}
@@ -953,8 +966,6 @@ function drawEmptyRow({
   id,
   domain,
   ssrPolyfills,
-  handleExpand,
-  isExpanded,
 }: {
   key?: number | string;
   className?: string;
@@ -965,20 +976,7 @@ function drawEmptyRow({
   id: string;
   domain: [number, number];
   ssrPolyfills?: SSRPolyfills;
-  handleExpand: () => void;
-  isExpanded: boolean;
 }) {
-  const timeSeriesButton = (
-    <Link
-      className={clsx(styles.timeSeriesButton, {
-        [styles.active]: isExpanded,
-      })}
-      onClick={handleExpand}
-    >
-      <PiChartLine style={{ display: "block" }} />
-    </Link>
-  );
-
   return (
     <tr key={key} style={style} className={className}>
       <td colSpan={4}>{label}</td>
@@ -993,11 +991,6 @@ function drawEmptyRow({
           height={rowHeight}
           ssrPolyfills={ssrPolyfills}
         />
-      </td>
-      <td>
-        <div style={{ display: "flex", justifyContent: "end" }}>
-          {timeSeriesButton}
-        </div>
       </td>
     </tr>
   );
