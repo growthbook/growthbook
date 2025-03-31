@@ -33,7 +33,7 @@ export const updateColumnPropsValidator = z
     description: z.string().optional(),
     numberFormat: numberFormatValidator.optional(),
     datatype: factTableColumnTypeValidator.optional(),
-    jsonFields: z.record(factTableColumnTypeValidator).optional(),
+    jsonFields: jsonColumnFieldsValidator.optional(),
     alwaysInlineFilter: z.boolean().optional(),
     topValues: z.array(z.string()).optional(),
     deleted: z.boolean().optional(),
