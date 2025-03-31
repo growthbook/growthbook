@@ -194,9 +194,9 @@ export default function CloudUsage() {
             start={startDate}
             end={endDate}
             limitLine={
-              hasSubscription && limits.cdnRequests !== "unlimited"
-                ? limits.cdnRequests
-                : null
+              hasSubscription || limits.cdnRequests === "unlimited"
+                ? null
+                : limits.cdnRequests
             }
           />
         </Box>
@@ -213,9 +213,9 @@ export default function CloudUsage() {
             start={startDate}
             end={endDate}
             limitLine={
-              hasSubscription && limits.cdnBandwidth !== "unlimited"
-                ? limits.cdnBandwidth
-                : null
+              hasSubscription || limits.cdnBandwidth === "unlimited"
+                ? null
+                : limits.cdnBandwidth
             }
           />
         </Box>
