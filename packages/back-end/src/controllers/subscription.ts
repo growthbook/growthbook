@@ -3,7 +3,6 @@ import { Stripe } from "stripe";
 import { PaymentMethod } from "shared/src/types/subscriptions";
 import {
   LicenseServerError,
-  getEffectiveAccountPlan,
   getLicense,
   licenseInit,
   postCreateBillingSessionToLicenseServer,
@@ -425,19 +424,11 @@ export async function getUsage(
 
   const cdnUsage = await getDailyCDNUsageForOrg(org.id, start, end);
 
-  const limits: UsageLimits = {
-    cdnRequests: null,
-    cdnBandwidth: null,
-  };
+  const {
+    limits: { requests: cdnRequests, bandwidth: cdnBandwidth },
+  } = await context.usage();
 
-  const plan = getEffectiveAccountPlan(org);
-  if (plan === "starter" || plan === "pro" || plan === "pro_sso") {
-    // 10 million requests, no bandwidth limit
-    // TODO: Store this limit as part of the license/org instead of hard-coding
-    limits.cdnRequests = 10_000_000;
-  }
-
-  res.json({ status: 200, cdnUsage, limits });
+  res.json({ status: 200, cdnUsage, limits: { cdnRequests, cdnBandwidth } });
 }
 
 export async function getPortalUrl(
