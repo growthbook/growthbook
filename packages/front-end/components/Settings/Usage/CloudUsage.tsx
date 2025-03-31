@@ -17,6 +17,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { isCloud } from "@/services/env";
 import Badge from "@/components/Radix/Badge";
 import Button from "@/components/Radix/Button";
+import { useUser } from "@/services/UserContext";
 
 // Formatter for numbers
 const requestsFormatter = new Intl.NumberFormat("en-US", {
@@ -39,6 +40,7 @@ function formatBytes(bytes: number) {
 
 export default function CloudUsage() {
   const [monthsAgo, setMonthsAgo] = useState(0);
+  const { subscription } = useUser();
 
   const router = useRouter();
   const useDummyData = !isCloud() && !!router.query.dummy;
@@ -127,6 +129,11 @@ export default function CloudUsage() {
   }
   const maxMonthsAgo = monthOptions.length - 1;
 
+  // Orgs with non-canceled subscriptions don't have a limit
+  const hasSubscription = ["active", "trialing", "past_due"].includes(
+    subscription?.status || ""
+  );
+
   return (
     <Frame style={{ position: "relative" }}>
       {!usage.length && <LoadingOverlay />}
@@ -187,7 +194,9 @@ export default function CloudUsage() {
             start={startDate}
             end={endDate}
             limitLine={
-              limits.cdnRequests === "unlimited" ? null : limits.cdnRequests
+              hasSubscription && limits.cdnRequests !== "unlimited"
+                ? limits.cdnRequests
+                : null
             }
           />
         </Box>
@@ -204,7 +213,9 @@ export default function CloudUsage() {
             start={startDate}
             end={endDate}
             limitLine={
-              limits.cdnBandwidth === "unlimited" ? null : limits.cdnBandwidth
+              hasSubscription && limits.cdnBandwidth !== "unlimited"
+                ? limits.cdnBandwidth
+                : null
             }
           />
         </Box>
