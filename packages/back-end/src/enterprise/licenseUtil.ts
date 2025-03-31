@@ -451,23 +451,6 @@ export async function postCreateBillingSessionToLicenseServer(
   });
 }
 
-export async function postSubscriptionUpdateToLicenseServer(
-  licenseId: string,
-  seats: number
-): Promise<LicenseInterface> {
-  const url = `${LICENSE_SERVER_URL}subscription/update`;
-  const license = await callLicenseServer({
-    url,
-    body: JSON.stringify({
-      licenseId,
-      seats,
-    }),
-  });
-
-  verifyAndSetServerLicenseData(license);
-  return license;
-}
-
 export async function postCreateTrialEnterpriseLicenseToLicenseServer(
   email: string,
   name: string,
