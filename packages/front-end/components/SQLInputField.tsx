@@ -28,7 +28,12 @@ type Props = {
   placeholder?: string;
   helpText?: ReactElement;
   identityTypes?: UserIdType[];
-  queryType: "segment" | "dimension" | "metric" | "experiment-assignment";
+  queryType:
+    | "segment"
+    | "dimension"
+    | "metric"
+    | "experiment-assignment"
+    | "factTable";
   className?: string;
   setCursorData?: (data: CursorData) => void;
   showTestButton?: boolean;

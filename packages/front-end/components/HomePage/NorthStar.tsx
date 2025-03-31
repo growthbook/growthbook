@@ -11,6 +11,7 @@ import Modal from "@/components/Modal";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Frame from "@/components/Radix/Frame";
 import NorthStarMetricDisplay from "./NorthStarMetricDisplay";
 
 const NorthStar: FC<{
@@ -61,7 +62,7 @@ const NorthStar: FC<{
   return (
     <>
       {hasNorthStar && (
-        <div className="list-group activity-box mb-3 position-relative">
+        <Frame className="position-relative">
           {permissionsUtil.canManageNorthStarMetric() && (
             <a
               role="button"
@@ -127,10 +128,11 @@ const NorthStar: FC<{
               />
             </div>
           ))}
-        </div>
+        </Frame>
       )}
       {openNorthStarModal && (
         <Modal
+          trackingEventModalType=""
           close={() => setOpenNorthStarModal(false)}
           overflowAuto={false}
           autoFocusSelector={""}
@@ -166,6 +168,10 @@ const NorthStar: FC<{
             <MetricsSelector
               selected={form.watch("metrics")}
               onChange={(metrics) => form.setValue("metrics", metrics)}
+              includeFacts={true}
+              includeGroups={false}
+              excludeQuantiles={true}
+              noManual={true}
             />
           </div>
           <Field label="Title" {...form.register("title")} />

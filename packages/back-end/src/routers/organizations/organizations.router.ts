@@ -1,6 +1,6 @@
 import express from "express";
-import { wrapController } from "../wrapController";
-import { IS_CLOUD } from "../../util/secrets";
+import { wrapController } from "back-end/src/routers/wrapController";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 import * as organizationsControllerRaw from "./organizations.controller";
 
 const router = express.Router();
@@ -59,6 +59,10 @@ router.put(
   "/organization/get-started-checklist",
   organizationsController.putGetStartedChecklistItem
 );
+router.put(
+  "/organization/setup-event-tracker",
+  organizationsController.putSetupEventTracker
+);
 
 // API keys
 router.get("/keys", organizationsController.getApiKeys);
@@ -96,5 +100,9 @@ if (!IS_CLOUD) {
 router.post("/custom-roles", organizationsController.postCustomRole);
 router.put("/custom-roles/:id", organizationsController.putCustomRole);
 router.delete("/custom-roles/:id", organizationsController.deleteCustomRole);
+
+// Standard Roles
+router.post("/role/:id/deactivate", organizationsController.deactivateRole);
+router.post("/role/:id/activate", organizationsController.activateRole);
 
 export { router as organizationsRouter };

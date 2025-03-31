@@ -1,108 +1,86 @@
-import omit from "lodash/omit";
-import mongoose from "mongoose";
-import { ApiSegment } from "../../types/openapi";
-import { SegmentInterface } from "../../types/segment";
-import { getConfigSegments, usingFileConfigForSegments } from "../init/config";
+import { SegmentInterface } from "back-end/types/segment";
+import { getConfigSegments, usingFileConfig } from "back-end/src/init/config";
+import { segmentValidator } from "back-end/src/routers/segment/segment.validators";
+import { STORE_SEGMENTS_IN_MONGO } from "back-end/src/util/secrets";
+import { MakeModelClass } from "./BaseModel";
 
-const segmentSchema = new mongoose.Schema({
-  id: String,
-  organization: {
-    type: String,
-    index: true,
+const BaseClass = MakeModelClass({
+  schema: segmentValidator,
+  collectionName: "segments",
+  idPrefix: "seg_",
+  auditLog: {
+    entity: "segment",
+    createEvent: "segment.create",
+    updateEvent: "segment.update",
+    deleteEvent: "segment.delete",
   },
-  owner: String,
-  datasource: String,
-  userIdType: String,
-  description: String,
-  name: String,
-  sql: String,
-  dateCreated: Date,
-  dateUpdated: Date,
+  globallyUniqueIds: false,
+  readonlyFields: ["datasource"],
 });
 
-type SegmentDocument = mongoose.Document & SegmentInterface;
+type LegacySegmentInterface = Omit<SegmentInterface, "type"> & {
+  type?: "SQL" | "FACT";
+};
 
-const SegmentModel = mongoose.model<SegmentInterface>("Segment", segmentSchema);
+export class SegmentModel extends BaseClass {
+  protected canRead(doc: SegmentInterface): boolean {
+    return this.context.hasPermission("readData", doc.projects || []);
+  }
+  protected canCreate(doc: SegmentInterface): boolean {
+    return this.context.permissions.canCreateSegment(doc);
+  }
+  protected canUpdate(
+    existing: SegmentInterface,
+    updates: SegmentInterface
+  ): boolean {
+    return this.context.permissions.canUpdateSegment(existing, updates);
+  }
+  protected canDelete(doc: SegmentInterface): boolean {
+    return this.context.permissions.canDeleteSegment(doc);
+  }
+  protected useConfigFile(): boolean {
+    if (usingFileConfig() && !STORE_SEGMENTS_IN_MONGO) {
+      return true;
+    }
+    return false;
+  }
+  protected getConfigDocuments() {
+    if (!this.useConfigFile) return [];
 
-const toInterface = (doc: SegmentDocument): SegmentInterface =>
-  omit(doc.toJSON<SegmentDocument>(), ["__v", "_id"]);
-
-export async function createSegment(segment: Partial<SegmentInterface>) {
-  return toInterface(await SegmentModel.create(segment));
-}
-
-export async function findSegmentById(id: string, organization: string) {
-  // If using config.yml & the org doesn't have the env variable STORE_SEGMENTS_IN_MONGO,
-  // immediately return the list from there
-  if (usingFileConfigForSegments()) {
-    return getConfigSegments(organization).filter((s) => s.id === id)[0];
+    return getConfigSegments(this.context.org.id);
+  }
+  public async getByDataSource(
+    datasourceId: string
+  ): Promise<SegmentInterface[]> {
+    return await this._find({ datasource: datasourceId });
   }
 
-  const doc = await SegmentModel.findOne({ id, organization });
-
-  return doc ? toInterface(doc) : null;
-}
-
-export async function findSegmentsByOrganization(organization: string) {
-  // If using config.yml & the org doesn't have the env variable STORE_SEGMENTS_IN_MONGO,
-  // immediately return the list from there
-  if (usingFileConfigForSegments()) {
-    return getConfigSegments(organization);
+  public async getByFactTableId(
+    factTableId: string
+  ): Promise<SegmentInterface[]> {
+    return await this._find({ factTableId });
   }
 
-  return (await SegmentModel.find({ organization })).map(toInterface);
-}
-
-export async function findSegmentsByDataSource(
-  datasource: string,
-  organization: string
-) {
-  // If using config.yml & the org doesn't have the env variable STORE_SEGMENTS_IN_MONGO,
-  // immediately return the list from there
-  if (usingFileConfigForSegments()) {
-    return getConfigSegments(organization).filter(
-      (s) => s.datasource === datasource
-    );
+  protected migrate(legacySegment: LegacySegmentInterface): SegmentInterface {
+    // if legacySegment doesn't have a type, it's a legacy, which only allowed SQL
+    return { ...legacySegment, type: legacySegment.type || "SQL" };
   }
 
-  return (await SegmentModel.find({ datasource, organization })).map(
-    toInterface
-  );
-}
+  protected async customValidation(segment: SegmentInterface): Promise<void> {
+    if (segment.type === "SQL") {
+      if (!segment.sql) {
+        throw new Error(
+          `${segment.name} is a SQL type Segment, but contains no SQL value`
+        );
+      }
+    }
 
-export async function deleteSegmentById(id: string, organization: string) {
-  // If using config.yml & the org doesn't have the env variable STORE_SEGMENTS_IN_MONGO,
-  // immediately throw error
-  if (usingFileConfigForSegments()) {
-    throw new Error("Cannot delete. Segments are being managed by config.yml");
+    if (segment.type === "FACT") {
+      if (!segment.factTableId) {
+        throw new Error(
+          `${segment.name} is a FACT type Segment, but contains no factTableId`
+        );
+      }
+    }
   }
-
-  await SegmentModel.deleteOne({ id, organization });
-}
-
-export async function updateSegment(
-  id: string,
-  organization: string,
-  updates: Partial<SegmentInterface>
-) {
-  // If using config.yml & the org doesn't have the env variable STORE_SEGMENTS_IN_MONGO,
-  // immediately return the list from there
-  if (usingFileConfigForSegments()) {
-    throw new Error("Cannot update. Segments are being managed by config.yml");
-  }
-
-  await SegmentModel.updateOne({ id, organization }, { $set: updates });
-}
-
-export function toSegmentApiInterface(segment: SegmentInterface): ApiSegment {
-  return {
-    id: segment.id,
-    name: segment.name,
-    owner: segment.owner || "",
-    identifierType: segment.userIdType || "user_id",
-    query: segment.sql,
-    datasourceId: segment.datasource || "",
-    dateCreated: segment.dateCreated?.toISOString() || "",
-    dateUpdated: segment.dateUpdated?.toISOString() || "",
-  };
 }

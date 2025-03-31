@@ -1,30 +1,36 @@
-import { orgHasPremiumFeature } from "enterprise";
+import { analyzeExperimentPower } from "shared/enterprise";
+import { addDays } from "date-fns";
 import {
+  expandMetricGroups,
   ExperimentMetricInterface,
+  getAllMetricIdsFromExperiment,
   isFactMetric,
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
+import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
+import { daysBetween } from "shared/dates";
 import chunk from "lodash/chunk";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { ApiReqContext } from "back-end/types/api";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotHealth,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
-} from "../../types/experiment-snapshot";
-import { MetricInterface } from "../../types/metric";
-import { Queries, QueryPointer, QueryStatus } from "../../types/query";
-import { SegmentInterface } from "../../types/segment";
+} from "back-end/types/experiment-snapshot";
+import { MetricInterface } from "back-end/types/metric";
+import { Queries, QueryPointer, QueryStatus } from "back-end/types/query";
+import { SegmentInterface } from "back-end/types/segment";
 import {
   findSnapshotById,
   updateSnapshot,
-} from "../models/ExperimentSnapshotModel";
-import { findSegmentById } from "../models/SegmentModel";
-import { parseDimensionId } from "../services/experiments";
+} from "back-end/src/models/ExperimentSnapshotModel";
+import { parseDimensionId } from "back-end/src/services/experiments";
 import {
   analyzeExperimentResults,
   analyzeExperimentTraffic,
-} from "../services/stats";
+} from "back-end/src/services/stats";
 import {
   ExperimentAggregateUnitsQueryResponseRows,
   ExperimentDimension,
@@ -35,13 +41,14 @@ import {
   ExperimentResults,
   ExperimentUnitsQueryParams,
   SourceIntegrationInterface,
-} from "../types/Integration";
-import { expandDenominatorMetrics } from "../util/sql";
-import { getOrganizationById } from "../services/organizations";
-import { FactTableMap } from "../models/FactTableModel";
-import { OrganizationInterface } from "../../types/organization";
-import { FactMetricInterface } from "../../types/fact-table";
-import SqlIntegration from "../integrations/SqlIntegration";
+} from "back-end/src/types/Integration";
+import { expandDenominatorMetrics } from "back-end/src/util/sql";
+import { FactTableMap } from "back-end/src/models/FactTableModel";
+import { OrganizationInterface } from "back-end/types/organization";
+import { FactMetricInterface } from "back-end/types/fact-table";
+import SqlIntegration from "back-end/src/integrations/SqlIntegration";
+import { BanditResult } from "back-end/types/stats";
+import { updateReport } from "back-end/src/models/ReportModel";
 import {
   QueryRunner,
   QueryMap,
@@ -54,6 +61,7 @@ export type SnapshotResult = {
   unknownVariations: string[];
   multipleExposures: number;
   analyses: ExperimentSnapshotAnalysis[];
+  banditResult?: BanditResult;
   health?: ExperimentSnapshotHealth;
 };
 
@@ -66,6 +74,8 @@ export type ExperimentResultsQueryParams = {
 };
 
 export const TRAFFIC_QUERY_NAME = "traffic";
+
+export const UNITS_TABLE_PREFIX = "growthbook_tmp_units";
 
 export const MAX_METRICS_PER_QUERY = 20;
 
@@ -159,9 +169,9 @@ export function getFactMetricGroups(
 }
 
 export const startExperimentResultQueries = async (
+  context: ApiReqContext,
   params: ExperimentResultsQueryParams,
   integration: SourceIntegrationInterface,
-  organization: OrganizationInterface,
   startQuery: (
     params: StartQueryParams<RowsType, ProcessedRowsType>
   ) => Promise<QueryPointer>
@@ -170,20 +180,18 @@ export const startExperimentResultQueries = async (
   const queryParentId = params.queryParentId;
   const metricMap = params.metricMap;
 
-  const org = await getOrganizationById(organization.id);
-  const hasPipelineModeFeature = org
-    ? orgHasPremiumFeature(org, "pipeline-mode")
-    : false;
+  const { org } = context;
+  const hasPipelineModeFeature = orgHasPremiumFeature(org, "pipeline-mode");
 
   const activationMetric = snapshotSettings.activationMetric
     ? metricMap.get(snapshotSettings.activationMetric) ?? null
     : null;
 
   // Only include metrics tied to this experiment (both goal and guardrail metrics)
-  const selectedMetrics = Array.from(
-    new Set(
-      snapshotSettings.goalMetrics.concat(snapshotSettings.guardrailMetrics)
-    )
+  const allMetricGroups = await context.models.metricGroups.getAll();
+  const selectedMetrics = expandMetricGroups(
+    getAllMetricIdsFromExperiment(snapshotSettings, false),
+    allMetricGroups
   )
     .map((m) => metricMap.get(m))
     .filter((m) => m) as ExperimentMetricInterface[];
@@ -193,9 +201,8 @@ export const startExperimentResultQueries = async (
 
   let segmentObj: SegmentInterface | null = null;
   if (snapshotSettings.segment) {
-    segmentObj = await findSegmentById(
-      snapshotSettings.segment,
-      organization.id
+    segmentObj = await context.models.segments.getById(
+      snapshotSettings.segment
     );
   }
 
@@ -207,7 +214,7 @@ export const startExperimentResultQueries = async (
 
   const dimensionObj = await parseDimensionId(
     snapshotSettings.dimensions[0]?.id,
-    organization.id
+    org.id
   );
 
   const queries: Queries = [];
@@ -223,15 +230,15 @@ export const startExperimentResultQueries = async (
   const unitsTableFullName =
     useUnitsTable && !!integration.generateTablePath
       ? integration.generateTablePath(
-          `growthbook_tmp_units_${queryParentId}`,
+          `${UNITS_TABLE_PREFIX}_${queryParentId}`,
           settings.pipelineSettings?.writeDataset,
-          "",
+          settings.pipelineSettings?.writeDatabase,
           true
         )
       : "";
 
   // Settings for health query
-  const runTrafficQuery = !dimensionObj && org?.settings?.runHealthTrafficQuery;
+  const runTrafficQuery = !dimensionObj && org.settings?.runHealthTrafficQuery;
   let dimensionsForTraffic: ExperimentDimension[] = [];
   if (runTrafficQuery && exposureQuery?.dimensionMetadata) {
     dimensionsForTraffic = exposureQuery.dimensionMetadata
@@ -276,10 +283,10 @@ export const startExperimentResultQueries = async (
     selectedMetrics,
     params.snapshotSettings,
     integration,
-    organization
+    org
   );
 
-  const singlePromises = singles.map(async (m) => {
+  for (const m of singles) {
     const denominatorMetrics: MetricInterface[] = [];
     if (!isFactMetric(m) && m.denominator) {
       denominatorMetrics.push(
@@ -298,7 +305,7 @@ export const startExperimentResultQueries = async (
       metric: m,
       segment: segmentObj,
       settings: snapshotSettings,
-      useUnitsTable: !!unitQuery,
+      unitsSource: unitQuery ? "exposureTable" : "exposureQuery",
       unitsTableFullName: unitsTableFullName,
       factTableMap: params.factTableMap,
     };
@@ -313,16 +320,16 @@ export const startExperimentResultQueries = async (
         queryType: "experimentMetric",
       })
     );
-  });
+  }
 
-  const groupPromises = groups.map(async (m, i) => {
+  for (const [i, m] of groups.entries()) {
     const queryParams: ExperimentFactMetricsQueryParams = {
       activationMetric,
       dimensions: dimensionObj ? [dimensionObj] : [],
       metrics: m,
       segment: segmentObj,
       settings: snapshotSettings,
-      useUnitsTable: !!unitQuery,
+      unitsSource: unitQuery ? "exposureTable" : "exposureQuery",
       unitsTableFullName: unitsTableFullName,
       factTableMap: params.factTableMap,
     };
@@ -348,12 +355,11 @@ export const startExperimentResultQueries = async (
         queryType: "experimentMultiMetric",
       })
     );
-  });
+  }
 
-  await Promise.all([...singlePromises, ...groupPromises]);
-
+  let trafficQuery: QueryPointer | null = null;
   if (runTrafficQuery) {
-    const trafficQuery = await startQuery({
+    trafficQuery = await startQuery({
       name: TRAFFIC_QUERY_NAME,
       query: integration.getExperimentAggregateUnitsQuery({
         ...unitQueryParams,
@@ -367,6 +373,26 @@ export const startExperimentResultQueries = async (
       queryType: "experimentTraffic",
     });
     queries.push(trafficQuery);
+  }
+
+  const dropUnitsTable =
+    integration.getSourceProperties().dropUnitsTable &&
+    settings.pipelineSettings?.unitsTableDeletion;
+  if (useUnitsTable && dropUnitsTable) {
+    const dropUnitsTableQuery = await startQuery({
+      name: `drop_${queryParentId}`,
+      query: integration.getDropUnitsTableQuery({
+        fullTablePath: unitsTableFullName,
+      }),
+      dependencies: [],
+      // all other queries in model must succeed or fail first
+      runAtEnd: true,
+      run: (query, setExternalId) =>
+        integration.runDropTableQuery(query, setExternalId),
+      process: (rows) => rows,
+      queryType: "experimentDropUnitsTable",
+    });
+    queries.push(dropUnitsTableQuery);
   }
 
   return queries;
@@ -393,9 +419,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       this.integration.getSourceProperties().separateExperimentResultQueries
     ) {
       return startExperimentResultQueries(
+        this.context,
         params,
         this.integration,
-        this.context.org,
         this.startQuery.bind(this)
       );
     } else {
@@ -404,7 +430,10 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   }
 
   async runAnalysis(queryMap: QueryMap): Promise<SnapshotResult> {
-    const analysesResults = await analyzeExperimentResults({
+    const {
+      results: analysesResults,
+      banditResult,
+    } = await analyzeExperimentResults({
       queryData: queryMap,
       snapshotSettings: this.model.settings,
       analysisSettings: this.model.analyses.map((a) => a.settings),
@@ -416,6 +445,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       analyses: this.model.analyses,
       multipleExposures: 0,
       unknownVariations: [],
+      banditResult,
     };
 
     analysesResults.forEach((results, i) => {
@@ -434,22 +464,61 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     // Run health checks
     const healthQuery = queryMap.get(TRAFFIC_QUERY_NAME);
     if (healthQuery) {
+      const rows = healthQuery.result as ExperimentAggregateUnitsQueryResponseRows;
       const trafficHealth = analyzeExperimentTraffic({
-        rows: healthQuery.result as ExperimentAggregateUnitsQueryResponseRows,
+        rows: rows,
         error: healthQuery.error,
         variations: this.model.settings.variations,
       });
-      result.health = { traffic: trafficHealth };
+
+      result.health = {
+        traffic: trafficHealth,
+      };
+
+      const relativeAnalysis = this.model.analyses.find(
+        (a) => a.settings.differenceType === "relative"
+      );
+
+      const isEligibleForMidExperimentPowerAnalysis =
+        relativeAnalysis &&
+        this.model.settings.banditSettings === undefined &&
+        rows &&
+        rows.length;
+
+      if (isEligibleForMidExperimentPowerAnalysis) {
+        const today = new Date();
+        const phaseStartDate = this.model.settings.startDate;
+        const experimentMaxLengthDays = this.context.org.settings
+          ?.experimentMaxLengthDays;
+
+        const experimentTargetEndDate = addDays(
+          phaseStartDate,
+          experimentMaxLengthDays && experimentMaxLengthDays > 0
+            ? experimentMaxLengthDays
+            : FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS
+        );
+        const targetDaysRemaining = daysBetween(today, experimentTargetEndDate);
+        // NB: This does not run a SQL query, but it is a health check that depends on the trafficHealth
+        result.health.power = analyzeExperimentPower({
+          trafficHealth,
+          targetDaysRemaining,
+          analysis: relativeAnalysis,
+          goalMetrics: this.model.settings.goalMetrics,
+          variationsSettings: this.model.settings.variations,
+        });
+      }
     }
 
     return result;
   }
+
   async getLatestModel(): Promise<ExperimentSnapshotInterface> {
     const obj = await findSnapshotById(this.model.organization, this.model.id);
     if (!obj)
       throw new Error("Could not load snapshot model: " + this.model.id);
     return obj;
   }
+
   async updateModel({
     status,
     queries,
@@ -459,9 +528,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   }: {
     status: QueryStatus;
     queries: Queries;
-    runStarted?: Date | undefined;
-    result?: SnapshotResult | undefined;
-    error?: string | undefined;
+    runStarted?: Date;
+    result?: SnapshotResult;
+    error?: string;
   }): Promise<ExperimentSnapshotInterface> {
     const updates: Partial<ExperimentSnapshotInterface> = {
       queries,
@@ -481,6 +550,14 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       updates,
       context: this.context,
     });
+    if (
+      this.model.report &&
+      ["failed", "partially-succeeded", "succeeded"].includes(status)
+    ) {
+      await updateReport(this.model.organization, this.model.report, {
+        snapshot: this.model.id,
+      });
+    }
     return {
       ...this.model,
       ...updates,
@@ -498,10 +575,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       : null;
 
     // Only include metrics tied to this experiment (both goal and guardrail metrics)
-    const selectedMetrics = Array.from(
-      new Set(
-        snapshotSettings.goalMetrics.concat(snapshotSettings.guardrailMetrics)
-      )
+    const selectedMetrics = getAllMetricIdsFromExperiment(
+      snapshotSettings,
+      false
     )
       .map((m) => metricMap.get(m))
       .filter((m) => m) as ExperimentMetricInterface[];

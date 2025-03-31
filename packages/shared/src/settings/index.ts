@@ -72,6 +72,17 @@ export const resolvers: Record<
   }),
   regressionAdjustmentEnabled: regressionAdjustmentResolver("enabled"),
   regressionAdjustmentDays: regressionAdjustmentResolver("days"),
+  sequentialTestingEnabled: genDefaultResolver("sequentialTestingEnabled", {
+    experiment: true,
+    report: true,
+  }),
+  sequentialTestingTuningParameter: genDefaultResolver(
+    "sequentialTestingTuningParameter",
+    {
+      experiment: true,
+      report: true,
+    }
+  ),
   attributionModel: genDefaultResolver("attributionModel", {
     project: "settings.attributionModel",
     experiment: true,
@@ -87,6 +98,12 @@ export const resolvers: Record<
   requireReviews: genDefaultResolver("requireReviews"),
   featureKeyExample: genDefaultResolver("featureKeyExample"),
   featureRegexValidator: genDefaultResolver("featureRegexValidator"),
+  banditScheduleValue: genDefaultResolver("banditScheduleValue"),
+  banditScheduleUnit: genDefaultResolver("banditScheduleUnit"),
+  banditBurnInValue: genDefaultResolver("banditBurnInValue"),
+  banditBurnInUnit: genDefaultResolver("banditBurnInUnit"),
+  experimentMinLengthDays: genDefaultResolver("experimentMinLengthDays"),
+  experimentMaxLengthDays: genDefaultResolver("experimentMaxLengthDays"),
   // TODO prior resolvers
 };
 
@@ -147,7 +164,6 @@ export const getScopedSettings = (
   scopes: ScopeDefinition
 ): ScopedSettingsReturn => {
   const settings = normalizeInputSettings(scopes.organization.settings || {});
-
   if (
     scopes?.metric &&
     scopes.metric.denominator &&

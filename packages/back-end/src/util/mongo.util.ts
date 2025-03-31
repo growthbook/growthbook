@@ -1,3 +1,7 @@
+import type { Document } from "mongodb";
+import type { Document as MongooseDocument } from "mongoose";
+import mongoose from "mongoose";
+
 /**
  * Assists in migrating any field options that MongoDB has changed between major versions 3 and 4.
  * Replaces the query with an equivalent where keys that can be mapped 1-to-1 are replaced with their new values.
@@ -134,3 +138,22 @@ type ResultDeprecatedKeysMigrationV3to4 = {
    */
   unsupported: string[];
 };
+
+export type ToInterface<T> = (doc: Document | (MongooseDocument & T)) => T;
+export function removeMongooseFields<T>(
+  doc: Document | (MongooseDocument & T)
+): T {
+  if (doc.toJSON) {
+    doc = doc.toJSON({ flattenMaps: true });
+  }
+
+  // Copy the object and delete mongoose fields rather than using lodash.omit for perf reasons since this is called a lot
+  const result = { ...doc } as T & { _id?: string; __v?: unknown };
+  delete result._id;
+  delete result.__v;
+  return result;
+}
+
+export function getCollection(name: string) {
+  return mongoose.connection.db.collection(name);
+}

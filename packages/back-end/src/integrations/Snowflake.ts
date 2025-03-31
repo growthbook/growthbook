@@ -1,15 +1,13 @@
-import { snowflakeCreateTableOptions } from "enterprise";
-import { SnowflakeConnectionParams } from "../../types/integrations/snowflake";
-import { decryptDataSourceParams } from "../services/datasource";
-import { runSnowflakeQuery } from "../services/snowflake";
-import { QueryResponse } from "../types/Integration";
-import { FormatDialect } from "../util/sql";
+import { snowflakeCreateTableOptions } from "shared/enterprise";
+import { SnowflakeConnectionParams } from "back-end/types/integrations/snowflake";
+import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { runSnowflakeQuery } from "back-end/src/services/snowflake";
+import { QueryResponse } from "back-end/src/types/Integration";
+import { FormatDialect } from "back-end/src/util/sql";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Snowflake extends SqlIntegration {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  params: SnowflakeConnectionParams;
+  params!: SnowflakeConnectionParams;
   requiresSchema = false;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<SnowflakeConnectionParams>(
@@ -28,7 +26,7 @@ export default class Snowflake extends SqlIntegration {
     return "snowflake";
   }
   getSensitiveParamKeys(): string[] {
-    return ["password"];
+    return ["password", "privateKey", "privateKeyPassword"];
   }
   runQuery(sql: string): Promise<QueryResponse> {
     return runSnowflakeQuery(this.params, sql);
@@ -44,6 +42,18 @@ export default class Snowflake extends SqlIntegration {
   }
   ensureFloat(col: string): string {
     return `CAST(${col} AS DOUBLE)`;
+  }
+  hasCountDistinctHLL(): boolean {
+    return true;
+  }
+  hllAggregate(col: string): string {
+    return `HLL_ACCUMULATE(${col})`;
+  }
+  hllReaggregate(col: string): string {
+    return `HLL_COMBINE(${col})`;
+  }
+  hllCardinality(col: string): string {
+    return `HLL_ESTIMATE(${col})`;
   }
   getInformationSchemaWhereClause(): string {
     return "table_schema NOT IN ('INFORMATION_SCHEMA')";

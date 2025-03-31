@@ -1,23 +1,22 @@
 parameters:
   - $ref: "../parameters.yaml#/id"
-get:
-  summary: Get a single project
-  tags:
-    - projects
-  operationId: getProject
-  x-codeSamples:
-    - lang: 'cURL'
-      source: |
-        curl https://api.growthbook.io/api/v1/projects/prj_123abc \
-          -u secret_abc123DEF456:
-  responses:
-    "200":
-      content:
-        application/json:
-          schema:
-            type: object
-            required:
-              - project
-            properties:
-              project:
-                $ref: "../schemas/Project.yaml"
+summary: Get a single project
+tags:
+  - projects
+operationId: getProject
+x-codeSamples:
+  - lang: 'cURL'
+    source: |
+      curl https://api.growthbook.io/api/v1/projects/prj_123abc \
+        -u secret_abc123DEF456:
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - project
+          properties:
+            project:
+              $ref: "../schemas/Project.yaml"

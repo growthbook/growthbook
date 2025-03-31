@@ -3,37 +3,45 @@ import Agenda, { Job } from "agenda";
 import md5 from "md5";
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { filterProjectsByEnvironmentWithNull } from "shared/util";
-import { getFeatureDefinitions } from "../services/features";
-import { CRON_ENABLED, WEBHOOKS } from "../util/secrets";
-import { SDKPayloadKey } from "../../types/sdk-payload";
+import { getFeatureDefinitions } from "back-end/src/services/features";
+import { CRON_ENABLED, WEBHOOKS } from "back-end/src/util/secrets";
+import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import {
   findSDKConnectionsByIds,
   findSDKConnectionsByOrganization,
-} from "../models/SdkConnectionModel";
-import { SDKConnectionInterface } from "../../types/sdk-connection";
-import { logger } from "../util/logger";
+} from "back-end/src/models/SdkConnectionModel";
+import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import { logger } from "back-end/src/util/logger";
 import {
   findAllSdkWebhooksByConnection,
   findAllSdkWebhooksByConnectionIds,
   findSdkWebhookByIdAcrossOrgs,
   setLastSdkWebhookError,
-} from "../models/WebhookModel";
-import { WebhookInterface } from "../../types/webhook";
-import { createSdkWebhookLog } from "../models/SdkWebhookLogModel";
-import { cancellableFetch, CancellableFetchReturn } from "../util/http.util";
+} from "back-end/src/models/WebhookModel";
+import { WebhookInterface, WebhookPayloadFormat } from "back-end/types/webhook";
+import { createSdkWebhookLog } from "back-end/src/models/SdkWebhookLogModel";
+import {
+  cancellableFetch,
+  CancellableFetchReturn,
+} from "back-end/src/util/http.util";
 import {
   getContextForAgendaJobByOrgId,
   getContextForAgendaJobByOrgObject,
-} from "../services/organizations";
-import { ReqContext } from "../../types/organization";
-import { ApiReqContext } from "../../types/api";
-import { trackJob } from "../services/otel";
+} from "back-end/src/services/organizations";
+import { ReqContext } from "back-end/types/organization";
+import { ApiReqContext } from "back-end/types/api";
+import { trackJob } from "back-end/src/services/otel";
 
 const SDK_WEBHOOKS_JOB_NAME = "fireWebhooks";
 type SDKWebhookJob = Job<{
   webhookId: string;
   retryCount: number;
 }>;
+const sendPayloadFormats: WebhookPayloadFormat[] = [
+  "standard",
+  "sdkPayload",
+  "edgeConfig",
+];
 
 const fireWebhooks = trackJob(
   SDK_WEBHOOKS_JOB_NAME,
@@ -161,10 +169,14 @@ async function runWebhookFetch({
   const signingKey = webhook.signingKey;
   const headers = webhook.headers || "";
   const method = webhook.httpMethod || "POST";
-  const sendPayload = webhook.sendPayload;
+  const payloadFormat = webhook.payloadFormat || "standard";
+  const payloadKey = webhook.payloadKey;
   const organizationId = webhook.organization;
   const requestTimeout = 30000;
   const maxContentSize = 1000;
+
+  const sendPayload =
+    method !== "GET" && sendPayloadFormats.includes(payloadFormat);
 
   const date = new Date();
   const signature = createHmac("sha256", signingKey)
@@ -172,18 +184,51 @@ async function runWebhookFetch({
     .digest("hex");
   const secret = `whsec_${signature}`;
   const webhookID = `msg_${md5(key + date.getTime()).substr(0, 16)}`;
-  const data = sendPayload ? { payload } : {};
 
   const timestamp = Math.floor(date.getTime() / 1000);
 
-  const body =
-    method === "GET"
-      ? undefined
-      : JSON.stringify({
+  let body: string | undefined;
+  const standardBody = JSON.stringify({
+    type: "payload.changed",
+    timestamp: date.toISOString(),
+    data: { payload },
+  });
+  let invalidValue: never;
+
+  if (method !== "GET") {
+    switch (payloadFormat) {
+      case "none":
+        body = undefined;
+        break;
+      case "standard-no-payload":
+        body = JSON.stringify({
           type: "payload.changed",
           timestamp: date.toISOString(),
-          data,
         });
+        break;
+      case "sdkPayload":
+        body = payload;
+        break;
+      case "standard":
+        body = standardBody;
+        break;
+      case "edgeConfig":
+        body = JSON.stringify({
+          items: [
+            {
+              operation: "upsert",
+              key: payloadKey || "gb_payload",
+              value: payload,
+            },
+          ],
+        });
+        break;
+      default:
+        body = standardBody;
+        invalidValue = payloadFormat;
+        logger.error(`Invalid webhook payload format: ${invalidValue}`);
+    }
+  }
 
   const standardSignatureBody = `${webhookID}.${timestamp}.${body || ""}`;
   const standardSignature =
@@ -210,6 +255,7 @@ async function runWebhookFetch({
         headers: {
           ...customHeaders,
           "Content-Type": "application/json",
+          "User-Agent": "GrowthBook Webhook",
           "webhook-id": webhookID,
           "webhook-timestamp": timestamp + "",
           "webhook-signature": standardSignature,
@@ -277,7 +323,10 @@ export async function fireSdkWebhook(
     }
 
     let payload = "";
-    if (webhook.sendPayload) {
+    const sendPayload =
+      webhook.httpMethod !== "GET" &&
+      sendPayloadFormats.includes(webhook.payloadFormat ?? "standard");
+    if (sendPayload) {
       const environmentDoc = webhookContext.org?.settings?.environments?.find(
         (e) => e.id === connection.environment
       );
@@ -299,6 +348,7 @@ export async function fireSdkWebhook(
         includeDraftExperiments: connection.includeDraftExperiments,
         includeExperimentNames: connection.includeExperimentNames,
         includeRedirectExperiments: connection.includeRedirectExperiments,
+        includeRuleIds: connection.includeRuleIds,
         hashSecureAttributes: connection.hashSecureAttributes,
       });
       payload = JSON.stringify(defs);
@@ -387,13 +437,32 @@ export async function fireGlobalSdkWebhooks(
       includeDraftExperiments: connection.includeDraftExperiments,
       includeExperimentNames: connection.includeExperimentNames,
       includeRedirectExperiments: connection.includeRedirectExperiments,
+      includeRuleIds: connection.includeRuleIds,
       hashSecureAttributes: connection.hashSecureAttributes,
     });
 
     const payload = JSON.stringify(defs);
 
     WEBHOOKS.forEach((webhook) => {
-      const { url, signingKey, method, headers, sendPayload } = webhook;
+      const {
+        url,
+        signingKey,
+        method,
+        headers,
+        sendPayload,
+        payloadFormat,
+        payloadKey,
+      } = webhook;
+      let format = payloadFormat;
+      if (!format) {
+        if (method === "GET") {
+          format = "none";
+        } else if (sendPayload) {
+          format = "standard";
+        } else {
+          format = "standard-no-payload";
+        }
+      }
 
       const id = `global_${md5(url)}`;
       const w: WebhookInterface = {
@@ -403,7 +472,8 @@ export async function fireGlobalSdkWebhooks(
         httpMethod: method,
         headers:
           typeof headers !== "string" ? JSON.stringify(headers) : headers,
-        sendPayload: !!sendPayload,
+        payloadFormat: format,
+        payloadKey,
         organization: context.org?.id,
         created: new Date(),
         error: "",

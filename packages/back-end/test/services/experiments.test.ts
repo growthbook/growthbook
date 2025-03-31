@@ -4,13 +4,13 @@ import {
   postMetricApiPayloadToMetricInterface,
   putMetricApiPayloadIsValid,
   putMetricApiPayloadToMetricInterface,
-} from "../../src/services/experiments";
+} from "back-end/src/services/experiments";
 import {
   postMetricValidator,
   putMetricValidator,
-} from "../../src/validators/openapi";
-import { DataSourceInterface } from "../../types/datasource";
-import { OrganizationInterface } from "../../types/organization";
+} from "back-end/src/validators/openapi";
+import { DataSourceInterface } from "back-end/types/datasource";
+import { OrganizationInterface } from "back-end/types/organization";
 
 describe("experiments utils", () => {
   describe("postMetricApiPayloadIsValid", () => {
@@ -767,7 +767,8 @@ describe("experiments utils", () => {
               type: "lookback",
               windowUnit: "days",
               windowValue: 33,
-              delayHours: 5,
+              delayValue: 5,
+              delayUnit: "hours",
             },
             riskThresholdSuccess: 5,
             riskThresholdDanger: 0.5,
@@ -823,7 +824,8 @@ describe("experiments utils", () => {
         expect(result.windowSettings.type).toEqual("lookback");
         expect(result.windowSettings.windowValue).toEqual(33);
         expect(result.windowSettings.windowUnit).toEqual("days");
-        expect(result.windowSettings.delayHours).toEqual(5);
+        expect(result.windowSettings.delayValue).toEqual(5);
+        expect(result.windowSettings.delayUnit).toEqual("hours");
         expect(result.column).toEqual("signed_up");
       });
 
@@ -877,7 +879,111 @@ describe("experiments utils", () => {
         expect(result.windowSettings.type).toEqual("conversion");
         expect(result.windowSettings.windowValue).toEqual(40);
         expect(result.windowSettings.windowUnit).toEqual("hours");
-        expect(result.windowSettings.delayHours).toEqual(10);
+        expect(result.windowSettings.delayValue).toEqual(10);
+        expect(result.windowSettings.delayUnit).toEqual("hours");
+      });
+      it("upgrades delayHours", () => {
+        const input: z.infer<typeof postMetricValidator.bodySchema> = {
+          datasourceId: "ds_abc123",
+          tags: ["checkout"],
+          projects: ["proj_abc987"],
+          sqlBuilder: {
+            tableName: "users",
+            timestampColumnName: "created_at",
+            valueColumnName: "signed_up",
+            conditions: [
+              {
+                value: "true",
+                operator: "=",
+                column: "signed_up",
+              },
+            ],
+            identifierTypeColumns: [
+              {
+                columnName: "id",
+                identifierType: "string",
+              },
+            ],
+          },
+          behavior: {
+            goal: "decrease",
+            windowSettings: {
+              type: "lookback",
+              windowUnit: "days",
+              windowValue: 33,
+              delayHours: 5,
+            },
+            riskThresholdSuccess: 5,
+            riskThresholdDanger: 0.5,
+            minPercentChange: 1,
+            maxPercentChange: 50,
+            minSampleSize: 200,
+          },
+          name: "My Cool Metric",
+          description: "This is a metric with lots of fields",
+          type: "count",
+        };
+
+        const result = postMetricApiPayloadToMetricInterface(
+          input,
+          organization,
+          datasource
+        );
+
+        expect(result.windowSettings.delayValue).toEqual(5);
+        expect(result.windowSettings.delayUnit).toEqual("hours");
+      });
+      it("ignores delayHours if delayValue also set", () => {
+        const input: z.infer<typeof postMetricValidator.bodySchema> = {
+          datasourceId: "ds_abc123",
+          tags: ["checkout"],
+          projects: ["proj_abc987"],
+          sqlBuilder: {
+            tableName: "users",
+            timestampColumnName: "created_at",
+            valueColumnName: "signed_up",
+            conditions: [
+              {
+                value: "true",
+                operator: "=",
+                column: "signed_up",
+              },
+            ],
+            identifierTypeColumns: [
+              {
+                columnName: "id",
+                identifierType: "string",
+              },
+            ],
+          },
+          behavior: {
+            goal: "decrease",
+            windowSettings: {
+              type: "lookback",
+              windowUnit: "days",
+              windowValue: 33,
+              delayHours: 5,
+              delayValue: 10,
+            },
+            riskThresholdSuccess: 5,
+            riskThresholdDanger: 0.5,
+            minPercentChange: 1,
+            maxPercentChange: 50,
+            minSampleSize: 200,
+          },
+          name: "My Cool Metric",
+          description: "This is a metric with lots of fields",
+          type: "count",
+        };
+
+        const result = postMetricApiPayloadToMetricInterface(
+          input,
+          organization,
+          datasource
+        );
+
+        expect(result.windowSettings.delayValue).toEqual(10);
+        expect(result.windowSettings.delayUnit).toEqual("hours");
       });
     });
   });
@@ -1049,7 +1155,8 @@ describe("putMetricApiPayloadToMetricInterface", () => {
       expect(result.cappingSettings?.value).toEqual(1337);
       expect(result.windowSettings?.windowValue).toEqual(40);
       expect(result.windowSettings?.windowUnit).toEqual("hours");
-      expect(result.windowSettings?.delayHours).toEqual(10);
+      expect(result.windowSettings?.delayValue).toEqual(10);
+      expect(result.windowSettings?.delayUnit).toEqual("hours");
       expect(result.column).toEqual("signed_up");
     });
   });

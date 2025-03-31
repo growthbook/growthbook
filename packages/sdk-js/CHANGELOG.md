@@ -1,5 +1,55 @@
 # Changelog
 
+## **1.4.1** - Feb 20, 2025
+
+- In `auto.min.js`, enable dev mode by default. Without this, the GrowthBook DevTools Chrome extension will only partially work.
+
+## **1.4.0** - Feb 19, 2025
+
+- Fixed edge case with pre-requisites that caused some feature rules to be skipped
+- New methods for dealing with destroyed GrowthBook instances - `isDestroyed()` and `onDestroy(callback)`
+- New `plugins` option to extend GrowthBook functionality, plus several built-in plugins
+- New `eventLogger` option and `logEvent` method to track arbitrary analytics events
+- Fix bug in targeting condition when checking if non-existent attribute is equal to `false`
+
+## **1.3.1** - Dec 3, 2024
+
+- Renamed `GrowthBookMultiUser` to `GrowthBookClient`
+- New `GrowthBookClient.createScopedInstance()` method to make it easier to use in express-like back-end frameworks and client-side environments.
+
+## **1.3.0** - Nov 20, 2024
+
+- New `GrowthBookMultiUser` class for 2x performance boost in Node.js
+- Remove undocumented and deprecated `GrowthBook` constructor options: `realtimeKey`, `realtimeInterval`, and `stickyBucketIdentifierAttributes`.
+
+## **1.2.1** - Oct 8, 2024
+
+- Set default cookie expiry (180 days) in cookie-related Sticky Bucket Services.
+- Provide `getKey` method in Sticky Bucket Services.
+
+## **1.2.0** - Aug 20, 2024
+
+- Make `trackingCallback` optionally async; await it when navigating in a URL redirect test
+- Fix bug related to `stickyBucketAssignmentDocs` not being read when attributes change
+- Remove native anti-flicker code from JS SDK; add improved anti-flicker support to the HTML script tag
+- Prevent some URL redirect navigate stampedes
+- Change default `maxAge` cache setting to 4 hours to reduce multiple exposures when starting a new experiment phase
+- Now `cacheSettings` can optionally be set from the SDK context
+
+## **1.1.0** - July 1, 2024
+
+- Fix package.json ESM exports. Can now load the SDK in Astro and Node (with `type="module"`) without errors.
+- Support for larger saved groups (up to 1MB)
+  - New `$inGroup` and `$notInGroup` condition operators which check for membership of a given group ID
+  - New `savedGroups` and `encryptedSavedGroups` payload keys define the members for each saved group
+  - Optimization to prevent including a saved group's members multiple times in one payload
+
+## **1.0.1** - June 11, 2024
+
+- Small refactor to avoid circular dependency warning
+- Fix bug preventing multiple logical targeting operators at the same level (`$or`, `$and`, etc.)
+- Fix typings for timeouts (NodeJS.Timeout vs NodeJS.Timer)
+
 ## **1.0.0** - May 1, 2024
 
 - New `init` and `initSync` functions as a replacement for `loadFeatures`.

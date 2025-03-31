@@ -192,6 +192,7 @@ export default function FixConflictsModal({
 
   return (
     <PagedModal
+      trackingEventModalType="resolve-conflicts"
       header={"Resolve Conflicts"}
       step={step}
       setStep={setStep}
@@ -218,6 +219,7 @@ export default function FixConflictsModal({
     >
       <Page
         display="Fix Conflicts"
+        enabled
         validate={async () => {
           if (!mergeResult?.success) {
             throw new Error("Please resolve all conflicts first");

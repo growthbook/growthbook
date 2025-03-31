@@ -1,18 +1,18 @@
 import Agenda, { Job } from "agenda";
-import { getOrganizationsWithNorthStars } from "../models/OrganizationModel";
+import { getOrganizationsWithNorthStars } from "back-end/src/models/OrganizationModel";
 import {
   DEFAULT_METRIC_ANALYSIS_DAYS,
   refreshMetric,
-} from "../services/experiments";
-import { getMetricById } from "../models/MetricModel";
-import { METRIC_REFRESH_FREQUENCY } from "../util/secrets";
-import { logger } from "../util/logger";
-import { promiseAllChunks } from "../util/promise";
+} from "back-end/src/services/experiments";
+import { getMetricById } from "back-end/src/models/MetricModel";
+import { METRIC_REFRESH_FREQUENCY } from "back-end/src/util/secrets";
+import { logger } from "back-end/src/util/logger";
+import { promiseAllChunks } from "back-end/src/util/promise";
 import {
   getContextForAgendaJobByOrgObject,
   getOrganizationById,
-} from "../services/organizations";
-import { OrganizationInterface } from "../../types/organization";
+} from "back-end/src/services/organizations";
+import { OrganizationInterface } from "back-end/types/organization";
 
 const QUEUE_METRIC_UPDATES = "queueMetricUpdates";
 
@@ -57,6 +57,10 @@ export default async function (agenda: Agenda) {
 
         const metric = await getMetricById(context, id, true);
         if (!metric) return;
+
+        // Skip manual metrics
+        if (!metric.datasource) return;
+
         // Skip if metric was already refreshed recently
         if (
           metric.runStarted &&

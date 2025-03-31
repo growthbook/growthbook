@@ -1,30 +1,43 @@
 import { NextFunction, Request, Response } from "express";
-import { SSO_CONFIG } from "enterprise";
+import { SSO_CONFIG } from "shared/enterprise";
 import { userHasPermission } from "shared/permissions";
-import { logger } from "../../util/logger";
-import { IS_CLOUD } from "../../util/secrets";
-import { AuthRequest } from "../../types/AuthRequest";
-import { markUserAsVerified, UserModel } from "../../models/UserModel";
-import { getOrganizationById, validateLoginMethod } from "../organizations";
-import { Permission } from "../../../types/organization";
-import { UserInterface } from "../../../types/user";
-import { AuditInterface } from "../../../types/audit";
-import { getUserByEmail } from "../users";
-import { hasOrganization, updateMember } from "../../models/OrganizationModel";
+import { logger } from "back-end/src/util/logger";
+import { IS_CLOUD } from "back-end/src/util/secrets";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import {
+  hasUser,
+  markUserAsVerified,
+  getUserByEmail,
+} from "back-end/src/models/UserModel";
+import {
+  getOrganizationById,
+  validateLoginMethod,
+} from "back-end/src/services/organizations";
+import { Permission } from "back-end/types/organization";
+import { UserInterface } from "back-end/types/user";
+import { AuditInterface } from "back-end/types/audit";
+import {
+  hasOrganization,
+  updateMember,
+} from "back-end/src/models/OrganizationModel";
 import {
   IdTokenCookie,
   AuthChecksCookie,
   RefreshTokenCookie,
   SSOConnectionIdCookie,
-} from "../../util/cookie";
-import { getUserPermissions } from "../../util/organization.util";
+} from "back-end/src/util/cookie";
+import { getUserPermissions } from "back-end/src/util/organization.util";
 import {
-  EventAuditUserForResponseLocals,
-  EventAuditUserLoggedIn,
-} from "../../events/event-types";
-import { insertAudit } from "../../models/AuditModel";
-import { getTeamsForOrganization } from "../../models/TeamModel";
-import { initializeLicenseForOrg } from "../licenseData";
+  EventUserForResponseLocals,
+  EventUserLoggedIn,
+} from "back-end/src/events/event-types";
+import { insertAudit } from "back-end/src/models/AuditModel";
+import { getTeamsForOrganization } from "back-end/src/models/TeamModel";
+import {
+  getLicenseMetaData,
+  getUserCodesForOrg,
+} from "back-end/src/services/licenseData";
+import { licenseInit } from "back-end/src/enterprise";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";
@@ -63,7 +76,7 @@ async function getUserFromJWT(token: IdToken): Promise<null | UserInterface> {
     }
   }
 
-  return user.toJSON<UserInterface>();
+  return user;
 }
 function getInitialDataFromJWT(user: IdToken): JWTInfo {
   return {
@@ -76,7 +89,7 @@ function getInitialDataFromJWT(user: IdToken): JWTInfo {
 export async function processJWT(
   // eslint-disable-next-line
   req: AuthRequest & { user: IdToken },
-  res: Response<unknown, EventAuditUserForResponseLocals>,
+  res: Response<unknown, EventUserForResponseLocals>,
   next: NextFunction
 ): Promise<void> {
   const { email, name, verified } = getInitialDataFromJWT(req.user);
@@ -86,8 +99,14 @@ export async function processJWT(
   req.name = name || "";
   req.verified = verified || false;
   req.teams = [];
+  req.currentUser = {
+    id: "",
+    email: email || "",
+    superAdmin: false,
+    verified: verified || false,
+    name: name || "",
+  };
 
-  // Throw error if permissions don't pass
   req.checkPermissions = (
     permission: Permission,
     project?: string | string[],
@@ -96,14 +115,13 @@ export async function processJWT(
     if (!req.userId || !req.organization) return false;
 
     const userPermissions = getUserPermissions(
-      req.userId,
+      req.currentUser,
       req.organization,
       req.teams
     );
 
     if (
       !userHasPermission(
-        req.superAdmin || false,
         userPermissions,
         permission,
         project,
@@ -117,6 +135,7 @@ export async function processJWT(
   const user = await getUserFromJWT(req.user);
 
   if (user) {
+    req.currentUser = user;
     req.email = user.email;
     req.userId = user.id;
     req.name = user.name;
@@ -194,7 +213,11 @@ export async function processJWT(
         }
 
         // init license for org if it exists
-        await initializeLicenseForOrg(req.organization);
+        await licenseInit(
+          req.organization,
+          getUserCodesForOrg,
+          getLicenseMetaData
+        );
       } else {
         res.status(404).json({
           status: 404,
@@ -204,7 +227,7 @@ export async function processJWT(
       }
     }
 
-    const eventAudit: EventAuditUserLoggedIn = {
+    const eventAudit: EventUserLoggedIn = {
       type: "dashboard",
       id: user.id,
       email: user.email,
@@ -257,13 +280,10 @@ export function validatePasswordFormat(password?: string): string {
 }
 
 export async function isNewInstallation() {
-  const doc = await hasOrganization();
-  if (doc) {
+  if (await hasOrganization()) {
     return false;
   }
-
-  const doc2 = await UserModel.findOne();
-  if (doc2) {
+  if (await hasUser()) {
     return false;
   }
 

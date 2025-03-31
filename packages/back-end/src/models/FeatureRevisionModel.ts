@@ -1,13 +1,15 @@
 import mongoose from "mongoose";
 import omit from "lodash/omit";
 import { checkIfRevisionNeedsReview } from "shared/util";
-import { FeatureInterface, FeatureRule } from "../../types/feature";
+import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import {
   FeatureRevisionInterface,
   RevisionLog,
-} from "../../types/feature-revision";
-import { EventAuditUser, EventAuditUserLoggedIn } from "../events/event-types";
-import { OrganizationInterface, ReqContext } from "../../types/organization";
+} from "back-end/types/feature-revision";
+import { EventUser, EventUserLoggedIn } from "back-end/src/events/event-types";
+import { OrganizationInterface, ReqContext } from "back-end/types/organization";
+import { ApiReqContext } from "back-end/types/api";
+import { applyEnvironmentInheritance } from "back-end/src/util/features";
 
 export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
 
@@ -52,12 +54,15 @@ const FeatureRevisionModel = mongoose.model<FeatureRevisionInterface>(
   featureRevisionSchema
 );
 
-function toInterface(doc: FeatureRevisionDocument): FeatureRevisionInterface {
+function toInterface(
+  doc: FeatureRevisionDocument,
+  context: ReqContext | ApiReqContext
+): FeatureRevisionInterface {
   const revision = omit(doc.toJSON<FeatureRevisionDocument>(), ["__v", "_id"]);
 
   // These fields are new, so backfill them for old revisions
   if (revision.publishedBy && !revision.publishedBy.type) {
-    (revision.publishedBy as EventAuditUserLoggedIn).type = "dashboard";
+    (revision.publishedBy as EventUserLoggedIn).type = "dashboard";
   }
   if (!revision.status) revision.status = "published";
   if (!revision.createdBy)
@@ -75,10 +80,15 @@ function toInterface(doc: FeatureRevisionDocument): FeatureRevisionInterface {
         .revisionDate || revision.dateCreated;
   }
 
+  revision.rules = applyEnvironmentInheritance(
+    context.org.settings?.environments || [],
+    revision.rules
+  );
   return revision;
 }
 
 export async function getRevisions(
+  context: ReqContext | ApiReqContext,
   organization: string,
   featureId: string
 ): Promise<FeatureRevisionInterface[]> {
@@ -90,10 +100,12 @@ export async function getRevisions(
     .limit(25);
 
   // Remove the log when fetching all revisions since it can be large to send over the network
-  return docs.map(toInterface).map((d) => {
-    delete d.log;
-    return d;
-  });
+  return docs
+    .map((m) => toInterface(m, context))
+    .map((d) => {
+      delete d.log;
+      return d;
+    });
 }
 
 export async function hasDraft(
@@ -111,18 +123,43 @@ export async function hasDraft(
   return doc ? true : false;
 }
 
-export async function getRevision(
-  organization: string,
-  featureId: string,
-  version: number
-) {
+export async function getFeatureRevisionsByStatus({
+  context,
+  organization,
+  featureId,
+  status,
+}: {
+  context: ReqContext;
+  organization: string;
+  featureId: string;
+  status?: string;
+}): Promise<FeatureRevisionInterface[]> {
+  const docs = await FeatureRevisionModel.find({
+    organization,
+    featureId,
+    ...(status ? { status } : {}),
+  });
+  return docs.map((m) => toInterface(m, context));
+}
+
+export async function getRevision({
+  context,
+  organization,
+  featureId,
+  version,
+}: {
+  context: ReqContext | ApiReqContext;
+  organization: string;
+  featureId: string;
+  version: number;
+}) {
   const doc = await FeatureRevisionModel.findOne({
     organization,
     featureId,
     version,
   });
 
-  return doc ? toInterface(doc) : null;
+  return doc ? toInterface(doc, context) : null;
 }
 
 export async function getRevisionsByStatus(
@@ -136,15 +173,16 @@ export async function getRevisionsByStatus(
   const docs = revisions
     .filter((r) => !!r)
     .map((r) => {
-      return toInterface(r);
+      return toInterface(r, context);
     });
 
   return docs;
 }
 
 export async function createInitialRevision(
+  context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
-  user: EventAuditUser | null,
+  user: EventUser | null,
   environments: string[],
   date?: Date
 ) {
@@ -171,16 +209,20 @@ export async function createInitialRevision(
     rules,
   });
 
-  return toInterface(doc);
+  return toInterface(doc, context);
 }
 
-export async function createRevisionFromLegacyDraft(feature: FeatureInterface) {
+export async function createRevisionFromLegacyDraft(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface
+) {
   if (!feature.legacyDraft) return;
   const doc = await FeatureRevisionModel.create(feature.legacyDraft);
-  return toInterface(doc);
+  return toInterface(doc, context);
 }
 
 export async function createRevision({
+  context,
   feature,
   user,
   environments,
@@ -191,8 +233,9 @@ export async function createRevision({
   org,
   canBypassApprovalChecks,
 }: {
+  context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
-  user: EventAuditUser;
+  user: EventUser;
   environments: string[];
   baseVersion?: number;
   changes?: Partial<FeatureRevisionInterface>;
@@ -242,7 +285,12 @@ export async function createRevision({
   const baseRevision =
     lastRevision?.version === baseVersion
       ? lastRevision
-      : await getRevision(feature.organization, feature.id, baseVersion);
+      : await getRevision({
+          context,
+          organization: feature.organization,
+          featureId: feature.id,
+          version: baseVersion,
+        });
 
   if (!baseRevision) {
     throw new Error("can not find a base revision");
@@ -281,7 +329,7 @@ export async function createRevision({
 
   const doc = await FeatureRevisionModel.create(revision);
 
-  return toInterface(doc);
+  return toInterface(doc, context);
 }
 
 export async function updateRevision(
@@ -337,7 +385,7 @@ export async function updateRevision(
 
 export async function markRevisionAsPublished(
   revision: FeatureRevisionInterface,
-  user: EventAuditUser,
+  user: EventUser,
   comment?: string
 ) {
   const action = revision.status === "draft" ? "publish" : "re-publish";
@@ -349,7 +397,7 @@ export async function markRevisionAsPublished(
     user,
     value: JSON.stringify(comment ? { comment } : {}),
   };
-
+  const revisionComment = revision.comment ? revision.comment : comment;
   await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
@@ -362,6 +410,7 @@ export async function markRevisionAsPublished(
         publishedBy: user,
         datePublished: new Date(),
         dateUpdated: new Date(),
+        comment: revisionComment,
       },
       $push: {
         log,
@@ -372,7 +421,7 @@ export async function markRevisionAsPublished(
 
 export async function markRevisionAsReviewRequested(
   revision: FeatureRevisionInterface,
-  user: EventAuditUser,
+  user: EventUser,
   comment?: string
 ) {
   const action = "Review Requested";
@@ -406,7 +455,7 @@ export async function markRevisionAsReviewRequested(
 
 export async function submitReviewAndComments(
   revision: FeatureRevisionInterface,
-  user: EventAuditUser,
+  user: EventUser,
   reviewSubmittedType: ReviewSubmittedType,
   comment?: string
 ) {
@@ -452,7 +501,7 @@ export async function submitReviewAndComments(
 
 export async function discardRevision(
   revision: FeatureRevisionInterface,
-  user: EventAuditUser
+  user: EventUser
 ) {
   if (revision.status === "published" || revision.status === "discarded") {
     throw new Error(`Can not discard ${revision.status} revisions`);
@@ -482,6 +531,7 @@ export async function discardRevision(
 }
 
 export async function getFeatureRevisionsByFeatureIds(
+  context: ReqContext | ApiReqContext,
   organization: string,
   featureIds: string[]
 ): Promise<Record<string, FeatureRevisionInterface[]>> {
@@ -495,7 +545,7 @@ export async function getFeatureRevisionsByFeatureIds(
     revisions.forEach((revision) => {
       const featureId = revision.featureId;
       revisionsByFeatureId[featureId] = revisionsByFeatureId[featureId] || [];
-      revisionsByFeatureId[featureId].push(toInterface(revision));
+      revisionsByFeatureId[featureId].push(toInterface(revision, context));
     });
   }
 
@@ -524,4 +574,19 @@ export async function cleanUpPreviousRevisions(
       $lt: date,
     },
   });
+}
+
+export async function getFeatureRevisionsByFeaturesCurrentVersion(
+  context: ReqContext | ApiReqContext,
+  features: FeatureInterface[]
+): Promise<FeatureRevisionInterface[] | null> {
+  if (features.length === 0) return null;
+  const docs = await FeatureRevisionModel.find({
+    $or: features.map((f) => ({
+      featureId: f.id,
+      organization: f.organization,
+      version: f.version,
+    })),
+  });
+  return docs.map((m) => toInterface(m, context));
 }

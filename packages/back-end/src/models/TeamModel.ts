@@ -1,7 +1,12 @@
 import mongoose from "mongoose";
-import { omit } from "lodash";
 import uniqid from "uniqid";
-import { TeamInterface } from "../../types/team";
+import { TeamInterface } from "back-end/types/team";
+import {
+  ToInterface,
+  getCollection,
+  removeMongooseFields,
+} from "back-end/src/util/mongo.util";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 
 const teamSchema = new mongoose.Schema({
   id: {
@@ -9,7 +14,10 @@ const teamSchema = new mongoose.Schema({
     unique: true,
   },
   name: String,
-  organization: String,
+  organization: {
+    type: String,
+    index: true,
+  },
   dateCreated: Date,
   dateUpdated: Date,
   createdBy: String,
@@ -29,9 +37,11 @@ const teamSchema = new mongoose.Schema({
   managedByIdp: Boolean,
 });
 
-type TeamDocument = mongoose.Document & TeamInterface;
-
 const TeamModel = mongoose.model<TeamInterface>("Team", teamSchema);
+const COLLECTION = "teams";
+
+const toInterface: ToInterface<TeamInterface> = (doc) =>
+  removeMongooseFields(doc);
 
 type CreateTeamProps = Omit<
   TeamInterface,
@@ -39,14 +49,6 @@ type CreateTeamProps = Omit<
 >;
 
 type UpdateTeamProps = Partial<TeamInterface>;
-
-/**
- * Convert the Mongo document to a TeamInterface, omitting Mongo default fields __v, _id
- * @param doc
- */
-const toInterface = (doc: TeamDocument): TeamInterface => {
-  return omit(doc.toJSON<TeamDocument>(), ["__v", "_id"]);
-};
 
 export async function createTeam(
   data: CreateTeamProps
@@ -79,13 +81,14 @@ export async function findTeamByName(
   return teamDoc ? toInterface(teamDoc) : null;
 }
 
-export async function getTeamsForOrganization(
-  orgId: string
-): Promise<TeamInterface[]> {
-  const teamDocs = await TeamModel.find({
-    organization: orgId,
-  });
-  return teamDocs.map((team) => toInterface(team));
+export async function getTeamsForOrganization(orgId: string) {
+  const docs = await getCollection(COLLECTION)
+    .find({
+      organization: orgId,
+    })
+    .toArray();
+
+  return docs.map((d) => toInterface(d));
 }
 
 export async function updateTeamMetadata(
@@ -116,4 +119,14 @@ export async function deleteTeam(id: string, orgId: string): Promise<void> {
     id,
     organization: orgId,
   });
+}
+
+export async function getAllTeamRoleInfoInDb() {
+  if (IS_CLOUD) {
+    throw new Error("getAllTeamRoleInfoInDb() is not supported on cloud");
+  }
+
+  const docs = await getCollection(COLLECTION).find().toArray();
+
+  return docs.map((d) => toInterface(d));
 }

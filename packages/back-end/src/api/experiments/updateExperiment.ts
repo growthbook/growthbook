@@ -1,16 +1,20 @@
-import { UpdateExperimentResponse } from "../../../types/openapi";
-import { getDataSourceById } from "../../models/DataSourceModel";
+import { getAllMetricIdsFromExperiment } from "shared/experiments";
+import { UpdateExperimentResponse } from "back-end/types/openapi";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   updateExperiment as updateExperimentToDb,
   getExperimentById,
   getExperimentByTrackingKey,
-} from "../../models/ExperimentModel";
+} from "back-end/src/models/ExperimentModel";
 import {
   toExperimentApiInterface,
   updateExperimentApiPayloadToInterface,
-} from "../../services/experiments";
-import { createApiRequestHandler } from "../../util/handler";
-import { updateExperimentValidator } from "../../validators/openapi";
+} from "back-end/src/services/experiments";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { updateExperimentValidator } from "back-end/src/validators/openapi";
+import { getMetricMap } from "back-end/src/models/MetricModel";
+import { validateVariationIds } from "back-end/src/controllers/experiments";
+import { Variation } from "back-end/src/validators/experiments";
 
 export const updateExperiment = createApiRequestHandler(
   updateExperimentValidator
@@ -21,28 +25,52 @@ export const updateExperiment = createApiRequestHandler(
       throw new Error("Could not find the experiment to update");
     }
 
+    // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
+    if (req.body.project) {
+      await req.context.models.projects.ensureProjectsExist([req.body.project]);
+    }
+
     if (!req.context.permissions.canUpdateExperiment(experiment, req.body)) {
       req.context.permissions.throwPermissionError();
     }
 
-    const datasource = await getDataSourceById(
-      req.context,
-      experiment.datasource
-    );
-    if (!datasource) {
-      throw new Error("No datasource for this experiment was found.");
+    // validate datasource only if updating
+    const datasourceId = req.body.datasourceId ?? experiment.datasource;
+    const datasource = datasourceId
+      ? await getDataSourceById(req.context, datasourceId)
+      : null;
+
+    if (
+      req.body.datasourceId !== undefined &&
+      req.body.datasourceId !== experiment.datasource
+    ) {
+      if (experiment.datasource) {
+        throw new Error(
+          "Cannot change datasource via API if one is already set."
+        );
+      }
+      if (!datasource) {
+        throw new Error("Datasource not found.");
+      }
     }
+
     // check for associated assignment query id
     if (
-      req.body.assignmentQueryId != null &&
-      req.body.assignmentQueryId !== experiment.exposureQueryId &&
-      !datasource.settings.queries?.exposure?.some(
-        (q) => q.id === req.body.assignmentQueryId
-      )
+      req.body.assignmentQueryId !== undefined &&
+      req.body.assignmentQueryId !== experiment.exposureQueryId
     ) {
-      throw new Error(
-        `Unrecognized assignment query ID: ${req.body.assignmentQueryId}`
-      );
+      if (!datasource) {
+        throw new Error("Datasource not found.");
+      }
+      if (
+        !datasource.settings.queries?.exposure?.some(
+          (q) => q.id === req.body.assignmentQueryId
+        )
+      ) {
+        throw new Error(
+          `Unrecognized assignment query ID: ${req.body.assignmentQueryId}`
+        );
+      }
     }
 
     // check if tracking key is unique
@@ -61,10 +89,74 @@ export const updateExperiment = createApiRequestHandler(
       }
     }
 
+    // Validate that specified metrics exist and belong to the organization
+    const oldMetricIds = getAllMetricIdsFromExperiment(experiment);
+    const newMetricIds = getAllMetricIdsFromExperiment({
+      goalMetrics: req.body.metrics,
+      secondaryMetrics: req.body.secondaryMetrics,
+      guardrailMetrics: req.body.guardrailMetrics,
+      activationMetric: req.body.activationMetric,
+    }).filter((m) => !oldMetricIds.includes(m));
+
+    const map = await getMetricMap(req.context);
+
+    if (newMetricIds.length) {
+      if (!datasource) {
+        throw new Error("Must provide a datasource when including metrics");
+      }
+      for (let i = 0; i < newMetricIds.length; i++) {
+        const metric = map.get(newMetricIds[i]);
+        if (metric) {
+          // Make sure it is tied to the same datasource as the experiment
+          if (datasource.id && metric.datasource !== datasource.id) {
+            throw new Error(
+              "Metrics must be tied to the same datasource as the experiment: " +
+                newMetricIds[i]
+            );
+          }
+        } else {
+          // check to see if this metric is actually a metric group
+          const metricGroup = await req.context.models.metricGroups.getById(
+            newMetricIds[i]
+          );
+          if (metricGroup) {
+            // Make sure it is tied to the same datasource as the experiment
+            if (datasource.id && metricGroup.datasource !== datasource.id) {
+              throw new Error(
+                "Metrics must be tied to the same datasource as the experiment: " +
+                  newMetricIds[i]
+              );
+            }
+          } else {
+            // new metric that's not recognized...
+            throw new Error("Unknown metric: " + newMetricIds[i]);
+          }
+        }
+      }
+    }
+
+    if (req.body.variations) {
+      validateVariationIds(req.body.variations as Variation[]);
+    }
+
+    if (
+      req.body.type &&
+      req.body.type !== (experiment.type || "standard") &&
+      experiment.status !== "draft" &&
+      req.body.status !== "draft"
+    ) {
+      throw new Error("Can only convert experiment types while in draft mode.");
+    }
+
     const updatedExperiment = await updateExperimentToDb({
       context: req.context,
       experiment: experiment,
-      changes: updateExperimentApiPayloadToInterface(req.body, experiment),
+      changes: updateExperimentApiPayloadToInterface(
+        req.body,
+        experiment,
+        map,
+        req.organization
+      ),
     });
 
     if (updatedExperiment === null) {

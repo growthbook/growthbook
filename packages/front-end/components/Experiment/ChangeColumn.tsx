@@ -11,6 +11,7 @@ import {
 } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 
 interface Props
   extends DetailedHTMLProps<
@@ -19,12 +20,16 @@ interface Props
   > {
   metric: ExperimentMetricInterface;
   stats: SnapshotMetric;
-  rowResults: RowResults;
+  rowResults: Pick<
+    RowResults,
+    "directionalStatus" | "enoughData" | "hasScaledImpact"
+  >;
   statsEngine: StatsEngine;
   showPlusMinus?: boolean;
   differenceType: DifferenceType;
   showCI?: boolean;
   className?: string;
+  ssrPolyfills?: SSRPolyfills;
 }
 
 export default function ChangeColumn({
@@ -36,10 +41,14 @@ export default function ChangeColumn({
   showCI = false,
   differenceType,
   className,
+  ssrPolyfills,
   ...otherProps
 }: Props) {
-  const displayCurrency = useCurrency();
-  const { getFactTableById } = useDefinitions();
+  const _displayCurrency = useCurrency();
+  const { getFactTableById: _getFactTableById } = useDefinitions();
+
+  const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
+  const displayCurrency = ssrPolyfills?.useCurrency() || _displayCurrency;
 
   const expected = stats?.expected ?? 0;
   const ci0 = stats?.ciAdjusted?.[0] ?? stats?.ci?.[0] ?? 0;
@@ -54,6 +63,9 @@ export default function ChangeColumn({
     ...(differenceType === "relative" ? { maximumFractionDigits: 1 } : {}),
     ...(differenceType === "scaled" ? { notation: "compact" } : {}),
   };
+  if (!rowResults.hasScaledImpact && differenceType === "scaled") {
+    return null;
+  }
   return (
     <>
       {metric && rowResults.enoughData ? (
@@ -88,13 +100,13 @@ export default function ChangeColumn({
                 )}
               </span>
             ) : null}
+            {showCI ? (
+              <span className="ml-2 ci font-weight-normal text-gray">
+                [{formatter(ci0, formatterOptions)},{" "}
+                {formatter(ci1, formatterOptions)}]
+              </span>
+            ) : null}
           </div>
-          {showCI ? (
-            <div className="ci text-right nowrap font-weight-normal text-gray">
-              [{formatter(ci0, formatterOptions)},{" "}
-              {formatter(ci1, formatterOptions)}]
-            </div>
-          ) : null}
         </td>
       ) : (
         <td />

@@ -17,6 +17,8 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useUser } from "@/services/UserContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useProjectOptions from "@/hooks/useProjectOptions";
 import MinSDKVersionsList from "./MinSDKVersionsList";
 
 export interface Props {
@@ -24,8 +26,19 @@ export interface Props {
   attribute?: string;
 }
 
+const DATA_TYPE_TO_DESCRIPTION: Record<SDKAttributeType, string> = {
+  boolean: "true or false",
+  number: "Floats or integers",
+  string: "Freeform text",
+  enum: "For a small list of pre-defined values",
+  secureString: "Freeform text; values hashed before passing to the SDK",
+  "number[]": "Useful for multiple numeric values",
+  "string[]": 'Useful for things like "tags"',
+  "secureString[]": "Useful for passing multiple values securely",
+};
 export default function AttributeModal({ close, attribute }: Props) {
   const { projects, project } = useDefinitions();
+  const permissionsUtil = usePermissionsUtil();
   const { refreshOrganization } = useUser();
 
   const { apiCall } = useAuth();
@@ -55,8 +68,20 @@ export default function AttributeModal({ close, attribute }: Props) {
     "secureString",
   ];
 
+  const permissionRequired = (project: string) => {
+    return attribute
+      ? permissionsUtil.canUpdateAttribute({ projects: [project] }, {})
+      : permissionsUtil.canCreateAttribute({ projects: [project] });
+  };
+
+  const projectOptions = useProjectOptions(
+    permissionRequired,
+    form.watch("projects") || []
+  );
+
   return (
     <Modal
+      trackingEventModalType=""
       open={true}
       close={close}
       header={title}
@@ -138,10 +163,19 @@ export default function AttributeModal({ close, attribute }: Props) {
       {projects?.length > 0 && (
         <div className="form-group">
           <MultiSelectField
-            label="Projects"
+            label={
+              <>
+                Projects{" "}
+                <Tooltip
+                  body={`The dropdown below has been filtered to only include projects where you have permission to ${
+                    attribute ? "update" : "create"
+                  } Attributes.`}
+                />
+              </>
+            }
             placeholder="All projects"
             value={form.watch("projects") || []}
-            options={projects.map((p) => ({ value: p.id, label: p.name }))}
+            options={projectOptions}
             onChange={(v) => form.setValue("projects", v)}
             customClassName="label-overflow-ellipsis"
             helpText="Assign this attribute to specific projects"
@@ -168,6 +202,16 @@ export default function AttributeModal({ close, attribute }: Props) {
             label: "Array of Secure Strings",
           },
         ]}
+        formatOptionLabel={(value) => {
+          return (
+            <div className="d-flex">
+              <span className="pr-2">{value.label}</span>
+              <span className="ml-auto text-muted">
+                {DATA_TYPE_TO_DESCRIPTION[value.value]}
+              </span>
+            </div>
+          );
+        }}
         helpText={
           <>
             {["secureString", "secureString[]"].includes(datatype) && (
@@ -214,7 +258,11 @@ export default function AttributeModal({ close, attribute }: Props) {
             value={form.watch(`format`) || "none"}
             onChange={(v) => form.setValue(`format`, v as SDKAttributeFormat)}
             initialOption="None"
-            options={[{ value: "version", label: "Version string" }]}
+            options={[
+              { value: "version", label: "Version string" },
+              { value: "date", label: "Date string" },
+              { value: "isoCountryCode", label: "ISO Country Code (2 digit)" },
+            ]}
             sort={false}
             helpText="Affects the targeting attribute UI and string comparison logic. More formats coming soon."
           />

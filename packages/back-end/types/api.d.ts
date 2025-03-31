@@ -2,9 +2,9 @@ import {
   AutoExperiment,
   FeatureRule as FeatureDefinitionRule,
 } from "@growthbook/growthbook";
-import { EventAuditUser } from "../src/events/event-types";
-import { PermissionFunctions } from "../src/types/AuthRequest";
-import { AuditInterface } from "./audit";
+import { EventUser } from "back-end/src/events/event-types";
+import { PermissionFunctions } from "back-end/src/types/AuthRequest";
+import { AuditInterfaceInput } from "./audit";
 import { ExperimentStatus } from "./experiment";
 import { OrganizationInterface, ReqContext } from "./organization";
 import { UserInterface } from "./user";
@@ -30,7 +30,6 @@ export type FeatureDefinitionWithProject = FeatureDefinition & {
 
 export type AutoExperimentWithProject = AutoExperiment & {
   project?: string;
-  changeType?: "redirect" | "visual";
 };
 
 export interface ExperimentOverridesResponse {
@@ -48,10 +47,8 @@ export type ApiRequestLocals = PermissionFunctions & {
   apiKey: string;
   user?: UserInterface;
   organization: OrganizationInterface;
-  eventAudit: EventAuditUser;
-  audit: (
-    data: Omit<AuditInterface, "user" | "organization" | "dateCreated" | "id">
-  ) => Promise<void>;
+  eventAudit: EventUser;
+  audit: (data: AuditInterfaceInput) => Promise<void>;
   context: ApiReqContext;
 };
 

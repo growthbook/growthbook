@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { SSOConnectionInterface } from "../../types/sso-connection";
+import { SSOConnectionInterface } from "back-end/types/sso-connection";
 
 const ssoConnectionSchema = new mongoose.Schema({
   id: {
@@ -41,6 +41,13 @@ export async function getSSOConnectionById(
   const doc = await SSOConnectionModel.findOne({ id });
 
   return doc ? toInterface(doc) : null;
+}
+
+export async function getAllSSOConnections(): Promise<
+  SSOConnectionInterface[]
+> {
+  const connections = await SSOConnectionModel.find();
+  return connections.map((c) => toInterface(c));
 }
 
 export async function getSSOConnectionByEmailDomain(

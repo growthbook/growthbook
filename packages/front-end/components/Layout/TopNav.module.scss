@@ -10,9 +10,33 @@ $sidebarwidth: 240px;
   right: 0;
   height: 56px;
   z-index: 1010;
-  transition: all 0.5s cubic-bezier(0.685, 0.0473, 0.346, 1);
-  background-color: var(--surface-background-color);
-  border-bottom: 1px solid var(--border-color-300);
+  background-color: var(--color-surface-solid);
+  box-shadow: 0px 0px 1px 0px var(--border-color-200);
+  padding: 0 16px;
+  @media (max-width: 520px) {
+    padding: 0 8px;
+  }
+  @media (max-width: 1180px) {
+    left: 0;
+    .pagetitle {
+      padding-left: 10px;
+    }
+    .mobilemenu {
+      display: block;
+    }
+  }
+}
+.topbarlite {
+  display: flex;
+  justify-content: space-between;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  z-index: 1010;
+  background-color: var(--color-surface-solid);
+  border-bottom: 1px solid var(--slate-a3);
   padding: 0 16px;
   @media (max-width: 520px) {
     padding: 0 8px;
@@ -29,18 +53,26 @@ $sidebarwidth: 240px;
   z-index: 995;
 }
 .pagetitle {
-  font-size: 18px;
+  font-size: 14px;
   line-height: 1.1;
   color: var(--text-color-main);
   font-weight: 600;
   flex: 1;
   min-width: 0;
-
   overflow: hidden;
   text-overflow: ellipsis;
   display: inline-block;
   white-space: nowrap;
   vertical-align: middle;
+}
+.breadcrumblink {
+  color: var(--text-color-primary);
+  text-decoration: none;
+
+  &:hover {
+    color: var(--text-color-primary-hover);
+    text-decoration: underline;
+  }
 }
 .mobilemenu {
   display: none;
@@ -60,14 +92,39 @@ $sidebarwidth: 240px;
   width: 100%;
 }
 
-@media (max-width: 1180px) {
-  .pagetitle {
-    padding-left: 10px;
+.add-organization {
+  hr {
+    margin: 0.25em 0.75rem;
   }
-  .mobilemenu {
-    display: block;
+
+  div {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    div {
+      width: 1.5rem;
+      display: flex;
+      justify-content: center;
+    }
   }
-  .topbar {
-    left: 0;
+
+  img {
+    height: 1em;
+  }
+
+  a {
+    padding: 0.25rem 1.5rem 0.25rem 0rem;
+  }
+}
+
+.dropdownItemIconColor {
+  &:focus {
+    svg {
+      color: white;
+    }
+  }
+  svg {
+    color: var(--text-color-muted);
   }
 }

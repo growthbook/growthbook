@@ -1,20 +1,28 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { cloneDeep } from "lodash";
+import { OWNER_JOB_TITLES, USAGE_INTENTS } from "shared/constants";
 import { POLICIES, RESERVED_ROLE_IDS } from "shared/permissions";
 import { z } from "zod";
-import { TeamInterface } from "@back-end/types/team";
+import { TeamInterface } from "back-end/types/team";
 import {
+  DemographicData,
   Invite,
   Member,
   MemberRoleWithProjects,
   OrganizationInterface,
   OrganizationMessage,
+  OrgMemberInfo,
   Role,
-} from "../../types/organization";
-import { upgradeOrganizationDoc } from "../util/migrations";
-import { ApiOrganization } from "../../types/openapi";
-import { IS_CLOUD } from "../util/secrets";
+} from "back-end/types/organization";
+import { upgradeOrganizationDoc } from "back-end/src/util/migrations";
+import { ApiOrganization } from "back-end/types/openapi";
+import { IS_CLOUD } from "back-end/src/util/secrets";
+import {
+  ToInterface,
+  getCollection,
+  removeMongooseFields,
+} from "back-end/src/util/mongo.util";
 
 const baseMemberFields = {
   _id: false,
@@ -47,6 +55,18 @@ const organizationSchema = new mongoose.Schema({
   url: String,
   name: String,
   ownerEmail: String,
+  demographicData: {
+    ownerJobTitle: {
+      type: String,
+      enum: Object.keys(OWNER_JOB_TITLES),
+    },
+    ownerUsageIntents: [
+      {
+        type: String,
+        enum: Object.keys(USAGE_INTENTS),
+      },
+    ],
+  },
   restrictLoginMethod: String,
   restrictAuthSubPrefix: String,
   autoApproveMembers: Boolean,
@@ -124,25 +144,27 @@ const organizationSchema = new mongoose.Schema({
   settings: {},
   getStartedChecklistItems: [String],
   customRoles: {},
+  deactivatedRoles: [],
+  disabled: Boolean,
+  setupEventTracker: String,
 });
 
 organizationSchema.index({ "members.id": 1 });
-
-type OrganizationDocument = mongoose.Document & OrganizationInterface;
 
 const OrganizationModel = mongoose.model<OrganizationInterface>(
   "Organization",
   organizationSchema
 );
+const COLLECTION = "organizations";
 
-function toInterface(doc: OrganizationDocument): OrganizationInterface {
-  return upgradeOrganizationDoc(doc.toJSON());
-}
+const toInterface: ToInterface<OrganizationInterface> = (doc) =>
+  upgradeOrganizationDoc(removeMongooseFields(doc));
 
 export async function createOrganization({
   email,
   userId,
   name,
+  demographicData,
   url = "",
   verifiedDomain = "",
   externalId = "",
@@ -150,6 +172,7 @@ export async function createOrganization({
   email: string;
   userId: string;
   name: string;
+  demographicData?: DemographicData;
   url?: string;
   verifiedDomain?: string;
   externalId?: string;
@@ -157,6 +180,7 @@ export async function createOrganization({
   // TODO: sanitize fields
   const doc = await OrganizationModel.create({
     ownerEmail: email,
+    demographicData,
     name,
     url,
     verifiedDomain,
@@ -182,6 +206,7 @@ export async function createOrganization({
           defaultState: true,
         },
       ],
+      killswitchConfirmation: true,
       // Default to the same attributes as the auto-wrapper for the Javascript SDK
       attributeSchema: [
         { property: "id", datatype: "string", hashAttribute: true },
@@ -221,6 +246,7 @@ export async function findAllOrganizations(
           { ownerEmail: regex },
           { id: regex },
           { externalId: regex },
+          { verifiedDomain: regex },
         ],
       }
     : {};
@@ -238,7 +264,7 @@ export async function findAllOrganizations(
 }
 
 export async function findOrganizationById(id: string) {
-  const doc = await OrganizationModel.findOne({ id });
+  const doc = await getCollection(COLLECTION).findOne({ id });
   return doc ? toInterface(doc) : null;
 }
 
@@ -256,47 +282,21 @@ export async function updateOrganization(
   );
 }
 
-export async function updateOrganizationByStripeId(
-  stripeCustomerId: string,
-  update: Partial<OrganizationInterface>
-) {
-  await OrganizationModel.updateOne(
+export async function getAllOrgMemberInfoInDb(): Promise<OrgMemberInfo[]> {
+  if (IS_CLOUD) {
+    throw new Error("getAllOrgMemberInfoInDb() is not supported on cloud");
+  }
+  return await OrganizationModel.find(
+    {},
     {
-      stripeCustomerId,
-    },
-    {
-      $set: update,
+      id: 1,
+      "invites.email": 1,
+      "members.id": 1,
+      "members.role": 1,
+      "members.projectRoles.role": 1,
+      "members.teams": 1,
     }
   );
-}
-
-export async function findOrganizationByStripeCustomerId(id: string) {
-  const doc = await OrganizationModel.findOne({
-    stripeCustomerId: id,
-  });
-
-  return doc ? toInterface(doc) : null;
-}
-
-export async function getAllInviteEmailsInDb() {
-  if (IS_CLOUD) {
-    throw new Error("getAllInviteEmailsInDb() is not supported on cloud");
-  }
-
-  const organizations = await OrganizationModel.find(
-    {},
-    { "invites.email": 1 }
-  );
-
-  const inviteEmails: string[] = organizations.reduce(
-    (emails: string[], organization) => {
-      const orgEmails = organization.invites.map((invite) => invite.email);
-      return emails.concat(orgEmails);
-    },
-    []
-  );
-
-  return inviteEmails;
 }
 
 export async function getSelfHostedOrganization() {
@@ -309,24 +309,42 @@ export async function getSelfHostedOrganization() {
 }
 
 export async function hasOrganization() {
-  const res = await OrganizationModel.findOne();
+  const res = await getCollection(COLLECTION).findOne();
   return !!res;
 }
 
 export async function findOrganizationsByMemberId(userId: string) {
-  const docs = await OrganizationModel.find({
-    members: {
-      $elemMatch: {
-        id: userId,
+  const docs = await getCollection(COLLECTION)
+    .find({
+      members: {
+        $elemMatch: {
+          id: userId,
+        },
       },
-    },
-  });
+      disabled: { $ne: true },
+    })
+    .toArray();
+  return docs.map(toInterface);
+}
+
+export async function findOrganizationsByMemberIds(userId: string[]) {
+  const docs = await getCollection(COLLECTION)
+    .find({
+      members: {
+        $elemMatch: {
+          id: { $in: userId },
+        },
+      },
+      disabled: { $ne: true },
+    })
+    .toArray();
   return docs.map(toInterface);
 }
 
 export async function findOrganizationByInviteKey(key: string) {
   const doc = await OrganizationModel.findOne({
     "invites.key": key,
+    disabled: { $ne: true },
   });
   return doc ? toInterface(doc) : null;
 }
@@ -387,7 +405,10 @@ export async function removeProjectFromProjectRoles(
 }
 
 export async function findOrganizationsByDomain(domain: string) {
-  const docs = await OrganizationModel.find({ verifiedDomain: domain });
+  const docs = await OrganizationModel.find({
+    verifiedDomain: domain,
+    disabled: { $ne: true },
+  });
   return docs.map(toInterface);
 }
 
@@ -549,7 +570,46 @@ export async function removeCustomRole(
     throw new Error("Role not found");
   }
 
-  await updateOrganization(org.id, { customRoles: newCustomRoles });
+  const updates: Partial<OrganizationInterface> = {
+    customRoles: newCustomRoles,
+  };
+
+  if (org.deactivatedRoles?.includes(id)) {
+    updates.deactivatedRoles = org.deactivatedRoles.filter((r) => r !== id);
+  }
+
+  await updateOrganization(org.id, updates);
+}
+
+export async function deactivateRoleById(
+  org: OrganizationInterface,
+  id: string
+) {
+  if (
+    !RESERVED_ROLE_IDS.includes(id) &&
+    !org.customRoles?.some((role) => role.id === id)
+  ) {
+    throw new Error(`Unable to find role id ${id}`);
+  }
+
+  const deactivatedRoles = new Set<string>(org.deactivatedRoles);
+  deactivatedRoles.add(id);
+
+  await updateOrganization(org.id, {
+    deactivatedRoles: Array.from(deactivatedRoles),
+  });
+}
+
+export async function activateRoleById(org: OrganizationInterface, id: string) {
+  if (!org.deactivatedRoles || !org.deactivatedRoles?.includes(id)) {
+    throw new Error("Cannot activate a role that isn't deactivated");
+  }
+
+  const newDeactivatedRoles = org.deactivatedRoles.filter(
+    (role) => role !== id
+  );
+
+  await updateOrganization(org.id, { deactivatedRoles: newDeactivatedRoles });
 }
 
 export async function addGetStartedChecklistItem(id: string, item: string) {

@@ -1,9 +1,9 @@
 import mongoose from "mongoose";
 import { omit } from "lodash";
 import uniqid from "uniqid";
-import { QueryInterface, QueryType } from "../../types/query";
-import { QUERY_CACHE_TTL_MINS } from "../util/secrets";
-import { QueryLanguage } from "../../types/datasource";
+import { QueryInterface, QueryType } from "back-end/types/query";
+import { QUERY_CACHE_TTL_MINS } from "back-end/src/util/secrets";
+import { QueryLanguage } from "back-end/types/datasource";
 
 export const queriesSchema = [
   {
@@ -41,6 +41,7 @@ const querySchema = new mongoose.Schema({
   error: String,
   statistics: {},
   dependencies: [String],
+  runAtEnd: Boolean,
   cachedQueryUsed: String,
 });
 
@@ -72,6 +73,17 @@ export async function getQueriesByDatasource(
       createdAt: -1,
     });
   return docs.map((doc) => toInterface(doc));
+}
+
+export async function countRunningQueries(
+  organization: string,
+  datasource: string
+) {
+  return await QueryModel.find({
+    organization,
+    datasource,
+    status: "running",
+  }).count();
 }
 
 export async function updateQuery(
@@ -159,6 +171,7 @@ export async function createNewQuery({
   dependencies = [],
   running = false,
   queryType = "",
+  runAtEnd = false,
 }: {
   organization: string;
   datasource: string;
@@ -167,6 +180,7 @@ export async function createNewQuery({
   dependencies: string[];
   running: boolean;
   queryType: QueryType;
+  runAtEnd?: boolean;
 }): Promise<QueryInterface> {
   const data: QueryInterface = {
     createdAt: new Date(),
@@ -179,6 +193,7 @@ export async function createNewQuery({
     startedAt: running ? new Date() : undefined,
     status: running ? "running" : "queued",
     dependencies: dependencies,
+    runAtEnd: runAtEnd,
     queryType,
   };
   const doc = await QueryModel.create(data);
@@ -188,9 +203,11 @@ export async function createNewQuery({
 export async function createNewQueryFromCached({
   existing,
   dependencies,
+  runAtEnd,
 }: {
   existing: QueryInterface;
   dependencies: string[];
+  runAtEnd?: boolean;
 }): Promise<QueryInterface> {
   const data: QueryInterface = {
     createdAt: new Date(),
@@ -208,6 +225,7 @@ export async function createNewQueryFromCached({
     error: existing.error,
     statistics: existing.statistics,
     dependencies: dependencies,
+    runAtEnd: runAtEnd,
     cachedQueryUsed: existing.id,
   };
   const doc = await QueryModel.create(data);

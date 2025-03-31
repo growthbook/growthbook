@@ -1,16 +1,17 @@
-import { ApiExperiment, ApiFeature } from "../../types/openapi";
-import { IfEqual } from "../util/types";
-import { ExperimentWarningNotificationPayload } from "../types/ExperimentNotification";
-import { NotificationEventName, NotificationEventPayload } from "./base-types";
-import { UserLoginAuditableProperties } from "./event-types";
+import { ApiExperiment, ApiFeature } from "back-end/types/openapi";
+import { ExperimentWarningNotificationPayload } from "back-end/src/validators/experiment-warnings";
+import { LegacyNotificationEventPayload } from "./base-types";
+import { UserLoginEventProperties } from "./event-types";
+
+export { NotificationEvent } from "./base-types";
 
 // region User
 
-export type UserLoginNotificationEvent = NotificationEventPayload<
-  "user.login",
+export type LegacyUserLoginNotificationEvent = LegacyNotificationEventPayload<
   "user",
+  "user.login",
   {
-    current: UserLoginAuditableProperties;
+    current: UserLoginEventProperties;
   }
 >;
 
@@ -18,26 +19,26 @@ export type UserLoginNotificationEvent = NotificationEventPayload<
 
 // region Feature
 
-export type FeatureCreatedNotificationEvent = NotificationEventPayload<
-  "feature.created",
+export type LegacyFeatureCreatedNotificationEvent = LegacyNotificationEventPayload<
   "feature",
+  "feature.created",
   {
     current: ApiFeature;
   }
 >;
 
-export type FeatureUpdatedNotificationEvent = NotificationEventPayload<
-  "feature.updated",
+export type LegacyFeatureUpdatedNotificationEvent = LegacyNotificationEventPayload<
   "feature",
+  "feature.updated",
   {
     current: ApiFeature;
     previous: ApiFeature;
   }
 >;
 
-export type FeatureDeletedNotificationEvent = NotificationEventPayload<
-  "feature.deleted",
+export type LegacyFeatureDeletedNotificationEvent = LegacyNotificationEventPayload<
   "feature",
+  "feature.deleted",
   {
     previous: ApiFeature;
   }
@@ -47,46 +48,40 @@ export type FeatureDeletedNotificationEvent = NotificationEventPayload<
 
 // region Experiment
 
-export type ExperimentCreatedNotificationEvent = NotificationEventPayload<
+export type LegacyExperimentCreatedNotificationEvent = LegacyNotificationEventPayload<
+  "experiment",
   "experiment.created",
-  "experiment",
   {
     current: ApiExperiment;
   }
 >;
 
-export type ExperimentUpdatedNotificationEvent = NotificationEventPayload<
+export type LegacyExperimentUpdatedNotificationEvent = LegacyNotificationEventPayload<
+  "experiment",
   "experiment.updated",
-  "experiment",
   {
     current: ApiExperiment;
     previous: ApiExperiment;
   }
 >;
 
-export type ExperimentDeletedNotificationEvent = NotificationEventPayload<
-  "experiment.deleted",
+export type LegacyExperimentDeletedNotificationEvent = LegacyNotificationEventPayload<
   "experiment",
+  "experiment.deleted",
   {
     previous: ApiExperiment;
   }
 >;
 
-export type ExperimentInfoNotificationEvent = NotificationEventPayload<
-  "experiment.info",
+export type LegacyExperimentWarningNotificationEvent = LegacyNotificationEventPayload<
   "experiment",
-  null
->;
-
-export type ExperimentWarningNotificationEvent = NotificationEventPayload<
   "experiment.warning",
-  "experiment",
   ExperimentWarningNotificationPayload
 >;
 
-export type WebhookTestEvent = NotificationEventPayload<
-  "webhook.test",
+export type LegacyWebhookTestEvent = LegacyNotificationEventPayload<
   "webhook",
+  "webhook.test",
   { webhookId: string }
 >;
 
@@ -95,21 +90,13 @@ export type WebhookTestEvent = NotificationEventPayload<
 /**
  * All supported event types in the database
  */
-type AllNotificationEvent =
-  | UserLoginNotificationEvent
-  | FeatureCreatedNotificationEvent
-  | FeatureUpdatedNotificationEvent
-  | FeatureDeletedNotificationEvent
-  | ExperimentCreatedNotificationEvent
-  | ExperimentUpdatedNotificationEvent
-  | ExperimentDeletedNotificationEvent
-  | ExperimentInfoNotificationEvent
-  | ExperimentWarningNotificationEvent
-  | WebhookTestEvent;
-
-// Make sure we have a payload for each type of event
-type NotificationEvent = IfEqual<
-  NotificationEventName,
-  AllNotificationEvent["event"],
-  AllNotificationEvent
->;
+export type LegacyNotificationEvent =
+  | LegacyUserLoginNotificationEvent
+  | LegacyFeatureCreatedNotificationEvent
+  | LegacyFeatureUpdatedNotificationEvent
+  | LegacyFeatureDeletedNotificationEvent
+  | LegacyExperimentCreatedNotificationEvent
+  | LegacyExperimentUpdatedNotificationEvent
+  | LegacyExperimentDeletedNotificationEvent
+  | LegacyExperimentWarningNotificationEvent
+  | LegacyWebhookTestEvent;

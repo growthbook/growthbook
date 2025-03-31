@@ -1,4 +1,5 @@
-import { InformationSchemaTablesInterface } from "@back-end/src/types/Integration";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { InformationSchemaTablesInterface } from "back-end/src/types/Integration";
 import React, { useEffect, useState } from "react";
 import { FaRedo, FaTable } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
@@ -7,6 +8,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 type Props = {
+  datasource: DataSourceInterfaceWithParams;
   datasourceId: string;
   tableId: string;
   setError: (error: string | null) => void;
@@ -14,6 +16,7 @@ type Props = {
 };
 
 export default function DatasourceSchema({
+  datasource,
   tableId,
   datasourceId,
   setError,
@@ -91,7 +94,11 @@ export default function DatasourceSchema({
           <div>
             <FaTable />{" "}
             {table ? (
-              `${table.tableSchema}.${table.tableName}`
+              datasource.type === "growthbook_clickhouse" ? (
+                `${table.tableName}`
+              ) : (
+                `${table.tableSchema}.${table.tableName}`
+              )
             ) : (
               <LoadingSpinner />
             )}

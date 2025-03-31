@@ -1,11 +1,15 @@
-import React, { FC, useMemo } from "react";
+import { FC, useMemo } from "react";
 import { MdSwapCalls } from "react-icons/md";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
   MetricSnapshotSettings,
 } from "back-end/types/report";
-import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
+import {
+  ExperimentStatus,
+  ExperimentType,
+  MetricOverride,
+} from "back-end/types/experiment";
 import {
   DifferenceType,
   PValueCorrection,
@@ -14,7 +18,11 @@ import {
 import Link from "next/link";
 import { FaAngleRight, FaTimes, FaUsers } from "react-icons/fa";
 import Collapsible from "react-collapsible";
-import { ExperimentMetricInterface, getMetricLink } from "shared/experiments";
+import {
+  expandMetricGroups,
+  ExperimentMetricInterface,
+  getMetricLink,
+} from "shared/experiments";
 import { isDefined } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -34,6 +42,8 @@ import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
 import MetricName, { PercentileLabel } from "@/components/Metrics/MetricName";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import ConditionalWrapper from "@/components/ConditionalWrapper";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
@@ -54,9 +64,10 @@ const CompactResults: FC<{
   startDate: string;
   isLatestPhase: boolean;
   status: ExperimentStatus;
-  metrics: string[];
+  goalMetrics: string[];
+  secondaryMetrics: string[];
+  guardrailMetrics: string[];
   metricOverrides: MetricOverride[];
-  guardrails?: string[];
   id: string;
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
@@ -71,6 +82,9 @@ const CompactResults: FC<{
   mainTableOnly?: boolean;
   noStickyHeader?: boolean;
   noTooltip?: boolean;
+  experimentType?: ExperimentType;
+  ssrPolyfills?: SSRPolyfills;
+  hideDetails?: boolean;
 }> = ({
   editMetrics,
   variations,
@@ -83,9 +97,10 @@ const CompactResults: FC<{
   startDate,
   isLatestPhase,
   status,
-  metrics,
+  goalMetrics,
+  guardrailMetrics,
+  secondaryMetrics,
   metricOverrides,
-  guardrails = [],
   id,
   statsEngine,
   pValueCorrection,
@@ -100,9 +115,15 @@ const CompactResults: FC<{
   mainTableOnly,
   noStickyHeader,
   noTooltip,
+  experimentType,
+  ssrPolyfills,
+  hideDetails,
 }) => {
-  const { getExperimentMetricById, ready } = useDefinitions();
-  const pValueThreshold = usePValueThreshold();
+  const { getExperimentMetricById, metricGroups, ready } = useDefinitions();
+
+  const _pValueThreshold = usePValueThreshold();
+  const pValueThreshold =
+    ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
 
   const [totalUsers, variationUsers] = useMemo(() => {
     let totalUsers = 0;
@@ -115,21 +136,62 @@ const CompactResults: FC<{
     return [totalUsers, variationUsers];
   }, [results]);
 
+  const {
+    expandedGoals,
+    expandedSecondaries,
+    expandedGuardrails,
+  } = useMemo(() => {
+    const expandedGoals = expandMetricGroups(
+      goalMetrics,
+      ssrPolyfills?.metricGroups || metricGroups
+    );
+    const expandedSecondaries = expandMetricGroups(
+      secondaryMetrics,
+      ssrPolyfills?.metricGroups || metricGroups
+    );
+    const expandedGuardrails = expandMetricGroups(
+      guardrailMetrics,
+      ssrPolyfills?.metricGroups || metricGroups
+    );
+
+    return { expandedGoals, expandedSecondaries, expandedGuardrails };
+  }, [
+    goalMetrics,
+    metricGroups,
+    ssrPolyfills?.metricGroups,
+    secondaryMetrics,
+    guardrailMetrics,
+  ]);
+
   const allMetricTags = useMemo(() => {
     const allMetricTagsSet: Set<string> = new Set();
-    [...metrics, ...guardrails].forEach((metricId) => {
-      const metric = getExperimentMetricById(metricId);
-      metric?.tags?.forEach((tag) => {
-        allMetricTagsSet.add(tag);
-      });
-    });
+    [...expandedGoals, ...expandedSecondaries, ...expandedGuardrails].forEach(
+      (metricId) => {
+        const metric =
+          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
+          getExperimentMetricById(metricId);
+        metric?.tags?.forEach((tag) => {
+          allMetricTagsSet.add(tag);
+        });
+      }
+    );
     return [...allMetricTagsSet];
-  }, [metrics, guardrails, getExperimentMetricById]);
+  }, [
+    expandedGoals,
+    expandedSecondaries,
+    expandedGuardrails,
+    ssrPolyfills,
+    getExperimentMetricById,
+  ]);
 
   const rows = useMemo<ExperimentTableRow[]>(() => {
-    function getRow(metricId: string, isGuardrail: boolean) {
-      const metric = getExperimentMetricById(metricId);
-
+    function getRow(
+      metricId: string,
+      resultGroup: "goal" | "secondary" | "guardrail"
+    ) {
+      const metric =
+        ssrPolyfills?.getExperimentMetricById?.(metricId) ||
+        getExperimentMetricById(metricId);
       if (!metric) return null;
       const { newMetric, overrideFields } = applyMetricOverrides(
         metric,
@@ -157,26 +219,47 @@ const CompactResults: FC<{
           );
         }),
         metricSnapshotSettings,
-        isGuardrail,
+        resultGroup,
       };
     }
 
-    if (!results || !results.variations || !ready) return [];
+    if (!results || !results.variations || (!ready && !ssrPolyfills)) return [];
     if (pValueCorrection && statsEngine === "frequentist") {
-      setAdjustedPValuesOnResults([results], metrics, pValueCorrection);
+      // Only include goals in calculation, not secondary or guardrails
+      setAdjustedPValuesOnResults([results], expandedGoals, pValueCorrection);
       setAdjustedCIs([results], pValueThreshold);
     }
 
-    const metricDefs = metrics
-      .map((metricId) => getExperimentMetricById(metricId))
+    const metricDefs = expandedGoals
+      .map(
+        (metricId) =>
+          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
+          getExperimentMetricById(metricId)
+      )
       .filter(isDefined);
     const sortedFilteredMetrics = sortAndFilterMetricsByTags(
       metricDefs,
       metricFilter
     );
 
-    const guardrailDefs = guardrails
-      .map((metricId) => getExperimentMetricById(metricId))
+    const secondaryDefs = expandedSecondaries
+      .map(
+        (metricId) =>
+          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
+          getExperimentMetricById(metricId)
+      )
+      .filter(isDefined);
+    const sortedFilteredSecondary = sortAndFilterMetricsByTags(
+      secondaryDefs,
+      metricFilter
+    );
+
+    const guardrailDefs = expandedGuardrails
+      .map(
+        (metricId) =>
+          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
+          getExperimentMetricById(metricId)
+      )
       .filter(isDefined);
     const sortedFilteredGuardrails = sortAndFilterMetricsByTags(
       guardrailDefs,
@@ -184,36 +267,38 @@ const CompactResults: FC<{
     );
 
     const retMetrics = sortedFilteredMetrics
-      .map((metricId) => getRow(metricId, false))
+      .map((metricId) => getRow(metricId, "goal"))
+      .filter(isDefined);
+    const retSecondary = sortedFilteredSecondary
+      .map((metricId) => getRow(metricId, "secondary"))
       .filter(isDefined);
     const retGuardrails = sortedFilteredGuardrails
-      .map((metricId) => getRow(metricId, true))
+      .map((metricId) => getRow(metricId, "guardrail"))
       .filter(isDefined);
-    return [...retMetrics, ...retGuardrails];
+    return [...retMetrics, ...retSecondary, ...retGuardrails];
   }, [
     results,
-    metrics,
-    guardrails,
+    expandedGoals,
+    expandedSecondaries,
+    expandedGuardrails,
     metricOverrides,
     settingsForSnapshotMetrics,
     pValueCorrection,
     pValueThreshold,
     statsEngine,
     ready,
+    ssrPolyfills,
     getExperimentMetricById,
     metricFilter,
   ]);
 
-  const users = useMemo(() => {
-    const vars = results?.variations;
-    return variations.map((v, i) => vars?.[i]?.users || 0);
-  }, [results, variations]);
+  const isBandit = experimentType === "multi-armed-bandit";
 
   return (
     <>
       {!mainTableOnly && (
         <>
-          {status !== "draft" && totalUsers > 0 && (
+          {!isBandit && status !== "draft" && totalUsers > 0 && (
             <div className="users">
               <Collapsible
                 trigger={
@@ -237,52 +322,73 @@ const CompactResults: FC<{
           )}
 
           <div className="mx-3">
-            <DataQualityWarning
-              results={results}
-              variations={variations}
-              linkToHealthTab
-              setTab={setTab}
-            />
+            {experimentType !== "multi-armed-bandit" && (
+              <DataQualityWarning
+                results={results}
+                variations={variations}
+                linkToHealthTab
+                setTab={setTab}
+                isBandit={isBandit}
+              />
+            )}
             <MultipleExposureWarning
-              users={users}
+              totalUsers={totalUsers}
               multipleExposures={multipleExposures}
             />
           </div>
         </>
       )}
 
-      <ResultsTable
-        dateCreated={reportDate}
-        isLatestPhase={isLatestPhase}
-        startDate={startDate}
-        status={status}
-        queryStatusData={queryStatusData}
-        variations={variations}
-        variationFilter={variationFilter}
-        baselineRow={baselineRow}
-        rows={rows.filter((r) => !r.isGuardrail)}
-        id={id}
-        hasRisk={hasRisk(rows)}
-        tableRowAxis="metric"
-        labelHeader="Goal Metrics"
-        editMetrics={editMetrics}
-        statsEngine={statsEngine}
-        sequentialTestingEnabled={sequentialTestingEnabled}
-        pValueCorrection={pValueCorrection}
-        differenceType={differenceType}
-        renderLabelColumn={getRenderLabelColumn(
-          regressionAdjustmentEnabled,
-          statsEngine
-        )}
-        metricFilter={metricFilter}
-        setMetricFilter={setMetricFilter}
-        metricTags={allMetricTags}
-        isTabActive={isTabActive}
-        noStickyHeader={noStickyHeader}
-        noTooltip={noTooltip}
-      />
+      {expandedGoals.length ? (
+        <ResultsTable
+          dateCreated={reportDate}
+          isLatestPhase={isLatestPhase}
+          startDate={startDate}
+          status={status}
+          queryStatusData={queryStatusData}
+          variations={variations}
+          variationFilter={variationFilter}
+          baselineRow={baselineRow}
+          rows={rows.filter((r) => r.resultGroup === "goal")}
+          id={id}
+          hasRisk={hasRisk(rows)}
+          tableRowAxis="metric"
+          labelHeader={
+            experimentType !== "multi-armed-bandit"
+              ? "Goal Metrics"
+              : "Decision Metric"
+          }
+          editMetrics={
+            experimentType !== "multi-armed-bandit" ? editMetrics : undefined
+          }
+          statsEngine={statsEngine}
+          sequentialTestingEnabled={sequentialTestingEnabled}
+          pValueCorrection={pValueCorrection}
+          differenceType={differenceType}
+          renderLabelColumn={getRenderLabelColumn(
+            regressionAdjustmentEnabled,
+            statsEngine,
+            hideDetails
+          )}
+          metricFilter={
+            experimentType !== "multi-armed-bandit" ? metricFilter : undefined
+          }
+          setMetricFilter={
+            experimentType !== "multi-armed-bandit"
+              ? setMetricFilter
+              : undefined
+          }
+          metricTags={allMetricTags}
+          isTabActive={isTabActive}
+          noStickyHeader={noStickyHeader}
+          noTooltip={noTooltip}
+          isBandit={isBandit}
+          isGoalMetrics={true}
+          ssrPolyfills={ssrPolyfills}
+        />
+      ) : null}
 
-      {!mainTableOnly && guardrails.length ? (
+      {!mainTableOnly && expandedSecondaries.length ? (
         <div className="mt-4">
           <ResultsTable
             dateCreated={reportDate}
@@ -293,20 +399,20 @@ const CompactResults: FC<{
             variations={variations}
             variationFilter={variationFilter}
             baselineRow={baselineRow}
-            rows={rows.filter((r) => r.isGuardrail)}
+            rows={rows.filter((r) => r.resultGroup === "secondary")}
             id={id}
             hasRisk={hasRisk(rows)}
             tableRowAxis="metric"
-            labelHeader="Guardrail Metrics"
+            labelHeader="Secondary Metrics"
             editMetrics={editMetrics}
-            metricsAsGuardrails={true}
             statsEngine={statsEngine}
             sequentialTestingEnabled={sequentialTestingEnabled}
             pValueCorrection={pValueCorrection}
             differenceType={differenceType}
             renderLabelColumn={getRenderLabelColumn(
               regressionAdjustmentEnabled,
-              statsEngine
+              statsEngine,
+              hideDetails
             )}
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
@@ -314,6 +420,46 @@ const CompactResults: FC<{
             isTabActive={isTabActive}
             noStickyHeader={noStickyHeader}
             noTooltip={noTooltip}
+            isBandit={isBandit}
+            ssrPolyfills={ssrPolyfills}
+          />
+        </div>
+      ) : null}
+
+      {!mainTableOnly && expandedGuardrails.length ? (
+        <div className="mt-4">
+          <ResultsTable
+            dateCreated={reportDate}
+            isLatestPhase={isLatestPhase}
+            startDate={startDate}
+            status={status}
+            queryStatusData={queryStatusData}
+            variations={variations}
+            variationFilter={variationFilter}
+            baselineRow={baselineRow}
+            rows={rows.filter((r) => r.resultGroup === "guardrail")}
+            id={id}
+            hasRisk={hasRisk(rows)}
+            tableRowAxis="metric"
+            labelHeader="Guardrail Metrics"
+            editMetrics={editMetrics}
+            statsEngine={statsEngine}
+            sequentialTestingEnabled={sequentialTestingEnabled}
+            pValueCorrection={pValueCorrection}
+            differenceType={differenceType}
+            renderLabelColumn={getRenderLabelColumn(
+              regressionAdjustmentEnabled,
+              statsEngine,
+              hideDetails
+            )}
+            metricFilter={metricFilter}
+            setMetricFilter={setMetricFilter}
+            metricTags={allMetricTags}
+            isTabActive={isTabActive}
+            noStickyHeader={noStickyHeader}
+            noTooltip={noTooltip}
+            isBandit={isBandit}
+            ssrPolyfills={ssrPolyfills}
           />
         </div>
       ) : (
@@ -324,11 +470,15 @@ const CompactResults: FC<{
 };
 export default CompactResults;
 
-export function getRenderLabelColumn(regressionAdjustmentEnabled, statsEngine) {
+export function getRenderLabelColumn(
+  regressionAdjustmentEnabled?: boolean,
+  statsEngine?: StatsEngine,
+  hideDetails?: boolean
+) {
   return function renderLabelColumn(
     label: string,
     metric: ExperimentMetricInterface,
-    row: ExperimentTableRow,
+    row?: ExperimentTableRow,
     maxRows?: number
   ) {
     const metricLink = (
@@ -339,10 +489,12 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled, statsEngine) {
             row={row}
             statsEngine={statsEngine}
             reportRegressionAdjustmentEnabled={regressionAdjustmentEnabled}
+            hideDetails={hideDetails}
           />
         }
         tipPosition="right"
         className="d-inline-block font-weight-bold metric-label"
+        popperClassName="dark-theme"
         usePortal={true}
       >
         {" "}
@@ -366,13 +518,18 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled, statsEngine) {
                 }
           }
         >
-          <Link
-            href={getMetricLink(metric.id)}
-            className="metriclabel text-dark"
+          <ConditionalWrapper
+            condition={!hideDetails}
+            wrapper={
+              <Link
+                href={getMetricLink(metric.id)}
+                className="metriclabel text-dark"
+              />
+            }
           >
-            <MetricName id={metric.id} disableTooltip />
+            <MetricName metric={metric} disableTooltip />
             <PercentileLabel metric={metric} />
-          </Link>
+          </ConditionalWrapper>
         </span>
       </Tooltip>
     );

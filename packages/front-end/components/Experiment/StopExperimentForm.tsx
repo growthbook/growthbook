@@ -5,6 +5,8 @@ import {
 } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
 import { experimentHasLinkedChanges } from "shared/util";
+import { FaExclamationTriangle } from "react-icons/fa";
+import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import SelectField from "@/components/Forms/SelectField";
@@ -13,13 +15,27 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Field from "@/components/Forms/Field";
 import Toggle from "@/components/Forms/Toggle";
 import { DocLink } from "@/components/DocLink";
+import DatePicker from "@/components/DatePicker";
 
 const StopExperimentForm: FC<{
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   close: () => void;
-}> = ({ experiment, close, mutate }) => {
+  source?: string;
+}> = ({ experiment, close, mutate, source }) => {
+  const isBandit = experiment.type == "multi-armed-bandit";
   const isStopped = experiment.status === "stopped";
+
+  const hasLinkedChanges = experimentHasLinkedChanges(experiment);
+
+  const phases = experiment.phases || [];
+  const lastPhaseIndex = phases.length - 1;
+  const lastPhase = phases[lastPhaseIndex];
+
+  const percentFormatter = new Intl.NumberFormat(undefined, {
+    style: "percent",
+    maximumFractionDigits: 2,
+  });
 
   const form = useForm({
     defaultValues: {
@@ -73,7 +89,13 @@ const StopExperimentForm: FC<{
 
   return (
     <Modal
-      header={isStopped ? "Edit Experiment Results" : "Stop Experiment"}
+      trackingEventModalType="stop-experiment-form"
+      trackingEventModalSource={source}
+      header={
+        isStopped
+          ? `Edit ${isBandit ? "Bandit" : "Experiment"} Results`
+          : `Stop ${isBandit ? "Bandit" : "Experiment"}`
+      }
       close={close}
       open={true}
       submit={submit}
@@ -84,16 +106,20 @@ const StopExperimentForm: FC<{
       {!isStopped && (
         <>
           <Field
-            label="Reason for stopping the test"
+            label="Reason for stopping"
             textarea
             {...form.register("reason")}
             placeholder="(optional)"
           />
-          <Field
-            label="Stop Time (UTC)"
-            type="datetime-local"
-            {...form.register("dateEnded")}
-          />
+          {!hasLinkedChanges && (
+            <DatePicker
+              label="End Time (UTC)"
+              date={form.watch("dateEnded")}
+              setDate={(v) => {
+                form.setValue("dateEnded", v ? datetime(v) : "");
+              }}
+            />
+          )}
         </>
       )}
       <div className="row">
@@ -125,7 +151,7 @@ const StopExperimentForm: FC<{
               );
             }
           }}
-          initialOption="Pick one..."
+          placeholder="Pick one..."
           required
           options={[
             { label: "Did Not Finish", value: "dnf" },
@@ -154,7 +180,7 @@ const StopExperimentForm: FC<{
           />
         )}
       </div>
-      {experimentHasLinkedChanges(experiment) && (
+      {hasLinkedChanges && (
         <>
           <div className="row">
             <div className="form-group col">
@@ -171,12 +197,25 @@ const StopExperimentForm: FC<{
               </div>
 
               <small className="form-text text-muted">
-                Keep the experiment running until you can implement the changes
-                in code.{" "}
+                Keep the {isBandit ? "Bandit" : "Experiment"} running until you
+                can implement the changes in code.{" "}
                 <DocLink docSection="temporaryRollout">Learn more</DocLink>
               </small>
             </div>
           </div>
+
+          {!form.watch("excludeFromPayload") &&
+          (lastPhase?.coverage ?? 1) < 1 ? (
+            <div className="alert alert-warning">
+              <FaExclamationTriangle className="mr-1" />
+              Currently only{" "}
+              <strong>{percentFormatter.format(lastPhase.coverage)}</strong> of
+              traffic is directed at this experiment. Upon rollout,{" "}
+              <strong>100%</strong> of traffic will be directed towards the
+              released variation.
+            </div>
+          ) : null}
+
           {!form.watch("excludeFromPayload") ? (
             <div className="row">
               <SelectField

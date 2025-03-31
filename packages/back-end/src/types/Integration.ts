@@ -1,23 +1,28 @@
 import { BigQueryTimestamp } from "@google-cloud/bigquery";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { ReqContext } from "../../types/organization";
+import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
+import { ReqContext } from "back-end/types/organization";
 import {
+  AutoFactTableSchemas,
   DataSourceInterface,
   DataSourceProperties,
   SchemaFormat,
-} from "../../types/datasource";
-import { DimensionInterface } from "../../types/dimension";
-import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
-import { MetricInterface, MetricType } from "../../types/metric";
-import { QueryStatistics } from "../../types/query";
-import { SegmentInterface } from "../../types/segment";
-import { FormatDialect } from "../util/sql";
-import { TemplateVariables } from "../../types/sql";
-import { FactTableMap } from "../models/FactTableModel";
+} from "back-end/types/datasource";
+import { DimensionInterface } from "back-end/types/dimension";
+import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
+import { MetricInterface, MetricType } from "back-end/types/metric";
+import { QueryStatistics } from "back-end/types/query";
+import { SegmentInterface } from "back-end/types/segment";
+import { FormatDialect } from "back-end/src/util/sql";
+import { TemplateVariables } from "back-end/types/sql";
+import { FactTableMap } from "back-end/src/models/FactTableModel";
 import {
+  ColumnInterface,
   FactMetricInterface,
+  FactTableInterface,
   MetricQuantileSettings,
-} from "../../types/fact-table";
+} from "back-end/types/fact-table";
+import { PopulationDataQuerySettings } from "back-end/src/queryRunners/PopulationDataQueryRunner";
 
 export type ExternalIdCallback = (id: string) => Promise<void>;
 
@@ -52,6 +57,7 @@ export type FactMetricData = {
   capCoalesceMetric: string;
   capCoalesceDenominator: string;
   capCoalesceCovariate: string;
+  capCoalesceDenominatorCovariate: string;
   minMetricDelay: number;
   raMetricSettings: {
     hours: number;
@@ -62,6 +68,18 @@ export type FactMetricData = {
   metricEnd: Date | null;
   maxHoursToConvert: number;
 };
+
+export type BanditMetricData = Pick<
+  FactMetricData,
+  | "alias"
+  | "id"
+  | "ratioMetric"
+  | "regressionAdjusted"
+  | "isPercentileCapped"
+  | "capCoalesceMetric"
+  | "capCoalesceDenominator"
+  | "capCoalesceCovariate"
+>;
 
 export interface ExperimentMetricStats {
   metric_type: MetricType;
@@ -132,6 +150,27 @@ export type ProcessedDimensions = {
   activationDimension: ActivationDimension | null;
 };
 
+export interface DropTableQueryParams {
+  fullTablePath: string;
+}
+
+export type TestQueryParams = {
+  query: string;
+  templateVariables?: TemplateVariables;
+  testDays?: number;
+  limit?: number;
+};
+
+export type ColumnTopValuesParams = {
+  factTable: Pick<FactTableInterface, "sql" | "eventName">;
+  column: ColumnInterface;
+  limit?: number;
+};
+export type ColumnTopValuesResponseRow = {
+  value: string;
+  count: number;
+};
+
 interface ExperimentBaseQueryParams {
   settings: ExperimentSnapshotSettings;
   activationMetric: ExperimentMetricInterface | null;
@@ -145,17 +184,34 @@ export interface ExperimentUnitsQueryParams extends ExperimentBaseQueryParams {
   includeIdJoins: boolean;
 }
 
+type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";
 export interface ExperimentMetricQueryParams extends ExperimentBaseQueryParams {
   metric: ExperimentMetricInterface;
   denominatorMetrics: ExperimentMetricInterface[];
-  useUnitsTable: boolean;
+  unitsSource: UnitsSource;
+  unitsSql?: string;
+  forcedUserIdType?: string;
 }
 
 export interface ExperimentFactMetricsQueryParams
   extends ExperimentBaseQueryParams {
   metrics: FactMetricInterface[];
-  useUnitsTable: boolean;
+  unitsSource: UnitsSource;
+  unitsSql?: string;
+  forcedUserIdType?: string;
 }
+
+export interface PopulationBaseQueryParams {
+  populationSettings: PopulationDataQuerySettings;
+  factTableMap: FactTableMap;
+  segment: SegmentInterface | null;
+}
+export interface PopulationMetricQueryParams
+  extends ExperimentMetricQueryParams,
+    PopulationBaseQueryParams {}
+export interface PopulationFactMetricsQueryParams
+  extends ExperimentFactMetricsQueryParams,
+    PopulationBaseQueryParams {}
 
 export interface ExperimentAggregateUnitsQueryParams
   extends ExperimentBaseQueryParams {
@@ -178,8 +234,16 @@ export type MetricValueParams = {
   to: Date;
   metric: MetricInterface;
   name: string;
+  factTableMap: FactTableMap;
   segment?: SegmentInterface;
   includeByDate?: boolean;
+};
+
+export type MetricAnalysisParams = {
+  settings: MetricAnalysisSettings;
+  metric: FactMetricInterface;
+  factTableMap: FactTableMap;
+  segment: SegmentInterface | null;
 };
 
 export type MetricValueResultDate = {
@@ -221,20 +285,26 @@ export type TrackedEventResponseRow = {
   last_tracked_at: Date | BigQueryTimestamp;
 };
 
-export type TrackedEventData = {
-  event: string;
+export interface TrackedEventData {
+  eventName: string;
   displayName: string;
   hasUserId: boolean;
   count: number;
   lastTrackedAt: Date;
-  metricsToCreate: {
-    name: string;
-    sql: string;
-    type: MetricType;
-    shouldCreate?: boolean;
-    exists?: boolean;
-  }[];
+}
+
+export type AutoMetricToCreate = {
+  name: string;
+  sql: string;
+  type: MetricType;
+  shouldCreate: boolean;
+  alreadyExists: boolean;
+  userIdTypes: string[];
 };
+
+export interface AutoMetricTrackedEvent extends TrackedEventData {
+  metricsToCreate: AutoMetricToCreate[];
+}
 
 export type MetricValueQueryResponseRow = {
   date: string;
@@ -242,7 +312,51 @@ export type MetricValueQueryResponseRow = {
   main_sum: number;
   main_sum_squares: number;
 };
+
 export type MetricValueQueryResponseRows = MetricValueQueryResponseRow[];
+
+export type MetricAnalysisQueryResponseRow = {
+  date: string;
+  data_type: string;
+  capped: boolean;
+  units: number;
+  main_sum: number;
+  main_sum_squares: number;
+  denominator_sum?: number;
+  denominator_sum_squares?: number;
+  main_denominator_sum_product?: number;
+
+  value_min?: number;
+  value_max?: number;
+  bin_width?: number;
+  units_bin_0?: number;
+  units_bin_1?: number;
+  units_bin_2?: number;
+  units_bin_3?: number;
+  units_bin_4?: number;
+  units_bin_5?: number;
+  units_bin_6?: number;
+  units_bin_7?: number;
+  units_bin_8?: number;
+  units_bin_9?: number;
+  units_bin_10?: number;
+  units_bin_11?: number;
+  units_bin_12?: number;
+  units_bin_13?: number;
+  units_bin_14?: number;
+  units_bin_15?: number;
+  units_bin_16?: number;
+  units_bin_17?: number;
+  units_bin_18?: number;
+  units_bin_19?: number;
+  units_bin_20?: number;
+  units_bin_21?: number;
+  units_bin_22?: number;
+  units_bin_23?: number;
+  units_bin_24?: number;
+};
+
+export type MetricAnalysisQueryResponseRows = MetricAnalysisQueryResponseRow[];
 
 export type PastExperimentResponseRows = {
   exposure_query: string;
@@ -271,6 +385,8 @@ export type ExperimentMetricQueryResponseRows = {
   covariate_sum?: number;
   covariate_sum_squares?: number;
   main_covariate_sum_product?: number;
+
+  theta?: number; // for bandits only
 
   quantile?: number;
   quantile_n?: number;
@@ -308,12 +424,17 @@ export type QueryResponse<Rows = Record<string, any>[]> = {
 };
 
 export type MetricValueQueryResponse = QueryResponse<MetricValueQueryResponseRows>;
+export type MetricAnalysisQueryResponse = QueryResponse<MetricAnalysisQueryResponseRows>;
 export type PastExperimentQueryResponse = QueryResponse<PastExperimentResponseRows>;
 export type ExperimentMetricQueryResponse = QueryResponse<ExperimentMetricQueryResponseRows>;
 export type ExperimentFactMetricsQueryResponse = QueryResponse<ExperimentFactMetricsQueryResponseRows>;
 export type ExperimentUnitsQueryResponse = QueryResponse;
 export type ExperimentAggregateUnitsQueryResponse = QueryResponse<ExperimentAggregateUnitsQueryResponseRows>;
 export type DimensionSlicesQueryResponse = QueryResponse<DimensionSlicesQueryResponseRows>;
+export type DropTableQueryResponse = QueryResponse;
+export type ColumnTopValuesResponse = QueryResponse<
+  ColumnTopValuesResponseRow[]
+>;
 
 export interface TestQueryRow {
   [key: string]: unknown;
@@ -393,6 +514,34 @@ export interface InformationSchemaTablesInterface {
   informationSchemaId: string;
 }
 
+export interface InsertTrackEventProps {
+  event_name: string;
+  value?: number;
+  properties?: Record<string, unknown>;
+  attributes?: Record<string, unknown>;
+}
+
+export interface InsertFeatureUsageProps {
+  feature: string;
+  env: string;
+  revision: string;
+  value: string;
+  source: string;
+  ruleId: string;
+  variationId: string;
+}
+
+export interface FeatureUsageAggregateRow {
+  timestamp: Date;
+  environment: string;
+  value: string;
+  source: string;
+  revision: string;
+  ruleId: string;
+  variationId: string;
+  evaluations: number;
+}
+export type FeatureUsageLookback = "15minute" | "hour" | "day" | "week";
 export interface SourceIntegrationInterface {
   datasource: DataSourceInterface;
   context: ReqContext;
@@ -423,14 +572,29 @@ export interface SourceIntegrationInterface {
   getInformationSchema?(): Promise<InformationSchema[]>;
   getTestValidityQuery?(
     query: string,
+    testDays?: number,
     templateVariables?: TemplateVariables
   ): string;
-  getTestQuery?(query: string, templateVariables?: TemplateVariables): string;
+  getTestQuery?(params: TestQueryParams): string;
   runTestQuery?(
     sql: string,
     timestampCols?: string[]
   ): Promise<TestQueryResult>;
+  getMetricAnalysisQuery(params: MetricAnalysisParams): string;
+  runMetricAnalysisQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<MetricAnalysisQueryResponse>;
+  getDropUnitsTableQuery(params: DropTableQueryParams): string;
+  runDropTableQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<DropTableQueryResponse>;
   getMetricValueQuery(params: MetricValueParams): string;
+  getPopulationMetricQuery?(params: PopulationMetricQueryParams): string;
+  getPopulationFactMetricsQuery?(
+    params: PopulationFactMetricsQueryParams
+  ): string;
   getExperimentFactMetricsQuery?(
     params: ExperimentFactMetricsQueryParams
   ): string;
@@ -449,6 +613,14 @@ export interface SourceIntegrationInterface {
     query: string,
     setExternalId: ExternalIdCallback
   ): Promise<MetricValueQueryResponse>;
+  runPopulationMetricQuery?(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<ExperimentMetricQueryResponse>;
+  runPopulationFactMetricsQuery?(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<ExperimentFactMetricsQueryResponse>;
   runExperimentMetricQuery(
     query: string,
     setExternalId: ExternalIdCallback
@@ -469,11 +641,16 @@ export interface SourceIntegrationInterface {
     query: string,
     setExternalId: ExternalIdCallback
   ): Promise<PastExperimentQueryResponse>;
+  runColumnTopValuesQuery?(sql: string): Promise<ColumnTopValuesResponse>;
+  getColumnTopValuesQuery?: (params: ColumnTopValuesParams) => string;
   getEventsTrackedByDatasource?: (
-    schemaFormat: SchemaFormat,
-    existingMetrics: MetricInterface[],
+    schemaFormat: AutoFactTableSchemas,
     schema?: string
   ) => Promise<TrackedEventData[]>;
+  getAutoMetricsToCreate?: (
+    existingMetrics: MetricInterface[],
+    schema: string
+  ) => Promise<AutoMetricTrackedEvent[]>;
   getAutoGeneratedMetricSqlQuery?(
     event: string,
     hasUserId: boolean,
@@ -487,4 +664,8 @@ export interface SourceIntegrationInterface {
     requireSchema?: boolean
   ): string;
   cancelQuery?(externalId: string): Promise<void>;
+  getFeatureUsage?(
+    feature: string,
+    lookback: FeatureUsageLookback
+  ): Promise<{ start: number; rows: FeatureUsageAggregateRow[] }>;
 }

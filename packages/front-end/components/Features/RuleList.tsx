@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import {
   DndContext,
   DragOverlay,
@@ -17,7 +17,11 @@ import {
 } from "@dnd-kit/sortable";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
-import { getRules, isRuleFullyCovered } from "@/services/features";
+import {
+  getRules,
+  getUnreachableRuleIndex,
+  isRuleInactive,
+} from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { Rule, SortableRule } from "./Rule";
 
@@ -26,19 +30,33 @@ export default function RuleList({
   mutate,
   environment,
   setRuleModal,
+  setCopyRuleModal,
   version,
   setVersion,
   locked,
   experimentsMap,
+  hideInactive,
+  isDraft,
 }: {
   feature: FeatureInterface;
   environment: string;
   mutate: () => void;
-  setRuleModal: (rule: { environment: string; i: number }) => void;
+  setRuleModal: (args: {
+    environment: string;
+    i: number;
+    defaultType?: string;
+    duplicate?: boolean;
+  }) => void;
+  setCopyRuleModal: (args: {
+    environment: string;
+    rules: FeatureRule[];
+  }) => void;
   version: number;
   setVersion: (version: number) => void;
   locked: boolean;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
+  hideInactive?: boolean;
+  isDraft: boolean;
 }) {
   const { apiCall } = useAuth();
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -56,6 +74,8 @@ export default function RuleList({
     })
   );
 
+  const inactiveRules = items.filter((r) => isRuleInactive(r, experimentsMap));
+
   if (!items.length) {
     return (
       <div className="px-3 mb-3">
@@ -72,15 +92,7 @@ export default function RuleList({
   }
 
   // detect unreachable rules, and get the first rule that is at 100%.
-  let unreachableIndex = 0;
-  items.forEach((item, i) => {
-    if (unreachableIndex) return;
-
-    // if this rule covers 100% of traffic, no additional rules are reachable.
-    if (isRuleFullyCovered(item)) {
-      unreachableIndex = i + 1;
-    }
-  });
+  const unreachableIndex = getUnreachableRuleIndex(items, experimentsMap);
 
   const activeRule = activeId ? items[getRuleIndex(activeId)] : null;
 
@@ -131,21 +143,29 @@ export default function RuleList({
         setActiveId(active.id);
       }}
     >
+      {inactiveRules.length === items.length && hideInactive && (
+        <div className="px-3 mb-3">
+          <em>No Active Rules</em>
+        </div>
+      )}
       <SortableContext items={items} strategy={verticalListSortingStrategy}>
         {items.map(({ ...rule }, i) => (
           <SortableRule
-            key={rule.id}
+            key={i + rule.id}
             environment={environment}
             i={i}
             rule={rule}
             feature={feature}
             mutate={mutate}
             setRuleModal={setRuleModal}
+            setCopyRuleModal={setCopyRuleModal}
             unreachable={!!unreachableIndex && i >= unreachableIndex}
             version={version}
             setVersion={setVersion}
             locked={locked}
             experimentsMap={experimentsMap}
+            hideInactive={hideInactive}
+            isDraft={isDraft}
           />
         ))}
       </SortableContext>
@@ -158,10 +178,17 @@ export default function RuleList({
             feature={feature}
             mutate={mutate}
             setRuleModal={setRuleModal}
+            setCopyRuleModal={setCopyRuleModal}
             version={version}
             setVersion={setVersion}
             locked={locked}
             experimentsMap={experimentsMap}
+            hideInactive={hideInactive}
+            unreachable={
+              !!unreachableIndex &&
+              getRuleIndex(activeId as string) >= unreachableIndex
+            }
+            isDraft={isDraft}
           />
         ) : null}
       </DragOverlay>

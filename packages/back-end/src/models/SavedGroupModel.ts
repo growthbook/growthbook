@@ -1,14 +1,14 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
-import { ApiSavedGroup } from "../../types/openapi";
+import { SavedGroupInterface } from "shared/src/types";
+import { ApiSavedGroup } from "back-end/types/openapi";
 import {
   CreateSavedGroupProps,
   LegacySavedGroupInterface,
-  SavedGroupInterface,
   UpdateSavedGroupProps,
-} from "../../types/saved-group";
-import { migrateSavedGroup } from "../util/migrations";
+} from "back-end/types/saved-group";
+import { migrateSavedGroup } from "back-end/src/util/migrations";
 
 const savedGroupSchema = new mongoose.Schema({
   id: {
@@ -30,6 +30,10 @@ const savedGroupSchema = new mongoose.Schema({
     type: String,
   },
   attributeKey: String,
+  description: String,
+  projects: [String],
+  // Previously, empty saved groups were ignored in the SDK payload, making all $inGroup operations return true
+  useEmptyListGroup: Boolean,
 });
 
 type SavedGroupDocument = mongoose.Document & LegacySavedGroupInterface;
@@ -67,6 +71,7 @@ export async function createSavedGroup(
     organization,
     dateCreated: new Date(),
     dateUpdated: new Date(),
+    useEmptyListGroup: true,
   });
   return toInterface(newGroup);
 }
@@ -92,6 +97,18 @@ export async function getSavedGroupById(
   return savedGroup ? toInterface(savedGroup) : null;
 }
 
+export async function getSavedGroupsById(
+  savedGroupIds: string[],
+  organization: string
+): Promise<SavedGroupInterface[]> {
+  const savedGroups = await SavedGroupModel.find({
+    id: savedGroupIds,
+    organization: organization,
+  });
+
+  return savedGroups ? savedGroups.map((group) => toInterface(group)) : [];
+}
+
 export async function updateSavedGroupById(
   savedGroupId: string,
   organization: string,
@@ -111,6 +128,16 @@ export async function updateSavedGroupById(
   );
 
   return changes;
+}
+
+export async function removeProjectFromSavedGroups(
+  project: string,
+  organization: string
+) {
+  await SavedGroupModel.updateMany(
+    { organization, projects: project },
+    { $pull: { projects: project } }
+  );
 }
 
 export async function deleteSavedGroupById(id: string, organization: string) {
@@ -133,5 +160,7 @@ export function toSavedGroupApiInterface(
     dateCreated: savedGroup.dateCreated.toISOString(),
     dateUpdated: savedGroup.dateUpdated.toISOString(),
     owner: savedGroup.owner || "",
+    description: savedGroup.description,
+    projects: savedGroup.projects || [],
   };
 }

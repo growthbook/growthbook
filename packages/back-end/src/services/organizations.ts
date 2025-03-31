@@ -3,16 +3,28 @@ import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
 import { Request } from "express";
 import {
-  getLicense,
-  isActiveSubscriptionStatus,
-  isAirGappedLicenseKey,
-  postSubscriptionUpdateToLicenseServer,
-} from "enterprise";
-import {
   areProjectRolesValid,
   isRoleValid,
   getDefaultRole,
 } from "shared/permissions";
+import {
+  DEFAULT_MAX_PERCENT_CHANGE,
+  DEFAULT_METRIC_CAPPING,
+  DEFAULT_METRIC_CAPPING_VALUE,
+  DEFAULT_METRIC_WINDOW,
+  DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+  DEFAULT_METRIC_WINDOW_HOURS,
+  DEFAULT_MIN_PERCENT_CHANGE,
+  DEFAULT_MIN_SAMPLE_SIZE,
+  DEFAULT_P_VALUE_THRESHOLD,
+  DEFAULT_PROPER_PRIOR_STDDEV,
+  DEFAULT_TARGET_MDE,
+} from "shared/constants";
+import {
+  MetricCappingSettings,
+  MetricPriorSettings,
+  MetricWindowSettings,
+} from "back-end/types/fact-table";
 import {
   createOrganization,
   findAllOrganizations,
@@ -20,52 +32,61 @@ import {
   findOrganizationByInviteKey,
   findOrganizationsByDomain,
   updateOrganization,
-} from "../models/OrganizationModel";
-import { APP_ORIGIN, IS_CLOUD } from "../util/secrets";
-import { AuthRequest } from "../types/AuthRequest";
-import { UserModel } from "../models/UserModel";
+} from "back-end/src/models/OrganizationModel";
+import { APP_ORIGIN, IS_CLOUD } from "back-end/src/util/secrets";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   ExpandedMember,
+  ExpandedMemberInfo,
   Invite,
   Member,
   MemberRoleInfo,
   MemberRoleWithProjects,
+  MetricDefaults,
   OrganizationInterface,
   PendingMember,
   ProjectMemberRole,
   ReqContext,
-} from "../../types/organization";
-import { ApiReqContext, ExperimentOverride } from "../../types/api";
-import { ConfigFile } from "../init/config";
+} from "back-end/types/organization";
+import { ApiReqContext, ExperimentOverride } from "back-end/types/api";
+import { ConfigFile } from "back-end/src/init/config";
 import {
   createDataSource,
   getDataSourceById,
   updateDataSource,
-} from "../models/DataSourceModel";
+} from "back-end/src/models/DataSourceModel";
 import {
   ALLOWED_METRIC_TYPES,
   getMetricById,
   updateMetric,
-} from "../models/MetricModel";
-import { MetricInterface } from "../../types/metric";
+} from "back-end/src/models/MetricModel";
+import { MetricInterface } from "back-end/types/metric";
 import {
   createDimension,
   findDimensionById,
   updateDimension,
-} from "../models/DimensionModel";
-import { DimensionInterface } from "../../types/dimension";
-import { DataSourceInterface } from "../../types/datasource";
-import { SSOConnectionInterface } from "../../types/sso-connection";
-import { logger } from "../util/logger";
-import { SegmentInterface } from "../../types/segment";
+} from "back-end/src/models/DimensionModel";
+import { DimensionInterface } from "back-end/types/dimension";
+import { DataSourceInterface } from "back-end/types/datasource";
+import { SSOConnectionInterface } from "back-end/types/sso-connection";
+import { logger } from "back-end/src/util/logger";
+import { SegmentInterface } from "back-end/types/segment";
+import { getAllExperiments } from "back-end/src/models/ExperimentModel";
+import { LegacyExperimentPhase } from "back-end/types/experiment";
+import { addTags } from "back-end/src/models/TagModel";
+import { getUsersByIds } from "back-end/src/models/UserModel";
 import {
-  createSegment,
-  findSegmentById,
-  updateSegment,
-} from "../models/SegmentModel";
-import { getAllExperiments } from "../models/ExperimentModel";
-import { LegacyExperimentPhase } from "../../types/experiment";
-import { addTags } from "../models/TagModel";
+  getLicenseMetaData,
+  getUserCodesForOrg,
+} from "back-end/src/services/licenseData";
+import {
+  isAirGappedLicenseKey,
+  getLicense,
+  isActiveSubscriptionStatus,
+  getSubscriptionFromLicense,
+  postSubscriptionUpdateToLicenseServer,
+  licenseInit,
+} from "back-end/src/enterprise";
 import {
   encryptParams,
   getSourceIntegrationObject,
@@ -73,13 +94,12 @@ import {
 } from "./datasource";
 import { createMetric } from "./experiments";
 import { isEmailEnabled, sendInviteEmail, sendNewMemberEmail } from "./email";
-import { getUsersByIds } from "./users";
 import { ReqContextClass } from "./context";
 
 export {
   getEnvironments,
   getEnvironmentIdsFromOrg,
-} from "../util/organization.util";
+} from "back-end/src/util/organization.util";
 
 export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
@@ -140,15 +160,50 @@ export function getContextFromReq(req: AuthRequest): ReqContext {
   });
 }
 
-export async function getConfidenceLevelsForOrg(id: string) {
-  const org = await getOrganizationById(id);
-  const ciUpper = org?.settings?.confidenceLevel || 0.95;
+export function getConfidenceLevelsForOrg(context: ReqContext) {
+  const ciUpper = context.org.settings?.confidenceLevel || 0.95;
   return {
     ciUpper,
     ciLower: 1 - ciUpper,
     ciUpperDisplay: Math.round(ciUpper * 100) + "%",
     ciLowerDisplay: Math.round((1 - ciUpper) * 100) + "%",
   };
+}
+
+export function getMetricDefaultsForOrg(context: ReqContext): MetricDefaults {
+  const defaultMetricWindowSettings: MetricWindowSettings = {
+    type: DEFAULT_METRIC_WINDOW,
+    windowValue: DEFAULT_METRIC_WINDOW_HOURS,
+    windowUnit: "hours",
+    delayValue: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+    delayUnit: "hours",
+  };
+  const defaultMetricCappingSettings: MetricCappingSettings = {
+    type: DEFAULT_METRIC_CAPPING,
+    value: DEFAULT_METRIC_CAPPING_VALUE,
+  };
+  const defaultMetricPriorSettings: MetricPriorSettings = {
+    override: false,
+    proper: false,
+    mean: 0,
+    stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+  };
+
+  const METRIC_DEFAULTS = {
+    minimumSampleSize: DEFAULT_MIN_SAMPLE_SIZE,
+    maxPercentageChange: DEFAULT_MAX_PERCENT_CHANGE,
+    minPercentageChange: DEFAULT_MIN_PERCENT_CHANGE,
+    targetMDE: DEFAULT_TARGET_MDE,
+    windowSettings: defaultMetricWindowSettings,
+    cappingSettings: defaultMetricCappingSettings,
+    priorSettings: defaultMetricPriorSettings,
+  };
+
+  return context.org.settings?.metricDefaults || METRIC_DEFAULTS;
+}
+
+export function getPValueThresholdForOrg(context: ReqContext): number {
+  return context.org.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD;
 }
 
 export function getRole(
@@ -188,21 +243,6 @@ export function getNumberOfUniqueMembersAndInvites(
   const numInvites = new Set(organization.invites.map((i) => i.email)).size;
 
   return numMembers + numInvites;
-}
-
-export async function userHasAccess(
-  req: AuthRequest,
-  organization: string
-): Promise<boolean> {
-  if (req.superAdmin) return true;
-  if (req.organization?.id === organization) return true;
-  if (!req.userId) return false;
-
-  const doc = await getOrganizationById(organization);
-  if (doc && doc.members.map((m) => m.id).includes(req.userId)) {
-    return true;
-  }
-  return false;
 }
 
 export async function removeMember(
@@ -263,7 +303,7 @@ async function updateSubscriptionIfProLicense(
     const license = await getLicense(organization.licenseKey);
     if (
       license?.plan === "pro" &&
-      isActiveSubscriptionStatus(license?.stripeSubscription?.status)
+      isActiveSubscriptionStatus(getSubscriptionFromLicense(license)?.status)
     ) {
       // Only pro plans have a Stripe subscription that needs to get updated
       const seatsInUse = getNumberOfUniqueMembersAndInvites(organization);
@@ -828,21 +868,18 @@ export async function importConfig(
         }
 
         try {
-          const existing = await findSegmentById(k, organization.id);
+          const existing = await context.models.segments.getById(k);
           if (existing) {
             const updates: Partial<SegmentInterface> = {
               ...s,
             };
             delete updates.organization;
 
-            await updateSegment(k, organization.id, updates);
+            await context.models.segments.update(existing, updates);
           } else {
-            await createSegment({
+            await context.models.segments.create({
               ...s,
               id: k,
-              dateCreated: new Date(),
-              dateUpdated: new Date(),
-              organization: organization.id,
             });
           }
         } catch (e) {
@@ -853,16 +890,11 @@ export async function importConfig(
   }
 }
 
-export async function getEmailFromUserId(userId: string) {
-  const u = await UserModel.findOne({ id: userId });
-  return u?.email || "";
-}
-
 export async function getExperimentOverrides(
   context: ReqContext | ApiReqContext,
   project?: string
 ) {
-  const experiments = await getAllExperiments(context, project);
+  const experiments = await getAllExperiments(context, { project });
   const overrides: Record<string, ExperimentOverride> = {};
   const expIdMapping: Record<string, { trackingKey: string }> = {};
 
@@ -993,7 +1025,7 @@ export async function addMemberFromSSOConnection(
   return organization;
 }
 
-export async function findVerifiedOrgForNewUser(email: string) {
+export async function findVerifiedOrgsForNewUser(email: string) {
   const domain = email.toLowerCase().split("@")[1];
   const isFreeDomain = freeEmailDomains.includes(domain);
   if (isFreeDomain) {
@@ -1005,29 +1037,80 @@ export async function findVerifiedOrgForNewUser(email: string) {
     return null;
   }
 
-  // get the org with the most members
-  return organizations.reduce((prev, current) => {
-    return prev.members.length > current.members.length ? prev : current;
-  });
+  if (IS_CLOUD) {
+    // On cloud, return an array with only the single org with the most members, as the others are probably just "test" accounts.
+    return [
+      organizations.reduce((prev, current) => {
+        return prev.members.length > current.members.length ? prev : current;
+      }),
+    ];
+  } else {
+    // On multi-org self hosted sites, all orgs with the domain should be available to users to join not just the one with the most members
+    return organizations;
+  }
 }
 
+const expandedMemberInfoCache: Record<
+  string,
+  ExpandedMemberInfo & {
+    dateCreated?: Date;
+    e: number;
+  }
+> = {};
+const EXPANDED_MEMBER_CACHE_TTL = 1000 * 60 * 15; // 15 minutes
+
+// Add email/name to the organization members array
 export async function expandOrgMembers(
-  members: Member[]
+  members: Member[],
+  currentUserId?: string
 ): Promise<ExpandedMember[]> {
-  // Add email/name to the organization members array
-  const userInfo = await getUsersByIds(members.map((m) => m.id));
   const expandedMembers: ExpandedMember[] = [];
-  userInfo.forEach(({ id, email, verified, name, _id }) => {
-    const memberInfo = members.find((m) => m.id === id);
-    if (!memberInfo) return;
-    expandedMembers.push({
-      email,
-      verified,
-      name: name || "",
-      ...memberInfo,
-      dateCreated: memberInfo.dateCreated || _id.getTimestamp(),
-    });
+
+  // First look in cache
+  const now = Date.now();
+  const remainingMembers: Member[] = [];
+  members.forEach((m) => {
+    const cache = expandedMemberInfoCache[m.id];
+    if (cache && cache.e > now && m.id !== currentUserId) {
+      expandedMembers.push({
+        email: cache.email,
+        verified: cache.verified,
+        name: cache.name || "",
+        ...m,
+        dateCreated: m.dateCreated || cache.dateCreated,
+      });
+    } else {
+      remainingMembers.push(m);
+    }
   });
+
+  if (remainingMembers.length > 0) {
+    const userInfo = await getUsersByIds(remainingMembers.map((m) => m.id));
+    userInfo.forEach(({ id, email, verified, name, dateCreated }) => {
+      const memberInfo = remainingMembers.find((m) => m.id === id);
+      if (!memberInfo) return;
+      expandedMembers.push({
+        email,
+        verified,
+        name: name || "",
+        ...memberInfo,
+        dateCreated: memberInfo.dateCreated || dateCreated,
+      });
+
+      expandedMemberInfoCache[id] = {
+        email,
+        verified,
+        name: name || "",
+        dateCreated: dateCreated,
+        e:
+          now +
+          EXPANDED_MEMBER_CACHE_TTL +
+          // Random jitter to avoid cache stampedes
+          Math.floor(Math.random() * EXPANDED_MEMBER_CACHE_TTL * 0.1),
+      };
+    });
+  }
+
   return expandedMembers;
 }
 
@@ -1048,6 +1131,10 @@ export async function getContextForAgendaJobByOrgId(
   const organization = await findOrganizationById(orgId);
 
   if (!organization) throw new Error("Organization not found");
+
+  if (organization.licenseKey && !getLicense(organization.licenseKey)) {
+    await licenseInit(organization, getUserCodesForOrg, getLicenseMetaData);
+  }
 
   return getContextForAgendaJobByOrgObject(organization);
 }

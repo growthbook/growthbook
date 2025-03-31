@@ -1,5 +1,5 @@
-import { FC, createContext, useContext, ReactNode, useMemo } from "react";
-import useApi from "@/hooks/useApi";
+import { FC, createContext, useContext, ReactNode } from "react";
+import { useUser } from "./UserContext";
 
 type WatchContextValue = {
   watchedExperiments: string[];
@@ -20,24 +20,14 @@ export const useWatching = (): WatchContextValue => {
 };
 
 const WatchProvider: FC<{ children: ReactNode }> = ({ children }) => {
-  const { data, mutate } = useApi<{
-    experiments: string[];
-    features: string[];
-  }>("/user/watching");
-
-  const watching = useMemo(() => {
-    return {
-      experiments: data?.experiments || [],
-      features: data?.features || [],
-    };
-  }, [data]);
+  const { refreshOrganization, watching } = useUser();
 
   return (
     <WatchContext.Provider
       value={{
         watchedExperiments: watching.experiments,
         watchedFeatures: watching.features,
-        refreshWatching: mutate,
+        refreshWatching: refreshOrganization,
       }}
     >
       {children}

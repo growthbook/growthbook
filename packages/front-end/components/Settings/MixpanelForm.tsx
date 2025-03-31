@@ -61,6 +61,7 @@ const MixpanelForm: FC<{
           <label>API Server</label>
           <SelectField
             name="server"
+            // todo: better inference
             value={params.server || "standard"}
             onChange={(v) => {
               onManualParamChange("server", v);

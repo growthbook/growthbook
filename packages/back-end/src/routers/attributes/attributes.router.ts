@@ -1,8 +1,8 @@
 import express from "express";
 import { z } from "zod";
-import { wrapController } from "../wrapController";
-import { validateRequestMiddleware } from "../utils/validateRequestMiddleware";
-import { attributeDataTypes } from "../../util/organization.util";
+import { wrapController } from "back-end/src/routers/wrapController";
+import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
+import { attributeDataTypes } from "back-end/src/util/organization.util";
 import * as rawAttributesController from "./attributes.controller";
 
 const router = express.Router();
@@ -32,7 +32,7 @@ router.put(
       property: z.string(),
       description: z.string().optional(),
       datatype: z.enum(attributeDataTypes),
-      projects: z.array(z.string()),
+      projects: z.array(z.string()).optional(),
       format: z.string(),
       enum: z.string(),
       hashAttribute: z.boolean().optional(),

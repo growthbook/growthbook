@@ -1,7 +1,6 @@
 import path from "path";
 import nodemailer from "nodemailer";
 import nunjucks from "nunjucks";
-import { daysLeft } from "shared/dates";
 import {
   EMAIL_ENABLED,
   EMAIL_FROM,
@@ -11,9 +10,10 @@ import {
   EMAIL_PORT,
   SITE_MANAGER_EMAIL,
   APP_ORIGIN,
-} from "../util/secrets";
-import { OrganizationInterface } from "../../types/organization";
-import { getEmailFromUserId, getInviteUrl } from "./organizations";
+} from "back-end/src/util/secrets";
+import { OrganizationInterface } from "back-end/types/organization";
+import { getEmailFromUserId } from "back-end/src/models/UserModel";
+import { getInviteUrl } from "./organizations";
 
 export function isEmailEnabled(): boolean {
   return !!(EMAIL_ENABLED && EMAIL_HOST && EMAIL_PORT && EMAIL_FROM);
@@ -247,40 +247,30 @@ export async function sendPendingMemberApprovalEmail(
   });
 }
 
-export async function sendStripeTrialWillEndEmail({
-  email,
-  organization,
-  endDate,
-  hasPaymentMethod,
-  billingUrl,
-}: {
-  email: string;
-  organization: string;
-  endDate: Date;
-  hasPaymentMethod: boolean;
-  billingUrl: string;
-}) {
-  const trialRemaining = Math.max(daysLeft(endDate), 1);
-  const trialDaysText = `${trialRemaining} day${
-    trialRemaining === 1 ? "" : "s"
-  }`;
-  const html = nunjucks.render("trial-will-end.jinja", {
-    trialDaysText,
-    hasPaymentMethod,
+export async function sendOwnerEmailChangeEmail(
+  email: string,
+  organization: string,
+  originalOwner: string,
+  newOwner: string
+) {
+  const html = nunjucks.render("owner-email-change.jinja", {
+    email,
     organization,
-    billingUrl,
+    originalOwner,
+    newOwner,
   });
-
-  const text = `Your GrowthBook Pro trial will end soon in ${trialDaysText}. ${
-    hasPaymentMethod
-      ? "Your credit card will be billed automatically."
-      : "Add a credit card to avoid losing access to GrowthBook Pro."
-  }`;
 
   await sendMail({
     html,
-    subject: `Your GrowthBook Pro trial will end in ${trialDaysText}`,
-    to: email,
-    text,
+    subject: `The owner for ${organization} on GrowthBook has changed`,
+    to: originalOwner,
+    text: `The owner for ${organization} on GrowthBook has been changed to ${newOwner} by ${email}`,
+  });
+
+  await sendMail({
+    html,
+    subject: `The owner for ${organization} on GrowthBook has changed`,
+    to: newOwner,
+    text: `The owner for ${organization} on GrowthBook has been changed to ${newOwner} by ${email}`,
   });
 }

@@ -130,9 +130,9 @@ print(value)
       <Code
         language="go"
         code={`
-value := gb.Feature(${JSON.stringify(
+value := client.EvalFeature(context.Background(), ${JSON.stringify(
           featureId
-        )}).GetValueWithDefault(${getDefaultValue(valueType)})
+        )}).Value
 fmt.Println(value)
             `.trim()}
       />
@@ -259,9 +259,10 @@ return new Response("<h1>bar</h1>");
 if (growthbook.isOn("my-feature")) {
   const resp = { status: "200", body: "<h1>foo</h1>" };
   callback(null, resp);
+} else {
+  const resp = { status: "200", body: "<h1>bar</h1>" };
+  callback(null, resp);
 }
-const resp = { status: "200", body: "<h1>bar</h1>" };
-callback(null, resp);
         `.trim()}
       />
     );

@@ -14,6 +14,7 @@ export default function StaleDetectionModal({
   const { apiCall } = useAuth();
   return (
     <Modal
+      trackingEventModalType=""
       open
       close={close}
       header={`${

@@ -30,6 +30,7 @@ module.exports = {
     esmUnbundled: {
       ...esm,
       ignore: ["./src/auto-wrapper.ts"],
+      plugins: [["replace-import-extension", { extMapping: { "": ".mjs" } }]],
     },
     cjs: {
       ...cjs,

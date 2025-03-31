@@ -1,74 +1,20 @@
 import crypto from "crypto";
 import { promisify } from "util";
-import uniqid from "uniqid";
 import { Request } from "express";
-import md5 from "md5";
-import { UserDocument, UserModel } from "../models/UserModel";
-import { findOrganizationsByMemberId } from "../models/OrganizationModel";
-import { UserLoginNotificationEvent } from "../events/notification-events";
-import { createEvent } from "../models/EventModel";
-import { UserLoginAuditableProperties } from "../events/event-types";
-import { logger } from "../util/logger";
-import { IS_CLOUD } from "../util/secrets";
-import { usingOpenId, validatePasswordFormat } from "./auth";
+import { UserInterface } from "back-end/types/user";
+import { getUserByEmail, updateUser } from "back-end/src/models/UserModel";
+import { findOrganizationsByMemberId } from "back-end/src/models/OrganizationModel";
+import { createEventWithPayload } from "back-end/src/models/EventModel";
+import { logger } from "back-end/src/util/logger";
+import { UserLoginInterface } from "back-end/src/validators/users";
+import { validatePasswordFormat } from "./auth";
 
 const SALT_LEN = 16;
 const HASH_LEN = 64;
 
 const scrypt = promisify(crypto.scrypt);
 
-// Generate unique codes for each user who is part of at least one organization
-// by taking a porition of the hash of their email.
-// This is used to identify seats being used of a license on self-serve.
-// We base the code on their email so that the same user on multiple installations
-// e.g. dev and production, will have the same code and be treated as a single seat.
-export async function getUserLicenseCodes() {
-  if (IS_CLOUD) {
-    throw new Error("getUserLicenseCodes() is not supported in cloud");
-  }
-
-  const users = await UserModel.aggregate([
-    {
-      $lookup: {
-        from: "organizations",
-        localField: "id",
-        foreignField: "members.id",
-        as: "orgs",
-      },
-    },
-    {
-      $match: {
-        "orgs.0": { $exists: true },
-      },
-    },
-  ]);
-
-  return Promise.all(
-    users.map(async (user) => {
-      return md5(user.email).slice(0, 8);
-    })
-  );
-}
-
-export async function getUserByEmail(email: string) {
-  return UserModel.findOne({
-    email,
-  });
-}
-
-export async function getUserById(id: string) {
-  return UserModel.findOne({
-    id,
-  });
-}
-
-export async function getUsersByIds(ids: string[]) {
-  return UserModel.find({
-    id: { $in: ids },
-  });
-}
-
-async function hash(password: string): Promise<string> {
+export async function hash(password: string): Promise<string> {
   const salt = crypto.randomBytes(SALT_LEN).toString("hex");
   const derivedKey = await (scrypt(
     password,
@@ -79,7 +25,7 @@ async function hash(password: string): Promise<string> {
 }
 
 export async function verifyPassword(
-  user: UserDocument,
+  user: UserInterface,
   password: string
 ): Promise<boolean> {
   if (!user.passwordHash) return false;
@@ -96,56 +42,16 @@ export async function verifyPassword(
 export async function updatePassword(userId: string, password: string) {
   validatePasswordFormat(password);
   const passwordHash = await hash(password);
-
-  await UserModel.updateOne(
-    {
-      id: userId,
-    },
-    {
-      $set: {
-        passwordHash,
-      },
-    }
-  );
-}
-
-export async function createUser({
-  name,
-  email,
-  password,
-  verified = false,
-  superAdmin = false,
-}: {
-  name: string;
-  email: string;
-  password?: string;
-  verified?: boolean;
-  superAdmin?: boolean;
-}) {
-  let passwordHash = "";
-
-  if (!usingOpenId()) {
-    password = validatePasswordFormat(password);
-    passwordHash = await hash(password);
-  }
-
-  return UserModel.create({
-    name,
-    email,
-    passwordHash,
-    id: uniqid("u_"),
-    verified,
-    superAdmin,
-  });
+  await updateUser(userId, { passwordHash });
 }
 
 /**
  * Some tracking properties exist on the request object
  * @param req
  */
-export const getAuditableUserPropertiesFromRequest = (
+export const getUserLoginPropertiesFromRequest = (
   req: Request
-): Pick<UserLoginAuditableProperties, "userAgent" | "device" | "ip" | "os"> => {
+): Pick<UserLoginInterface, "userAgent" | "device" | "ip" | "os"> => {
   const userAgent = (req.headers["user-agent"] as string) || "";
   const device = (req.headers["sec-ch-ua"] as string) || "";
   const os = (req.headers["sec-ch-ua-platform"] as string) || "";
@@ -174,7 +80,7 @@ export async function trackLoginForUser({
   userAgent,
   ip,
   os,
-}: Pick<UserLoginAuditableProperties, "userAgent" | "device" | "ip" | "os"> & {
+}: Pick<UserLoginInterface, "userAgent" | "device" | "ip" | "os"> & {
   email: string;
 }): Promise<void> {
   const user = await getUserByEmail(email);
@@ -189,40 +95,40 @@ export async function trackLoginForUser({
 
   const organizationIds = organizations.map((org) => org.id);
 
-  const auditedData: UserLoginAuditableProperties = {
-    email: user.email,
-    id: user.id,
-    name: user.name || "",
-    ip,
-    userAgent,
-    os,
-    device,
-  };
-
-  const event: UserLoginNotificationEvent = {
-    object: "user",
-    event: "user.login",
-    user: {
-      type: "dashboard",
-      email: user.email,
-      id: user.id,
-      name: user.name || "",
-    },
-    data: {
-      current: auditedData,
-    },
-    projects: [],
-    tags: [],
-    environments: [],
-    // The event contains the ip, userAgent, etc. of users
-    // When marked as containing secrets, view access will be restricted to admins
-    containsSecrets: true,
-  };
-
   try {
     // Create a login event for all of a user's organizations
     const eventCreatePromises = organizationIds.map((organizationId) =>
-      createEvent(organizationId, event)
+      createEventWithPayload({
+        payload: {
+          object: "user",
+          event: "user.login",
+          user: {
+            type: "dashboard",
+            email: user.email,
+            id: user.id,
+            name: user.name || "",
+          },
+          data: {
+            object: {
+              email: user.email,
+              id: user.id,
+              name: user.name || "",
+              ip,
+              userAgent,
+              os,
+              device,
+            },
+          },
+          projects: [],
+          tags: [],
+          environments: [],
+          // The event contains the ip, userAgent, etc. of users
+          // When marked as containing secrets, view access will be restricted to admins
+          containsSecrets: true,
+        },
+        organizationId,
+        objectId: user.id,
+      })
     );
     await Promise.all(eventCreatePromises);
   } catch (e) {

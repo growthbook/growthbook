@@ -1,5 +1,5 @@
 {
-  "specVersion": "0.6.0",
+  "specVersion": "0.7.1",
   "evalCondition": [
     [
       "$not - pass",
@@ -1674,6 +1674,32 @@
       false
     ],
     [
+      "null condition - false attribute",
+      {
+        "userId": null
+      },
+      {
+        "userId": false
+      },
+      false
+    ],
+    [
+      "false condition - missing attribute",
+      {
+        "userId": false
+      },
+      {},
+      false
+    ],
+    [
+      "false strict condition - missing attribute",
+      {
+        "userId": { "$eq": false }
+      },
+      {},
+      false
+    ],
+    [
       "$vgt/$vlt - pass - major",
       {
         "version": {
@@ -2775,6 +2801,131 @@
         "version": "1.2.3.4"
       },
       true
+    ],
+    [
+      "$or pass but second condition fail",
+      {
+        "$or": [{ "foo": 1 }, { "bar": 1 }],
+        "baz": 2
+      },
+      {
+        "foo": 1,
+        "bar": 2,
+        "baz": 1
+      },
+      false
+    ],
+    [
+      "$or and second condition both pass",
+      {
+        "$or": [{ "foo": 1 }, { "bar": 1 }],
+        "baz": 2
+      },
+      {
+        "foo": 1,
+        "bar": 2,
+        "baz": 2
+      },
+      true
+    ],
+    [
+      "$and condition pass but $or fail",
+      {
+        "$and": [{ "foo": 1 }, { "bar": 1 }],
+        "$or": [{ "baz": 1 }, { "empty": 1 }]
+      },
+      {
+        "foo": 1,
+        "bar": 1,
+        "baz": 2
+      },
+      false
+    ],
+    [
+      "$and and $or both pass",
+      {
+        "$and": [{ "foo": 1 }, { "bar": 1 }],
+        "$or": [{ "baz": 1 }, { "empty": 1 }]
+      },
+      {
+        "foo": 1,
+        "bar": 1,
+        "baz": 2,
+        "empty": 1
+      },
+      true
+    ],
+    [
+      "$inGroup passes for member of known group id",
+      {
+        "id": { "$inGroup": "group_id" }
+      },
+      { "id": 1 },
+      true,
+      { "group_id": [1, 2, 3] }
+    ],
+    [
+      "$inGroup fails for non-member of known group id",
+      {
+        "id": { "$inGroup": "group_id" }
+      },
+      { "id": 5 },
+      false,
+      { "group_id": [1, 2, 3] }
+    ],
+    [
+      "$inGroup fails for unknown group id",
+      {
+        "id": { "$inGroup": "unknowngroup_id" }
+      },
+      { "id": 1 },
+      false,
+      { "group_id": [1, 2, 3] }
+    ],
+    [
+      "$notInGroup fails for member of known group id",
+      {
+        "id": { "$notInGroup": "group_id" }
+      },
+      { "id": 1 },
+      false,
+      { "group_id": [1, 2, 3] }
+    ],
+    [
+      "$notInGroup passes for non-member of known group id",
+      {
+        "id": { "$notInGroup": "group_id" }
+      },
+      { "id": 5 },
+      true,
+      { "group_id": [1, 2, 3] }
+    ],
+    [
+      "$notInGroup passes for unknown group id",
+      {
+        "id": { "$notInGroup": "unknowngroup_id" }
+      },
+      { "id": 1 },
+      true,
+      { "group_id": [1, 2, 3] }
+    ],
+    [
+      "$inGroup passes for properly typed data",
+      {
+        "id": { "$inGroup": "group_id" }
+      },
+      { "id": "2" },
+      true,
+      { "group_id": [1, "2", 3] }
+    ],
+    [
+      "$inGroup fails for improperly typed data",
+      {
+        "id": { "$inGroup": "group_id" }
+      },
+      { "id": "3" },
+      false,
+      { "group_id": [1, "2", 3] }
     ]
   ],
   "hash": [
@@ -2915,7 +3066,8 @@
         "value": null,
         "on": false,
         "off": true,
-        "source": "unknownFeature"
+        "source": "unknownFeature",
+        "ruleId": ""
       }
     ],
     [
@@ -2926,7 +3078,8 @@
         "value": null,
         "on": false,
         "off": true,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -2937,7 +3090,8 @@
         "value": 1,
         "on": true,
         "off": false,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -2948,7 +3102,8 @@
         "value": "yes",
         "on": true,
         "off": false,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -2970,7 +3125,32 @@
         "value": 1,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
+      }
+    ],
+    [
+      "force rule with rule id",
+      {
+        "features": {
+          "feature": {
+            "defaultValue": 2,
+            "rules": [
+              {
+                "id": "a",
+                "force": 1
+              }
+            ]
+          }
+        }
+      },
+      "feature",
+      {
+        "value": 1,
+        "on": true,
+        "off": false,
+        "source": "force",
+        "ruleId": "a"
       }
     ],
     [
@@ -2992,7 +3172,8 @@
         "value": false,
         "on": false,
         "off": true,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -3018,7 +3199,8 @@
         "value": 1,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -3044,7 +3226,8 @@
         "value": 1,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -3058,6 +3241,7 @@
             "defaultValue": 2,
             "rules": [
               {
+                "id": "a",
                 "force": 1,
                 "coverage": 0.5
               }
@@ -3070,7 +3254,8 @@
         "value": 2,
         "on": true,
         "off": false,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -3094,7 +3279,8 @@
         "value": 2,
         "on": true,
         "off": false,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -3121,7 +3307,8 @@
         "value": 0,
         "on": false,
         "off": true,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -3151,7 +3338,8 @@
         "value": 1,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -3181,7 +3369,8 @@
         "value": 2,
         "on": true,
         "off": false,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -3208,7 +3397,8 @@
         "value": 2,
         "on": true,
         "off": false,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -3225,7 +3415,8 @@
         "value": null,
         "on": false,
         "off": true,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -3265,7 +3456,8 @@
           "key": "2",
           "stickyBucketUsed": false
         },
-        "source": "experiment"
+        "source": "experiment",
+        "ruleId": ""
       }
     ],
     [
@@ -3278,6 +3470,7 @@
           "feature": {
             "rules": [
               {
+                "id": "id",
                 "variations": ["a", "b", "c"]
               }
             ]
@@ -3305,7 +3498,8 @@
           "key": "0",
           "stickyBucketUsed": false
         },
-        "source": "experiment"
+        "source": "experiment",
+        "ruleId": "id"
       }
     ],
     [
@@ -3345,7 +3539,8 @@
           "key": "1",
           "stickyBucketUsed": false
         },
-        "source": "experiment"
+        "source": "experiment",
+        "ruleId": ""
       }
     ],
     [
@@ -3390,7 +3585,8 @@
                 "key": "hello",
                 "variations": [true, false],
                 "weights": [0.1, 0.9],
-                "condition": { "premium": true }
+                "condition": { "premium": true },
+                "foo": "bar"
               }
             ]
           }
@@ -3448,7 +3644,8 @@
           "key": "v1",
           "name": "variation 1",
           "stickyBucketUsed": false
-        }
+        },
+        "ruleId": ""
       }
     ],
     [
@@ -3482,7 +3679,8 @@
         "value": 2,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -3497,13 +3695,16 @@
             "rules": [
               {
                 "force": 1,
+                "id": "1",
                 "condition": { "browser": "chrome" }
               },
               {
+                "id": "2",
                 "force": 2,
                 "condition": { "browser": "firefox" }
               },
               {
+                "id": "3",
                 "force": 3,
                 "condition": { "browser": "safari" }
               }
@@ -3516,7 +3717,8 @@
         "value": 3,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": "3"
       }
     ],
     [
@@ -3550,7 +3752,8 @@
         "value": 0,
         "on": false,
         "off": true,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -3577,7 +3780,8 @@
         "value": 3,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -3604,7 +3808,8 @@
         "value": 3,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -3643,7 +3848,8 @@
           "key": "1",
           "bucket": 0.863,
           "stickyBucketUsed": false
-        }
+        },
+        "ruleId": ""
       }
     ],
     [
@@ -3670,7 +3876,8 @@
         "value": 3,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -3714,7 +3921,8 @@
           "hashValue": "123",
           "key": "1",
           "stickyBucketUsed": false
-        }
+        },
+        "ruleId": ""
       }
     ],
     [
@@ -3741,7 +3949,8 @@
         "value": 2,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -3768,7 +3977,8 @@
         "value": 2,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -3794,7 +4004,8 @@
         "value": 0,
         "on": false,
         "off": true,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -3825,7 +4036,8 @@
         "value": 0,
         "on": false,
         "off": true,
-        "source": "defaultValue"
+        "source": "defaultValue",
+        "ruleId": ""
       }
     ],
     [
@@ -3853,7 +4065,8 @@
         "value": 2,
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -3920,7 +4133,8 @@
           "variationId": 0,
           "bucket": 0.4413,
           "stickyBucketUsed": false
-        }
+        },
+        "ruleId": ""
       }
     ],
     [
@@ -3993,7 +4207,8 @@
           "variationId": 0,
           "bucket": 0.8043,
           "stickyBucketUsed": false
-        }
+        },
+        "ruleId": ""
       }
     ],
     [
@@ -4043,7 +4258,8 @@
         "value": null,
         "on": false,
         "off": true,
-        "source": "prerequisite"
+        "source": "prerequisite",
+        "ruleId": ""
       }
     ],
     [
@@ -4080,7 +4296,8 @@
         "value": null,
         "on": false,
         "off": true,
-        "source": "prerequisite"
+        "source": "prerequisite",
+        "ruleId": ""
       }
     ],
     [
@@ -4130,7 +4347,8 @@
         "value": "success",
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -4198,7 +4416,8 @@
         "value": "success",
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -4266,7 +4485,8 @@
         "value": "success",
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
       }
     ],
     [
@@ -4318,7 +4538,61 @@
         "value": "success",
         "on": true,
         "off": false,
-        "source": "force"
+        "source": "force",
+        "ruleId": ""
+      }
+    ],
+    [
+      "Prerequisite experiment flag in target bucket, evaluate skip dependent flag if not bucketed",
+      {
+        "attributes": {
+          "id": "1234",
+          "memberType": "basic",
+          "country": "USA"
+        },
+        "features": {
+          "parentExperimentFlag": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "key": "experiment",
+                "variations": [0, 1],
+                "hashAttribute": "id",
+                "hashVersion": 2,
+                "ranges": [
+                  [0, 0.5],
+                  [0.5, 1.0]
+                ]
+              }
+            ]
+          },
+          "childFlag": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "parentConditions": [
+                  {
+                    "id": "parentExperimentFlag",
+                    "condition": { "value": 0 },
+                    "gate": true
+                  }
+                ]
+              },
+              {
+                "condition": { "memberType": "basic" },
+                "force": "success"
+              }
+            ]
+          }
+        }
+      },
+      "childFlag",
+      {
+        "value": null,
+        "on": false,
+        "off": true,
+        "source": "prerequisite",
+        "ruleId": ""
       }
     ],
     [
@@ -4363,7 +4637,161 @@
         "value": null,
         "on": false,
         "off": true,
-        "source": "cyclicPrerequisite"
+        "source": "cyclicPrerequisite",
+        "ruleId": ""
+      }
+    ],
+    [
+      "Multiple references to same prerequisite, do not break",
+      {
+        "attributes": {
+          "id": "123",
+          "browser": "edge"
+        },
+        "features": {
+          "childFlag": {
+            "defaultValue": true,
+            "rules": [
+              {
+                "parentConditions": [
+                  {
+                    "id": "parentFlag",
+                    "condition": { "value": { "$ne": false } },
+                    "gate": true
+                  },
+                  {
+                    "id": "parentFlag",
+                    "condition": { "value": true },
+                    "gate": true
+                  }
+                ]
+              },
+              {
+                "condition": {
+                  "browser": "safari"
+                },
+                "parentConditions": [
+                  {
+                    "id": "parentFlag",
+                    "condition": { "value": true }
+                  }
+                ],
+                "force": "C"
+              },
+              {
+                "condition": {
+                  "browser": { "$ne": "safari" }
+                },
+                "parentConditions": [
+                  {
+                    "id": "parentFlag",
+                    "condition": { "value": true }
+                  }
+                ],
+                "force": "T"
+              }
+            ]
+          },
+          "parentFlag": {
+            "defaultValue": true
+          }
+        }
+      },
+      "childFlag",
+      {
+        "value": "T",
+        "on": true,
+        "off": false,
+        "source": "force",
+        "ruleId": ""
+      }
+    ],
+    [
+      "SavedGroups correctly pulled from context for force rule",
+      {
+        "attributes": {
+          "id": 123
+        },
+        "features": {
+          "inGroup_force_rule": {
+            "defaultValue": false,
+            "rules": [
+              {
+                "force": true,
+                "condition": { "id": { "$inGroup": "group_id" } }
+              }
+            ]
+          }
+        },
+        "savedGroups": {
+          "group_id": [123, 456]
+        }
+      },
+      "inGroup_force_rule",
+      {
+        "value": true,
+        "on": true,
+        "off": false,
+        "source": "force",
+        "ruleId": ""
+      }
+    ],
+    [
+      "SavedGroups correctly pulled from context for experiment rule",
+      {
+        "attributes": {
+          "id": 123
+        },
+        "features": {
+          "inGroup_experiment_rule": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "key": "experiment",
+                "condition": { "id": { "$inGroup": "group_id" } },
+                "hashVersion": 2,
+                "variations": [1, 2],
+                "ranges": [
+                  [0, 0.5],
+                  [0.5, 1.0]
+                ]
+              }
+            ]
+          }
+        },
+        "savedGroups": {
+          "group_id": [123, 456]
+        }
+      },
+      "inGroup_experiment_rule",
+      {
+        "value": 1,
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "experiment": {
+          "hashVersion": 2,
+          "condition": { "id": { "$inGroup": "group_id" } },
+          "variations": [1, 2],
+          "ranges": [
+            [0, 0.5],
+            [0.5, 1.0]
+          ],
+          "key": "experiment"
+        },
+        "experimentResult": {
+          "featureId": "inGroup_experiment_rule",
+          "hashAttribute": "id",
+          "hashUsed": true,
+          "hashValue": 123,
+          "inExperiment": true,
+          "key": "0",
+          "value": 1,
+          "variationId": 0,
+          "bucket": 0.1736,
+          "stickyBucketUsed": false
+        },
+        "ruleId": ""
       }
     ]
   ],
@@ -5247,6 +5675,23 @@
       0,
       false,
       false
+    ],
+    [
+      "SavedGroups correctly pulled from context for experiment",
+      {
+        "attributes": { "id": "4" },
+        "savedGroups": { "group_id": ["4", "5", "6"] }
+      },
+      {
+        "key": "group-filtered-test",
+        "condition": {
+          "id": { "$inGroup": "group_id" }
+        },
+        "variations": [0, 1, 2]
+      },
+      0,
+      true,
+      true
     ]
   ],
   "chooseVariation": [

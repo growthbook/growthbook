@@ -11,20 +11,22 @@ import {
   EMAIL_HOST_PASSWORD,
   EMAIL_HOST_USER,
   EMAIL_PORT,
-  STORE_SEGMENTS_IN_MONGO,
-} from "../util/secrets";
+} from "back-end/src/util/secrets";
 import {
   DataSourceInterface,
   DataSourceInterfaceWithParams,
-} from "../../types/datasource";
-import { MetricInterface } from "../../types/metric";
-import { DimensionInterface } from "../../types/dimension";
-import { encryptParams } from "../services/datasource";
-import { OrganizationSettings, ReqContext } from "../../types/organization";
-import { upgradeMetricDoc, upgradeDatasourceObject } from "../util/migrations";
-import { logger } from "../util/logger";
-import { SegmentInterface } from "../../types/segment";
-import { ApiReqContext } from "../../types/api";
+} from "back-end/types/datasource";
+import { MetricInterface } from "back-end/types/metric";
+import { DimensionInterface } from "back-end/types/dimension";
+import { encryptParams } from "back-end/src/services/datasource";
+import { OrganizationSettings, ReqContext } from "back-end/types/organization";
+import {
+  upgradeMetricDoc,
+  upgradeDatasourceObject,
+} from "back-end/src/util/migrations";
+import { logger } from "back-end/src/util/logger";
+import { SegmentInterface } from "back-end/types/segment";
+import { ApiReqContext } from "back-end/types/api";
 
 export type ConfigFile = {
   organization?: {
@@ -144,13 +146,6 @@ export function usingFileConfig(): boolean {
   return !!config;
 }
 
-export function usingFileConfigForSegments(): boolean {
-  reloadConfigIfNeeded();
-  // This should only return true if the org has a config file &&
-  // env variable STORE_SEGMENTS_IN_MONGO is false
-  return !!config && !STORE_SEGMENTS_IN_MONGO;
-}
-
 export function getConfigDatasources(
   organization: string
 ): DataSourceInterface[] {
@@ -239,8 +234,8 @@ export function getConfigSegments(organization: string): SegmentInterface[] {
       id,
       ...d,
       organization,
-      dateCreated: null,
-      dateUpdated: null,
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
     };
   });
 }

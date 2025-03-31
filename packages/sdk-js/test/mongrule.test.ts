@@ -8,7 +8,8 @@ describe("Mongrule", () => {
           { userId: null },
           {
             userId: null,
-          }
+          },
+          {}
         )
       ).toBe(true);
 
@@ -17,7 +18,8 @@ describe("Mongrule", () => {
           {},
           {
             userId: null,
-          }
+          },
+          {}
         )
       ).toBe(true);
     });
@@ -30,7 +32,8 @@ describe("Mongrule", () => {
           },
           {
             userId: null,
-          }
+          },
+          {}
         )
       ).toBe(false);
     });
@@ -43,7 +46,8 @@ describe("Mongrule", () => {
           },
           {
             userId: null,
-          }
+          },
+          {}
         )
       ).toBe(false);
 
@@ -54,7 +58,8 @@ describe("Mongrule", () => {
           },
           {
             userId: null,
-          }
+          },
+          {}
         )
       ).toBe(false);
 
@@ -63,7 +68,8 @@ describe("Mongrule", () => {
           { userId: undefined },
           {
             userId: null,
-          }
+          },
+          {}
         )
       ).toBe(false);
     });
@@ -76,7 +82,8 @@ describe("Mongrule", () => {
           },
           {
             email: { $exists: true },
-          }
+          },
+          {}
         )
       ).toBe(false);
 
@@ -87,7 +94,8 @@ describe("Mongrule", () => {
           },
           {
             email: { $exists: false },
-          }
+          },
+          {}
         )
       ).toBe(true);
 
@@ -98,7 +106,8 @@ describe("Mongrule", () => {
           },
           {
             email: { $exists: true },
-          }
+          },
+          {}
         )
       ).toBe(false);
 
@@ -109,7 +118,8 @@ describe("Mongrule", () => {
           },
           {
             email: { $exists: false },
-          }
+          },
+          {}
         )
       ).toBe(true);
 
@@ -120,7 +130,8 @@ describe("Mongrule", () => {
           },
           {
             email: { $exists: true },
-          }
+          },
+          {}
         )
       ).toBe(true);
 
@@ -131,7 +142,8 @@ describe("Mongrule", () => {
           },
           {
             email: { $exists: false },
-          }
+          },
+          {}
         )
       ).toBe(false);
 
@@ -142,7 +154,8 @@ describe("Mongrule", () => {
           },
           {
             email: { $exists: true },
-          }
+          },
+          {}
         )
       ).toBe(true);
 
@@ -153,7 +166,8 @@ describe("Mongrule", () => {
           },
           {
             email: { $exists: false },
-          }
+          },
+          {}
         )
       ).toBe(false);
     });

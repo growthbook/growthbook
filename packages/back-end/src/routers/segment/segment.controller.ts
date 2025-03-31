@@ -1,31 +1,28 @@
 import type { Response } from "express";
-import uniqid from "uniqid";
 import { FilterQuery } from "mongoose";
-import { AuthRequest } from "../../types/AuthRequest";
-import { ApiErrorResponse } from "../../../types/api";
-import { getContextFromReq } from "../../services/organizations";
-import {
-  createSegment,
-  deleteSegmentById,
-  findSegmentById,
-  findSegmentsByOrganization,
-  updateSegment,
-} from "../../models/SegmentModel";
-import { getDataSourceById } from "../../models/DataSourceModel";
-import { getIdeasByQuery } from "../../services/ideas";
-import { IdeaDocument, IdeaModel } from "../../models/IdeasModel";
+import { z } from "zod";
+import { EventUserForResponseLocals } from "back-end/src/events/event-types";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { ApiErrorResponse } from "back-end/types/api";
+import { getContextFromReq } from "back-end/src/services/organizations";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { getIdeasByQuery } from "back-end/src/services/ideas";
+import { IdeaDocument, IdeaModel } from "back-end/src/models/IdeasModel";
 import {
   getMetricsUsingSegment,
   removeSegmentFromAllMetrics,
-} from "../../models/MetricModel";
+} from "back-end/src/models/MetricModel";
 import {
   deleteExperimentSegment,
   getExperimentsUsingSegment,
-} from "../../models/ExperimentModel";
-import { MetricInterface } from "../../../types/metric";
-import { SegmentInterface } from "../../../types/segment";
-import { ExperimentInterface } from "../../../types/experiment";
-import { EventAuditUserForResponseLocals } from "../../events/event-types";
+} from "back-end/src/models/ExperimentModel";
+import { MetricInterface } from "back-end/types/metric";
+import { SegmentInterface } from "back-end/types/segment";
+import { ExperimentInterface } from "back-end/types/experiment";
+import {
+  createSegmentValidator,
+  updateSegmentValidator,
+} from "./segment.validators";
 
 // region GET /segments
 
@@ -44,10 +41,10 @@ type GetSegmentsResponse = {
  */
 export const getSegments = async (
   req: GetSegmentsRequest,
-  res: Response<GetSegmentsResponse, EventAuditUserForResponseLocals>
+  res: Response<GetSegmentsResponse, EventUserForResponseLocals>
 ) => {
-  const { org } = getContextFromReq(req);
-  const segments = await findSegmentsByOrganization(org.id);
+  const context = getContextFromReq(req);
+  const segments = await context.models.segments.getAll();
   res.status(200).json({
     status: 200,
     segments,
@@ -80,20 +77,17 @@ type GetSegmentUsageResponse = {
  */
 export const getSegmentUsage = async (
   req: GetSegmentUsageRequest,
-  res: Response<GetSegmentUsageResponse, EventAuditUserForResponseLocals>
+  res: Response<GetSegmentUsageResponse, EventUserForResponseLocals>
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);
   const { org } = context;
 
-  const segment = await findSegmentById(id, org.id);
+  const segment = await context.models.segments.getById(id);
 
   if (!segment) {
     throw new Error("Could not find segment");
   }
-
-  // segments are used in a few places:
-  // ideas (impact estimate)
   const query: FilterQuery<IdeaDocument> = {
     organization: org.id,
     "estimateParams.segment": id,
@@ -119,13 +113,7 @@ export const getSegmentUsage = async (
 
 // region POST /segments
 
-type CreateSegmentRequest = AuthRequest<{
-  datasource: string;
-  userIdType: string;
-  name: string;
-  sql: string;
-  description: string;
-}>;
+type CreateSegmentRequest = AuthRequest<z.infer<typeof createSegmentValidator>>;
 
 type CreateSegmentResponse = {
   status: 200;
@@ -142,34 +130,55 @@ export const postSegment = async (
   req: CreateSegmentRequest,
   res: Response<
     CreateSegmentResponse | ApiErrorResponse,
-    EventAuditUserForResponseLocals
+    EventUserForResponseLocals
   >
 ) => {
-  const { datasource, name, sql, userIdType, description } = req.body;
+  const {
+    datasource,
+    name,
+    sql,
+    userIdType,
+    description,
+    owner,
+    factTableId,
+    filters,
+    type,
+    projects,
+  } = req.body;
 
   const context = getContextFromReq(req);
-  if (!context.permissions.canCreateSegment()) {
+  if (!context.permissions.canCreateSegment({ projects })) {
     context.permissions.throwPermissionError();
   }
-  const { org, userName } = context;
 
   const datasourceDoc = await getDataSourceById(context, datasource);
   if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }
 
-  const doc = await createSegment({
-    owner: userName,
+  const baseSegment: Omit<
+    SegmentInterface,
+    "id" | "organization" | "dateCreated" | "dateUpdated"
+  > = {
+    owner: owner || "",
     datasource,
     userIdType,
     name,
-    sql,
-    id: uniqid("seg_"),
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-    organization: org.id,
     description,
-  });
+    type,
+    projects,
+  };
+
+  if (type === "SQL") {
+    // if SQL type, set only sql field
+    baseSegment.sql = sql;
+  } else {
+    // if FACT type, only set factTableId and filters
+    baseSegment.factTableId = factTableId;
+    baseSegment.filters = filters;
+  }
+
+  const doc = await context.models.segments.create(baseSegment);
 
   res.status(200).json({
     status: 200,
@@ -182,14 +191,7 @@ export const postSegment = async (
 // region PUT /segments/:id
 
 type PutSegmentRequest = AuthRequest<
-  {
-    datasource: string;
-    userIdType: string;
-    name: string;
-    sql: string;
-    owner: string;
-    description: string;
-  },
+  z.infer<typeof updateSegmentValidator>,
   { id: string }
 >;
 
@@ -207,17 +209,14 @@ export const putSegment = async (
   req: PutSegmentRequest,
   res: Response<
     PutSegmentResponse | ApiErrorResponse,
-    EventAuditUserForResponseLocals
+    EventUserForResponseLocals
   >
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);
-  if (!context.permissions.canUpdateSegment()) {
-    context.permissions.throwPermissionError();
-  }
   const { org } = context;
 
-  const segment = await findSegmentById(id, org.id);
+  const segment = await context.models.segments.getById(id);
 
   if (!segment) {
     throw new Error("Could not find segment");
@@ -226,21 +225,39 @@ export const putSegment = async (
     throw new Error("You don't have access to that segment");
   }
 
-  const { datasource, name, sql, userIdType, owner, description } = req.body;
+  const {
+    datasource,
+    name,
+    sql,
+    userIdType,
+    description,
+    owner,
+    factTableId,
+    filters,
+    type,
+    projects,
+  } = req.body;
+
+  if (!context.permissions.canUpdateSegment(segment, { projects })) {
+    context.permissions.throwPermissionError();
+  }
 
   const datasourceDoc = await getDataSourceById(context, datasource);
   if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }
 
-  await updateSegment(id, org.id, {
+  await context.models.segments.updateById(id, {
+    owner: owner,
     datasource,
     userIdType,
     name,
-    owner,
     sql,
-    dateUpdated: new Date(),
     description,
+    type,
+    factTableId,
+    filters,
+    projects,
   });
 
   res.status(200).json({
@@ -266,23 +283,22 @@ type DeleteSegmentResponse = {
  */
 export const deleteSegment = async (
   req: DeleteSegmentRequest,
-  res: Response<DeleteSegmentResponse, EventAuditUserForResponseLocals>
+  res: Response<DeleteSegmentResponse, EventUserForResponseLocals>
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canDeleteSegment()) {
-    context.permissions.throwPermissionError();
-  }
-
   const { org } = context;
-  const segment = await findSegmentById(id, org.id);
+  const segment = await context.models.segments.getById(id);
 
   if (!segment) {
     throw new Error("Could not find segment");
   }
+  if (!context.permissions.canDeleteSegment(segment)) {
+    context.permissions.throwPermissionError();
+  }
 
-  await deleteSegmentById(id, org.id);
+  await context.models.segments.delete(segment);
 
   // delete references:
   // ideas:

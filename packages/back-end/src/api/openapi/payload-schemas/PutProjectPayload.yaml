@@ -1,0 +1,15 @@
+type: object
+properties:
+  name:
+    description: Project name.
+    type: string
+  description:
+    description: Project description.
+    type: string
+  settings:
+    description: Project settings.
+    type: object
+    properties:
+      statsEngine:
+        description: Stats engine.
+        type: string

@@ -3,7 +3,7 @@ import { useAuth, safeLogout } from "@/services/auth";
 import WatchProvider from "@/services/WatchProvider";
 import { UserContextProvider, useUser } from "@/services/UserContext";
 import LoadingOverlay from "./LoadingOverlay";
-import CreateOrganization from "./Auth/CreateOrganization";
+import CreateOrJoinOrganization from "./Auth/CreateOrJoinOrganization";
 import InAppHelp from "./Auth/InAppHelp";
 import Button from "./Button";
 import TopNavLite from "./Layout/TopNavLite";
@@ -15,45 +15,50 @@ const LoggedInPageGuard = ({
   children: ReactNode;
   organizationRequired: boolean;
 }) => {
-  const { error, userId, organization } = useUser();
+  const { error, ready, organization } = useUser();
   const { organizations } = useAuth();
 
   if (error) {
     return (
       <div>
         <TopNavLite />
-        <div className="container mt-5">
-          <div className="appbox p-4" style={{ maxWidth: 500, margin: "auto" }}>
-            <h3 className="mb-3">Error Signing In</h3>
-            <div className="alert alert-danger">{error}</div>
-            <div className="d-flex">
-              <Button
-                className="ml-auto"
-                onClick={async () => {
-                  await safeLogout();
-                }}
-                color="danger"
-              >
-                Log Out
-              </Button>
-              <button
-                className="btn btn-link"
-                onClick={(e) => {
-                  e.preventDefault();
-                  window.location.reload();
-                }}
-              >
-                Reload
-              </button>
+        <main className="container">
+          <div className="mt-5 pt-5">
+            <div
+              className="appbox p-4"
+              style={{ maxWidth: 500, margin: "auto" }}
+            >
+              <h3 className="mb-3">Error Signing In</h3>
+              <div className="alert alert-danger">{error}</div>
+              <div className="d-flex">
+                <Button
+                  className="ml-auto"
+                  onClick={async () => {
+                    await safeLogout();
+                  }}
+                  color="danger"
+                >
+                  Log Out
+                </Button>
+                <button
+                  className="btn btn-link"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    window.location.reload();
+                  }}
+                >
+                  Reload
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        </main>
       </div>
     );
   }
 
   // Waiting for initial authentication
-  if (!userId) {
+  if (!ready) {
     return <LoadingOverlay />;
   }
 
@@ -63,7 +68,7 @@ const LoggedInPageGuard = ({
   }
 
   // Still waiting to fetch current user/org details
-  if ((organizations || []).length > 0 && !organization) {
+  if ((organizations || []).length > 0 && !Object.keys(organization).length) {
     return <LoadingOverlay />;
   }
 
@@ -85,7 +90,7 @@ const ProtectedPage: React.FC<{
         ) : orgId ? (
           <WatchProvider>{children}</WatchProvider>
         ) : (
-          <CreateOrganization />
+          <CreateOrJoinOrganization />
         )}
       </LoggedInPageGuard>
     </UserContextProvider>

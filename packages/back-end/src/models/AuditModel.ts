@@ -1,8 +1,8 @@
 import mongoose, { FilterQuery, QueryOptions } from "mongoose";
 import { omit } from "lodash";
 import uniqid from "uniqid";
-import { AuditInterface } from "../../types/audit";
-import { EntityType } from "../types/Audit";
+import { AuditInterface } from "back-end/types/audit";
+import { EntityType } from "back-end/src/types/Audit";
 
 const auditSchema = new mongoose.Schema({
   id: {
@@ -46,7 +46,10 @@ const AuditModel = mongoose.model<AuditInterface>("Audit", auditSchema);
  * @param doc
  */
 const toInterface = (doc: AuditDocument): AuditInterface => {
-  return omit(doc.toJSON<AuditDocument>(), ["__v", "_id"]);
+  return (omit(doc.toJSON<AuditDocument>(), [
+    "__v",
+    "_id",
+  ]) as unknown) as AuditInterface;
 };
 
 export async function insertAudit(

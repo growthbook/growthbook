@@ -23,9 +23,9 @@ const ImpactModal: FC<{
     defaultValues: {
       metric: estimate?.metric || metrics[0]?.id || "",
       segment: estimate?.segment || "",
-      userAdjustment: idea.estimateParams.userAdjustment || 100,
-      numVariations: idea.estimateParams.numVariations || 2,
-      improvement: idea.estimateParams.improvement || 10,
+      userAdjustment: idea.estimateParams?.userAdjustment || 100,
+      numVariations: idea.estimateParams?.numVariations || 2,
+      improvement: idea.estimateParams?.improvement || 10,
     },
   });
 
@@ -41,6 +41,7 @@ const ImpactModal: FC<{
 
   return (
     <Modal
+      trackingEventModalType=""
       header="Impact Score Parameters"
       open={true}
       submit={form.handleSubmit(async (value) => {
@@ -91,6 +92,7 @@ const ImpactModal: FC<{
           experimentLength,
           estimateParams: {
             estimate: est.id,
+            segment: est?.segment || "",
             improvement: value.improvement,
             numVariations: value.numVariations,
             userAdjustment: value.userAdjustment,

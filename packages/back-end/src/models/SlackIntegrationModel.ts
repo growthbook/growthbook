@@ -4,14 +4,14 @@ import omit from "lodash/omit";
 import pick from "lodash/pick";
 import intersection from "lodash/intersection";
 import { z } from "zod";
-import { SlackIntegrationInterface } from "../../types/slack-integration";
+import { SlackIntegrationInterface } from "back-end/types/slack-integration";
 import {
   NotificationEventName,
-  notificationEventNames,
-} from "../events/base-types";
-import { logger } from "../util/logger";
-import { errorStringFromZodResult } from "../util/validation";
-import { OrganizationInterface } from "../../types/organization";
+  zodNotificationEventNamesEnum,
+} from "back-end/src/events/base-types";
+import { logger } from "back-end/src/util/logger";
+import { errorStringFromZodResult } from "back-end/src/util/validation";
+import { OrganizationInterface } from "back-end/types/organization";
 
 const slackIntegrationSchema = new mongoose.Schema({
   id: {
@@ -52,7 +52,7 @@ const slackIntegrationSchema = new mongoose.Schema({
     required: true,
     validate: {
       validator(value: unknown) {
-        const zodSchema = z.array(z.enum(notificationEventNames));
+        const zodSchema = z.array(z.enum(zodNotificationEventNamesEnum));
 
         const result = zodSchema.safeParse(value);
 

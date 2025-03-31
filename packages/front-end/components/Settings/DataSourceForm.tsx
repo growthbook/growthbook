@@ -18,6 +18,9 @@ import Modal from "@/components/Modal";
 import ConnectionSettings from "@/components/Settings/ConnectionSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { ensureAndReturn } from "@/types/utils";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useProjectOptions from "@/hooks/useProjectOptions";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import EditSchemaOptions from "./EditSchemaOptions";
 
 const typeOptions = dataSourceConnections;
@@ -49,6 +52,24 @@ const DataSourceForm: FC<{
     Partial<DataSourceInterfaceWithParams> | undefined
   >();
   const [hasError, setHasError] = useState(false);
+  const permissionsUtil = usePermissionsUtil();
+
+  const permissionRequired = (project: string) => {
+    return existing
+      ? permissionsUtil.canUpdateDataSourceParams({
+          projects: [project],
+          type: datasource?.type,
+        })
+      : permissionsUtil.canCreateDataSource({
+          projects: [project],
+          type: datasource?.type,
+        });
+  };
+
+  const projectOptions = useProjectOptions(
+    permissionRequired,
+    datasource?.projects || []
+  );
 
   useEffect(() => {
     track("View Datasource Form", {
@@ -148,6 +169,7 @@ const DataSourceForm: FC<{
 
   return (
     <Modal
+      trackingEventModalType=""
       inline={inline}
       open={true}
       submit={handleSubmit}
@@ -240,10 +262,19 @@ const DataSourceForm: FC<{
       {projects?.length > 0 && (
         <div className="form-group">
           <MultiSelectField
-            label="Projects"
+            label={
+              <>
+                Projects{" "}
+                <Tooltip
+                  body={`The dropdown below has been filtered to only include projects where you have permission to ${
+                    existing ? "update" : "create"
+                  } Data Sources.`}
+                />
+              </>
+            }
             placeholder="All projects"
             value={datasource.projects || []}
-            options={projects.map((p) => ({ value: p.id, label: p.name }))}
+            options={projectOptions}
             onChange={(v) => onManualChange("projects", v)}
             customClassName="label-overflow-ellipsis"
             helpText="Assign this data source to specific projects"

@@ -1,7 +1,6 @@
 import { useState, FC } from "react";
 import { Namespaces, NamespaceUsage } from "back-end/types/organization";
 import useApi from "@/hooks/useApi";
-import { GBAddCircle } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import NamespaceModal from "@/components/Experiment/NamespaceModal";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -9,6 +8,8 @@ import { useUser } from "@/services/UserContext";
 import NamespaceTableRow from "@/components/Settings/NamespaceTableRow";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import Button from "@/components/Radix/Button";
 
 export type NamespaceApiResponse = {
   namespaces: NamespaceUsage;
@@ -63,15 +64,7 @@ const NamespacesPage: FC = () => {
         </div>
         {canCreate ? (
           <div className="col-auto ml-auto">
-            <button
-              className="btn btn-primary"
-              onClick={(e) => {
-                e.preventDefault();
-                setModalOpen(true);
-              }}
-            >
-              <GBAddCircle /> Add Namespace
-            </button>
+            <Button onClick={() => setModalOpen(true)}>Add Namespace</Button>
           </div>
         ) : null}
       </div>
@@ -85,6 +78,10 @@ const NamespacesPage: FC = () => {
           <thead>
             <tr>
               <th>Namespace</th>
+              <th>
+                Namespace ID{" "}
+                <Tooltip body="This id is used as the namespace hash key and cannot be changed" />
+              </th>
               <th>Description</th>
               <th>Active experiments</th>
               <th>Percent available</th>
@@ -108,9 +105,12 @@ const NamespacesPage: FC = () => {
                     setModalOpen(true);
                   }}
                   onDelete={async () => {
-                    await apiCall(`/organization/namespaces/${ns.name}`, {
-                      method: "DELETE",
-                    });
+                    await apiCall(
+                      `/organization/namespaces/${encodeURIComponent(ns.name)}`,
+                      {
+                        method: "DELETE",
+                      }
+                    );
                     await refreshOrganization();
                   }}
                   onArchive={async () => {
@@ -119,10 +119,13 @@ const NamespacesPage: FC = () => {
                       description: ns.description,
                       status: ns?.status === "inactive" ? "active" : "inactive",
                     };
-                    await apiCall(`/organization/namespaces/${ns.name}`, {
-                      method: "PUT",
-                      body: JSON.stringify(newNamespace),
-                    });
+                    await apiCall(
+                      `/organization/namespaces/${encodeURIComponent(ns.name)}`,
+                      {
+                        method: "PUT",
+                        body: JSON.stringify(newNamespace),
+                      }
+                    );
                     await refreshOrganization();
                   }}
                 />

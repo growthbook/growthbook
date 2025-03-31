@@ -1,24 +1,22 @@
 import * as bq from "@google-cloud/bigquery";
-import { bigQueryCreateTableOptions } from "enterprise";
+import { bigQueryCreateTableOptions } from "shared/enterprise";
 import { getValidDate } from "shared/dates";
-import { format, FormatDialect } from "../util/sql";
-import { decryptDataSourceParams } from "../services/datasource";
-import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
-import { IS_CLOUD } from "../util/secrets";
+import { format, FormatDialect } from "back-end/src/util/sql";
+import { decryptDataSourceParams } from "back-end/src/services/datasource";
+import { BigQueryConnectionParams } from "back-end/types/integrations/bigquery";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   ExternalIdCallback,
   InformationSchema,
   QueryResponse,
   RawInformationSchema,
-} from "../types/Integration";
-import { formatInformationSchema } from "../util/informationSchemas";
-import { logger } from "../util/logger";
+} from "back-end/src/types/Integration";
+import { formatInformationSchema } from "back-end/src/util/informationSchemas";
+import { logger } from "back-end/src/util/logger";
 import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  params: BigQueryConnectionParams;
+  params!: BigQueryConnectionParams;
   requiresEscapingPath = true;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<BigQueryConnectionParams>(
@@ -155,6 +153,18 @@ export default class BigQuery extends SqlIntegration {
   castUserDateCol(column: string): string {
     return `CAST(${column} as DATETIME)`;
   }
+  hasCountDistinctHLL(): boolean {
+    return true;
+  }
+  hllAggregate(col: string): string {
+    return `HLL_COUNT.INIT(${col})`;
+  }
+  hllReaggregate(col: string): string {
+    return `HLL_COUNT.MERGE_PARTIAL(${col})`;
+  }
+  hllCardinality(col: string): string {
+    return `HLL_COUNT.EXTRACT(${col})`;
+  }
   approxQuantile(value: string, quantile: string | number): string {
     const multiplier = 10000;
     const quantileVal = Number(quantile)
@@ -194,7 +204,8 @@ export default class BigQuery extends SqlIntegration {
       throw new Error(`No datasets found.`);
     }
 
-    const results = [];
+    // eslint-disable-next-line
+    const results: Record<string, any>[] = [];
 
     for (const datasetName of datasetNames) {
       const query = `SELECT

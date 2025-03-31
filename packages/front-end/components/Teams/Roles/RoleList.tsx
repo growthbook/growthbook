@@ -6,15 +6,18 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
-import Tag from "@/components/Tags/Tag";
 import Button from "@/components/Button";
+import ConfirmButton from "@/components/Modal/ConfirmButton";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import Badge from "@/components/Radix/Badge";
 
 export default function RoleList() {
-  const { roles, refreshOrganization } = useUser();
+  const { roles, refreshOrganization, organization } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
 
   const canManageRoles = permissionsUtil.canManageCustomRoles();
+  const deactivatedRoles = organization.deactivatedRoles || [];
 
   return (
     <div className="mb-4">
@@ -30,6 +33,9 @@ export default function RoleList() {
           <tbody>
             {roles.map((r) => {
               const isCustom = !RESERVED_ROLE_IDS.includes(r.id);
+              const isOrgDefault =
+                organization.settings?.defaultRole?.role === r.id;
+              const isDeactivated = deactivatedRoles.includes(r.id);
               return (
                 <tr key={r.id}>
                   <td>
@@ -39,7 +45,18 @@ export default function RoleList() {
                     >
                       {r.id}
                     </Link>{" "}
-                    {isCustom ? <Tag color="#f9f9f9" tag="Custom" /> : null}
+                    <div className="tags-container">
+                      {isCustom ? (
+                        <Badge label="Custom" color="violet" variant="soft" />
+                      ) : null}
+                      {isDeactivated ? (
+                        <Badge
+                          label="Deactivated"
+                          color="gray"
+                          variant="soft"
+                        />
+                      ) : null}
+                    </div>
                   </td>
                   <td>{r.description}</td>
                   <td>
@@ -84,6 +101,55 @@ export default function RoleList() {
                           </div>
                         </>
                       ) : null}
+                      <ConfirmButton
+                        modalHeader={`${
+                          isDeactivated ? "Reactivate" : "Deactivate"
+                        } ${r.id}`}
+                        disabled={!canManageRoles || isOrgDefault}
+                        ctaColor="danger"
+                        confirmationText={
+                          <div>
+                            {isDeactivated
+                              ? "Reactivating this role will make it selectable as an option when creating new members or updating an existing member's role."
+                              : "This role will no longer be listed as an option when creating new members or updating an existing member's role."}
+                            {!isDeactivated ? (
+                              <div className="pt-2">
+                                Members with this role will not experience any
+                                changes. The role can be reactivated at any
+                                time.
+                              </div>
+                            ) : null}
+                          </div>
+                        }
+                        onClick={async () => {
+                          await apiCall(
+                            `/role/${r.id}/${
+                              isDeactivated ? "activate" : "deactivate"
+                            }`,
+                            {
+                              method: "POST",
+                            }
+                          );
+                          refreshOrganization();
+                        }}
+                        cta={isDeactivated ? "Reactivate" : "Deactivate"}
+                      >
+                        <Tooltip
+                          body="This is your organization's default role and can not be deactivated."
+                          shouldDisplay={isOrgDefault}
+                          tipPosition="left"
+                        >
+                          <button
+                            disabled={isOrgDefault}
+                            className={`dropdown-item ${
+                              !isDeactivated ? "text-danger" : ""
+                            }`}
+                            type="button"
+                          >
+                            {isDeactivated ? "Reactivate" : "Deactivate"}
+                          </button>
+                        </Tooltip>
+                      </ConfirmButton>
                     </MoreMenu>
                   </td>
                 </tr>

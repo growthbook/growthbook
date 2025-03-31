@@ -1,13 +1,12 @@
-import { DataSourceInterfaceWithParams } from "@back-end/types/datasource";
-import { FaPlus } from "react-icons/fa";
-import clsx from "clsx";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { useMemo } from "react";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import Button from "@/components/Radix/Button";
 
 type Props = {
   setShowAutoGenerateMetricsModal: (value: boolean) => void;
   datasource?: DataSourceInterfaceWithParams;
-  size?: "lg";
+  size?: "sm" | "md";
 };
 
 export default function AutoGenerateMetricsButton({
@@ -32,15 +31,14 @@ export default function AutoGenerateMetricsButton({
   return (
     <>
       {showButton ? (
-        <button
-          className={clsx(
-            size === "lg" ? "btn-lg" : "",
-            "btn btn-outline-info font-weight-bold text-nowrap mr-1"
-          )}
+        <Button
+          size={size}
+          variant="outline"
           onClick={() => setShowAutoGenerateMetricsModal(true)}
+          mr="2"
         >
-          <FaPlus className="mr-1" /> Discover Metrics
-        </button>
+          Discover Metrics
+        </Button>
       ) : null}
     </>
   );

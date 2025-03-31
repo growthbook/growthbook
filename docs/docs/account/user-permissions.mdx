@@ -5,6 +5,62 @@ sidebar_label: User & Team Permissions
 slug: user-permissions
 ---
 
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
+In the context of GrowthBook, a user, or member, is an individual who has access to your organization's GrowthBook account. Each user is assigned a role that determines the level of access they have within the application. GrowthBook offers a range of roles, from `No Access` to `Admin` and even custom roles, each with a specific set of permissions (see below).
+GrowthBook's user permissions system allows organizations to define the level of access each user has within the application. This granular control ensures that users can only access the resources they need to perform their job, enhancing security and privacy.
+
+## Adding Users
+
+Team members can be added to your GrowthBook account via the `Settings` → `Members` page. From this main page, you'll see an "Invite Member" button on the right. If you do not see this button, you do not have permission to add members to your organization. Clicking on "Invite Member" will open a modal window from which you can choose some options for the new user.
+
+![Inviting members modal](/images/using/invite-member-modal.png)
+
+Each GrowthBook user needs an email address, and you can select what global permissions you want to assign (See below for a full list of permission levels).
+
+Inviting a new member to your organization will send an email to that user inviting them to join.
+
+It is possible for a user to join more than one organization. If the user is a member to multiple organizations, they will see a drop-down next to their email address on the top right of the page, where they can select the organization they want to work in.
+
+### Environment Specific Limits
+
+![Environment Specific Limits](/images/user-permissions-env-specific.png)
+
+GrowthBook's user permissions also include environment specific limits. This permission level applies only to `Engineer` and `Experimenter` roles in Pro or Enterprise accounts. It allows you to limit the feature flags and experiments a user can manage to specific environments. For example, you can allow an `Engineer` to create and run experiments in a staging environment, but not in production.
+
+### Project Specific Permissions
+
+Besides the global permissions, you can also assign project-specific permissions to users. This allows you to define a user's default role across all projects
+and select per-project overrides. For example, a new user could be a `collaborator` by default for all projects, but on the `mobile` project, they could be an `experimenter` so they can manage all feature flags and experiments assigned to that project.
+
+### How permissions are evaluated
+
+GrowthBook evaluates user permissions based on whether an action is taking place within a specific project. If so, project-level permissions are checked first, followed by the user's global role. If the action is not within a project, only the user's global role is checked.
+
+For organizations without a Pro or Enterprise account, user permissions are evaluated solely based on their global role.
+
+:::note
+
+If your organization has enabled the setting to allow verified users to automatically join your organization, they will receive the `Collaborator` role by default when they join. However, you can change your organizations' default role at the bottom of the Team page.
+
+:::
+
+### Self-registering and Automatic Approvals
+
+If users create an account with a verified email address that matches the domain of your account owner, they will be presented with an option to join your organization. If you have not selected `Automatically approve new verified users` (which is the default), those users will be listed at the bottom of the page under a section called `Pending Members`. From this list, you'll have the option of approving or deleting these self-registered users.
+
+<MaxWidthImage maxWidth={600}>
+![Self-registering and Automatic Approvals Toggle](/images/using/auto-approve-members.png)
+</MaxWidthImage>
+
+If you are the account owner, you will see a toggle at the top of the members' page that allows you to automatically approve new members who match your domain. This means that instead of being placed in your `pending members` list, they will automatically join your organization.
+
+### Removing Users
+
+To remove a user from your organization, you can click on the three dots next to their name and select `Remove User`. This will remove the user from your organization and revoke their access to all projects and resources within your organization.
+
+## Permissions
+
 Fine-tuning user permissions in an application like GrowthBook ensures a tailored experience, empowering organizations to grant precisely defined access levels. This granular control not only enhances security but also enables teams to collaborate efficiently while safeguarding sensitive features or data.
 
 Organizations using GrowthBook have a number of different ways of defining a user's permission level, depending on the organization's plan.
@@ -44,25 +100,7 @@ The table below lists the roles available in GrowthBook and their associated per
 
 \*_Limited to editing a subset of data source settings - identifier types, experiment assignment queries, Jupyter Notebook queries and Data Pipeline settings. Editing datasource name, projects, description, and connection parameters requires Admin permissions._
 
-#### Environment Specific Limits
-
-![Environment Specific Limits](/images/user-permissions-env-specific.png)
-
-GrowthBook's user permissions also include environment specific limits. This permission level applies only to `Engineer` and `Experimenter` roles in Pro or Enterprise accounts. It allows you to limit the feature flags and experiments a user can manage to specific environments. For example, you can allow an `Engineer` to create and run experiments in a staging environment, but not in production.
-
-#### How permissions are evaluated
-
-GrowthBook evaluates user permissions based on whether an action is taking place within a specific project. If so, project-level permissions are checked first, followed by the user's global role. If the action is not within a project, only the user's global role is checked.
-
-For organizations without a Pro or Enterprise account, user permissions are evaluated solely based on their global role.
-
-:::note
-
-If your organization has enabled the setting to allow verified users to automatically join your organization, they will receive the `Collaborator` role by default when they join. However, you can change your organizations' default role at the bottom of the Team page.
-
-:::
-
-#### How does the No Access role work?
+### How does the No Access role work?
 
 The `No Access` role is available to organizations enrolled in an Enterprise plan.
 
@@ -72,11 +110,11 @@ In the event you want a user to have access to a subset of projects, you can giv
 
 If, however, you only want to hide a certain project from a user, you can assign their project-level role of `No Access` which will make it so the user isn't able to view the project.
 
-If you need to apply these rules to many users as once, you can create a Team with the permissions needed, and then add users to that team. But, keep in mind, the user's permissions will be a combination of their user permissions, and the permissions of any team their on, so after adding the user to a team, you may want to reduce their user-level permissions to ensure their previous user-level permissions don't override the permissions inherited by the team(s) they're on.
+If you need to apply these rules to many users as once, you can create a Team with the permissions needed, and then add users to that team. But, keep in mind, the user's permissions will be a combination of their user permissions, and the permissions of any team they are on, so after adding the user to a team, you may want to reduce their user-level permissions to ensure their previous user-level permissions don't override the permissions inherited by the team(s) they are on.
 
 :::note
 
-Within GrowthBook, not all resources are project-specific. For example, `Saved Groups`, `Dimensions`, `Segments`, `Namespaces`, `Environments`, `Presentations`, and `Ideas` all live at the organization level. This means that all users, regardless of role, will be able to view these resources.
+Within GrowthBook, not all resources are project-specific. For example, `Dimensions`, `Namespaces`, and `Presentations` all live at the organization level. This means that all users, regardless of role, will be able to view these resources.
 
 If security of these resources is paramount to your organization, we recommend creating a separate organization, and keeping the resources you want to hide in that organization.
 
@@ -84,7 +122,7 @@ If security of these resources is paramount to your organization, we recommend c
 
 ### Teams
 
-Enterprise organizations using GrowthBook can create Teams with distinct capabilities. When setting up a Team, you have the option to define both a global role and project-level roles, much like how you do for individual users. Once a Team is established, multiple users can be added to it. Any user added to a Team will automatically inherit all permissions assigned to that Team. This feature becomes particularly useful when combined with [GrowthBook's SCIM integration](https://docs.growthbook.io/integrations/scim), enabling automated user provisioning and de-provisioning.
+Enterprise organizations using GrowthBook can create Teams with distinct capabilities. When setting up a Team, you have the option to define both a global role and project-level roles, much like how you do for individual users. Once a Team is established, multiple users can be added to it. Any user added to a Team will automatically inherit all permissions assigned to that Team. This feature becomes particularly useful when combined with [GrowthBook's SCIM integration](/integrations/scim), enabling automated user provisioning and de-provisioning.
 
 To create a Team, you can go to `Settings` → `Team` via the Sidebar and then select the `Teams` tab at the top of the page. Here, you can create and configure various Teams, before adding members to a Team. When evaluating whether or not a user has permission to perform a certain action, we will merge the user's permissions with the permissions inherited from all the Teams the user is on. So if the user's global role is `Collaborator` but they're on a Team that grants them `Engineer` permissions, that user's permission will then be a merger of the `Collaborator` and `Engineer` roles.
 
@@ -111,7 +149,7 @@ Below, we've outlined the current policies and their associated permissions. If 
 |                       | FeaturesBypassApprovals   | Bypass required approval checks for feature flag changes                                                                     | readData, manageFeatureDrafts, manageFeatures, canReview, bypassApprovalChecks |
 | **Experiments**       | ExperimentsFullAccess     | Create, edit, and delete experiments. Does not include Visual Editor access.                                                 | readData, createAnalyses, runQueries                                           |
 |                       | VisualEditorFullAccess    | Use the Visual Editor to implement experiment changes.                                                                       | readData, manageVisualChanges                                                  |
-|                       | superDeleteReports        | Delete ad-hoc reports made by other users. Typically assigned to admins only.                                                | readData, superDeleteReport                                                    |
+|                       | superDeleteReports        | Delete custom reports made by other users. Typically assigned to admins only.                                                | readData, superDeleteReport                                                    |
 | **Metrics & Data**    | DataSourcesFullAccess     | Create, edit, and delete data sources                                                                                        | readData, createDatasources, editDatasourceSettings, runQueries                |
 |                       | DataSourceConfiguration   | Edit existing data source configuration settings (identifier types, experiment assignment queries)                           | readData, editDatasourceSettings, runQueries                                   |
 |                       | RunQueries                | Execute queries against data sources. Required to refresh experiment results.                                                | readData, runQueries                                                           |

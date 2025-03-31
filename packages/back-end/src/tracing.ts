@@ -13,14 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import "./init/aliases";
 import * as opentelemetry from "@opentelemetry/sdk-node";
+import { PinoInstrumentation } from "@opentelemetry/instrumentation-pino";
+import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
+import { BatchLogRecordProcessor } from "@opentelemetry/sdk-logs";
 import { diag, DiagConsoleLogger } from "@opentelemetry/api";
 import {
   getNodeAutoInstrumentations,
   getResourceDetectors,
 } from "@opentelemetry/auto-instrumentations-node";
+import { Resource } from "@opentelemetry/resources";
+import { SemanticResourceAttributes } from "@opentelemetry/semantic-conventions";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-proto";
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
+import { getBuild } from "./util/handler";
 
 diag.setLogger(
   new DiagConsoleLogger(),
@@ -33,9 +40,20 @@ const metricReader = new PeriodicExportingMetricReader({
 });
 
 const sdk = new opentelemetry.NodeSDK({
-  instrumentations: getNodeAutoInstrumentations(),
+  instrumentations: [
+    ...getNodeAutoInstrumentations(),
+    ...(process.env.GROWTHBOOK_OTEL_ENABLE_LOGS_COLLECTION
+      ? [new PinoInstrumentation()]
+      : []),
+  ],
   resourceDetectors: getResourceDetectors(),
+  logRecordProcessor: new BatchLogRecordProcessor(new OTLPLogExporter()),
   metricReader,
+  resource: new Resource({
+    [SemanticResourceAttributes.SERVICE_NAME]: "growthbook",
+    [SemanticResourceAttributes.SERVICE_NAMESPACE]: "backend",
+    [SemanticResourceAttributes.SERVICE_VERSION]: getBuild().sha,
+  }),
 });
 
 try {

@@ -1,18 +1,20 @@
-import { ListExperimentsResponse } from "../../../types/openapi";
-import { getAllExperiments } from "../../models/ExperimentModel";
-import { toExperimentApiInterface } from "../../services/experiments";
+import { ListExperimentsResponse } from "back-end/types/openapi";
+import { getAllExperiments } from "back-end/src/models/ExperimentModel";
+import { toExperimentApiInterface } from "back-end/src/services/experiments";
 import {
   applyFilter,
   applyPagination,
   createApiRequestHandler,
-} from "../../util/handler";
-import { listExperimentsValidator } from "../../validators/openapi";
+} from "back-end/src/util/handler";
+import { listExperimentsValidator } from "back-end/src/validators/openapi";
 
 export const listExperiments = createApiRequestHandler(
   listExperimentsValidator
 )(
   async (req): Promise<ListExperimentsResponse> => {
-    const experiments = await getAllExperiments(req.context);
+    const experiments = await getAllExperiments(req.context, {
+      includeArchived: true,
+    });
 
     // TODO: Move sorting/limiting to the database query for better performance
     const { filtered, returnFields } = applyPagination(

@@ -1,9 +1,9 @@
 import { FC } from "react";
 import { isProjectListValidForProject } from "shared/util";
+import { isBinomialMetric, isMetricJoinable } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField, { SelectFieldProps } from "@/components/Forms/SelectField";
 import MetricName from "@/components/Metrics/MetricName";
-import { isMetricJoinable } from "./MetricsSelector";
 
 type MetricOption = {
   id: string;
@@ -21,6 +21,7 @@ const MetricSelector: FC<
     datasource?: string;
     exposureQueryId?: string;
     project?: string;
+    projects?: string[]; // will only filter if project is not set
     includeFacts?: boolean;
     availableIds?: string[];
     onlyBinomial?: boolean;
@@ -30,6 +31,7 @@ const MetricSelector: FC<
   datasource,
   exposureQueryId,
   project,
+  projects,
   includeFacts,
   placeholder,
   availableIds,
@@ -53,7 +55,7 @@ const MetricSelector: FC<
       projects: m.projects || [],
       factTables: [],
       userIdTypes: m.userIdTypes || [],
-      isBinomial: m.type === "binomial" && !m.denominator,
+      isBinomial: isBinomialMetric(m) && !m.denominator,
     })),
     ...(includeFacts
       ? factMetrics.map((m) => ({
@@ -72,7 +74,7 @@ const MetricSelector: FC<
           userIdTypes:
             factTables.find((f) => f.id === m.numerator.factTableId)
               ?.userIdTypes || [],
-          isBinomial: m.metricType === "proportion",
+          isBinomial: isBinomialMetric(m),
         }))
       : []),
   ];
@@ -95,7 +97,15 @@ const MetricSelector: FC<
         ? isMetricJoinable(m.userIdTypes, userIdType, datasourceSettings)
         : true
     )
-    .filter((m) => isProjectListValidForProject(m.projects, project));
+    .filter((m) => {
+      if (projects && !project) {
+        return (
+          !projects.length ||
+          projects.some((p) => isProjectListValidForProject(m.projects, p))
+        );
+      }
+      return isProjectListValidForProject(m.projects, project);
+    });
 
   return (
     <SelectField

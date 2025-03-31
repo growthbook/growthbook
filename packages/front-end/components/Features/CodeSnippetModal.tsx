@@ -35,9 +35,11 @@ function trimTrailingSlash(str: string): string {
 }
 
 export function getApiBaseUrl(connection?: SDKConnectionInterface): string {
-  if (connection && connection.proxy.enabled && connection.proxy.host) {
+  if (connection && connection.proxy.enabled) {
     return trimTrailingSlash(
-      connection.proxy.hostExternal || connection.proxy.host
+      connection.proxy.hostExternal ||
+        connection.proxy.host ||
+        "https://proxy.yoursite.io"
     );
   }
 
@@ -92,6 +94,7 @@ export default function CodeSnippetModal({
   const [installationOpen, setInstallationOpen] = useState(true);
   const [setupOpen, setSetupOpen] = useState(true);
   const [usageOpen, setUsageOpen] = useState(true);
+  const [eventTracker, setEventTracker] = useState("");
   const [attributesOpen, setAttributesOpen] = useState(true);
 
   const settings = useOrgSettings();
@@ -115,8 +118,7 @@ export default function CodeSnippetModal({
   }
 
   const { docs, docLabel, label } = languageMapping[language];
-  const hasProxy =
-    currentConnection.proxy.enabled && !!currentConnection.proxy.host;
+  const hasProxy = currentConnection.proxy.enabled;
   const apiHost = getApiBaseUrl(currentConnection);
   const clientKey = currentConnection.key;
   const featuresEndpoint = apiHost + "/api/features/" + clientKey;
@@ -162,9 +164,10 @@ export default function CodeSnippetModal({
         />
       )}
       <Modal
+        trackingEventModalType=""
         close={close}
         secondaryCTA={secondaryCTA}
-        className="mb-4"
+        className="mb-4 appbox"
         bodyClassName="p-0"
         open={true}
         inline={inline}
@@ -186,7 +189,7 @@ export default function CodeSnippetModal({
         cta={cta}
       >
         <div
-          className="border-bottom mb-3 px-3 py-2 position-sticky bg-white shadow-sm"
+          className="border-bottom mb-3 px-3 py-2 position-sticky shadow-sm"
           style={{ top: 0, zIndex: 999 }}
         >
           <div className="row">
@@ -262,7 +265,7 @@ export default function CodeSnippetModal({
               </h4>
               {configOpen && (
                 <div className="appbox bg-light p-3">
-                  <table className="gbtable table table-bordered table-sm">
+                  <table className="table table-bordered table-sm">
                     <tbody>
                       <tr>
                         <th
@@ -345,6 +348,8 @@ export default function CodeSnippetModal({
                 <div className="appbox bg-light p-3">
                   <InstallationCodeSnippet
                     language={language}
+                    eventTracker={eventTracker}
+                    setEventTracker={setEventTracker}
                     apiHost={apiHost}
                     apiKey={clientKey}
                     encryptionKey={encryptionKey}
@@ -354,6 +359,7 @@ export default function CodeSnippetModal({
               )}
             </div>
           )}
+
           {language !== "other" && (
             <div className="mb-3">
               <h4
@@ -374,6 +380,8 @@ export default function CodeSnippetModal({
                     apiKey={clientKey}
                     encryptionKey={encryptionKey}
                     remoteEvalEnabled={remoteEvalEnabled}
+                    eventTracker={eventTracker}
+                    setEventTracker={setEventTracker}
                   />
                 </div>
               )}
@@ -389,7 +397,7 @@ export default function CodeSnippetModal({
                   setAttributesOpen(!attributesOpen);
                 }}
               >
-                Targeting Attributes (Optional){" "}
+                Targeting Attributes{" "}
                 {attributesOpen ? <FaAngleDown /> : <FaAngleRight />}
               </h4>
               {attributesOpen && (
@@ -398,13 +406,12 @@ export default function CodeSnippetModal({
                     language={language}
                     hashSecureAttributes={hashSecureAttributes}
                     secureAttributeSalt={secureAttributeSalt}
+                    version={version}
+                    eventTracker={eventTracker}
                   />
 
                   {hashSecureAttributes && secureAttributes.length > 0 && (
-                    <div
-                      className="appbox mt-4"
-                      style={{ background: "rgb(209 236 241 / 25%)" }}
-                    >
+                    <div className="appbox mt-4">
                       <div className="alert alert-info mb-0">
                         <GBHashLock className="text-blue" /> This connection has{" "}
                         <strong>secure attribute hashing</strong> enabled. You

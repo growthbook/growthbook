@@ -5,12 +5,13 @@ import {
   FC,
   ReactNode,
   useCallback,
+  useEffect,
 } from "react";
 import { FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
-import { FeatureInterface } from "back-end/types/feature";
 import { useRouter } from "next/router";
 import Fuse from "fuse.js";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import Pagination from "@/components/Pagination";
 
 export function useAddComputedFields<T, ExtraFields>(
   items: T[] | undefined,
@@ -30,18 +31,38 @@ export type SearchFields<T> = (
   | `${Exclude<keyof T, symbol>}^${number}`
 )[];
 
+const searchTermOperators = [">", "<", "^", "=", "~", ""] as const;
+
+export type SearchTermFilterOperator = typeof searchTermOperators[number];
+
 export interface SearchProps<T> {
   items: T[];
   searchFields: SearchFields<T>;
   localStorageKey: string;
   defaultSortField: keyof T;
   defaultSortDir?: number;
-  transformQuery?: (q: string) => string;
-  filterResults?: (items: T[], originalQuery: string) => T[];
+  undefinedLast?: boolean;
+  searchTermFilters?: {
+    [key: string]: (
+      item: T
+    ) =>
+      | number
+      | string
+      | null
+      | undefined
+      | Date
+      | (number | null | undefined)[]
+      | (string | null | undefined)[]
+      | (Date | null | undefined)[];
+  };
+  filterResults?: (items: T[]) => T[];
+  updateSearchQueryOnChange?: boolean;
+  pageSize?: number;
 }
 
 export interface SearchReturn<T> {
   items: T[];
+  unpaginatedItems: T[];
   isFiltered: boolean;
   clear: () => void;
   searchInputProps: {
@@ -52,17 +73,24 @@ export interface SearchReturn<T> {
     field: keyof T;
     className?: string;
     children: ReactNode;
+    style?: React.CSSProperties;
   }>;
+  page: number;
+  resetPage: () => void;
+  pagination: ReactNode;
 }
 
 export function useSearch<T>({
   items,
   searchFields,
-  transformQuery,
   filterResults,
   localStorageKey,
   defaultSortField,
   defaultSortDir,
+  undefinedLast,
+  searchTermFilters,
+  updateSearchQueryOnChange,
+  pageSize,
 }: SearchProps<T>): SearchReturn<T> {
   const [sort, setSort] = useLocalStorage(`${localStorageKey}:sort-dir`, {
     field: defaultSortField,
@@ -73,6 +101,8 @@ export function useSearch<T>({
   const { q } = router.query;
   const initialSearchTerm = Array.isArray(q) ? q.join(" ") : q;
   const [value, setValue] = useState(initialSearchTerm ?? "");
+
+  const [page, setPage] = useState(1);
 
   // We only want to re-create the Fuse instance if the fields actually changed
   // It's really easy to forget to add `useMemo` around the fields declaration
@@ -92,14 +122,63 @@ export function useSearch<T>({
   }, [items, JSON.stringify(searchFields)]);
 
   const filtered = useMemo(() => {
-    const searchTerm = transformQuery ? transformQuery(value) : value;
+    // remove any syntax filters from the search term
+    const { searchTerm, syntaxFilters } = searchTermFilters
+      ? transformQuery(value, Object.keys(searchTermFilters))
+      : { searchTerm: value, syntaxFilters: [] };
 
     let filtered = items;
     if (searchTerm.length > 0) {
       filtered = fuse.search(searchTerm).map((item) => item.item);
     }
+    if (updateSearchQueryOnChange) {
+      const searchParams = new URLSearchParams(window.location.search);
+      const currentQ = searchParams.has("q") ? searchParams.get("q") : null;
+
+      const shouldRemoveQ = value.length === 0 && currentQ !== null;
+      const shouldSetQ = value !== currentQ && value.length > 0;
+      const shouldUpdateURL = shouldRemoveQ || shouldSetQ;
+
+      if (shouldRemoveQ) {
+        searchParams.delete("q");
+      } else if (shouldSetQ) {
+        searchParams.set("q", value);
+      }
+
+      if (shouldUpdateURL) {
+        router
+          .replace(
+            router.pathname +
+              (searchParams.size > 0 ? `?${searchParams.toString()}` : "") +
+              window.location.hash,
+            undefined,
+            {
+              shallow: true,
+            }
+          )
+          .then();
+      }
+    }
+
+    // Search term filters
+    if (syntaxFilters.length > 0) {
+      // If multiple filters are present, we want to match all of them
+      filtered = filtered.filter((item) =>
+        syntaxFilters.every((filter) => {
+          // If a filter has multiple values, at least one has to match
+          const res = filter.values.some((searchValue) => {
+            const itemValue = searchTermFilters?.[filter.field]?.(item) ?? null;
+            return filterSearchTerm(itemValue, filter.operator, searchValue);
+          });
+
+          return filter.negated ? !res : res;
+        })
+      );
+    }
+
+    // Custom filtering logic
     if (filterResults) {
-      filtered = filterResults(filtered, value);
+      filtered = filterResults(filtered);
     }
     return filtered;
   }, [value, fuse, filterResults, transformQuery]);
@@ -114,6 +193,10 @@ export function useSearch<T>({
     sorted.sort((a, b) => {
       const comp1 = a[sort.field];
       const comp2 = b[sort.field];
+      if (undefinedLast) {
+        if (comp1 === undefined && comp2 !== undefined) return 1;
+        if (comp2 === undefined && comp1 !== undefined) return -1;
+      }
       if (typeof comp1 === "string" && typeof comp2 === "string") {
         return comp1.localeCompare(comp2) * sort.dir;
       }
@@ -139,15 +222,36 @@ export function useSearch<T>({
     return sorted;
   }, [sort.field, sort.dir, filtered, isFiltered]);
 
+  const paginated = useMemo(() => {
+    if (!pageSize) return sorted;
+
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    return sorted.slice(start, end);
+  }, [sorted, page, pageSize]);
+
+  // When a filter is applied, reset the page
+  useEffect(() => {
+    setPage(1);
+  }, [sorted.length]);
+
   const SortableTH = useMemo(() => {
     const th: FC<{
       field: keyof T;
       className?: string;
       children: ReactNode;
-    }> = ({ children, field, className = "" }) => {
-      if (isFiltered) return <th className={className}>{children}</th>;
+      style?: React.CSSProperties;
+    }> = ({ children, field, className = "", style }) => {
+      if (isFiltered) {
+        return (
+          <th className={className} style={style}>
+            {children}
+          </th>
+        );
+      }
+
       return (
-        <th className={className}>
+        <th className={className} style={style}>
           <span
             className="cursor-pointer"
             onClick={(e) => {
@@ -189,7 +293,8 @@ export function useSearch<T>({
   }, []);
 
   return {
-    items: sorted,
+    items: paginated,
+    unpaginatedItems: sorted,
     isFiltered,
     clear,
     searchInputProps: {
@@ -197,47 +302,111 @@ export function useSearch<T>({
       onChange,
     },
     SortableTH,
+    page,
+    resetPage: () => setPage(1),
+    pagination:
+      pageSize && sorted.length > pageSize ? (
+        <Pagination
+          currentPage={page}
+          numItemsTotal={sorted.length}
+          onPageChange={setPage}
+          perPage={pageSize}
+        />
+      ) : null,
   };
 }
 
-// Helpers for searching features by environment
-const envRegex = /(^|\s)(on|off):([^\s]*)/gi;
-export function removeEnvFromSearchTerm(searchTerm: string) {
-  return searchTerm.replace(envRegex, " ").trim();
-}
-export function filterFeaturesByEnvironment(
-  filtered: FeatureInterface[],
-  searchTerm: string,
-  environments: string[]
-) {
-  // Determine which environments (if any) are being filtered by the search term
-  const environmentFilter: Map<string, boolean> = new Map();
-  const matches = searchTerm.matchAll(envRegex);
-  for (const match of matches) {
-    const enabled = match[2].toLowerCase() === "on";
-    match[3]?.split(",").forEach((env) => {
-      environmentFilter.set(env, enabled);
-    });
-  }
-  if (environmentFilter.has("all")) {
-    environments.forEach((env) => {
-      const value = environmentFilter.get("all");
-      if (value) environmentFilter.set(env, value);
-    });
+export function filterSearchTerm(
+  itemValue: unknown,
+  op: SearchTermFilterOperator,
+  searchValue: string
+): boolean {
+  if ((!itemValue && itemValue !== 0) || !searchValue) {
+    return false;
   }
 
-  // No filtering required
-  if (!environmentFilter.size) return filtered;
+  if (Array.isArray(itemValue)) {
+    return itemValue.some((v) => filterSearchTerm(v, op, searchValue));
+  }
 
-  return filtered.filter((f) => {
-    for (const env of environments) {
-      if (environmentFilter.has(env)) {
-        const enabled = !!f.environmentSettings?.[env]?.enabled;
-        if (enabled !== environmentFilter.get(env)) {
-          return false;
-        }
+  searchValue = searchValue.toLowerCase();
+  const strVal =
+    itemValue instanceof Date
+      ? itemValue.toISOString()
+      : (itemValue + "").toLowerCase();
+  const [comp1, comp2]: [number, number] | [string, string] | [Date, Date] =
+    typeof itemValue === "number"
+      ? [itemValue, parseFloat(searchValue)]
+      : (op === ">" || op === "<") && itemValue instanceof Date
+      ? [itemValue, new Date(Date.parse(searchValue))]
+      : [strVal, searchValue];
+
+  switch (op) {
+    case ">":
+      return comp1 > comp2;
+    case "<":
+      return comp1 < comp2;
+    case "=":
+      return strVal === searchValue;
+    case "~":
+      return strVal.includes(searchValue);
+    case "^":
+      return strVal.startsWith(searchValue);
+    // The default comparison depends on the type
+    case "":
+      if (itemValue instanceof Date) {
+        // This is the full datetime object,
+        // but most people will just type "2024" or "2024-01-01"
+        return strVal.startsWith(searchValue);
+      } else {
+        return strVal === searchValue;
       }
+  }
+}
+
+export function transformQuery(
+  searchTerm: string,
+  searchTermFilterKeys: string[]
+) {
+  // TODO: Support comma-separated quoted values (e.g. `foo:"bar","baz"`)
+  const regex = new RegExp(
+    `(^|\\s)(${searchTermFilterKeys.join(
+      "|"
+    )}):(\\!?)([${searchTermOperators.join("")}]?)([^\\s"]+|"[^"]*"?)`,
+    "gi"
+  );
+  return parseQuery(searchTerm, regex);
+}
+
+export function parseQuery(query: string, regex: RegExp) {
+  const syntaxFilters: {
+    field: string;
+    values: string[];
+    operator: SearchTermFilterOperator;
+    negated: boolean;
+  }[] = [];
+
+  const matches = query.matchAll(regex);
+  for (const match of matches) {
+    if (match && match.length >= 3) {
+      const field = match[2];
+      const negated = !!match[3];
+      const operator = match[4] as SearchTermFilterOperator;
+      const rawValue = match[5].replace(/"/g, "");
+
+      syntaxFilters.push({
+        field,
+        operator,
+        negated,
+        values: rawValue.split(",").map((s) => s.trim()),
+      });
     }
-    return true;
-  });
+  }
+
+  const searchTerm = query.replace(regex, "$1").trim().replace(/\s+/g, " ");
+
+  return {
+    searchTerm,
+    syntaxFilters,
+  };
 }

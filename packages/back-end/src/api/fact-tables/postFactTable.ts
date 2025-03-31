@@ -1,15 +1,14 @@
-import { CreateFactTableProps } from "../../../types/fact-table";
-import { PostFactTableResponse } from "../../../types/openapi";
-import { queueFactTableColumnsRefresh } from "../../jobs/refreshFactTableColumns";
-import { getDataSourceById } from "../../models/DataSourceModel";
+import { CreateFactTableProps } from "back-end/types/fact-table";
+import { PostFactTableResponse } from "back-end/types/openapi";
+import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   createFactTable,
   toFactTableApiInterface,
-} from "../../models/FactTableModel";
-import { findAllProjectsByOrganization } from "../../models/ProjectModel";
-import { addTags } from "../../models/TagModel";
-import { createApiRequestHandler } from "../../util/handler";
-import { postFactTableValidator } from "../../validators/openapi";
+} from "back-end/src/models/FactTableModel";
+import { addTags } from "back-end/src/models/TagModel";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { postFactTableValidator } from "back-end/src/validators/openapi";
 
 export const postFactTable = createApiRequestHandler(postFactTableValidator)(
   async (req): Promise<PostFactTableResponse> => {
@@ -37,7 +36,7 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
 
     // Validate projects
     if (req.body.projects?.length) {
-      const projects = await findAllProjectsByOrganization(req.context);
+      const projects = await req.context.models.projects.getAll();
       const projectIds = new Set(projects.map((p) => p.id));
       for (const projectId of req.body.projects) {
         if (!projectIds.has(projectId)) {

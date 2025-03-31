@@ -12,7 +12,9 @@ type NotCondition = {
 };
 export type Operator =
   | "$in"
+  | "$inGroup"
   | "$nin"
+  | "$notInGroup"
   | "$gt"
   | "$gte"
   | "$lt"
@@ -42,7 +44,9 @@ export type VarType =
   | "undefined";
 export type OperatorConditionValue = {
   $in?: (string | number)[];
+  $inGroup?: string;
   $nin?: (string | number)[];
+  $notInGroup?: string;
   $gt?: number | string;
   $gte?: number | string;
   $lt?: number | string;

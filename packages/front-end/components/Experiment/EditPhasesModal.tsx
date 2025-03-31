@@ -14,6 +14,7 @@ export interface Props {
   experiment: ExperimentInterfaceStringDates;
   mutateExperiment: () => void;
   editTargeting: (() => void) | null;
+  source?: string;
 }
 
 export default function EditPhasesModal({
@@ -21,6 +22,7 @@ export default function EditPhasesModal({
   experiment,
   mutateExperiment,
   editTargeting,
+  source,
 }: Props) {
   const isDraft = experiment.status === "draft";
   const isMultiPhase = experiment.phases.length > 1;
@@ -31,6 +33,7 @@ export default function EditPhasesModal({
   const [editPhase, setEditPhase] = useState<number | null>(
     isDraft && !isMultiPhase ? 0 : null
   );
+
   const { apiCall } = useAuth();
 
   if (editPhase === -1) {
@@ -52,6 +55,7 @@ export default function EditPhasesModal({
   if (editPhase !== null) {
     return (
       <EditPhaseModal
+        source="edit-phases-modal"
         close={() => {
           if (isDraft && !isMultiPhase) {
             close();
@@ -69,9 +73,10 @@ export default function EditPhasesModal({
       />
     );
   }
-
   return (
     <Modal
+      trackingEventModalType="edit-phases-modal"
+      trackingEventModalSource={source}
       open={true}
       header="Edit Phases"
       close={close}
@@ -103,7 +108,9 @@ export default function EditPhasesModal({
                   {phase.dateEnded ? date(phase.dateEnded) : "now"}
                 </strong>
               </td>
-              <td>{phaseSummary(phase)}</td>
+              <td>
+                {phaseSummary(phase, experiment.type === "multi-armed-bandit")}
+              </td>
               {hasStoppedPhases ? (
                 <td>
                   {phase.dateEnded ? (
@@ -123,23 +130,22 @@ export default function EditPhasesModal({
                 >
                   Edit
                 </button>
-                {(experiment.status !== "running" || !hasLinkedChanges) && (
-                  <DeleteButton
-                    className="ml-2"
-                    displayName="phase"
-                    additionalMessage={
-                      experiment.phases.length === 1
-                        ? "This is the only phase. Deleting this will revert the experiment to a draft."
-                        : ""
-                    }
-                    onClick={async () => {
-                      await apiCall(`/experiment/${experiment.id}/phase/${i}`, {
-                        method: "DELETE",
-                      });
-                      mutateExperiment();
-                    }}
-                  />
-                )}
+                {(experiment.status !== "running" || !hasLinkedChanges) &&
+                  experiment.phases.length > 1 && (
+                    <DeleteButton
+                      className="ml-2"
+                      displayName="phase"
+                      onClick={async () => {
+                        await apiCall(
+                          `/experiment/${experiment.id}/phase/${i}`,
+                          {
+                            method: "DELETE",
+                          }
+                        );
+                        mutateExperiment();
+                      }}
+                    />
+                  )}
               </td>
             </tr>
           ))}

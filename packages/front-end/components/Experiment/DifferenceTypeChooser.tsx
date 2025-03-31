@@ -63,7 +63,6 @@ export interface Props {
   setAnalysisSettings: (
     settings: ExperimentSnapshotAnalysisSettings | null
   ) => void;
-  loading: boolean;
   mutate: () => void;
   disabled?: boolean;
 }
@@ -75,7 +74,6 @@ export default function DifferenceTypeChooser({
   phase,
   analysis,
   setAnalysisSettings,
-  loading,
   mutate,
   disabled,
 }: Props) {
@@ -107,8 +105,7 @@ export default function DifferenceTypeChooser({
     <div className="d-inline-flex align-items-center">
       <div className={`d-flex align-items-center`}>
         <span className="hover">{selectedDifferenceName}</span>
-        {((loading && differenceType !== analysis?.settings?.differenceType) ||
-          postLoading) && <LoadingSpinner className="ml-1" />}
+        {postLoading && <LoadingSpinner className="ml-1" />}
       </div>
     </div>
   );

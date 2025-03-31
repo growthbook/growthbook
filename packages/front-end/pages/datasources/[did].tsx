@@ -1,15 +1,12 @@
 import { useRouter } from "next/router";
 import React, { FC, useCallback, useState } from "react";
-import {
-  FaDatabase,
-  FaExclamationTriangle,
-  FaExternalLinkAlt,
-  FaKey,
-} from "react-icons/fa";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import Link from "next/link";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { PiLinkBold } from "react-icons/pi";
+import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { hasFileConfig } from "@/services/env";
@@ -32,6 +29,10 @@ import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/Demo
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Badge from "@/components/Radix/Badge";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import Callout from "@/components/Radix/Callout";
+import Frame from "@/components/Radix/Frame";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -85,22 +86,9 @@ const DataSourcePage: FC = () => {
         method: "PUT",
         body: JSON.stringify(updates),
       });
-      const queriesUpdated =
-        d &&
-        JSON.stringify(d.settings?.queries) !==
-          JSON.stringify(dataSource.settings?.queries);
-      if (queriesUpdated) {
-        apiCall<{ id: string }>("/experiments/import", {
-          method: "POST",
-          body: JSON.stringify({
-            datasource: dataSource.id,
-            force: true,
-          }),
-        });
-      }
       await mutateDefinitions({});
     },
-    [mutateDefinitions, apiCall, d]
+    [mutateDefinitions, apiCall]
   );
 
   if (error) {
@@ -160,128 +148,140 @@ const DataSourcePage: FC = () => {
           </DocLink>
         </div>
       )}
-      <div className="row mb-2 align-items-center">
-        <div className="col-auto">
-          <h1 className="mb-0">{d.name}</h1>
-        </div>
-        <div className="col-auto">
-          <span className="badge badge-secondary">{d.type}</span>{" "}
-          <span className="badge badge-success">connected</span>
-        </div>
-      </div>
-      <div className="row mt-1 mb-3 align-items-center">
-        <div className="col-auto">
-          <div className="text-gray">{d.description}</div>
-        </div>
-      </div>
-      <div className="row mb-3 align-items-center">
-        <div className="col">
+      <Flex align="center" justify="between">
+        <Flex align="center" gap="3">
+          <Heading as="h1" size="7" mb="0">
+            {d.name}
+          </Heading>
+          <Badge
+            label={
+              <>
+                <PiLinkBold />
+                Connected
+              </>
+            }
+            color="green"
+            variant="solid"
+            radius="full"
+          />
+        </Flex>
+        <Box>
+          {(canUpdateConnectionParams ||
+            canUpdateDataSourceSettings ||
+            canDelete) && (
+            <MoreMenu useRadix={true}>
+              {canUpdateConnectionParams && (
+                <a
+                  href="#"
+                  className="dropdown-item"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setEditConn(true);
+                  }}
+                >
+                  Edit Connection Info
+                </a>
+              )}
+              <hr className="m-2" />
+              <DocLink
+                className="dropdown-item"
+                docSection={d.type as DocSection}
+                fallBackSection="datasources"
+              >
+                View Documentation
+              </DocLink>
+              {d?.properties?.supportsInformationSchema && (
+                <a
+                  href="#"
+                  className="dropdown-item"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setViewSchema(true);
+                  }}
+                >
+                  View Schema Browser
+                </a>
+              )}
+              <Link
+                href={`/datasources/queries/${did}`}
+                className="dropdown-item"
+              >
+                View Queries
+              </Link>
+              {canDelete && (
+                <>
+                  <hr className="m-2" />
+                  <DeleteButton
+                    displayName={d.name}
+                    className="dropdown-item text-danger"
+                    useIcon={false}
+                    text={`Delete "${d.name}" Datasource`}
+                    onClick={async () => {
+                      await apiCall(`/datasource/${d.id}`, {
+                        method: "DELETE",
+                      });
+                      mutateDefinitions({});
+                      router.push("/datasources");
+                    }}
+                  />
+                </>
+              )}
+            </MoreMenu>
+          )}
+        </Box>
+      </Flex>
+      {d.description && (
+        <Box mb="3">
+          <Text color="gray">{d.description}</Text>
+        </Box>
+      )}
+      <Flex align="center" gap="4" mt="3">
+        <Text color="gray">
+          <Text weight="medium">Type:</Text> {d.type}
+        </Text>
+        <Text color="gray">
+          <Text weight="medium">Last Updated:</Text>{" "}
+          {datetime(d.dateUpdated ?? "")}
+        </Text>
+        <Box>
           Projects:{" "}
           {d?.projects?.length || 0 > 0 ? (
-            <ProjectBadges
-              resourceType="data source"
-              projectIds={d.projects}
-              className="badge-ellipsis align-middle"
-            />
+            <ProjectBadges resourceType="data source" projectIds={d.projects} />
           ) : (
-            <ProjectBadges
-              resourceType="data source"
-              className="badge-ellipsis align-middle"
-            />
+            <ProjectBadges resourceType="data source" />
           )}
-        </div>
-      </div>
+        </Box>
+      </Flex>
 
-      <div className="row">
-        <div className="col-md-12">
-          <div className="mb-3">
-            {(canUpdateConnectionParams ||
-              canUpdateDataSourceSettings ||
-              canDelete) && (
-              <div className="d-md-flex w-100 justify-content-between">
-                <div>
-                  {canUpdateConnectionParams ? (
-                    <button
-                      className="btn btn-outline-primary mr-2 mt-1 font-weight-bold"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setEditConn(true);
-                      }}
-                    >
-                      <FaKey /> Edit Connection Info
-                    </button>
-                  ) : null}
-                  <DocLink
-                    className="btn btn-outline-secondary mr-2 mt-1 font-weight-bold"
-                    docSection={d.type as DocSection}
-                    fallBackSection="datasources"
-                  >
-                    <FaExternalLinkAlt /> View Documentation
-                  </DocLink>
-                  {d?.properties?.supportsInformationSchema && (
-                    <button
-                      className="btn btn-outline-info mr-2 mt-1 font-weight-bold"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setViewSchema(true);
-                      }}
-                    >
-                      <FaDatabase /> View Schema Browser
-                    </button>
-                  )}
-                  <Link
-                    className="btn btn-outline-info mr-2 mt-1 font-weight-bold"
-                    href={`/datasources/queries/${did}`}
-                  >
-                    <FaDatabase /> View Queries
-                  </Link>
-                </div>
-
-                <div>
-                  {canDelete && (
-                    <DeleteButton
-                      displayName={d.name}
-                      className="font-weight-bold mt-1"
-                      text={`Delete "${d.name}" Datasource`}
-                      onClick={async () => {
-                        await apiCall(`/datasource/${d.id}`, {
-                          method: "DELETE",
-                        });
-                        mutateDefinitions({});
-                        router.push("/datasources");
-                      }}
-                    />
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-          {!d.properties?.hasSettings && (
-            <div className="alert alert-info">
-              This data source does not require any additional configuration.
+      {!d.properties?.hasSettings && (
+        <Box mt="3">
+          <Callout status="info">
+            This data source does not require any additional configuration.
+          </Callout>
+        </Box>
+      )}
+      <Box mt="4" mb="4">
+        {supportsEvents && (
+          <>
+            <div className="my-5">
+              <DataSourceViewEditExperimentProperties
+                dataSource={d}
+                onSave={updateDataSourceSettings}
+                onCancel={() => undefined}
+                canEdit={canUpdateDataSourceSettings}
+              />
             </div>
-          )}
-          {supportsEvents && (
-            <>
-              <div className="my-5">
-                <DataSourceViewEditExperimentProperties
-                  dataSource={d}
-                  onSave={updateDataSourceSettings}
-                  onCancel={() => undefined}
-                  canEdit={canUpdateDataSourceSettings}
-                />
-              </div>
 
-              {d.type === "mixpanel" && (
-                <div>
-                  <h3>Mixpanel Tracking Instructions</h3>
-                  <p>
-                    This example is for Javascript and uses the above settings.
-                    Other languages should be similar.
-                  </p>
-                  <Code
-                    language="javascript"
-                    code={`
+            {d.type === "mixpanel" && (
+              <div>
+                <h3>Mixpanel Tracking Instructions</h3>
+                <p>
+                  This example is for Javascript and uses the above settings.
+                  Other languages should be similar.
+                </p>
+                <Code
+                  language="javascript"
+                  code={`
 // Tracking Callback for GrowthBook SDK
 const growthbook = new GrowthBook({
   ...,
@@ -310,79 +310,81 @@ mixpanel.init('YOUR PROJECT TOKEN', {
   }
 })
                   `.trim()}
-                  />
-                </div>
+                />
+              </div>
+            )}
+          </>
+        )}
+        {supportsSQL && (
+          <>
+            {d.dateUpdated === d.dateCreated &&
+              d?.settings?.schemaFormat !== "custom" && (
+                <Callout status="info" mt="4">
+                  We have prefilled the identifiers and assignment queries
+                  below. These queries may require editing to fit your data
+                  structure.
+                </Callout>
               )}
-            </>
-          )}
-          {supportsSQL && (
-            <>
-              {d.dateUpdated === d.dateCreated &&
-                d?.settings?.schemaFormat !== "custom" && (
-                  <div className="alert alert-info">
-                    <FaExclamationTriangle style={{ marginTop: "-2px" }} /> We
-                    have prefilled the identifiers and assignment queries below.
-                    These queries may require editing to fit your data
-                    structure.
-                  </div>
-                )}
-              <div className="my-3 p-3 rounded border bg-white">
-                <DataSourceInlineEditIdentifierTypes
-                  onSave={updateDataSourceSettings}
-                  onCancel={() => undefined}
-                  dataSource={d}
-                  canEdit={canUpdateDataSourceSettings}
-                />
-              </div>
+            <Frame>
+              <DataSourceInlineEditIdentifierTypes
+                onSave={updateDataSourceSettings}
+                onCancel={() => undefined}
+                dataSource={d}
+                canEdit={canUpdateDataSourceSettings}
+              />
+            </Frame>
 
-              {d.settings?.userIdTypes && d.settings.userIdTypes.length > 1 ? (
-                <div className="my-3 p-3 rounded border bg-white">
-                  <DataSourceInlineEditIdentityJoins
-                    dataSource={d}
-                    onSave={updateDataSourceSettings}
-                    onCancel={() => undefined}
-                    canEdit={canUpdateDataSourceSettings}
-                  />
-                </div>
-              ) : null}
-
-              <div className="my-3 p-3 rounded border bg-white">
-                <ExperimentAssignmentQueries
+            {d.settings?.userIdTypes && d.settings.userIdTypes.length > 1 ? (
+              <Frame>
+                <DataSourceInlineEditIdentityJoins
                   dataSource={d}
                   onSave={updateDataSourceSettings}
                   onCancel={() => undefined}
                   canEdit={canUpdateDataSourceSettings}
                 />
-              </div>
-              <div className="my-3 p-3 rounded border bg-white">
-                <DataSourceMetrics
-                  dataSource={d}
-                  canEdit={canUpdateDataSourceSettings}
-                />
-              </div>
+              </Frame>
+            ) : null}
 
-              <div className="my-3 p-3 rounded border bg-white">
-                <DataSourceJupyterNotebookQuery
+            <Frame>
+              <ExperimentAssignmentQueries
+                dataSource={d}
+                onSave={updateDataSourceSettings}
+                onCancel={() => undefined}
+                canEdit={canUpdateDataSourceSettings}
+              />
+            </Frame>
+
+            <Frame>
+              <DataSourceMetrics
+                dataSource={d}
+                canEdit={canUpdateDataSourceSettings}
+              />
+            </Frame>
+
+            <Frame>
+              <DataSourceJupyterNotebookQuery
+                dataSource={d}
+                onSave={updateDataSourceSettings}
+                onCancel={() => undefined}
+                canEdit={canUpdateDataSourceSettings}
+              />
+            </Frame>
+
+            {d.properties?.supportsWritingTables && pipelineEnabled ? (
+              <Frame>
+                <DataSourcePipeline
                   dataSource={d}
                   onSave={updateDataSourceSettings}
                   onCancel={() => undefined}
                   canEdit={canUpdateDataSourceSettings}
                 />
-              </div>
-
-              {d.properties?.supportsWritingTables && pipelineEnabled ? (
-                <div className="my-3 p-3 rounded border bg-white">
-                  <DataSourcePipeline
-                    dataSource={d}
-                    onSave={updateDataSourceSettings}
-                    onCancel={() => undefined}
-                    canEdit={canUpdateDataSourceSettings}
-                  />
-                </div>
-              ) : null}
-            </>
-          )}
-        </div>
+              </Frame>
+            ) : null}
+          </>
+        )}
+      </Box>
+      <div className="row">
+        <div className="col-md-12"></div>
       </div>
 
       {editConn && (
@@ -400,20 +402,29 @@ mixpanel.init('YOUR PROJECT TOKEN', {
       )}
       {viewSchema && (
         <Modal
+          trackingEventModalType=""
           open={true}
+          size={"lg"}
           close={() => setViewSchema(false)}
           closeCta="Close"
           header="Schema Browser"
+          overflowAuto={false}
         >
-          <>
+          <div className="d-flex row">
             <p>
               Explore the schemas, tables, and table metadata of your connected
               datasource.
             </p>
-            <div className="border rounded">
+            <div
+              className="border rounded w-100"
+              style={{
+                maxHeight: "calc(91vh - 196px)",
+                overflowY: "scroll",
+              }}
+            >
               <SchemaBrowser datasource={d} />
             </div>
-          </>
+          </div>
         </Modal>
       )}
     </div>

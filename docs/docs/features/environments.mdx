@@ -15,7 +15,13 @@ Feature flags can be enabled and disabled on a per-environment basis. You can al
 ![A list of environments](/images/features/feature-environments-1.png)
 
 When a feature is disabled in an environment, the feature will not be returned via the SDK, and that feature will always
-evaluate to `null` and ignore any other targeting or override rules.
+evaluate to `null` and ignore any other targeting or feature rules.
+
+:::note
+
+It's possible for a feature to be enabled for an environment and still be considered "off". This happens when its value is set to `false`, `null`, `0`, or an empty string.
+
+:::
 
 ## Environments and SDKs
 
@@ -30,8 +36,25 @@ the framework you're using, some environment variables are not exposed by defaul
 appropriate prefix, e.g. `NEXT_GROWTHBOOK_CLIENT_KEY='sdk-abc123'` in order to access environment variables in Next.js
 client code.
 
+## Environment Inheritance
+
+When you create an environment you can specify a parent environment to inherit from.
+The new environment initially copies all feature rules from its parent. After creation, the environments
+operate independently—changes to feature rules in one environment won't affect the other. Think of
+it like creating a fork or snapshot of the parent environment.
+
+In the UI, you can only use parent environments for the default environment names:
+`production`, `dev`, `staging`, and `test`. For arbitrary environment inheritance you can use the
+[API endpoint](/api#tag/environments/operation/postEnvironment)
+
 :::note
 
-It's possible for a feature to be enabled for an environment and still be considered "off". This happens when its value is set to `false`, `null`, `0`, or an empty string.
+API-driven **Environment Inheritance** is a GrowthBook Enterprise feature.
 
 :::
+
+Common Use Cases
+
+- Adding new environments to an existing setup (e.g., adding "staging" after having "dev" and "production")
+- Troubleshooting production issues by creating an isolated test environment to safely diagnose problems
+- Creating separate environments on a per-dev or per-PR basis

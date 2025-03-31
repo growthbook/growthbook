@@ -1,11 +1,15 @@
+import { z } from "zod";
+import {
+  queryPointerValidator,
+  queryStatusValidator,
+} from "back-end/src/validators/queries";
 import { QueryLanguage } from "./datasource";
 
-export type QueryStatus =
-  | "queued"
-  | "running"
-  | "failed"
-  | "partially-succeeded"
-  | "succeeded";
+export type QueryStatus = z.infer<typeof queryStatusValidator>;
+
+export type QueryPointer = z.infer<typeof queryPointerValidator>;
+
+export type Queries = QueryPointer[];
 
 export type QueryStatistics = {
   executionDurationMs?: number;
@@ -17,13 +21,6 @@ export type QueryStatistics = {
   partitionsUsed?: boolean;
 };
 
-export type QueryPointer = {
-  query: string;
-  status: QueryStatus;
-  name: string;
-};
-export type Queries = QueryPointer[];
-
 export type QueryType =
   | ""
   | "pastExperiment"
@@ -31,9 +28,12 @@ export type QueryType =
   | "experimentMetric"
   | "dimensionSlices"
   | "experimentUnits"
+  | "experimentDropUnitsTable"
   | "experimentResults"
   | "experimentTraffic"
-  | "experimentMultiMetric";
+  | "experimentMultiMetric"
+  | "populationMetric"
+  | "populationMultiMetric";
 
 export interface QueryInterface {
   id: string;
@@ -51,7 +51,8 @@ export interface QueryInterface {
   queryType?: QueryType;
   rawResult?: Record<string, number | string | boolean | object>[];
   error?: string;
-  dependencies?: string[];
+  dependencies?: string[]; // must succeed before running query
+  runAtEnd?: boolean; // only run when all other queries in model finish
   cachedQueryUsed?: string;
   statistics?: QueryStatistics;
   externalId?: string;

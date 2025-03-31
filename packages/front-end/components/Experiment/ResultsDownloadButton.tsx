@@ -35,12 +35,14 @@ export default function ResultsDownloadButton({
   variations,
   trackingKey,
   dimension,
+  noIcon,
 }: {
   results: ExperimentReportResultDimension[];
   metrics?: string[];
   variations?: ExperimentReportVariation[];
   trackingKey?: string;
   dimension?: string;
+  noIcon?: boolean;
 }) {
   const { getExperimentMetricById, getDimensionById, ready } = useDefinitions();
   const { metricDefaults } = useOrganizationMetricDefaults();
@@ -76,6 +78,8 @@ export default function ResultsDownloadButton({
             variations: result.variations.map((v) => {
               return v.metrics[m];
             }),
+            // We don't care what this is set to here, just need something
+            resultGroup: "goal",
           };
           const stats = variation.metrics[m];
           if (!stats) return;
@@ -146,7 +150,12 @@ export default function ResultsDownloadButton({
           : "results.csv"
       }
     >
-      <FaFileExport className="mr-2" /> Export CSV
+      {!noIcon ? (
+        <>
+          <FaFileExport className="mr-2" />{" "}
+        </>
+      ) : null}
+      Export CSV
     </a>
   );
 }

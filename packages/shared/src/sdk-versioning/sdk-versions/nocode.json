@@ -14,7 +14,8 @@
         "visualEditorDragDrop",
         "prerequisites",
         "redirects",
-        "stickyBucketing"
+        "stickyBucketing",
+        "savedGroupReferences"
       ]
     }
   ]

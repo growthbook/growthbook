@@ -1,12 +1,11 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { CommercialFeature } from "enterprise";
+import { CommercialFeature } from "shared/enterprise";
 import {
   SDKCapability,
   getConnectionsSDKCapabilities,
 } from "shared/sdk-versioning";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
-import track from "@/services/track";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import styles from "@/components/Experiment/LinkedChanges/AddLinkedChanges.module.scss";
@@ -99,10 +98,6 @@ const AddLinkedChangeRow = ({
             onClick={() => {
               if (isCTAClickable) {
                 setModal(true);
-                track(`Open ${type} modal`, {
-                  source: "add-linked-changes",
-                  action: "add",
-                });
               }
             }}
           >
@@ -110,13 +105,9 @@ const AddLinkedChangeRow = ({
           </b>
           {isCTAClickable ? (
             <div
-              className="btn btn-link p-0"
+              className="btn btn-link link-purple p-0"
               onClick={() => {
                 setModal(true);
-                track(`Open ${type} modal`, {
-                  source: "add-linked-changes",
-                  action: "add",
-                });
               }}
             >
               {cta}
@@ -126,12 +117,14 @@ const AddLinkedChangeRow = ({
               <div className="btn btn-link p-0 disabled">{cta}</div>
             </PremiumTooltip>
           ) : (
-            <Tooltip
-              body={`The SDKs in this project don't support ${header}. Upgrade your SDK(s) or add a supported SDK.`}
-              tipPosition="top"
-            >
-              <div className="btn btn-link disabled p-0">{cta}</div>
-            </Tooltip>
+            <div>
+              <Tooltip
+                body={`The SDKs in this project don't support ${header}. Upgrade your SDK(s) or add a supported SDK.`}
+                tipPosition="top"
+              >
+                <div className="btn btn-link disabled p-0">{cta}</div>
+              </Tooltip>
+            </div>
           )}
         </div>
         <p className="mt-2 mb-1">{description}</p>
@@ -181,11 +174,11 @@ export default function AddLinkedChanges({
   };
 
   const possibleSections = Object.keys(sections);
-
   const sectionsToRender = possibleSections.filter((s) => sections[s].render);
+  if (!sectionsToRender.length) return null;
 
   return (
-    <div className="appbox p-4 my-4">
+    <div className="appbox px-4 py-3 my-4">
       {sectionsToRender.length < possibleSections.length ? (
         <>
           <h4>Add Implementation</h4>

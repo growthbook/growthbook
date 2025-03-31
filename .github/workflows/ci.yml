@@ -37,7 +37,7 @@ jobs:
           cache: "pip"
 
       - name: Cache eslint
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/.eslintcache
           key: ${{ runner.os }}-eslint-${{ hashFiles('**/yarn.lock') }}-${{ hashFiles('**/*.ts', '**/*.tsx') }}
@@ -74,6 +74,13 @@ jobs:
         run: |
           yarn generate-api-types
           [[ -n $(git status --porcelain) ]] && echo "You need to run yarn generate-api-types" && git status --porcelain && exit 1 || true
+
+      - name: Check doc
+        run: |
+          cd docs
+          yarn
+          yarn gen
+          [[ -n $(git status --porcelain) ]] && echo "You need to run yarn gen-doc" && git status --porcelain && exit 1 || true
 
       - name: Type-check
         run: |

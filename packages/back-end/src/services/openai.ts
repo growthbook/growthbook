@@ -1,47 +1,40 @@
-import { Configuration, OpenAIApi, ChatCompletionRequestMessage } from "openai";
+import { OpenAI } from "openai";
 import { encoding_for_model, get_encoding } from "@dqbd/tiktoken";
-import { logger } from "../util/logger";
-import { OrganizationInterface } from "../../types/organization";
+import { logger } from "back-end/src/util/logger";
+import { OrganizationInterface } from "back-end/types/organization";
 import {
   getTokensUsedByOrganization,
   updateTokenUsage,
-} from "../models/AITokenUsageModel";
+} from "back-end/src/models/AITokenUsageModel";
 
-/**
- * Snapshot of gpt-3.5-turbo from March 1st 2023. Unlike gpt-3.5-turbo, this
- * model will not receive updates, and will be deprecated 3 months after a new
- * version is released.
- *
- * We use this model to ensure behavior doesn't change while gpt-3.5-turbo is
- * updated. Additionally, token counts will be more predictable.
- */
-const MODEL = "gpt-3.5-turbo-0301";
+const MODEL = "gpt-4o-mini";
 
 /**
  * The MODEL_TOKEN_LIMIT is the maximum number of tokens that can be sent to
  * the OpenAI API in a single request. This limit is imposed by OpenAI.
  *
- * Note too that very long conversations are more likely to receive incomplete
- * replies. For example, a gpt-3.5-turbo conversation that is 4090 tokens long
- * will have its reply cut off after just 6 tokens.
  */
 const MODEL_TOKEN_LIMIT = 4096;
 // Require a minimum of 30 tokens for responses.
 const MESSAGE_TOKEN_LIMIT = MODEL_TOKEN_LIMIT - 30;
 
-let _openai: OpenAIApi | null = null;
+let _openai: OpenAI | null = null;
 export const getOpenAI = () => {
   if (_openai == null) {
-    const configuration = new Configuration({
+    _openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY || "",
     });
-    _openai = new OpenAIApi(configuration);
   }
   return _openai;
 };
 
+type ChatCompletionRequestMessage = {
+  role: "user" | "assistant" | "system";
+  content: string;
+};
+
 /**
- * Function for counting tokens for messages passed to gpt-3.5-turbo-0301.
+ * Function for counting tokens for messages passed to the model.
  * The exact way that messages are converted into tokens may change from model
  * to model. So when future model versions are released, the answers returned
  * by this function may be only approximate.
@@ -59,14 +52,14 @@ const numTokensFromMessages = (messages: ChatCompletionRequestMessage[]) => {
 
   let numTokens = 0;
   for (const message of messages) {
-    numTokens += 4; // every message follows <im_start>{role/name}\n{content}<im_end>\n
+    numTokens += 4;
     for (const [key, value] of Object.entries(message)) {
-      numTokens += encoding.encode(value).length;
-      if (key === "name") numTokens -= 1; // if there's a name, the role is omitted
+      numTokens += encoding.encode(value as string).length;
+      if (key === "name") numTokens -= 1;
     }
   }
 
-  numTokens += 2; // every reply is primed with <im_start>assistant
+  numTokens += 2;
 
   return numTokens;
 };
@@ -97,11 +90,14 @@ export const simpleCompletion = async ({
 }) => {
   const openai = getOpenAI();
 
+  // Content moderation check
+  const moderationResponse = await openai.moderations.create({ input: prompt });
+  if (moderationResponse.results.some((r) => r.flagged)) {
+    throw new Error("Prompt was flagged by OpenAI moderation");
+  }
+
   const messages: ChatCompletionRequestMessage[] = [
     {
-      // In general, gpt-3.5-turbo-0301 does not pay strong attention to the
-      // system message, and therefore important instructions are often better
-      // placed in a user message.
       role: "user",
       content: behavior,
     },
@@ -127,24 +123,14 @@ export const simpleCompletion = async ({
     );
   }
 
-  const inputModerationRes = await openai.createModeration({ input: prompt });
-  if (inputModerationRes.data.results.some((r) => r.flagged)) {
-    throw new Error("Prompt was flagged by OpenAI moderation");
-  }
-
-  const response = await openai.createChatCompletion({
+  const response = await openai.chat.completions.create({
     model: MODEL,
     messages,
     ...(temperature != null ? { temperature } : {}),
   });
 
-  const numTokensUsed = response.data.usage?.total_tokens ?? numTokens; // fallback to numTokens if usage is not available
+  const numTokensUsed = response.usage?.total_tokens ?? numTokens;
   await updateTokenUsage({ numTokensUsed, organization });
 
-  const outputModerationRes = await openai.createModeration({ input: prompt });
-  if (outputModerationRes.data.results.some((r) => r.flagged)) {
-    throw new Error("Output was flagged by OpenAI moderation");
-  }
-
-  return response.data.choices[0].message?.content || "";
+  return response.choices[0].message?.content || "";
 };

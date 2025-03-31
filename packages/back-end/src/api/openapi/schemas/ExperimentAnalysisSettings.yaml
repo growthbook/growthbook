@@ -9,6 +9,7 @@ required:
   - attributionModel
   - statsEngine
   - goals
+  - secondaryMetrics
   - guardrails
 properties:
   datasourceId:
@@ -29,11 +30,22 @@ properties:
     enum:
       - firstExposure
       - experimentDuration
+    description: Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override.
   statsEngine:
     enum:
       - bayesian
       - frequentist
+  regressionAdjustmentEnabled:
+    type: boolean
+  sequentialTestingEnabled:
+    type: boolean
+  sequentialTestingTuningParameter:
+    type: number
   goals:
+    type: array
+    items:
+      $ref: "./ExperimentMetric.yaml"
+  secondaryMetrics:
     type: array
     items:
       $ref: "./ExperimentMetric.yaml"

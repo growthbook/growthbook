@@ -45,7 +45,7 @@ export default function OAuthCallbackPage() {
   }, []);
 
   return (
-    <div className="container">
+    <div className="container py-4">
       {error ? (
         <div>
           <div className="mt-5 alert alert-danger">
@@ -81,3 +81,4 @@ export default function OAuthCallbackPage() {
   );
 }
 OAuthCallbackPage.preAuth = true;
+OAuthCallbackPage.preAuthTopNav = true;

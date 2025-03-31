@@ -1,28 +1,39 @@
-import { FC, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { MemberRoleWithProjects } from "back-end/types/organization";
+import {
+  DefaultMemberRole,
+  MemberRoleWithProjects,
+} from "back-end/types/organization";
 import { getDefaultRole } from "shared/permissions";
 import track from "@/services/track";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
-import useStripeSubscription from "@/hooks/useStripeSubscription";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
 import RoleSelector from "./RoleSelector";
-import InviteModalSubscriptionInfo from "./InviteModalSubscriptionInfo";
 
 type InviteResult = {
   email: string;
   inviteUrl: string;
 };
 
-const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
-  mutate,
-  close,
-}) => {
-  const { license, seatsInUse, organization } = useUser();
+interface Props {
+  mutate: () => void;
+  close: () => void;
+  defaultRole?: DefaultMemberRole;
+}
+
+const InviteModal = ({ mutate, close, defaultRole }: Props) => {
+  const {
+    license,
+    seatsInUse,
+    organization,
+    effectiveAccountPlan,
+    freeSeats,
+    canSubscribe,
+  } = useUser();
 
   const form = useForm<{
     email: string[];
@@ -33,6 +44,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       roleInfo: {
         projectRoles: [],
         ...getDefaultRole(organization),
+        ...(defaultRole ? { role: defaultRole } : {}),
       },
     },
   });
@@ -41,19 +53,17 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   );
   const [failedInvites, setFailedInvites] = useState<InviteResult[]>([]);
   const { apiCall } = useAuth();
-  const {
-    freeSeats,
-    canSubscribe,
-    activeAndInvitedUsers,
-  } = useStripeSubscription();
   const [showUpgradeModal, setShowUpgradeModal] = useState(
-    isCloud() && canSubscribe && activeAndInvitedUsers >= freeSeats
+    isCloud() && canSubscribe && seatsInUse >= freeSeats
       ? "Whoops! You reached your free seat limit."
       : ""
   );
 
   const [showContactSupport, setShowContactSupport] = useState(
-    license && license.hardCap && license.seats <= seatsInUse
+    ["pro", "pro_sso", "enterprise"].includes(effectiveAccountPlan || "") &&
+      license &&
+      license.hardCap &&
+      (license.seats || 0) <= seatsInUse
   );
 
   // Hit their free limit and needs to upgrade to invite more team members
@@ -63,6 +73,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
         close={close}
         source="invite team"
         reason={showUpgradeModal}
+        commercialFeature={null}
       />
     );
   }
@@ -70,7 +81,13 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   // Hit a hard cap and needs to contact sales to increase the number of seats on their license
   if (showContactSupport) {
     return (
-      <Modal open={true} close={close} size="md" header={"Reached seat limit"}>
+      <Modal
+        trackingEventModalType=""
+        open={true}
+        close={close}
+        size="md"
+        header={"Reached seat limit"}
+      >
         <div className="my-3">
           Whoops! You reached the seat limit on your license. To increase your
           number of seats, please contact{" "}
@@ -89,16 +106,17 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
     if (
       isCloud() &&
       canSubscribe &&
-      activeAndInvitedUsers + value.email.length > freeSeats
+      seatsInUse + value.email.length > freeSeats
     ) {
       setShowUpgradeModal("Whoops! You reached your free seat limit.");
       return;
     }
 
     if (
+      ["pro", "pro_sso", "enterprise"].includes(effectiveAccountPlan || "") &&
       license &&
       license.hardCap &&
-      license.seats < seatsInUse + value.email.length
+      (license.seats || 0) < seatsInUse + value.email.length
     ) {
       setShowContactSupport(true);
       return;
@@ -144,6 +162,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
 
   return (
     <Modal
+      trackingEventModalType=""
       close={close}
       header="Invite Member"
       open={true}
@@ -247,7 +266,6 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
               setShowUpgradeModal("To enable advanced permissioning,")
             }
           />
-          <InviteModalSubscriptionInfo />
         </>
       )}
     </Modal>

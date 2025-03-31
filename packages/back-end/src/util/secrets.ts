@@ -109,10 +109,6 @@ export const EMAIL_HOST_PASSWORD = process.env.EMAIL_HOST_PASSWORD;
 export const EMAIL_FROM = process.env.EMAIL_FROM;
 export const SITE_MANAGER_EMAIL = process.env.SITE_MANAGER_EMAIL;
 
-export const STRIPE_SECRET = process.env.STRIPE_SECRET || "";
-export const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "";
-export const STRIPE_PRICE = process.env.STRIPE_PRICE || "";
-
 export const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET || "";
 
 const testConn = process.env.POSTGRES_TEST_CONN;
@@ -198,8 +194,20 @@ const webhooksValidator = z.array(
       url: z.string(),
       headers: z.unknown().optional(),
       signingKey: z.string().optional(),
-      method: z.enum(["GET", "POST", "PUT", "DELETE", "PURGE"]).optional(),
+      method: z
+        .enum(["GET", "POST", "PUT", "DELETE", "PATCH", "PURGE"])
+        .optional(),
       sendPayload: z.boolean().optional(),
+      payloadFormat: z
+        .enum([
+          "standard",
+          "standard-no-payload",
+          "sdkPayload",
+          "edgeConfig",
+          "none",
+        ])
+        .optional(),
+      payloadKey: z.string().optional(),
     })
     .strict()
 );
@@ -212,6 +220,7 @@ try {
   throw Error(`webhooks in env file is malformed: ${error.message}`);
 }
 export const WEBHOOKS = webhooks;
+export const WEBHOOK_PROXY = process.env.WEBHOOK_PROXY || "";
 
 /**
  * Allows custom configuration of the trust proxy settings as
@@ -251,3 +260,13 @@ export const USE_PROXY =
   !!process.env.http_proxy ||
   !!process.env.https_proxy ||
   !!process.env.HTTPS_PROXY;
+
+export const SUPERADMIN_DEFAULT_ROLE =
+  process.env.SUPERADMIN_DEFAULT_ROLE ?? "readonly";
+
+export const CLICKHOUSE_HOST = process.env.CLICKHOUSE_HOST || "";
+export const CLICKHOUSE_ADMIN_USER = process.env.CLICKHOUSE_ADMIN_USER || "";
+export const CLICKHOUSE_ADMIN_PASSWORD =
+  process.env.CLICKHOUSE_ADMIN_PASSWORD || "";
+export const CLICKHOUSE_DATABASE = process.env.CLICKHOUSE_DATABASE || "";
+export const CLICKHOUSE_MAIN_TABLE = process.env.CLICKHOUSE_MAIN_TABLE || "";

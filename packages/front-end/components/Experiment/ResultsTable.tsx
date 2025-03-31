@@ -25,9 +25,8 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { ExperimentMetricInterface } from "shared/experiments";
+import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import {
   ExperimentTableRow,
   getEffectLabel,
@@ -44,19 +43,15 @@ import { useCurrency } from "@/hooks/useCurrency";
 import PValueColumn from "@/components/Experiment/PValueColumn";
 import ChangeColumn from "@/components/Experiment/ChangeColumn";
 import ResultsTableTooltip, {
-  TOOLTIP_HEIGHT,
-  TOOLTIP_TIMEOUT,
-  TOOLTIP_WIDTH,
-  TooltipData,
   TooltipHoverSettings,
-  LayoutX,
-  YAlign,
-} from "@/components/Experiment/ResultsTableTooltip";
+} from "@/components/Experiment/ResultsTableTooltip/ResultsTableTooltip";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
 import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { useResultsTableTooltip } from "@/components/Experiment/ResultsTableTooltip/useResultsTableTooltip";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import AlignedGraph from "./AlignedGraph";
 import ChanceToWinColumn from "./ChanceToWinColumn";
 import MetricValueColumn from "./MetricValueColumn";
@@ -73,7 +68,6 @@ export type ResultsTableProps = {
   startDate: string;
   rows: ExperimentTableRow[];
   dimension?: string;
-  metricsAsGuardrails?: boolean;
   tableRowAxis: "metric" | "dimension";
   labelHeader: ReactElement | string;
   editMetrics?: () => void;
@@ -95,6 +89,9 @@ export type ResultsTableProps = {
   isTabActive: boolean;
   noStickyHeader?: boolean;
   noTooltip?: boolean;
+  isBandit?: boolean;
+  isGoalMetrics?: boolean;
+  ssrPolyfills?: SSRPolyfills;
 };
 
 const ROW_HEIGHT = 56;
@@ -113,7 +110,6 @@ export default function ResultsTable({
   queryStatusData,
   rows,
   dimension,
-  metricsAsGuardrails = false,
   tableRowAxis,
   labelHeader,
   editMetrics,
@@ -134,22 +130,32 @@ export default function ResultsTable({
   isTabActive,
   noStickyHeader,
   noTooltip,
+  isBandit,
+  ssrPolyfills,
 }: ResultsTableProps) {
   // fix any potential filter conflicts
   if (variationFilter?.includes(baselineRow)) {
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
   }
 
-  const { getFactTableById } = useDefinitions();
+  const { getExperimentMetricById, getFactTableById } = useDefinitions();
 
-  const {
-    metricDefaults,
-    getMinSampleSizeForMetric,
-  } = useOrganizationMetricDefaults();
-  const { ciUpper, ciLower } = useConfidenceLevels();
-  const pValueThreshold = usePValueThreshold();
-  const displayCurrency = useCurrency();
-  const orgSettings = useOrgSettings();
+  const _useOrganizationMetricDefaults = useOrganizationMetricDefaults();
+  const { metricDefaults, getMinSampleSizeForMetric } =
+    ssrPolyfills?.useOrganizationMetricDefaults?.() ||
+    _useOrganizationMetricDefaults;
+
+  const _confidenceLevels = useConfidenceLevels();
+  const _pValueThreshold = usePValueThreshold();
+  const _displayCurrency = useCurrency();
+  const _orgSettings = useOrgSettings();
+
+  const { ciUpper, ciLower } =
+    ssrPolyfills?.useConfidenceLevels?.() || _confidenceLevels;
+  const pValueThreshold =
+    ssrPolyfills?.usePValueThreshold?.() || _pValueThreshold;
+  const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
+  const orgSettings = ssrPolyfills?.useOrgSettings?.() || _orgSettings;
 
   const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
 
@@ -173,8 +179,9 @@ export default function ResultsTable({
   }
 
   useEffect(() => {
-    window.addEventListener("resize", onResize, false);
-    return () => window.removeEventListener("resize", onResize, false);
+    globalThis.window?.addEventListener("resize", onResize, false);
+    return () =>
+      globalThis.window?.removeEventListener("resize", onResize, false);
   }, []);
   useLayoutEffect(onResize, []);
   useEffect(onResize, [isTabActive]);
@@ -237,12 +244,21 @@ export default function ResultsTable({
           users: 0,
         };
 
+        const denominator =
+          !isFactMetric(row.metric) && row.metric.denominator
+            ? (ssrPolyfills?.getExperimentMetricById?.(
+                row.metric.denominator
+              ) ||
+                getExperimentMetricById(row.metric.denominator)) ??
+              undefined
+            : undefined;
         const rowResults = getRowResults({
           stats,
           baseline,
           metric: row.metric,
+          denominator,
           metricDefaults,
-          isGuardrail: !!metricsAsGuardrails,
+          isGuardrail: row.resultGroup === "guardrail",
           minSampleSize: getMinSampleSizeForMetric(row.metric),
           statsEngine,
           ciUpper,
@@ -253,7 +269,7 @@ export default function ResultsTable({
           isLatestPhase,
           experimentStatus: status,
           displayCurrency,
-          getFactTableById,
+          getFactTableById: ssrPolyfills?.getFactTableById || getFactTableById,
         });
         rr[i].push(rowResults);
       });
@@ -265,7 +281,6 @@ export default function ResultsTable({
     baselineRow,
     variationFilter,
     metricDefaults,
-    metricsAsGuardrails,
     getMinSampleSizeForMetric,
     statsEngine,
     ciUpper,
@@ -277,167 +292,42 @@ export default function ResultsTable({
     status,
     displayCurrency,
     queryStatusData,
+    ssrPolyfills,
     getFactTableById,
+    getExperimentMetricById,
   ]);
+
+  const {
+    containerRef,
+    tooltipOpen,
+    tooltipData,
+    hoveredX,
+    hoveredY,
+    hoverRow,
+    leaveRow,
+    closeTooltip,
+    hoveredMetricRow,
+    hoveredVariationRow,
+    resetTimeout,
+  } = useResultsTableTooltip({
+    orderedVariations,
+    rows,
+    rowsResults,
+    dimension,
+    statsEngine,
+    pValueCorrection,
+    differenceType,
+    noTooltip,
+  });
 
   const noMetrics = rows.length === 0;
 
-  const {
-    showTooltip,
-    hideTooltip,
-    tooltipOpen,
-    tooltipData,
-  } = useTooltip<TooltipData>();
-  const { containerRef, containerBounds } = useTooltipInPortal({
-    scroll: true,
-    detectBounds: false,
-  });
-  const [hoveredMetricRow, setHoveredMetricRow] = useState<number | null>(null);
-  const [hoveredVariationRow, setHoveredVariationRow] = useState<number | null>(
-    null
-  );
-  const [hoveredX, setHoveredX] = useState<number | null>(null);
-  const [hoveredY, setHoveredY] = useState<number | null>(null);
-  const [hoverTimeout, setHoverTimeout] = useState<number | null>(null);
-  const clearHover = () => {
-    hideTooltip();
-    setHoveredX(null);
-    setHoveredY(null);
-    setHoveredMetricRow(null);
-    setHoveredVariationRow(null);
-  };
-  const resetTimeout = () => {
-    if (hoverTimeout) clearTimeout(hoverTimeout);
-  };
-  const hoverRow = (
-    metricRow: number,
-    variationRow: number,
-    event: React.PointerEvent<HTMLElement>,
-    settings?: TooltipHoverSettings
-  ) => {
-    if (noTooltip) return;
-    if (
-      hoveredMetricRow !== null &&
-      hoveredVariationRow !== null &&
-      (hoveredMetricRow !== metricRow || hoveredVariationRow !== variationRow)
-    ) {
-      closeTooltip();
-      return;
-    }
-    resetTimeout();
-    if (
-      hoveredMetricRow !== null &&
-      hoveredVariationRow !== null &&
-      hoveredMetricRow === metricRow &&
-      hoveredVariationRow === variationRow
-    ) {
-      // don't recompute tooltip if we're already hovering over the same row
-      return;
-    }
-
-    const layoutX: LayoutX = settings?.x ?? "element-right";
-    const offsetX = settings?.offsetX ?? 0;
-    const offsetY = settings?.offsetY ?? 3;
-    const el = event.target as HTMLElement;
-    const target = settings?.targetClassName
-      ? (el.classList.contains(settings.targetClassName)
-          ? el
-          : el.closest(`.${settings.targetClassName}`)) ?? el
-      : (el.tagName === "td" ? el : el.closest("td")) ?? el;
-
-    let yAlign: YAlign = "top";
-    let targetTop: number =
-      (target.getBoundingClientRect()?.bottom ?? 0) - offsetY;
-    if (targetTop > TOOLTIP_HEIGHT + 80) {
-      // 80 relates to the various stacked headers
-      targetTop =
-        (target.getBoundingClientRect()?.top ?? 0) - TOOLTIP_HEIGHT + offsetY;
-      yAlign = "bottom";
-    }
-
-    let targetLeft: number =
-      (layoutX === "element-left"
-        ? (target.getBoundingClientRect()?.left ?? 0) - TOOLTIP_WIDTH + 25
-        : layoutX === "element-right"
-        ? (target.getBoundingClientRect()?.right ?? 0) - 25
-        : layoutX === "element-center"
-        ? ((target.getBoundingClientRect()?.left ?? 0) +
-            (target.getBoundingClientRect()?.right ?? 0)) /
-            2 -
-          TOOLTIP_WIDTH / 2
-        : event.clientX + 10) + offsetX;
-
-    // Prevent tooltip from going off the screen (x-axis)
-    if (targetLeft < 10) {
-      targetLeft = 10;
-    }
-    if (
-      targetLeft + Math.min(TOOLTIP_WIDTH, window.innerWidth) >
-      window.innerWidth - 10
-    ) {
-      targetLeft =
-        window.innerWidth - Math.min(TOOLTIP_WIDTH, window.innerWidth) - 10;
-    }
-
-    if (hoveredX === null && hoveredY === null) {
-      setHoveredX(targetLeft - containerBounds.left);
-      setHoveredY(targetTop - containerBounds.top);
-    }
-
-    const row = rows[metricRow];
-    const baseline = row.variations[orderedVariations[0].index] || {
-      value: 0,
-      cr: 0,
-      users: 0,
-    };
-    const stats = row.variations[orderedVariations[variationRow].index] || {
-      value: 0,
-      cr: 0,
-      users: 0,
-    };
-    const metric = row.metric;
-    const variation = orderedVariations[variationRow];
-    const baselineVariation = orderedVariations[0];
-    const rowResults = rowsResults[metricRow][variationRow];
-    if (!rowResults) return;
-    if (rowResults === "query error") return;
-    showTooltip({
-      tooltipData: {
-        metricRow,
-        metric,
-        metricSnapshotSettings: row.metricSnapshotSettings,
-        dimensionName: dimension,
-        dimensionValue: dimension ? row.label : undefined,
-        variation,
-        stats,
-        baseline,
-        baselineVariation,
-        rowResults,
-        statsEngine,
-        pValueCorrection,
-        isGuardrail: !!metricsAsGuardrails,
-        layoutX,
-        yAlign,
-      },
-    });
-    setHoveredMetricRow(metricRow);
-    setHoveredVariationRow(variationRow);
-  };
-  const leaveRow = () => {
-    const timeout = window.setTimeout(clearHover, TOOLTIP_TIMEOUT);
-    setHoverTimeout(timeout);
-  };
-  const closeTooltip = () => {
-    resetTimeout();
-    clearHover();
-  };
-  useEffect(() => {
-    return () => {
-      if (hoverTimeout) clearTimeout(hoverTimeout);
-    };
-  }, [hoverTimeout]);
-
   const changeTitle = getEffectLabel(differenceType);
+
+  const hasGoalMetrics = rows.some((r) => r.resultGroup === "goal");
+  const appliedPValueCorrection = hasGoalMetrics
+    ? pValueCorrection ?? null
+    : null;
 
   return (
     <div className="position-relative" ref={containerRef}>
@@ -465,6 +355,8 @@ export default function ResultsTable({
           onPointerMove={resetTimeout}
           onClick={resetTimeout}
           onPointerLeave={leaveRow}
+          isBandit={isBandit}
+          ssrPolyfills={ssrPolyfills}
         />
       </CSSTransition>
 
@@ -489,7 +381,9 @@ export default function ResultsTable({
                         showMetricFilter={showMetricFilter}
                         setShowMetricFilter={setShowMetricFilter}
                       />
-                    ) : null}
+                    ) : (
+                      <span className="pl-1" />
+                    )}
                     <div
                       className="col-auto px-1"
                       style={{
@@ -600,8 +494,8 @@ export default function ResultsTable({
                           <span className="nowrap">Chance</span>{" "}
                           <span className="nowrap">to Win</span>
                         </div>
-                      ) : !metricsAsGuardrails &&
-                        (sequentialTestingEnabled || pValueCorrection) ? (
+                      ) : sequentialTestingEnabled ||
+                        appliedPValueCorrection ? (
                         <Tooltip
                           usePortal={true}
                           innerClassName={"text-left"}
@@ -609,7 +503,7 @@ export default function ResultsTable({
                             <div style={{ lineHeight: 1.5 }}>
                               {getPValueTooltip(
                                 !!sequentialTestingEnabled,
-                                pValueCorrection ?? null,
+                                appliedPValueCorrection,
                                 orgSettings.pValueThreshold ??
                                   DEFAULT_P_VALUE_THRESHOLD,
                                 tableRowAxis
@@ -617,7 +511,8 @@ export default function ResultsTable({
                             </div>
                           }
                         >
-                          P-value <RxInfoCircled />
+                          {appliedPValueCorrection ? "Adj. " : ""}P-value{" "}
+                          <RxInfoCircled />
                         </Tooltip>
                       ) : (
                         <>P-value</>
@@ -629,9 +524,13 @@ export default function ResultsTable({
                       })}
                       style={{
                         width:
-                          window.innerWidth < 900 ? graphCellWidth : undefined,
+                          (globalThis.window?.innerWidth ?? 900) < 900
+                            ? graphCellWidth
+                            : undefined,
                         minWidth:
-                          window.innerWidth >= 900 ? graphCellWidth : undefined,
+                          (globalThis.window?.innerWidth ?? 900) >= 900
+                            ? graphCellWidth
+                            : undefined,
                       }}
                     >
                       <div className="position-relative">
@@ -697,12 +596,13 @@ export default function ResultsTable({
                 <tbody className={clsx("results-group-row")} key={i}>
                   {!compactResults &&
                     drawEmptyRow({
-                      className: "results-label-row bg-light",
+                      className: "results-label-row",
                       label: renderLabelColumn(row.label, row.metric, row),
                       graphCellWidth,
                       rowHeight: METRIC_LABEL_ROW_HEIGHT,
                       id,
                       domain,
+                      ssrPolyfills,
                     })}
 
                   {orderedVariations.map((v, j) => {
@@ -745,11 +645,16 @@ export default function ResultsTable({
                             : ROW_HEIGHT,
                           id,
                           domain,
+                          ssrPolyfills,
                         });
                       } else {
                         return null;
                       }
                     }
+
+                    const hideScaledImpact =
+                      !rowResults.hasScaledImpact &&
+                      differenceType === "scaled";
                     const isHovered =
                       hoveredMetricRow === i && hoveredVariationRow === j;
 
@@ -766,7 +671,10 @@ export default function ResultsTable({
                       settings?: TooltipHoverSettings
                     ) => {
                       // No hover tooltip if the screen is too narrow. Clicks still work.
-                      if (e?.type === "mousemove" && window.innerWidth < 900) {
+                      if (
+                        e?.type === "mousemove" &&
+                        (globalThis.window?.innerWidth ?? 900) < 900
+                      ) {
                         return;
                       }
                       if (!rowResults.hasData) return;
@@ -818,6 +726,15 @@ export default function ResultsTable({
                             className={clsx("value baseline", {
                               hover: isHovered,
                             })}
+                            showRatio={!isBandit}
+                            displayCurrency={displayCurrency}
+                            getExperimentMetricById={
+                              ssrPolyfills?.getExperimentMetricById ||
+                              getExperimentMetricById
+                            }
+                            getFactTableById={
+                              ssrPolyfills?.getFactTableById || getFactTableById
+                            }
                           />
                         ) : (
                           <td />
@@ -829,6 +746,15 @@ export default function ResultsTable({
                           className={clsx("value", {
                             hover: isHovered,
                           })}
+                          showRatio={!isBandit}
+                          displayCurrency={displayCurrency}
+                          getExperimentMetricById={
+                            ssrPolyfills?.getExperimentMetricById ||
+                            getExperimentMetricById
+                          }
+                          getFactTableById={
+                            ssrPolyfills?.getFactTableById || getFactTableById
+                          }
                         />
                         {j > 0 ? (
                           statsEngine === "bayesian" ? (
@@ -840,7 +766,10 @@ export default function ResultsTable({
                               showSuspicious={true}
                               showPercentComplete={false}
                               showTimeRemaining={true}
-                              showGuardrailWarning={metricsAsGuardrails}
+                              showGuardrailWarning={
+                                row.resultGroup === "guardrail"
+                              }
+                              hideScaledImpact={hideScaledImpact}
                               className={clsx(
                                 "results-ctw",
                                 resultsHighlightClassname
@@ -855,7 +784,7 @@ export default function ResultsTable({
                               baseline={baseline}
                               rowResults={rowResults}
                               pValueCorrection={
-                                !metricsAsGuardrails
+                                row.resultGroup === "goal"
                                   ? pValueCorrection
                                   : undefined
                               }
@@ -864,7 +793,10 @@ export default function ResultsTable({
                               showPercentComplete={false}
                               showTimeRemaining={true}
                               showUnadjustedPValue={false}
-                              showGuardrailWarning={metricsAsGuardrails}
+                              showGuardrailWarning={
+                                row.resultGroup === "guardrail"
+                              }
+                              hideScaledImpact={hideScaledImpact}
                               className={clsx(
                                 "results-pval",
                                 resultsHighlightClassname
@@ -890,13 +822,14 @@ export default function ResultsTable({
                                   ? "significant"
                                   : "gradient"
                               }
+                              disabled={hideScaledImpact}
                               significant={rowResults.significant}
                               baseline={baseline}
                               domain={domain}
                               metric={row.metric}
                               stats={stats}
                               id={`${id}_violin_row${i}_var${j}_${
-                                metricsAsGuardrails ? "guardrail" : "goal"
+                                row.resultGroup
                               }_${encodeURIComponent(dimension ?? "d-none")}`}
                               graphWidth={graphCellWidth}
                               height={
@@ -913,6 +846,7 @@ export default function ResultsTable({
                                   ? rowResults.resultsStatus
                                   : undefined
                               }
+                              ssrPolyfills={ssrPolyfills}
                               onMouseMove={(e) =>
                                 onPointerMove(e, {
                                   x: "element-center",
@@ -938,6 +872,7 @@ export default function ResultsTable({
                               axisOnly={true}
                               graphWidth={graphCellWidth}
                               height={32}
+                              ssrPolyfills={ssrPolyfills}
                             />
                           )}
                         </td>
@@ -949,6 +884,7 @@ export default function ResultsTable({
                             differenceType={differenceType}
                             statsEngine={statsEngine}
                             className={resultsHighlightClassname}
+                            ssrPolyfills={ssrPolyfills}
                           />
                         ) : (
                           <td></td>
@@ -966,18 +902,10 @@ export default function ResultsTable({
               <div className="metriclabel text-muted font-weight-bold">
                 No metrics yet
               </div>
-              {!metricsAsGuardrails ? (
-                <div className="small mt-1 mb-2">
-                  Add metrics to start tracking the performance of your
-                  experiment.
-                </div>
-              ) : (
-                <div className="small mt-1 mb-2">
-                  Add guardrail metrics to ensure that your experiment is not
-                  harming any metrics that you aren&apos;t specifically trying
-                  to improve.
-                </div>
-              )}
+              <div className="small mt-1 mb-2">
+                Add metrics to start tracking the performance of your
+                experiment.
+              </div>
             </div>
           ) : null}
         </div>
@@ -995,6 +923,7 @@ function drawEmptyRow({
   rowHeight = SPACER_ROW_HEIGHT,
   id,
   domain,
+  ssrPolyfills,
 }: {
   key?: number | string;
   className?: string;
@@ -1004,6 +933,7 @@ function drawEmptyRow({
   rowHeight?: number;
   id: string;
   domain: [number, number];
+  ssrPolyfills?: SSRPolyfills;
 }) {
   return (
     <tr key={key} style={style} className={className}>
@@ -1017,6 +947,7 @@ function drawEmptyRow({
           axisOnly={true}
           graphWidth={graphCellWidth}
           height={rowHeight}
+          ssrPolyfills={ssrPolyfills}
         />
       </td>
       <td />
@@ -1120,8 +1051,8 @@ function getPValueTooltip(
           using the {pValueCorrection} method. P-values were adjusted across
           tests for
           {tableRowAxis === "dimension"
-            ? "all dimension values, non-guardrail metrics, and variations"
-            : "all non-guardrail metrics and variations"}
+            ? " all dimension values, goal metrics, and variations"
+            : " all goal metrics and variations"}
           . The unadjusted p-values are returned in the tooltip.
         </div>
       )}

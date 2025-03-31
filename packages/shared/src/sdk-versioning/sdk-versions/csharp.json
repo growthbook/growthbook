@@ -1,6 +1,29 @@
 {
   "versions": [
     {
+      "version": "1.1.0",
+      "capabilities": [
+        "stickyBucketing",
+        "prerequisites",
+        "savedGroupReferences"
+      ]
+    },
+    {
+      "version": "1.0.6"
+    },
+    {
+      "version": "1.0.2"
+    },
+    {
+      "version": "1.0.0",
+      "capabilities": [
+        "encryption",
+        "streaming",
+        "bucketingV2",
+        "semverTargeting"
+      ]
+    },
+    {
       "version": "0.2.0"
     },
     {

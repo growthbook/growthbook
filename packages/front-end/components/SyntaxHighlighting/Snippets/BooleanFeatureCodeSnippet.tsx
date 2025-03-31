@@ -104,10 +104,12 @@ if (gb.isOn(${JSON.stringify(featureId)})) {
       <Code
         language="go"
         code={`
-if gb.Feature(${JSON.stringify(featureId)}).On {
+
+result := client.EvalFeature(context.Background(), ${JSON.stringify(featureId)})
+if result.On {
   // Feature is enabled!
 }
-            `.trim()}
+        `.trim()}
       />
     );
   }
@@ -229,9 +231,10 @@ return new Response("<h1>bar</h1>");
 if (growthbook.isOn("my-feature")) {
   const resp = { status: "200", body: "<h1>foo</h1>" };
   callback(null, resp);
+} else {
+  const resp = { status: "200", body: "<h1>bar</h1>" };
+  callback(null, resp);
 }
-const resp = { status: "200", body: "<h1>bar</h1>" };
-callback(null, resp);
         `.trim()}
       />
     );

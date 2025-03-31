@@ -24,6 +24,7 @@ export type EditSDKConnectionParams = {
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
+  includeRuleIds?: boolean;
   remoteEvalEnabled?: boolean;
 };
 export type CreateSDKConnectionParams = {
@@ -41,32 +42,13 @@ export type CreateSDKConnectionParams = {
   includeDraftExperiments: boolean;
   includeExperimentNames: boolean;
   includeRedirectExperiments: boolean;
+  includeRuleIds: boolean;
   remoteEvalEnabled?: boolean;
 };
 
-export type SDKLanguage =
-  | "nocode-webflow"
-  | "nocode-wordpress"
-  | "nocode-shopify"
-  | "nocode-other"
-  | "javascript"
-  | "nodejs"
-  | "react"
-  | "php"
-  | "ruby"
-  | "python"
-  | "go"
-  | "java"
-  | "csharp"
-  | "android"
-  | "ios"
-  | "flutter"
-  | "elixir"
-  | "edge-cloudflare"
-  | "edge-fastly"
-  | "edge-lambda"
-  | "edge-other"
-  | "other";
+import { sdkLanguages } from "back-end/src/util/constants";
+
+export type SDKLanguage = typeof sdkLanguages[number];
 
 export interface SDKConnectionInterface {
   id: string;
@@ -90,6 +72,7 @@ export interface SDKConnectionInterface {
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
+  includeRuleIds?: boolean;
 
   // URL slug for fetching features from the API
   key: string;
@@ -99,6 +82,7 @@ export interface SDKConnectionInterface {
   proxy: ProxyConnection;
 
   remoteEvalEnabled?: boolean;
+  savedGroupReferencesEnabled?: boolean;
 }
 
 export interface ProxyTestResult {

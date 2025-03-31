@@ -1,7 +1,7 @@
 import { Response } from "express";
-import { ScimError, ScimGetRequest, ScimUser } from "../../../types/scim";
-import { ExpandedMember } from "../../../types/organization";
-import { expandOrgMembers } from "../../services/organizations";
+import { ScimError, ScimGetRequest, ScimUser } from "back-end/types/scim";
+import { ExpandedMember } from "back-end/types/organization";
+import { expandOrgMembers } from "back-end/src/services/organizations";
 
 export const expandedMembertoScimUser = (
   member: ExpandedMember,
@@ -13,6 +13,7 @@ export const expandedMembertoScimUser = (
     userName: member.email,
     displayName: member.name,
     active,
+    externalId: member.externalId,
   };
 };
 

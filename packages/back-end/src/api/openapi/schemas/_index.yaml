@@ -6,10 +6,16 @@ Metric:
   $ref: "./Metric.yaml"
 Project:
   $ref: "./Project.yaml"
+Environment:
+  $ref: "./Environment.yaml"
+Attribute:
+  $ref: "./Attribute.yaml"
 Segment:
   $ref: "./Segment.yaml"
 Feature:
   $ref: "./Feature.yaml"
+FeatureWithRevisions:
+  $ref: "./FeatureWithRevisions.yaml"
 FeatureEnvironment:
   $ref: "./FeatureEnvironment.yaml"
 FeatureRule:
@@ -28,6 +34,8 @@ SdkConnection:
   $ref: "./SdkConnection.yaml"
 Experiment:
   $ref: "./Experiment.yaml"
+ExperimentSnapshot:
+  $ref: "./ExperimentSnapshot.yaml"
 ExperimentMetric:
   $ref: "./ExperimentMetric.yaml"
 ExperimentAnalysisSettings:
@@ -50,3 +58,7 @@ FactTableFilter:
   $ref: "./FactTableFilter.yaml"
 FactMetric:
   $ref: "./FactMetric.yaml"
+Member:
+  $ref: "./Member.yaml"
+Archetype:
+  $ref: "./Archetype.yaml"

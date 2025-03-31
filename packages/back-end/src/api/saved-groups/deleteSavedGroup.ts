@@ -1,10 +1,10 @@
-import { DeleteSavedGroupResponse } from "../../../types/openapi";
+import { DeleteSavedGroupResponse } from "back-end/types/openapi";
 import {
   deleteSavedGroupById,
   getSavedGroupById,
-} from "../../models/SavedGroupModel";
-import { createApiRequestHandler } from "../../util/handler";
-import { deleteSavedGroupValidator } from "../../validators/openapi";
+} from "back-end/src/models/SavedGroupModel";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { deleteSavedGroupValidator } from "back-end/src/validators/openapi";
 
 export const deleteSavedGroup = createApiRequestHandler(
   deleteSavedGroupValidator
@@ -19,7 +19,7 @@ export const deleteSavedGroup = createApiRequestHandler(
       throw new Error("Unable to delete saved group. No group found.");
     }
 
-    if (!req.context.permissions.canDeleteSavedGroup()) {
+    if (!req.context.permissions.canDeleteSavedGroup(savedGroup)) {
       req.context.permissions.throwPermissionError();
     }
 

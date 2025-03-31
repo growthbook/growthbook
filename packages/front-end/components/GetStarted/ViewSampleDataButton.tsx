@@ -1,11 +1,11 @@
-import { ProjectInterface } from "@back-end/types/project";
+import { ProjectInterface } from "back-end/types/project";
 import { useRouter } from "next/router";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
-import Button from "@/components/Button";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Button from "@/components/Radix/Button";
 
 const ViewSampleDataButton = ({
   resource = "experiment",
@@ -46,7 +46,7 @@ const ViewSampleDataButton = ({
         if (resource === "experiment") {
           router.push(`/experiment/${res.experimentId}`);
         } else {
-          router.push(`/feature/${demoFeatureId}`);
+          router.push(`/features/${demoFeatureId}`);
         }
       } else {
         throw new Error("Could not create sample experiment");
@@ -56,13 +56,7 @@ const ViewSampleDataButton = ({
 
   return (
     <Button
-      style={{
-        width: "250px",
-        background: "#EDE9FE",
-        color: "#5746AF",
-        fontWeight: 400,
-        border: "1px solid #C4B8F3",
-      }}
+      variant="outline"
       onClick={openSample}
       disabled={
         (!exists || !demoExperimentId) && !permissionsUtils.canCreateProjects()

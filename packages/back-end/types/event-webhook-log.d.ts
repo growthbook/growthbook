@@ -1,5 +1,11 @@
-export interface EventWebHookLogInterface {
+import { NotificationEventName } from "./event";
+import { EventWebHookMethod } from "./event-webhook";
+
+export interface EventWebHookLegacyLogInterface {
   id: string;
+  event?: NotificationEventName;
+  url?: string;
+  method?: EventWebHookMethod;
   eventWebHookId: string;
   organizationId: string;
   dateCreated: Date;
@@ -7,4 +13,11 @@ export interface EventWebHookLogInterface {
   responseBody: string | null;
   result: "error" | "success";
   payload: Record<string, unknown>;
+}
+
+export interface EventWebHookLogInterface
+  extends EventWebHookLegacyLogInterface {
+  event: NotificationEventName;
+  url: string;
+  method: EventWebHookMethod;
 }

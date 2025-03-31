@@ -12,17 +12,17 @@ import { BsBoxArrowUpRight } from "react-icons/bs";
 import dJSON from "dirty-json";
 import clsx from "clsx";
 import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Modal from "@/components/Modal";
 import { GBAddCircle } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import RadioGroup from "@/components/Radix/RadioGroup";
 
 export interface Props {
-  valueType: FeatureValueType;
-  label: string;
+  valueType?: FeatureValueType;
+  label?: string | ReactNode;
   value: string;
   setValue: (v: string) => void;
   id: string;
@@ -38,7 +38,6 @@ export default function FeatureValueField({
   label,
   value,
   setValue,
-  id,
   helpText,
   placeholder,
   feature,
@@ -73,20 +72,25 @@ export default function FeatureValueField({
 
   if (valueType === "boolean") {
     return (
-      <div className="form-group">
-        <label>{label}</label>
+      <div className={clsx("form-group", { "mb-0": label === undefined })}>
+        {label !== undefined && <label>{label}</label>}
         <div>
-          <Toggle
-            id={id + "__toggle"}
-            value={value === "true"}
+          <RadioGroup
+            options={[
+              {
+                label: "TRUE",
+                value: "true",
+              },
+              {
+                label: "FALSE",
+                value: "false",
+              },
+            ]}
+            value={value}
             setValue={(v) => {
-              setValue(v ? "true" : "false");
+              setValue(v);
             }}
-            type="featureValue"
           />
-          <span className="text-gray font-weight-bold pl-2">
-            {value === "true" ? "TRUE" : "FALSE"}
-          </span>
         </div>
         {helpText && <small className="text-muted">{helpText}</small>}
       </div>
@@ -120,11 +124,20 @@ export default function FeatureValueField({
             min: "any",
             max: "any",
           }
-        : {
+        : valueType === "string"
+        ? {
             textarea: true,
             minRows: 1,
-          })}
+          }
+        : {})}
       helpText={helpText}
+      style={
+        valueType === undefined
+          ? { width: 80 }
+          : valueType === "number"
+          ? { width: 120 }
+          : undefined
+      }
     />
   );
 }
@@ -221,13 +234,21 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
             {label}
           </label>
           <div>
-            <Toggle
-              id={uuid}
-              value={value as boolean}
+            <RadioGroup
+              options={[
+                {
+                  label: "TRUE",
+                  value: "true",
+                },
+                {
+                  label: "FALSE",
+                  value: "false",
+                },
+              ]}
+              value={value as string}
               setValue={(v) => {
                 setValue(v as T);
               }}
-              type="featureValue"
               disabled={!field.required && !isset}
             />
           </div>
@@ -238,13 +259,21 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
       ) : (
         <>
           <div>
-            <Toggle
-              id={uuid}
-              value={value as boolean}
+            <RadioGroup
+              options={[
+                {
+                  label: "TRUE",
+                  value: "true",
+                },
+                {
+                  label: "FALSE",
+                  value: "false",
+                },
+              ]}
+              value={value as string}
               setValue={(v) => {
                 setValue(v as T);
               }}
-              type="featureValue"
               disabled={!field.required && !isset}
             />
           </div>
@@ -311,7 +340,7 @@ function SimpleSchemaEditor({
   value: string;
   setValue: (value: string) => void;
   renderInline?: boolean;
-  label?: string;
+  label?: string | ReactNode;
   placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -395,6 +424,7 @@ function SimpleSchemaEditor({
       <>
         {open ? (
           <Modal
+            trackingEventModalType=""
             open={true}
             header="Edit Value"
             size="lg"
@@ -463,7 +493,7 @@ function JSONTextEditor({
   helpText,
   placeholder,
 }: {
-  label?: string;
+  label?: string | ReactNode;
   editAsForm?: () => void;
   value: string;
   setValue: (value: string) => void;
@@ -546,7 +576,7 @@ function SimpleSchemaObjectArrayEditor({
   value: string;
   setValue: (value: string) => void;
   fields: SchemaField[];
-  label?: string;
+  label?: string | ReactNode;
   placeholder?: string;
 }) {
   let valueParsed: unknown;

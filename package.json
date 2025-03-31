@@ -2,17 +2,19 @@
   "name": "growthbook-app",
   "repository": "https://github.com/growthbook/growthbook-app.git",
   "private": true,
+  "version": "3.5.0",
   "scripts": {
     "lint": "eslint './**/*.{ts,tsx,js,jsx}' --fix --max-warnings 0 --cache --cache-strategy content",
     "lint:ci": "eslint './**/*.{ts,tsx,js,jsx}' --max-warnings 0 --cache --cache-strategy content",
     "pretty": "prettier --write ./**/*.{json,css,scss,md,mdx}",
     "type-check": "wsrun -m type-check",
-    "clean": "rimraf node_modules && wsrun -m clean && yarn cache clean",
+    "clean": "wsrun -m clean && rimraf node_modules && yarn cache clean",
+    "doc-gen": "cd docs && yarn && yarn gen",
     "unused-export-check": "wsrun -m unused-export-check",
     "test": "wsrun -m test",
-    "dev:apps": "wsrun -p 'back-end' -p 'front-end' -p 'shared' -p 'enterprise' -c dev",
+    "dev:apps": "wsrun -p 'back-end' -p 'front-end' -p 'shared' -c dev",
     "dev": ". $(cd packages/stats && poetry env info --path)/bin/activate && yarn dev:apps",
-    "build:deps": "wsrun -p '@growthbook/growthbook' -p '@growthbook/growthbook-react' -p 'shared' -p 'enterprise' -t -c build",
+    "build:deps": "wsrun -p '@growthbook/growthbook' -p '@growthbook/growthbook-react' -p 'shared' -t -c build",
     "build:app": "wsrun -p 'back-end' -p 'front-end' -c build",
     "build": "yarn build:deps && yarn build:app",
     "start": "wsrun -p 'back-end' -p 'front-end' --no-prefix -c start",
@@ -24,7 +26,8 @@
     "generate-api-types": "yarn workspace back-end generate-api-types",
     "ci": "yarn lint:ci && yarn run type-check && yarn run test",
     "postinstall": "patch-package",
-    "generate-sdk-report": "yarn workspace shared generate-sdk-report"
+    "generate-sdk-report": "yarn workspace shared generate-sdk-report",
+    "bump-sdk-version": "yarn workspace @growthbook/growthbook bump-version"
   },
   "workspaces": [
     "packages/*"
@@ -51,7 +54,7 @@
     "lint-staged": "^10.2.7",
     "plop": "^3.1.1",
     "prettier": "^2.2.1",
-    "typescript": "5.3.3"
+    "typescript": "5.6.3"
   },
   "lint-staged": {
     "./**/*.{json,css,scss,md,mdx}": [
@@ -65,7 +68,7 @@
     ]
   },
   "resolutions": {
-    "@growthbook/growthbook": "1.0.0"
+    "@growthbook/growthbook": "1.4.1"
   },
   "prettier": {
     "overrides": [
@@ -77,5 +80,8 @@
       }
     ]
   },
-  "license": "MIT"
+  "license": "Mixed",
+  "engines": {
+    "node": ">=18"
+  }
 }

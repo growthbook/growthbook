@@ -1,26 +1,21 @@
 import crypto from "crypto";
 import { Response } from "express";
-import {
-  AccountPlan,
-  LicenseServerError,
-  postCreateTrialEnterpriseLicenseToLicenseServer,
-  postResendEmailVerificationEmailToLicenseServer,
-  postVerifyEmailToLicenseServer,
-} from "enterprise";
-import md5 from "md5";
+import { AccountPlan } from "shared/enterprise";
 import {
   getLicenseMetaData,
-  initializeLicenseForOrg,
-} from "../services/licenseData";
-import { getUserLicenseCodes } from "../services/users";
-import { AuthRequest } from "../types/AuthRequest";
-import { getContextFromReq } from "../services/organizations";
+  getUserCodesForOrg,
+} from "back-end/src/services/licenseData";
+import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { getContextFromReq } from "back-end/src/services/organizations";
+import { updateOrganization } from "back-end/src/models/OrganizationModel";
+import { PrivateApiErrorResponse } from "back-end/types/api";
 import {
-  getAllInviteEmailsInDb,
-  updateOrganization,
-} from "../models/OrganizationModel";
-import { PrivateApiErrorResponse } from "../../types/api";
-import { updateSubscriptionInDb } from "../services/stripe";
+  licenseInit,
+  postCreateTrialEnterpriseLicenseToLicenseServer,
+  LicenseServerError,
+  postResendEmailVerificationEmailToLicenseServer,
+  postVerifyEmailToLicenseServer,
+} from "back-end/src/enterprise";
 
 /**
  * An endpoint mostly used to refresh the license data manually, if they
@@ -28,21 +23,23 @@ import { updateSubscriptionInDb } from "../services/stripe";
  * want to restart their servers.
  */
 export async function getLicenseData(req: AuthRequest, res: Response) {
-  const context = getContextFromReq(req);
-
-  if (!context.permissions.canManageBilling()) {
-    context.permissions.throwPermissionError();
+  if (!req.superAdmin) {
+    const context = getContextFromReq(req);
+    if (!context.permissions.canManageBilling()) {
+      context.permissions.throwPermissionError();
+    }
   }
 
   let licenseData;
 
   if (req.organization?.licenseKey || process.env.LICENSE_KEY) {
     // Force refresh the license data
-    licenseData = await initializeLicenseForOrg(req.organization, true);
-  } else if (req.organization?.subscription) {
-    // TODO: Get rid of updateSubscriptionInDb one we have moved the license off the organizations
-    // This is to update the subscription data in the organization from stripe if they have it
-    await updateSubscriptionInDb(req.organization.subscription.id);
+    licenseData = await licenseInit(
+      req.organization,
+      getUserCodesForOrg,
+      getLicenseMetaData,
+      true
+    );
   }
 
   return res.status(200).json({
@@ -65,11 +62,7 @@ export async function getLicenseReport(req: AuthRequest, res: Response) {
 
   const timestamp = new Date().toISOString();
   const licenseMetaData = await getLicenseMetaData();
-  const userEmailCodes = await getUserLicenseCodes();
-  const inviteEmails = await getAllInviteEmailsInDb();
-  const inviteEmailCodes: string[] = inviteEmails.map((email) => {
-    return md5(email).slice(0, 8);
-  });
+  const userEmailCodes = await getUserCodesForOrg(context.org);
 
   // Create a hmac signature of the license data
   const hmac = crypto.createHmac("sha256", licenseMetaData.installationId);
@@ -78,7 +71,6 @@ export async function getLicenseReport(req: AuthRequest, res: Response) {
     timestamp,
     licenseMetaData,
     userEmailCodes,
-    inviteEmailCodes,
   };
 
   return res.status(200).json({
@@ -132,7 +124,12 @@ export async function postCreateTrialEnterpriseLicense(
     if (!org.licenseKey) {
       await updateOrganization(org.id, { licenseKey: results.licenseId });
     } else {
-      await initializeLicenseForOrg(req.organization, true);
+      await licenseInit(
+        req.organization,
+        getUserCodesForOrg,
+        getLicenseMetaData,
+        true
+      );
     }
     return res.status(200).json({ status: 200 });
   } catch (e) {
@@ -175,7 +172,12 @@ export async function postVerifyEmail(
     await postVerifyEmailToLicenseServer(emailVerificationToken);
 
     // update license info from the license server as if the email was verified then the license data will be changed
-    await initializeLicenseForOrg(req.organization, true);
+    await licenseInit(
+      req.organization,
+      getUserCodesForOrg,
+      getLicenseMetaData,
+      true
+    );
 
     return res.status(200).json({ status: 200 });
   } catch (e) {

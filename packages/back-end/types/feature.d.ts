@@ -5,16 +5,28 @@ import { z } from "zod";
 import {
   simpleSchemaFieldValidator,
   simpleSchemaValidator,
-} from "../src/validators/features";
+  FeatureRule,
+  FeatureInterface,
+} from "back-end/src/validators/features";
 import { UserRef } from "./user";
-import { FeatureRevisionInterface } from "./feature-revision";
 
-export type FeatureValueType = "boolean" | "string" | "number" | "json";
-
-export interface FeatureEnvironment {
-  enabled: boolean;
-  rules: FeatureRule[];
-}
+export {
+  FeatureRule,
+  FeatureInterface,
+  FeaturePrerequisite,
+  FeatureEnvironment,
+  FeatureValueType,
+  ForceRule,
+  ExperimentValue,
+  ExperimentRule,
+  ScheduleRule,
+  ExperimentRefRule,
+  RolloutRule,
+  NamespaceValue,
+  SavedGroupTargeting,
+  ExperimentRefVariation,
+  ComputedFeatureInterface,
+} from "back-end/src/validators/features";
 
 export type SchemaField = z.infer<typeof simpleSchemaFieldValidator>;
 export type SimpleSchema = z.infer<typeof simpleSchemaValidator>;
@@ -51,110 +63,6 @@ export interface FeatureDraftChanges {
   comment?: string;
 }
 
-export interface FeatureInterface {
-  id: string;
-  archived?: boolean;
-  description?: string;
-  organization: string;
-  nextScheduledUpdate?: Date | null;
-  owner: string;
-  project?: string;
-  dateCreated: Date;
-  dateUpdated: Date;
-  valueType: FeatureValueType;
-  defaultValue: string;
-  version: number;
-  hasDrafts?: boolean;
-  tags?: string[];
-  environmentSettings: Record<string, FeatureEnvironment>;
-  linkedExperiments?: string[];
-  jsonSchema?: JSONSchemaDef;
-
-  /** @deprecated */
-  legacyDraft?: FeatureRevisionInterface | null;
-  /** @deprecated */
-  legacyDraftMigrated?: boolean;
-  neverStale?: boolean;
-  prerequisites?: FeaturePrerequisite[];
-}
-type ScheduleRule = {
-  timestamp: string | null;
-  enabled: boolean;
-};
-
-export interface SavedGroupTargeting {
-  match: "all" | "none" | "any";
-  ids: string[];
-}
-
-export interface BaseRule {
-  description: string;
-  condition?: string;
-  id: string;
-  enabled?: boolean;
-  scheduleRules?: ScheduleRule[];
-  savedGroups?: SavedGroupTargeting[];
-  prerequisites?: FeaturePrerequisite[];
-}
-
-export interface ForceRule extends BaseRule {
-  type: "force";
-  value: string;
-}
-
-export interface RolloutRule extends BaseRule {
-  type: "rollout";
-  value: string;
-  coverage: number;
-  hashAttribute: string;
-}
-
-type ExperimentValue = {
-  value: string;
-  weight: number;
-  name?: string;
-};
-
-export type NamespaceValue = {
-  enabled: boolean;
-  name: string;
-  range: [number, number];
-};
-
-/**
- * @deprecated
- */
-export interface ExperimentRule extends BaseRule {
-  type: "experiment";
-  trackingKey: string;
-  hashAttribute: string;
-  fallbackAttribute?: string;
-  hashVersion?: number;
-  disableStickyBucketing?: boolean;
-  bucketVersion?: number;
-  minBucketVersion?: number;
-  namespace?: NamespaceValue;
-  coverage?: number;
-  values: ExperimentValue[];
-}
-
-export interface ExperimentRefVariation {
-  variationId: string;
-  value: string;
-}
-
-export interface ExperimentRefRule extends BaseRule {
-  type: "experiment-ref";
-  experimentId: string;
-  variations: ExperimentRefVariation[];
-}
-
-export type FeatureRule =
-  | ForceRule
-  | RolloutRule
-  | ExperimentRule
-  | ExperimentRefRule;
-
 export interface FeatureTestResult {
   env: string;
   enabled: boolean;
@@ -164,7 +72,27 @@ export interface FeatureTestResult {
   featureDefinition?: FeatureDefinition;
 }
 
-export interface FeaturePrerequisite {
-  id: string;
-  condition: string;
+export interface FeatureUsageTimeSeriesDataPoint {
+  t: number;
+  v: number;
+}
+export interface FeatureUsageTimeSeries {
+  total: number;
+  ts: FeatureUsageTimeSeriesDataPoint[];
+}
+
+export type FeatureUsageRuleVariation = FeatureUsageTimeSeries;
+export type FeatureUsageRule = FeatureUsageTimeSeries & {
+  variations: Record<string, FeatureUsageRuleVariation>;
+};
+export type FeatureUsageEnvironment = FeatureUsageTimeSeries & {
+  rules: Record<string, FeatureUsageRule>;
+};
+
+export interface FeatureUsageData {
+  overall: FeatureUsageTimeSeries;
+  defaultValue: FeatureUsageTimeSeries;
+  sources: Record<string, number>;
+  values: Record<string, number>;
+  environments: Record<string, FeatureUsageEnvironment>;
 }
