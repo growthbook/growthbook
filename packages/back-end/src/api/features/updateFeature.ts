@@ -35,6 +35,8 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
 
     const { owner, archived, description, project, tags } = req.body;
 
+    const effectiveProject = project === null ? feature.project : project;
+
     const orgEnvs = getEnvironmentIdsFromOrg(req.organization);
 
     if (!req.context.permissions.canUpdateFeature(feature, req.body)) {
@@ -109,7 +111,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     ) {
       if (
         !req.context.permissions.canPublishFeature(
-          updates,
+          { project: effectiveProject },
           Array.from(
             getEnabledEnvironments(
               {
