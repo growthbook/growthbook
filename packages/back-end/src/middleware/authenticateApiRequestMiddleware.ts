@@ -124,7 +124,7 @@ export default function authenticateApiRequestMiddleware(
 
       req.context = new ReqContextClass({
         org,
-        usage: () => getUsage(org.id),
+        usage: () => getUsage(org),
         auditUser: eventAudit,
         teams,
         user: req.user,

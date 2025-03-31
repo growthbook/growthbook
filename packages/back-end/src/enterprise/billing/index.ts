@@ -1,11 +1,22 @@
 import * as Sentry from "@sentry/node";
+import { AccountPlan } from "shared/enterprise";
 import {
   callLicenseServer,
   LICENSE_SERVER_URL,
 } from "back-end/src/enterprise/licenseUtil";
-import { OrganizationUsage } from "back-end/types/organization";
+import {
+  OrganizationInterface,
+  OrganizationUsage,
+} from "back-end/types/organization";
+import { getEffectiveAccountPlan } from "back-end/src/enterprise";
 
-export const FALLBACK_USAGE: OrganizationUsage = {
+const PLANS_WITH_UNLIMITED_USAGE: AccountPlan[] = [
+  "pro",
+  "pro_sso",
+  "enterprise",
+];
+
+export const UNLIMITED_USAGE: OrganizationUsage = {
   limits: { requests: "unlimited", bandwidth: "unlimited" },
   cdn: {
     lastUpdated: new Date(),
@@ -83,7 +94,7 @@ export async function getUsageDataFromServer(
     };
   } catch (err) {
     Sentry.captureException(err);
-    return FALLBACK_USAGE;
+    return UNLIMITED_USAGE;
   }
 }
 
@@ -94,18 +105,23 @@ type StoredUsage = {
 
 const keyToUsageData: Record<string, StoredUsage> = {};
 
-export async function getUsage(organization: string) {
+export async function getUsage(organization: OrganizationInterface) {
+  const plan = getEffectiveAccountPlan(organization);
+
+  if (PLANS_WITH_UNLIMITED_USAGE.includes(plan)) return UNLIMITED_USAGE;
+
   const cacheCutOff = new Date();
   cacheCutOff.setHours(cacheCutOff.getHours() - 1);
 
-  if (keyToUsageData[organization]?.timestamp <= cacheCutOff)
-    delete keyToUsageData[organization];
+  if (keyToUsageData[organization.id]?.timestamp <= cacheCutOff)
+    delete keyToUsageData[organization.id];
 
-  if (keyToUsageData[organization]) return keyToUsageData[organization].usage;
+  if (keyToUsageData[organization.id])
+    return keyToUsageData[organization.id].usage;
 
-  const usage = await getUsageDataFromServer(organization);
+  const usage = await getUsageDataFromServer(organization.id);
 
-  keyToUsageData[organization] = {
+  keyToUsageData[organization.id] = {
     timestamp: new Date(),
     usage,
   };
