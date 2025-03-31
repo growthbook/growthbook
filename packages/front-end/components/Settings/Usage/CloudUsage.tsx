@@ -109,10 +109,11 @@ export default function CloudUsage() {
   const monthOptions: { value: string; label: string }[] = [];
   for (let i = 0; i < 12; i++) {
     const date = new Date();
+    date.setUTCDate(1);
     date.setUTCMonth(date.getUTCMonth() - i);
 
     // Skip months before Feb 2025
-    if (date < new Date("2025-02-01")) continue;
+    if (date.toISOString() < "2025-02-01") continue;
 
     const month = date.toLocaleString("default", {
       month: "short",
