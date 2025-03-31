@@ -412,15 +412,15 @@ export async function getUsage(
 
   // Beginning of the month
   const start = new Date();
-  start.setMonth(start.getMonth() - monthsAgo);
-  start.setDate(1);
-  start.setHours(0, 0, 0, 0);
+  start.setUTCDate(1);
+  start.setUTCHours(0, 0, 0, 0);
+  start.setUTCMonth(start.getUTCMonth() - monthsAgo);
 
   // End of the month
-  const end = new Date();
-  end.setMonth(end.getMonth() - monthsAgo + 1);
-  end.setDate(0);
-  end.setHours(23, 59, 59, 999);
+  const end = new Date(start);
+  end.setUTCMonth(end.getUTCMonth() + 1);
+  end.setUTCDate(0);
+  end.setUTCHours(23, 59, 59, 999);
 
   const cdnUsage = await getDailyCDNUsageForOrg(org.id, start, end);
 
