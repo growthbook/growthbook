@@ -73,12 +73,12 @@ export default function CloudUsage() {
   };
 
   const startDate = new Date();
-  startDate.setUTCMonth(startDate.getUTCMonth() - monthsAgo);
   startDate.setUTCDate(1);
   startDate.setUTCHours(0, 0, 0, 0);
+  startDate.setUTCMonth(startDate.getUTCMonth() - monthsAgo);
 
-  const endDate = new Date();
-  endDate.setUTCMonth(endDate.getUTCMonth() - monthsAgo + 1);
+  const endDate = new Date(startDate);
+  endDate.setUTCMonth(endDate.getUTCMonth() + 1);
   endDate.setUTCDate(0);
   endDate.setUTCHours(23, 59, 59, 999);
 
