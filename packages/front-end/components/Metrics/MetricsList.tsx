@@ -224,6 +224,7 @@ const MetricsList = (): React.ReactElement => {
   const {
     getDatasourceById,
     mutateDefinitions,
+    getProjectById,
     project,
     ready,
   } = useDefinitions();
@@ -253,6 +254,7 @@ const MetricsList = (): React.ReactElement => {
   const metrics = useAddComputedFields(
     combinedMetrics,
     (m) => ({
+      projectNames: m.projects.map((p) => getProjectById(p)?.name || p),
       datasourceName: m.datasource
         ? getDatasourceById(m.datasource)?.name || "Unknown"
         : "None",
@@ -323,7 +325,7 @@ const MetricsList = (): React.ReactElement => {
         return item.type;
       },
       tag: (item) => item.tags,
-      project: (item) => item.projects,
+      project: (item) => [...item.projectNames, ...item.projects],
       datasource: (item) => [item.datasource, item.datasourceName],
     },
     filterResults,
@@ -522,13 +524,9 @@ const MetricsList = (): React.ReactElement => {
                     <ProjectBadges
                       resourceType="metric"
                       projectIds={metric.projects}
-                      className="badge-ellipsis short align-middle"
                     />
                   ) : (
-                    <ProjectBadges
-                      resourceType="metric"
-                      className="badge-ellipsis short align-middle"
-                    />
+                    <ProjectBadges resourceType="metric" />
                   )}
                 </td>
                 <td>{metric.owner}</td>

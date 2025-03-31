@@ -3,7 +3,6 @@
  * bundles Infima by default. Infima is a CSS framework designed to
  * work well for content-centric websites.
  */
-
 @use './components/admonition';
 @use './components/markdown';
 @use './components/code';
@@ -11,7 +10,80 @@
 @use './components/button-card';
 @use './components/pill';
 @use './components/toc';
+@use './components/button';
+@use './components/feedback-widget';
+@use './components/max-width-image';
+@use './components/sdk-resources';
 //@use './components/navbar';
+
+// Radix color palette
+:root {
+  --violet-1: #fdfcfe;
+  --violet-2: #faf8ff;
+  --violet-3: #f4f0fe;
+  --violet-4: #ebe4ff;
+  --violet-5: #e1d9ff;
+  --violet-6: #d4cafe;
+  --violet-7: #c2b5f5;
+  --violet-8: #aa99ec;
+  --violet-9: #6e56cf;
+  --violet-10: #654dc4;
+  --violet-11: #6550b9;
+  --violet-12: #2f265f;
+}
+
+@supports (color: color(display-p3 1 1 1)) {
+  @media (color-gamut: p3) {
+    :root {
+      --violet-1: color(display-p3 0.991 0.988 0.995);
+      --violet-2: color(display-p3 0.978 0.974 0.998);
+      --violet-3: color(display-p3 0.953 0.943 0.993);
+      --violet-4: color(display-p3 0.916 0.897 1);
+      --violet-5: color(display-p3 0.876 0.851 1);
+      --violet-6: color(display-p3 0.825 0.793 0.981);
+      --violet-7: color(display-p3 0.752 0.712 0.943);
+      --violet-8: color(display-p3 0.654 0.602 0.902);
+      --violet-9: color(display-p3 0.417 0.341 0.784);
+      --violet-10: color(display-p3 0.381 0.306 0.741);
+      --violet-11: color(display-p3 0.383 0.317 0.702);
+      --violet-12: color(display-p3 0.179 0.15 0.359);
+    }
+  }
+}
+
+[data-theme="dark"] {
+  --violet-1: #14121f;
+  --violet-2: #1b1525;
+  --violet-3: #291f43;
+  --violet-4: #33255b;
+  --violet-5: #3c2e69;
+  --violet-6: #473876;
+  --violet-7: #56468b;
+  --violet-8: #6958ad;
+  --violet-9: #6e56cf;
+  --violet-10: #7d66d9;
+  --violet-11: #baa7ff;
+  --violet-12: #e2ddfe;
+}
+
+@supports (color: color(display-p3 1 1 1)) {
+  @media (color-gamut: p3) {
+    [data-theme="dark"] {
+      --violet-1: color(display-p3 0.077 0.071 0.118);
+      --violet-2: color(display-p3 0.101 0.084 0.141);
+      --violet-3: color(display-p3 0.154 0.123 0.256);
+      --violet-4: color(display-p3 0.191 0.148 0.345);
+      --violet-5: color(display-p3 0.226 0.182 0.396);
+      --violet-6: color(display-p3 0.269 0.223 0.449);
+      --violet-7: color(display-p3 0.326 0.277 0.53);
+      --violet-8: color(display-p3 0.399 0.346 0.656);
+      --violet-9: color(display-p3 0.417 0.341 0.784);
+      --violet-10: color(display-p3 0.477 0.402 0.823);
+      --violet-11: color(display-p3 0.72 0.65 1);
+      --violet-12: color(display-p3 0.883 0.867 0.986);
+    }
+  }
+}
 
 /* You can override the default Infima variables here. */
 :root {
@@ -26,6 +98,7 @@
   --ifm-code-font-size: 95%;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
   --ifm-alert-border-color: #8a26e7;
+  --color-border: #0009321f;
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
@@ -39,6 +112,7 @@
   --ifm-color-primary-lightest: #f8f3fe;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
   --ifm-navbar-link-color: #e7d6ff;
+  --color-border: #d9edfe25;
 }
 
 html {
@@ -46,4 +120,9 @@ html {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   font-smoothing: antialiased;
+}
+
+[data-theme="light"] img[src$="#gh-dark-mode-only"],
+[data-theme="dark"] img[src$="#gh-light-mode-only"] {
+  display: none;
 }

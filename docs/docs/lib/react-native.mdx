@@ -6,10 +6,13 @@ toc_max_heading_level: 5
 ---
 
 import ExternalLink from '@site/src/components/ExternalLink'
+import SdkResources from '@site/src/components/SdkResources';
 
 # React Native
 
 This is a thin wrapper on top of the [Javascript Library](/lib/js), so you might want to view those docs first to familiarize yourself with the basic classes and methods.
+
+<SdkResources sdk="reactNative" />
 
 ## Installation
 
@@ -500,20 +503,6 @@ new GrowthBook({
 
 Note: If you evaluate the same feature multiple times (and the value doesn't change), the callback will only be fired the first time.
 
-### Dev Mode
-
-There is a [GrowthBook Chrome DevTools Extension](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) that can help you debug and test your feature flags in development.
-
-In order for this to work, you must explicitly enable dev mode when creating your GrowthBook instance:
-
-```js
-const gb = new GrowthBook({
-  enableDevMode: true,
-});
-```
-
-To avoid exposing all of your internal feature flags and experiments to users, we recommend setting this to `false` in production in most cases.
-
 ### Inline Experiments
 
 Depending on how you configure feature flags, they may run A/B tests behind the scenes to determine which value gets assigned to the user.
@@ -562,7 +551,7 @@ export default withRunExperiment(OtherComponent);
 
 Some hooks are available in type-safe versions. These require you to pass in your generated types as the generic argument.
 
-See the [GrowthBook CLI](/tools/cli) documentation for more information on generating type definitions and [JavaScript &rarr; TypeScript &rarr; Scrict Typing](/lib/js#strict-typing) for how to use them.
+See the [GrowthBook CLI](/tools/cli) documentation for more information on generating type definitions and [JavaScript &rarr; TypeScript &rarr; Strict Typing](/lib/js#strict-typing) for how to use them.
 
 ### useGrowthBook&lt;T&gt;()
 

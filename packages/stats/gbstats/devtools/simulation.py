@@ -273,7 +273,7 @@ class CreateRow:
                 "main_covariate_sum_product": self.stat.post_pre_sum_of_products,
                 "theta": self.stat.theta if self.stat.theta else 0,
             }
-        else:
+        elif isinstance(self.stat, QuantileStatistic):
             d_quantile = {
                 "n": n,
                 "n_star": self.stat.n_star,
@@ -297,3 +297,5 @@ class CreateRow:
                         "n_clusters": self.stat.n_clusters,
                     }
                 )
+        else:
+            raise ValueError("statistic type not recognized")

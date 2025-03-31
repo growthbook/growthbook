@@ -53,4 +53,16 @@ export type AppFeatures = {
   "gb-ax10-bandit": boolean;
   "fact-metric-sql-preview": boolean;
   "inbuilt-data-warehouse": boolean;
+  "datasource-first": boolean;
+  "hide-optional-get-started-steps": boolean;
+  "sdk-connections-new-empty-state": boolean;
+  "kiosk-greeting": string;
+  "feature-usage": boolean;
+  "feature-usage-auto-refresh-interval": Record<string, unknown>;
+  "use-new-setup-flow-2": boolean;
+  "show-impact-near-top": boolean;
+  "pro-upgrade-modal": string;
+  "ff_payment-info": boolean;
+  "ff_embedded-payment-form": boolean;
+  "cdn-usage-data": boolean;
 };

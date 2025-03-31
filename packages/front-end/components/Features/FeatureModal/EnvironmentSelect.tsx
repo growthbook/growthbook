@@ -1,7 +1,7 @@
 import { FC, useMemo } from "react";
 import { Environment } from "back-end/types/organization";
 import { FeatureEnvironment } from "back-end/types/feature";
-import { Container, Grid, Text } from "@radix-ui/themes";
+import { Box, Grid, Text } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Checkbox from "@/components/Radix/Checkbox";
@@ -28,16 +28,16 @@ const EnvironmentSelect: FC<{
 
   return (
     <div className="form-group">
-      <Container
-        p="5"
+      <Text as="label" weight="bold" mb="2">
+        Enabled Environments
+      </Text>
+      <Box
+        className="box"
+        p="4"
         style={{
-          background: "var(--color-background)",
           borderRadius: "var(--radius-2)",
         }}
       >
-        <Text as="label" weight="bold" mb="4">
-          Enabled Environments
-        </Text>
         <div>
           <Checkbox
             value={
@@ -74,12 +74,12 @@ const EnvironmentSelect: FC<{
               label={env.id}
               key={env.id}
               weight="regular"
-              mb="4"
+              mb="1"
               mr="2"
             />
           ))}
         </Grid>
-      </Container>
+      </Box>
     </div>
   );
 };

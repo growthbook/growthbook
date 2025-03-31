@@ -83,7 +83,12 @@ export async function postReportFromSnapshot(
     throw new Error("Unknown experiment phase");
   }
 
-  const analysis = getSnapshotAnalysis(snapshot);
+  const analysis = getSnapshotAnalysis(
+    snapshot,
+    snapshot.analyses.find(
+      (a) => a.settings.differenceType === reportArgs.differenceType
+    )?.settings
+  );
   if (!analysis) {
     throw new Error("Missing analysis settings");
   }
@@ -142,7 +147,7 @@ export async function postReportFromSnapshot(
 
   // Save the snapshot
   snapshot.report = doc.id;
-  await createExperimentSnapshotModel({ data: snapshot, context });
+  await createExperimentSnapshotModel({ data: snapshot });
 
   await req.audit({
     event: "experiment.analysis",

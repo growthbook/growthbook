@@ -48,6 +48,12 @@ properties:
         description: Array of Fact Table Filter Ids
         items:
           type: string
+      aggregateFilterColumn:
+        type: string
+        description: Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics.
+      aggregateFilter:
+        type: string
+        description: Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`.
   denominator:
     description: Only when metricType is 'ratio'
     type: object
@@ -210,6 +216,10 @@ properties:
     minimum: 0
   minSampleSize:
     type: number
+    minimum: 0
+  targetMDE:
+    type: number
+    description: The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments.
     minimum: 0
   managedBy:
     type: string

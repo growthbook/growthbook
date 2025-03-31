@@ -251,6 +251,39 @@ const experimentSchema = new mongoose.Schema({
   customFields: {},
   templateId: String,
   shareLevel: String,
+  analysisSummary: {
+    _id: false,
+    snapshotId: String,
+    health: {
+      _id: false,
+      srm: Number,
+      multipleExposures: Number,
+      totalUsers: Number,
+      power: {
+        _id: false,
+        type: { type: String, enum: ["error", "success"] },
+        errorMessage: String,
+        isLowPowered: Boolean,
+        additionalDaysNeeded: Number,
+      },
+    },
+    resultsStatus: {
+      _id: false,
+      settings: {
+        _id: false,
+        sequentialTesting: Boolean,
+      },
+      variations: [
+        {
+          _id: false,
+          variationId: String,
+          goalMetrics: {},
+          guardrailMetrics: {},
+        },
+      ],
+    },
+  },
+  dismissedWarnings: [String],
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
@@ -937,7 +970,10 @@ export async function deleteAllExperimentsForAProject({
     .toArray();
 
   for (const experiment of experimentsToDelete) {
-    await experiment.delete();
+    await ExperimentModel.deleteOne({
+      id: experiment.id,
+      organization: context.org.id,
+    });
     VisualChangesetModel.deleteMany({ experiment: experiment.id });
     await onExperimentDelete(context, toInterface(experiment));
   }

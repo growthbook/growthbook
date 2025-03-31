@@ -117,7 +117,7 @@ const ExperimentPage = (): ReactElement => {
     );
 
   return (
-    <div>
+    <>
       {metricsModalOpen && (
         <EditMetricsForm
           experiment={experiment}
@@ -138,6 +138,7 @@ const ExperimentPage = (): ReactElement => {
         <EditVariationsForm
           experiment={experiment}
           cancel={() => setVariationsModalOpen(false)}
+          onlySafeToEditVariationMetadata={!safeToEdit}
           mutate={mutate}
           source="eid"
         />
@@ -215,30 +216,28 @@ const ExperimentPage = (): ReactElement => {
         ]}
       />
 
-      <div className="container-fluid">
-        <SnapshotProvider experiment={experiment}>
-          <TabbedPage
-            experiment={experiment}
-            linkedFeatures={linkedFeatures}
-            mutate={mutate}
-            visualChangesets={visualChangesets}
-            urlRedirects={urlRedirects}
-            editMetrics={editMetrics}
-            editResult={editResult}
-            editVariations={editVariations}
-            duplicate={duplicate}
-            editTags={editTags}
-            newPhase={newPhase}
-            editPhases={editPhases}
-            editPhase={editPhase}
-            envs={envs}
-            editTargeting={editTargeting}
-            checklistItemsRemaining={checklistItemsRemaining}
-            setChecklistItemsRemaining={setChecklistItemsRemaining}
-          />
-        </SnapshotProvider>
-      </div>
-    </div>
+      <SnapshotProvider experiment={experiment}>
+        <TabbedPage
+          experiment={experiment}
+          linkedFeatures={linkedFeatures}
+          mutate={mutate}
+          visualChangesets={visualChangesets}
+          urlRedirects={urlRedirects}
+          editMetrics={editMetrics}
+          editResult={editResult}
+          editVariations={editVariations}
+          duplicate={duplicate}
+          editTags={editTags}
+          newPhase={newPhase}
+          editPhases={editPhases}
+          editPhase={editPhase}
+          envs={envs}
+          editTargeting={editTargeting}
+          checklistItemsRemaining={checklistItemsRemaining}
+          setChecklistItemsRemaining={setChecklistItemsRemaining}
+        />
+      </SnapshotProvider>
+    </>
   );
 };
 

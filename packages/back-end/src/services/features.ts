@@ -81,7 +81,11 @@ import {
 import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
-import { ApiFeature, ApiFeatureEnvironment } from "back-end/types/openapi";
+import {
+  ApiFeatureWithRevisions,
+  ApiFeatureEnvironment,
+  ApiFeatureRule,
+} from "back-end/types/openapi";
 import {
   ExperimentInterface,
   ExperimentPhase,
@@ -502,6 +506,7 @@ export type FeatureDefinitionsResponseArgs = {
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
+  includeRuleIds?: boolean;
   attributes?: SDKAttributeSchema;
   secureAttributeSalt?: string;
   projects: string[];
@@ -519,6 +524,7 @@ export async function getFeatureDefinitionsResponse({
   includeDraftExperiments,
   includeExperimentNames,
   includeRedirectExperiments,
+  includeRuleIds,
   attributes,
   secureAttributeSalt,
   projects,
@@ -639,6 +645,17 @@ export async function getFeatureDefinitionsResponse({
     }
   }
 
+  // `features` is a deep clone, so it's safe to delete fields directly
+  if (!includeRuleIds) {
+    for (const k in features) {
+      if (features[k]?.rules) {
+        for (const rule of features[k].rules) {
+          delete rule.id;
+        }
+      }
+    }
+  }
+
   if (!encryptionKey) {
     return {
       features,
@@ -680,6 +697,7 @@ export type FeatureDefinitionArgs = {
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
+  includeRuleIds?: boolean;
   hashSecureAttributes?: boolean;
   savedGroupReferencesEnabled?: boolean;
 };
@@ -704,6 +722,7 @@ export async function getFeatureDefinitions({
   includeDraftExperiments,
   includeExperimentNames,
   includeRedirectExperiments,
+  includeRuleIds,
   hashSecureAttributes,
   savedGroupReferencesEnabled,
 }: FeatureDefinitionArgs): Promise<FeatureDefinitionSDKPayload> {
@@ -747,6 +766,7 @@ export async function getFeatureDefinitions({
         includeDraftExperiments,
         includeExperimentNames,
         includeRedirectExperiments,
+        includeRuleIds,
         attributes,
         secureAttributeSalt,
         projects: projects || [],
@@ -842,6 +862,7 @@ export async function getFeatureDefinitions({
     includeDraftExperiments,
     includeExperimentNames,
     includeRedirectExperiments,
+    includeRuleIds,
     attributes,
     secureAttributeSalt,
     projects: projects || [],
@@ -903,7 +924,6 @@ export function evaluateFeature({
         experimentMap,
         environment: env.id,
         revision,
-        returnRuleId: true,
         date,
       });
 
@@ -1185,13 +1205,15 @@ export function getApiFeatureObj({
   groupMap,
   experimentMap,
   revision,
+  revisions,
 }: {
   feature: FeatureInterface;
   organization: OrganizationInterface;
   groupMap: GroupMap;
   experimentMap: Map<string, ExperimentInterface>;
   revision: FeatureRevisionInterface | null;
-}): ApiFeature {
+  revisions?: FeatureRevisionInterface[];
+}): ApiFeatureWithRevisions {
   const defaultValue = feature.defaultValue;
   const featureEnvironments: Record<string, ApiFeatureEnvironment> = {};
   const environments = getEnvironmentIdsFromOrg(organization);
@@ -1209,6 +1231,7 @@ export function getApiFeatureObj({
         matchType: s.match,
         savedGroups: s.ids,
       })),
+      prerequisites: rule.prerequisites || [],
       enabled: !!rule.enabled,
     }));
     const definition = getFeatureDefinition({
@@ -1231,7 +1254,53 @@ export function getApiFeatureObj({
     revision?.publishedBy?.type === "api_key"
       ? "API"
       : revision?.publishedBy?.name;
-  const featureRecord: ApiFeature = {
+
+  const revisionDefs = revisions?.map((rev) => {
+    const environmentRules: Record<string, ApiFeatureRule[]> = {};
+    const environmentDefinitions: Record<string, string> = {};
+    environments.forEach((env) => {
+      const rules = (rev?.rules?.[env] || []).map((rule) => ({
+        ...rule,
+        coverage:
+          rule.type === "rollout" || rule.type === "experiment"
+            ? rule.coverage ?? 1
+            : 1,
+        condition: rule.condition || "",
+        savedGroupTargeting: (rule.savedGroups || []).map((s) => ({
+          matchType: s.match,
+          savedGroups: s.ids,
+        })),
+        prerequisites: rule.prerequisites || [],
+        enabled: !!rule.enabled,
+      }));
+      const definition = getFeatureDefinition({
+        feature: {
+          ...feature,
+          environmentSettings: { [env]: { enabled: true, rules } },
+        },
+        groupMap,
+        experimentMap,
+        environment: env,
+      });
+
+      environmentRules[env] = rules;
+      environmentDefinitions[env] = JSON.stringify(definition);
+    });
+    const publishedBy =
+      rev?.publishedBy?.type === "api_key" ? "API" : rev?.publishedBy?.name;
+    return {
+      baseVersion: rev.baseVersion,
+      version: rev.version,
+      comment: rev?.comment || "",
+      date: rev?.dateCreated.toISOString() || "",
+      status: rev?.status,
+      publishedBy,
+      rules: environmentRules,
+      definitions: environmentDefinitions,
+    };
+  });
+
+  const featureRecord: ApiFeatureWithRevisions = {
     id: feature.id,
     description: feature.description || "",
     archived: !!feature.archived,
@@ -1239,6 +1308,7 @@ export function getApiFeatureObj({
     dateUpdated: feature.dateUpdated.toISOString(),
     defaultValue: feature.defaultValue,
     environments: featureEnvironments,
+    prerequisites: (feature?.prerequisites || []).map((p) => p.id),
     owner: feature.owner || "",
     project: feature.project || "",
     tags: feature.tags || [],
@@ -1249,6 +1319,7 @@ export function getApiFeatureObj({
       publishedBy: publishedBy || "",
       version: feature.version,
     },
+    revisions: revisionDefs,
   };
 
   return featureRecord;

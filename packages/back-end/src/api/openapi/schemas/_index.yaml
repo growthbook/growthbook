@@ -14,6 +14,8 @@ Segment:
   $ref: "./Segment.yaml"
 Feature:
   $ref: "./Feature.yaml"
+FeatureWithRevisions:
+  $ref: "./FeatureWithRevisions.yaml"
 FeatureEnvironment:
   $ref: "./FeatureEnvironment.yaml"
 FeatureRule:
@@ -58,3 +60,5 @@ FactMetric:
   $ref: "./FactMetric.yaml"
 Member:
   $ref: "./Member.yaml"
+Archetype:
+  $ref: "./Archetype.yaml"

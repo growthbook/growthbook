@@ -8,6 +8,7 @@ import dJSON from "dirty-json";
 
 import React, { ReactElement, useState } from "react";
 import { validateFeatureValue } from "shared/util";
+import { PiInfo } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -17,6 +18,7 @@ import {
   getDefaultValue,
   useEnvironments,
 } from "@/services/features";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { useWatching } from "@/services/WatchProvider";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
@@ -28,6 +30,8 @@ import {
 import { useUser } from "@/services/UserContext";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useProjectOptions from "@/hooks/useProjectOptions";
+import SelectField from "@/components/Forms/SelectField";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";
@@ -96,11 +100,13 @@ const genFormDefaultValues = ({
   permissions: permissionsUtil,
   featureToDuplicate,
   project,
+  customFields,
 }: {
   environments: ReturnType<typeof useEnvironments>;
   permissions: ReturnType<typeof usePermissionsUtil>;
   featureToDuplicate?: FeatureInterface;
   project: string;
+  customFields?: ReturnType<typeof useCustomFields>;
 }): Pick<
   FeatureInterface,
   | "valueType"
@@ -110,6 +116,7 @@ const genFormDefaultValues = ({
   | "project"
   | "id"
   | "environmentSettings"
+  | "customFields"
 > => {
   const environmentSettings = genEnvironmentSettings({
     environments,
@@ -117,6 +124,15 @@ const genFormDefaultValues = ({
     permissions: permissionsUtil,
     project,
   });
+  const customFieldValues = customFields
+    ? Object.fromEntries(
+        customFields.map((field) => [
+          field.id,
+          featureToDuplicate?.customFields?.[field.id] ?? field.defaultValue,
+        ])
+      )
+    : {};
+
   return featureToDuplicate
     ? {
         valueType: featureToDuplicate.valueType,
@@ -126,6 +142,7 @@ const genFormDefaultValues = ({
         project: featureToDuplicate.project ?? project,
         tags: featureToDuplicate.tags,
         environmentSettings,
+        customFields: customFieldValues,
       }
     : {
         valueType: "" as FeatureValueType,
@@ -135,6 +152,7 @@ const genFormDefaultValues = ({
         project,
         tags: [],
         environmentSettings,
+        customFields: customFieldValues,
       };
 };
 
@@ -152,20 +170,32 @@ export default function FeatureModal({
   const { refreshWatching } = useWatching();
   const { hasCommercialFeature } = useUser();
 
-  const defaultValues = genFormDefaultValues({
-    environments,
-    permissions: permissionsUtil,
-    featureToDuplicate,
-    project,
-  });
-
-  const form = useForm({ defaultValues });
-
   const customFields = filterCustomFieldsForSectionAndProject(
     useCustomFields(),
     "feature",
     project
   );
+
+  const defaultValues = genFormDefaultValues({
+    environments,
+    permissions: permissionsUtil,
+    featureToDuplicate,
+    project,
+    customFields: hasCommercialFeature("custom-metadata")
+      ? customFields
+      : undefined,
+  });
+
+  const form = useForm({ defaultValues });
+
+  const projectOptions = useProjectOptions(
+    (project) =>
+      permissionsUtil.canCreateFeature({ project }) &&
+      permissionsUtil.canManageFeatureDrafts({ project }),
+    project ? [project] : []
+  );
+  const selectedProject = form.watch("project");
+  const { projectId: demoProjectId } = useDemoDataSourceProject();
 
   const [showTags, setShowTags] = useState(!!featureToDuplicate?.tags?.length);
   const [showDescription, setShowDescription] = useState(
@@ -304,6 +334,50 @@ export default function FeatureModal({
         </a>
       )}
 
+      {projectOptions.length > 0 && (
+        <>
+          {selectedProject === demoProjectId && (
+            <div className="alert alert-warning">
+              You are creating a feature under the demo datasource project.
+            </div>
+          )}
+          <SelectField
+            label={
+              <>
+                {" "}
+                Project{" "}
+                <Tooltip
+                  body={
+                    "The dropdown below has been filtered to only include projects where you have permission to update Features"
+                  }
+                />{" "}
+              </>
+            }
+            value={selectedProject || ""}
+            onChange={(v) => {
+              form.setValue("project", v);
+            }}
+            initialOption="None"
+            options={projectOptions}
+          />
+        </>
+      )}
+
+      {hasCommercialFeature("custom-metadata") &&
+        customFields &&
+        customFields?.length > 0 && (
+          <div>
+            <CustomFieldInput
+              customFields={customFields}
+              setCustomFields={(value) => {
+                form.setValue("customFields", value);
+              }}
+              currentCustomFields={form.watch("customFields") || {}}
+              section={"feature"}
+            />
+          </div>
+        )}
+
       {!featureToDuplicate && (
         <ValueTypeField
           value={valueType}
@@ -315,6 +389,37 @@ export default function FeatureModal({
         />
       )}
 
+      {/*
+          We hide rule configuration when duplicating a feature since the
+          decision of which rule to display (out of potentially many) in the
+          modal is not deterministic.
+      */}
+      {!featureToDuplicate && valueType && (
+        <FeatureValueField
+          label={
+            <>
+              Default Value when Enabled{" "}
+              <Tooltip
+                body={
+                  <>
+                    After creating your feature, you will be able to add
+                    targeted rules such as <strong>A/B Tests</strong> and{" "}
+                    <strong>Percentage Rollouts</strong> to control exactly how
+                    it gets released to users.
+                  </>
+                }
+              >
+                <PiInfo style={{ color: "var(--violet-11)" }} />
+              </Tooltip>
+            </>
+          }
+          id="defaultValue"
+          value={form.watch("defaultValue")}
+          setValue={(v) => form.setValue("defaultValue", v)}
+          valueType={valueType}
+        />
+      )}
+
       <EnvironmentSelect
         environmentSettings={environmentSettings}
         environments={environments}
@@ -323,40 +428,6 @@ export default function FeatureModal({
           form.setValue("environmentSettings", environmentSettings);
         }}
       />
-
-      {/*
-          We hide rule configuration when duplicating a feature since the
-          decision of which rule to display (out of potentially many) in the
-          modal is not deterministic.
-      */}
-      {!featureToDuplicate && valueType && (
-        <FeatureValueField
-          label={"Default Value when Enabled"}
-          id="defaultValue"
-          value={form.watch("defaultValue")}
-          setValue={(v) => form.setValue("defaultValue", v)}
-          valueType={valueType}
-        />
-      )}
-      {hasCommercialFeature("custom-metadata") &&
-        customFields &&
-        customFields?.length > 0 && (
-          <div>
-            <CustomFieldInput
-              customFields={customFields}
-              form={form}
-              section={"feature"}
-            />
-          </div>
-        )}
-      {!featureToDuplicate && valueType && (
-        <div className="alert alert-info">
-          After creating your feature, you will be able to add targeted rules
-          such as <strong>A/B Tests</strong> and{" "}
-          <strong>Percentage Rollouts</strong> to control exactly how it gets
-          released to users.
-        </div>
-      )}
     </Modal>
   );
 }

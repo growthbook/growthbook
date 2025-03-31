@@ -29,6 +29,7 @@ import {
   createSnapshotAnalysis,
   determineNextBanditSchedule,
   getAdditionalExperimentAnalysisSettings,
+  getChangesToStartExperiment,
   getDefaultExperimentAnalysisSettings,
   getLinkedFeatureInfo,
   resetExperimentBanditSettings,
@@ -237,8 +238,9 @@ export async function getExperimentsFrequencyMonth(
         // I can do this because the indexes will represent the same month
         dataByStatus[e.status][i].numExp++;
 
-        // experiments without a project, are included in the 'all projects'
-        if (e.project) {
+        // experiments without a project or with a deleted project
+        // are included in the 'all projects'
+        if (e.project && dataByProject[e.project]) {
           dataByProject[e.project][i].numExp++;
         } else {
           dataByProject["all"][i].numExp++;
@@ -575,7 +577,7 @@ export async function getSnapshots(
   return;
 }
 
-const validateVariationIds = (variations: Variation[]) => {
+export function validateVariationIds(variations: Variation[]) {
   variations.forEach((variation, i) => {
     if (!variation.id) {
       variation.id = uniqid("var_");
@@ -588,7 +590,7 @@ const validateVariationIds = (variations: Variation[]) => {
   if (keys.length !== new Set(keys).size) {
     throw new Error("Variation keys must be unique");
   }
-};
+}
 
 /**
  * Creates a new experiment
@@ -687,8 +689,8 @@ export async function postExperiments(
     archived: false,
     hashAttribute: data.hashAttribute || "",
     fallbackAttribute: data.fallbackAttribute || "",
-    disableStickyBucketing: data.disableStickyBucketing ?? false,
     hashVersion: data.hashVersion || 2,
+    disableStickyBucketing: data.disableStickyBucketing ?? false,
     autoSnapshots: true,
     dateCreated: new Date(),
     dateUpdated: new Date(),
@@ -713,9 +715,9 @@ export async function postExperiments(
     hypothesis: data.hypothesis || "",
     goalMetrics: data.goalMetrics || [],
     secondaryMetrics: data.secondaryMetrics || [],
-    metricOverrides: data.metricOverrides || [],
     guardrailMetrics: data.guardrailMetrics || [],
     activationMetric: data.activationMetric || "",
+    metricOverrides: data.metricOverrides || [],
     segment: data.segment || "",
     queryFilter: data.queryFilter || "",
     skipPartialData: !!data.skipPartialData,
@@ -1038,6 +1040,8 @@ export async function postExperiment(
     "customFields",
     "shareLevel",
     "uid",
+    "analysisSummary",
+    "dismissedWarnings",
   ];
   let changes: Changeset = {};
 
@@ -1446,71 +1450,12 @@ export async function postExperimentStatus(
     status === "running" &&
     phases?.length > 0
   ) {
-    // use the current date as the phase start date
-    phases[lastIndex] = {
-      ...phases[lastIndex],
-      dateStarted: new Date(),
-    };
-    changes.phases = phases;
-
-    // Bandit-specific changes
-    if (experiment.type === "multi-armed-bandit") {
-      const metricMap = await getMetricMap(context);
-
-      // Multiple events (not just the seed 0th event) means this bandit phase was already running somehow.
-      // If multiple events, don't flush.
-      const preserveExistingBanditEvents =
-        (phases[lastIndex]?.banditEvents?.length ?? 0) > 1;
-      Object.assign(
-        changes,
-        resetExperimentBanditSettings({
-          experiment,
-          changes,
-          settings,
-          preserveExistingBanditEvents,
-        })
-      );
-
-      // validate datasources
-      let datasource: DataSourceInterface | null = null;
-      if (!experiment.datasource) {
-        throw new Error("Missing datasource");
-      }
-      datasource = await getDataSourceById(context, experiment.datasource);
-      if (!datasource) {
-        res.status(403).json({
-          status: 403,
-          message: "Invalid datasource: " + experiment.datasource,
-        });
-        return;
-      }
-
-      // validate goal metric
-      if (!experiment?.goalMetrics?.[0]) {
-        res.status(403).json({
-          status: 403,
-          message: "Missing goal metric",
-        });
-        return;
-      }
-      const metric = metricMap.get(experiment.goalMetrics[0]);
-      if (!metric) {
-        res.status(403).json({
-          status: 403,
-          message: "Invalid metric: " + experiment.goalMetrics[0],
-        });
-        return;
-      }
-      if (metric.cappingSettings.type === "percentile") {
-        res.status(403).json({
-          status: 403,
-          message: "Goal metric must not use percentile capping",
-        });
-        return;
-      }
-    }
+    const additionalChanges: Changeset = await getChangesToStartExperiment(
+      context,
+      experiment
+    );
+    Object.assign(changes, additionalChanges);
   }
-
   // If starting or drafting a stopped experiment, clear the phase end date
   // and perform any needed bandit cleanup
   else if (
@@ -1729,6 +1674,13 @@ export async function deleteExperimentPhase(
 
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
+  }
+
+  if (experiment.phases.length === 1) {
+    res.status(400).json({
+      status: 400,
+      message: "Cannot delete the only phase",
+    });
   }
 
   const linkedFeatureIds = experiment.linkedFeatures || [];
@@ -2350,7 +2302,6 @@ export async function createExperimentSnapshot({
   const denominatorMetrics = denominatorMetricIds
     .map((m) => metricMap.get(m) || null)
     .filter(isDefined) as MetricInterface[];
-
   const {
     settingsForSnapshotMetrics,
     regressionAdjustmentEnabled,
@@ -2469,7 +2420,6 @@ export async function postSnapshot(
         orgPriorSettings: metricDefaults.priorSettings,
         analysisSettings,
         metricMap,
-        context,
       });
       res.status(200).json({
         status: 200,

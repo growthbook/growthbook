@@ -72,13 +72,9 @@ const DataSources: FC = () => {
                 <ProjectBadges
                   resourceType="data source"
                   projectIds={d.projects}
-                  className="badge-ellipsis short align-middle"
                 />
               ) : (
-                <ProjectBadges
-                  resourceType="data source"
-                  className="badge-ellipsis short align-middle"
-                />
+                <ProjectBadges resourceType="data source" />
               )}
             </td>
             {!hasFileConfig() && <td>{ago(d.dateUpdated || "")}</td>}

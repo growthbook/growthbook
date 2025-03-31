@@ -1,6 +1,6 @@
 import clsx from "clsx";
-import { forwardRef } from "react";
-import { Tabs as RadixTabs } from "@radix-ui/themes";
+import { forwardRef, useEffect, useRef, useState } from "react";
+import { Box, Tabs as RadixTabs } from "@radix-ui/themes";
 import useURLHash from "@/hooks/useURLHash";
 
 /**
@@ -96,6 +96,51 @@ export const TabsList = forwardRef<HTMLDivElement, TabsListProps>(
       >
         {children}
       </RadixTabs.List>
+    );
+  }
+);
+
+type StickyTabsListProps = { pinnedClass?: string } & TabsListProps;
+
+export const StickyTabsList = forwardRef<HTMLDivElement, StickyTabsListProps>(
+  function StickyTabsList({ pinnedClass = "pinned", ...props }, ref) {
+    // NB: Keep in sync with .experiment-tabs top property in global.scss
+    const TABS_HEADER_HEIGHT_PX = 55;
+    const tabsRef = useRef<HTMLDivElement>(null);
+    const [headerPinned, setHeaderPinned] = useState(false);
+
+    useEffect(() => {
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          setHeaderPinned(entry.intersectionRatio < 1);
+        },
+        {
+          root: null, // Use the viewport as the root
+          rootMargin: `-${TABS_HEADER_HEIGHT_PX}px`,
+          threshold: 0.01, // Trigger when first pixel leaves
+        }
+      );
+      if (tabsRef.current) {
+        observer.observe(tabsRef.current);
+      }
+      return () => observer.disconnect();
+    }, []);
+
+    return (
+      <Box
+        className={`${headerPinned ? pinnedClass || "" : ""} tabwrap sticky`}
+        style={{ top: TABS_HEADER_HEIGHT_PX + "px" }}
+      >
+        {/* This is needed as for some reason the intersection observer doesn't work on the position:sticky element-even with the right margin offsets. */}
+        <Box
+          ref={tabsRef}
+          style={{
+            position: "absolute",
+            top: -1,
+          }}
+        ></Box>
+        <TabsList {...props} ref={ref} />
+      </Box>
     );
   }
 );

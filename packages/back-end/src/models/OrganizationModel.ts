@@ -1,15 +1,18 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { cloneDeep } from "lodash";
+import { OWNER_JOB_TITLES, USAGE_INTENTS } from "shared/constants";
 import { POLICIES, RESERVED_ROLE_IDS } from "shared/permissions";
 import { z } from "zod";
 import { TeamInterface } from "back-end/types/team";
 import {
+  DemographicData,
   Invite,
   Member,
   MemberRoleWithProjects,
   OrganizationInterface,
   OrganizationMessage,
+  OrgMemberInfo,
   Role,
 } from "back-end/types/organization";
 import { upgradeOrganizationDoc } from "back-end/src/util/migrations";
@@ -52,6 +55,18 @@ const organizationSchema = new mongoose.Schema({
   url: String,
   name: String,
   ownerEmail: String,
+  demographicData: {
+    ownerJobTitle: {
+      type: String,
+      enum: Object.keys(OWNER_JOB_TITLES),
+    },
+    ownerUsageIntents: [
+      {
+        type: String,
+        enum: Object.keys(USAGE_INTENTS),
+      },
+    ],
+  },
   restrictLoginMethod: String,
   restrictAuthSubPrefix: String,
   autoApproveMembers: Boolean,
@@ -149,6 +164,7 @@ export async function createOrganization({
   email,
   userId,
   name,
+  demographicData,
   url = "",
   verifiedDomain = "",
   externalId = "",
@@ -156,6 +172,7 @@ export async function createOrganization({
   email: string;
   userId: string;
   name: string;
+  demographicData?: DemographicData;
   url?: string;
   verifiedDomain?: string;
   externalId?: string;
@@ -163,6 +180,7 @@ export async function createOrganization({
   // TODO: sanitize fields
   const doc = await OrganizationModel.create({
     ownerEmail: email,
+    demographicData,
     name,
     url,
     verifiedDomain,
@@ -264,47 +282,21 @@ export async function updateOrganization(
   );
 }
 
-export async function updateOrganizationByStripeId(
-  stripeCustomerId: string,
-  update: Partial<OrganizationInterface>
-) {
-  await OrganizationModel.updateOne(
+export async function getAllOrgMemberInfoInDb(): Promise<OrgMemberInfo[]> {
+  if (IS_CLOUD) {
+    throw new Error("getAllOrgMemberInfoInDb() is not supported on cloud");
+  }
+  return await OrganizationModel.find(
+    {},
     {
-      stripeCustomerId,
-    },
-    {
-      $set: update,
+      id: 1,
+      "invites.email": 1,
+      "members.id": 1,
+      "members.role": 1,
+      "members.projectRoles.role": 1,
+      "members.teams": 1,
     }
   );
-}
-
-export async function findOrganizationByStripeCustomerId(id: string) {
-  const doc = await OrganizationModel.findOne({
-    stripeCustomerId: id,
-  });
-
-  return doc ? toInterface(doc) : null;
-}
-
-export async function getAllInviteEmailsInDb() {
-  if (IS_CLOUD) {
-    throw new Error("getAllInviteEmailsInDb() is not supported on cloud");
-  }
-
-  const organizations = await OrganizationModel.find(
-    {},
-    { "invites.email": 1 }
-  );
-
-  const inviteEmails: string[] = organizations.reduce(
-    (emails: string[], organization) => {
-      const orgEmails = organization.invites.map((invite) => invite.email);
-      return emails.concat(orgEmails);
-    },
-    []
-  );
-
-  return inviteEmails;
 }
 
 export async function getSelfHostedOrganization() {

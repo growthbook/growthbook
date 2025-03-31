@@ -6,8 +6,9 @@ import { ExperimentReportVariation } from "back-end/types/report";
 import { useEffect, useMemo, useState } from "react";
 import { getValidDate } from "shared/dates";
 import { FaCircle } from "react-icons/fa6";
+import { parseISO } from "date-fns";
+import { DEFAULT_SRM_THRESHOLD } from "shared/constants";
 import { useUser } from "@/services/UserContext";
-import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
 import track from "@/services/track";
 import { formatTrafficSplit } from "@/services/utils";
 import { formatNumber } from "@/services/metrics";
@@ -39,7 +40,7 @@ export default function TrafficCard({
 }: {
   traffic: ExperimentSnapshotTraffic;
   variations: ExperimentReportVariation[];
-  isBandit?: boolean;
+  isBandit: boolean;
 }) {
   const [cumulative, setCumulative] = useState(true);
   const { settings } = useUser();
@@ -51,7 +52,8 @@ export default function TrafficCard({
   const availableDimensions = transformDimensionData(
     traffic.dimension,
     variations,
-    srmThreshold
+    srmThreshold,
+    isBandit
   );
 
   const [selectedDimension, setSelectedDimension] = useState<string>("");
@@ -70,14 +72,13 @@ export default function TrafficCard({
   const usersPerDate = useMemo<ExperimentDateGraphDataPoint[]>(() => {
     // Keep track of total users per variation for when cumulative is true
     const total: number[] = [];
-    const sortedTraffic = [...trafficByDate];
-    sortedTraffic.sort((a, b) => {
+    const sortedTraffic = [...trafficByDate].sort((a, b) => {
       return getValidDate(a.name).getTime() - getValidDate(b.name).getTime();
     });
 
     return sortedTraffic.map((d) => {
       return {
-        d: getValidDate(d.name),
+        d: getValidDate(parseISO(d.name)),
         variations: variations.map((variation, i) => {
           const users = d.variationUnits[i] || 0;
           total[i] = total[i] || 0;

@@ -131,8 +131,8 @@ export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
 
 const SlackIntegrationsEmptyState: FC<PropsWithChildren> = ({ children }) => (
   <div className="row">
-    <div className="col-xs-12 col-md-6 offset-md-3">
-      <div className="card text-center p-3">
+    <div className="col-12 ">
+      <div className="appbox text-center p-3">
         When Slack integrations are created, they will show up here.
         <div className="mt-4">{children}</div>
       </div>

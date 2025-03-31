@@ -1,7 +1,7 @@
 import { Callout as RadixCallout } from "@radix-ui/themes";
 import { forwardRef, ReactNode } from "react";
-import { MarginProps } from "@radix-ui/themes/dist/cjs/props/margin.props";
-import { Responsive } from "@radix-ui/themes/dist/cjs/props";
+import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
 import { RadixStatusIcon, Status, getRadixColor, Size } from "./HelperText";
 import styles from "./RadixOverrides.module.scss";
 

@@ -7,7 +7,7 @@ slug: build-your-own
 
 # Build Your Own SDK
 
-**Latest spec version: 0.7.0 [View Changelog](#changelog)**
+**Latest spec version: 0.7.1 [View Changelog](#changelog)**
 
 This guide is meant for library authors looking to build a GrowthBook SDK in a currently unsupported language.
 
@@ -187,15 +187,16 @@ The result of evaluating a **Feature**. Has a number of properties:
 - **value** (`any`) - The assigned value of the feature
 - **on** (`boolean`) - The assigned value cast to a boolean
 - **off** (`boolean`) - The assigned value cast to a boolean and then negated
-- **source** (`enum`) - One of "unknownFeature", "defaultValue", "force", or "experiment"
+- **source** (`enum`) - One of "unknownFeature", "defaultValue", "force", "experiment", "override", "prerequisite", "cyclicPrerequisite"
 - **experiment** (`Experiment` or `null`) - When source is "experiment", this will be an Experiment object
 - **experimentResult** (`ExperimentResult` or `null`) - When source is "experiment", this will be an ExperimentResult object
+- **ruleId** (`string`) - The id of the feature rule that the assigned value came from (empty string if no rule was used)
 
 ### FeatureRule
 
 Overrides the defaultValue of a **Feature**. Has a number of optional properties
 
-- **id** (`string`) - Optional rule id, reserved for future use
+- **id** (`string`) - Optional rule id. Default to empty string if missing.
 - **condition** (`Condition`) - Optional targeting condition
 - **parentConditions** (`ParentCondition[]`) - Each item defines a prerequisite where a `condition` must evaluate against a parent feature's value (identified by `id`). If `gate` is true, then this is a blocking feature-level prerequisite; otherwise it applies to the current rule only.
 - **coverage** (`float`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
@@ -554,7 +555,7 @@ This checks if `attributeValue` is an array, and if so at least one of the array
 
 ### private paddedVersionString(input): string
 
-This function can be used to help with the evaluation of the version string comparsion.
+This function can be used to help with the evaluation of the version string comparison.
 
 There are 6 operators that are used for comparing version strings, e.g. `v1.2.3` or `1.2.3`:
 
@@ -948,7 +949,7 @@ There are a bunch of ordered steps to run an experiment:
         ```ts
         ranges = experiment.ranges || getBucketRanges(
           experiment.variations.length,
-          experiment.converage ?? 1,
+          experiment.coverage ?? 1,
           experiment.weights ?? []
         );
         n = hash(
@@ -1131,7 +1132,7 @@ The cases.json file is an object. The keys are the function being tested, and th
   - name of the test case (string)
   - context passed into GrowthBook constructor
   - name of the feature (string)
-  - expected result
+  - expected result (FeatureResult)
 - **run**
   - name of the test case (string)
   - context passed into GrowthBook constructor
@@ -1245,3 +1246,8 @@ Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a li
   - New Operators `$inGroup` and `$notInGroup` to check Saved Groups by reference
   - Add argument to `evalCondition` for definition of Saved Groups
   - Add test cases for `evalCondition`, `feature`, and `run` using the new operators
+- **v0.7.1** 2025-02-13
+  - Add feature rule id to `FeatureResult` object and updated all test cases to include it
+  - New tests for pre-requisite edge cases
+  - New tests to make sure only known properties are copied from feature rules to experiments
+  - New tests for evalCondition to cover null/false edge cases

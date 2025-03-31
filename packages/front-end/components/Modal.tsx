@@ -10,6 +10,7 @@ import {
 import clsx from "clsx";
 import { truncateString } from "shared/util";
 import { v4 as uuidv4 } from "uuid";
+import { Flex, Text } from "@radix-ui/themes";
 import track, { TrackEventProps } from "@/services/track";
 import ConditionalWrapper from "@/components/ConditionalWrapper";
 import Button from "@/components/Radix/Button";
@@ -22,6 +23,7 @@ type ModalProps = {
   header?: "logo" | string | ReactNode | boolean;
   subHeader?: string | ReactNode;
   open: boolean;
+  hideCta?: boolean;
   // An empty string will prevent firing a tracking event, but the prop is still required to encourage developers to add tracking
   trackingEventModalType: string;
   // The source (likely page or component) causing the modal to be shown
@@ -74,6 +76,7 @@ const Modal: FC<ModalProps> = ({
   fullWidthSubmit = false,
   submitColor = "primary",
   open = true,
+  hideCta = false,
   cta = "Save",
   ctaEnabled = true,
   closeCta = "Cancel",
@@ -190,17 +193,21 @@ const Modal: FC<ModalProps> = ({
       ) : (
         <>
           {close && (
-            <button
-              type="button"
-              className="close"
-              onClick={(e) => {
-                e.preventDefault();
-                close();
-              }}
-              aria-label="Close"
-            >
-              <span aria-hidden="true">&times;</span>
-            </button>
+            <Flex justify="end">
+              <button
+                type="button"
+                className="close px-3 py-1"
+                onClick={(e) => {
+                  e.preventDefault();
+                  close();
+                }}
+                aria-label="Close"
+              >
+                <Text aria-hidden="true" size="6">
+                  &times;
+                </Text>
+              </button>
+            </Flex>
           )}
         </>
       )}
@@ -223,11 +230,12 @@ const Modal: FC<ModalProps> = ({
           children
         )}
       </div>
-      {submit ||
-      secondaryCTA ||
-      tertiaryCTA ||
-      backCTA ||
-      (close && includeCloseCta) ? (
+      {!hideCta &&
+      (submit ||
+        secondaryCTA ||
+        tertiaryCTA ||
+        backCTA ||
+        (close && includeCloseCta)) ? (
         <div
           className={clsx("modal-footer", { "sticky-footer": stickyFooter })}
         >
@@ -238,7 +246,10 @@ const Modal: FC<ModalProps> = ({
             </>
           ) : null}
           {error && (
-            <div className="alert alert-danger mr-auto">
+            <div
+              className="alert alert-danger mr-auto"
+              style={{ maxWidth: "65%" }}
+            >
               {error
                 .split("\n")
                 .filter((v) => !!v.trim())
@@ -259,15 +270,17 @@ const Modal: FC<ModalProps> = ({
             {close && includeCloseCta ? (
               <>
                 {useRadixButton ? (
-                  <Button
-                    variant="ghost"
-                    onClick={async () => {
-                      await onClickCloseCta?.();
-                      close();
-                    }}
-                  >
-                    {isSuccess && successMessage ? "Close" : closeCta}
-                  </Button>
+                  <div className="mr-1">
+                    <Button
+                      variant="ghost"
+                      onClick={async () => {
+                        await onClickCloseCta?.();
+                        close();
+                      }}
+                    >
+                      {isSuccess && successMessage ? "Close" : closeCta}
+                    </Button>
+                  </div>
                 ) : (
                   <button
                     type="button"
@@ -360,6 +373,9 @@ const Modal: FC<ModalProps> = ({
         display: open ? "block" : "none",
         position: inline ? "relative" : undefined,
         zIndex: inline ? 1 : increasedElevation ? 1550 : undefined,
+      }}
+      onClick={(e) => {
+        e.stopPropagation();
       }}
     >
       <div

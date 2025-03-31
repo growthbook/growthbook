@@ -1,4 +1,4 @@
-import { databricksCreateTableOptions } from "enterprise";
+import { databricksCreateTableOptions } from "shared/enterprise";
 import { DatabricksConnectionParams } from "back-end/types/integrations/databricks";
 import { runDatabricksQuery } from "back-end/src/services/databricks";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";

@@ -9,10 +9,15 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
   DEFAULT_TEST_QUERY_DAYS,
+  DEFAULT_SRM_THRESHOLD,
+  DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
+  DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
+  DEFAULT_DECISION_FRAMEWORK_ENABLED,
 } from "shared/constants";
 import { OrganizationSettings } from "back-end/types/organization";
 import Link from "next/link";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { Box, Flex, Heading } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig, isCloud } from "@/services/env";
 import TempMessage from "@/components/TempMessage";
@@ -34,8 +39,13 @@ import DatasourceSettings from "@/components/GeneralSettings/DatasourceSettings"
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import HelperText from "@/components/Radix/HelperText";
 import { AppFeatures } from "@/types/app-features";
-
-export const DEFAULT_SRM_THRESHOLD = 0.001;
+import {
+  StickyTabsList,
+  Tabs,
+  TabsContent,
+  TabsTrigger,
+} from "@/components/Radix/Tabs";
+import Frame from "@/components/Radix/Frame";
 
 export const ConnectSettingsForm = ({ children }) => {
   const methods = useFormContext();
@@ -97,6 +107,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         minimumSampleSize: metricDefaults.minimumSampleSize,
         maxPercentageChange: metricDefaults.maxPercentageChange * 100,
         minPercentageChange: metricDefaults.minPercentageChange * 100,
+        targetMDE: metricDefaults.targetMDE * 100,
       },
       updateSchedule: {
         type: "stale",
@@ -114,7 +125,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
       regressionAdjustmentDays: DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
       sequentialTestingEnabled: false,
       sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-      powerCalculatorEnabled: false,
       attributionModel: "firstExposure",
       displayCurrency,
       secureAttributeSalt: "",
@@ -147,6 +157,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
       banditBurnInValue: settings.banditBurnInValue ?? 1,
       banditBurnInUnit: settings.banditBurnInUnit ?? "days",
       requireExperimentTemplates: settings.requireExperimentTemplates ?? false,
+      experimentMinLengthDays:
+        settings.experimentMinLengthDays ?? DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
+      experimentMaxLengthDays:
+        settings.experimentMaxLengthDays ?? DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
+      decisionFrameworkEnabled:
+        settings.decisionFrameworkEnabled ?? DEFAULT_DECISION_FRAMEWORK_ENABLED,
     },
   });
   const { apiCall } = useAuth();
@@ -159,6 +175,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       minimumSampleSize: form.watch("metricDefaults.minimumSampleSize"),
       maxPercentageChange: form.watch("metricDefaults.maxPercentageChange"),
       minPercentageChange: form.watch("metricDefaults.minPercentageChange"),
+      targetMDE: form.watch("metricDefaults.targetMDE"),
     },
     // customization:
     customized: form.watch("customized"),
@@ -176,7 +193,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
     pValueCorrection: form.watch("pValueCorrection"),
     regressionAdjustmentEnabled: form.watch("regressionAdjustmentEnabled"),
     regressionAdjustmentDays: form.watch("regressionAdjustmentDays"),
-    powerCalculatorEnabled: form.watch("powerCalculatorEnabled"),
     sequentialTestingEnabled: form.watch("sequentialTestingEnabled"),
     sequentialTestingTuningParameter: form.watch(
       "sequentialTestingTuningParameter"
@@ -215,6 +231,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
           // they exist and are not empty
           const existingMaxChange = settings?.[k]?.maxPercentageChange;
           const existingMinChange = settings?.[k]?.minPercentageChange;
+          const existingTargetMDE = settings?.[k]?.targetMDE;
           newVal[k] = {
             ...newVal[k],
             ...settings?.[k],
@@ -228,6 +245,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
             ...(existingMinChange !== undefined
               ? {
                   minPercentageChange: existingMinChange * 100,
+                }
+              : {}),
+            ...(existingTargetMDE !== undefined
+              ? {
+                  targetMDE: existingTargetMDE * 100,
                 }
               : {}),
           };
@@ -282,6 +304,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         ...value.metricDefaults,
         maxPercentageChange: value.metricDefaults.maxPercentageChange / 100,
         minPercentageChange: value.metricDefaults.minPercentageChange / 100,
+        targetMDE: value.metricDefaults.targetMDE / 100,
       },
       confidenceLevel: (value.confidenceLevel ?? 0.95) / 100,
       multipleExposureMinPercent:
@@ -335,79 +358,99 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
   return (
     <FormProvider {...form}>
-      <div className="container-fluid pagecontents">
-        <h1>General Settings</h1>
-
-        <div className="mb-1">
+      <Box className="container-fluid pagecontents" mb="4">
+        <Heading as="h1" size="5" mb="3">
+          General Settings
+        </Heading>
+        <Box mb="5">
           <OrganizationAndLicenseSettings
             org={organization}
             refreshOrg={refreshOrganization}
           />
+        </Box>
 
-          <ImportSettings
-            hasFileConfig={hasFileConfig()}
-            isCloud={isCloud()}
-            settings={settings}
-            refreshOrg={refreshOrganization}
-          />
+        <Tabs defaultValue="experiment" persistInURL={true}>
+          <StickyTabsList>
+            <TabsTrigger value="experiment">Experiment Settings</TabsTrigger>
+            <TabsTrigger value="feature">Feature Settings</TabsTrigger>
+            <TabsTrigger value="metrics">Metrics &amp; Data</TabsTrigger>
+            <TabsTrigger value="import">Import &amp; Export</TabsTrigger>
+            <TabsTrigger value="custom">
+              <PremiumTooltip commercialFeature="custom-markdown">
+                Custom Markdown
+              </PremiumTooltip>
+            </TabsTrigger>
+          </StickyTabsList>
+          <Box mt="4">
+            <TabsContent value="experiment">
+              <ExperimentSettings
+                cronString={cronString}
+                updateCronString={updateCronString}
+              />
+              {growthbook.isOn("bandits") && (
+                <Frame mb="4">
+                  <BanditSettings page="org-settings" />
+                </Frame>
+              )}
+            </TabsContent>
 
-          <NorthStarMetricSettings />
+            <TabsContent value="feature">
+              <FeaturesSettings />
+            </TabsContent>
 
-          <div className="bg-white p-3 border position-relative">
-            <ExperimentSettings
-              cronString={cronString}
-              updateCronString={updateCronString}
-            />
-
-            {growthbook.isOn("bandits") && (
+            <TabsContent value="metrics">
               <>
-                <div className="divider border-bottom mb-3 mt-3" />
-                <BanditSettings page="org-settings" />
+                <MetricsSettings />
+                <DatasourceSettings />
+                <NorthStarMetricSettings />
               </>
-            )}
+            </TabsContent>
 
-            <div className="divider border-bottom mb-3 mt-3" />
-            <MetricsSettings />
+            <TabsContent value="import">
+              <ImportSettings
+                hasFileConfig={hasFileConfig()}
+                isCloud={isCloud()}
+                settings={settings}
+                refreshOrg={refreshOrganization}
+              />
+            </TabsContent>
 
-            <div className="divider border-bottom mb-3 mt-3" />
-            <FeaturesSettings />
+            <TabsContent value="custom">
+              <Frame>
+                <Flex>
+                  <Box width="300px">
+                    <PremiumTooltip commercialFeature="custom-markdown">
+                      Custom Markdown
+                    </PremiumTooltip>
+                  </Box>
+                  <Box>
+                    {hasCommercialFeature("custom-markdown") ? (
+                      <Link href="/settings/custom-markdown">
+                        View Custom Markdown Settings
+                      </Link>
+                    ) : (
+                      <span className="text-muted">
+                        View Custom Markdown Settings
+                      </span>
+                    )}
+                  </Box>
+                </Flex>
+              </Frame>
+            </TabsContent>
+          </Box>
+        </Tabs>
+      </Box>
 
-            <div className="divider border-bottom mb-3 mt-3" />
-            <DatasourceSettings />
-          </div>
-          <div className="my-3 bg-white p-3 border">
-            <div className="row">
-              <div className="col-sm-3 h4">
-                <PremiumTooltip commercialFeature="custom-markdown">
-                  Custom Markdown
-                </PremiumTooltip>
-              </div>
-              <div className="col-sm-9">
-                {hasCommercialFeature("custom-markdown") ? (
-                  <Link href="/settings/custom-markdown">
-                    View Custom Markdown Settings
-                  </Link>
-                ) : (
-                  <span className="text-muted">
-                    View Custom Markdown Settings
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div
+      <Box
         className="bg-main-color position-sticky w-100 py-3 border-top"
-        style={{ bottom: 0, height: 70 }}
+        style={{ bottom: 0, height: 70, zIndex: 840 }}
       >
-        <div className="container-fluid pagecontents d-flex">
-          <div className="flex-grow-1 mr-4">
+        <Box className="container-fluid pagecontents d-flex">
+          <Flex flexGrow="1" gap="3" align="end">
             {submitError && (
-              <div className="float-right mt-2">
+              <Box>
                 <HelperText status="error">{submitError}</HelperText>
-              </div>
+              </Box>
             )}
             {saveMsg && (
               <TempMessage
@@ -419,8 +462,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 Settings saved
               </TempMessage>
             )}
-          </div>
-          <div style={{ marginRight: "4rem" }}>
+          </Flex>
+          <Box style={{ marginRight: "85px" }}>
             <Button
               disabled={!ctaEnabled}
               onClick={async () => {
@@ -430,11 +473,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
               }}
               setError={setSubmitError}
             >
-              Save
+              Save All
             </Button>
-          </div>
-        </div>
-      </div>
+          </Box>
+        </Box>
+      </Box>
     </FormProvider>
   );
 };

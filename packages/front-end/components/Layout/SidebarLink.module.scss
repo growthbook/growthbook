@@ -57,7 +57,7 @@ $topbarheight: 60px;
   }
   &.selected {
     //background: scale-color($dark-purple, $lightness: +20%);
-    background-color: $highlight-purple;
+    background-color: var(--violet-9); //$highlight-purple;
     font-weight: 600;
     a {
       margin-left: 0px;

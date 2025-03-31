@@ -6,10 +6,10 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
-import { accountFeatures, getAccountPlan } from "enterprise";
 import { omit } from "lodash";
 import { SavedGroupInterface } from "shared/src/types";
 import { v4 as uuidv4 } from "uuid";
+import { accountFeatures } from "shared/enterprise";
 import {
   ExperimentReportArgs,
   ExperimentReportInterface,
@@ -43,6 +43,7 @@ import {
 } from "back-end/types/experiment-snapshot";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { LegacySavedGroupInterface } from "back-end/types/saved-group";
+import { getAccountPlan } from "back-end/src/enterprise";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
 function roundVariationWeight(num: number): number {
@@ -701,6 +702,15 @@ export function migrateSnapshot(
     manual,
     ...snapshot
   } = orig;
+  // Try to figure out metric ids from results
+  const metricIds = Object.keys(results?.[0]?.variations?.[0]?.metrics || {});
+  if (activationMetric && !metricIds.includes(activationMetric)) {
+    metricIds.push(activationMetric);
+  }
+
+  // We know the metric ids included, but don't know if they were goals or guardrails
+  // Just add them all as goals (doesn't really change much)
+  const goalMetrics = metricIds.filter((m) => m !== activationMetric);
 
   // Convert old results to new array of analyses
   if (!snapshot.analyses) {
@@ -727,6 +737,7 @@ export function migrateSnapshot(
             sequentialTestingTuningParameter:
               sequentialTestingTuningParameter ||
               DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+            numGoalMetrics: goalMetrics.length,
           },
           results,
         },
@@ -757,12 +768,6 @@ export function migrateSnapshot(
   // Migrate settings
   // We weren't tracking all of these before, so just pick good defaults
   if (!snapshot.settings) {
-    // Try to figure out metric ids from results
-    const metricIds = Object.keys(results?.[0]?.variations?.[0]?.metrics || {});
-    if (activationMetric && !metricIds.includes(activationMetric)) {
-      metricIds.push(activationMetric);
-    }
-
     const variations = (results?.[0]?.variations || []).map((v, i) => ({
       id: i + "",
       weight: 0,
@@ -808,9 +813,7 @@ export function migrateSnapshot(
           ]
         : [],
       metricSettings,
-      // We know the metric ids included, but don't know if they were goals or guardrails
-      // Just add them all as goals (doesn't really change much)
-      goalMetrics: metricIds.filter((m) => m !== activationMetric),
+      goalMetrics,
       secondaryMetrics: [],
       guardrailMetrics: [],
       activationMetric: activationMetric || null,

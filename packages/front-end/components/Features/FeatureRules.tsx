@@ -1,20 +1,29 @@
 import { FeatureInterface } from "back-end/types/feature";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
   FeatureRevisionInterface,
   FeatureRule,
 } from "back-end/src/validators/features";
 import { Environment } from "back-end/types/organization";
-import { Flex } from "@radix-ui/themes";
+import { Box, Container, Flex, Text } from "@radix-ui/themes";
+import clsx from "clsx";
 import RuleModal from "@/components/Features/RuleModal/index";
 import RuleList from "@/components/Features/RuleList";
 import track from "@/services/track";
 import { getRules, useEnvironmentState } from "@/services/features";
 import CopyRuleModal from "@/components/Features/CopyRuleModal";
 import Button from "@/components/Radix/Button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../Radix/Tabs";
-import Badge from "../Radix/Badge";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/Radix/Tabs";
+import Badge from "@/components/Radix/Badge";
+import Link from "@/components/Radix/Link";
+import EnvironmentDropdown from "../Environments/EnvironmentDropdown";
+import CompareEnvironmentsModal from "./CompareEnvironmentsModal";
 
 export default function FeatureRules({
   environments,
@@ -22,20 +31,24 @@ export default function FeatureRules({
   isLocked,
   canEditDrafts,
   revisions,
-  experiments,
+  experimentsMap,
   mutate,
   currentVersion,
   setVersion,
+  hideInactive,
+  isDraft,
 }: {
   environments: Environment[];
   feature: FeatureInterface;
   isLocked: boolean;
   canEditDrafts: boolean;
   revisions: FeatureRevisionInterface[];
-  experiments: ExperimentInterfaceStringDates[] | undefined;
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>;
   mutate: () => Promise<unknown>;
   currentVersion: number;
   setVersion: (v: number) => void;
+  hideInactive: boolean;
+  isDraft: boolean;
 }) {
   const envs = environments.map((e) => e.id);
   const [env, setEnv] = useEnvironmentState();
@@ -43,10 +56,15 @@ export default function FeatureRules({
     i: number;
     environment: string;
     defaultType?: string;
+    duplicate?: boolean;
   } | null>(null);
   const [copyRuleModal, setCopyRuleModal] = useState<{
     environment: string;
     rules: FeatureRule[];
+  } | null>(null);
+  const [compareEnvModal, setCompareEnvModal] = useState<{
+    sourceEnv?: string;
+    targetEnv?: string;
   } | null>(null);
 
   // Make sure you can't access an invalid env tab, since active env tab is persisted via localStorage
@@ -57,14 +75,6 @@ export default function FeatureRules({
     }
   }, [envs, env, setEnv]);
 
-  const experimentsMap = useMemo(() => {
-    if (!experiments) return new Map();
-
-    return new Map<string, ExperimentInterfaceStringDates>(
-      experiments.map((exp) => [exp.id, exp])
-    );
-  }, [experiments]);
-
   const rulesByEnv = Object.fromEntries(
     environments.map((e) => {
       const rules = getRules(feature, e.id);
@@ -72,28 +82,107 @@ export default function FeatureRules({
     })
   );
 
+  const tabEnvs = environments.slice(0, 4);
+  const dropdownEnvs = environments.slice(4);
+  const selectedDropdownEnv = dropdownEnvs.find((e) => e.id === env)?.id;
+
   return (
     <>
       <Tabs value={env} onValueChange={setEnv}>
-        <TabsList>
-          <Flex overflow="scroll">
-            {environments.map((e) => (
-              <TabsTrigger value={e.id} key={e.id}>
-                <span className="mr-2">{e.id}</span>
-                <Badge
-                  label={rulesByEnv[e.id].length.toString()}
-                  radius="full"
-                  variant="solid"
-                  color="violet"
-                ></Badge>
-              </TabsTrigger>
-            ))}
+        <Container maxWidth="100%">
+          <Flex
+            align="center"
+            justify="between"
+            style={{ boxShadow: "inset 0 -1px 0 0 var(--slate-a3)" }}
+          >
+            <TabsList className="w-full" style={{ boxShadow: "none" }}>
+              <Flex wrap="wrap" overflow="hidden">
+                {tabEnvs.map((e) => (
+                  <TabsTrigger value={e.id} key={e.id}>
+                    <Flex maxWidth="220px">
+                      <Text truncate>{e.id}</Text>
+                    </Flex>
+                    <Badge
+                      ml="2"
+                      label={rulesByEnv[e.id].length.toString()}
+                      radius="full"
+                      variant="solid"
+                      color="violet"
+                    ></Badge>
+                  </TabsTrigger>
+                ))}
+                {dropdownEnvs.length === 1 && (
+                  <TabsTrigger value={dropdownEnvs[0].id}>
+                    <Flex maxWidth="220px">
+                      <Text truncate>{dropdownEnvs[0].id}</Text>
+                    </Flex>
+                    <Badge
+                      ml="2"
+                      label={rulesByEnv[dropdownEnvs[0].id].length.toString()}
+                      radius="full"
+                      variant="solid"
+                      color="violet"
+                    ></Badge>
+                  </TabsTrigger>
+                )}
+                {dropdownEnvs.length > 1 && (
+                  <Flex
+                    px="1"
+                    direction="column"
+                    justify="center"
+                    align="center"
+                    className={clsx("tab-trigger-container", {
+                      active: !!selectedDropdownEnv,
+                    })}
+                  >
+                    <Container
+                      flexGrow="0"
+                      minWidth={selectedDropdownEnv ? undefined : "100px"}
+                    >
+                      <EnvironmentDropdown
+                        containerClassName={"select-dropdown-no-underline"}
+                        env={selectedDropdownEnv}
+                        setEnv={setEnv}
+                        environments={dropdownEnvs}
+                        placeholder="Other..."
+                        formatOptionLabel={({ value }) => (
+                          <Flex align="center">
+                            <Flex maxWidth="150px">
+                              <Text weight="medium" truncate>
+                                {value}
+                              </Text>
+                            </Flex>
+                            <Badge
+                              ml="2"
+                              mr="3"
+                              label={rulesByEnv[value].length.toString()}
+                              radius="full"
+                              variant="solid"
+                              color="violet"
+                            ></Badge>
+                          </Flex>
+                        )}
+                      />
+                    </Container>
+                  </Flex>
+                )}
+              </Flex>
+            </TabsList>
+            <Link
+              ml="2"
+              onClick={() => setCompareEnvModal({ sourceEnv: env })}
+              underline="none"
+              wrap="nowrap"
+              size="1"
+            >
+              Compare environments
+            </Link>
           </Flex>
-        </TabsList>
+        </Container>
         {environments.map((e) => {
           return (
             <TabsContent key={e.id} value={e.id}>
-              <div className="mb-4 border border-top-0">
+              <div className="mb-4 mt-2">
                 {rulesByEnv[e.id].length > 0 ? (
                   <RuleList
                     environment={e.id}
@@ -105,17 +194,17 @@ export default function FeatureRules({
                     setVersion={setVersion}
                     locked={isLocked}
                     experimentsMap={experimentsMap}
+                    hideInactive={hideInactive}
+                    isDraft={isDraft}
                   />
                 ) : (
-                  <div className="p-3 bg-white border-bottom">
-                    <em>No rules for this environment yet</em>
-                  </div>
+                  <Box py="4" className="text-muted">
+                    <em>No rules have been added to this environment yet</em>
+                  </Box>
                 )}
 
                 {canEditDrafts && !isLocked && (
-                  <div className="p-3 d-flex align-items-center">
-                    <h5 className="ml-0 mb-0">Add Rule to {env}</h5>
-                    <div className="flex-1" />
+                  <Flex pt="4" justify="end" align="center">
                     <Button
                       onClick={() => {
                         setRuleModal({
@@ -130,7 +219,7 @@ export default function FeatureRules({
                     >
                       Add Rule
                     </Button>
-                  </div>
+                  </Flex>
                 )}
               </div>
             </TabsContent>
@@ -148,6 +237,7 @@ export default function FeatureRules({
           version={currentVersion}
           setVersion={setVersion}
           revisions={revisions}
+          duplicate={ruleModal?.duplicate || false}
         />
       )}
       {copyRuleModal !== null && (
@@ -158,6 +248,24 @@ export default function FeatureRules({
           setVersion={setVersion}
           rules={copyRuleModal.rules}
           cancel={() => setCopyRuleModal(null)}
+          mutate={mutate}
+        />
+      )}
+      {compareEnvModal !== null && (
+        <CompareEnvironmentsModal
+          feature={feature}
+          sourceEnv={compareEnvModal.sourceEnv}
+          targetEnv={compareEnvModal.targetEnv}
+          setSourceEnv={(sourceEnv) =>
+            setCompareEnvModal({ ...compareEnvModal, sourceEnv })
+          }
+          setTargetEnv={(targetEnv) =>
+            setCompareEnvModal({ ...compareEnvModal, targetEnv })
+          }
+          version={currentVersion}
+          setVersion={setVersion}
+          setEnvironment={setEnv}
+          cancel={() => setCompareEnvModal(null)}
           mutate={mutate}
         />
       )}

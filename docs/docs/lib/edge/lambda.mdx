@@ -8,12 +8,15 @@ toc_max_heading_level: 5
 
 import ExternalLink from '@site/src/components/ExternalLink';
 import Pill from '@site/src/components/Pill';
+import SdkResources from '@site/src/components/SdkResources';
 
-# Lambda@Edge Edge App & SDK <Pill>alpha</Pill>
+# Lambda@Edge Edge App & SDK <Pill>beta</Pill>
 
-:::caution alpha
+<SdkResources sdk="edgeLambda" />
 
-Our Lambda@Edge implementation is in **alpha**. If you experience any issues, let us know either on [Slack](https://slack.growthbook.io/) or [create an issue](https://github.com/growthbook/growthbook-proxy/issues).
+:::caution beta
+
+Our Lambda@Edge implementation is in **beta**. If you experience any issues, let us know either on [Slack](https://slack.growthbook.io/) or [create an issue](https://github.com/growthbook/growthbook-proxy/issues).
 
 :::
 
@@ -55,7 +58,11 @@ Our Edge App runs as a smart proxy layer between your application and your end u
 
 The Edge App defaults to running URL Redirect Experiments in the browser only. This is because edge redirects load a separate page's content without altering the URL. After the redirect, some sites may experience problems with loading assets or endpoints with relative paths.
 
-You can enable URL Redirects on edge by setting environment variable `RUN_URL_REDIRECT_EXPERIMENTS` ([see below](#environment-variables)).
+You can enable URL Redirects on edge by setting environment variable `RUN_URL_REDIRECT_EXPERIMENTS` to "edge" or "everywhere".
+
+Additionally if your redirect is cross-domain (e.g. redirection from "public.mysite.io" to "newsite.io"), you must also set `RUN_CROSS_ORIGIN_URL_REDIRECT_EXPERIMENTS`.
+
+See [environment variables](#environment-variables) for more information.
 
 :::
 

@@ -31,6 +31,7 @@ import Button from "@/components/Radix/Button";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import LinkButton from "@/components/Radix/LinkButton";
+import PremiumEmptyState from "@/components/PremiumEmptyState";
 
 const NUM_PER_PAGE = 20;
 
@@ -245,23 +246,34 @@ const ExperimentsPage = (): React.ReactElement => {
     };
   }
 
+  if (!hasMultiArmedBanditFeature) {
+    return (
+      <div className="contents container-fluid pagecontents">
+        <PremiumEmptyState
+          h1="Bandits"
+          title="Run Adaptive Experiments with Bandits"
+          description="Bandits automatically guide more traffic to better variants."
+          commercialFeature="multi-armed-bandits"
+          reason="Bandit Experiments No Access"
+          learnMoreLink="https://docs.growthbook.io/bandits/overview"
+        />
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="contents experiments container-fluid pagecontents">
-        <div className="mb-3">
+        <div className="mb-3 mt-2">
           <div className="filters md-form row mb-3 align-items-center">
             <div className="col d-flex align-items-center">
               <h1>Bandits</h1>
-              <span className="mr-auto badge badge-purple text-uppercase ml-2">
-                Beta
-              </span>
             </div>
             <div style={{ flex: 1 }} />
             {canAdd && (
               <div className="col-auto">
                 <PremiumTooltip
                   tipPosition="left"
-                  popperStyle={{ top: 15 }}
                   body={
                     hasStickyBucketFeature && !orgStickyBucketing
                       ? "Enable Sticky Bucketing in your organization settings to run a Bandit"
@@ -287,20 +299,16 @@ const ExperimentsPage = (): React.ReactElement => {
           </div>
           <CustomMarkdown page={"experimentList"} />
           {!hasExperiments ? (
-            <div className="box py-4 text-center">
+            <div className="box py-5 text-center">
               <div className="mx-auto" style={{ maxWidth: 650 }}>
                 <h1>Adaptively experiment with bandits.</h1>
-                <p style={{ fontSize: "17px" }}>
-                  Run adaptive experiments with Bandits.
-                </p>
+                <p className="">Run adaptive experiments with Bandits.</p>
               </div>
-              <div
-                className="d-flex justify-content-center"
-                style={{ gap: "1rem" }}
-              >
+              <div className="d-flex justify-content-center pt-2">
                 <LinkButton
                   href="/getstarted/experiment-guide"
                   variant="outline"
+                  mr="4"
                 >
                   Setup Instructions
                 </LinkButton>
@@ -330,6 +338,13 @@ const ExperimentsPage = (): React.ReactElement => {
                   </PremiumTooltip>
                 )}
               </div>
+              <div className="mt-5">
+                <img
+                  src="/images/empty-states/bandits.png"
+                  alt="Bandits"
+                  style={{ width: "100%", maxWidth: "740px", height: "auto" }}
+                />
+              </div>
             </div>
           ) : (
             <>
@@ -346,7 +361,7 @@ const ExperimentsPage = (): React.ReactElement => {
                           key={tab}
                           className={clsx("border mb-0", {
                             "badge-purple font-weight-bold": active,
-                            "bg-white text-secondary": !active,
+                            "text-secondary": !active,
                             "rounded-left": i === 0,
                             "rounded-right":
                               tab === "archived" ||
@@ -356,6 +371,7 @@ const ExperimentsPage = (): React.ReactElement => {
                             fontSize: "1em",
                             opacity: active ? 1 : 0.8,
                             padding: "6px 12px",
+                            backgroundColor: active ? "" : "var(--color-panel)",
                           }}
                           onClick={(e) => {
                             e.preventDefault();
@@ -521,10 +537,7 @@ const ExperimentsPage = (): React.ReactElement => {
                           {date(e.date)}
                         </td>
                         <td className="nowrap" data-title="Status:">
-                          <ExperimentStatusIndicator
-                            experimentData={e}
-                            labelFormat="detail-only"
-                          />
+                          <ExperimentStatusIndicator experimentData={e} />
                         </td>
                       </tr>
                     );

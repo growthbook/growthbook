@@ -6,6 +6,7 @@ slug: quick-start
 ---
 
 import ButtonCard from '@site/src/components/ButtonCard'
+import MaxWidthImage from '@site/src/components/MaxWidthImage'
 
 # Quick Start Guide
 
@@ -34,7 +35,9 @@ From the menu, choose **SDK Configuration** &rarr; **SDK Connections**. Then, cl
 
 Name your SDK connection, select the language you're using in your application, and configure additional options. Don't worry! These settings can be changed at any time. To use GrowthBook with multiple languages, create a separate SDK Connection for each one.
 
-<img src="/images/quick-start/quick-start-new-sdk-connection.png" alt="New SDK Connection" style={{ width: 600 }} />
+<MaxWidthImage maxWidth={600}>
+    ![New SDK Connection](/images/quick-start/quick-start-new-sdk-connection.png)
+</MaxWidthImage>
 
 With the SDK Connection created, you're now ready to install the SDK in your application.
 
@@ -59,7 +62,9 @@ If your application has multiple languages or platforms, you can create a separa
 
 On the **Features** page, create your first feature flag.
 
-<img src="/images/features/feature-create-feature-1.png" alt="Create Feature" width="600" />
+<MaxWidthImage maxWidth={600}>
+    ![Create Feature](/images/features/feature-create-feature-1.png)
+</MaxWidthImage>
 
 The **Feature Key** is what you will reference in your application and cannot be changed later.
 
@@ -89,7 +94,9 @@ Requires a Pro or Enterprise license. [Start a 14-day free trial to try it out](
 
 Navigate to **SDK Configuration** &rarr; **SDK Connections**. Then, add a new SDK Connection. For the language, choose any no/low-code options: **Webflow**, **Wordpress**, **Shopify**, or **Script Tag**.
 
-![Add SDK Connection](../static/images/integrations/webflow/webflow-sdk-connection.png)
+<MaxWidthImage maxWidth={600} border>
+    ![Add SDK Connection](/images/integrations/webflow/webflow-sdk-connection.png)
+</MaxWidthImage>
 
 ### Step 2. Add the Script Tag to Your Website's Head
 
@@ -102,17 +109,15 @@ When you create an SDK Connection, GrowthBook displays tailored instructions bas
 ></script>
 ```
 
-### Step 3. Install the GrowthBook Chrome Extension
+### Step 3. Install the GrowthBook Chrome or Firefox Extension
 
-Before using the Visual Editor, you must [install our Chrome Extension](https://chromewebstore.google.com/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia).
+Before using the Visual Editor, you must install our [Chrome](https://chromewebstore.google.com/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) or [Firefox](https://addons.mozilla.org/en-US/firefox/addon/growthbook-devtools/) browser extension.
 
 This extension enables you to make changes to your website by pointing and clicking. Use it to test different headlines, CTA text, hero images, and more.
 
 ### Step 4. Create a New Visual Experiment
 
 To use the visual editor, add a new experiment. Go to **Experiments** and click **Add Experiment**.
-
-![Design a new experiment](/images/add-experiment-modal.png)
 
 Choose **Design a New Experiment**. Then, fill out the fields (hypothesis, variation names, goal metrics, etc.). Don't worry, you can change these values later.
 
@@ -170,7 +175,9 @@ Go to the **Experiments** page. If you implemented an experiment using feature f
 
 Once inside your experiment, go to the **Results** tab. Edit your analysis settings and pick the metrics you created earlier. The results will show up in a table like this:
 
-![Results Table](/images/results-table.png)
+<MaxWidthImage border>
+    ![Results Table](/images/results-table.png)
+</MaxWidthImage>
 
 We have an [entire page in our docs](/app/experiment-results) just about these results and how to interpret them.
 

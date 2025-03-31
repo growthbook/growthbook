@@ -77,6 +77,8 @@ import {
   TestQueryParams,
   ColumnTopValuesParams,
   ColumnTopValuesResponse,
+  PopulationMetricQueryParams,
+  PopulationFactMetricsQueryParams,
 } from "back-end/src/types/Integration";
 import { DimensionInterface } from "back-end/types/dimension";
 import { SegmentInterface } from "back-end/types/segment";
@@ -100,6 +102,7 @@ import {
 } from "back-end/types/fact-table";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { ReqContextClass } from "back-end/src/services/context";
+import { PopulationDataQuerySettings } from "back-end/src/queryRunners/PopulationDataQueryRunner";
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;
@@ -481,14 +484,14 @@ export default abstract class SqlIntegration
   }
 
   getMetricValueQuery(params: MetricValueParams): string {
-    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE(
-      [
+    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
+      objects: [
         params.metric.userIdTypes || [],
         params.segment ? [params.segment.userIdType || "user_id"] : [],
       ],
-      params.from,
-      params.to
-    );
+      from: params.from,
+      to: params.to,
+    });
 
     // Get rough date filter for metrics to improve performance
     const metricStart = this.getMetricStart(
@@ -615,6 +618,100 @@ export default abstract class SqlIntegration
     );
   }
 
+  getPowerPopulationSourceCTE({
+    settings,
+    factTableMap,
+    segment,
+  }: {
+    settings: PopulationDataQuerySettings;
+    factTableMap: FactTableMap;
+    segment: SegmentInterface | null;
+  }) {
+    switch (settings.sourceType) {
+      case "segment": {
+        if (segment) {
+          const factTable = segment.factTableId
+            ? factTableMap.get(segment.factTableId)
+            : undefined;
+          return `
+          __source AS (${this.getSegmentCTE(
+            segment,
+            settings.userIdType,
+            {}, // no id join map needed as id type is segment id type
+            factTableMap,
+            {
+              startDate: settings.startDate,
+              endDate: settings.endDate ?? undefined,
+              templateVariables: { eventName: factTable?.eventName },
+            }
+          )})`;
+        } else {
+          throw new Error("Segment not found");
+        }
+      }
+      case "factTable": {
+        const factTable = factTableMap.get(settings.sourceId);
+        if (factTable) {
+          const sql = factTable.sql;
+          return compileSqlTemplate(
+            `
+          __source AS (
+            SELECT
+              ${settings.userIdType}
+              , timestamp
+            FROM (
+              ${sql}
+            ) ft
+          )`,
+            {
+              startDate: settings.startDate,
+              endDate: settings.endDate ?? undefined,
+              templateVariables: { eventName: factTable.eventName },
+            }
+          );
+        } else {
+          throw new Error("Fact Table not found");
+        }
+      }
+    }
+  }
+
+  getPowerPopulationCTEs({
+    settings,
+    factTableMap,
+    segment,
+  }: {
+    settings: PopulationDataQuerySettings;
+    factTableMap: FactTableMap;
+    segment: SegmentInterface | null;
+  }): string {
+    const timestampColumn =
+      settings.sourceType === "segment" ? "date" : "timestamp";
+    // BQ datetime cast for SELECT statements (do not use for where)
+    const timestampDateTimeColumn = this.castUserDateCol(timestampColumn);
+
+    const firstQuery = this.getPowerPopulationSourceCTE({
+      settings,
+      factTableMap,
+      segment,
+    });
+
+    return `
+      ${firstQuery}
+      , __experimentUnits AS (
+        SELECT
+          ${settings.userIdType}
+          , MIN(${timestampDateTimeColumn}) AS first_exposure_timestamp
+          , '' as variation
+        FROM
+          __source
+        WHERE
+            ${timestampColumn} >= ${this.toTimestamp(settings.startDate)}
+            AND ${timestampColumn} <= ${this.toTimestamp(settings.endDate)}
+        GROUP BY ${settings.userIdType}
+      ),`;
+  }
+
   getMetricAnalysisPopulationCTEs({
     settings,
     idJoinMap,
@@ -713,13 +810,12 @@ export default abstract class SqlIntegration
       //...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
       //settings.segment ? [settings.segment.userIdType || "user_id"] : [],
     ];
-    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE(
-      idTypeObjects,
-      settings.startDate,
-      settings.endDate ?? undefined,
-      settings.userIdType
-    );
-
+    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
+      objects: idTypeObjects,
+      from: settings.startDate,
+      to: settings.endDate ?? undefined,
+      forcedBaseIdType: settings.userIdType,
+    });
     const metricData = this.getMetricData(
       metric,
       {
@@ -1080,6 +1176,12 @@ export default abstract class SqlIntegration
     return quantileData;
   }
 
+  async runPopulationFactMetricsQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<ExperimentFactMetricsQueryResponse> {
+    return this.runExperimentFactMetricsQuery(query, setExternalId);
+  }
   async runExperimentFactMetricsQuery(
     query: string,
     setExternalId: ExternalIdCallback
@@ -1096,9 +1198,15 @@ export default abstract class SqlIntegration
       "denominator_cap_value",
       "covariate_sum",
       "covariate_sum_squares",
+      "denominator_pre_sum",
+      "denominator_pre_sum_squares",
       "main_covariate_sum_product",
       "quantile",
       "theta",
+      "main_post_denominator_pre_sum_product",
+      "main_pre_denominator_post_sum_product",
+      "main_pre_denominator_pre_sum_product",
+      "denominator_post_denominator_pre_sum_product",
     ];
 
     return {
@@ -1135,6 +1243,12 @@ export default abstract class SqlIntegration
       statistics: statistics,
     };
   }
+  async runPopulationMetricQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<ExperimentMetricQueryResponse> {
+    return this.runExperimentMetricQuery(query, setExternalId);
+  }
 
   async runExperimentMetricQuery(
     query: string,
@@ -1158,12 +1272,21 @@ export default abstract class SqlIntegration
             denominator_sum: parseFloat(row.denominator_sum) || 0,
             denominator_sum_squares:
               parseFloat(row.denominator_sum_squares) || 0,
+          }),
+          ...(row.main_denominator_sum_product !== undefined && {
             main_denominator_sum_product:
               parseFloat(row.main_denominator_sum_product) || 0,
           }),
           ...(row.covariate_sum !== undefined && {
             covariate_sum: parseFloat(row.covariate_sum) || 0,
             covariate_sum_squares: parseFloat(row.covariate_sum_squares) || 0,
+          }),
+          ...(row.denominator_pre_sum !== undefined && {
+            denominator_pre_sum: parseFloat(row.denominator_pre_sum) || 0,
+            denominator_pre_sum_squares:
+              parseFloat(row.denominator_pre_sum_squares) || 0,
+          }),
+          ...(row.main_covariate_sum_product !== undefined && {
             main_covariate_sum_product:
               parseFloat(row.main_covariate_sum_product) || 0,
           }),
@@ -1175,6 +1298,31 @@ export default abstract class SqlIntegration
           }),
           ...(row.theta !== undefined && {
             theta: parseFloat(row.theta) || 0,
+          }),
+          ...(row.main_covariate_sum_product !== undefined && {
+            main_covariate_sum_product:
+              parseFloat(row.main_covariate_sum_product) || 0,
+          }),
+          ...(row.main_post_denominator_pre_sum_product !== undefined && {
+            main_post_denominator_pre_sum_product:
+              parseFloat(row.main_post_denominator_pre_sum_product) || 0,
+          }),
+          ...(row.main_pre_denominator_post_sum_product !== undefined && {
+            main_pre_denominator_post_sum_product:
+              parseFloat(row.main_pre_denominator_post_sum_product) || 0,
+          }),
+          ...(row.main_pre_denominator_pre_sum_product !== undefined && {
+            main_pre_denominator_pre_sum_product:
+              parseFloat(row.main_pre_denominator_pre_sum_product) || 0,
+          }),
+          ...(row.denominator_post_denominator_pre_sum_product !==
+            undefined && {
+            denominator_post_denominator_pre_sum_product:
+              parseFloat(row.denominator_post_denominator_pre_sum_product) || 0,
+          }),
+          ...(row.main_post_denominator_pre_sum_product !== undefined && {
+            main_post_denominator_pre_sum_product:
+              parseFloat(row.main_post_denominator_pre_sum_product) || 0,
           }),
         };
       }),
@@ -1304,13 +1452,19 @@ export default abstract class SqlIntegration
     return results;
   }
 
-  private getIdentitiesCTE(
-    objects: string[][],
-    from: Date,
-    to?: Date,
-    forcedBaseIdType?: string,
-    experimentId?: string
-  ) {
+  private getIdentitiesCTE({
+    objects,
+    from,
+    to,
+    forcedBaseIdType,
+    experimentId,
+  }: {
+    objects: string[][];
+    from: Date;
+    to?: Date;
+    forcedBaseIdType?: string;
+    experimentId?: string;
+  }) {
     const { baseIdType, joinsRequired } = getBaseIdTypeAndJoins(
       objects,
       forcedBaseIdType
@@ -1352,6 +1506,7 @@ export default abstract class SqlIntegration
     regressionAdjusted: boolean = false,
     cumulativeDate: boolean = false,
     overrideConversionWindows: boolean = false,
+    banditDates: Date[] | undefined = undefined,
     tablePrefix: string = "__denominator",
     initialTable: string = "__experiment"
   ) {
@@ -1359,18 +1514,23 @@ export default abstract class SqlIntegration
     return `
       -- one row per user
       SELECT
-        initial.${baseIdType} AS ${baseIdType},
-        MIN(initial.dimension) AS dimension,
-        MIN(initial.variation) AS variation,
-        MIN(initial.first_exposure_date) AS first_exposure_date,
+        initial.${baseIdType} AS ${baseIdType}
+        , MIN(initial.dimension) AS dimension
+        , MIN(initial.variation) AS variation
+        , MIN(initial.first_exposure_date) AS first_exposure_date
+        ${
+          banditDates?.length
+            ? `, MIN(initial.bandit_period) AS bandit_period`
+            : ""
+        }
         ${
           regressionAdjusted
             ? `
-            MIN(initial.preexposure_start) AS preexposure_start,
-            MIN(initial.preexposure_end) AS preexposure_end,`
+            , MIN(initial.preexposure_start) AS preexposure_start
+            , MIN(initial.preexposure_end) AS preexposure_end`
             : ""
         }
-        MIN(t${metrics.length - 1}.timestamp) AS timestamp
+        , MIN(t${metrics.length - 1}.timestamp) AS timestamp
       FROM
         ${initialTable} initial
         ${metrics
@@ -1641,6 +1801,41 @@ export default abstract class SqlIntegration
     );
   }
 
+  getPopulationMetricQuery(params: PopulationMetricQueryParams): string {
+    const { factTableMap, segment, populationSettings } = params;
+    // dimension date?
+    const populationSQL = this.getPowerPopulationCTEs({
+      settings: populationSettings,
+      factTableMap,
+      segment,
+    });
+
+    return this.getExperimentMetricQuery({
+      ...params,
+      unitsSource: "otherQuery",
+      unitsSql: populationSQL,
+      forcedUserIdType: params.populationSettings.userIdType,
+    });
+  }
+
+  getPopulationFactMetricsQuery(
+    params: PopulationFactMetricsQueryParams
+  ): string {
+    const { factTableMap, segment, populationSettings } = params;
+
+    const populationSQL = this.getPowerPopulationCTEs({
+      settings: populationSettings,
+      factTableMap,
+      segment,
+    });
+    return this.getExperimentFactMetricsQuery({
+      ...params,
+      unitsSource: "otherQuery",
+      unitsSql: populationSQL,
+      forcedUserIdType: params.populationSettings.userIdType,
+    });
+  }
+
   getExperimentUnitsQuery(params: ExperimentUnitsQueryParams): string {
     const {
       settings,
@@ -1663,18 +1858,18 @@ export default abstract class SqlIntegration
     const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
 
     // Get any required identity join queries
-    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE(
-      [
+    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
+      objects: [
         [exposureQuery.userIdType],
         activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
         ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
         segment ? [segment.userIdType || "user_id"] : [],
       ],
-      settings.startDate,
-      settings.endDate,
-      exposureQuery.userIdType,
-      settings.experimentId
-    );
+      from: settings.startDate,
+      to: settings.endDate,
+      forcedBaseIdType: exposureQuery.userIdType,
+      experimentId: settings.experimentId,
+    });
 
     // Get date range for experiment
     const startDate: Date = settings.startDate;
@@ -1860,23 +2055,23 @@ export default abstract class SqlIntegration
     const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
 
     // Get any required identity join queries
-    const { baseIdType, idJoinSQL } = this.getIdentitiesCTE(
+    const { baseIdType, idJoinSQL } = this.getIdentitiesCTE({
       // add idTypes usually handled in units query here in the case where
       // we don't have a separate table for the units query
       // then for this query we just need the activation metric for activation
       // dimensions
-      [
+      objects: [
         [exposureQuery.userIdType],
         !useUnitsTable && activationMetric
           ? getUserIdTypes(activationMetric, factTableMap)
           : [],
         !useUnitsTable && segment ? [segment.userIdType || "user_id"] : [],
       ],
-      settings.startDate,
-      settings.endDate,
-      exposureQuery.userIdType,
-      settings.experimentId
-    );
+      from: settings.startDate,
+      to: settings.endDate,
+      forcedBaseIdType: exposureQuery.userIdType,
+      experimentId: settings.experimentId,
+    });
 
     return format(
       `-- Traffic Query for Health Tab
@@ -2081,7 +2276,6 @@ export default abstract class SqlIntegration
     // where RA is actually possible
     const regressionAdjusted =
       settings.regressionAdjustmentEnabled && isRegressionAdjusted(metric);
-
     const regressionAdjustmentHours = regressionAdjusted
       ? (metric.regressionAdjustmentDays ?? 0) * 24
       : 0;
@@ -2116,7 +2310,13 @@ export default abstract class SqlIntegration
       capValueCol: `${alias}_value_cap`,
       columnRef: isFactMetric(metric) ? metric.numerator : null,
     });
-
+    const capCoalesceDenominatorCovariate = this.capCoalesceValue({
+      valueCol: `c.${alias}_denominator`,
+      metric,
+      capTablePrefix: "cap",
+      capValueCol: `${alias}_denominator_cap`,
+      columnRef: isFactMetric(metric) ? metric.denominator : null,
+    });
     // Get rough date filter for metrics to improve performance
     const orderedMetrics = (activationMetric ? [activationMetric] : []).concat([
       metric,
@@ -2144,7 +2344,6 @@ export default abstract class SqlIntegration
       [metric],
       activationMetric
     );
-
     return {
       alias,
       id: metric.id,
@@ -2160,6 +2359,7 @@ export default abstract class SqlIntegration
       capCoalesceMetric,
       capCoalesceDenominator,
       capCoalesceCovariate,
+      capCoalesceDenominatorCovariate,
       minMetricDelay,
       raMetricSettings,
       metricStart,
@@ -2209,8 +2409,6 @@ export default abstract class SqlIntegration
     params: ExperimentFactMetricsQueryParams
   ): string {
     const { settings, segment } = params;
-
-    // clone the metrics before we mutate them
     const metrics = cloneDeep(params.metrics);
     const activationMetric = this.processActivationMetric(
       params.activationMetric,
@@ -2220,7 +2418,6 @@ export default abstract class SqlIntegration
     metrics.forEach((m) => {
       applyMetricOverrides(m, settings);
     });
-
     // Replace any placeholders in the user defined dimension SQL
     const { unitDimensions } = this.processDimensions(
       params.dimensions,
@@ -2233,17 +2430,15 @@ export default abstract class SqlIntegration
     if (!factTable) {
       throw new Error("Could not find fact table");
     }
-
-    const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
-
+    const userIdType =
+      params.forcedUserIdType ??
+      this.getExposureQuery(settings.exposureQueryId || "").userIdType;
     const metricData = metrics.map((metric, i) =>
       this.getMetricData(metric, settings, activationMetric, `m${i}`)
     );
-
     const raMetricSettings = metricData
       .filter((m) => m.regressionAdjusted)
       .map((m) => m.raMetricSettings);
-
     const maxHoursToConvert = Math.max(
       ...metricData.map((m) => m.maxHoursToConvert)
     );
@@ -2257,26 +2452,23 @@ export default abstract class SqlIntegration
     );
 
     // Get any required identity join queries
-    const idTypeObjects = [
-      [exposureQuery.userIdType],
-      factTable.userIdTypes || [],
-    ];
+    const idTypeObjects = [[userIdType], factTable.userIdTypes || []];
     // add idTypes usually handled in units query here in the case where
     // we don't have a separate table for the units query
-    if (!params.useUnitsTable) {
+    if (params.unitsSource === "exposureQuery") {
       idTypeObjects.push(
         ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
         segment ? [segment.userIdType || "user_id"] : [],
         activationMetric ? getUserIdTypes(activationMetric, factTableMap) : []
       );
     }
-    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE(
-      idTypeObjects,
-      settings.startDate,
-      settings.endDate,
-      exposureQuery.userIdType,
-      settings.experimentId
-    );
+    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
+      objects: idTypeObjects,
+      from: settings.startDate,
+      to: settings.endDate,
+      forcedBaseIdType: userIdType,
+      experimentId: settings.experimentId,
+    });
 
     // Get date range for experiment and analysis
     const startDate: Date = settings.startDate;
@@ -2367,11 +2559,13 @@ export default abstract class SqlIntegration
     WITH
       ${idJoinSQL}
       ${
-        !params.useUnitsTable
+        params.unitsSource === "exposureQuery"
           ? `${this.getExperimentUnitsQuery({
               ...params,
               includeIdJoins: false,
             })},`
+          : params.unitsSource === "otherQuery"
+          ? params.unitsSql
           : ""
       }
       __distinctUsers AS (
@@ -2396,9 +2590,9 @@ export default abstract class SqlIntegration
             `
               : ""
           }
-          ${raMetricSettings
-            .map(
-              ({ alias, hours, minDelay }) => `
+      ${raMetricSettings
+        .map(
+          ({ alias, hours, minDelay }) => `
               , ${this.addHours(
                 "first_exposure_timestamp",
                 minDelay
@@ -2407,10 +2601,10 @@ export default abstract class SqlIntegration
                 "first_exposure_timestamp",
                 minDelay - hours
               )} AS ${alias}_preexposure_start`
-            )
-            .join("\n")}
+        )
+        .join("\n")}
         FROM ${
-          params.useUnitsTable
+          params.unitsSource === "exposureTable"
             ? `${params.unitsTableFullName}`
             : "__experimentUnits"
         }
@@ -2587,7 +2781,20 @@ export default abstract class SqlIntegration
                       `${metric.alias}_value`,
                       "NULL"
                     ),
-                  })} as ${metric.alias}_value`
+                  })} as ${metric.alias}_value
+                    ${
+                      metric.ratioMetric
+                        ? `, ${this.getAggregateMetricColumn({
+                            metric: metric.metric,
+                            useDenominator: true,
+                            valueColumn: this.ifElse(
+                              `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
+                              `${metric.alias}_denominator`,
+                              "NULL"
+                            ),
+                          })} AS ${metric.alias}_denominator`
+                        : ""
+                    }`
               )
               .join(",\n")}
           FROM
@@ -2671,33 +2878,46 @@ export default abstract class SqlIntegration
             ${
               data.ratioMetric
                 ? `,
+                ${
+                  data.isPercentileCapped
+                    ? `MAX(COALESCE(cap.${data.alias}_denominator_cap, 0)) as ${data.alias}_denominator_cap_value,`
+                    : ""
+                }
+                SUM(${data.capCoalesceDenominator}) AS 
+                  ${data.alias}_denominator_sum,
+                SUM(POWER(${data.capCoalesceDenominator}, 2)) AS 
+                  ${data.alias}_denominator_sum_squares
+                ${
+                  data.regressionAdjusted
+                    ? `, 
+                  SUM(${data.capCoalesceCovariate}) AS ${data.alias}_covariate_sum,
+                  SUM(POWER(${data.capCoalesceCovariate}, 2)) AS ${data.alias}_covariate_sum_squares,
+                  SUM(${data.capCoalesceDenominatorCovariate}) AS ${data.alias}_denominator_pre_sum,
+                  SUM(POWER(${data.capCoalesceDenominatorCovariate}, 2)) AS ${data.alias}_denominator_pre_sum_squares,              
+                  SUM(${data.capCoalesceMetric} * ${data.capCoalesceDenominator}) AS ${data.alias}_main_denominator_sum_product, 
+                  SUM(${data.capCoalesceMetric} * ${data.capCoalesceCovariate}) AS ${data.alias}_main_covariate_sum_product, 
+                  SUM(${data.capCoalesceMetric} * ${data.capCoalesceDenominatorCovariate}) AS ${data.alias}_main_post_denominator_pre_sum_product, 
+                  SUM(${data.capCoalesceCovariate} * ${data.capCoalesceDenominator}) AS ${data.alias}_main_pre_denominator_post_sum_product,
+                  SUM(${data.capCoalesceCovariate} * ${data.capCoalesceDenominatorCovariate}) AS ${data.alias}_main_pre_denominator_pre_sum_product, 
+                  SUM(${data.capCoalesceDenominator} * ${data.capCoalesceDenominatorCovariate}) AS ${data.alias}_denominator_post_denominator_pre_sum_product
+                  `
+                    : `,
+                    SUM(${data.capCoalesceDenominator} * ${data.capCoalesceMetric}) AS ${data.alias}_main_denominator_sum_product
+                  `
+                }` /*ends ifelse regressionAdjusted*/
+                : ` 
               ${
-                data.isPercentileCapped
-                  ? `MAX(COALESCE(cap.${data.alias}_denominator_cap, 0)) as ${data.alias}_denominator_cap_value,`
+                data.regressionAdjusted
+                  ? `,
+                SUM(${data.capCoalesceCovariate}) AS ${data.alias}_covariate_sum,
+                SUM(POWER(${data.capCoalesceCovariate}, 2)) AS ${data.alias}_covariate_sum_squares,
+                SUM(${data.capCoalesceMetric} * ${data.capCoalesceCovariate}) AS ${data.alias}_main_covariate_sum_product
+                `
                   : ""
               }
-              SUM(${data.capCoalesceDenominator}) AS ${
-                    data.alias
-                  }_denominator_sum,
-              SUM(POWER(${data.capCoalesceDenominator}, 2)) AS ${
-                    data.alias
-                  }_denominator_sum_squares,
-              SUM(${data.capCoalesceDenominator} * ${
-                    data.capCoalesceMetric
-                  }) AS ${data.alias}_main_denominator_sum_product
             `
-                : ""
             }
-            ${
-              data.regressionAdjusted
-                ? `,
-              SUM(${data.capCoalesceCovariate}) AS ${data.alias}_covariate_sum,
-              SUM(POWER(${data.capCoalesceCovariate}, 2)) AS ${data.alias}_covariate_sum_squares,
-              SUM(${data.capCoalesceMetric} * ${data.capCoalesceCovariate}) AS ${data.alias}_main_covariate_sum_product
-              `
-                : ""
-            }
-          `;
+          `; /*ends ifelse ratioMetric*/
         })}
       FROM
         __userMetricAgg m
@@ -2726,7 +2946,6 @@ export default abstract class SqlIntegration
     );
     // TODO cumulativeDate in more places
   }
-
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
     const {
       metric: metricDoc,
@@ -2766,7 +2985,9 @@ export default abstract class SqlIntegration
       activationMetric
     );
 
-    const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
+    const userIdType =
+      params.forcedUserIdType ??
+      this.getExposureQuery(settings.exposureQueryId || "").userIdType;
 
     const denominator = denominatorMetrics[denominatorMetrics.length - 1];
     // If the denominator is a binomial, it's just acting as a filter
@@ -2799,7 +3020,9 @@ export default abstract class SqlIntegration
     // where RA is actually possible
     const regressionAdjusted =
       settings.regressionAdjustmentEnabled &&
-      isRegressionAdjusted(metric, denominator);
+      isRegressionAdjusted(metric, denominator) &&
+      // and block RA for experiment metric query only, only works for optimized queries
+      !isRatioMetric(metric, denominator);
 
     const regressionAdjustmentHours = regressionAdjusted
       ? (metric.regressionAdjustmentDays ?? 0) * 24
@@ -2858,26 +3081,26 @@ export default abstract class SqlIntegration
 
     // Get any required identity join queries
     const idTypeObjects = [
-      [exposureQuery.userIdType],
+      [userIdType],
       getUserIdTypes(metric, factTableMap),
       ...denominatorMetrics.map((m) => getUserIdTypes(m, factTableMap, true)),
     ];
     // add idTypes usually handled in units query here in the case where
     // we don't have a separate table for the units query
-    if (!params.useUnitsTable) {
+    if (params.unitsSource === "exposureQuery") {
       idTypeObjects.push(
         ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
         segment ? [segment.userIdType || "user_id"] : [],
         activationMetric ? getUserIdTypes(activationMetric, factTableMap) : []
       );
     }
-    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE(
-      idTypeObjects,
-      settings.startDate,
-      settings.endDate,
-      exposureQuery.userIdType,
-      settings.experimentId
-    );
+    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
+      objects: idTypeObjects,
+      from: settings.startDate,
+      to: settings.endDate,
+      forcedBaseIdType: userIdType,
+      experimentId: settings.experimentId,
+    });
 
     // Get date range for experiment and analysis
     const startDate: Date = settings.startDate;
@@ -2935,11 +3158,13 @@ export default abstract class SqlIntegration
     WITH
       ${idJoinSQL}
       ${
-        !params.useUnitsTable
+        params.unitsSource === "exposureQuery"
           ? `${this.getExperimentUnitsQuery({
               ...params,
               includeIdJoins: false,
             })},`
+          : params.unitsSource === "otherQuery"
+          ? params.unitsSql
           : ""
       }
       __distinctUsers AS (
@@ -2963,7 +3188,7 @@ export default abstract class SqlIntegration
               : ""
           }
         FROM ${
-          params.useUnitsTable
+          params.unitsSource === "exposureTable"
             ? `${params.unitsTableFullName}`
             : "__experimentUnits"
         }
@@ -3005,6 +3230,7 @@ export default abstract class SqlIntegration
               regressionAdjusted,
               cumulativeDate,
               overrideConversionWindows,
+              banditDates,
               "__denominator",
               "__distinctUsers"
             )})`
@@ -4487,9 +4713,10 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       ${userIdCol} as ${baseIdType},
       ${timestampDateTimeColumn} as date
     FROM(
-        ${sql} ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+        ${sql}
       ) m
       ${join}
+      ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
   `;
     return sqlVars ? compileSqlTemplate(baseSql, sqlVars) : baseSql;
   }
