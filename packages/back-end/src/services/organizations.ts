@@ -539,7 +539,14 @@ export async function acceptInvite(key: string, userId: string) {
     pendingMembers,
   });
 
-  return organization;
+  // fetch a fresh instance of the org now that the members & invites lists have changed
+  const updatedOrg = await getOrganizationById(organization.id);
+
+  if (!updatedOrg) {
+    throw new Error("Unable to locate org");
+  }
+
+  return updatedOrg;
 }
 
 export async function inviteUser({
