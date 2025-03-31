@@ -35,7 +35,8 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
 
     const { owner, archived, description, project, tags } = req.body;
 
-    const effectiveProject = project === null ? feature.project : project;
+    const effectiveProject =
+      typeof project === "undefined" ? feature.project : project;
 
     const orgEnvs = getEnvironmentIdsFromOrg(req.organization);
 
