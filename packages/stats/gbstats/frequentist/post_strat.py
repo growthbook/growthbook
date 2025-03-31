@@ -8,7 +8,7 @@ from gbstats.models.statistics import (
     SampleMeanStatistic,
     ProportionStatistic,
     RegressionAdjustedStatistic,
-    # RatioStatistic,
+    RatioStatistic,
     # RegressionAdjustedRatioStatistic,
     compute_theta,
 )
@@ -171,41 +171,42 @@ class PostStratificationRegressionAdjusted(BasePostStratification):
         return np.array([[0, 0, 1, 0], [1, -theta, -1, theta]])
 
 
-# class PostStratificationRatio(BasePostStratification):
-#     def __init__(
-#         self,
-#         stat_a: RatioStatistic,
-#         stat_b: RatioStatistic,
-#         config: FrequentistConfig(),
-#     ):
-#         self.stat_a = stat_a
-#         self.stat_b = stat_b
-#         self.config = config
+class PostStratificationRatio(BasePostStratification):
+    def __init__(
+        self,
+        stat_a: RatioStatistic,
+        stat_b: RatioStatistic,
+        config: FrequentistConfig = FrequentistConfig(),
+    ):
+        self.stat_a = stat_a
+        self.stat_b = stat_b
+        self.config = config
 
+    @property
+    def strata_means(self) -> np.ndarray:
+        return np.array(
+            [
+                self.stat_b.m_statistic.mean,
+                self.stat_b.d_statistic.mean,
+                self.stat_a.m_statistic.mean,
+                self.stat_a.d_statistic.mean,
+            ]
+        )
 
-#     @property
-#     def strata_means(self) -> List[float]:
-#         return [
-#             self.stat_b.m_statistic.mean,
-#             self.stat_b.d_statistic.mean,
-#             self.stat_a.m_statistic.mean,
-#             self.stat_a.d_statistic.mean,
-#         ]
+    @property
+    def strata_covariance(self) -> np.ndarray:
+        return np.array(
+            [
+                [self.stat_b.m_statistic.variance, self.stat_b.covariance, 0, 0],
+                [self.stat_b.covariance, self.stat_b.d_statistic.variance, 0, 0],
+                [0, 0, self.stat_a.m_statistic.variance, self.stat_a.covariance],
+                [0, 0, self.stat_a.covariance, self.stat_b.d_statistic.variance],
+            ]
+        )
 
-#     @property
-#     def strata_covariance(self) -> np.ndarray:
-#         return np.array(
-#             [
-#                 [self.stat_b.m_statistic.variance, self.stat_b.covariance, 0, 0],
-#                 [self.stat_b.covariance, self.stat_b.d_statistic.variance, 0, 0],
-#                 [0, 0, self.stat_a.m_statistic.variance, self.stat_a.covariance],
-#                 [0, 0, self.stat_a.covariance, self.stat_b.d_statistic.variance],
-#             ]
-#         )
-
-#     @property
-#     def transformation_matrix(self) -> np.ndarray:
-#         return np.array([[0, 0, 1, 0], [1, 0, -1, 0], [0, 0, 0, 1], [0, 1, 0, -1]])
+    @property
+    def transformation_matrix(self) -> np.ndarray:
+        return np.array([[0, 0, 1, 0], [1, 0, -1, 0], [0, 0, 0, 1], [0, 1, 0, -1]])
 
 
 # class PostStratificationRegressionAdjustedRatio(BasePostStratification):
