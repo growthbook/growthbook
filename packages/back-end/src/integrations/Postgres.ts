@@ -42,7 +42,7 @@ export default class Postgres extends SqlIntegration {
     const raw = `JSON_EXTRACT_PATH_TEXT(${jsonCol}, ${path
       .split(".")
       .map((p) => `'${p}'`)
-      .join(", ")}, TRUE)`;
+      .join(", ")})`;
     return isNumeric ? this.ensureFloat(raw) : raw;
   }
   getInformationSchemaWhereClause(): string {

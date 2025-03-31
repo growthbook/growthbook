@@ -282,6 +282,13 @@ export function determineColumnTypes(
         datatype: "json",
         jsonFields: getJSONFields(testValues),
       });
+    } else if (testValue && testValue?.constructor === Object) {
+      // Use all test values to determine JSON fields
+      columns.push({
+        column: col,
+        datatype: "json",
+        jsonFields: getJSONFields(testValues.map((v) => JSON.stringify(v))),
+      });
     } else if (testValue !== undefined) {
       columns.push({
         column: col,

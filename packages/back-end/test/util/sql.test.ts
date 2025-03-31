@@ -414,6 +414,51 @@ from
         ])
       ).toEqual([{ column: "col", datatype: "number" }]);
     });
+
+    it("detects JSON objects in addition to strings", () => {
+      expect(
+        determineColumnTypes([
+          {
+            x: { a: 123, b: "hello", c: false, d: null, e: null },
+          },
+          {
+            x: { d: 123, f: "foo" },
+          },
+        ])
+      ).toEqual([
+        {
+          column: "x",
+          datatype: "json",
+          jsonFields: {
+            a: "number",
+            b: "string",
+            c: "boolean",
+            d: "number",
+            f: "string",
+          },
+        },
+      ]);
+    });
+
+    it("detects Date objects as datatype date", () => {
+      expect(
+        determineColumnTypes([
+          {
+            d: new Date(),
+          },
+        ])
+      ).toEqual([{ column: "d", datatype: "date" }]);
+    });
+
+    it("detects other non-plain objects as 'other'", () => {
+      expect(
+        determineColumnTypes([
+          {
+            d: new Map(),
+          },
+        ])
+      ).toEqual([{ column: "d", datatype: "other" }]);
+    });
   });
 });
 
