@@ -80,14 +80,7 @@ import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
-import {
-  isAirGappedLicenseKey,
-  getLicense,
-  isActiveSubscriptionStatus,
-  getSubscriptionFromLicense,
-  postSubscriptionUpdateToLicenseServer,
-  licenseInit,
-} from "back-end/src/enterprise";
+import { getLicense, licenseInit } from "back-end/src/enterprise";
 import {
   encryptParams,
   getSourceIntegrationObject,
@@ -273,7 +266,12 @@ export async function removeMember(
   updatedOrganization.members = members;
   updatedOrganization.pendingMembers = pendingMembers;
 
-  await updateSubscriptionIfProLicense(updatedOrganization);
+  await licenseInit(
+    updatedOrganization,
+    getUserCodesForOrg,
+    getLicenseMetaData,
+    true
+  );
 
   return updatedOrganization;
 }
@@ -290,35 +288,18 @@ export async function revokeInvite(
 
   const updatedOrganization = cloneDeep(organization);
   updatedOrganization.invites = invites;
-  await updateSubscriptionIfProLicense(updatedOrganization);
+  await licenseInit(
+    updatedOrganization,
+    getUserCodesForOrg,
+    getLicenseMetaData,
+    true
+  );
 
   return updatedOrganization;
 }
 
 export function getInviteUrl(key: string) {
   return `${APP_ORIGIN}/invitation?key=${key}`;
-}
-
-async function updateSubscriptionIfProLicense(
-  organization: OrganizationInterface
-) {
-  if (
-    organization.licenseKey &&
-    !isAirGappedLicenseKey(organization.licenseKey)
-  ) {
-    const license = await getLicense(organization.licenseKey);
-    if (
-      license?.plan === "pro" &&
-      isActiveSubscriptionStatus(getSubscriptionFromLicense(license)?.status)
-    ) {
-      // Only pro plans have a Stripe subscription that needs to get updated
-      const seatsInUse = getNumberOfUniqueMembersAndInvites(organization);
-      await postSubscriptionUpdateToLicenseServer(
-        organization.licenseKey,
-        seatsInUse
-      );
-    }
-  }
 }
 
 export async function addMemberToOrg({
@@ -379,7 +360,12 @@ export async function addMemberToOrg({
   updatedOrganization.members = members;
   updatedOrganization.pendingMembers = pendingMembers;
 
-  await updateSubscriptionIfProLicense(updatedOrganization);
+  await licenseInit(
+    updatedOrganization,
+    getUserCodesForOrg,
+    getLicenseMetaData,
+    true
+  );
 }
 
 export async function addMembersToTeam({
@@ -545,7 +531,14 @@ export async function acceptInvite(key: string, userId: string) {
     pendingMembers,
   });
 
-  return organization;
+  // fetch a fresh instance of the org now that the members & invites lists have changed
+  const updatedOrg = await getOrganizationById(organization.id);
+
+  if (!updatedOrg) {
+    throw new Error("Unable to locate org");
+  }
+
+  return updatedOrg;
 }
 
 export async function inviteUser({
@@ -613,7 +606,12 @@ export async function inviteUser({
   const updatedOrganization = cloneDeep(organization);
   updatedOrganization.invites = invites;
 
-  await updateSubscriptionIfProLicense(updatedOrganization);
+  await licenseInit(
+    updatedOrganization,
+    getUserCodesForOrg,
+    getLicenseMetaData,
+    true
+  );
 
   let emailSent = false;
   if (isEmailEnabled()) {
