@@ -54,7 +54,6 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import ViewSampleDataButton from "@/components/GetStarted/ViewSampleDataButton";
 import EmptyState from "@/components/EmptyState";
 import Callout from "@/components/Radix/Callout";
-import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
 
 const NUM_PER_PAGE = 20;
 

@@ -62,6 +62,8 @@ import EditExperimentInfoModal, {
 import ExperimentActionButtons from "./ExperimentActionButtons";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import { ExperimentTab } from ".";
+import { useExperimentStatusIndicator, useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
+import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
 
 export interface Props {
   tab: ExperimentTab;
@@ -249,8 +251,11 @@ export default function ExperimentHeader({
   const disableHealthTab = isUsingHealthUnsupportDatasource;
 
   const isBandit = experiment.type === "multi-armed-bandit";
-
   const hasResults = !!analysis?.results?.[0];
+
+  
+  const getRunningExperimentStatus = useRunningExperimentStatus();
+  const runningExperimentStatus = getRunningExperimentStatus(experiment);
   const shouldHideTabs =
     experiment.status === "draft" && !hasResults && phases.length === 1;
 
@@ -738,6 +743,7 @@ export default function ExperimentHeader({
                   editResult={editResult}
                   editTargeting={editTargeting}
                   isBandit={isBandit}
+                  runningExperimentStatus={runningExperimentStatus}
                 />
               ) : experiment.status === "draft" ? (
                 <Tooltip
@@ -1011,7 +1017,17 @@ export default function ExperimentHeader({
           setEditInfoFocusSelector={setEditInfoFocusSelector}
           editTags={!viewingOldPhase ? editTags : undefined}
         />
+
+      {experiment.status === "running" && (
+          <Box pt="1" pb="1">
+            <RunningExperimentDecisionBanner
+              experiment={experiment}
+              editExperiment={() => {}}
+            />
+          </Box>
+        )}
       </div>
+
       {shouldHideTabs ? null : (
         <div
           className={clsx("experiment-tabs d-print-none", {

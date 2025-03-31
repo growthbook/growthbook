@@ -5,6 +5,7 @@ import {
   ExperimentInterface,
 } from "back-end/src/validators/experiments";
 import { ExperimentRefVariation, FeatureInterface } from "./feature";
+import { DecisionCriteriaRule } from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.validators";
 
 export {
   AttributionModel,
@@ -45,18 +46,21 @@ export type DecisionFrameworkExperimentRecommendationStatus =
       variationIds: string[];
       powerReached: boolean;
       sequentialUsed: boolean;
+      decidingRule: DecisionCriteriaRule;
     }
   | {
       status: "rollback-now";
       variationIds: string[];
       powerReached: boolean;
       sequentialUsed: boolean;
+      decidingRule: DecisionCriteriaRule;
     }
   | {
       status: "ready-for-review";
       variationIds: string[];
       powerReached: boolean;
       sequentialUsed: boolean;
+      decidingRule: DecisionCriteriaRule;
     };
 
 export type ExperimentUnhealthyData = {

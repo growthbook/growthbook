@@ -34,6 +34,39 @@ export function useExperimentStatusIndicator() {
   ) => getStatusIndicatorData(experimentData, skipArchived, healthSettings);
 }
 
+export function useRunningExperimentStatus() {
+  const { hasCommercialFeature } = useUser();
+  const settings = useOrgSettings();
+  const healthSettings = getHealthSettings(
+    settings,
+    hasCommercialFeature("decision-framework")
+  );
+
+  return (
+    experimentData: ExperimentDataForStatusStringDates
+  ) => getRunningExperimentResultStatus({
+    experimentData,
+    healthSettings,
+  });
+}
+
+function getRunningExperimentResultStatus({
+  experimentData,
+  healthSettings,
+}: {
+  experimentData: ExperimentDataForStatusStringDates;
+  healthSettings: ExperimentHealthSettings;
+}) {
+  if (experimentData.status !== "running") {
+    return undefined;
+  }
+
+  return getExperimentResultStatus({
+    experimentData,
+    healthSettings,
+  });
+}
+
 function getDetailedRunningStatusIndicatorData(
   decisionData: ExperimentResultStatusData
 ): StatusIndicatorData {

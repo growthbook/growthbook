@@ -6,6 +6,7 @@ import {
   featurePrerequisite,
   savedGroupTargeting,
 } from "./features";
+import { decisionCriteriaInterface } from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.validators";
 
 export const experimentResultsType = [
   "dnf",
@@ -292,6 +293,8 @@ export const experimentInterface = z
     shareLevel: z.enum(["public", "organization"]).optional(),
     analysisSummary: experimentAnalysisSummary,
     dismissedWarnings: z.array(z.enum(["low-power"])).optional(),
+    // TODO
+    decisionCriteria: decisionCriteriaInterface.optional(),
   })
   .strict()
   .merge(experimentAnalysisSettings);
