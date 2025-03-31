@@ -14,61 +14,6 @@ from gbstats.models.statistics import (
 )
 
 
-# class PostStratificationRegressionAdjustedRatio:
-#     def __init__(
-#         self,
-#         stat_a: RegressionAdjustedRatioStatistic,
-#         stat_b: RegressionAdjustedRatioStatistic,
-#         config: FrequentistConfig = FrequentistConfig(),
-#     ):
-#         self.stat_a = stat_a
-#         self.stat_b = stat_b
-#         self.config = config
-
-#     @property
-#     def strata_means(self) -> List[float]:
-#         return [
-#             self.stat_b.m_statistic_post.mean,
-#             self.stat_b.d_statistic_post.mean,
-#             self.stat_b.m_statistic_pre.mean,
-#             self.stat_b.d_statistic_pre.mean,
-#             self.stat_a.m_statistic_post.mean,
-#             self.stat_a.d_statistic_post.mean,
-#             self.stat_a.m_statistic_pre.mean,
-#             self.stat_a.d_statistic_pre.mean,
-#         ]
-
-#     @property
-#     def strata_covariance(self) -> np.ndarray:
-#         v = np.zeros((8, 8))
-#         v[0:4, 0:4] = self.stat_b.lambda_matrix
-#         v[4:8, 4:8] = self.stat_b.lambda_matrix
-#         return v
-
-#     @property
-#     def transformation_matrix(self) -> np.ndarray:
-#         return np.ones(5)
-
-#     @property
-#     def theta_numerator(self) -> float:
-#         a = RegressionAdjustedStatistic(
-#             n=self.stat_a.n,
-#             post_statistic=self.stat_a.m_statistic_post,
-#             pre_statistic=self.stat_a.m_statistic_pre,
-#             post_pre_sum_of_products=self.stat_a.m_post_m_pre_sum_of_products,
-#             theta=0,
-#         )
-#         y = compute_theta(a, a)
-#         b = RegressionAdjustedStatistic(
-#             n=self.stat_b.n,
-#             post_statistic=self.stat_b.m_statistic_post,
-#             pre_statistic=self.stat_b.m_statistic_pre,
-#             post_pre_sum_of_products=self.stat_b.m_post_m_pre_sum_of_products,
-#             theta=y,
-#         )
-#         return float(b.n)
-
-
 @dataclass
 class PostStratificationResult:
     mean: np.ndarray
@@ -103,7 +48,6 @@ class BasePostStratification(ABC):
             @ self.transformation_matrix.T
         )
 
-    @abstractmethod
     def compute_result(self) -> PostStratificationResult:
         return PostStratificationResult(self.mean, self.covariance)
 
@@ -125,7 +69,12 @@ class PostStratification(BasePostStratification):
 
     @property
     def strata_covariance(self) -> np.ndarray:
-        return np.array([[self.stat_a.variance, 0], [0, self.stat_b.variance]])
+        return np.array(
+            [
+                [self.stat_a.variance / self.stat_a.n, 0],
+                [0, self.stat_b.variance / self.stat_b.n],
+            ]
+        )
 
     @property
     def transformation_matrix(self) -> np.ndarray:
