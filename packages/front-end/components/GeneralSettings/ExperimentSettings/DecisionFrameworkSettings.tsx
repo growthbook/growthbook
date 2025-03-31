@@ -152,6 +152,7 @@ const DecisionFrameworkSettings: React.FC<DecisionFrameworkSettingsProps> = () =
                           mt="3"
                           onClick={() => {
                             setSelectedCriteria(undefined);
+                            setDecisionCriteriaModalDisabled(false);
                             setDecisionCriteriaModalOpen(true);
                           }}
                         >
