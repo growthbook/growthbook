@@ -69,9 +69,9 @@ export const postDecisionCriteria = async (
 
   // Create the decision criteria
   const decisionCriteria = await context.models.decisionCriteria.create({
-    project: data.project || "",
+    project: data.project,
     name: data.name,
-    description: data.description || "",
+    description: data.description,
     rules: data.rules,
     defaultAction: data.defaultAction,
     owner: context.userId,

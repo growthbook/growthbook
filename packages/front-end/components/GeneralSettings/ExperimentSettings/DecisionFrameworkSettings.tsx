@@ -18,6 +18,8 @@ import DecisionCriteriaTable from "@/components/DecisionCriteria/DecisionCriteri
 import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteriaModal";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
+import Modal from "@/components/Modal";
+import { useAuth } from "@/services/auth";
 
 interface DecisionFrameworkSettingsProps {
   // No specific props needed as we use form context
@@ -34,28 +36,70 @@ const DecisionFrameworkSettings: React.FC<DecisionFrameworkSettingsProps> = () =
     decisionCriteria: DecisionCriteriaData[];
   }>("/decision-criteria");
 
-  const [decisionCriteriaModalOpen, setDecisionCriteriaModalOpen] = useState(
-    false
-  );
-  const [selectedCriteria, setSelectedCriteria] = useState<
+  const { apiCall } = useAuth();
+
+  const [decisionCriteriaProps, setDecisionCriteriaProps] = useState<{
+    open: boolean;
+    editable: boolean;
+    selectedCriteria: DecisionCriteriaData | undefined;
+  }>({
+    open: false,
+    editable: true,
+    selectedCriteria: undefined,
+  });
+
+  const [criteriaToDelete, setCriteriaToDelete] = useState<
     DecisionCriteriaData | undefined
   >(undefined);
-  const [
-    decisionCriteriaModalDisabled,
-    setDecisionCriteriaModalDisabled,
-  ] = useState(false);
+  // Check if a criteria is editable (user created vs. system)
+  const isEditable = (criteria: DecisionCriteriaData) => {
+    return !criteria.id.startsWith("gbdeccrit_");
+  };
 
   return (
     <>
-      {decisionCriteriaModalOpen && (
+      {decisionCriteriaProps.open && (
         <DecisionCriteriaModal
-          open={decisionCriteriaModalOpen}
-          decisionCriteria={selectedCriteria}
-          onClose={() => setDecisionCriteriaModalOpen(false)}
-          disabled={decisionCriteriaModalDisabled}
+          decisionCriteria={decisionCriteriaProps.selectedCriteria}
+          onClose={() =>
+            setDecisionCriteriaProps({ ...decisionCriteriaProps, open: false })
+          }
+          editable={decisionCriteriaProps.editable}
           trackingEventModalSource="experiment_settings"
           mutate={mutate}
         />
+      )}
+
+      {criteriaToDelete && (
+        <Modal
+          header="Delete Decision Criteria"
+          trackingEventModalType="delete-decision-criteria"
+          open={true}
+          close={() => setCriteriaToDelete(undefined)}
+          cta="Delete"
+          submitColor="danger"
+          submit={async () => {
+            try {
+              await apiCall<{ status: number; message?: string }>(
+                `/decision-criteria/${criteriaToDelete.id}`,
+                {
+                  method: "DELETE",
+                  body: JSON.stringify({ id: criteriaToDelete.id }),
+                }
+              );
+              setCriteriaToDelete(undefined);
+            } catch (e) {
+              console.error(e);
+            }
+          }}
+        >
+          <div>
+            <p>
+              Are you sure you want to delete the <b>{criteriaToDelete.name}</b>{" "}
+              decision criteria?
+            </p>
+          </div>
+        </Modal>
       )}
       <Box className="appbox p-3">
         <Flex justify="between">
@@ -151,9 +195,11 @@ const DecisionFrameworkSettings: React.FC<DecisionFrameworkSettingsProps> = () =
                           variant="ghost"
                           mt="3"
                           onClick={() => {
-                            setSelectedCriteria(undefined);
-                            setDecisionCriteriaModalDisabled(false);
-                            setDecisionCriteriaModalOpen(true);
+                            setDecisionCriteriaProps({
+                              open: true,
+                              editable: true,
+                              selectedCriteria: undefined,
+                            });
                           }}
                         >
                           <Flex align="center" gap="1">
@@ -172,19 +218,21 @@ const DecisionFrameworkSettings: React.FC<DecisionFrameworkSettingsProps> = () =
                       setDefaultCriteriaId={(id) =>
                         form.setValue("defaultDecisionCriteriaId", id)
                       }
-                      selectedCriteria={selectedCriteria}
-                      setSelectedCriteria={setSelectedCriteria}
-                      setDecisionCriteriaModalDisabled={
-                        setDecisionCriteriaModalDisabled
-                      }
-                      setDecisionCriteriaModalOpen={
-                        setDecisionCriteriaModalOpen
-                      }
                       decisionCriterias={[
                         ...DEFAULT_DECISION_CRITERIAS,
                         ...(data?.decisionCriteria || []),
                       ]}
-                      mutate={mutate}
+                      onViewEditClick={(criteria: DecisionCriteriaData) => {
+                        setDecisionCriteriaProps({
+                          open: true,
+                          editable: isEditable(criteria),
+                          selectedCriteria: criteria,
+                        });
+                      }}
+                      onDeleteClick={(criteria) => {
+                        setCriteriaToDelete(criteria);
+                      }}
+                      isEditable={isEditable}
                     />
                   </Box>
                 </Flex>

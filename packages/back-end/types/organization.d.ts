@@ -244,6 +244,7 @@ export interface OrganizationSettings {
   experimentMinLengthDays?: number;
   experimentMaxLengthDays?: number;
   decisionFrameworkEnabled?: boolean;
+  defaultDecisionCriteriaId?: string;
 }
 
 export interface OrganizationConnections {

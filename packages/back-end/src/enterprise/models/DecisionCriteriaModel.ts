@@ -1,5 +1,8 @@
 import { MakeModelClass } from "back-end/src/models/BaseModel";
-import { decisionCriteriaInterface } from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.validators";
+import {
+  DecisionCriteriaInterface,
+  decisionCriteriaInterface,
+} from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.validators";
 
 const BaseClass = MakeModelClass({
   schema: decisionCriteriaInterface,
@@ -25,6 +28,13 @@ export class DecisionCriteriaModel extends BaseClass {
   }
   protected canUpdate(): boolean {
     return this.context.permissions.canUpdateDecisionCriteria();
+  }
+  protected async beforeDelete(existing: DecisionCriteriaInterface) {
+    const defaultDecisionCriteriaId = this.context.org.settings
+      ?.defaultDecisionCriteriaId;
+    if (existing.id === defaultDecisionCriteriaId) {
+      throw new Error("Cannot delete organization default decision criteria");
+    }
   }
   protected canDelete(): boolean {
     return this.context.permissions.canDeleteDecisionCriteria();
