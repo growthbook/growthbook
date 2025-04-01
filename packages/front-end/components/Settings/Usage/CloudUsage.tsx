@@ -53,7 +53,7 @@ export default function CloudUsage() {
   if (!isCloud() && !useDummyData) {
     return (
       <Callout status="warning">
-        Usage data is only availbale on GrowthBook Cloud.
+        Usage data is only available on GrowthBook Cloud.
       </Callout>
     );
   }

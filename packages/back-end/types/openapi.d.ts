@@ -525,6 +525,11 @@ export interface components {
                   matchType: "all" | "any" | "none";
                   savedGroups: (string)[];
                 })[];
+              prerequisites?: ({
+                  /** @description Feature ID */
+                  id: string;
+                  condition: string;
+                })[];
               id: string;
               enabled: boolean;
               /** @enum {string} */
@@ -595,6 +600,11 @@ export interface components {
                     matchType: "all" | "any" | "none";
                     savedGroups: (string)[];
                   })[];
+                prerequisites?: ({
+                    /** @description Feature ID */
+                    id: string;
+                    condition: string;
+                  })[];
                 id: string;
                 enabled: boolean;
                 /** @enum {string} */
@@ -657,10 +667,8 @@ export interface components {
           };
         }) | undefined;
       };
-      prerequisites?: ({
-          parentId: string;
-          parentCondition: string;
-        })[];
+      /** @description Feature IDs. Each feature must evaluate to `true` */
+      prerequisites?: (string)[];
       revision: {
         version: number;
         comment: string;
@@ -695,6 +703,11 @@ export interface components {
                   matchType: "all" | "any" | "none";
                   savedGroups: (string)[];
                 })[];
+              prerequisites?: ({
+                  /** @description Feature ID */
+                  id: string;
+                  condition: string;
+                })[];
               id: string;
               enabled: boolean;
               /** @enum {string} */
@@ -765,6 +778,11 @@ export interface components {
                     matchType: "all" | "any" | "none";
                     savedGroups: (string)[];
                   })[];
+                prerequisites?: ({
+                    /** @description Feature ID */
+                    id: string;
+                    condition: string;
+                  })[];
                 id: string;
                 enabled: boolean;
                 /** @enum {string} */
@@ -827,10 +845,8 @@ export interface components {
           };
         }) | undefined;
       };
-      prerequisites?: ({
-          parentId: string;
-          parentCondition: string;
-        })[];
+      /** @description Feature IDs. Each feature must evaluate to `true` */
+      prerequisites?: (string)[];
       revision: {
         version: number;
         comment: string;
@@ -855,6 +871,11 @@ export interface components {
                     /** @enum {string} */
                     matchType: "all" | "any" | "none";
                     savedGroups: (string)[];
+                  })[];
+                prerequisites?: ({
+                    /** @description Feature ID */
+                    id: string;
+                    condition: string;
                   })[];
                 id: string;
                 enabled: boolean;
@@ -930,6 +951,11 @@ export interface components {
               matchType: "all" | "any" | "none";
               savedGroups: (string)[];
             })[];
+          prerequisites?: ({
+              /** @description Feature ID */
+              id: string;
+              condition: string;
+            })[];
           id: string;
           enabled: boolean;
           /** @enum {string} */
@@ -1000,6 +1026,11 @@ export interface components {
                 matchType: "all" | "any" | "none";
                 savedGroups: (string)[];
               })[];
+            prerequisites?: ({
+                /** @description Feature ID */
+                id: string;
+                condition: string;
+              })[];
             id: string;
             enabled: boolean;
             /** @enum {string} */
@@ -1068,6 +1099,11 @@ export interface components {
           /** @enum {string} */
           matchType: "all" | "any" | "none";
           savedGroups: (string)[];
+        })[];
+      prerequisites?: ({
+          /** @description Feature ID */
+          id: string;
+          condition: string;
         })[];
       id: string;
       enabled: boolean;
@@ -1148,6 +1184,11 @@ export interface components {
           /** @enum {string} */
           matchType: "all" | "any" | "none";
           savedGroups: (string)[];
+        })[];
+      prerequisites?: ({
+          /** @description Feature ID */
+          id: string;
+          condition: string;
         })[];
       id: string;
       enabled: boolean;
@@ -1241,6 +1282,7 @@ export interface components {
     };
     Experiment: {
       id: string;
+      trackingKey: string;
       /** Format: date-time */
       dateCreated: string;
       /** Format: date-time */
@@ -1286,6 +1328,10 @@ export interface components {
             range: (unknown)[];
           };
           targetingCondition: string;
+          prerequisites?: ({
+              id: string;
+              condition: string;
+            })[];
           savedGroupTargeting?: ({
               /** @enum {string} */
               matchType: "all" | "any" | "none";
@@ -1308,6 +1354,8 @@ export interface components {
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
         regressionAdjustmentEnabled?: boolean;
+        sequentialTestingEnabled?: boolean;
+        sequentialTestingTuningParameter?: number;
         goals: ({
             metricId: string;
             overrides: {
@@ -1363,6 +1411,12 @@ export interface components {
       /** @enum {string} */
       shareLevel?: "public" | "organization";
       publicUrl?: string;
+      banditScheduleValue?: number;
+      /** @enum {string} */
+      banditScheduleUnit?: "days" | "hours";
+      banditBurnInValue?: number;
+      /** @enum {string} */
+      banditBurnInUnit?: "days" | "hours";
     };
     ExperimentSnapshot: {
       id: string;
@@ -1396,6 +1450,8 @@ export interface components {
       /** @enum {unknown} */
       statsEngine: "bayesian" | "frequentist";
       regressionAdjustmentEnabled?: boolean;
+      sequentialTestingEnabled?: boolean;
+      sequentialTestingTuningParameter?: number;
       goals: ({
           metricId: string;
           overrides: {
@@ -1468,6 +1524,8 @@ export interface components {
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
         regressionAdjustmentEnabled?: boolean;
+        sequentialTestingEnabled?: boolean;
+        sequentialTestingTuningParameter?: number;
         goals: ({
             metricId: string;
             overrides: {
@@ -1893,6 +1951,11 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
@@ -1963,6 +2026,11 @@ export interface operations {
                               matchType: "all" | "any" | "none";
                               savedGroups: (string)[];
                             })[];
+                          prerequisites?: ({
+                              /** @description Feature ID */
+                              id: string;
+                              condition: string;
+                            })[];
                           id: string;
                           enabled: boolean;
                           /** @enum {string} */
@@ -2025,10 +2093,8 @@ export interface operations {
                     };
                   }) | undefined;
                 };
-                prerequisites?: ({
-                    parentId: string;
-                    parentCondition: string;
-                  })[];
+                /** @description Feature IDs. Each feature must evaluate to `true` */
+                prerequisites?: (string)[];
                 revision: {
                   version: number;
                   comment: string;
@@ -2100,6 +2166,11 @@ export interface operations {
                       matchType: "all" | "any" | "none";
                       savedGroups: (string)[];
                     })[];
+                  prerequisites?: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[];
                   id?: string;
                   /** @description Enabled by default */
                   enabled?: boolean;
@@ -2109,7 +2180,7 @@ export interface operations {
                   /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
                   coverage: number;
                   hashAttribute: string;
-                }) | {
+                }) | ({
                   description?: string;
                   id?: string;
                   /** @description Enabled by default */
@@ -2117,12 +2188,22 @@ export interface operations {
                   /** @enum {string} */
                   type: "experiment-ref";
                   condition?: string;
+                  savedGroupTargeting?: ({
+                      /** @enum {string} */
+                      matchType: "all" | "any" | "none";
+                      savedGroups: (string)[];
+                    })[];
+                  prerequisites?: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[];
                   variations: ({
                       value: string;
                       variationId: string;
                     })[];
                   experimentId: string;
-                } | {
+                }) | {
                   description?: string;
                   condition: string;
                   id?: string;
@@ -2186,6 +2267,11 @@ export interface operations {
                         matchType: "all" | "any" | "none";
                         savedGroups: (string)[];
                       })[];
+                    prerequisites?: ({
+                        /** @description Feature ID */
+                        id: string;
+                        condition: string;
+                      })[];
                     id?: string;
                     /** @description Enabled by default */
                     enabled?: boolean;
@@ -2195,7 +2281,7 @@ export interface operations {
                     /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
                     coverage: number;
                     hashAttribute: string;
-                  }) | {
+                  }) | ({
                     description?: string;
                     id?: string;
                     /** @description Enabled by default */
@@ -2203,12 +2289,22 @@ export interface operations {
                     /** @enum {string} */
                     type: "experiment-ref";
                     condition?: string;
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
+                    prerequisites?: ({
+                        /** @description Feature ID */
+                        id: string;
+                        condition: string;
+                      })[];
                     variations: ({
                         value: string;
                         variationId: string;
                       })[];
                     experimentId: string;
-                  } | {
+                  }) | {
                     description?: string;
                     condition: string;
                     id?: string;
@@ -2248,6 +2344,8 @@ export interface operations {
               };
             }) | undefined;
           };
+          /** @description Feature IDs. Each feature must evaluate to `true` */
+          prerequisites?: (string)[];
           /** @description Use JSON schema to validate the payload of a JSON-type feature value (enterprise only). */
           jsonSchema?: string;
         };
@@ -2282,6 +2380,11 @@ export interface operations {
                           /** @enum {string} */
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
                         })[];
                       id: string;
                       enabled: boolean;
@@ -2353,6 +2456,11 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
@@ -2415,10 +2523,8 @@ export interface operations {
                   };
                 }) | undefined;
               };
-              prerequisites?: ({
-                  parentId: string;
-                  parentCondition: string;
-                })[];
+              /** @description Feature IDs. Each feature must evaluate to `true` */
+              prerequisites?: (string)[];
               revision: {
                 version: number;
                 comment: string;
@@ -2474,6 +2580,11 @@ export interface operations {
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
+                        })[];
                       id: string;
                       enabled: boolean;
                       /** @enum {string} */
@@ -2544,6 +2655,11 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
@@ -2606,10 +2722,8 @@ export interface operations {
                   };
                 }) | undefined;
               };
-              prerequisites?: ({
-                  parentId: string;
-                  parentCondition: string;
-                })[];
+              /** @description Feature IDs. Each feature must evaluate to `true` */
+              prerequisites?: (string)[];
               revision: {
                 version: number;
                 comment: string;
@@ -2634,6 +2748,11 @@ export interface operations {
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
                           })[];
                         id: string;
                         enabled: boolean;
@@ -2750,6 +2869,11 @@ export interface operations {
                       matchType: "all" | "any" | "none";
                       savedGroups: (string)[];
                     })[];
+                  prerequisites?: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[];
                   id?: string;
                   /** @description Enabled by default */
                   enabled?: boolean;
@@ -2759,7 +2883,7 @@ export interface operations {
                   /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
                   coverage: number;
                   hashAttribute: string;
-                }) | {
+                }) | ({
                   description?: string;
                   id?: string;
                   /** @description Enabled by default */
@@ -2767,12 +2891,22 @@ export interface operations {
                   /** @enum {string} */
                   type: "experiment-ref";
                   condition?: string;
+                  savedGroupTargeting?: ({
+                      /** @enum {string} */
+                      matchType: "all" | "any" | "none";
+                      savedGroups: (string)[];
+                    })[];
+                  prerequisites?: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[];
                   variations: ({
                       value: string;
                       variationId: string;
                     })[];
                   experimentId: string;
-                } | {
+                }) | {
                   description?: string;
                   condition: string;
                   id?: string;
@@ -2836,6 +2970,11 @@ export interface operations {
                         matchType: "all" | "any" | "none";
                         savedGroups: (string)[];
                       })[];
+                    prerequisites?: ({
+                        /** @description Feature ID */
+                        id: string;
+                        condition: string;
+                      })[];
                     id?: string;
                     /** @description Enabled by default */
                     enabled?: boolean;
@@ -2845,7 +2984,7 @@ export interface operations {
                     /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
                     coverage: number;
                     hashAttribute: string;
-                  }) | {
+                  }) | ({
                     description?: string;
                     id?: string;
                     /** @description Enabled by default */
@@ -2853,12 +2992,22 @@ export interface operations {
                     /** @enum {string} */
                     type: "experiment-ref";
                     condition?: string;
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
+                    prerequisites?: ({
+                        /** @description Feature ID */
+                        id: string;
+                        condition: string;
+                      })[];
                     variations: ({
                         value: string;
                         variationId: string;
                       })[];
                     experimentId: string;
-                  } | {
+                  }) | {
                     description?: string;
                     condition: string;
                     id?: string;
@@ -2898,6 +3047,8 @@ export interface operations {
               };
             }) | undefined;
           };
+          /** @description Feature IDs. Each feature must evaluate to `true` */
+          prerequisites?: (string)[];
           /** @description Use JSON schema to validate the payload of a JSON-type feature value (enterprise only). */
           jsonSchema?: string;
         };
@@ -2932,6 +3083,11 @@ export interface operations {
                           /** @enum {string} */
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
                         })[];
                       id: string;
                       enabled: boolean;
@@ -3003,6 +3159,11 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
@@ -3065,10 +3226,8 @@ export interface operations {
                   };
                 }) | undefined;
               };
-              prerequisites?: ({
-                  parentId: string;
-                  parentCondition: string;
-                })[];
+              /** @description Feature IDs. Each feature must evaluate to `true` */
+              prerequisites?: (string)[];
               revision: {
                 version: number;
                 comment: string;
@@ -3146,6 +3305,11 @@ export interface operations {
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
+                        })[];
                       id: string;
                       enabled: boolean;
                       /** @enum {string} */
@@ -3216,6 +3380,11 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
@@ -3278,10 +3447,8 @@ export interface operations {
                   };
                 }) | undefined;
               };
-              prerequisites?: ({
-                  parentId: string;
-                  parentCondition: string;
-                })[];
+              /** @description Feature IDs. Each feature must evaluate to `true` */
+              prerequisites?: (string)[];
               revision: {
                 version: number;
                 comment: string;
@@ -4041,6 +4208,7 @@ export interface operations {
           "application/json": ({
             experiments: ({
                 id: string;
+                trackingKey: string;
                 /** Format: date-time */
                 dateCreated: string;
                 /** Format: date-time */
@@ -4086,6 +4254,10 @@ export interface operations {
                       range: (unknown)[];
                     };
                     targetingCondition: string;
+                    prerequisites?: ({
+                        id: string;
+                        condition: string;
+                      })[];
                     savedGroupTargeting?: ({
                         /** @enum {string} */
                         matchType: "all" | "any" | "none";
@@ -4108,6 +4280,8 @@ export interface operations {
                   /** @enum {unknown} */
                   statsEngine: "bayesian" | "frequentist";
                   regressionAdjustmentEnabled?: boolean;
+                  sequentialTestingEnabled?: boolean;
+                  sequentialTestingTuningParameter?: number;
                   goals: ({
                       metricId: string;
                       overrides: {
@@ -4163,6 +4337,12 @@ export interface operations {
                 /** @enum {string} */
                 shareLevel?: "public" | "organization";
                 publicUrl?: string;
+                banditScheduleValue?: number;
+                /** @enum {string} */
+                banditScheduleUnit?: "days" | "hours";
+                banditBurnInValue?: number;
+                /** @enum {string} */
+                banditBurnInUnit?: "days" | "hours";
               })[];
           }) & {
             limit: number;
@@ -4188,6 +4368,8 @@ export interface operations {
           trackingKey: string;
           /** @description Name of the experiment */
           name: string;
+          /** @enum {string} */
+          type?: "standard" | "multi-armed-bandit";
           /** @description Project ID which the experiment belongs to */
           project?: string;
           /** @description Hypothesis of the experiment */
@@ -4198,6 +4380,12 @@ export interface operations {
           metrics?: (string)[];
           secondaryMetrics?: (string)[];
           guardrailMetrics?: (string)[];
+          /** @description Users must convert on this metric before being included */
+          activationMetric?: string;
+          /** @description Only users in this segment will be included */
+          segmentId?: string;
+          /** @description WHERE clause to add to the default experiment query */
+          queryFilter?: string;
           /** @description Email of the person who owns this experiment */
           owner?: string;
           archived?: boolean;
@@ -4253,6 +4441,11 @@ export interface operations {
                 enabled?: boolean;
               };
               targetingCondition?: string;
+              prerequisites?: ({
+                  /** @description Feature ID */
+                  id: string;
+                  condition: string;
+                })[];
               reason?: string;
               condition?: string;
               savedGroupTargeting?: ({
@@ -4264,8 +4457,17 @@ export interface operations {
             })[];
           /** @description Controls whether regression adjustment (CUPED) is enabled for experiment analyses */
           regressionAdjustmentEnabled?: boolean;
+          /** @description Only applicable to frequentist analyses */
+          sequentialTestingEnabled?: boolean;
+          sequentialTestingTuningParameter?: number;
           /** @enum {string} */
           shareLevel?: "public" | "organization";
+          banditScheduleValue?: number;
+          /** @enum {string} */
+          banditScheduleUnit?: "days" | "hours";
+          banditBurnInValue?: number;
+          /** @enum {string} */
+          banditBurnInUnit?: "days" | "hours";
         };
       };
     };
@@ -4275,6 +4477,7 @@ export interface operations {
           "application/json": {
             experiment: {
               id: string;
+              trackingKey: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -4320,6 +4523,10 @@ export interface operations {
                     range: (unknown)[];
                   };
                   targetingCondition: string;
+                  prerequisites?: ({
+                      id: string;
+                      condition: string;
+                    })[];
                   savedGroupTargeting?: ({
                       /** @enum {string} */
                       matchType: "all" | "any" | "none";
@@ -4342,6 +4549,8 @@ export interface operations {
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
+                sequentialTestingEnabled?: boolean;
+                sequentialTestingTuningParameter?: number;
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -4397,6 +4606,12 @@ export interface operations {
               /** @enum {string} */
               shareLevel?: "public" | "organization";
               publicUrl?: string;
+              banditScheduleValue?: number;
+              /** @enum {string} */
+              banditScheduleUnit?: "days" | "hours";
+              banditBurnInValue?: number;
+              /** @enum {string} */
+              banditBurnInUnit?: "days" | "hours";
             };
           };
         };
@@ -4417,6 +4632,7 @@ export interface operations {
           "application/json": {
             experiment: {
               id: string;
+              trackingKey: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -4462,6 +4678,10 @@ export interface operations {
                     range: (unknown)[];
                   };
                   targetingCondition: string;
+                  prerequisites?: ({
+                      id: string;
+                      condition: string;
+                    })[];
                   savedGroupTargeting?: ({
                       /** @enum {string} */
                       matchType: "all" | "any" | "none";
@@ -4484,6 +4704,8 @@ export interface operations {
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
+                sequentialTestingEnabled?: boolean;
+                sequentialTestingTuningParameter?: number;
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -4539,6 +4761,12 @@ export interface operations {
               /** @enum {string} */
               shareLevel?: "public" | "organization";
               publicUrl?: string;
+              banditScheduleValue?: number;
+              /** @enum {string} */
+              banditScheduleUnit?: "days" | "hours";
+              banditBurnInValue?: number;
+              /** @enum {string} */
+              banditBurnInUnit?: "days" | "hours";
             };
           };
         };
@@ -4556,12 +4784,14 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
-          /** @description Only can be set if existing experiment does not have a datasource */
+          /** @description Can only be set if existing experiment does not have a datasource */
           datasourceId?: string;
           assignmentQueryId?: string;
           trackingKey?: string;
           /** @description Name of the experiment */
           name?: string;
+          /** @enum {string} */
+          type?: "standard" | "multi-armed-bandit";
           /** @description Project ID which the experiment belongs to */
           project?: string;
           /** @description Hypothesis of the experiment */
@@ -4572,6 +4802,12 @@ export interface operations {
           metrics?: (string)[];
           secondaryMetrics?: (string)[];
           guardrailMetrics?: (string)[];
+          /** @description Users must convert on this metric before being included */
+          activationMetric?: string;
+          /** @description Only users in this segment will be included */
+          segmentId?: string;
+          /** @description WHERE clause to add to the default experiment query */
+          queryFilter?: string;
           /** @description Email of the person who owns this experiment */
           owner?: string;
           archived?: boolean;
@@ -4627,6 +4863,11 @@ export interface operations {
                 enabled?: boolean;
               };
               targetingCondition?: string;
+              prerequisites?: ({
+                  /** @description Feature ID */
+                  id: string;
+                  condition: string;
+                })[];
               reason?: string;
               condition?: string;
               savedGroupTargeting?: ({
@@ -4638,8 +4879,17 @@ export interface operations {
             })[];
           /** @description Controls whether regression adjustment (CUPED) is enabled for experiment analyses */
           regressionAdjustmentEnabled?: boolean;
+          /** @description Only applicable to frequentist analyses */
+          sequentialTestingEnabled?: boolean;
+          sequentialTestingTuningParameter?: number;
           /** @enum {string} */
           shareLevel?: "public" | "organization";
+          banditScheduleValue?: number;
+          /** @enum {string} */
+          banditScheduleUnit?: "days" | "hours";
+          banditBurnInValue?: number;
+          /** @enum {string} */
+          banditBurnInUnit?: "days" | "hours";
         };
       };
     };
@@ -4649,6 +4899,7 @@ export interface operations {
           "application/json": {
             experiment: {
               id: string;
+              trackingKey: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -4694,6 +4945,10 @@ export interface operations {
                     range: (unknown)[];
                   };
                   targetingCondition: string;
+                  prerequisites?: ({
+                      id: string;
+                      condition: string;
+                    })[];
                   savedGroupTargeting?: ({
                       /** @enum {string} */
                       matchType: "all" | "any" | "none";
@@ -4716,6 +4971,8 @@ export interface operations {
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
+                sequentialTestingEnabled?: boolean;
+                sequentialTestingTuningParameter?: number;
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -4771,6 +5028,12 @@ export interface operations {
               /** @enum {string} */
               shareLevel?: "public" | "organization";
               publicUrl?: string;
+              banditScheduleValue?: number;
+              /** @enum {string} */
+              banditScheduleUnit?: "days" | "hours";
+              banditBurnInValue?: number;
+              /** @enum {string} */
+              banditBurnInUnit?: "days" | "hours";
             };
           };
         };
@@ -4843,6 +5106,8 @@ export interface operations {
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
+                sequentialTestingEnabled?: boolean;
+                sequentialTestingTuningParameter?: number;
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -5720,6 +5985,7 @@ export interface operations {
             };
             experiment?: {
               id: string;
+              trackingKey: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -5765,6 +6031,10 @@ export interface operations {
                     range: (unknown)[];
                   };
                   targetingCondition: string;
+                  prerequisites?: ({
+                      id: string;
+                      condition: string;
+                    })[];
                   savedGroupTargeting?: ({
                       /** @enum {string} */
                       matchType: "all" | "any" | "none";
@@ -5787,6 +6057,8 @@ export interface operations {
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
+                sequentialTestingEnabled?: boolean;
+                sequentialTestingTuningParameter?: number;
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -5842,6 +6114,12 @@ export interface operations {
               /** @enum {string} */
               shareLevel?: "public" | "organization";
               publicUrl?: string;
+              banditScheduleValue?: number;
+              /** @enum {string} */
+              banditScheduleUnit?: "days" | "hours";
+              banditBurnInValue?: number;
+              /** @enum {string} */
+              banditBurnInUnit?: "days" | "hours";
             };
           };
         };

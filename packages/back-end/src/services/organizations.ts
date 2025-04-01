@@ -3,14 +3,6 @@ import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
 import { Request } from "express";
 import {
-  getLicense,
-  isActiveSubscriptionStatus,
-  isAirGappedLicenseKey,
-  licenseInit,
-  postSubscriptionUpdateToLicenseServer,
-  getSubscriptionFromLicense,
-} from "shared/enterprise";
-import {
   areProjectRolesValid,
   isRoleValid,
   getDefaultRole,
@@ -87,6 +79,14 @@ import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
+import {
+  isAirGappedLicenseKey,
+  getLicense,
+  isActiveSubscriptionStatus,
+  getSubscriptionFromLicense,
+  postSubscriptionUpdateToLicenseServer,
+  licenseInit,
+} from "back-end/src/enterprise";
 import {
   encryptParams,
   getSourceIntegrationObject,

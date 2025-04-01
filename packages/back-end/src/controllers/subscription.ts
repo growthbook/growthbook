@@ -1,16 +1,20 @@
 import { Response } from "express";
 import { Stripe } from "stripe";
+import { PaymentMethod } from "shared/src/types/subscriptions";
 import {
   LicenseServerError,
   getEffectiveAccountPlan,
   getLicense,
   licenseInit,
   postCreateBillingSessionToLicenseServer,
+  postNewProSubscriptionIntentToLicenseServer,
   postNewProSubscriptionToLicenseServer,
   postNewProTrialSubscriptionToLicenseServer,
   postNewSubscriptionSuccessToLicenseServer,
-} from "shared/enterprise";
-import { PaymentMethod } from "shared/src/types/subscriptions";
+  postNewInlineSubscriptionToLicenseServer,
+  postCancelSubscriptionToLicenseServer,
+  getPortalUrlFromServer,
+} from "back-end/src/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getNumberOfUniqueMembersAndInvites,
@@ -88,6 +92,28 @@ export const postNewProTrialSubscription = withLicenseServerErrorHandling(
   }
 );
 
+export const postNewProSubscriptionIntent = withLicenseServerErrorHandling(
+  async function (req: AuthRequest, res: Response) {
+    const context = getContextFromReq(req);
+
+    if (!context.permissions.canManageBilling()) {
+      context.permissions.throwPermissionError();
+    }
+
+    const { org, userName } = context;
+
+    const result = await postNewProSubscriptionIntentToLicenseServer(
+      org.id,
+      org.name,
+      org.ownerEmail,
+      userName
+    );
+    await updateOrganization(org.id, { licenseKey: result.license.id });
+
+    res.status(200).json({ clientSecret: result.clientSecret });
+  }
+);
+
 export const postNewProSubscription = withLicenseServerErrorHandling(
   async function (req: AuthRequest<{ returnUrl: string }>, res: Response) {
     let { returnUrl } = req.body;
@@ -115,6 +141,33 @@ export const postNewProSubscription = withLicenseServerErrorHandling(
       returnUrl
     );
     await updateOrganization(org.id, { licenseKey: result.license.id });
+
+    res.status(200).json(result);
+  }
+);
+
+export const postInlineProSubscription = withLicenseServerErrorHandling(
+  async function (req: AuthRequest, res: Response) {
+    const context = getContextFromReq(req);
+
+    if (!context.permissions.canManageBilling()) {
+      context.permissions.throwPermissionError();
+    }
+
+    const { org } = context;
+
+    const license = await getLicense(org.licenseKey);
+
+    if (!license) {
+      throw new Error("No license found for organization");
+    }
+
+    const nonInviteSeatQty = org.members.length;
+
+    const result = await postNewInlineSubscriptionToLicenseServer(
+      org.id,
+      nonInviteSeatQty
+    );
 
     res.status(200).json(result);
   }
@@ -171,6 +224,28 @@ export const postSubscriptionSuccess = withLicenseServerErrorHandling(
     });
   }
 );
+
+export async function cancelSubscription(req: AuthRequest, res: Response) {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { org } = context;
+
+  const license = await getLicense(org.licenseKey);
+
+  if (!license?.id) {
+    throw new Error("No license found for organization");
+  }
+
+  await postCancelSubscriptionToLicenseServer(license.id);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
 
 export async function postSetupIntent(
   req: AuthRequest<null, null>,
@@ -363,4 +438,28 @@ export async function getUsage(
   }
 
   res.json({ status: 200, cdnUsage, limits });
+}
+
+export async function getPortalUrl(
+  req: AuthRequest<null, null>,
+  res: Response<{ status: number; portalUrl?: string; message?: string }>
+) {
+  const context = getContextFromReq(req);
+
+  const { org } = context;
+
+  if (!context.permissions.canViewUsage()) {
+    context.permissions.throwPermissionError();
+  }
+
+  try {
+    const data = await getPortalUrlFromServer(org.id);
+
+    res.status(200).json({
+      status: 200,
+      portalUrl: data.portalUrl,
+    });
+  } catch (e) {
+    return res.status(400).json({ status: 400, message: e.message });
+  }
 }

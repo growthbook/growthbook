@@ -22,7 +22,6 @@ import {
   getExperimentConfig,
   getExperimentsScript,
 } from "./controllers/config";
-import { verifySlackRequestSignature } from "./services/slack";
 import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
 import { wrapController } from "./routers/wrapController";
 import apiRouter from "./api/api.router";
@@ -73,17 +72,14 @@ const adminController = wrapController(adminControllerRaw);
 import * as licenseControllerRaw from "./controllers/license";
 const licenseController = wrapController(licenseControllerRaw);
 
-import * as stripeControllerRaw from "./controllers/stripe";
-const stripeController = wrapController(stripeControllerRaw);
+import * as subscriptionControllerRaw from "./controllers/subscription";
+const subscriptionController = wrapController(subscriptionControllerRaw);
 
 import * as vercelControllerRaw from "./controllers/vercel";
 const vercelController = wrapController(vercelControllerRaw);
 
 import * as featuresControllerRaw from "./controllers/features";
 const featuresController = wrapController(featuresControllerRaw);
-
-import * as slackControllerRaw from "./controllers/slack";
-const slackController = wrapController(slackControllerRaw);
 
 import * as informationSchemasControllerRaw from "./controllers/informationSchemas";
 const informationSchemasController = wrapController(
@@ -210,16 +206,6 @@ app.use(async (req, res, next) => {
 
 // Visual Designer js file (does not require JWT or cors)
 app.get("/js/:key.js", getExperimentsScript);
-
-// Slack app (body is urlencoded)
-app.post(
-  "/ideas/slack",
-  bodyParser.urlencoded({
-    extended: true,
-    verify: verifySlackRequestSignature,
-  }),
-  slackController.postIdeas
-);
 
 // increase max payload json size to 1mb
 app.use(bodyParser.json({ limit: "1mb" }));
@@ -390,32 +376,48 @@ app.use("/environment", environmentRouter);
 app.post("/oauth/google", datasourcesController.postGoogleOauthRedirect);
 app.post(
   "/subscription/new-pro-trial",
-  stripeController.postNewProTrialSubscription
+  subscriptionController.postNewProTrialSubscription
 );
 
 if (IS_CLOUD) {
   app.post(
     "/subscription/payment-methods/setup-intent",
-    stripeController.postSetupIntent
+    subscriptionController.postSetupIntent
   );
   app.get(
     "/subscription/payment-methods",
-    stripeController.fetchPaymentMethods
+    subscriptionController.fetchPaymentMethods
   );
   app.post(
     "/subscription/payment-methods/detach",
-    stripeController.deletePaymentMethod
+    subscriptionController.deletePaymentMethod
   );
   app.post(
     "/subscription/payment-methods/set-default",
-    stripeController.updateCustomerDefaultPayment
+    subscriptionController.updateCustomerDefaultPayment
   );
+  app.post(
+    "/subscription/setup-intent",
+    subscriptionController.postNewProSubscriptionIntent
+  );
+  app.post(
+    "/subscription/start-new-pro",
+    subscriptionController.postInlineProSubscription
+  );
+  app.post("/subscription/cancel", subscriptionController.cancelSubscription);
+  app.get("/subscription/portal-url", subscriptionController.getPortalUrl);
 }
-app.post("/subscription/new", stripeController.postNewProSubscription);
-app.post("/subscription/manage", stripeController.postCreateBillingSession);
-app.post("/subscription/success", stripeController.postSubscriptionSuccess);
+app.post("/subscription/new", subscriptionController.postNewProSubscription);
+app.post(
+  "/subscription/manage",
+  subscriptionController.postCreateBillingSession
+);
+app.post(
+  "/subscription/success",
+  subscriptionController.postSubscriptionSuccess
+);
 
-app.get("/billing/usage", stripeController.getUsage);
+app.get("/billing/usage", subscriptionController.getUsage);
 
 app.get("/queries/:ids", datasourcesController.getQueries);
 app.post("/query/test", datasourcesController.testLimitedQuery);

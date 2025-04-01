@@ -176,7 +176,10 @@ export default function EditTargetingModal({
       body: JSON.stringify(value),
     });
     mutate();
-    track("edit-experiment-targeting");
+    track("edit-experiment-targeting", {
+      type: changeType,
+      action: releasePlan,
+    });
   });
 
   if (safeToEdit) {

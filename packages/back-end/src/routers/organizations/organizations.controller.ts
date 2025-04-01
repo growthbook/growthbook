@@ -1,17 +1,6 @@
 import { Response } from "express";
 import { cloneDeep } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
-import {
-  accountFeatures,
-  getAccountPlan,
-  getEffectiveAccountPlan,
-  getLicense,
-  getLicenseError,
-  getLowestPlanPerFeature,
-  getSubscriptionFromLicense,
-  licenseInit,
-  LicenseInterface,
-} from "shared/enterprise";
 import { experimentHasLinkedChanges } from "shared/util";
 import {
   getRoles,
@@ -20,6 +9,7 @@ import {
   getDefaultRole,
 } from "shared/permissions";
 import uniqid from "uniqid";
+import { LicenseInterface, accountFeatures } from "shared/enterprise";
 import { getWatchedByUser } from "back-end/src/models/WatchModel";
 import {
   UpdateSdkWebhookProps,
@@ -143,6 +133,15 @@ import {
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
 import { findSDKConnectionsByIds } from "back-end/src/models/SdkConnectionModel";
+import {
+  getLicense,
+  licenseInit,
+  getLowestPlanPerFeature,
+  getAccountPlan,
+  getEffectiveAccountPlan,
+  getLicenseError,
+  getSubscriptionFromLicense,
+} from "back-end/src/enterprise";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
