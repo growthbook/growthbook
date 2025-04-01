@@ -80,6 +80,7 @@ import {
   ColumnTopValuesResponse,
   PopulationMetricQueryParams,
   PopulationFactMetricsQueryParams,
+  VariationPeriodWeight,
 } from "back-end/src/types/Integration";
 import { DimensionInterface } from "back-end/types/dimension";
 import { SegmentInterface } from "back-end/types/segment";
@@ -2039,14 +2040,10 @@ export default abstract class SqlIntegration
     )`;
   }
 
-  getBanditWeightCaseWhen(
+  getBanditVariationPeriodWeights(
     banditSettings: SnapshotBanditSettings,
     variations: SnapshotSettingsVariation[]
-  ): string | undefined {
-    if (!banditSettings) {
-      return undefined;
-    }
-
+  ): VariationPeriodWeight[] | undefined {
     let anyMissingValues = false;
     const variationPeriodWeights = banditSettings.historicalWeights
       .map((w) => {
@@ -2064,18 +2061,7 @@ export default abstract class SqlIntegration
       return undefined;
     }
 
-    return `
-        CASE
-          ${variationPeriodWeights
-            .map((w) => {
-              return `WHEN variation = '${
-                w.variationId
-              }' AND bandit_period = ${this.toTimestamp(w.date)} THEN ${
-                w.weight
-              }`;
-            })
-            .join("\n")}
-        END AS weight`;
+    return variationPeriodWeights;
   }
 
   getExperimentAggregateUnitsQuery(
@@ -2098,15 +2084,18 @@ export default abstract class SqlIntegration
 
     const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
 
+    // get bandit data for SRM calculation
     const banditDates = settings.banditSettings?.historicalWeights.map(
       (w) => w.date
     );
-    const banditWeightCaseWhen = settings.banditSettings
-      ? this.getBanditWeightCaseWhen(
+    const variationPeriodWeights = settings.banditSettings
+      ? this.getBanditVariationPeriodWeights(
           settings.banditSettings,
           settings.variations
         )
       : undefined;
+
+    const computeBanditSrm = !!banditDates && !!variationPeriodWeights;
 
     // Get any required identity join queries
     const { baseIdType, idJoinSQL } = this.getIdentitiesCTE({
@@ -2174,25 +2163,40 @@ export default abstract class SqlIntegration
               activationMetric && d !== "dim_activated"
                 ? "WHERE dim_activated = 'Activated'"
                 : "",
-              !!banditDates && !!banditWeightCaseWhen
+              // cast to float to union with bandit test statistic which is float
+              computeBanditSrm
             )
           )
           .join("\nUNION ALL\n")}
       )
       ${
-        banditDates && banditWeightCaseWhen
+        computeBanditSrm
           ? `
+        , variationBanditPeriodWeights AS (
+          ${variationPeriodWeights
+            .map(
+              (w) => `
+            SELECT
+              '${w.variationId}' AS variation
+              , ${this.toTimestamp(w.date)} AS bandit_period
+              , ${w.weight} AS weight
+          `
+            )
+            .join("\nUNION ALL\n")}
+        )
         , __unitsByVariationBanditPeriod AS (
           SELECT
-            d.variation AS variation
-            , d.bandit_period AS bandit_period
-            , ${banditWeightCaseWhen}
-            , COUNT(*) AS units
-          FROM __distinctUnits d
+            v.variation AS variation
+            , v.bandit_period AS bandit_period
+            , v.weight AS weight
+            , COALESCE(COUNT(d.bandit_period), 0) AS units
+          FROM variationBanditPeriodWeights v
+          LEFT JOIN __distinctUnits d
+            ON (d.variation = v.variation AND d.bandit_period = v.bandit_period)
           GROUP BY
-            d.variation
-            , d.bandit_period
-            , weight
+            v.variation
+            , v.bandit_period
+            , v.weight
         )
         , __totalUnitsByBanditPeriod AS (
           SELECT
@@ -2211,6 +2215,8 @@ export default abstract class SqlIntegration
           FROM __unitsByVariationBanditPeriod u
           LEFT JOIN __totalUnitsByBanditPeriod t
             ON (t.bandit_period = u.bandit_period)
+          WHERE
+            COALESCE(t.total_units, 0) > 0
           GROUP BY
             u.variation
         )
@@ -2238,7 +2244,7 @@ export default abstract class SqlIntegration
       }
 
       ${this.selectStarLimit(
-        banditDates && banditWeightCaseWhen
+        computeBanditSrm
           ? "__unitsByDimensionWithBanditSrm"
           : "__unitsByDimension",
         MAX_ROWS_UNIT_AGGREGATE_QUERY
