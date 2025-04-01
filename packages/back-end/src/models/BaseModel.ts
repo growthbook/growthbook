@@ -120,11 +120,13 @@ export interface ModelConfig<T extends BaseSchema, Entity extends EntityType> {
     >;
     unique?: boolean;
   }[];
+  // NB: Names of indexes to remove
+  indexesToRemove?: string[];
 }
 
-// Global set to track which collections we've added indexes to already
-// We only need to add indexes once at server start-up
-const indexesAdded: Set<string> = new Set();
+// Global set to track which collections we've updated indexes for already
+// We only need to update indexes once at server start-up
+const indexesUpdated: Set<string> = new Set();
 
 // Generic model class has everything but the actual data fetch implementation.
 // See BaseModel below for the class with explicit mongodb implementation.
@@ -145,7 +147,7 @@ export abstract class BaseModel<
     this.validator = this.config.schema;
     this.createValidator = createSchema(this.config.schema);
     this.updateValidator = updateSchema(this.config.schema);
-    this.addIndexes();
+    this.updateIndexes();
   }
 
   /***************
@@ -732,9 +734,9 @@ export abstract class BaseModel<
 
     await this.context.populateForeignRefs(mergedKeys);
   }
-  protected addIndexes() {
-    if (indexesAdded.has(this.config.collectionName)) return;
-    indexesAdded.add(this.config.collectionName);
+  protected updateIndexes() {
+    if (indexesUpdated.has(this.config.collectionName)) return;
+    indexesUpdated.add(this.config.collectionName);
 
     // Always create a unique index for organization and id
     this._dangerousGetCollection()
@@ -756,6 +758,24 @@ export abstract class BaseModel<
             err
           );
         });
+    }
+
+    // Remove any explicitly defined indexes that are no longer needed
+    const indexesToRemove = this.config.indexesToRemove;
+    if (indexesToRemove) {
+      const existingIndexes = this._dangerousGetCollection().listIndexes();
+      existingIndexes.forEach((index) => {
+        if (!indexesToRemove.includes(index.name)) return;
+
+        this._dangerousGetCollection()
+          .dropIndex(index.name)
+          .catch((err) => {
+            logger.error(
+              `Error dropping index ${index.name} for ${this.config.collectionName}`,
+              err
+            );
+          });
+      });
     }
 
     // Create any additional indexes

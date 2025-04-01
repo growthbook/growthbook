@@ -308,7 +308,8 @@ paths:
                         type: array
                         items:
                           anyOf:
-                            - type: object
+                            - title: Force Rule
+                              type: object
                               required:
                                 - type
                                 - value
@@ -347,7 +348,8 @@ paths:
                                     - force
                                 value:
                                   type: string
-                            - type: object
+                            - title: Rollout Rule
+                              type: object
                               required:
                                 - type
                                 - value
@@ -377,6 +379,19 @@ paths:
                                         type: array
                                         items:
                                           type: string
+                                prerequisites:
+                                  type: array
+                                  items:
+                                    type: object
+                                    required:
+                                      - id
+                                      - condition
+                                    properties:
+                                      id:
+                                        type: string
+                                        description: Feature ID
+                                      condition:
+                                        type: string
                                 id:
                                   type: string
                                 enabled:
@@ -393,7 +408,8 @@ paths:
                                   description: Percent of traffic included in this experiment. Users not included in the experiment will skip this rule.
                                 hashAttribute:
                                   type: string
-                            - type: object
+                            - title: Experiment Rule
+                              type: object
                               required:
                                 - type
                                 - variations
@@ -412,6 +428,37 @@ paths:
                                     - experiment-ref
                                 condition:
                                   type: string
+                                savedGroupTargeting:
+                                  type: array
+                                  items:
+                                    type: object
+                                    required:
+                                      - matchType
+                                      - savedGroups
+                                    properties:
+                                      matchType:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - any
+                                          - none
+                                      savedGroups:
+                                        type: array
+                                        items:
+                                          type: string
+                                prerequisites:
+                                  type: array
+                                  items:
+                                    type: object
+                                    required:
+                                      - id
+                                      - condition
+                                    properties:
+                                      id:
+                                        type: string
+                                        description: Feature ID
+                                      condition:
+                                        type: string
                                 variations:
                                   type: array
                                   items:
@@ -427,6 +474,7 @@ paths:
                                 experimentId:
                                   type: string
                             - deprecated: true
+                              title: Experiment (legacy)
                               type: object
                               required:
                                 - condition
@@ -524,6 +572,11 @@ paths:
                           definition:
                             type: string
                             description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
+                prerequisites:
+                  type: array
+                  description: Feature IDs. Each feature must evaluate to `true`
+                  items:
+                    type: string
                 jsonSchema:
                   type: string
                   description: Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).
@@ -614,6 +667,11 @@ paths:
                   type: object
                   additionalProperties:
                     $ref: '#/paths/~1features/post/requestBody/content/application~1json/schema/properties/environments/additionalProperties'
+                prerequisites:
+                  type: array
+                  description: Feature IDs. Each feature must evaluate to `true`
+                  items:
+                    type: string
                 jsonSchema:
                   type: string
                   description: Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).
@@ -1367,6 +1425,11 @@ paths:
                 name:
                   type: string
                   description: Name of the experiment
+                type:
+                  type: string
+                  enum:
+                    - standard
+                    - multi-armed-bandit
                 project:
                   type: string
                   description: Project ID which the experiment belongs to
@@ -1533,6 +1596,19 @@ paths:
                             type: boolean
                       targetingCondition:
                         type: string
+                      prerequisites:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - id
+                            - condition
+                          properties:
+                            id:
+                              type: string
+                              description: Feature ID
+                            condition:
+                              type: string
                       reason:
                         type: string
                       condition:
@@ -1572,6 +1648,20 @@ paths:
                   enum:
                     - public
                     - organization
+                banditScheduleValue:
+                  type: number
+                banditScheduleUnit:
+                  type: string
+                  enum:
+                    - days
+                    - hours
+                banditBurnInValue:
+                  type: number
+                banditBurnInUnit:
+                  type: string
+                  enum:
+                    - days
+                    - hours
       responses:
         '200':
           content:
@@ -1637,6 +1727,11 @@ paths:
                 name:
                   type: string
                   description: Name of the experiment
+                type:
+                  type: string
+                  enum:
+                    - standard
+                    - multi-armed-bandit
                 project:
                   type: string
                   description: Project ID which the experiment belongs to
@@ -1803,6 +1898,19 @@ paths:
                             type: boolean
                       targetingCondition:
                         type: string
+                      prerequisites:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - id
+                            - condition
+                          properties:
+                            id:
+                              type: string
+                              description: Feature ID
+                            condition:
+                              type: string
                       reason:
                         type: string
                       condition:
@@ -1842,6 +1950,20 @@ paths:
                   enum:
                     - public
                     - organization
+                banditScheduleValue:
+                  type: number
+                banditScheduleUnit:
+                  type: string
+                  enum:
+                    - days
+                    - hours
+                banditBurnInValue:
+                  type: number
+                banditBurnInUnit:
+                  type: string
+                  enum:
+                    - days
+                    - hours
       responses:
         '200':
           content:
@@ -5417,16 +5539,9 @@ components:
             $ref: '#/components/schemas/FeatureEnvironment'
         prerequisites:
           type: array
+          description: Feature IDs. Each feature must evaluate to `true`
           items:
-            type: object
-            required:
-              - parentId
-              - parentCondition
-            properties:
-              parentId:
-                type: string
-              parentCondition:
-                type: string
+            type: string
         revision:
           type: object
           required:
@@ -5619,6 +5734,19 @@ components:
                 type: array
                 items:
                   type: string
+        prerequisites:
+          type: array
+          items:
+            type: object
+            required:
+              - id
+              - condition
+            properties:
+              id:
+                type: string
+                description: Feature ID
+              condition:
+                type: string
         id:
           type: string
         enabled:
@@ -6003,6 +6131,18 @@ components:
                     rangeEnd: number
               targetingCondition:
                 type: string
+              prerequisites:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - condition
+                  properties:
+                    id:
+                      type: string
+                    condition:
+                      type: string
               savedGroupTargeting:
                 type: array
                 items:
@@ -6049,6 +6189,20 @@ components:
             - organization
         publicUrl:
           type: string
+        banditScheduleValue:
+          type: number
+        banditScheduleUnit:
+          type: string
+          enum:
+            - days
+            - hours
+        banditBurnInValue:
+          type: number
+        banditBurnInUnit:
+          type: string
+          enum:
+            - days
+            - hours
     ExperimentSnapshot:
       type: object
       required:
