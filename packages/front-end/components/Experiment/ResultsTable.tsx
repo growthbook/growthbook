@@ -25,7 +25,6 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import { PiArrowsVertical, PiChartLine } from "react-icons/pi";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import {
@@ -927,8 +926,10 @@ export default function ResultsTable({
                       <td colSpan={6}>
                         <div className={styles.expanding}>
                           <MetricTimeSeriesGraph
+                            differenceType={differenceType}
                             metric={row.metric}
                             experimentId={id}
+                            phase={0}
                           />
                         </div>
                       </td>

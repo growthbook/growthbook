@@ -1,61 +1,100 @@
+import { addDays } from "date-fns";
 import { ExperimentMetricInterface } from "shared/src/experiments";
 import { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
+import { DifferenceType } from "back-end/types/stats";
+import { daysBetween } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import { formatNumber } from "@/services/metrics";
-import ExperimentDateGraph from "./ExperimentDateGraph";
+import ExperimentDateGraph, {
+  ExperimentDateGraphDataPoint,
+} from "./ExperimentDateGraph";
 
 export default function MetricTimeSeriesGraph({
   metric,
   experimentId,
+  phase,
+  differenceType,
 }: {
   metric: ExperimentMetricInterface;
   experimentId: string;
+  phase: number;
+  differenceType: DifferenceType;
 }) {
+  // TODO: Fix phase
   const { data } = useApi<{ timeSeries: MetricTimeSeries[] }>(
     `/experiments/${experimentId}/time-series?metricIds[]=${metric.id}`
   );
 
-  const differenceType = "absolute" as string;
-  const type = (() => {
+  const labelText = (() => {
     switch (differenceType) {
       case "absolute":
-        return "absolute";
+        return "Absolute Change";
       case "relative":
-        return "relative";
+        return "% Lift";
       case "scaled":
-        return "scaled";
-      default:
-        return "absolute";
+        return "Scaled Impact";
     }
   })();
 
-  if (!data || !data.timeSeries) {
+  if (!data || !data.timeSeries || data.timeSeries.length === 0) {
     return null;
   }
 
   const timeSeries = data.timeSeries[0];
+  const additionalGraphDataPoints: ExperimentDateGraphDataPoint[] = [];
+  const sortedDataPoints = timeSeries.dataPoints.sort((a, b) => {
+    return new Date(a.date).getTime() - new Date(b.date).getTime();
+  });
+
+  const firstDate = sortedDataPoints[0].date;
+  const lastDate = sortedDataPoints[sortedDataPoints.length - 1].date;
+
+  const numOfDays = daysBetween(firstDate, lastDate);
+  if (numOfDays < 7) {
+    additionalGraphDataPoints.push({
+      d: addDays(new Date(lastDate), 7 - numOfDays),
+    });
+  }
 
   return (
     <ExperimentDateGraph
       hideVariationsSelector={true}
       yaxis="effect"
-      label=""
+      label={labelText}
       variationNames={timeSeries.dataPoints[0].variations.map((v) => v.name)}
-      datapoints={timeSeries.dataPoints.map((r) => {
-        return {
-          d: new Date(r.date),
-          variations: r.variations.map((i) => {
-            return {
-              v: i[type]?.value ?? 0,
-              v_formatted: `${i[type]?.value ?? 0}`,
-              users: i[type]?.denominator,
-              p: i[type]?.pValue ?? undefined,
-              ctw: i[type]?.chanceToWin ?? undefined,
-              ci: i[type]?.ci ?? undefined,
-            };
-          }),
-        };
-      })}
+      datapoints={[
+        ...timeSeries.dataPoints.map((r) => {
+          const point: ExperimentDateGraphDataPoint = {
+            d: new Date(r.date),
+            variations: r.variations.map((i) => {
+              return {
+                users: i.stats?.users,
+
+                v: i[differenceType]?.value ?? 0,
+                v_formatted: `${i[differenceType]?.value ?? 0}`,
+                up: i[differenceType]?.expected ?? 0,
+                ctw: i[differenceType]?.chanceToWin ?? undefined,
+                ci: i[differenceType]?.ci ?? undefined,
+                // TODO: What do we do with pValue, pValueAdjusted & denominator?
+              };
+            }),
+          };
+
+          if (
+            r.tags?.includes("experiment-settings-changed") &&
+            r.tags?.includes("metric-settings-changed")
+          ) {
+            point.helperText = "Experiment and metric settings changed";
+          } else if (r.tags?.includes("experiment-settings-changed")) {
+            point.helperText = "Experiment settings changed";
+          } else if (r.tags?.includes("metric-settings-changed")) {
+            point.helperText = "Metric settings changed";
+          }
+
+          return point;
+        }),
+        ...additionalGraphDataPoints,
+      ]}
       formatter={formatNumber}
     />
   );
