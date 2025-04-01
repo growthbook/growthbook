@@ -1090,6 +1090,7 @@ export async function postInviteAccept(
       throw new Error("Must be logged in");
     }
     const org = await acceptInvite(key, req.userId);
+    await licenseInit(org, getUserCodesForOrg, getLicenseMetaData, true);
 
     return res.status(200).json({
       status: 200,

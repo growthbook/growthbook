@@ -3,7 +3,6 @@ import { Stripe } from "stripe";
 import { PaymentMethod } from "shared/src/types/subscriptions";
 import {
   LicenseServerError,
-  getEffectiveAccountPlan,
   getLicense,
   licenseInit,
   postCreateBillingSessionToLicenseServer,
@@ -413,31 +412,23 @@ export async function getUsage(
 
   // Beginning of the month
   const start = new Date();
-  start.setMonth(start.getMonth() - monthsAgo);
-  start.setDate(1);
-  start.setHours(0, 0, 0, 0);
+  start.setUTCDate(1);
+  start.setUTCHours(0, 0, 0, 0);
+  start.setUTCMonth(start.getUTCMonth() - monthsAgo);
 
   // End of the month
-  const end = new Date();
-  end.setMonth(end.getMonth() - monthsAgo + 1);
-  end.setDate(0);
-  end.setHours(23, 59, 59, 999);
+  const end = new Date(start);
+  end.setUTCMonth(end.getUTCMonth() + 1);
+  end.setUTCDate(0);
+  end.setUTCHours(23, 59, 59, 999);
 
   const cdnUsage = await getDailyCDNUsageForOrg(org.id, start, end);
 
-  const limits: UsageLimits = {
-    cdnRequests: null,
-    cdnBandwidth: null,
-  };
+  const {
+    limits: { requests: cdnRequests, bandwidth: cdnBandwidth },
+  } = await context.usage();
 
-  const plan = getEffectiveAccountPlan(org);
-  if (plan === "starter" || plan === "pro" || plan === "pro_sso") {
-    // 10 million requests, no bandwidth limit
-    // TODO: Store this limit as part of the license/org instead of hard-coding
-    limits.cdnRequests = 10_000_000;
-  }
-
-  res.json({ status: 200, cdnUsage, limits });
+  res.json({ status: 200, cdnUsage, limits: { cdnRequests, cdnBandwidth } });
 }
 
 export async function getPortalUrl(
