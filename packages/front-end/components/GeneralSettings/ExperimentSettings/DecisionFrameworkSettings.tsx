@@ -87,6 +87,7 @@ const DecisionFrameworkSettings: React.FC<DecisionFrameworkSettingsProps> = () =
                   body: JSON.stringify({ id: criteriaToDelete.id }),
                 }
               );
+              mutate();
               setCriteriaToDelete(undefined);
             } catch (e) {
               console.error(e);
