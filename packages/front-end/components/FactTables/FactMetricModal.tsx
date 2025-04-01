@@ -838,23 +838,23 @@ function getWHERE({
 
   if (type === "retention") {
     whereParts.push(
-      `-- Only after seeing the experiment + retention delay\ntimestamp > (exposure_timestamp + '${
+      `-- Only after seeing the experiment + retention delay\ntimestamp >= (exposure_timestamp + '${
         windowSettings.delayValue
       } ${windowSettings.delayUnit ?? "days"}')`
     );
   } else if (windowSettings.delayValue) {
     whereParts.push(
-      `-- Only after seeing the experiment + delay\ntimestamp > (exposure_timestamp + '${windowSettings.delayValue} ${windowSettings.delayUnit}')`
+      `-- Only after seeing the experiment + delay\ntimestamp >= (exposure_timestamp + '${windowSettings.delayValue} ${windowSettings.delayUnit}')`
     );
   } else {
     whereParts.push(
-      `-- Only after seeing the experiment\ntimestamp > exposure_timestamp`
+      `-- Only after seeing the experiment\ntimestamp >= exposure_timestamp`
     );
   }
 
   if (windowSettings.type === "lookback") {
     whereParts.push(
-      `-- Lookback Metric Window\ntimestamp > (NOW() - '${windowSettings.windowValue} ${windowSettings.windowUnit}')`
+      `-- Lookback Metric Window\ntimestamp >= (NOW() - '${windowSettings.windowValue} ${windowSettings.windowUnit}')`
     );
   } else if (windowSettings.type === "conversion") {
     if (type === "retention") {
