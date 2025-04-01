@@ -69,10 +69,10 @@ describe("Experiments", () => {
       name: "data",
       deleted: false,
       jsonFields: {
-        a: "string",
-        b: "number",
-        "c.d": "string",
-        "c.e": "number",
+        a: { datatype: "string" },
+        b: { datatype: "number" },
+        "c.d": { datatype: "string" },
+        "c.e": { datatype: "number" },
       },
     };
     const deletedColumn: ColumnInterface = {

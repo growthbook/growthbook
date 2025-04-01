@@ -231,15 +231,15 @@ function getColumnOptions({
     );
     for (const col of jsonColumns) {
       if (col.jsonFields) {
-        for (const [field, datatype] of Object.entries(col.jsonFields)) {
+        for (const [field, data] of Object.entries(col.jsonFields)) {
           const option: SingleValue = {
             label: `${col.name}.${field}`,
             value: `${col.column}.${field}`,
           };
 
-          if (datatype === "number") {
+          if (data.datatype === "number") {
             numericColumnOptions.push(option);
-          } else if (datatype === "string") {
+          } else if (data.datatype === "string") {
             stringColumnOptions.push(option);
           }
         }

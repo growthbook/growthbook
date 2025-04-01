@@ -39,7 +39,7 @@ export default class Postgres extends SqlIntegration {
     return `to_char(${col}, 'YYYY-MM-DD HH24:MI:SS.MS')`;
   }
   extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
-    const raw = `JSON_EXTRACT_PATH_TEXT(${jsonCol}, ${path
+    const raw = `JSON_EXTRACT_PATH_TEXT(${jsonCol}::json, ${path
       .split(".")
       .map((p) => `'${p}'`)
       .join(", ")})`;

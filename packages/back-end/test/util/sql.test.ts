@@ -392,11 +392,11 @@ from
           column: "x",
           datatype: "json",
           jsonFields: {
-            a: "number",
-            b: "string",
-            c: "boolean",
-            d: "number",
-            f: "string",
+            a: { datatype: "number" },
+            b: { datatype: "string" },
+            c: { datatype: "boolean" },
+            d: { datatype: "number" },
+            f: { datatype: "string" },
           },
         },
       ]);
@@ -430,11 +430,11 @@ from
           column: "x",
           datatype: "json",
           jsonFields: {
-            a: "number",
-            b: "string",
-            c: "boolean",
-            d: "number",
-            f: "string",
+            a: { datatype: "number" },
+            b: { datatype: "string" },
+            c: { datatype: "boolean" },
+            d: { datatype: "number" },
+            f: { datatype: "string" },
           },
         },
       ]);

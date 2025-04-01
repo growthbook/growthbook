@@ -11,7 +11,9 @@ export const factTableColumnTypeValidator = z.enum([
 
 export const numberFormatValidator = z.enum(["", "currency", "time:seconds"]);
 
-export const jsonColumnFieldsValidator = z.record(factTableColumnTypeValidator);
+export const jsonColumnFieldsValidator = z.record(
+  z.object({ datatype: factTableColumnTypeValidator })
+);
 
 export const createColumnPropsValidator = z
   .object({

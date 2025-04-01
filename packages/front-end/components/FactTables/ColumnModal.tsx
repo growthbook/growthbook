@@ -65,7 +65,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
     if (newJSONField.key) {
       form.setValue("jsonFields", {
         ...form.watch("jsonFields"),
-        [newJSONField.key]: newJSONField.value,
+        [newJSONField.key]: { datatype: newJSONField.value },
       });
       closeNewJSONField();
     }
@@ -226,7 +226,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                     ([key, value]) => (
                       <tr key={key}>
                         <td>{key}</td>
-                        <td>{value}</td>
+                        <td>{value.datatype}</td>
                         <td>
                           <a
                             href="#"
@@ -325,15 +325,17 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             </div>
           ) : null}
           {!newJSONField.adding && (
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setNewJSONField((v) => ({ ...v, adding: true }));
-              }}
-            >
-              <PiPlus /> Add
-            </a>
+            <div>
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setNewJSONField((v) => ({ ...v, adding: true }));
+                }}
+              >
+                <PiPlus /> Add
+              </a>
+            </div>
           )}
         </div>
       )}

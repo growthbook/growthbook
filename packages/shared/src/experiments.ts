@@ -96,7 +96,7 @@ export function getColumnExpression(
       const path = parts.slice(1).join(".");
 
       const field = col.jsonFields?.[path];
-      const isNumeric = field === "number";
+      const isNumeric = field?.datatype === "number";
 
       return jsonExtract(
         alias ? `${alias}.${parts[0]}` : parts[0],
@@ -300,7 +300,7 @@ export function getSelectedColumnDatatype({
     if (col?.datatype === "json" && (!excludeDeleted || !col?.deleted)) {
       const field = col.jsonFields?.[parts.slice(1).join(".")];
       if (field) {
-        return field;
+        return field.datatype;
       }
     }
   }

@@ -1,7 +1,10 @@
 import { format as sqlFormat, FormatOptions } from "sql-formatter";
 import Handlebars from "handlebars";
 import { SQLVars } from "back-end/types/sql";
-import { FactTableColumnType } from "back-end/types/fact-table";
+import {
+  FactTableColumnType,
+  JSONColumnFields,
+} from "back-end/types/fact-table";
 import { helpers } from "./handlebarsHelpers";
 
 // Register all the helpers from handlebarsHelpers
@@ -221,10 +224,8 @@ function isJSON(str: string) {
   }
 }
 
-function getJSONFields(
-  testValues: unknown[]
-): Record<string, FactTableColumnType> {
-  const fields: Record<string, FactTableColumnType> = {};
+function getJSONFields(testValues: unknown[]): JSONColumnFields {
+  const fields: JSONColumnFields = {};
 
   testValues.forEach((str) => {
     if (typeof str !== "string") return;
@@ -235,16 +236,18 @@ function getJSONFields(
         if (obj[key] === null || obj[key] === undefined) return;
         if (Object.keys(fields).length > 50) return;
 
-        fields[key] =
-          typeof obj[key] === "string"
-            ? obj[key].match(/^[0-9]{4}-[0-9]{2}-[0-9]{2}($|[ T])/)
-              ? "date"
-              : "string"
-            : typeof obj[key] === "number"
-            ? "number"
-            : typeof obj[key] === "boolean"
-            ? "boolean"
-            : "other";
+        fields[key] = {
+          datatype:
+            typeof obj[key] === "string"
+              ? obj[key].match(/^[0-9]{4}-[0-9]{2}-[0-9]{2}($|[ T])/)
+                ? "date"
+                : "string"
+              : typeof obj[key] === "number"
+              ? "number"
+              : typeof obj[key] === "boolean"
+              ? "boolean"
+              : "other",
+        };
       });
     } catch (e) {
       // Skip value
@@ -259,7 +262,7 @@ export function determineColumnTypes(
 ): {
   column: string;
   datatype: FactTableColumnType;
-  jsonFields?: Record<string, FactTableColumnType>;
+  jsonFields?: JSONColumnFields;
 }[] {
   if (!rows || !rows[0]) return [];
   const cols = Object.keys(rows[0]);
@@ -267,7 +270,7 @@ export function determineColumnTypes(
   const columns: {
     column: string;
     datatype: FactTableColumnType;
-    jsonFields?: Record<string, FactTableColumnType>;
+    jsonFields?: JSONColumnFields;
   }[] = [];
   cols.forEach((col) => {
     const testValues = rows
