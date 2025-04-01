@@ -225,7 +225,7 @@ const getYVal = (
     case "users":
       return variation.v;
     case "effect":
-      return variation.up ?? 0;
+      return variation.up;
     default:
       return variation.v;
   }
@@ -353,11 +353,68 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
       )
     );
 
+    // TODO: Disable for metric timeseries now
     // The error bars can be huge sometimes, so limit the domain to at most twice the min/max value
-    return [
-      Math.max(minError, minValue > 0 ? minValue / 2 : minValue * 2),
-      Math.min(maxError, maxValue > 0 ? maxValue * 2 : maxValue / 2),
-    ];
+    const heyDatapoints = datapoints.filter(
+      (it) => it.variations !== undefined
+    );
+    const lastDataPoint = heyDatapoints[heyDatapoints.length - 1];
+
+    // Get the midpoint between min and max values
+    // const minMidpoint = minValue;
+    // const maxMidpoint = maxValue;
+
+    // Ensure we show the full CI for the latest data point
+    const latestMinCI = lastDataPoint?.variations
+      ? Math.min(
+          ...lastDataPoint.variations
+            .filter((_, i) => showVariations[i])
+            .map(
+              (variation) => variation.ci?.[0] ?? getYVal(variation, yaxis) ?? 0
+            )
+        )
+      : 0;
+
+    const latestMaxCI = lastDataPoint?.variations
+      ? Math.max(
+          ...lastDataPoint.variations
+            .filter((_, i) => showVariations[i])
+            .map(
+              (variation) => variation.ci?.[1] ?? getYVal(variation, yaxis) ?? 0
+            )
+        )
+      : 0;
+
+    // Calculate range based on latest data point (10x the range)
+    const latestRange = Math.abs(latestMaxCI - latestMinCI);
+    const expandedRange = latestRange * 10;
+    const midpoint = (latestMaxCI + latestMinCI) / 2;
+    const expandedMin = midpoint - expandedRange / 2;
+    const expandedMax = midpoint + expandedRange / 2;
+
+    console.table({
+      minValue,
+      maxValue,
+      latestMinCI,
+      latestMaxCI,
+      expandedMin,
+      expandedMax,
+    });
+
+    const min = Math.min(
+      minValue,
+      latestMinCI,
+      Math.max(expandedMin, minError)
+    );
+    const max = Math.max(
+      maxValue,
+      latestMaxCI,
+      Math.min(expandedMax, maxError)
+    );
+    const range = max - min;
+    const expandedRange2 = range * 1.05;
+    const buffer = (expandedRange2 - range) / 2;
+    return [min - buffer, max + buffer];
   }, [datapoints, yaxis, showVariations]);
 
   // Get x-axis domain
@@ -609,7 +666,9 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                         <AreaClosed
                           key={`ci_${i}`}
                           yScale={yScale}
-                          data={datapoints}
+                          data={datapoints.filter(
+                            (it) => it.variations !== undefined
+                          )}
                           x={(d) => xScale(d.d) ?? 0}
                           y0={(d) =>
                             yScale(d?.variations?.[i]?.ci?.[0] ?? 0) ?? 0
@@ -634,7 +693,9 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                     return (
                       <LinePath
                         key={`linepath_${i}`}
-                        data={datapoints}
+                        data={datapoints.filter(
+                          (it) => it.variations !== undefined
+                        )}
                         x={(d) => xScale(d.d)}
                         y={(d) =>
                           yScale(getYVal(d?.variations?.[i], yaxis) ?? 0)
@@ -642,9 +703,6 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                         stroke={getVariationColor(i, true)}
                         strokeWidth={2}
                         curve={curveMonotoneX}
-                        defined={(d) =>
-                          getYVal(d?.variations?.[i], yaxis) !== undefined
-                        }
                       />
                     );
                   })}
@@ -655,7 +713,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                   scale={xScale}
                   numTicks={numXTicks}
                   tickLabelProps={() => ({
-                    fill: "var(--text-color-table)",
+                    fill: "var(--color-text-mid)",
                     fontSize: 11,
                     textAnchor: "middle",
                   })}
@@ -670,11 +728,15 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                   labelOffset={50}
                   tickFormat={(v) => formatter(v as number, formatterOptions)}
                   tickLabelProps={() => ({
-                    fill: "var(--text-color-table)",
+                    fill: "var(--color-text-mid)",
                     fontSize: 11,
                     textAnchor: "end",
                   })}
                   label={label}
+                  labelProps={{
+                    fill: "var(--color-text-mid)",
+                    textAnchor: "middle",
+                  }}
                   labelClassName="h5"
                 />
               </Group>

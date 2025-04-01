@@ -43,17 +43,6 @@ export class MetricTimeSeriesModel extends BaseClass {
     return true;
   }
 
-  public async getAll() {
-    const cursor = this._dangerousGetCollection().find().sort({
-      dateUpdated: -1,
-    });
-    const rawDocs = await cursor.toArray();
-    const migrated = rawDocs.map((d) =>
-      this.migrate(this._removeMongooseFields(d))
-    );
-    return migrated;
-  }
-
   public async getBySourceAndMetricIds(
     source: MetricTimeSeries["source"],
     sourceId: MetricTimeSeries["sourceId"],

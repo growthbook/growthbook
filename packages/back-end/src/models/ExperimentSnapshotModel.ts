@@ -536,29 +536,3 @@ export async function createExperimentSnapshotModel({
 export const getDefaultAnalysisResults = (
   snapshot: ExperimentSnapshotDocument
 ) => snapshot.analyses?.[0]?.results?.[0];
-
-export async function getAllSnapshotsForTimeSeries({
-  experiment,
-  phase,
-  dimension,
-}: {
-  experiment: string;
-  phase: number;
-  dimension?: string;
-}): Promise<ExperimentSnapshotInterface[]> {
-  const snapshots = await ExperimentSnapshotModel.find(
-    {
-      experiment,
-      phase,
-      dimension: dimension || null,
-      type: "standard", // not include reports or bandit
-      status: "success", // only include successful snapshots
-    },
-    null,
-    {
-      sort: { dateCreated: 1 },
-    }
-  );
-
-  return snapshots.map(toInterface);
-}
