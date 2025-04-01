@@ -1,16 +1,16 @@
 import { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
 import { daysBetween } from "shared/dates";
-import { addDays, eachDayOfInterval, subDays } from "date-fns";
+import { addDays } from "date-fns";
 import useApi from "@/hooks/useApi";
 import { formatNumber } from "@/services/metrics";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
 } from "@/components/Experiment/ExperimentDateGraph";
 
-const previousWeek = eachDayOfInterval({
-  start: subDays(new Date(), 7),
-  end: new Date(),
-});
+// const previousWeek = eachDayOfInterval({
+//   start: subDays(new Date(), 7),
+//   end: new Date(),
+// });
 
 const TimeSeriesTest = (): React.ReactElement => {
   const { data } = useApi<{ timeSeries: MetricTimeSeries[] }>(`/time-series`);
@@ -75,6 +75,7 @@ const TimeSeriesTest = (): React.ReactElement => {
                     ctw: i[type]?.chanceToWin ?? undefined,
                     // up: 0.01,
                     // up: i[type]?.up ?? undefined,
+                    up: i[type]?.expected ?? 0,
                   };
                 }),
               };
@@ -121,7 +122,13 @@ const TimeSeriesTest = (): React.ReactElement => {
     }
   })();
 
-  return <div>{data.timeSeries.map(renderTimeSeries)}</div>;
+  return (
+    <div>
+      {data.timeSeries
+        // .filter((it) => it.metricId === "met_fzty723m0m8qbr2he")
+        .map(renderTimeSeries)}
+    </div>
+  );
 };
 
 export default TimeSeriesTest;
