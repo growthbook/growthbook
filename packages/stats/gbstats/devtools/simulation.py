@@ -154,7 +154,7 @@ class CreateStatistic:
         elif self.statistic_type == "proportion":
             return ProportionStatistic(n=self.n, sum=float(np.sum(self.y)))
         elif self.statistic_type == "ratio":
-            if not self.x:
+            if self.x is None:
                 raise ValueError("x must be provided for ratio statistic")
             m_statistic = SampleMeanStatistic(
                 n=self.n,
@@ -174,7 +174,7 @@ class CreateStatistic:
                 m_d_sum_of_products=m_d_sum_of_products,
             )
         elif self.statistic_type == "regression_adjusted":
-            if not self.x:
+            if self.x is None:
                 raise ValueError("x must be provided for regression statistic")
             post_statistic = SampleMeanStatistic(
                 n=self.n,
