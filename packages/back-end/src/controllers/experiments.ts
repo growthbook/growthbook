@@ -577,7 +577,7 @@ export async function getSnapshots(
   return;
 }
 
-const validateVariationIds = (variations: Variation[]) => {
+export function validateVariationIds(variations: Variation[]) {
   variations.forEach((variation, i) => {
     if (!variation.id) {
       variation.id = uniqid("var_");
@@ -590,7 +590,7 @@ const validateVariationIds = (variations: Variation[]) => {
   if (keys.length !== new Set(keys).size) {
     throw new Error("Variation keys must be unique");
   }
-};
+}
 
 /**
  * Creates a new experiment
@@ -689,8 +689,8 @@ export async function postExperiments(
     archived: false,
     hashAttribute: data.hashAttribute || "",
     fallbackAttribute: data.fallbackAttribute || "",
-    disableStickyBucketing: data.disableStickyBucketing ?? false,
     hashVersion: data.hashVersion || 2,
+    disableStickyBucketing: data.disableStickyBucketing ?? false,
     autoSnapshots: true,
     dateCreated: new Date(),
     dateUpdated: new Date(),
@@ -715,9 +715,9 @@ export async function postExperiments(
     hypothesis: data.hypothesis || "",
     goalMetrics: data.goalMetrics || [],
     secondaryMetrics: data.secondaryMetrics || [],
-    metricOverrides: data.metricOverrides || [],
     guardrailMetrics: data.guardrailMetrics || [],
     activationMetric: data.activationMetric || "",
+    metricOverrides: data.metricOverrides || [],
     segment: data.segment || "",
     queryFilter: data.queryFilter || "",
     skipPartialData: !!data.skipPartialData,

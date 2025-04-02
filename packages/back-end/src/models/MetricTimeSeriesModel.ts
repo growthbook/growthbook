@@ -1,5 +1,6 @@
 import uniqid from "uniqid";
 import { formatISO } from "date-fns";
+import { FilterQuery } from "mongoose";
 import {
   metricTimeSeriesSchema,
   MetricTimeSeries,
@@ -19,10 +20,12 @@ const BaseClass = MakeModelClass({
         organization: 1,
         source: 1,
         sourceId: 1,
+        sourcePhase: 1,
         metricId: 1,
       },
     },
   ],
+  indexesToRemove: ["organization_1_source_1_sourceId_1_metricId_1"],
 });
 
 export class MetricTimeSeriesModel extends BaseClass {
@@ -43,9 +46,28 @@ export class MetricTimeSeriesModel extends BaseClass {
   public async getBySourceAndMetricIds(
     source: MetricTimeSeries["source"],
     sourceId: MetricTimeSeries["sourceId"],
+    sourcePhase: MetricTimeSeries["sourcePhase"],
     metricIds: Array<MetricTimeSeries["metricId"]>
   ) {
-    return this._find({ source, sourceId, metricId: { $in: metricIds } });
+    const query: FilterQuery<MetricTimeSeries> = {
+      source,
+      sourceId,
+      metricId: { $in: metricIds },
+    };
+
+    // For experiments, ensure sourcePhase is always defined.
+    if (source === "experiment") {
+      if (sourcePhase !== undefined) {
+        query.sourcePhase = sourcePhase;
+      } else {
+        // If sourcePhase is undefined for an experiment, ensure we only get records with defined sourcePhase
+        query.sourcePhase = { $exists: true, $ne: null };
+      }
+    } else {
+      query.sourcePhase = sourcePhase;
+    }
+
+    return this._find(query);
   }
 
   public async deleteAllBySource(
@@ -62,26 +84,38 @@ export class MetricTimeSeriesModel extends BaseClass {
   public async findMany(
     metricTimeSeriesIdentifiers: Pick<
       CreateMetricTimeSeries,
-      "source" | "sourceId" | "metricId"
+      "source" | "sourceId" | "sourcePhase" | "metricId"
     >[]
   ) {
-    const metricTimeSeriesPerSource = new Map<string, string[]>();
-    metricTimeSeriesIdentifiers.forEach((mts) => {
-      const sourceIdentifier = `${mts.source}::${mts.sourceId}`;
-      if (!metricTimeSeriesPerSource.has(sourceIdentifier)) {
-        metricTimeSeriesPerSource.set(sourceIdentifier, []);
+    const metricTimeSeriesPerSource = new Map<
+      string,
+      {
+        source: MetricTimeSeries["source"];
+        sourceId: MetricTimeSeries["sourceId"];
+        sourcePhase: MetricTimeSeries["sourcePhase"];
+        metricIds: MetricTimeSeries["metricId"][];
       }
-      metricTimeSeriesPerSource.get(sourceIdentifier)!.push(mts.metricId);
+    >();
+    metricTimeSeriesIdentifiers.forEach((mts) => {
+      const sourceIdentifier = `${mts.source}::${mts.sourceId}::${mts.sourcePhase}`;
+      if (!metricTimeSeriesPerSource.has(sourceIdentifier)) {
+        metricTimeSeriesPerSource.set(sourceIdentifier, {
+          source: mts.source,
+          sourceId: mts.sourceId,
+          sourcePhase: mts.sourcePhase,
+          metricIds: [mts.metricId],
+        });
+      } else {
+        metricTimeSeriesPerSource
+          .get(sourceIdentifier)!
+          .metricIds.push(mts.metricId);
+      }
     });
 
     const allPromises = Array.from(
-      metricTimeSeriesPerSource.entries()
-    ).map(([sourceIdentifier, metricIds]) =>
-      this.getBySourceAndMetricIds(
-        sourceIdentifier.split("::")[0] as MetricTimeSeries["source"],
-        sourceIdentifier.split("::")[1],
-        metricIds
-      )
+      metricTimeSeriesPerSource.values()
+    ).map(({ source, sourceId, sourcePhase, metricIds }) =>
+      this.getBySourceAndMetricIds(source, sourceId, sourcePhase, metricIds)
     );
 
     const allResults = await Promise.all(allPromises);
@@ -106,6 +140,7 @@ export class MetricTimeSeriesModel extends BaseClass {
         (existing) =>
           existing.source === mts.source &&
           existing.sourceId === mts.sourceId &&
+          existing.sourcePhase === mts.sourcePhase &&
           existing.metricId === mts.metricId
       );
 
