@@ -37,7 +37,9 @@ export function getInitialInlineFilters(
 ) {
   const inlineFilters = { ...existingInlineFilters };
   factTable.columns
-    .filter((c) => c.alwaysInlineFilter && canInlineFilterColumn(factTable, c))
+    .filter(
+      (c) => c.alwaysInlineFilter && canInlineFilterColumn(factTable, c.column)
+    )
     .forEach((c) => {
       if (!inlineFilters[c.column] || !inlineFilters[c.column].length) {
         inlineFilters[c.column] = [""];
