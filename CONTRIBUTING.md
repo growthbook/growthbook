@@ -10,7 +10,7 @@ If you just want to contribute a client library in a new language and not make c
 - [NodeJS](https://nodejs.org/en/download/package-manager/) 18.x or above
   - Check version by running `node -v` on terminal
 - [Yarn](https://classic.yarnpkg.com/en/docs/install)
-- [Python](https://www.python.org/downloads/) 3.8+ (for the stats engine)
+- [Python](https://www.python.org/downloads/) 3.9+ (for the stats engine)
   - [scipy](https://scipy.org/install/)
   - [numpy](https://numpy.org/install/)
   - [pandas](https://pandas.pydata.org/docs/getting_started/install.html)
