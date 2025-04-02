@@ -747,7 +747,7 @@ export default function ResultsTableTooltip({
                           {getExperimentMetricFormatter(
                             data.metric,
                             ssrPolyfills?.getFactTableById || getFactTableById,
-                            true
+                            "number"
                           )(row.value, { currency: displayCurrency })}
                         </td>
                       ) : null}
