@@ -76,9 +76,6 @@ const licenseController = wrapController(licenseControllerRaw);
 import * as subscriptionControllerRaw from "./controllers/subscription";
 const subscriptionController = wrapController(subscriptionControllerRaw);
 
-import * as vercelControllerRaw from "./controllers/vercel";
-const vercelController = wrapController(vercelControllerRaw);
-
 import * as featuresControllerRaw from "./controllers/features";
 const featuresController = wrapController(featuresControllerRaw);
 
@@ -432,13 +429,6 @@ app.get(
   "/dimension-slices/datasource/:datasourceId/:exposureQueryId",
   datasourcesController.getLatestDimensionSlicesForDatasource
 );
-
-if (IS_CLOUD) {
-  app.get("/vercel/has-token", vercelController.getHasToken);
-  app.post("/vercel/token", vercelController.postToken);
-  app.post("/vercel/env-vars", vercelController.postEnvVars);
-  app.get("/vercel/config", vercelController.getConfig);
-}
 
 app.use("/tag", tagRouter);
 
