@@ -253,8 +253,7 @@ export function formatPercent(
 export function formatPercentagePoints(value: number) {
   const ppValue = 100 * value;
   const absValue = Math.abs(ppValue);
-  const digits =
-    absValue > 100 ? 0 : absValue > 10 ? 1 : absValue > 1 ? 2 : 3;
+  const digits = absValue > 100 ? 0 : absValue > 10 ? 1 : absValue > 1 ? 2 : 3;
   // Show fewer fractional digits for bigger numbers
   const formatter = new Intl.NumberFormat(undefined, {
     maximumFractionDigits: digits,
