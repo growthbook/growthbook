@@ -34,6 +34,7 @@ import {
   updateDefaultPaymentMethod,
   getPaymentMethodsByLicenseKey,
 } from "back-end/src/enterprise/billing/index";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 
 function withLicenseServerErrorHandling<T>(
   fn: (req: AuthRequest<T>, res: Response) => Promise<void>
@@ -397,6 +398,9 @@ export async function getUsage(
   req: AuthRequest<unknown, unknown, { monthsAgo?: number }>,
   res: Response<{ status: 200; cdnUsage: DailyUsage[]; limits: UsageLimits }>
 ) {
+  if (!IS_CLOUD) {
+    throw new Error("Usage data is only available on GrowthBook Cloud.");
+  }
   const context = getContextFromReq(req);
 
   if (!context.permissions.canViewUsage()) {
