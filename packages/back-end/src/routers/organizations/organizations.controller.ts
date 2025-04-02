@@ -795,6 +795,7 @@ export async function getOrganization(
       dateCreated: org.dateCreated,
     },
     seatsInUse,
+    usage: await context.usage(),
   });
 }
 
