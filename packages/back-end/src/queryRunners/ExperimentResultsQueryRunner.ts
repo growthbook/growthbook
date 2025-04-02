@@ -32,6 +32,7 @@ import {
   analyzeExperimentTraffic,
 } from "back-end/src/services/stats";
 import {
+  Dimension,
   ExperimentAggregateUnitsQueryResponseRows,
   ExperimentDimension,
   ExperimentFactMetricsQueryParams,
@@ -212,10 +213,13 @@ export const startExperimentResultQueries = async (
     (q) => q.id === snapshotSettings.exposureQueryId
   );
 
-  const dimensionObj = await parseDimensionId(
-    snapshotSettings.dimensions[0]?.id,
-    org.id
-  );
+  console.log(snapshotSettings.dimensions);
+  // TODO don't attach slices if ad-hoc
+  const dimensionObjs: Dimension[] = (await Promise.all(snapshotSettings.dimensions.map(async (d) => await parseDimensionId(
+    "exp:" + d.id,
+    org.id,
+    exposureQuery
+  )))).filter((d): d is Dimension => d !== null);
 
   const queries: Queries = [];
 
@@ -238,7 +242,8 @@ export const startExperimentResultQueries = async (
       : "";
 
   // Settings for health query
-  const runTrafficQuery = !dimensionObj && org.settings?.runHealthTrafficQuery;
+  // TODO flag for "default"
+  const runTrafficQuery = org.settings?.runHealthTrafficQuery;
   let dimensionsForTraffic: ExperimentDimension[] = [];
   if (runTrafficQuery && exposureQuery?.dimensionMetadata) {
     dimensionsForTraffic = exposureQuery.dimensionMetadata
@@ -252,7 +257,7 @@ export const startExperimentResultQueries = async (
 
   const unitQueryParams: ExperimentUnitsQueryParams = {
     activationMetric: activationMetric,
-    dimensions: dimensionObj ? [dimensionObj] : dimensionsForTraffic,
+    dimensions: dimensionObjs ? dimensionObjs : dimensionsForTraffic,
     segment: segmentObj,
     settings: snapshotSettings,
     unitsTableFullName: unitsTableFullName,
@@ -301,7 +306,7 @@ export const startExperimentResultQueries = async (
     const queryParams: ExperimentMetricQueryParams = {
       activationMetric,
       denominatorMetrics,
-      dimensions: dimensionObj ? [dimensionObj] : [],
+      dimensions: dimensionObjs,
       metric: m,
       segment: segmentObj,
       settings: snapshotSettings,
@@ -325,7 +330,7 @@ export const startExperimentResultQueries = async (
   for (const [i, m] of groups.entries()) {
     const queryParams: ExperimentFactMetricsQueryParams = {
       activationMetric,
-      dimensions: dimensionObj ? [dimensionObj] : [],
+      dimensions: dimensionObjs,
       metrics: m,
       segment: segmentObj,
       settings: snapshotSettings,
@@ -587,7 +592,8 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
 
     const dimensionObj = await parseDimensionId(
       snapshotSettings.dimensions[0]?.id,
-      this.model.organization
+      this.model.organization,
+      undefined,
     );
 
     const dimension =

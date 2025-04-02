@@ -305,6 +305,7 @@ function createStatsEngineData(
 export async function runSnapshotAnalysis(
   params: ExperimentMetricAnalysisParams
 ): Promise<{ results: ExperimentMetricAnalysis; banditResult?: BanditResult }> {
+  console.log(params);
   const analysis: MultipleExperimentMetricAnalysis | undefined = (
     await runStatsEngine([
       { id: params.id, data: createStatsEngineData(params) },
@@ -703,6 +704,7 @@ export async function analyzeExperimentResults({
   const { queryResults, metricSettings } = mdat;
   const { unknownVariations } = mdat;
 
+  console.log(queryResults);
   const params: ExperimentMetricAnalysisParams = {
     id: snapshotSettings.experimentId,
     coverage: snapshotSettings.coverage ?? 1,

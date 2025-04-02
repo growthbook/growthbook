@@ -1,14 +1,20 @@
-import React, { useEffect } from "react";
-import { ExperimentSnapshotAnalysisSettings } from "back-end/types/experiment-snapshot";
+import React, { useCallback, useEffect, useState } from "react";
+import { DimensionForSnapshot, ExperimentSnapshotAnalysis, ExperimentSnapshotAnalysisSettings, ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { DifferenceType } from "back-end/types/stats";
 import { getExposureQuery } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import { analysisUpdate } from "@/components/Experiment/DifferenceTypeChooser";
+import { useAuth } from "@/services/auth";
+import track from "@/services/track";
+import { Flex } from "@radix-ui/themes";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 export interface Props {
   value: string;
-  setValue?: (value: string) => void;
+  setValue?: (value: string | null) => void;
+  setValueFromPrecomputed?: (value: string | null) => void;
   datasourceId?: string;
   exposureQueryId?: string;
   activationMetric?: boolean;
@@ -19,6 +25,9 @@ export interface Props {
   setVariationFilter?: (variationFilter: number[]) => void;
   setBaselineRow?: (baselineRow: number) => void;
   setDifferenceType?: (differenceType: DifferenceType) => void;
+  analysis?: ExperimentSnapshotAnalysis;
+  snapshot?: ExperimentSnapshotInterface;
+  mutate: () => void;
   setAnalysisSettings?: (
     settings: ExperimentSnapshotAnalysisSettings | null
   ) => void;
@@ -29,6 +38,7 @@ export interface Props {
 export default function DimensionChooser({
   value,
   setValue,
+  setValueFromPrecomputed,
   datasourceId,
   exposureQueryId,
   activationMetric,
@@ -39,10 +49,16 @@ export default function DimensionChooser({
   setVariationFilter,
   setBaselineRow,
   setDifferenceType,
+  analysis,
+  snapshot,
+  mutate,
   setAnalysisSettings,
   disabled,
   ssrPolyfills,
 }: Props) {
+  const { apiCall } = useAuth();
+
+  const [postLoading, setPostLoading] = useState(false);
   const { dimensions, getDatasourceById, getDimensionById } = useDefinitions();
   const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
 
@@ -52,11 +68,6 @@ export default function DimensionChooser({
       setValue?.("");
     }
   }, [value, setValue, activationMetric]);
-
-  // Don't show anything if the datasource doesn't support dimensions
-  // if (!datasource || !datasource.properties?.dimensions) {
-  //   return null;
-  // }
 
   // Include user dimensions tied to the datasource
   const filteredDimensions = dimensions
@@ -107,6 +118,14 @@ export default function DimensionChooser({
     });
   }
 
+  const precomputedDimensions = snapshot?.settings?.dimensions?.map((d) => ({
+    label: d.id.replace(/^exp:/, ""),
+    value: d.id,
+  })) ?? [];
+
+  // remove precomputed dimensions from the on-demand dimensions
+  const onDemandDimensions = [...builtInDimensions, ...filteredDimensions].filter((d) => !precomputedDimensions.includes(d));
+
   if (disabled) {
     const dimensionName =
       ssrPolyfills?.getDimensionById?.(value)?.name ||
@@ -123,22 +142,33 @@ export default function DimensionChooser({
     );
   }
 
+  const triggerAnalysisUpdate = useCallback(analysisUpdate, [
+    analysis,
+    snapshot,
+    apiCall,
+  ]);
+
   return (
     <div>
       {newUi && <div className="uppercase-title text-muted">Dimension</div>}
-      <SelectField
-        label={newUi ? undefined : "Dimension"}
-        labelClassName={labelClassName}
+      <Flex direction="row" gap="1" align="center">
+        <SelectField
+          label={newUi ? undefined : "Dimension"}
+          labelClassName={labelClassName}
         containerClassName={newUi ? "select-dropdown-underline" : ""}
         options={[
-          {
-            label: "Built-in",
-            options: builtInDimensions,
-          },
-          {
-            label: "Custom",
-            options: filteredDimensions,
-          },
+          ...(precomputedDimensions.length > 0
+            ? [{
+                label: "Pre-computed",
+                options: precomputedDimensions,
+              }]
+            : []),
+          ...(onDemandDimensions.length > 0
+            ? [{
+                label: "On-demand",
+                options: onDemandDimensions,
+              }]
+            : []),
         ]}
         formatGroupLabel={({ label }) => (
           <div className="pt-2 pb-1 border-bottom">{label}</div>
@@ -147,17 +177,51 @@ export default function DimensionChooser({
         value={value}
         onChange={(v) => {
           if (v === value) return;
-          setAnalysisSettings?.(null);
-          setBaselineRow?.(0);
-          setDifferenceType?.("relative");
-          setVariationFilter?.([]);
-          setValue?.(v);
+          if (precomputedDimensions.map((d) => d.value).includes(v)) {
+            setValueFromPrecomputed?.(v);
+            if (analysis && snapshot) {
+              const newSettings: ExperimentSnapshotAnalysisSettings = {
+                ...analysis.settings,
+                dimensions: [v],
+            };
+            triggerAnalysisUpdate(
+              newSettings,
+              analysis,
+              snapshot,
+              apiCall,
+              setPostLoading
+            ).then((status) => {
+              if (status === "success") {
+                setValue?.(null);
+                setAnalysisSettings?.(newSettings);
+                track("Experiment Analysis: switch precomputed-dimension", {
+                  dimension: v,
+                });
+                mutate();
+              }
+            }).catch(() => {
+              setValue?.(value);
+            });
+            setPostLoading(false);
+            }
+          } else {
+            setAnalysisSettings?.(null);
+            setBaselineRow?.(0);
+            setDifferenceType?.("relative");
+            setVariationFilter?.([]);
+            setValue?.(v);
+            setValueFromPrecomputed?.(null);
+          }
         }}
+        sort={false}
         helpText={
           showHelp ? "Break down results for each metric by a dimension" : ""
-        }
-        disabled={disabled}
-      />
+          }
+          disabled={disabled}
+        />
+
+{postLoading && <LoadingSpinner className="ml-1" />}
+      </Flex>
     </div>
   );
 }
