@@ -11,6 +11,7 @@ from gbstats.models.statistics import (
     ProportionStatistic,
     RatioStatistic,
     RegressionAdjustedStatistic,
+    RegressionAdjustedRatioStatistic,
     QuantileStatistic,
 )
 from gbstats.models.tests import BaseABTest, BaseConfig
@@ -135,9 +136,10 @@ class CreateStatistic:
             "proportion",
             "ratio",
             "regression_adjusted",
+            "regression_adjusted_ratio",
             "quantile",
             "quantile_clustered",
-        ], "statistic_type must be one of sample_mean, proportion, ratio, regression_adjusted, quantile, quantile_clustered"
+        ], "statistic_type must be one of sample_mean, proportion, ratio, regression_adjusted, regression_adjusted_ratio, quantile, quantile_clustered"
         assert (
             self.x is None or self.x.shape == self.y.shape
         ), "if x is specified, it must have the same shape as y"
@@ -152,7 +154,7 @@ class CreateStatistic:
         elif self.statistic_type == "proportion":
             return ProportionStatistic(n=self.n, sum=float(np.sum(self.y)))
         elif self.statistic_type == "ratio":
-            if not self.x:
+            if self.x is None:
                 raise ValueError("x must be provided for ratio statistic")
             m_statistic = SampleMeanStatistic(
                 n=self.n,
@@ -172,7 +174,7 @@ class CreateStatistic:
                 m_d_sum_of_products=m_d_sum_of_products,
             )
         elif self.statistic_type == "regression_adjusted":
-            if not self.x:
+            if self.x is None:
                 raise ValueError("x must be provided for regression statistic")
             post_statistic = SampleMeanStatistic(
                 n=self.n,
@@ -194,6 +196,51 @@ class CreateStatistic:
             )
             stat.theta = stat.covariance / stat.pre_statistic.variance
             return stat
+        elif self.statistic_type == "regression_adjusted_ratio":
+            if self.x is None:
+                raise ValueError(
+                    "x must be provided for regression adjusted ratio statistic"
+                )
+            m_statistic_post = SampleMeanStatistic(
+                n=self.n,
+                sum=float(np.sum(self.y[:, 0])),
+                sum_squares=float(np.sum(self.y[:, 0] ** 2)),
+            )
+            d_statistic_post = SampleMeanStatistic(
+                n=self.n,
+                sum=float(np.sum(self.y[:, 1])),
+                sum_squares=float(np.sum(self.y[:, 1] ** 2)),
+            )
+            m_statistic_pre = SampleMeanStatistic(
+                n=self.n,
+                sum=float(np.sum(self.x[:, 0])),
+                sum_squares=float(np.sum(self.x[:, 0] ** 2)),
+            )
+            d_statistic_pre = SampleMeanStatistic(
+                n=self.n,
+                sum=float(np.sum(self.x[:, 1])),
+                sum_squares=float(np.sum(self.x[:, 1] ** 2)),
+            )
+            m_post_m_pre_sum_of_products = float(np.sum(self.y[:, 0] * self.x[:, 0]))
+            d_post_d_pre_sum_of_products = float(np.sum(self.y[:, 1] * self.x[:, 1]))
+            m_pre_d_pre_sum_of_products = float(np.sum(self.x[:, 0] * self.x[:, 1]))
+            m_post_d_post_sum_of_products = float(np.sum(self.y[:, 0] * self.y[:, 1]))
+            m_post_d_pre_sum_of_products = float(np.sum(self.y[:, 0] * self.x[:, 1]))
+            m_pre_d_post_sum_of_products = float(np.sum(self.x[:, 0] * self.y[:, 1]))
+            return RegressionAdjustedRatioStatistic(
+                n=self.n,
+                m_statistic_post=m_statistic_post,
+                d_statistic_post=d_statistic_post,
+                m_statistic_pre=m_statistic_pre,
+                d_statistic_pre=d_statistic_pre,
+                m_post_m_pre_sum_of_products=m_post_m_pre_sum_of_products,
+                d_post_d_pre_sum_of_products=d_post_d_pre_sum_of_products,
+                m_pre_d_pre_sum_of_products=m_pre_d_pre_sum_of_products,
+                m_post_d_post_sum_of_products=m_post_d_post_sum_of_products,
+                m_post_d_pre_sum_of_products=m_post_d_pre_sum_of_products,
+                m_pre_d_post_sum_of_products=m_pre_d_post_sum_of_products,
+                theta=None,
+            )
         else:
             if not self.nu:
                 raise ValueError("nu must be provided for quantile statistic")
@@ -263,7 +310,6 @@ class CreateRow:
                 "main_denominator_sum_product": self.stat.m_d_sum_of_products,
             }
 
-        # pick up here later with the rest of the statistics
         elif isinstance(self.stat, RegressionAdjustedStatistic):
             return d | {
                 "main_sum": self.stat.post_statistic.sum,
@@ -271,6 +317,25 @@ class CreateRow:
                 "covariate_sum": self.stat.pre_statistic.sum,
                 "covariate_sum_squares": self.stat.pre_statistic.sum_squares,
                 "main_covariate_sum_product": self.stat.post_pre_sum_of_products,
+                "theta": self.stat.theta if self.stat.theta else 0,
+            }
+
+        elif isinstance(self.stat, RegressionAdjustedRatioStatistic):
+            return d | {
+                "main_sum": self.stat.m_statistic_post.sum,
+                "main_sum_squares": self.stat.m_statistic_post.sum_squares,
+                "denominator_sum": self.stat.d_statistic_post.sum,
+                "denominator_sum_squares": self.stat.d_statistic_post.sum_squares,
+                "main_denominator_sum_product": self.stat.m_post_d_post_sum_of_products,
+                "covariate_sum": self.stat.m_statistic_pre.sum,
+                "covariate_sum_squares": self.stat.m_statistic_pre.sum_squares,
+                "denominator_pre_sum": self.stat.d_statistic_pre.sum,
+                "denominator_pre_sum_squares": self.stat.d_statistic_pre.sum_squares,
+                "main_covariate_sum_product": self.stat.m_post_m_pre_sum_of_products,
+                "main_post_denominator_pre_sum_product": self.stat.m_post_d_pre_sum_of_products,
+                "main_pre_denominator_post_sum_product": self.stat.m_pre_d_post_sum_of_products,
+                "main_pre_denominator_pre_sum_product": self.stat.m_pre_d_pre_sum_of_products,
+                "denominator_post_denominator_pre_sum_product": self.stat.d_post_d_pre_sum_of_products,
                 "theta": self.stat.theta if self.stat.theta else 0,
             }
         elif isinstance(self.stat, QuantileStatistic):
