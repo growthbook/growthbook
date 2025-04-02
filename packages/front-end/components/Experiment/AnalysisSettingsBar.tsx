@@ -96,6 +96,12 @@ export default function AnalysisSettingsBar({
     ? getDatasourceById(experiment.datasource)
     : null;
 
+  console.log("dimension", dimension);
+  console.log("snapshotId", snapshot?.id);
+  console.log("analysis", analysis);
+
+  const [precomputedDimension, setPrecomputedDimension] = useState<string | null>(null);
+
   const { hasCommercialFeature } = useUser();
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment"
@@ -161,8 +167,9 @@ export default function AnalysisSettingsBar({
           ) : null}
           <div className="col-auto form-inline pr-5">
             <DimensionChooser
-              value={dimension}
+              value={precomputedDimension ?? dimension}
               setValue={setDimension}
+              setValueFromPrecomputed={setPrecomputedDimension}
               activationMetric={!!experiment.activationMetric}
               datasourceId={experiment.datasource}
               exposureQueryId={experiment.exposureQueryId}
@@ -171,7 +178,10 @@ export default function AnalysisSettingsBar({
               setVariationFilter={setVariationFilter}
               setBaselineRow={setBaselineRow}
               setDifferenceType={setDifferenceType}
+              analysis={analysis}
               setAnalysisSettings={setAnalysisSettings}
+              snapshot={snapshot}
+              mutate={mutate}
             />
           </div>
           {!manualSnapshot && setDifferenceType ? (

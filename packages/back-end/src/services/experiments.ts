@@ -69,6 +69,7 @@ import {
   SnapshotType,
   SnapshotVariation,
   SnapshotBanditSettings,
+  DimensionForSnapshot,
 } from "back-end/types/experiment-snapshot";
 import {
   getMetricById,
@@ -158,6 +159,7 @@ import {
   getMetricDefaultsForOrg,
   getPValueThresholdForOrg,
 } from "./organizations";
+import { getLatestDimensionSlices } from "back-end/src/models/DimensionSlicesModel";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -388,6 +390,8 @@ export function getAdditionalExperimentAnalysisSettings(
     differenceType: "scaled",
   });
 
+  // get dimension slices
+
   return additionalAnalyses;
 }
 
@@ -427,7 +431,9 @@ export function isJoinableMetric({
 export function getSnapshotSettings({
   experiment,
   phaseIndex,
-  settings,
+  snapshotType,
+  dimension,
+  regressionAdjustmentEnabled,
   orgPriorSettings,
   settingsForSnapshotMetrics,
   metricMap,
@@ -438,12 +444,15 @@ export function getSnapshotSettings({
 }: {
   experiment: ExperimentInterface;
   phaseIndex: number;
-  settings: ExperimentSnapshotAnalysisSettings;
+  snapshotType: SnapshotType;
+  dimension: string | null;
+  regressionAdjustmentEnabled: boolean;
   orgPriorSettings: MetricPriorSettings | undefined;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   metricGroups: MetricGroupInterface[];
+  autoComputeDimensions?: boolean;
   reweight?: boolean;
   datasource?: DataSourceInterface;
 }): ExperimentSnapshotSettings {
@@ -463,6 +472,13 @@ export function getSnapshotSettings({
   const exposureQuery = queries.find(
     (q) => q.id === experiment.exposureQueryId
   );
+
+  // get dimensions for standard analysis
+  // TODO customize at experiment level
+  let dimensions: DimensionForSnapshot[] = dimension ? [{ id: dimension }] : []
+  if (snapshotType === "standard" && !dimension && !!datasource && !!exposureQuery) {
+    dimensions = exposureQuery.dimensionMetadata?.map((d) => ({ id: d.dimension })) ?? [];
+  }
 
   // expand metric groups and scrub unjoinable metrics
   const goalMetrics = expandMetricGroups(
@@ -554,14 +570,14 @@ export function getSnapshotSettings({
     segment: experiment.segment || "",
     queryFilter: experiment.queryFilter || "",
     datasourceId: experiment.datasource || "",
-    dimensions: settings.dimensions.map((id) => ({ id })),
+    dimensions: dimensions,
     startDate: phase.dateStarted,
     endDate: phase.dateEnded || new Date(),
     experimentId: experiment.trackingKey || experiment.id,
     goalMetrics,
     secondaryMetrics,
     guardrailMetrics,
-    regressionAdjustmentEnabled: !!settings.regressionAdjusted,
+    regressionAdjustmentEnabled,
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: experiment.exposureQueryId,
     metricSettings,
@@ -597,7 +613,9 @@ export async function createManualSnapshot({
     experiment,
     phaseIndex,
     orgPriorSettings: orgPriorSettings,
-    settings: analysisSettings,
+    snapshotType: "standard",
+    dimension: null,
+    regressionAdjustmentEnabled: false,
     settingsForSnapshotMetrics: [],
     metricMap,
     factTableMap: new Map(), // todo
@@ -649,13 +667,15 @@ export async function createManualSnapshot({
 
 export async function parseDimensionId(
   dimension: string | null | undefined,
-  organization: string
+  organization: string,
+  exposureQuery: ExposureQuery | undefined
 ): Promise<Dimension | null> {
   if (dimension) {
     if (dimension.match(/^exp:/)) {
       return {
         type: "experiment",
         id: dimension.substr(4),
+        specifiedSlices: exposureQuery?.dimensionMetadata?.find((d) => d.dimension === dimension)?.specifiedSlices ?? [],
       };
     } else if (dimension.substr(0, 4) === "pre:") {
       return {
@@ -991,7 +1011,9 @@ export async function createSnapshot({
     experiment,
     phaseIndex,
     orgPriorSettings: organization.settings?.metricDefaults?.priorSettings,
-    settings: defaultAnalysisSettings,
+    snapshotType: type,
+    dimension,
+    regressionAdjustmentEnabled: !!defaultAnalysisSettings.regressionAdjusted,
     settingsForSnapshotMetrics,
     metricMap,
     factTableMap,

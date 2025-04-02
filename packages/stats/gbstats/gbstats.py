@@ -138,13 +138,15 @@ def get_metric_df(
     rows: pd.DataFrame,
     var_id_map: VarIdMap,
     var_names: List[str],
+    dimension: str,
 ) -> pd.DataFrame:
     dfc = rows.copy()
     dimensions = {}
     # Each row in the raw SQL result is a dimension/variation combo
     # We want to end up with one row per dimension
     for row in dfc.itertuples(index=False):
-        dim = row.dimension
+        # TODO fix dimensionname
+        dim = getattr(row, "dim_exp_" + dimension) if dimension else ""
         # If this is the first time we're seeing this dimension, create an empty dict
         if dim not in dimensions:
             # Overall columns
@@ -168,10 +170,11 @@ def get_metric_df(
             dimensions[dim]["total_users"] += row.users
             prefix = f"v{i}" if i > 0 else "baseline"
             for col in ROW_COLS:
-                dimensions[dim][f"{prefix}_{col}"] = getattr(row, col, 0)
+                # Sum here in case multiple rows per dimension
+                dimensions[dim][f"{prefix}_{col}"] += getattr(row, col, 0)
             # Special handling for count, if missing returns a method, so override with user value
             if callable(getattr(row, "count")):
-                dimensions[dim][f"{prefix}_count"] = getattr(row, "users", 0)
+                dimensions[dim][f"{prefix}_count"] += getattr(row, "users", 0)
     return pd.DataFrame(dimensions.values())
 
 
@@ -656,7 +659,7 @@ def process_analysis(
         rows = diff_for_daily_time_series(rows)
 
     # Convert raw SQL result into a dataframe of dimensions
-    df = get_metric_df(rows=rows, var_id_map=var_id_map, var_names=var_names)
+    df = get_metric_df(rows=rows, var_id_map=var_id_map, var_names=var_names, dimension=analysis.dimension)
     # Limit to the top X dimensions with the most users
     # not possible to just re-sum for quantile metrics,
     # so we throw away "other" dimension
