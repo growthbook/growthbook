@@ -7,6 +7,7 @@ import { useState } from "react";
 import Modal from "@/components/Modal";
 import { useStripeContext } from "@/hooks/useStripeContext";
 import { useAuth } from "@/services/auth";
+import track from "@/services/track";
 import { useUser } from "@/services/UserContext";
 
 interface Props {
@@ -29,6 +30,10 @@ export default function CloudProUpgradeModal({
   const stripe = useStripe();
 
   const handleSubmit = async () => {
+    track("upgrade-to-orb-cloud-pro-submit", {
+      type: "upgrade-to-orb-cloud-pro",
+      source: "orb-cloud-pro-upgrade-modal",
+    });
     if (!stripe || !elements || !clientSecret) return;
     setLoading(true);
     try {
@@ -51,10 +56,20 @@ export default function CloudProUpgradeModal({
       await apiCall("/subscription/start-new-pro", {
         method: "POST",
       });
+      track("upgrade-to-orb-cloud-pro-success", {
+        type: "upgrade-to-orb-cloud-pro",
+        source: "orb-cloud-pro-upgrade-modal",
+      });
       refreshOrganization();
       setLoading(false);
       setSuccess(true);
     } catch (e) {
+      track("upgrade-to-orb-cloud-pro-error", {
+        type: "upgrade-to-orb-cloud-pro",
+        source: "orb-cloud-pro-upgrade-modal",
+        message: e.message,
+        error: e,
+      });
       setLoading(false);
       throw new Error(e.message);
     }
@@ -62,8 +77,8 @@ export default function CloudProUpgradeModal({
 
   return (
     <Modal
-      trackingEventModalType="upgrade-to-pro"
-      trackingEventModalSource="upgrade-modal"
+      trackingEventModalType="upgrade-to-orb-cloud-pro"
+      trackingEventModalSource="orb-cloud-pro-upgrade-modal"
       open={true}
       close={() => {
         if (success) {
