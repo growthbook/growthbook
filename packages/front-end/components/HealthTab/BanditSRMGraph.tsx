@@ -218,7 +218,7 @@ const BanditSRMGraph: FC<BanditSRMGraphProps> = ({
         totalUsers ? (users[i] ?? 0) / totalUsers : undefined
       );
 
-      const srm = event?.banditResult?.srm;
+      const srm = event?.health?.srm;
 
       const dataPoint: BanditSRMGraphDataPoint = {
         date: new Date(event.date),

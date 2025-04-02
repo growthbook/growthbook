@@ -33,6 +33,7 @@ export const DEFAULT_TEST_QUERY_DAYS = 30;
 
 // Dimension name constants:
 export const EXPOSURE_DATE_DIMENSION_NAME = "dim_exposure_date";
+export const BANDIT_SRM_DIMENSION_NAME = "gb_internal_bandit_srm";
 export const AUTOMATIC_DIMENSION_OTHER_NAME = "__Other__";
 // Colors:
 // export const variant_null = "#999";
