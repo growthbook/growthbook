@@ -4,6 +4,7 @@ import {
   expandMetricGroups,
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
+  getPredefinedDimensionSlicesByExperiment,
   isFactMetric,
   isRatioMetric,
   quantileMetricType,
@@ -26,7 +27,7 @@ import {
   findSnapshotById,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
-import { parseDimensionId } from "back-end/src/services/experiments";
+import { parseDimension } from "back-end/src/services/experiments";
 import {
   analyzeExperimentResults,
   analyzeExperimentTraffic,
@@ -212,13 +213,11 @@ export const startExperimentResultQueries = async (
   const exposureQuery = (settings?.queries?.exposure || []).find(
     (q) => q.id === snapshotSettings.exposureQueryId
   );
-
-  console.log(snapshotSettings.dimensions);
-  // TODO don't attach slices if ad-hoc
-  const dimensionObjs: Dimension[] = (await Promise.all(snapshotSettings.dimensions.map(async (d) => await parseDimensionId(
+  
+  const dimensionObjs: Dimension[] = (await Promise.all(snapshotSettings.dimensions.map(async (d) => await parseDimension(
     "exp:" + d.id,
+    d.levels, 
     org.id,
-    exposureQuery
   )))).filter((d): d is Dimension => d !== null);
 
   const queries: Queries = [];
@@ -590,10 +589,10 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       throw new Error("Experiment must have at least 1 metric selected.");
     }
 
-    const dimensionObj = await parseDimensionId(
+    const dimensionObj = await parseDimension(
       snapshotSettings.dimensions[0]?.id,
+      snapshotSettings.dimensions[0]?.levels,
       this.model.organization,
-      undefined,
     );
 
     const dimension =
