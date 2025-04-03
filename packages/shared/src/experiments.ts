@@ -32,7 +32,6 @@ import {
   DataSourceInterfaceWithParams,
   DataSourceSettings,
   ExperimentDimensionMetadata,
-  ExposureQuery,
 } from "back-end/types/datasource";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { StatsEngine } from "back-end/types/stats";
@@ -1222,18 +1221,21 @@ export function getPredefinedDimensionSlicesByExperiment(
 
   let totalLevels = countDimensionLevels(dimensions, nVariations);
   const maxLevels = 2000;
-  while(totalLevels > maxLevels) {
+  while (totalLevels > maxLevels) {
     dimensions = dimensions.slice(0, -1);
     if (dimensions.length === 0) {
       break;
     }
     totalLevels = countDimensionLevels(dimensions, nVariations);
   }
-  
+
   return dimensions;
 }
 
-function countDimensionLevels(dimensionMetadata: { specifiedSlices: string[] }[], nVariations: number): number {
+function countDimensionLevels(
+  dimensionMetadata: { specifiedSlices: string[] }[],
+  nVariations: number
+): number {
   const nLevels: number[] = [];
   dimensionMetadata.forEach((dim) => {
     nLevels.push(dim.specifiedSlices.length);

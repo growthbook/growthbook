@@ -30,7 +30,6 @@ import {
   setAdjustedPValuesOnResults,
   ExperimentTableRow,
   setAdjustedCIs,
-  hasRisk,
 } from "@/services/experiments";
 import { GBCuped } from "@/components/Icons";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";

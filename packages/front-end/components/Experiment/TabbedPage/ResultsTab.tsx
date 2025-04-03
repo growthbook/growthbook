@@ -87,14 +87,16 @@ export default function ResultsTab({
   const { apiCall } = useAuth();
 
   const [allowManualDatasource, setAllowManualDatasource] = useState(false);
+  const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
 
   const router = useRouter();
 
   const { snapshot, analysis, dimension } = useSnapshot();
+  const [precomputedDimension, setPrecomputedDimension] = useState<
+    string | null
+  >(null);
+
   const permissionsUtil = usePermissionsUtil();
-
-  const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
-
   const { hasCommercialFeature, organization } = useUser();
   const project = getProjectById(experiment.project || "");
 
@@ -220,9 +222,10 @@ export default function ResultsTab({
             mutate={mutate}
             statsEngine={statsEngine}
             editMetrics={editMetrics ?? undefined}
-            setVariationFilter={(v: number[]) => setVariationFilter(v)}
             baselineRow={baselineRow}
+            setVariationFilter={(v: number[]) => setVariationFilter(v)}
             setBaselineRow={(b: number) => setBaselineRow(b)}
+            setPrecomputedDimension={setPrecomputedDimension}
             setDifferenceType={setDifferenceType}
             reportArgs={reportArgs}
           />
@@ -307,6 +310,8 @@ export default function ResultsTab({
                   setBaselineRow={setBaselineRow}
                   differenceType={differenceType}
                   setDifferenceType={setDifferenceType}
+                  precomputedDimension={precomputedDimension}
+                  setPrecomputedDimension={setPrecomputedDimension}
                   metricFilter={metricFilter}
                   setMetricFilter={setMetricFilter}
                   setTab={setTab}

@@ -160,7 +160,6 @@ import {
   getMetricDefaultsForOrg,
   getPValueThresholdForOrg,
 } from "./organizations";
-import { getLatestDimensionSlices } from "back-end/src/models/DimensionSlicesModel";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -476,13 +475,24 @@ export function getSnapshotSettings({
 
   // get dimensions for standard analysis
   // TODO customize at experiment level
-  let dimensions: DimensionForSnapshot[] = dimension ? [{ id: dimension }] : []
-  if (snapshotType === "standard" && !dimension && !!datasource && !!exposureQuery && !!exposureQuery.dimensionMetadata) {
+  let dimensions: DimensionForSnapshot[] = dimension ? [{ id: dimension }] : [];
+  if (
+    snapshotType === "standard" &&
+    !dimension &&
+    !!datasource &&
+    !!exposureQuery &&
+    !!exposureQuery.dimensionMetadata
+  ) {
     // if standard snapshot with no dimension set, we should pre-compute dimensions
     const predefinedDimensions = getPredefinedDimensionSlicesByExperiment(
-      exposureQuery?.dimensionMetadata, experiment.variations.length || 2
+      exposureQuery?.dimensionMetadata,
+      experiment.variations.length || 2
     );
-    dimensions = predefinedDimensions.map((d) => ({ id: d.dimension, levels: d.specifiedSlices })) ?? [];
+    dimensions =
+      predefinedDimensions.map((d) => ({
+        id: d.dimension,
+        levels: d.specifiedSlices,
+      })) ?? [];
   }
 
   // expand metric groups and scrub unjoinable metrics
