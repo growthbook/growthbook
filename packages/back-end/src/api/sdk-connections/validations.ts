@@ -26,10 +26,10 @@ type CapabilitiesParams = { [k in CapabilitiesParamKey]?: boolean };
 
 const premiumFeatures = [
   ["encrypt-features-endpoint", "encryptPayload"],
-  ["visual-editor", "includeVisualExperiments"],
+  // ["visual-editor", "includeVisualExperiments"],
   ["hash-secure-attributes", "hashSecureAttributes"],
   ["remote-evaluation", "remoteEvalEnabled"],
-  ["redirects", "includeRedirectExperiments"],
+  // ["redirects", "includeRedirectExperiments"],
   ["cloud-proxy", "proxyEnabled"],
 ] as const;
 

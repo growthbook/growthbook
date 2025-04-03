@@ -26,7 +26,6 @@ import SelfHostedTrialConfirmationModal from "./SelfHostedTrialConfirmationModal
 export interface Props {
   close: () => void;
   source: string;
-  reason: string;
   commercialFeature: CommercialFeature | null;
 }
 

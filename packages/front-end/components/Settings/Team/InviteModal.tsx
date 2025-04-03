@@ -55,8 +55,6 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
   const { apiCall } = useAuth();
   const [showUpgradeModal, setShowUpgradeModal] = useState(
     isCloud() && canSubscribe && seatsInUse >= freeSeats
-      ? "Whoops! You reached your free seat limit."
-      : ""
   );
 
   const [showContactSupport, setShowContactSupport] = useState(
@@ -72,7 +70,6 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
       <UpgradeModal
         close={close}
         source="invite team"
-        reason={showUpgradeModal}
         commercialFeature={null}
       />
     );
@@ -108,7 +105,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
       canSubscribe &&
       seatsInUse + value.email.length > freeSeats
     ) {
-      setShowUpgradeModal("Whoops! You reached your free seat limit.");
+      setShowUpgradeModal(true);
       return;
     }
 
@@ -262,9 +259,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
           <RoleSelector
             value={form.watch("roleInfo")}
             setValue={(value) => form.setValue("roleInfo", value)}
-            showUpgradeModal={() =>
-              setShowUpgradeModal("To enable advanced permissioning,")
-            }
+            showUpgradeModal={() => setShowUpgradeModal(true)}
           />
         </>
       )}
