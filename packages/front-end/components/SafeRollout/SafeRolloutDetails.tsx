@@ -1,12 +1,10 @@
-import { Box, Heading, Text } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import {
   FeatureInterface,
   SafeRolloutRule,
 } from "back-end/src/validators/features";
 import { Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { ExperimentData } from "@/hooks/useExperimentStatusIndicator";
-import ExperimentStatusIndicator from "../Experiment/TabbedPage/ExperimentStatusIndicator";
 import TrafficCard from "../HealthTab/TrafficCard";
 import SRMCard from "../HealthTab/SRMCard";
 import Callout from "../Radix/Callout";
@@ -37,15 +35,7 @@ export default function SafeRolloutDetails({ safeRollout, feature }: Props) {
   const { error, snapshot, mutateSnapshot } = useSnapshot();
   const { getDatasourceById } = useDefinitions();
   const datasource = getDatasourceById(safeRollout.datasource);
-
-  const {
-    value,
-    coverage,
-    hashAttribute,
-    guardrailMetrics,
-    controlValue,
-  } = safeRollout;
-  console.log({ snapshot });
+  console.log({ safeRollout });
 
   const exposureQuery = datasource?.settings.queries?.exposure?.find(
     (e) => e.id === safeRollout.exposureQueryId
@@ -64,7 +54,6 @@ export default function SafeRolloutDetails({ safeRollout, feature }: Props) {
       <div className="container-fluid pagecontents">
         <div className="d-flex align-items-center mb-3 mt-3">
           <Flex direction="row" align="center">
-            <h1 className="mb-0">Safe Rollout</h1>
             <Box ml="2">
               {/* <ExperimentStatusIndicator
                 experimentData={safeRollout as ExperimentData}
@@ -72,23 +61,6 @@ export default function SafeRolloutDetails({ safeRollout, feature }: Props) {
             </Box>
           </Flex>
         </div>
-        <h2>Overview</h2>
-        <Frame>
-          <div className="mb-3">
-            <strong className="font-weight-semibold h4">
-              Targeting & Sampling
-            </strong>
-          </div>
-          <SafeRolloutSummary
-            value={value}
-            coverage={coverage}
-            feature={feature}
-            hashAttribute={hashAttribute}
-            guardrailMetrics={guardrailMetrics}
-            controlValue={controlValue}
-          />
-        </Frame>
-
         <h2>Results</h2>
         <Frame>
           <SafeRolloutResults safeRollout={safeRollout} />

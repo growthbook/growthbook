@@ -115,6 +115,7 @@ export default function AnalysisSettingsSummary({
     getExperimentMetricById,
   ]);
 
+  // TODO: create isOutdated function for safe rollouts
   const { outdated, reasons } = isOutdated({
     safeRollout,
     snapshot,

@@ -169,6 +169,9 @@ const experimentReportResultDimensionObject = z.object({
   srm: z.number(),
   variations: z.array(snapshotVariationObject),
 });
+export type SafeRolloutReportResultDimension = z.infer<
+  typeof experimentReportResultDimensionObject
+>;
 
 const safeRolloutSnapshotAnalysisSettingsValidator = z.object({
   dimensions: z.array(z.string()),

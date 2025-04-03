@@ -1,6 +1,5 @@
 import React, { FC } from "react";
 import dynamic from "next/dynamic";
-import { DifferenceType } from "back-end/types/stats";
 import { getValidDate, ago, relativeDate } from "shared/dates";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { ExperimentMetricInterface } from "shared/experiments";
@@ -11,8 +10,8 @@ import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/components/Radix/Callout";
-import { useSnapshot } from "./SnapshotProvider";
 import { ExperimentTab } from "../Experiment/TabbedPage";
+import { useSnapshot } from "./SnapshotProvider";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 
 const CompactResults = dynamic(
@@ -134,7 +133,7 @@ const SafeRolloutResults: FC<{
       )}
 
       {!hasData && status !== "running" && hasMetrics && !snapshotLoading && (
-        <Callout status="info" mx="3" mb="4">
+        <Callout status="info" mx="3" my="4">
           No data yet.{" "}
           {snapshot &&
             phaseAgeMinutes >= 120 &&
@@ -164,7 +163,7 @@ const SafeRolloutResults: FC<{
           results={analysis.results[0]}
           queryStatusData={queryStatusData}
           reportDate={snapshot.dateCreated}
-          startDate={safeRollout.startedAt.toDateString() ?? ""}
+          startDate={safeRollout.startedAt ?? ""} // TODO: investigate why its a string by this point
           isLatestPhase={true}
           status={safeRollout.status === "running" ? "running" : "stopped"}
           goalMetrics={[]}

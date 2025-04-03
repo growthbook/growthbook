@@ -25,6 +25,8 @@ import Badge from "@/components/Radix/Badge";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Callout from "@/components/Radix/Callout";
 import SafeRolloutSummary from "@/components/Features/SafeRolloutSummary";
+import SafeRolloutSnapshotProvider from "@/components/SafeRollout/SnapshotProvider";
+import SafeRolloutDetails from "../SafeRollout/SafeRolloutDetails";
 import ConditionDisplay from "./ConditionDisplay";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
@@ -282,14 +284,23 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     />
                   )}
                   {rule.type === "safe-rollout" && (
-                    <SafeRolloutSummary
-                      value={rule.value ?? ""}
-                      coverage={rule.coverage ?? 1}
+                    <SafeRolloutSnapshotProvider
+                      safeRollout={rule}
                       feature={feature}
-                      hashAttribute={rule.hashAttribute || ""}
-                      guardrailMetrics={rule.guardrailMetrics || []}
-                      controlValue={rule.controlValue}
-                    />
+                    >
+                      <SafeRolloutSummary
+                        value={rule.value ?? ""}
+                        coverage={rule.coverage ?? 1}
+                        feature={feature}
+                        hashAttribute={rule.hashAttribute || ""}
+                        guardrailMetrics={rule.guardrailMetrics || []}
+                        controlValue={rule.controlValue}
+                      />
+                      <SafeRolloutDetails
+                        safeRollout={rule}
+                        feature={feature}
+                      />
+                    </SafeRolloutSnapshotProvider>
                   )}
                   {rule.type === "experiment" && (
                     <ExperimentSummary

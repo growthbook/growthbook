@@ -124,12 +124,9 @@ export const createSnapshot = async (
   if (!feature) {
     throw new Error("Could not find feature");
   }
-  console.log({ feature });
 
   let safeRollout: SafeRolloutRule | undefined;
-  for (const [envKey, environment] of Object.entries(
-    feature.environmentSettings
-  )) {
+  for (const [, environment] of Object.entries(feature.environmentSettings)) {
     for (const rule of environment.rules) {
       if (rule.id === id && rule.type === "safe-rollout") {
         safeRollout = rule;
@@ -151,6 +148,7 @@ export const createSnapshot = async (
   const { snapshot } = await createSafeRolloutSnapshot({
     context,
     safeRollout,
+    feature,
     dimension,
     useCache,
   });

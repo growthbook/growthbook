@@ -27,39 +27,57 @@ const SafeRolloutPage = (): ReactElement => {
   // Is this needed for safe rollouts?
   //   useSwitchOrg(data?.experiment?.organization ?? null);\
 
-  const fakeSafeRollout: SafeRolloutRule = {
-    // id: "exp_2izgf19hmlp1x2efb",
-    id: "fr_1l7r25wm8qnkm1l",
-    description: "Fake Safe Rollout Description",
-    type: "safe-rollout",
-    trackingKey: "gbdemo-checkout-layout",
-    datasource: "ds_2izgf19hmlp1x2cyi",
-    exposureQueryId: "user_id",
-    controlValue: "false",
-    value: "true",
-    coverage: 0.5,
-    hashAttribute: "id",
-    status: "running",
-    guardrailMetrics: [
-      "met_2izgf19hmlp1x2ef5",
-      "met_2izgf19hmlp1x2eea",
-      "met_2izgf19hmlp1x2eep",
-      "met_2izgf19hmlp1x2eel",
-      "met_2izgf19hmlp1x2een",
-      "met_2izgf19hmlp1x2eeo",
-    ],
-    seed: "fake-seed",
-    maxDurationDays: 30,
-    startedAt: new Date("2023-11-17T01:03:29.927+00:00"),
-    lastSnapshotAttempt: new Date("2025-03-24T17:44:09.462+00:00"),
-    nextSnapshotAttempt: new Date("2025-03-24T23:44:09.462+00:00"),
-  };
+  // const fakeSafeRollout: SafeRolloutRule = {
+  //   // id: "exp_2izgf19hmlp1x2efb",
+  //   id: "fr_1l7r25wm8qnkm1l",
+  //   description: "Fake Safe Rollout Description",
+  //   type: "safe-rollout",
+  //   trackingKey: "gbdemo-checkout-layout",
+  //   datasource: "ds_2izgf19hmlp1x2cyi",
+  //   exposureQueryId: "user_id",
+  //   controlValue: "false",
+  //   value: "true",
+  //   coverage: 0.5,
+  //   hashAttribute: "id",
+  //   status: "running",
+  //   guardrailMetrics: [
+  //     "met_2izgf19hmlp1x2ef5",
+  //     "met_2izgf19hmlp1x2eea",
+  //     "met_2izgf19hmlp1x2eep",
+  //     "met_2izgf19hmlp1x2eel",
+  //     "met_2izgf19hmlp1x2een",
+  //     "met_2izgf19hmlp1x2eeo",
+  //   ],
+  //   seed: "fake-seed",
+  //   maxDurationDays: 30,
+  //   startedAt: new Date("2023-11-17T01:03:29.927+00:00"),
+  //   lastSnapshotAttempt: new Date("2025-03-24T17:44:09.462+00:00"),
+  //   nextSnapshotAttempt: new Date("2025-03-24T23:44:09.462+00:00"),
+  // };
 
   if (error) {
     return <div>There was a problem loading the safe rollout</div>;
   }
   if (!data) {
     return <LoadingOverlay />;
+  }
+
+  const feature = data?.feature;
+
+  // loop through environment settings in the feature and through the rules to find a safe rollout with snapshot.safeRolloutRuleId
+  let safeRollout: SafeRolloutRule | undefined;
+  for (const [envKey, environment] of Object.entries(
+    feature.environmentSettings
+  )) {
+    for (const rule of environment.rules) {
+      if (rule.id === srid && rule.type === "safe-rollout") {
+        safeRollout = rule;
+      }
+    }
+  }
+
+  if (!safeRollout) {
+    return <div>Safe Rollout not found</div>;
   }
 
   // const canEditExperiment =
@@ -86,13 +104,10 @@ const SafeRolloutPage = (): ReactElement => {
       />
 
       <SafeRolloutSnapshotProvider
-        safeRollout={fakeSafeRollout}
+        safeRollout={safeRollout}
         feature={data?.feature}
       >
-        <SafeRolloutDetails
-          safeRollout={fakeSafeRollout}
-          feature={data?.feature}
-        />
+        <SafeRolloutDetails safeRollout={safeRollout} feature={data?.feature} />
       </SafeRolloutSnapshotProvider>
     </>
   );

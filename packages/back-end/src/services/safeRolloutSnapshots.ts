@@ -34,7 +34,10 @@ import { OrganizationInterface, ReqContext } from "back-end/types/organization";
 import { MetricSnapshotSettings } from "back-end/types/report";
 import { MetricInterface } from "back-end/types/metric";
 import { getMetricMap } from "back-end/src/models/MetricModel";
-import { SafeRolloutRule } from "back-end/src/validators/features";
+import {
+  FeatureInterface,
+  SafeRolloutRule,
+} from "back-end/src/validators/features";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
@@ -315,6 +318,7 @@ function getSnapshotSettings({
 
 export async function createSnapshot({
   safeRollout,
+  feature,
   context,
   triggeredBy,
   useCache = false,
@@ -324,6 +328,7 @@ export async function createSnapshot({
   factTableMap,
 }: {
   safeRollout: SafeRolloutRule;
+  feature: FeatureInterface;
   context: ReqContext | ApiReqContext;
   triggeredBy: SnapshotTriggeredBy;
   useCache?: boolean;
@@ -353,7 +358,7 @@ export async function createSnapshot({
   });
 
   const data: CreateProps<SafeRolloutSnapshotInterface> = {
-    featureId: safeRollout.id, // TODO: replace with actual feature id
+    featureId: feature.id,
     safeRolloutRuleId: safeRollout.id,
     runStarted: new Date(),
     error: "",
@@ -398,6 +403,7 @@ export async function createSnapshot({
     integration,
     useCache
   );
+
   await queryRunner.startAnalysis({
     metricMap,
     factTableMap,
@@ -409,12 +415,14 @@ export async function createSnapshot({
 export async function createSafeRolloutSnapshot({
   context,
   safeRollout,
+  feature,
   dimension,
   useCache = true,
   triggeredBy,
 }: {
   context: ReqContext;
   safeRollout: SafeRolloutRule;
+  feature: FeatureInterface;
   dimension: string | undefined;
   useCache?: boolean;
   triggeredBy?: SnapshotTriggeredBy;
@@ -440,6 +448,7 @@ export async function createSafeRolloutSnapshot({
 
   const queryRunner = await createSnapshot({
     safeRollout,
+    feature,
     context,
     useCache,
     defaultAnalysisSettings: analysisSettings,

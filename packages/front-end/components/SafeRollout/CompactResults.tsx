@@ -1,7 +1,6 @@
 import { FC, useMemo } from "react";
 import { MdSwapCalls } from "react-icons/md";
 import {
-  ExperimentReportResultDimension,
   ExperimentReportVariation,
   MetricSnapshotSettings,
 } from "back-end/types/report";
@@ -16,14 +15,14 @@ import {
   StatsEngine,
 } from "back-end/types/stats";
 import Link from "next/link";
-import { FaAngleRight, FaTimes, FaUsers } from "react-icons/fa";
-import Collapsible from "react-collapsible";
+import { FaTimes } from "react-icons/fa";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
   getMetricLink,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
+import { SafeRolloutReportResultDimension } from "back-end/src/validators/safe-rollout";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
@@ -44,12 +43,7 @@ import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
 import MetricName, { PercentileLabel } from "@/components/Metrics/MetricName";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import ConditionalWrapper from "@/components/ConditionalWrapper";
-import ResultsTable from "../Experiment/ResultsTable";
-import MultipleExposureWarning from "../Experiment/MultipleExposureWarning";
-import DataQualityWarning from "../Experiment/DataQualityWarning";
-import VariationUsersTable from "../Experiment/TabbedPage/VariationUsersTable";
-
-const numberFormatter = Intl.NumberFormat();
+import ResultsTable from "./ResultsTable";
 
 const CompactResults: FC<{
   editMetrics?: () => void;
@@ -57,7 +51,7 @@ const CompactResults: FC<{
   variationFilter?: number[];
   baselineRow?: number;
   multipleExposures?: number;
-  results: ExperimentReportResultDimension;
+  results: SafeRolloutReportResultDimension;
   queryStatusData?: QueryStatusData;
   reportDate: Date;
   startDate: string;
@@ -254,16 +248,10 @@ const CompactResults: FC<{
       metricFilter
     );
 
-    const retMetrics = sortedFilteredMetrics
-      .map((metricId) => getRow(metricId, "goal"))
-      .filter(isDefined);
-    const retSecondary = sortedFilteredSecondary
-      .map((metricId) => getRow(metricId, "secondary"))
-      .filter(isDefined);
     const retGuardrails = sortedFilteredGuardrails
       .map((metricId) => getRow(metricId, "guardrail"))
       .filter(isDefined);
-    return [...retMetrics, ...retSecondary, ...retGuardrails];
+    return [...retGuardrails];
   }, [
     results,
     expandedGoals,

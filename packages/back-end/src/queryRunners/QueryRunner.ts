@@ -179,6 +179,7 @@ export abstract class QueryRunner<
   public async startAnalysis(params: Params): Promise<Model> {
     logger.debug(this.model.id + " runner: Starting queries");
     const queries = await this.startQueries(params);
+    console.log("queries", queries);
     this.model.queries = queries;
 
     // If already finished (queries were cached)
