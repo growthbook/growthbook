@@ -98,7 +98,6 @@ const ExpandableQuery: FC<{
                       position: "sticky",
                       top: -1,
                     }}
-                    className="bg-light"
                   >
                     <th></th>
                     {Object.keys(query.rawResult[0]).map((k) => (
