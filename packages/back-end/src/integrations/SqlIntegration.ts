@@ -1524,6 +1524,7 @@ export default abstract class SqlIntegration
     baseIdType: string,
     metrics: ExperimentMetricInterface[],
     endDate: Date,
+    dimensionCols: string[],
     regressionAdjusted: boolean = false,
     cumulativeDate: boolean = false,
     overrideConversionWindows: boolean = false,
@@ -1536,7 +1537,7 @@ export default abstract class SqlIntegration
       -- one row per user
       SELECT
         initial.${baseIdType} AS ${baseIdType}
-        , MIN(initial.dimension) AS dimension
+        , ${dimensionCols.map((c) => `MIN(initial.${c}) AS ${c}`).join(", ")}
         , MIN(initial.variation) AS variation
         , MIN(initial.first_exposure_date) AS first_exposure_date
         ${
@@ -2789,8 +2790,7 @@ export default abstract class SqlIntegration
                 }
                 `
             )
-            .join(",")}
-          
+            .join("\n")}
         FROM
           __distinctUsers d
         LEFT JOIN __factTable m ON (
@@ -2857,7 +2857,7 @@ export default abstract class SqlIntegration
                     : ""
                 }`
             )
-            .join(",\n")}
+            .join("\n")}
           ${eventQuantileData
             .map(
               (data) =>
@@ -3044,7 +3044,7 @@ export default abstract class SqlIntegration
             `
             }
           `; /*ends ifelse ratioMetric*/
-        })}
+        }).join("\n")}
       FROM
         __userMetricAgg m
         ${
@@ -3357,6 +3357,7 @@ export default abstract class SqlIntegration
               baseIdType,
               denominatorMetrics,
               settings.endDate,
+              dimensionCols,
               regressionAdjusted,
               cumulativeDate,
               overrideConversionWindows,

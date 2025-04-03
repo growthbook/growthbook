@@ -30,6 +30,8 @@ import cloneDeep from "lodash/cloneDeep";
 import {
   DataSourceInterfaceWithParams,
   DataSourceSettings,
+  ExperimentDimensionMetadata,
+  ExposureQuery,
 } from "back-end/types/datasource";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { StatsEngine } from "back-end/types/stats";
@@ -1253,4 +1255,37 @@ export function getExperimentResultStatus({
       return daysLeftStatus;
     }
   }
+}
+
+export function getPredefinedDimensionSlicesByExperiment(
+  dimensionMetadata: ExperimentDimensionMetadata[],
+  nVariations: number
+) {
+  // Ensure we return no more than 2k rows in full joint distribution
+  // for post-stratification
+  let dimensions = dimensionMetadata;
+
+  // remove dimensions that have no slices
+  dimensions = dimensions.filter((d) => d.specifiedSlices.length > 0);
+
+  let totalLevels = countDimensionLevels(dimensions, nVariations);
+  const maxLevels = 2000;
+  while(totalLevels > maxLevels) {
+    dimensions = dimensions.slice(0, -1);
+    if (dimensions.length === 0) {
+      break;
+    }
+    totalLevels = countDimensionLevels(dimensions, nVariations);
+  }
+  
+  return dimensions;
+}
+
+function countDimensionLevels(dimensionMetadata: { specifiedSlices: string[] }[], nVariations: number): number {
+  const nLevels: number[] = [];
+  dimensionMetadata.forEach((dim) => {
+    nLevels.push(dim.specifiedSlices.length);
+  });
+
+  return nLevels.reduce((acc, n) => acc * n, 1) * nVariations;
 }

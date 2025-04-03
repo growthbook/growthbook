@@ -33,6 +33,7 @@ import {
   getEqualWeights,
   getMetricResultStatus,
   getMetricSnapshotSettings,
+  getPredefinedDimensionSlicesByExperiment,
   isFactMetric,
   isFactMetricId,
   isMetricJoinable,
@@ -476,8 +477,12 @@ export function getSnapshotSettings({
   // get dimensions for standard analysis
   // TODO customize at experiment level
   let dimensions: DimensionForSnapshot[] = dimension ? [{ id: dimension }] : []
-  if (snapshotType === "standard" && !dimension && !!datasource && !!exposureQuery) {
-    dimensions = exposureQuery.dimensionMetadata?.map((d) => ({ id: d.dimension })) ?? [];
+  if (snapshotType === "standard" && !dimension && !!datasource && !!exposureQuery && !!exposureQuery.dimensionMetadata) {
+    // if standard snapshot with no dimension set, we should pre-compute dimensions
+    const predefinedDimensions = getPredefinedDimensionSlicesByExperiment(
+      exposureQuery?.dimensionMetadata, experiment.variations.length || 2
+    );
+    dimensions = predefinedDimensions.map((d) => ({ id: d.dimension, levels: d.specifiedSlices })) ?? [];
   }
 
   // expand metric groups and scrub unjoinable metrics
@@ -665,17 +670,17 @@ export async function createManualSnapshot({
   return await createExperimentSnapshotModel({ data });
 }
 
-export async function parseDimensionId(
+export async function parseDimension(
   dimension: string | null | undefined,
-  organization: string,
-  exposureQuery: ExposureQuery | undefined
+  levels: string[] | undefined,
+  organization: string
 ): Promise<Dimension | null> {
   if (dimension) {
     if (dimension.match(/^exp:/)) {
       return {
         type: "experiment",
         id: dimension.substr(4),
-        specifiedSlices: exposureQuery?.dimensionMetadata?.find((d) => d.dimension === dimension)?.specifiedSlices ?? [],
+        specifiedSlices: levels,
       };
     } else if (dimension.substr(0, 4) === "pre:") {
       return {
