@@ -396,7 +396,6 @@ const BreakDownResults: FC<{
     getExperimentMetricById,
     metricFilter,
   ]);
-  console.dir(tables, { depth: null });
 
   const activationMetricObj = activationMetric
     ? ssrPolyfills?.getExperimentMetricById?.(activationMetric) ||

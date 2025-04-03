@@ -119,8 +119,6 @@ export default function AnalysisSettingsBar({
 
   const isBandit = experiment?.type === "multi-armed-bandit";
 
-  console.log("precomputedDimension", precomputedDimension);
-  console.log("dimension", dimension);
   return (
     <div>
       {modalOpen && experiment && (

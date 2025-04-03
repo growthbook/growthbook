@@ -27,6 +27,7 @@ export async function analysisUpdate(
   let status: "success" | "fail" | "abort" = "fail";
 
   if (!getSnapshotAnalysis(snapshot, newSettings)) {
+    console.log("newSettings", newSettings);
     setPostLoading(true);
     await apiCall(`/snapshot/${snapshot.id}/analysis`, {
       method: "POST",
