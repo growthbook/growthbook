@@ -220,11 +220,12 @@ export default function DimensionChooser({
                       );
                       mutate?.();
                     }
+                    setPostLoading(false);
                   })
                   .catch(() => {
                     setValue?.(value);
+                    setPostLoading(false);
                   });
-                setPostLoading(false);
               }
             } else {
               setAnalysisSettings?.(null);
