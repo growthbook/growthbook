@@ -104,6 +104,10 @@ export default class Mysql extends SqlIntegration {
       ${whereClause}
     ) t`;
   }
+  extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
+    const raw = `JSON_EXTRACT(${jsonCol}, '$.${path}')`;
+    return isNumeric ? this.ensureFloat(raw) : raw;
+  }
   hasQuantileTesting(): boolean {
     return false;
   }
