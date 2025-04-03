@@ -4,7 +4,6 @@ import {
   expandMetricGroups,
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
-  getPredefinedDimensionSlicesByExperiment,
   isFactMetric,
   isRatioMetric,
   quantileMetricType,
@@ -142,6 +141,11 @@ export function getFactMetricGroups(
       return;
     }
 
+    // skip grouping quantile metrics if re-aggregation may happen
+    if (quantileMetricType(m) && settings.dimensions.length) {
+      return;
+    }
+
     const group = getFactMetricGroup(m);
     if (group) {
       groups[group] = groups[group] || [];
@@ -213,12 +217,14 @@ export const startExperimentResultQueries = async (
   const exposureQuery = (settings?.queries?.exposure || []).find(
     (q) => q.id === snapshotSettings.exposureQueryId
   );
-  
-  const dimensionObjs: Dimension[] = (await Promise.all(snapshotSettings.dimensions.map(async (d) => await parseDimension(
-    "exp:" + d.id,
-    d.levels, 
-    org.id,
-  )))).filter((d): d is Dimension => d !== null);
+
+  const dimensionObjs: Dimension[] = (
+    await Promise.all(
+      snapshotSettings.dimensions.map(
+        async (d) => await parseDimension("exp:" + d.id, d.levels, org.id)
+      )
+    )
+  ).filter((d): d is Dimension => d !== null);
 
   const queries: Queries = [];
 
@@ -592,7 +598,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     const dimensionObj = await parseDimension(
       snapshotSettings.dimensions[0]?.id,
       snapshotSettings.dimensions[0]?.levels,
-      this.model.organization,
+      this.model.organization
     );
 
     const dimension =

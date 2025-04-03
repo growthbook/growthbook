@@ -54,6 +54,8 @@ const Results: FC<{
   setBaselineRow?: (baselineRow: number) => void;
   differenceType?: DifferenceType;
   setDifferenceType?: (differenceType: DifferenceType) => void;
+  precomputedDimension: string | null;
+  setPrecomputedDimension: (precomputedDimension: string | null) => void;
   metricFilter?: ResultsMetricFilters;
   setMetricFilter?: (metricFilter: ResultsMetricFilters) => void;
   isTabActive?: boolean;
@@ -79,6 +81,8 @@ const Results: FC<{
   setBaselineRow,
   differenceType,
   setDifferenceType,
+  precomputedDimension,
+  setPrecomputedDimension,
   metricFilter,
   setMetricFilter,
   isTabActive = true,
@@ -158,10 +162,9 @@ const Results: FC<{
   const showBreakDownResults =
     !draftMode &&
     hasData &&
-    (
-      (snapshot?.dimension && snapshot.dimension.substring(0, 8) !== "pre:date")
-      || analysis?.settings?.dimensions?.length
-    );
+    ((snapshot?.dimension &&
+      snapshot.dimension.substring(0, 8) !== "pre:date") ||
+      analysis?.settings?.dimensions?.length);
 
   const showDateResults =
     !draftMode &&
@@ -210,6 +213,8 @@ const Results: FC<{
           setBaselineRow={(b: number) => setBaselineRow?.(b)}
           differenceType={differenceType}
           setDifferenceType={setDifferenceType}
+          precomputedDimension={precomputedDimension}
+          setPrecomputedDimension={setPrecomputedDimension}
         />
       ) : (
         <StatusBanner
@@ -338,7 +343,9 @@ const Results: FC<{
           secondaryMetrics={experiment.secondaryMetrics}
           guardrailMetrics={experiment.guardrailMetrics}
           metricOverrides={experiment.metricOverrides ?? []}
-          dimensionId={analysis?.settings?.dimensions?.[0] ?? snapshot?.dimension ?? ""}
+          dimensionId={
+            analysis?.settings?.dimensions?.[0] ?? snapshot?.dimension ?? ""
+          }
           isLatestPhase={phase === experiment.phases.length - 1}
           startDate={phaseObj?.dateStarted ?? ""}
           reportDate={snapshot.dateCreated}

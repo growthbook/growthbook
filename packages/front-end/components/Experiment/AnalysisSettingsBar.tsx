@@ -58,6 +58,8 @@ export default function AnalysisSettingsBar({
   setBaselineRow,
   differenceType,
   setDifferenceType,
+  precomputedDimension,
+  setPrecomputedDimension,
   envs,
 }: {
   mutateExperiment: () => void;
@@ -80,6 +82,8 @@ export default function AnalysisSettingsBar({
   setBaselineRow?: (baselineRow: number) => void;
   differenceType?: DifferenceType;
   setDifferenceType?: (differenceType: DifferenceType) => void;
+  precomputedDimension: string | null;
+  setPrecomputedDimension: (precomputedDimension: string | null) => void;
 }) {
   const {
     experiment,
@@ -95,12 +99,6 @@ export default function AnalysisSettingsBar({
   const datasource = experiment
     ? getDatasourceById(experiment.datasource)
     : null;
-
-  console.log("dimension", dimension);
-  console.log("snapshotId", snapshot?.id);
-  console.log("analysis", analysis);
-
-  const [precomputedDimension, setPrecomputedDimension] = useState<string | null>(null);
 
   const { hasCommercialFeature } = useUser();
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
@@ -121,6 +119,8 @@ export default function AnalysisSettingsBar({
 
   const isBandit = experiment?.type === "multi-armed-bandit";
 
+  console.log("precomputedDimension", precomputedDimension);
+  console.log("dimension", dimension);
   return (
     <div>
       {modalOpen && experiment && (
@@ -167,7 +167,7 @@ export default function AnalysisSettingsBar({
           ) : null}
           <div className="col-auto form-inline pr-5">
             <DimensionChooser
-              value={precomputedDimension ?? dimension}
+              value={precomputedDimension ?? dimension ?? ""}
               setValue={setDimension}
               setValueFromPrecomputed={setPrecomputedDimension}
               activationMetric={!!experiment.activationMetric}

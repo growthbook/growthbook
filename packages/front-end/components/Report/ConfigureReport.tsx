@@ -209,7 +209,10 @@ export default function ConfigureReport({
             <DimensionChooser
               value={form.watch("experimentAnalysisSettings.dimension") || ""}
               setValue={(v) =>
-                form.setValue("experimentAnalysisSettings.dimension", v)
+                form.setValue(
+                  "experimentAnalysisSettings.dimension",
+                  v ?? undefined
+                )
               }
               datasourceId={experiment?.datasource}
               exposureQueryId={form.watch(

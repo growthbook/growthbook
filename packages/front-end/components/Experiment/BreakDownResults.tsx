@@ -1,4 +1,4 @@
-import { FC, ReactElement, useMemo, useState } from "react";
+import { FC, useMemo, useState } from "react";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -17,13 +17,13 @@ import {
 import { isDefined } from "shared/util";
 import { FaAngleRight, FaUsers } from "react-icons/fa";
 import Collapsible from "react-collapsible";
+import { Box, Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
   setAdjustedPValuesOnResults,
   ExperimentTableRow,
   setAdjustedCIs,
-  hasRisk,
 } from "@/services/experiments";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
@@ -37,7 +37,6 @@ import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import UsersTable from "./UsersTable";
-import { Box, Flex, Text } from "@radix-ui/themes";
 
 const numberFormatter = Intl.NumberFormat();
 
@@ -66,9 +65,9 @@ type ResultsTableProps = {
   status: ExperimentStatus;
   queryStatusData?: QueryStatusData;
   variations: ExperimentReportVariation[];
-  regressionAdjustmentEnabled?: boolean;
+  regressionAdjustmentEnabled: boolean;
   statsEngine: StatsEngine;
-  sequentialTestingEnabled?: boolean;
+  sequentialTestingEnabled: boolean;
   pValueCorrection?: PValueCorrection;
   differenceType: DifferenceType;
   metricFilter?: ResultsMetricFilters;
@@ -78,18 +77,37 @@ type ResultsTableProps = {
   variationFilter?: number[];
   baselineRow?: number;
   dimension?: string;
-  tableRowAxis: "metric" | "dimension";
-  editMetrics?: () => void;
-}
+};
 
-function getTables(tables: TableDef[], tableProps: ResultsTableProps, metricType: "goal" | "secondary" | "guardrail") {
-  const { status, queryStatusData, variations, variationFilter, baselineRow, dimension, statsEngine, sequentialTestingEnabled, pValueCorrection, differenceType, metricFilter, isBandit, ssrPolyfills, hideDetails ,
+function getTables(
+  tables: TableDef[],
+  tableProps: ResultsTableProps,
+  metricType: "goal" | "secondary" | "guardrail"
+) {
+  const {
+    status,
+    queryStatusData,
+    variations,
+    variationFilter,
+    baselineRow,
+    dimension,
+    statsEngine,
+    sequentialTestingEnabled,
+    pValueCorrection,
+    differenceType,
+    metricFilter,
+    isBandit,
+    ssrPolyfills,
+    hideDetails,
     dateCreated,
     isLatestPhase,
     startDate,
     regressionAdjustmentEnabled,
   } = tableProps;
-  return <>{tables.map((table, i) => (
+  return (
+    <>
+      {tables.map((table, i) => (
+        // TODO compare inputs
         <ResultsTable
           key={metricType + i}
           dateCreated={dateCreated}
@@ -144,7 +162,9 @@ function getTables(tables: TableDef[], tableProps: ResultsTableProps, metricType
           isBandit={isBandit}
           ssrPolyfills={ssrPolyfills}
         />
-      ))}</>;
+      ))}
+    </>
+  );
 }
 
 const BreakDownResults: FC<{
@@ -280,8 +300,16 @@ const BreakDownResults: FC<{
     getExperimentMetricById,
   ]);
 
-  const tables = useMemo<{goal: TableDef[], secondary: TableDef[], guardrail: TableDef[]}>(() => {
-    const tables: {goal: TableDef[], secondary: TableDef[], guardrail: TableDef[]} = {goal: [], secondary: [], guardrail: []};
+  const tables = useMemo<{
+    goal: TableDef[];
+    secondary: TableDef[];
+    guardrail: TableDef[];
+  }>(() => {
+    const tables: {
+      goal: TableDef[];
+      secondary: TableDef[];
+      guardrail: TableDef[];
+    } = { goal: [], secondary: [], guardrail: [] };
     if (!ready && !ssrPolyfills) return tables;
     if (pValueCorrection && statsEngine === "frequentist") {
       // Only include goals in calculation, not secondary or guardrails
@@ -290,59 +318,67 @@ const BreakDownResults: FC<{
     }
 
     for (const metricType of ["goal", "secondary", "guardrail"]) {
-      const metrics = metricType === "goal" ? expandedGoals : metricType === "secondary" ? expandedSecondaries : expandedGuardrails;
-      const metricDefs = metrics.map(
-        (metricId) =>
-          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
-          getExperimentMetricById(metricId)
-      ).filter(isDefined);
-    
+      const metrics =
+        metricType === "goal"
+          ? expandedGoals
+          : metricType === "secondary"
+          ? expandedSecondaries
+          : expandedGuardrails;
+      const metricDefs = metrics
+        .map(
+          (metricId) =>
+            ssrPolyfills?.getExperimentMetricById?.(metricId) ||
+            getExperimentMetricById(metricId)
+        )
+        .filter(isDefined);
+
       const sortedFilteredMetrics = sortAndFilterMetricsByTags(
         metricDefs,
         metricFilter
       );
 
-      tables[metricType] = Array.from(new Set(sortedFilteredMetrics)).map((metricId) => {
-        const metric =
-          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
-          getExperimentMetricById(metricId);
-        if (!metric) return;
-        const ret = sortAndFilterMetricsByTags([metric], metricFilter);
-        if (ret.length === 0) return;
+      tables[metricType] = Array.from(new Set(sortedFilteredMetrics))
+        .map((metricId) => {
+          const metric =
+            ssrPolyfills?.getExperimentMetricById?.(metricId) ||
+            getExperimentMetricById(metricId);
+          if (!metric) return;
+          const ret = sortAndFilterMetricsByTags([metric], metricFilter);
+          if (ret.length === 0) return;
 
-        const { newMetric, overrideFields } = applyMetricOverrides(
-          metric,
-          metricOverrides
-        );
-        let metricSnapshotSettings: MetricSnapshotSettings | undefined;
-        if (settingsForSnapshotMetrics) {
-          metricSnapshotSettings = settingsForSnapshotMetrics.find(
-            (s) => s.metric === metricId
+          const { newMetric, overrideFields } = applyMetricOverrides(
+            metric,
+            metricOverrides
           );
-        }
-        const resultGroup = getMetricResultGroup(
-          metricId,
-          expandedGoals,
-          expandedSecondaries
-        );
+          let metricSnapshotSettings: MetricSnapshotSettings | undefined;
+          if (settingsForSnapshotMetrics) {
+            metricSnapshotSettings = settingsForSnapshotMetrics.find(
+              (s) => s.metric === metricId
+            );
+          }
+          const resultGroup = getMetricResultGroup(
+            metricId,
+            expandedGoals,
+            expandedSecondaries
+          );
 
-        const rows: ExperimentTableRow[] = results.map((d) => ({
-          label: d.name,
-          metric: newMetric,
-          variations: d.variations.map((variation) => {
-            return variation.metrics[metricId];
-          }),
-          metricSnapshotSettings,
-          resultGroup,
-          metricOverrideFields: overrideFields,
-        }));
-        return {
-          metric: newMetric,
-          isGuardrail: resultGroup === "guardrail",
-          rows: rows,
-        };
-      })
-      .filter((table) => table?.metric) as TableDef[]
+          const rows: ExperimentTableRow[] = results.map((d) => ({
+            label: d.name,
+            metric: newMetric,
+            variations: d.variations.map((variation) => {
+              return variation.metrics[metricId];
+            }),
+            metricSnapshotSettings,
+            resultGroup,
+            metricOverrideFields: overrideFields,
+          }));
+          return {
+            metric: newMetric,
+            isGuardrail: resultGroup === "guardrail",
+            rows: rows,
+          };
+        })
+        .filter((table) => table?.metric) as TableDef[];
     }
     return tables;
   }, [
@@ -360,31 +396,31 @@ const BreakDownResults: FC<{
     getExperimentMetricById,
     metricFilter,
   ]);
-  console.dir(tables, {depth: null})
+  console.dir(tables, { depth: null });
 
   const activationMetricObj = activationMetric
     ? ssrPolyfills?.getExperimentMetricById?.(activationMetric) ||
       getExperimentMetricById(activationMetric)
     : undefined;
 
-    const tableProps: ResultsTableProps = {
-      dateCreated: reportDate,
-      isLatestPhase: isLatestPhase,
-      startDate: startDate,
-      status: status,
-      queryStatusData: queryStatusData,
-      variations: variations,
-      statsEngine: statsEngine,
-      differenceType: differenceType,
-      isBandit: isBandit,
-      ssrPolyfills: ssrPolyfills,
-      hideDetails: hideDetails,
-      variationFilter: variationFilter,
-      baselineRow: baselineRow,
-      dimension: dimension,
-      tableRowAxis: "dimension",
-      editMetrics: undefined,
-    };
+  const tableProps: ResultsTableProps = {
+    dateCreated: reportDate,
+    isLatestPhase,
+    startDate,
+    status,
+    queryStatusData,
+    variations,
+    statsEngine,
+    differenceType,
+    isBandit,
+    ssrPolyfills,
+    hideDetails,
+    variationFilter,
+    baselineRow,
+    dimension: dimension,
+    regressionAdjustmentEnabled: regressionAdjustmentEnabled ?? false,
+    sequentialTestingEnabled: sequentialTestingEnabled ?? false,
+  };
 
   return (
     <div className="mb-3">
@@ -426,17 +462,24 @@ const BreakDownResults: FC<{
             {setMetricFilter ? (
               <Box mx="2">
                 <ResultsMetricFilter
-                metricTags={allMetricTags}
-                metricFilter={metricFilter}
-                setMetricFilter={setMetricFilter}
-                showMetricFilter={showMetricFilter}
-                setShowMetricFilter={setShowMetricFilter}
-              />
-            </Box>
-          ) : null}
-          <div style={{ wordBreak: "break-word", overflowWrap: "anywhere", fontSize: "16px", fontWeight: 500 }}>
-            Goal Metrics
-          </div>
+                  metricTags={allMetricTags}
+                  metricFilter={metricFilter}
+                  setMetricFilter={setMetricFilter}
+                  showMetricFilter={showMetricFilter}
+                  setShowMetricFilter={setShowMetricFilter}
+                />
+              </Box>
+            ) : null}
+            <div
+              style={{
+                wordBreak: "break-word",
+                overflowWrap: "anywhere",
+                fontSize: "16px",
+                fontWeight: 500,
+              }}
+            >
+              Goal Metrics
+            </div>
           </Flex>
           {getTables(tables.goal, tableProps, "goal")}
         </Flex>
@@ -446,18 +489,25 @@ const BreakDownResults: FC<{
           <Flex direction="row" gap="0" align="center">
             {setMetricFilter ? (
               <Box mx="2">
-              <ResultsMetricFilter
-                metricTags={allMetricTags}
-                metricFilter={metricFilter}
-                setMetricFilter={setMetricFilter}
-                showMetricFilter={showMetricFilter}
-                setShowMetricFilter={setShowMetricFilter}
-              />
-            </Box>
-          ) : null}
-          <div style={{ wordBreak: "break-word", overflowWrap: "anywhere", fontSize: "16px", fontWeight: 500 }}>
-            Secondary Metrics
-          </div>
+                <ResultsMetricFilter
+                  metricTags={allMetricTags}
+                  metricFilter={metricFilter}
+                  setMetricFilter={setMetricFilter}
+                  showMetricFilter={showMetricFilter}
+                  setShowMetricFilter={setShowMetricFilter}
+                />
+              </Box>
+            ) : null}
+            <div
+              style={{
+                wordBreak: "break-word",
+                overflowWrap: "anywhere",
+                fontSize: "16px",
+                fontWeight: 500,
+              }}
+            >
+              Secondary Metrics
+            </div>
           </Flex>
           {getTables(tables.secondary, tableProps, "secondary")}
         </Flex>
@@ -468,17 +518,24 @@ const BreakDownResults: FC<{
             {setMetricFilter ? (
               <Box mx="2">
                 <ResultsMetricFilter
-                metricTags={allMetricTags}
-                metricFilter={metricFilter}
-                setMetricFilter={setMetricFilter}
-                showMetricFilter={showMetricFilter}
-                setShowMetricFilter={setShowMetricFilter}
-              />
-            </Box>
-          ) : null}
-          <div style={{ wordBreak: "break-word", overflowWrap: "anywhere", fontSize: "16px", fontWeight: 500 }}>
-            Guardrail Metrics
-          </div>
+                  metricTags={allMetricTags}
+                  metricFilter={metricFilter}
+                  setMetricFilter={setMetricFilter}
+                  showMetricFilter={showMetricFilter}
+                  setShowMetricFilter={setShowMetricFilter}
+                />
+              </Box>
+            ) : null}
+            <div
+              style={{
+                wordBreak: "break-word",
+                overflowWrap: "anywhere",
+                fontSize: "16px",
+                fontWeight: 500,
+              }}
+            >
+              Guardrail Metrics
+            </div>
           </Flex>
           {getTables(tables.guardrail, tableProps, "guardrail")}
         </Flex>

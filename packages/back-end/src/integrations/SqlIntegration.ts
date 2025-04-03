@@ -1245,9 +1245,11 @@ export default abstract class SqlIntegration
         }
 
         const dimensionData: Record<string, string> = {};
-        Object.entries(row).filter(([key, _]) => key.startsWith("dim")).map(([key, value]) => {
-          dimensionData[key] = value;
-        });
+        Object.entries(row)
+          .filter(([key, _]) => key.startsWith("dim"))
+          .map(([key, value]) => {
+            dimensionData[key] = value;
+          });
 
         return {
           variation: row.variation ?? "",
@@ -1275,9 +1277,11 @@ export default abstract class SqlIntegration
     return {
       rows: rows.map((row) => {
         const dimensionData: Record<string, string> = {};
-        Object.entries(row).filter(([key, _]) => key.startsWith("dim")).map(([key, value]) => {
-          dimensionData[key] = value;
-        });
+        Object.entries(row)
+          .filter(([key, _]) => key.startsWith("dim"))
+          .map(([key, value]) => {
+            dimensionData[key] = value;
+          });
         return {
           variation: row.variation ?? "",
           ...dimensionData,
@@ -2621,19 +2625,25 @@ export default abstract class SqlIntegration
       maxHoursToConvert
     );
 
-
     // ensure always at least length 1 with plain dim
-    const dimensionCols = params.dimensions.length > 0 ? params.dimensions.map((d) => this.getDimensionCol(d)) : ["dimension"];
+    const dimensionCols =
+      params.dimensions.length > 0
+        ? params.dimensions.map((d) => this.getDimensionCol(d))
+        : ["dimension"];
 
     // auto compute activation splits
     const timestampColumn =
-      activationMetric && !!params.dimensions.find((d) => d.type === "activation")
+      activationMetric &&
+      !!params.dimensions.find((d) => d.type === "activation")
         ? "first_activation_timestamp"
         : "first_exposure_timestamp";
 
     const distinctUsersWhere: string[] = [];
     // TODO auto compute activation splits
-    if (activationMetric && params.dimensions.map((d) => this.getDimensionCol(d))) {
+    if (
+      activationMetric &&
+      params.dimensions.map((d) => this.getDimensionCol(d))
+    ) {
       distinctUsersWhere.push("first_activation_timestamp IS NOT NULL");
     }
     if (settings.skipPartialData) {
@@ -2955,8 +2965,9 @@ export default abstract class SqlIntegration
         m.variation AS variation
         , ${dimensionCols.map((c) => `m.${c} AS ${c}`).join(", ")}
         , COUNT(*) AS users
-        ${metricData.map((data) => {
-          return `
+        ${metricData
+          .map((data) => {
+            return `
            , '${data.id}' as ${data.alias}_id
             ${
               data.isPercentileCapped
@@ -2965,8 +2976,8 @@ export default abstract class SqlIntegration
             }
             , SUM(${data.capCoalesceMetric}) AS ${data.alias}_main_sum
             , SUM(POWER(${data.capCoalesceMetric}, 2)) AS ${
-            data.alias
-          }_main_sum_squares
+              data.alias
+            }_main_sum_squares
             ${
               data.quantileMetric === "event"
                 ? `
@@ -3044,13 +3055,16 @@ export default abstract class SqlIntegration
             `
             }
           `; /*ends ifelse ratioMetric*/
-        }).join("\n")}
+          })
+          .join("\n")}
       FROM
         __userMetricAgg m
         ${
           eventQuantileData.length
             ? `LEFT JOIN __eventQuantileMetric qm ON (
-          qm.variation = m.variation AND ${dimensionCols.map((c) => `qm.${c} = m.${c}`).join(" AND ")}
+          qm.variation = m.variation AND ${dimensionCols
+            .map((c) => `qm.${c} = m.${c}`)
+            .join(" AND ")}
             )`
             : ""
         }
@@ -3262,17 +3276,24 @@ export default abstract class SqlIntegration
     );
 
     // ensure always at least length 1 with plain dim
-    const dimensionCols = params.dimensions.length > 0 ? params.dimensions.map((d) => this.getDimensionCol(d)) : ["dimension"];
+    const dimensionCols =
+      params.dimensions.length > 0
+        ? params.dimensions.map((d) => this.getDimensionCol(d))
+        : ["dimension"];
 
     // auto compute activation splits
     const timestampColumn =
-      activationMetric && !!params.dimensions.find((d) => d.type === "activation")
+      activationMetric &&
+      !!params.dimensions.find((d) => d.type === "activation")
         ? "first_activation_timestamp"
         : "first_exposure_timestamp";
 
     const distinctUsersWhere: string[] = [];
     // TODO auto compute activation splits
-    if (activationMetric && params.dimensions.map((d) => this.getDimensionCol(d))) {
+    if (
+      activationMetric &&
+      params.dimensions.map((d) => this.getDimensionCol(d))
+    ) {
       distinctUsersWhere.push("first_activation_timestamp IS NOT NULL");
     }
     if (settings.skipPartialData) {
@@ -3440,7 +3461,9 @@ export default abstract class SqlIntegration
           quantileMetric === "event"
             ? `
         LEFT JOIN __quantileMetric qm
-        ON (qm.variation = umj.variation AND ${dimensionCols.map((c) => `qm.${c} = umj.${c}`).join(" AND ")})`
+        ON (qm.variation = umj.variation AND ${dimensionCols
+          .map((c) => `qm.${c} = umj.${c}`)
+          .join(" AND ")})`
             : ""
         }
         GROUP BY
@@ -3479,7 +3502,9 @@ export default abstract class SqlIntegration
                 d.variation AS variation
                 , ${dimensionCols.map((c) => `d.${c} AS ${c}`).join(", ")}
                 ${
-                  banditDates?.length ? `, d.bandit_period AS bandit_period` : ""
+                  banditDates?.length
+                    ? `, d.bandit_period AS bandit_period`
+                    : ""
                 }
                 ${cumulativeDate ? `, dr.day AS day` : ""}
                 , d.${baseIdType} AS ${baseIdType}
@@ -3650,7 +3675,9 @@ export default abstract class SqlIntegration
     ${
       quantileMetric === "event"
         ? `LEFT JOIN __quantileMetric qm ON (
-      qm.variation = m.variation AND ${dimensionCols.map((c) => `qm.${c} = m.${c}`).join(" AND ")}
+      qm.variation = m.variation AND ${dimensionCols
+        .map((c) => `qm.${c} = m.${c}`)
+        .join(" AND ")}
         )`
         : ""
     }
