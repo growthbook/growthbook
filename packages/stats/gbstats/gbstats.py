@@ -659,7 +659,12 @@ def process_analysis(
         rows = diff_for_daily_time_series(rows)
 
     # Convert raw SQL result into a dataframe of dimensions
-    df = get_metric_df(rows=rows, var_id_map=var_id_map, var_names=var_names, dimension=analysis.dimension)
+    df = get_metric_df(
+        rows=rows,
+        var_id_map=var_id_map,
+        var_names=var_names,
+        dimension=analysis.dimension,
+    )
     # Limit to the top X dimensions with the most users
     # not possible to just re-sum for quantile metrics,
     # so we throw away "other" dimension
@@ -775,6 +780,7 @@ def preprocess_bandits(
             rows=pdrows,
             var_id_map=get_var_id_map(bandit_settings.var_ids),
             var_names=bandit_settings.var_names,
+            dimension=dimension,
         )
         bandit_stats = create_bandit_statistics(df, metric)
     bandit_prior = GaussianPrior(mean=0, variance=float(1e4), proper=True)
