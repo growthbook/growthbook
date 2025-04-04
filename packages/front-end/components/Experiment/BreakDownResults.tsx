@@ -17,13 +17,13 @@ import {
 import { isDefined } from "shared/util";
 import { FaAngleRight, FaUsers } from "react-icons/fa";
 import Collapsible from "react-collapsible";
+import { Box, Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
   setAdjustedPValuesOnResults,
   ExperimentTableRow,
   setAdjustedCIs,
-  hasRisk,
 } from "@/services/experiments";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
@@ -57,6 +57,115 @@ type TableDef = {
   isGuardrail: boolean;
   rows: ExperimentTableRow[];
 };
+
+type ResultsTableProps = {
+  dateCreated: Date;
+  isLatestPhase: boolean;
+  startDate: string;
+  status: ExperimentStatus;
+  queryStatusData?: QueryStatusData;
+  variations: ExperimentReportVariation[];
+  regressionAdjustmentEnabled: boolean;
+  statsEngine: StatsEngine;
+  sequentialTestingEnabled: boolean;
+  pValueCorrection?: PValueCorrection;
+  differenceType: DifferenceType;
+  metricFilter?: ResultsMetricFilters;
+  isBandit?: boolean;
+  ssrPolyfills?: SSRPolyfills;
+  hideDetails?: boolean;
+  variationFilter?: number[];
+  baselineRow?: number;
+  dimension?: string;
+};
+
+function getTables(
+  tables: TableDef[],
+  tableProps: ResultsTableProps,
+  metricType: "goal" | "secondary" | "guardrail"
+) {
+  const {
+    status,
+    queryStatusData,
+    variations,
+    variationFilter,
+    baselineRow,
+    dimension,
+    statsEngine,
+    sequentialTestingEnabled,
+    pValueCorrection,
+    differenceType,
+    metricFilter,
+    isBandit,
+    ssrPolyfills,
+    hideDetails,
+    dateCreated,
+    isLatestPhase,
+    startDate,
+    regressionAdjustmentEnabled,
+  } = tableProps;
+  return (
+    <>
+      {tables.map((table, i) => (
+        // TODO compare inputs
+        <ResultsTable
+          key={metricType + i}
+          dateCreated={dateCreated}
+          isLatestPhase={isLatestPhase}
+          startDate={startDate}
+          status={status}
+          queryStatusData={queryStatusData}
+          variations={variations}
+          variationFilter={variationFilter}
+          baselineRow={baselineRow}
+          rows={table.rows}
+          dimension={dimension}
+          id={table.metric.id}
+          tableRowAxis="dimension"
+          labelHeader={
+            <div style={{ marginBottom: 2 }}>
+              {getRenderLabelColumn(
+                !!regressionAdjustmentEnabled,
+                statsEngine,
+                hideDetails
+              )(table.metric.name, table.metric, table.rows[0])}
+            </div>
+          }
+          editMetrics={undefined}
+          statsEngine={statsEngine}
+          sequentialTestingEnabled={sequentialTestingEnabled}
+          pValueCorrection={pValueCorrection}
+          differenceType={differenceType}
+          renderLabelColumn={(label) => (
+            <>
+              {label ? (
+                label === "__NULL_DIMENSION" ? (
+                  <em>NULL (unset)</em>
+                ) : (
+                  <span
+                    style={{
+                      lineHeight: "1.2em",
+                      wordBreak: "break-word",
+                      overflowWrap: "anywhere",
+                    }}
+                  >
+                    {label}
+                  </span>
+                )
+              ) : (
+                <em>unknown</em>
+              )}
+            </>
+          )}
+          metricFilter={metricFilter}
+          isTabActive={true}
+          isBandit={isBandit}
+          ssrPolyfills={ssrPolyfills}
+        />
+      ))}
+    </>
+  );
+}
 
 const BreakDownResults: FC<{
   results: ExperimentReportResultDimension[];
@@ -191,72 +300,87 @@ const BreakDownResults: FC<{
     getExperimentMetricById,
   ]);
 
-  const tables = useMemo<TableDef[]>(() => {
-    if (!ready && !ssrPolyfills) return [];
+  const tables = useMemo<{
+    goal: TableDef[];
+    secondary: TableDef[];
+    guardrail: TableDef[];
+  }>(() => {
+    const tables: {
+      goal: TableDef[];
+      secondary: TableDef[];
+      guardrail: TableDef[];
+    } = { goal: [], secondary: [], guardrail: [] };
+    if (!ready && !ssrPolyfills) return tables;
     if (pValueCorrection && statsEngine === "frequentist") {
       // Only include goals in calculation, not secondary or guardrails
       setAdjustedPValuesOnResults(results, expandedGoals, pValueCorrection);
       setAdjustedCIs(results, pValueThreshold);
     }
 
-    const metricDefs = [
-      ...expandedGoals,
-      ...expandedSecondaries,
-      ...expandedGuardrails,
-    ]
-      .map(
-        (metricId) =>
-          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
-          getExperimentMetricById(metricId)
-      )
-      .filter(isDefined);
-    const sortedFilteredMetrics = sortAndFilterMetricsByTags(
-      metricDefs,
-      metricFilter
-    );
+    for (const metricType of ["goal", "secondary", "guardrail"]) {
+      const metrics =
+        metricType === "goal"
+          ? expandedGoals
+          : metricType === "secondary"
+          ? expandedSecondaries
+          : expandedGuardrails;
+      const metricDefs = metrics
+        .map(
+          (metricId) =>
+            ssrPolyfills?.getExperimentMetricById?.(metricId) ||
+            getExperimentMetricById(metricId)
+        )
+        .filter(isDefined);
 
-    return Array.from(new Set(sortedFilteredMetrics))
-      .map((metricId) => {
-        const metric =
-          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
-          getExperimentMetricById(metricId);
-        if (!metric) return;
-        const ret = sortAndFilterMetricsByTags([metric], metricFilter);
-        if (ret.length === 0) return;
+      const sortedFilteredMetrics = sortAndFilterMetricsByTags(
+        metricDefs,
+        metricFilter
+      );
 
-        const { newMetric, overrideFields } = applyMetricOverrides(
-          metric,
-          metricOverrides
-        );
-        let metricSnapshotSettings: MetricSnapshotSettings | undefined;
-        if (settingsForSnapshotMetrics) {
-          metricSnapshotSettings = settingsForSnapshotMetrics.find(
-            (s) => s.metric === metricId
+      tables[metricType] = Array.from(new Set(sortedFilteredMetrics))
+        .map((metricId) => {
+          const metric =
+            ssrPolyfills?.getExperimentMetricById?.(metricId) ||
+            getExperimentMetricById(metricId);
+          if (!metric) return;
+          const ret = sortAndFilterMetricsByTags([metric], metricFilter);
+          if (ret.length === 0) return;
+
+          const { newMetric, overrideFields } = applyMetricOverrides(
+            metric,
+            metricOverrides
           );
-        }
-        const resultGroup = getMetricResultGroup(
-          metricId,
-          expandedGoals,
-          expandedSecondaries
-        );
+          let metricSnapshotSettings: MetricSnapshotSettings | undefined;
+          if (settingsForSnapshotMetrics) {
+            metricSnapshotSettings = settingsForSnapshotMetrics.find(
+              (s) => s.metric === metricId
+            );
+          }
+          const resultGroup = getMetricResultGroup(
+            metricId,
+            expandedGoals,
+            expandedSecondaries
+          );
 
-        const rows: ExperimentTableRow[] = results.map((d) => ({
-          label: d.name,
-          metric: newMetric,
-          variations: d.variations.map((variation) => {
-            return variation.metrics[metricId];
-          }),
-          metricSnapshotSettings,
-          resultGroup,
-          metricOverrideFields: overrideFields,
-        }));
-        return {
-          metric: newMetric,
-          isGuardrail: resultGroup === "guardrail",
-          rows: rows,
-        };
-      })
-      .filter((table) => table?.metric) as TableDef[];
+          const rows: ExperimentTableRow[] = results.map((d) => ({
+            label: d.name,
+            metric: newMetric,
+            variations: d.variations.map((variation) => {
+              return variation.metrics[metricId];
+            }),
+            metricSnapshotSettings,
+            resultGroup,
+            metricOverrideFields: overrideFields,
+          }));
+          return {
+            metric: newMetric,
+            isGuardrail: resultGroup === "guardrail",
+            rows: rows,
+          };
+        })
+        .filter((table) => table?.metric) as TableDef[];
+    }
+    return tables;
   }, [
     results,
     expandedGoals,
@@ -273,14 +397,29 @@ const BreakDownResults: FC<{
     metricFilter,
   ]);
 
-  const _hasRisk = hasRisk(
-    ([] as ExperimentTableRow[]).concat(...tables.map((t) => t.rows))
-  );
-
   const activationMetricObj = activationMetric
     ? ssrPolyfills?.getExperimentMetricById?.(activationMetric) ||
       getExperimentMetricById(activationMetric)
     : undefined;
+
+  const tableProps: ResultsTableProps = {
+    dateCreated: reportDate,
+    isLatestPhase,
+    startDate,
+    status,
+    queryStatusData,
+    variations,
+    statsEngine,
+    differenceType,
+    isBandit,
+    ssrPolyfills,
+    hideDetails,
+    variationFilter,
+    baselineRow,
+    dimension: dimension,
+    regressionAdjustmentEnabled: regressionAdjustmentEnabled ?? false,
+    sequentialTestingEnabled: sequentialTestingEnabled ?? false,
+  };
 
   return (
     <div className="mb-3">
@@ -316,89 +455,90 @@ const BreakDownResults: FC<{
         )}
       </div>
 
-      <div className="d-flex mx-2">
-        {setMetricFilter ? (
-          <ResultsMetricFilter
-            metricTags={allMetricTags}
-            metricFilter={metricFilter}
-            setMetricFilter={setMetricFilter}
-            showMetricFilter={showMetricFilter}
-            setShowMetricFilter={setShowMetricFilter}
-          />
-        ) : null}
-      </div>
-      {tables.map((table, i) => {
-        const metric = table.metric;
-        return (
-          <>
-            <h5 className="ml-2 mt-2 position-relative">
-              {expandedGoals.includes(metric.id)
-                ? "Goal Metric"
-                : expandedSecondaries.includes(metric.id)
-                ? "Secondary Metric"
-                : expandedGuardrails.includes(metric.id)
-                ? "Guardrail Metric"
-                : null}
-            </h5>
-            <ResultsTable
-              key={i}
-              dateCreated={reportDate}
-              isLatestPhase={isLatestPhase}
-              startDate={startDate}
-              status={status}
-              queryStatusData={queryStatusData}
-              variations={variations}
-              variationFilter={variationFilter}
-              baselineRow={baselineRow}
-              rows={table.rows}
-              dimension={dimension}
-              id={table.metric.id}
-              hasRisk={_hasRisk}
-              tableRowAxis="dimension" // todo: dynamic grouping?
-              labelHeader={
-                <div style={{ marginBottom: 2 }}>
-                  {getRenderLabelColumn(
-                    !!regressionAdjustmentEnabled,
-                    statsEngine,
-                    hideDetails
-                  )(table.metric.name, table.metric, table.rows[0])}
-                </div>
-              }
-              editMetrics={undefined}
-              statsEngine={statsEngine}
-              sequentialTestingEnabled={sequentialTestingEnabled}
-              pValueCorrection={pValueCorrection}
-              differenceType={differenceType}
-              renderLabelColumn={(label) => (
-                <>
-                  {label ? (
-                    label === "__NULL_DIMENSION" ? (
-                      <em>NULL (unset)</em>
-                    ) : (
-                      <span
-                        style={{
-                          lineHeight: "1.2em",
-                          wordBreak: "break-word",
-                          overflowWrap: "anywhere",
-                        }}
-                      >
-                        {label}
-                      </span>
-                    )
-                  ) : (
-                    <em>unknown</em>
-                  )}
-                </>
-              )}
-              metricFilter={metricFilter}
-              isTabActive={true}
-              isBandit={isBandit}
-              ssrPolyfills={ssrPolyfills}
-            />
-            <div className="mb-5" />
-          </>
-        );
-      })}
+      {tables.goal.length > 0 && (
+        <Flex direction="column" gap="1" mb="4" mt="4">
+          <Flex direction="row" gap="1" align="center">
+            {setMetricFilter ? (
+              <Box mx="2">
+                <ResultsMetricFilter
+                  metricTags={allMetricTags}
+                  metricFilter={metricFilter}
+                  setMetricFilter={setMetricFilter}
+                  showMetricFilter={showMetricFilter}
+                  setShowMetricFilter={setShowMetricFilter}
+                />
+              </Box>
+            ) : null}
+            <div
+              style={{
+                wordBreak: "break-word",
+                overflowWrap: "anywhere",
+                fontSize: "16px",
+                fontWeight: 500,
+              }}
+            >
+              Goal Metrics
+            </div>
+          </Flex>
+          {getTables(tables.goal, tableProps, "goal")}
+        </Flex>
+      )}
+      {tables.secondary.length > 0 && (
+        <Flex direction="column" gap="1" mb="4" mt="4">
+          <Flex direction="row" gap="0" align="center">
+            {setMetricFilter ? (
+              <Box mx="2">
+                <ResultsMetricFilter
+                  metricTags={allMetricTags}
+                  metricFilter={metricFilter}
+                  setMetricFilter={setMetricFilter}
+                  showMetricFilter={showMetricFilter}
+                  setShowMetricFilter={setShowMetricFilter}
+                />
+              </Box>
+            ) : null}
+            <div
+              style={{
+                wordBreak: "break-word",
+                overflowWrap: "anywhere",
+                fontSize: "16px",
+                fontWeight: 500,
+              }}
+            >
+              Secondary Metrics
+            </div>
+          </Flex>
+          {getTables(tables.secondary, tableProps, "secondary")}
+        </Flex>
+      )}
+      {tables.guardrail.length > 0 && (
+        <Flex direction="column" gap="1" mb="4" mt="4">
+          <Flex direction="row" gap="1" align="center">
+            {setMetricFilter ? (
+              <Box mx="2">
+                <ResultsMetricFilter
+                  metricTags={allMetricTags}
+                  metricFilter={metricFilter}
+                  setMetricFilter={setMetricFilter}
+                  showMetricFilter={showMetricFilter}
+                  setShowMetricFilter={setShowMetricFilter}
+                />
+              </Box>
+            ) : null}
+            <div
+              style={{
+                wordBreak: "break-word",
+                overflowWrap: "anywhere",
+                fontSize: "16px",
+                fontWeight: 500,
+              }}
+            >
+              Guardrail Metrics
+            </div>
+          </Flex>
+          {getTables(tables.guardrail, tableProps, "guardrail")}
+        </Flex>
+      )}
     </div>
   );
 };

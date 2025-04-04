@@ -26,12 +26,13 @@ import {
   findSnapshotById,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
-import { parseDimensionId } from "back-end/src/services/experiments";
+import { parseDimension } from "back-end/src/services/experiments";
 import {
   analyzeExperimentResults,
   analyzeExperimentTraffic,
 } from "back-end/src/services/stats";
 import {
+  Dimension,
   ExperimentAggregateUnitsQueryResponseRows,
   ExperimentDimension,
   ExperimentFactMetricsQueryParams,
@@ -140,6 +141,11 @@ export function getFactMetricGroups(
       return;
     }
 
+    // skip grouping quantile metrics if re-aggregation may happen
+    if (quantileMetricType(m) && settings.dimensions.length) {
+      return;
+    }
+
     const group = getFactMetricGroup(m);
     if (group) {
       groups[group] = groups[group] || [];
@@ -212,10 +218,13 @@ export const startExperimentResultQueries = async (
     (q) => q.id === snapshotSettings.exposureQueryId
   );
 
-  const dimensionObj = await parseDimensionId(
-    snapshotSettings.dimensions[0]?.id,
-    org.id
-  );
+  const dimensionObjs: Dimension[] = (
+    await Promise.all(
+      snapshotSettings.dimensions.map(
+        async (d) => await parseDimension("exp:" + d.id, d.levels, org.id)
+      )
+    )
+  ).filter((d): d is Dimension => d !== null);
 
   const queries: Queries = [];
 
@@ -238,7 +247,8 @@ export const startExperimentResultQueries = async (
       : "";
 
   // Settings for health query
-  const runTrafficQuery = !dimensionObj && org.settings?.runHealthTrafficQuery;
+  // TODO flag for "default"
+  const runTrafficQuery = org.settings?.runHealthTrafficQuery;
   let dimensionsForTraffic: ExperimentDimension[] = [];
   if (runTrafficQuery && exposureQuery?.dimensionMetadata) {
     dimensionsForTraffic = exposureQuery.dimensionMetadata
@@ -252,7 +262,7 @@ export const startExperimentResultQueries = async (
 
   const unitQueryParams: ExperimentUnitsQueryParams = {
     activationMetric: activationMetric,
-    dimensions: dimensionObj ? [dimensionObj] : dimensionsForTraffic,
+    dimensions: dimensionObjs ? dimensionObjs : dimensionsForTraffic,
     segment: segmentObj,
     settings: snapshotSettings,
     unitsTableFullName: unitsTableFullName,
@@ -301,7 +311,7 @@ export const startExperimentResultQueries = async (
     const queryParams: ExperimentMetricQueryParams = {
       activationMetric,
       denominatorMetrics,
-      dimensions: dimensionObj ? [dimensionObj] : [],
+      dimensions: dimensionObjs,
       metric: m,
       segment: segmentObj,
       settings: snapshotSettings,
@@ -325,7 +335,7 @@ export const startExperimentResultQueries = async (
   for (const [i, m] of groups.entries()) {
     const queryParams: ExperimentFactMetricsQueryParams = {
       activationMetric,
-      dimensions: dimensionObj ? [dimensionObj] : [],
+      dimensions: dimensionObjs,
       metrics: m,
       segment: segmentObj,
       settings: snapshotSettings,
@@ -585,8 +595,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       throw new Error("Experiment must have at least 1 metric selected.");
     }
 
-    const dimensionObj = await parseDimensionId(
+    const dimensionObj = await parseDimension(
       snapshotSettings.dimensions[0]?.id,
+      snapshotSettings.dimensions[0]?.levels,
       this.model.organization
     );
 
