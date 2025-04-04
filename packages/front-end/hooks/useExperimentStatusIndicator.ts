@@ -38,7 +38,7 @@ export function useExperimentStatusIndicator() {
     : DEFAULT_DECISION_CRITERIAS.find(
         (dc) => dc.id === settings.defaultDecisionCriteriaId
       );
-  const { data: customDecisionCriteria } = useApi<DecisionCriteriaInterface>(
+  const { data } = useApi<{ decisionCriteria: DecisionCriteriaInterface }>(
     `/decision-criteria/${settings?.defaultDecisionCriteriaId}`,
     {
       shouldRun: () =>
@@ -54,7 +54,7 @@ export function useExperimentStatusIndicator() {
       experimentData,
       skipArchived,
       healthSettings,
-      decisionCriteria ?? customDecisionCriteria ?? DEFAULT_DECISION_CRITERIA
+      decisionCriteria ?? data?.decisionCriteria ?? DEFAULT_DECISION_CRITERIA
     );
 }
 
