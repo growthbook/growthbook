@@ -3223,3 +3223,45 @@ export async function findOrCreateVisualEditorToken(
     key: visualEditorKey.key,
   });
 }
+
+export async function getTimeSeries(
+  req: AuthRequest<
+    null,
+    { id: string; phase: number },
+    { metricIds: string[] }
+  >,
+  res: Response
+) {
+  const { id } = req.params;
+  const { metricIds } = req.query;
+  const context = getContextFromReq(req);
+  if (!id) {
+    throw new Error("id is required");
+  }
+  // if (!phase) {
+  //   throw new Error("phase is required");
+  // }
+  if (!metricIds || !Array.isArray(metricIds)) {
+    throw new Error("metricIds array is required");
+  }
+
+  const experiment = await getExperimentById(context, id);
+  if (!experiment) {
+    throw new Error("Experiment not found");
+  }
+
+  // if (phase < 0 || phase >= experiment.phases.length) {
+  //   throw new Error("Invalid phase");
+  // }
+
+  const timeSeries = await context.models.metricTimeSeries.getBySourceAndMetricIds(
+    "experiment",
+    id,
+    experiment.phases.length - 1,
+    metricIds
+  );
+
+  res.status(200).json({
+    timeSeries,
+  });
+}

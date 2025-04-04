@@ -37,7 +37,7 @@ export default function ResultsMetricFilter({
   return (
     <div
       className="col position-relative d-flex align-items-end px-0 font-weight-normal"
-      style={{ maxWidth: 20 }}
+      style={{ marginLeft: 8, maxWidth: 20, minWidth: 28 }}
     >
       <Tooltip
         body={
