@@ -25,19 +25,25 @@ export const banditResult = z.object({
   singleVariationResults: z.array(singleVariationResult).optional(),
   currentWeights: z.array(z.number()),
   updatedWeights: z.array(z.number()),
-  srm: z.number().optional(),
   bestArmProbabilities: z.array(z.number()).optional(),
   seed: z.number().optional(),
   updateMessage: z.string().optional(),
   error: z.string().optional(),
   reweight: z.boolean().optional(),
   weightsWereUpdated: z.boolean().optional(),
+  /** @deprecated */
+  srm: z.number().optional(),
 });
 
 export const banditEvent = z
   .object({
     date: z.date(),
     banditResult: banditResult,
+    health: z
+      .object({
+        srm: z.number().optional(),
+      })
+      .optional(),
     snapshotId: z.string().optional(), // 0th may not have snapshot
   })
   .strict();
@@ -194,11 +200,10 @@ export type GoalMetricResult = z.infer<typeof goalMetricResult>;
 
 export const experimentAnalysisSummaryVariationStatus = z.object({
   variationId: z.string(),
-  goalMetrics: z.record(z.string(), goalMetricResult),
-  guardrailMetrics: z.record(
-    z.string(),
-    z.object({ status: z.enum(guardrailMetricStatus) })
-  ),
+  goalMetrics: z.record(z.string(), goalMetricResult).optional(),
+  guardrailMetrics: z
+    .record(z.string(), z.object({ status: z.enum(guardrailMetricStatus) }))
+    .optional(),
 });
 export type ExperimentAnalysisSummaryVariationStatus = z.infer<
   typeof experimentAnalysisSummaryVariationStatus

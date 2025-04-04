@@ -37,13 +37,12 @@ import {
   isFactMetricId,
   isMetricJoinable,
 } from "shared/experiments";
-import { orgHasPremiumFeature } from "shared/enterprise";
 import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import {
   ExperimentAnalysisSummaryVariationStatus,
-  BanditResult,
   ExperimentAnalysisSummary,
   ExperimentAnalysisSummaryResultsStatus,
   GoalMetricResult,
@@ -51,6 +50,15 @@ import {
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { Context } from "back-end/src/models/BaseModel";
+import {
+  BanditResult,
+  Changeset,
+  ExperimentInterface,
+  ExperimentPhase,
+  LinkedFeatureEnvState,
+  LinkedFeatureInfo,
+  LinkedFeatureState,
+} from "back-end/types/experiment";
 import {
   ExperimentAnalysisParamsContextData,
   ExperimentSnapshotAnalysis,
@@ -84,14 +92,6 @@ import {
   Operator,
 } from "back-end/types/metric";
 import { SegmentInterface } from "back-end/types/segment";
-import {
-  Changeset,
-  ExperimentInterface,
-  ExperimentPhase,
-  LinkedFeatureEnvState,
-  LinkedFeatureInfo,
-  LinkedFeatureState,
-} from "back-end/types/experiment";
 import { findDimensionById } from "back-end/src/models/DimensionModel";
 import {
   APP_ORIGIN,
@@ -1338,12 +1338,14 @@ export async function toExperimentApiInterface(
     project: project ?? undefined,
     // todo: experiment settings
   });
+  const experimentType = experiment.type || "standard";
 
   const activationMetric = experiment.activationMetric;
   return {
     id: experiment.id,
+    trackingKey: experiment.trackingKey,
     name: experiment.name || "",
-    type: experiment.type || "standard",
+    type: experimentType,
     project: experiment.project || "",
     hypothesis: experiment.hypothesis || "",
     description: experiment.description || "",
@@ -1379,6 +1381,7 @@ export async function toExperimentApiInterface(
         weight: p.variationWeights[i] || 0,
       })),
       targetingCondition: p.condition || "",
+      prerequisites: p.prerequisites || [],
       savedGroupTargeting: (p.savedGroups || []).map((s) => ({
         matchType: s.match,
         savedGroups: s.ids,
@@ -1411,6 +1414,13 @@ export async function toExperimentApiInterface(
       regressionAdjustmentEnabled:
         experiment.regressionAdjustmentEnabled ??
         scopedSettings.regressionAdjustmentEnabled.value,
+      sequentialTestingEnabled:
+        experiment.sequentialTestingEnabled ??
+        scopedSettings.sequentialTestingEnabled.value,
+      sequentialTestingTuningParameter:
+        experiment.sequentialTestingTuningParameter ??
+        scopedSettings.sequentialTestingTuningParameter.value ??
+        DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
       ...(activationMetric
         ? {
             activationMetric: getExperimentMetric(experiment, activationMetric),
@@ -1432,6 +1442,14 @@ export async function toExperimentApiInterface(
     ...(experiment.shareLevel === "public" && experiment.uid
       ? {
           publicUrl: `${appOrigin}/public/e/${experiment.uid}`,
+        }
+      : null),
+    ...(experimentType === "multi-armed-bandit"
+      ? {
+          banditScheduleValue: experiment.banditScheduleValue ?? 1,
+          banditScheduleUnit: experiment.banditScheduleUnit ?? "days",
+          banditBurnInValue: experiment.banditBurnInValue ?? 1,
+          banditBurnInUnit: experiment.banditBurnInUnit ?? "days",
         }
       : null),
   };
@@ -2353,6 +2371,14 @@ export function postExperimentApiPayloadToInterface(
     if (!conditionRes.success) {
       throw new Error(`Invalid targeting condition: ${conditionRes.error}`);
     }
+    p.prerequisites?.forEach((prerequisite) => {
+      const conditionRes = validateCondition(prerequisite.condition);
+      if (!conditionRes.success) {
+        throw new Error(
+          `Invalid prerequisite condition: ${conditionRes.error}`
+        );
+      }
+    });
 
     return {
       ...p,
@@ -2361,6 +2387,7 @@ export function postExperimentApiPayloadToInterface(
       reason: p.reason || "",
       coverage: p.coverage != null ? p.coverage : 1,
       condition: p.condition || "{}",
+      prerequisites: p.prerequisites || [],
       savedGroups: (p.savedGroupTargeting || []).map((s) => ({
         match: s.matchType,
         ids: s.savedGroups,
@@ -2393,12 +2420,20 @@ export function postExperimentApiPayloadToInterface(
     },
   ];
 
-  return {
+  const obj: Omit<ExperimentInterface, "dateCreated" | "dateUpdated" | "id"> = {
     organization: organization.id,
     datasource: datasource?.id ?? "",
     archived: payload.archived ?? false,
     hashAttribute: payload.hashAttribute ?? "",
+    fallbackAttribute: payload.fallbackAttribute || "",
     hashVersion: payload.hashVersion ?? 2,
+    disableStickyBucketing: payload.disableStickyBucketing ?? false,
+    ...(payload.bucketVersion !== undefined
+      ? { bucketVersion: payload.bucketVersion }
+      : {}),
+    ...(payload.minBucketVersion !== undefined
+      ? { minBucketVersion: payload.minBucketVersion }
+      : {}),
     autoSnapshots: true,
     project: payload.project,
     owner: payload.owner || "",
@@ -2408,17 +2443,18 @@ export function postExperimentApiPayloadToInterface(
       datasource?.settings.queries?.exposure?.[0]?.id ||
       "",
     name: payload.name || "",
+    type: payload.type || "standard",
     phases,
     tags: payload.tags || [],
     description: payload.description || "",
     hypothesis: payload.hypothesis || "",
     goalMetrics: payload.metrics || [],
     secondaryMetrics: payload.secondaryMetrics || [],
-    metricOverrides: [],
     guardrailMetrics: payload.guardrailMetrics || [],
-    activationMetric: "",
-    segment: "",
-    queryFilter: "",
+    activationMetric: payload.activationMetric || "",
+    metricOverrides: [],
+    segment: payload.segmentId || "",
+    queryFilter: payload.queryFilter || "",
     skipPartialData: payload.inProgressConversions === "strict",
     attributionModel: payload.attributionModel || "firstExposure",
     ...(payload.statsEngine ? { statsEngine: payload.statsEngine } : {}),
@@ -2438,14 +2474,34 @@ export function postExperimentApiPayloadToInterface(
     previewURL: "",
     targetURLRegex: "",
     ideaSource: "",
-    sequentialTestingEnabled: !!organization?.settings
-      ?.sequentialTestingEnabled,
-    sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    sequentialTestingEnabled:
+      payload.sequentialTestingEnabled ??
+      !!organization?.settings?.sequentialTestingEnabled,
+    sequentialTestingTuningParameter:
+      payload.sequentialTestingTuningParameter ??
+      organization?.settings?.sequentialTestingTuningParameter ??
+      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     regressionAdjustmentEnabled:
       payload.regressionAdjustmentEnabled ??
       !!organization?.settings?.regressionAdjustmentEnabled,
     shareLevel: payload.shareLevel,
   };
+
+  const { settings } = getScopedSettings({
+    organization,
+  });
+
+  if (payload.type === "multi-armed-bandit") {
+    Object.assign(
+      obj,
+      resetExperimentBanditSettings({
+        experiment: (obj as unknown) as ExperimentInterface,
+        settings,
+      })
+    );
+  }
+
+  return obj;
 }
 
 /**
@@ -2457,7 +2513,9 @@ export function postExperimentApiPayloadToInterface(
  */
 export function updateExperimentApiPayloadToInterface(
   payload: z.infer<typeof updateExperimentValidator.bodySchema>,
-  experiment: ExperimentInterface
+  experiment: ExperimentInterface,
+  metricMap: Map<string, ExperimentMetricInterface>,
+  organization: OrganizationInterface
 ): Partial<ExperimentInterface> {
   const {
     trackingKey,
@@ -2467,12 +2525,19 @@ export function updateExperimentApiPayloadToInterface(
     assignmentQueryId,
     hashAttribute,
     hashVersion,
+    disableStickyBucketing,
+    bucketVersion,
+    minBucketVersion,
     name,
+    type,
     tags,
     description,
     hypothesis,
     metrics,
     guardrailMetrics,
+    activationMetric,
+    segmentId,
+    queryFilter,
     archived,
     status,
     phases,
@@ -2483,10 +2548,12 @@ export function updateExperimentApiPayloadToInterface(
     attributionModel,
     statsEngine,
     regressionAdjustmentEnabled,
+    sequentialTestingEnabled,
+    sequentialTestingTuningParameter,
     secondaryMetrics,
     shareLevel,
   } = payload;
-  return {
+  let changes: ExperimentInterface = {
     ...(trackingKey ? { trackingKey } : {}),
     ...(project !== undefined ? { project } : {}),
     ...(owner !== undefined ? { owner } : {}),
@@ -2494,13 +2561,20 @@ export function updateExperimentApiPayloadToInterface(
     ...(assignmentQueryId ? { assignmentQueryId } : {}),
     ...(hashAttribute ? { hashAttribute } : {}),
     ...(hashVersion ? { hashVersion } : {}),
+    ...(disableStickyBucketing !== undefined ? { disableStickyBucketing } : {}),
+    ...(bucketVersion !== undefined ? { bucketVersion } : {}),
+    ...(minBucketVersion !== undefined ? { minBucketVersion } : {}),
     ...(name ? { name } : {}),
+    ...(type ? { type } : {}),
     ...(tags ? { tags } : {}),
     ...(description !== undefined ? { description } : {}),
     ...(hypothesis !== undefined ? { hypothesis } : {}),
     ...(metrics ? { goalMetrics: metrics } : {}),
     ...(guardrailMetrics ? { guardrailMetrics } : {}),
     ...(secondaryMetrics ? { secondaryMetrics } : {}),
+    ...(activationMetric ? { activationMetric } : {}),
+    ...(segmentId ? { segment: segmentId } : {}),
+    ...(queryFilter !== undefined ? { queryFilter } : {}),
     ...(archived !== undefined ? { archived } : {}),
     ...(status ? { status } : {}),
     ...(releasedVariationId !== undefined ? { releasedVariationId } : {}),
@@ -2512,6 +2586,12 @@ export function updateExperimentApiPayloadToInterface(
     ...(statsEngine !== undefined ? { statsEngine } : {}),
     ...(regressionAdjustmentEnabled !== undefined
       ? { regressionAdjustmentEnabled }
+      : {}),
+    ...(sequentialTestingEnabled !== undefined
+      ? { sequentialTestingEnabled }
+      : {}),
+    ...(sequentialTestingTuningParameter !== undefined
+      ? { sequentialTestingTuningParameter }
       : {}),
     ...(variations
       ? {
@@ -2531,6 +2611,14 @@ export function updateExperimentApiPayloadToInterface(
                 `Invalid targeting condition: ${conditionRes.error}`
               );
             }
+            p.prerequisites?.forEach((prerequisite) => {
+              const conditionRes = validateCondition(prerequisite.condition);
+              if (!conditionRes.success) {
+                throw new Error(
+                  `Invalid prerequisite condition: ${conditionRes.error}`
+                );
+              }
+            });
 
             return {
               ...p,
@@ -2539,6 +2627,7 @@ export function updateExperimentApiPayloadToInterface(
               reason: p.reason || "",
               coverage: p.coverage != null ? p.coverage : 1,
               condition: p.condition || "{}",
+              prerequisites: p.prerequisites || [],
               savedGroups: (p.savedGroupTargeting || []).map((s) => ({
                 match: s.matchType,
                 ids: s.savedGroups,
@@ -2560,7 +2649,44 @@ export function updateExperimentApiPayloadToInterface(
       : {}),
     ...(shareLevel !== undefined ? { shareLevel } : {}),
     dateUpdated: new Date(),
-  };
+  } as ExperimentInterface;
+
+  const { settings } = getScopedSettings({
+    organization,
+  });
+
+  // Clean up some vars for bandits, but only if safe to do so...
+  // If it's a draft, hasn't been run as a bandit before, and is/will be a MAB:
+  if (
+    experiment.status === "draft" &&
+    experiment.banditStage === undefined &&
+    ((changes.type === undefined && experiment.type === "multi-armed-bandit") ||
+      changes.type === "multi-armed-bandit")
+  ) {
+    changes = resetExperimentBanditSettings({
+      experiment,
+      metricMap,
+      changes,
+      settings,
+    }) as ExperimentInterface;
+  }
+  // If it's already a bandit and..
+  if (experiment.type === "multi-armed-bandit") {
+    // ...the schedule has changed, recompute next run
+    if (
+      changes.banditScheduleUnit !== undefined ||
+      changes.banditScheduleValue !== undefined ||
+      changes.banditBurnInUnit !== undefined ||
+      changes.banditBurnInValue !== undefined
+    ) {
+      changes.nextSnapshotAttempt = determineNextBanditSchedule({
+        ...experiment,
+        ...changes,
+      } as ExperimentInterface);
+    }
+  }
+
+  return changes;
 }
 
 export async function getSettingsForSnapshotMetrics(
@@ -2983,10 +3109,16 @@ async function computeResultsStatus({
           } else if (resultsStatus.resultsStatus === "lost") {
             metricStatus.superStatSigStatus = "lost";
           }
+          if (!variationStatus.goalMetrics) {
+            variationStatus.goalMetrics = {};
+          }
           variationStatus.goalMetrics[metric.id] = metricStatus;
         }
 
         if (guardrailMetric) {
+          if (!variationStatus.guardrailMetrics) {
+            variationStatus.guardrailMetrics = {};
+          }
           variationStatus.guardrailMetrics[metric.id] = {
             status: resultsStatus.resultsStatus === "lost" ? "lost" : "neutral",
           };

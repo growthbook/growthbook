@@ -52,6 +52,7 @@ export interface Props {
   showDescriptions?: boolean;
   simple?: boolean;
   sortableClassName?: string;
+  onlySafeToEditVariationMetadata?: boolean;
 }
 
 export default function FeatureVariationsInput({
@@ -81,6 +82,7 @@ export default function FeatureVariationsInput({
   showDescriptions,
   simple,
   sortableClassName,
+  onlySafeToEditVariationMetadata,
 }: Props) {
   const weights = variations?.map((v) => v.weight) || [];
   const isEqualWeights = weights?.every(
@@ -177,6 +179,7 @@ export default function FeatureVariationsInput({
             label="Number of Variations"
             type="number"
             value={numberOfVariations}
+            disabled={onlySafeToEditVariationMetadata}
             onChange={(e) => setNumberOfVariations(e?.target?.value ?? "2")}
             onBlur={(e) => {
               let n = parseInt(e?.target?.value ?? numberOfVariations);
@@ -243,7 +246,9 @@ export default function FeatureVariationsInput({
                       min={0}
                       max={100}
                       step="1"
-                      disabled={!!disableCoverage}
+                      disabled={
+                        !!disableCoverage && onlySafeToEditVariationMetadata
+                      }
                     />
                     <span>%</span>
                   </div>
@@ -291,7 +296,8 @@ export default function FeatureVariationsInput({
                       Split
                       {!disableVariations &&
                         !disableCustomSplit &&
-                        !editingSplits && (
+                        !editingSplits &&
+                        !onlySafeToEditVariationMetadata && (
                           <Tooltip
                             body="Customize split"
                             usePortal={true}
@@ -356,6 +362,9 @@ export default function FeatureVariationsInput({
                           !disableVariations ? setVariations : undefined
                         }
                         setWeight={!disableVariations ? setWeight : undefined}
+                        onlySafeToEditVariationMetadata={
+                          onlySafeToEditVariationMetadata
+                        }
                         customSplit={editingSplits}
                         valueType={valueType}
                         valueAsId={valueAsId}
@@ -371,66 +380,69 @@ export default function FeatureVariationsInput({
                 )}
               </tbody>
               <tfoot>
-                {!disableVariations && variations && setWeight && (
-                  <tr>
-                    <td colSpan={10}>
-                      <div className="row">
-                        <div className="col">
-                          {valueType !== "boolean" && setVariations && (
-                            <a
-                              role="button"
-                              className="btn btn-link link-purple font-weight-bold p-0"
-                              onClick={() => {
-                                const newWeights = distributeWeights(
-                                  [...weights, 0],
-                                  editingSplits
-                                );
+                {!disableVariations &&
+                  variations &&
+                  setWeight &&
+                  !onlySafeToEditVariationMetadata && (
+                    <tr>
+                      <td colSpan={10}>
+                        <div className="row">
+                          <div className="col">
+                            {valueType !== "boolean" && setVariations && (
+                              <a
+                                role="button"
+                                className="btn btn-link link-purple font-weight-bold p-0"
+                                onClick={() => {
+                                  const newWeights = distributeWeights(
+                                    [...weights, 0],
+                                    editingSplits
+                                  );
 
-                                // Add a new value and update weights
-                                const newValues = [
-                                  ...variations,
-                                  {
-                                    value: getDefaultVariationValue(
-                                      defaultValue
-                                    ),
-                                    name: `Variation ${variations.length}`,
-                                    weight: 0,
-                                    id: generateVariationId(),
-                                  },
-                                ];
-                                newValues.forEach((v, i) => {
-                                  v.weight = newWeights[i] || 0;
-                                });
-                                setVariations(newValues);
-                                if (isEqualWeights) {
-                                  getEqualWeights(
-                                    newValues.length
-                                  ).forEach((w, i) => setWeight(i, w));
-                                }
-                              }}
-                            >
-                              <GBAddCircle className="mr-1" />
-                              Add variation
-                            </a>
-                          )}
-                          {valueType === "boolean" && (
-                            <>
-                              <Tooltip body="Boolean features can only have two variations. Use a different feature type to add multiple variations.">
-                                <a
-                                  role="button"
-                                  className="btn btn-link p-0 disabled"
-                                >
-                                  <GBAddCircle className="mr-2" />
-                                  Add variation
-                                </a>
-                              </Tooltip>
-                            </>
-                          )}
+                                  // Add a new value and update weights
+                                  const newValues = [
+                                    ...variations,
+                                    {
+                                      value: getDefaultVariationValue(
+                                        defaultValue
+                                      ),
+                                      name: `Variation ${variations.length}`,
+                                      weight: 0,
+                                      id: generateVariationId(),
+                                    },
+                                  ];
+                                  newValues.forEach((v, i) => {
+                                    v.weight = newWeights[i] || 0;
+                                  });
+                                  setVariations(newValues);
+                                  if (isEqualWeights) {
+                                    getEqualWeights(
+                                      newValues.length
+                                    ).forEach((w, i) => setWeight(i, w));
+                                  }
+                                }}
+                              >
+                                <GBAddCircle className="mr-1" />
+                                Add variation
+                              </a>
+                            )}
+                            {valueType === "boolean" && (
+                              <>
+                                <Tooltip body="Boolean features can only have two variations. Use a different feature type to add multiple variations.">
+                                  <a
+                                    role="button"
+                                    className="btn btn-link p-0 disabled"
+                                  >
+                                    <GBAddCircle className="mr-2" />
+                                    Add variation
+                                  </a>
+                                </Tooltip>
+                              </>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                  </tr>
-                )}
+                      </td>
+                    </tr>
+                  )}
 
                 {showPreview && coverage !== undefined && variations ? (
                   <tr>

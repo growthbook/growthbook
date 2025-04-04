@@ -4,6 +4,7 @@ import { LiaChartLineSolid } from "react-icons/lia";
 import { TbChartAreaLineFilled } from "react-icons/tb";
 import { BanditEvent } from "back-end/src/validators/experiments";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { getSRMValue } from "shared/health";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import BanditSummaryTable from "@/components/Experiment/BanditSummaryTable";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -132,7 +133,11 @@ export default function BanditSummaryResultsTab({
         {!isPublic && (
           <div className="mx-3">
             <SRMWarning
-              srm={event?.banditResult?.srm ?? Infinity}
+              srm={
+                latest
+                  ? getSRMValue("multi-armed-bandit", latest) ?? Infinity
+                  : Infinity
+              }
               users={users}
               showWhenHealthy={false}
               isBandit={true}

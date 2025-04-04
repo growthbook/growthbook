@@ -81,6 +81,12 @@ export type BanditMetricData = Pick<
   | "capCoalesceCovariate"
 >;
 
+export type VariationPeriodWeight = {
+  variationId: string;
+  date: Date;
+  weight: number;
+};
+
 export interface ExperimentMetricStats {
   metric_type: MetricType;
   count: number;

@@ -180,6 +180,7 @@ export type FeatureRule = z.infer<typeof featureRule>;
 export const featureEnvironment = z
   .object({
     enabled: z.boolean(),
+    prerequisites: z.array(featurePrerequisite).optional(),
     rules: z.array(featureRule),
   })
   .strict();

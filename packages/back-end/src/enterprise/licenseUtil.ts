@@ -7,6 +7,18 @@ import AsyncLock from "async-lock";
 import { parseProcessLogBase, stringToBoolean } from "shared/util";
 import { ProxyAgent } from "proxy-agent";
 import cloneDeep from "lodash/cloneDeep";
+import {
+  accountFeatures,
+  AccountPlan,
+  accountPlans,
+  CommercialFeature,
+  CommercialFeaturesMap,
+  LicenseData,
+  LicenseInterface,
+  LicenseMetaData,
+  LicenseUserCodes,
+  SubscriptionInfo,
+} from "shared/enterprise";
 import { getLicenseByKey, LicenseModel } from "./models/licenseModel";
 import { LICENSE_PUBLIC_KEY } from "./public-key";
 
@@ -23,75 +35,6 @@ const logger = pino({
   ...logBase,
 });
 
-export type AccountPlan = "oss" | "starter" | "pro" | "pro_sso" | "enterprise";
-const accountPlans: Set<AccountPlan> = new Set([
-  "oss",
-  "starter",
-  "pro",
-  "pro_sso",
-  "enterprise",
-]);
-
-export type CommercialFeature =
-  | "scim"
-  | "sso"
-  | "advanced-permissions"
-  | "encrypt-features-endpoint"
-  | "schedule-feature-flag"
-  | "custom-metadata"
-  | "override-metrics"
-  | "regression-adjustment"
-  | "sequential-testing"
-  | "pipeline-mode"
-  | "audit-logging"
-  | "visual-editor"
-  | "archetypes"
-  | "simulate"
-  | "cloud-proxy"
-  | "hash-secure-attributes"
-  | "livechat"
-  | "json-validation"
-  | "remote-evaluation"
-  | "multi-org"
-  | "custom-launch-checklist"
-  | "multi-metric-queries"
-  | "no-access-role"
-  | "teams"
-  | "sticky-bucketing"
-  | "require-approvals"
-  | "code-references"
-  | "prerequisites"
-  | "prerequisite-targeting"
-  | "redirects"
-  | "multiple-sdk-webhooks"
-  | "custom-roles"
-  | "quantile-metrics"
-  | "retention-metrics"
-  | "custom-markdown"
-  | "experiment-impact"
-  | "metric-populations"
-  | "large-saved-groups"
-  | "multi-armed-bandits"
-  | "metric-groups"
-  | "environment-inheritance"
-  | "templates"
-  | "historical-power"
-  | "decision-framework";
-
-export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
-
-export type SubscriptionInfo = {
-  billingPlatform?: "stripe" | "orb";
-  externalId: string;
-  trialEnd: Date | null;
-  status: "active" | "canceled" | "past_due" | "trialing" | "";
-  hasPaymentMethod: boolean;
-  nextBillDate: string;
-  dateToBeCanceled: string;
-  cancelationDate: string;
-  pendingCancelation: boolean;
-};
-
 function getStripeSubscriptionStatus(
   status: Stripe.Subscription.Status
 ): SubscriptionInfo["status"] {
@@ -105,14 +48,12 @@ function getStripeSubscriptionStatus(
 export function getSubscriptionFromLicense(
   license: Partial<LicenseInterface>
 ): SubscriptionInfo | null {
-  const sub =
-    license.billingPlatform === "orb"
-      ? license.orbSubscription
-      : license.stripeSubscription;
+  const sub = license.orbSubscription || license.stripeSubscription;
+
   if (!sub) return null;
 
   return {
-    billingPlatform: license.billingPlatform || "stripe",
+    billingPlatform: license.orbSubscription ? "orb" : "stripe",
     externalId: sub.id,
     trialEnd: sub.trialEnd,
     status: getStripeSubscriptionStatus(sub.status),
@@ -123,205 +64,6 @@ export function getSubscriptionFromLicense(
     pendingCancelation: sub.status !== "canceled" && !!sub.cancel_at_period_end,
   };
 }
-
-export interface LicenseInterface {
-  id: string; // Unique ID for the license key
-  companyName: string; // Name of the organization on the license
-  organizationId?: string; // OrganizationId (keys prior to 12/2022 do not contain this field)
-  seats: number; // Maximum number of seats on the license
-  hardCap: boolean; // True if this license has a hard cap on the number of seats
-  dateCreated: string; // Date the license was issued
-  dateExpires: string; // Date the license expires
-  name: string; // Name of the person who signed up for the license
-  email: string; // Billing email of the person who signed up for the license
-  emailVerified: boolean; // True if the email has been verified
-  isTrial: boolean; // True if this is a trial license
-  plan?: AccountPlan; // The assigned plan (pro, enterprise, etc.) for this license
-  seatsInUse: number; // Number of seats currently in use
-  remoteDowngrade: boolean; // True if the license was downgraded remotely
-  message?: {
-    text: string; // The text to show in the account notice
-    className: string; // The class name to apply to the account notice
-    tooltipText: string; // The text to show in the tooltip
-    showAllUsers: boolean; // True if all users should see the notice rather than just the admins
-  };
-  billingPlatform: "stripe" | "orb" | "";
-  stripeSubscription?: {
-    id: string;
-    qty: number;
-    trialEnd: Date | null;
-    status: Stripe.Subscription.Status;
-    current_period_end: number;
-    cancel_at: number | null;
-    canceled_at: number | null;
-    cancel_at_period_end: boolean;
-    planNickname: string | null;
-    priceId?: string;
-    price?: number; // The price of the license
-    discountAmount?: number; // The amount of the discount
-    discountMessage?: string; // The message of the discount
-    hasPaymentMethod?: boolean;
-  };
-  orbSubscription?: {
-    id: string;
-    customerId: string;
-    qty: number;
-    trialEnd: Date | null;
-    status: Stripe.Subscription.Status;
-    current_period_end: number;
-    cancel_at: number | null;
-    canceled_at: number | null;
-    cancel_at_period_end: boolean;
-    planId: string;
-    hasPaymentMethod: boolean;
-  };
-  freeTrialDate?: Date; // Date the free trial was started
-  installationUsers: {
-    [installationId: string]: {
-      date: string;
-      userHashes: string[];
-      licenseUserCodes?: LicenseUserCodes;
-    };
-  }; // Map of first 7 chars of user email shas to the last time they were in a usage request
-  archived: boolean; // True if this license has been deleted/archived
-  dateUpdated: string; // Date the license was last updated
-  usingMongoCache: boolean; // True if the license data was retrieved from the cache
-  firstFailedFetchDate?: Date; // Date of the first failed fetch
-  lastFailedFetchDate?: Date; // Date of the last failed fetch
-  lastServerErrorMessage?: string; // The last error message from a failed fetch
-  signedChecksum: string; // Checksum of the license data signed with the private key
-}
-
-// Old/Airgapped style license keys where the license data is encrypted in the key itself
-type LicenseData = {
-  // Unique id for the license key
-  ref: string;
-  // Name of organization on the license
-  sub: string;
-  // Organization ID (keys prior to 12/2022 do not contain this field)
-  org?: string;
-  // Max number of seats
-  qty: number;
-  // True if this license has a hard cap on the number of seats (keys prior to 03/2024 do not contain this field)
-  hardCap?: boolean;
-  // Date issued
-  iat: string;
-  // Expiration date
-  exp: string;
-  // If it's a trial or not
-  trial: boolean;
-  // The plan (pro, enterprise, etc.)
-  plan: AccountPlan;
-  /**
-   * Expiration date (old style)
-   * @deprecated
-   */
-  eat?: string;
-};
-
-export const accountFeatures: CommercialFeaturesMap = {
-  oss: new Set<CommercialFeature>([]),
-  starter: new Set<CommercialFeature>([]),
-  pro: new Set<CommercialFeature>([
-    "advanced-permissions",
-    "encrypt-features-endpoint",
-    "schedule-feature-flag",
-    "override-metrics",
-    "regression-adjustment",
-    "sequential-testing",
-    "visual-editor",
-    "archetypes",
-    "simulate",
-    "cloud-proxy",
-    "hash-secure-attributes",
-    "livechat",
-    "remote-evaluation",
-    "sticky-bucketing",
-    "code-references",
-    "prerequisites",
-    "redirects",
-    "multiple-sdk-webhooks",
-    "quantile-metrics",
-    "retention-metrics",
-    "metric-populations",
-    "multi-armed-bandits",
-    "historical-power",
-    "decision-framework",
-  ]),
-  pro_sso: new Set<CommercialFeature>([
-    "sso",
-    "advanced-permissions",
-    "encrypt-features-endpoint",
-    "schedule-feature-flag",
-    "override-metrics",
-    "regression-adjustment",
-    "sequential-testing",
-    "visual-editor",
-    "archetypes",
-    "simulate",
-    "cloud-proxy",
-    "hash-secure-attributes",
-    "livechat",
-    "remote-evaluation",
-    "sticky-bucketing",
-    "code-references",
-    "prerequisites",
-    "redirects",
-    "multiple-sdk-webhooks",
-    "quantile-metrics",
-    "retention-metrics",
-    "metric-populations",
-    "multi-armed-bandits",
-    "historical-power",
-    "decision-framework",
-  ]),
-  enterprise: new Set<CommercialFeature>([
-    "scim",
-    "sso",
-    "advanced-permissions",
-    "audit-logging",
-    "encrypt-features-endpoint",
-    "schedule-feature-flag",
-    "custom-metadata",
-    "override-metrics",
-    "regression-adjustment",
-    "sequential-testing",
-    "pipeline-mode",
-    "multi-metric-queries",
-    "visual-editor",
-    "archetypes",
-    "simulate",
-    "cloud-proxy",
-    "hash-secure-attributes",
-    "json-validation",
-    "livechat",
-    "remote-evaluation",
-    "multi-org",
-    "teams",
-    "custom-launch-checklist",
-    "no-access-role",
-    "sticky-bucketing",
-    "require-approvals",
-    "code-references",
-    "prerequisites",
-    "prerequisite-targeting",
-    "redirects",
-    "multiple-sdk-webhooks",
-    "quantile-metrics",
-    "retention-metrics",
-    "custom-roles",
-    "custom-markdown",
-    "experiment-impact",
-    "metric-populations",
-    "large-saved-groups",
-    "multi-armed-bandits",
-    "metric-groups",
-    "environment-inheritance",
-    "templates",
-    "historical-power",
-    "decision-framework",
-  ]),
-};
 
 type MinimalOrganization = {
   id: string;
@@ -524,11 +266,15 @@ export class LicenseServerError extends Error {
   }
 }
 
-export async function callLicenseServer(
-  url: string,
-  body: string,
-  method = "POST"
-) {
+export async function callLicenseServer({
+  url,
+  body,
+  method = "POST",
+}: {
+  url: string;
+  body?: string;
+  method?: string;
+}) {
   const agentOptions = getAgentOptions();
 
   const options = {
@@ -575,12 +321,25 @@ export async function postVerifyEmailToLicenseServer(
   emailVerificationToken: string
 ) {
   const url = `${LICENSE_SERVER_URL}license/verify-email`;
-  return callLicenseServer(
+  return callLicenseServer({
     url,
-    JSON.stringify({
+    body: JSON.stringify({
       emailVerificationToken,
-    })
-  );
+    }),
+  });
+}
+
+export async function getPortalUrlFromServer(
+  organizationId: string
+): Promise<{ portalUrl: string }> {
+  const url = `${LICENSE_SERVER_URL}subscription/portal-url`;
+  return callLicenseServer({
+    url,
+    body: JSON.stringify({
+      organizationId,
+      cloudSecret: process.env.CLOUD_SECRET,
+    }),
+  });
 }
 
 export async function postNewProTrialSubscriptionToLicenseServer(
@@ -591,9 +350,9 @@ export async function postNewProTrialSubscriptionToLicenseServer(
   seats: number
 ) {
   const url = `${LICENSE_SERVER_URL}subscription/new-pro-trial`;
-  return callLicenseServer(
+  return callLicenseServer({
     url,
-    JSON.stringify({
+    body: JSON.stringify({
       organizationId,
       companyName,
       name,
@@ -601,8 +360,8 @@ export async function postNewProTrialSubscriptionToLicenseServer(
       seats,
       appOrigin: APP_ORIGIN,
       cloudSecret: process.env.CLOUD_SECRET,
-    })
-  );
+    }),
+  });
 }
 
 export async function postNewProSubscriptionToLicenseServer(
@@ -614,9 +373,9 @@ export async function postNewProSubscriptionToLicenseServer(
   returnUrl: string
 ) {
   const url = `${LICENSE_SERVER_URL}subscription/new`;
-  return callLicenseServer(
+  return callLicenseServer({
     url,
-    JSON.stringify({
+    body: JSON.stringify({
       appOrigin: APP_ORIGIN,
       cloudSecret: process.env.CLOUD_SECRET,
       organizationId,
@@ -625,50 +384,71 @@ export async function postNewProSubscriptionToLicenseServer(
       name,
       seats,
       returnUrl,
-    })
-  );
+    }),
+  });
+}
+
+export async function postNewInlineSubscriptionToLicenseServer(
+  organizationId: string,
+  nonInviteSeatQty: number
+) {
+  const url = `${LICENSE_SERVER_URL}subscription/start-new-pro`;
+  const license = await callLicenseServer({
+    url,
+    body: JSON.stringify({
+      cloudSecret: process.env.CLOUD_SECRET,
+      organizationId,
+      nonInviteSeatQty,
+    }),
+  });
+
+  verifyAndSetServerLicenseData(license);
+  return license;
+}
+
+export async function postNewProSubscriptionIntentToLicenseServer(
+  organizationId: string,
+  companyName: string,
+  ownerEmail: string,
+  name: string
+) {
+  const url = `${LICENSE_SERVER_URL}subscription/setup-subscription-intent`;
+  return await callLicenseServer({
+    url,
+    body: JSON.stringify({
+      appOrigin: APP_ORIGIN,
+      cloudSecret: process.env.CLOUD_SECRET,
+      organizationId,
+      companyName,
+      ownerEmail,
+      name,
+    }),
+  });
 }
 
 export async function postNewSubscriptionSuccessToLicenseServer(
   checkoutSessionId: string
 ): Promise<LicenseInterface> {
   const url = `${LICENSE_SERVER_URL}subscription/success`;
-  return await callLicenseServer(
+  return await callLicenseServer({
     url,
-    JSON.stringify({
+    body: JSON.stringify({
       checkoutSessionId,
-    })
-  );
+    }),
+  });
 }
 
 export async function postCreateBillingSessionToLicenseServer(
   licenseId: string
 ): Promise<{ url: string; status: number }> {
   const url = `${LICENSE_SERVER_URL}subscription/manage`;
-  return await callLicenseServer(
+  return await callLicenseServer({
     url,
-    JSON.stringify({
+    body: JSON.stringify({
       appOrigin: APP_ORIGIN,
       licenseId,
-    })
-  );
-}
-
-export async function postSubscriptionUpdateToLicenseServer(
-  licenseId: string,
-  seats: number
-): Promise<LicenseInterface> {
-  const url = `${LICENSE_SERVER_URL}subscription/update`;
-  const license = await callLicenseServer(
-    url,
-    JSON.stringify({
-      licenseId,
-      seats,
-    })
-  );
-
-  verifyAndSetServerLicenseData(license);
-  return license;
+    }),
+  });
 }
 
 export async function postCreateTrialEnterpriseLicenseToLicenseServer(
@@ -685,9 +465,9 @@ export async function postCreateTrialEnterpriseLicenseToLicenseServer(
   }
 ) {
   const url = `${LICENSE_SERVER_URL}license/new-enterprise-trial`;
-  return await callLicenseServer(
+  return await callLicenseServer({
     url,
-    JSON.stringify({
+    body: JSON.stringify({
       email,
       name,
       organizationId,
@@ -695,21 +475,32 @@ export async function postCreateTrialEnterpriseLicenseToLicenseServer(
       context,
       appOrigin: APP_ORIGIN,
       cloudSecret: process.env.CLOUD_SECRET,
-    })
-  );
+    }),
+  });
+}
+
+export async function postCancelSubscriptionToLicenseServer(licenseId: string) {
+  const url = `${LICENSE_SERVER_URL}subscription/cancel`;
+  const license = await callLicenseServer({
+    url,
+    body: JSON.stringify({ licenseId, cloudSecret: process.env.CLOUD_SECRET }),
+  });
+
+  verifyAndSetServerLicenseData(license);
+  return license;
 }
 
 export async function postResendEmailVerificationEmailToLicenseServer(
   organizationId: string
 ) {
   const url = `${LICENSE_SERVER_URL}license/resend-license-email`;
-  return await callLicenseServer(
+  return await callLicenseServer({
     url,
-    JSON.stringify({
+    body: JSON.stringify({
       organizationId,
       appOrigin: APP_ORIGIN,
-    })
-  );
+    }),
+  });
 }
 
 // Creates or replaces the license in the MongoDB cache in case the license server goes down.
@@ -745,14 +536,14 @@ async function getLicenseDataFromServer(
   logger.info("Getting license data from server for " + licenseId);
   const url = `${LICENSE_SERVER_URL}license/${licenseId}/check`;
 
-  const license = await callLicenseServer(
+  const license = await callLicenseServer({
     url,
-    JSON.stringify({
+    body: JSON.stringify({
       licenseUserCodes: licenseUserCodes,
       metaData,
     }),
-    "PUT"
-  );
+    method: "PUT",
+  });
 
   return license;
 }
@@ -797,22 +588,6 @@ async function updateLicenseFromServer(
     throw e;
   }
   return license;
-}
-
-export interface LicenseUserCodes {
-  invites: string[];
-  fullMembers: string[];
-  readOnlyMembers: string[];
-}
-
-export interface LicenseMetaData {
-  installationId: string;
-  gitSha: string;
-  gitCommitDate: string;
-  sdkLanguages: string[];
-  dataSourceTypes: string[];
-  eventTrackers: string[];
-  isCloud: boolean;
 }
 
 const lock = new AsyncLock();

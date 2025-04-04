@@ -46,6 +46,10 @@ export default class Vertica extends SqlIntegration {
   getDefaultDatabase(): string {
     return this.params.database;
   }
+  extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
+    const raw = `MAPLOOKUP(MapJSONExtractor(${jsonCol}), '${path}')`;
+    return isNumeric ? this.ensureFloat(raw) : raw;
+  }
 
   getInformationSchemaTable(schema?: string, database?: string): string {
     return this.generateTablePath("v_catalog.columns", schema, database);

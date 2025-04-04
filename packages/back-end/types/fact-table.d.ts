@@ -20,12 +20,15 @@ import {
   priorSettingsValidator,
   columnAggregationValidator,
   legacyWindowSettingsValidator,
+  jsonColumnFieldsValidator,
 } from "back-end/src/routers/fact-table/fact-table.validators";
 import { TestQueryRow } from "back-end/src/types/Integration";
 import { CreateProps, UpdateProps } from "./models";
 
 export type FactTableColumnType = z.infer<typeof factTableColumnTypeValidator>;
 export type NumberFormat = z.infer<typeof numberFormatValidator>;
+
+export type JSONColumnFields = z.infer<typeof jsonColumnFieldsValidator>;
 
 export interface ColumnInterface {
   dateCreated: Date;
@@ -38,6 +41,7 @@ export interface ColumnInterface {
   alwaysInlineFilter?: boolean;
   topValues?: string[];
   topValuesDate?: Date;
+  jsonFields?: JSONColumnFields;
   deleted: boolean;
 }
 
