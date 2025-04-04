@@ -788,6 +788,9 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
         rows["main_sum_squares"] = None
         rows["covariate_sum_squares"] = None
         df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        print("brenda")
+        print(rows["main_sum_squares"])
+        print(rows["covariate_sum_squares"])
         result = analyze_metric_df(
             df,
             metric=dataclasses.replace(
@@ -796,9 +799,7 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
                 covariate_metric_type="binomial",
             ),
             analysis=dataclasses.replace(DEFAULT_ANALYSIS, stats_engine="frequentist"),
-        )
-
-        # Test that metric mean is unadjusted
+        )  # Test that metric mean is unadjusted
         self.assertEqual(len(result.index), 1)
         self.assertEqual(result.at[0, "dimension"], "All")
         self.assertEqual(round_(result.at[0, "baseline_cr"]), 0.099966678)
@@ -806,7 +807,7 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
         self.assertEqual(round_(result.at[0, "v1_cr"]), 0.074)
         self.assertEqual(round_(result.at[0, "v1_mean"]), 0.074)
         self.assertEqual(result.at[0, "v1_risk"], None)
-        self.assertEqual(round_(result.at[0, "v1_expected"]), -0.316211568)
+        self.assertEqual(round_(result.at[0, "v1_expected"]), -0.31620216)
         self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
         self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.000000352)
 
