@@ -405,7 +405,6 @@ const Layout = (): React.ReactElement => {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason=""
           source="layout"
           commercialFeature={null}
         />

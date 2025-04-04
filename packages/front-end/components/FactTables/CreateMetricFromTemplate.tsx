@@ -46,7 +46,6 @@ export default function CreateMetricFromTemplate() {
   const [upgradeModal, setUpgradeModal] = useState<null | {
     source: string;
     commercialFeature: CommercialFeature;
-    reason: string;
   }>(null);
 
   const QUERY_KEY = "addMetric";
@@ -95,7 +94,6 @@ export default function CreateMetricFromTemplate() {
                 showUpgradeModal={() =>
                   setUpgradeModal({
                     source: "metric-template-quantile",
-                    reason: "To create quantile metrics,",
                     commercialFeature: "quantile-metrics",
                   })
                 }
@@ -116,7 +114,6 @@ export default function CreateMetricFromTemplate() {
                 showUpgradeModal={() =>
                   setUpgradeModal({
                     source: "metric-template-retention",
-                    reason: "To create retention metrics,",
                     commercialFeature: "retention-metrics",
                   })
                 }
@@ -165,7 +162,6 @@ export default function CreateMetricFromTemplate() {
       {upgradeModal ? (
         <UpgradeModal
           close={() => setUpgradeModal(null)}
-          reason={upgradeModal.reason}
           source={upgradeModal.source}
           commercialFeature={upgradeModal.commercialFeature}
         />

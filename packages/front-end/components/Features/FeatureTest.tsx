@@ -41,7 +41,6 @@ export default function FeatureTest({
           description={
             "Feature allows you to see how your rules will apply to users based on their attributes. Upgrade to unlock this feature."
           }
-          reason={"No Access Feature Testing Tab"}
           learnMoreLink="https://docs.growthbook.io/features/rules#testing-rules"
         />
       </Box>

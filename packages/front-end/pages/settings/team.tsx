@@ -89,7 +89,6 @@ const TeamPage: FC = () => {
                 title="Teams"
                 description="Create groups of GrowthBook users to organize and manage permissions centrally"
                 commercialFeature="teams"
-                reason="Teams no access"
                 learnMoreLink="https://docs.growthbook.io/account/user-permissions#teams"
               />
             )}
@@ -128,7 +127,6 @@ const TeamPage: FC = () => {
                 title="Custom Roles"
                 description="Custom roles allows you to adjust permissions and assign those roles to members or teams"
                 commercialFeature="custom-roles"
-                reason="Custom Roles no access"
                 learnMoreLink="https://docs.growthbook.io/account/user-permissions#custom-roles"
               />
             )}

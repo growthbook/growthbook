@@ -145,7 +145,6 @@ const TemplatePage: FC = () => {
               <UpgradeModal
                 close={() => setShowUpgradeModal(false)}
                 source="templates"
-                reason="Create experiments from templates"
                 commercialFeature="templates"
               />
             )}

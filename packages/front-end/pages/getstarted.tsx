@@ -65,7 +65,6 @@ const GetStartedPage = (): React.ReactElement => {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason=""
           source="get-started"
           commercialFeature={null}
         />

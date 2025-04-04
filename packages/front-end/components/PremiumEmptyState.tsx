@@ -12,7 +12,6 @@ interface Props {
   description: string;
   learnMoreLink?: string;
   commercialFeature: CommercialFeature;
-  reason: string;
   image?: string;
 }
 
@@ -22,7 +21,6 @@ const PremiumEmptyState: FC<Props> = ({
   h1 = "",
   learnMoreLink,
   commercialFeature,
-  reason,
   image,
 }) => {
   const [upgradeModal, setUpgradeModal] = useState(false);
@@ -91,7 +89,6 @@ const PremiumEmptyState: FC<Props> = ({
           {upgradeModal && (
             <UpgradeModal
               close={() => setUpgradeModal(false)}
-              reason={reason}
               source={commercialFeature}
               commercialFeature={commercialFeature}
             />
