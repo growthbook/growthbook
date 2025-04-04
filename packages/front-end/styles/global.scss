@@ -1021,6 +1021,24 @@ main.main {
   }
 }
 
+.query-table {
+  thead {
+    th {
+      background-color: var(--slate-2);
+    }
+  }
+}
+
+.dark .query-table {
+  thead {
+    th {
+      // hard coded to match slate-a2 on the background color
+      // opaque to prevent table header from showing through
+      background-color: rgba(36, 43, 61, 1);
+    }
+  }
+}
+
 @media only screen and (max-width: 760px),
   (min-device-width: 768px) and (max-device-width: 1024px) {
   .responsive-table {

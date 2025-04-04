@@ -968,7 +968,7 @@ function getChangeTooltip(
     "The uplift comparing the variation to the baseline, in percent change from the baseline value.";
   if (differenceType == "absolute") {
     changeText =
-      "The absolute difference between the average values in the variation and the baseline. For non-ratio metrics, this is average difference between users in the variation and the baseline.";
+      "The absolute difference between the average values in the variation and the baseline. For non-ratio metrics, this is average difference between users in the variation and the baseline. Differences in proportion metrics are shown in percentage points (pp).";
   } else if (differenceType == "scaled") {
     changeText =
       "The total change in the metric per day if 100% of traffic were to have gone to the variation.";

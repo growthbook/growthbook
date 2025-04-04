@@ -144,6 +144,18 @@ properties:
               rangeEnd: number
         targetingCondition:
           type: string
+        prerequisites:
+          type: array
+          items:
+            type: object
+            required:
+              - id
+              - condition
+            properties:
+              id:
+                type: string
+              condition:
+                type: string
         savedGroupTargeting:
           type: array
           items:
@@ -192,3 +204,17 @@ properties:
       - "organization"
   publicUrl:
     type: string
+  banditScheduleValue:
+    type: number
+  banditScheduleUnit:
+    type: string
+    enum:
+      - "days"
+      - "hours"
+  banditBurnInValue:
+    type: number
+  banditBurnInUnit:
+    type: string
+    enum:
+      - "days"
+      - "hours"

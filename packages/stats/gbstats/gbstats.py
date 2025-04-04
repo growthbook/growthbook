@@ -351,25 +351,25 @@ def analyze_metric_df(
                     test.stat_a, test.stat_b, res, config, power_config
                 )
 
-                s[
-                    f"v{i}_first_period_pairwise_users"
-                ] = mid_experiment_power.pairwise_sample_size
+                s[f"v{i}_first_period_pairwise_users"] = (
+                    mid_experiment_power.pairwise_sample_size
+                )
                 s[f"v{i}_target_mde"] = metric.target_mde
                 s[f"v{i}_sigmahat_2_delta"] = mid_experiment_power.sigmahat_2_delta
                 if mid_experiment_power.prior_effect:
                     s[f"v{i}_prior_proper"] = mid_experiment_power.prior_effect.proper
                     s[f"v{i}_prior_lift_mean"] = mid_experiment_power.prior_effect.mean
-                    s[
-                        f"v{i}_prior_lift_variance"
-                    ] = mid_experiment_power.prior_effect.variance
+                    s[f"v{i}_prior_lift_variance"] = (
+                        mid_experiment_power.prior_effect.variance
+                    )
                 mid_experiment_power_result = (
                     mid_experiment_power.calculate_sample_size()
                 )
                 s[f"v{i}_power_status"] = mid_experiment_power_result.update_message
                 s[f"v{i}_power_error_message"] = mid_experiment_power_result.error
-                s[
-                    f"v{i}_power_upper_bound_achieved"
-                ] = mid_experiment_power_result.upper_bound_achieved
+                s[f"v{i}_power_upper_bound_achieved"] = (
+                    mid_experiment_power_result.upper_bound_achieved
+                )
                 s[f"v{i}_scaling_factor"] = mid_experiment_power_result.scaling_factor
 
             s["baseline_cr"] = test.stat_a.unadjusted_mean
@@ -784,11 +784,11 @@ def preprocess_bandits(
         inverse=metric.inverse,
     )
     if isinstance(bandit_stats[0], RatioStatistic):
-        return BanditsRatio(bandit_stats, bandit_settings.historical_weights, bandit_settings.current_weights, bandit_config)  # type: ignore
+        return BanditsRatio(bandit_stats, bandit_settings.current_weights, bandit_config)  # type: ignore
     elif isinstance(bandit_stats[0], RegressionAdjustedStatistic):
-        return BanditsCuped(bandit_stats, bandit_settings.historical_weights, bandit_settings.current_weights, bandit_config)  # type: ignore
+        return BanditsCuped(bandit_stats, bandit_settings.current_weights, bandit_config)  # type: ignore
     else:
-        return BanditsSimple(bandit_stats, bandit_settings.historical_weights, bandit_settings.current_weights, bandit_config)  # type: ignore
+        return BanditsSimple(bandit_stats, bandit_settings.current_weights, bandit_config)  # type: ignore
 
 
 def get_bandit_result(
@@ -804,12 +804,10 @@ def get_bandit_result(
             return get_error_bandit_result(
                 single_variation_results=None,
                 update_message="not updated",
-                srm=1,
                 error="not all statistics are instance of type BanditStatistic",
                 reweight=bandit_settings.reweight,
                 current_weights=bandit_settings.current_weights,
             )
-        srm_p_value = b.compute_srm()
         bandit_result = b.compute_result()
         if bandit_result.ci:
             single_variation_results = [
@@ -824,7 +822,6 @@ def get_bandit_result(
                 return get_error_bandit_result(
                     single_variation_results=single_variation_results,
                     update_message=bandit_result.bandit_update_message,
-                    srm=srm_p_value,
                     error="",
                     reweight=bandit_settings.reweight,
                     current_weights=bandit_settings.current_weights,
@@ -840,10 +837,11 @@ def get_bandit_result(
                 return BanditResult(
                     singleVariationResults=single_variation_results,
                     currentWeights=bandit_settings.current_weights,
-                    updatedWeights=bandit_result.bandit_weights
-                    if bandit_settings.reweight
-                    else bandit_settings.current_weights,
-                    srm=srm_p_value,
+                    updatedWeights=(
+                        bandit_result.bandit_weights
+                        if bandit_settings.reweight
+                        else bandit_settings.current_weights
+                    ),
                     bestArmProbabilities=bandit_result.best_arm_probabilities,
                     seed=bandit_result.seed,
                     updateMessage=bandit_result.bandit_update_message,
@@ -860,7 +858,6 @@ def get_bandit_result(
             return get_error_bandit_result(
                 single_variation_results=None,
                 update_message="not updated",
-                srm=1,
                 error=error_message,
                 reweight=bandit_settings.reweight,
                 current_weights=bandit_settings.current_weights,
@@ -868,7 +865,6 @@ def get_bandit_result(
     return get_error_bandit_result(
         single_variation_results=None,
         update_message="not updated",
-        srm=1,
         error="no data froms sql query matches dimension",
         reweight=bandit_settings.reweight,
         current_weights=bandit_settings.current_weights,
@@ -960,7 +956,6 @@ def process_experiment_results(
             single_variation_results=None,
             update_message="not updated",
             error="no rows",
-            srm=1,
             reweight=d.bandit_settings.reweight,
             current_weights=d.bandit_settings.current_weights,
         )
