@@ -50,6 +50,7 @@ export const entityEvents = {
   customField: ["create", "update", "delete"],
   experimentTemplate: ["create", "update", "delete"],
   safeRolloutSnapshot: ["create", "update", "delete"],
+  safeRolloutAnalysisSettings: ["create", "update", "delete"],
 } as const;
 
 export type EntityEvents = typeof entityEvents;

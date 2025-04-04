@@ -8,6 +8,7 @@ import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource
 import { SafeRolloutResultsQueryRunner } from "back-end/src/queryRunners/SafeRolloutResultsQueryRunner";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { SNAPSHOT_TIMEOUT } from "back-end/src/controllers/experiments";
+import { SafeRolloutAnalysisSettings } from "back-end/src/models/SafeRolloutAnalysisSettings";
 
 // region GET /safeRollout/:id/snapshot
 /**
@@ -128,12 +129,14 @@ export const createSnapshot = async (
   // This is doing an expensive analytics SQL query, so may take a long time
   // Set timeout to 30 minutes
   req.setTimeout(SNAPSHOT_TIMEOUT);
-
+  const safeRolloutAnalysisSettings = new SafeRolloutAnalysisSettings(context);
+  const safeRolloutAnalysisSetting = safeRolloutAnalysisSettings.findByRuleId(safeRollout.id);
   const { snapshot } = await createSafeRolloutSnapshot({
     context,
     safeRollout,
     dimension,
     useCache,
+,
   });
 
   res.status(200).json({

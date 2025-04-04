@@ -9,36 +9,38 @@ const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
 const QUEUE_SAFE_ROLLOUT_SNAPSHOT_UPDATES = "queueSafeRolloutSnapshotUpdates";
 const QUEUE_SAFE_ROLLOUT_RULE_UPDATES = "queueSafeRolloutRuleUpdates";
 
-import {
-  getSafeRolloutRuleById,
-  getSafeRolloutRulesToUpdate,
-  updateSafeRolloutRule,
-} from "back-end/src/models/FeatureRevisionModel";
 import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnapshots";
-import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { getFeature } from "back-end/src/models/FeatureModel";
 const UPDATE_SINGLE_SAFE_ROLLOUT_RULE = "updateSingleSafeRolloutRule";
+import {
+  getAllRolloutsToBeUpdated,
+  SafeRolloutAnalysisSettings,
+  SafeRolloutAnalysisSettingsInterface,
+} from "back-end/src/models/SafeRolloutAnalysisSettings";
+import {
+  FeatureInterface,
+  SafeRolloutRule,
+} from "back-end/src/validators/features";
 type UpdateSingleSafeRolloutRuleJob = Job<{
-  organization: string;
-  ruleId: string;
+  rule: SafeRolloutAnalysisSettingsInterface;
 }>;
 
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_SAFE_ROLLOUT_SNAPSHOT_UPDATES, async () => {
-    const rules = await getSafeRolloutRulesToUpdate();
+    const rules = await getAllRolloutsToBeUpdated();
 
-    for (const rule of rules) {
-      await queueSafeRolloutSnapshotUpdate(rule.organization, rule.id);
+    for await (const rule of rules) {
+      await queueSafeRolloutSnapshotUpdate(rule);
     }
   });
 
   agenda.define(
     UPDATE_SINGLE_SAFE_ROLLOUT_RULE,
     // This job queries a datasource, which may be slow. Give it 30 minutes to complete.
-    { lockLifetime: 30 * 60 * 1000 },
+    { lockLifetime: 30 * 60 * 1000 }, // 30 minutes
     updateSingleSafeRolloutRule
   );
 
-  // Update experiment results
   await startUpdateJob();
 
   async function startUpdateJob() {
@@ -49,50 +51,61 @@ export default async function (agenda: Agenda) {
   }
 
   async function queueSafeRolloutSnapshotUpdate(
-    organization: string,
-    ruleId: string
+    rule: SafeRolloutAnalysisSettingsInterface
   ) {
     const job = agenda.create(UPDATE_SINGLE_SAFE_ROLLOUT_RULE, {
-      organization,
-      ruleId,
+      rule,
     }) as UpdateSingleSafeRolloutRuleJob;
 
     job.unique({
-      ruleId,
-      organization,
+      rule,
     });
     job.schedule(new Date());
     await job.save();
   }
 }
 
+function getSafeRolloutRuleFromFeature(
+  feature: FeatureInterface,
+  ruleId: string
+): SafeRolloutRule | null {
+  Object.keys(feature.environmentSettings).forEach((env: any) =>
+    env.rules.forEach((rule: any) => {
+      if (rule.id === ruleId) {
+        return rule;
+      }
+    })
+  );
+  return null;
+}
+
 async function updateSingleSafeRolloutRule(
   job: UpdateSingleSafeRolloutRuleJob
 ) {
-  const ruleId = job.attrs.data?.ruleId;
-  const orgId = job.attrs.data?.organization;
+  const rule = job.attrs.data?.rule;
+  const { ruleId, organization, featureId } = rule;
 
-  if (!ruleId || !orgId) return;
+  if (!ruleId || !organization || !featureId) return;
+  const context = await getContextForAgendaJobByOrgId(organization);
+  if (!featureId || !context) return;
+  const feature = await getFeature(context, featureId);
+  if (!feature) return;
 
-  const context = await getContextForAgendaJobByOrgId(orgId);
-  const safeRollout = await getSafeRolloutRuleById(context, ruleId);
+  const safeRollout = getSafeRolloutRuleFromFeature(feature, ruleId);
   if (!safeRollout) return;
-  const datasourceId = safeRollout.datasource;
-  const datasource = await getDataSourceById(context, datasourceId);
-  if (!datasource) return;
+
   try {
     logger.info("Start Refreshing Results for SafeRollout " + ruleId);
     await createSafeRolloutSnapshot({
       context,
       safeRollout,
+      safeRolloutAnalysisSetting: rule,
       triggeredBy: "schedule",
     });
     // TODO: update the revision and the live version for the feature
-    await updateSafeRolloutRule(context, {
-      ...safeRollout,
-      nextSnapshotAttempt: new Date(Date.now() + UPDATE_EVERY),
-      lastSnapshotAttempt: new Date(),
-    });
+    const safeRolloutAnalysisSettings = new SafeRolloutAnalysisSettings(
+      context
+    );
   } catch (e) {
     logger.error(e, "Failed to create SafeRollout Snapshot: " + ruleId);
   }

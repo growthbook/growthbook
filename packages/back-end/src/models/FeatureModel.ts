@@ -3,6 +3,7 @@ import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import { MergeResultChanges, getApiFeatureEnabledEnvs } from "shared/util";
+import { env } from "string-env-interpolation";
 import {
   FeatureEnvironment,
   FeatureInterface,
@@ -33,9 +34,13 @@ import {
   getEnvironmentIdsFromOrg,
 } from "back-end/src/services/organizations";
 import { ApiReqContext } from "back-end/types/api";
-import { simpleSchemaValidator } from "back-end/src/validators/features";
+import {
+  SafeRolloutRule,
+  simpleSchemaValidator,
+} from "back-end/src/validators/features";
 import { getChangedApiFeatureEnvironments } from "back-end/src/events/handlers/utils";
 import { ResourceEvents } from "back-end/src/events/base-types";
+import { environment } from "back-end/src/routers/environment/environment.validators";
 import {
   createEvent,
   hasPreviousObject,
@@ -302,6 +307,136 @@ export async function getFeaturesByIds(
     context.permissions.canReadSingleProjectResource(feature.project)
   );
 }
+export async function getSafeRolloutRules(): Promise<
+  {
+    featureId: string;
+    organization: string;
+    rule: SafeRolloutRule;
+  }[]
+> {
+  const documents = await FeatureModel.aggregate([
+    {
+      $match: {
+        datePublished: { $exists: true },
+      },
+    },
+    {
+      $project: {
+        featureId: "$_id",
+        organization: 1,
+        rulesArray: {
+          $reduce: {
+            input: { $objectToArray: "$environmentSetting" },
+            initialValue: [],
+            in: { $concatArrays: ["$$value", ["$$this.v.rule"]] }, // Collect all `rule` objects
+          },
+        },
+      },
+    },
+    {
+      $unwind: "$rulesArray", // Flatten rules array
+    },
+    {
+      $match: {
+        "rulesArray.type": "safe-rollout",
+        "rulesArray.autoSnapshots": true,
+        "rulesArray.status": "running",
+        "rulesArray.nextSnapshotAttempt": { $exists: true, $lte: new Date() }, // Ensure snapshot is due
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        featureId: 1, // Keep featureId field
+        organization: 1, // Keep organization field
+        rule: {
+          autoSnapshots: "$rulesArray.autoSnapshots",
+          nextSnapshotAttempt: "$rulesArray.nextSnapshotAttempt",
+          status: "$rulesArray.status",
+        },
+      },
+    },
+  ]);
+  const jsonDocuments = documents.map((doc) => doc.toJSON());
+  return jsonDocuments;
+}
+
+export async function getSafeRolloutRuleById(
+  context: ReqContext,
+  ruleId: string
+): Promise<{ organization: string; rule: SafeRolloutRule } | null> {
+  // Step 1: Use aggregation to extract and filter directly in MongoDB
+  const results = await FeatureModel.aggregate([
+    {
+      $match: {
+        organization: context.org.id, // Match by organization
+        datePublished: { $exists: true }, // Ensure it has been published
+      },
+    },
+    {
+      $project: {
+        organization: 1, // Keep organization field
+        rulesArray: {
+          $reduce: {
+            input: { $objectToArray: "$environmentSetting" }, // Convert dynamic keys to array
+            initialValue: [],
+            in: { $concatArrays: ["$$value", "$$this.v.rules"] }, // Extract `rules` array from each environment
+          },
+        },
+      },
+    },
+    {
+      $unwind: "$rulesArray", // Flatten the rules array
+    },
+    {
+      $match: {
+        "rulesArray.id": ruleId,
+        "rulesArray.type": "safe-rollout",
+      },
+    },
+    {
+      $project: {
+        organization: 1,
+        rule: "$rulesArray",
+      },
+    },
+  ]);
+
+  // Step 2: Return the first matching result or null
+  return results.length > 0 ? results[0] : null;
+}
+
+const updateSafeRolloutRule = async (
+  context: ReqContext,
+  rule: SafeRolloutRule,
+  environment: string,
+  featureId: string,
+  updates: Partial<SafeRolloutRule>
+) => {
+  if (!rule) return null;
+
+  const organization = context.org.id;
+  const updatedRule = { ...rule, ...updates };
+
+  const result = await FeatureModel.updateOne(
+    {
+      organization,
+      _id: featureId, // Fix: Use _id for featureId
+      [`environmentSetting.${environment}.rules.id`]: rule.id, // Match the rule inside the correct environment
+    },
+    {
+      $set: {
+        [`environmentSetting.${environment}.rules.$`]: updatedRule, // Update the matched rule
+      },
+    }
+  );
+
+  if (result.modifiedCount === 0) {
+    throw new Error("Rule not found");
+  }
+
+  return updatedRule;
+};
 
 export async function createFeature(
   context: ReqContext | ApiReqContext,
@@ -387,20 +522,6 @@ export async function deleteAllFeaturesForAProject({
   }
 }
 
-export async function getSafeRolloutRulesForFeature(orgId: string) {
-  const safeRollouts = await FeatureModel.find({
-    organization: orgId,
-    "rules.type": "safe-rollout",
-  });
-  const safeRolloutRules = safeRollouts
-    .map((feature) => {
-      const rule = feature.rules?.find((r) => r.type === "safe-rollout");
-      if (!rule) return null;
-      return rule;
-    })
-    .filter(Boolean);
-  return safeRolloutRules;
-}
 export const createFeatureEvent = async <
   Event extends ResourceEvents<"feature">
 >(eventData: {
