@@ -47,7 +47,7 @@ const DecisionCriteriaTable: FC<DecisionCriteriaTableProps> = ({
             <th style={{ width: "120px" }}>Org Default</th>
             <th className="w-100">Name</th>
             <th style={{ width: "80px", textAlign: "center" }}>Rules</th>
-            <th style={{ width: "40px" }}></th>{" "}
+            <th style={{ width: "40px" }}></th>
             {/* Empty header for actions column */}
           </tr>
         </thead>
