@@ -1,10 +1,12 @@
 import { Response } from "express";
+import { DEFAULT_DECISION_CRITERIAS } from "shared/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   DecisionCriteriaInterface,
   CreateDecisionCriteriaProps,
   UpdateDecisionCriteriaProps,
+  DecisionCriteriaData,
 } from "./decision-criteria.validators";
 
 /**
@@ -36,8 +38,48 @@ export const getDecisionCriteria = async (
  */
 export const getDecisionCriteriaById = async (
   req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200; decisionCriteria: DecisionCriteriaInterface }>
+  res: Response<
+    | { status: 200; decisionCriteria: DecisionCriteriaInterface }
+    | { status: 400; error: string }
+  >
 ) => {
+  const context = getContextFromReq(req);
+
+  const decisionCriteria = await context.models.decisionCriteria.getById(
+    req.params.id
+  );
+
+  if (!decisionCriteria) {
+    throw new Error("Could not find decision criteria with that id");
+  }
+
+  res.status(200).json({
+    status: 200,
+    decisionCriteria,
+  });
+};
+
+/**
+ * GET /decision-criteria/:id/data
+ * Get the data for a decision criteria, including the default decision criteria
+ * @param req
+ * @param res
+ */
+export const getDecisionCriteriaDataById = async (
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{ status: 200; decisionCriteria: DecisionCriteriaData }>
+) => {
+  const defaultDecisionCriteria = DEFAULT_DECISION_CRITERIAS.find(
+    (dc) => dc.id === req.params.id
+  );
+
+  if (defaultDecisionCriteria) {
+    return res.status(200).json({
+      status: 200,
+      decisionCriteria: defaultDecisionCriteria,
+    });
+  }
+
   const context = getContextFromReq(req);
 
   const decisionCriteria = await context.models.decisionCriteria.getById(

@@ -23,7 +23,6 @@ import {
 } from "../../constants";
 import { daysBetween } from "../../dates";
 import { getMultipleExposureHealthData, getSRMHealthData } from "../../health";
-import { DEFAULT_DECISION_CRITERIA } from "./constants";
 
 // Evaluate a single rule on a variation result
 // Returns the action if the rule is met, otherwise undefined
@@ -317,7 +316,7 @@ export function getExperimentResultStatus({
 }: {
   experimentData: ExperimentDataForStatus | ExperimentDataForStatusStringDates;
   healthSettings: ExperimentHealthSettings;
-  decisionCriteria?: DecisionCriteriaData;
+  decisionCriteria: DecisionCriteriaData;
 }): ExperimentResultStatusData | undefined {
   const unhealthyData: ExperimentUnhealthyData = {};
   const healthSummary = experimentData.analysisSummary?.health;
@@ -346,7 +345,7 @@ export function getExperimentResultStatus({
   const decisionStatus = resultsStatus
     ? getDecisionFrameworkStatus({
         resultsStatus,
-        decisionCriteria: decisionCriteria ?? DEFAULT_DECISION_CRITERIA,
+        decisionCriteria,
         goalMetrics: experimentData.goalMetrics,
         guardrailMetrics: experimentData.guardrailMetrics,
         daysNeeded,

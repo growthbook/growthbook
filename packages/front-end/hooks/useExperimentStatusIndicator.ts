@@ -1,14 +1,17 @@
 import {
   getHealthSettings,
   getExperimentResultStatus,
+  DEFAULT_DECISION_CRITERIA,
 } from "shared/enterprise";
 import {
   ExperimentHealthSettings,
   ExperimentDataForStatusStringDates,
   ExperimentResultStatusData,
+  DecisionCriteriaData,
 } from "back-end/types/experiment";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
+import useApi from "@/hooks/useApi";
 
 export type StatusIndicatorData = {
   color: "amber" | "green" | "red" | "gold" | "indigo" | "gray" | "pink";
@@ -28,10 +31,22 @@ export function useExperimentStatusIndicator() {
     hasCommercialFeature("decision-framework")
   );
 
+  const decisionCriteriaId =
+    settings?.defaultDecisionCriteriaId ?? DEFAULT_DECISION_CRITERIA.id;
+  const { data: decisionCriteria } = useApi<DecisionCriteriaData>(
+    `/decision-criteria/${decisionCriteriaId}/data`
+  );
+
   return (
     experimentData: ExperimentDataForStatusStringDates,
     skipArchived: boolean = false
-  ) => getStatusIndicatorData(experimentData, skipArchived, healthSettings);
+  ) =>
+    getStatusIndicatorData(
+      experimentData,
+      skipArchived,
+      healthSettings,
+      decisionCriteria ?? DEFAULT_DECISION_CRITERIA
+    );
 }
 
 function getDetailedRunningStatusIndicatorData(
@@ -117,7 +132,8 @@ function getDetailedRunningStatusIndicatorData(
 export function getStatusIndicatorData(
   experimentData: ExperimentDataForStatusStringDates,
   skipArchived: boolean,
-  healthSettings: ExperimentHealthSettings
+  healthSettings: ExperimentHealthSettings,
+  decisionCriteria: DecisionCriteriaData
 ): StatusIndicatorData {
   if (!skipArchived && experimentData.archived) {
     return {
@@ -139,6 +155,7 @@ export function getStatusIndicatorData(
     const runningStatusData = getExperimentResultStatus({
       experimentData,
       healthSettings,
+      decisionCriteria,
     });
     if (runningStatusData) {
       return getDetailedRunningStatusIndicatorData(runningStatusData);

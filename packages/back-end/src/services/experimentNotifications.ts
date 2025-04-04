@@ -1,6 +1,8 @@
 import { includeExperimentInPayload, getSnapshotAnalysis } from "shared/util";
 import { getMetricResultStatus } from "shared/experiments";
 import {
+  DEFAULT_DECISION_CRITERIA,
+  DEFAULT_DECISION_CRITERIAS,
   getExperimentResultStatus,
   getHealthSettings,
 } from "shared/enterprise";
@@ -460,6 +462,32 @@ export const notifyDecision = async ({
   return false;
 };
 
+async function getDecisionCriteria(
+  context: Context,
+  decisionCriteriaId?: string
+) {
+  if (!decisionCriteriaId) {
+    return DEFAULT_DECISION_CRITERIA;
+  }
+
+  const usedPresetCriteria = DEFAULT_DECISION_CRITERIAS.find(
+    (dc) => dc.id === decisionCriteriaId
+  );
+  if (usedPresetCriteria) {
+    return usedPresetCriteria;
+  }
+
+  const decisionCriteria = await context.models.decisionCriteria.getById(
+    decisionCriteriaId
+  );
+
+  if (!decisionCriteria) {
+    return DEFAULT_DECISION_CRITERIA;
+  }
+
+  return decisionCriteria;
+}
+
 export const notifyExperimentChange = async ({
   context,
   experiment,
@@ -483,9 +511,16 @@ export const notifyExperimentChange = async ({
     context.org.settings,
     orgHasPremiumFeature(context.org, "decision-framework")
   );
+
+  const decisionCriteria = await getDecisionCriteria(
+    context,
+    context.org.settings?.defaultDecisionCriteriaId
+  );
+
   const currentStatus = getExperimentResultStatus({
     experimentData: experiment,
     healthSettings,
+    decisionCriteria,
   });
 
   if (currentStatus) {
@@ -518,6 +553,7 @@ export const notifyExperimentChange = async ({
           : undefined,
       },
       healthSettings,
+      decisionCriteria,
     });
     const triggeredDecision = await notifyDecision({
       context,
