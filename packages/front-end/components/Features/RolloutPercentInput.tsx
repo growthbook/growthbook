@@ -37,9 +37,7 @@ export default function RolloutPercentInput({
             <Field
               style={{ width: 95 }}
               value={isNaN(value ?? 0) ? "" : decimalToPercent(value ?? 0)}
-              min={0}
-              max={1}
-              step={0.01}
+              step={1}
               onChange={(e) => {
                 let decimal = percentToDecimal(e.target.value);
                 if (decimal > 1) decimal = 1;
