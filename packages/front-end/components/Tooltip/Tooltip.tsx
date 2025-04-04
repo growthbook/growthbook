@@ -5,6 +5,7 @@ import {
   useState,
   useEffect,
   CSSProperties,
+  useRef,
 } from "react";
 import { usePopper } from "react-popper";
 import clsx from "clsx";
@@ -50,6 +51,7 @@ const Tooltip: FC<Props> = ({
   const [arrow, setArrow] = useState(null);
   const [open, setOpen] = useState(state ?? false);
   const [alreadyHovered, setAlreadyHovered] = useState(false);
+  const closeTimeout = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (state !== undefined) {
@@ -82,20 +84,33 @@ const Tooltip: FC<Props> = ({
     strategy: "fixed",
   });
 
+  const handleMouseEnter = () => {
+    if (closeTimeout.current) {
+      clearTimeout(closeTimeout.current);
+    }
+    setOpen(true);
+  };
+
+  const handleMouseLeave = () => {
+    closeTimeout.current = setTimeout(() => {
+      setOpen(false);
+    }, 200);
+  };
+
   if (!children && children !== 0) children = <GBInfo />;
   const el = (
     <span
       // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Dispatch<SetStateAction<null>>' is not assig... Remove this comment to see the full error message
       ref={setTrigger}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-      onPointerLeave={() => setOpen(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       className={`${className}`}
       {...otherProps}
     >
       {children}
     </span>
   );
+
   const popper = (
     <>
       {open && body && shouldDisplay && (
@@ -103,6 +118,8 @@ const Tooltip: FC<Props> = ({
           <Box
             // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Dispatch<SetStateAction<null>>' is not assig... Remove this comment to see the full error message
             ref={setTooltip}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
             style={{
               ...styles.popper,
               minWidth: tipMinWidth,
