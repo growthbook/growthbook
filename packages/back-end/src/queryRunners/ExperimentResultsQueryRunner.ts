@@ -47,8 +47,8 @@ import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { OrganizationInterface } from "back-end/types/organization";
 import { FactMetricInterface } from "back-end/types/fact-table";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
-import { BanditResult } from "back-end/types/stats";
 import { updateReport } from "back-end/src/models/ReportModel";
+import { BanditResult } from "back-end/types/experiment";
 import {
   QueryRunner,
   QueryMap,

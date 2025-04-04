@@ -68,17 +68,17 @@ export default function CloudUsage() {
 
   const usage = data?.cdnUsage || [];
   const limits: UsageLimits = data?.limits || {
-    cdnRequests: null,
-    cdnBandwidth: null,
+    cdnRequests: "unlimited",
+    cdnBandwidth: "unlimited",
   };
 
   const startDate = new Date();
-  startDate.setUTCMonth(startDate.getUTCMonth() - monthsAgo);
   startDate.setUTCDate(1);
   startDate.setUTCHours(0, 0, 0, 0);
+  startDate.setUTCMonth(startDate.getUTCMonth() - monthsAgo);
 
-  const endDate = new Date();
-  endDate.setUTCMonth(endDate.getUTCMonth() - monthsAgo + 1);
+  const endDate = new Date(startDate);
+  endDate.setUTCMonth(endDate.getUTCMonth() + 1);
   endDate.setUTCDate(0);
   endDate.setUTCHours(23, 59, 59, 999);
 
@@ -99,7 +99,8 @@ export default function CloudUsage() {
       current.setUTCDate(current.getUTCDate() + 1);
     }
 
-    limits.cdnRequests = 10_000_000;
+    limits.cdnRequests = 1_000_000;
+    limits.cdnBandwidth = 5_000_000_000;
   }
 
   const totalRequests = usage.reduce((sum, u) => sum + u.requests, 0);
@@ -108,10 +109,11 @@ export default function CloudUsage() {
   const monthOptions: { value: string; label: string }[] = [];
   for (let i = 0; i < 12; i++) {
     const date = new Date();
+    date.setUTCDate(1);
     date.setUTCMonth(date.getUTCMonth() - i);
 
     // Skip months before Feb 2025
-    if (date < new Date("2025-02-01")) continue;
+    if (date.toISOString() < "2025-02-01") continue;
 
     const month = date.toLocaleString("default", {
       month: "short",
@@ -184,7 +186,9 @@ export default function CloudUsage() {
             formatValue={(v) => requestsFormatter.format(v)}
             start={startDate}
             end={endDate}
-            limitLine={limits.cdnRequests || null}
+            limitLine={
+              limits.cdnRequests === "unlimited" ? null : limits.cdnRequests
+            }
           />
         </Box>
       )}
@@ -199,7 +203,9 @@ export default function CloudUsage() {
             formatValue={formatBytes}
             start={startDate}
             end={endDate}
-            limitLine={limits.cdnBandwidth || null}
+            limitLine={
+              limits.cdnBandwidth === "unlimited" ? null : limits.cdnBandwidth
+            }
           />
         </Box>
       )}

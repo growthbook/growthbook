@@ -1,6 +1,5 @@
 import { MetricInterface } from "back-end/types/metric";
 import {
-  ColumnInterface,
   ColumnRef,
   FactMetricInterface,
   FactTableColumnType,
@@ -68,23 +67,53 @@ export function isFactMetric(
 }
 
 export function canInlineFilterColumn(
-  factTable: Pick<FactTableInterface, "userIdTypes">,
-  column: Pick<ColumnInterface, "column" | "datatype" | "deleted">
+  factTable: Pick<FactTableInterface, "userIdTypes" | "columns">,
+  column: string
 ): boolean {
-  if (column.deleted) return false;
-
-  if (column.datatype !== "string") return false;
-
   // If the column is one of the identifier columns, it is not eligible for prompting
-  if (factTable.userIdTypes.includes(column.column)) return false;
+  if (factTable.userIdTypes.includes(column)) return false;
+
+  if (
+    getSelectedColumnDatatype({ factTable, column, excludeDeleted: true }) !==
+    "string"
+  ) {
+    return false;
+  }
 
   return true;
+}
+
+export function getColumnExpression(
+  column: string,
+  factTable: Pick<FactTableInterface, "columns">,
+  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string,
+  alias: string = ""
+): string {
+  const parts = column.split(".");
+  if (parts.length > 1) {
+    const col = factTable.columns.find((c) => c.column === parts[0]);
+    if (col?.datatype === "json") {
+      const path = parts.slice(1).join(".");
+
+      const field = col.jsonFields?.[path];
+      const isNumeric = field?.datatype === "number";
+
+      return jsonExtract(
+        alias ? `${alias}.${parts[0]}` : parts[0],
+        path,
+        isNumeric
+      );
+    }
+  }
+
+  return alias ? `${alias}.${column}` : column;
 }
 
 export function getColumnRefWhereClause(
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">,
   columnRef: ColumnRef,
   escapeStringLiteral: (s: string) => string,
+  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string,
   showSourceComment = false
 ): string[] {
   const inlineFilters = columnRef.inlineFilters || {};
@@ -100,12 +129,14 @@ export function getColumnRefWhereClause(
         .map((v) => "'" + escapeStringLiteral(v) + "'")
     );
 
+    const columnExpr = getColumnExpression(column, factTable, jsonExtract);
+
     if (!escapedValues.size) {
       return;
     } else if (escapedValues.size === 1) {
-      where.add(`${column} = ${[...escapedValues][0]}`);
+      where.add(`${columnExpr} = ${[...escapedValues][0]}`);
     } else {
-      where.add(`${column} IN (\n  ${[...escapedValues].join(",\n  ")}\n)`);
+      where.add(`${columnExpr} IN (\n  ${[...escapedValues].join(",\n  ")}\n)`);
     }
   });
 
@@ -254,12 +285,29 @@ export function getDelayWindowHours(
 export function getSelectedColumnDatatype({
   factTable,
   column,
+  excludeDeleted = false,
 }: {
-  factTable: FactTableInterface | null;
+  factTable: Pick<FactTableInterface, "columns"> | null;
   column: string;
+  excludeDeleted?: boolean;
 }): FactTableColumnType | undefined {
   if (!factTable) return undefined;
+
+  // Might be a JSON column, look at nested field
+  const parts = column.split(".");
+  if (parts.length > 1) {
+    const col = factTable.columns.find((c) => c.column === parts[0]);
+    if (col?.datatype === "json" && (!excludeDeleted || !col?.deleted)) {
+      const field = col.jsonFields?.[parts.slice(1).join(".")];
+      if (field) {
+        return field.datatype;
+      }
+    }
+  }
+
   const col = factTable.columns.find((c) => c.column === column);
+  if (excludeDeleted && (!col || col.deleted)) return undefined;
+
   return col?.datatype;
 }
 
