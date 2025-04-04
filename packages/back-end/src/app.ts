@@ -406,6 +406,8 @@ if (IS_CLOUD) {
     subscriptionController.postInlineProSubscription
   );
   app.post("/subscription/cancel", subscriptionController.cancelSubscription);
+  app.get("/subscription/portal-url", subscriptionController.getPortalUrl);
+  app.get("/billing/usage", subscriptionController.getUsage);
 }
 app.post("/subscription/new", subscriptionController.postNewProSubscription);
 app.post(
@@ -416,8 +418,6 @@ app.post(
   "/subscription/success",
   subscriptionController.postSubscriptionSuccess
 );
-
-app.get("/billing/usage", subscriptionController.getUsage);
 
 app.get("/queries/:ids", datasourcesController.getQueries);
 app.post("/query/test", datasourcesController.testLimitedQuery);

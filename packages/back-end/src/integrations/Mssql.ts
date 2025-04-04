@@ -67,6 +67,10 @@ export default class Mssql extends SqlIntegration {
   approxQuantile(value: string, quantile: string | number): string {
     return `APPROX_PERCENTILE_CONT(${quantile}) WITHIN GROUP (ORDER BY ${value})`;
   }
+  extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
+    const raw = `JSON_VALUE(${jsonCol}, '$.${path}')`;
+    return isNumeric ? this.ensureFloat(raw) : raw;
+  }
   getDefaultDatabase() {
     return this.params.database;
   }

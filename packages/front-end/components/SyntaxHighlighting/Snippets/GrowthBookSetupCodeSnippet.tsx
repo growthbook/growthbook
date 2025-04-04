@@ -450,7 +450,7 @@ $growthbook = Growthbook::create()
 $cache = new \\Cache\\Adapter\\Apcu\\ApcuCachePool();
 $growthbook->withCache($cache);
 
-$growthbook->loadFeatures(
+$growthbook->initialize(
   "${apiKey || "MY_SDK_KEY"}", // Client Key
   "${apiHost}"${
             encryptionKey

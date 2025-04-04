@@ -3,6 +3,7 @@ import os from "os";
 import { PythonShell } from "python-shell";
 import cloneDeep from "lodash/cloneDeep";
 import {
+  BANDIT_SRM_DIMENSION_NAME,
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_TARGET_MDE,
@@ -20,7 +21,6 @@ import {
 import { hoursBetween } from "shared/dates";
 import chunk from "lodash/chunk";
 import {
-  BanditResult,
   ExperimentMetricAnalysis,
   MultipleExperimentMetricAnalysis,
 } from "back-end/types/stats";
@@ -35,7 +35,7 @@ import {
   ExperimentReportResults,
   ExperimentReportVariation,
 } from "back-end/types/report";
-import { checkSrm } from "back-end/src/util/stats";
+import { checkSrm, chi2pvalue } from "back-end/src/util/stats";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -52,6 +52,7 @@ import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import { updateSnapshotAnalysis } from "back-end/src/models/ExperimentSnapshotModel";
 import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "back-end/src/integrations/SqlIntegration";
 import { applyMetricOverrides } from "back-end/src/util/integration";
+import { BanditResult } from "back-end/types/experiment";
 
 // Keep these interfaces in sync with gbstats
 export interface AnalysisSettingsForStatsEngine {
@@ -788,7 +789,12 @@ export function analyzeExperimentTraffic({
     dimension: {},
   };
 
+  let banditSrmSet = false;
   rows.forEach((r) => {
+    if (r.dimension_name === BANDIT_SRM_DIMENSION_NAME) {
+      trafficResults.overall.srm = chi2pvalue(r.units, variations.length - 1);
+      banditSrmSet = true;
+    }
     const variationIndex = variationIdMap[r.variation];
     const dimTraffic: Map<string, ExperimentSnapshotTrafficDimension> =
       dimTrafficResults.get(r.dimension_name) ?? new Map();
@@ -810,10 +816,15 @@ export function analyzeExperimentTraffic({
       trafficResults.overall.variationUnits[variationIndex] += r.units;
     }
   });
-  trafficResults.overall.srm = checkSrm(
-    trafficResults.overall.variationUnits,
-    variationWeights
-  );
+
+  // compute SRM for non-bandits
+  if (!banditSrmSet) {
+    trafficResults.overall.srm = checkSrm(
+      trafficResults.overall.variationUnits,
+      variationWeights
+    );
+  }
+
   for (const [dimName, dimTraffic] of dimTrafficResults) {
     for (const dimValueTraffic of dimTraffic.values()) {
       dimValueTraffic.srm = checkSrm(
