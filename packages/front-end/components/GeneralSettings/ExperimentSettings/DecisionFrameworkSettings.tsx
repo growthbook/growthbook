@@ -213,7 +213,7 @@ const DecisionFrameworkSettings: React.FC<DecisionFrameworkSettingsProps> = () =
 
                     <DecisionCriteriaTable
                       defaultCriteriaId={
-                        form.watch("defaultDecisionCriteriaId") ??
+                        form.watch("defaultDecisionCriteriaId") ||
                         DEFAULT_DECISION_CRITERIA.id
                       }
                       setDefaultCriteriaId={(id) =>

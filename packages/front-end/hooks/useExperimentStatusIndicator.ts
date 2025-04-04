@@ -2,6 +2,7 @@ import {
   getHealthSettings,
   getExperimentResultStatus,
   DEFAULT_DECISION_CRITERIA,
+  DEFAULT_DECISION_CRITERIAS,
 } from "shared/enterprise";
 import {
   ExperimentHealthSettings,
@@ -32,9 +33,17 @@ export function useExperimentStatusIndicator() {
     hasCommercialFeature("decision-framework")
   );
 
-  const { data: decisionCriteria } = useApi<DecisionCriteriaInterface>(
+  const decisionCriteria = !settings?.defaultDecisionCriteriaId
+    ? DEFAULT_DECISION_CRITERIA
+    : DEFAULT_DECISION_CRITERIAS.find(
+        (dc) => dc.id === settings.defaultDecisionCriteriaId
+      );
+  const { data: customDecisionCriteria } = useApi<DecisionCriteriaInterface>(
     `/decision-criteria/${settings?.defaultDecisionCriteriaId}`,
-    { shouldRun: () => !!settings?.defaultDecisionCriteriaId }
+    {
+      shouldRun: () =>
+        !!settings?.defaultDecisionCriteriaId && !decisionCriteria,
+    }
   );
 
   return (
@@ -45,7 +54,7 @@ export function useExperimentStatusIndicator() {
       experimentData,
       skipArchived,
       healthSettings,
-      decisionCriteria ?? DEFAULT_DECISION_CRITERIA
+      decisionCriteria ?? customDecisionCriteria ?? DEFAULT_DECISION_CRITERIA
     );
 }
 
