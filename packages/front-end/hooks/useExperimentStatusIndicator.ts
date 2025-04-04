@@ -8,6 +8,7 @@ import {
   ExperimentDataForStatusStringDates,
   ExperimentResultStatusData,
   DecisionCriteriaData,
+  DecisionCriteriaInterface,
 } from "back-end/types/experiment";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
@@ -31,10 +32,9 @@ export function useExperimentStatusIndicator() {
     hasCommercialFeature("decision-framework")
   );
 
-  const decisionCriteriaId =
-    settings?.defaultDecisionCriteriaId ?? DEFAULT_DECISION_CRITERIA.id;
-  const { data: decisionCriteria } = useApi<DecisionCriteriaData>(
-    `/decision-criteria/${decisionCriteriaId}/data`
+  const { data: decisionCriteria } = useApi<DecisionCriteriaInterface>(
+    `/decision-criteria/${settings?.defaultDecisionCriteriaId}`,
+    { shouldRun: () => !!settings?.defaultDecisionCriteriaId }
   );
 
   return (
