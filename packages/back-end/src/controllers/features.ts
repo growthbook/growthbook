@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
-import { isEqual } from "lodash";
+import { isEqual, omit } from "lodash";
 import {
   autoMerge,
   filterEnvironmentsByFeature,
@@ -120,7 +120,7 @@ import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
 import { FeatureUsageLookback } from "back-end/src/types/Integration";
 import { getChangesToStartExperiment } from "back-end/src/services/experiments";
 import { getMetricMap } from "back-end/src/models/MetricModel";
-
+import { safeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
     super(message);
@@ -1143,7 +1143,7 @@ export async function postFeatureDiscard(
 
 export async function postFeatureRule(
   req: AuthRequest<
-    { rule: FeatureRule; environment: string },
+    { rule: FeatureRule & safeRolloutInterface; environment: string },
     { id: string; version: string }
   >,
   res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
@@ -1190,7 +1190,6 @@ export async function postFeatureRule(
       for (let i = 0; i < metricIds.length; i++) {
         const metric = map.get(metricIds[i]);
         if (metric) {
-          // Make sure it is tied to the same datasource as the experiment
           if (rule.datasource && metric.datasource !== rule.datasource) {
             throw new Error(
               "Metrics must be tied to the same datasource as the experiment: " +
@@ -1218,11 +1217,35 @@ export async function postFeatureRule(
       }
     }
   }
+  // omit the fields from the rule that are in the safeRollout interface
+  const featureRule = omit(rule, [
+    "trackingKey",
+    "datasource",
+    "exposureQueryId",
+    "hashAttribute",
+    "seed",
+    "guardrailMetrics",
+  ]) as FeatureRule;
+
+  if (rule.type === "safe-rollout") {
+    await context.models.safeRollout.create({
+      featureId: feature.id,
+      ruleId: rule.id,
+      trackingKey: rule.trackingKey,
+      datasource: rule.datasource,
+      exposureQueryId: rule.exposureQueryId,
+      hashAttribute: rule.hashAttribute,
+      seed: rule.seed,
+      guardrailMetrics: rule.guardrailMetrics,
+      status: "running",
+      autoSnapshots: true,
+    });
+  }
 
   await addFeatureRule(
     revision,
     environment,
-    rule,
+    featureRule,
     res.locals.eventAudit,
     resetReview
   );

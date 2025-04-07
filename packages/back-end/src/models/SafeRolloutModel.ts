@@ -1,0 +1,126 @@
+import { z } from "zod";
+import { getCollection } from "back-end/src/util/mongo.util";
+import { SafeRolloutRule } from "back-end/src/validators/features";
+import { baseSchema, MakeModelClass } from "./BaseModel";
+const COLLECTION = "safeRolloutAnalysisSettings";
+
+export const safeRolloutStatus = [
+  "running",
+  "rolled-back",
+  "released",
+  "completed",
+] as const;
+export const safeRolloutValidator = baseSchema
+  .extend({
+    trackingKey: z.string(),
+    datasource: z.string(),
+    exposureQueryId: z.string(),
+    hashAttribute: z.string(),
+    seed: z.string(),
+    guardrailMetrics: z.array(z.string()),
+    status: z.enum(safeRolloutStatus),
+    startedAt: z.date(),
+    lastSnapshotAttempt: z.date().optional(),
+    nextSnapshotAttempt: z.date().optional(),
+    autoSnapshots: z.boolean().default(true),
+    ruleId: z.string(),
+    featureId: z.string(),
+    coverage: z.number(),
+    controlValue: z.string(),
+    variationValue: z.string(),
+  })
+  .strict();
+export type safeRolloutInterface = z.infer<typeof safeRolloutValidator>;
+export type fullSafeRolloutInterface = safeRolloutInterface & SafeRolloutRule;
+
+const BaseClass = MakeModelClass({
+  schema: safeRolloutValidator,
+  collectionName: COLLECTION,
+  idPrefix: "sras_",
+  auditLog: {
+    entity: "safeRolloutAnalysisSettings",
+    createEvent: "safeRolloutAnalysisSettings.create",
+    updateEvent: "safeRolloutAnalysisSettings.update",
+    deleteEvent: "safeRolloutAnalysisSettings.delete",
+  },
+  globallyUniqueIds: true,
+});
+
+interface createProps {
+  nextSnapshotUpdate?: Date;
+  autoSnapshots: boolean;
+  ruleId: string;
+  featureId: string;
+  trackingKey: string;
+  datasource: string;
+  exposureQueryId: string;
+  hashAttribute: string;
+  seed: string;
+  guardrailMetrics: string[];
+  status: typeof safeRolloutStatus[number];
+  startedAt: Date;
+  coverage: number;
+  controlValue: string;
+  variationValue: string;
+}
+
+export class SafeRolloutModel extends BaseClass {
+  protected canRead(_doc: safeRolloutInterface): boolean {
+    return true;
+  }
+  protected canReadAll() {
+    return true;
+  }
+  protected canCreate() {
+    return true;
+  }
+
+  protected canUpdate(_doc: safeRolloutInterface) {
+    return true;
+  }
+
+  protected canDelete(_doc: safeRolloutInterface) {
+    return true;
+  }
+
+  public create(props: createProps) {
+    return super.create(props);
+  }
+  public toApiInterface(doc: safeRolloutInterface): safeRolloutInterface {
+    return {
+      id: doc.id,
+      organization: doc.organization,
+      dateCreated: doc.dateCreated,
+      dateUpdated: doc.dateUpdated,
+      lastSnapshotAttempt: doc.lastSnapshotAttempt,
+      nextSnapshotAttempt: doc.nextSnapshotAttempt,
+      autoSnapshots: doc.autoSnapshots,
+      ruleId: doc.ruleId,
+      featureId: doc.featureId,
+      coverage: doc.coverage,
+      controlValue: doc.controlValue,
+      variationValue: doc.variationValue,
+      startedAt: doc.startedAt,
+      status: doc.status,
+      datasource: doc.datasource,
+      exposureQueryId: doc.exposureQueryId,
+      hashAttribute: doc.hashAttribute,
+      seed: doc.seed,
+      guardrailMetrics: doc.guardrailMetrics,
+      trackingKey: doc.trackingKey,
+    };
+  }
+
+  public async findByRuleId(ruleId: string) {
+    return await this._findOne({ ruleId });
+  }
+}
+export async function getAllRolloutsToBeUpdated() {
+  const now = new Date();
+  // get all the rollout settings that need a snapshot update
+  const rolloutSettings = await getCollection(COLLECTION).find({
+    nextSnapshotUpdate: { $lte: now },
+    autoSnapshots: true,
+  });
+  return rolloutSettings.map((setting) => this.toApiInterface(setting));
+}

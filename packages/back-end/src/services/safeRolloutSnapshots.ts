@@ -18,7 +18,11 @@ import {
   isFactMetric,
 } from "shared/experiments";
 import { orgHasPremiumFeature } from "shared/enterprise";
-import { date } from "shared/dates";
+import {
+  fullSafeRolloutInterface,
+  safeRolloutInterface,
+  SafeRolloutModel,
+} from "back-end/src/models/SafeRolloutModel";
 import {
   MetricForSnapshot,
   SafeRolloutSnapshotAnalysisSettings,
@@ -39,10 +43,7 @@ import {
 import { MetricSnapshotSettings } from "back-end/types/report";
 import { MetricInterface } from "back-end/types/metric";
 import { getMetricMap } from "back-end/src/models/MetricModel";
-import {
-  FeatureInterface,
-  SafeRolloutRule,
-} from "back-end/src/validators/features";
+import { SafeRolloutRule } from "back-end/src/validators/features";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
@@ -53,12 +54,6 @@ import {
 } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { CreateProps } from "back-end/src/models/BaseModel";
-import { updateFeature } from "back-end/src/models/FeatureModel";
-import { updateRevision } from "back-end/src/models/FeatureRevisionModel";
-import {
-  SafeRolloutAnalysisSettings,
-  SafeRolloutAnalysisSettingsInterface,
-} from "back-end/src/models/SafeRolloutAnalysisSettings";
 import { determineNextDate, isJoinableMetric } from "./experiments";
 import { getSourceIntegrationObject } from "./datasource";
 
@@ -264,7 +259,7 @@ function getSnapshotSettings({
   metricGroups,
   datasource,
 }: {
-  experiment: SafeRolloutRule;
+  experiment: fullSafeRolloutInterface;
   settings: ExperimentSnapshotAnalysisSettings;
   orgPriorSettings: MetricPriorSettings | undefined;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
@@ -336,10 +331,9 @@ export async function createSnapshot({
   settingsForSnapshotMetrics,
   metricMap,
   factTableMap,
-  feature,
-  safeRolloutAnalysisSetting,
+  safeRollout,
 }: {
-  experiment: SafeRolloutRule;
+  experiment: fullSafeRolloutInterface;
   context: ReqContext | ApiReqContext;
   triggeredBy: SnapshotTriggeredBy;
   useCache?: boolean;
@@ -347,8 +341,7 @@ export async function createSnapshot({
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
-  feature: FeatureInterface;
-  safeRolloutAnalysisSetting: SafeRolloutAnalysisSettingsInterface;
+  safeRollout: safeRolloutInterface;
 }): Promise<SafeRolloutResultsQueryRunner> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
@@ -369,9 +362,8 @@ export async function createSnapshot({
     metricGroups,
     datasource,
   });
-
   const data: CreateProps<SafeRolloutSnapshotInterface> = {
-    featureId: feature.id, // TODO: replace with actual feature id
+    featureId: "1", // TODO: replace with actual feature id
     safeRolloutRuleId: experiment.id,
     runStarted: new Date(),
     error: "",
@@ -394,8 +386,8 @@ export async function createSnapshot({
   const nextUpdate = determineNextDate(
     organization.settings?.updateSchedule || null
   );
-  const safeRolloutAnalysisSettings = new SafeRolloutAnalysisSettings(context);
-  await safeRolloutAnalysisSettings.update(safeRolloutAnalysisSetting, {
+  const safeRolloutModel = new SafeRolloutModel(context);
+  await safeRolloutModel.update(safeRollout, {
     nextSnapshotAttempt:
       nextUpdate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
   });
@@ -420,16 +412,15 @@ export async function createSnapshot({
 
 export async function createSafeRolloutSnapshot({
   context,
-  safeRollout,
+  safeRolloutRule,
   dimension,
   useCache = true,
   triggeredBy,
-  safeRolloutAnalysisSetting,
-  feature,
+  safeRollout,
 }: {
   context: ReqContext;
-  safeRollout: SafeRolloutRule;
-  safeRolloutAnalysisSetting: SafeRolloutAnalysisSettingsInterface;
+  safeRolloutRule: SafeRolloutRule;
+  safeRollout: safeRolloutInterface;
   dimension?: string;
   useCache?: boolean;
   triggeredBy?: SnapshotTriggeredBy;
@@ -441,9 +432,15 @@ export async function createSafeRolloutSnapshot({
   // if (projectId) {
   //   project = await context.models.projects.getById(projectId);
   // }
-
+  const fullSafeRollout: fullSafeRolloutInterface = {
+    ...safeRollout,
+    ...safeRolloutRule,
+  };
   const { org } = context;
-  const orgSettings: OrganizationSettings = org.settings as OrganizationSettings;
+  if (!org.settings) {
+    throw new Error("Organization settings not found");
+  }
+  const orgSettings = org.settings;
 
   const metricMap = await getMetricMap(context);
   // const metricIds = getAllMetricIdsFromExperiment(safeRollout, false);
@@ -460,7 +457,7 @@ export async function createSafeRolloutSnapshot({
   const {
     settingsForSnapshotMetrics,
     regressionAdjustmentEnabled,
-  } = await getSettingsForSnapshotMetrics(context, safeRollout);
+  } = await getSettingsForSnapshotMetrics(context, fullSafeRollout);
 
   const analysisSettings = getDefaultExperimentAnalysisSettingsForSafeRollout(
     org,
@@ -471,7 +468,7 @@ export async function createSafeRolloutSnapshot({
   const factTableMap = await getFactTableMap(context);
 
   const queryRunner = await createSnapshot({
-    experiment: safeRollout,
+    experiment: fullSafeRollout,
     context,
     useCache,
     defaultAnalysisSettings: analysisSettings,
@@ -479,8 +476,8 @@ export async function createSafeRolloutSnapshot({
     metricMap,
     factTableMap,
     triggeredBy: triggeredBy ?? "manual",
-    safeRolloutAnalysisSetting,
-    feature,
+    safeRollout,
+    feature: "1",
   });
   const snapshot = queryRunner.model;
 
