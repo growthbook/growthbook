@@ -54,6 +54,7 @@ import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFiel
 import { useIncrementer } from "@/hooks/useIncrementer";
 import HelperText from "@/components/Radix/HelperText";
 import { useTemplates } from "@/hooks/useTemplates";
+import SafeRolloutFields from "@/components/Features/RuleModal/SafeRolloutFields";
 
 export interface Props {
   close: () => void;
@@ -68,13 +69,18 @@ export interface Props {
   duplicate?: boolean;
 }
 
-type RadioSelectorRuleType = "force" | "rollout" | "experiment" | "bandit" | "";
+type RadioSelectorRuleType =
+  | "force"
+  | "rollout"
+  | "experiment"
+  | "bandit"
+  | "safe-rollout";
 type OverviewRuleType =
   | "force"
   | "rollout"
   | "experiment-ref"
   | "experiment-ref-new"
-  | "";
+  | "safe-rollout";
 
 export default function RuleModal({
   close,
@@ -223,10 +229,6 @@ export default function RuleModal({
   }, [isCyclic, prerequisiteTargetingSdkIssues]);
 
   const [conditionKey, forceConditionRender] = useIncrementer();
-  const RolloutPages =
-    form.watch("type") === "safe-rollout"
-      ? ["Overview", "Metrics"]
-      : ["Overview"];
 
   function changeRuleType(v: string) {
     const existingCondition = form.watch("condition");
@@ -633,6 +635,12 @@ export default function RuleModal({
                   "Release to small percent of users while monitoring logs",
               },
               {
+                value: "safe-rollout",
+                label: "Safe rollout",
+                description:
+                  "Release to small percent of users while monitoring logs",
+              },
+              {
                 value: "experiment",
                 label: "Experiment",
                 description:
@@ -673,12 +681,17 @@ export default function RuleModal({
                 : []),
             ]}
             value={overviewRadioSelectorRuleType}
-            setValue={(v: "force" | "rollout" | "experiment" | "bandit") => {
+            setValue={(
+              v: "force" | "rollout" | "safe-rollout" | "experiment" | "bandit"
+            ) => {
               setOverviewRadioSelectorRuleType(v);
+              console.log(v, "v");
               if (v === "force") {
                 setOverviewRuleType("force");
               } else if (v === "rollout") {
                 setOverviewRuleType("rollout");
+              } else if (v === "safe-rollout") {
+                setOverviewRuleType("safe-rollout");
               } else {
                 setOverviewRuleType("experiment-ref-new");
               }
@@ -745,10 +758,12 @@ export default function RuleModal({
       ? `${
           ruleType === "experiment-ref-new" ? "new" : "existing"
         } Experiment as Rule`
+      : ruleType === "safe-rollout"
+      ? "Safe Rollout Rule"
       : "Rule";
   const trackingEventModalType = kebabCase(headerText);
   headerText += ` in ${environment}`;
-
+  console.log(ruleType, "ruleType");
   return (
     <FormProvider {...form}>
       <PagedModal
@@ -791,27 +806,47 @@ export default function RuleModal({
           />
         )}
 
-        {(ruleType === "rollout" || ruleType === "safe-rollout") &&
-          RolloutPages.map((p, i) => (
-            <Page display={p} key={i}>
-              <RolloutFields
-                step={i}
-                feature={feature}
-                environment={environment}
-                defaultValues={defaultValues}
-                version={version}
-                revisions={revisions}
-                setPrerequisiteTargetingSdkIssues={
-                  setPrerequisiteTargetingSdkIssues
-                }
-                isCyclic={isCyclic}
-                cyclicFeatureId={cyclicFeatureId}
-                conditionKey={conditionKey}
-                scheduleToggleEnabled={scheduleToggleEnabled}
-                setScheduleToggleEnabled={setScheduleToggleEnabled}
-              />
-            </Page>
-          ))}
+        {ruleType === "rollout" && (
+          <RolloutFields
+            feature={feature}
+            environment={environment}
+            defaultValues={defaultValues}
+            version={version}
+            revisions={revisions}
+            setPrerequisiteTargetingSdkIssues={
+              setPrerequisiteTargetingSdkIssues
+            }
+            isCyclic={isCyclic}
+            cyclicFeatureId={cyclicFeatureId}
+            conditionKey={conditionKey}
+            scheduleToggleEnabled={scheduleToggleEnabled}
+            setScheduleToggleEnabled={setScheduleToggleEnabled}
+          />
+        )}
+
+        {ruleType === "safe-rollout" &&
+          ["Overview", "Metrics"].map((p, i) => {
+            return (
+              <Page display={p} key={i}>
+                <SafeRolloutFields
+                  step={i}
+                  feature={feature}
+                  environment={environment}
+                  defaultValues={defaultValues}
+                  version={version}
+                  revisions={revisions}
+                  setPrerequisiteTargetingSdkIssues={
+                    setPrerequisiteTargetingSdkIssues
+                  }
+                  isCyclic={isCyclic}
+                  cyclicFeatureId={cyclicFeatureId}
+                  conditionKey={conditionKey}
+                  scheduleToggleEnabled={scheduleToggleEnabled}
+                  setScheduleToggleEnabled={setScheduleToggleEnabled}
+                />
+              </Page>
+            );
+          })}
 
         {(ruleType === "experiment-ref" || ruleType === "experiment") &&
         experimentType === "experiment" ? (
