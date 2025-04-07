@@ -1,11 +1,13 @@
 import { FC, useMemo, useState } from "react";
+import { format, startOfDay } from "date-fns";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
+import { Flex, Text } from "@radix-ui/themes";
 import { GridColumns, GridRows } from "@visx/grid";
 import { scaleLinear, scaleTime } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { AreaClosed, LinePath } from "@visx/shape";
-import { curveMonotoneX } from "@visx/curve";
+import { curveLinear, curveMonotoneX } from "@visx/curve";
 import {
   TooltipWithBounds,
   useTooltip,
@@ -18,7 +20,19 @@ import { ScaleLinear } from "d3-scale";
 import { BiCheckbox, BiCheckboxSquare } from "react-icons/bi";
 import { pValueFormatter } from "@/services/experiments";
 import { getVariationColor } from "@/services/features";
+import HelperText from "@/components/Radix/HelperText";
+import Table, {
+  TableRow,
+  TableHeader,
+  TableBody,
+  TableColumnHeader,
+  TableRowHeaderCell,
+  TableCell,
+} from "../Radix/Table";
 import styles from "./ExperimentDateGraph.module.scss";
+import newStyles from "./ExperimentTimeSeriesGraph.module.scss";
+import { RadixTheme } from "@/services/RadixTheme";
+import Frame from "../Radix/Frame";
 
 export interface DataPointVariation {
   v: number;
@@ -30,21 +44,25 @@ export interface DataPointVariation {
   ci?: [number, number]; // confidence interval
   className?: string; // won/lost/draw class
 }
-export interface ExperimentDateGraphDataPoint {
+
+export interface ExperimentTimeSeriesGraphDataPoint {
   d: Date;
   variations?: DataPointVariation[]; // undefined === missing date
+  helperText?: string;
 }
-export interface ExperimentDateGraphProps {
-  yaxis: "users" | "effect";
+
+export interface ExperimentTimeSeriesGraphProps {
+  yaxis: "effect";
   variationNames: string[];
   label: string;
-  datapoints: ExperimentDateGraphDataPoint[];
+  datapoints: ExperimentTimeSeriesGraphDataPoint[];
   formatter: (value: number, options?: Intl.NumberFormatOptions) => string;
   formatterOptions?: Intl.NumberFormatOptions;
   statsEngine?: StatsEngine;
   hasStats?: boolean;
   maxGapHours?: number;
   cumulative?: boolean;
+  showVariations: boolean[];
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -55,7 +73,7 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 type TooltipData = {
   x: number;
   y?: number[];
-  d: ExperimentDateGraphDataPoint;
+  d: ExperimentTimeSeriesGraphDataPoint;
   yaxis: "users" | "effect";
 };
 
@@ -75,63 +93,94 @@ const getTooltipContents = (
   const { d, yaxis } = data;
   return (
     <>
-      <table
-        className={`table-condensed ${styles.table} ${
-          yaxis !== "effect" && "mt-1"
-        }`}
-      >
-        <thead>
-          <tr>
-            <td></td>
-            <td>Users</td>
+      <Text weight="medium">{date(d.d)}</Text>
+      {d.helperText ? (
+        <HelperText status="info" my="2" size="md">
+          {d.helperText}
+        </HelperText>
+      ) : null}
+      <Table size="1">
+        <TableHeader>
+          <TableRow style={{ color: "var(--color-text-mid)" }}>
+            <TableColumnHeader pl="0">Variation</TableColumnHeader>
+            <TableColumnHeader justify="center">Users</TableColumnHeader>
 
-            {yaxis === "effect" && (
+            <TableColumnHeader justify="center">Value</TableColumnHeader>
+            <TableColumnHeader justify="center">Change</TableColumnHeader>
+            {hasStats && (
               <>
-                <td>Value</td>
-                <td>Change</td>
-                {hasStats && (
-                  <>
-                    <td>CI</td>
-                    <td>
-                      {statsEngine === "frequentist"
-                        ? "P-val"
-                        : "Chance to Win"}
-                    </td>
-                  </>
-                )}
+                <TableColumnHeader justify="center">CI</TableColumnHeader>
+                <TableColumnHeader justify="center">
+                  {statsEngine === "frequentist" ? "P-val" : "Chance to Win"}
+                </TableColumnHeader>
               </>
             )}
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+
+        <TableBody>
           {variationNames.map((v, i) => {
             if (!d.variations) return null;
             if (!showVariations[i]) return null;
             const variation = d.variations[i];
+            const variationColor = getVariationColor(i, true);
             return (
-              <tr key={i}>
-                <td
-                  className="text-ellipsis"
-                  style={{ color: getVariationColor(i, true) }}
-                >
-                  {v}
-                </td>
-                {yaxis === "users" && <td>{d.variations[i].v_formatted}</td>}
+              <TableRow
+                key={i}
+                style={{
+                  color: "var(--color-text-high)",
+                  // @ts-expect-error cssType is not aware of CSS variables
+                  fontWeight: "500",
+                }}
+              >
+                <TableRowHeaderCell pl="0">
+                  <Flex align="center" gap="2">
+                    <span
+                      className="label"
+                      style={{
+                        color: variationColor,
+                        borderColor: variationColor,
+                        fontSize: "12px",
+                        width: 16,
+                        height: 16,
+                        borderRadius: 16,
+                        borderWidth: 1,
+                        borderStyle: "solid",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {i}
+                    </span>
+                    <Text weight="bold">{v}</Text>
+                  </Flex>
+                </TableRowHeaderCell>
+                {yaxis === "users" && (
+                  <TableCell justify="center">
+                    {d.variations[i].v_formatted}
+                  </TableCell>
+                )}
                 {yaxis === "effect" && (
                   <>
-                    <td>{d.variations[i].users}</td>
-                    <td>{d.variations[i].v_formatted}</td>
-                    <td>
+                    <TableCell justify="center">
+                      {d.variations[i].users}
+                    </TableCell>
+                    <TableCell justify="center">
+                      {d.variations[i].v_formatted}
+                    </TableCell>
+                    <TableCell justify="center">
                       {i > 0 && (
                         <>
                           {((variation.up ?? 0) > 0 ? "+" : "") +
                             formatter(variation.up ?? 0, formatterOptions)}
                         </>
                       )}
-                    </td>
+                    </TableCell>
                     {hasStats && (
                       <>
-                        <td className="small">
+                        <TableCell justify="center">
                           {i > 0 && (
                             <>
                               [
@@ -147,8 +196,8 @@ const getTooltipContents = (
                               ]
                             </>
                           )}
-                        </td>
-                        <td className={variation.className}>
+                        </TableCell>
+                        <TableCell justify="center">
                           {i > 0 && (
                             <>
                               {statsEngine === "frequentist"
@@ -158,17 +207,16 @@ const getTooltipContents = (
                                   percentFormatter.format(variation.ctw)}
                             </>
                           )}
-                        </td>
+                        </TableCell>
                       </>
                     )}
                   </>
                 )}
-              </tr>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
-      <div className="text-sm-right mt-1 mr-1">{date(d.d as Date)}</div>
+        </TableBody>
+      </Table>
     </>
   );
 };
@@ -177,7 +225,7 @@ const getTooltipContents = (
 const getTooltipData = (
   mx: number,
   width: number,
-  datapoints: ExperimentDateGraphDataPoint[],
+  datapoints: ExperimentTimeSeriesGraphDataPoint[],
   yScale: ScaleLinear<number, number, never>,
   xScale,
   yaxis: "users" | "effect"
@@ -216,37 +264,36 @@ const getYVal = (
     case "users":
       return variation.v;
     case "effect":
-      return variation.up ?? 0;
+      return variation.up;
     default:
       return variation.v;
   }
 };
 
-const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
+const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
   yaxis,
   datapoints: _datapoints,
   variationNames,
   label,
   formatter,
   formatterOptions,
+  showVariations,
   statsEngine = "bayesian",
   hasStats = true,
   maxGapHours = 36,
   cumulative = false,
 }) => {
   // yaxis = "users";
-  const { containerRef, containerBounds } = useTooltipInPortal({
-    scroll: true,
-    detectBounds: true,
-  });
-
-  const [showVariations, setShowVariations] = useState<boolean[]>(
-    variationNames.map(() => true)
+  const { containerRef, containerBounds, TooltipInPortal } = useTooltipInPortal(
+    {
+      scroll: true,
+      detectBounds: true,
+    }
   );
 
   const {
     showTooltip,
-    hideTooltip,
+    // hideTooltip,
     tooltipOpen,
     tooltipData,
     tooltipLeft = 0,
@@ -254,11 +301,29 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
   } = useTooltip<TooltipData>();
 
   const datapoints = useMemo(() => {
-    const sortedDates = cloneDeep(_datapoints).sort(
-      (a, b) => getValidDate(a.d).getTime() - getValidDate(b.d).getTime()
+    const sortedDates1 = cloneDeep(_datapoints)
+      .sort((a, b) => getValidDate(a.d).getTime() - getValidDate(b.d).getTime())
+      .map((p) => ({
+        ...p,
+        d: startOfDay(p.d),
+      }));
+
+    const lastDataPointIndexWithHelperText = sortedDates1.findLastIndex(
+      (it) => it.helperText
     );
 
-    const filledDates: ExperimentDateGraphDataPoint[] = [];
+    const sortedDates = sortedDates1.map((p, idx) => {
+      if (idx < lastDataPointIndexWithHelperText) {
+        return {
+          ...p,
+          helperText: "Settings do not match current version",
+        };
+      } else {
+        return { ...p, helperText: undefined };
+      }
+    });
+
+    const filledDates: ExperimentTimeSeriesGraphDataPoint[] = [];
     for (let i = 0; i < sortedDates.length; i++) {
       filledDates.push(sortedDates[i]);
       if (i < sortedDates.length - 1) {
@@ -343,11 +408,68 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
       )
     );
 
+    // TODO: Disable for metric timeseries now
     // The error bars can be huge sometimes, so limit the domain to at most twice the min/max value
-    return [
-      Math.max(minError, minValue > 0 ? minValue / 2 : minValue * 2),
-      Math.min(maxError, maxValue > 0 ? maxValue * 2 : maxValue / 2),
-    ];
+    const heyDatapoints = datapoints.filter(
+      (it) => it.variations !== undefined
+    );
+    const lastDataPoint = heyDatapoints[heyDatapoints.length - 1];
+
+    // Get the midpoint between min and max values
+    // const minMidpoint = minValue;
+    // const maxMidpoint = maxValue;
+
+    // Ensure we show the full CI for the latest data point
+    const latestMinCI = lastDataPoint?.variations
+      ? Math.min(
+          ...lastDataPoint.variations
+            .filter((_, i) => showVariations[i])
+            .map(
+              (variation) => variation.ci?.[0] ?? getYVal(variation, yaxis) ?? 0
+            )
+        )
+      : 0;
+
+    const latestMaxCI = lastDataPoint?.variations
+      ? Math.max(
+          ...lastDataPoint.variations
+            .filter((_, i) => showVariations[i])
+            .map(
+              (variation) => variation.ci?.[1] ?? getYVal(variation, yaxis) ?? 0
+            )
+        )
+      : 0;
+
+    // Calculate range based on latest data point (10x the range)
+    const latestRange = Math.abs(latestMaxCI - latestMinCI);
+    const expandedRange = latestRange * 10;
+    const midpoint = (latestMaxCI + latestMinCI) / 2;
+    const expandedMin = midpoint - expandedRange / 2;
+    const expandedMax = midpoint + expandedRange / 2;
+
+    console.table({
+      minValue,
+      maxValue,
+      latestMinCI,
+      latestMaxCI,
+      expandedMin,
+      expandedMax,
+    });
+
+    const min = Math.min(
+      minValue,
+      latestMinCI,
+      Math.max(expandedMin, minError)
+    );
+    const max = Math.max(
+      maxValue,
+      latestMaxCI,
+      Math.min(expandedMax, maxError)
+    );
+    const range = max - min;
+    const expandedRange2 = range * 1.05;
+    const buffer = (expandedRange2 - range) / 2;
+    return [min - buffer, max + buffer];
   }, [datapoints, yaxis, showVariations]);
 
   // Get x-axis domain
@@ -388,7 +510,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
             yaxis
           );
           if (!data?.y || data.y.every((v) => v === undefined)) {
-            hideTooltip();
+            // hideTooltip();
             return;
           }
           showTooltip({
@@ -401,78 +523,28 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
         return (
           <div className="position-relative">
             {tooltipData && (
-              <TooltipWithBounds
-                left={tooltipLeft + margin[3]}
+              <TooltipInPortal
+                key={Math.random()}
+                className={newStyles.tooltip}
+                left={tooltipLeft}
                 top={tooltipTop + margin[0]}
-                className={`tooltip-experimentDateGraph ${styles.tooltip}`}
                 unstyled={true}
               >
-                {getTooltipContents(
-                  tooltipData,
-                  variationNames,
-                  showVariations,
-                  statsEngine,
-                  formatter,
-                  formatterOptions,
-                  hasStats
-                )}
-              </TooltipWithBounds>
+                <RadixTheme>
+                  <div className={newStyles.tooltipContent}>
+                    {getTooltipContents(
+                      tooltipData,
+                      variationNames,
+                      showVariations,
+                      statsEngine,
+                      formatter,
+                      formatterOptions,
+                      hasStats
+                    )}
+                  </div>
+                </RadixTheme>
+              </TooltipInPortal>
             )}
-            <div className="d-flex align-items-start">
-              <div
-                className="d-flex flex-wrap px-3 mb-2"
-                style={{ gap: "0.25rem 1rem" }}
-              >
-                <div
-                  key={"all"}
-                  className="nowrap cursor-pointer hover-highlight py-1 pr-1 rounded user-select-none"
-                  onClick={() => {
-                    if (!showVariations.every((sv) => sv)) {
-                      setShowVariations(variationNames.map(() => true));
-                    } else {
-                      setShowVariations(
-                        variationNames.map((_, i) => (i === 0 ? true : false))
-                      );
-                    }
-                  }}
-                >
-                  {showVariations.every((sv) => sv) ? (
-                    <BiCheckboxSquare size={24} />
-                  ) : (
-                    <BiCheckbox size={24} />
-                  )}
-                  Show all
-                </div>
-                {variationNames.map((v, i) => {
-                  if (i === 0 && yaxis === "effect") return null;
-                  return (
-                    <div
-                      key={i}
-                      className="nowrap text-ellipsis cursor-pointer hover-highlight py-1 pr-1 rounded user-select-none"
-                      style={{
-                        maxWidth: 200,
-                        color: getVariationColor(i, true),
-                      }}
-                      onClick={() => {
-                        let sv = [...showVariations];
-                        sv[i] = !sv[i];
-                        if (sv.every((v) => !v)) {
-                          sv = variationNames.map((_, j) => i !== j);
-                        }
-                        setShowVariations(sv);
-                      }}
-                    >
-                      {showVariations[i] ? (
-                        <BiCheckboxSquare size={24} />
-                      ) : (
-                        <BiCheckbox size={24} />
-                      )}
-                      {v}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
             <div
               ref={containerRef}
               className={styles.dategraph}
@@ -483,7 +555,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                 marginTop: margin[0],
               }}
               onPointerMove={handlePointer}
-              onPointerLeave={hideTooltip}
+              // onPointerLeave={hideTooltip}
             >
               {tooltipOpen && (
                 <>
@@ -506,10 +578,6 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                       />
                     );
                   })}
-                  <div
-                    className={styles.crosshair}
-                    style={{ transform: `translateX(${tooltipLeft}px)` }}
-                  />
                 </>
               )}
             </div>
@@ -552,7 +620,9 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                         <AreaClosed
                           key={`ci_${i}`}
                           yScale={yScale}
-                          data={datapoints}
+                          data={datapoints.filter(
+                            (it) => it.variations !== undefined
+                          )}
                           x={(d) => xScale(d.d) ?? 0}
                           y0={(d) =>
                             yScale(d?.variations?.[i]?.ci?.[0] ?? 0) ?? 0
@@ -574,21 +644,47 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                       return null;
                     }
                     // Render the actual line chart for each variation
+                    // TODO: wth is this +2?
+                    const lastIndex =
+                      datapoints.findLastIndex((it) => it.helperText) + 2;
+
+                    // NB: We include lastIndex datapoint in both arrays as we need
+                    // to draw the dashed line to it, and the solid line from it onwards
+                    const previousSettingsDataPoints = datapoints.filter(
+                      (it, idx) =>
+                        it.variations !== undefined && idx <= lastIndex
+                    );
+                    const currentSettingsDataPoints = datapoints.filter(
+                      (it, idx) =>
+                        it.variations !== undefined && idx >= lastIndex
+                    );
                     return (
-                      <LinePath
-                        key={`linepath_${i}`}
-                        data={datapoints}
-                        x={(d) => xScale(d.d)}
-                        y={(d) =>
-                          yScale(getYVal(d?.variations?.[i], yaxis) ?? 0)
-                        }
-                        stroke={getVariationColor(i, true)}
-                        strokeWidth={2}
-                        curve={curveMonotoneX}
-                        defined={(d) =>
-                          getYVal(d?.variations?.[i], yaxis) !== undefined
-                        }
-                      />
+                      <>
+                        <LinePath
+                          key={`linepath_dashed_${i}`}
+                          data={previousSettingsDataPoints}
+                          x={(d) => xScale(d.d)}
+                          y={(d) =>
+                            yScale(getYVal(d?.variations?.[i], yaxis) ?? 0)
+                          }
+                          stroke={getVariationColor(i, true)}
+                          strokeWidth={2}
+                          strokeDasharray={3}
+                          strokeLinecap="butt"
+                          curve={curveLinear}
+                        />
+                        <LinePath
+                          key={`linepath_solid_${i}`}
+                          data={currentSettingsDataPoints}
+                          x={(d) => xScale(d.d)}
+                          y={(d) =>
+                            yScale(getYVal(d?.variations?.[i], yaxis) ?? 0)
+                          }
+                          stroke={getVariationColor(i, true)}
+                          strokeWidth={2}
+                          curve={curveLinear}
+                        />
+                      </>
                     );
                   })}
                 </Group>
@@ -597,13 +693,18 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                   top={yMax}
                   scale={xScale}
                   numTicks={numXTicks}
-                  tickLabelProps={() => ({
-                    fill: "var(--text-color-table)",
-                    fontSize: 11,
-                    textAnchor: "middle",
-                  })}
+                  tickLabelProps={(d) => {
+                    return {
+                      fill:
+                        d < new Date("2025-04-01") || d > new Date("2025-04-03")
+                          ? "var(--color-text-low)"
+                          : "var(--color-text-high)",
+                      fontSize: 11,
+                      textAnchor: "middle",
+                    };
+                  }}
                   tickFormat={(d) => {
-                    return date(d as Date);
+                    return format(d as Date, "MMM dd");
                   }}
                   tickValues={numXTicks < 7 ? allXTicks : undefined}
                 />
@@ -613,11 +714,15 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                   labelOffset={50}
                   tickFormat={(v) => formatter(v as number, formatterOptions)}
                   tickLabelProps={() => ({
-                    fill: "var(--text-color-table)",
+                    fill: "var(--color-text-mid)",
                     fontSize: 11,
                     textAnchor: "end",
                   })}
                   label={label}
+                  labelProps={{
+                    fill: "var(--color-text-mid)",
+                    textAnchor: "middle",
+                  }}
                   labelClassName="h5"
                 />
               </Group>
@@ -628,4 +733,4 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
     </ParentSizeModern>
   );
 };
-export default ExperimentDateGraph;
+export default ExperimentTimeSeriesGraph;

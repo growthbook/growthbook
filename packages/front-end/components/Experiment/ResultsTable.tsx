@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { CSSTransition } from "react-transition-group";
+import { Tooltip as RadixTooltip } from "@radix-ui/themes";
 import { RxInfoCircled } from "react-icons/rx";
 import {
   ExperimentReportVariation,
@@ -35,7 +36,7 @@ import {
   useDomain,
 } from "@/services/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { GBEdit } from "@/components/Icons";
+import { ChartLineExploreIcon, GBEdit } from "@/components/Icons";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
@@ -51,6 +52,7 @@ import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
 import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useResultsTableTooltip } from "@/components/Experiment/ResultsTableTooltip/useResultsTableTooltip";
+import Link from "@/components/Radix/Link";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import AlignedGraph from "./AlignedGraph";
 import ChanceToWinColumn from "./ChanceToWinColumn";
@@ -58,6 +60,8 @@ import MetricValueColumn from "./MetricValueColumn";
 import PercentGraph from "./PercentGraph";
 import MetricTimeSeriesGraph from "./MetricTimeSeriesGraph";
 import styles from "./ResultsTable.module.scss";
+import { useGrowthBook } from "@growthbook/growthbook-react";
+import { AppFeatures } from "@/types/app-features";
 
 export type ResultsTableProps = {
   id: string;
@@ -170,6 +174,9 @@ export default function ResultsTable({
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [graphCellWidth, setGraphCellWidth] = useState(800);
   const [tableCellScale, setTableCellScale] = useState(1);
+
+  const gb = useGrowthBook<AppFeatures>();
+  const showTimeSeriesButton = gb.isOn("experiment-results-timeseries");
 
   function onResize() {
     if (!tableContainerRef?.current?.clientWidth) return;
@@ -702,6 +709,21 @@ export default function ResultsTable({
                       leaveRow();
                     };
 
+                    const additionalButton = showTimeSeriesButton ? (
+                      <RadixTooltip content="Explore time series for this metric">
+                        <Link
+                          onClick={() => handleExpand(row.metric.id)}
+                          className={clsx(styles.timeSeriesButton, {
+                            [styles.active]: expandedMetrics.includes(
+                              row.metric.id
+                            ),
+                          })}
+                        >
+                          <ChartLineExploreIcon />
+                        </Link>
+                      </RadixTooltip>
+                    ) : null;
+
                     return (
                       <>
                         <tr
@@ -912,6 +934,7 @@ export default function ResultsTable({
                               statsEngine={statsEngine}
                               className={resultsHighlightClassname}
                               ssrPolyfills={ssrPolyfills}
+                              additionalButton={additionalButton}
                             />
                           ) : (
                             <td></td>
@@ -928,6 +951,10 @@ export default function ResultsTable({
                             differenceType={differenceType}
                             metric={row.metric}
                             experimentId={id}
+                            showVariations={orderedVariations.map(
+                              (v) => !variationFilter?.includes(v.index)
+                            )}
+                            // TODO: Fix this
                             phase={0}
                           />
                         </div>
@@ -992,6 +1019,7 @@ function drawEmptyRow({
           ssrPolyfills={ssrPolyfills}
         />
       </td>
+      <td />
     </tr>
   );
 }

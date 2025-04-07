@@ -355,6 +355,8 @@ const BreakDownResults: FC<{
               id={table.metric.id}
               hasRisk={_hasRisk}
               tableRowAxis="dimension" // todo: dynamic grouping?
+              expandedMetrics={[]}
+              handleExpand={() => {}}
               labelHeader={
                 <div style={{ marginBottom: 2 }}>
                   {getRenderLabelColumn(

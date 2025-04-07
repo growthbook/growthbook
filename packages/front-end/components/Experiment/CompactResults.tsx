@@ -34,7 +34,7 @@ import {
   setAdjustedCIs,
   hasRisk,
 } from "@/services/experiments";
-import { GBCuped } from "@/components/Icons";
+import { ChartLineExploreIcon, GBCuped } from "@/components/Icons";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import {
   ResultsMetricFilters,
@@ -591,22 +591,6 @@ export function getRenderLabelColumn(
 
     return (
       <span style={{ display: "flex", alignItems: "center" }}>
-        <RadixLink
-          onClick={() => handleMetricCaretClick(metric.id)}
-          className={clsx(styles.timeSeriesButton, {
-            [styles.active]: isExpanded,
-          })}
-        >
-          <PiCaretRight
-            style={{
-              display: "block",
-              width: "15px",
-              height: "15px",
-              transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
-              transition: "transform 0.2s ease-in-out",
-            }}
-          />
-        </RadixLink>
         {metricLink}
         {metricInverseIconDisplay}
         {cupedIconDisplay}
