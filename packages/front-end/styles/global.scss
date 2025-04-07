@@ -1009,6 +1009,20 @@ main.main {
   td {
     vertical-align: middle;
   }
+
+  .dark &.decision-criteria-table {
+    tbody {
+      tr {
+        background-color: #1b2339;
+        td {
+          color: var(--text-color-main);
+        }
+      }
+    }
+    .hover-highlight:hover {
+      background-color: rgba(124, 69, 234, 0.06);
+    }
+  }
 }
 .dark .gbtable {
   thead {
