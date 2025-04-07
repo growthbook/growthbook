@@ -62,7 +62,7 @@ import EditExperimentInfoModal, {
 import ExperimentActionButtons from "./ExperimentActionButtons";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import { ExperimentTab } from ".";
-import { useExperimentStatusIndicator, useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
+import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
 
 export interface Props {
@@ -254,8 +254,8 @@ export default function ExperimentHeader({
   const hasResults = !!analysis?.results?.[0];
 
   
-  const getRunningExperimentStatus = useRunningExperimentStatus();
-  const runningExperimentStatus = getRunningExperimentStatus(experiment);
+  const { decisionCriteria, getRunningExperimentResultStatus } = useRunningExperimentStatus();
+  const runningExperimentStatus = getRunningExperimentResultStatus(experiment);
   const shouldHideTabs =
     experiment.status === "draft" && !hasResults && phases.length === 1;
 
@@ -1018,11 +1018,12 @@ export default function ExperimentHeader({
           editTags={!viewingOldPhase ? editTags : undefined}
         />
 
-      {experiment.status === "running" && (
+      {experiment.status === "running" && runningExperimentStatus && (
           <Box pt="1" pb="1">
             <RunningExperimentDecisionBanner
               experiment={experiment}
-              editExperiment={() => {}}
+              runningExperimentStatus={runningExperimentStatus}
+              decisionCriteria={decisionCriteria}
             />
           </Box>
         )}

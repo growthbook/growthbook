@@ -25,14 +25,9 @@ export type StatusIndicatorData = {
   sortOrder: number;
 };
 
-export function useExperimentStatusIndicator() {
-  const { hasCommercialFeature } = useUser();
-  const settings = useOrgSettings();
-  const healthSettings = getHealthSettings(
-    settings,
-    hasCommercialFeature("decision-framework")
-  );
 
+export function useExperimentDecisionCriteria() {
+  const settings = useOrgSettings();
   const decisionCriteria = !settings?.defaultDecisionCriteriaId
     ? DEFAULT_DECISION_CRITERIA
     : DEFAULT_DECISION_CRITERIAS.find(
@@ -45,17 +40,7 @@ export function useExperimentStatusIndicator() {
         !!settings?.defaultDecisionCriteriaId && !decisionCriteria,
     }
   );
-
-  return (
-    experimentData: ExperimentDataForStatusStringDates,
-    skipArchived: boolean = false
-  ) =>
-    getStatusIndicatorData(
-      experimentData,
-      skipArchived,
-      healthSettings,
-      decisionCriteria ?? data?.decisionCriteria ?? DEFAULT_DECISION_CRITERIA
-    );
+  return data?.decisionCriteria ?? decisionCriteria ?? DEFAULT_DECISION_CRITERIA;
 }
 
 export function useRunningExperimentStatus() {
@@ -66,29 +51,42 @@ export function useRunningExperimentStatus() {
     hasCommercialFeature("decision-framework")
   );
 
-  // TODO duplicated
-  const decisionCriteria = !settings?.defaultDecisionCriteriaId
-  ? DEFAULT_DECISION_CRITERIA
-  : DEFAULT_DECISION_CRITERIAS.find(
-      (dc) => dc.id === settings.defaultDecisionCriteriaId
-    );
-  const { data } = useApi<{ decisionCriteria: DecisionCriteriaInterface }>(
-    `/decision-criteria/${settings?.defaultDecisionCriteriaId}`,
-    {
-      shouldRun: () =>
-        !!settings?.defaultDecisionCriteriaId && !decisionCriteria,
-    }
-  );
+  const decisionCriteria = useExperimentDecisionCriteria();
 
-  return (
-    experimentData: ExperimentDataForStatusStringDates
-  ) => getRunningExperimentResultStatus({
-    experimentData,
-    healthSettings,
-    decisionCriteria: decisionCriteria ?? data?.decisionCriteria ?? DEFAULT_DECISION_CRITERIA
-  });
+  return {
+    decisionCriteria,
+    getRunningExperimentResultStatus: (
+      experimentData: ExperimentDataForStatusStringDates
+    ) => getRunningExperimentResultStatus({
+      experimentData,
+      healthSettings,
+      decisionCriteria
+    })
+  };
 }
 
+
+
+export function useExperimentStatusIndicator() {
+  const { hasCommercialFeature } = useUser();
+  const settings = useOrgSettings();
+  const healthSettings = getHealthSettings(
+    settings,
+    hasCommercialFeature("decision-framework")
+  );
+
+  const decisionCriteria = useExperimentDecisionCriteria();
+  return (
+    experimentData: ExperimentDataForStatusStringDates,
+    skipArchived: boolean = false
+  ) =>
+    getStatusIndicatorData(
+      experimentData,
+      skipArchived,
+      healthSettings,
+      decisionCriteria,
+    );
+}
 function getRunningExperimentResultStatus({
   experimentData,
   healthSettings,
