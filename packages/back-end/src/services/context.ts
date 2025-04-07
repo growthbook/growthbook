@@ -36,6 +36,7 @@ import { PopulationDataModel } from "back-end/src/models/PopulationDataModel";
 import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplateModel";
 import { SafeRolloutSnapshotModel } from "back-end/src/models/SafeRolloutSnapshotModel";
 import { SafeRolloutModel } from "back-end/src/models/SafeRolloutModel";
+import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -58,6 +59,7 @@ export class ReqContextClass {
     experimentTemplates: ExperimentTemplatesModel;
     safeRolloutSnapshots: SafeRolloutSnapshotModel;
     safeRollout: SafeRolloutModel;
+    metricTimeSeries: MetricTimeSeriesModel;
   };
   private initModels() {
     this.models = {
@@ -72,6 +74,7 @@ export class ReqContextClass {
       experimentTemplates: new ExperimentTemplatesModel(this),
       safeRolloutSnapshots: new SafeRolloutSnapshotModel(this),
       safeRollout: new SafeRolloutModel(this),
+      metricTimeSeries: new MetricTimeSeriesModel(this),
     };
   }
 

@@ -168,13 +168,11 @@ const experimentRefRule = baseRule
 
 export type ExperimentRefRule = z.infer<typeof experimentRefRule>;
 
-export type SafeRolloutStatus = typeof safeRolloutStatus[number];
-
 export const safeRolloutRule = baseRule
   .extend({
     type: z.literal("safe-rollout"),
     controlValue: z.string(),
-    variationValue: z.string(),
+    value: z.string(),
     coverage: z.number(),
   })
   .strict();

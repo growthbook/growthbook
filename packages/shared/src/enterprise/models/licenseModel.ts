@@ -23,8 +23,8 @@ const licenseSchema = new mongoose.Schema({
     tooltipText: String, // The text to show in the tooltip
     showAllUsers: Boolean, // True if all users should see the notice rather than just the admins
   },
+  orbSubscription: {},
   stripeSubscription: {},
-  billingPlatform: String,
   price: Number, // The price of the license
   discountAmount: Number, // The amount of the discount
   discountMessage: String, // The message of the discount

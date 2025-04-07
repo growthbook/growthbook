@@ -15,6 +15,7 @@ import {
   getConnectionSDKCapabilities,
   SDKCapability,
 } from "shared/sdk-versioning";
+import { v4 as uuidv4 } from "uuid";
 import {
   ExperimentRefRule,
   FeatureInterface,
@@ -1218,15 +1219,20 @@ export async function postFeatureRule(
     }
   }
   // omit the fields from the rule that are in the safeRollout interface
-  const featureRule = omit(rule, [
+  const featureRule = (omit(rule, [
     "trackingKey",
     "datasource",
     "exposureQueryId",
     "hashAttribute",
     "seed",
     "guardrailMetrics",
-  ]) as FeatureRule;
-
+  ]) as unknown) as FeatureRule;
+  if (rule.type === "safe-rollout" && !rule.seed) {
+    rule.seed = uuidv4();
+  }
+  if (rule.type === "safe-rollout" && !rule.trackingKey) {
+    rule.trackingKey = uuidv4();
+  }
   if (rule.type === "safe-rollout") {
     await context.models.safeRollout.create({
       featureId: feature.id,
@@ -1237,8 +1243,11 @@ export async function postFeatureRule(
       hashAttribute: rule.hashAttribute,
       seed: rule.seed,
       guardrailMetrics: rule.guardrailMetrics,
-      status: "running",
       autoSnapshots: true,
+      coverage: 0,
+      controlValue: rule.controlValue,
+      variationValue: rule.variationValue,
+      status: "draft",
     });
   }
 

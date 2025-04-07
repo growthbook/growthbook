@@ -86,6 +86,11 @@ export function getChecklistItems({
             return !!expField;
           }
           return false;
+        case "prerequisiteTargeting": {
+          const prerequisites =
+            experiment.phases?.[experiment.phases.length - 1]?.prerequisites;
+          return !!prerequisites && prerequisites.length > 0;
+        }
       }
     }
 
@@ -335,6 +340,9 @@ export function getChecklistItems({
       }
 
       if (item.completionType === "auto" && item.propertyKey) {
+        if (isBandit && item.propertyKey === "hypothesis") {
+          return;
+        }
         items.push({
           display: <>{item.task}</>,
           status: isChecklistItemComplete(

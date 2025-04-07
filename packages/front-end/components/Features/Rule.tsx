@@ -8,8 +8,9 @@ import { filterEnvironmentsByFeature } from "shared/util";
 import { Box, Card, Flex, Heading } from "@radix-ui/themes";
 import { RiAlertLine, RiDraggable } from "react-icons/ri";
 import { RxCircleBackslash } from "react-icons/rx";
-import { PiArrowBendRightDown } from "react-icons/pi";
+import { PiArrowBendRightDown, PiArrowSquareOutFill } from "react-icons/pi";
 import { format as formatTimeZone } from "date-fns-tz";
+import RadixLink from "@/components/Radix/Link";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { getRules, isRuleInactive, useEnvironments } from "@/services/features";
@@ -23,6 +24,9 @@ import HelperText from "@/components/Radix/HelperText";
 import Badge from "@/components/Radix/Badge";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Callout from "@/components/Radix/Callout";
+import SafeRolloutSummary from "@/components/Features/SafeRolloutSummary";
+import SafeRolloutSnapshotProvider from "@/components/SafeRollout/SnapshotProvider";
+import SafeRolloutDetails from "../SafeRollout/SafeRolloutDetails";
 import ConditionDisplay from "./ConditionDisplay";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
@@ -229,6 +233,17 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           experimentData={linkedExperiment}
                         />
                       </Flex>
+                    ) : rule.type === "safe-rollout" ? (
+                      <>
+                        <div>{title}</div>
+                        <RadixLink
+                          href={`/features/${feature.id}/safe-rollouts/${rule.id}`}
+                          size="1"
+                        >
+                          View details
+                          <PiArrowSquareOutFill className="ml-1" />
+                        </RadixLink>
+                      </>
                     ) : (
                       title
                     )}
@@ -267,6 +282,25 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       feature={feature}
                       hashAttribute={rule.hashAttribute || ""}
                     />
+                  )}
+                  {rule.type === "safe-rollout" && (
+                    <SafeRolloutSnapshotProvider
+                      safeRollout={rule}
+                      feature={feature}
+                    >
+                      <SafeRolloutSummary
+                        value={rule.value ?? ""}
+                        coverage={rule.coverage ?? 1}
+                        feature={feature}
+                        hashAttribute={rule.hashAttribute || ""}
+                        guardrailMetrics={rule.guardrailMetrics || []}
+                        controlValue={rule.controlValue}
+                      />
+                      <SafeRolloutDetails
+                        safeRollout={rule}
+                        feature={feature}
+                      />
+                    </SafeRolloutSnapshotProvider>
                   )}
                   {rule.type === "experiment" && (
                     <ExperimentSummary

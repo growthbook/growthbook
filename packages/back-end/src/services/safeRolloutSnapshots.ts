@@ -35,15 +35,14 @@ import {
   SnapshotTriggeredBy,
 } from "back-end/types/experiment-snapshot";
 import { ApiReqContext } from "back-end/types/api";
-import {
-  OrganizationInterface,
-  OrganizationSettings,
-  ReqContext,
-} from "back-end/types/organization";
+import { OrganizationInterface, ReqContext } from "back-end/types/organization";
 import { MetricSnapshotSettings } from "back-end/types/report";
 import { MetricInterface } from "back-end/types/metric";
 import { getMetricMap } from "back-end/src/models/MetricModel";
-import { SafeRolloutRule } from "back-end/src/validators/features";
+import {
+  FeatureInterface,
+  SafeRolloutRule,
+} from "back-end/src/validators/features";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
@@ -119,12 +118,12 @@ export function getAnalysisSettingsFromSafeRolloutArgs(
     differenceType: "absolute",
     baselineVariationIndex: 0,
     numGoalMetrics: 0,
+    oneSidedIntervals: true,
   };
 }
 
 export function getSnapshotSettingsFromSafeRolloutArgs(
-  args: SafeRolloutSnapshotInterface,
-  metricMap: Map<string, ExperimentMetricInterface>
+  args: SafeRolloutSnapshotInterface
 ): {
   snapshotSettings: ExperimentSnapshotSettings;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
@@ -172,7 +171,7 @@ export function getSnapshotSettingsFromSafeRolloutArgs(
 
 export async function getSettingsForSnapshotMetrics(
   context: ReqContext | ApiReqContext,
-  safeRollout: SafeRolloutRule
+  fullSafeRollout: fullSafeRolloutInterface
 ): Promise<{
   regressionAdjustmentEnabled: boolean;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
@@ -183,7 +182,7 @@ export async function getSettingsForSnapshotMetrics(
   const metricMap = await getMetricMap(context);
 
   const allExperimentMetricIds = getAllMetricIdsFromExperiment(
-    safeRollout,
+    fullSafeRollout,
     false
   );
   const allExperimentMetrics = allExperimentMetricIds
@@ -250,7 +249,7 @@ export function getDefaultExperimentAnalysisSettingsForSafeRollout(
 }
 
 function getSnapshotSettings({
-  experiment,
+  fullSafeRollout,
   settings,
   orgPriorSettings,
   settingsForSnapshotMetrics,
@@ -259,7 +258,7 @@ function getSnapshotSettings({
   metricGroups,
   datasource,
 }: {
-  experiment: fullSafeRolloutInterface;
+  fullSafeRollout: fullSafeRolloutInterface;
   settings: ExperimentSnapshotAnalysisSettings;
   orgPriorSettings: MetricPriorSettings | undefined;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
@@ -277,12 +276,12 @@ function getSnapshotSettings({
 
   const queries = datasource?.settings?.queries?.exposure || [];
   const exposureQuery = queries.find(
-    (q) => q.id === experiment.exposureQueryId
+    (q) => q.id === fullSafeRollout.exposureQueryId
   );
 
   // expand metric groups and scrub unjoinable metrics
   const guardrailMetrics = expandMetricGroups(
-    experiment.guardrailMetrics,
+    fullSafeRollout.guardrailMetrics,
     metricGroups
   ).filter((m) =>
     isJoinableMetric({
@@ -295,35 +294,36 @@ function getSnapshotSettings({
   );
 
   const metricSettings = expandMetricGroups(
-    getAllMetricIdsFromExperiment(experiment),
+    getAllMetricIdsFromExperiment(fullSafeRollout),
     metricGroups
   )
     .map((m) => getMetricForSnapshot(m, metricMap, settingsForSnapshotMetrics))
     .filter(isDefined);
 
   return {
-    manual: !experiment.datasource,
+    manual: !fullSafeRollout.datasource,
     queryFilter: "",
-    datasourceId: experiment.datasource || "",
+    datasourceId: fullSafeRollout.datasource || "",
     dimensions: settings.dimensions.map((id) => ({ id })),
-    startDate: experiment.startedAt,
+    startDate: fullSafeRollout.startedAt,
     endDate: new Date(),
-    experimentId: experiment.trackingKey || experiment.id,
+    experimentId: fullSafeRollout.trackingKey || fullSafeRollout.id,
     guardrailMetrics,
     regressionAdjustmentEnabled: !!settings.regressionAdjusted,
     defaultMetricPriorSettings: defaultPriorSettings,
-    exposureQueryId: experiment.exposureQueryId,
+    exposureQueryId: fullSafeRollout.exposureQueryId,
     metricSettings,
     variations: [
       { id: "0", weight: 0.5 },
       { id: "1", weight: 0.5 },
     ],
-    coverage: experiment.coverage,
+    coverage: fullSafeRollout.coverage,
   };
 }
 
 export async function createSnapshot({
-  experiment,
+  fullSafeRollout,
+  feature,
   context,
   triggeredBy,
   useCache = false,
@@ -333,7 +333,8 @@ export async function createSnapshot({
   factTableMap,
   safeRollout,
 }: {
-  experiment: fullSafeRolloutInterface;
+  fullSafeRollout: fullSafeRolloutInterface;
+  feature: FeatureInterface;
   context: ReqContext | ApiReqContext;
   triggeredBy: SnapshotTriggeredBy;
   useCache?: boolean;
@@ -347,13 +348,13 @@ export async function createSnapshot({
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
   const metricGroups = await context.models.metricGroups.getAll();
 
-  const datasource = await getDataSourceById(context, experiment.datasource);
+  const datasource = await getDataSourceById(context, safeRollout.datasource);
   if (!datasource) {
     throw new Error("Could not load data source");
   }
 
   const snapshotSettings = getSnapshotSettings({
-    experiment,
+    fullSafeRollout,
     orgPriorSettings: organization.settings?.metricDefaults?.priorSettings,
     settings: defaultAnalysisSettings,
     settingsForSnapshotMetrics,
@@ -363,8 +364,8 @@ export async function createSnapshot({
     datasource,
   });
   const data: CreateProps<SafeRolloutSnapshotInterface> = {
-    featureId: "1", // TODO: replace with actual feature id
-    safeRolloutRuleId: experiment.id,
+    featureId: feature.id,
+    safeRolloutRuleId: safeRollout.id,
     runStarted: new Date(),
     error: "",
     queries: [],
@@ -402,6 +403,7 @@ export async function createSnapshot({
     integration,
     useCache
   );
+
   await queryRunner.startAnalysis({
     metricMap,
     factTableMap,
@@ -413,6 +415,7 @@ export async function createSnapshot({
 export async function createSafeRolloutSnapshot({
   context,
   safeRolloutRule,
+  feature,
   dimension,
   useCache = true,
   triggeredBy,
@@ -421,39 +424,23 @@ export async function createSafeRolloutSnapshot({
   context: ReqContext;
   safeRolloutRule: SafeRolloutRule;
   safeRollout: safeRolloutInterface;
-  dimension?: string;
+  feature: FeatureInterface;
+  dimension: string | undefined;
   useCache?: boolean;
   triggeredBy?: SnapshotTriggeredBy;
 }): Promise<{
   snapshot: SafeRolloutSnapshotInterface;
   queryRunner: SafeRolloutResultsQueryRunner;
 }> {
-  // let project = null;
-  // if (projectId) {
-  //   project = await context.models.projects.getById(projectId);
-  // }
   const fullSafeRollout: fullSafeRolloutInterface = {
     ...safeRollout,
     ...safeRolloutRule,
   };
   const { org } = context;
-  if (!org.settings) {
-    throw new Error("Organization settings not found");
-  }
-  const orgSettings = org.settings;
 
   const metricMap = await getMetricMap(context);
-  // const metricIds = getAllMetricIdsFromExperiment(safeRollout, false);
+  const factTableMap = await getFactTableMap(context);
 
-  // const allExperimentMetrics = metricIds.map((m) => metricMap.get(m) || null);
-  // const denominatorMetricIds = uniq<string>(
-  //   allExperimentMetrics
-  //     .map((m) => m?.denominator)
-  //     .filter((d) => d && typeof d === "string") as string[]
-  // );
-  // const denominatorMetrics = denominatorMetricIds
-  //   .map((m) => metricMap.get(m) || null)
-  //   .filter(isDefined) as MetricInterface[];
   const {
     settingsForSnapshotMetrics,
     regressionAdjustmentEnabled,
@@ -465,10 +452,9 @@ export async function createSafeRolloutSnapshot({
     dimension
   );
 
-  const factTableMap = await getFactTableMap(context);
-
   const queryRunner = await createSnapshot({
-    experiment: fullSafeRollout,
+    fullSafeRollout,
+    feature,
     context,
     useCache,
     defaultAnalysisSettings: analysisSettings,
@@ -477,7 +463,6 @@ export async function createSafeRolloutSnapshot({
     factTableMap,
     triggeredBy: triggeredBy ?? "manual",
     safeRollout,
-    feature: "1",
   });
   const snapshot = queryRunner.model;
 

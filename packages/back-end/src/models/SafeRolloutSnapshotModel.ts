@@ -37,7 +37,7 @@ export class SafeRolloutSnapshotModel extends BaseClass {
     return true;
   }
 
-  public async getLatestSnapshot({
+  public async getSnapshotForSafeRollout({
     safeRollout,
     dimension,
     beforeSnapshot,

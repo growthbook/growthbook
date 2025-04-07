@@ -34,7 +34,7 @@ const snapshotMetricObject = z.object({
   cr: z.number(),
   users: z.number(),
   denominator: z.number().optional(),
-  ci: z.tuple([z.number(), z.number()]).optional(),
+  ci: z.tuple([z.number().nullable(), z.number().nullable()]).optional(),
   ciAdjusted: z.tuple([z.number(), z.number()]).optional(),
   expected: z.number().optional(),
   risk: z.tuple([z.number(), z.number()]).optional(),
@@ -169,6 +169,9 @@ const experimentReportResultDimensionObject = z.object({
   srm: z.number(),
   variations: z.array(snapshotVariationObject),
 });
+export type SafeRolloutReportResultDimension = z.infer<
+  typeof experimentReportResultDimensionObject
+>;
 
 const safeRolloutSnapshotAnalysisSettingsValidator = z.object({
   dimensions: z.array(z.string()),

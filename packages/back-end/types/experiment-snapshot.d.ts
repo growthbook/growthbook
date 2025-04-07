@@ -27,7 +27,7 @@ export interface SnapshotMetric {
   cr: number;
   users: number;
   denominator?: number;
-  ci?: [number, number];
+  ci?: [number | null, number | null];
   ciAdjusted?: [number, number];
   expected?: number;
   risk?: [number, number];
@@ -121,6 +121,7 @@ export interface ExperimentSnapshotAnalysisSettings {
   pValueThreshold?: number;
   baselineVariationIndex?: number;
   numGoalMetrics: number;
+  oneSidedIntervals?: boolean;
 }
 
 export type SnapshotType = "standard" | "exploratory" | "report";

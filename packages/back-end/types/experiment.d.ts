@@ -36,7 +36,23 @@ export type DecisionFrameworkExperimentRecommendationStatus =
   | { status: "rollback-now" }
   | { status: "ready-for-review" };
 
-export type DecisionFrameworkData = DecisionFrameworkExperimentRecommendationStatus & {
+export type ExperimentUnhealthyData = {
+  // if key exists, the status is unhealthy
+  srm?: boolean;
+  multipleExposures?: {
+    rawDecimal: number;
+    multipleExposedUsers: number;
+  };
+  lowPowered?: boolean;
+};
+
+export type ExperimentResultStatus =
+  | DecisionFrameworkExperimentRecommendationStatus
+  | { status: "no-data" }
+  | { status: "unhealthy"; unhealthyData: ExperimentUnhealthyData }
+  | { status: "before-min-duration" };
+
+export type ExperimentResultStatusData = ExperimentResultStatus & {
   tooltip?: string;
 };
 
@@ -160,3 +176,42 @@ export interface LinkedFeatureInfo {
   rulesAbove: boolean;
   environmentStates: Record<string, LinkedFeatureEnvState>;
 }
+
+export type ExperimentHealthSettings = {
+  decisionFrameworkEnabled: boolean;
+  srmThreshold: number;
+  multipleExposureMinPercent: number;
+  experimentMinLengthDays: number;
+};
+
+export type ExperimentDataForStatusStringDates = Pick<
+  ExperimentInterfaceStringDates,
+  | "type"
+  | "variations"
+  | "status"
+  | "archived"
+  | "results"
+  | "analysisSummary"
+  | "phases"
+  | "dismissedWarnings"
+  | "goalMetrics"
+  | "secondaryMetrics"
+  | "guardrailMetrics"
+  | "datasource"
+>;
+
+export type ExperimentDataForStatus = Pick<
+  ExperimentInterface,
+  | "type"
+  | "variations"
+  | "status"
+  | "archived"
+  | "results"
+  | "analysisSummary"
+  | "phases"
+  | "dismissedWarnings"
+  | "goalMetrics"
+  | "secondaryMetrics"
+  | "guardrailMetrics"
+  | "datasource"
+>;

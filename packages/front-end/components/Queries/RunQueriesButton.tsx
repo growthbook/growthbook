@@ -41,7 +41,7 @@ export interface QueryStatusData {
 }
 export function getQueryStatus(
   queries: Queries,
-  error?: string
+  error?: string | null
 ): QueryStatusData {
   let status: QueryStatus = "succeeded";
   let numFailed = 0;
@@ -106,7 +106,7 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
 
     // Used to refresh this component while query is running so we can show an elapsed timer
     // eslint-disable-next-line
-  const [_, setCounter] = useState(0);
+    const [_, setCounter] = useState(0);
 
     const numFinished = model.queries.filter((q) => q.status === "succeeded")
       .length;
