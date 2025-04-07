@@ -66,28 +66,45 @@ export function useRunningExperimentStatus() {
     hasCommercialFeature("decision-framework")
   );
 
+  // TODO duplicated
+  const decisionCriteria = !settings?.defaultDecisionCriteriaId
+  ? DEFAULT_DECISION_CRITERIA
+  : DEFAULT_DECISION_CRITERIAS.find(
+      (dc) => dc.id === settings.defaultDecisionCriteriaId
+    );
+  const { data } = useApi<{ decisionCriteria: DecisionCriteriaInterface }>(
+    `/decision-criteria/${settings?.defaultDecisionCriteriaId}`,
+    {
+      shouldRun: () =>
+        !!settings?.defaultDecisionCriteriaId && !decisionCriteria,
+    }
+  );
+
   return (
     experimentData: ExperimentDataForStatusStringDates
   ) => getRunningExperimentResultStatus({
     experimentData,
     healthSettings,
+    decisionCriteria: decisionCriteria ?? data?.decisionCriteria ?? DEFAULT_DECISION_CRITERIA
   });
 }
 
 function getRunningExperimentResultStatus({
   experimentData,
   healthSettings,
+  decisionCriteria,
 }: {
   experimentData: ExperimentDataForStatusStringDates;
   healthSettings: ExperimentHealthSettings;
+  decisionCriteria: DecisionCriteriaData;
 }) {
   if (experimentData.status !== "running") {
     return undefined;
   }
-
   return getExperimentResultStatus({
     experimentData,
     healthSettings,
+    decisionCriteria,
   });
 }
 

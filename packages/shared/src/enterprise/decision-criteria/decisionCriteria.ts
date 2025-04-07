@@ -24,7 +24,6 @@ import {
 } from "../../constants";
 import { daysBetween } from "../../dates";
 import { getMultipleExposureHealthData, getSRMHealthData } from "../../health";
-import { DEFAULT_DECISION_CRITERIA } from "./constants";
 
 // Evaluate a single rule on a variation result
 // Returns the action if the rule is met, otherwise undefined

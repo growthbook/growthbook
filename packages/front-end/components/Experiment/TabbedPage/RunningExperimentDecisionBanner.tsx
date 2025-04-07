@@ -18,15 +18,14 @@ export default function RunningExperimentDecisionBanner({
   const getRunningExperimentStatus = useRunningExperimentStatus();
   const runningExperimentStatus = getRunningExperimentStatus(experiment);
 
-  // TODO resolver
-  const decisionCriteria = experiment.decisionCriteria ?? DEFAULT_DECISION_CRITERIA;
-
   const variations = experiment.variations;
   const indexedVariations = variations.map<VariationWithIndex>((v, i) => ({
     ...v,
     index: i,
   }));
 
+
+  console.log("runningExperimentStatus", runningExperimentStatus);
   if (!runningExperimentStatus) return null;
 
   if (
@@ -35,11 +34,9 @@ export default function RunningExperimentDecisionBanner({
     runningExperimentStatus.status !== "rollback-now"
   ) return null;
 
-  const winningVariations: VariationWithIndex[] = runningExperimentStatus.variationIds.map(
-    (id) => indexedVariations.find((v) => v.id === id)
-  ).filter((v) => v !== undefined); // TODO deal with missing variaitons better
-  
-
+  const winningVariations: VariationWithIndex[] = runningExperimentStatus.variations.map(
+    (v) => indexedVariations.find((v2) => v2.id === v.variationId)
+  ).filter((v) => v !== undefined); // TODO deal with missing variations better
 
   const variationNames = winningVariations.map((v) => {
     return (
@@ -62,8 +59,7 @@ export default function RunningExperimentDecisionBanner({
   if (winningVariations.length === 0) return null; // TODO
 
 
-
-  if (winningVariations.length === 1) {
+  if (winningVariations.length >= 1) {
     return <div className="appbox p-3">
       <Flex direction="column" gap="2">
         <Flex direction="row" align="center" justify="between">
