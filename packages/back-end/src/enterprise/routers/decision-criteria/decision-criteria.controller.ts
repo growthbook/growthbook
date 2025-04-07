@@ -36,7 +36,10 @@ export const getDecisionCriteria = async (
  */
 export const getDecisionCriteriaById = async (
   req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200; decisionCriteria: DecisionCriteriaInterface }>
+  res: Response<
+    | { status: 200; decisionCriteria: DecisionCriteriaInterface }
+    | { status: 400; error: string }
+  >
 ) => {
   const context = getContextFromReq(req);
 
@@ -69,9 +72,9 @@ export const postDecisionCriteria = async (
 
   // Create the decision criteria
   const decisionCriteria = await context.models.decisionCriteria.create({
-    project: data.project || "",
+    project: data.project,
     name: data.name,
-    description: data.description || "",
+    description: data.description,
     rules: data.rules,
     defaultAction: data.defaultAction,
     owner: context.userId,

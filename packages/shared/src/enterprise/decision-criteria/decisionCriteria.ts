@@ -3,6 +3,7 @@ import {
   DecisionCriteriaData,
   DecisionCriteriaRule,
   DecisionFrameworkExperimentRecommendationStatus,
+  DecisionFrameworkVariation,
   ExperimentAnalysisSummaryResultsStatus,
   ExperimentAnalysisSummaryVariationStatus,
   ExperimentDataForStatus,
@@ -111,11 +112,11 @@ export function getVariationDecisions({
   guardrailMetrics: string[];
   requireSuperStatSig: boolean;
 }): {
-  variationId: string;
+  variation: DecisionFrameworkVariation;
   decisionCriteriaAction: DecisionCriteriaAction;
 }[] {
   const results: {
-    variationId: string;
+    variation: DecisionFrameworkVariation;
     decisionCriteriaAction: DecisionCriteriaAction;
   }[] = [];
 
@@ -133,7 +134,10 @@ export function getVariationDecisions({
       });
       if (action) {
         results.push({
-          variationId: variation.variationId,
+          variation: {
+            variationId: variation.variationId,
+            decidingRule: rule,
+          },
           decisionCriteriaAction: action,
         });
         decisionReached = true;
@@ -144,7 +148,10 @@ export function getVariationDecisions({
     // decision criteria
     if (!decisionReached) {
       results.push({
-        variationId: variation.variationId,
+        variation: {
+          variationId: variation.variationId,
+          decidingRule: null,
+        },
         decisionCriteriaAction: decisionCriteria.defaultAction,
       });
     }
@@ -191,12 +198,6 @@ export function getDecisionFrameworkStatus({
   // if you have reached your needed power or if you used sequential testing
   const decisionReady = powerReached || sequentialTesting;
 
-  const tooltipLanguage = powerReached
-    ? ` and experiment has reached the target statistical power.`
-    : sequentialTesting
-    ? ` and sequential testing is enabled, allowing decisions as soon as statistical significance is reached.`
-    : ".";
-
   if (decisionReady) {
     const variationDecisions = getVariationDecisions({
       resultsStatus,
@@ -212,42 +213,37 @@ export function getDecisionFrameworkStatus({
     if (allRollbackNow) {
       return {
         status: "rollback-now",
-        variationIds: variationDecisions.map(({ variationId }) => variationId),
+        variations: variationDecisions.map(({ variation }) => variation),
         sequentialUsed: sequentialTesting,
         powerReached: powerReached,
-        tooltip: `Guardrails are failing and/or goal metrics are not improving for all variations ${tooltipLanguage}`,
       };
     }
 
-    const anyShipNow = variationDecisions.some(
+    const shipVariations = variationDecisions.filter(
       (d) => d.decisionCriteriaAction === "ship"
     );
-    if (anyShipNow) {
+    if (shipVariations.length > 0) {
       return {
         status: "ship-now",
-        variationIds: variationDecisions
-          .filter((d) => d.decisionCriteriaAction === "ship")
-          .map(({ variationId }) => variationId),
+        variations: shipVariations.map(({ variation }) => variation),
         sequentialUsed: sequentialTesting,
         powerReached: powerReached,
-        tooltip: `Goal metrics are improving for a test variation with no failing guardrails ${tooltipLanguage}`,
       };
     }
 
     // only return ready for review if power is reached, not for premature
     // sequential results
     if (powerReached) {
-      if (
-        variationDecisions.some((d) => d.decisionCriteriaAction === "review")
-      ) {
+
+      const reviewVariations = variationDecisions.filter(
+        (d) => d.decisionCriteriaAction === "review"
+      );
+      if (reviewVariations.length > 0) {
         return {
           status: "ready-for-review",
-          variationIds: variationDecisions
-            .filter((d) => d.decisionCriteriaAction === "review")
-            .map(({ variationId }) => variationId),
+          variations: reviewVariations.map(({ variation }) => variation),
           sequentialUsed: sequentialTesting,
           powerReached: powerReached,
-          tooltip: `The experiment has reached the target statistical power but the results are not conclusive.`,
         };
       }
     }
@@ -269,8 +265,8 @@ export function getDecisionFrameworkStatus({
     if (allRollbackNow) {
       return {
         status: "rollback-now",
-        variationIds: superStatSigVariationDecisions.map(
-          ({ variationId }) => variationId
+        variations: superStatSigVariationDecisions.map(
+          ({ variation }) => variation
         ),
         sequentialUsed: sequentialTesting,
         powerReached: powerReached,
@@ -278,15 +274,13 @@ export function getDecisionFrameworkStatus({
       };
     }
 
-    const anyShipNow = superStatSigVariationDecisions.some(
+    const shipVariations = superStatSigVariationDecisions.filter(
       (d) => d.decisionCriteriaAction === "ship"
     );
-    if (anyShipNow) {
+    if (shipVariations.length > 0) {
       return {
         status: "ship-now",
-        variationIds: superStatSigVariationDecisions
-          .filter((d) => d.decisionCriteriaAction === "ship")
-          .map(({ variationId }) => variationId),
+        variations: shipVariations.map(({ variation }) => variation),
         sequentialUsed: sequentialTesting,
         powerReached: powerReached,
         tooltip: `The experiment has not reached the target statistical power, however there are strong positive signals for a test variation.`,
@@ -317,7 +311,7 @@ export function getExperimentResultStatus({
 }: {
   experimentData: ExperimentDataForStatus | ExperimentDataForStatusStringDates;
   healthSettings: ExperimentHealthSettings;
-  decisionCriteria?: DecisionCriteriaData;
+  decisionCriteria: DecisionCriteriaData;
 }): ExperimentResultStatusData | undefined {
   const unhealthyData: ExperimentUnhealthyData = {};
   const healthSummary = experimentData.analysisSummary?.health;
@@ -346,7 +340,7 @@ export function getExperimentResultStatus({
   const decisionStatus = resultsStatus
     ? getDecisionFrameworkStatus({
         resultsStatus,
-        decisionCriteria: decisionCriteria ?? DEFAULT_DECISION_CRITERIA,
+        decisionCriteria,
         goalMetrics: experimentData.goalMetrics,
         guardrailMetrics: experimentData.guardrailMetrics,
         daysNeeded,

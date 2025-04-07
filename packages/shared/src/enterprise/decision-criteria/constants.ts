@@ -5,7 +5,7 @@ export const DEFAULT_DECISION_CRITERIA: DecisionCriteriaData = {
   id: "gbdeccrit_strictrollout",
   name: "Clear Signals",
   description:
-    "Only ship with clear goal metric signals and no guardrail failure.",
+    "Ship only with clear goal metric successes and no guardrail failures.",
   rules: [
     {
       conditions: [

@@ -1,14 +1,19 @@
 import {
   getHealthSettings,
   getExperimentResultStatus,
+  DEFAULT_DECISION_CRITERIA,
+  DEFAULT_DECISION_CRITERIAS,
 } from "shared/enterprise";
 import {
   ExperimentHealthSettings,
   ExperimentDataForStatusStringDates,
   ExperimentResultStatusData,
+  DecisionCriteriaData,
+  DecisionCriteriaInterface,
 } from "back-end/types/experiment";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
+import useApi from "@/hooks/useApi";
 
 export type StatusIndicatorData = {
   color: "amber" | "green" | "red" | "gold" | "indigo" | "gray" | "pink";
@@ -28,10 +33,29 @@ export function useExperimentStatusIndicator() {
     hasCommercialFeature("decision-framework")
   );
 
+  const decisionCriteria = !settings?.defaultDecisionCriteriaId
+    ? DEFAULT_DECISION_CRITERIA
+    : DEFAULT_DECISION_CRITERIAS.find(
+        (dc) => dc.id === settings.defaultDecisionCriteriaId
+      );
+  const { data } = useApi<{ decisionCriteria: DecisionCriteriaInterface }>(
+    `/decision-criteria/${settings?.defaultDecisionCriteriaId}`,
+    {
+      shouldRun: () =>
+        !!settings?.defaultDecisionCriteriaId && !decisionCriteria,
+    }
+  );
+
   return (
     experimentData: ExperimentDataForStatusStringDates,
     skipArchived: boolean = false
-  ) => getStatusIndicatorData(experimentData, skipArchived, healthSettings);
+  ) =>
+    getStatusIndicatorData(
+      experimentData,
+      skipArchived,
+      healthSettings,
+      decisionCriteria ?? data?.decisionCriteria ?? DEFAULT_DECISION_CRITERIA
+    );
 }
 
 export function useRunningExperimentStatus() {
@@ -150,7 +174,8 @@ function getDetailedRunningStatusIndicatorData(
 export function getStatusIndicatorData(
   experimentData: ExperimentDataForStatusStringDates,
   skipArchived: boolean,
-  healthSettings: ExperimentHealthSettings
+  healthSettings: ExperimentHealthSettings,
+  decisionCriteria: DecisionCriteriaData
 ): StatusIndicatorData {
   if (!skipArchived && experimentData.archived) {
     return {
@@ -172,6 +197,7 @@ export function getStatusIndicatorData(
     const runningStatusData = getExperimentResultStatus({
       experimentData,
       healthSettings,
+      decisionCriteria,
     });
     if (runningStatusData) {
       return getDetailedRunningStatusIndicatorData(runningStatusData);
