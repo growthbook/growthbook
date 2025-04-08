@@ -139,7 +139,7 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
       case "absolute":
         return "Absolute Change";
       case "relative":
-        return "% Lift";
+        return "% Change";
       case "scaled":
         return "Scaled Impact";
     }
