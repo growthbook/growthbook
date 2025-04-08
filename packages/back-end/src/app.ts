@@ -604,7 +604,10 @@ app.delete(
 );
 
 // Time Series
-app.get("/experiments/:id/time-series", experimentsController.getTimeSeries);
+app.get(
+  "/experiments/:id/time-series",
+  experimentsController.getExperimentTimeSeries
+);
 
 // Visual editor auth
 app.get(

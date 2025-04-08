@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { Flex } from "@radix-ui/themes";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import React, { DetailedHTMLProps, TdHTMLAttributes } from "react";
@@ -12,7 +13,6 @@ import {
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import { Flex } from "@radix-ui/themes";
 
 interface Props
   extends DetailedHTMLProps<

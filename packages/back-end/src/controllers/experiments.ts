@@ -3224,7 +3224,7 @@ export async function findOrCreateVisualEditorToken(
   });
 }
 
-export async function getTimeSeries(
+export async function getExperimentTimeSeries(
   req: AuthRequest<
     null,
     { id: string },
