@@ -20,7 +20,6 @@ class BanditResult:
     singleVariationResults: Optional[List[SingleVariationResult]]
     currentWeights: Optional[List[float]]
     updatedWeights: Optional[List[float]]
-    srm: Optional[float]
     bestArmProbabilities: Optional[List[float]]
     seed: int
     updateMessage: Optional[str]

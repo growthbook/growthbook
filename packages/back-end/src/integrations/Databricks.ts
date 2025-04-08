@@ -75,7 +75,10 @@ export default class Databricks extends SqlIntegration {
   hllCardinality(col: string): string {
     return `HLL_SKETCH_ESTIMATE(${col})`;
   }
-
+  extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
+    const raw = `${jsonCol}:${path}`;
+    return isNumeric ? this.ensureFloat(raw) : raw;
+  }
   getDefaultDatabase(): string {
     return this.params.catalog;
   }

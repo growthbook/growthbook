@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { hasPermission } from "shared/permissions";
-import { licenseInit } from "shared/enterprise";
+import { licenseInit } from "back-end/src/enterprise";
 import { ApiRequestLocals } from "back-end/types/api";
 import { lookupOrganizationByApiKey } from "back-end/src/models/ApiKeyModel";
 import { getOrganizationById } from "back-end/src/services/organizations";
@@ -21,6 +21,7 @@ import {
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
 import { ReqContextClass } from "back-end/src/services/context";
+import { getUsage } from "back-end/src/enterprise/billing";
 
 export default function authenticateApiRequestMiddleware(
   req: Request & ApiRequestLocals,
@@ -123,6 +124,7 @@ export default function authenticateApiRequestMiddleware(
 
       req.context = new ReqContextClass({
         org,
+        usage: () => getUsage(org),
         auditUser: eventAudit,
         teams,
         user: req.user,

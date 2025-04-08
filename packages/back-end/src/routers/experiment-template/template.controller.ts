@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import { z } from "zod";
-import { orgHasPremiumFeature } from "shared/enterprise";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { EventUserForResponseLocals } from "back-end/src/events/event-types";

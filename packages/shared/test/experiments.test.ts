@@ -1,8 +1,4 @@
 import {
-  ExperimentAnalysisSummaryResultsStatus,
-  ExperimentAnalysisSummaryVariationStatus,
-} from "back-end/types/experiment";
-import {
   FactTableInterface,
   ColumnInterface,
   FactFilterInterface,
@@ -11,7 +7,8 @@ import {
   getColumnRefWhereClause,
   canInlineFilterColumn,
   getAggregateFilters,
-  getDecisionFrameworkStatus,
+  getColumnExpression,
+  getSelectedColumnDatatype,
 } from "../src/experiments";
 
 describe("Experiments", () => {
@@ -57,6 +54,22 @@ describe("Experiments", () => {
       name: "Event Count",
       deleted: false,
     };
+    const jsonColumn: ColumnInterface = {
+      column: "data",
+      datatype: "json",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      description: "JSON data",
+      numberFormat: "",
+      name: "data",
+      deleted: false,
+      jsonFields: {
+        a: { datatype: "string" },
+        b: { datatype: "number" },
+        "c.d": { datatype: "string" },
+        "c.e": { datatype: "number" },
+      },
+    };
     const deletedColumn: ColumnInterface = {
       column: "deleted_column",
       datatype: "string",
@@ -99,58 +112,60 @@ describe("Experiments", () => {
       FactTableInterface,
       "userIdTypes" | "columns" | "filters"
     > = {
-      columns: [column, column2, userIdColumn, numericColumn, deletedColumn],
+      columns: [
+        column,
+        column2,
+        userIdColumn,
+        numericColumn,
+        deletedColumn,
+        jsonColumn,
+      ],
       filters: [filter, filter2, filter3],
       userIdTypes: ["user_id"],
     };
 
     const escapeStringLiteral = (str: string) => str.replace(/'/g, "''");
+    const jsonExtract = (jsonCol: string, path: string, isNumeric: boolean) => {
+      if (isNumeric) {
+        return `${jsonCol}:'${path}'::float`;
+      }
+      return `${jsonCol}:'${path}'`;
+    };
 
     describe("canInlineFilterColumn", () => {
       it("returns true for string columns with alwaysInlineFilter", () => {
-        expect(
-          canInlineFilterColumn(factTable, {
-            column: column.column,
-            datatype: column.datatype,
-            deleted: column.deleted,
-          })
-        ).toBe(true);
+        expect(canInlineFilterColumn(factTable, column.column)).toBe(true);
       });
       it("returns true for string columns, even if alwaysInlineFilter is false", () => {
-        expect(
-          canInlineFilterColumn(factTable, {
-            column: column2.column,
-            datatype: column2.datatype,
-            deleted: column2.deleted,
-          })
-        ).toBe(true);
+        expect(canInlineFilterColumn(factTable, column2.column)).toBe(true);
       });
       it("returns false for deleted columns", () => {
-        expect(
-          canInlineFilterColumn(factTable, {
-            column: deletedColumn.column,
-            datatype: deletedColumn.datatype,
-            deleted: deletedColumn.deleted,
-          })
-        ).toBe(false);
+        expect(canInlineFilterColumn(factTable, deletedColumn.column)).toBe(
+          false
+        );
       });
       it("returns false for numeric columns", () => {
-        expect(
-          canInlineFilterColumn(factTable, {
-            column: numericColumn.column,
-            datatype: numericColumn.datatype,
-            deleted: numericColumn.deleted,
-          })
-        ).toBe(false);
+        expect(canInlineFilterColumn(factTable, numericColumn.column)).toBe(
+          false
+        );
       });
       it("returns false for userId columns", () => {
-        expect(
-          canInlineFilterColumn(factTable, {
-            column: userIdColumn.column,
-            datatype: userIdColumn.datatype,
-            deleted: userIdColumn.deleted,
-          })
-        ).toBe(false);
+        expect(canInlineFilterColumn(factTable, userIdColumn.column)).toBe(
+          false
+        );
+      });
+      it("returns false for unknown column", () => {
+        expect(canInlineFilterColumn(factTable, "unknown_column")).toBe(false);
+      });
+      it("returns true for nested JSON string field", () => {
+        expect(canInlineFilterColumn(factTable, `${jsonColumn.column}.a`)).toBe(
+          true
+        );
+      });
+      it("returns false for nested JSON non-string field", () => {
+        expect(canInlineFilterColumn(factTable, `${jsonColumn.column}.b`)).toBe(
+          false
+        );
       });
     });
 
@@ -164,7 +179,8 @@ describe("Experiments", () => {
               filters: [],
               factTableId: "",
             },
-            escapeStringLiteral
+            escapeStringLiteral,
+            jsonExtract
           )
         ).toStrictEqual([]);
 
@@ -177,7 +193,8 @@ describe("Experiments", () => {
               inlineFilters: {},
               factTableId: "",
             },
-            escapeStringLiteral
+            escapeStringLiteral,
+            jsonExtract
           )
         ).toStrictEqual([]);
 
@@ -192,7 +209,8 @@ describe("Experiments", () => {
               },
               factTableId: "",
             },
-            escapeStringLiteral
+            escapeStringLiteral,
+            jsonExtract
           )
         ).toStrictEqual([]);
 
@@ -207,7 +225,8 @@ describe("Experiments", () => {
               },
               factTableId: "",
             },
-            escapeStringLiteral
+            escapeStringLiteral,
+            jsonExtract
           )
         ).toStrictEqual([]);
       });
@@ -226,7 +245,8 @@ describe("Experiments", () => {
                 [userIdColumn.column]: ["user"],
               },
             },
-            escapeStringLiteral
+            escapeStringLiteral,
+            jsonExtract
           )
         ).toStrictEqual([
           "unknown_column = 'unknown_value'",
@@ -244,7 +264,8 @@ describe("Experiments", () => {
               filters: [filter.id],
               factTableId: "",
             },
-            escapeStringLiteral
+            escapeStringLiteral,
+            jsonExtract
           )
         ).toStrictEqual([filter.value]);
       });
@@ -257,7 +278,8 @@ describe("Experiments", () => {
               filters: [filter.id, filter2.id],
               factTableId: "",
             },
-            escapeStringLiteral
+            escapeStringLiteral,
+            jsonExtract
           )
         ).toStrictEqual([filter.value, filter2.value]);
       });
@@ -273,7 +295,8 @@ describe("Experiments", () => {
               },
               factTableId: "",
             },
-            escapeStringLiteral
+            escapeStringLiteral,
+            jsonExtract
           )
         ).toStrictEqual([`${column.column} = 'login'`]);
       });
@@ -289,7 +312,8 @@ describe("Experiments", () => {
               },
               factTableId: "",
             },
-            escapeStringLiteral
+            escapeStringLiteral,
+            jsonExtract
           )
         ).toStrictEqual([`${column.column} IN (\n  'login',\n  'signup'\n)`]);
       });
@@ -305,7 +329,8 @@ describe("Experiments", () => {
               },
               factTableId: "",
             },
-            escapeStringLiteral
+            escapeStringLiteral,
+            jsonExtract
           )
         ).toStrictEqual([`${column.column} = 'login'`, filter.value]);
       });
@@ -321,7 +346,8 @@ describe("Experiments", () => {
               },
               factTableId: "",
             },
-            escapeStringLiteral
+            escapeStringLiteral,
+            jsonExtract
           )
         ).toStrictEqual([`${column.column} = 'login''s'`]);
       });
@@ -337,7 +363,8 @@ describe("Experiments", () => {
               },
               factTableId: "",
             },
-            escapeStringLiteral
+            escapeStringLiteral,
+            jsonExtract
           )
         ).toStrictEqual([`${column.column} = 'login'`]);
       });
@@ -353,9 +380,27 @@ describe("Experiments", () => {
               },
               factTableId: "",
             },
-            escapeStringLiteral
+            escapeStringLiteral,
+            jsonExtract
           )
         ).toStrictEqual([`${column.column} = 'login'`]);
+      });
+      it("supports JSON column inline filters", () => {
+        expect(
+          getColumnRefWhereClause(
+            factTable,
+            {
+              column: `${jsonColumn.column}.b`,
+              filters: [],
+              inlineFilters: {
+                [`${jsonColumn.column}.b`]: ["hello"],
+              },
+              factTableId: "",
+            },
+            escapeStringLiteral,
+            jsonExtract
+          )
+        ).toStrictEqual([`${jsonColumn.column}:'b'::float = 'hello'`]);
       });
     });
     describe("getAggregateFilter", () => {
@@ -548,222 +593,162 @@ describe("Experiments", () => {
         ).toStrictEqual([]);
       });
     });
-  });
-});
 
-function setMetricsOnResultsStatus({
-  resultsStatus,
-  goalMetrics,
-  guardrailMetrics,
-  secondVariation,
-}: {
-  resultsStatus: ExperimentAnalysisSummaryResultsStatus;
-  goalMetrics?: ExperimentAnalysisSummaryVariationStatus["goalMetrics"];
-  guardrailMetrics?: ExperimentAnalysisSummaryVariationStatus["guardrailMetrics"];
-  secondVariation?: ExperimentAnalysisSummaryVariationStatus;
-}): ExperimentAnalysisSummaryResultsStatus {
-  return {
-    ...resultsStatus,
-    variations: [
-      {
-        ...resultsStatus.variations[0],
-        ...(goalMetrics ? { goalMetrics: goalMetrics } : {}),
-        ...(guardrailMetrics ? { guardrailMetrics: guardrailMetrics } : {}),
-      },
-      ...(secondVariation ? [secondVariation] : []),
-    ],
-  };
-}
+    describe("getColumnExpression", () => {
+      it("replaces JSON column access with proper syntax", () => {
+        expect(
+          getColumnExpression(`${jsonColumn.column}.a`, factTable, jsonExtract)
+        ).toBe(`${jsonColumn.column}:'a'`);
 
-describe("decision tree is correct", () => {
-  const resultsStatus: ExperimentAnalysisSummaryResultsStatus = {
-    variations: [
-      {
-        variationId: "1",
-        goalMetrics: {},
-        guardrailMetrics: {},
-      },
-    ],
-    settings: { sequentialTesting: false },
-  };
-  it("returns the correct underpowered decisions", () => {
-    const daysNeeded = undefined;
+        expect(
+          getColumnExpression(`${jsonColumn.column}.b`, factTable, jsonExtract)
+        ).toBe(`${jsonColumn.column}:'b'::float`);
 
-    // winning stat sig not enough to trigger any rec
-    const noDecision = getDecisionFrameworkStatus({
-      resultsStatus: setMetricsOnResultsStatus({
-        resultsStatus,
-        goalMetrics: { "1": { status: "won", superStatSigStatus: "neutral" } },
-      }),
-      goalMetrics: ["1"],
-      guardrailMetrics: [],
-      daysNeeded,
+        expect(
+          getColumnExpression(
+            `${jsonColumn.column}.c.d`,
+            factTable,
+            jsonExtract
+          )
+        ).toBe(`${jsonColumn.column}:'c.d'`);
+
+        expect(
+          getColumnExpression(
+            `${jsonColumn.column}.c.e`,
+            factTable,
+            jsonExtract
+          )
+        ).toBe(`${jsonColumn.column}:'c.e'::float`);
+      });
+
+      it("returns untransformed column for non-JSON columns", () => {
+        expect(getColumnExpression(column.column, factTable, jsonExtract)).toBe(
+          column.column
+        );
+      });
+
+      it("returns untransformed column for unknown columns", () => {
+        expect(
+          getColumnExpression("unknown_column", factTable, jsonExtract)
+        ).toBe("unknown_column");
+      });
+
+      it("supports aliases", () => {
+        expect(
+          getColumnExpression(
+            `${jsonColumn.column}.b`,
+            factTable,
+            jsonExtract,
+            "m"
+          )
+        ).toBe(`m.${jsonColumn.column}:'b'::float`);
+
+        expect(
+          getColumnExpression(column.column, factTable, jsonExtract, "m")
+        ).toBe(`m.${column.column}`);
+
+        expect(
+          getColumnExpression("unknown", factTable, jsonExtract, "m")
+        ).toBe(`m.unknown`);
+      });
+
+      it("assumes datatype of string for unknown JSON fields", () => {
+        expect(
+          getColumnExpression(
+            `${jsonColumn.column}.unknown`,
+            factTable,
+            jsonExtract
+          )
+        ).toBe(`${jsonColumn.column}:'unknown'`);
+
+        expect(
+          getColumnExpression(
+            `${jsonColumn.column}.c.unknown`,
+            factTable,
+            jsonExtract
+          )
+        ).toBe(`${jsonColumn.column}:'c.unknown'`);
+
+        expect(
+          getColumnExpression(
+            `${jsonColumn.column}.unknown.unknown`,
+            factTable,
+            jsonExtract
+          )
+        ).toBe(`${jsonColumn.column}:'unknown.unknown'`);
+      });
     });
-    expect(noDecision).toEqual(undefined);
+    describe("getSelectedColumnDatatype", () => {
+      it("returns the datatype of the selected column", () => {
+        expect(
+          getSelectedColumnDatatype({ factTable, column: column.column })
+        ).toBe(column.datatype);
+        expect(
+          getSelectedColumnDatatype({ factTable, column: column2.column })
+        ).toBe(column2.datatype);
+        expect(
+          getSelectedColumnDatatype({ factTable, column: userIdColumn.column })
+        ).toBe(userIdColumn.datatype);
+        expect(
+          getSelectedColumnDatatype({ factTable, column: numericColumn.column })
+        ).toBe(numericColumn.datatype);
+        expect(
+          getSelectedColumnDatatype({ factTable, column: deletedColumn.column })
+        ).toBe(deletedColumn.datatype);
+        expect(
+          getSelectedColumnDatatype({ factTable, column: jsonColumn.column })
+        ).toBe(jsonColumn.datatype);
+      });
 
-    // losing stat sig not enough to trigger any rec
-    const noNegDecision = getDecisionFrameworkStatus({
-      resultsStatus: setMetricsOnResultsStatus({
-        resultsStatus,
-        goalMetrics: { "1": { status: "lost", superStatSigStatus: "neutral" } },
-      }),
-      goalMetrics: ["1"],
-      guardrailMetrics: [],
-      daysNeeded,
+      it("supports nested JSON fields", () => {
+        expect(
+          getSelectedColumnDatatype({
+            factTable,
+            column: `${jsonColumn.column}.a`,
+          })
+        ).toBe("string");
+        expect(
+          getSelectedColumnDatatype({
+            factTable,
+            column: `${jsonColumn.column}.b`,
+          })
+        ).toBe("number");
+        expect(
+          getSelectedColumnDatatype({
+            factTable,
+            column: `${jsonColumn.column}.c.d`,
+          })
+        ).toBe("string");
+        expect(
+          getSelectedColumnDatatype({
+            factTable,
+            column: `${jsonColumn.column}.c.e`,
+          })
+        ).toBe("number");
+      });
+
+      it("returns undefined for unknown columns", () => {
+        expect(
+          getSelectedColumnDatatype({ factTable, column: "unknown" })
+        ).toBe(undefined);
+
+        expect(
+          getSelectedColumnDatatype({
+            factTable,
+            column: `${jsonColumn.column}.unknown`,
+          })
+        ).toBe(undefined);
+      });
+
+      it("Can exclude deleted columns", () => {
+        expect(
+          getSelectedColumnDatatype({
+            factTable,
+            column: deletedColumn.column,
+            excludeDeleted: true,
+          })
+        ).toBe(undefined);
+      });
     });
-    expect(noNegDecision).toEqual(undefined);
-
-    // super stat sig triggers rec
-    const shipDecision = getDecisionFrameworkStatus({
-      resultsStatus: setMetricsOnResultsStatus({
-        resultsStatus,
-        goalMetrics: { "1": { status: "won", superStatSigStatus: "won" } },
-      }),
-      goalMetrics: ["1"],
-      guardrailMetrics: [],
-      daysNeeded,
-    });
-    expect(shipDecision?.status).toEqual("ship-now");
-
-    // super stat sig triggers rec with guardrail failure
-    const discussDecision = getDecisionFrameworkStatus({
-      resultsStatus: setMetricsOnResultsStatus({
-        resultsStatus,
-        goalMetrics: { "1": { status: "won", superStatSigStatus: "won" } },
-        guardrailMetrics: {
-          "01": { status: "lost" },
-        },
-      }),
-      goalMetrics: ["1"],
-      guardrailMetrics: ["01"],
-      daysNeeded: undefined,
-    });
-    expect(discussDecision?.status).toEqual("ready-for-review");
-    expect(discussDecision?.tooltip).toMatch(
-      "However, one or more guardrails are failing"
-    );
-
-    // losing super stat sig triggers rec
-    const negDecision = getDecisionFrameworkStatus({
-      resultsStatus: setMetricsOnResultsStatus({
-        resultsStatus,
-        goalMetrics: { "1": { status: "lost", superStatSigStatus: "lost" } },
-      }),
-      goalMetrics: ["1"],
-      guardrailMetrics: [],
-      daysNeeded,
-    });
-    expect(negDecision?.status).toEqual("rollback-now");
-
-    // losing super stat sig on one variation not enough
-    const somewhatNegDecision = getDecisionFrameworkStatus({
-      resultsStatus: setMetricsOnResultsStatus({
-        resultsStatus,
-        goalMetrics: { "1": { status: "lost", superStatSigStatus: "lost" } },
-        secondVariation: {
-          variationId: "2",
-          goalMetrics: {
-            "1": { status: "neutral", superStatSigStatus: "neutral" },
-          },
-          guardrailMetrics: {},
-        },
-      }),
-      goalMetrics: ["1"],
-      guardrailMetrics: [],
-      daysNeeded,
-    });
-    expect(somewhatNegDecision).toEqual(undefined);
-  });
-
-  it("returns the correct powered decisions", () => {
-    const daysNeeded = 0;
-
-    // winning stat sig enough to trigger rec
-    const decision = getDecisionFrameworkStatus({
-      resultsStatus: setMetricsOnResultsStatus({
-        resultsStatus,
-        goalMetrics: { "1": { status: "won", superStatSigStatus: "neutral" } },
-      }),
-      goalMetrics: ["1"],
-      guardrailMetrics: [],
-      daysNeeded,
-    });
-    expect(decision?.status).toEqual("ship-now");
-
-    // neutral triggers no decision
-    const noDecision = getDecisionFrameworkStatus({
-      resultsStatus: setMetricsOnResultsStatus({
-        resultsStatus,
-        goalMetrics: {
-          "1": { status: "neutral", superStatSigStatus: "neutral" },
-        },
-      }),
-      goalMetrics: ["1"],
-      guardrailMetrics: [],
-      daysNeeded,
-    });
-    expect(noDecision?.status).toEqual("ready-for-review");
-
-    // Guardrail failure suggests reviewing
-    const guardrailDecision = getDecisionFrameworkStatus({
-      resultsStatus: setMetricsOnResultsStatus({
-        resultsStatus,
-        guardrailMetrics: { "01": { status: "lost" } },
-      }),
-      goalMetrics: ["1"],
-      guardrailMetrics: ["01"],
-      daysNeeded,
-    });
-    expect(guardrailDecision?.status).toEqual("ready-for-review");
-
-    // losing stat sig enough to trigger any rec
-    const negDecision = getDecisionFrameworkStatus({
-      resultsStatus: setMetricsOnResultsStatus({
-        resultsStatus,
-        goalMetrics: { "1": { status: "lost", superStatSigStatus: "neutral" } },
-      }),
-      goalMetrics: ["1"],
-      guardrailMetrics: [],
-      daysNeeded,
-    });
-    expect(negDecision?.status).toEqual("rollback-now");
-
-    // losing stat sig in two variations also triggers a rec
-    const negDecisionTwoVar = getDecisionFrameworkStatus({
-      resultsStatus: setMetricsOnResultsStatus({
-        resultsStatus,
-        goalMetrics: { "1": { status: "lost", superStatSigStatus: "neutral" } },
-        secondVariation: {
-          variationId: "2",
-          goalMetrics: {
-            "1": { status: "lost", superStatSigStatus: "neutral" },
-          },
-          guardrailMetrics: {},
-        },
-      }),
-      goalMetrics: ["1"],
-      guardrailMetrics: [],
-      daysNeeded,
-    });
-    expect(negDecisionTwoVar?.status).toEqual("rollback-now");
-
-    // losing stat sig in only one variation not enough, leads to ready for review
-    const ambiguousDecisionTwoVar = getDecisionFrameworkStatus({
-      resultsStatus: setMetricsOnResultsStatus({
-        resultsStatus,
-        goalMetrics: { "1": { status: "lost", superStatSigStatus: "neutral" } },
-        secondVariation: {
-          variationId: "2",
-          goalMetrics: {
-            "1": { status: "neutral", superStatSigStatus: "neutral" },
-          },
-          guardrailMetrics: {},
-        },
-      }),
-      goalMetrics: ["1"],
-      guardrailMetrics: [],
-      daysNeeded,
-    });
-    expect(ambiguousDecisionTwoVar?.status).toEqual("ready-for-review");
   });
 });

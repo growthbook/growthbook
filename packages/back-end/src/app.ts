@@ -8,6 +8,7 @@ import asyncHandler from "express-async-handler";
 import compression from "compression";
 import * as Sentry from "@sentry/node";
 import { populationDataRouter } from "back-end/src/routers/population-data/population-data.router";
+import decisionCriteriaRouter from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.router";
 import { usingFileConfig } from "./init/config";
 import { AuthRequest } from "./types/AuthRequest";
 import {
@@ -22,7 +23,6 @@ import {
   getExperimentConfig,
   getExperimentsScript,
 } from "./controllers/config";
-import { verifySlackRequestSignature } from "./services/slack";
 import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
 import { wrapController } from "./routers/wrapController";
 import apiRouter from "./api/api.router";
@@ -81,9 +81,6 @@ const vercelController = wrapController(vercelControllerRaw);
 
 import * as featuresControllerRaw from "./controllers/features";
 const featuresController = wrapController(featuresControllerRaw);
-
-import * as slackControllerRaw from "./controllers/slack";
-const slackController = wrapController(slackControllerRaw);
 
 import * as informationSchemasControllerRaw from "./controllers/informationSchemas";
 const informationSchemasController = wrapController(
@@ -211,16 +208,6 @@ app.use(async (req, res, next) => {
 
 // Visual Designer js file (does not require JWT or cors)
 app.get("/js/:key.js", getExperimentsScript);
-
-// Slack app (body is urlencoded)
-app.post(
-  "/ideas/slack",
-  bodyParser.urlencoded({
-    extended: true,
-    verify: verifySlackRequestSignature,
-  }),
-  slackController.postIdeas
-);
 
 // increase max payload json size to 1mb
 app.use(bodyParser.json({ limit: "1mb" }));
@@ -420,6 +407,8 @@ if (IS_CLOUD) {
     subscriptionController.postInlineProSubscription
   );
   app.post("/subscription/cancel", subscriptionController.cancelSubscription);
+  app.get("/subscription/portal-url", subscriptionController.getPortalUrl);
+  app.get("/billing/usage", subscriptionController.getUsage);
 }
 app.post("/subscription/new", subscriptionController.postNewProSubscription);
 app.post(
@@ -430,8 +419,6 @@ app.post(
   "/subscription/success",
   subscriptionController.postSubscriptionSuccess
 );
-
-app.get("/billing/usage", subscriptionController.getUsage);
 
 app.get("/queries/:ids", datasourcesController.getQueries);
 app.post("/query/test", datasourcesController.testLimitedQuery);
@@ -620,6 +607,12 @@ app.delete(
   experimentsController.deleteVisualChangeset
 );
 
+// Time Series
+app.get(
+  "/experiments/:id/time-series",
+  experimentsController.getExperimentTimeSeries
+);
+
 // Visual editor auth
 app.get(
   "/visual-editor/key",
@@ -628,6 +621,9 @@ app.get(
 
 // Experiment Templates
 app.use("/templates", templateRouter);
+
+// Decision Criteria
+app.use("/decision-criteria", decisionCriteriaRouter);
 
 // URL Redirects
 app.use("/url-redirects", urlRedirectRouter);
