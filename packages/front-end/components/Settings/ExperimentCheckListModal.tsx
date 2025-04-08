@@ -69,9 +69,8 @@ export default function ExperimentCheckListModal({
       open={true}
       close={close}
       size="max"
-      header={`${
-        checklist?.id ? "编辑" : "添加"
-      } Experiment Pre-Launch Checklist`}
+      header={`${checklist?.id ? "编辑" : "添加"
+        } Experiment Pre-Launch Checklist`}
       cta="保存"
       submit={() => handleSubmit()}
     >
@@ -96,7 +95,7 @@ export default function ExperimentCheckListModal({
                 }}
               >
                 <FaPlus className="mr-2" />
-                Add Task
+                添加任务
               </button>
             ) : null}
           </div>

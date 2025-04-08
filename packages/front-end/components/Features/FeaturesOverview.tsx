@@ -538,7 +538,7 @@ export default function FeaturesOverview({
             />
           )}
 
-          {canEdit && (
+          {/* {canEdit && (
             <PremiumTooltip
               commercialFeature="prerequisites"
               className="d-inline-flex align-items-center mt-3"
@@ -561,7 +561,7 @@ export default function FeaturesOverview({
                 Add Prerequisite Feature
               </button>
             </PremiumTooltip>
-          )}
+          )} */}
         </div>
         {dependents > 0 && (
           <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
@@ -1041,7 +1041,7 @@ export default function FeaturesOverview({
           )}
 
           <h3>
-            Default Value
+            默认值
             {canEdit && !isLocked && canEditDrafts && (
               <a className="ml-2 cursor-pointer" onClick={() => setEdit(true)}>
                 <GBEdit />
@@ -1118,7 +1118,7 @@ export default function FeaturesOverview({
                                   });
                                 }}
                               >
-                                Add Rule
+                                添加规则
                               </Button>
                             </div>
                           )}

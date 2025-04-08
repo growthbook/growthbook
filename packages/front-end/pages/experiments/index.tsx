@@ -568,13 +568,13 @@ const ExperimentsPage = (): React.ReactElement => {
                         </td>
                         <td className="nowrap" title={datetime(e.date)}>
                           {e.tab === "running"
-                            ? "started"
+                            ? "开始于"
                             : e.tab === "drafts"
-                              ? "created"
+                              ? "创建于"
                               : e.tab === "stopped"
-                                ? "ended"
+                                ? "结束于"
                                 : e.tab === "archived"
-                                  ? "updated"
+                                  ? "更新于"
                                   : ""}{" "}
                           {date(e.date)}
                         </td>

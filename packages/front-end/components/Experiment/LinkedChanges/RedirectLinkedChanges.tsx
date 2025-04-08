@@ -88,7 +88,7 @@ const Redirect = ({
                   setEditingRedirect(true);
                 }}
               >
-                Edit{" "}
+                编辑{" "}
               </button>
               <DeleteButton
                 className="btn-sm ml-4"

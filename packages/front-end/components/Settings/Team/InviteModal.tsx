@@ -241,7 +241,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
         <>
           <StringArrayField
             required
-            label="Email Address"
+            label="邮箱地址"
             value={form.watch("email")}
             onChange={(emails) => {
               // check for multiple values
@@ -255,7 +255,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
               const dedupedEmails = [...new Set(parsedEmails)];
               form.setValue("email", dedupedEmails);
             }}
-            helpText="Enter a list of emails to invite multiple members at once."
+            helpText="立刻输入邮箱邀请成员"
             type="email"
           />
           <RoleSelector

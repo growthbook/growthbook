@@ -36,7 +36,7 @@ const EditDataSourceForm: FC<{
   return (
     <Modal
       trackingEventModalType=""
-      header={"Edit Data Source Settings"}
+      header={"编辑数据源设置"}
       open={true}
       close={cancel}
       submit={form.handleSubmit(async (value) => {

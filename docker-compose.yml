@@ -9,7 +9,7 @@ services:
       - mongodata:/data/db
   growthbook:
     # image: "mmj:v0.0.0"
-    image: "mmj:v0.0.2"
+    image: "gb:v0.0.2"
     ports:
       - "3000:3000"
       - "3100:3100"

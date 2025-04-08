@@ -69,14 +69,14 @@ export default function DataSourceMetrics({
       <div className="d-flex flex-row align-items-center justify-content-between">
         <div>
           <h2>
-            Metrics{" "}
+            指标{" "}
             <span className="badge badge-purple mx-2 my-0">
               {metrics && metrics.length > 0 ? metrics.length : "0"}
             </span>
           </h2>
           <p className="m-0">
             指标是您的实验试图去改进（或者至少不使其变差）的内容。以下是基于此数据源所定义的指标。{" "}
-            <DocLink docSection="metrics">了解更多。</DocLink>
+            {/* <DocLink docSection="metrics">了解更多。</DocLink> */}
           </p>
         </div>
         <div className="d-flex flex-row pl-3">
@@ -95,7 +95,7 @@ export default function DataSourceMetrics({
                 className="btn btn-outline-primary font-weight-bold text-nowrap"
                 onClick={() => setModalData({ mode: "new" })}
               >
-                <FaPlus className="mr-1" /> Add
+                <FaPlus className="mr-1" /> 添加
               </button>
             </>
           ) : null}
@@ -134,7 +134,7 @@ export default function DataSourceMetrics({
                               <strong
                                 className={metric.archived ? "text-muted" : ""}
                               >
-                                Type:{" "}
+                                类型:{" "}
                               </strong>
                               <code
                                 className={metric.archived ? "text-muted" : ""}
@@ -150,7 +150,7 @@ export default function DataSourceMetrics({
                                 "pr-3"
                               )}
                             >
-                              <strong>Owner: </strong>
+                              <strong>负责人: </strong>
                               {metric.owner}
                             </div>
                             <div
@@ -161,7 +161,7 @@ export default function DataSourceMetrics({
                                 "pr-3"
                               )}
                             >
-                              <strong>Projects: </strong>
+                              <strong>项目: </strong>
                               {!metric?.projects?.length ? (
                                 <ProjectBadges
                                   resourceType="metric"
@@ -190,7 +190,7 @@ export default function DataSourceMetrics({
                                   "d-none d-md-table-cell"
                                 )}
                               >
-                                <strong>Last Updated: </strong>
+                                <strong>最近修改: </strong>
                                 {ago(metric.dateUpdated || "")}
                               </div>
                             )}
@@ -255,7 +255,7 @@ export default function DataSourceMetrics({
           ) : (
             <div className="alert alert-info">
               No metrics have been defined yet from this data source. Click the{" "}
-              <strong>Add</strong> button to create your first one.
+              <strong>添加</strong> button to create your first one.
             </div>
           )}
         </div>

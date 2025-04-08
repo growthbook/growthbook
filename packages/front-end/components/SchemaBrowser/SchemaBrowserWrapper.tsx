@@ -38,7 +38,7 @@ export default function SchemaBrowserWrapper({
               body={
                 <div>
                   <div>
-                    {`Last Updated: ${new Date(
+                    {`最近修改: ${new Date(
                       informationSchema.dateUpdated
                     ).toLocaleString()}`}
                   </div>

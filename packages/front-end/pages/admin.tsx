@@ -322,7 +322,7 @@ function OrganizationRow({
               <Collapsible
                 trigger={
                   <h3>
-                    Settings <FaAngleRight className="chevron" />
+                    设置 <FaAngleRight className="chevron" />
                   </h3>
                 }
                 transitionTime={150}
@@ -333,7 +333,7 @@ function OrganizationRow({
             <Collapsible
               trigger={
                 <h3>
-                  Members <FaAngleRight className="chevron" />
+                  成员 <FaAngleRight className="chevron" />
                 </h3>
               }
               transitionTime={150}
@@ -661,13 +661,13 @@ const Admin: FC = () => {
             <table className="table appbox" style={{ tableLayout: "fixed" }}>
               <thead>
                 <tr>
-                  <th>Name</th>
+                  <th>姓名</th>
                   <th style={{ width: "260px" }}>Owner</th>
                   <th>Created</th>
                   <th>Id</th>
                   {isCloud() && <th>Verified Domain</th>}
                   {!isCloud() && <th>External Id</th>}
-                  <th style={{ width: "120px" }}>Members</th>
+                  <th style={{ width: "120px" }}>成员</th>
                   <th style={{ width: "14px" }}></th>
                   <th style={{ width: "40px" }}></th>
                 </tr>
@@ -728,7 +728,7 @@ const Admin: FC = () => {
             </div>
           )}
         </Tab>
-        <Tab display="Members" id="members" padding={false}>
+        <Tab display="成员" id="members" padding={false}>
           <div className="mb-2 row align-items-center">
             <div className="col-auto">
               <form
@@ -772,9 +772,9 @@ const Admin: FC = () => {
                   <th>名字</th>
                   <th>邮箱</th>
                   <th>ID</th>
-                  <th>Created</th>
+                  <th>创建</th>
                   <th title="Verified Email">Verified</th>
-                  <th>Orgs</th>
+                  <th>组织</th>
                   <th style={{ width: 40 }}></th>
                   <th style={{ width: 40 }}></th>
                 </tr>

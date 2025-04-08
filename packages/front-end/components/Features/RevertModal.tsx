@@ -40,7 +40,7 @@ export default function RevertModal({
 
     if (revision.defaultValue !== feature.defaultValue) {
       diffs.push({
-        title: "Default Value",
+        title: "默认值",
         a: feature.defaultValue,
         b: revision.defaultValue,
       });

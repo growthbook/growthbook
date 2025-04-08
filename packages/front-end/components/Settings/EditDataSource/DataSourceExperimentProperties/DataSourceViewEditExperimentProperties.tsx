@@ -48,7 +48,7 @@ export const DataSourceViewEditExperimentProperties: FC<DataSourceViewEditExperi
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-3">
-        <h3 className="mb-0">Query Settings</h3>
+        <h3 className="mb-0">查询设置</h3>
 
         {canEdit && (
           <div className="">
@@ -56,7 +56,7 @@ export const DataSourceViewEditExperimentProperties: FC<DataSourceViewEditExperi
               className="btn btn-outline-primary font-weight-bold text-nowrap"
               onClick={handleEdit}
             >
-              <FaPencilAlt className="mr-1" /> Edit
+              <FaPencilAlt className="mr-1" /> 编辑
             </button>
           </div>
         )}
@@ -65,7 +65,7 @@ export const DataSourceViewEditExperimentProperties: FC<DataSourceViewEditExperi
       <table className="table appbox gbtable mb-5">
         <tbody>
           <tr>
-            <th>Experiment Event</th>
+            <th>实验事件</th>
             <td>
               <code>{dataSource.settings?.events?.experimentEvent || ""}</code>
             </td>

@@ -104,7 +104,7 @@ const DimensionsPage: FC = () => {
                 setDimensionForm({});
               }}
             >
-              Add User Dimension
+              添加用户维度
             </Button>
           </div>
         )}

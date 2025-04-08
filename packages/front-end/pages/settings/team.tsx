@@ -31,10 +31,10 @@ const TeamPage: FC = () => {
   return (
     <div className="container-fluid pagecontents">
       <Tabs defaultTab="members" newStyle={true}>
-        <Tab anchor="members" id="members" display="Members" padding={false}>
+        <Tab anchor="members" id="members" display="成员" padding={false}>
           <MembersTabView />
         </Tab>
-        <Tab anchor="teams" id="teams" display="Teams" padding={false} lazy>
+        {/* <Tab anchor="teams" id="teams" display="团队" padding={false} lazy>
           {modalOpen && (
             <TeamModal
               existing={modalOpen}
@@ -62,7 +62,7 @@ const TeamPage: FC = () => {
                 disabled={!hasTeamsFeature}
                 onClick={() => setModalOpen({})}
               >
-                Create Team
+                创建团队
               </Button>
             </div>
           </div>
@@ -74,8 +74,8 @@ const TeamPage: FC = () => {
               sales@growthbook.io for more information and to set up a call.
             </div>
           )}
-        </Tab>
-        <Tab anchor="roles" id="roles" display="Roles" padding={false} lazy>
+        </Tab> */}
+        {/* <Tab anchor="roles" id="roles" display="角色" padding={false} lazy>
           <div className="filters md-form row mb-1 align-items-center">
             <div className="col-auto d-flex align-items-end">
               <div>
@@ -107,7 +107,7 @@ const TeamPage: FC = () => {
               sales@growthbook.io for more information and to set up a call.
             </div>
           )}
-        </Tab>
+        </Tab> */}
       </Tabs>
     </div>
   );

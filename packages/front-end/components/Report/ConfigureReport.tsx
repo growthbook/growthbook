@@ -41,7 +41,6 @@ import MetricSelector from "@/components/Experiment/MetricSelector";
 import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
-
 export default function ConfigureReport({
   report,
   mutate,
@@ -214,13 +213,13 @@ export default function ConfigureReport({
       cta="保存并运行"
     >
       <Field
-        label="Tracking Key"
+        label="跟踪键"
         labelClassName="font-weight-bold"
         {...form.register("trackingKey")}
-        helpText="Will match against the experiment_id column in your experiment assignment table"
+        helpText="将与实验分配表中的 experiment_id 列进行匹配"
       />
       <div className="form-group">
-        <label className="font-weight-bold">计划ID</label>
+        <label className="font-weight-bold">变体ID</label>
         <div className="row align-items-top">
           {variations.fields.map((v, i) => (
             <div
@@ -241,11 +240,11 @@ export default function ConfigureReport({
           ))}
         </div>
         <small className="form-text text-muted">
-          Will match against the variation_id column in your data source
+          将与数据源中的 variation_id 列进行匹配
         </small>
       </div>
       <div className="form-group">
-        <label className="font-weight-bold">计划权重</label>
+        <label className="font-weight-bold">变体权重</label>
         <div className="row align-items-top">
           {variations.fields.map((v, i) => (
             <div
@@ -267,16 +266,15 @@ export default function ConfigureReport({
           ))}
         </div>
         <small className="form-text text-muted">
-          Will use this to check for a Sample Ratio Mismatch (SRM) in the
-          results
+          将使用此权重来检查结果中的样本比例不匹配（SRM）情况
         </small>
       </div>
       {datasource?.properties?.userIds && (
         <SelectField
           label={
             <>
-              实验分配表{" "}
-              <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
+              实验分配查询{" "}
+              <Tooltip body="应与用于此实验随机化单元的标识符类型相对应" />
             </>
           }
           labelClassName="font-weight-bold"
@@ -300,7 +298,7 @@ export default function ConfigureReport({
                     className="text-muted small float-right position-relative"
                     style={{ top: 3 }}
                   >
-                    Identifier Type: <code>{userIdType}</code>
+                    标识符类型: <code>{userIdType}</code>
                   </span>
                 ) : null}
               </>
@@ -336,9 +334,9 @@ export default function ConfigureReport({
                       form.setValue("endDate", "");
                     }}
                   >
-                    Clear input
+                    清空输入
                   </a>{" "}
-                  to use latest data whenever report is run
+                  以便在每次运行报告时使用最新数据
                 </div>
               </div>
             }
@@ -391,7 +389,7 @@ export default function ConfigureReport({
             value: "absolute",
           },
           {
-            label: "Scaled Impact",
+            label: "缩放影响",
             value: "scaled",
           },
         ]}
@@ -403,11 +401,11 @@ export default function ConfigureReport({
         includeFacts={true}
         label={
           <>
-            Activation Metric <MetricsSelectorTooltip onlyBinomial={true} />
+            激活指标 <MetricsSelectorTooltip onlyBinomial={true} />
           </>
         }
         labelClassName="font-weight-bold"
-        initialOption="None"
+        initialOption="无"
         onlyBinomial
         value={form.watch("activationMetric") || ""}
         onChange={(value) => form.setValue("activationMetric", value || "")}
@@ -415,7 +413,7 @@ export default function ConfigureReport({
       />
       {datasourceProperties?.experimentSegments && (
         <SelectField
-          label="Segment"
+          label="细分群体"
           labelClassName="font-weight-bold"
           // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
           value={form.watch("segment")}
@@ -427,12 +425,12 @@ export default function ConfigureReport({
               value: s.id,
             };
           })}
-          helpText="Only users in this segment will be included"
+          helpText="仅会纳入此细分群体中的用户"
         />
       )}
       {datasourceProperties?.separateExperimentResultQueries && (
         <SelectField
-          label="Handling In-Progress Conversions"
+          label="处理进行中的转化"
           labelClassName="font-weight-bold"
           value={form.watch("skipPartialData") ? "strict" : "loose"}
           onChange={(v) => {
@@ -440,22 +438,22 @@ export default function ConfigureReport({
           }}
           options={[
             {
-              label: "Include In-Progress Conversions",
+              label: "纳入进行中的转化",
               value: "loose",
             },
             {
-              label: "Exclude In-Progress Conversions",
+              label: "排除进行中的转化",
               value: "strict",
             },
           ]}
-          helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
+          helpText="如何处理那些参与实验时间不够长，不足以完成转化窗口的用户。"
         />
       )}
       {datasourceProperties?.separateExperimentResultQueries && (
         <SelectField
           label={
             <AttributionModelTooltip>
-              <strong>Conversion Window Override</strong> <FaQuestionCircle />
+              <strong>转化窗口覆盖</strong> <FaQuestionCircle />
             </AttributionModelTooltip>
           }
           value={form.watch("attributionModel")}
@@ -465,11 +463,11 @@ export default function ConfigureReport({
           }}
           options={[
             {
-              label: "Respect Conversion Windows",
+              label: "遵循转化窗口",
               value: "firstExposure",
             },
             {
-              label: "Ignore Conversion Windows",
+              label: "忽略转化窗口",
               value: "experimentDuration",
             },
           ]}
@@ -491,7 +489,7 @@ export default function ConfigureReport({
             <SelectField
               label={
                 <PremiumTooltip commercialFeature="sequential-testing">
-                  <GBSequential /> Use Sequential Testing
+                  <GBSequential /> 使用序贯检验
                 </PremiumTooltip>
               }
               labelClassName="font-weight-bold"
@@ -501,15 +499,15 @@ export default function ConfigureReport({
               }}
               options={[
                 {
-                  label: "On",
+                  label: "开启",
                   value: "on",
                 },
                 {
-                  label: "Off",
+                  label: "关闭",
                   value: "off",
                 },
               ]}
-              helpText="Only applicable to frequentist analyses"
+              helpText="仅适用于频率主义分析"
               disabled={!hasSequentialTestingFeature}
             />
           </div>
@@ -520,7 +518,7 @@ export default function ConfigureReport({
             }}
           >
             <Field
-              label="Tuning parameter"
+              label="调优参数"
               type="number"
               containerClassName="mb-0"
               min="0"
@@ -531,7 +529,7 @@ export default function ConfigureReport({
                     (
                     {orgSettings.sequentialTestingTuningParameter ??
                       DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}{" "}
-                    is organization default)
+                    是组织默认值)
                   </span>
                 </>
               }
@@ -552,7 +550,7 @@ export default function ConfigureReport({
             className="ml-1 mr-1 mb-3 font-weight-bold"
             htmlFor="useLatestPriorSettings"
           >
-            Use latest metric prior settings{" "}
+            使用最新的指标先验设置{" "}
             <Tooltip
               body={
                 "Enabling this ensures the report uses the latest priors set for your organization and metrics. You can disable it to freeze the priors for this report and keep them from changing when metric definitions change."
@@ -569,11 +567,11 @@ export default function ConfigureReport({
         </div>
       )}
       <div className="d-flex flex-row no-gutters align-items-center mb-3 ml-1">
-        <div className="col-3">
+        {/* <div className="col-3">
           <SelectField
             label={
               <PremiumTooltip commercialFeature="regression-adjustment">
-                <GBCuped /> Use Regression Adjustment (CUPED)
+                <GBCuped /> 使用回归调整（CUPED）
               </PremiumTooltip>
             }
             labelClassName="font-weight-bold"
@@ -583,33 +581,33 @@ export default function ConfigureReport({
             }}
             options={[
               {
-                label: "On",
+                label: "开启",
                 value: "on",
               },
               {
-                label: "Off",
+                label: "关闭",
                 value: "off",
               },
             ]}
             disabled={!hasRegressionAdjustmentFeature}
           />
-        </div>
+        </div> */}
       </div>
 
       {datasourceProperties?.queryLanguage === "sql" && (
         <div className="row">
           <div className="col">
             <Field
-              label="Custom SQL Filter"
+              label="自定义 SQL 过滤器"
               labelClassName="font-weight-bold"
               {...form.register("queryFilter")}
               textarea
-              placeholder="e.g. user_id NOT IN ('123', '456')"
-              helpText="WHERE clause to add to the default experiment query"
+              placeholder="例如：user_id NOT IN ('123', '456')"
+              helpText="要添加到默认实验查询的 WHERE 子句"
             />
           </div>
           <div className="pt-2 border-left col-sm-4 col-lg-6">
-            Available columns:
+            可用列:
             <div className="mb-2 d-flex flex-wrap">
               {["timestamp", "variation_id"]
                 .concat(exposureQuery ? [exposureQuery.userIdType] : [])
@@ -623,8 +621,7 @@ export default function ConfigureReport({
                 })}
             </div>
             <div>
-              <strong>Tip:</strong> Use a subquery inside an <code>IN</code> or{" "}
-              <code>NOT IN</code> clause for more advanced filtering.
+              <strong>提示:</strong> 在 <code>IN</code> 或 <code>NOT IN</code> 子句中使用子查询以进行更高级的过滤。
             </div>
           </div>
         </div>

@@ -53,8 +53,8 @@ export default function IdLists({ groups, mutate }: Props) {
 
   const filteredIdLists = project
     ? idLists.filter((list) =>
-        isProjectListValidForProject(list.projects, project)
-      )
+      isProjectListValidForProject(list.projects, project)
+    )
     : idLists;
 
   const { features } = useFeaturesList(false);
@@ -132,7 +132,7 @@ export default function IdLists({ groups, mutate }: Props) {
                   setSavedGroupForm({});
                 }}
               >
-                Add ID List
+                添加ID列表
               </Button>
             </div>
           ) : null}

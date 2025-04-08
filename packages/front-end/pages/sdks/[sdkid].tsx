@@ -84,7 +84,7 @@ export default function SDKConnectionPage() {
     return <LoadingOverlay />;
   }
   if (!connection) {
-    return <div className="alert alert-danger">Invalid SDK Connection id</div>;
+    return <div className="alert alert-danger">SDK连接ID不可用</div>;
   }
 
   const canDuplicate = permissionsUtil.canCreateSDKConnection(connection);
@@ -126,7 +126,7 @@ export default function SDKConnectionPage() {
                     });
                   }}
                 >
-                  <GBEdit /> Edit
+                  <GBEdit /> 编辑
                 </a>
               </div>
             ) : null}
@@ -149,7 +149,7 @@ export default function SDKConnectionPage() {
                 {canDelete ? (
                   <DeleteButton
                     className="dropdown-item text-danger"
-                    displayName="SDK Connection"
+                    displayName="SDK连接"
                     text="删除"
                     useIcon={false}
                     onClick={async () => {
@@ -169,12 +169,12 @@ export default function SDKConnectionPage() {
 
       <div className="mb-4 row">
         <div className="col-auto">
-          Environment: <strong>{connection.environment}</strong>
+          环境: <strong>{connection.environment}</strong>
         </div>
 
         {(projects.length > 0 || connection.projects.length > 0) && (
           <div className="col-auto d-flex">
-            <div className="mr-2">Projects:</div>
+            <div className="mr-2">项目:</div>
 
             <div>
               {showAllEnvironmentProjects && (
@@ -287,7 +287,7 @@ export default function SDKConnectionPage() {
                 await mutate();
               }}
             >
-              <BsArrowRepeat /> re-check
+              <BsArrowRepeat /> 重试
             </Button>
           }
         />
@@ -296,7 +296,7 @@ export default function SDKConnectionPage() {
             <ConnectionNode
               title={
                 <>
-                  <BsLightningFill className="text-warning" /> GB Proxy
+                  <BsLightningFill className="text-warning" /> GB代理
                 </>
               }
             >
@@ -339,7 +339,6 @@ export default function SDKConnectionPage() {
           <code className="text-muted">{getApiBaseUrl()}</code>
         </ConnectionNode>
       </div>
-
       <div className="row mb-3 align-items-center">
         <div className="flex-1"></div>
         <div className="col-auto">
@@ -348,22 +347,19 @@ export default function SDKConnectionPage() {
               <div style={{ lineHeight: 1.5 }}>
                 <p className="mb-0">
                   <BsLightningFill className="text-warning" />
-                  <strong>Streaming Updates</strong> allow you to instantly
-                  update any subscribed SDKs when you make any feature changes
-                  in GrowthBook. For front-end SDKs, active users will see the
-                  changes immediately without having to refresh the page.
+                  <strong>流式更新</strong> 允许您在 GrowthBook 中进行任何功能更改时，即时更新任何已订阅的软件开发工具包（SDK）。对于前端 SDK，活跃用户无需刷新页面即可立即看到更改。
                 </p>
               </div>
             }
           >
             <BsLightningFill className="text-warning" />
-            Streaming Updates:{" "}
-            <strong>{isCloud() || hasProxy ? "Enabled" : "Disabled"}</strong>
+            流式更新:{" "}
+            <strong>{isCloud() || hasProxy? "已启用" : "已禁用"}</strong>
             <div
               className="text-right text-muted"
               style={{ fontSize: "0.75rem" }}
             >
-              What is this? <FaInfoCircle />
+              这是什么? <FaInfoCircle />
             </div>
           </Tooltip>
         </div>

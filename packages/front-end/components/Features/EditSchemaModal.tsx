@@ -156,7 +156,7 @@ function EditSchemaField({
         <>
           {value.type === "boolean" ? (
             <SelectField
-              label="Default Value"
+              label="默认值"
               sort={false}
               value={
                 ["false", ""].includes(value.default) ? value.default : "true"
@@ -177,29 +177,29 @@ function EditSchemaField({
             />
           ) : value.enum.length > 0 ? (
             <SelectField
-              label="Default Value"
+              label="默认值"
               sort={false}
               value={value.default}
               onChange={(v) => onChange({ ...value, default: v })}
               options={value.enum.map((v) => ({ value: v, label: v }))}
-              initialOption="No Default"
+              initialOption="无默认值"
             />
           ) : (
             <Field
-              label="Default Value"
+              label="默认值"
               value={value.default}
               onChange={(e) => onChange({ ...value, default: e.target.value })}
               {...(value.type === "string"
                 ? {
-                    minLength: value.min,
-                    maxLength: value.max,
-                  }
+                  minLength: value.min,
+                  maxLength: value.max,
+                }
                 : {
-                    type: "number",
-                    step: value.type === "float" ? "any" : 1,
-                    min: value.min,
-                    max: value.max,
-                  })}
+                  type: "number",
+                  step: value.type === "float" ? "any" : 1,
+                  min: value.min,
+                  max: value.max,
+                })}
             />
           )}
         </>

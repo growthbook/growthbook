@@ -49,10 +49,10 @@ export default function ExperimentReportsList({
       <table className="table appbox gbtable table-hover mb-0">
         <thead>
           <tr>
-            <th>Title</th>
-            <th>Description</th>
-            <th className="d-none d-md-table-cell">Last Updated </th>
-            <th>By</th>
+            <th>标题</th>
+            <th>描述</th>
+            <th className="d-none d-md-table-cell">最近修改 </th>
+            <th>修改人</th>
             <th></th>
           </tr>
         </thead>

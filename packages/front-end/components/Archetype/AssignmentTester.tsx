@@ -137,7 +137,7 @@ export default function AssignmentTester({ feature, version, project }: Props) {
                 }`}
               >
                 <div className={`${styles.resultsHeader} border-bottom`}>
-                  <span className="small text-muted">Environment: </span>
+                  <span className="small text-muted">环境: </span>
                   <strong>{tr.env}</strong>
                 </div>
                 <div className="px-3 pb-1">

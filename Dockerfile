@@ -2,9 +2,13 @@ ARG PYTHON_MAJOR=3.11
 ARG NODE_MAJOR=20
 
 # Build the python gbstats package
-FROM python:${PYTHON_MAJOR}-slim AS pybuild
+FROM hub.byted.org/base/security.debian11-slim.python311:latest AS pybuild
 WORKDIR /usr/local/src/app
 COPY ./packages/stats .
+
+
+ENV HTTP_PROXY="http://sys-proxy-rd-relay.byted.org:8118"
+ENV HTTPS_PROXY="http://sys-proxy-rd-relay.byted.org:8118"
 RUN \
   pip3 install poetry \
   && poetry install --no-root --no-dev --no-interaction --no-ansi \
@@ -12,7 +16,7 @@ RUN \
   && poetry export -f requirements.txt --output requirements.txt
 
 # Build the nodejs app
-FROM python:${PYTHON_MAJOR}-slim AS nodebuild
+FROM hub.byted.org/base/security.debian11-slim.python311:latest AS nodebuild
 ARG NODE_MAJOR
 WORKDIR /usr/local/src/app
 RUN apt-get update && \
@@ -25,6 +29,7 @@ RUN apt-get update && \
   apt-get install -yqq nodejs=$(apt-cache show nodejs|grep Version|grep nodesource|cut -c 10-) yarn && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
+
 # Copy over minimum files to install dependencies
 COPY package.json ./package.json
 COPY yarn.lock ./yarn.lock
@@ -59,7 +64,7 @@ RUN yarn postinstall
 
 
 # Package the full app together
-FROM python:${PYTHON_MAJOR}-slim
+FROM hub.byted.org/base/security.debian11-slim.python311:latest
 ARG NODE_MAJOR
 WORKDIR /usr/local/src/app
 RUN apt-get update && \

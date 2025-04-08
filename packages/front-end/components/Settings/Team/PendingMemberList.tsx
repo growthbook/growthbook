@@ -53,11 +53,11 @@ const PendingMemberList: FC<{
       <table className="table appbox gbtable">
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Email</th>
-            <th>Date Joined</th>
-            <th>{project ? "Project Role" : "Global Role"}</th>
-            {!project && <th>Project Roles</th>}
+            <th>姓名</th>
+            <th>电子邮箱</th>
+            <th>加入日期</th>
+            <th>{project ? "项目角色" : "全局角色"}</th>
+            {!project && <th>项目角色</th>}
             {environments.map((env) => (
               <th key={env.id}>{env.id}</th>
             ))}

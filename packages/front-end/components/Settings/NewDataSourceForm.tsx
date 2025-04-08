@@ -442,12 +442,12 @@ const NewDataSourceForm: FC<{
               }}
             />
 
-            <Callout status="info" mt="3">
+            {/* <Callout status="info" mt="3">
               还没有数据仓库吗？我们推荐使用带有谷歌分析的BigQuery。{" "}
               <DocLink docSection="ga4BigQuery">
                 了解更多 <FaExternalLinkAlt />
               </DocLink>
-            </Callout>
+            </Callout> */}
           </div>
         </div>
       );

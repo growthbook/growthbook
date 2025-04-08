@@ -30,7 +30,7 @@ const EditProjectsForm: FC<{
   return (
     <Modal
       trackingEventModalType=""
-      header={"Edit Projects"}
+      header={"编辑项目"}
       open={true}
       close={cancel}
       submit={form.handleSubmit(async (data) => {
@@ -41,7 +41,7 @@ const EditProjectsForm: FC<{
     >
       <MultiSelectField
         label={label}
-        placeholder="All projects"
+        placeholder="所有项目"
         value={form.watch("projects")}
         options={useProjectOptions(permissionRequired, value)}
         onChange={(v) => form.setValue("projects", v)}

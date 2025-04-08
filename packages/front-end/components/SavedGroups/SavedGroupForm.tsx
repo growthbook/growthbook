@@ -87,9 +87,8 @@ const SavedGroupForm: FC<{
       close={close}
       open={true}
       size="lg"
-      header={`${current.id ? "编辑" : "添加"} ${
-        type === "condition" ? "Condition Group" : "ID List"
-      }`}
+      header={`${current.id ? "编辑" : "添加"} ${type === "condition" ? "Condition Group" : "ID List"
+        }`}
       cta={current.id ? "保存" : "提交"}
       ctaEnabled={isValid}
       submit={form.handleSubmit(async (value) => {
@@ -173,7 +172,7 @@ const SavedGroupForm: FC<{
           className="cursor-pointer text-color-primary"
           onClick={() => setShowDescription(true)}
         >
-          <FaPlusCircle /> Add a description
+          <FaPlusCircle />  添加描述
         </p>
       )}
       <MultiSelectField

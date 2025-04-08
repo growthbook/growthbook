@@ -98,13 +98,13 @@ const TeamPage: FC = () => {
                 setPermissionModalOpen(true);
               }}
             >
-              <FaUserLock /> <span> </span>Edit Permissions
+              <FaUserLock /> <span> </span>编辑权限
             </button>
           </div>
         </div>
         <div className="d-flex align-items-center mb-2">
           <div className="text-gray">
-            {team.description || <em>add description</em>}
+            {team.description || <em>添加描述</em>}
           </div>
           <div className="ml-1">
             <a
@@ -120,7 +120,7 @@ const TeamPage: FC = () => {
         </div>
 
         <div className="d-flex align-center">
-          <h2 className="mt-4 mb-4 mr-2">Team Members</h2>
+          <h2 className="mt-4 mb-4 mr-2">团队成员</h2>
           {isEditable && (
             <span
               className="h4 pr-2 align-self-center"
@@ -134,7 +134,7 @@ const TeamPage: FC = () => {
 
         <div className="mb-4">
           <h5>
-            Active Members
+            激活成员
             {` (${team.members ? team.members.length : 0})`}
           </h5>
           <table className="table appbox gbtable">

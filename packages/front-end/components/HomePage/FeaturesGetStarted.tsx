@@ -114,7 +114,7 @@ export default function FeaturesGetStarted({ features }: Props) {
               }}
             />
             <div className="card-body extra-padding border-top">
-              <h3>Next Steps</h3>
+              <h3>下一步</h3>
               <ul className="mb-0">
                 <li className="mb-2">
                   <a

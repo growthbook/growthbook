@@ -190,25 +190,23 @@ export default function FeaturesPage() {
               <tr>
                 <th></th>
                 <SortableTH field="id">Feature Key</SortableTH>
-                {showProjectColumn && <th>Project</th>}
-                <SortableTH field="tags">Tags</SortableTH>
+                {showProjectColumn && <th>项目</th>}
+                <SortableTH field="tags">标签</SortableTH>
                 {toggleEnvs.map((en) => (
                   <th key={en.id} className="text-center">
                     {en.id}
                   </th>
                 ))}
-                <th>Prerequisites</th>
+                <th>先决条件</th>
                 <th>
-                  Default
-                  <br />
-                  Value
+                  默认值
                 </th>
-                <th>Rules</th>
-                <th>Version</th>
+                <th>规则</th>
+                <th>版本</th>
                 <SortableTH field="dateUpdated">最后更新时间</SortableTH>
                 {showGraphs && (
                   <th>
-                    Recent Usage{" "}
+                    最近使用{" "}
                     <Tooltip body="客户端在过去30分钟内对功能的评估。蓝色表示功能处于“开启”状态，灰色表示处于“关闭”状态。" />
                   </th>
                 )}

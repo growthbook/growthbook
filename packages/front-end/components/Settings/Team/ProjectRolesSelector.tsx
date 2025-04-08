@@ -29,12 +29,12 @@ export default function ProjectRolesSelector({
 
   return (
     <>
-      <label className="mb-2">
+      {/* <label className="mb-2">
         <PremiumTooltip commercialFeature="advanced-permissions">
           Project Roles (optional)
         </PremiumTooltip>
-      </label>
-      {projectRoles.map((projectRole, i) => (
+      </label> */}
+      {/* {projectRoles.map((projectRole, i) => (
         <div className="appbox px-3 pt-2 bg-light" key={i}>
           <div style={{ float: "right" }}>
             <a
@@ -74,8 +74,8 @@ export default function ProjectRolesSelector({
             includeAdminRole={false}
           />
         </div>
-      ))}
-      {unusedProjects.length > 0 && (
+      ))} */}
+      {/* {unusedProjects.length > 0 && (
         <div className="row">
           <div className="col">
             <SelectField
@@ -112,7 +112,7 @@ export default function ProjectRolesSelector({
             </button>
           </div>
         </div>
-      )}
+      )} */}
     </>
   );
 }

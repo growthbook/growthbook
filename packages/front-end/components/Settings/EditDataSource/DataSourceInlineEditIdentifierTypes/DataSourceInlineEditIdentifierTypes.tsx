@@ -96,7 +96,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
               className="btn btn-outline-primary font-weight-bold"
               onClick={handleAdd}
             >
-              <FaPlus className="mr-1" /> Add
+              <FaPlus className="mr-1" /> 添加
             </button>
           </div>
         )}
@@ -125,7 +125,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
                   className="dropdown-item py-2"
                   onClick={handleActionEditClicked(idx)}
                 >
-                  <FaPencilAlt className="mr-2" /> Edit
+                  <FaPencilAlt className="mr-2" /> 编辑
                 </button>
                 <div className="">
                   <DeleteButton

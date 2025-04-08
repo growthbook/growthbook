@@ -299,7 +299,7 @@ export default function FactTablePage() {
                     setEditSQLOpen(true);
                   }}
                 >
-                  Edit SQL <GBEdit />
+                  编辑SQL <GBEdit />
                 </a>
               ) : (
                 "SQL"
@@ -308,7 +308,7 @@ export default function FactTablePage() {
           />
           {usesEventName(factTable.sql) && (
             <div className="p-2 bg-light border border-top-0">
-              <strong>eventName</strong> = <code>{factTable.eventName}</code>
+              <strong>事件名称</strong> = <code>{factTable.eventName}</code>
             </div>
           )}
         </div>

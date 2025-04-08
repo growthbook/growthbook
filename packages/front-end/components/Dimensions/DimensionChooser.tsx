@@ -137,7 +137,7 @@ export default function DimensionChooser({
           setValue?.(v);
         }}
         helpText={
-          showHelp ? "Break down results for each metric by a dimension" : ""
+          showHelp ? "按维度细分每个指标的结果" : ""
         }
         disabled={disabled}
       />

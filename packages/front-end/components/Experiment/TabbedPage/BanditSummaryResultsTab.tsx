@@ -130,7 +130,7 @@ export default function BanditSummaryResultsTab({
                   : null}
               </div>
               <div className="flex-1" />
-              {experiment.regressionAdjustmentEnabled && (
+              {/* {experiment.regressionAdjustmentEnabled && (
                 <div
                   className="d-inline-block text-muted text-right mr-1 user-select-none mr-4"
                   style={{ maxWidth: 130, fontSize: "0.8em" }}
@@ -140,7 +140,7 @@ export default function BanditSummaryResultsTab({
                   </span>{" "}
                   <span className="">Enabled</span>
                 </div>
-              )}
+              )} */}
               {isCurrentPhase && (
                 <div className="d-flex align-items-center">
                   <BanditUpdateStatus experiment={experiment} mutate={mutate} />

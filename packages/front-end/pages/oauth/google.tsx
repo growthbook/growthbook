@@ -35,7 +35,7 @@ const Google: FC = () => {
 
   return (
     <div className="p-3">
-      <h3>Add Data Source</h3>
+      <h3>添加数据源</h3>
       <DataSourceForm
         existing={false}
         source="google-oauth"

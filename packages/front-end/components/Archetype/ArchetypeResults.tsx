@@ -454,7 +454,7 @@ const ArchetypeResults: FC<{
                             setEditArchetype(archetype);
                           }}
                         >
-                          Edit
+                          编辑
                         </button>
                       ) : null}
                       {canDelete ? (

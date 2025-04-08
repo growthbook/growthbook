@@ -101,9 +101,7 @@ export default function FeaturesHeader({
             getDemoDatasourceProjectIdForOrganization(organization.id) && (
               <div className="alert alert-info mb-3 d-flex align-items-center">
                 <div className="flex-1">
-                  This feature is part of our sample dataset and shows how Feature
-                  Flags and Experiments can be linked together. You can delete
-                  this once you are done exploring.
+                  此功能是我们示例数据集的一部分，展示了功能开关和实验如何关联在一起。你探索完后可以删除它。
                 </div>
                 <div style={{ width: 180 }} className="ml-2">
                   <DeleteDemoDatasourceButton
@@ -137,7 +135,7 @@ export default function FeaturesHeader({
                     setShowImplementation(true);
                   }}
                 >
-                  Show implementation
+                  显示实现方式
                 </a>
                 {canEdit && (
                   <a
@@ -149,8 +147,8 @@ export default function FeaturesHeader({
                     }}
                   >
                     {feature.neverStale
-                      ? "Enable stale detection"
-                      : "Disable stale detection"}
+                      ? "启用陈旧检测"
+                      : "禁用陈旧检测"}
                   </a>
                 )}
                 {canEdit && canPublish && (
@@ -162,7 +160,7 @@ export default function FeaturesHeader({
                       setDuplicateModal(true);
                     }}
                   >
-                    Duplicate
+                    复制
                   </a>
                 )}
                 {canEdit && canPublish && (
@@ -171,13 +169,12 @@ export default function FeaturesHeader({
                     usePortal={true}
                     body={
                       <>
-                        <ImBlocked className="text-danger" /> This feature has{" "}
+                        <ImBlocked className="text-danger" /> 此功能有{" "}
                         <strong>
-                          {dependents} dependent{dependents !== 1 && "s"}
+                          {dependents} 个依赖项{dependents !== 1 && "s"}
                         </strong>
-                        . This feature cannot be archived until{" "}
-                        {dependents === 1 ? "it has" : "they have"} been
-                        removed.
+                        。在{" "}
+                        {dependents === 1 ? "它被移除" : "它们被移除"} 之前，此功能无法存档。
                       </>
                     }
                   >
@@ -189,32 +186,29 @@ export default function FeaturesHeader({
                         mutate();
                       }}
                       modalHeader={
-                        isArchived ? "Unarchive Feature" : "Archive Feature"
+                        isArchived ? "取消存档" : "存档"
                       }
                       confirmationText={
                         isArchived ? (
                           <>
                             <p>
-                              Are you sure you want to continue? This will make
-                              the current feature active again.
+                              你确定要继续吗？这将使当前功能再次激活。
                             </p>
                           </>
                         ) : (
                           <>
                             <p>
-                              Are you sure you want to continue? This will make
-                              the current feature inactive. It will not be
-                              included in API responses or Webhook payloads.
+                              你确定要继续吗？这将使当前功能变为非活动状态。它将不会包含在 API 响应或 Webhook 有效负载中。
                             </p>
                           </>
                         )
                       }
-                      cta={isArchived ? "Unarchive" : "Archive"}
+                      cta={isArchived ? "取消存档" : "存档"}
                       ctaColor="danger"
                       disabled={dependents > 0}
                     >
                       <button className="dropdown-item">
-                        {isArchived ? "Unarchive" : "Archive"}
+                        {isArchived ? "取消存档" : "存档"}
                       </button>
                     </ConfirmButton>
                   </Tooltip>
@@ -225,13 +219,12 @@ export default function FeaturesHeader({
                     usePortal={true}
                     body={
                       <>
-                        <ImBlocked className="text-danger" /> This feature has{" "}
+                        <ImBlocked className="text-danger" /> 此功能有{" "}
                         <strong>
-                          {dependents} dependent{dependents !== 1 && "s"}
+                          {dependents} 个依赖项{dependents !== 1 && "s"}
                         </strong>
-                        . This feature cannot be deleted until{" "}
-                        {dependents === 1 ? "it has" : "they have"} been
-                        removed.
+                        。在{" "}
+                        {dependents === 1 ? "它被移除" : "它们被移除"} 之前，此功能无法删除。
                       </>
                     }
                   >
@@ -261,17 +254,17 @@ export default function FeaturesHeader({
                   <Tooltip
                     body={
                       <>
-                        Project <code>{projectId}</code> not found
+                        项目 <code>{projectId}</code> 未找到
                       </>
                     }
                   >
                     <span className="text-danger">
-                      <FaExclamationTriangle /> Invalid project
+                      <FaExclamationTriangle /> 项目不可用
                     </span>
                   </Tooltip>
                 ) : currentProject && currentProject !== feature.project ? (
                   <Tooltip
-                    body={<>This feature is not in your current project.</>}
+                    body={<>feature不在当前项目中.</>}
                   >
                     {projectId ? <strong>{projectName}</strong> : null}{" "}
                     <FaExclamationTriangle className="text-warning" />
@@ -284,13 +277,12 @@ export default function FeaturesHeader({
                     shouldDisplay={dependents > 0}
                     body={
                       <>
-                        <ImBlocked className="text-danger" /> This feature has{" "}
+                        <ImBlocked className="text-danger" /> 此功能有{" "}
                         <strong>
-                          {dependents} dependent{dependents !== 1 && "s"}
+                          {dependents} 个依赖项{dependents !== 1 && "s"}
                         </strong>
-                        . The project cannot be changed until{" "}
-                        {dependents === 1 ? "it has" : "they have"} been
-                        removed.
+                        。在{" "}
+                        {dependents === 1 ? "它被移除" : "它们被移除"} 之前，无法更改项目。
                       </>
                     }
                   >
@@ -313,7 +305,7 @@ export default function FeaturesHeader({
                           dependents === 0 && setEditProjectModal(true);
                         }}
                       >
-                        +Add
+                        +添加
                       </a>
                     )}
                   </Tooltip>
@@ -322,20 +314,21 @@ export default function FeaturesHeader({
             )}
 
             <div className="col-auto">
-              <Text weight="medium">Type: </Text>
-              {feature.valueType || "unknown"}
+              <Text weight="medium">类型: </Text>
+              {feature.valueType || "未知"}
             </div>
 
             <div className="col-auto">
-              <Text weight="medium">Owner: </Text>
+              <Text weight="medium">负责人: </Text>
               {feature.owner ? (
                 <span>
                   <UserAvatar name={feature.owner} size="sm" variant="soft" />{" "}
                   {feature.owner}
                 </span>
               ) : (
-                <em className="text-muted">None</em>
+                <em className="text-muted">无</em>
               )}{" "}
+
               {canEdit && (
                 <a
                   className="ml-1 cursor-pointer"
@@ -354,7 +347,7 @@ export default function FeaturesHeader({
                   setAuditModal(true);
                 }}
               >
-                View Audit Log
+                查看审计日志
               </a>
             </div>
             <div className="col-auto">
@@ -363,7 +356,7 @@ export default function FeaturesHeader({
           </div>
           <div className="row mb-3">
             <div className="col-auto">
-              <Text weight="medium">Tags: </Text>
+              <Text weight="medium">标签: </Text>
               <SortedTags
                 tags={feature.tags || []}
                 useFlex
@@ -382,8 +375,7 @@ export default function FeaturesHeader({
           <div>
             {isArchived && (
               <div className="alert alert-secondary mb-2">
-                <strong>This feature is archived.</strong> It will not be
-                included in SDK Endpoints or Webhook payloads.
+                <strong>此功能已存档。</strong> 它将不会包含在 SDK 端点或 Webhook 有效负载中。
               </div>
             )}
           </div>
@@ -393,7 +385,7 @@ export default function FeaturesHeader({
                 active={tab === "overview"}
                 display={
                   <>
-                    <FaHome /> Overview
+                    <FaHome /> 概览
                   </>
                 }
                 anchor="overview"
@@ -405,7 +397,7 @@ export default function FeaturesHeader({
                 active={tab === "stats"}
                 display={
                   <>
-                    <FaCode /> Code Refs
+                    <FaCode /> 代码引用
                   </>
                 }
                 anchor="stats"
@@ -421,7 +413,7 @@ export default function FeaturesHeader({
         <Modal
           trackingEventModalType=""
           open={true}
-          header="Audit Log"
+          header="审计日志"
           close={() => setAuditModal(false)}
           size="max"
           closeCta="关闭"

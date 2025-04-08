@@ -21,7 +21,7 @@ const CustomRolePage: FC = () => {
 
   return (
     <RoleFormWrapper
-      display="Members"
+      display="成员"
       href="/settings/team#roles"
       breadcrumb={"Duplicate Role"}
     >

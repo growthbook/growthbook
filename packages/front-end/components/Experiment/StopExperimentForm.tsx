@@ -194,7 +194,7 @@ const StopExperimentForm: FC<{
 
               <small className="form-text text-muted">
                 保持{isBandit ? "老虎机" : "实验"}运行，直到您可以在代码中实现这些变更。{" "}
-                <DocLink docSection="temporaryRollout">了解更多</DocLink>
+                {/* <DocLink docSection="temporaryRollout">了解更多</DocLink> */}
               </small>
             </div>
           </div>

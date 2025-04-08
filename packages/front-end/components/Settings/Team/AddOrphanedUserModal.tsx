@@ -66,7 +66,7 @@ const AddOrphanedUserModal: FC<{
     <Modal
       trackingEventModalType=""
       close={close}
-      header="Add User"
+      header="添加用户"
       open={true}
       cta="Add"
       closeCta={"取消"}

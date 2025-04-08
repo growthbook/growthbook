@@ -29,15 +29,15 @@ const TeamsList: FC = () => {
           <table className="table appbox gbtable table-hover">
             <thead>
               <tr>
-                <th className="col-2">Team Name</th>
-                <th className="col-3">Description</th>
-                <th className="col-2">Date Updated</th>
-                <th className="col-2">Global Role</th>
-                <th className="col-2">Project Roles</th>
+                <th className="col-2">团队名称</th>
+                <th className="col-3">描述</th>
+                <th className="col-2">更新日期</th>
+                <th className="col-2">全局角色</th>
+                <th className="col-2">项目角色</th>
                 {environments.map((env) => (
                   <th key={env.id}>{env.id}</th>
                 ))}
-                <th className="col-1">Members</th>
+                <th className="col-1">成员</th>
                 <th className="w-50" />
               </tr>
             </thead>
@@ -120,13 +120,13 @@ const TeamsList: FC = () => {
                           />
                         </>
                       )) || (
-                        <Tooltip
-                          className="mr-2"
-                          body="This team is managed by an external identity provider."
-                        >
-                          <RxIdCard className="text-blue" />
-                        </Tooltip>
-                      )}
+                          <Tooltip
+                            className="mr-2"
+                            body="This team is managed by an external identity provider."
+                          >
+                            <RxIdCard className="text-blue" />
+                          </Tooltip>
+                        )}
                     </td>
                   </tr>
                 );

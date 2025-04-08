@@ -21,7 +21,7 @@ export default function ExperimentChecklistEmptyState({
             setNewTaskInput({ task: "", completionType: "manual" });
           }}
         >
-          Add Your First Task
+          创建你的第一个任务
         </button>
       </div>
     </div>

@@ -82,13 +82,13 @@ export default function InAppHelp() {
               >
                 加入Slack社区 <FaArrowRight className="ml-2" />
               </a>
-              <a
+              {/* <a
                 href="https://docs.growthbook.io/"
                 target="blank"
                 className="btn btn-outline-primary font-weight-normal my-2 w-100"
               >
                 查看文档 <FaArrowRight className="ml-2" />
-              </a>
+              </a> */}
             </div>
             {showUpgradeModal && (
               <div className="bg-white border rounded p-3 m-3 shadow">

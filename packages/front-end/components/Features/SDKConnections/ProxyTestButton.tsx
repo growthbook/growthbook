@@ -94,7 +94,7 @@ export default function ProxyTestButton({
             }
           }}
         >
-          <BsArrowRepeat /> re-check
+          <BsArrowRepeat /> 重试
         </Button>
       )}
     </>

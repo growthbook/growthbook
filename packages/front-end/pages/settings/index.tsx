@@ -429,7 +429,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
               }}
               setError={setSubmitError}
             >
-              Save
+              保存
             </Button>
           </div>
         </div>

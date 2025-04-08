@@ -170,7 +170,7 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
                 setSqlOpen(true);
               }}
             >
-              Edit SQL <FaExternalLinkAlt />{" "}
+              编辑SQL <FaExternalLinkAlt />{" "}
             </button>
           </div>
         </div>

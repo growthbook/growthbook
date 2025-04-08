@@ -5,7 +5,7 @@ import RoleFormWrapper from "@/components/Teams/Roles/RoleFormWrapper";
 const NewCustomRolePage: FC = () => {
   return (
     <RoleFormWrapper
-      display="Members"
+      display="成员"
       href="/settings/team#roles"
       breadcrumb="Create Custom Role"
     >

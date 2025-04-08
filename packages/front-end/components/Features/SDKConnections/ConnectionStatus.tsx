@@ -27,7 +27,7 @@ export default function ConnectionStatus({
       {connected ? (
         <>
           <span className="text-success">
-            <FaCheckCircle /> connected
+            <FaCheckCircle /> 已连接
           </span>
         </>
       ) : (
@@ -35,7 +35,7 @@ export default function ConnectionStatus({
           {error ? (
             <>
               <span className="text-danger">
-                <FaExclamationTriangle /> error
+                <FaExclamationTriangle /> 错误
               </span>
               {errorTxt !== undefined && (
                 <Tooltip
@@ -45,7 +45,7 @@ export default function ConnectionStatus({
                   body={
                     <>
                       <div className="mb-2">
-                        Encountered an error while trying to connect:
+                        尝试连接时遇到错误:
                       </div>
                       {errorTxt ? (
                         <div className="alert alert-danger mt-2">
@@ -53,7 +53,7 @@ export default function ConnectionStatus({
                         </div>
                       ) : (
                         <div className="alert alert-danger">
-                          <em>Unknown error</em>
+                          <em>未知错误</em>
                         </div>
                       )}
                     </>
@@ -63,7 +63,7 @@ export default function ConnectionStatus({
             </>
           ) : (
             <span className="text-secondary">
-              <FaQuestionCircle /> not connected
+              <FaQuestionCircle /> 未连接
             </span>
           )}
         </>

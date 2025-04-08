@@ -406,7 +406,7 @@ const Results: FC<{
                     : "贝叶斯派"}
                 </span>
               </div>
-              <div>
+              {/* <div>
                 <span className="text-muted">
                   <GBCuped size={13} /> CUPED:
                 </span>{" "}
@@ -415,7 +415,7 @@ const Results: FC<{
                     ? "已启用"
                     : "已禁用"}
                 </span>
-              </div>
+              </div> */}
               {analysis?.settings?.statsEngine === "frequentist" && (
                 <div>
                   <span className="text-muted">

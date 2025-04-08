@@ -171,9 +171,9 @@ export default function SdkWebhooks({
   };
   const renderAddWebhookButton = () => (
     <>
-      <div className="text-muted mb-3">
+      {/* <div className="text-muted mb-3">
         参考 <DocLink docSection="sdkWebhooks">文档</DocLink> 获取设置说明
-      </div>
+      </div> */}
       {canCreateWebhooks ? (
         <div className="d-flex align-items-center">
           <Tooltip

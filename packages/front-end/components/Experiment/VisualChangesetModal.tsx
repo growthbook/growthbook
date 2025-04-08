@@ -117,7 +117,7 @@ const VisualChangesetModal: FC<{
       close={close}
       size="lg"
       header={`${
-        mode === "add" ? "Add" : "Modify"
+        mode === "add" ? "添加" : "修改"
       } Visual Changes URL targeting`}
       submit={onSubmit}
       cta={cta}

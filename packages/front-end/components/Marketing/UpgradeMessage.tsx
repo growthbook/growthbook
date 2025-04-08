@@ -23,10 +23,11 @@ export default function UpgradeMessage({
   if (hasCommercialFeature(commercialFeature)) return null;
   if (process.env.HIDE_GROWTHBOOK_UPGRADE_CTAS) return null;
 
-  const headerMessage = isCloud() ? (
+  // 仅在云环境下展示升级提示
+  if (!isCloud()) return null;
+
+  const headerMessage = (
     <>Upgrade your plan to {upgradeMessage}</>
-  ) : (
-    <>Purchase a commercial license to {upgradeMessage}.</>
   );
 
   return (
@@ -42,9 +43,9 @@ export default function UpgradeMessage({
         <div className={`${styles.headerMessage} text-dark mb-2`}>
           {headerMessage}
         </div>
-        <div className="btn btn-md btn-premium" style={{ minWidth: 145 }}>
+        {/* <div className="btn btn-md btn-premium" style={{ minWidth: 145 }}>
           Learn more <GBPremiumBadge />
-        </div>
+        </div> */}
       </div>
     </a>
   );

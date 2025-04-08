@@ -132,7 +132,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
               className="btn btn-outline-primary font-weight-bold text-nowrap"
               onClick={handleAdd}
             >
-              <FaPlus className="mr-1" /> Add
+              <FaPlus className="mr-1" /> 添加
             </button>
           </div>
         )}
@@ -191,7 +191,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
                         onClick={handleValidate()}
                         loading={validatingQuery}
                       >
-                        再次检查
+                        重试
                       </Button>
                       {canEdit && (
                         <Button

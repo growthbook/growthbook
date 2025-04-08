@@ -110,7 +110,7 @@ export default function DraftModal({
 
     if (result.defaultValue !== undefined) {
       diffs.push({
-        title: "Default Value",
+        title: "默认值",
         a: feature.defaultValue,
         b: result.defaultValue,
       });

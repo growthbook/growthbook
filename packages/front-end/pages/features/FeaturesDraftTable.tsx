@@ -149,9 +149,8 @@ export default function FeaturesDraftTable({ features }: Props) {
         </div>
 
         <table
-          className={`table gbtable ${
-            items.length > 0 ? "table-hover" : ""
-          } appbox`}
+          className={`table gbtable ${items.length > 0 ? "table-hover" : ""
+            } appbox`}
         >
           <thead
             className="sticky-top bg-white shadow-sm"
@@ -159,11 +158,11 @@ export default function FeaturesDraftTable({ features }: Props) {
           >
             <tr>
               <SortableTH field="id">Feature Key</SortableTH>
-              <th>Comment</th>
-              <th>Project</th>
-              <th> Creator</th>
-              <SortableTH field="dateUpdated">Last Updated</SortableTH>
-              <SortableTH field="status">Status</SortableTH>
+              <th>评论</th>
+              <th>项目</th>
+              <th>创建人</th>
+              <SortableTH field="dateUpdated">最近修改</SortableTH>
+              <SortableTH field="status">状态</SortableTH>
             </tr>
           </thead>
           <tbody>
@@ -196,13 +195,13 @@ export default function FeaturesDraftTable({ features }: Props) {
                         <Tooltip
                           body={
                             <>
-                              Project
+                              项目
                               <code>{featureAndRevision.project}</code>
-                              not found
+                              未找到
                             </>
                           }
                         >
-                          <span className="text-danger">Invalid project</span>
+                          <span className="text-danger">不可用项目</span>
                         </Tooltip>
                       ) : (
                         projectName ?? <em>None</em>

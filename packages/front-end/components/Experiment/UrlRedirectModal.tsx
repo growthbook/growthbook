@@ -188,7 +188,7 @@ const UrlRedirectModal: FC<{
       size="lg"
       header={
         <div className="mx-3">
-          <h3>{mode === "add" ? "Add" : "Modify"} URL Redirects</h3>
+          <h3>{mode === "add" ? "添加" : "修改"} URL Redirects</h3>
           <p className="mb-0" style={{ fontWeight: 400 }}>
             Send visitors to any URL when landing on another URL.
           </p>

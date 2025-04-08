@@ -652,104 +652,104 @@ export function ConvertBanditExperiment({
     "multi-armed-bandits"
   );
 
-  return (
-    <Tooltip
-      body="仅在草稿模式下可转换"
-      shouldDisplay={experiment.status !== "draft"}
-      usePortal={true}
-      tipPosition="left"
-    >
-      <ConfirmButton
-        modalHeader={`转换为${isBandit ? "实验" : "多臂老虎机"}`}
-        disabled={experiment.status !== "draft"}
-        size="lg"
-        confirmationText={
-          <div>
-            <p>
-              您确定要将此{!isBandit ? "实验" : "多臂老虎机"}转换为{" "}
-              <strong>{isBandit ? "实验" : "多臂老虎机"}</strong>吗？
-            </p>
-            {!isBandit && experiment.goalMetrics.length > 0 && (
-              <div className="alert alert-warning">
-                <Collapsible
-                  trigger={
-                    <div>
-                      <FaExclamationTriangle className="mr-2" />
-                      您的一些实验设置可能会被更改。更多信息{" "}
-                      <FaAngleRight className="chevron" />
-                    </div>
-                  }
-                  transitionTime={100}
-                >
-                  <ul className="ml-0 pl-3 mt-3">
-                    <li>
-                      一个< strong>单一决策指标</strong>将被自动分配。您可以在运行实验之前更改它。
-                    </li>
-                    <li>
-                      实验版本将以< strong>相等权重</strong>开始 (
-                      {experiment.variations
-                        .map((_, i) =>
-                          i < 3
-                            ? formatPercent(
-                              1 / (experiment.variations.length ?? 2)
-                            )
-                            : i === 3
-                              ? "..."
-                              : null
-                        )
-                        .filter(Boolean)
-                        .join(", ")}
-                      ).
-                    </li>
-                    <li>
-                      统计引擎将被锁定为<strong>贝叶斯</strong>。
-                    </li>
-                    <li>
-                      任何< strong>激活指标</strong>、< strong>细分</strong>、< strong>转化窗口覆盖</strong>、< strong>自定义SQL过滤器</strong>或< strong>指标覆盖</strong>都将被删除。
-                    </li>
-                  </ul>
-                </Collapsible>
-              </div>
-            )}
-          </div>
-        }
-        onClick={async () => {
-          if (!isBandit && !hasMultiArmedBanditFeature) return;
-          try {
-            await apiCall(`/experiment/${experiment.id}`, {
-              method: "POST",
-              body: JSON.stringify({
-                type: !isBandit ? "multi-armed-bandit" : "standard",
-              }),
-            });
-            mutate();
-          } catch (e) {
-            console.error(e);
-          }
-        }}
-        cta={
-          isBandit ? (
-            "Convert"
-          ) : (
-            <PremiumTooltip
-              body={null}
-              commercialFeature="multi-armed-bandits"
-              usePortal={true}
-            >
-              转换
-            </PremiumTooltip>
-          )
-        }
-        ctaEnabled={isBandit || hasMultiArmedBanditFeature}
-      >
-        <button
-          className="dropdown-item"
-          type="button"
-          disabled={experiment.status !== "draft"}
-        >
-          转换为{isBandit ? "实验" : "多臂老虎机"}
-        </button>
-      </ConfirmButton>
-    </Tooltip>
-  );
+  // return (
+  //   <Tooltip
+  //     body="仅在草稿模式下可转换"
+  //     shouldDisplay={experiment.status !== "draft"}
+  //     usePortal={true}
+  //     tipPosition="left"
+  //   >
+  //     <ConfirmButton
+  //       modalHeader={`转换为${isBandit ? "实验" : "多臂老虎机"}`}
+  //       disabled={experiment.status !== "draft"}
+  //       size="lg"
+  //       confirmationText={
+  //         <div>
+  //           <p>
+  //             您确定要将此{!isBandit ? "实验" : "多臂老虎机"}转换为{" "}
+  //             <strong>{isBandit ? "实验" : "多臂老虎机"}</strong>吗？
+  //           </p>
+  //           {!isBandit && experiment.goalMetrics.length > 0 && (
+  //             <div className="alert alert-warning">
+  //               <Collapsible
+  //                 trigger={
+  //                   <div>
+  //                     <FaExclamationTriangle className="mr-2" />
+  //                     您的一些实验设置可能会被更改。更多信息{" "}
+  //                     <FaAngleRight className="chevron" />
+  //                   </div>
+  //                 }
+  //                 transitionTime={100}
+  //               >
+  //                 <ul className="ml-0 pl-3 mt-3">
+  //                   <li>
+  //                     一个< strong>单一决策指标</strong>将被自动分配。您可以在运行实验之前更改它。
+  //                   </li>
+  //                   <li>
+  //                     实验版本将以< strong>相等权重</strong>开始 (
+  //                     {experiment.variations
+  //                       .map((_, i) =>
+  //                         i < 3
+  //                           ? formatPercent(
+  //                             1 / (experiment.variations.length ?? 2)
+  //                           )
+  //                           : i === 3
+  //                             ? "..."
+  //                             : null
+  //                       )
+  //                       .filter(Boolean)
+  //                       .join(", ")}
+  //                     ).
+  //                   </li>
+  //                   <li>
+  //                     统计引擎将被锁定为<strong>贝叶斯</strong>。
+  //                   </li>
+  //                   <li>
+  //                     任何< strong>激活指标</strong>、< strong>细分</strong>、< strong>转化窗口覆盖</strong>、< strong>自定义SQL过滤器</strong>或< strong>指标覆盖</strong>都将被删除。
+  //                   </li>
+  //                 </ul>
+  //               </Collapsible>
+  //             </div>
+  //           )}
+  //         </div>
+  //       }
+  //       onClick={async () => {
+  //         if (!isBandit && !hasMultiArmedBanditFeature) return;
+  //         try {
+  //           await apiCall(`/experiment/${experiment.id}`, {
+  //             method: "POST",
+  //             body: JSON.stringify({
+  //               type: !isBandit ? "multi-armed-bandit" : "standard",
+  //             }),
+  //           });
+  //           mutate();
+  //         } catch (e) {
+  //           console.error(e);
+  //         }
+  //       }}
+  //       cta={
+  //         isBandit ? (
+  //           "Convert"
+  //         ) : (
+  //           <PremiumTooltip
+  //             body={null}
+  //             commercialFeature="multi-armed-bandits"
+  //             usePortal={true}
+  //           >
+  //             转换
+  //           </PremiumTooltip>
+  //         )
+  //       }
+  //       ctaEnabled={isBandit || hasMultiArmedBanditFeature}
+  //     >
+  //       <button
+  //         className="dropdown-item"
+  //         type="button"
+  //         disabled={experiment.status !== "draft"}
+  //       >
+  //         转换为{isBandit ? "实验" : "多臂老虎机"}
+  //       </button>
+  //     </ConfirmButton>
+  //   </Tooltip>
+  // );
 }

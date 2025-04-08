@@ -370,7 +370,7 @@ const MetricsList = (): React.ReactElement => {
                 }
               />
               <Button onClick={() => setModalData({ mode: "new" })}>
-                Add Metric
+                添加指标
               </Button>
             </div>
           )}
@@ -401,25 +401,25 @@ const MetricsList = (): React.ReactElement => {
         <thead>
           <tr>
             <SortableTH field="name" className="col-3">
-              Name
+              名称
             </SortableTH>
             <SortableTH field="type" className="col-1">
-              Type
+              类型
             </SortableTH>
-            <th className="col-2">Tags</th>
+            <th className="col-2">标签</th>
             <th>Projects</th>
-            <th className="col-1">Owner</th>
+            <th className="col-1">负责人</th>
             <SortableTH
               field="datasourceName"
               className="d-none d-lg-table-cell col-auto"
             >
-              Data Source
+              数据源
             </SortableTH>
             <SortableTH
               field="dateUpdated"
               className="d-none d-md-table-cell col-1"
             >
-              Last Updated
+              最近修改
             </SortableTH>
             <th></th>
             <th></th>

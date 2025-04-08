@@ -5,23 +5,28 @@ import { EditJupyterNotebookQueryRunner } from "@/components/Settings/EditDataSo
 import Code from "@/components/SyntaxHighlighting/Code";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
+// 数据源 Jupyter Notebook 查询组件的属性类型
 type DataSourceJupyterNotebookQueryProps = DataSourceQueryEditingModalBaseProps;
 
+// 数据源 Jupyter Notebook 查询组件
 export const DataSourceJupyterNotebookQuery: FC<DataSourceJupyterNotebookQueryProps> = ({
   onSave,
   dataSource,
   canEdit = true,
 }) => {
+  // 用于存储用户界面模式（查看或编辑）的状态
   const [uiMode, setUiMode] = useState<"view" | "edit">("view");
   const permissionsUtil = usePermissionsUtil();
+  // 根据权限判断是否可以编辑
   canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
 
+  // 处理取消编辑的回调函数
   const handleCancel = useCallback(() => {
     setUiMode("view");
   }, []);
 
   if (!dataSource) {
-    console.error("ImplementationError: dataSource cannot be null");
+    console.error("实现错误：数据源不能为空");
     return null;
   }
 
@@ -29,7 +34,7 @@ export const DataSourceJupyterNotebookQuery: FC<DataSourceJupyterNotebookQueryPr
     <div>
       <div className="d-flex justify-content-between align-items-center">
         <div className="">
-          <h3>Jupyter Notebook Query Runner</h3>
+          <h3>Jupyter Notebook 查询运行器</h3>
         </div>
 
         {canEdit && (
@@ -42,11 +47,11 @@ export const DataSourceJupyterNotebookQuery: FC<DataSourceJupyterNotebookQueryPr
             >
               {dataSource.settings.notebookRunQuery ? (
                 <>
-                  <FaPencilAlt className="mr-1" /> Edit
+                  <FaPencilAlt className="mr-1" /> 编辑
                 </>
               ) : (
                 <>
-                  <FaPlus className="mr-1" /> Add
+                  <FaPlus className="mr-1" /> 添加
                 </>
               )}
             </button>
@@ -54,8 +59,7 @@ export const DataSourceJupyterNotebookQuery: FC<DataSourceJupyterNotebookQueryPr
         )}
       </div>
       <p>
-        Tell us how to query this data source from within a Jupyter notebook
-        environment.
+        告诉我们如何在 Jupyter notebook 环境中查询此数据源。
       </p>
       {dataSource.settings?.notebookRunQuery ? (
         <Code
@@ -65,7 +69,7 @@ export const DataSourceJupyterNotebookQuery: FC<DataSourceJupyterNotebookQueryPr
         />
       ) : (
         <div className="alert alert-info">
-          Used when exporting experiment results to a Jupyter notebook
+          用于将实验结果导出到 Jupyter notebook 时
         </div>
       )}
 

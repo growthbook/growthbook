@@ -55,7 +55,7 @@ export default function StoppedExperimentBanner({
         style={{ background: "var( --alert-premium-background-gradient-2)" }}
       >
         <div>
-          <h3 className="mb-0">Experiment Stopped</h3>
+          <h3 className="mb-0">实验停止</h3>
         </div>
         {experiment.results && (
           <div

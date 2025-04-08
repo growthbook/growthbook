@@ -69,7 +69,7 @@ const IdeasPage = (): React.ReactElement => {
               setCurrent({});
             }}
           >
-            <FaPlus /> Add your first Idea
+            <FaPlus /> 添加你的一个灵感
           </button>
         ) : null}
         {current && (

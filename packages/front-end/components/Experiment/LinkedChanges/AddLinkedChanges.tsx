@@ -158,14 +158,14 @@ export default function AddLinkedChanges({
       render: !hasLinkedFeatures,
       setModal: setFeatureModal,
     },
-    "visual-editor": {
-      render: !experiment.hasVisualChangesets,
-      setModal: setVisualEditorModal,
-    },
-    redirects: {
-      render: !experiment.hasURLRedirects,
-      setModal: setUrlRedirectModal,
-    },
+    // "visual-editor": {
+    //   render: !experiment.hasVisualChangesets,
+    //   setModal: setVisualEditorModal,
+    // },
+    // redirects: {
+    //   render: !experiment.hasURLRedirects,
+    //   setModal: setUrlRedirectModal,
+    // },
   };
 
   const possibleSections = Object.keys(sections);

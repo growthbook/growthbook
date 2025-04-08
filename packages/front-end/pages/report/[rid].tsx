@@ -427,12 +427,12 @@ export default function ReportPage() {
               ) : null}
               {refreshError && (
                 <div className="alert alert-danger">
-                  <strong>Error refreshing data: </strong> {refreshError}
+                  <strong>刷新数据出错: </strong> {refreshError}
                 </div>
               )}
               {!hasMetrics && (
                 <div className="alert alert-info">
-                  Add at least 1 metric to view results.
+                  查看结果需至少添加一个指标.
                 </div>
               )}
               {!hasData &&
@@ -441,7 +441,7 @@ export default function ReportPage() {
                 queryStatusData.status !== "running" &&
                 hasMetrics && (
                   <div className="alert alert-info">
-                    No data yet.{" "}
+                    暂无数据.{" "}
                     {report.results &&
                       phaseAgeMinutes >= 120 &&
                       "确保你的实验正在被正确追踪。"}
@@ -581,7 +581,7 @@ export default function ReportPage() {
                         : "贝叶斯"}
                     </span>
                   </div>
-                  <div>
+                  {/* <div>
                     <span className="text-muted">
                       <GBCuped size={13} /> CUPED:
                     </span>{" "}
@@ -590,7 +590,7 @@ export default function ReportPage() {
                         ? "Enabled"
                         : "Disabled"}
                     </span>
-                  </div>
+                  </div> */}
 
                   {report.args?.statsEngine === "frequentist" && (
                     <div>

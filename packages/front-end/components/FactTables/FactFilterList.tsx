@@ -125,7 +125,7 @@ export default function FactFilterList({ factTable }: Props) {
                             setEditOpen(filter.id);
                           }}
                         >
-                          Edit
+                          编辑
                         </button>
                       ) : null}
                       {canDelete && !filter.managedBy ? (

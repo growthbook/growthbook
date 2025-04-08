@@ -85,10 +85,10 @@ export default function NewExperimentChecklistItem({
           value={
             newTaskInput.task
               ? {
-                  label: newTaskInput.task,
-                  value: newTaskInput.task,
-                  propertyKey: newTaskInput.propertyKey,
-                }
+                label: newTaskInput.task,
+                value: newTaskInput.task,
+                propertyKey: newTaskInput.propertyKey,
+              }
               : null
           }
           {...ReactSelectProps}
@@ -127,7 +127,7 @@ export default function NewExperimentChecklistItem({
               addNewTask(newTaskInput);
             }}
           >
-            Add Task
+            添加任务
           </button>
           <button
             className="btn btn-link"

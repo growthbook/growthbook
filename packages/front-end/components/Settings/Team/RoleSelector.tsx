@@ -26,7 +26,7 @@ export default function RoleSelector({
             ...newRoleInfo,
           });
         }}
-        label="Global Role"
+        label="全局角色"
         includeAdminRole={true}
       />
       <ProjectRolesSelector

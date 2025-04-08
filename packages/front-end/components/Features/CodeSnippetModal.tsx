@@ -233,12 +233,12 @@ export default function CodeSnippetModal({
               <p>
                 我们目前还没有针对您所用语言的SDK，但如果您想自行构建并回馈给社区，我们有详尽的文档！
               </p>
-              <DocLink
+              {/* <DocLink
                 docSection="buildYourOwn"
                 className="btn btn-outline-primary"
               >
                 查看文档
-              </DocLink>
+              </DocLink> */}
             </div>
           ) : (
             <p>

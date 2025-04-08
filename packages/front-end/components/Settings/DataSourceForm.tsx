@@ -97,7 +97,7 @@ const DataSourceForm: FC<{
 
       try {
         if (!datasource.type) {
-          throw new Error("Please select a data source type");
+          throw new Error("请选择一个数据源类型");
         }
 
         let id = data.id;
@@ -174,7 +174,7 @@ const DataSourceForm: FC<{
         open={true}
         submit={handleSubmit}
         close={onCancel}
-        header={existing ? "Edit Data Source" : "Add Data Source"}
+        header={existing ? "编辑数据源" : "添加数据源"}
         cta={cta}
         size="lg"
         secondaryCTA={secondaryCTA}
@@ -184,9 +184,9 @@ const DataSourceForm: FC<{
             <div className="row align-items-center">
               <div className="col">
                 <div>
-                  <strong>Not ready to connect to your data source?</strong>
+                  <strong>还没准备好连接到你的数据源？</strong>
                 </div>{" "}
-                Try out GrowthBook first with a sample dataset.
+                先使用示例数据集试用一下 GrowthBook。
               </div>
               <div className="col-auto">
                 <Button
@@ -196,14 +196,14 @@ const DataSourceForm: FC<{
                     await importSampleData();
                   }}
                 >
-                  Use Sample Data
+                  使用示例数据
                 </Button>
               </div>
             </div>
           </div>
         )}
         <SelectField
-          label="Data Source Type"
+          label="数据源类型"
           value={datasource.type || typeOptions[0].type}
           onChange={(value) => {
             const option = typeOptions.filter((o) => o.type === value)[0];
@@ -223,21 +223,21 @@ const DataSourceForm: FC<{
           disabled={existing}
           required
           autoFocus={true}
-          placeholder="Choose Type..."
+          placeholder="选择类型..."
           options={typeOptions.map((o) => {
             return {
               value: o.type,
               label: o.display,
             };
           })}
-          helpText={
-            <DocLink
-              docSection={datasource.type as DocSection}
-              fallBackSection="datasources"
-            >
-              查看文档
-            </DocLink>
-          }
+        // helpText={
+        //   <DocLink
+        //     docSection={datasource.type as DocSection}
+        //     fallBackSection="datasources"
+        //   >
+        //     查看文档
+        //   </DocLink>
+        // }
         />
         <div className="form-group">
           <label>显示名称</label>
@@ -264,19 +264,18 @@ const DataSourceForm: FC<{
             <MultiSelectField
               label={
                 <>
-                  Projects{" "}
+                  项目{" "}
                   <Tooltip
-                    body={`The dropdown below has been filtered to only include projects where you have permission to ${existing ? "update" : "create"
-                      } Data Sources.`}
+                    body={`下面的下拉菜单已过滤，仅包含你有权限 ${existing ? "更新" : "创建"} 数据源的项目。`}
                   />
                 </>
               }
-              placeholder="All projects"
+              placeholder="所有项目"
               value={datasource.projects || []}
               options={projectOptions}
               onChange={(v) => onManualChange("projects", v)}
               customClassName="label-overflow-ellipsis"
-              helpText="Assign this data source to specific projects"
+              helpText="将此数据源分配给特定项目"
             />
           </div>
         )}

@@ -233,7 +233,7 @@ const EditMetricsForm: FC<{
             />
           </div>
 
-          <div className="form-group mb-2">
+          {/* <div className="form-group mb-2">
             <PremiumTooltip commercialFeature="override-metrics">
               指标覆盖（可选）
             </PremiumTooltip>
@@ -260,7 +260,7 @@ const EditMetricsForm: FC<{
                 upgradeMessage="override metrics"
               />
             )}
-          </div>
+          </div> */}
         </>
       )}
     </Modal>

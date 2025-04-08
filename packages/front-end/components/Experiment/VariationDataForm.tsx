@@ -113,7 +113,7 @@ const VariationDataForm: FC<{
                   setNewKey("");
                 }}
               >
-                <FaPlus /> Add
+                <FaPlus /> 添加
               </button>
             </div>
           </div>

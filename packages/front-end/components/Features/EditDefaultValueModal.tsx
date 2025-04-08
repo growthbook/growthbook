@@ -31,7 +31,7 @@ export default function EditDefaultValueModal({
   return (
     <Modal
       trackingEventModalType=""
-      header="Edit Default Value"
+      header="编辑默认值"
       submit={form.handleSubmit(async (value) => {
         const newDefaultValue = validateFeatureValue(
           feature,

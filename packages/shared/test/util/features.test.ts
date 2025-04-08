@@ -251,7 +251,7 @@ describe("autoMerge", () => {
 
     const defaultValueConflict: MergeConflict = {
       key: "defaultValue",
-      name: "Default Value",
+      name: "默认值",
       resolved: false,
       base: "base",
       live: "live",

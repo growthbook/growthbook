@@ -73,7 +73,7 @@ export default function OAuthLookup() {
         </div>
         <Field
           required
-          label="Email Address"
+          label="邮箱地址"
           {...form.register("email")}
           type="email"
           autoFocus={true}
@@ -81,7 +81,7 @@ export default function OAuthLookup() {
         />
         {error && <div className="alert alert-danger mr-auto">{error}</div>}
         <button className={`btn btn-primary btn-block btn-lg`} type="submit">
-          Continue
+          继续
         </button>
       </form>
       <div className="text-center mt-3">

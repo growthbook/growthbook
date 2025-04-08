@@ -153,12 +153,12 @@ const DataSourcesPage: FC = () => {
               }}
             />
 
-            <Callout status="info" mt="5">
+            {/* <Callout status="info" mt="5">
               还没有数据仓库吗？我们推荐使用带有Google Analytics的Google BigQuery。{" "}
               <DocLink docSection="ga4BigQuery">
                 了解更多 <FaExternalLinkAlt />
               </DocLink>
-            </Callout>
+            </Callout> */}
           </div>
           <hr className="my-5" />
           <div className="d-flex align-items-center justify-content-center w-100">

@@ -195,7 +195,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     setRuleModal({ environment, i });
                   }}
                 >
-                  Edit
+                  编辑
                 </a>
                 <Button
                   color=""

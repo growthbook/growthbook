@@ -75,7 +75,7 @@ const InviteList: FC<{
         setResendMessage(
           <div className="alert alert-danger">
             {dismissButton}
-            {message || "Error re-sending the invitation"}
+            {message || "重新发送邀请时出错"}
           </div>
         );
       } else if (!emailSent) {
@@ -83,8 +83,7 @@ const InviteList: FC<{
           <div className="alert alert-info">
             {dismissButton}
             <p>
-              Failed to send email to <strong>{email}</strong>. You can manually
-              send them the following invite link:
+              未能向 <strong>{email}</strong> 发送电子邮件。你可以手动将以下邀请链接发送给他们：
             </p>
             <div>
               <code>{inviteUrl}</code>
@@ -106,10 +105,9 @@ const InviteList: FC<{
 
   return (
     <div>
-      <h5>Pending Invites{` (${invites.length})`}</h5>
+      <h5>待处理的邀请{` (${invites.length})`}</h5>
       <div className="text-muted mb-2">
-        Invites that have been sent but have not yet been accepted.{" "}
-        <strong>Invited users count towards plan seat limits.</strong>
+        已发送但尚未被接受的邀请。<strong>被邀请的用户会计入计划席位限制。</strong>
       </div>
       {roleModal && (
         <ChangeRoleModal
@@ -127,9 +125,9 @@ const InviteList: FC<{
         />
       )}
       <ConfirmModal
-        title={deleteInvite ? `Remove ${deleteInvite.email}?` : "Remove invite"}
+        title={deleteInvite ? `移除 ${deleteInvite.email}?` : "移除邀请"}
         subtitle=""
-        yesText="Remove"
+        yesText="移除"
         noText="取消"
         modalState={deleteInvite !== null}
         setModalState={() => setDeleteInvite(null)}
@@ -152,10 +150,10 @@ const InviteList: FC<{
         <table className="table appbox gbtable table-hover">
           <thead>
             <tr>
-              <th>Email</th>
-              <th>Date Invited</th>
-              <th>{project ? "Project Role" : "Global Role"}</th>
-              {!project && <th>Project Roles</th>}
+              <th>电子邮件</th>
+              <th>邀请日期</th>
+              <th>{project ? "项目角色" : "全局角色"}</th>
+              {!project && <th>项目角色</th>}
               {environments.map((env) => (
                 <th key={env.id}>{env.id}</th>
               ))}
@@ -233,7 +231,7 @@ const InviteList: FC<{
                           onResend(key, email);
                         }}
                       >
-                        Resend Invite
+                        重新发送邀请
                       </button>
                       <button
                         className="dropdown-item"
@@ -243,7 +241,7 @@ const InviteList: FC<{
                           setResendMessage(null);
                         }}
                       >
-                        Remove
+                        移除
                       </button>
                     </MoreMenu>
                   </td>

@@ -385,7 +385,7 @@ export async function putMemberRole(
   } catch (e) {
     return res.status(400).json({
       status: 400,
-      message: e.message || "Failed to change role",
+      message: e.message || "修改角色失败",
     });
   }
 }
@@ -644,7 +644,7 @@ export async function putInviteRole(
   } catch (e) {
     return res.status(400).json({
       status: 400,
-      message: e.message || "Failed to change role",
+      message: e.message || "修改角色失败",
     });
   }
 }

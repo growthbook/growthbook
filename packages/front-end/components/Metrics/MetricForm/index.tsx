@@ -680,9 +680,9 @@ const MetricForm: FC<MetricFormProps> = ({
           ) : switchToFact && hasSQLDataSources ? (
             <Callout status="info" mb="3">
               使用事实表可以更轻松、更快速地创建指标。{" "}
-              <Link href="/fact-tables">
+              {/* <Link href="/fact-tables">
                 了解更多 <FaArrowRight />
-              </Link>
+              </Link> */}
             </Callout>
           ) : null}
           <div className="form-group">

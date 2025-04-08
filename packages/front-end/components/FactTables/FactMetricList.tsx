@@ -181,7 +181,7 @@ export default function FactMetricList({ factTable }: Props) {
               }}
               disabled={!canCreateMetrics}
             >
-              <GBAddCircle /> Add Metric
+              <GBAddCircle /> 添加指标
             </button>
           </Tooltip>
         </div>
@@ -191,10 +191,10 @@ export default function FactMetricList({ factTable }: Props) {
           <table className="table appbox gbtable mt-2 mb-0 table-hover">
             <thead>
               <tr className="cursor-pointer">
-                <SortableTH field="name">Name</SortableTH>
-                <SortableTH field="metricType">Type</SortableTH>
-                <SortableTH field="tags">Tags</SortableTH>
-                <SortableTH field="dateUpdated">Last Updated</SortableTH>
+                <SortableTH field="name">名称</SortableTH>
+                <SortableTH field="metricType">类型</SortableTH>
+                <SortableTH field="tags">标签</SortableTH>
+                <SortableTH field="dateUpdated">最近修改</SortableTH>
                 <th style={{ width: 30 }} />
               </tr>
             </thead>

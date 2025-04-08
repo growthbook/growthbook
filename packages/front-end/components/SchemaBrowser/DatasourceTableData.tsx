@@ -103,7 +103,7 @@ export default function DatasourceSchema({
               body={
                 <div>
                   <div>
-                    {`Last Updated: ${new Date(
+                    {`最近修改: ${new Date(
                       table.dateUpdated
                     ).toLocaleString()}`}
                   </div>

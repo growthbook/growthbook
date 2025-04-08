@@ -106,7 +106,7 @@ export default function PrerequisiteStatusRow({
                     setPrerequisiteModal({ i });
                   }}
                 >
-                  Edit
+                  编辑
                 </a>
                 <DeleteButton
                   className="dropdown-item"

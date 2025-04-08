@@ -37,7 +37,7 @@ export const EditJupyterNotebookQueryRunner: FC<EditJupyterNotebookQueryRunnerPr
       submit={handleSubmit}
       close={onCancel}
       size="max"
-      header="Edit Jupyter Notebook Query Runner"
+      header="编辑Jupyter Nodebook查询器"
       cta="保存"
     >
       <h4>Jupyter Notebook Query Runner (optional)</h4>

@@ -208,16 +208,16 @@ const DataSourcePage: FC = () => {
                           setEditConn(true);
                         }}
                       >
-                        <FaKey /> Edit Connection Info
+                        <FaKey /> 编辑连接信息
                       </button>
                     ) : null}
-                    <DocLink
+                    {/* <DocLink
                       className="btn btn-outline-secondary mr-2 mt-1 font-weight-bold"
                       docSection={d.type as DocSection}
                       fallBackSection="datasources"
                     >
-                      <FaExternalLinkAlt /> View Documentation
-                    </DocLink>
+                      <FaExternalLinkAlt /> 查看文档
+                    </DocLink> */}
                     {d?.properties?.supportsInformationSchema && (
                       <button
                         className="btn btn-outline-info mr-2 mt-1 font-weight-bold"
@@ -226,7 +226,7 @@ const DataSourcePage: FC = () => {
                           setViewSchema(true);
                         }}
                       >
-                        <FaDatabase /> View Schema Browser
+                        <FaDatabase /> 查看Schema
                       </button>
                     )}
                     <Link
@@ -242,7 +242,7 @@ const DataSourcePage: FC = () => {
                       <DeleteButton
                         displayName={d.name}
                         className="font-weight-bold mt-1"
-                        text={`Delete "${d.name}" Datasource`}
+                        text={`删除 "${d.name}" 数据源`}
                         onClick={async () => {
                           await apiCall(`/datasource/${d.id}`, {
                             method: "DELETE",
@@ -258,7 +258,7 @@ const DataSourcePage: FC = () => {
           </div>
           {!d.properties?.hasSettings && (
             <div className="alert alert-info">
-              This data source does not require any additional configuration.
+              这个数据源不需要任何额外的配置。
             </div>
           )}
           {supportsEvents && (
