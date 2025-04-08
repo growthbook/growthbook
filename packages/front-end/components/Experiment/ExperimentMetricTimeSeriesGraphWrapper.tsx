@@ -1,7 +1,7 @@
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import { ExperimentStatus } from "back-end/src/validators/experiments";
 import { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
-import { daysBetween } from "shared/dates";
+import { daysBetween, getValidDate } from "shared/dates";
 import { ExperimentMetricInterface } from "shared/src/experiments";
 import { addDays } from "date-fns";
 import useApi from "@/hooks/useApi";
@@ -26,6 +26,7 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
   showVariations,
   statsEngine,
   pValueAdjustmentEnabled,
+  firstDateToRender,
 }: {
   experimentId: string;
   experimentStatus: ExperimentStatus;
@@ -34,6 +35,7 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
   showVariations: boolean[];
   statsEngine: StatsEngine;
   pValueAdjustmentEnabled: boolean;
+  firstDateToRender: Date;
 }) {
   const { phase } = useSnapshot();
   const { getFactTableById } = useDefinitions();
@@ -57,12 +59,19 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
   // Ensure we always render at least 7 days in case we have less than 7 days worth of data
   const additionalGraphDataPoints: ExperimentTimeSeriesGraphDataPoint[] = [];
   const timeSeries = data.timeSeries[0];
-  const firstDate = timeSeries.dataPoints[0].date;
+  const firstDate = getValidDate(timeSeries.dataPoints[0].date);
+  const realFirstDate =
+    firstDate < firstDateToRender ? firstDateToRender : firstDate;
   const lastDate = timeSeries.dataPoints[timeSeries.dataPoints.length - 1].date;
-  const numOfDays = daysBetween(firstDate, lastDate);
+  const numOfDays = daysBetween(realFirstDate, lastDate);
   if (numOfDays < 7) {
     additionalGraphDataPoints.push({
       d: addDays(new Date(lastDate), 7 - numOfDays),
+    });
+  }
+  if (firstDateToRender < firstDate) {
+    additionalGraphDataPoints.push({
+      d: firstDateToRender,
     });
   }
 

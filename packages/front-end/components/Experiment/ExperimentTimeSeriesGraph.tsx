@@ -1,5 +1,5 @@
 import { FC, useMemo } from "react";
-import { format, startOfDay } from "date-fns";
+import { format } from "date-fns";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { Flex, Text } from "@radix-ui/themes";
@@ -302,14 +302,9 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
 
   const sortedDates = useMemo(
     () =>
-      cloneDeep(_datapoints)
-        .sort(
-          (a, b) => getValidDate(a.d).getTime() - getValidDate(b.d).getTime()
-        )
-        .map((p) => ({
-          ...p,
-          d: startOfDay(p.d),
-        })),
+      cloneDeep(_datapoints).sort(
+        (a, b) => getValidDate(a.d).getTime() - getValidDate(b.d).getTime()
+      ),
     [_datapoints]
   );
 
@@ -576,6 +571,28 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                   })}
                 </>
               )}
+
+              {sortedDatesWithData.map((d) => {
+                // Render a dot at the current x location for each variation
+                return d.variations?.map((v, i) => {
+                  if (yaxis === "effect" && i === 0) {
+                    return;
+                  }
+                  if (!showVariations[i]) return null;
+                  return (
+                    <div
+                      key={`${d.d.getTime()}_${i}`}
+                      className={timeSeriesStyles.positionWithData}
+                      style={{
+                        transform: `translate(${xScale(d.d)}px, ${
+                          yScale(getYVal(v, yaxis) ?? 0) ?? 0
+                        }px)`,
+                        background: getVariationColor(i, true),
+                      }}
+                    />
+                  );
+                });
+              })}
             </div>
             <svg width={width} height={height}>
               <defs>
@@ -611,14 +628,12 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                     }
                     // Render a shaded area for error bars for each variation if defined
                     return (
-                      typeof datapoints[0]?.variations?.[i]?.ci !==
+                      typeof sortedDatesWithData[0]?.variations?.[i]?.ci !==
                         "undefined" && (
                         <AreaClosed
                           key={`ci_${i}`}
                           yScale={yScale}
-                          data={datapoints.filter(
-                            (it) => it.variations !== undefined
-                          )}
+                          data={sortedDatesWithData}
                           x={(d) => xScale(d.d) ?? 0}
                           y0={(d) =>
                             yScale(d?.variations?.[i]?.ci?.[0] ?? 0) ?? 0
@@ -709,6 +724,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                     fill: "var(--color-text-mid)",
                     fontSize: 11,
                     textAnchor: "end",
+                    verticalAnchor: "middle",
                   })}
                   label={label}
                   labelProps={{

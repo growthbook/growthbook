@@ -958,6 +958,7 @@ export default function ResultsTable({
                               pValueAdjustmentEnabled={
                                 !!appliedPValueCorrection && rows.length > 1
                               }
+                              firstDateToRender={getValidDate(startDate)}
                             />
                           </div>
                         </div>
