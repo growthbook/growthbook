@@ -3,16 +3,12 @@ import { ExperimentStatus } from "back-end/src/validators/experiments";
 import { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
 import { daysBetween } from "shared/dates";
 import { ExperimentMetricInterface } from "shared/src/experiments";
-import { isFactMetric, isRatioMetric } from "shared/experiments";
 import { addDays } from "date-fns";
 import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   getExperimentMetricFormatter,
   formatPercent,
-  getColumnRefFormatter,
-  formatNumber,
-  getMetricFormatter,
 } from "@/services/metrics";
 import { getAdjustedCI } from "@/services/experiments";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
@@ -40,7 +36,7 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
   pValueAdjustmentEnabled: boolean;
 }) {
   const { phase } = useSnapshot();
-  const { getFactTableById, getExperimentMetricById } = useDefinitions();
+  const { getFactTableById } = useDefinitions();
   const pValueThreshold = usePValueThreshold();
 
   const displayCurrency = useCurrency();
@@ -49,19 +45,6 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
     metric,
     getFactTableById
   );
-  const numeratorFormatter = isFactMetric(metric)
-    ? getColumnRefFormatter(metric.numerator, getFactTableById)
-    : getMetricFormatter(metric.type === "binomial" ? "count" : metric.type);
-  const ratioMetric = isRatioMetric(
-    metric,
-    !isFactMetric(metric) && metric.denominator
-      ? getExperimentMetricById(metric.denominator) ?? undefined
-      : undefined
-  );
-  const denominatorFormatter =
-    isFactMetric(metric) && ratioMetric && metric.denominator
-      ? getColumnRefFormatter(metric.denominator, getFactTableById)
-      : formatNumber;
 
   const { data } = useApi<{ timeSeries: MetricTimeSeries[] }>(
     `/experiments/${experimentId}/time-series?phase=${phase}&metricIds[]=${metric.id}`
@@ -120,14 +103,6 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
             i.stats?.mean ?? 0,
             formatterOptions
           ),
-          d_formatted: denominatorFormatter(
-            i[differenceType]?.denominator ?? 0,
-            formatterOptions
-          ),
-          n_formatted: numeratorFormatter(
-            i[differenceType]?.value ?? 0,
-            formatterOptions
-          ),
           users: i.stats?.users ?? 0,
           up: i[differenceType]?.expected ?? 0,
           ctw: i[differenceType]?.chanceToWin ?? undefined,
@@ -173,7 +148,6 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
       label={labelText}
       datapoints={dataPoints}
       showVariations={showVariations}
-      ratioMetric={ratioMetric}
       formatter={
         differenceType === "relative"
           ? formatPercent

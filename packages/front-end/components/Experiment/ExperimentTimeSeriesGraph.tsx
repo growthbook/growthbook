@@ -32,9 +32,7 @@ type AxisType = "effect"; // TODO: eventually will have variation means
 export interface DataPointVariation {
   v: number;
   v_formatted: string;
-  n_formatted: string; // numerator (value) formatted
-  d_formatted: string; // denominator (users or ratio denominator) formatted
-  users: number;
+  users?: number;
   up?: number; // uplift
   p?: number; // p-value
   ctw?: number; // chance to win
@@ -51,7 +49,6 @@ export interface ExperimentTimeSeriesGraphDataPoint {
 export interface ExperimentTimeSeriesGraphProps {
   yaxis: AxisType;
   variationNames: string[];
-  ratioMetric: boolean;
   label: string;
   datapoints: ExperimentTimeSeriesGraphDataPoint[];
   formatter: (value: number, options?: Intl.NumberFormatOptions) => string;
@@ -83,7 +80,6 @@ const margin = [15, 30, 30, 80];
 const getTooltipContents = (
   data: TooltipData,
   variationNames: string[],
-  ratioMetric: boolean,
   showVariations: boolean[],
   statsEngine: StatsEngine,
   usesPValueAdjustment: boolean,
@@ -109,23 +105,18 @@ const getTooltipContents = (
           {d.helperText}
         </HelperText>
       ) : null}
-      {usesPValueAdjustment && statsEngine === "frequentist" && (
-        <HelperText status="info" my="2" size="md">
-          P-values and CIs not adjusted for multiple comparisons.
-        </HelperText>
-      )}
+      {usesPValueAdjustment &&
+        statsEngine === "frequentist" &&
+        usedStatsEngine === "frequentist" && (
+          <HelperText status="info" my="2" size="md">
+            P-values and CIs not adjusted for multiple comparisons.
+          </HelperText>
+        )}
       <Table size="1">
         <TableHeader>
           <TableRow style={{ color: "var(--color-text-mid)" }}>
             <TableColumnHeader pl="0">Variation</TableColumnHeader>
-            <TableColumnHeader justify="center">Numerator</TableColumnHeader>
-            {ratioMetric ? (
-              <TableColumnHeader justify="center">
-                Denominator
-              </TableColumnHeader>
-            ) : (
-              <TableColumnHeader justify="center">Users</TableColumnHeader>
-            )}
+            <TableColumnHeader justify="center">Users</TableColumnHeader>
             <TableColumnHeader justify="center">Value</TableColumnHeader>
             <TableColumnHeader justify="center">Change</TableColumnHeader>
             {hasStats && (
@@ -182,17 +173,8 @@ const getTooltipContents = (
                 {yaxis === "effect" && (
                   <>
                     <TableCell justify="center">
-                      {d.variations[i].n_formatted}
+                      {d.variations[i].users}
                     </TableCell>
-                    {ratioMetric ? (
-                      <TableCell justify="center">
-                        {d.variations[i].d_formatted}
-                      </TableCell>
-                    ) : (
-                      <TableCell justify="center">
-                        {d.variations[i].users}
-                      </TableCell>
-                    )}
                     <TableCell justify="center">
                       {d.variations[i].v_formatted}
                     </TableCell>
@@ -291,7 +273,6 @@ const getYVal = (variation?: DataPointVariation, yaxis?: AxisType) => {
 const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
   yaxis,
   datapoints: _datapoints,
-  ratioMetric,
   variationNames,
   label,
   formatter,
@@ -549,7 +530,6 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                     {getTooltipContents(
                       tooltipData,
                       variationNames,
-                      ratioMetric,
                       showVariations,
                       statsEngine,
                       usesPValueAdjustment,
