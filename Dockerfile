@@ -14,7 +14,6 @@ RUN \
 # Build the nodejs app
 FROM python:${PYTHON_MAJOR}-slim AS nodebuild
 ARG NODE_MAJOR
-ARG CLOUD_BUILD=""
 WORKDIR /usr/local/src/app
 RUN apt-get update && \
   apt-get install -y wget gnupg2 build-essential && \
@@ -52,7 +51,6 @@ RUN \
   && rm -rf packages/sdk-react/node_modules \
   && yarn install --frozen-lockfile --production=true --ignore-optional
 RUN yarn postinstall
-RUN if [ "$CLOUD_BUILD" ]; then yarn setup:cloud fi
 
 
 # Package the full app together
