@@ -180,8 +180,6 @@ export default function ResultsTable({
     !disableTimeSeriesButton &&
     gb.isOn("experiment-results-timeseries");
 
-  console.log(endDate);
-
   // Disable time series button for stopped experiments before we added this feature (& therefore data)
   if (status === "stopped" && endDate <= "2025-04-03") {
     showTimeSeriesButton = false;
