@@ -738,3 +738,20 @@ export function GBHeadingArrowLeft({
     </svg>
   );
 }
+
+export function ChartLineExploreIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none">
+      <path
+        fill="currentColor"
+        d="M8.48 12.434a.469.469 0 0 1-.468.469h-5.24a.469.469 0 0 1-.47-.469V2.122a.469.469 0 1 1 .938 0v3.967l2.973-2.6a.469.469 0 0 1 .59-.022l2.82 1.96 3.465-2.407a.47.47 0 1 1 .617.703L9.955 6.38a.469.469 0 0 1-.59.023l-2.82-1.959L3.24 7.334v4.631h4.772a.469.469 0 0 1 .468.47Z"
+      />
+      <path
+        fill="currentColor"
+        fillRule="evenodd"
+        d="M14.042 12.858a.466.466 0 0 1-.663 0l-1.192-1.19a2.343 2.343 0 1 1 .666-.665l1.19 1.19a.47.47 0 0 1 0 .665Zm-3.144-1.738a1.405 1.405 0 1 0 0-2.811 1.405 1.405 0 0 0 0 2.81Z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
