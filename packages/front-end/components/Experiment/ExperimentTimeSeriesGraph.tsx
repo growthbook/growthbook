@@ -2,7 +2,7 @@ import { FC, useMemo } from "react";
 import { format } from "date-fns";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
-import { Flex, Text } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import { GridColumns, GridRows } from "@visx/grid";
 import { scaleLinear, scaleTime } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
@@ -97,6 +97,11 @@ const getTooltipContents = (
     ? "frequentist"
     : statsEngine;
 
+  const showAdjustmentNote =
+    usesPValueAdjustment &&
+    statsEngine === "frequentist" &&
+    usedStatsEngine === "frequentist";
+
   return (
     <>
       <Text weight="medium">{date(d.d)}</Text>
@@ -105,13 +110,6 @@ const getTooltipContents = (
           {d.helperText}
         </HelperText>
       ) : null}
-      {usesPValueAdjustment &&
-        statsEngine === "frequentist" &&
-        usedStatsEngine === "frequentist" && (
-          <HelperText status="info" my="2" size="md">
-            P-values and CIs not adjusted for multiple comparisons.
-          </HelperText>
-        )}
       <Table size="1">
         <TableHeader>
           <TableRow style={{ color: "var(--color-text-mid)" }}>
@@ -121,11 +119,14 @@ const getTooltipContents = (
             <TableColumnHeader justify="center">Change</TableColumnHeader>
             {hasStats && (
               <>
-                <TableColumnHeader justify="center">CI</TableColumnHeader>
+                <TableColumnHeader justify="center">
+                  CI{showAdjustmentNote ? "*" : null}
+                </TableColumnHeader>
                 <TableColumnHeader justify="center">
                   {usedStatsEngine === "frequentist"
                     ? "P-val"
                     : "Chance to Win"}
+                  {showAdjustmentNote ? "*" : null}
                 </TableColumnHeader>
               </>
             )}
@@ -225,6 +226,13 @@ const getTooltipContents = (
           })}
         </TableBody>
       </Table>
+      {showAdjustmentNote ? (
+        <Box>
+          <Text size="1" my="2">
+            * P-values and CIs not adjusted for multiple comparisons.
+          </Text>
+        </Box>
+      ) : null}
     </>
   );
 };
