@@ -1,19 +1,10 @@
 import { Table as RadixTable } from "@radix-ui/themes";
-import styles from "./RadixOverrides.module.scss";
 
 export default function Table({
   children,
-  className,
   ...props
 }: React.ComponentProps<typeof RadixTable.Root>) {
-  return (
-    <RadixTable.Root
-      {...props}
-      className={`${styles.tableOverrides} ${className ?? ""}`}
-    >
-      {children}
-    </RadixTable.Root>
-  );
+  return <RadixTable.Root {...props}>{children}</RadixTable.Root>;
 }
 
 export function TableHeader({

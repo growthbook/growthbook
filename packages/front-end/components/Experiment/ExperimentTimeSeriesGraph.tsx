@@ -1,4 +1,4 @@
-import { FC, useMemo, useState } from "react";
+import { FC, useMemo } from "react";
 import { format, startOfDay } from "date-fns";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
@@ -8,18 +8,14 @@ import { scaleLinear, scaleTime } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { AreaClosed, LinePath } from "@visx/shape";
 import { curveLinear, curveMonotoneX } from "@visx/curve";
-import {
-  TooltipWithBounds,
-  useTooltip,
-  useTooltipInPortal,
-} from "@visx/tooltip";
+import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
 import { date, getValidDate } from "shared/dates";
 import { StatsEngine } from "back-end/types/stats";
 import cloneDeep from "lodash/cloneDeep";
-import { ScaleLinear } from "d3-scale";
-import { BiCheckbox, BiCheckboxSquare } from "react-icons/bi";
+import { NumberValue, ScaleLinear, ScaleTime } from "d3-scale";
 import { pValueFormatter } from "@/services/experiments";
 import { getVariationColor } from "@/services/features";
+import { RadixTheme } from "@/services/RadixTheme";
 import HelperText from "@/components/Radix/HelperText";
 import Table, {
   TableRow,
@@ -28,11 +24,9 @@ import Table, {
   TableColumnHeader,
   TableRowHeaderCell,
   TableCell,
-} from "../Radix/Table";
+} from "@/components/Radix/Table";
 import styles from "./ExperimentDateGraph.module.scss";
-import newStyles from "./ExperimentTimeSeriesGraph.module.scss";
-import { RadixTheme } from "@/services/RadixTheme";
-import Frame from "../Radix/Frame";
+import timeSeriesStyles from "./ExperimentTimeSeriesGraph.module.scss";
 
 export interface DataPointVariation {
   v: number;
@@ -129,8 +123,7 @@ const getTooltipContents = (
                 key={i}
                 style={{
                   color: "var(--color-text-high)",
-                  // @ts-expect-error cssType is not aware of CSS variables
-                  fontWeight: "500",
+                  fontWeight: 500,
                 }}
               >
                 <TableRowHeaderCell pl="0">
@@ -224,10 +217,9 @@ const getTooltipContents = (
 // Finds the closest date to the cursor and figures out x/y coordinates
 const getTooltipData = (
   mx: number,
-  width: number,
   datapoints: ExperimentTimeSeriesGraphDataPoint[],
   yScale: ScaleLinear<number, number, never>,
-  xScale,
+  xScale: ScaleTime<number, number, never>,
   yaxis: "users" | "effect"
 ): TooltipData => {
   // Calculate x-coordinates for all data points
@@ -283,7 +275,6 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
   maxGapHours = 36,
   cumulative = false,
 }) => {
-  // yaxis = "users";
   const { containerRef, containerBounds, TooltipInPortal } = useTooltipInPortal(
     {
       scroll: true,
@@ -293,36 +284,31 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
 
   const {
     showTooltip,
-    // hideTooltip,
+    hideTooltip,
     tooltipOpen,
     tooltipData,
     tooltipLeft = 0,
     tooltipTop = 0,
   } = useTooltip<TooltipData>();
 
-  const datapoints = useMemo(() => {
-    const sortedDates1 = cloneDeep(_datapoints)
-      .sort((a, b) => getValidDate(a.d).getTime() - getValidDate(b.d).getTime())
-      .map((p) => ({
-        ...p,
-        d: startOfDay(p.d),
-      }));
-
-    const lastDataPointIndexWithHelperText = sortedDates1.findLastIndex(
-      (it) => it.helperText
-    );
-
-    const sortedDates = sortedDates1.map((p, idx) => {
-      if (idx < lastDataPointIndexWithHelperText) {
-        return {
+  const sortedDates = useMemo(
+    () =>
+      cloneDeep(_datapoints)
+        .sort(
+          (a, b) => getValidDate(a.d).getTime() - getValidDate(b.d).getTime()
+        )
+        .map((p) => ({
           ...p,
-          helperText: "Settings do not match current version",
-        };
-      } else {
-        return { ...p, helperText: undefined };
-      }
-    });
+          d: startOfDay(p.d),
+        })),
+    [_datapoints]
+  );
 
+  const sortedDatesWithData = useMemo(() => {
+    return sortedDates.filter((d) => d.variations && d.variations.length > 0);
+  }, [sortedDates]);
+
+  const datapoints = useMemo(() => {
     const filledDates: ExperimentTimeSeriesGraphDataPoint[] = [];
     for (let i = 0; i < sortedDates.length; i++) {
       filledDates.push(sortedDates[i]);
@@ -351,7 +337,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
       }
     }
     return filledDates;
-  }, [_datapoints, cumulative, maxGapHours]);
+  }, [sortedDates, cumulative, maxGapHours]);
 
   // Get y-axis domain
   const yDomain = useMemo<[number, number]>(() => {
@@ -408,21 +394,13 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
       )
     );
 
-    // TODO: Disable for metric timeseries now
-    // The error bars can be huge sometimes, so limit the domain to at most twice the min/max value
-    const heyDatapoints = datapoints.filter(
-      (it) => it.variations !== undefined
-    );
-    const lastDataPoint = heyDatapoints[heyDatapoints.length - 1];
-
-    // Get the midpoint between min and max values
-    // const minMidpoint = minValue;
-    // const maxMidpoint = maxValue;
+    const lastDataPointWithData =
+      sortedDatesWithData[sortedDatesWithData.length - 1];
 
     // Ensure we show the full CI for the latest data point
-    const latestMinCI = lastDataPoint?.variations
+    const latestMinCI = lastDataPointWithData?.variations
       ? Math.min(
-          ...lastDataPoint.variations
+          ...lastDataPointWithData.variations
             .filter((_, i) => showVariations[i])
             .map(
               (variation) => variation.ci?.[0] ?? getYVal(variation, yaxis) ?? 0
@@ -430,9 +408,9 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
         )
       : 0;
 
-    const latestMaxCI = lastDataPoint?.variations
+    const latestMaxCI = lastDataPointWithData?.variations
       ? Math.max(
-          ...lastDataPoint.variations
+          ...lastDataPointWithData.variations
             .filter((_, i) => showVariations[i])
             .map(
               (variation) => variation.ci?.[1] ?? getYVal(variation, yaxis) ?? 0
@@ -446,15 +424,6 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
     const midpoint = (latestMaxCI + latestMinCI) / 2;
     const expandedMin = midpoint - expandedRange / 2;
     const expandedMax = midpoint + expandedRange / 2;
-
-    console.table({
-      minValue,
-      maxValue,
-      latestMinCI,
-      latestMaxCI,
-      expandedMin,
-      expandedMax,
-    });
 
     const min = Math.min(
       minValue,
@@ -470,11 +439,29 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
     const expandedRange2 = range * 1.05;
     const buffer = (expandedRange2 - range) / 2;
     return [min - buffer, max + buffer];
-  }, [datapoints, yaxis, showVariations]);
+  }, [datapoints, yaxis, showVariations, sortedDatesWithData]);
 
   // Get x-axis domain
   const min = Math.min(...datapoints.map((d) => d.d.getTime()));
   const max = Math.max(...datapoints.map((d) => d.d.getTime()));
+
+  const lastDataPointIndexWithHelperText = sortedDatesWithData.findLastIndex(
+    (it) => it.helperText
+  );
+
+  const hasDataForDay = useMemo(() => {
+    const firstDateWithData =
+      sortedDatesWithData[lastDataPointIndexWithHelperText + 1].d;
+    const lastDateWithData =
+      sortedDatesWithData[sortedDatesWithData.length - 1].d;
+
+    return (d: Date | NumberValue) => {
+      if (typeof d === "number") {
+        d = new Date(d);
+      }
+      return d >= firstDateWithData && d <= lastDateWithData;
+    };
+  }, [lastDataPointIndexWithHelperText, sortedDatesWithData]);
 
   return (
     <ParentSizeModern>
@@ -503,14 +490,13 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
             ("clientX" in event ? event.clientX : 0) - containerBounds.left;
           const data = getTooltipData(
             containerX,
-            width,
             datapoints,
             yScale,
             xScale,
             yaxis
           );
           if (!data?.y || data.y.every((v) => v === undefined)) {
-            // hideTooltip();
+            hideTooltip();
             return;
           }
           showTooltip({
@@ -525,13 +511,13 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
             {tooltipData && (
               <TooltipInPortal
                 key={Math.random()}
-                className={newStyles.tooltip}
+                className={timeSeriesStyles.tooltip}
                 left={tooltipLeft}
                 top={tooltipTop + margin[0]}
                 unstyled={true}
               >
                 <RadixTheme>
-                  <div className={newStyles.tooltipContent}>
+                  <div className={timeSeriesStyles.tooltipContent}>
                     {getTooltipContents(
                       tooltipData,
                       variationNames,
@@ -555,7 +541,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                 marginTop: margin[0],
               }}
               onPointerMove={handlePointer}
-              // onPointerLeave={hideTooltip}
+              onPointerLeave={hideTooltip}
             >
               {tooltipOpen && (
                 <>
@@ -643,23 +629,19 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                     if (yaxis === "effect" && i === 0) {
                       return null;
                     }
-                    // Render the actual line chart for each variation
-                    // TODO: wth is this +2?
-                    const lastIndex =
-                      datapoints.findLastIndex((it) => it.helperText) + 2;
 
-                    // NB: We include lastIndex datapoint in both arrays as we need
+                    // NB: We include the last index in both arrays as we need
                     // to draw the dashed line to it, and the solid line from it onwards
-                    const previousSettingsDataPoints = datapoints.filter(
-                      (it, idx) =>
-                        it.variations !== undefined && idx <= lastIndex
+                    const previousSettingsDataPoints = sortedDatesWithData.filter(
+                      (_, idx) => idx <= lastDataPointIndexWithHelperText
                     );
-                    const currentSettingsDataPoints = datapoints.filter(
-                      (it, idx) =>
-                        it.variations !== undefined && idx >= lastIndex
+                    const currentSettingsDataPoints = sortedDatesWithData.filter(
+                      (_, idx) => idx >= lastDataPointIndexWithHelperText
                     );
+
                     return (
                       <>
+                        {/* Render a dotted line for the previous settings data points */}
                         <LinePath
                           key={`linepath_dashed_${i}`}
                           data={previousSettingsDataPoints}
@@ -673,6 +655,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                           strokeLinecap="butt"
                           curve={curveLinear}
                         />
+                        {/* Render a solid line for the current settings data points */}
                         <LinePath
                           key={`linepath_solid_${i}`}
                           data={currentSettingsDataPoints}
@@ -695,10 +678,9 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                   numTicks={numXTicks}
                   tickLabelProps={(d) => {
                     return {
-                      fill:
-                        d < new Date("2025-04-01") || d > new Date("2025-04-03")
-                          ? "var(--color-text-low)"
-                          : "var(--color-text-high)",
+                      fill: hasDataForDay(d)
+                        ? "var(--color-text-high)"
+                        : "var(--color-text-low)",
                       fontSize: 11,
                       textAnchor: "middle",
                     };

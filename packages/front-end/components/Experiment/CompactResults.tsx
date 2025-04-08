@@ -1,6 +1,5 @@
-import { FC, useMemo, useState } from "react";
+import { FC, useMemo } from "react";
 import { MdSwapCalls } from "react-icons/md";
-import clsx from "clsx";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -24,7 +23,6 @@ import {
   ExperimentMetricInterface,
   getMetricLink,
 } from "shared/experiments";
-import { PiCaretRight } from "react-icons/pi";
 import { isDefined } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -34,14 +32,13 @@ import {
   setAdjustedCIs,
   hasRisk,
 } from "@/services/experiments";
-import { ChartLineExploreIcon, GBCuped } from "@/components/Icons";
+import { GBCuped } from "@/components/Icons";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import {
   ResultsMetricFilters,
   sortAndFilterMetricsByTags,
 } from "@/components/Experiment/Results";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
-import RadixLink from "@/components/Radix/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
 import MetricName, { PercentileLabel } from "@/components/Metrics/MetricName";
@@ -52,7 +49,6 @@ import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
 import VariationUsersTable from "./TabbedPage/VariationUsersTable";
 import { ExperimentTab } from "./TabbedPage";
-import styles from "./ResultsTable.module.scss";
 
 const numberFormatter = Intl.NumberFormat();
 
@@ -124,15 +120,6 @@ const CompactResults: FC<{
   hideDetails,
 }) => {
   const { getExperimentMetricById, metricGroups, ready } = useDefinitions();
-
-  const [expandedMetrics, setExpandedMetrics] = useState<string[]>([]);
-  const handleExpand = (metricId: string) => {
-    setExpandedMetrics((prev) =>
-      prev.includes(metricId)
-        ? prev.filter((id) => id !== metricId)
-        : [...prev, metricId]
-    );
-  };
 
   const _pValueThreshold = usePValueThreshold();
   const pValueThreshold =
@@ -354,8 +341,6 @@ const CompactResults: FC<{
 
       {expandedGoals.length ? (
         <ResultsTable
-          expandedMetrics={expandedMetrics}
-          handleExpand={handleExpand}
           dateCreated={reportDate}
           isLatestPhase={isLatestPhase}
           startDate={startDate}
@@ -406,8 +391,6 @@ const CompactResults: FC<{
       {!mainTableOnly && expandedSecondaries.length ? (
         <div className="mt-4">
           <ResultsTable
-            expandedMetrics={expandedMetrics}
-            handleExpand={handleExpand}
             dateCreated={reportDate}
             isLatestPhase={isLatestPhase}
             startDate={startDate}
@@ -446,8 +429,6 @@ const CompactResults: FC<{
       {!mainTableOnly && expandedGuardrails.length ? (
         <div className="mt-4">
           <ResultsTable
-            expandedMetrics={expandedMetrics}
-            handleExpand={handleExpand}
             dateCreated={reportDate}
             isLatestPhase={isLatestPhase}
             startDate={startDate}
@@ -497,8 +478,6 @@ export function getRenderLabelColumn(
   return function renderLabelColumn(
     label: string,
     metric: ExperimentMetricInterface,
-    isExpanded: boolean,
-    handleMetricCaretClick: (metricId: string) => void,
     row?: ExperimentTableRow,
     maxRows?: number
   ) {
@@ -590,7 +569,7 @@ export function getRenderLabelColumn(
     ) : null;
 
     return (
-      <span style={{ display: "flex", alignItems: "center" }}>
+      <span style={{ display: "inline-flex", alignItems: "center" }}>
         {metricLink}
         {metricInverseIconDisplay}
         {cupedIconDisplay}
