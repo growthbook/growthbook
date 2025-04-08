@@ -231,6 +231,39 @@ export async function addCloudSDKMapping(connection: SDKConnectionInterface) {
   }
 }
 
+export async function getCurrentMonthlyCDNUsageForOrg(
+  orgId: string
+): Promise<{ requests: number; bandwidth: number }> {
+  const client = createAdminClickhouseClient();
+
+  const sql = `
+SELECT
+  sum(requests) AS requests,
+  sum(bandwidth) AS bandwidth
+FROM usage.cdn_hourly
+WHERE 
+  organization = {orgId:String}
+  AND hour >= toStartOfMonth(now())
+`.trim();
+
+  const res = await client.query({
+    query: sql,
+    query_params: { orgId },
+    format: "JSONEachRow",
+  });
+
+  const data: {
+    requests: string;
+    bandwidth: string;
+  }[] = await res.json();
+
+  // Convert strings to numbers for requests/bandwidth
+  return {
+    requests: parseInt(data[0].requests) || 0,
+    bandwidth: parseInt(data[0].bandwidth) || 0,
+  };
+}
+
 export async function getDailyCDNUsageForOrg(
   orgId: string,
   start: Date,

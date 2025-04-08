@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import clsx from "clsx";
 import { daysLeft } from "shared/dates";
 import Link from "next/link";
-import { Flex } from "@radix-ui/themes";
+import { GetQuoteResponse } from "back-end/types/billing";
+import { Box, Flex, Grid, Text } from "@radix-ui/themes";
 import { FaCheckCircle } from "react-icons/fa";
-import { PiCaretRight } from "react-icons/pi";
+import { PiCaretRight, PiArrowSquareOut } from "react-icons/pi";
 import { CommercialFeature } from "shared/enterprise";
+import Collapsible from "react-collapsible";
 import { growthbook } from "@/services/utils";
 import { useUser } from "@/services/UserContext";
 import { getGrowthBookBuild, isCloud } from "@/services/env";
@@ -17,6 +19,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import RadioCards from "@/components/Radix/RadioCards";
 import CloudProUpgradeModal from "@/enterprise/components/Billing/CloudProUpgradeModal";
 import { StripeProvider } from "@/enterprise/components/Billing/StripeProvider";
+import Callout from "@/components/Radix/Callout";
 import styles from "./index.module.scss";
 import CloudTrialConfirmationModal from "./CloudTrialConfirmationModal";
 import LicenseSuccessModal from "./LicenseSuccessModal";
@@ -373,6 +376,32 @@ export default function UpgradeModal({
     </p>
   );
 
+  const showCdnUsage = isCloud();
+
+  const [cdnUsage, setCdnUsage] = useState<GetQuoteResponse | null>(null);
+  const totalCost = cdnUsage
+    ? numOfCurrentMembers * 20 +
+      cdnUsage.projectedCost.requests +
+      cdnUsage.projectedCost.bandwidth
+    : numOfCurrentMembers * 20;
+
+  useEffect(() => {
+    const fetchCdnUsageQuote = async () => {
+      try {
+        const response = await apiCall<GetQuoteResponse>("/billing/quote", {
+          method: "GET",
+        });
+        setCdnUsage(response);
+      } catch (error) {
+        console.error("Failed to fetch CDN usage:", error);
+      }
+    };
+
+    if (showCdnUsage) {
+      fetchCdnUsageQuote();
+    }
+  }, [showCdnUsage, apiCall]);
+
   function trialAndUpgradeTreatment() {
     return (
       <div>
@@ -427,27 +456,181 @@ export default function UpgradeModal({
             </strong>
           </Flex>
         </div>
-        <div
-          className="p-3 mb-4"
-          style={{ backgroundColor: "var(--violet-2)" }}
-        >
-          <Flex align="center" justify="between">
-            <span>
-              <label>Cost</label>
-              <Tooltip
-                color="purple"
-                body="Based on your current seat count."
-                className="pl-1"
-              />
-            </span>
-            <label>~${numOfCurrentMembers * 20} / month</label>
-          </Flex>
-          <p className="mb-0 text-secondary">
-            $20 per seat per month, {numOfCurrentMembers} current seat
-            {numOfCurrentMembers > 1 ? "s" : ""}
-          </p>
-        </div>
-        {enterpriseCallout}
+        {showCdnUsage ? (
+          <>
+            <div
+              className="p-3 mb-4"
+              style={{ backgroundColor: "var(--violet-2)" }}
+            >
+              <Collapsible
+                trigger={
+                  <Flex>
+                    <PiCaretRight className="chevron ml-1 mr-2 mt-1" />
+                    <Box width={"100%"}>
+                      <Flex align="center" justify="between">
+                        <span>
+                          <label>Cost estimate *</label>
+                        </span>
+                        <label>~${numOfCurrentMembers * 20} / month</label>
+                      </Flex>
+                      <p className="text-secondary">
+                        $20/seat + $10/million over 2 million CDN requests +
+                        $1/GB over 20GB CDN bandwidth
+                      </p>
+                    </Box>
+                  </Flex>
+                }
+              >
+                <hr className="mt-0" />
+                <Grid
+                  columns="4"
+                  pl="23px"
+                  align="center"
+                  style={{ gridTemplateColumns: "auto 1fr 1fr 1fr" }}
+                  gapX="3"
+                >
+                  <Box></Box>
+                  <Text align="right">
+                    <strong>Actual</strong>
+                  </Text>
+                  <Text align="right">
+                    <strong>Projected</strong>
+                  </Text>
+                  <Text align="right">
+                    <strong>Cost</strong>
+                  </Text>
+
+                  <Box>
+                    <strong>Per seat</strong>
+                    <p className="text-secondary">$20/seat</p>
+                  </Box>
+                  <Text align="right">
+                    {numOfCurrentMembers} seat
+                    {numOfCurrentMembers > 1 ? "s" : ""}
+                  </Text>
+                  <Text align="right">
+                    {numOfCurrentMembers} seat
+                    {numOfCurrentMembers > 1 ? "s" : ""}
+                  </Text>
+                  <Text align="right">
+                    ~${numOfCurrentMembers * 20} / month
+                  </Text>
+
+                  <Box>
+                    <strong>CDN Requests</strong>
+                    <p className="text-secondary">
+                      2 million included, then + $10/million
+                    </p>
+                  </Box>
+                  <Text align="right">{cdnUsage?.actualUsage.requests} m</Text>
+                  <Text align="right">
+                    {cdnUsage?.projectedUsage.requests} m
+                  </Text>
+                  <Text align="right">
+                    + ~${cdnUsage?.projectedCost.requests} / month
+                  </Text>
+
+                  <Box>
+                    <strong>CDN Bandwidth</strong>
+                    <p className="text-secondary pb-0">
+                      20GB included, then + $1/GB
+                    </p>
+                  </Box>
+                  <Text align="right">
+                    {cdnUsage?.actualUsage.bandwidth} GB
+                  </Text>
+                  <Text align="right">
+                    {cdnUsage?.projectedUsage.bandwidth} GB
+                  </Text>
+                  <Text align="right">
+                    + ~${cdnUsage?.projectedCost.bandwidth} /month
+                  </Text>
+
+                  <Box></Box>
+                  <Box></Box>
+                  <Box></Box>
+                  <Text
+                    align="right"
+                    style={{
+                      borderTop: "1px solid",
+                    }}
+                    className="py-2"
+                  >
+                    <strong>~${totalCost} / month</strong>
+                  </Text>
+                </Grid>
+              </Collapsible>
+
+              <hr className="mt-0" />
+
+              <Box pl={"23px"}>
+                <a
+                  href="https://docs.growthbook.io/faq#what-are-the-growthbook-cloud-cdn-usage-limits"
+                  className="text-decoration-none pl-1"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => {
+                    track("Clicked Read About CDN Limits Link", trackContext);
+                  }}
+                >
+                  <strong className="a link-purple">
+                    Read about CDN limits and techniques to reduce usage{" "}
+                    <PiArrowSquareOut
+                      style={{ position: "relative", top: "-2px" }}
+                    />
+                  </strong>
+                </a>
+                <p className="text-secondary">
+                  * Estimate based on your team&apos;s activity so far this
+                  month. Actual cost may vary depending on future usage.
+                </p>
+              </Box>
+            </div>
+            <Callout status="info">
+              Interested in an Enterprise Plan with volume discounts?
+              <a
+                href="https://www.growthbook.io/demo"
+                className="text-decoration-none pl-1"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => {
+                  track("Start Enterprise Checkout", trackContext);
+                }}
+              >
+                <strong className="a link-purple">
+                  Talk to Sales{" "}
+                  <PiArrowSquareOut
+                    style={{ position: "relative", top: "-2px" }}
+                  />{" "}
+                </strong>
+              </a>
+            </Callout>
+          </>
+        ) : (
+          <div>
+            <div
+              className="p-3 mb-4"
+              style={{ backgroundColor: "var(--violet-2)" }}
+            >
+              <Flex align="center" justify="between">
+                <span>
+                  <label>Cost</label>
+                  <Tooltip
+                    color="purple"
+                    body="Based on your current seat count."
+                    className="pl-1"
+                  />
+                </span>
+                <label>~${numOfCurrentMembers * 20} / month</label>
+              </Flex>
+              <p className="mb-0 text-secondary">
+                $20 per seat per month, {numOfCurrentMembers} current seat
+                {numOfCurrentMembers > 1 ? "s" : ""}
+              </p>
+            </div>
+            {enterpriseCallout}
+          </div>
+        )}
       </div>
     );
   }

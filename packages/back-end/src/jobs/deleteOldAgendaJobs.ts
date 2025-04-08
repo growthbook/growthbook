@@ -27,7 +27,7 @@ const deleteOldAgendaJobs = trackJob(JOB_NAME, async () => {
 
   const deleteRes = await agenda._collection.deleteMany({ _id: { $in: ids } });
 
-  logger.info(
+  logger.debug(
     `Deleted ${deleteRes.deletedCount} old agenda jobs in ` +
       (Date.now() - startDate) +
       `ms`

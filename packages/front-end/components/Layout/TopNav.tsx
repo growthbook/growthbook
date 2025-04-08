@@ -46,7 +46,6 @@ import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
 import AccountPlanBadge from "@/components/Layout/AccountPlanBadge";
 import useGlobalMenu from "@/services/useGlobalMenu";
-import UsageNotices from "@/components/Layout/UsageNotices";
 import styles from "./TopNav.module.scss";
 import { usePageHead } from "./PageHead";
 
@@ -468,9 +467,6 @@ const TopNav: FC<{
           {renderTitleOrBreadCrumb()}
           {showNotices && (
             <>
-              <div className="nav-link">
-                <UsageNotices />
-              </div>
               <div className="nav-link">
                 <AccountPlanNotices />
               </div>

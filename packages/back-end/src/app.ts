@@ -418,6 +418,7 @@ app.post(
 );
 
 app.get("/billing/usage", subscriptionController.getUsage);
+app.get("/billing/quote", subscriptionController.getQuote);
 
 app.get("/queries/:ids", datasourcesController.getQueries);
 app.post("/query/test", datasourcesController.testLimitedQuery);

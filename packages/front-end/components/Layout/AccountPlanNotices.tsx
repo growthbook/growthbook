@@ -1,24 +1,94 @@
 import { useRouter } from "next/router";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { date, daysLeft } from "shared/dates";
+import { useState } from "react";
+import Link from "next/link";
+import { Box } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
+import styles from "./AccountPlanNotices.module.scss";
 
 export default function AccountPlanNotices() {
   const permissionsUtil = usePermissionsUtil();
   const router = useRouter();
-  const { license, licenseError, seatsInUse } = useUser();
+  const { usage, license, licenseError, seatsInUse } = useUser();
+  const [upgradeModal, setUpgradeModal] = useState(false);
 
   const canManageBilling = permissionsUtil.canManageBilling();
 
+  const usageTooltipBody = permissionsUtil.canViewUsage() ? (
+    <Box className={styles["notice-tooltip"]}>
+      Click to upgrade, or go to{" "}
+      <Link href="/settings/usage">Settings &gt; Usage</Link> to learn more
+    </Box>
+  ) : (
+    <Box className={styles["notice-tooltip"]}>
+      Click to upgrade, or visit{" "}
+      <Link href="/settings/usage">Growthbook Docs &gt; FAQ</Link> to learn more
+    </Box>
+  );
+
+  let usageMessage: JSX.Element | null = null;
+  if (usage?.cdn.status === "approaching") {
+    usageMessage = (
+      <>
+        <div>
+          {upgradeModal && (
+            <UpgradeModal
+              close={() => setUpgradeModal(false)}
+              reason="To remove cdn usage limits,"
+              source={"usage-approaching-topnav-notification"}
+              commercialFeature="unlimited-cdn-usage"
+            />
+          )}
+        </div>
+        <Tooltip body={usageTooltipBody}>
+          <Box className={styles["warning-notification"]}>
+            Approaching CDN usage limit.{" "}
+            <a href="#" onClick={() => setUpgradeModal(true)}>
+              Upgrade license.
+            </a>{" "}
+          </Box>
+        </Tooltip>
+      </>
+    );
+  } else if (usage?.cdn.status === "over") {
+    usageMessage = (
+      <>
+        <div>
+          {upgradeModal && (
+            <UpgradeModal
+              close={() => setUpgradeModal(false)}
+              reason="To remove cdn usage limits,"
+              source={"usage-exceeded-topnav-notification"}
+              commercialFeature="unlimited-cdn-usage"
+            />
+          )}
+        </div>
+        <Tooltip body={usageTooltipBody}>
+          <Box className={styles["error-notification"]}>
+            CDN usage limit exceeded.{" "}
+            <a href="#" onClick={() => setUpgradeModal(true)}>
+              Upgrade license.
+            </a>{" "}
+          </Box>
+        </Tooltip>
+      </>
+    );
+  }
+
   if (license?.message && (license.message.showAllUsers || canManageBilling)) {
     return (
-      <Tooltip body={<>{license.message.tooltipText}</>}>
-        <div className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1">
-          <FaExclamationTriangle /> {license.message.text}
-        </div>
-      </Tooltip>
+      <>
+        {usageMessage}
+        <Tooltip body={<>{license.message.tooltipText}</>}>
+          <Box className={styles["error-notification"]}>
+            <FaExclamationTriangle /> {license.message.text}
+          </Box>
+        </Tooltip>
+      </>
     );
   }
 
@@ -28,151 +98,283 @@ export default function AccountPlanNotices() {
       switch (licenseError) {
         case "Invalid license key signature":
           return (
-            <Tooltip
-              body={
-                <>
-                  There is something wrong with your license. Please contact
-                  support@growthbook.io.
-                </>
-              }
-            >
-              <div className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1">
-                <FaExclamationTriangle /> invalid license key signature
-              </div>
-            </Tooltip>
+            <>
+              {usageMessage}
+              <Tooltip
+                body={
+                  <>
+                    There is something wrong with your license. Please contact
+                    support@growthbook.io.
+                  </>
+                }
+              >
+                <Box className={styles["error-notification"]}>
+                  <FaExclamationTriangle /> invalid license key signature
+                </Box>
+              </Tooltip>
+            </>
           );
         case "License server unreachable for too long":
           return (
-            <Tooltip
-              body={<>Please make sure that you have whitelisted 75.2.109.47</>}
-            >
-              <div className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1">
-                <FaExclamationTriangle /> license server unreachable
-              </div>
-            </Tooltip>
+            <>
+              {usageMessage}
+              <Tooltip
+                body={
+                  <>Please make sure that you have whitelisted 75.2.109.47</>
+                }
+              >
+                <Box className={styles["error-notification"]}>
+                  <FaExclamationTriangle /> license server unreachable
+                </Box>
+              </Tooltip>
+            </>
           );
         case "License server erroring for too long":
           return (
-            <Tooltip body={<>{license.lastServerErrorMessage}</>}>
-              <div className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1">
-                <FaExclamationTriangle /> license server error
-              </div>
-            </Tooltip>
+            <>
+              {usageMessage}
+              <Tooltip body={<>{license.lastServerErrorMessage}</>}>
+                <Box className={styles["error-notification"]}>
+                  <FaExclamationTriangle /> license server error
+                </Box>
+              </Tooltip>
+            </>
           );
         case "No support for SSO":
           return (
-            <Tooltip
-              body={
-                <>
-                  Your license doesn&apos;t support SSO. Upgrade to Enterprise
-                  or remove SSO_CONFIG env variable.
-                </>
-              }
-            >
-              <div className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1">
-                <FaExclamationTriangle /> invalid sso configuration
-              </div>
-            </Tooltip>
+            <>
+              {usageMessage}
+              <Tooltip
+                body={
+                  <>
+                    Your license doesn&apos;t support SSO. Upgrade to Enterprise
+                    or remove SSO_CONFIG env variable.
+                  </>
+                }
+              >
+                <Box className={styles["error-notification"]}>
+                  <FaExclamationTriangle /> invalid sso configuration
+                </Box>
+              </Tooltip>
+            </>
           );
         case "No support for multi-org":
           return (
-            <Tooltip
-              body={
-                <>
-                  Your license doesn&apos;t support multi-org. Upgrade to
-                  Enterprise or remove IS_MULTI_ORG env variable.
-                </>
-              }
-            >
-              <div className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1">
-                <FaExclamationTriangle /> invalid multi-org configuration
-              </div>
-            </Tooltip>
+            <>
+              {usageMessage}
+              <Tooltip
+                body={
+                  <>
+                    Your license doesn&apos;t support multi-org. Upgrade to
+                    Enterprise or remove IS_MULTI_ORG env variable.
+                  </>
+                }
+              >
+                <Box className={styles["error-notification"]}>
+                  <FaExclamationTriangle /> invalid multi-org configuration
+                </Box>
+              </Tooltip>
+            </>
           );
         case "License expired":
           // if the license expired more than 30 days ago, we don't show the notice
           if (daysLeft(license.dateExpires || "") < -30) {
-            return null;
+            return usageMessage;
           } else {
-            return (
-              <Tooltip
-                body={
-                  license.plan === "enterprise" ? (
-                    <>
-                      Your license expired on{" "}
-                      <strong>{date(license.dateExpires || "")}</strong>.
-                      Contact sales@growthbook.io to renew.
-                    </>
-                  ) : (
-                    <>
-                      Your license expired on{" "}
-                      <strong>{date(license.dateExpires || "")}</strong>. Go to
-                      your settings &gt; billing page to renew.
-                    </>
-                  )
-                }
-              >
-                <div className="alert alert-danger py-1 px-2 d-none d-md-block mb-0 mr-1">
-                  <FaExclamationTriangle /> license expired
-                </div>
-              </Tooltip>
+            const badgeTextDiv = (
+              <>
+                {license.plan === "enterprise" ? "Enterprise" : "Pro"} license
+                expired <u>{date(license.dateExpires || "")}</u>
+              </>
             );
+
+            if (usage?.cdn.status === "approaching") {
+              return (
+                <>
+                  <div>
+                    {upgradeModal && (
+                      <UpgradeModal
+                        close={() => setUpgradeModal(false)}
+                        reason={`Pro license expired ${date(
+                          license.dateExpires || ""
+                        )}. Upgrade to regain access to Pro features and higher usage limits.`}
+                        source={"topnav-expired-notification"}
+                        commercialFeature={null}
+                      />
+                    )}
+                  </div>
+                  <Tooltip
+                    body={
+                      <>
+                        Pro license expired ${date(license.dateExpires || "")}.
+                        Click to upgrade, or go to{" "}
+                        <Link href="/settings/usage">Settings &gt; Usage</Link>{" "}
+                        to learn more.
+                      </>
+                    }
+                  >
+                    <Box className={styles["warning-notification"]}>
+                      <FaExclamationTriangle />
+                      Approaching CDN usage limit.
+                      <a href="#" onClick={() => setUpgradeModal(true)}>
+                        Upgrade License
+                      </a>
+                    </Box>
+                  </Tooltip>
+                </>
+              );
+            } else if (usage?.cdn.status === "over") {
+              return (
+                <>
+                  <div>
+                    {upgradeModal && (
+                      <UpgradeModal
+                        close={() => setUpgradeModal(false)}
+                        reason={`Pro license expired ${date(
+                          license.dateExpires || ""
+                        )}. Upgrade to regain access to Pro features and higher usage limits.`}
+                        source={"topnav-expired-notification"}
+                        commercialFeature={null}
+                      />
+                    )}
+                  </div>
+                  <Tooltip
+                    body={
+                      license.plan === "enterprise" ? (
+                        <>Contact sales@growthbook.io to renew.</>
+                      ) : (
+                        <>
+                          Pro license expired ${date(license.dateExpires || "")}
+                          . Click to upgrade, or go to{" "}
+                          <Link href="/settings/usage">
+                            Settings &gt; Usage
+                          </Link>{" "}
+                          to learn more.
+                        </>
+                      )
+                    }
+                  >
+                    <Box className={styles["error-notification"]}>
+                      <FaExclamationTriangle />
+                      Approaching CDN usage limit.
+                      <a href="#" onClick={() => setUpgradeModal(true)}>
+                        Upgrade License
+                      </a>
+                    </Box>
+                  </Tooltip>
+                </>
+              );
+            } else {
+              return (
+                <>
+                  <div>
+                    {upgradeModal && (
+                      <UpgradeModal
+                        close={() => setUpgradeModal(false)}
+                        reason={`Pro license expired ${date(
+                          license.dateExpires || ""
+                        )}. Upgrade to regain access to Pro features and higher usage limits.`}
+                        source={"topnav-expired-notification"}
+                        commercialFeature={null}
+                      />
+                    )}
+                  </div>
+                  <Tooltip
+                    body={
+                      license.plan === "enterprise" ? (
+                        <>Contact sales@growthbook.io to renew.</>
+                      ) : (
+                        <>
+                          Click to upgrade, or go to{" "}
+                          <Link href="/settings/billing">
+                            Settings &gt; Billing
+                          </Link>{" "}
+                          to learn more.
+                        </>
+                      )
+                    }
+                  >
+                    <Box className={styles["error-notification"]}>
+                      {license.plan === "enterprise" ? (
+                        badgeTextDiv
+                      ) : (
+                        <a href="#" onClick={() => setUpgradeModal(true)}>
+                          {badgeTextDiv}
+                        </a>
+                      )}
+                    </Box>
+                  </Tooltip>
+                </>
+              );
+            }
           }
         case "Email not verified":
           return (
-            <Tooltip
-              body={
-                <>
-                  An email was sent to {license.email}. If you can&apos;t find
-                  it, check your spam folder, or restart the upgrade process.
-                </>
-              }
-            >
-              <div className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1">
-                Check email to verify account and activate {license.plan}{" "}
-                {license.isTrial ? "trial" : "license"}.
-              </div>
-            </Tooltip>
+            <>
+              {usageMessage}
+              <Tooltip
+                body={
+                  <>
+                    An email was sent to {license.email}. If you can&apos;t find
+                    it, check your spam folder, or restart the upgrade process.
+                  </>
+                }
+              >
+                <Box className={styles["error-notification"]}>
+                  Check email to verify account and activate {license.plan}{" "}
+                  {license.isTrial ? "trial" : "license"}.
+                </Box>
+              </Tooltip>
+            </>
           );
         case "Invalid license":
           return (
-            <Tooltip
-              body={
-                <>
-                  Your license key appears to be invalid. Please contact
-                  sales@growthbook.io for assistance.
-                </>
-              }
-            >
-              <div className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1">
-                <FaExclamationTriangle /> invalid license
-              </div>
-            </Tooltip>
+            <>
+              {usageMessage}
+              <Tooltip
+                body={
+                  <>
+                    Your license key appears to be invalid. Please contact
+                    sales@growthbook.io for assistance.
+                  </>
+                }
+              >
+                <Box className={styles["error-notification"]}>
+                  <FaExclamationTriangle /> invalid license
+                </Box>
+              </Tooltip>
+            </>
           );
         case "License invalidated":
           return (
-            <Tooltip
-              body={
-                <>
-                  Your license has been invalidated. Please contact
-                  sales@growthbook.io to resolve this issue.
-                </>
-              }
-            >
-              <div className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1">
-                <FaExclamationTriangle /> license invalidated
-              </div>
-            </Tooltip>
+            <>
+              {usageMessage}
+              <Tooltip
+                body={
+                  <>
+                    Your license has been invalidated. Please contact
+                    sales@growthbook.io to resolve this issue.
+                  </>
+                }
+              >
+                <Box className={styles["error-notification"]}>
+                  <FaExclamationTriangle /> license invalidated
+                </Box>
+              </Tooltip>
+            </>
           );
         default:
           return (
-            <Tooltip
-              body={<>Please contact support@growthbook.io for assistance.</>}
-            >
-              <div className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1">
-                <FaExclamationTriangle /> {licenseError.toLowerCase()}
-              </div>
-            </Tooltip>
+            <>
+              {usageMessage}
+              <Tooltip
+                body={<>Please contact support@growthbook.io for assistance.</>}
+              >
+                <Box className={styles["error-notification"]}>
+                  <FaExclamationTriangle /> {licenseError.toLowerCase()}
+                </Box>
+              </Tooltip>
+            </>
           );
       }
     }
@@ -201,7 +403,7 @@ export default function AccountPlanNotices() {
             <Tooltip
               body={<>Please make sure that you have whitelisted 75.2.109.47</>}
             >
-              <div className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1">
+              <Box className={styles["error-notification"]}>
                 <FaExclamationTriangle /> Could not connect to license server
                 {/*license keys specified in env vars that have never connected to the license server successfully won't have any plan and hence aren't in danger of being downgraded */}
                 {license.plan
@@ -209,15 +411,15 @@ export default function AccountPlanNotices() {
                       daysLeftInCache != 1 ? "s" : ""
                     }.`
                   : ""}
-              </div>
+              </Box>
             </Tooltip>
           );
         } else {
           return (
             <Tooltip body={<>{license.lastServerErrorMessage}</>}>
-              <div className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1">
+              <Box className={styles["error-notification"]}>
                 <FaExclamationTriangle /> License server error
-              </div>
+              </Box>
             </Tooltip>
           );
         }
@@ -237,19 +439,19 @@ export default function AccountPlanNotices() {
                 </>
               }
             >
-              <div className="alert alert-warning py-1 px-2 mb-0 d-none d-md-block mr-1">
+              <Box className={styles["warning-notification"]}>
                 <span className="badge badge-warning">
                   {licenseTrialRemaining}
                 </span>{" "}
                 day
                 {licenseTrialRemaining === 1 ? "" : "s"} left in trial
-              </div>
+              </Box>
             </Tooltip>
           );
         } else {
           return (
             <button
-              className="alert alert-warning py-1 px-2 mb-0 d-none d-md-block mr-1"
+              className={styles["warning-notification"]}
               onClick={(e) => {
                 e.preventDefault();
                 router.push("/settings/billing");
@@ -276,13 +478,13 @@ export default function AccountPlanNotices() {
             </>
           }
         >
-          <div className="alert alert-danger py-1 px-2 d-none d-md-block mb-0 mr-1">
-            <FaExclamationTriangle /> license quota exceeded
-          </div>
+          <Box className={styles["error-notification"]}>
+            License seat quota exceeded
+          </Box>
         </Tooltip>
       );
     }
   }
 
-  return null;
+  return usageMessage;
 }
