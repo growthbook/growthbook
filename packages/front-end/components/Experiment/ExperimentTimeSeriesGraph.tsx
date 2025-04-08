@@ -252,6 +252,10 @@ const getTooltipData = (
     }
   }
 
+  // Ensure we use the latest point in case of multiple values in the same coord
+  closestIndex = datapoints.findLastIndex(
+    (_, index) => xCoords[index] === xCoords[closestIndex]
+  );
   const d = datapoints[closestIndex];
   const x = xCoords[closestIndex];
   const y = d.variations
