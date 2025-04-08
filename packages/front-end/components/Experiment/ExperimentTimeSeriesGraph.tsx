@@ -622,11 +622,11 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                   scale={yScale}
                   width={xMax}
                   numTicks={numYTicks}
-                  stroke="var(--border-color-200)"
+                  stroke="var(--slate-a3)"
                 />
                 <GridColumns
                   scale={xScale}
-                  stroke="var(--border-color-200)"
+                  stroke="var(--slate-a3)"
                   height={yMax}
                   numTicks={numXTicks}
                   tickValues={numXTicks < 7 ? allXTicks : undefined}
@@ -707,6 +707,17 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                       </>
                     );
                   })}
+
+                  <line
+                    x1={0}
+                    y1={yScale(0)}
+                    x2={xMax}
+                    y2={yScale(0)}
+                    stroke="var(--slate-a7)"
+                    strokeWidth={1}
+                    strokeDasharray="6,4"
+                    strokeLinecap="butt"
+                  />
                 </Group>
 
                 <AxisBottom
@@ -726,6 +737,10 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                     return format(d as Date, "MMM dd");
                   }}
                   tickValues={numXTicks < 7 ? allXTicks : undefined}
+                  axisLineClassName={timeSeriesStyles.axisLine}
+                  tickLineProps={{
+                    stroke: "var(--slate-a3)",
+                  }}
                 />
                 <AxisLeft
                   scale={yScale}
@@ -744,6 +759,10 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                     textAnchor: "middle",
                   }}
                   labelClassName="h5"
+                  axisLineClassName={timeSeriesStyles.axisLine}
+                  tickLineProps={{
+                    stroke: "var(--slate-a3)",
+                  }}
                 />
               </Group>
             </svg>
