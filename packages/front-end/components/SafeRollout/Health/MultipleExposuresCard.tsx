@@ -1,17 +1,15 @@
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { getMultipleExposureHealthData } from "shared/health";
 import {
   DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
   DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
 } from "shared/constants";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
-import { StatusBadge } from "./StatusBadge";
-import { IssueValue } from "./IssueTags";
+import { StatusBadge } from "@/components/HealthTab/StatusBadge";
+import { useSnapshot } from "../SnapshotProvider";
 
 interface Props {
   totalUsers: number;
-  onNotify: (issue: IssueValue) => void;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -20,7 +18,7 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 });
 const numberFormatter = new Intl.NumberFormat();
 
-export default function MultipleExposuresCard({ totalUsers, onNotify }: Props) {
+export default function MultipleExposuresCard({ totalUsers }: Props) {
   const settings = useOrgSettings();
   const { snapshot } = useSnapshot();
 
@@ -38,12 +36,6 @@ export default function MultipleExposuresCard({ totalUsers, onNotify }: Props) {
       }),
     [snapshot?.multipleExposures, totalUsers, minPercentThreshold]
   );
-
-  useEffect(() => {
-    if (health.status === "unhealthy" && onNotify) {
-      onNotify({ label: "Multiple Exposures", value: "multipleExposures" });
-    }
-  }, [snapshot, health, onNotify]);
 
   if (!snapshot || health.status === "not-enough-traffic") {
     return null;

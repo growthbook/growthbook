@@ -15,7 +15,7 @@ import { useSnapshot } from "./SnapshotProvider";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 
 const CompactResults = dynamic(
-  () => import("@/components/SafeRollout/CompactResults")
+  () => import("@/components/SafeRollout/Results/CompactResults")
 );
 
 const SAFE_ROLLOUT_VARIATIONS = [

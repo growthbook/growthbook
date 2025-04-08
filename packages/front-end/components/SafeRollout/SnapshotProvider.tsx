@@ -1,9 +1,5 @@
 import React, { useState, ReactNode, useContext } from "react";
-import {
-  ExperimentSnapshotAnalysis,
-  ExperimentSnapshotAnalysisSettings,
-  ExperimentSnapshotInterface,
-} from "back-end/types/experiment-snapshot";
+import { ExperimentSnapshotAnalysisSettings } from "back-end/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
 import {
   FeatureInterface,
@@ -22,7 +18,6 @@ const snapshotContext = React.createContext<{
   analysis?: SafeRolloutSnapshotAnalysis | undefined;
   latestAnalysis?: SafeRolloutSnapshotAnalysis | undefined;
   latest?: SafeRolloutSnapshotInterface;
-  //   dimensionless?: ExperimentSnapshotInterface;
   mutateSnapshot: () => void;
   dimension: string;
   analysisSettings?: ExperimentSnapshotAnalysisSettings | null;
@@ -65,7 +60,6 @@ export default function SafeRolloutSnapshotProvider({
         safeRollout,
         feature,
         snapshot: data?.snapshot,
-        // dimensionless: data?.dimensionless ?? data?.snapshot,
         latest: data?.latest,
         analysis: data?.snapshot
           ? getSnapshotAnalysis(data?.snapshot, defaultAnalysisSettings) ??

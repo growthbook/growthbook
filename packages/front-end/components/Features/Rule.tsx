@@ -234,16 +234,12 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         />
                       </Flex>
                     ) : rule.type === "safe-rollout" ? (
-                      <>
+                      <Flex gap="3" align="center">
                         <div>{title}</div>
-                        <RadixLink
-                          href={`/features/${feature.id}/safe-rollouts/${rule.id}`}
-                          size="1"
-                        >
-                          View details
-                          <PiArrowSquareOutFill className="ml-1" />
-                        </RadixLink>
-                      </>
+                        {/* <ExperimentStatusIndicator
+                experimentData={safeRollout as ExperimentData}
+              /> */}
+                      </Flex>
                     ) : (
                       title
                     )}

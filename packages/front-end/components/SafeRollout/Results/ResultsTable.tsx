@@ -51,6 +51,7 @@ import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useResultsTableTooltip } from "@/components/Experiment/ResultsTableTooltip/useResultsTableTooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import StatusColumn from "./StatusColumn";
 
 export type ResultsTableProps = {
   id: string;
@@ -590,7 +591,7 @@ export default function ResultsTable({
                           )}
                         </td>
                         {j > 0 ? (
-                          <PValueColumn
+                          <StatusColumn
                             stats={stats}
                             baseline={baseline}
                             rowResults={rowResults}
