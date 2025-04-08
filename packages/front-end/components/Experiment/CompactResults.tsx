@@ -62,6 +62,7 @@ const CompactResults: FC<{
   queryStatusData?: QueryStatusData;
   reportDate: Date;
   startDate: string;
+  endDate: string;
   isLatestPhase: boolean;
   status: ExperimentStatus;
   goalMetrics: string[];
@@ -95,6 +96,7 @@ const CompactResults: FC<{
   queryStatusData,
   reportDate,
   startDate,
+  endDate,
   isLatestPhase,
   status,
   goalMetrics,
@@ -344,6 +346,7 @@ const CompactResults: FC<{
           dateCreated={reportDate}
           isLatestPhase={isLatestPhase}
           startDate={startDate}
+          endDate={endDate}
           status={status}
           queryStatusData={queryStatusData}
           variations={variations}
@@ -394,6 +397,7 @@ const CompactResults: FC<{
             dateCreated={reportDate}
             isLatestPhase={isLatestPhase}
             startDate={startDate}
+            endDate={endDate}
             status={status}
             queryStatusData={queryStatusData}
             variations={variations}
@@ -432,6 +436,7 @@ const CompactResults: FC<{
             dateCreated={reportDate}
             isLatestPhase={isLatestPhase}
             startDate={startDate}
+            endDate={endDate}
             status={status}
             queryStatusData={queryStatusData}
             variations={variations}

@@ -72,6 +72,7 @@ export type ResultsTableProps = {
   queryStatusData?: QueryStatusData;
   isLatestPhase: boolean;
   startDate: string;
+  endDate: string;
   rows: ExperimentTableRow[];
   dimension?: string;
   tableRowAxis: "metric" | "dimension";
@@ -124,6 +125,7 @@ export default function ResultsTable({
   variationFilter,
   baselineRow = 0,
   startDate,
+  endDate,
   renderLabelColumn,
   dateCreated,
   hasRisk,
@@ -172,11 +174,16 @@ export default function ResultsTable({
   const [tableCellScale, setTableCellScale] = useState(1);
 
   const gb = useGrowthBook<AppFeatures>();
-  const showTimeSeriesButton =
+  let showTimeSeriesButton =
     baselineRow === 0 &&
     tableRowAxis === "metric" &&
     !disableTimeSeriesButton &&
     gb.isOn("experiment-results-timeseries");
+
+  // Disable time series button for stopped experiments before we added this feature (& therefore data)
+  if (status === "stopped" && endDate <= "2025-04-03") {
+    showTimeSeriesButton = false;
+  }
 
   const [visibleTimeSeriesMetricIds, setVisibleTimeSeriesMetricIds] = useState<
     string[]

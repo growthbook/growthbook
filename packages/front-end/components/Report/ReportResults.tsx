@@ -203,6 +203,7 @@ export default function ReportResults({
                 }
                 dimensionId={snapshot.dimension ?? ""}
                 startDate={getValidDate(phaseObj.dateStarted).toISOString()}
+                endDate={getValidDate(phaseObj.dateEnded).toISOString()}
                 isLatestPhase={phase === phases.length - 1}
                 reportDate={snapshot.dateCreated}
                 status={"stopped"}
@@ -230,6 +231,7 @@ export default function ReportResults({
                 queryStatusData={queryStatusData}
                 reportDate={snapshot.dateCreated}
                 startDate={getValidDate(phaseObj.dateStarted).toISOString()}
+                endDate={getValidDate(phaseObj.dateEnded).toISOString()}
                 isLatestPhase={phase === phases.length - 1}
                 status={"stopped"}
                 goalMetrics={report.experimentAnalysisSettings.goalMetrics}

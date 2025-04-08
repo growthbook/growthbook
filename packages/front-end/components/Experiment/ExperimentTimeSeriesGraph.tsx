@@ -141,7 +141,7 @@ const getTooltipContents = (
             const variationColor = getVariationColor(i, true);
             return (
               <TableRow
-                key={i}
+                key={`tooltip_row_${i}`}
                 style={{
                   color: "var(--color-text-high)",
                   fontWeight: 500,
@@ -570,7 +570,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                     // Render a dot at the current x location for each variation
                     return (
                       <div
-                        key={i}
+                        key={`tooltip_dot_open_${i}`}
                         className={styles.positionIndicator}
                         style={{
                           transform: `translate(${tooltipLeft}px, ${
