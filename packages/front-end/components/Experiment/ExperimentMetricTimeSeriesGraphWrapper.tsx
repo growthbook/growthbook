@@ -1,3 +1,4 @@
+import { Flex } from "@radix-ui/themes";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import { ExperimentStatus } from "back-end/src/validators/experiments";
 import { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
@@ -48,12 +49,25 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
     getFactTableById
   );
 
-  const { data } = useApi<{ timeSeries: MetricTimeSeries[] }>(
+  const { data, isLoading, error } = useApi<{ timeSeries: MetricTimeSeries[] }>(
     `/experiments/${experimentId}/time-series?phase=${phase}&metricIds[]=${metric.id}`
   );
 
-  if (!data || !data.timeSeries || data.timeSeries.length === 0) {
-    return null;
+  if (error) {
+    return (
+      <Message>
+        An error occurred while loading the time series data. Please try again
+        later.
+      </Message>
+    );
+  }
+
+  if (isLoading) {
+    return <Message>Loading...</Message>;
+  }
+
+  if (!data || data.timeSeries.length === 0) {
+    return <Message>No time series data available for this metric.</Message>;
   }
 
   // Ensure we always render at least 7 days in case we have less than 7 days worth of data
@@ -169,5 +183,20 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
       statsEngine={statsEngine}
       usesPValueAdjustment={pValueAdjustmentEnabled}
     />
+  );
+}
+
+function Message({ children }: { children: React.ReactNode }) {
+  return (
+    <Flex
+      align="center"
+      height="220px"
+      justify="center"
+      pb="1rem"
+      position="relative"
+      width="100%"
+    >
+      {children}
+    </Flex>
   );
 }
