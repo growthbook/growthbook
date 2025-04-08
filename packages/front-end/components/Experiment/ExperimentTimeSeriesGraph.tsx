@@ -52,7 +52,8 @@ export interface ExperimentTimeSeriesGraphProps {
   datapoints: ExperimentTimeSeriesGraphDataPoint[];
   formatter: (value: number, options?: Intl.NumberFormatOptions) => string;
   formatterOptions?: Intl.NumberFormatOptions;
-  statsEngine?: StatsEngine;
+  statsEngine: StatsEngine;
+  usesPValueAdjustment: boolean;
   hasStats?: boolean;
   maxGapHours?: number;
   cumulative?: boolean;
@@ -80,11 +81,21 @@ const getTooltipContents = (
   variationNames: string[],
   showVariations: boolean[],
   statsEngine: StatsEngine,
+  usesPValueAdjustment: boolean,
   formatter: (value: number, options?: Intl.NumberFormatOptions) => string,
   formatterOptions?: Intl.NumberFormatOptions,
   hasStats: boolean = true
 ) => {
   const { d, yaxis } = data;
+
+  const bayesian = d.variations?.some((v) => v.ctw !== undefined);
+  const frequentist = d.variations?.some((v) => v.p !== undefined);
+  const usedStatsEngine = bayesian
+    ? "bayesian"
+    : frequentist
+    ? "frequentist"
+    : statsEngine;
+
   return (
     <>
       <Text weight="medium">{date(d.d)}</Text>
@@ -93,6 +104,11 @@ const getTooltipContents = (
           {d.helperText}
         </HelperText>
       ) : null}
+      {usesPValueAdjustment && statsEngine === "frequentist" && (
+        <HelperText status="info" my="2" size="md">
+          P-values and CIs not adjusted for multiple comparisons.
+        </HelperText>
+      )}
       <Table size="1">
         <TableHeader>
           <TableRow style={{ color: "var(--color-text-mid)" }}>
@@ -105,7 +121,9 @@ const getTooltipContents = (
               <>
                 <TableColumnHeader justify="center">CI</TableColumnHeader>
                 <TableColumnHeader justify="center">
-                  {statsEngine === "frequentist" ? "P-val" : "Chance to Win"}
+                  {usedStatsEngine === "frequentist"
+                    ? "P-val"
+                    : "Chance to Win"}
                 </TableColumnHeader>
               </>
             )}
@@ -193,7 +211,7 @@ const getTooltipContents = (
                         <TableCell justify="center">
                           {i > 0 && (
                             <>
-                              {statsEngine === "frequentist"
+                              {usedStatsEngine === "frequentist"
                                 ? typeof variation.p === "number" &&
                                   pValueFormatter(variation.p)
                                 : typeof variation.ctw === "number" &&
@@ -270,7 +288,8 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
   formatter,
   formatterOptions,
   showVariations,
-  statsEngine = "bayesian",
+  statsEngine,
+  usesPValueAdjustment,
   hasStats = true,
   maxGapHours = 36,
   cumulative = false,
@@ -523,6 +542,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                       variationNames,
                       showVariations,
                       statsEngine,
+                      usesPValueAdjustment,
                       formatter,
                       formatterOptions,
                       hasStats

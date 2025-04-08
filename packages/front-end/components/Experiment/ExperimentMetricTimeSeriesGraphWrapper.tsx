@@ -1,4 +1,4 @@
-import { DifferenceType } from "back-end/types/stats";
+import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
 import { daysBetween } from "shared/dates";
 import { ExperimentMetricInterface } from "shared/src/experiments";
@@ -9,6 +9,8 @@ import {
   getExperimentMetricFormatter,
   formatPercent,
 } from "@/services/metrics";
+import { getAdjustedCI } from "@/services/experiments";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useSnapshot } from "./SnapshotProvider";
 import ExperimentTimeSeriesGraph, {
   ExperimentTimeSeriesGraphDataPoint,
@@ -19,14 +21,19 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
   metric,
   differenceType,
   showVariations,
+  statsEngine,
+  pValueAdjustmentEnabled,
 }: {
   experimentId: string;
   metric: ExperimentMetricInterface;
   differenceType: DifferenceType;
   showVariations: boolean[];
+  statsEngine: StatsEngine;
+  pValueAdjustmentEnabled: boolean;
 }) {
   const { phase } = useSnapshot();
   const { getFactTableById } = useDefinitions();
+  const pValueThreshold = usePValueThreshold();
   const { data } = useApi<{ timeSeries: MetricTimeSeries[] }>(
     `/experiments/${experimentId}/time-series?phase=${phase}&metricIds[]=${metric.id}`
   );
@@ -55,25 +62,39 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
 
   const dataPoints = [
     ...timeSeries.dataPoints.map((point, idx) => {
+      const variations = point.variations.map((i) => {
+        // compute adjusted CI if we have all the data and adjustment exists
+        // Note: pvalueAdjusted is undefined in the first version of time series
+        // so this will not run until we handle adjustment
+        let adjustedCI: [number, number] | undefined;
+        const pValueAdjusted = i[differenceType]?.pValueAdjusted;
+        const lift = i[differenceType]?.expected;
+        const ci = i[differenceType]?.ci;
+        if (
+          pValueAdjusted !== undefined &&
+          lift !== undefined &&
+          ci !== undefined
+        ) {
+          adjustedCI = getAdjustedCI(pValueAdjusted, lift, pValueThreshold, ci);
+        }
+
+        return {
+          users: i.stats?.users,
+          v: i[differenceType]?.value ?? 0,
+          v_formatted: `${i[differenceType]?.value ?? 0}`,
+          up: i[differenceType]?.expected ?? 0,
+          ctw: i[differenceType]?.chanceToWin ?? undefined,
+          ci: adjustedCI ?? i[differenceType]?.ci ?? undefined,
+          p: i[differenceType]?.pValueAdjusted ?? i[differenceType]?.pValue,
+          // TODO: What do we do with denominator?
+        };
+      });
       const parsedPoint: ExperimentTimeSeriesGraphDataPoint = {
         d: new Date(point.date),
-        variations: point.variations.map((i) => {
-          return {
-            users: i.stats?.users,
-
-            v: i[differenceType]?.value ?? 0,
-            v_formatted: `${i[differenceType]?.value ?? 0}`,
-            up: i[differenceType]?.expected ?? 0,
-            ctw: i[differenceType]?.chanceToWin ?? undefined,
-            ci: i[differenceType]?.ci ?? undefined,
-            // TODO: to create CI adjusted on the front-end
-            p: i[differenceType]?.pValueAdjusted ?? i[differenceType]?.pValue,
-            // TODO: What do we do with denominator?
-          };
-        }),
+        variations: variations,
         helperText:
           idx < lastIndexInvalidConfiguration
-            ? "Settings do not match current version"
+            ? "Analysis or metric settings do not match current version"
             : undefined,
       };
 
@@ -114,6 +135,8 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
               differenceType === "absolute" ? "percentagePoints" : "number"
             )
       }
+      statsEngine={statsEngine}
+      usesPValueAdjustment={pValueAdjustmentEnabled}
     />
   );
 }

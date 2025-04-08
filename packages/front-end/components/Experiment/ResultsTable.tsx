@@ -952,6 +952,10 @@ export default function ResultsTable({
                               metric={row.metric}
                               differenceType={differenceType}
                               showVariations={showVariations}
+                              statsEngine={statsEngine}
+                              pValueAdjustmentEnabled={
+                                !!appliedPValueCorrection && rows.length > 1
+                              }
                             />
                           </div>
                         </div>
