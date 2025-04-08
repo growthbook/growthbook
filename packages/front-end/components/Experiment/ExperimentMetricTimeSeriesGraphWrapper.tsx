@@ -1,4 +1,5 @@
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
+import { ExperimentStatus } from "back-end/src/validators/experiments";
 import { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
 import { daysBetween } from "shared/dates";
 import { ExperimentMetricInterface } from "shared/src/experiments";
@@ -18,6 +19,7 @@ import ExperimentTimeSeriesGraph, {
 
 export default function ExperimentMetricTimeSeriesGraphWrapper({
   experimentId,
+  experimentStatus,
   metric,
   differenceType,
   showVariations,
@@ -25,6 +27,7 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
   pValueAdjustmentEnabled,
 }: {
   experimentId: string;
+  experimentStatus: ExperimentStatus;
   metric: ExperimentMetricInterface;
   differenceType: DifferenceType;
   showVariations: boolean[];
@@ -51,6 +54,13 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
   if (numOfDays < 7) {
     additionalGraphDataPoints.push({
       d: addDays(new Date(lastDate), 7 - numOfDays),
+    });
+  }
+
+  // When experiment is running, always show one additional day at the end of the graph
+  if (experimentStatus === "running" && numOfDays >= 7) {
+    additionalGraphDataPoints.push({
+      d: addDays(new Date(lastDate), 1),
     });
   }
 

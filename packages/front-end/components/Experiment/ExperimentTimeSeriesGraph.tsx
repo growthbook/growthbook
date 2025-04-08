@@ -73,7 +73,7 @@ type TooltipData = {
 };
 
 const height = 220;
-const margin = [15, 15, 30, 80];
+const margin = [15, 30, 30, 80];
 
 // Render the contents of a tooltip
 const getTooltipContents = (

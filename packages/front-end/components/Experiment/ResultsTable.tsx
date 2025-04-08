@@ -27,6 +27,7 @@ import {
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { FaExclamationTriangle } from "react-icons/fa";
+import { Flex } from "@radix-ui/themes";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import {
   ExperimentTableRow,
@@ -625,6 +626,13 @@ export default function ResultsTable({
               };
               let alreadyShownQueryError = false;
 
+              const timeSeriesButton = showTimeSeriesButton ? (
+                <TimeSeriesButton
+                  onClick={() => toggleVisibleTimeSeriesMetricId(row.metric.id)}
+                  isActive={visibleTimeSeriesMetricIds.includes(row.metric.id)}
+                />
+              ) : null;
+
               return (
                 <tbody className={clsx("results-group-row")} key={i}>
                   {!compactResults &&
@@ -636,6 +644,12 @@ export default function ResultsTable({
                       id,
                       domain,
                       ssrPolyfills,
+                      lastColumnContent:
+                        !compactResults && timeSeriesButton !== null ? (
+                          <Flex justify="end" mr="-1">
+                            {timeSeriesButton}
+                          </Flex>
+                        ) : undefined,
                     })}
 
                   {orderedVariations.map((v, j) => {
@@ -717,17 +731,6 @@ export default function ResultsTable({
                       if (!rowResults.hasData) return;
                       leaveRow();
                     };
-
-                    const additionalButton = showTimeSeriesButton ? (
-                      <TimeSeriesButton
-                        onClick={() =>
-                          toggleVisibleTimeSeriesMetricId(row.metric.id)
-                        }
-                        isActive={visibleTimeSeriesMetricIds.includes(
-                          row.metric.id
-                        )}
-                      />
-                    ) : null;
 
                     return (
                       <tr
@@ -929,7 +932,9 @@ export default function ResultsTable({
                             statsEngine={statsEngine}
                             className={resultsHighlightClassname}
                             ssrPolyfills={ssrPolyfills}
-                            additionalButton={additionalButton}
+                            additionalButton={
+                              compactResults ? timeSeriesButton : undefined
+                            }
                           />
                         ) : (
                           <td></td>
@@ -940,15 +945,12 @@ export default function ResultsTable({
 
                   {visibleTimeSeriesMetricIds.includes(row.metric.id) ? (
                     <tr>
-                      <td colSpan={6}>
+                      <td colSpan={6} style={{ padding: 0 }}>
                         <div className={styles.expandAnimation}>
-                          <div
-                            style={{
-                              borderTop: "6px solid var(--black-a1)",
-                            }}
-                          >
+                          <div className={styles.timeSeriesCell}>
                             <ExperimentMetricTimeSeriesGraphWrapper
                               experimentId={id}
+                              experimentStatus={status}
                               metric={row.metric}
                               differenceType={differenceType}
                               showVariations={showVariations}
@@ -994,6 +996,7 @@ function drawEmptyRow({
   id,
   domain,
   ssrPolyfills,
+  lastColumnContent,
 }: {
   key?: number | string;
   className?: string;
@@ -1004,6 +1007,7 @@ function drawEmptyRow({
   id: string;
   domain: [number, number];
   ssrPolyfills?: SSRPolyfills;
+  lastColumnContent?: ReactElement;
 }) {
   return (
     <tr key={key} style={style} className={className}>
@@ -1020,7 +1024,7 @@ function drawEmptyRow({
           ssrPolyfills={ssrPolyfills}
         />
       </td>
-      <td />
+      <td>{lastColumnContent}</td>
     </tr>
   );
 }

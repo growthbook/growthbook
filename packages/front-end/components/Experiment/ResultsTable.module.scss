@@ -1,3 +1,11 @@
+.timeSeriesCell {
+  padding: 0;
+  background-color: var(--slate-a2);
+  border: 1px solid var(--slate-a3);
+  border-top: none;
+  border-bottom-width: 2px;
+}
+
 .expandAnimation {
   overflow: hidden;
   display: block;
