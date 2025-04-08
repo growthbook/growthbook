@@ -28,10 +28,13 @@ import Table, {
 import styles from "./ExperimentDateGraph.module.scss";
 import timeSeriesStyles from "./ExperimentTimeSeriesGraph.module.scss";
 
+type AxisType = "effect"; // TODO: eventually will have variation means
 export interface DataPointVariation {
   v: number;
   v_formatted: string;
-  users?: number; // used for uplift plot tooltips
+  n_formatted: string; // numerator (value) formatted
+  d_formatted: string; // denominator (users or ratio denominator) formatted
+  users: number;
   up?: number; // uplift
   p?: number; // p-value
   ctw?: number; // chance to win
@@ -46,8 +49,9 @@ export interface ExperimentTimeSeriesGraphDataPoint {
 }
 
 export interface ExperimentTimeSeriesGraphProps {
-  yaxis: "effect";
+  yaxis: AxisType;
   variationNames: string[];
+  ratioMetric: boolean;
   label: string;
   datapoints: ExperimentTimeSeriesGraphDataPoint[];
   formatter: (value: number, options?: Intl.NumberFormatOptions) => string;
@@ -69,7 +73,7 @@ type TooltipData = {
   x: number;
   y?: number[];
   d: ExperimentTimeSeriesGraphDataPoint;
-  yaxis: "users" | "effect";
+  yaxis: AxisType;
 };
 
 const height = 220;
@@ -79,6 +83,7 @@ const margin = [15, 30, 30, 80];
 const getTooltipContents = (
   data: TooltipData,
   variationNames: string[],
+  ratioMetric: boolean,
   showVariations: boolean[],
   statsEngine: StatsEngine,
   usesPValueAdjustment: boolean,
@@ -113,8 +118,14 @@ const getTooltipContents = (
         <TableHeader>
           <TableRow style={{ color: "var(--color-text-mid)" }}>
             <TableColumnHeader pl="0">Variation</TableColumnHeader>
-            <TableColumnHeader justify="center">Users</TableColumnHeader>
-
+            <TableColumnHeader justify="center">Numerator</TableColumnHeader>
+            {ratioMetric ? (
+              <TableColumnHeader justify="center">
+                Denominator
+              </TableColumnHeader>
+            ) : (
+              <TableColumnHeader justify="center">Users</TableColumnHeader>
+            )}
             <TableColumnHeader justify="center">Value</TableColumnHeader>
             <TableColumnHeader justify="center">Change</TableColumnHeader>
             {hasStats && (
@@ -168,16 +179,20 @@ const getTooltipContents = (
                     <Text weight="bold">{v}</Text>
                   </Flex>
                 </TableRowHeaderCell>
-                {yaxis === "users" && (
-                  <TableCell justify="center">
-                    {d.variations[i].v_formatted}
-                  </TableCell>
-                )}
                 {yaxis === "effect" && (
                   <>
                     <TableCell justify="center">
-                      {d.variations[i].users}
+                      {d.variations[i].n_formatted}
                     </TableCell>
+                    {ratioMetric ? (
+                      <TableCell justify="center">
+                        {d.variations[i].d_formatted}
+                      </TableCell>
+                    ) : (
+                      <TableCell justify="center">
+                        {d.variations[i].users}
+                      </TableCell>
+                    )}
                     <TableCell justify="center">
                       {d.variations[i].v_formatted}
                     </TableCell>
@@ -238,7 +253,7 @@ const getTooltipData = (
   datapoints: ExperimentTimeSeriesGraphDataPoint[],
   yScale: ScaleLinear<number, number, never>,
   xScale: ScaleTime<number, number, never>,
-  yaxis: "users" | "effect"
+  yaxis: AxisType
 ): TooltipData => {
   // Calculate x-coordinates for all data points
   const xCoords = datapoints.map((d) => xScale(d.d));
@@ -265,24 +280,18 @@ const getTooltipData = (
   return { x, y, d, yaxis };
 };
 
-const getYVal = (
-  variation?: DataPointVariation,
-  yaxis?: "users" | "effect"
-) => {
+const getYVal = (variation?: DataPointVariation, yaxis?: AxisType) => {
   if (!variation) return undefined;
   switch (yaxis) {
-    case "users":
-      return variation.v;
     case "effect":
       return variation.up;
-    default:
-      return variation.v;
   }
 };
 
 const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
   yaxis,
   datapoints: _datapoints,
+  ratioMetric,
   variationNames,
   label,
   formatter,
@@ -540,6 +549,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                     {getTooltipContents(
                       tooltipData,
                       variationNames,
+                      ratioMetric,
                       showVariations,
                       statsEngine,
                       usesPValueAdjustment,
