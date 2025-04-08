@@ -656,9 +656,6 @@ pre {
 .experiment-results,
 .bandit-summary-results {
   tbody {
-    .results-label-row {
-      background-color: var(--slate-a2);
-    }
     tr:not(.noborder) {
       box-shadow: rgba(102, 102, 102, 0.125) 0 -1px inset;
 

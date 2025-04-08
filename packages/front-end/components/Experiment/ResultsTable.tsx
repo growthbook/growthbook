@@ -1012,7 +1012,9 @@ function drawEmptyRow({
 }) {
   return (
     <tr key={key} style={style} className={className}>
-      <td colSpan={4}>{label}</td>
+      <td colSpan={4}>
+        <div style={{ marginTop: "var(--space-3)" }}>{label}</div>
+      </td>
       <td className="graph-cell">
         <AlignedGraph
           id={`${id}_axis`}
