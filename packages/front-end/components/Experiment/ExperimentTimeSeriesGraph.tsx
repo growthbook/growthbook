@@ -9,7 +9,7 @@ import { AxisBottom, AxisLeft } from "@visx/axis";
 import { AreaClosed, LinePath } from "@visx/shape";
 import { curveLinear, curveMonotoneX } from "@visx/curve";
 import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
-import { date, getValidDate } from "shared/dates";
+import { datetime, getValidDate } from "shared/dates";
 import { StatsEngine } from "back-end/types/stats";
 import cloneDeep from "lodash/cloneDeep";
 import { NumberValue, ScaleLinear, ScaleTime } from "d3-scale";
@@ -104,7 +104,7 @@ const getTooltipContents = (
 
   return (
     <>
-      <Text weight="medium">{date(d.d)}</Text>
+      <Text weight="medium">{datetime(d.d)}</Text>
       {d.helperText ? (
         <HelperText status="info" my="2" size="md">
           {d.helperText}
