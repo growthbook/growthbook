@@ -221,12 +221,12 @@ export default function PrerequisiteTargetingField({
 
   return (
     <div className="form-group my-4">
-      <PremiumTooltip
+      {/* <PremiumTooltip
         commercialFeature="prerequisite-targeting"
         premiumText="Prerequisite targeting is available for Enterprise customers"
       >
         <label>Target by Prerequisite Features</label>
-      </PremiumTooltip>
+      </PremiumTooltip> */}
       {value.length > 0 ? (
         <>
           {value.map((v, i) => {
@@ -422,10 +422,10 @@ export default function PrerequisiteTargetingField({
         </>
       ) : (
         <div>
-          <div className="font-italic text-muted mr-3">
+          {/* <div className="font-italic text-muted mr-3">
             No prerequisite targeting applied.
-          </div>
-          <button
+          </div> */}
+          {/* <button
             className="btn p-0 ml-1 mt-2 link-purple font-weight-bold"
             disabled={!hasPrerequisitesCommercialFeature}
             onClick={(e) => {
@@ -441,7 +441,7 @@ export default function PrerequisiteTargetingField({
           >
             <GBAddCircle className="mr-1" />
             Add prerequisite targeting
-          </button>
+          </button> */}
         </div>
       )}
     </div>

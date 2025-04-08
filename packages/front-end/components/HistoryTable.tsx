@@ -188,7 +188,7 @@ const HistoryTable: FC<{
     <>
       <div className="row align-items-center">
         <div className="col-auto">
-          <h4>Audit Log</h4>
+          <h4>审计日志</h4>
         </div>
         <div className="col-auto ml-auto">
           <Button
@@ -197,18 +197,18 @@ const HistoryTable: FC<{
               await mutate();
             }}
           >
-            <BsArrowRepeat /> refresh
+            <BsArrowRepeat /> 刷新
           </Button>
         </div>
       </div>
       <table className="table appbox bg-light">
         <thead>
           <tr>
-            <th>Date</th>
-            {showType && <th>Type</th>}
-            {showName && <th>Name</th>}
-            <th>User</th>
-            <th>Event</th>
+            <th>日期</th>
+            {showType && <th>类型</th>}
+            {showName && <th>名称</th>}
+            <th>用户</th>
+            <th>事件</th>
             <th></th>
           </tr>
         </thead>

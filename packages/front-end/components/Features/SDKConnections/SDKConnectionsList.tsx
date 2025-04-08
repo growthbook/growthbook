@@ -201,11 +201,11 @@ export default function SDKConnectionsList() {
           <thead>
             <tr>
               <th style={{ width: 25 }}></th>
-              <th>Name</th>
+              <th>名称</th>
               {projects.length > 0 && <th>Projects</th>}
-              <th>Environment</th>
-              <th className="text-center">Supported Features</th>
-              <th>Language</th>
+              <th>环境</th>
+              <th className="text-center">支持Features</th>
+              <th>语言</th>
               <th style={{ width: 25 }}></th>
             </tr>
           </thead>

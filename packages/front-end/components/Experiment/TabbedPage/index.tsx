@@ -204,7 +204,7 @@ export default function TabbedPage({
         <Modal
           trackingEventModalType=""
           open={true}
-          header="Audit Log"
+          header="审计日志"
           close={() => setAuditModal(false)}
           size="lg"
           closeCta="关闭"
@@ -216,7 +216,7 @@ export default function TabbedPage({
         <Modal
           trackingEventModalType=""
           open={true}
-          header="Experiment Watchers"
+          header="实验观察员"
           close={() => setWatchersModal(false)}
           closeCta="关闭"
         >

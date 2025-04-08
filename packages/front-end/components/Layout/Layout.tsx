@@ -32,13 +32,13 @@ import { usePageHead } from "./PageHead";
 
 // 将侧边栏链接属性数组中的英文名称替换为中文
 const navlinks: SidebarLinkProps[] = [
-  {
-    name: "开始使用",
-    href: "/getstarted",
-    Icon: BsLightbulb,
-    path: /^getstarted/,
-    className: styles.first,
-  },
+  // {
+  //   name: "开始使用",
+  //   href: "/getstarted",
+  //   Icon: BsLightbulb,
+  //   path: /^getstarted/,
+  //   className: styles.first,
+  // },
   {
     name: "A/B实验",
     href: "/experiments",
@@ -129,21 +129,21 @@ const navlinks: SidebarLinkProps[] = [
         href: "/sdks",
         path: /^sdks/,
       },
-      {
-        name: "属性",
-        href: "/attributes",
-        path: /^attributes/,
-      },
+      // {
+      //   name: "属性",
+      //   href: "/attributes",
+      //   path: /^attributes/,
+      // },
       // {
       //   name: "命名空间",
       //   href: "/namespaces",
       //   path: /^namespaces/,
       // },
-      {
-        name: "环境",
-        href: "/environments",
-        path: /^environments/,
-      },
+      // {
+      //   name: "环境",
+      //   href: "/environments",
+      //   path: /^environments/,
+      // },
       // {
       //   name: "已保存组",
       //   href: "/saved-groups",

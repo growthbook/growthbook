@@ -178,7 +178,7 @@ const ExperimentPage = (): ReactElement => {
         <EditProjectForm
           label={
             <>
-              Projects{" "}
+              项目{" "}
               <Tooltip
                 body={
                   "下面的下拉菜单已进行筛选，仅包含您有权更新实验的项目"

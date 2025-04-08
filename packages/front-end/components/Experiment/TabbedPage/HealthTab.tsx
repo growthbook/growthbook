@@ -20,8 +20,7 @@ import {
   HealthTabOnboardingModal,
 } from "./HealthTabOnboardingModal";
 
-const noExposureQueryMessage =
-  "The health tab only works when your experiment has an Exposure Assignment Table. On the Results tab, click Analysis Settings and ensure you have selected the correct Exposure Assignment Table.";
+const noExposureQueryMessage = "只有当你的实验有一个曝光分配表时，健康标签页才会起作用。在结果标签页上，点击“分析设置”，并确保你选择了正确的曝光分配表。";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -114,8 +113,8 @@ export default function HealthTab({
       <Callout status="info" mt="3">
         <div className="d-flex">
           {runHealthTrafficQuery === undefined
-            ? "Welcome to the new health tab! You can use this tab to view experiment traffic over time, perform balance checks, and check for multiple exposures. To get started, "
-            : "Health queries are disabled in your Organization Settings. To enable them and set up the health tab, "}
+            ? "欢迎来到新的健康标签页！你可以使用此标签页查看实验流量随时间的变化、执行平衡检查以及检查多次曝光情况。要开始使用，"
+            : "在你的组织设置中，健康查询已被禁用。要启用它们并设置健康标签页，"}
           {hasPermissionToConfigHealthTag ? (
             <>
               click the button on the right.
@@ -129,7 +128,7 @@ export default function HealthTab({
                   setSetupModalOpen(true);
                 }}
               >
-                Set up Health Tab
+                设置健康标签页
               </Button>
               {setupModalOpen ? (
                 <HealthTabOnboardingModal
@@ -143,7 +142,7 @@ export default function HealthTab({
               ) : null}
             </>
           ) : (
-            "ask an admin in your organization to navigate to any experiment health tab and follow the onboarding process."
+            "请你组织中的管理员导航到任何实验的健康标签页，并按照引导流程进行操作。"
           )}
         </div>
       </Callout>
@@ -162,20 +161,19 @@ export default function HealthTab({
     return (
       <Callout status="error" mt="3">
         <div className="mb-2">
-          Please update your{" "}
+          请更新你的{" "}
           <Link href={`/datasources/${experiment.datasource}`}>
-            Datasource Settings
+            数据源设置
           </Link>{" "}
-          to return fewer dimension slices per dimension or select fewer
-          dimensions to use in traffic breakdowns.
+          ，以减少每个维度返回的维度切片数量，或者选择较少的维度用于流量细分。
         </div>
 
         <div>
-          For more advice, see the documentation on the Health Tab{" "}
+          如需更多建议，请参阅健康标签页的文档，网址为{" "}
           <a href="https://docs.growthbook.io/app/experiment-results#adding-dimensions-to-health-tab">
-            here
+            此处
           </a>
-          .
+          。
         </div>
       </Callout>
     );
@@ -184,33 +182,34 @@ export default function HealthTab({
   if (snapshot?.health?.traffic.error === "NO_ROWS_IN_UNIT_QUERY") {
     return (
       <Callout status="info" mt="3">
-        No data found. It is likely there are no units in your experiment yet.
+        未找到数据。很可能你的实验中目前还没有单元数据。
       </Callout>
     );
   }
 
+  // 如果快照的健康流量数据存在其他错误
   if (snapshot?.health?.traffic.error) {
     return (
       <Callout status="info" mt="3">
-        There was an error running the query for health tab:{" "}
-        {snapshot?.health?.traffic.error}.
+        运行健康标签页的查询时出现错误：{" "}
+        {snapshot?.health?.traffic.error}。
       </Callout>
     );
   }
 
+  // 如果快照的健康流量数据中没有曝光日期维度数据
   if (!snapshot?.health?.traffic.dimension?.dim_exposure_date) {
     if (loading) {
       return (
         <Callout status="info" mt="3">
-          <LoadingSpinner /> Snapshot refreshing, health data loading...
+          <LoadingSpinner /> 快照正在刷新，健康数据正在加载...
         </Callout>
       );
     }
     if (!datasource || !exposureQuery) {
       return (
         <Callout status="info" mt="3">
-          {noExposureQueryMessage} Then, next time you update results, the
-          health tab will be available.
+          {noExposureQueryMessage} 然后，下次你更新结果时，健康标签页将可用。
         </Callout>
       );
     }
@@ -218,34 +217,37 @@ export default function HealthTab({
       if (experiment.status === "draft") {
         return (
           <Callout status="info" mt="3">
-            Start the Bandit to see health data.
+            启动多臂老虎机实验以查看健康数据。
           </Callout>
         );
       } else {
         return (
           <Callout status="info" mt="3">
-            No updates yet. Traffic and health results will appear after a
-            successful refresh of the results.
+            尚未有更新。成功刷新结果后，将显示流量和健康结果。
           </Callout>
         );
       }
     }
     return (
       <Callout status="info" mt="3">
-        Please return to the results page and run a query to see health data.
+        请返回结果页面并运行查询以查看健康数据。
       </Callout>
     );
   }
 
+  // 计算总用户数
   const totalUsers = snapshot?.health?.traffic?.overall?.variationUnits?.reduce(
     (acc, a) => acc + a,
     0
   );
 
+  // 获取流量数据
   const traffic = snapshot.health.traffic;
 
+  // 获取当前阶段的对象
   const phaseObj = experiment.phases?.[phase];
 
+  // 处理实验变体数据
   const variations = experiment.variations.map((v, i) => {
     return {
       id: v.key || i + "",

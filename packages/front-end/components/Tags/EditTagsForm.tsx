@@ -24,7 +24,7 @@ const EditTagsForm: FC<{
     <Modal
       trackingEventModalType="edit-tags-form"
       trackingEventModalSource={source}
-      header={"Edit Tags"}
+      header={"编辑标签"}
       open={true}
       close={cancel}
       submit={form.handleSubmit(async (data) => {
@@ -37,7 +37,7 @@ const EditTagsForm: FC<{
       })}
       cta="保存"
     >
-      <label>Tags</label>
+      <label>标签</label>
       <TagsInput
         value={form.watch("tags")}
         onChange={(tags) => form.setValue("tags", tags)}

@@ -16,10 +16,10 @@ const getColorClass = (results: Results) => {
 };
 
 const displayName = {
-  won: "won",
-  lost: "lost",
-  dnf: "did not finish",
-  inconclusive: "inconclusive",
+  won: "获胜",
+  lost: "失败",
+  dnf: "未完成",
+  inconclusive: "无结论",
 };
 
 const ResultsIndicator: FC<{

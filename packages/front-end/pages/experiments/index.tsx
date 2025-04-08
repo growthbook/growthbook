@@ -435,12 +435,12 @@ const ExperimentsPage = (): React.ReactElement => {
                   <TagsFilter filter={tagsFilter} items={items} />
                 </div>
                 <div className="col-auto">
-                  <Link
+                  {/* <Link
                     href="https://docs.growthbook.io/using/growthbook-best-practices#syntax-search"
                     target="_blank"
-                  >
-                    <Tooltip body={searchTermFilterExplainations}></Tooltip>
-                  </Link>
+                  > */}
+                  <Tooltip body={searchTermFilterExplainations}></Tooltip>
+                  {/* </Link> */}
                 </div>
                 <div className="col-auto ml-auto">
                   <Toggle

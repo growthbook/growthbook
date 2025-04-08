@@ -230,7 +230,7 @@ export default function EditTargetingModal({
     <PagedModal
       trackingEventModalType="make-changes"
       close={close}
-      header={`Make ${isBandit ? "多臂老虎机" : "实验"}变更`}
+      header={`进行${isBandit ? "多臂老虎机" : "实验"}变更`}
       submit={onSubmit}
       cta={cta}
       ctaEnabled={ctaEnabled && canSubmit}

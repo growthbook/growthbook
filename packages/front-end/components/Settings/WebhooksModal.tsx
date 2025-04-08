@@ -82,9 +82,8 @@ function getWebhookFromType(
       };
     case "vercel":
       return {
-        endpoint: `https://api.vercel.com/v1/edge-config/${
-          inputs.edgeConfigId
-        }/items${inputs.teamId ? `?teamId=${inputs.teamId}` : ""}`,
+        endpoint: `https://api.vercel.com/v1/edge-config/${inputs.edgeConfigId
+          }/items${inputs.teamId ? `?teamId=${inputs.teamId}` : ""}`,
         httpMethod: "PATCH",
         headers: JSON.stringify({
           Authorization: `Bearer ${inputs.apiToken}`,
@@ -130,8 +129,8 @@ export function CreateSDKWebhookModal({
     language === "edge-cloudflare"
       ? "cloudflare"
       : language === "edge-fastly"
-      ? "fastly"
-      : "http"
+        ? "fastly"
+        : "http"
   );
 
   const [validHeaders, setValidHeaders] = useState(true);
@@ -146,7 +145,7 @@ export function CreateSDKWebhookModal({
 
   const form = useForm<SdkWebhookInputs>({
     defaultValues: {
-      name: "My Webhook",
+      name: "我的Webhook",
       accountId: "",
       namespaceId: "",
       key: "gb_payload",
@@ -165,7 +164,7 @@ export function CreateSDKWebhookModal({
     <Modal
       trackingEventModalType=""
       close={close}
-      header="Create New SDK Webhook"
+      header="创建SDK Webhook"
       open={true}
       size="lg"
       submit={form.handleSubmit(async (inputs) => {
@@ -196,10 +195,10 @@ export function CreateSDKWebhookModal({
         onSave();
       })}
     >
-      <Field label="Display Name" required {...form.register("name")} />
+      <Field label="显示名称" required {...form.register("name")} />
 
       <SelectField
-        label="Webhook Type"
+        label="Webhook类型"
         required
         value={webhookType || ""}
         onChange={(v) => {
@@ -299,7 +298,7 @@ export function CreateSDKWebhookModal({
             {...form.register("endpoint")}
             helpText={
               <>
-                Must accept <code>{form.watch("httpMethod")}</code> requests
+                必须为<code>{form.watch("httpMethod")}</code>请求
                 {isCloud() ? (
                   <>
                     {" "}
@@ -329,7 +328,7 @@ export function CreateSDKWebhookModal({
           )}
 
           <SelectField
-            label="Method"
+            label="方法"
             required
             placeholder="POST"
             value={form.watch("httpMethod")}
@@ -356,7 +355,7 @@ export function CreateSDKWebhookModal({
                 {!validHeaders ? (
                   <div className="alert alert-danger mr-auto">Invalid JSON</div>
                 ) : (
-                  <div>JSON format for headers.</div>
+                  <div>JSON格式.</div>
                 )}
               </>
             }
@@ -366,20 +365,20 @@ export function CreateSDKWebhookModal({
           {form.watch("httpMethod") !== "GET" && (
             <>
               <SelectField
-                label="Payload Format"
+                label="负载格式"
                 value={form.watch("payloadFormat")}
                 onChange={(v: WebhookPayloadFormat) =>
                   form.setValue("payloadFormat", v)
                 }
                 options={[
-                  { label: "Standard", value: "standard" },
+                  { label: "标准", value: "standard" },
                   {
-                    label: "Standard (no SDK Payload)",
-                    value: "standard-no-payload",
+                    label: "标准（无 SDK 有效负载）",
+                    value: "standard-no-payload"
                   },
-                  { label: "SDK Payload only", value: "sdkPayload" },
-                  { label: "Vercel Edge Config", value: "edgeConfig" },
-                  { label: "None", value: "none" },
+                  { label: "仅 SDK 有效负载", value: "sdkPayload" },
+                  { label: "Vercel 边缘配置", value: "edgeConfig" },
+                  { label: "无", value: "none" }
                 ]}
                 formatOptionLabel={({ value, label }) => {
                   return (
@@ -390,7 +389,7 @@ export function CreateSDKWebhookModal({
                           className="text-muted uppercase-title float-right position-relative"
                           style={{ top: 3 }}
                         >
-                          default
+                          草稿
                         </span>
                       )}
                     </span>
@@ -398,11 +397,11 @@ export function CreateSDKWebhookModal({
                 }}
                 disabled={form.watch("httpMethod") === "GET"}
                 sort={false}
-                helpText={
-                  <DocLink docSection="sdkWebhooks#payload-format">
-                    Learn More <FaExternalLinkAlt />
-                  </DocLink>
-                }
+                // helpText={
+                //   <DocLink docSection="sdkWebhooks#payload-format">
+                //     Learn More <FaExternalLinkAlt />
+                //   </DocLink>
+                // }
                 key="http_payload_format"
               />
 
@@ -439,7 +438,7 @@ const EditSDKWebhooksModal: FC<{
 
   const form = useForm({
     defaultValues: {
-      name: current.name || "My Webhook",
+      name: current.name || "我的Webhook",
       endpoint: current.endpoint || "",
       useSdkMode: true,
       payloadFormat: current?.payloadFormat || "standard",
@@ -542,7 +541,7 @@ const EditSDKWebhooksModal: FC<{
         {...form.register("endpoint")}
         helpText={
           <>
-            Must accept <code>{form.watch("httpMethod")}</code> requests
+            必须为<code>{form.watch("httpMethod")}</code>请求
             {isCloud() ? (
               <>
                 {" "}
@@ -592,14 +591,14 @@ const EditSDKWebhooksModal: FC<{
               form.setValue("payloadFormat", v)
             }
             options={[
-              { label: "Standard", value: "standard" },
+              { label: "标准", value: "standard" },
               {
-                label: "Standard (no SDK Payload)",
+                label: "标准（无 SDK 负载）",
                 value: "standard-no-payload",
               },
-              { label: "SDK Payload only", value: "sdkPayload" },
-              { label: "Vercel Edge Config", value: "edgeConfig" },
-              { label: "None", value: "none" },
+              { label: "仅 SDK 负载", value: "sdkPayload" },
+              { label: "Vercel 边缘配置", value: "edgeConfig" },
+              { label: "无", value: "none" },
             ]}
             formatOptionLabel={({ value, label }) => {
               return (
@@ -618,11 +617,11 @@ const EditSDKWebhooksModal: FC<{
             }}
             disabled={form.watch("httpMethod") === "GET"}
             sort={false}
-            helpText={
-              <DocLink docSection="sdkWebhooks#payload-format">
-                Learn More <FaExternalLinkAlt />
-              </DocLink>
-            }
+            // helpText={
+            //   <DocLink docSection="sdkWebhooks#payload-format">
+            //     Learn More <FaExternalLinkAlt />
+            //   </DocLink>
+            // }
           />
 
           {form.watch("payloadFormat") === "edgeConfig" && (

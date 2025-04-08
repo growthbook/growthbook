@@ -18,7 +18,7 @@ export const ICON_PROPERTIES = {
 
 export const LINKED_CHANGE_CONTAINER_PROPERTIES = {
   "feature-flag": {
-    header: "Linked Features",
+    header: "关联Features",
     addButtonCopy: "Add Feature Flag",
   },
   "visual-editor": {

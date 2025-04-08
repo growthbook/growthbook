@@ -37,7 +37,7 @@ const ReportsPage = (): React.ReactElement => {
     (r) => ({
       userName: r.userId ? getUserDisplay(r.userId) : "",
       experimentName: r.experimentId ? experimentNames.get(r.experimentId) : "",
-      status: r.status === "private" ? "private" : "published",
+      status: r.status === "private" ? "私有" : "已发布",
     }),
     [experimentNames]
   );
@@ -48,8 +48,8 @@ const ReportsPage = (): React.ReactElement => {
         if (onlyMyReports) {
           return r.userId === userId;
         } else {
-          // when showing 'all' show all your reports, but only published reports from everyone else (or if status isn't set because it was before the change)
-          return r.userId === userId || r?.status === "published" || !r?.status;
+          // 当显示 '全部' 时，显示你所有的报告，但只显示其他人已发布的报告（或者如果状态未设置，因为是在更改之前）
+          return r.userId === userId || r?.status === "已发布" || !r?.status;
         }
       });
     },
@@ -67,11 +67,11 @@ const ReportsPage = (): React.ReactElement => {
     defaultSortField: "dateUpdated",
     defaultSortDir: -1,
     searchFields: [
-      "title",
-      "description",
-      "experimentName",
-      "userName",
-      "dateUpdated",
+      "标题",
+      "描述",
+      "实验名称",
+      "创建者",
+      "最后更新时间",
     ],
     filterResults,
     pageSize: 20,
@@ -80,7 +80,7 @@ const ReportsPage = (): React.ReactElement => {
   if (error) {
     return (
       <div className="alert alert-danger">
-        An error occurred: {error.message}
+        发生错误: {error.message}
       </div>
     );
   }
@@ -91,29 +91,25 @@ const ReportsPage = (): React.ReactElement => {
   if (!reports.length) {
     return (
       <div className="container p-4">
-        <h1>Reports</h1>
+        <h1>报告</h1>
         <p>
-          A report is an ad-hoc analysis of an experiment. Use them to explore
-          results in an isolated environment without affecting the main
-          experiment.
+          报告是对实验的临时分析。使用它们可以在不影响主要实验的独立环境中探索结果。
         </p>
 
-        <p>To create your first report:</p>
+        <p>要创建你的第一份报告：</p>
         <ol>
-          <li>Go to an experiment</li>
-          <li>Click on the Results tab</li>
-          <li>Open the more menu (3 dots next to the Update button)</li>
-          <li>Select &quot;ad-hoc report&quot;</li>
+          <li>转到一个实验</li>
+          <li>点击结果标签</li>
+          <li>打开更多菜单（更新按钮旁边的三个点）</li>
+          <li>选择“临时报告”</li>
         </ol>
 
         <Link href="/experiments" className="btn btn-primary mb-2">
-          Go to Experiments
+          转到实验
         </Link>
 
         <p>
-          <em>Note:</em> you will not see the &quot;ad-hoc report&quot; option
-          if your experiment does not have results yet or is not hooked up to a
-          valid data source.
+          <em>注意:</em> 如果你的实验还没有结果或者没有连接到有效的数据源，你将看不到“临时报告”选项。
         </p>
       </div>
     );
@@ -124,35 +120,35 @@ const ReportsPage = (): React.ReactElement => {
       <div className="filters md-form row mb-3 align-items-center">
         <div className="col-auto">
           <h3>
-            Custom Reports{" "}
+            自定义报告{" "}
             <small className="text-muted">
-              <Tooltip body="Reports are used by data teams to explore experiment results" />
+              <Tooltip body="数据团队使用报告来探索实验结果" />
             </small>
           </h3>
         </div>
         <div className="col-lg-3 col-md-4 col-6">
-          <Field placeholder="Search..." type="search" {...searchInputProps} />
+          <Field placeholder="搜索..." type="search" {...searchInputProps} />
         </div>
         <div className="col-auto">
           <Toggle
             id={"onlymine"}
             value={onlyMyReports}
-            label={"onlymine"}
+            label={"仅显示我的报告"}
             setValue={setOnlyMyReports}
           />
-          Show only my reports
+          仅显示我的报告
         </div>
         <div style={{ flex: 1 }} />
       </div>
       <table className="table appbox gbtable table-hover">
         <thead>
           <tr>
-            <SortableTH field="title">Title</SortableTH>
-            <SortableTH field="description">Description</SortableTH>
-            <SortableTH field="status">Status</SortableTH>
-            <SortableTH field="experimentName">Experiment</SortableTH>
-            <SortableTH field="userName">Created By</SortableTH>
-            <SortableTH field="dateUpdated">Last Updated</SortableTH>
+            <SortableTH field="title">标题</SortableTH>
+            <SortableTH field="description">描述</SortableTH>
+            <SortableTH field="status">状态</SortableTH>
+            <SortableTH field="experimentName">实验</SortableTH>
+            <SortableTH field="userName">创建者</SortableTH>
+            <SortableTH field="dateUpdated">最后更新时间</SortableTH>
           </tr>
         </thead>
         <tbody>
@@ -200,10 +196,10 @@ const ReportsPage = (): React.ReactElement => {
             <tr>
               <td colSpan={6} align={"center"}>
                 {isFiltered
-                  ? "No matching reports"
+                  ? "没有匹配的报告"
                   : onlyMyReports
-                  ? "You have no reports"
-                  : "No reports"}
+                  ? "你没有报告"
+                  : "没有报告"}
               </td>
             </tr>
           )}
@@ -214,4 +210,4 @@ const ReportsPage = (): React.ReactElement => {
   );
 };
 
-export default ReportsPage;
+export default ReportsPage;    

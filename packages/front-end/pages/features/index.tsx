@@ -173,12 +173,12 @@ export default function FeaturesPage() {
               </div>
             )}
             <div className="col-auto">
-              <Link
+              {/* <Link
                 href="https://docs.growthbook.io/using/growthbook-best-practices#syntax-search"
                 target="_blank"
-              >
-                <Tooltip body={searchTermFilterExplainations}></Tooltip>
-              </Link>
+              > */}
+              <Tooltip body={searchTermFilterExplainations}></Tooltip>
+              {/* </Link> */}
             </div>
           </div>
 
@@ -687,10 +687,7 @@ export default function FeaturesPage() {
           <Tab id="all-features" display="所有Feature" padding={false}>
             {renderFeaturesTable()}
             <Callout status="info" mt="5" mb="3">
-              Looking for <strong>Attributes</strong>,{" "}
-              <strong>Namespaces</strong>, <strong>Environments</strong>, or{" "}
-              <strong>Saved Groups</strong>? They have moved to the{" "}
-              <Link href="/sdks">SDK Configuration</Link> tab.
+              正在寻找 <strong>属性</strong>、<strong>命名空间</strong>、<strong>环境</strong> 或 <strong>保存的组</strong> 吗？它们已移至 <Link href="/sdks">SDK 配置</Link> 标签页。
             </Callout>
           </Tab>
           <Tab id="drafts" display="草稿" padding={false} lazy={true}>
