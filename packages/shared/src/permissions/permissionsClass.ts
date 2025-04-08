@@ -371,6 +371,18 @@ export class Permissions {
     );
   };
 
+  public canCreateDecisionCriteria = (): boolean => {
+    return this.checkGlobalPermission("manageDecisionCriteria");
+  };
+
+  public canUpdateDecisionCriteria = (): boolean => {
+    return this.checkGlobalPermission("manageDecisionCriteria");
+  };
+
+  public canDeleteDecisionCriteria = (): boolean => {
+    return this.checkGlobalPermission("manageDecisionCriteria");
+  };
+
   // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
   public canViewReportModal = (project?: string): boolean => {
     return this.checkProjectFilterPermission(
