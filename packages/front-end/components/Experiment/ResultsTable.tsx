@@ -9,7 +9,6 @@ import {
   useState,
 } from "react";
 import { CSSTransition } from "react-transition-group";
-import { Tooltip as RadixTooltip } from "@radix-ui/themes";
 import { RxInfoCircled } from "react-icons/rx";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import {
@@ -720,16 +719,14 @@ export default function ResultsTable({
                     };
 
                     const additionalButton = showTimeSeriesButton ? (
-                      <RadixTooltip content="Explore time series for this metric">
-                        <TimeSeriesButton
-                          onClick={() =>
-                            toggleVisibleTimeSeriesMetricId(row.metric.id)
-                          }
-                          isActive={visibleTimeSeriesMetricIds.includes(
-                            row.metric.id
-                          )}
-                        />
-                      </RadixTooltip>
+                      <TimeSeriesButton
+                        onClick={() =>
+                          toggleVisibleTimeSeriesMetricId(row.metric.id)
+                        }
+                        isActive={visibleTimeSeriesMetricIds.includes(
+                          row.metric.id
+                        )}
+                      />
                     ) : null;
 
                     return (
