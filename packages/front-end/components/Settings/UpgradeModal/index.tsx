@@ -640,7 +640,6 @@ export default function UpgradeModal({
         <StripeProvider initialClientSecret={cloudProUpgradeSetup.clientSecret}>
           <CloudProUpgradeModal
             close={() => setCloudProUpgradeSetup(null)}
-            numOfCurrentMembers={numOfCurrentMembers}
             closeParent={close}
           />
         </StripeProvider>
@@ -795,7 +794,7 @@ export default function UpgradeModal({
                           Upgrade Now
                         </button>
                       </div>
-                      {freeTrialAvailable && (
+                      {freeTrialAvailable && !isCloud() && (
                         <div className="mb-4 text-center">
                           or, start a{" "}
                           {isAtLeastPro ? (

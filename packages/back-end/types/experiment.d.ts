@@ -3,6 +3,8 @@ import {
   Variation,
   MetricOverride,
   ExperimentInterface,
+  BanditResult,
+  BanditEvent,
 } from "back-end/src/validators/experiments";
 import { ExperimentRefVariation, FeatureInterface } from "./feature";
 
@@ -10,6 +12,7 @@ export {
   AttributionModel,
   ImplementationType,
   MetricOverride,
+  BanditResult,
   ExperimentStatus,
   ExperimentType,
   ExperimentPhase,
@@ -30,11 +33,34 @@ export {
   UpdateTemplateProps,
 } from "back-end/src/routers/experiment-template/template.validators";
 
+export {
+  DecisionCriteriaInterface,
+  DecisionCriteriaData,
+  DecisionCriteriaAction,
+  DecisionCriteriaCondition,
+  DecisionCriteriaRule,
+} from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.validators";
+
 export type DecisionFrameworkExperimentRecommendationStatus =
   | { status: "days-left"; daysLeft: number }
-  | { status: "ship-now" }
-  | { status: "rollback-now" }
-  | { status: "ready-for-review" };
+  | {
+      status: "ship-now";
+      variationIds: string[];
+      powerReached: boolean;
+      sequentialUsed: boolean;
+    }
+  | {
+      status: "rollback-now";
+      variationIds: string[];
+      powerReached: boolean;
+      sequentialUsed: boolean;
+    }
+  | {
+      status: "ready-for-review";
+      variationIds: string[];
+      powerReached: boolean;
+      sequentialUsed: boolean;
+    };
 
 export type ExperimentUnhealthyData = {
   // if key exists, the status is unhealthy
@@ -76,11 +102,20 @@ export interface VariationWithIndex extends Variation {
   index: number;
 }
 
+export type LegacyBanditResult = BanditResult & {
+  srm?: number;
+};
+
+export type LegacyBanditEvent = BanditEvent & {
+  banditResult: LegacyBanditResult;
+};
+
 export interface LegacyExperimentPhase extends ExperimentPhase {
   /** @deprecated */
   phase?: ExperimentPhaseType;
   /** @deprecated */
   groups?: string[];
+  banditEvents?: LegacyBanditEvent[];
 }
 
 export type ExperimentPhaseStringDates = Omit<

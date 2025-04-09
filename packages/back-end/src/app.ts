@@ -8,6 +8,7 @@ import asyncHandler from "express-async-handler";
 import compression from "compression";
 import * as Sentry from "@sentry/node";
 import { populationDataRouter } from "back-end/src/routers/population-data/population-data.router";
+import decisionCriteriaRouter from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.router";
 import { usingFileConfig } from "./init/config";
 import { AuthRequest } from "./types/AuthRequest";
 import {
@@ -406,6 +407,7 @@ if (IS_CLOUD) {
   );
   app.post("/subscription/cancel", subscriptionController.cancelSubscription);
   app.get("/subscription/portal-url", subscriptionController.getPortalUrl);
+  app.get("/billing/usage", subscriptionController.getUsage);
 }
 app.post("/subscription/new", subscriptionController.postNewProSubscription);
 app.post(
@@ -416,9 +418,6 @@ app.post(
   "/subscription/success",
   subscriptionController.postSubscriptionSuccess
 );
-
-app.get("/billing/usage", subscriptionController.getUsage);
-app.get("/billing/quote", subscriptionController.getQuote);
 
 app.get("/queries/:ids", datasourcesController.getQueries);
 app.post("/query/test", datasourcesController.testLimitedQuery);
@@ -604,6 +603,12 @@ app.delete(
   experimentsController.deleteVisualChangeset
 );
 
+// Time Series
+app.get(
+  "/experiments/:id/time-series",
+  experimentsController.getExperimentTimeSeries
+);
+
 // Visual editor auth
 app.get(
   "/visual-editor/key",
@@ -612,6 +617,9 @@ app.get(
 
 // Experiment Templates
 app.use("/templates", templateRouter);
+
+// Decision Criteria
+app.use("/decision-criteria", decisionCriteriaRouter);
 
 // URL Redirects
 app.use("/url-redirects", urlRedirectRouter);

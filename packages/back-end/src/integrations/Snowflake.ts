@@ -55,6 +55,9 @@ export default class Snowflake extends SqlIntegration {
   hllCardinality(col: string): string {
     return `HLL_ESTIMATE(${col})`;
   }
+  extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
+    return `PARSE_JSON(${jsonCol}):${path}::${isNumeric ? "float" : "string"}`;
+  }
   getInformationSchemaWhereClause(): string {
     return "table_schema NOT IN ('INFORMATION_SCHEMA')";
   }
