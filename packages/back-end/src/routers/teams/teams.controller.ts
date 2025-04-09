@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import { areProjectRolesValid, isRoleValid } from "shared/permissions";
-import { orgHasPremiumFeature } from "shared/enterprise";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { TeamInterface } from "back-end/types/team";
 import {
   createTeam,

@@ -1,17 +1,15 @@
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   FeatureInterface,
   SafeRolloutRule,
 } from "back-end/src/validators/features";
-import { Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import TrafficCard from "../HealthTab/TrafficCard";
 import SRMCard from "../HealthTab/SRMCard";
 import Callout from "../Radix/Callout";
-import SafeRolloutSummary from "../Features/SafeRolloutSummary";
-import Frame from "../Radix/Frame";
 import { useSnapshot } from "./SnapshotProvider";
 import SafeRolloutResults from "./SafeRolloutResults";
+import MultipleExposuresCard from "./Health/MultipleExposuresCard";
 
 interface Props {
   safeRollout: SafeRolloutRule;
@@ -32,10 +30,9 @@ const variations = [
 ];
 
 export default function SafeRolloutDetails({ safeRollout, feature }: Props) {
-  const { error, snapshot, mutateSnapshot } = useSnapshot();
+  const { error, snapshot } = useSnapshot();
   const { getDatasourceById } = useDefinitions();
   const datasource = getDatasourceById(safeRollout.datasource);
-  console.log({ safeRollout });
 
   const exposureQuery = datasource?.settings.queries?.exposure?.find(
     (e) => e.id === safeRollout.exposureQueryId
@@ -45,33 +42,18 @@ export default function SafeRolloutDetails({ safeRollout, feature }: Props) {
     (acc, a) => acc + a,
     0
   );
+
   const traffic = snapshot?.health?.traffic;
 
   return (
     <div>
-      <div className="container-fluid pagecontents position-relative experiment-header px-3 pt-3"></div>
-
-      <div className="container-fluid pagecontents">
-        <div className="d-flex align-items-center mb-3 mt-3">
-          <Flex direction="row" align="center">
-            <Box ml="2">
-              {/* <ExperimentStatusIndicator
-                experimentData={safeRollout as ExperimentData}
-              /> */}
-            </Box>
-          </Flex>
-        </div>
-        <h2>Results</h2>
-        <Frame>
+      <div className="container-fluid pagecontents px-0">
+        <Box mb="6">
           <SafeRolloutResults safeRollout={safeRollout} />
-        </Frame>
+        </Box>
+
         {traffic && totalUsers ? (
           <>
-            <TrafficCard
-              traffic={traffic}
-              variations={variations}
-              isBandit={false}
-            />
             <h2>Health</h2>
             <SRMCard
               traffic={traffic}
@@ -82,6 +64,7 @@ export default function SafeRolloutDetails({ safeRollout, feature }: Props) {
               exposureQuery={exposureQuery}
               canConfigHealthTab={false}
             />
+            <MultipleExposuresCard totalUsers={totalUsers} />
           </>
         ) : (
           <Callout status="info" mt="3">

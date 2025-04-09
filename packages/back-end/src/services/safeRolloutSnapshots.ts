@@ -17,7 +17,7 @@ import {
   isBinomialMetric,
   isFactMetric,
 } from "shared/experiments";
-import { orgHasPremiumFeature } from "shared/enterprise";
+import { getSafeRolloutSRMValue } from "shared/health";
 import {
   fullSafeRolloutInterface,
   safeRolloutInterface,
@@ -53,7 +53,13 @@ import {
 } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { CreateProps } from "back-end/src/models/BaseModel";
-import { determineNextDate, isJoinableMetric } from "./experiments";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { ExperimentAnalysisSummary } from "back-end/src/validators/experiments";
+import {
+  determineNextDate,
+  isJoinableMetric,
+  isJoinableMetric,
+} from "./experiments";
 import { getSourceIntegrationObject } from "./datasource";
 
 export function getMetricForSnapshot(
@@ -305,7 +311,7 @@ function getSnapshotSettings({
     queryFilter: "",
     datasourceId: fullSafeRollout.datasource || "",
     dimensions: settings.dimensions.map((id) => ({ id })),
-    startDate: fullSafeRollout.startedAt,
+    startDate: fullSafeRollout.startedAt || new Date(), // might want to fix this
     endDate: new Date(),
     experimentId: fullSafeRollout.trackingKey || fullSafeRollout.id,
     guardrailMetrics,
@@ -467,4 +473,53 @@ export async function createSafeRolloutSnapshot({
   const snapshot = queryRunner.model;
 
   return { snapshot, queryRunner };
+}
+
+export async function getSafeRolloutAnalysisSummary({
+  context,
+  safeRollout,
+  experimentSnapshot,
+}: {
+  context: ReqContext;
+  safeRollout: SafeRolloutRule;
+  experimentSnapshot: SafeRolloutSnapshotInterface;
+}): Promise<ExperimentAnalysisSummary> {
+  const analysisSummary: ExperimentAnalysisSummary = {
+    snapshotId: experimentSnapshot.id,
+  };
+
+  const overallTraffic = experimentSnapshot.health?.traffic?.overall;
+
+  const standardSnapshot =
+    experimentSnapshot.analyses?.[0]?.results?.length === 1;
+  const totalUsers =
+    (overallTraffic?.variationUnits.length
+      ? overallTraffic.variationUnits.reduce((acc, a) => acc + a, 0)
+      : standardSnapshot
+      ? // fall back to first result for standard snapshots if overall traffic
+        // is missing
+        experimentSnapshot?.analyses?.[0]?.results?.[0]?.variations?.reduce(
+          (acc, a) => acc + a.users,
+          0
+        )
+      : null) ?? null;
+
+  const srm = getSafeRolloutSRMValue(experimentSnapshot);
+
+  if (srm !== undefined) {
+    analysisSummary.health = {
+      srm,
+      multipleExposures: experimentSnapshot.multipleExposures,
+      totalUsers,
+    };
+  }
+
+  // TODO: Compute resultsStatus and add to analysisSummary to be able to getDecisionFrameworkStatus within the
+  // DecisionBanner component
+
+  // The function I based this off of, getExperimentAnalysisSummary, uses a function, computeResultStatus, to get the resultsStatus
+  // that only seems to work with relative analyses but we use absolute analyses for Safe Rollouts
+  // We need a version of that function that works with absolute analyses
+
+  return analysisSummary;
 }

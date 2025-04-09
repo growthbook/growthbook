@@ -1,37 +1,23 @@
-import {
-  FaChartBar,
-  FaDatabase,
-  FaExclamationTriangle,
-  FaFlask,
-  FaTable,
-} from "react-icons/fa";
-import React, { ReactElement, useMemo, useState } from "react";
+import { FaDatabase, FaExclamationTriangle } from "react-icons/fa";
+import React, { ReactElement, useState } from "react";
 import clsx from "clsx";
-import {
-  expandMetricGroups,
-  getAllMetricIdsFromExperiment,
-  isFactMetric,
-  isMetricJoinable,
-} from "shared/experiments";
+import { expandMetricGroups } from "shared/experiments";
 import { SafeRolloutRule } from "back-end/src/validators/features";
 import { SafeRolloutSnapshotInterface } from "back-end/src/validators/safe-rollout";
+import { differenceInHours } from "date-fns";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { trackSnapshot } from "@/services/track";
 import { useAuth } from "@/services/auth";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import { useUser } from "@/services/UserContext";
-import { isOutdated } from "@/components/Experiment/AnalysisSettingsBar";
 import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
-import RefreshSnapshotButton from "@/components/Experiment/RefreshSnapshotButton";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import OutdatedBadge from "@/components/OutdatedBadge";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import OverflowText from "../Experiment/TabbedPage/OverflowText";
 import { useSnapshot } from "./SnapshotProvider";
+import RefreshSnapshotButton from "./RefreshSnapshotButton";
 
 export interface Props {
   safeRollout: SafeRolloutRule;
@@ -45,34 +31,12 @@ export default function AnalysisSettingsSummary({
   const {
     getDatasourceById,
     getExperimentMetricById,
-    factTables,
     metricGroups,
   } = useDefinitions();
 
-  const datasourceSettings = safeRollout.datasource
-    ? getDatasourceById(safeRollout.datasource)?.settings
-    : undefined;
-  const userIdType = datasourceSettings?.queries?.exposure?.find(
-    (e) => e.id === safeRollout.exposureQueryId
-  )?.userIdType;
-
-  const orgSettings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
 
-  const { hasCommercialFeature } = useUser();
-  const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment"
-  );
-  const hasSequentialFeature = hasCommercialFeature("sequential-testing");
-
-  const {
-    snapshot,
-    feature,
-    latest,
-    analysis,
-    dimension,
-    mutateSnapshot,
-  } = useSnapshot();
+  const { snapshot, feature, latest, analysis, mutateSnapshot } = useSnapshot();
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const [refreshError, setRefreshError] = useState("");
@@ -80,58 +44,13 @@ export default function AnalysisSettingsSummary({
   const { apiCall } = useAuth();
   const { status } = getQueryStatus(latest?.queries || [], latest?.error);
 
-  const allExpandedMetrics = Array.from(
-    new Set(
-      expandMetricGroups(
-        getAllMetricIdsFromExperiment(safeRollout, false),
-        metricGroups
-      )
-    )
-  );
-
-  const unjoinableMetrics = useMemo(() => {
-    const unjoinables = new Set<string>();
-    allExpandedMetrics.forEach((m) => {
-      const metric = getExperimentMetricById(m);
-      if (!metric) return;
-      const userIdTypes = isFactMetric(metric)
-        ? factTables.find((f) => f.id === metric.numerator.factTableId)
-            ?.userIdTypes || []
-        : metric.userIdTypes || [];
-      const isJoinable =
-        userIdType && datasourceSettings
-          ? isMetricJoinable(userIdTypes, userIdType, datasourceSettings)
-          : true;
-      if (!isJoinable) {
-        unjoinables.add(m);
-      }
-    });
-    return unjoinables;
-  }, [
-    allExpandedMetrics,
-    factTables,
-    userIdType,
-    datasourceSettings,
-    getExperimentMetricById,
-  ]);
-
-  // TODO: create isOutdated function for safe rollouts
-  const { outdated, reasons } = isOutdated({
-    safeRollout,
-    snapshot,
-    metricGroups,
-    orgSettings,
-    statsEngine: "frequentist",
-    hasRegressionAdjustmentFeature,
-    hasSequentialFeature,
-    phase: 0,
-    unjoinableMetrics,
-  });
+  // Results are considered outdated if there isn't currently a running snapshot and
+  // the last snapshot was taken more than 24 hours ago
+  const outdated =
+    snapshot?.runStarted &&
+    differenceInHours(Date.now(), new Date(snapshot.runStarted)) > 24.5;
 
   const ds = getDatasourceById(safeRollout.datasource);
-  const assignmentQuery = ds?.settings?.queries?.exposure?.find(
-    (e) => e.id === safeRollout.exposureQueryId
-  );
 
   const guardrails: string[] = [];
   expandMetricGroups(safeRollout.guardrailMetrics ?? [], metricGroups).forEach(
@@ -149,53 +68,6 @@ export default function AnalysisSettingsSummary({
     icon?: ReactElement;
     noTransform?: boolean;
   }[] = [];
-
-  items.push({
-    value: ds ? ds.name : <em>no data source</em>,
-    icon: <FaDatabase className="mr-1" />,
-    tooltip: ds ? "Data Source" : "",
-  });
-
-  if (assignmentQuery && ds?.type !== "mixpanel") {
-    items.push({
-      value: assignmentQuery.name,
-      icon: <FaTable className="mr-1" />,
-      tooltip: "Experiment Assignment Query",
-    });
-  }
-  if (ds) {
-    items.push({
-      value: safeRollout.trackingKey,
-      icon: <FaFlask className="mr-1" />,
-      tooltip: "Tracking Key",
-    });
-  }
-
-  items.push({
-    value: numMetrics + (numMetrics === 1 ? " metric" : " metrics"),
-    icon: <FaChartBar className="mr-1" />,
-    noTransform: true,
-    tooltip:
-      numMetrics > 0 ? (
-        <>
-          <div className="text-left">
-            <strong>Guardrails:</strong>
-            {guardrails.length > 0 ? (
-              <ul className="ml-0 pl-3 mb-0">
-                {guardrails.map((m, i) => (
-                  <li key={i}>{m}</li>
-                ))}
-              </ul>
-            ) : (
-              <>
-                {" "}
-                <em>none</em>
-              </>
-            )}
-          </div>
-        </>
-      ) : undefined,
-  });
 
   return (
     <div className="pr-3 py-2 analysis-settings-top border-bottom">
@@ -241,7 +113,7 @@ export default function AnalysisSettingsSummary({
             <div className="col-auto">
               {hasData &&
                 (outdated && status !== "running" ? (
-                  <OutdatedBadge reasons={reasons} />
+                  <OutdatedBadge reasons={["Snapshot is over a day old."]} />
                 ) : (
                   <QueriesLastRun
                     status={status}
@@ -251,10 +123,10 @@ export default function AnalysisSettingsSummary({
             </div>
 
             {(!ds || permissionsUtil.canRunExperimentQueries(ds)) &&
-              numMetrics > 0 && (
+              numMetrics > 0 &&
+              feature && (
                 <div className="col-auto">
                   {safeRollout.datasource &&
-                  feature &&
                   latest &&
                   latest.queries?.length > 0 ? (
                     <RunQueriesButton
@@ -266,7 +138,7 @@ export default function AnalysisSettingsSummary({
                       }}
                       model={latest}
                       icon="refresh"
-                      color="outline-primary"
+                      useRadixButton
                       onSubmit={async () => {
                         await apiCall<{
                           snapshot: SafeRolloutSnapshotInterface;
@@ -276,14 +148,7 @@ export default function AnalysisSettingsSummary({
                             featureId: feature.id,
                           }),
                         })
-                          .then((res) => {
-                            // trackSnapshot(
-                            //   "create",
-                            //   "RunQueriesButton",
-                            //   datasource?.type || null,
-                            //   res.snapshot
-                            // );
-
+                          .then(() => {
                             mutateSnapshot();
                             mutate();
                             setRefreshError("");
@@ -299,10 +164,8 @@ export default function AnalysisSettingsSummary({
                         mutateSnapshot();
                         mutate();
                       }}
-                      phase={0}
-                      experiment={safeRollout}
-                      lastAnalysis={analysis}
-                      dimension={dimension}
+                      safeRollout={safeRollout}
+                      feature={feature}
                     />
                   )}
                 </div>

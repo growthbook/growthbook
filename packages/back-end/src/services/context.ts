@@ -2,12 +2,14 @@ import { Permissions, userHasPermission } from "shared/permissions";
 import { uniq } from "lodash";
 import type pino from "pino";
 import type { Request } from "express";
-import { CommercialFeature, orgHasPremiumFeature } from "shared/enterprise";
 import { ExperimentMetricInterface } from "shared/experiments";
+import { CommercialFeature } from "shared/enterprise";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
   OrganizationInterface,
+  OrganizationUsage,
   Permission,
   UserPermissions,
 } from "back-end/types/organization";
@@ -36,6 +38,7 @@ import { PopulationDataModel } from "back-end/src/models/PopulationDataModel";
 import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplateModel";
 import { SafeRolloutSnapshotModel } from "back-end/src/models/SafeRolloutSnapshotModel";
 import { SafeRolloutModel } from "back-end/src/models/SafeRolloutModel";
+import { DecisionCriteriaModel } from "back-end/src/enterprise/models/DecisionCriteriaModel";
 import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
@@ -59,6 +62,7 @@ export class ReqContextClass {
     experimentTemplates: ExperimentTemplatesModel;
     safeRolloutSnapshots: SafeRolloutSnapshotModel;
     safeRollout: SafeRolloutModel;
+    decisionCriteria: DecisionCriteriaModel;
     metricTimeSeries: MetricTimeSeriesModel;
   };
   private initModels() {
@@ -74,11 +78,13 @@ export class ReqContextClass {
       experimentTemplates: new ExperimentTemplatesModel(this),
       safeRolloutSnapshots: new SafeRolloutSnapshotModel(this),
       safeRollout: new SafeRolloutModel(this),
+      decisionCriteria: new DecisionCriteriaModel(this),
       metricTimeSeries: new MetricTimeSeriesModel(this),
     };
   }
 
   public org: OrganizationInterface;
+  public usage: () => Promise<OrganizationUsage>;
   public userId = "";
   public email = "";
   public userName = "";
@@ -97,6 +103,7 @@ export class ReqContextClass {
 
   public constructor({
     org,
+    usage,
     auditUser,
     teams,
     user,
@@ -105,6 +112,7 @@ export class ReqContextClass {
     req,
   }: {
     org: OrganizationInterface;
+    usage: () => Promise<OrganizationUsage>;
     user?: {
       id: string;
       email: string;
@@ -118,6 +126,7 @@ export class ReqContextClass {
     req?: Request;
   }) {
     this.org = org;
+    this.usage = usage;
     this.auditUser = auditUser;
     this.teams = teams || [];
 

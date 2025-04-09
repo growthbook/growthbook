@@ -40,7 +40,7 @@ export default function MultipleExposuresCard({ totalUsers, onNotify }: Props) {
   );
 
   useEffect(() => {
-    if (health.status === "unhealthy") {
+    if (health.status === "unhealthy" && onNotify) {
       onNotify({ label: "Multiple Exposures", value: "multipleExposures" });
     }
   }, [snapshot, health, onNotify]);
