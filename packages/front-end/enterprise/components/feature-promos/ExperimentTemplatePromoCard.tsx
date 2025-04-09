@@ -9,11 +9,17 @@ export default function ExperimentTemplatePromoCard({
 }) {
   return (
     <Flex
-      maxWidth="700px"
-      className="appbox py-4"
-      style={{ paddingLeft: "32px", paddingRight: "32px", border: "none" }}
+      gap="6"
+      direction="column"
+      className="appbox p-4 flex-sm-row"
+      style={{
+        paddingLeft: "32px",
+        paddingRight: "32px",
+        border: "none",
+        maxWidth: "700px",
+      }}
     >
-      <Box width="100%" height="100%">
+      <Flex justify="center">
         <img
           className="rounded"
           src={"/images/experiment-templates.jpeg"} //MKTODO: Change this with the actual image when ready
@@ -24,14 +30,14 @@ export default function ExperimentTemplatePromoCard({
             objectFit: "cover",
           }}
         />
-      </Box>
-      <Flex className="pl-4" direction="column" justify="center">
+      </Flex>
+      <Flex align="center" className="md-pl-4">
         <Box>
           <h3>
-            <Flex align="center">
+            <Box as="span">
               Experiment Templates{" "}
               <PaidFeatureBadge commercialFeature="templates" />
-            </Flex>
+            </Box>
           </h3>
           <Text as="p">
             Experiment Templates can help enforce consistency and best practices
