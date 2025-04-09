@@ -595,16 +595,10 @@ export default function ResultsTable({
                             stats={stats}
                             baseline={baseline}
                             rowResults={rowResults}
-                            pValueCorrection={
-                              row.resultGroup === "goal"
-                                ? pValueCorrection
-                                : undefined
-                            }
                             showRisk={true}
                             showSuspicious={true}
                             showPercentComplete={false}
                             showTimeRemaining={true}
-                            showUnadjustedPValue={false}
                             showGuardrailWarning={
                               row.resultGroup === "guardrail"
                             }

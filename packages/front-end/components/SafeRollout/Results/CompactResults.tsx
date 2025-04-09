@@ -9,11 +9,7 @@ import {
   ExperimentType,
   MetricOverride,
 } from "back-end/types/experiment";
-import {
-  DifferenceType,
-  PValueCorrection,
-  StatsEngine,
-} from "back-end/types/stats";
+import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import Link from "next/link";
 import { FaTimes } from "react-icons/fa";
 import {
@@ -50,7 +46,6 @@ const CompactResults: FC<{
   variations: ExperimentReportVariation[];
   variationFilter?: number[];
   baselineRow?: number;
-  multipleExposures?: number;
   results: SafeRolloutReportResultDimension;
   queryStatusData?: QueryStatusData;
   reportDate: Date;
@@ -66,14 +61,9 @@ const CompactResults: FC<{
   pValueCorrection?: PValueCorrection;
   regressionAdjustmentEnabled?: boolean;
   settingsForSnapshotMetrics?: MetricSnapshotSettings[];
-  sequentialTestingEnabled?: boolean;
-  differenceType: DifferenceType;
   metricFilter?: ResultsMetricFilters;
   setMetricFilter?: (filter: ResultsMetricFilters) => void;
   isTabActive: boolean;
-  setTab?: (tab: ExperimentTab) => void;
-  mainTableOnly?: boolean;
-  noStickyHeader?: boolean;
   noTooltip?: boolean;
   experimentType?: ExperimentType;
   ssrPolyfills?: SSRPolyfills;
@@ -83,7 +73,6 @@ const CompactResults: FC<{
   variations,
   variationFilter,
   baselineRow = 0,
-  multipleExposures = 0,
   results,
   queryStatusData,
   reportDate,
@@ -99,14 +88,9 @@ const CompactResults: FC<{
   pValueCorrection,
   regressionAdjustmentEnabled,
   settingsForSnapshotMetrics,
-  sequentialTestingEnabled,
-  differenceType,
   metricFilter,
   setMetricFilter,
   isTabActive,
-  setTab,
-  mainTableOnly,
-  noStickyHeader,
   noTooltip,
   experimentType,
   ssrPolyfills,
@@ -212,30 +196,6 @@ const CompactResults: FC<{
       setAdjustedCIs([results], pValueThreshold);
     }
 
-    const metricDefs = expandedGoals
-      .map(
-        (metricId) =>
-          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
-          getExperimentMetricById(metricId)
-      )
-      .filter(isDefined);
-    const sortedFilteredMetrics = sortAndFilterMetricsByTags(
-      metricDefs,
-      metricFilter
-    );
-
-    const secondaryDefs = expandedSecondaries
-      .map(
-        (metricId) =>
-          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
-          getExperimentMetricById(metricId)
-      )
-      .filter(isDefined);
-    const sortedFilteredSecondary = sortAndFilterMetricsByTags(
-      secondaryDefs,
-      metricFilter
-    );
-
     const guardrailDefs = expandedGuardrails
       .map(
         (metricId) =>
@@ -255,7 +215,6 @@ const CompactResults: FC<{
   }, [
     results,
     expandedGoals,
-    expandedSecondaries,
     expandedGuardrails,
     metricOverrides,
     settingsForSnapshotMetrics,

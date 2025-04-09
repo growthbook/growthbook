@@ -19,16 +19,10 @@ const snapshotContext = React.createContext<{
   latestAnalysis?: SafeRolloutSnapshotAnalysis | undefined;
   latest?: SafeRolloutSnapshotInterface;
   mutateSnapshot: () => void;
-  dimension: string;
   analysisSettings?: ExperimentSnapshotAnalysisSettings | null;
-  setDimension: (dimension: string) => void;
   loading?: boolean;
   error?: Error;
 }>({
-  dimension: "",
-  setDimension: () => {
-    // do nothing
-  },
   mutateSnapshot: () => {
     // do nothing
   },
@@ -43,8 +37,6 @@ export default function SafeRolloutSnapshotProvider({
   feature: FeatureInterface;
   children: ReactNode;
 }) {
-  const [dimension, setDimension] = useState("");
-
   const { data, error, isValidating, mutate } = useApi<{
     snapshot: SafeRolloutSnapshotInterface;
     latest?: SafeRolloutSnapshotInterface;
@@ -70,9 +62,7 @@ export default function SafeRolloutSnapshotProvider({
             undefined
           : undefined,
         mutateSnapshot: mutate,
-        dimension,
         analysisSettings: defaultAnalysisSettings,
-        setDimension,
         error,
         loading: isValidating,
       }}

@@ -1,53 +1,116 @@
-import { getDecisionFrameworkStatus } from "shared/experiments";
+import {
+  DEFAULT_DECISION_CRITERIAS,
+  getDecisionFrameworkStatus,
+} from "shared/enterprise";
+import { addDays, differenceInDays } from "date-fns";
+import { getMetricResultStatus } from "shared/experiments";
+import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import useConfidenceLevels from "@/hooks/useConfidenceLevels";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
+import Callout from "../Radix/Callout";
 import { useSnapshot } from "./SnapshotProvider";
 
-const DecisionBanner = () => {
-  const { safeRollout, latest } = useSnapshot();
+const DecisionBanner = ({ openStatusModal }) => {
+  const { safeRollout, snapshot: snapshotWithResults } = useSnapshot();
+  const { metricDefaults } = useOrganizationMetricDefaults();
+
+  const { ciUpper, ciLower } = useConfidenceLevels();
+  const pValueThreshold = usePValueThreshold();
 
   if (!safeRollout) {
-    return;
+    return null;
   }
 
   // Use latest snapshot date and safe rollout start date plus maxDurationDays to determine days left
-
   const startDate = new Date(safeRollout.startedAt);
-  const endDate = new Date(
-    startDate.getTime() + safeRollout.maxDurationDays * 24 * 60 * 60 * 1000
+  const endDate = addDays(
+    new Date(startDate.getTime()),
+    safeRollout.maxDurationDays
   );
-  const latestSnapshotDate = latest?.runStarted
-    ? new Date(latest?.runStarted)
+  const latestSnapshotDate = snapshotWithResults?.runStarted
+    ? new Date(snapshotWithResults?.runStarted)
     : null;
   const daysLeft = latestSnapshotDate
-    ? Math.ceil(
-        (endDate.getTime() - latestSnapshotDate.getTime()) /
-          (1000 * 60 * 60 * 24)
-      )
+    ? differenceInDays(endDate, latestSnapshotDate)
     : safeRollout.maxDurationDays;
 
-  const resultsStatus = safeRollout.analysisSummary?.resultsStatus;
-  const decisionStatus = getDecisionFrameworkStatus({
-    resultsStatus,
-    goalMetrics: [],
-    guardrailMetrics: safeRollout.guardrailMetrics,
-  });
+  // Get all metrics from the latest snapshot with results and determine whether or not they're failing
+  // baseline and stats should come from the snapshot
+  //   const {
+  //     resultsStatus,
+  //     directionalStatus,
+  //     shouldHighlight,
+  //   } = getMetricResultStatus({
+  //     metric,
+  //     metricDefaults,
+  //     baseline,
+  //     stats,
+  //     ciLower,
+  //     ciUpper,
+  //     pValueThreshold,
+  //     statsEngine: "frequentist",
+  //   });
+  const failingGuardrails = ["X", "Y", "Z"]; // Mocked for demonstration
+
+  // Uncomment when analysisSummary is added to safe rollout
+  //   const resultsStatus = safeRollout.analysisSummary?.resultsStatus;
+  //   const [, doNoHarm] = DEFAULT_DECISION_CRITERIAS;
+  //   const decisionStatus = getDecisionFrameworkStatus({
+  //     resultsStatus,
+  //     decisionCriteria: doNoHarm,
+  //     goalMetrics: [],
+  //     guardrailMetrics: safeRollout.guardrailMetrics,
+  //   });
+
+  const decisionStatus = { status: "rollback-now" }; // Mocked decision status for demonstration
 
   if (decisionStatus?.status === "rollback-now") {
     return (
-      <div className="alert alert-danger">
-        <strong>Decision:</strong> Rollback now
-      </div>
+      <Callout status="error" my="4">
+        Guardrail(s) {failingGuardrails.join(", ")} are failing.{" "}
+        <a
+          role="button"
+          className="link"
+          onClick={(e) => {
+            e.preventDefault();
+            openStatusModal();
+          }}
+        >
+          Revert Now
+        </a>
+      </Callout>
     );
   } else if (daysLeft <= 0) {
     return (
-      <div className="alert alert-warning">
-        <strong>Decision:</strong> Rollback now
-      </div>
+      <Callout status="success">
+        Safe rollout complete and no guardrails failing{" "}
+        <a
+          role="button"
+          className="link"
+          onClick={(e) => {
+            e.preventDefault();
+            openStatusModal();
+          }}
+        >
+          Ship Now
+        </a>
+      </Callout>
     );
   } else {
     return (
-      <div className="alert alert-success">
-        <strong>Decision:</strong> Continue
-      </div>
+      <Callout status="info">
+        {daysLeft} days left in safe rollout{" "}
+        <a
+          role="button"
+          className="link"
+          onClick={(e) => {
+            e.preventDefault();
+            openStatusModal();
+          }}
+        >
+          Stop Early
+        </a>
+      </Callout>
     );
   }
 };

@@ -8,9 +8,8 @@ import { filterEnvironmentsByFeature } from "shared/util";
 import { Box, Card, Flex, Heading } from "@radix-ui/themes";
 import { RiAlertLine, RiDraggable } from "react-icons/ri";
 import { RxCircleBackslash } from "react-icons/rx";
-import { PiArrowBendRightDown, PiArrowSquareOutFill } from "react-icons/pi";
+import { PiArrowBendRightDown } from "react-icons/pi";
 import { format as formatTimeZone } from "date-fns-tz";
-import RadixLink from "@/components/Radix/Link";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { getRules, isRuleInactive, useEnvironments } from "@/services/features";
@@ -27,6 +26,7 @@ import Callout from "@/components/Radix/Callout";
 import SafeRolloutSummary from "@/components/Features/SafeRolloutSummary";
 import SafeRolloutSnapshotProvider from "@/components/SafeRollout/SnapshotProvider";
 import SafeRolloutDetails from "../SafeRollout/SafeRolloutDetails";
+import DecisionBanner from "../SafeRollout/DecisionBanner";
 import ConditionDisplay from "./ConditionDisplay";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
@@ -292,6 +292,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         guardrailMetrics={rule.guardrailMetrics || []}
                         controlValue={rule.controlValue}
                       />
+                      {/* TODO: Once modal exists to change Safe Rollout status, plug in setStatusModalOpen here */}
+                      <DecisionBanner openStatusModal={() => undefined} />
                       <SafeRolloutDetails
                         safeRollout={rule}
                         feature={feature}

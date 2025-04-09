@@ -16,12 +16,10 @@ interface Props
   stats: SnapshotMetric;
   baseline: SnapshotMetric;
   rowResults: RowResults;
-  pValueCorrection?: PValueCorrection;
   showRisk?: boolean;
   showSuspicious?: boolean;
   showPercentComplete?: boolean;
   showTimeRemaining?: boolean;
-  showUnadjustedPValue?: boolean;
   showGuardrailWarning?: boolean;
   className?: string;
   hideScaledImpact?: boolean;
@@ -31,31 +29,15 @@ export default function StatusColumn({
   stats,
   baseline,
   rowResults,
-  pValueCorrection,
   showRisk = true,
   showSuspicious = true,
   showPercentComplete = false,
   showTimeRemaining = true,
-  showUnadjustedPValue = false,
   showGuardrailWarning = false,
   className,
   hideScaledImpact = false,
   ...otherProps
 }: Props) {
-  // let pValText = (
-  //   <>{stats?.pValue !== undefined ? pValueFormatter(stats.pValue) : ""}</>
-  // );
-  // if (stats?.pValueAdjusted !== undefined && pValueCorrection) {
-  //   pValText = showUnadjustedPValue ? (
-  //     <>
-  //       <div>{pValueFormatter(stats.pValueAdjusted)}</div>
-  //       <div className="text-muted">(unadj.:&nbsp;{pValText})</div>
-  //     </>
-  //   ) : (
-  //     <>{pValueFormatter(stats.pValueAdjusted)}</>
-  //   );
-  // }
-
   const pValText =
     rowResults.resultsStatus === "lost" && rowResults.significant
       ? "Failing"
@@ -84,9 +66,7 @@ export default function StatusColumn({
         />
       ) : (
         <div className="d-flex align-items-center justify-content-end">
-          <div className="result-number d-inline-block">
-            {pValText || "P-value missing"}
-          </div>
+          <div className="result-number d-inline-block">{pValText}</div>
           {shouldRenderRisk ? (
             <span
               className={rowResults.riskMeta.riskStatus}
