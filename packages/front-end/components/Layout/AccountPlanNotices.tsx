@@ -38,7 +38,6 @@ export default function AccountPlanNotices() {
           {upgradeModal && (
             <UpgradeModal
               close={() => setUpgradeModal(false)}
-              reason="To remove cdn usage limits,"
               source={"usage-approaching-topnav-notification"}
               commercialFeature="unlimited-cdn-usage"
             />
@@ -61,7 +60,6 @@ export default function AccountPlanNotices() {
           {upgradeModal && (
             <UpgradeModal
               close={() => setUpgradeModal(false)}
-              reason="To remove cdn usage limits,"
               source={"usage-exceeded-topnav-notification"}
               commercialFeature="unlimited-cdn-usage"
             />
@@ -195,9 +193,9 @@ export default function AccountPlanNotices() {
                     {upgradeModal && (
                       <UpgradeModal
                         close={() => setUpgradeModal(false)}
-                        reason={`Pro license expired ${date(
+                        notice={`Pro license expired ${date(
                           license.dateExpires || ""
-                        )}. Upgrade to regain access to Pro features and higher usage limits.`}
+                        )}. Renew to regain access to Pro features and higher usage limits.`}
                         source={"topnav-expired-notification"}
                         commercialFeature={null}
                       />
@@ -230,9 +228,9 @@ export default function AccountPlanNotices() {
                     {upgradeModal && (
                       <UpgradeModal
                         close={() => setUpgradeModal(false)}
-                        reason={`Pro license expired ${date(
+                        notice={`Pro license expired ${date(
                           license.dateExpires || ""
-                        )}. Upgrade to regain access to Pro features and higher usage limits.`}
+                        )}. Renew to regain access to Pro features and higher usage limits.`}
                         source={"topnav-expired-notification"}
                         commercialFeature={null}
                       />
@@ -271,9 +269,9 @@ export default function AccountPlanNotices() {
                     {upgradeModal && (
                       <UpgradeModal
                         close={() => setUpgradeModal(false)}
-                        reason={`Pro license expired ${date(
+                        notice={`Pro license expired ${date(
                           license.dateExpires || ""
-                        )}. Upgrade to regain access to Pro features and higher usage limits.`}
+                        )}. Renew to regain access to Pro features and higher usage limits.`}
                         source={"topnav-expired-notification"}
                         commercialFeature={null}
                       />
