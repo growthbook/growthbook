@@ -17,7 +17,12 @@ import {
   isBinomialMetric,
   isFactMetric,
 } from "shared/experiments";
-import { orgHasPremiumFeature } from "shared/enterprise";
+import { getSafeRolloutSRMValue } from "shared/health";
+import {
+  fullSafeRolloutInterface,
+  safeRolloutInterface,
+  SafeRolloutModel,
+} from "back-end/src/models/SafeRolloutModel";
 import {
   MetricForSnapshot,
   SafeRolloutSnapshotAnalysisSettings,
@@ -48,7 +53,13 @@ import {
 } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { CreateProps } from "back-end/src/models/BaseModel";
-import { isJoinableMetric } from "./experiments";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { ExperimentAnalysisSummary } from "back-end/src/validators/experiments";
+import {
+  determineNextDate,
+  isJoinableMetric,
+  isJoinableMetric,
+} from "./experiments";
 import { getSourceIntegrationObject } from "./datasource";
 
 export function getMetricForSnapshot(
@@ -166,7 +177,7 @@ export function getSnapshotSettingsFromSafeRolloutArgs(
 
 export async function getSettingsForSnapshotMetrics(
   context: ReqContext | ApiReqContext,
-  safeRollout: SafeRolloutRule
+  fullSafeRollout: fullSafeRolloutInterface
 ): Promise<{
   regressionAdjustmentEnabled: boolean;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
@@ -177,7 +188,7 @@ export async function getSettingsForSnapshotMetrics(
   const metricMap = await getMetricMap(context);
 
   const allExperimentMetricIds = getAllMetricIdsFromExperiment(
-    safeRollout,
+    fullSafeRollout,
     false
   );
   const allExperimentMetrics = allExperimentMetricIds
@@ -244,7 +255,7 @@ export function getDefaultExperimentAnalysisSettingsForSafeRollout(
 }
 
 function getSnapshotSettings({
-  safeRollout,
+  fullSafeRollout,
   settings,
   orgPriorSettings,
   settingsForSnapshotMetrics,
@@ -253,7 +264,7 @@ function getSnapshotSettings({
   metricGroups,
   datasource,
 }: {
-  safeRollout: SafeRolloutRule;
+  fullSafeRollout: fullSafeRolloutInterface;
   settings: ExperimentSnapshotAnalysisSettings;
   orgPriorSettings: MetricPriorSettings | undefined;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
@@ -271,12 +282,12 @@ function getSnapshotSettings({
 
   const queries = datasource?.settings?.queries?.exposure || [];
   const exposureQuery = queries.find(
-    (q) => q.id === safeRollout.exposureQueryId
+    (q) => q.id === fullSafeRollout.exposureQueryId
   );
 
   // expand metric groups and scrub unjoinable metrics
   const guardrailMetrics = expandMetricGroups(
-    safeRollout.guardrailMetrics,
+    fullSafeRollout.guardrailMetrics,
     metricGroups
   ).filter((m) =>
     isJoinableMetric({
@@ -289,35 +300,35 @@ function getSnapshotSettings({
   );
 
   const metricSettings = expandMetricGroups(
-    getAllMetricIdsFromExperiment(safeRollout),
+    getAllMetricIdsFromExperiment(fullSafeRollout),
     metricGroups
   )
     .map((m) => getMetricForSnapshot(m, metricMap, settingsForSnapshotMetrics))
     .filter(isDefined);
 
   return {
-    manual: !safeRollout.datasource,
+    manual: !fullSafeRollout.datasource,
     queryFilter: "",
-    datasourceId: safeRollout.datasource || "",
+    datasourceId: fullSafeRollout.datasource || "",
     dimensions: settings.dimensions.map((id) => ({ id })),
-    startDate: safeRollout.startedAt,
+    startDate: fullSafeRollout.startedAt || new Date(), // might want to fix this
     endDate: new Date(),
-    experimentId: safeRollout.trackingKey || safeRollout.id,
+    experimentId: fullSafeRollout.trackingKey || fullSafeRollout.id,
     guardrailMetrics,
     regressionAdjustmentEnabled: !!settings.regressionAdjusted,
     defaultMetricPriorSettings: defaultPriorSettings,
-    exposureQueryId: safeRollout.exposureQueryId,
+    exposureQueryId: fullSafeRollout.exposureQueryId,
     metricSettings,
     variations: [
       { id: "0", weight: 0.5 },
       { id: "1", weight: 0.5 },
     ],
-    coverage: safeRollout.coverage,
+    coverage: fullSafeRollout.coverage,
   };
 }
 
 export async function createSnapshot({
-  safeRollout,
+  fullSafeRollout,
   feature,
   context,
   triggeredBy,
@@ -326,8 +337,9 @@ export async function createSnapshot({
   settingsForSnapshotMetrics,
   metricMap,
   factTableMap,
+  safeRollout,
 }: {
-  safeRollout: SafeRolloutRule;
+  fullSafeRollout: fullSafeRolloutInterface;
   feature: FeatureInterface;
   context: ReqContext | ApiReqContext;
   triggeredBy: SnapshotTriggeredBy;
@@ -336,6 +348,7 @@ export async function createSnapshot({
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
+  safeRollout: safeRolloutInterface;
 }): Promise<SafeRolloutResultsQueryRunner> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
@@ -347,7 +360,7 @@ export async function createSnapshot({
   }
 
   const snapshotSettings = getSnapshotSettings({
-    safeRollout,
+    fullSafeRollout,
     orgPriorSettings: organization.settings?.metricDefaults?.priorSettings,
     settings: defaultAnalysisSettings,
     settingsForSnapshotMetrics,
@@ -356,7 +369,6 @@ export async function createSnapshot({
     metricGroups,
     datasource,
   });
-
   const data: CreateProps<SafeRolloutSnapshotInterface> = {
     featureId: feature.id,
     safeRolloutRuleId: safeRollout.id,
@@ -378,20 +390,14 @@ export async function createSnapshot({
     status: "running",
   };
 
-  // TODO: Update safe rollout rule with update schedule once we have a helper function to do so
-  // const nextUpdate = determineNextDate(
-  //   organization.settings?.updateSchedule || null
-  // );
-
-  // await updateExperiment({
-  //   context,
-  //   experiment,
-  //   changes: {
-  //     lastSnapshotAttempt: new Date(),
-  //     ...(nextUpdate ? { nextSnapshotAttempt: nextUpdate } : {}),
-  //     autoSnapshots: nextUpdate !== null,
-  //   },
-  // });
+  const nextUpdate = determineNextDate(
+    organization.settings?.updateSchedule || null
+  );
+  const safeRolloutModel = new SafeRolloutModel(context);
+  await safeRolloutModel.update(safeRollout, {
+    nextSnapshotAttempt:
+      nextUpdate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+  });
 
   const snapshot = await context.models.safeRolloutSnapshots.create(data);
 
@@ -414,14 +420,16 @@ export async function createSnapshot({
 
 export async function createSafeRolloutSnapshot({
   context,
-  safeRollout,
+  safeRolloutRule,
   feature,
   dimension,
   useCache = true,
   triggeredBy,
+  safeRollout,
 }: {
   context: ReqContext;
-  safeRollout: SafeRolloutRule;
+  safeRolloutRule: SafeRolloutRule;
+  safeRollout: safeRolloutInterface;
   feature: FeatureInterface;
   dimension: string | undefined;
   useCache?: boolean;
@@ -430,6 +438,10 @@ export async function createSafeRolloutSnapshot({
   snapshot: SafeRolloutSnapshotInterface;
   queryRunner: SafeRolloutResultsQueryRunner;
 }> {
+  const fullSafeRollout: fullSafeRolloutInterface = {
+    ...safeRollout,
+    ...safeRolloutRule,
+  };
   const { org } = context;
 
   const metricMap = await getMetricMap(context);
@@ -438,7 +450,7 @@ export async function createSafeRolloutSnapshot({
   const {
     settingsForSnapshotMetrics,
     regressionAdjustmentEnabled,
-  } = await getSettingsForSnapshotMetrics(context, safeRollout);
+  } = await getSettingsForSnapshotMetrics(context, fullSafeRollout);
 
   const analysisSettings = getDefaultExperimentAnalysisSettingsForSafeRollout(
     org,
@@ -447,7 +459,7 @@ export async function createSafeRolloutSnapshot({
   );
 
   const queryRunner = await createSnapshot({
-    safeRollout,
+    fullSafeRollout,
     feature,
     context,
     useCache,
@@ -456,8 +468,58 @@ export async function createSafeRolloutSnapshot({
     metricMap,
     factTableMap,
     triggeredBy: triggeredBy ?? "manual",
+    safeRollout,
   });
   const snapshot = queryRunner.model;
 
   return { snapshot, queryRunner };
+}
+
+export async function getSafeRolloutAnalysisSummary({
+  context,
+  safeRollout,
+  experimentSnapshot,
+}: {
+  context: ReqContext;
+  safeRollout: SafeRolloutRule;
+  experimentSnapshot: SafeRolloutSnapshotInterface;
+}): Promise<ExperimentAnalysisSummary> {
+  const analysisSummary: ExperimentAnalysisSummary = {
+    snapshotId: experimentSnapshot.id,
+  };
+
+  const overallTraffic = experimentSnapshot.health?.traffic?.overall;
+
+  const standardSnapshot =
+    experimentSnapshot.analyses?.[0]?.results?.length === 1;
+  const totalUsers =
+    (overallTraffic?.variationUnits.length
+      ? overallTraffic.variationUnits.reduce((acc, a) => acc + a, 0)
+      : standardSnapshot
+      ? // fall back to first result for standard snapshots if overall traffic
+        // is missing
+        experimentSnapshot?.analyses?.[0]?.results?.[0]?.variations?.reduce(
+          (acc, a) => acc + a.users,
+          0
+        )
+      : null) ?? null;
+
+  const srm = getSafeRolloutSRMValue(experimentSnapshot);
+
+  if (srm !== undefined) {
+    analysisSummary.health = {
+      srm,
+      multipleExposures: experimentSnapshot.multipleExposures,
+      totalUsers,
+    };
+  }
+
+  // TODO: Compute resultsStatus and add to analysisSummary to be able to getDecisionFrameworkStatus within the
+  // DecisionBanner component
+
+  // The function I based this off of, getExperimentAnalysisSummary, uses a function, computeResultStatus, to get the resultsStatus
+  // that only seems to work with relative analyses but we use absolute analyses for Safe Rollouts
+  // We need a version of that function that works with absolute analyses
+
+  return analysisSummary;
 }

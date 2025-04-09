@@ -58,8 +58,8 @@ const snapshotMetricObject = z.object({
     )
     .optional(),
   chanceToWin: z.number().optional(),
-  errorMessage: z.string().optional().nullable(),
-  power: metricPowerResponseFromStatsEngineObject.optional().nullable(),
+  errorMessage: z.string().optional(),
+  power: metricPowerResponseFromStatsEngineObject.optional(),
 });
 
 const experimentSnapshotTrafficDimensionObject = z.object({

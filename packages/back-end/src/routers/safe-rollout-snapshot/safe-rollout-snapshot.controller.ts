@@ -8,6 +8,7 @@ import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource
 import { SafeRolloutResultsQueryRunner } from "back-end/src/queryRunners/SafeRolloutResultsQueryRunner";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { SNAPSHOT_TIMEOUT } from "back-end/src/controllers/experiments";
+import { SafeRolloutModel } from "back-end/src/models/SafeRolloutModel";
 
 // region GET /safe-rollout/:id/snapshot
 /**
@@ -125,16 +126,16 @@ export const createSnapshot = async (
     throw new Error("Could not find feature");
   }
 
-  let safeRollout: SafeRolloutRule | undefined;
+  let safeRolloutRule: SafeRolloutRule | undefined;
   for (const [, environment] of Object.entries(feature.environmentSettings)) {
     for (const rule of environment.rules) {
       if (rule.id === id && rule.type === "safe-rollout") {
-        safeRollout = rule;
+        safeRolloutRule = rule;
       }
     }
   }
 
-  if (!safeRollout) {
+  if (!safeRolloutRule) {
     return res.status(404).json({
       status: 404,
       message: "Safe Rollout not found",
@@ -144,13 +145,21 @@ export const createSnapshot = async (
   // This is doing an expensive analytics SQL query, so may take a long time
   // Set timeout to 30 minutes
   req.setTimeout(SNAPSHOT_TIMEOUT);
-
+  const safeRolloutModel = new SafeRolloutModel(context);
+  const safeRollout = await safeRolloutModel.findByRuleId(safeRolloutRule.id);
+  if (!safeRollout) {
+    return res.status(404).json({
+      status: 404,
+      message: "Safe Rollout not found",
+    });
+  }
   const { snapshot } = await createSafeRolloutSnapshot({
     context,
-    safeRollout,
+    safeRolloutRule,
     feature,
     dimension,
     useCache,
+    safeRollout,
   });
 
   res.status(200).json({
@@ -187,7 +196,7 @@ export const cancelSnapshot = async (
   }
   // loop through environment settings in the feature and through the rules to find a safe rollout with snapshot.safeRolloutRuleId
   let safeRollout: SafeRolloutRule | undefined;
-  for (const [envKey, environment] of Object.entries(
+  for (const [_envKey, environment] of Object.entries(
     feature.environmentSettings
   )) {
     for (const rule of environment.rules) {

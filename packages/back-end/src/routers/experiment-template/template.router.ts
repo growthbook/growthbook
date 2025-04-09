@@ -14,9 +14,6 @@ const templateController = wrapController(rawTemplateController);
 
 const templateParams = z.object({ id: z.string() }).strict();
 
-// TODO: Delete this once we have a real endpoint for this
-router.get("/testsnapshot", templateController.createSnapshot);
-
 router.get("/", templateController.getTemplates);
 
 router.post(

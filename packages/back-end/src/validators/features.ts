@@ -168,31 +168,12 @@ const experimentRefRule = baseRule
 
 export type ExperimentRefRule = z.infer<typeof experimentRefRule>;
 
-export const safeRolloutStatus = [
-  "running",
-  "rolled-back",
-  "released",
-  "draft",
-] as const;
-export type SafeRolloutStatus = typeof safeRolloutStatus[number];
-
 export const safeRolloutRule = baseRule
   .extend({
     type: z.literal("safe-rollout"),
-    trackingKey: z.string(),
-    datasource: z.string(),
-    exposureQueryId: z.string(),
     controlValue: z.string(),
     value: z.string(),
     coverage: z.number(),
-    hashAttribute: z.string(),
-    seed: z.string(),
-    guardrailMetrics: z.array(z.string()),
-    status: z.enum(safeRolloutStatus).default("draft"),
-    maxDurationDays: z.number(),
-    startedAt: z.date(),
-    lastSnapshotAttempt: z.date().optional(),
-    nextSnapshotAttempt: z.date().optional(),
   })
   .strict();
 
@@ -211,6 +192,7 @@ export type FeatureRule = z.infer<typeof featureRule>;
 export const featureEnvironment = z
   .object({
     enabled: z.boolean(),
+    prerequisites: z.array(featurePrerequisite).optional(),
     rules: z.array(featureRule),
   })
   .strict();
