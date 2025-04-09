@@ -42,7 +42,7 @@ export default function CloudUsage() {
   const [monthsAgo, setMonthsAgo] = useState(0);
 
   const router = useRouter();
-  const useDummyData = 1 || (!isCloud() && !!router.query.dummy);
+  const useDummyData = !isCloud() && !!router.query.dummy;
 
   const { data, error } = useApi<{
     cdnUsage: DailyUsage[];
