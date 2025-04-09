@@ -2,12 +2,10 @@ import { useEffect, useState } from "react";
 import clsx from "clsx";
 import { daysLeft } from "shared/dates";
 import Link from "next/link";
-import { GetQuoteResponse } from "back-end/types/billing";
-import { Box, Flex, Grid, Text } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import { FaCheckCircle } from "react-icons/fa";
 import { PiCaretRight, PiArrowSquareOut } from "react-icons/pi";
 import { CommercialFeature } from "shared/enterprise";
-import Collapsible from "react-collapsible";
 import { growthbook } from "@/services/utils";
 import { useUser } from "@/services/UserContext";
 import { getGrowthBookBuild, isCloud } from "@/services/env";
@@ -346,7 +344,12 @@ export default function UpgradeModal({
 
   const upgradeHeader = (
     <>
-      <h3 className="mb-1">Upgrade to Pro</h3>
+      <h3
+        className="mb-1"
+        style={{ color: "var(--color-text-high)", fontSize: "20px" }}
+      >
+        Upgrade to Pro
+      </h3>
       <p
         className="mb-0"
         style={{ color: "var(--color-text-mid)", fontSize: "16px" }}
@@ -375,32 +378,6 @@ export default function UpgradeModal({
       </a>
     </p>
   );
-
-  const showCdnUsage = isCloud();
-
-  const [cdnUsage, setCdnUsage] = useState<GetQuoteResponse | null>(null);
-  const totalCost = cdnUsage
-    ? numOfCurrentMembers * 20 +
-      cdnUsage.projectedCost.requests +
-      cdnUsage.projectedCost.bandwidth
-    : numOfCurrentMembers * 20;
-
-  useEffect(() => {
-    const fetchCdnUsageQuote = async () => {
-      try {
-        const response = await apiCall<GetQuoteResponse>("/billing/quote", {
-          method: "GET",
-        });
-        setCdnUsage(response);
-      } catch (error) {
-        console.error("Failed to fetch CDN usage:", error);
-      }
-    };
-
-    if (showCdnUsage) {
-      fetchCdnUsageQuote();
-    }
-  }, [showCdnUsage, apiCall]);
 
   function trialAndUpgradeTreatment() {
     return (
@@ -438,154 +415,102 @@ export default function UpgradeModal({
         <div className="py-4">
           <Flex align="center" className="pb-2">
             <FaCheckCircle className="mr-2" color="blue" />
-            <strong>{dynamicBullet || "Add up to 100 team members"}</strong>
+            <Text
+              size={"3"}
+              style={{ color: "var(--color-text-high)", fontWeight: 500 }}
+            >
+              {dynamicBullet || "Add up to 100 team members"}
+            </Text>
           </Flex>
           <Flex align="center" className="pb-2">
             <FaCheckCircle className="mr-2" color="blue" />
-            <strong>
+            <Text
+              size={"3"}
+              style={{ color: "var(--color-text-high)", fontWeight: 500 }}
+            >
               {dynamicBullet === "advanced-permissions"
                 ? "Add up to 100 team members"
                 : "Manage advanced user permissions"}
-            </strong>
+            </Text>
           </Flex>
           <Flex align="center" className="pb-2">
             <FaCheckCircle className="mr-2" color="blue" />
-            <strong>
+            <Text
+              size={"3"}
+              style={{ color: "var(--color-text-high)", fontWeight: 500 }}
+            >
               Get access to advanced experimentation: CUPED, Sequential testing,
               Bandits and more
-            </strong>
+            </Text>
           </Flex>
         </div>
-        {showCdnUsage ? (
+        {isCloud() && permissionsUtil.canManageBilling() && (
           <>
-            <div
-              className="p-3 mb-4"
-              style={{ backgroundColor: "var(--violet-2)" }}
+            <Box
+              className="mb-4"
+              style={{
+                backgroundColor: "var(--violet-2)",
+                padding: "20px 20px 24px 20px",
+              }}
             >
-              <Collapsible
-                trigger={
-                  <Flex>
-                    <PiCaretRight className="chevron ml-1 mr-2 mt-1" />
-                    <Box width={"100%"}>
-                      <Flex align="center" justify="between">
-                        <span>
-                          <label>Cost estimate *</label>
-                        </span>
-                        <label>~${numOfCurrentMembers * 20} / month</label>
-                      </Flex>
-                      <p className="text-secondary">
-                        $20/seat + $10/million over 2 million CDN requests +
-                        $1/GB over 20GB CDN bandwidth
-                      </p>
-                    </Box>
-                  </Flex>
-                }
+              <Flex
+                align="center"
+                justify="between"
+                style={{ color: "var(--color-text-high)" }}
+                mb={"1"}
               >
-                <hr className="mt-0" />
-                <Grid
-                  columns="4"
-                  pl="23px"
-                  align="center"
-                  style={{ gridTemplateColumns: "auto 1fr 1fr 1fr" }}
-                  gapX="3"
-                >
-                  <Box></Box>
-                  <Text align="right">
-                    <strong>Actual</strong>
-                  </Text>
-                  <Text align="right">
-                    <strong>Projected</strong>
-                  </Text>
-                  <Text align="right">
-                    <strong>Cost</strong>
-                  </Text>
+                <Text size="3" weight={"bold"}>
+                  Base price
+                </Text>
+                <Text size="3" weight={"bold"}>
+                  ${numOfCurrentMembers * 20} / month
+                </Text>
+              </Flex>
+              <Text style={{ color: "var(--color-text-mid)", fontWeight: 500 }}>
+                $20 per seat (Includes 2 million CDN requests and 20GB of
+                bandwidth per month)
+              </Text>
 
-                  <Box>
-                    <strong>Per seat</strong>
-                    <p className="text-secondary">$20/seat</p>
-                  </Box>
-                  <Text align="right">
-                    {numOfCurrentMembers} seat
-                    {numOfCurrentMembers > 1 ? "s" : ""}
-                  </Text>
-                  <Text align="right">
-                    {numOfCurrentMembers} seat
-                    {numOfCurrentMembers > 1 ? "s" : ""}
-                  </Text>
-                  <Text align="right">
-                    ~${numOfCurrentMembers * 20} / month
-                  </Text>
+              <Text
+                as="div"
+                size="2"
+                weight={"bold"}
+                mt="3"
+                style={{ color: "var(--color-text-high)" }}
+              >
+                Additional usage:
+              </Text>
+              <ul
+                className="pl-4"
+                style={{ color: "var(--color-text-mid)", fontWeight: 500 }}
+              >
+                <li> $10 per million CDN requests</li>
+                <li> $1 per GB </li>
+              </ul>
 
-                  <Box>
-                    <strong>CDN Requests</strong>
-                    <p className="text-secondary">
-                      2 million included, then + $10/million
-                    </p>
-                  </Box>
-                  <Text align="right">{cdnUsage?.actualUsage.requests} m</Text>
-                  <Text align="right">
-                    {cdnUsage?.projectedUsage.requests} m
-                  </Text>
-                  <Text align="right">
-                    + ~${cdnUsage?.projectedCost.requests} / month
-                  </Text>
-
-                  <Box>
-                    <strong>CDN Bandwidth</strong>
-                    <p className="text-secondary pb-0">
-                      20GB included, then + $1/GB
-                    </p>
-                  </Box>
-                  <Text align="right">
-                    {cdnUsage?.actualUsage.bandwidth} GB
-                  </Text>
-                  <Text align="right">
-                    {cdnUsage?.projectedUsage.bandwidth} GB
-                  </Text>
-                  <Text align="right">
-                    + ~${cdnUsage?.projectedCost.bandwidth} /month
-                  </Text>
-
-                  <Box></Box>
-                  <Box></Box>
-                  <Box></Box>
-                  <Text
-                    align="right"
-                    style={{
-                      borderTop: "1px solid",
-                    }}
-                    className="py-2"
-                  >
-                    <strong>~${totalCost} / month</strong>
-                  </Text>
-                </Grid>
-              </Collapsible>
-
-              <hr className="mt-0" />
-
-              <Box pl={"23px"}>
+              <hr />
+              <p className="mb-0">
                 <a
-                  href="https://docs.growthbook.io/faq#what-are-the-growthbook-cloud-cdn-usage-limits"
+                  href="/settings/usage"
                   className="text-decoration-none pl-1"
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => {
-                    track("Clicked Read About CDN Limits Link", trackContext);
+                    track(
+                      "Clicked See Recent Usage From Upgrade Modal",
+                      trackContext
+                    );
                   }}
                 >
-                  <strong className="a link-purple">
-                    Read about CDN limits and techniques to reduce usage{" "}
+                  <Text size="1" weight="bold" className="a link-purple">
+                    See your recent usage{" "}
                     <PiArrowSquareOut
                       style={{ position: "relative", top: "-2px" }}
                     />
-                  </strong>
+                  </Text>
                 </a>
-                <p className="text-secondary">
-                  * Estimate based on your team&apos;s activity so far this
-                  month. Actual cost may vary depending on future usage.
-                </p>
-              </Box>
-            </div>
+              </p>
+            </Box>
             <Callout status="info">
               Interested in an Enterprise Plan with volume discounts?
               <a
@@ -606,7 +531,8 @@ export default function UpgradeModal({
               </a>
             </Callout>
           </>
-        ) : (
+        )}{" "}
+        {!isCloud() && permissionsUtil.canManageBilling() && (
           <div>
             <div
               className="p-3 mb-4"
@@ -727,242 +653,236 @@ export default function UpgradeModal({
           includeCloseCta={featureFlagValue !== "OFF" ? true : false}
           close={close}
           size="lg"
-          header={<>Get more out of GrowthBook</>}
+          header={null}
+          showHeaderCloseButton={false}
           loading={loading}
           cta={
             <>
               {featureFlagValue === "UPGRADE-ONLY" ||
               trialAndUpgradePreference === "upgrade"
-                ? "Upgrade Now"
+                ? "Continue"
                 : "Start Trial"}
               <PiCaretRight />
             </>
           }
+          disabledMessage="Contact your admin to upgrade."
+          ctaEnabled={permissionsUtil.canManageBilling()}
           submit={featureFlagValue !== "OFF" ? onSubmit : undefined}
         >
-          {!permissionsUtil.canManageBilling() ? (
-            <div className="text-center mt-4 mb-5">
-              To upgrade, please contact your system administrator.
-            </div>
-          ) : (
-            <div
-              className={clsx(
-                "container-fluid dashboard p-3 ",
-                styles.upgradeModal
-              )}
-            >
-              {featureFlagValue === "OFF" ? (
-                <>
-                  {!license?.isTrial &&
-                    (daysToGo >= 0 && !hasCanceledSubscription ? (
-                      <div className="row bg-main-color p-3 mb-3 rounded">
-                        <span>You are currently using the </span>
-                        <b className="mx-1"> {licensePlanText} </b> version of
-                        Growthbook.
-                      </div>
-                    ) : daysToGo < 0 ? (
-                      <div className="row p-3 mb-3 rounded alert-danger">
-                        {" "}
+          <div
+            className={clsx(
+              "container-fluid dashboard p-3 ",
+              styles.upgradeModal
+            )}
+          >
+            {featureFlagValue === "OFF" ? (
+              <>
+                {!license?.isTrial &&
+                  (daysToGo >= 0 && !hasCanceledSubscription ? (
+                    <div className="row bg-main-color p-3 mb-3 rounded">
+                      <span>You are currently using the </span>
+                      <b className="mx-1"> {licensePlanText} </b> version of
+                      Growthbook.
+                    </div>
+                  ) : daysToGo < 0 ? (
+                    <div className="row p-3 mb-3 rounded alert-danger">
+                      {" "}
+                      <span>
+                        Your old <b className="mx-1">{licensePlanText}</b>{" "}
+                        version of Growthbook expired. Renew below.
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="row p-3 mb-3 rounded alert-danger">
+                      {" "}
+                      <span>
+                        Your old <b className="mx-1">{licensePlanText}</b>{" "}
+                        version of Growthbook was cancelled. Renew below.
+                      </span>
+                    </div>
+                  ))}
+                {license?.isTrial && (
+                  <div
+                    className={`row p-3 mb-3 rounded ${
+                      daysToGo <= 3
+                        ? "alert-danger"
+                        : daysToGo <= 7
+                        ? "bg-muted-yellow"
+                        : "bg-main-color"
+                    }`}
+                  >
+                    {(daysToGo >= 0 && (
+                      <div>
                         <span>
-                          Your old <b className="mx-1">{licensePlanText}</b>{" "}
-                          version of Growthbook expired. Renew below.
+                          You have{" "}
+                          <b>{daysLeft(license.dateExpires || "")} days</b> left
+                          in your {licensePlanText} of Growthbook with{" "}
                         </span>
+                        <Link
+                          href="/settings/team"
+                          className="mx-1 font-weight-bold"
+                        >
+                          {currentUsers} team members
+                        </Link>
+                        ↗
                       </div>
-                    ) : (
-                      <div className="row p-3 mb-3 rounded alert-danger">
-                        {" "}
-                        <span>
-                          Your old <b className="mx-1">{licensePlanText}</b>{" "}
-                          version of Growthbook was cancelled. Renew below.
-                        </span>
+                    )) || (
+                      <div>
+                        <span>Your {licensePlanText} of Growthbook with </span>
+                        <Link
+                          href="/settings/team"
+                          className="mx-1 font-weight-bold"
+                        >
+                          {currentUsers} team members
+                        </Link>
+                        ↗<span> has expired</span>
                       </div>
-                    ))}
-                  {license?.isTrial && (
-                    <div
-                      className={`row p-3 mb-3 rounded ${
-                        daysToGo <= 3
-                          ? "alert-danger"
-                          : daysToGo <= 7
-                          ? "bg-muted-yellow"
-                          : "bg-main-color"
-                      }`}
-                    >
-                      {(daysToGo >= 0 && (
-                        <div>
-                          <span>
-                            You have{" "}
-                            <b>{daysLeft(license.dateExpires || "")} days</b>{" "}
-                            left in your {licensePlanText} of Growthbook with{" "}
-                          </span>
-                          <Link
-                            href="/settings/team"
-                            className="mx-1 font-weight-bold"
-                          >
-                            {currentUsers} team members
-                          </Link>
-                          ↗
-                        </div>
-                      )) || (
-                        <div>
-                          <span>
-                            Your {licensePlanText} of Growthbook with{" "}
-                          </span>
-                          <Link
-                            href="/settings/team"
-                            className="mx-1 font-weight-bold"
-                          >
-                            {currentUsers} team members
-                          </Link>
-                          ↗<span> has expired</span>
+                    )}
+                  </div>
+                )}
+              </>
+            ) : null}
+            {featureFlagValue === "UPGRADE-ONLY" ? (
+              upgradeOnlyTreatment()
+            ) : featureFlagValue === "TRIAL-AND-UPGRADE" ? (
+              trialAndUpgradeTreatment()
+            ) : (
+              <div className="row">
+                <div
+                  className={clsx(
+                    "col-lg-6 mb-4",
+                    isAtLeastPro && !license?.isTrial ? "disabled-opacity" : ""
+                  )}
+                >
+                  <div className="pr-lg-2 border rounded p-0 d-flex flex-column">
+                    <div className="d-flex justify-content-between align-items-center p-2 px-3">
+                      <h4 className="mb-0">Pro</h4>
+                      <div className="text-right text-muted">
+                        $20/user/month
+                      </div>
+                    </div>
+                    <div className="border-top p-0 flex-grow-1">
+                      <ul className="pt-4">
+                        <li>
+                          <b>Up to 100 team members</b>
+                        </li>
+                        <li>
+                          <b>Advanced permissioning</b>
+                        </li>
+                        <li>
+                          <b>Visual A/B test editor</b>
+                        </li>
+                        <li>Custom fields</li>
+                        <li>Premium support</li>
+                        <li>Encrypt SDK endpoint response</li>
+                        <li>
+                          Advanced experimentation features (CUPED, Sequential
+                          testing, etc.)
+                        </li>
+                        <li>Early access to new features</li>
+                      </ul>
+                      <div
+                        className={
+                          "d-flex justify-content-between " +
+                          (freeTrialAvailable ? "" : "mb-2")
+                        }
+                      >
+                        <button
+                          className="btn btn-primary m-3 w-100"
+                          onClick={startPro}
+                          disabled={isAtLeastPro && !license?.isTrial}
+                        >
+                          Upgrade Now
+                        </button>
+                      </div>
+                      {freeTrialAvailable && (
+                        <div className="mb-4 text-center">
+                          or, start a{" "}
+                          {isAtLeastPro ? (
+                            <span>{proTrialCopy}</span>
+                          ) : (
+                            <a
+                              role="button"
+                              className={clsx(
+                                isAtLeastPro ? "cursor-default" : ""
+                              )}
+                              onClick={() =>
+                                isCloud()
+                                  ? setShowCloudProTrial(true)
+                                  : setShowSHProTrial(true)
+                              }
+                            >
+                              {proTrialCopy}
+                            </a>
+                          )}
                         </div>
                       )}
                     </div>
-                  )}
-                </>
-              ) : null}
-              {featureFlagValue === "UPGRADE-ONLY" ? (
-                upgradeOnlyTreatment()
-              ) : featureFlagValue === "TRIAL-AND-UPGRADE" ? (
-                trialAndUpgradeTreatment()
-              ) : (
-                <div className="row">
-                  <div
-                    className={clsx(
-                      "col-lg-6 mb-4",
-                      isAtLeastPro && !license?.isTrial
-                        ? "disabled-opacity"
-                        : ""
-                    )}
-                  >
-                    <div className="pr-lg-2 border rounded p-0 d-flex flex-column">
-                      <div className="d-flex justify-content-between align-items-center p-2 px-3">
-                        <h4 className="mb-0">Pro</h4>
-                        <div className="text-right text-muted">
-                          $20/user/month
-                        </div>
-                      </div>
-                      <div className="border-top p-0 flex-grow-1">
-                        <ul className="pt-4">
-                          <li>
-                            <b>Up to 100 team members</b>
-                          </li>
-                          <li>
-                            <b>Advanced permissioning</b>
-                          </li>
-                          <li>
-                            <b>Visual A/B test editor</b>
-                          </li>
-                          <li>Custom fields</li>
-                          <li>Premium support</li>
-                          <li>Encrypt SDK endpoint response</li>
-                          <li>
-                            Advanced experimentation features (CUPED, Sequential
-                            testing, etc.)
-                          </li>
-                          <li>Early access to new features</li>
-                        </ul>
-                        <div
-                          className={
-                            "d-flex justify-content-between " +
-                            (freeTrialAvailable ? "" : "mb-2")
-                          }
-                        >
-                          <button
-                            className="btn btn-primary m-3 w-100"
-                            onClick={startPro}
-                            disabled={isAtLeastPro && !license?.isTrial}
-                          >
-                            Upgrade Now
-                          </button>
-                        </div>
-                        {freeTrialAvailable && (
-                          <div className="mb-4 text-center">
-                            or, start a{" "}
-                            {isAtLeastPro ? (
-                              <span>{proTrialCopy}</span>
-                            ) : (
-                              <a
-                                role="button"
-                                className={clsx(
-                                  isAtLeastPro ? "cursor-default" : ""
-                                )}
-                                onClick={() =>
-                                  isCloud()
-                                    ? setShowCloudProTrial(true)
-                                    : setShowSHProTrial(true)
-                                }
-                              >
-                                {proTrialCopy}
-                              </a>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
                   </div>
+                </div>
 
-                  <div className="col-lg-6 mb-4">
-                    <div className="pl-lg-2 border rounded p-0 d-flex flex-column">
-                      <div className="d-flex justify-content-between align-items-center p-2 px-3">
-                        <h4 className="mb-0">Enterprise</h4>
-                        <div className="text-right text-muted">Contact Us</div>
+                <div className="col-lg-6 mb-4">
+                  <div className="pl-lg-2 border rounded p-0 d-flex flex-column">
+                    <div className="d-flex justify-content-between align-items-center p-2 px-3">
+                      <h4 className="mb-0">Enterprise</h4>
+                      <div className="text-right text-muted">Contact Us</div>
+                    </div>
+                    <div className="border-top p-0 flex-grow-1">
+                      <div className="mt-4 ml-3 font-italic">
+                        Includes all Pro features, plus...
                       </div>
-                      <div className="border-top p-0 flex-grow-1">
-                        <div className="mt-4 ml-3 font-italic">
-                          Includes all Pro features, plus...
-                        </div>
-                        {/*The minHeight is a hack to get the two buttons aligned vertically */}
-                        <ul className=" pr-2" style={{ minHeight: "168px" }}>
-                          <li>
-                            <b>Unlimited users</b>
-                          </li>
-                          <li>
-                            <b>SSO / SAML integration</b>
-                          </li>
-                          <li>
-                            <b>Roadmap acceleration</b>
-                          </li>
-                          <li>Service-level agreements</li>
-                          <li>Exportable audit logs</li>
-                          <li>Enterprise support and training</li>
-                          <li>Advanced organization and performance</li>
-                        </ul>
-                        <div
-                          className={
-                            "d-flex justify-content-between " +
-                            (freeTrialAvailable ? "" : "mb-2")
-                          }
+                      {/*The minHeight is a hack to get the two buttons aligned vertically */}
+                      <ul className=" pr-2" style={{ minHeight: "168px" }}>
+                        <li>
+                          <b>Unlimited users</b>
+                        </li>
+                        <li>
+                          <b>SSO / SAML integration</b>
+                        </li>
+                        <li>
+                          <b>Roadmap acceleration</b>
+                        </li>
+                        <li>Service-level agreements</li>
+                        <li>Exportable audit logs</li>
+                        <li>Enterprise support and training</li>
+                        <li>Advanced organization and performance</li>
+                      </ul>
+                      <div
+                        className={
+                          "d-flex justify-content-between " +
+                          (freeTrialAvailable ? "" : "mb-2")
+                        }
+                      >
+                        <button
+                          className="btn btn-primary m-3 w-100"
+                          onClick={startEnterprise}
                         >
-                          <button
-                            className="btn btn-primary m-3 w-100"
-                            onClick={startEnterprise}
-                          >
-                            Contact Us
-                          </button>
-                        </div>
-                        {freeTrialAvailable && (
-                          <div className="mb-4 text-center">
-                            or,
-                            <a
-                              href="#"
-                              className="ml-1"
-                              onClick={() =>
-                                isCloud()
-                                  ? setShowCloudEnterpriseTrial(true)
-                                  : setShowSHEnterpriseTrial(true)
-                              }
-                            >
-                              request an Enterprise trial
-                            </a>
-                          </div>
-                        )}
+                          Contact Us
+                        </button>
                       </div>
+                      {freeTrialAvailable && (
+                        <div className="mb-4 text-center">
+                          or,
+                          <a
+                            href="#"
+                            className="ml-1"
+                            onClick={() =>
+                              isCloud()
+                                ? setShowCloudEnterpriseTrial(true)
+                                : setShowSHEnterpriseTrial(true)
+                            }
+                          >
+                            request an Enterprise trial
+                          </a>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
+
           {error && <div className="alert alert-danger">{error}</div>}
         </Modal>
       )}

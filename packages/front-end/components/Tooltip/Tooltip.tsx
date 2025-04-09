@@ -114,28 +114,30 @@ const Tooltip: FC<Props> = ({
   const popper = (
     <>
       {open && body && shouldDisplay && (
-        <RadixTheme flip={true}>
-          <Box
-            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Dispatch<SetStateAction<null>>' is not assig... Remove this comment to see the full error message
-            ref={setTooltip}
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
-            style={{
-              ...styles.popper,
-              minWidth: tipMinWidth,
-              maxWidth: 400,
-              zIndex: 10000,
-              ...popperStyle,
-            }}
-            {...attributes.popper}
-            className={clsx("shadow-lg gb-tooltip", popperClassName)}
-            role="tooltip"
-          >
-            <div className={`body ${innerClassName}`}>{body}</div>
-            {/* @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Dispatch<SetStateAction<null>>' is not assig... Remove this comment to see the full error message */}
-            <div ref={setArrow} style={styles.arrow} className="arrow" />
-          </Box>
-        </RadixTheme>
+        <Box style={{ position: "absolute" }}>
+          <RadixTheme flip={true}>
+            <Box
+              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Dispatch<SetStateAction<null>>' is not assig... Remove this comment to see the full error message
+              ref={setTooltip}
+              onMouseEnter={handleMouseEnter}
+              onMouseLeave={handleMouseLeave}
+              style={{
+                ...styles.popper,
+                minWidth: tipMinWidth,
+                maxWidth: 400,
+                zIndex: 10000,
+                ...popperStyle,
+              }}
+              {...attributes.popper}
+              className={clsx("shadow-lg gb-tooltip", popperClassName)}
+              role="tooltip"
+            >
+              <div className={`body ${innerClassName}`}>{body}</div>
+              {/* @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Dispatch<SetStateAction<null>>' is not assig... Remove this comment to see the full error message */}
+              <div ref={setArrow} style={styles.arrow} className="arrow" />
+            </Box>
+          </RadixTheme>
+        </Box>
       )}
     </>
   );

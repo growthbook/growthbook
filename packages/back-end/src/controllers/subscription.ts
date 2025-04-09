@@ -27,17 +27,13 @@ import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
-import {
-  getCurrentMonthlyCDNUsageForOrg,
-  getDailyCDNUsageForOrg,
-} from "back-end/src/services/clickhouse";
+import { getDailyCDNUsageForOrg } from "back-end/src/services/clickhouse";
 import {
   createSetupIntent,
   deletePaymentMethodById,
   updateDefaultPaymentMethod,
   getPaymentMethodsByLicenseKey,
 } from "back-end/src/enterprise/billing/index";
-import { GetQuoteResponse } from "back-end/types/billing";
 
 function withLicenseServerErrorHandling<T>(
   fn: (req: AuthRequest<T>, res: Response) => Promise<void>
@@ -394,62 +390,6 @@ export async function deletePaymentMethod(
   }
   res.status(200).json({
     status: 200,
-  });
-}
-
-export async function getQuote(
-  req: AuthRequest<null, null>,
-  res: Response<GetQuoteResponse>
-) {
-  const context = getContextFromReq(req);
-
-  if (!context.permissions.canViewUsage()) {
-    context.permissions.throwPermissionError();
-  }
-
-  const usage = await context.usage();
-  const currentUsage = await getCurrentMonthlyCDNUsageForOrg(context.org.id);
-
-  // Calculate projected usage for the end of the month based on current usage and how much of the current month has already passed
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const daysInMonth = 365 / 12; //The average number of days in a month
-
-  const daysPassed = Math.floor(
-    (now.getTime() - startOfMonth.getTime()) / (1000 * 60 * 60 * 24)
-  );
-  const projectedRequests = Math.round(
-    (currentUsage.requests / daysPassed) * daysInMonth
-  );
-  const projectedBandwidth = Math.round(
-    (currentUsage.bandwidth / daysPassed) * daysInMonth
-  );
-  const projectedUsage = {
-    requests: projectedRequests,
-    bandwidth: projectedBandwidth,
-  };
-
-  const isLegacy = usage.limits.requests === 10_000_000;
-
-  // Projected Request Cost should be 0 if the usage is under the current limit ifLegacy or under 2_000_000 if not legacy.
-  // Each million requests above it should be charged at $10
-  // Projected Bandwidth Cost should be 0 ifLegacy. Each GB above 20GB should be charged at $1 each.
-  const projectedCost = {
-    requests: Math.max(
-      0,
-      Math.ceil(
-        (projectedUsage.requests - (isLegacy ? 10_000_000 : 2_000_000)) /
-          1_000_000
-      ) * 10
-    ),
-    bandwidth: Math.max(0, Math.ceil((projectedUsage.bandwidth - 20) / 1) * 1),
-  };
-
-  return res.status(200).json({
-    status: 200,
-    actualUsage: currentUsage,
-    projectedUsage,
-    projectedCost,
   });
 }
 
