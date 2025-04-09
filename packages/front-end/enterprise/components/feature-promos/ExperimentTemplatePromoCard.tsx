@@ -22,8 +22,8 @@ export default function ExperimentTemplatePromoCard({
       <Flex justify="center">
         <img
           className="rounded"
-          src={"/images/experiment-templates.jpeg"} //MKTODO: Change this with the actual image when ready
-          alt={"test"}
+          src={"/images/experiment-templates.png"}
+          alt={"GrowthBook Experiment Templates Promo Image"}
           style={{
             height: "150px",
             maxWidth: "268px",
@@ -33,12 +33,8 @@ export default function ExperimentTemplatePromoCard({
       </Flex>
       <Flex align="center" className="md-pl-4">
         <Box>
-          <h3>
-            <Box as="span">
-              Experiment Templates{" "}
-              <PaidFeatureBadge commercialFeature="templates" />
-            </Box>
-          </h3>
+          <PaidFeatureBadge commercialFeature="templates" marginLeft="0" />
+          <h3 className="pt-2">Experiment Templates</h3>
           <Text as="p">
             Experiment Templates can help enforce consistency and best practices
             as you scale up experimentation.
