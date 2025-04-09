@@ -203,17 +203,16 @@ export default function AccountPlanNotices() {
                   </div>
                   <Tooltip
                     body={
-                      <>
-                        Pro license expired ${date(license.dateExpires || "")}.
+                      <Box className={styles["notice-tooltip"]}>
+                        Pro license expired {date(license.dateExpires || "")}.
                         Click to upgrade, or go to{" "}
                         <Link href="/settings/usage">Settings &gt; Usage</Link>{" "}
                         to learn more.
-                      </>
+                      </Box>
                     }
                   >
                     <Box className={styles["warning-notification"]}>
-                      <FaExclamationTriangle />
-                      Approaching CDN usage limit.
+                      Approaching CDN usage limit.{" "}
                       <a href="#" onClick={() => setUpgradeModal(true)}>
                         Upgrade License
                       </a>
@@ -241,20 +240,19 @@ export default function AccountPlanNotices() {
                       license.plan === "enterprise" ? (
                         <>Contact sales@growthbook.io to renew.</>
                       ) : (
-                        <>
+                        <Box className={styles["notice-tooltip"]}>
                           Pro license expired ${date(license.dateExpires || "")}
                           . Click to upgrade, or go to{" "}
                           <Link href="/settings/usage">
                             Settings &gt; Usage
                           </Link>{" "}
                           to learn more.
-                        </>
+                        </Box>
                       )
                     }
                   >
                     <Box className={styles["error-notification"]}>
-                      <FaExclamationTriangle />
-                      Approaching CDN usage limit.
+                      Approaching CDN usage limit.{" "}
                       <a href="#" onClick={() => setUpgradeModal(true)}>
                         Upgrade License
                       </a>

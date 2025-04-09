@@ -34,6 +34,7 @@ export interface Props {
 export default function UpgradeModal({
   close,
   source,
+  notice,
   commercialFeature,
 }: Props) {
   const [error, setError] = useState("");
@@ -104,7 +105,7 @@ export default function UpgradeModal({
     ? commercialFeatureLowestPlan?.[commercialFeature]
     : "starter";
   const featureFlagValue =
-    isCloud() && freeTrialAvailable && lowestPlan !== "enterprise"
+    isCloud() && lowestPlan !== "enterprise"
       ? growthbook.getFeatureValue("pro-upgrade-modal", "OFF")
       : "OFF";
   const daysToGo = license?.dateExpires ? daysLeft(license.dateExpires) : 0;
@@ -412,6 +413,11 @@ export default function UpgradeModal({
     return (
       <div>
         {upgradeHeader}
+        {notice && (
+          <Box mt="4">
+            <Callout status="error">{notice}</Callout>
+          </Box>
+        )}
         <div className="py-4">
           <Flex align="center" className="pb-2">
             <FaCheckCircle className="mr-2" color="blue" />
