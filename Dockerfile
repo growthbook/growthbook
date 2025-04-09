@@ -78,12 +78,6 @@ COPY buildinfo* ./buildinfo
 
 COPY --from=pybuild /usr/local/src/app/dist /usr/local/src/gbstats
 RUN pip3 install /usr/local/src/gbstats/*.whl
-ARG DD_GIT_COMMIT_SHA=""
-ARG DD_GIT_REPOSITORY_URL=https://github.com/growthbook/growthbook.git
-ARG DD_VERSION=""
-ENV DD_GIT_COMMIT_SHA=$DD_GIT_COMMIT_SHA
-ENV DD_GIT_REPOSITORY_URL=$DD_GIT_REPOSITORY_URL
-ENV DD_VERSION=$DD_VERSION
 # The front-end app (NextJS)
 EXPOSE 3000
 # The back-end api (Express)
