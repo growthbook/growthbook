@@ -48,6 +48,13 @@ export default class Redshift extends SqlIntegration {
   hllCardinality(col: string): string {
     return `HLL_CARDINALITY(${col})`;
   }
+  extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
+    const raw = `JSON_EXTRACT_PATH_TEXT(${jsonCol}, ${path
+      .split(".")
+      .map((p) => `'${p}'`)
+      .join(", ")}, TRUE)`;
+    return isNumeric ? this.ensureFloat(raw) : raw;
+  }
   approxQuantile(value: string, quantile: string | number): string {
     // approx behaves differently in redshift
     return `PERCENTILE_CONT(${quantile}) WITHIN GROUP (ORDER BY ${value})`;

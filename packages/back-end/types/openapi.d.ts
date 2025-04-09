@@ -420,6 +420,7 @@ export interface components {
         minPercentChange: number;
         maxPercentChange: number;
         minSampleSize: number;
+        targetMDE: number;
       };
       sql?: {
         identifierTypes: (string)[];
@@ -524,6 +525,11 @@ export interface components {
                   matchType: "all" | "any" | "none";
                   savedGroups: (string)[];
                 })[];
+              prerequisites?: ({
+                  /** @description Feature ID */
+                  id: string;
+                  condition: string;
+                })[];
               id: string;
               enabled: boolean;
               /** @enum {string} */
@@ -594,6 +600,11 @@ export interface components {
                     matchType: "all" | "any" | "none";
                     savedGroups: (string)[];
                   })[];
+                prerequisites?: ({
+                    /** @description Feature ID */
+                    id: string;
+                    condition: string;
+                  })[];
                 id: string;
                 enabled: boolean;
                 /** @enum {string} */
@@ -656,10 +667,8 @@ export interface components {
           };
         }) | undefined;
       };
-      prerequisites?: ({
-          parentId: string;
-          parentCondition: string;
-        })[];
+      /** @description Feature IDs. Each feature must evaluate to `true` */
+      prerequisites?: (string)[];
       revision: {
         version: number;
         comment: string;
@@ -668,6 +677,269 @@ export interface components {
         publishedBy: string;
       };
     };
+    FeatureWithRevisions: ({
+      id: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      archived: boolean;
+      description: string;
+      owner: string;
+      project: string;
+      /** @enum {string} */
+      valueType: "boolean" | "string" | "number" | "json";
+      defaultValue: string;
+      tags: (string)[];
+      environments: {
+        [key: string]: ({
+          enabled: boolean;
+          defaultValue: string;
+          rules: (({
+              description: string;
+              condition: string;
+              savedGroupTargeting?: ({
+                  /** @enum {string} */
+                  matchType: "all" | "any" | "none";
+                  savedGroups: (string)[];
+                })[];
+              prerequisites?: ({
+                  /** @description Feature ID */
+                  id: string;
+                  condition: string;
+                })[];
+              id: string;
+              enabled: boolean;
+              /** @enum {string} */
+              type: "force";
+              value: string;
+            }) | ({
+              description: string;
+              condition: string;
+              savedGroupTargeting?: ({
+                  /** @enum {string} */
+                  matchType: "all" | "any" | "none";
+                  savedGroups: (string)[];
+                })[];
+              id: string;
+              enabled: boolean;
+              /** @enum {string} */
+              type: "rollout";
+              value: string;
+              coverage: number;
+              hashAttribute: string;
+            }) | {
+              description: string;
+              condition: string;
+              id: string;
+              enabled: boolean;
+              /** @enum {string} */
+              type: "experiment";
+              trackingKey?: string;
+              hashAttribute?: string;
+              fallbackAttribute?: string;
+              disableStickyBucketing?: boolean;
+              bucketVersion?: number;
+              minBucketVersion?: number;
+              namespace?: {
+                enabled: boolean;
+                name: string;
+                range: (number)[];
+              };
+              coverage?: number;
+              value?: ({
+                  value: string;
+                  weight: number;
+                  name?: string;
+                })[];
+            } | {
+              description: string;
+              id: string;
+              enabled: boolean;
+              /** @enum {string} */
+              type: "experiment-ref";
+              condition?: string;
+              variations: ({
+                  value: string;
+                  variationId: string;
+                })[];
+              experimentId: string;
+            })[];
+          /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
+          definition?: string;
+          draft?: {
+            enabled: boolean;
+            defaultValue: string;
+            rules: (({
+                description: string;
+                condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                prerequisites?: ({
+                    /** @description Feature ID */
+                    id: string;
+                    condition: string;
+                  })[];
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "force";
+                value: string;
+              }) | ({
+                description: string;
+                condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "rollout";
+                value: string;
+                coverage: number;
+                hashAttribute: string;
+              }) | {
+                description: string;
+                condition: string;
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "experiment";
+                trackingKey?: string;
+                hashAttribute?: string;
+                fallbackAttribute?: string;
+                disableStickyBucketing?: boolean;
+                bucketVersion?: number;
+                minBucketVersion?: number;
+                namespace?: {
+                  enabled: boolean;
+                  name: string;
+                  range: (number)[];
+                };
+                coverage?: number;
+                value?: ({
+                    value: string;
+                    weight: number;
+                    name?: string;
+                  })[];
+              } | {
+                description: string;
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "experiment-ref";
+                condition?: string;
+                variations: ({
+                    value: string;
+                    variationId: string;
+                  })[];
+                experimentId: string;
+              })[];
+            /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
+            definition?: string;
+          };
+        }) | undefined;
+      };
+      /** @description Feature IDs. Each feature must evaluate to `true` */
+      prerequisites?: (string)[];
+      revision: {
+        version: number;
+        comment: string;
+        /** Format: date-time */
+        date: string;
+        publishedBy: string;
+      };
+    }) & ({
+      revisions?: ({
+          baseVersion: number;
+          version: number;
+          comment: string;
+          /** Format: date-time */
+          date: string;
+          status: string;
+          publishedBy?: string;
+          rules: {
+            [key: string]: ((({
+                description: string;
+                condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                prerequisites?: ({
+                    /** @description Feature ID */
+                    id: string;
+                    condition: string;
+                  })[];
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "force";
+                value: string;
+              }) | ({
+                description: string;
+                condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "rollout";
+                value: string;
+                coverage: number;
+                hashAttribute: string;
+              }) | {
+                description: string;
+                condition: string;
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "experiment";
+                trackingKey?: string;
+                hashAttribute?: string;
+                fallbackAttribute?: string;
+                disableStickyBucketing?: boolean;
+                bucketVersion?: number;
+                minBucketVersion?: number;
+                namespace?: {
+                  enabled: boolean;
+                  name: string;
+                  range: (number)[];
+                };
+                coverage?: number;
+                value?: ({
+                    value: string;
+                    weight: number;
+                    name?: string;
+                  })[];
+              } | {
+                description: string;
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "experiment-ref";
+                condition?: string;
+                variations: ({
+                    value: string;
+                    variationId: string;
+                  })[];
+                experimentId: string;
+              })[]) | undefined;
+          };
+          definitions?: {
+            [key: string]: string | undefined;
+          };
+        })[];
+    });
     FeatureEnvironment: {
       enabled: boolean;
       defaultValue: string;
@@ -678,6 +950,11 @@ export interface components {
               /** @enum {string} */
               matchType: "all" | "any" | "none";
               savedGroups: (string)[];
+            })[];
+          prerequisites?: ({
+              /** @description Feature ID */
+              id: string;
+              condition: string;
             })[];
           id: string;
           enabled: boolean;
@@ -749,6 +1026,11 @@ export interface components {
                 matchType: "all" | "any" | "none";
                 savedGroups: (string)[];
               })[];
+            prerequisites?: ({
+                /** @description Feature ID */
+                id: string;
+                condition: string;
+              })[];
             id: string;
             enabled: boolean;
             /** @enum {string} */
@@ -817,6 +1099,11 @@ export interface components {
           /** @enum {string} */
           matchType: "all" | "any" | "none";
           savedGroups: (string)[];
+        })[];
+      prerequisites?: ({
+          /** @description Feature ID */
+          id: string;
+          condition: string;
         })[];
       id: string;
       enabled: boolean;
@@ -898,6 +1185,11 @@ export interface components {
           matchType: "all" | "any" | "none";
           savedGroups: (string)[];
         })[];
+      prerequisites?: ({
+          /** @description Feature ID */
+          id: string;
+          condition: string;
+        })[];
       id: string;
       enabled: boolean;
       /** @enum {string} */
@@ -978,6 +1270,7 @@ export interface components {
       includeDraftExperiments?: boolean;
       includeExperimentNames?: boolean;
       includeRedirectExperiments?: boolean;
+      includeRuleIds?: boolean;
       key: string;
       proxyEnabled: boolean;
       proxyHost: string;
@@ -989,11 +1282,14 @@ export interface components {
     };
     Experiment: {
       id: string;
+      trackingKey: string;
       /** Format: date-time */
       dateCreated: string;
       /** Format: date-time */
       dateUpdated: string;
       name: string;
+      /** @enum {string} */
+      type: "standard" | "multi-armed-bandit";
       project: string;
       hypothesis: string;
       description: string;
@@ -1032,6 +1328,10 @@ export interface components {
             range: (unknown)[];
           };
           targetingCondition: string;
+          prerequisites?: ({
+              id: string;
+              condition: string;
+            })[];
           savedGroupTargeting?: ({
               /** @enum {string} */
               matchType: "all" | "any" | "none";
@@ -1054,6 +1354,8 @@ export interface components {
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
         regressionAdjustmentEnabled?: boolean;
+        sequentialTestingEnabled?: boolean;
+        sequentialTestingTuningParameter?: number;
         goals: ({
             metricId: string;
             overrides: {
@@ -1106,6 +1408,15 @@ export interface components {
         releasedVariationId: string;
         excludeFromPayload: boolean;
       };
+      /** @enum {string} */
+      shareLevel?: "public" | "organization";
+      publicUrl?: string;
+      banditScheduleValue?: number;
+      /** @enum {string} */
+      banditScheduleUnit?: "days" | "hours";
+      banditBurnInValue?: number;
+      /** @enum {string} */
+      banditBurnInUnit?: "days" | "hours";
     };
     ExperimentSnapshot: {
       id: string;
@@ -1139,6 +1450,8 @@ export interface components {
       /** @enum {unknown} */
       statsEngine: "bayesian" | "frequentist";
       regressionAdjustmentEnabled?: boolean;
+      sequentialTestingEnabled?: boolean;
+      sequentialTestingTuningParameter?: number;
       goals: ({
           metricId: string;
           overrides: {
@@ -1211,6 +1524,8 @@ export interface components {
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
         regressionAdjustmentEnabled?: boolean;
+        sequentialTestingEnabled?: boolean;
+        sequentialTestingTuningParameter?: number;
         goals: ({
             metricId: string;
             overrides: {
@@ -1448,6 +1763,10 @@ export interface components {
         aggregation?: "sum" | "max" | "count distinct";
         /** @description Array of Fact Table Filter Ids */
         filters: (string)[];
+        /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
+        aggregateFilterColumn?: string;
+        /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
+        aggregateFilter?: string;
       };
       denominator?: {
         factTableId: string;
@@ -1504,6 +1823,7 @@ export interface components {
       minPercentChange: number;
       maxPercentChange: number;
       minSampleSize: number;
+      targetMDE: number;
       /**
        * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
        * @enum {string}
@@ -1631,6 +1951,11 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
@@ -1701,6 +2026,11 @@ export interface operations {
                               matchType: "all" | "any" | "none";
                               savedGroups: (string)[];
                             })[];
+                          prerequisites?: ({
+                              /** @description Feature ID */
+                              id: string;
+                              condition: string;
+                            })[];
                           id: string;
                           enabled: boolean;
                           /** @enum {string} */
@@ -1763,10 +2093,8 @@ export interface operations {
                     };
                   }) | undefined;
                 };
-                prerequisites?: ({
-                    parentId: string;
-                    parentCondition: string;
-                  })[];
+                /** @description Feature IDs. Each feature must evaluate to `true` */
+                prerequisites?: (string)[];
                 revision: {
                   version: number;
                   comment: string;
@@ -1838,6 +2166,11 @@ export interface operations {
                       matchType: "all" | "any" | "none";
                       savedGroups: (string)[];
                     })[];
+                  prerequisites?: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[];
                   id?: string;
                   /** @description Enabled by default */
                   enabled?: boolean;
@@ -1847,7 +2180,7 @@ export interface operations {
                   /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
                   coverage: number;
                   hashAttribute: string;
-                }) | {
+                }) | ({
                   description?: string;
                   id?: string;
                   /** @description Enabled by default */
@@ -1855,12 +2188,22 @@ export interface operations {
                   /** @enum {string} */
                   type: "experiment-ref";
                   condition?: string;
+                  savedGroupTargeting?: ({
+                      /** @enum {string} */
+                      matchType: "all" | "any" | "none";
+                      savedGroups: (string)[];
+                    })[];
+                  prerequisites?: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[];
                   variations: ({
                       value: string;
                       variationId: string;
                     })[];
                   experimentId: string;
-                } | {
+                }) | {
                   description?: string;
                   condition: string;
                   id?: string;
@@ -1924,6 +2267,11 @@ export interface operations {
                         matchType: "all" | "any" | "none";
                         savedGroups: (string)[];
                       })[];
+                    prerequisites?: ({
+                        /** @description Feature ID */
+                        id: string;
+                        condition: string;
+                      })[];
                     id?: string;
                     /** @description Enabled by default */
                     enabled?: boolean;
@@ -1933,7 +2281,7 @@ export interface operations {
                     /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
                     coverage: number;
                     hashAttribute: string;
-                  }) | {
+                  }) | ({
                     description?: string;
                     id?: string;
                     /** @description Enabled by default */
@@ -1941,12 +2289,22 @@ export interface operations {
                     /** @enum {string} */
                     type: "experiment-ref";
                     condition?: string;
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
+                    prerequisites?: ({
+                        /** @description Feature ID */
+                        id: string;
+                        condition: string;
+                      })[];
                     variations: ({
                         value: string;
                         variationId: string;
                       })[];
                     experimentId: string;
-                  } | {
+                  }) | {
                     description?: string;
                     condition: string;
                     id?: string;
@@ -1986,6 +2344,8 @@ export interface operations {
               };
             }) | undefined;
           };
+          /** @description Feature IDs. Each feature must evaluate to `true` */
+          prerequisites?: (string)[];
           /** @description Use JSON schema to validate the payload of a JSON-type feature value (enterprise only). */
           jsonSchema?: string;
         };
@@ -2021,6 +2381,11 @@ export interface operations {
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
+                        })[];
                       id: string;
                       enabled: boolean;
                       /** @enum {string} */
@@ -2091,6 +2456,11 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
@@ -2153,10 +2523,8 @@ export interface operations {
                   };
                 }) | undefined;
               };
-              prerequisites?: ({
-                  parentId: string;
-                  parentCondition: string;
-                })[];
+              /** @description Feature IDs. Each feature must evaluate to `true` */
+              prerequisites?: (string)[];
               revision: {
                 version: number;
                 comment: string;
@@ -2173,6 +2541,10 @@ export interface operations {
   getFeature: {
     /** Get a single feature */
     parameters: {
+        /** @description Also return feature revisions (all, draft, or published statuses) */
+      query: {
+        withRevisions?: "all" | "drafts" | "published" | "none";
+      };
         /** @description The id of the requested resource */
       path: {
         id: string;
@@ -2182,7 +2554,7 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            feature: {
+            feature: ({
               id: string;
               /** Format: date-time */
               dateCreated: string;
@@ -2208,6 +2580,11 @@ export interface operations {
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
+                        })[];
                       id: string;
                       enabled: boolean;
                       /** @enum {string} */
@@ -2278,6 +2655,11 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
@@ -2340,10 +2722,8 @@ export interface operations {
                   };
                 }) | undefined;
               };
-              prerequisites?: ({
-                  parentId: string;
-                  parentCondition: string;
-                })[];
+              /** @description Feature IDs. Each feature must evaluate to `true` */
+              prerequisites?: (string)[];
               revision: {
                 version: number;
                 comment: string;
@@ -2351,7 +2731,92 @@ export interface operations {
                 date: string;
                 publishedBy: string;
               };
-            };
+            }) & ({
+              revisions?: ({
+                  baseVersion: number;
+                  version: number;
+                  comment: string;
+                  /** Format: date-time */
+                  date: string;
+                  status: string;
+                  publishedBy?: string;
+                  rules: {
+                    [key: string]: ((({
+                        description: string;
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
+                        id: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "force";
+                        value: string;
+                      }) | ({
+                        description: string;
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        id: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "rollout";
+                        value: string;
+                        coverage: number;
+                        hashAttribute: string;
+                      }) | {
+                        description: string;
+                        condition: string;
+                        id: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "experiment";
+                        trackingKey?: string;
+                        hashAttribute?: string;
+                        fallbackAttribute?: string;
+                        disableStickyBucketing?: boolean;
+                        bucketVersion?: number;
+                        minBucketVersion?: number;
+                        namespace?: {
+                          enabled: boolean;
+                          name: string;
+                          range: (number)[];
+                        };
+                        coverage?: number;
+                        value?: ({
+                            value: string;
+                            weight: number;
+                            name?: string;
+                          })[];
+                      } | {
+                        description: string;
+                        id: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "experiment-ref";
+                        condition?: string;
+                        variations: ({
+                            value: string;
+                            variationId: string;
+                          })[];
+                        experimentId: string;
+                      })[]) | undefined;
+                  };
+                  definitions?: {
+                    [key: string]: string | undefined;
+                  };
+                })[];
+            });
           };
         };
       };
@@ -2404,6 +2869,11 @@ export interface operations {
                       matchType: "all" | "any" | "none";
                       savedGroups: (string)[];
                     })[];
+                  prerequisites?: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[];
                   id?: string;
                   /** @description Enabled by default */
                   enabled?: boolean;
@@ -2413,7 +2883,7 @@ export interface operations {
                   /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
                   coverage: number;
                   hashAttribute: string;
-                }) | {
+                }) | ({
                   description?: string;
                   id?: string;
                   /** @description Enabled by default */
@@ -2421,12 +2891,22 @@ export interface operations {
                   /** @enum {string} */
                   type: "experiment-ref";
                   condition?: string;
+                  savedGroupTargeting?: ({
+                      /** @enum {string} */
+                      matchType: "all" | "any" | "none";
+                      savedGroups: (string)[];
+                    })[];
+                  prerequisites?: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[];
                   variations: ({
                       value: string;
                       variationId: string;
                     })[];
                   experimentId: string;
-                } | {
+                }) | {
                   description?: string;
                   condition: string;
                   id?: string;
@@ -2490,6 +2970,11 @@ export interface operations {
                         matchType: "all" | "any" | "none";
                         savedGroups: (string)[];
                       })[];
+                    prerequisites?: ({
+                        /** @description Feature ID */
+                        id: string;
+                        condition: string;
+                      })[];
                     id?: string;
                     /** @description Enabled by default */
                     enabled?: boolean;
@@ -2499,7 +2984,7 @@ export interface operations {
                     /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
                     coverage: number;
                     hashAttribute: string;
-                  }) | {
+                  }) | ({
                     description?: string;
                     id?: string;
                     /** @description Enabled by default */
@@ -2507,12 +2992,22 @@ export interface operations {
                     /** @enum {string} */
                     type: "experiment-ref";
                     condition?: string;
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
+                    prerequisites?: ({
+                        /** @description Feature ID */
+                        id: string;
+                        condition: string;
+                      })[];
                     variations: ({
                         value: string;
                         variationId: string;
                       })[];
                     experimentId: string;
-                  } | {
+                  }) | {
                     description?: string;
                     condition: string;
                     id?: string;
@@ -2552,6 +3047,8 @@ export interface operations {
               };
             }) | undefined;
           };
+          /** @description Feature IDs. Each feature must evaluate to `true` */
+          prerequisites?: (string)[];
           /** @description Use JSON schema to validate the payload of a JSON-type feature value (enterprise only). */
           jsonSchema?: string;
         };
@@ -2586,6 +3083,11 @@ export interface operations {
                           /** @enum {string} */
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
                         })[];
                       id: string;
                       enabled: boolean;
@@ -2657,6 +3159,11 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
@@ -2719,10 +3226,8 @@ export interface operations {
                   };
                 }) | undefined;
               };
-              prerequisites?: ({
-                  parentId: string;
-                  parentCondition: string;
-                })[];
+              /** @description Feature IDs. Each feature must evaluate to `true` */
+              prerequisites?: (string)[];
               revision: {
                 version: number;
                 comment: string;
@@ -2800,6 +3305,11 @@ export interface operations {
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
+                        })[];
                       id: string;
                       enabled: boolean;
                       /** @enum {string} */
@@ -2870,6 +3380,11 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
@@ -2932,10 +3447,8 @@ export interface operations {
                   };
                 }) | undefined;
               };
-              prerequisites?: ({
-                  parentId: string;
-                  parentCondition: string;
-                })[];
+              /** @description Feature IDs. Each feature must evaluate to `true` */
+              prerequisites?: (string)[];
               revision: {
                 version: number;
                 comment: string;
@@ -3298,6 +3811,7 @@ export interface operations {
                 includeDraftExperiments?: boolean;
                 includeExperimentNames?: boolean;
                 includeRedirectExperiments?: boolean;
+                includeRuleIds?: boolean;
                 key: string;
                 proxyEnabled: boolean;
                 proxyHost: string;
@@ -3334,6 +3848,7 @@ export interface operations {
           includeDraftExperiments?: boolean;
           includeExperimentNames?: boolean;
           includeRedirectExperiments?: boolean;
+          includeRuleIds?: boolean;
           proxyEnabled?: boolean;
           proxyHost?: string;
           hashSecureAttributes?: boolean;
@@ -3366,6 +3881,7 @@ export interface operations {
               includeDraftExperiments?: boolean;
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
+              includeRuleIds?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -3412,6 +3928,7 @@ export interface operations {
               includeDraftExperiments?: boolean;
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
+              includeRuleIds?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -3447,6 +3964,7 @@ export interface operations {
           includeDraftExperiments?: boolean;
           includeExperimentNames?: boolean;
           includeRedirectExperiments?: boolean;
+          includeRuleIds?: boolean;
           proxyEnabled?: boolean;
           proxyHost?: string;
           hashSecureAttributes?: boolean;
@@ -3479,6 +3997,7 @@ export interface operations {
               includeDraftExperiments?: boolean;
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
+              includeRuleIds?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -3543,6 +4062,7 @@ export interface operations {
               includeDraftExperiments?: boolean;
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
+              includeRuleIds?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -3688,11 +4208,14 @@ export interface operations {
           "application/json": ({
             experiments: ({
                 id: string;
+                trackingKey: string;
                 /** Format: date-time */
                 dateCreated: string;
                 /** Format: date-time */
                 dateUpdated: string;
                 name: string;
+                /** @enum {string} */
+                type: "standard" | "multi-armed-bandit";
                 project: string;
                 hypothesis: string;
                 description: string;
@@ -3731,6 +4254,10 @@ export interface operations {
                       range: (unknown)[];
                     };
                     targetingCondition: string;
+                    prerequisites?: ({
+                        id: string;
+                        condition: string;
+                      })[];
                     savedGroupTargeting?: ({
                         /** @enum {string} */
                         matchType: "all" | "any" | "none";
@@ -3753,6 +4280,8 @@ export interface operations {
                   /** @enum {unknown} */
                   statsEngine: "bayesian" | "frequentist";
                   regressionAdjustmentEnabled?: boolean;
+                  sequentialTestingEnabled?: boolean;
+                  sequentialTestingTuningParameter?: number;
                   goals: ({
                       metricId: string;
                       overrides: {
@@ -3805,6 +4334,15 @@ export interface operations {
                   releasedVariationId: string;
                   excludeFromPayload: boolean;
                 };
+                /** @enum {string} */
+                shareLevel?: "public" | "organization";
+                publicUrl?: string;
+                banditScheduleValue?: number;
+                /** @enum {string} */
+                banditScheduleUnit?: "days" | "hours";
+                banditBurnInValue?: number;
+                /** @enum {string} */
+                banditBurnInUnit?: "days" | "hours";
               })[];
           }) & {
             limit: number;
@@ -3824,12 +4362,14 @@ export interface operations {
       content: {
         "application/json": {
           /** @description ID for the [DataSource](#tag/DataSource_model) */
-          datasourceId: string;
+          datasourceId?: string;
           /** @description The ID property of one of the assignment query objects associated with the datasource */
           assignmentQueryId: string;
           trackingKey: string;
           /** @description Name of the experiment */
           name: string;
+          /** @enum {string} */
+          type?: "standard" | "multi-armed-bandit";
           /** @description Project ID which the experiment belongs to */
           project?: string;
           /** @description Hypothesis of the experiment */
@@ -3840,6 +4380,12 @@ export interface operations {
           metrics?: (string)[];
           secondaryMetrics?: (string)[];
           guardrailMetrics?: (string)[];
+          /** @description Users must convert on this metric before being included */
+          activationMetric?: string;
+          /** @description Only users in this segment will be included */
+          segmentId?: string;
+          /** @description WHERE clause to add to the default experiment query */
+          queryFilter?: string;
           /** @description Email of the person who owns this experiment */
           owner?: string;
           archived?: boolean;
@@ -3895,6 +4441,11 @@ export interface operations {
                 enabled?: boolean;
               };
               targetingCondition?: string;
+              prerequisites?: ({
+                  /** @description Feature ID */
+                  id: string;
+                  condition: string;
+                })[];
               reason?: string;
               condition?: string;
               savedGroupTargeting?: ({
@@ -3906,6 +4457,17 @@ export interface operations {
             })[];
           /** @description Controls whether regression adjustment (CUPED) is enabled for experiment analyses */
           regressionAdjustmentEnabled?: boolean;
+          /** @description Only applicable to frequentist analyses */
+          sequentialTestingEnabled?: boolean;
+          sequentialTestingTuningParameter?: number;
+          /** @enum {string} */
+          shareLevel?: "public" | "organization";
+          banditScheduleValue?: number;
+          /** @enum {string} */
+          banditScheduleUnit?: "days" | "hours";
+          banditBurnInValue?: number;
+          /** @enum {string} */
+          banditBurnInUnit?: "days" | "hours";
         };
       };
     };
@@ -3915,11 +4477,14 @@ export interface operations {
           "application/json": {
             experiment: {
               id: string;
+              trackingKey: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @enum {string} */
+              type: "standard" | "multi-armed-bandit";
               project: string;
               hypothesis: string;
               description: string;
@@ -3958,6 +4523,10 @@ export interface operations {
                     range: (unknown)[];
                   };
                   targetingCondition: string;
+                  prerequisites?: ({
+                      id: string;
+                      condition: string;
+                    })[];
                   savedGroupTargeting?: ({
                       /** @enum {string} */
                       matchType: "all" | "any" | "none";
@@ -3980,6 +4549,8 @@ export interface operations {
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
+                sequentialTestingEnabled?: boolean;
+                sequentialTestingTuningParameter?: number;
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -4032,6 +4603,15 @@ export interface operations {
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
               };
+              /** @enum {string} */
+              shareLevel?: "public" | "organization";
+              publicUrl?: string;
+              banditScheduleValue?: number;
+              /** @enum {string} */
+              banditScheduleUnit?: "days" | "hours";
+              banditBurnInValue?: number;
+              /** @enum {string} */
+              banditBurnInUnit?: "days" | "hours";
             };
           };
         };
@@ -4052,11 +4632,14 @@ export interface operations {
           "application/json": {
             experiment: {
               id: string;
+              trackingKey: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @enum {string} */
+              type: "standard" | "multi-armed-bandit";
               project: string;
               hypothesis: string;
               description: string;
@@ -4095,6 +4678,10 @@ export interface operations {
                     range: (unknown)[];
                   };
                   targetingCondition: string;
+                  prerequisites?: ({
+                      id: string;
+                      condition: string;
+                    })[];
                   savedGroupTargeting?: ({
                       /** @enum {string} */
                       matchType: "all" | "any" | "none";
@@ -4117,6 +4704,8 @@ export interface operations {
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
+                sequentialTestingEnabled?: boolean;
+                sequentialTestingTuningParameter?: number;
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -4169,6 +4758,15 @@ export interface operations {
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
               };
+              /** @enum {string} */
+              shareLevel?: "public" | "organization";
+              publicUrl?: string;
+              banditScheduleValue?: number;
+              /** @enum {string} */
+              banditScheduleUnit?: "days" | "hours";
+              banditBurnInValue?: number;
+              /** @enum {string} */
+              banditBurnInUnit?: "days" | "hours";
             };
           };
         };
@@ -4186,10 +4784,14 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
+          /** @description Can only be set if existing experiment does not have a datasource */
+          datasourceId?: string;
           assignmentQueryId?: string;
           trackingKey?: string;
           /** @description Name of the experiment */
           name?: string;
+          /** @enum {string} */
+          type?: "standard" | "multi-armed-bandit";
           /** @description Project ID which the experiment belongs to */
           project?: string;
           /** @description Hypothesis of the experiment */
@@ -4200,6 +4802,12 @@ export interface operations {
           metrics?: (string)[];
           secondaryMetrics?: (string)[];
           guardrailMetrics?: (string)[];
+          /** @description Users must convert on this metric before being included */
+          activationMetric?: string;
+          /** @description Only users in this segment will be included */
+          segmentId?: string;
+          /** @description WHERE clause to add to the default experiment query */
+          queryFilter?: string;
           /** @description Email of the person who owns this experiment */
           owner?: string;
           archived?: boolean;
@@ -4255,6 +4863,11 @@ export interface operations {
                 enabled?: boolean;
               };
               targetingCondition?: string;
+              prerequisites?: ({
+                  /** @description Feature ID */
+                  id: string;
+                  condition: string;
+                })[];
               reason?: string;
               condition?: string;
               savedGroupTargeting?: ({
@@ -4266,6 +4879,17 @@ export interface operations {
             })[];
           /** @description Controls whether regression adjustment (CUPED) is enabled for experiment analyses */
           regressionAdjustmentEnabled?: boolean;
+          /** @description Only applicable to frequentist analyses */
+          sequentialTestingEnabled?: boolean;
+          sequentialTestingTuningParameter?: number;
+          /** @enum {string} */
+          shareLevel?: "public" | "organization";
+          banditScheduleValue?: number;
+          /** @enum {string} */
+          banditScheduleUnit?: "days" | "hours";
+          banditBurnInValue?: number;
+          /** @enum {string} */
+          banditBurnInUnit?: "days" | "hours";
         };
       };
     };
@@ -4275,11 +4899,14 @@ export interface operations {
           "application/json": {
             experiment: {
               id: string;
+              trackingKey: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @enum {string} */
+              type: "standard" | "multi-armed-bandit";
               project: string;
               hypothesis: string;
               description: string;
@@ -4318,6 +4945,10 @@ export interface operations {
                     range: (unknown)[];
                   };
                   targetingCondition: string;
+                  prerequisites?: ({
+                      id: string;
+                      condition: string;
+                    })[];
                   savedGroupTargeting?: ({
                       /** @enum {string} */
                       matchType: "all" | "any" | "none";
@@ -4340,6 +4971,8 @@ export interface operations {
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
+                sequentialTestingEnabled?: boolean;
+                sequentialTestingTuningParameter?: number;
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -4392,6 +5025,15 @@ export interface operations {
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
               };
+              /** @enum {string} */
+              shareLevel?: "public" | "organization";
+              publicUrl?: string;
+              banditScheduleValue?: number;
+              /** @enum {string} */
+              banditScheduleUnit?: "days" | "hours";
+              banditBurnInValue?: number;
+              /** @enum {string} */
+              banditBurnInUnit?: "days" | "hours";
             };
           };
         };
@@ -4464,6 +5106,8 @@ export interface operations {
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
+                sequentialTestingEnabled?: boolean;
+                sequentialTestingTuningParameter?: number;
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -4692,6 +5336,7 @@ export interface operations {
                   minPercentChange: number;
                   maxPercentChange: number;
                   minSampleSize: number;
+                  targetMDE: number;
                 };
                 sql?: {
                   identifierTypes: (string)[];
@@ -4842,6 +5487,8 @@ export interface operations {
             /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
             maxPercentChange?: number;
             minSampleSize?: number;
+            /** @description The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments. */
+            targetMDE?: number;
           };
           /** @description Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified. */
           sql?: {
@@ -4956,6 +5603,7 @@ export interface operations {
                 minPercentChange: number;
                 maxPercentChange: number;
                 minSampleSize: number;
+                targetMDE: number;
               };
               sql?: {
                 identifierTypes: (string)[];
@@ -5076,6 +5724,7 @@ export interface operations {
                 minPercentChange: number;
                 maxPercentChange: number;
                 minSampleSize: number;
+                targetMDE: number;
               };
               sql?: {
                 identifierTypes: (string)[];
@@ -5223,6 +5872,8 @@ export interface operations {
             /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
             maxPercentChange?: number;
             minSampleSize?: number;
+            /** @description The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments. */
+            targetMDE?: number;
           };
           /** @description Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed. */
           sql?: {
@@ -5334,11 +5985,14 @@ export interface operations {
             };
             experiment?: {
               id: string;
+              trackingKey: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @enum {string} */
+              type: "standard" | "multi-armed-bandit";
               project: string;
               hypothesis: string;
               description: string;
@@ -5377,6 +6031,10 @@ export interface operations {
                     range: (unknown)[];
                   };
                   targetingCondition: string;
+                  prerequisites?: ({
+                      id: string;
+                      condition: string;
+                    })[];
                   savedGroupTargeting?: ({
                       /** @enum {string} */
                       matchType: "all" | "any" | "none";
@@ -5399,6 +6057,8 @@ export interface operations {
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
+                sequentialTestingEnabled?: boolean;
+                sequentialTestingTuningParameter?: number;
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -5451,6 +6111,15 @@ export interface operations {
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
               };
+              /** @enum {string} */
+              shareLevel?: "public" | "organization";
+              publicUrl?: string;
+              banditScheduleValue?: number;
+              /** @enum {string} */
+              banditScheduleUnit?: "days" | "hours";
+              banditBurnInValue?: number;
+              /** @enum {string} */
+              banditBurnInUnit?: "days" | "hours";
             };
           };
         };
@@ -6837,6 +7506,10 @@ export interface operations {
                   aggregation?: "sum" | "max" | "count distinct";
                   /** @description Array of Fact Table Filter Ids */
                   filters: (string)[];
+                  /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
+                  aggregateFilterColumn?: string;
+                  /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
+                  aggregateFilter?: string;
                 };
                 denominator?: {
                   factTableId: string;
@@ -6893,6 +7566,7 @@ export interface operations {
                 minPercentChange: number;
                 maxPercentChange: number;
                 minSampleSize: number;
+                targetMDE: number;
                 /**
                  * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                  * @enum {string}
@@ -6938,6 +7612,10 @@ export interface operations {
             aggregation?: "sum" | "max" | "count distinct";
             /** @description Array of Fact Table Filter Ids */
             filters?: (string)[];
+            /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
+            aggregateFilterColumn?: string;
+            /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
+            aggregateFilter?: string;
           };
           /** @description Only when metricType is 'ratio' */
           denominator?: {
@@ -7027,6 +7705,8 @@ export interface operations {
           /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
           maxPercentChange?: number;
           minSampleSize?: number;
+          /** @description The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments. */
+          targetMDE?: number;
           /**
            * @description Set this to "api" to disable editing in the GrowthBook UI 
            * @enum {string}
@@ -7056,6 +7736,10 @@ export interface operations {
                 aggregation?: "sum" | "max" | "count distinct";
                 /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
+                /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
+                aggregateFilterColumn?: string;
+                /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
+                aggregateFilter?: string;
               };
               denominator?: {
                 factTableId: string;
@@ -7112,6 +7796,7 @@ export interface operations {
               minPercentChange: number;
               maxPercentChange: number;
               minSampleSize: number;
+              targetMDE: number;
               /**
                * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
@@ -7156,6 +7841,10 @@ export interface operations {
                 aggregation?: "sum" | "max" | "count distinct";
                 /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
+                /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
+                aggregateFilterColumn?: string;
+                /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
+                aggregateFilter?: string;
               };
               denominator?: {
                 factTableId: string;
@@ -7212,6 +7901,7 @@ export interface operations {
               minPercentChange: number;
               maxPercentChange: number;
               minSampleSize: number;
+              targetMDE: number;
               /**
                * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
@@ -7256,6 +7946,10 @@ export interface operations {
             aggregation?: "sum" | "max" | "count distinct";
             /** @description Array of Fact Table Filter Ids */
             filters?: (string)[];
+            /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
+            aggregateFilterColumn?: string;
+            /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
+            aggregateFilter?: string;
           };
           /** @description Only when metricType is 'ratio' */
           denominator?: {
@@ -7334,6 +8028,7 @@ export interface operations {
           /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
           maxPercentChange?: number;
           minSampleSize?: number;
+          targetMDE?: number;
           /**
            * @description Set this to "api" to disable editing in the GrowthBook UI 
            * @enum {string}
@@ -7363,6 +8058,10 @@ export interface operations {
                 aggregation?: "sum" | "max" | "count distinct";
                 /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
+                /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
+                aggregateFilterColumn?: string;
+                /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
+                aggregateFilter?: string;
               };
               denominator?: {
                 factTableId: string;
@@ -7419,6 +8118,7 @@ export interface operations {
               minPercentChange: number;
               maxPercentChange: number;
               minSampleSize: number;
+              targetMDE: number;
               /**
                * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
@@ -7526,6 +8226,10 @@ export interface operations {
                   aggregation?: "sum" | "max" | "count distinct";
                   /** @description Array of Fact Table Filter Ids */
                   filters?: (string)[];
+                  /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
+                  aggregateFilterColumn?: string;
+                  /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
+                  aggregateFilter?: string;
                 };
                 /** @description Only when metricType is 'ratio' */
                 denominator?: {
@@ -7615,6 +8319,8 @@ export interface operations {
                 /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
                 maxPercentChange?: number;
                 minSampleSize?: number;
+                /** @description The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments. */
+                targetMDE?: number;
                 /**
                  * @description Set this to "api" to disable editing in the GrowthBook UI 
                  * @enum {string}
@@ -7681,6 +8387,7 @@ export type ApiEnvironment = z.infer<typeof openApiValidators.apiEnvironmentVali
 export type ApiAttribute = z.infer<typeof openApiValidators.apiAttributeValidator>;
 export type ApiSegment = z.infer<typeof openApiValidators.apiSegmentValidator>;
 export type ApiFeature = z.infer<typeof openApiValidators.apiFeatureValidator>;
+export type ApiFeatureWithRevisions = z.infer<typeof openApiValidators.apiFeatureWithRevisionsValidator>;
 export type ApiFeatureEnvironment = z.infer<typeof openApiValidators.apiFeatureEnvironmentValidator>;
 export type ApiFeatureRule = z.infer<typeof openApiValidators.apiFeatureRuleValidator>;
 export type ApiFeatureDefinition = z.infer<typeof openApiValidators.apiFeatureDefinitionValidator>;

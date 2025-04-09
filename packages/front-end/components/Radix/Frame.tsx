@@ -18,7 +18,9 @@ export default forwardRef<
       mb="4"
       py="5"
       px="6"
-      className={`appbox ${noBackground ? "nobg" : ""} ${className}`}
+      className={`appbox ${noBackground ? "nobg" : ""} ${
+        className ? className : ""
+      }`}
       {...containerProps}
     >
       {children}

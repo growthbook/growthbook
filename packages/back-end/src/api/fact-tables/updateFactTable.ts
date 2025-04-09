@@ -58,7 +58,9 @@ export const updateFactTable = createApiRequestHandler(
     const data: UpdateFactTableProps = { ...req.body };
 
     await updateFactTableInDb(req.context, factTable, data);
-    await queueFactTableColumnsRefresh(factTable);
+    if (needsColumnRefresh(data)) {
+      await queueFactTableColumnsRefresh(factTable);
+    }
 
     if (data.tags) {
       await addTagsDiff(req.organization.id, factTable.tags, data.tags);
@@ -69,3 +71,7 @@ export const updateFactTable = createApiRequestHandler(
     };
   }
 );
+
+export function needsColumnRefresh(changes: UpdateFactTableProps): boolean {
+  return !!(changes.sql || changes.eventName);
+}

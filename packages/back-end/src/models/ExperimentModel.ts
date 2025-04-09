@@ -69,7 +69,6 @@ const banditResultObject = {
   ],
   currentWeights: [Number],
   updatedWeights: [Number],
-  srm: Number,
   bestArmProbabilities: [Number],
   additionalReward: Number,
   seed: Number,
@@ -214,6 +213,10 @@ const experimentSchema = new mongoose.Schema({
         {
           _id: false,
           date: Date,
+          health: {
+            _id: false,
+            srm: Number,
+          },
           banditResult: banditResultObject,
           snapshotId: String,
         },
@@ -259,8 +262,31 @@ const experimentSchema = new mongoose.Schema({
       srm: Number,
       multipleExposures: Number,
       totalUsers: Number,
+      power: {
+        _id: false,
+        type: { type: String, enum: ["error", "success"] },
+        errorMessage: String,
+        isLowPowered: Boolean,
+        additionalDaysNeeded: Number,
+      },
+    },
+    resultsStatus: {
+      _id: false,
+      settings: {
+        _id: false,
+        sequentialTesting: Boolean,
+      },
+      variations: [
+        {
+          _id: false,
+          variationId: String,
+          goalMetrics: {},
+          guardrailMetrics: {},
+        },
+      ],
     },
   },
+  dismissedWarnings: [String],
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;

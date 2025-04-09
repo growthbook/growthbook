@@ -16,11 +16,13 @@ import {
   getAggregateFilters,
   isBinomialMetric,
   getDelayWindowHours,
+  getColumnExpression,
 } from "shared/experiments";
 import {
   AUTOMATIC_DIMENSION_OTHER_NAME,
   DEFAULT_TEST_QUERY_DAYS,
   DEFAULT_METRIC_HISTOGRAM_BINS,
+  BANDIT_SRM_DIMENSION_NAME,
 } from "shared/constants";
 import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
@@ -79,6 +81,7 @@ import {
   ColumnTopValuesResponse,
   PopulationMetricQueryParams,
   PopulationFactMetricsQueryParams,
+  VariationPeriodWeight,
 } from "back-end/src/types/Integration";
 import { DimensionInterface } from "back-end/types/dimension";
 import { SegmentInterface } from "back-end/types/segment";
@@ -90,7 +93,11 @@ import {
   replaceCountStar,
 } from "back-end/src/util/sql";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
-import { ExperimentSnapshotSettings } from "back-end/types/experiment-snapshot";
+import {
+  ExperimentSnapshotSettings,
+  SnapshotBanditSettings,
+  SnapshotSettingsVariation,
+} from "back-end/types/experiment-snapshot";
 import { SQLVars, TemplateVariables } from "back-end/types/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { logger } from "back-end/src/util/logger";
@@ -334,6 +341,11 @@ export default abstract class SqlIntegration
     throw new Error(
       "COUNT DISTINCT is not supported for fact metrics in this data source."
     );
+  }
+
+  extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
+    const raw = `json_extract_scalar(${jsonCol}, '$.${path}')`;
+    return isNumeric ? this.ensureFloat(raw) : raw;
   }
 
   private getExposureQuery(
@@ -816,7 +828,6 @@ export default abstract class SqlIntegration
       to: settings.endDate ?? undefined,
       forcedBaseIdType: settings.userIdType,
     });
-
     const metricData = this.getMetricData(
       metric,
       {
@@ -1199,9 +1210,15 @@ export default abstract class SqlIntegration
       "denominator_cap_value",
       "covariate_sum",
       "covariate_sum_squares",
+      "denominator_pre_sum",
+      "denominator_pre_sum_squares",
       "main_covariate_sum_product",
       "quantile",
       "theta",
+      "main_post_denominator_pre_sum_product",
+      "main_pre_denominator_post_sum_product",
+      "main_pre_denominator_pre_sum_product",
+      "denominator_post_denominator_pre_sum_product",
     ];
 
     return {
@@ -1267,12 +1284,21 @@ export default abstract class SqlIntegration
             denominator_sum: parseFloat(row.denominator_sum) || 0,
             denominator_sum_squares:
               parseFloat(row.denominator_sum_squares) || 0,
+          }),
+          ...(row.main_denominator_sum_product !== undefined && {
             main_denominator_sum_product:
               parseFloat(row.main_denominator_sum_product) || 0,
           }),
           ...(row.covariate_sum !== undefined && {
             covariate_sum: parseFloat(row.covariate_sum) || 0,
             covariate_sum_squares: parseFloat(row.covariate_sum_squares) || 0,
+          }),
+          ...(row.denominator_pre_sum !== undefined && {
+            denominator_pre_sum: parseFloat(row.denominator_pre_sum) || 0,
+            denominator_pre_sum_squares:
+              parseFloat(row.denominator_pre_sum_squares) || 0,
+          }),
+          ...(row.main_covariate_sum_product !== undefined && {
             main_covariate_sum_product:
               parseFloat(row.main_covariate_sum_product) || 0,
           }),
@@ -1284,6 +1310,31 @@ export default abstract class SqlIntegration
           }),
           ...(row.theta !== undefined && {
             theta: parseFloat(row.theta) || 0,
+          }),
+          ...(row.main_covariate_sum_product !== undefined && {
+            main_covariate_sum_product:
+              parseFloat(row.main_covariate_sum_product) || 0,
+          }),
+          ...(row.main_post_denominator_pre_sum_product !== undefined && {
+            main_post_denominator_pre_sum_product:
+              parseFloat(row.main_post_denominator_pre_sum_product) || 0,
+          }),
+          ...(row.main_pre_denominator_post_sum_product !== undefined && {
+            main_pre_denominator_post_sum_product:
+              parseFloat(row.main_pre_denominator_post_sum_product) || 0,
+          }),
+          ...(row.main_pre_denominator_pre_sum_product !== undefined && {
+            main_pre_denominator_pre_sum_product:
+              parseFloat(row.main_pre_denominator_pre_sum_product) || 0,
+          }),
+          ...(row.denominator_post_denominator_pre_sum_product !==
+            undefined && {
+            denominator_post_denominator_pre_sum_product:
+              parseFloat(row.denominator_post_denominator_pre_sum_product) || 0,
+          }),
+          ...(row.main_post_denominator_pre_sum_product !== undefined && {
+            main_post_denominator_pre_sum_product:
+              parseFloat(row.main_post_denominator_pre_sum_product) || 0,
           }),
         };
       }),
@@ -1300,7 +1351,7 @@ export default abstract class SqlIntegration
       rows: rows.map((row) => {
         return {
           variation: row.variation ?? "",
-          units: parseInt(row.units) || 0,
+          units: parseFloat(row.units) || 0,
           dimension_value: row.dimension_value ?? "",
           dimension_name: row.dimension_name ?? "",
         };
@@ -1467,6 +1518,7 @@ export default abstract class SqlIntegration
     regressionAdjusted: boolean = false,
     cumulativeDate: boolean = false,
     overrideConversionWindows: boolean = false,
+    banditDates: Date[] | undefined = undefined,
     tablePrefix: string = "__denominator",
     initialTable: string = "__experiment"
   ) {
@@ -1474,18 +1526,23 @@ export default abstract class SqlIntegration
     return `
       -- one row per user
       SELECT
-        initial.${baseIdType} AS ${baseIdType},
-        MIN(initial.dimension) AS dimension,
-        MIN(initial.variation) AS variation,
-        MIN(initial.first_exposure_date) AS first_exposure_date,
+        initial.${baseIdType} AS ${baseIdType}
+        , MIN(initial.dimension) AS dimension
+        , MIN(initial.variation) AS variation
+        , MIN(initial.first_exposure_date) AS first_exposure_date
+        ${
+          banditDates?.length
+            ? `, MIN(initial.bandit_period) AS bandit_period`
+            : ""
+        }
         ${
           regressionAdjusted
             ? `
-            MIN(initial.preexposure_start) AS preexposure_start,
-            MIN(initial.preexposure_end) AS preexposure_end,`
+            , MIN(initial.preexposure_start) AS preexposure_start
+            , MIN(initial.preexposure_end) AS preexposure_end`
             : ""
         }
-        MIN(t${metrics.length - 1}.timestamp) AS timestamp
+        , MIN(t${metrics.length - 1}.timestamp) AS timestamp
       FROM
         ${initialTable} initial
         ${metrics
@@ -1783,7 +1840,6 @@ export default abstract class SqlIntegration
       factTableMap,
       segment,
     });
-
     return this.getExperimentFactMetricsQuery({
       ...params,
       unitsSource: "otherQuery",
@@ -1990,6 +2046,30 @@ export default abstract class SqlIntegration
     )`;
   }
 
+  getBanditVariationPeriodWeights(
+    banditSettings: SnapshotBanditSettings,
+    variations: SnapshotSettingsVariation[]
+  ): VariationPeriodWeight[] | undefined {
+    let anyMissingValues = false;
+    const variationPeriodWeights = banditSettings.historicalWeights
+      .map((w) => {
+        return w.weights.map((weight, index) => {
+          const variationId = variations?.[index]?.id;
+          if (!variationId) {
+            anyMissingValues = true;
+          }
+          return { weight, variationId: variationId, date: w.date };
+        });
+      })
+      .flat();
+
+    if (anyMissingValues) {
+      return undefined;
+    }
+
+    return variationPeriodWeights;
+  }
+
   getExperimentAggregateUnitsQuery(
     params: ExperimentAggregateUnitsQueryParams
   ): string {
@@ -2009,6 +2089,19 @@ export default abstract class SqlIntegration
     );
 
     const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
+
+    // get bandit data for SRM calculation
+    const banditDates = settings.banditSettings?.historicalWeights.map(
+      (w) => w.date
+    );
+    const variationPeriodWeights = settings.banditSettings
+      ? this.getBanditVariationPeriodWeights(
+          settings.banditSettings,
+          settings.variations
+        )
+      : undefined;
+
+    const computeBanditSrm = !!banditDates && !!variationPeriodWeights;
 
     // Get any required identity join queries
     const { baseIdType, idJoinSQL } = this.getIdentitiesCTE({
@@ -2048,6 +2141,7 @@ export default abstract class SqlIntegration
           , ${this.formatDate(
             this.dateTrunc("first_exposure_timestamp")
           )} AS dim_exposure_date
+          ${banditDates ? `${this.getBanditCaseWhen(banditDates)}` : ""}
           ${experimentDimensions.map((d) => `, dim_exp_${d.id}`).join("\n")}
           ${
             activationMetric
@@ -2061,8 +2155,8 @@ export default abstract class SqlIntegration
         FROM ${
           useUnitsTable ? `${params.unitsTableFullName}` : "__experimentUnits"
         }
-      ),
-      __unitsByDimension AS (
+      )
+      , __unitsByDimension AS (
         -- One row per variation per dimension slice
         ${[
           "dim_exposure_date",
@@ -2074,13 +2168,91 @@ export default abstract class SqlIntegration
               d,
               activationMetric && d !== "dim_activated"
                 ? "WHERE dim_activated = 'Activated'"
-                : ""
+                : "",
+              // cast to float to union with bandit test statistic which is float
+              computeBanditSrm
             )
           )
           .join("\nUNION ALL\n")}
       )
+      ${
+        computeBanditSrm
+          ? `
+        , variationBanditPeriodWeights AS (
+          ${variationPeriodWeights
+            .map(
+              (w) => `
+            SELECT
+              '${w.variationId}' AS variation
+              , ${this.toTimestamp(w.date)} AS bandit_period
+              , ${w.weight} AS weight
+          `
+            )
+            .join("\nUNION ALL\n")}
+        )
+        , __unitsByVariationBanditPeriod AS (
+          SELECT
+            v.variation AS variation
+            , v.bandit_period AS bandit_period
+            , v.weight AS weight
+            , COALESCE(COUNT(d.bandit_period), 0) AS units
+          FROM variationBanditPeriodWeights v
+          LEFT JOIN __distinctUnits d
+            ON (d.variation = v.variation AND d.bandit_period = v.bandit_period)
+          GROUP BY
+            v.variation
+            , v.bandit_period
+            , v.weight
+        )
+        , __totalUnitsByBanditPeriod AS (
+          SELECT
+            bandit_period
+            , SUM(units) AS total_units
+          FROM __unitsByVariationBanditPeriod
+          GROUP BY
+            bandit_period
+        )
+        , __expectedUnitsByVariationBanditPeriod AS (
+          SELECT
+            u.variation AS variation
+            , MAX('') AS constant
+            , SUM(u.units) AS units
+            , SUM(t.total_units * u.weight) AS expected_units
+          FROM __unitsByVariationBanditPeriod u
+          LEFT JOIN __totalUnitsByBanditPeriod t
+            ON (t.bandit_period = u.bandit_period)
+          WHERE
+            COALESCE(t.total_units, 0) > 0
+          GROUP BY
+            u.variation
+        )
+        , __banditSrm AS (
+          SELECT
+            MAX('') AS variation
+            , MAX('') AS dimension_value
+            , MAX('${BANDIT_SRM_DIMENSION_NAME}') AS dimension_name
+            , SUM(POW(expected_units - units, 2) / expected_units) AS units
+          FROM __expectedUnitsByVariationBanditPeriod
+          GROUP BY
+            constant
+        ),
+        __unitsByDimensionWithBanditSrm AS (
+          SELECT
+            *
+          FROM __unitsByDimension
+          UNION ALL
+          SELECT
+            *
+          FROM __banditSrm
+        )
+      `
+          : ""
+      }
+
       ${this.selectStarLimit(
-        "__unitsByDimension",
+        computeBanditSrm
+          ? "__unitsByDimensionWithBanditSrm"
+          : "__unitsByDimension",
         MAX_ROWS_UNIT_AGGREGATE_QUERY
       )}
     `,
@@ -2088,13 +2260,17 @@ export default abstract class SqlIntegration
     );
   }
 
-  getUnitCountCTE(dimensionColumn: string, whereClause?: string): string {
+  getUnitCountCTE(
+    dimensionColumn: string,
+    whereClause?: string,
+    ensureFloat?: boolean
+  ): string {
     return ` -- ${dimensionColumn}
     SELECT
       variation AS variation
       , ${dimensionColumn} AS dimension_value
       , MAX(${this.castToString(`'${dimensionColumn}'`)}) AS dimension_name
-      , COUNT(*) AS units
+      , ${ensureFloat ? this.ensureFloat("COUNT(*)") : "COUNT(*)"} AS units
     FROM
       __distinctUnits
     ${whereClause ?? ""}
@@ -2232,7 +2408,6 @@ export default abstract class SqlIntegration
     // where RA is actually possible
     const regressionAdjusted =
       settings.regressionAdjustmentEnabled && isRegressionAdjusted(metric);
-
     const regressionAdjustmentHours = regressionAdjusted
       ? (metric.regressionAdjustmentDays ?? 0) * 24
       : 0;
@@ -2267,7 +2442,13 @@ export default abstract class SqlIntegration
       capValueCol: `${alias}_value_cap`,
       columnRef: isFactMetric(metric) ? metric.numerator : null,
     });
-
+    const capCoalesceDenominatorCovariate = this.capCoalesceValue({
+      valueCol: `c.${alias}_denominator`,
+      metric,
+      capTablePrefix: "cap",
+      capValueCol: `${alias}_denominator_cap`,
+      columnRef: isFactMetric(metric) ? metric.denominator : null,
+    });
     // Get rough date filter for metrics to improve performance
     const orderedMetrics = (activationMetric ? [activationMetric] : []).concat([
       metric,
@@ -2295,7 +2476,6 @@ export default abstract class SqlIntegration
       [metric],
       activationMetric
     );
-
     return {
       alias,
       id: metric.id,
@@ -2311,6 +2491,7 @@ export default abstract class SqlIntegration
       capCoalesceMetric,
       capCoalesceDenominator,
       capCoalesceCovariate,
+      capCoalesceDenominatorCovariate,
       minMetricDelay,
       raMetricSettings,
       metricStart,
@@ -2360,8 +2541,6 @@ export default abstract class SqlIntegration
     params: ExperimentFactMetricsQueryParams
   ): string {
     const { settings, segment } = params;
-
-    // clone the metrics before we mutate them
     const metrics = cloneDeep(params.metrics);
     const activationMetric = this.processActivationMetric(
       params.activationMetric,
@@ -2371,7 +2550,6 @@ export default abstract class SqlIntegration
     metrics.forEach((m) => {
       applyMetricOverrides(m, settings);
     });
-
     // Replace any placeholders in the user defined dimension SQL
     const { unitDimensions } = this.processDimensions(
       params.dimensions,
@@ -2384,19 +2562,15 @@ export default abstract class SqlIntegration
     if (!factTable) {
       throw new Error("Could not find fact table");
     }
-
     const userIdType =
       params.forcedUserIdType ??
       this.getExposureQuery(settings.exposureQueryId || "").userIdType;
-
     const metricData = metrics.map((metric, i) =>
       this.getMetricData(metric, settings, activationMetric, `m${i}`)
     );
-
     const raMetricSettings = metricData
       .filter((m) => m.regressionAdjusted)
       .map((m) => m.raMetricSettings);
-
     const maxHoursToConvert = Math.max(
       ...metricData.map((m) => m.maxHoursToConvert)
     );
@@ -2548,9 +2722,9 @@ export default abstract class SqlIntegration
             `
               : ""
           }
-          ${raMetricSettings
-            .map(
-              ({ alias, hours, minDelay }) => `
+      ${raMetricSettings
+        .map(
+          ({ alias, hours, minDelay }) => `
               , ${this.addHours(
                 "first_exposure_timestamp",
                 minDelay
@@ -2559,8 +2733,8 @@ export default abstract class SqlIntegration
                 "first_exposure_timestamp",
                 minDelay - hours
               )} AS ${alias}_preexposure_start`
-            )
-            .join("\n")}
+        )
+        .join("\n")}
         FROM ${
           params.unitsSource === "exposureTable"
             ? `${params.unitsTableFullName}`
@@ -2739,7 +2913,20 @@ export default abstract class SqlIntegration
                       `${metric.alias}_value`,
                       "NULL"
                     ),
-                  })} as ${metric.alias}_value`
+                  })} as ${metric.alias}_value
+                    ${
+                      metric.ratioMetric
+                        ? `, ${this.getAggregateMetricColumn({
+                            metric: metric.metric,
+                            useDenominator: true,
+                            valueColumn: this.ifElse(
+                              `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
+                              `${metric.alias}_denominator`,
+                              "NULL"
+                            ),
+                          })} AS ${metric.alias}_denominator`
+                        : ""
+                    }`
               )
               .join(",\n")}
           FROM
@@ -2823,33 +3010,46 @@ export default abstract class SqlIntegration
             ${
               data.ratioMetric
                 ? `,
+                ${
+                  data.isPercentileCapped
+                    ? `MAX(COALESCE(cap.${data.alias}_denominator_cap, 0)) as ${data.alias}_denominator_cap_value,`
+                    : ""
+                }
+                SUM(${data.capCoalesceDenominator}) AS 
+                  ${data.alias}_denominator_sum,
+                SUM(POWER(${data.capCoalesceDenominator}, 2)) AS 
+                  ${data.alias}_denominator_sum_squares
+                ${
+                  data.regressionAdjusted
+                    ? `, 
+                  SUM(${data.capCoalesceCovariate}) AS ${data.alias}_covariate_sum,
+                  SUM(POWER(${data.capCoalesceCovariate}, 2)) AS ${data.alias}_covariate_sum_squares,
+                  SUM(${data.capCoalesceDenominatorCovariate}) AS ${data.alias}_denominator_pre_sum,
+                  SUM(POWER(${data.capCoalesceDenominatorCovariate}, 2)) AS ${data.alias}_denominator_pre_sum_squares,              
+                  SUM(${data.capCoalesceMetric} * ${data.capCoalesceDenominator}) AS ${data.alias}_main_denominator_sum_product, 
+                  SUM(${data.capCoalesceMetric} * ${data.capCoalesceCovariate}) AS ${data.alias}_main_covariate_sum_product, 
+                  SUM(${data.capCoalesceMetric} * ${data.capCoalesceDenominatorCovariate}) AS ${data.alias}_main_post_denominator_pre_sum_product, 
+                  SUM(${data.capCoalesceCovariate} * ${data.capCoalesceDenominator}) AS ${data.alias}_main_pre_denominator_post_sum_product,
+                  SUM(${data.capCoalesceCovariate} * ${data.capCoalesceDenominatorCovariate}) AS ${data.alias}_main_pre_denominator_pre_sum_product, 
+                  SUM(${data.capCoalesceDenominator} * ${data.capCoalesceDenominatorCovariate}) AS ${data.alias}_denominator_post_denominator_pre_sum_product
+                  `
+                    : `,
+                    SUM(${data.capCoalesceDenominator} * ${data.capCoalesceMetric}) AS ${data.alias}_main_denominator_sum_product
+                  `
+                }` /*ends ifelse regressionAdjusted*/
+                : ` 
               ${
-                data.isPercentileCapped
-                  ? `MAX(COALESCE(cap.${data.alias}_denominator_cap, 0)) as ${data.alias}_denominator_cap_value,`
+                data.regressionAdjusted
+                  ? `,
+                SUM(${data.capCoalesceCovariate}) AS ${data.alias}_covariate_sum,
+                SUM(POWER(${data.capCoalesceCovariate}, 2)) AS ${data.alias}_covariate_sum_squares,
+                SUM(${data.capCoalesceMetric} * ${data.capCoalesceCovariate}) AS ${data.alias}_main_covariate_sum_product
+                `
                   : ""
               }
-              SUM(${data.capCoalesceDenominator}) AS ${
-                    data.alias
-                  }_denominator_sum,
-              SUM(POWER(${data.capCoalesceDenominator}, 2)) AS ${
-                    data.alias
-                  }_denominator_sum_squares,
-              SUM(${data.capCoalesceDenominator} * ${
-                    data.capCoalesceMetric
-                  }) AS ${data.alias}_main_denominator_sum_product
             `
-                : ""
             }
-            ${
-              data.regressionAdjusted
-                ? `,
-              SUM(${data.capCoalesceCovariate}) AS ${data.alias}_covariate_sum,
-              SUM(POWER(${data.capCoalesceCovariate}, 2)) AS ${data.alias}_covariate_sum_squares,
-              SUM(${data.capCoalesceMetric} * ${data.capCoalesceCovariate}) AS ${data.alias}_main_covariate_sum_product
-              `
-                : ""
-            }
-          `;
+          `; /*ends ifelse ratioMetric*/
         })}
       FROM
         __userMetricAgg m
@@ -2878,7 +3078,6 @@ export default abstract class SqlIntegration
     );
     // TODO cumulativeDate in more places
   }
-
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
     const {
       metric: metricDoc,
@@ -2953,7 +3152,9 @@ export default abstract class SqlIntegration
     // where RA is actually possible
     const regressionAdjusted =
       settings.regressionAdjustmentEnabled &&
-      isRegressionAdjusted(metric, denominator);
+      isRegressionAdjusted(metric, denominator) &&
+      // and block RA for experiment metric query only, only works for optimized queries
+      !isRatioMetric(metric, denominator);
 
     const regressionAdjustmentHours = regressionAdjusted
       ? (metric.regressionAdjustmentDays ?? 0) * 24
@@ -3161,6 +3362,7 @@ export default abstract class SqlIntegration
               regressionAdjusted,
               cumulativeDate,
               overrideConversionWindows,
+              banditDates,
               "__denominator",
               "__distinctUsers"
             )})`
@@ -4517,8 +4719,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
       // Numerator column
       const value = this.getMetricColumns(m, factTableMap, "m", false).value;
-      const filters = getColumnRefWhereClause(factTable, m.numerator, (s) =>
-        this.escapeStringLiteral(s)
+      const filters = getColumnRefWhereClause(
+        factTable,
+        m.numerator,
+        this.escapeStringLiteral.bind(this),
+        this.extractJSONField.bind(this)
       );
 
       const column =
@@ -4542,8 +4747,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         }
 
         const value = this.getMetricColumns(m, factTableMap, "m", true).value;
-        const filters = getColumnRefWhereClause(factTable, m.denominator, (s) =>
-          this.escapeStringLiteral(s)
+        const filters = getColumnRefWhereClause(
+          factTable,
+          m.denominator,
+          this.escapeStringLiteral.bind(this),
+          this.extractJSONField.bind(this)
         );
         const column =
           filters.length > 0
@@ -4643,9 +4851,10 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       ${userIdCol} as ${baseIdType},
       ${timestampDateTimeColumn} as date
     FROM(
-        ${sql} ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+        ${sql}
       ) m
       ${join}
+      ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
   `;
     return sqlVars ? compileSqlTemplate(baseSql, sqlVars) : baseSql;
   }
@@ -4736,8 +4945,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
     // Add filters from the Metric
     if (isFact && factTable && columnRef) {
-      getColumnRefWhereClause(factTable, columnRef, (s) =>
-        this.escapeStringLiteral(s)
+      getColumnRefWhereClause(
+        factTable,
+        columnRef,
+        this.escapeStringLiteral.bind(this),
+        this.extractJSONField.bind(this)
       ).forEach((filterSQL) => {
         where.push(filterSQL);
       });
@@ -5117,7 +5329,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     factTableMap: FactTableMap,
     alias = "m",
     useDenominator?: boolean
-  ) {
+  ): { userIds: Record<string, string>; timestamp: string; value: string } {
     if (isFactMetric(metric)) {
       const userIds: Record<string, string> = {};
       getUserIdTypes(metric, factTableMap, useDenominator).forEach(
@@ -5127,6 +5339,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       );
 
       const columnRef = useDenominator ? metric.denominator : metric.numerator;
+
+      const factTable = factTableMap.get(columnRef?.factTableId || "");
 
       const hasAggregateFilter =
         getAggregateFilters({
@@ -5145,6 +5359,13 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         column === "$$distinctUsers" ||
         column === "$$count"
           ? "1"
+          : factTable && column
+          ? getColumnExpression(
+              column,
+              factTable,
+              this.extractJSONField.bind(this),
+              alias
+            )
           : `${alias}.${column}`;
 
       return {

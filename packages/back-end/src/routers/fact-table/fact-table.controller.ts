@@ -34,6 +34,7 @@ import {
   runColumnTopValuesQuery,
 } from "back-end/src/jobs/refreshFactTableColumns";
 import { logger } from "back-end/src/util/logger";
+import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
 
 export const getFactTables = async (
   req: AuthRequest,
@@ -133,7 +134,11 @@ export const postFactTable = async (
 };
 
 export const putFactTable = async (
-  req: AuthRequest<UpdateFactTableProps, { id: string }>,
+  req: AuthRequest<
+    UpdateFactTableProps,
+    { id: string },
+    { forceColumnRefresh?: string }
+  >,
   res: Response<{ status: 200 }>
 ) => {
   const data = req.body;
@@ -154,14 +159,16 @@ export const putFactTable = async (
   }
 
   // Update the columns
-  data.columns = await runRefreshColumnsQuery(context, datasource, {
-    ...factTable,
-    ...data,
-  } as FactTableInterface);
-  data.columnsError = null;
+  if (req.query?.forceColumnRefresh || needsColumnRefresh(data)) {
+    data.columns = await runRefreshColumnsQuery(context, datasource, {
+      ...factTable,
+      ...data,
+    } as FactTableInterface);
+    data.columnsError = null;
 
-  if (!data.columns.some((col) => !col.deleted)) {
-    throw new Error("SQL did not return any rows");
+    if (!data.columns.some((col) => !col.deleted)) {
+      throw new Error("SQL did not return any rows");
+    }
   }
 
   await updateFactTable(context, factTable, data);
@@ -276,7 +283,7 @@ export const putColumn = async (
   if (
     !col.alwaysInlineFilter &&
     data.alwaysInlineFilter &&
-    canInlineFilterColumn(factTable, updatedCol)
+    canInlineFilterColumn(factTable, updatedCol.column)
   ) {
     const datasource = await getDataSourceById(context, factTable.datasource);
     if (!datasource) {

@@ -5,6 +5,8 @@ sidebar_label: Holdout Experiments
 slug: holdouts
 ---
 
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
 ## What are holdout experiments?
 
 Holdout experiments (holdouts) are an approach to measuring the long term impact of one feature or a set of features. Essentially, you take some set of users and keep them from seeing new features; you then use them as a control group to measure against some other set of users who are getting all of the features you have launched.
@@ -57,9 +59,9 @@ To achieve these goals we will essentially split our traffic into 2 groups:
 
 Your feature flag for the holdout should look like this:
 
-<div style={{display: 'flex', justifyContent: 'center', width: '100%'}}>
-<img src="/images/statistics/holdout-splits.png" alt="Traffic Splits for an Example Holdout Experiment" style={{ width: 800, margin: "0 auto" }} />
-</div>
+<MaxWidthImage border>
+![Traffic splits for an example holdout experiment](/images/statistics/holdout-splits.png)
+</MaxWidthImage>
 
 Note: an alternative is to use a String Feature Flag with values of `holdout` and `test` for the holdout experiment and `test` for the default value. That way you can more easily interpret the UI when you begin adding the holdout as a prerequisite for future features.
 
@@ -69,11 +71,11 @@ Now, for any future feature or experiment, you can add the `holdout-q1-2024` fea
 
 **Prerequisite as targeting condition**
 
-Your holdout experiment can be added as a prerequisite targeting condition to every Feature Rule you want the holdout to apply to. Whenever creating a feature rule, be sure to add the holdout feature as a prerequisite targeting condition, where users that are True get the feature applied to them. For example, see the following set of rules for the mock feature `my-feauture-2024`:
+Your holdout experiment can be added as a prerequisite targeting condition to every Feature Rule you want the holdout to apply to. Whenever creating a feature rule, be sure to add the holdout feature as a prerequisite targeting condition, where users that are True get the feature applied to them. For example, see the following set of rules for the mock feature `my-feature-2024`:
 
-<div style={{display: 'flex', justifyContent: 'center', width: '100%'}}>
-<img src="/images/statistics/holdout-targeting.png" alt="Feature Rule for an Example Feature Experiment with Holdout" style={{ width: 800 }} />
-</div>
+<MaxWidthImage border>
+![Feature Rule for an Example Feature Experiment with Holdout](/images/statistics/holdout-targeting.png)
+</MaxWidthImage>
 
 You can see in the image above that if the prerequisite `holdout-q1-2024` is `True`, which it will be for the holdout treatment group and the 90\% who are not in the holdout control or test group, then the experiment will apply to them. In practice, we check this condition by evaluating the holdout experiment, firing an exposure event for the holdout test, and then only proceeding if they evaluate to `True` on way or another.
 
@@ -85,9 +87,9 @@ A second option is to ensure that every user in the holdout control group gets t
 
 In this instance, your feature flag will look like the following:
 
-<div style={{display: 'flex', justifyContent: 'center', width: '100%'}}>
-<img src="/images/statistics/holdout-rule.png" alt="Feature Rule for an Example Feature Experiment with Holdout" style={{ width: 800 }} />
-</div>
+<MaxWidthImage border>
+![Feature Rule for an Example Feature Experiment with Holdout](/images/statistics/holdout-rule.png)
+</MaxWidthImage>
 
 :::note
 

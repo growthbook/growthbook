@@ -1,27 +1,14 @@
 import { useRouter } from "next/router";
-import { useState } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { date, daysLeft } from "shared/dates";
-import useStripeSubscription from "@/hooks/useStripeSubscription";
-import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export default function AccountPlanNotices() {
-  const [upgradeModal, setUpgradeModal] = useState(false);
   const permissionsUtil = usePermissionsUtil();
   const router = useRouter();
-  const { license, licenseError } = useUser();
-  const {
-    showSeatOverageBanner,
-    canSubscribe,
-    activeAndInvitedUsers,
-    freeSeats,
-    trialEnd,
-    subscriptionStatus,
-  } = useStripeSubscription();
+  const { license, licenseError, seatsInUse } = useUser();
 
   const canManageBilling = permissionsUtil.canManageBilling();
 
@@ -33,69 +20,6 @@ export default function AccountPlanNotices() {
         </div>
       </Tooltip>
     );
-  }
-
-  // GrowthBook Cloud-specific Notices
-  // TODO: Get rid of this logic once we have migrated all organizations to use the license key
-  if (isCloud() && canManageBilling && !license) {
-    // On an active trial
-    const trialRemaining = trialEnd ? daysLeft(trialEnd) : -1;
-    if (subscriptionStatus === "trialing" && trialRemaining >= 0) {
-      return (
-        <button
-          className="alert alert-warning py-1 px-2 mb-0 d-none d-md-block mr-1"
-          onClick={(e) => {
-            e.preventDefault();
-            router.push("/settings/billing");
-          }}
-        >
-          <div className="badge badge-warning">{trialRemaining}</div> day
-          {trialRemaining === 1 ? "" : "s"} left in trial
-        </button>
-      );
-    }
-    // Payment past due
-    if (subscriptionStatus === "past_due") {
-      return (
-        <button
-          className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1"
-          onClick={(e) => {
-            e.preventDefault();
-            router.push("/settings/billing");
-          }}
-        >
-          <FaExclamationTriangle /> payment past due
-        </button>
-      );
-    }
-
-    // Over the free tier
-    if (
-      showSeatOverageBanner &&
-      canSubscribe &&
-      activeAndInvitedUsers > freeSeats
-    ) {
-      return (
-        <>
-          {upgradeModal && (
-            <UpgradeModal
-              close={() => setUpgradeModal(false)}
-              source="top-nav-freeseat-overage"
-              reason="Whoops! You are over your free seat limit."
-            />
-          )}
-          <button
-            className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1"
-            onClick={async (e) => {
-              e.preventDefault();
-              setUpgradeModal(true);
-            }}
-          >
-            <FaExclamationTriangle /> free tier exceded
-          </button>
-        </>
-      );
-    }
   }
 
   // Notices for accounts using a license key that result in a downgrade to starter
@@ -166,29 +90,34 @@ export default function AccountPlanNotices() {
             </Tooltip>
           );
         case "License expired":
-          return (
-            <Tooltip
-              body={
-                license.plan === "enterprise" ? (
-                  <>
-                    Your license expired on{" "}
-                    <strong>{date(license.dateExpires)}</strong>. Contact
-                    sales@growthbook.io to renew.
-                  </>
-                ) : (
-                  <>
-                    Your license expired on{" "}
-                    <strong>{date(license.dateExpires)}</strong>. Go to your
-                    settings &gt; billing page to renew.
-                  </>
-                )
-              }
-            >
-              <div className="alert alert-danger py-1 px-2 d-none d-md-block mb-0 mr-1">
-                <FaExclamationTriangle /> license expired
-              </div>
-            </Tooltip>
-          );
+          // if the license expired more than 30 days ago, we don't show the notice
+          if (daysLeft(license.dateExpires || "") < -30) {
+            return null;
+          } else {
+            return (
+              <Tooltip
+                body={
+                  license.plan === "enterprise" ? (
+                    <>
+                      Your license expired on{" "}
+                      <strong>{date(license.dateExpires || "")}</strong>.
+                      Contact sales@growthbook.io to renew.
+                    </>
+                  ) : (
+                    <>
+                      Your license expired on{" "}
+                      <strong>{date(license.dateExpires || "")}</strong>. Go to
+                      your settings &gt; billing page to renew.
+                    </>
+                  )
+                }
+              >
+                <div className="alert alert-danger py-1 px-2 d-none d-md-block mb-0 mr-1">
+                  <FaExclamationTriangle /> license expired
+                </div>
+              </Tooltip>
+            );
+          }
         case "Email not verified":
           return (
             <Tooltip
@@ -296,7 +225,7 @@ export default function AccountPlanNotices() {
     }
     // Trial license is almost up
     if (license.isTrial) {
-      const licenseTrialRemaining = daysLeft(license.dateExpires);
+      const licenseTrialRemaining = daysLeft(license.dateExpires || "");
       if (licenseTrialRemaining >= 0) {
         if (license.plan === "enterprise") {
           return (
@@ -336,17 +265,13 @@ export default function AccountPlanNotices() {
     }
 
     // More seats than the license allows for
-    if (
-      license.plan === "enterprise" &&
-      activeAndInvitedUsers > license.seats
-    ) {
+    if (license.plan === "enterprise" && seatsInUse > (license.seats || 0)) {
       return (
         <Tooltip
           body={
             <>
               Your license is valid for <strong>{license.seats} seats</strong>,
-              but you are currently using{" "}
-              <strong>{activeAndInvitedUsers}</strong>. Contact
+              but you are currently using <strong>{seatsInUse}</strong>. Contact
               sales@growthbook.io to extend your quota.
             </>
           }

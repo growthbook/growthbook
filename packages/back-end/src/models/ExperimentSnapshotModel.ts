@@ -6,9 +6,11 @@ import {
   ExperimentSnapshotInterface,
   LegacyExperimentSnapshotInterface,
 } from "back-end/types/experiment-snapshot";
+import { logger } from "back-end/src/util/logger";
 import { migrateSnapshot } from "back-end/src/util/migrations";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
 import { updateExperimentAnalysisSummary } from "back-end/src/services/experiments";
+import { updateExperimentTimeSeries } from "back-end/src/services/experimentTimeSeries";
 import { queriesSchema } from "./QueryModel";
 import { Context } from "./BaseModel";
 import { getExperimentById } from "./ExperimentModel";
@@ -125,6 +127,25 @@ const experimentSnapshotSchema = new mongoose.Schema({
       },
       error: String,
     },
+    power: {
+      _id: false,
+      type: { type: String },
+      power: Number,
+      isLowPowered: Boolean,
+      additionalDaysNeeded: Number,
+      metricVariationPowerResults: [
+        {
+          _id: false,
+          metricId: String,
+          variation: Number,
+          errorMessage: String,
+          power: Number,
+          isLowPowered: Boolean,
+          effectSize: Number,
+          additionalDaysNeeded: Number,
+        },
+      ],
+    },
   },
   hasRawQueries: Boolean,
   queryFilter: String,
@@ -226,28 +247,50 @@ export async function updateSnapshot({
     experimentSnapshotModel.status === "success";
 
   if (shouldUpdateExperimentAnalysisSummary) {
-    const experimentModel = await getExperimentById(
+    const currentExperimentModel = await getExperimentById(
       context,
       experimentSnapshotModel.experiment
     );
 
-    const isLatestPhase = experimentModel
-      ? experimentSnapshotModel.phase === experimentModel.phases.length - 1
+    const isLatestPhase = currentExperimentModel
+      ? experimentSnapshotModel.phase ===
+        currentExperimentModel.phases.length - 1
       : false;
 
-    if (experimentModel && isLatestPhase) {
-      await updateExperimentAnalysisSummary({
+    if (currentExperimentModel && isLatestPhase) {
+      const updatedExperimentModel = await updateExperimentAnalysisSummary({
         context,
-        experiment: experimentModel,
+        experiment: currentExperimentModel,
         experimentSnapshot: experimentSnapshotModel,
       });
+
+      const notificationsTriggered = await notifyExperimentChange({
+        context,
+        experiment: updatedExperimentModel,
+        snapshot: experimentSnapshotModel,
+        previousAnalysisSummary: currentExperimentModel.analysisSummary,
+      });
+
+      try {
+        await updateExperimentTimeSeries({
+          context,
+          experiment: updatedExperimentModel,
+          previousAnalysisSummary: currentExperimentModel.analysisSummary,
+          experimentSnapshot: experimentSnapshotModel,
+          notificationsTriggered,
+        });
+      } catch (error) {
+        logger.error(
+          {
+            err: error,
+            experimentId: currentExperimentModel.id,
+            snapshotId: experimentSnapshotModel.id,
+          },
+          "Unable to update experiment time series"
+        );
+      }
     }
   }
-
-  await notifyExperimentChange({
-    context,
-    snapshot: experimentSnapshotModel,
-  });
 }
 
 export type AddOrUpdateSnapshotAnalysisParams = {
@@ -483,13 +526,10 @@ export async function getLatestSnapshotMultipleExperiments(
 
 export async function createExperimentSnapshotModel({
   data,
-  context,
 }: {
   data: ExperimentSnapshotInterface;
-  context: Context;
 }): Promise<ExperimentSnapshotInterface> {
   const created = await ExperimentSnapshotModel.create(data);
-  await notifyExperimentChange({ context, snapshot: created });
   return toInterface(created);
 }
 

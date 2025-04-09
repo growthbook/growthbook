@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useState } from "react";
-import { FaChartLine, FaExternalLinkAlt, FaTimes } from "react-icons/fa";
+import { FaChartLine, FaExternalLinkAlt } from "react-icons/fa";
 import { FactTableInterface } from "back-end/types/fact-table";
 import {
   getAggregateFilters,
@@ -147,7 +147,9 @@ export default function FactMetricPage() {
   const router = useRouter();
   const { fmid } = router.query;
 
-  const [editOpen, setEditOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState<
+    "closed" | "open" | "openWithAdvanced"
+  >("closed");
 
   const [editProjectsOpen, setEditProjectsOpen] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
@@ -170,6 +172,7 @@ export default function FactMetricPage() {
     getMinSampleSizeForMetric,
     getMinPercentageChangeForMetric,
     getMaxPercentageChangeForMetric,
+    getTargetMDEForMetric,
   } = useOrganizationMetricDefaults();
 
   const {
@@ -201,15 +204,6 @@ export default function FactMetricPage() {
     !factMetric.managedBy;
   const canDelete =
     permissionsUtil.canDeleteFactMetric(factMetric) && !factMetric.managedBy;
-
-  let regressionAdjustmentAvailableForMetric = true;
-  let regressionAdjustmentAvailableForMetricReason = <></>;
-  if (factMetric.metricType === "ratio") {
-    regressionAdjustmentAvailableForMetric = false;
-    regressionAdjustmentAvailableForMetricReason = (
-      <>Not available for ratio metrics.</>
-    );
-  }
 
   const factTable = getFactTableById(factMetric.numerator.factTableId);
   const denominatorFactTable = getFactTableById(
@@ -362,10 +356,11 @@ export default function FactMetricPage() {
 
   return (
     <div className="pagecontents container-fluid">
-      {editOpen && (
+      {editOpen !== "closed" && (
         <FactMetricModal
-          close={() => setEditOpen(false)}
+          close={() => setEditOpen("closed")}
           existing={factMetric}
+          showAdvancedSettings={editOpen === "openWithAdvanced"}
           source="fact-metric"
         />
       )}
@@ -452,7 +447,7 @@ export default function FactMetricPage() {
                 className="dropdown-item"
                 onClick={(e) => {
                   e.preventDefault();
-                  setEditOpen(true);
+                  setEditOpen("open");
                 }}
               >
                 Edit Metric
@@ -643,7 +638,7 @@ export default function FactMetricPage() {
           <div className="appbox p-3">
             <RightRailSection
               title="Advanced Settings"
-              open={() => setEditOpen(true)}
+              open={() => setEditOpen("openWithAdvanced")}
               canOpen={canEdit}
             >
               {factMetric.windowSettings.delayValue ? (
@@ -724,7 +719,7 @@ export default function FactMetricPage() {
                         : getExperimentMetricFormatter(
                             factMetric,
                             getFactTableById,
-                            true
+                            "number"
                           )(getMinSampleSizeForMetric(factMetric), {
                             currency: displayCurrency,
                           })}
@@ -737,9 +732,15 @@ export default function FactMetricPage() {
                     </span>
                   </li>
                   <li className="mb-2">
-                    <span className="text-gray">Min percent change :</span>{" "}
+                    <span className="text-gray">Min percent change:</span>{" "}
                     <span className="font-weight-bold">
                       {getMinPercentageChangeForMetric(factMetric) * 100}%
+                    </span>
+                  </li>
+                  <li className="mb-2">
+                    <span className="text-gray">Target MDE:</span>{" "}
+                    <span className="font-weight-bold">
+                      {getTargetMDEForMetric(factMetric) * 100}%
                     </span>
                   </li>
                 </ul>
@@ -784,14 +785,7 @@ export default function FactMetricPage() {
                       <GBCuped size={14} /> Regression Adjustment (CUPED)
                     </span>
                   </li>
-                  {!regressionAdjustmentAvailableForMetric ? (
-                    <li className="mb-2">
-                      <div className="text-muted small">
-                        <FaTimes className="text-danger" />{" "}
-                        {regressionAdjustmentAvailableForMetricReason}
-                      </div>
-                    </li>
-                  ) : factMetric?.regressionAdjustmentOverride ? (
+                  {factMetric?.regressionAdjustmentOverride ? (
                     <>
                       <li className="mb-2">
                         <span className="text-gray">

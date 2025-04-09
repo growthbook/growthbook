@@ -154,7 +154,7 @@ export default function FeaturesPage() {
                 href="https://docs.growthbook.io/using/growthbook-best-practices#syntax-search"
                 target="_blank"
               >
-                <Tooltip body={searchTermFilterExplainations}></Tooltip>
+                <Tooltip body={searchTermFilterExplanations}></Tooltip>
               </Link>
             </div>
             <div className="col-auto">
@@ -194,11 +194,7 @@ export default function FeaturesPage() {
                   </th>
                 ))}
                 <th>Prerequisites</th>
-                <th>
-                  Default
-                  <br />
-                  Value
-                </th>
+                <th>Default</th>
                 <th>Rules</th>
                 <th>Version</th>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
@@ -437,7 +433,7 @@ export default function FeaturesPage() {
     environments,
   });
 
-  const searchTermFilterExplainations = (
+  const searchTermFilterExplanations = (
     <>
       <p>This search field supports advanced syntax search, including:</p>
       <ul>
@@ -547,7 +543,9 @@ export default function FeaturesPage() {
           cta={featureToDuplicate ? "Duplicate" : "Create"}
           close={() => setModalOpen(false)}
           onSuccess={async (feature) => {
-            const url = `/features/${feature.id}${hasFeatures ? "" : "?first"}`;
+            const url = `/features/${feature.id}${
+              hasFeatures ? "?new" : "?first&new"
+            }`;
             router.push(url);
             mutate({
               features: [...allFeatures, feature],

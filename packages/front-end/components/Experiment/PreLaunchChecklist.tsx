@@ -86,6 +86,11 @@ export function getChecklistItems({
             return !!expField;
           }
           return false;
+        case "prerequisiteTargeting": {
+          const prerequisites =
+            experiment.phases?.[experiment.phases.length - 1]?.prerequisites;
+          return !!prerequisites && prerequisites.length > 0;
+        }
       }
     }
 
@@ -117,7 +122,7 @@ export function getChecklistItems({
           {openSetupTab &&
           ((isBandit && !hasLiveLinkedChanges) ||
             (!isBandit && hasLinkedChanges)) ? (
-            <a className="a" role="button" onClick={openSetupTab}>
+            <a className="a link-purple" role="button" onClick={openSetupTab}>
               Linked Feature or Visual Editor change
             </a>
           ) : (
@@ -140,7 +145,7 @@ export function getChecklistItems({
           <>
             {setAnalysisModal ? (
               <a
-                className="a"
+                className="a link-purple"
                 role="button"
                 onClick={() => setAnalysisModal(true)}
               >
@@ -175,7 +180,7 @@ export function getChecklistItems({
           <>
             Publish and enable all{" "}
             {openSetupTab ? (
-              <a className="a" role="button" onClick={openSetupTab}>
+              <a className="a link-purple" role="button" onClick={openSetupTab}>
                 Linked Feature
               </a>
             ) : (
@@ -198,7 +203,7 @@ export function getChecklistItems({
           <>
             Add changes in the{" "}
             {openSetupTab ? (
-              <a className="a" role="button" onClick={openSetupTab}>
+              <a className="a link-purple" role="button" onClick={openSetupTab}>
                 Visual Editor
               </a>
             ) : (
@@ -222,7 +227,7 @@ export function getChecklistItems({
       <>
         {editTargeting ? (
           <a
-            className="a"
+            className="a link-purple"
             role="button"
             onClick={() => {
               editTargeting();
@@ -253,7 +258,11 @@ export function getChecklistItems({
         {!setShowSdkForm && !verifiedConnections ? (
           <Link href="/sdks">Manage SDK Connections</Link>
         ) : connections.length === 0 && setShowSdkForm ? (
-          <a className="a" role="button" onClick={() => setShowSdkForm(true)}>
+          <a
+            className="a link-purple"
+            role="button"
+            onClick={() => setShowSdkForm(true)}
+          >
             Add SDK Connection
           </a>
         ) : null}
@@ -331,6 +340,9 @@ export function getChecklistItems({
       }
 
       if (item.completionType === "auto" && item.propertyKey) {
+        if (isBandit && item.propertyKey === "hypothesis") {
+          return;
+        }
         items.push({
           display: <>{item.task}</>,
           status: isChecklistItemComplete(
@@ -441,7 +453,7 @@ export function PreLaunchChecklistUI({
   const contents = !data ? (
     <LoadingSpinner />
   ) : (
-    <div>
+    <div className="pt-2">
       {checklist.map((item, i) => (
         <div key={i} className="mb-2">
           <Checkbox
@@ -487,7 +499,7 @@ export function PreLaunchChecklistUI({
 
   const header = (
     <div className="d-flex flex-row align-items-center justify-content-between text-dark">
-      <h4>
+      <h4 className="mb-0">
         {title}{" "}
         {data && checklistItemsRemaining !== null ? (
           <span

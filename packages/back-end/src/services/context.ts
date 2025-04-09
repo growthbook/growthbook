@@ -2,12 +2,14 @@ import { Permissions, userHasPermission } from "shared/permissions";
 import { uniq } from "lodash";
 import type pino from "pino";
 import type { Request } from "express";
-import { CommercialFeature, orgHasPremiumFeature } from "enterprise";
 import { ExperimentMetricInterface } from "shared/experiments";
+import { CommercialFeature } from "shared/enterprise";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
   OrganizationInterface,
+  OrganizationUsage,
   Permission,
   UserPermissions,
 } from "back-end/types/organization";
@@ -34,6 +36,8 @@ import { SegmentModel } from "back-end/src/models/SegmentModel";
 import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
 import { PopulationDataModel } from "back-end/src/models/PopulationDataModel";
 import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplateModel";
+import { DecisionCriteriaModel } from "back-end/src/enterprise/models/DecisionCriteriaModel";
+import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -54,6 +58,8 @@ export class ReqContextClass {
     metricGroups: MetricGroupModel;
     segments: SegmentModel;
     experimentTemplates: ExperimentTemplatesModel;
+    decisionCriteria: DecisionCriteriaModel;
+    metricTimeSeries: MetricTimeSeriesModel;
   };
   private initModels() {
     this.models = {
@@ -66,10 +72,13 @@ export class ReqContextClass {
       metricGroups: new MetricGroupModel(this),
       segments: new SegmentModel(this),
       experimentTemplates: new ExperimentTemplatesModel(this),
+      decisionCriteria: new DecisionCriteriaModel(this),
+      metricTimeSeries: new MetricTimeSeriesModel(this),
     };
   }
 
   public org: OrganizationInterface;
+  public usage: () => Promise<OrganizationUsage>;
   public userId = "";
   public email = "";
   public userName = "";
@@ -88,6 +97,7 @@ export class ReqContextClass {
 
   public constructor({
     org,
+    usage,
     auditUser,
     teams,
     user,
@@ -96,6 +106,7 @@ export class ReqContextClass {
     req,
   }: {
     org: OrganizationInterface;
+    usage: () => Promise<OrganizationUsage>;
     user?: {
       id: string;
       email: string;
@@ -109,6 +120,7 @@ export class ReqContextClass {
     req?: Request;
   }) {
     this.org = org;
+    this.usage = usage;
     this.auditUser = auditUser;
     this.teams = teams || [];
 

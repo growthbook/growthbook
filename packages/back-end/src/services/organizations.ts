@@ -3,13 +3,6 @@ import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
 import { Request } from "express";
 import {
-  getLicense,
-  isActiveSubscriptionStatus,
-  isAirGappedLicenseKey,
-  licenseInit,
-  postSubscriptionUpdateToLicenseServer,
-} from "enterprise";
-import {
   areProjectRolesValid,
   isRoleValid,
   getDefaultRole,
@@ -25,7 +18,9 @@ import {
   DEFAULT_MIN_SAMPLE_SIZE,
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_PROPER_PRIOR_STDDEV,
+  DEFAULT_TARGET_MDE,
 } from "shared/constants";
+import { getUsage } from "back-end/src/enterprise/billing";
 import {
   MetricCappingSettings,
   MetricPriorSettings,
@@ -85,6 +80,7 @@ import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
+import { getLicense, licenseInit } from "back-end/src/enterprise";
 import {
   encryptParams,
   getSourceIntegrationObject,
@@ -139,8 +135,11 @@ export function getContextFromReq(req: AuthRequest): ReqContext {
     throw new Error("Must be logged in");
   }
 
+  const { organization } = req;
+
   return new ReqContextClass({
     org: req.organization,
+    usage: () => getUsage(organization),
     auditUser: {
       type: "dashboard",
       id: req.userId,
@@ -191,6 +190,7 @@ export function getMetricDefaultsForOrg(context: ReqContext): MetricDefaults {
     minimumSampleSize: DEFAULT_MIN_SAMPLE_SIZE,
     maxPercentageChange: DEFAULT_MAX_PERCENT_CHANGE,
     minPercentageChange: DEFAULT_MIN_PERCENT_CHANGE,
+    targetMDE: DEFAULT_TARGET_MDE,
     windowSettings: defaultMetricWindowSettings,
     cappingSettings: defaultMetricCappingSettings,
     priorSettings: defaultMetricPriorSettings,
@@ -264,7 +264,12 @@ export async function removeMember(
   updatedOrganization.members = members;
   updatedOrganization.pendingMembers = pendingMembers;
 
-  await updateSubscriptionIfProLicense(updatedOrganization);
+  await licenseInit(
+    updatedOrganization,
+    getUserCodesForOrg,
+    getLicenseMetaData,
+    true
+  );
 
   return updatedOrganization;
 }
@@ -281,35 +286,18 @@ export async function revokeInvite(
 
   const updatedOrganization = cloneDeep(organization);
   updatedOrganization.invites = invites;
-  await updateSubscriptionIfProLicense(updatedOrganization);
+  await licenseInit(
+    updatedOrganization,
+    getUserCodesForOrg,
+    getLicenseMetaData,
+    true
+  );
 
   return updatedOrganization;
 }
 
 export function getInviteUrl(key: string) {
   return `${APP_ORIGIN}/invitation?key=${key}`;
-}
-
-async function updateSubscriptionIfProLicense(
-  organization: OrganizationInterface
-) {
-  if (
-    organization.licenseKey &&
-    !isAirGappedLicenseKey(organization.licenseKey)
-  ) {
-    const license = await getLicense(organization.licenseKey);
-    if (
-      license?.plan === "pro" &&
-      isActiveSubscriptionStatus(license?.stripeSubscription?.status)
-    ) {
-      // Only pro plans have a Stripe subscription that needs to get updated
-      const seatsInUse = getNumberOfUniqueMembersAndInvites(organization);
-      await postSubscriptionUpdateToLicenseServer(
-        organization.licenseKey,
-        seatsInUse
-      );
-    }
-  }
 }
 
 export async function addMemberToOrg({
@@ -370,7 +358,12 @@ export async function addMemberToOrg({
   updatedOrganization.members = members;
   updatedOrganization.pendingMembers = pendingMembers;
 
-  await updateSubscriptionIfProLicense(updatedOrganization);
+  await licenseInit(
+    updatedOrganization,
+    getUserCodesForOrg,
+    getLicenseMetaData,
+    true
+  );
 }
 
 export async function addMembersToTeam({
@@ -536,7 +529,14 @@ export async function acceptInvite(key: string, userId: string) {
     pendingMembers,
   });
 
-  return organization;
+  // fetch a fresh instance of the org now that the members & invites lists have changed
+  const updatedOrg = await getOrganizationById(organization.id);
+
+  if (!updatedOrg) {
+    throw new Error("Unable to locate org");
+  }
+
+  return updatedOrg;
 }
 
 export async function inviteUser({
@@ -604,7 +604,12 @@ export async function inviteUser({
   const updatedOrganization = cloneDeep(organization);
   updatedOrganization.invites = invites;
 
-  await updateSubscriptionIfProLicense(updatedOrganization);
+  await licenseInit(
+    updatedOrganization,
+    getUserCodesForOrg,
+    getLicenseMetaData,
+    true
+  );
 
   let emailSent = false;
   if (isEmailEnabled()) {
@@ -1116,6 +1121,7 @@ export function getContextForAgendaJobByOrgObject(
 ): ApiReqContext {
   return new ReqContextClass({
     org: organization,
+    usage: () => getUsage(organization),
     auditUser: null,
     // TODO: Limit background job permissions to the user who created the job
     role: "admin",

@@ -1,5 +1,5 @@
 import type { Response } from "express";
-import { orgHasPremiumFeature } from "enterprise";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { triggerSingleSDKWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import {
   CreateSdkWebhookProps,

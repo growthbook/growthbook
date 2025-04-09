@@ -21,6 +21,7 @@ import {
   DEFAULT_MIN_PERCENT_CHANGE,
   DEFAULT_MAX_PERCENT_CHANGE,
   DEFAULT_MIN_SAMPLE_SIZE,
+  DEFAULT_TARGET_MDE,
 } from "shared/constants";
 import {
   MetricDefaults,
@@ -36,7 +37,9 @@ export function getInitialInlineFilters(
 ) {
   const inlineFilters = { ...existingInlineFilters };
   factTable.columns
-    .filter((c) => c.alwaysInlineFilter && canInlineFilterColumn(factTable, c))
+    .filter(
+      (c) => c.alwaysInlineFilter && canInlineFilterColumn(factTable, c.column)
+    )
     .forEach((c) => {
       if (!inlineFilters[c.column] || !inlineFilters[c.column].length) {
         inlineFilters[c.column] = [""];
@@ -103,6 +106,8 @@ export function getDefaultFactMetricProps({
       existing?.minPercentChange ??
       metricDefaults.minPercentageChange ??
       DEFAULT_MIN_PERCENT_CHANGE,
+    targetMDE:
+      existing?.targetMDE ?? metricDefaults.targetMDE ?? DEFAULT_TARGET_MDE,
     maxPercentChange:
       existing?.maxPercentChange ??
       metricDefaults.maxPercentageChange ??
@@ -247,6 +252,19 @@ export function formatPercent(
   return percentFormatter.format(Math.round(value * 100000) / 100000);
 }
 
+export function formatPercentagePoints(value: number) {
+  const ppValue = 100 * value;
+  const absValue = Math.abs(ppValue);
+  const digits = absValue > 100 ? 0 : absValue > 10 ? 1 : absValue > 1 ? 2 : 3;
+  // Show fewer fractional digits for bigger numbers
+  const formatter = new Intl.NumberFormat(undefined, {
+    maximumFractionDigits: digits,
+    minimumFractionDigits: 0,
+  });
+  const number = formatter.format(ppValue);
+  return `${number} pp`;
+}
+
 export function getColumnFormatter(
   column: ColumnInterface
 ): (value: number, options?: Intl.NumberFormatOptions) => string {
@@ -282,23 +300,28 @@ export function getColumnRefFormatter(
 export function getExperimentMetricFormatter(
   metric: ExperimentMetricInterface,
   getFactTableById: (id: string) => FactTableInterface | null,
-  formatProportionAsNumber: boolean = false
+  proportionFormat: "number" | "percentagePoints" | "percentage" = "percentage"
 ): (value: number, options?: Intl.NumberFormatOptions) => string {
   // Old metric
   if ("type" in metric) {
-    return getMetricFormatter(
-      metric.type === "binomial" && formatProportionAsNumber
-        ? "count"
-        : metric.type
-    );
+    if (metric.type === "binomial" && proportionFormat === "number") {
+      return getMetricFormatter("count");
+    }
+    if (metric.type === "binomial" && proportionFormat === "percentagePoints") {
+      return formatPercentagePoints;
+    }
+    return getMetricFormatter(metric.type);
   }
 
   // Fact metric
   switch (metric.metricType) {
     case "proportion":
     case "retention":
-      if (formatProportionAsNumber) {
+      if (proportionFormat === "number") {
         return formatNumber;
+      }
+      if (proportionFormat === "percentagePoints") {
+        return formatPercentagePoints;
       }
       return formatPercent;
     case "ratio":

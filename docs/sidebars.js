@@ -281,6 +281,11 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "experimentation-analysis/query-optimization",
+          label: "Query Optimization",
+        },
+        {
+          type: "doc",
           id: "experimentation-analysis/data-pipeline",
           label: "Data Pipeline",
         },
@@ -327,6 +332,11 @@ const sidebars = {
           type: "doc",
           id: "experimentation-analysis/experiment-results",
           label: "Experiment Results",
+        },
+        {
+          type: "doc",
+          id: "experimentation-analysis/decision-framework",
+          label: "Experiment Decision Framework",
         },
         {
           type: "doc",
@@ -596,7 +606,7 @@ const sidebars = {
         {
           type: "doc",
           id: "tools/chrome-extension",
-          label: "Chrome Extension",
+          label: "Browser Extension",
         },
         {
           type: "doc",
@@ -608,6 +618,12 @@ const sidebars = {
           id: "tools/cli",
           className: "pill-new",
           label: "GrowthBook CLI",
+        },
+        {
+          type: "doc",
+          id: "integrations/clarity",
+          label: "Microsoft Clarity (Heatmaps)",
+          className: "pill-new",
         },
       ],
     },

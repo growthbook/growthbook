@@ -390,7 +390,13 @@ const DateResults: FC<{
               formatter={
                 differenceType === "relative"
                   ? formatPercent
-                  : getExperimentMetricFormatter(metric, getFactTableById, true)
+                  : getExperimentMetricFormatter(
+                      metric,
+                      getFactTableById,
+                      differenceType === "absolute"
+                        ? "percentagePoints"
+                        : "number"
+                    )
               }
               formatterOptions={metricFormatterOptions}
               variationNames={variations.map((v) => v.name)}

@@ -5,6 +5,8 @@ sidebar_label: User & Team Permissions
 slug: user-permissions
 ---
 
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
 In the context of GrowthBook, a user, or member, is an individual who has access to your organization's GrowthBook account. Each user is assigned a role that determines the level of access they have within the application. GrowthBook offers a range of roles, from `No Access` to `Admin` and even custom roles, each with a specific set of permissions (see below).
 GrowthBook's user permissions system allows organizations to define the level of access each user has within the application. This granular control ensures that users can only access the resources they need to perform their job, enhancing security and privacy.
 
@@ -47,9 +49,9 @@ If your organization has enabled the setting to allow verified users to automati
 
 If users create an account with a verified email address that matches the domain of your account owner, they will be presented with an option to join your organization. If you have not selected `Automatically approve new verified users` (which is the default), those users will be listed at the bottom of the page under a section called `Pending Members`. From this list, you'll have the option of approving or deleting these self-registered users.
 
-<p>
-  <img src="/images/using/auto-approve-members.png" alt="Self-registering and Automatic Approvals Toggle" width="600"/>
-</p>
+<MaxWidthImage maxWidth={600}>
+![Self-registering and Automatic Approvals Toggle](/images/using/auto-approve-members.png)
+</MaxWidthImage>
 
 If you are the account owner, you will see a toggle at the top of the members' page that allows you to automatically approve new members who match your domain. This means that instead of being placed in your `pending members` list, they will automatically join your organization.
 
@@ -108,7 +110,7 @@ In the event you want a user to have access to a subset of projects, you can giv
 
 If, however, you only want to hide a certain project from a user, you can assign their project-level role of `No Access` which will make it so the user isn't able to view the project.
 
-If you need to apply these rules to many users as once, you can create a Team with the permissions needed, and then add users to that team. But, keep in mind, the user's permissions will be a combination of their user permissions, and the permissions of any team their on, so after adding the user to a team, you may want to reduce their user-level permissions to ensure their previous user-level permissions don't override the permissions inherited by the team(s) they're on.
+If you need to apply these rules to many users as once, you can create a Team with the permissions needed, and then add users to that team. But, keep in mind, the user's permissions will be a combination of their user permissions, and the permissions of any team they are on, so after adding the user to a team, you may want to reduce their user-level permissions to ensure their previous user-level permissions don't override the permissions inherited by the team(s) they are on.
 
 :::note
 
@@ -120,7 +122,7 @@ If security of these resources is paramount to your organization, we recommend c
 
 ### Teams
 
-Enterprise organizations using GrowthBook can create Teams with distinct capabilities. When setting up a Team, you have the option to define both a global role and project-level roles, much like how you do for individual users. Once a Team is established, multiple users can be added to it. Any user added to a Team will automatically inherit all permissions assigned to that Team. This feature becomes particularly useful when combined with [GrowthBook's SCIM integration](https://docs.growthbook.io/integrations/scim), enabling automated user provisioning and de-provisioning.
+Enterprise organizations using GrowthBook can create Teams with distinct capabilities. When setting up a Team, you have the option to define both a global role and project-level roles, much like how you do for individual users. Once a Team is established, multiple users can be added to it. Any user added to a Team will automatically inherit all permissions assigned to that Team. This feature becomes particularly useful when combined with [GrowthBook's SCIM integration](/integrations/scim), enabling automated user provisioning and de-provisioning.
 
 To create a Team, you can go to `Settings` → `Team` via the Sidebar and then select the `Teams` tab at the top of the page. Here, you can create and configure various Teams, before adding members to a Team. When evaluating whether or not a user has permission to perform a certain action, we will merge the user's permissions with the permissions inherited from all the Teams the user is on. So if the user's global role is `Collaborator` but they're on a Team that grants them `Engineer` permissions, that user's permission will then be a merger of the `Collaborator` and `Engineer` roles.
 
@@ -175,6 +177,7 @@ Below, we've outlined the current policies and their associated permissions. If 
 |                       | EventWebhooksFullAccess   | View and edit license key. View invoices and update billing info.                                                            | readData, manageBilling                                                        |
 |                       | BillingFullAccess         | View and export audit logs                                                                                                   | readData, viewAuditLog                                                         |
 |                       | AuditLogsFullAccess       | Create, edit, and delete custom roles                                                                                        | readData, manageTeam, manageCustomRoles                                        |
+|                       | DecisionCriteriaFullAccess | Create, edit, and delete decision criteria                                                                                   | readData, manageDecisionCriteria                                                 |
 
 #### Deactivating Roles
 

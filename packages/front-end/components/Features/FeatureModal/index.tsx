@@ -8,6 +8,7 @@ import dJSON from "dirty-json";
 
 import React, { ReactElement, useState } from "react";
 import { validateFeatureValue } from "shared/util";
+import { PiInfo } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -333,40 +334,35 @@ export default function FeatureModal({
         </a>
       )}
 
-      {!featureToDuplicate && (
-        <ValueTypeField
-          value={valueType}
-          onChange={(val) => {
-            const defaultValue = getDefaultValue(val);
-            form.setValue("valueType", val);
-            form.setValue("defaultValue", defaultValue);
-          }}
-        />
+      {projectOptions.length > 0 && (
+        <>
+          {selectedProject === demoProjectId && (
+            <div className="alert alert-warning">
+              You are creating a feature under the demo datasource project.
+            </div>
+          )}
+          <SelectField
+            label={
+              <>
+                {" "}
+                Project{" "}
+                <Tooltip
+                  body={
+                    "The dropdown below has been filtered to only include projects where you have permission to update Features"
+                  }
+                />{" "}
+              </>
+            }
+            value={selectedProject || ""}
+            onChange={(v) => {
+              form.setValue("project", v);
+            }}
+            initialOption="None"
+            options={projectOptions}
+          />
+        </>
       )}
 
-      <EnvironmentSelect
-        environmentSettings={environmentSettings}
-        environments={environments}
-        setValue={(env, on) => {
-          environmentSettings[env.id].enabled = on;
-          form.setValue("environmentSettings", environmentSettings);
-        }}
-      />
-
-      {/*
-          We hide rule configuration when duplicating a feature since the
-          decision of which rule to display (out of potentially many) in the
-          modal is not deterministic.
-      */}
-      {!featureToDuplicate && valueType && (
-        <FeatureValueField
-          label={"Default Value when Enabled"}
-          id="defaultValue"
-          value={form.watch("defaultValue")}
-          setValue={(v) => form.setValue("defaultValue", v)}
-          valueType={valueType}
-        />
-      )}
       {hasCommercialFeature("custom-metadata") &&
         customFields &&
         customFields?.length > 0 && (
@@ -381,37 +377,56 @@ export default function FeatureModal({
             />
           </div>
         )}
+
+      {!featureToDuplicate && (
+        <ValueTypeField
+          value={valueType}
+          onChange={(val) => {
+            const defaultValue = getDefaultValue(val);
+            form.setValue("valueType", val);
+            form.setValue("defaultValue", defaultValue);
+          }}
+        />
+      )}
+
+      {/*
+          We hide rule configuration when duplicating a feature since the
+          decision of which rule to display (out of potentially many) in the
+          modal is not deterministic.
+      */}
       {!featureToDuplicate && valueType && (
-        <div className="alert alert-info">
-          After creating your feature, you will be able to add targeted rules
-          such as <strong>A/B Tests</strong> and{" "}
-          <strong>Percentage Rollouts</strong> to control exactly how it gets
-          released to users.
-        </div>
+        <FeatureValueField
+          label={
+            <>
+              Default Value when Enabled{" "}
+              <Tooltip
+                body={
+                  <>
+                    After creating your feature, you will be able to add
+                    targeted rules such as <strong>A/B Tests</strong> and{" "}
+                    <strong>Percentage Rollouts</strong> to control exactly how
+                    it gets released to users.
+                  </>
+                }
+              >
+                <PiInfo style={{ color: "var(--violet-11)" }} />
+              </Tooltip>
+            </>
+          }
+          id="defaultValue"
+          value={form.watch("defaultValue")}
+          setValue={(v) => form.setValue("defaultValue", v)}
+          valueType={valueType}
+        />
       )}
-      {selectedProject === demoProjectId && (
-        <div className="alert alert-warning">
-          You are creating a feature under the demo datasource project.
-        </div>
-      )}
-      <SelectField
-        label={
-          <>
-            {" "}
-            Projects{" "}
-            <Tooltip
-              body={
-                "The dropdown below has been filtered to only include projects where you have permission to update Features"
-              }
-            />{" "}
-          </>
-        }
-        value={selectedProject || ""}
-        onChange={(v) => {
-          form.setValue("project", v);
+
+      <EnvironmentSelect
+        environmentSettings={environmentSettings}
+        environments={environments}
+        setValue={(env, on) => {
+          environmentSettings[env.id].enabled = on;
+          form.setValue("environmentSettings", environmentSettings);
         }}
-        initialOption="None"
-        options={projectOptions}
       />
     </Modal>
   );

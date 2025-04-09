@@ -19,7 +19,6 @@ export interface Props {
 
 export default function ColumnList({ factTable }: Props) {
   const [editOpen, setEditOpen] = useState("");
-  const [newOpen, setNewOpen] = useState(false);
 
   const { mutateDefinitions } = useDefinitions();
 
@@ -58,18 +57,19 @@ export default function ColumnList({ factTable }: Props) {
 
   const canEdit = permissionsUtil.canViewEditFactTableModal(factTable);
 
+  const existing = editOpen
+    ? factTable.columns.find((c) => c.column === editOpen)
+    : null;
+
   return (
     <>
-      {newOpen && (
-        <ColumnModal close={() => setNewOpen(false)} factTable={factTable} />
-      )}
-      {editOpen && (
+      {existing ? (
         <ColumnModal
           close={() => setEditOpen("")}
           factTable={factTable}
-          existing={factTable.columns.find((c) => c.column === editOpen)}
+          existing={existing}
         />
-      )}
+      ) : null}
 
       {factTable.columnsError && (
         <div className="alert alert-danger">
@@ -94,10 +94,13 @@ export default function ColumnList({ factTable }: Props) {
           <Button
             color="link"
             onClick={async () => {
-              await apiCall(`/fact-tables/${factTable.id}`, {
-                method: "PUT",
-                body: JSON.stringify({}),
-              });
+              await apiCall(
+                `/fact-tables/${factTable.id}?forceColumnRefresh=1`,
+                {
+                  method: "PUT",
+                  body: JSON.stringify({}),
+                }
+              );
               mutateDefinitions();
             }}
           >

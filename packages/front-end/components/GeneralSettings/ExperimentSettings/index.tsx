@@ -14,6 +14,7 @@ import { GBInfo } from "@/components/Icons";
 import Frame from "@/components/Radix/Frame";
 import StatsEngineSettings from "./StatsEngineSettings";
 import StickyBucketingSettings from "./StickyBucketingSettings";
+import DecisionFrameworkSettings from "./DecisionFrameworkSettings";
 
 export default function ExperimentSettings({
   cronString,
@@ -215,13 +216,13 @@ export default function ExperimentSettings({
                         label: "Respect Conversion Windows",
                         value: "firstExposure",
                         description:
-                          "For metrics with conversion windows, build a single conversion window off of each user’s first exposure.",
+                          "For metrics with conversion windows, build a single conversion window off of each user's first exposure.",
                       },
                       {
                         label: "Ignore Conversion Windows",
                         value: "experimentDuration",
                         description:
-                          "Count all metric values from user’s first exposure to the end of the experiment.",
+                          "Count all metric values from user's first exposure to the end of the experiment.",
                       },
                     ]}
                     value={form.watch("attributionModel")}
@@ -338,11 +339,15 @@ export default function ExperimentSettings({
                     </label>
                   </Box>
                 </Flex>
+
                 <Box mb="4">
-                  <Text as="p" className="font-weight-semibold">
+                  <Text className="font-weight-semibold">
                     SRM p-value threshold
                   </Text>
-                  <Box className="mt-3 form-inline flex-column align-items-start">
+                  <Box
+                    mt="1"
+                    className="form-inline flex-column align-items-start"
+                  >
                     <Field
                       type="number"
                       step="0.001"
@@ -407,6 +412,11 @@ export default function ExperimentSettings({
                   </Flex>
                 </Box>
               </Box>
+            </Box>
+
+            {/* Decision Framework Settings */}
+            <Box mb="4" width="100%">
+              <DecisionFrameworkSettings />
             </Box>
           </Flex>
         </Flex>

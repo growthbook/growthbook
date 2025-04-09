@@ -57,6 +57,7 @@ export type FactMetricData = {
   capCoalesceMetric: string;
   capCoalesceDenominator: string;
   capCoalesceCovariate: string;
+  capCoalesceDenominatorCovariate: string;
   minMetricDelay: number;
   raMetricSettings: {
     hours: number;
@@ -79,6 +80,12 @@ export type BanditMetricData = Pick<
   | "capCoalesceDenominator"
   | "capCoalesceCovariate"
 >;
+
+export type VariationPeriodWeight = {
+  variationId: string;
+  date: Date;
+  weight: number;
+};
 
 export interface ExperimentMetricStats {
   metric_type: MetricType;

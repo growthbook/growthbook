@@ -10,11 +10,15 @@ import {
   DEFAULT_STATS_ENGINE,
   DEFAULT_TEST_QUERY_DAYS,
   DEFAULT_SRM_THRESHOLD,
+  DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
+  DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
+  DEFAULT_DECISION_FRAMEWORK_ENABLED,
 } from "shared/constants";
 import { OrganizationSettings } from "back-end/types/organization";
 import Link from "next/link";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Box, Flex, Heading } from "@radix-ui/themes";
+import { DEFAULT_DECISION_CRITERIA } from "shared/enterprise";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig, isCloud } from "@/services/env";
 import TempMessage from "@/components/TempMessage";
@@ -104,6 +108,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         minimumSampleSize: metricDefaults.minimumSampleSize,
         maxPercentageChange: metricDefaults.maxPercentageChange * 100,
         minPercentageChange: metricDefaults.minPercentageChange * 100,
+        targetMDE: metricDefaults.targetMDE * 100,
       },
       updateSchedule: {
         type: "stale",
@@ -153,6 +158,14 @@ const GeneralSettingsPage = (): React.ReactElement => {
       banditBurnInValue: settings.banditBurnInValue ?? 1,
       banditBurnInUnit: settings.banditBurnInUnit ?? "days",
       requireExperimentTemplates: settings.requireExperimentTemplates ?? false,
+      experimentMinLengthDays:
+        settings.experimentMinLengthDays ?? DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
+      experimentMaxLengthDays:
+        settings.experimentMaxLengthDays ?? DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
+      decisionFrameworkEnabled:
+        settings.decisionFrameworkEnabled ?? DEFAULT_DECISION_FRAMEWORK_ENABLED,
+      defaultDecisionCriteriaId:
+        settings.defaultDecisionCriteriaId ?? DEFAULT_DECISION_CRITERIA.id,
     },
   });
   const { apiCall } = useAuth();
@@ -165,6 +178,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       minimumSampleSize: form.watch("metricDefaults.minimumSampleSize"),
       maxPercentageChange: form.watch("metricDefaults.maxPercentageChange"),
       minPercentageChange: form.watch("metricDefaults.minPercentageChange"),
+      targetMDE: form.watch("metricDefaults.targetMDE"),
     },
     // customization:
     customized: form.watch("customized"),
@@ -220,6 +234,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
           // they exist and are not empty
           const existingMaxChange = settings?.[k]?.maxPercentageChange;
           const existingMinChange = settings?.[k]?.minPercentageChange;
+          const existingTargetMDE = settings?.[k]?.targetMDE;
           newVal[k] = {
             ...newVal[k],
             ...settings?.[k],
@@ -233,6 +248,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
             ...(existingMinChange !== undefined
               ? {
                   minPercentageChange: existingMinChange * 100,
+                }
+              : {}),
+            ...(existingTargetMDE !== undefined
+              ? {
+                  targetMDE: existingTargetMDE * 100,
                 }
               : {}),
           };
@@ -287,6 +307,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         ...value.metricDefaults,
         maxPercentageChange: value.metricDefaults.maxPercentageChange / 100,
         minPercentageChange: value.metricDefaults.minPercentageChange / 100,
+        targetMDE: value.metricDefaults.targetMDE / 100,
       },
       confidenceLevel: (value.confidenceLevel ?? 0.95) / 100,
       multipleExposureMinPercent:

@@ -1,4 +1,4 @@
-import { KnownBlock } from "@slack/web-api";
+import { KnownBlock } from "@slack/types";
 import formatNumber from "number-format.js";
 import { logger } from "back-end/src/util/logger";
 import { cancellableFetch } from "back-end/src/util/http.util";
@@ -16,6 +16,7 @@ import {
 } from "back-end/src/events/handlers/utils";
 import { ExperimentWarningNotificationPayload } from "back-end/src/validators/experiment-warnings";
 import { ExperimentInfoSignificancePayload } from "back-end/src/validators/experiment-info";
+import { ExperimentDecisionNotificationPayload } from "back-end/src/validators/experiment-decision";
 
 // region Filtering
 
@@ -77,6 +78,15 @@ export const getSlackMessageForNotificationEvent = async (
         event.data.object.name,
         eventId
       );
+
+    case "experiment.decision.ship":
+      return buildSlackMessageForExperimentShipEvent(event.data.object);
+
+    case "experiment.decision.rollback":
+      return buildSlackMessageForExperimentRollbackEvent(event.data.object);
+
+    case "experiment.decision.review":
+      return buildSlackMessageForExperimentReviewEvent(event.data.object);
 
     case "webhook.test":
       return buildSlackMessageForWebhookTestEvent(event.data.object.webhookId);
@@ -480,7 +490,7 @@ const buildSlackMessageForExperimentWarningEvent = (
           data.usersCount
         )} users (${percentFormatter(
           data.percent
-        )}%) saw multiple variations and were automatically removed from results.`;
+        )}) saw multiple variations and were automatically removed from results.`;
 
       return {
         text: text(data.experimentName),
@@ -522,6 +532,75 @@ const buildSlackMessageForExperimentWarningEvent = (
       invalidData = data;
       throw `Invalid data: ${invalidData}`;
   }
+};
+
+const buildSlackMessageForExperimentShipEvent = (
+  data: ExperimentDecisionNotificationPayload
+): SlackMessage => {
+  const text = (experimentName: string, description?: string) =>
+    `Experiment ${experimentName} has reached the "Ship now" status.${
+      description ? ` ${description}` : null
+    }`;
+  return {
+    text: text(data.experimentName, data.decisionDescription),
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            text(`*${data.experimentName}*`, data.decisionDescription) +
+            getExperimentUrlFormatted(data.experimentId),
+        },
+      },
+    ],
+  };
+};
+
+const buildSlackMessageForExperimentRollbackEvent = (
+  data: ExperimentDecisionNotificationPayload
+): SlackMessage => {
+  const text = (experimentName: string, description?: string) =>
+    `Experiment ${experimentName} has reached the "Roll back now" status.${
+      description ? ` ${description}` : null
+    }`;
+  return {
+    text: text(data.experimentName, data.decisionDescription),
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            text(`*${data.experimentName}*`, data.decisionDescription) +
+            getExperimentUrlFormatted(data.experimentId),
+        },
+      },
+    ],
+  };
+};
+
+const buildSlackMessageForExperimentReviewEvent = (
+  data: ExperimentDecisionNotificationPayload
+): SlackMessage => {
+  const text = (experimentName: string, description?: string) =>
+    `Experiment ${experimentName} has reached the "Ready for review" status.${
+      description ? ` ${description}` : null
+    }`;
+  return {
+    text: text(data.experimentName, data.decisionDescription),
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            text(`*${data.experimentName}*`, data.decisionDescription) +
+            getExperimentUrlFormatted(data.experimentId),
+        },
+      },
+    ],
+  };
 };
 
 // endregion Event-specific messages -> Experiment

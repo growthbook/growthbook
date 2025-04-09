@@ -1,4 +1,4 @@
-import { snowflakeCreateTableOptions } from "enterprise";
+import { snowflakeCreateTableOptions } from "shared/enterprise";
 import { SnowflakeConnectionParams } from "back-end/types/integrations/snowflake";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { runSnowflakeQuery } from "back-end/src/services/snowflake";
@@ -26,7 +26,7 @@ export default class Snowflake extends SqlIntegration {
     return "snowflake";
   }
   getSensitiveParamKeys(): string[] {
-    return ["password"];
+    return ["password", "privateKey", "privateKeyPassword"];
   }
   runQuery(sql: string): Promise<QueryResponse> {
     return runSnowflakeQuery(this.params, sql);
@@ -54,6 +54,9 @@ export default class Snowflake extends SqlIntegration {
   }
   hllCardinality(col: string): string {
     return `HLL_ESTIMATE(${col})`;
+  }
+  extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
+    return `PARSE_JSON(${jsonCol}):${path}::${isNumeric ? "float" : "string"}`;
   }
   getInformationSchemaWhereClause(): string {
     return "table_schema NOT IN ('INFORMATION_SCHEMA')";
