@@ -11,25 +11,27 @@ export const safeRolloutStatus = [
   "completed",
   "draft",
 ] as const;
+export const safeRollout = z.object({
+  trackingKey: z.string(),
+  datasource: z.string(),
+  exposureQueryId: z.string(),
+  hashAttribute: z.string(),
+  seed: z.string(),
+  guardrailMetrics: z.array(z.string()),
+  status: z.enum(safeRolloutStatus),
+  startedAt: z.date(),
+  lastSnapshotAttempt: z.date().optional(),
+  nextSnapshotAttempt: z.date().optional(),
+  autoSnapshots: z.boolean().default(true),
+  ruleId: z.string(),
+  featureId: z.string(),
+  coverage: z.number(),
+  controlValue: z.string(),
+  variationValue: z.string(),
+});
+
 export const safeRolloutValidator = baseSchema
-  .extend({
-    trackingKey: z.string(),
-    datasource: z.string(),
-    exposureQueryId: z.string(),
-    hashAttribute: z.string(),
-    seed: z.string(),
-    guardrailMetrics: z.array(z.string()),
-    status: z.enum(safeRolloutStatus),
-    startedAt: z.date(),
-    lastSnapshotAttempt: z.date().optional(),
-    nextSnapshotAttempt: z.date().optional(),
-    autoSnapshots: z.boolean().default(true),
-    ruleId: z.string(),
-    featureId: z.string(),
-    coverage: z.number(),
-    controlValue: z.string(),
-    variationValue: z.string(),
-  })
+  .extend(safeRollout.shape)
   .strict();
 export type safeRolloutInterface = z.infer<typeof safeRolloutValidator>;
 export type fullSafeRolloutInterface = safeRolloutInterface & SafeRolloutRule;
@@ -39,10 +41,10 @@ const BaseClass = MakeModelClass({
   collectionName: COLLECTION,
   idPrefix: "sras_",
   auditLog: {
-    entity: "safeRolloutAnalysisSettings",
-    createEvent: "safeRolloutAnalysisSettings.create",
-    updateEvent: "safeRolloutAnalysisSettings.update",
-    deleteEvent: "safeRolloutAnalysisSettings.delete",
+    entity: "safeRollout",
+    createEvent: "safeRollout.create",
+    updateEvent: "safeRollout.update",
+    deleteEvent: "safeRollout.delete",
   },
   globallyUniqueIds: true,
 });
@@ -59,7 +61,7 @@ interface createProps {
   seed: string;
   guardrailMetrics: string[];
   status: typeof safeRolloutStatus[number];
-  startedAt: Date;
+  startedAt?: Date;
   coverage: number;
   controlValue: string;
   variationValue: string;

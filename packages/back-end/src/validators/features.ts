@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { statsEngines } from "back-end/src/util/constants";
+import { safeRollout } from "back-end/src/models/SafeRolloutModel";
 import { eventUser } from "./events";
-
 export const simpleSchemaFieldValidator = z.object({
   key: z.string().max(64),
   type: z.enum(["integer", "float", "string", "boolean"]),
@@ -178,13 +178,13 @@ export const safeRolloutRule = baseRule
   .strict();
 
 export type SafeRolloutRule = z.infer<typeof safeRolloutRule>;
-
+const safeRolloutWithRule = safeRolloutRule.extend(safeRollout.shape);
 export const featureRule = z.union([
   forceRule,
   rolloutRule,
   experimentRule,
   experimentRefRule,
-  safeRolloutRule,
+  safeRolloutWithRule, // we want to include the safe rollout interface so we can show the details on the rule list
 ]);
 
 export type FeatureRule = z.infer<typeof featureRule>;

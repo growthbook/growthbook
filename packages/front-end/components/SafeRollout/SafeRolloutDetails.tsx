@@ -1,10 +1,7 @@
 import { Box, Flex } from "@radix-ui/themes";
-import {
-  FeatureInterface,
-  SafeRolloutRule,
-} from "back-end/src/validators/features";
+import { FeatureInterface } from "back-end/src/validators/features";
+import { fullSafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import TrafficCard from "../HealthTab/TrafficCard";
 import SRMCard from "../HealthTab/SRMCard";
 import Callout from "../Radix/Callout";
 import { useSnapshot } from "./SnapshotProvider";
@@ -12,7 +9,7 @@ import SafeRolloutResults from "./SafeRolloutResults";
 import MultipleExposuresCard from "./Health/MultipleExposuresCard";
 
 interface Props {
-  safeRollout: SafeRolloutRule;
+  safeRollout: fullSafeRolloutInterface;
   feature: FeatureInterface;
 }
 

@@ -1,4 +1,4 @@
-import React, { useState, ReactNode, useContext } from "react";
+import React, { ReactNode, useContext } from "react";
 import { ExperimentSnapshotAnalysisSettings } from "back-end/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
 import {
