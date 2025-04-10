@@ -32,7 +32,7 @@
     "prism-react-renderer": "^2.3.0",
     "react": "18",
     "react-dom": "18",
-    "redocusaurus": "^1.6.0",
+    "redocusaurus": "^2.2.3",
     "rehype-katex": "7.0.0",
     "remark-math": "6.0.0",
     "sass": "^1.55.0",
