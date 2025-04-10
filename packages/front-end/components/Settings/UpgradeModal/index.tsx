@@ -531,7 +531,6 @@ export default function UpgradeModal({
         <StripeProvider initialClientSecret={cloudProUpgradeSetup.clientSecret}>
           <CloudProUpgradeModal
             close={() => setCloudProUpgradeSetup(null)}
-            numOfCurrentMembers={numOfCurrentMembers}
             closeParent={close}
           />
         </StripeProvider>

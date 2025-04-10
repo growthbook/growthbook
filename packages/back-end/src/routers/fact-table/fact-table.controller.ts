@@ -283,7 +283,7 @@ export const putColumn = async (
   if (
     !col.alwaysInlineFilter &&
     data.alwaysInlineFilter &&
-    canInlineFilterColumn(factTable, updatedCol)
+    canInlineFilterColumn(factTable, updatedCol.column)
   ) {
     const datasource = await getDataSourceById(context, factTable.datasource);
     if (!datasource) {

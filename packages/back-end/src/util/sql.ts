@@ -1,7 +1,10 @@
 import { format as sqlFormat, FormatOptions } from "sql-formatter";
 import Handlebars from "handlebars";
 import { SQLVars } from "back-end/types/sql";
-import { FactTableColumnType } from "back-end/types/fact-table";
+import {
+  FactTableColumnType,
+  JSONColumnFields,
+} from "back-end/types/fact-table";
 import { helpers } from "./handlebarsHelpers";
 
 // Register all the helpers from handlebarsHelpers
@@ -209,19 +212,87 @@ export function replaceCountStar(aggregation: string, col: string) {
   return aggregation.replace(/count\(\s*\*\s*\)/gi, `COUNT(${col})`);
 }
 
+function isJSON(str: string) {
+  // Only match objects
+  if (!str?.startsWith("{")) return false;
+
+  try {
+    JSON.parse(str);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function getJSONFields(testValues: unknown[]): JSONColumnFields {
+  const fields: JSONColumnFields = {};
+
+  testValues.forEach((str) => {
+    if (typeof str !== "string") return;
+    try {
+      const obj = JSON.parse(str);
+      Object.keys(obj).forEach((key) => {
+        if (fields[key]) return;
+        if (obj[key] === null || obj[key] === undefined) return;
+        if (Object.keys(fields).length > 50) return;
+
+        fields[key] = {
+          datatype:
+            typeof obj[key] === "string"
+              ? obj[key].match(/^[0-9]{4}-[0-9]{2}-[0-9]{2}($|[ T])/)
+                ? "date"
+                : "string"
+              : typeof obj[key] === "number"
+              ? "number"
+              : typeof obj[key] === "boolean"
+              ? "boolean"
+              : "other",
+        };
+      });
+    } catch (e) {
+      // Skip value
+    }
+  });
+
+  return fields;
+}
+
 export function determineColumnTypes(
   rows: Record<string, unknown>[]
-): { column: string; datatype: FactTableColumnType }[] {
+): {
+  column: string;
+  datatype: FactTableColumnType;
+  jsonFields?: JSONColumnFields;
+}[] {
   if (!rows || !rows[0]) return [];
   const cols = Object.keys(rows[0]);
 
-  const columns: { column: string; datatype: FactTableColumnType }[] = [];
+  const columns: {
+    column: string;
+    datatype: FactTableColumnType;
+    jsonFields?: JSONColumnFields;
+  }[] = [];
   cols.forEach((col) => {
-    const testValue = rows
+    const testValues = rows
       .map((row) => row[col])
-      .filter((val) => val !== null && val !== undefined)[0];
+      .filter((val) => val !== null && val !== undefined);
+    const testValue = testValues[0];
 
-    if (testValue !== undefined) {
+    if (typeof testValue === "string" && isJSON(testValue)) {
+      // Use all test values to determine JSON fields
+      columns.push({
+        column: col,
+        datatype: "json",
+        jsonFields: getJSONFields(testValues),
+      });
+    } else if (testValue && testValue?.constructor === Object) {
+      // Use all test values to determine JSON fields
+      columns.push({
+        column: col,
+        datatype: "json",
+        jsonFields: getJSONFields(testValues.map((v) => JSON.stringify(v))),
+      });
+    } else if (testValue !== undefined) {
       columns.push({
         column: col,
         datatype:

@@ -9,6 +9,7 @@ import {
   OrganizationUsage,
 } from "back-end/types/organization";
 import { getEffectiveAccountPlan } from "back-end/src/enterprise";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 
 const PLANS_WITH_UNLIMITED_USAGE: AccountPlan[] = [
   "pro",
@@ -106,6 +107,9 @@ type StoredUsage = {
 const keyToUsageData: Record<string, StoredUsage> = {};
 
 export async function getUsage(organization: OrganizationInterface) {
+  if (!IS_CLOUD) {
+    return UNLIMITED_USAGE;
+  }
   const plan = getEffectiveAccountPlan(organization);
 
   if (PLANS_WITH_UNLIMITED_USAGE.includes(plan)) return UNLIMITED_USAGE;

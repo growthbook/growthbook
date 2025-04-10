@@ -116,6 +116,14 @@ export default class ClickHouse extends SqlIntegration {
     return `quantile(${quantile})(${value})`;
     // TODO explore gains to using `quantiles`
   }
+  extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
+    if (isNumeric) {
+      return `simpleJSONExtractFloat(${jsonCol}, '${path}')`;
+    } else {
+      return `simpleJSONExtractString(${jsonCol}, '${path}')`;
+    }
+  }
+
   getInformationSchemaWhereClause(): string {
     if (!this.params.database)
       throw new Error(

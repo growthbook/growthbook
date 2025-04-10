@@ -172,6 +172,10 @@ export default class BigQuery extends SqlIntegration {
       : `${multiplier} * ${quantile}`;
     return `APPROX_QUANTILES(${value}, ${multiplier} IGNORE NULLS)[OFFSET(CAST(${quantileVal} AS INT64))]`;
   }
+  extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
+    const raw = `JSON_VALUE(${jsonCol}, '$.${path}')`;
+    return isNumeric ? `CAST(${raw} AS FLOAT64)` : raw;
+  }
   getDefaultDatabase() {
     return this.params.projectId || "";
   }
