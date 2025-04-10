@@ -9,12 +9,12 @@ interface Props {
 
 export const IssueTags = ({ issues }: Props) => {
   if (!issues?.length) {
-    return <h4 className="mt-2 mb-4">No issues found. 🎉</h4>;
+    return <h4 className="mt-2 mb-4">未发现问题. 🎉</h4>;
   }
 
   return (
     <div className="d-flex flex-row">
-      <h4 className="col-auto pl-0 mb-0">Jump to issues found: </h4>
+      <h4 className="col-auto pl-0 mb-0">跳转到发现的问题: </h4>
       <div className="flex-wrap">
         {issues.map((issue) => {
           return (

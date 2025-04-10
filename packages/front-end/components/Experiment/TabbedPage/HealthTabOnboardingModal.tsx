@@ -170,11 +170,10 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
         cta={"确认"}
         includeCloseCta={false}
         size={"md"}
-        header={`Exit without ${
-          healthTabOnboardingPurpose === "setup"
-            ? "Enabling Health Tab"
-            : "Configuring Experiment Dimensions"
-        }`}
+        header={`不进行${healthTabOnboardingPurpose === "setup"
+          ? "启用健康标签页"
+          : "配置实验维度"
+          }直接退出`}
         secondaryCTA={
           <>
             <button
@@ -188,11 +187,10 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
       >
         <div className="my-2 ml-3 mr-3">
           <div className="row mb-2">
-            {`${
-              healthTabOnboardingPurpose === "setup"
-                ? "The Health Tab will not be enabled"
-                : "Experiment Dimensions will not be configured for the health tab"
-            } until you complete setup.`}
+            {`${healthTabOnboardingPurpose === "setup"
+              ? "在你完成设置之前，健康标签页将不会启用"
+              : "在你完成设置之前，实验维度将不会为健康标签页进行配置"
+              }。`}
           </div>
         </div>
       </Modal>
@@ -212,123 +210,120 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
     children: ReactElement;
     secondaryCTA: ReactElement;
   }[] = [
-    // step 0
-    {
-      header: "Set up Health Tab",
-      children: (
-        <div>
-          By enabling the health tab, one additional query will be run per
-          experiment analysis to automatically provide data about traffic over
-          time and dimension breakdowns.
-        </div>
-      ),
-      secondaryCTA: (
-        <button
-          className={`btn btn-primary`}
-          type="submit"
-          onClick={() => setStep(showDimensionsPage ? 1 : 2)}
-        >
-          {"下一步 >"}
-        </button>
-      ),
-    },
-    // step 1
-    {
-      header: "Configure Experiment Dimensions for Health Tab",
-      children: (
-        <>
-          <div className="my-2 ml-3 mr-3">
-            <div className="row mb-3">
-              Configure Experiment Dimension slices to pre-bin dimensions in the
-              most common values. These dimensions will then display on your
-              Health Tab for traffic and experiment balance checks.
-            </div>
-            <div className="row">
-              <DimensionSlicesRunner
-                dimensionSlices={data?.dimensionSlices}
-                status={status}
-                id={id}
-                setId={setId}
-                mutate={mutate}
-                dataSource={dataSource}
-                exposureQuery={exposureQuery}
-                source={source}
-              />
-            </div>
+      // step 0
+      {
+        header: "设置健康标签页",
+        children: (
+          <div>
+            通过启用健康标签页，每次实验分析将额外运行一个查询，以自动提供有关流量随时间变化和维度细分的数据。
           </div>
-        </>
-      ),
-      secondaryCTA: (
-        <>
-          {healthTabOnboardingPurpose === "setup" ? (
-            <button
-              className={`btn btn-link`}
-              onClick={() => {
-                setStep(2);
-              }}
-            >
-              {"跳过"}
-            </button>
-          ) : null}
+        ),
+        secondaryCTA: (
           <button
             className={`btn btn-primary`}
             type="submit"
-            disabled={!saveDimensionsEnabled}
-            onClick={() => setStep(2)}
+            onClick={() => setStep(showDimensionsPage ? 1 : 2)}
           >
             {"下一步 >"}
           </button>
-        </>
-      ),
-    },
-    // step 2
-    {
-      header: "Set up Health Tab",
-      children: (
-        <>
-          <div className="my-2 ml-3 mr-3">
-            <div className="row mb-2">
-              Your Health Tab will display results when your data refreshes.
+        ),
+      },
+      // step 1
+      {
+        header: "为健康标签页配置实验维度",
+        children: (
+          <>
+            <div className="my-2 ml-3 mr-3">
+              <div className="row mb-3">
+                配置实验维度切片，以便将维度预先划分为最常见的值。这些维度随后将显示在你的健康标签页上，用于流量和实验平衡检查。
+              </div>
+              <div className="row">
+                <DimensionSlicesRunner
+                  dimensionSlices={data?.dimensionSlices}
+                  status={status}
+                  id={id}
+                  setId={setId}
+                  mutate={mutate}
+                  dataSource={dataSource}
+                  exposureQuery={exposureQuery}
+                  source={source}
+                />
+              </div>
             </div>
-            <div className="row">
-              <RadioGroup
-                value={setupChoice}
-                setValue={(val: RefreshTypes) => setSetupChoice(val)}
-                options={[
-                  {
-                    value: "refresh",
-                    label: "Refresh results upon setup completion",
-                  },
-                  {
-                    value: "norefresh",
-                    label: "Refresh data whenever you next update results",
-                  },
-                ]}
-              />
+          </>
+        ),
+        secondaryCTA: (
+          <>
+            {healthTabOnboardingPurpose === "setup" ? (
+              <button
+                className={`btn btn-link`}
+                onClick={() => {
+                  setStep(2);
+                }}
+              >
+                {"跳过"}
+              </button>
+            ) : null}
+            <button
+              className={`btn btn-primary`}
+              type="submit"
+              disabled={!saveDimensionsEnabled}
+              onClick={() => setStep(2)}
+            >
+              {"下一步 >"}
+            </button>
+          </>
+        ),
+      },
+      // step 2
+      {
+        header: "设置健康标签页",
+        children: (
+          <>
+            <div className="my-2 ml-3 mr-3">
+              <div className="row mb-2">
+                当你的数据刷新时，你的健康标签页将显示结果。
+              </div>
+              <div className="row">
+                <RadioGroup
+                  value={setupChoice}
+                  setValue={(val: RefreshTypes) => setSetupChoice(val)}
+                  options={[
+                    {
+                      value: "refresh",
+                      label: "设置完成后刷新结果",
+                    },
+                    {
+                      value: "norefresh",
+                      label: "下次更新结果时刷新数据",
+
+                    },
+                  ]}
+                />
+              </div>
             </div>
-          </div>
-        </>
-      ),
-      secondaryCTA: (
-        <>
-          <button
-            className={`btn btn-link`}
-            onClick={() => setStep(showDimensionsPage ? 1 : 0)}
-          >
-            {"< 后退"}
-          </button>
-          <div className="flex-1" />
-          <button
-            className={`btn btn-primary`}
-            type="submit"
-            onClick={setUpHealthTab}
-          >
-            {"完成安装"}
-          </button>
-        </>
-      ),
-    },
-  ];
+          </>
+        ),
+        secondaryCTA: (
+          <>
+            <button
+              className={`btn btn-link`}
+              onClick={() => setStep(showDimensionsPage ? 1 : 0)}
+            >
+              {"< 后退"}
+            </button>
+            <div className="flex-1" />
+            <button
+              className={`btn btn-primary`}
+              type="submit"
+              onClick={setUpHealthTab}
+            >
+              {"完成安装"}
+            </button>
+          </>
+        ),
+      },
+    ];
 
   const { header, children, secondaryCTA } = pages[step];
 

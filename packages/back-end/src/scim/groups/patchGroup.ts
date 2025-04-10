@@ -106,7 +106,7 @@ export async function patchGroup(
             return res.status(400).json({
               schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
               status: "400",
-              detail: `"${role}" is not a valid GrowthBook role.`,
+              detail: `"${role}" is not a valid CSII role.`,
             });
           }
         }

@@ -117,7 +117,7 @@ export default function TargetingAttributeCodeSnippet({
       return (
         <>
           <p>
-            部分属性会自动设置，但您需要手动设置以下属性。这必须在GrowthBook代码片段之前添加。
+            部分属性会自动设置，但您需要手动设置以下属性。这必须在CSII代码片段之前添加。
           </p>
           {introText}
           <Code

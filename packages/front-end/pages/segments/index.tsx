@@ -191,7 +191,7 @@ const SegmentPage: FC = () => {
           </div>
         </div>
         <div className="alert alert-info">
-          只有当您将GrowthBook连接到兼容的数据源（Snowflake、Redshift、BigQuery、ClickHouse、Athena、Postgres、MySQL、MS SQL、Presto、Databricks或Mixpanel）时，Segment才可用。对其他数据源（如Google Analytics）的支持即将推出。
+          只有当您将CSII连接到兼容的数据源（Snowflake、Redshift、BigQuery、ClickHouse、Athena、Postgres、MySQL、MS SQL、Presto、Databricks或Mixpanel）时，Segment才可用。对其他数据源（如Google Analytics）的支持即将推出。
         </div>
       </div>
     );

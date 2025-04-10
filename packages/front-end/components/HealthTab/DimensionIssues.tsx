@@ -163,7 +163,7 @@ export const DimensionIssues = ({
       >
         <div className="m-3">
           <div className="mb-4" style={{ maxWidth: 200 }}>
-            <div className="uppercase-title text-muted">Dimension</div>
+            <div className="uppercase-title text-muted">维度</div>
             <SelectField
               containerClassName={"select-dropdown-underline"}
               options={availableDimensions}
@@ -208,15 +208,15 @@ export const DimensionIssues = ({
                         />
                         {(d.health === "healthy" ||
                           d.health === "Issues detected") && (
-                          <SRMWarning
-                            srm={d.srm}
-                            variations={variations}
-                            users={d.variationUnits}
-                            showWhenHealthy
-                            type="simple"
-                            isBandit={isBandit}
-                          />
-                        )}
+                            <SRMWarning
+                              srm={d.srm}
+                              variations={variations}
+                              users={d.variationUnits}
+                              showWhenHealthy
+                              type="simple"
+                              isBandit={isBandit}
+                            />
+                          )}
                         {d.health === "Not enough traffic" && (
                           <div className="alert alert-info">
                             <b>
@@ -237,8 +237,8 @@ export const DimensionIssues = ({
 
       <div className="d-flex flex-column h-100">
         <div className="px-4">
-          <h3>Dimensions</h3>
-          <p className="mt-1">Highlights perceived issues across dimensions</p>
+          <h3>维度</h3>
+          <p className="mt-1">突出显示各维度上察觉到的问题</p>
         </div>
 
         <hr className="my-0 w-100" />
@@ -301,17 +301,16 @@ export const DimensionIssues = ({
           <>
             <div className="pt-4 px-4">
               <i className="text-muted">
-                {`No experiment dimensions ${
-                  (exposureQuery?.dimensions ?? []).length > 0
+                {`No experiment dimensions ${(exposureQuery?.dimensions ?? []).length > 0
                     ? "with pre-defined slices available"
                     : "available"
-                }`}
+                  }`}
               </i>
             </div>
             {exposureQuery?.dimensions &&
-            dataSource &&
-            canConfigHealthTab &&
-            exposureQuery.dimensions.length > 0 ? (
+              dataSource &&
+              canConfigHealthTab &&
+              exposureQuery.dimensions.length > 0 ? (
               <div className="pt-4 d-flex justify-content-center">
                 <div>
                   <a

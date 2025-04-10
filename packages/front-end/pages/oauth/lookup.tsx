@@ -7,7 +7,7 @@ import WelcomeFrame from "@/components/Auth/WelcomeFrame";
 
 export async function lookupByEmail(email: string) {
   if (!isCloud()) {
-    throw new Error("Only available on GrowthBook Cloud");
+    throw new Error("Only available on CSII Cloud");
   }
 
   const domain = email.split("@")[1];
@@ -44,7 +44,7 @@ export default function OAuthLookup() {
 
   const leftside = (
     <>
-      <h1 className="title h1">GrowthBook Enterprise</h1>
+      <h1 className="title h1">CSII Enterprise</h1>
       <p></p>
     </>
   );
@@ -100,7 +100,7 @@ export default function OAuthLookup() {
         </p>
         <div>
           <br />
-          Don&apos;t have a GrowthBook Enterprise plan yet?
+          Don&apos;t have a CSII Enterprise plan yet?
           <br />
           Email <a href="mailto:sales@growthbook.io">sales@growthbook.io</a> to
           learn more and get a quote.

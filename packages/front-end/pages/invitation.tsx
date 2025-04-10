@@ -38,7 +38,7 @@ const InvitationPage = (): React.ReactElement => {
     } else {
       throw new Error(
         res.message ||
-          "There was an error accepting the invite. Please go back to your email and click the invite link again."
+        "There was an error accepting the invite. Please go back to your email and click the invite link again."
       );
     }
   }, [apiCall]);
@@ -59,7 +59,7 @@ const InvitationPage = (): React.ReactElement => {
       <h3 className="mb-3">Accept Invitation</h3>
       <div className="mb-3">
         You&apos;ve been invited to join <strong>{data.organization}</strong> on
-        GrowthBook as {data.role?.match(/^[aeiou]/i) ? "an" : "a"} {data.role}!
+        CSII as {data.role?.match(/^[aeiou]/i) ? "an" : "a"} {data.role}!
       </div>
       <div className="d-flex">
         <Button color="primary" onClick={acceptInvite} className="ml-auto">

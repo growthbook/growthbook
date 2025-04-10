@@ -222,11 +222,11 @@ export default function ResultsTab({
                 !snapshot &&
                 !experiment.id.match(/^exp_sample/) ? (
                 <div className="alert-cool-1 text-center m-4 px-3 py-4">
-                  <p className="h4">使用GrowthBook进行分析</p>
+                  <p className="h4">使用CSII进行分析</p>
                   {datasources.length > 0 ? (
                     <>
                       <p>
-                        选择一个数据源和指标，以便GrowthBook能够分析实验结果。
+                        选择一个数据源和指标，以便CSII能够分析实验结果。
                       </p>
                       <button
                         className="btn btn-primary"
@@ -242,7 +242,7 @@ export default function ResultsTab({
                   ) : (
                     <>
                       <p>
-                        将GrowthBook连接到您的数据，并使用我们强大的指标和统计引擎自动分析您的实验结果。
+                        将CSII连接到您的数据，并使用我们强大的指标和统计引擎自动分析您的实验结果。
                       </p>
                       <Link href="/datasources" className="btn btn-primary">
                         连接到您的数据

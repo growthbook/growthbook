@@ -801,7 +801,7 @@ export default function SDKConnectionForm({
                               </p>
                               {isCloud() && (
                                 <div className="mt-2 text-warning-orange">
-                                  <FaExclamationCircle /> 需要诸如GrowthBook代理或CDN边缘工作者之类的远程评估服务。
+                                  <FaExclamationCircle /> 需要诸如CSII代理或CDN边缘工作者之类的远程评估服务。
                                 </div>
                               )}
                             </>
@@ -874,7 +874,7 @@ export default function SDKConnectionForm({
                               href="https://github.com/growthbook/growthbook-proxy"
                               rel="noreferrer"
                             >
-                              GrowthBook代理
+                              CSII代理
                             </a>{" "}
                             或CDN边缘工作者之类的远程评估服务。
                           </div>
@@ -1003,7 +1003,7 @@ export default function SDKConnectionForm({
 
         {isCloud() && (
           <div className="mt-5">
-            <label className="mb-1">GrowthBook代理</label>
+            <label className="mb-1">CSII代理</label>
             <div className="mt-2">
               <div className="d-flex align-items-center">
                 <Toggle
@@ -1015,7 +1015,7 @@ export default function SDKConnectionForm({
                   className="ml-2 mb-0"
                   htmlFor="sdk-connection-proxy-toggle"
                 >
-                  使用GrowthBook代理
+                  使用CSII代理
                 </label>
               </div>
               {form.watch("proxyEnabled") && (
@@ -1030,10 +1030,10 @@ export default function SDKConnectionForm({
                         body={
                           <>
                             <p>
-                              可选地添加您的代理的公共URL以实现更快的部署。提供代理主机将允许GrowthBook在功能定义发生变化时向您的代理推送更新。
+                              可选地添加您的代理的公共URL以实现更快的部署。提供代理主机将允许CSII在功能定义发生变化时向您的代理推送更新。
                             </p>
                             <p className="mb-0">
-                              如果没有GrowthBook的推送更新，代理将回退到过时验证缓存策略。
+                              如果没有CSII的推送更新，代理将回退到过时验证缓存策略。
                             </p>
                           </>
                         }

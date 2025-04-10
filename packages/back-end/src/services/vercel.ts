@@ -68,7 +68,7 @@ export async function createOrgGbKeys(
     const createdKeyVal = await createLegacySdkKey({
       organizationId: orgId,
       description:
-        "This key is used by Vercel that allows you to connect your GrowthBook sdk to the GrowthBook API.",
+        "This key is used by Vercel that allows you to connect your CSII sdk to the CSII API.",
       project: "",
       encryptSDK: false,
       environment: envMapEntry.gb,

@@ -199,10 +199,10 @@ const BigQueryForm: FC<{
       <div className="form-group col-md-12">
         <label>
           Default Dataset{" "}
-          <Tooltip body="The default dataset is where your experiment assignments are stored. GrowthBook uses this to create default queries that define working assignments and metrics. This value can be edited later if needed." />
+          <Tooltip body="The default dataset is where your experiment assignments are stored. CSII uses this to create default queries that define working assignments and metrics. This value can be edited later if needed." />
         </label>
         {testConnectionResults &&
-        testConnectionResults?.datasetOptions.length > 0 ? (
+          testConnectionResults?.datasetOptions.length > 0 ? (
           <SelectField
             placeholder="Choose a dataset or create a new one..."
             name="defaultDataset"

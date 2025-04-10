@@ -93,9 +93,9 @@ const CustomMarkdown: React.FC = () => {
       <h1>Add Custom Markdown</h1>
       <p>
         Custom markdown allows you to provide organization-specific guidance and
-        documentation to your team on key pages within GrowthBook.
+        documentation to your team on key pages within CSII.
         <br />
-        <DocLink docSection={"customMarkdown"}>View Documentation &gt;</DocLink>
+        <DocLink docSection={"customMarkdown"}>查看文档 &gt;</DocLink>
       </p>
       <Modal
         trackingEventModalType=""

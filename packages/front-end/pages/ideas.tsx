@@ -99,7 +99,7 @@ const IdeasPage = (): React.ReactElement => {
         <div className="row mb-3 align-items-center">
           <div className="col-auto">
             <Field
-              placeholder="Search..."
+              placeholder="搜索..."
               type="search"
               {...searchInputProps}
             />

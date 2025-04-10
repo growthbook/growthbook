@@ -185,7 +185,7 @@ export default function ReportPage() {
           >
             <Field label="标题" {...form.register("title")} />
             <div className="form-group">
-              <label>Description</label>
+              <label>描述</label>
               <MarkdownInput
                 setValue={(value) => {
                   form.setValue("description", value);
@@ -193,7 +193,7 @@ export default function ReportPage() {
                 value={form.watch("description")}
               />
             </div>
-            Publish:{" "}
+            发布:{" "}
             <Toggle
               id="toggle-status"
               value={form.watch("status") === "published"}
@@ -205,7 +205,7 @@ export default function ReportPage() {
             />
             <Tooltip
               body={
-                "A published report will be visible to other users of your team"
+                "已发布的报告将共享给团队其他成员"
               }
             />
           </Modal>
@@ -222,7 +222,7 @@ export default function ReportPage() {
               displayName="自定义报告"
               link={false}
               className="float-right btn-sm"
-              text="delete"
+              text="删除"
               useIcon={true}
               onClick={async () => {
                 await apiCall<{ status: number; message?: string }>(
@@ -258,7 +258,7 @@ export default function ReportPage() {
               {report?.userId && <>by {getUserDisplay(report.userId)} </>} on{" "}
               {date(report.dateCreated)} -{" "}
               <span className="badge badge-secondary">
-                {form.watch("status") === "published" ? "Published" : "Private"}
+                {form.watch("status") === "published" ? "公开的" : "私有的"}
               </span>
             </small>
           </div>
@@ -307,7 +307,7 @@ export default function ReportPage() {
                 </div>
                 <div className="col-auto d-flex align-items-end mr-3">
                   <div>
-                    <div className="uppercase-title text-muted">Date range</div>
+                    <div className="uppercase-title text-muted">日期排序</div>
                     <div className="relative">
                       <span className="date-label">
                         {date(report.args.startDate)} —{" "}
@@ -331,7 +331,7 @@ export default function ReportPage() {
                         className="font-weight-bold"
                         style={{ lineHeight: 1.2 }}
                       >
-                        updated
+                        更新
                       </div>
                       <div className="d-inline-block" style={{ lineHeight: 1 }}>
                         {ago(report.runStarted)}

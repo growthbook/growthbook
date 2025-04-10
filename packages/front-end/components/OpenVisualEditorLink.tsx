@@ -171,7 +171,7 @@ const OpenVisualEditorLink: FC<{
         <Modal
           trackingEventModalType=""
           open
-          header="GrowthBook DevTools Extension"
+          header="CSII DevTools Extension"
           close={() => setShowExtensionDialog(false)}
           closeCta="关闭"
           cta="View extension"
@@ -181,7 +181,7 @@ const OpenVisualEditorLink: FC<{
         >
           {isChromeBrowser ? (
             <>
-              You&apos;ll need to install the GrowthBook DevTools Chrome
+              You&apos;ll need to install the CSII DevTools Chrome
               extension to use the visual editor.{" "}
               <a
                 href="#"

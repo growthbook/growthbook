@@ -84,7 +84,7 @@ export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
           <span className="badge badge-purple text-uppercase mr-2">Beta</span>
           <h1>Slack Integrations</h1>
         </div>
-        <p>Get alerts in Slack when your GrowthBook data is updated.</p>
+        <p>Get alerts in Slack when your CSII data is updated.</p>
         <div className="alert alert-premium">
           <h4>Free while in Beta</h4>
           <p className="mb-0">
@@ -204,8 +204,7 @@ export const SlackIntegrationsListViewContainer = () => {
 
         if (response.error) {
           setAddEditError(
-            `Failed to create Slack integration: ${
-              response.error || "Unknown error"
+            `Failed to create Slack integration: ${response.error || "Unknown error"
             }`
           );
         } else {
@@ -247,8 +246,7 @@ export const SlackIntegrationsListViewContainer = () => {
 
         if (response.error) {
           setAddEditError(
-            `Failed to update Slack integration: ${
-              response.error || "Unknown error"
+            `Failed to update Slack integration: ${response.error || "Unknown error"
             }`
           );
         } else {

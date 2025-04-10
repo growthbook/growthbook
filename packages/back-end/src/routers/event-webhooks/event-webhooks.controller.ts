@@ -306,13 +306,13 @@ export const toggleEventWebHook = async (
 // region POST /event-webhooks/test-params
 
 const testParamsPayload = (name: string) => ({
-  text: `Hi there! This is a test event from GrowthBook to see if the params for webhook ${name} are correct.`,
+  text: `Hi there! This is a test event from CSII to see if the params for webhook ${name} are correct.`,
   blocks: [
     {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `*Hi there! 👋*\nThis is a *test event* from GrowthBook to see if the params for webhook ${name} are correct.`,
+        text: `*Hi there! 👋*\nThis is a *test event* from CSII to see if the params for webhook ${name} are correct.`,
       },
     },
   ],

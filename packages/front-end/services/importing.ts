@@ -8,7 +8,7 @@ import {
 import { ConditionInterface } from "@growthbook/growthbook-react";
 import { uniqBy } from "lodash";
 
-// Various utilities to help migrate from another service to GrowthBook
+// Various utilities to help migrate from another service to CSII
 
 // region LD
 

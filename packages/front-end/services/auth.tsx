@@ -444,7 +444,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         }}
       >
         <p>
-          Error connecting to the GrowthBook API at <code>{getApiHost()}</code>.
+          Error connecting to the CSII API at <code>{getApiHost()}</code>.
         </p>
         <p>Received the following error message:</p>
         <div className="alert alert-danger">{getDetailedError(initError)}</div>
@@ -464,7 +464,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         autoCloseOnSubmit={false}
       >
         <h3>You&apos;ve been logged out</h3>
-        <p>Sign back in to keep using GrowthBook</p>
+        <p>Sign back in to keep using CSII</p>
       </Modal>
     );
   }

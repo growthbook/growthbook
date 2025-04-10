@@ -151,7 +151,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     title="1. Connect to your data warehouse"
                     text={
                       <>
-                        GrowthBook needs read access to where your experiment
+                        CSII needs read access to where your experiment
                         and metric data lives. We support Snowflake, Redshift,
                         BigQuery, Databricks, Postgres, and more. If you
                         don&apos;t see yours,{" "}
@@ -209,7 +209,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                       <p>
                         Create your first metric definition. Use this as a goal
                         or guardrail when analyzing your experiment results.
-                        With GrowthBook, you can build out an entire metric
+                        With CSII, you can build out an entire metric
                         library to represent all of the KPIs for your business
                       </p>
                     }
@@ -265,7 +265,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
             <div className="alert alert-info text-center">
               <p>
                 Not ready to connect to your data warehouse? Explore a sample
-                experiment first to get a feel for the GrowthBook platform.
+                experiment first to get a feel for the CSII platform.
               </p>
               <Button color="outline-primary" onClick={openSampleExperiment}>
                 View Sample Experiment
@@ -277,7 +277,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
             <h1>Experimentation Setup</h1>
             <p>
               There are three ways to get started with experimentation in
-              GrowthBook.
+              CSII.
             </p>
 
             <div className="row mb-3">
@@ -352,7 +352,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     text={
                       <p>
                         Have you already been running A/B tests with another
-                        platform? Connect GrowthBook to your data warehouse and
+                        platform? Connect CSII to your data warehouse and
                         use our powerful stats engine to automate the analysis.
                       </p>
                     }

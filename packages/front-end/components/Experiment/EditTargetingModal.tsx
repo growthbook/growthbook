@@ -494,7 +494,7 @@ function TargetingForm({
       {!hasLinkedChanges && (
         <>
           <div className="alert alert-info">
-            下方所做的更改仅为元数据更改，除非将由GrowthBook管理的关联特性或可视化变更链接到本实验，否则不会对实际的实验交付产生影响。
+            下方所做的更改仅为元数据更改，除非将由CSII管理的关联特性或可视化变更链接到本实验，否则不会对实际的实验交付产生影响。
           </div>
         </>
       )}

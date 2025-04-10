@@ -12,7 +12,7 @@ import { useSnapshot } from "./SnapshotProvider";
 import VariationUsersTable from "./TabbedPage/VariationUsersTable";
 
 const NOT_ENOUGH_EVIDENCE_MESSAGE =
-  "There is not enough evidence to raise an issue. Any imbalances in the percentages you see may be due to change and aren’t cause for concern at this time.";
+  "没有足够的证据提出问题。你看到的百分比不平衡可能是由于变化引起的，目前无需担心。";
 
 const LearnMore = ({
   type,
@@ -32,7 +32,7 @@ const LearnMore = ({
           setOpen(true);
         }}
       >
-        Learn More {">"}
+        了解更多 {">"}
       </a>
     );
   } else {
@@ -40,7 +40,7 @@ const LearnMore = ({
       <span>
         <Tooltip body={body}>
           <span className="a">
-            Learn More <MdInfoOutline style={{ color: "#029dd1" }} />
+            了解更多 <MdInfoOutline style={{ color: "#029dd1" }} />
           </span>
         </Tooltip>
       </span>
@@ -67,167 +67,166 @@ const SRMWarning: FC<{
   type = "with_modal",
   isBandit,
 }) => {
-  const [open, setOpen] = useState(false);
-  const { settings } = useUser();
-  const { snapshot } = useSnapshot();
-  const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
+    const [open, setOpen] = useState(false);
+    const { settings } = useUser();
+    const { snapshot } = useSnapshot();
+    const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
 
-  const srmWarningMessage = (
-    <>
-      The threshold for firing an SRM warning is <b>{srmThreshold}</b> and the
-      p-value for this experiment is <b>{pValueFormatter(srm, 4)}</b>. This is a
-      strong indicator that your traffic is imbalanced and there is a problem
-      with your traffic assignment.
-    </>
-  );
+    const srmWarningMessage = (
+      <>
+        触发SRM警告的阈值为 <b>{srmThreshold}</b>，本实验的p值为 <b>{pValueFormatter(srm, 4)}</b>。这强烈表明你的流量分配不平衡，存在流量分配问题。
+      </>
+    );
 
-  if (typeof srm !== "number") {
-    return null;
-  }
+    if (typeof srm !== "number") {
+      return null;
+    }
 
-  if (!showWhenHealthy && srm >= srmThreshold) {
-    return null;
-  }
+    if (!showWhenHealthy && srm >= srmThreshold) {
+      return null;
+    }
 
-  return (
-    <>
-      {type === "with_modal" && (
-        <Modal
-          trackingEventModalType="srm-warning"
-          close={() => setOpen(false)}
-          open={open}
-          header={
-            <div>
-              <h2>Sample Ratio Mismatch (SRM)</h2>
-              <p className="mb-0">
-                When actual traffic splits are significantly different from
-                expected, we raise an SRM issue.
-              </p>
-            </div>
-          }
-          closeCta="关闭"
-          size="lg"
-        >
-          <div className="mx-2">
-            {srm >= srmThreshold ? (
-              <>
-                <div className="alert alert-secondary">
-                  {NOT_ENOUGH_EVIDENCE_MESSAGE}
-                </div>
-                {variations ? (
-                  <VariationUsersTable
-                    variations={variations}
-                    users={users}
-                    srm={srm}
-                  />
-                ) : null}
-              </>
-            ) : (
-              <>
-                <div className="alert alert-secondary">{srmWarningMessage}</div>
-                {variations ? (
-                  <VariationUsersTable
-                    variations={variations}
-                    users={users}
-                    srm={srm}
-                  />
-                ) : null}
-                <p>Most common causes:</p>
-                <ul>
-                  <li>
-                    <b>Bucketing</b>
-                    <ul>
-                      <li>
-                        Broken event firing or conditional statements in SDK
-                        trackingCallback
-                      </li>
-                      <li>Mismatch between SDK attribute and data ID</li>
-                    </ul>
-                  </li>
-                  <li>
-                    <b>Analysis</b>
-                    <ul>
-                      <li>Activation Metric influenced by variations</li>
-                      <li>Broken filtering (e.g. bot removal)</li>
-                      <li>Missing data in data warehouse</li>
-                    </ul>
-                  </li>
-                  <li>
-                    <b>Experiment Changes</b>
-                    <ul>
-                      <li>New phase without re-randomizing (carryover bias)</li>
-                      <li>Certain targeting changes without re-randomizing </li>
-                    </ul>
-                  </li>
-                </ul>
-                <p>
-                  <a
-                    target="_blank"
-                    rel="noreferrer"
-                    href="https://docs.growthbook.io/kb/experiments/troubleshooting-experiments"
-                  >
-                    Read about troubleshooting experiments in our docs
-                  </a>
+    return (
+      <>
+        {type === "with_modal" && (
+          <Modal
+            trackingEventModalType="srm-warning"
+            close={() => setOpen(false)}
+            open={open}
+            header={
+              <div>
+                <h2>Sample Ratio Mismatch (SRM)</h2>
+                <p className="mb-0">
+                  当实际流量分配与预期存在显著差异时，我们会提出SRM问题。
                 </p>
-              </>
+              </div>
+            }
+            closeCta="关闭"
+            size="lg"
+          >
+            <div className="mx-2">
+              {srm >= srmThreshold ? (
+                <>
+                  <div className="alert alert-secondary">
+                    {NOT_ENOUGH_EVIDENCE_MESSAGE}
+                  </div>
+                  {variations ? (
+                    <VariationUsersTable
+                      variations={variations}
+                      users={users}
+                      srm={srm}
+                    />
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <div className="alert alert-secondary">{srmWarningMessage}</div>
+                  {variations ? (
+                    <VariationUsersTable
+                      variations={variations}
+                      users={users}
+                      srm={srm}
+                    />
+                  ) : null}
+                  <p>最常见原因：</p>
+                  <ul>
+                    <li>
+                      <b>分桶问题</b>
+                      <ul>
+                        <li>
+                          SDK跟踪回调中事件触发异常或条件语句错误
+                        </li>
+                        <li>SDK属性与数据仓库ID不匹配
+                        </li>
+                      </ul>
+                    </li>
+                    <li>
+                      <b>分析问题</b>
+                      <ul>
+                        <li>激活指标受实验变体影响
+                        </li>
+                        <li>过滤规则异常（如机器人移除）
+                        </li>
+                        <li>数据仓库数据缺失
+                        </li>
+                      </ul>
+                    </li>
+                    <li>
+                      <b>实验变更问题</b>
+                      <ul>
+                        <li>新阶段未重新随机化（遗留偏差）
+                        </li>
+                        <li>未重新随机化的目标条件变更
+                        </li>
+                      </ul>
+                    </li>
+                  </ul>
+                  <p>
+                    <a
+                      target="_blank"
+                      rel="noreferrer"
+                      href="https://docs.growthbook.io/kb/experiments/troubleshooting-experiments"
+                    >
+                      在文档中查看实验故障排除指南
+                    </a>
+                  </p>
+                </>
+              )}
+            </div>
+          </Modal>
+        )}
+
+        {srm >= srmThreshold ? (
+          <div className="alert alert-info">
+            <b>
+              未检测到样本比例不匹配 (SRM)。P值高于 {srmThreshold}。{" "}
+              {!isBandit && (
+                <LearnMore
+                  type={type}
+                  setOpen={setOpen}
+                  body={NOT_ENOUGH_EVIDENCE_MESSAGE}
+                />
+              )}
+            </b>
+          </div>
+        ) : (
+          <div className="alert alert-warning">
+            <strong>
+              检测到样本比例不匹配 (SRM)。P值低于 {pValueFormatter(srmThreshold)}
+            </strong>
+            。{" "}
+            {linkToHealthTab &&
+              setTab &&
+              snapshot?.health?.traffic.dimension?.dim_exposure_date ? (
+              <p className="mb-0">
+                结果可能不可信。查看{" "}
+                <a
+                  className="a"
+                  role="button"
+                  onClick={() => {
+                    track("打开健康标签页", {
+                      source: "结果标签页-SRM警告",
+                    });
+                    setTab("health");
+                  }}
+                >
+                  健康标签页
+                </a>{" "}
+                了解更多详情。
+              </p>
+            ) : (
+              <p className="mb-0">
+                实现中可能存在错误。{" "}
+                <LearnMore
+                  type={type}
+                  setOpen={setOpen}
+                  body={srmWarningMessage}
+                />
+              </p>
             )}
           </div>
-        </Modal>
-      )}
-
-      {srm >= srmThreshold ? (
-        <div className="alert alert-info">
-          <b>
-            No Sample Ratio Mismatch (SRM) detected. P-value above{" "}
-            {srmThreshold}.{" "}
-            {!isBandit && (
-              <LearnMore
-                type={type}
-                setOpen={setOpen}
-                body={NOT_ENOUGH_EVIDENCE_MESSAGE}
-              />
-            )}
-          </b>
-        </div>
-      ) : (
-        <div className="alert alert-warning">
-          <strong>
-            Sample Ratio Mismatch (SRM) detected. P-value below{" "}
-            {pValueFormatter(srmThreshold)}
-          </strong>
-          .{" "}
-          {linkToHealthTab &&
-          setTab &&
-          snapshot?.health?.traffic.dimension?.dim_exposure_date ? (
-            <p className="mb-0">
-              Results are likely untrustworthy. See the{" "}
-              <a
-                className="a"
-                role="button"
-                onClick={() => {
-                  track("Open health tab", {
-                    source: "results-tab-srm-warning",
-                  });
-                  setTab("health");
-                }}
-              >
-                health tab
-              </a>{" "}
-              for more details.
-            </p>
-          ) : (
-            <p className="mb-0">
-              There is likely a bug in the implementation.{" "}
-              <LearnMore
-                type={type}
-                setOpen={setOpen}
-                body={srmWarningMessage}
-              />
-            </p>
-          )}
-        </div>
-      )}
-    </>
-  );
-};
+        )}
+      </>
+    );
+  };
 export default SRMWarning;

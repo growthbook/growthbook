@@ -83,7 +83,7 @@ export async function patchUser(
           return res.status(400).json({
             schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
             status: "400",
-            detail: `Unable to deactivate the user in GrowthBook: ${e.message}`,
+            detail: `Unable to deactivate the user in CSII: ${e.message}`,
           });
         }
       }

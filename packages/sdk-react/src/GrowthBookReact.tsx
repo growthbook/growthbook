@@ -96,7 +96,7 @@ export function useGrowthBook<
   const { growthbook } = React.useContext(GrowthBookContext);
 
   if (!growthbook) {
-    throw new Error("Missing or invalid GrowthBookProvider");
+    throw new Error("Missing or invalid CSIIProvider");
   }
 
   return growthbook as GrowthBook<AppFeatures>;

@@ -42,7 +42,7 @@ const PrestoForm: FC<{
             },
             {
               value: "none",
-              label: "None (Authentication handled outside of GrowthBook)",
+              label: "None (Authentication handled outside of CSII)",
             },
           ]}
           helpText="Basic Auth is the most common method. Custom Auth sets HTTP Authorization header with the provided string. 'None' only is used for custom authentication methods."
@@ -170,7 +170,7 @@ const PrestoForm: FC<{
           onChange={onParamChange}
         />
         <small className="form-text text-muted">
-          This helps identify the connection as coming from GrowthBook.
+          This helps identify the connection as coming from CSII.
         </small>
       </div>
       <SSLConnectionFields

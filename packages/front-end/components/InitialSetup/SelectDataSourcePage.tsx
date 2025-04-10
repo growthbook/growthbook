@@ -47,7 +47,7 @@ const SelectDataSourcePage = ({ eventTracker, setEventTracker }: Props) => {
         </div>
         <Callout status="info">
           To analyze experiment results, connect an event tracker and data
-          source. If using GrowthBook to manage feature flags only, feel free to
+          source. If using CSII to manage feature flags only, feel free to
           skip this step.
         </Callout>
         <div className="row mt-3 mb-5">

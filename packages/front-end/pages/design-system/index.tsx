@@ -43,13 +43,13 @@ export default function DesignSystemPage() {
 
   return (
     <div className="pagecontents container-fluid">
-      <h1>GrowthBook Design System</h1>
+      <h1>CSII Design System</h1>
       <p>
-        This page is a work in progress to document the GrowthBook design
+        This page is a work in progress to document the CSII design
         system.
       </p>
 
-      <h2>Components</h2>
+      <h2>评论</h2>
 
       <div className="appbox p-3">
         <h3>Avatar</h3>
@@ -124,7 +124,7 @@ export default function DesignSystemPage() {
             Primary ghost
           </Button>
           <Button size={size} icon={<FaDownload />}>
-            Download
+            下载
           </Button>
         </Flex>
         <Flex direction="row" gap="3" className="my-3">
@@ -135,7 +135,7 @@ export default function DesignSystemPage() {
               await new Promise((resolve) => setTimeout(resolve, 1000))
             }
           >
-            Click to load...
+            点击加载...
           </Button>
           <div>
             <Button
@@ -591,7 +591,7 @@ export default function DesignSystemPage() {
         <Stepper
           step={stepperStep}
           setStep={setStepperStep}
-          setError={() => {}}
+          setError={() => { }}
           steps={[
             { label: "Step 1", enabled: true },
             { label: "Step 2", enabled: true },

@@ -389,7 +389,7 @@ const ExperimentsPage = (): React.ReactElement => {
                 </div>
                 <div className="col-auto">
                   <Field
-                    placeholder="Search..."
+                    placeholder="搜索..."
                     type="search"
                     {...searchInputProps}
                   />

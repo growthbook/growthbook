@@ -54,7 +54,7 @@ export default function GithubIntegrationConnect({
 
   return (
     <div>
-      <LoadingSpinner /> Connecting your GrowthBook account to GitHub...
+      <LoadingSpinner /> Connecting your CSII account to GitHub...
     </div>
   );
 }

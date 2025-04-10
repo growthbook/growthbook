@@ -25,16 +25,16 @@ function getSSOConfig() {
   if (missingMetadata.length > 0) {
     throw new Error(
       "SSO_CONFIG missing required metadata fields: " +
-        missingMetadata.join(", ")
+      missingMetadata.join(", ")
     );
   }
 
-  // Sanity check for GrowthBook Cloud (to avoid misconfigurations)
+  // Sanity check for CSII Cloud (to avoid misconfigurations)
   if (
     stringToBoolean(process.env.IS_CLOUD) &&
     config?.metadata?.issuer !== "https://growthbook.auth0.com/"
   ) {
-    throw new Error("Invalid SSO configuration for GrowthBook Cloud");
+    throw new Error("Invalid SSO configuration for CSII Cloud");
   }
 
   config.id = "";

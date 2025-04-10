@@ -169,7 +169,7 @@ export const getSlackDataForNotificationEvent = async (
 // region Slack API
 
 /**
- * GrowthBook Slack context that should be appended to all messages
+ * CSII Slack context that should be appended to all messages
  * @param slackIntegration
  */
 export const getSlackIntegrationContextBlock = (
@@ -182,7 +182,7 @@ export const getSlackIntegrationContextBlock = (
         type: "image",
         image_url:
           "https://github.com/growthbook/growthbook/blob/main/packages/front-end/public/logo/Logo-mark.png?raw=true",
-        alt_text: "GrowthBook logo",
+        alt_text: "CSII logo",
       },
       {
         type: "plain_text",
@@ -220,7 +220,7 @@ const buildSlackMessageForFeatureCreatedEvent = async (
 ): Promise<SlackMessage> => {
   const eventUser = await getEventUserFormatted(eventId);
 
-  const text = `The feature ${featureId} has been created by ${eventUser}`;
+  const text = `Feature ${featureId} 由 ${eventUser} 创建`;
 
   return {
     text,
@@ -230,7 +230,7 @@ const buildSlackMessageForFeatureCreatedEvent = async (
         text: {
           type: "mrkdwn",
           text:
-            `The feature *${featureId}* has been created by ${eventUser}.` +
+            `Feature *${featureId}* 由 ${eventUser} 创建.` +
             getFeatureUrlFormatted(featureId) +
             getEventUrlFormatted(eventId),
         },
@@ -411,15 +411,13 @@ const buildSlackMessageForExperimentInfoSignificanceEvent = ({
     experimentName: string;
   }) => {
     if (statsEngine === "frequentist") {
-      return `In experiment ${experimentName}: metric ${metricName} for variation ${variationName} is ${
-        winning ? "beating" : "losing to"
-      } the baseline and has reached statistical significance (p-value = ${criticalValue.toFixed(
-        3
-      )}).`;
+      return `In experiment ${experimentName}: metric ${metricName} for variation ${variationName} is ${winning ? "beating" : "losing to"
+        } the baseline and has reached statistical significance (p-value = ${criticalValue.toFixed(
+          3
+        )}).`;
     }
-    return `In experiment ${experimentName}: metric ${metricName} for variation ${variationName} has ${
-      winning ? "reached a" : "dropped to a"
-    } ${percentFormatter(criticalValue)} chance to beat the baseline.`;
+    return `In experiment ${experimentName}: metric ${metricName} for variation ${variationName} has ${winning ? "reached a" : "dropped to a"
+      } ${percentFormatter(criticalValue)} chance to beat the baseline.`;
   };
 
   return {
@@ -451,8 +449,7 @@ const buildSlackMessageForExperimentWarningEvent = (
   switch (data.type) {
     case "auto-update": {
       const makeText = (name: string) =>
-        `Automatic snapshot creation for ${name} ${
-          data.success ? "succeeded" : "failed"
+        `Automatic snapshot creation for ${name} ${data.success ? "succeeded" : "failed"
         }!`;
 
       return {

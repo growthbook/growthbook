@@ -155,7 +155,7 @@ const Modal: FC<ModalProps> = ({
             <h4 className="modal-title">
               {header === "logo" ? (
                 <img
-                  alt="GrowthBook"
+                  alt="CSII"
                   src="/logo/growthbook-logo.png"
                   style={{ height: 40 }}
                 />
@@ -164,7 +164,7 @@ const Modal: FC<ModalProps> = ({
               )}
               {docSection && (
                 <DocLink docSection={docSection}>
-                  <Tooltip body="View Documentation" className="ml-1 w-4 h-4" />
+                  <Tooltip body="查看文档" className="ml-1 w-4 h-4" />
                 </DocLink>
               )}
             </h4>

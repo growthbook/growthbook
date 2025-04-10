@@ -63,7 +63,7 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
 
   // currently the Node.js driver does not support adding session parameters in the connection string.
   // see https://github.com/snowflakedb/snowflake-connector-nodejs/issues/61 in case they fix it one day.
-  // Tagging this session query with the GB tag. This is used to identify queries that are run by GrowthBook
+  // Tagging this session query with the GB tag. This is used to identify queries that are run by CSII
   try {
     await new Promise<void>((resolve, reject) => {
       connection.execute({

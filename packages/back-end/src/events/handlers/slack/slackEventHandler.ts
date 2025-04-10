@@ -40,7 +40,7 @@ export const slackEventHandler: NotificationEventHandler = async (
   slackIntegrations.forEach((slackIntegration) => {
     const slackMessageWithContext = cloneDeep(slackMessage);
 
-    // Add the GrowthBook Slack integration context to all messages
+    // Add the CSII Slack integration context to all messages
     slackMessageWithContext.blocks.push(
       getSlackIntegrationContextBlock(slackIntegration)
     );

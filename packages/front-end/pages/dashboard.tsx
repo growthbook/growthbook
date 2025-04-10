@@ -33,7 +33,7 @@ export default function Analysis(): React.ReactElement {
   return (
     <>
       <Head>
-        <title>GrowthBook</title>
+        <title>CSII</title>
         <link rel="icon" href="/favicon.ico" />
       </Head>
 

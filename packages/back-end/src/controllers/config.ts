@@ -107,7 +107,7 @@ export async function getExperimentsScript(
     if (!organization) {
       return res
         .status(400)
-        .send(`console.error("Invalid GrowthBook API key");`);
+        .send(`console.error("Invalid CSII API key");`);
     }
     if (secret) {
       return res.status(400).json({

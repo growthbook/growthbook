@@ -67,10 +67,10 @@ export async function postReportFromSnapshot(
     args: reportArgsFromSnapshot(experiment, snapshot, analysis.settings),
     results: analysis.results
       ? {
-          dimensions: analysis.results,
-          unknownVariations: snapshot.unknownVariations || [],
-          multipleExposures: snapshot.multipleExposures || 0,
-        }
+        dimensions: analysis.results,
+        unknownVariations: snapshot.unknownVariations || [],
+        multipleExposures: snapshot.multipleExposures || 0,
+      }
       : undefined,
     queries: snapshot.queries,
     runStarted: snapshot.runStarted,

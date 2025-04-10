@@ -373,7 +373,7 @@ export default function AutoGenerateMetricsModal({
               don&apos;t worry, you can always edit and remove these metrics at
               anytime after they&apos;re created.{" "}
               <DocLink docSection={"metrics"}>
-                Click here to learn more about GrowthBook Metrics.
+                Click here to learn more about CSII Metrics.
               </DocLink>
             </p>
             <div className="d-flex justify-content-end">

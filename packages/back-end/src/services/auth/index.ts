@@ -147,7 +147,7 @@ export async function processJWT(
     if (IS_CLOUD && !req.loginMethod?.id && user.verified && !req.verified) {
       res.status(406).json({
         status: 406,
-        message: "You must log in via SSO to use GrowthBook",
+        message: "You must log in via SSO to use CSII",
       });
       return;
     }

@@ -57,7 +57,7 @@ export default function InAppHelp() {
         >
           <div className="bg-purple rounded-top p-3 pb-4 d-flex align-items-center">
             <img
-              alt="GrowthBook"
+              alt="CSII"
               src="/logo/growth-book-logomark-white.svg"
               className="mb-1 pr-1"
               style={{ height: 30 }}

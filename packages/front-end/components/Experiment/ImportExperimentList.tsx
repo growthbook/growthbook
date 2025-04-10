@@ -222,7 +222,7 @@ const ImportExperimentList: FC<{
               style={{ fontSize: "0.8em" }}
               title={datetime(data.experiments.runStarted ?? "")}
             >
-              last updated {ago(data.experiments.runStarted ?? "")}
+              最近一次更新 {ago(data.experiments.runStarted ?? "")}
             </div>
           </div>
         )}
@@ -355,7 +355,7 @@ const ImportExperimentList: FC<{
             <div className="col-auto">
               <label className="small mb-0">Filter</label>
               <Field
-                placeholder="Search..."
+                placeholder="搜索..."
                 type="search"
                 {...searchInputProps}
               />

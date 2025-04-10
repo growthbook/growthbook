@@ -18,7 +18,7 @@ export async function purgeCDNCache(
   orgId: string,
   surrogateKeys: string[]
 ): Promise<void> {
-  // Only purge when Fastly is used as the CDN (e.g. GrowthBook Cloud)
+  // Only purge when Fastly is used as the CDN (e.g. CSII Cloud)
   if (!FASTLY_SERVICE_ID || !FASTLY_API_TOKEN) return;
 
   try {

@@ -166,7 +166,7 @@ export default function IdLists({ groups, mutate }: Props) {
               <div className="col-auto">
                 <Field
                   prepend={<FaMagnifyingGlass />}
-                  placeholder="Search..."
+                  placeholder="搜索..."
                   type="search"
                   {...searchInputProps}
                 />

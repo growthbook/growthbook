@@ -58,7 +58,7 @@ export default function DataSourcePipeline({
         )}
       </div>
       <div className="alert alert-info">
-        In this section, you can configure how GrowthBook can use write
+        In this section, you can configure how CSII can use write
         permissions to your Data Source to improve the performance of experiment
         queries.
       </div>
@@ -70,15 +70,13 @@ export default function DataSourcePipeline({
         {pipelineSettings?.allowWriting && (
           <>
             <div className={`mb-2 ma-5`}>
-              {`Destination ${
-                dataSourcePathNames(dataSource.type).schemaName
-              }: `}
+              {`Destination ${dataSourcePathNames(dataSource.type).schemaName
+                }: `}
               {pipelineSettings?.writeDataset ? (
-                <code>{`${
-                  pipelineSettings?.writeDatabase
+                <code>{`${pipelineSettings?.writeDatabase
                     ? pipelineSettings?.writeDatabase + "."
                     : ""
-                }${pipelineSettings.writeDataset}`}</code>
+                  }${pipelineSettings.writeDataset}`}</code>
               ) : (
                 <em className="text-muted">not specified</em>
               )}

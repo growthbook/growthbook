@@ -26,7 +26,7 @@ export default function EditRevisionCommentModal({
       trackingEventModalType=""
       open={true}
       close={close}
-      header="Edit Revision Comment"
+      header="编辑版本评论"
       cta={"保存"}
       submit={async () => {
         await apiCall(`/feature/${feature.id}/${revision.version}/comment`, {
@@ -39,7 +39,7 @@ export default function EditRevisionCommentModal({
       }}
     >
       <Field
-        label="Revision Comment"
+        label="版本评论"
         value={comment}
         onChange={(e) => {
           setComment(e.target.value);

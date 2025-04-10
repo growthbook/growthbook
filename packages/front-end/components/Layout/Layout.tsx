@@ -139,11 +139,11 @@ const navlinks: SidebarLinkProps[] = [
       //   href: "/namespaces",
       //   path: /^namespaces/,
       // },
-      // {
-      //   name: "环境",
-      //   href: "/environments",
-      //   path: /^environments/,
-      // },
+      {
+        name: "环境",
+        href: "/environments",
+        path: /^environments/,
+      },
       // {
       //   name: "已保存组",
       //   href: "/saved-groups",
@@ -405,7 +405,7 @@ const Layout = (): React.ReactElement => {
                 href="/"
                 aria-current="page"
                 className="app-sidebar-logo active"
-                title="GrowthBook首页"
+                title="CSII首页"
                 onClick={() => setOpen(false)}
               >
                 <div className={styles.sidebarlogo}>
@@ -413,7 +413,7 @@ const Layout = (): React.ReactElement => {
                     <>
                       <img
                         className={styles.userlogo}
-                        alt="GrowthBook"
+                        alt="CSII"
                         src={settings.logoPath}
                       />
                     </>
@@ -421,12 +421,12 @@ const Layout = (): React.ReactElement => {
                     <>
                       <img
                         className={styles.logo}
-                        alt="GrowthBook"
+                        alt="CSII"
                         src="/logo/growth-book-logomark-white.svg"
                       />
                       <img
                         className={styles.logotext}
-                        alt="GrowthBook"
+                        alt="CSII"
                         src="/logo/growth-book-name-white.svg"
                       />
                     </>

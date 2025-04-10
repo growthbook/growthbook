@@ -26,7 +26,7 @@ export default function DataSourceSchemaChooser({
       </div>
       <h4>Database Schema</h4>
       <p>
-        GrowthBook has out-of-the-box support for a number of database schemas.
+        CSII has out-of-the-box support for a number of database schemas.
         Choose one below.
       </p>
       <div className="d-flex flex-wrap mb-3 align-items-stretch align-middle">

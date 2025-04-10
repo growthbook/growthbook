@@ -1359,7 +1359,7 @@ export interface components {
       projects?: (string)[];
     };
     Organization: {
-      /** @description The Growthbook unique identifier for the organization */
+      /** @description The CSII unique identifier for the organization */
       id?: string;
       /** @description An optional identifier that you use within your company for the organization */
       externalId?: string;
@@ -5611,7 +5611,7 @@ export interface operations {
         content: {
           "application/json": {
             organizations: ({
-                /** @description The Growthbook unique identifier for the organization */
+                /** @description The CSII unique identifier for the organization */
                 id?: string;
                 /** @description An optional identifier that you use within your company for the organization */
                 externalId?: string;
@@ -5654,7 +5654,7 @@ export interface operations {
         content: {
           "application/json": {
             organization: {
-              /** @description The Growthbook unique identifier for the organization */
+              /** @description The CSII unique identifier for the organization */
               id?: string;
               /** @description An optional identifier that you use within your company for the organization */
               externalId?: string;
@@ -5696,7 +5696,7 @@ export interface operations {
         content: {
           "application/json": {
             organization: {
-              /** @description The Growthbook unique identifier for the organization */
+              /** @description The CSII unique identifier for the organization */
               id?: string;
               /** @description An optional identifier that you use within your company for the organization */
               externalId?: string;
@@ -6151,7 +6151,7 @@ export interface operations {
           /** @description The SQL query for this fact table */
           sql: string;
           /**
-           * @description Set this to "api" to disable editing in the GrowthBook UI 
+           * @description Set this to "api" to disable editing in the CSII UI 
            * @enum {string}
            */
           managedBy?: "" | "api";
@@ -6249,7 +6249,7 @@ export interface operations {
           /** @description The SQL query for this fact table */
           sql?: string;
           /**
-           * @description Set this to "api" to disable editing in the GrowthBook UI 
+           * @description Set this to "api" to disable editing in the CSII UI 
            * @enum {string}
            */
           managedBy?: "" | "api";
@@ -6372,7 +6372,7 @@ export interface operations {
            */
           value: string;
           /**
-           * @description Set this to "api" to disable editing in the GrowthBook UI. Before you do this, the Fact Table itself must also be marked as "api" 
+           * @description Set this to "api" to disable editing in the CSII UI. Before you do this, the Fact Table itself must also be marked as "api" 
            * @enum {string}
            */
           managedBy?: "" | "api";
@@ -6459,7 +6459,7 @@ export interface operations {
            */
           value?: string;
           /**
-           * @description Set this to "api" to disable editing in the GrowthBook UI. Before you do this, the Fact Table itself must also be marked as "api" 
+           * @description Set this to "api" to disable editing in the CSII UI. Before you do this, the Fact Table itself must also be marked as "api" 
            * @enum {string}
            */
           managedBy?: "" | "api";
@@ -6715,7 +6715,7 @@ export interface operations {
           maxPercentChange?: number;
           minSampleSize?: number;
           /**
-           * @description Set this to "api" to disable editing in the GrowthBook UI 
+           * @description Set this to "api" to disable editing in the CSII UI 
            * @enum {string}
            */
           managedBy?: "" | "api";
@@ -6991,7 +6991,7 @@ export interface operations {
           maxPercentChange?: number;
           minSampleSize?: number;
           /**
-           * @description Set this to "api" to disable editing in the GrowthBook UI 
+           * @description Set this to "api" to disable editing in the CSII UI 
            * @enum {string}
            */
           managedBy?: "" | "api";
@@ -7132,7 +7132,7 @@ export interface operations {
                 /** @description The SQL query for this fact table */
                 sql: string;
                 /**
-                 * @description Set this to "api" to disable editing in the GrowthBook UI 
+                 * @description Set this to "api" to disable editing in the CSII UI 
                  * @enum {string}
                  */
                 managedBy?: "" | "api";
@@ -7151,7 +7151,7 @@ export interface operations {
                  */
                 value: string;
                 /**
-                 * @description Set this to "api" to disable editing in the GrowthBook UI. Before you do this, the Fact Table itself must also be marked as "api" 
+                 * @description Set this to "api" to disable editing in the CSII UI. Before you do this, the Fact Table itself must also be marked as "api" 
                  * @enum {string}
                  */
                 managedBy?: "" | "api";
@@ -7245,7 +7245,7 @@ export interface operations {
                 maxPercentChange?: number;
                 minSampleSize?: number;
                 /**
-                 * @description Set this to "api" to disable editing in the GrowthBook UI 
+                 * @description Set this to "api" to disable editing in the CSII UI 
                  * @enum {string}
                  */
                 managedBy?: "" | "api";

@@ -127,7 +127,7 @@ export default function SetupFlow() {
         breadcrumb={[{ display: "< Exit Setup", href: "/getstarted" }]}
       />
       <h1 style={{ padding: "0px 65px" }}>
-        Setup GrowthBook for {organization.name}
+        Setup CSII for {organization.name}
       </h1>
       <PagedModal
         trackingEventModalType="setup-growthbook"

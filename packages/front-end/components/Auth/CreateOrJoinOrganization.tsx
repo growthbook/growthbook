@@ -110,15 +110,15 @@ const CreateOrJoinOrganization: FC<{
 
   const leftside = (
     <>
-      <h1 className="title h1">Welcome to GrowthBook</h1>
+      <h1 className="title h1">Welcome to CSII</h1>
       {showCreate || showJoin ? (
         <p>
           You aren&apos;t part of an organization yet. <br />
           {showCreate && showJoin
             ? `Create or join one here.`
             : showCreate
-            ? `Create a new one here.`
-            : `Join one here.`}
+              ? `Create a new one here.`
+              : `Join one here.`}
         </p>
       ) : (
         <p>Ask your admin to invite you to the organization.</p>
@@ -129,9 +129,8 @@ const CreateOrJoinOrganization: FC<{
   const titleCopy = (orgs) => {
     if (title) return title;
 
-    return `We found ${
-      orgs.length === 1 ? "your organization" : "possible organizations for you"
-    } on GrowthBook!`;
+    return `We found ${orgs.length === 1 ? "your organization" : "possible organizations for you"
+      } on CSII!`;
   };
 
   const subtitleCopy = (orgs) => {
@@ -279,7 +278,7 @@ const CreateOrJoinOrganization: FC<{
             <h3 className="h2">Invitation Required</h3>
             <div className="alert alert-danger">
               You must be invited by an administrator in order to use
-              GrowthBook.
+              CSII.
             </div>
           </div>
         )}{" "}

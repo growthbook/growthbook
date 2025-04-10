@@ -7,16 +7,16 @@ export default function DataSourceDiagram({
 }) {
   return (
     <div className={className}>
-      <h3 className="mb-2">GrowthBook中A/B测试分析的工作原理</h3>
+      <h3 className="mb-2">CSII中A/B测试分析的工作原理</h3>
       <ol>
         <li>
           像往常一样将应用程序中的事件跟踪到数据仓库中。
         </li>
         <li>
-          将GrowthBook连接到您的仓库，并使用SQL定义指标。
+          将CSII连接到您的仓库，并使用SQL定义指标。
         </li>
         <li>
-          GrowthBook会查询您的仓库，并使用统计引擎来分析实验结果。
+          CSII会查询您的仓库，并使用统计引擎来分析实验结果。
         </li>
       </ol>
       示例：
@@ -62,10 +62,10 @@ export default function DataSourceDiagram({
           <img
             src="/logo/Logo-mark.png"
             style={{ width: 40 }}
-            alt="GrowthBook"
+            alt="CSII"
           />
           <div className="col">
-            <h5 className="mb-0">GrowthBook</h5>
+            <h5 className="mb-0">CSII</h5>
           </div>
         </div>
       </div>

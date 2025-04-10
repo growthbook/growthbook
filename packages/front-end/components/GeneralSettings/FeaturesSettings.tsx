@@ -228,7 +228,7 @@ export default function FeaturesSettings() {
           </PremiumTooltip>
           <div>
             <label className="mr-1" htmlFor="toggle-codeReferences">
-              在GrowthBook用户界面中启用显示功能标记的代码引用
+              在CSII用户界面中启用显示功能标记的代码引用
             </label>
           </div>
           <div className="my-2">
@@ -250,7 +250,7 @@ export default function FeaturesSettings() {
                     <div className="col-sm-9">
                       <strong>对于GitHub用户</strong>
                       <p className="my-2">
-                        使用我们的一站式GitHub操作将GrowthBook集成到您的持续集成工作流程中。
+                        使用我们的一站式GitHub操作将CSII集成到您的持续集成工作流程中。
                       </p>
                     </div>
                     <div className="col-sm-3 text-right">

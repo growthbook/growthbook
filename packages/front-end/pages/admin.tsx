@@ -592,7 +592,7 @@ const Admin: FC = () => {
           close={() => setOrgModalOpen(false)}
         />
       )}
-      <h1>GrowthBook Admin</h1>
+      <h1>CSII Admin</h1>
       {!isCloud() && (
         <>
           <div
@@ -622,7 +622,7 @@ const Admin: FC = () => {
               setOrgModalOpen(true);
             }}
           >
-            <FaPlus /> New Organization
+            <FaPlus /> 新的组织
           </button>
           <div className="mb-2 row align-items-center">
             <div className="col-auto">
@@ -663,7 +663,7 @@ const Admin: FC = () => {
                 <tr>
                   <th>姓名</th>
                   <th style={{ width: "260px" }}>Owner</th>
-                  <th>Created</th>
+                  <th>创建人</th>
                   <th>Id</th>
                   {isCloud() && <th>Verified Domain</th>}
                   {!isCloud() && <th>External Id</th>}

@@ -263,9 +263,9 @@ export function PreLaunchChecklist({
         : "incomplete",
       display: (
         <>
-          验证你的应用是否正在将<strong> 属性 </strong>和<strong> 跟踪回调 </strong>都传递到 GrowthBook 的SDK中。
+          验证你的应用是否正在将<strong> 属性 </strong>和<strong> 跟踪回调 </strong>都传递到 CSII 的SDK中。
 
-          {/* 验证您的应用是否正在向GrowthBook SDK传递
+          {/* 验证您的应用是否正在向CSII SDK传递
           <strong> 属性 </strong>
           和一个 <strong> 跟踪回调 </strong>。 */}
         </>
@@ -456,7 +456,7 @@ export function PreLaunchChecklist({
                   >
                     <div className="d-flex align-items-center">
                       <Tooltip
-                        body="GrowthBook会自动计算此任务的完成情况。"
+                        body="CSII会自动计算此任务的完成情况。"
                         shouldDisplay={item.type === "auto"}
                       >
                         <input
@@ -494,7 +494,7 @@ export function PreLaunchChecklist({
         {data && !verifiedConnections.length ? (
           <div className="alert alert-danger mx-3">
             <strong>
-              在您可以运行实验之前，您需要将GrowthBook集成到您的应用中。{" "}
+              在您可以运行实验之前，您需要将CSII集成到您的应用中。{" "}
             </strong>
             {connections.length > 0 ? (
               <Link href="/sdks">管理SDK连接</Link>

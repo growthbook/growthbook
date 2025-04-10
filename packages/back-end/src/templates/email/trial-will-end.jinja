@@ -2,17 +2,17 @@
 {% import "utils.jinja" as utils %}
 
 {% block title %}
-  Your GrowthBook Pro trial will end in {{ trialDaysText }}.
+  Your CSII Pro trial will end in {{ trialDaysText }}.
 {% endblock %}
 
 {% block top %}
   {% if hasPaymentMethod %}
-    <p>Your GrowthBook Pro trial will end in {{ trialDaysText }}.</p>
+    <p>Your CSII Pro trial will end in {{ trialDaysText }}.</p>
     <p>After your trial ends, your credit card will be billed automatically unless you cancel your subscription.</p>
-    <p>If you do not wish to continue using GrowthBook Pro, you can cancel your subscription using the link below.</p>
+    <p>If you do not wish to continue using CSII Pro, you can cancel your subscription using the link below.</p>
   {% else %}
-    <p>Your GrowthBook Pro trial will end in {{ trialDaysText }}.</p>
-    <p>After your trial ends, you will lose access to GrowthBook Pro features unless you add a payment method to your account.</p>
+    <p>Your CSII Pro trial will end in {{ trialDaysText }}.</p>
+    <p>After your trial ends, you will lose access to CSII Pro features unless you add a payment method to your account.</p>
     <p>Use the link below to add a payment method.</p>
   {% endif %}
 
@@ -20,5 +20,5 @@
 {% endblock %}
 
 {% block lower %}
-  <p>You are receiving this email because you are the owner for the <strong>{{ organization|noHyperlink }}</strong> organization in GrowthBook.</p>
+  <p>You are receiving this email because you are the owner for the <strong>{{ organization|noHyperlink }}</strong> organization in CSII.</p>
 {% endblock %}

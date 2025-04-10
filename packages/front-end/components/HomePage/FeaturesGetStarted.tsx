@@ -79,7 +79,7 @@ export default function FeaturesGetStarted({ features }: Props) {
               className="border-top"
               image="/images/coding-icon.svg"
               title="1. Install our SDK"
-              text="Integrate GrowthBook into your Javascript, React, Golang, Ruby, PHP, Python, or Android application. More languages and frameworks coming soon!"
+              text="Integrate CSII into your Javascript, React, Golang, Ruby, PHP, Python, or Android application. More languages and frameworks coming soon!"
               cta="View instructions"
               finishedCTA="View instructions"
               imageLeft={false}
@@ -99,7 +99,7 @@ export default function FeaturesGetStarted({ features }: Props) {
               className="border-top"
               image="/images/feature-icon.svg"
               title="2. Add your first feature"
-              text="Create a feature within GrowthBook. Use features to toggle app behavior, do gradual rollouts, and run A/B tests."
+              text="Create a feature within CSII. Use features to toggle app behavior, do gradual rollouts, and run A/B tests."
               cta="添加第一个feature"
               finishedCTA="Add a feature"
               imageLeft={true}

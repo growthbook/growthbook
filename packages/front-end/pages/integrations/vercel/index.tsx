@@ -108,8 +108,8 @@ export default function VercelIntegrationPage() {
               <div>
                 <h4>Generate Environment Variables</h4>
                 <div className="text-muted" style={{ fontSize: "0.8rem" }}>
-                  Env vars GROWTHBOOK_KEY and GROWTHBOOK_WEBHOOK_SECRET will be
-                  created in GrowthBook and Vercel in the following
+                  Env vars CSII_KEY and CSII_WEBHOOK_SECRET will be
+                  created in CSII and Vercel in the following
                   environments.
                 </div>
                 {gbVercelEnvMap.map((elem, i) => (
@@ -122,7 +122,7 @@ export default function VercelIntegrationPage() {
                     </div>
                     <div className="ml-5">
                       <SelectField
-                        label="GrowthBook environment:"
+                        label="CSII environment:"
                         labelClassName="font-weight-bold font"
                         options={environments.map((env) => ({
                           label: env.id,
@@ -148,7 +148,7 @@ export default function VercelIntegrationPage() {
                 }}
                 className="btn btn-link btn-sm col-sm-5 text-left"
               >
-                Create new environment
+                创建新的环境
               </button>
             </Modal>
           )}

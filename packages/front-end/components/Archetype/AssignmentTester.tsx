@@ -302,7 +302,7 @@ export default function AssignmentTester({ feature, version, project }: Props) {
           }}
         >
           <div>
-            Simulate how your rules will apply to users.{" "}
+            模拟你的规则如何作用于用户.{" "}
             <Tooltip body="Enter attributes and see how Growthbook would evaluate this feature for the different environments. Will use draft rules."></Tooltip>
           </div>
 

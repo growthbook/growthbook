@@ -50,7 +50,7 @@ const ExpandableQuery: FC<{
         <div className="mr-1">{title}</div>
         <span style={{ fontWeight: "normal" }}>
           {title && " - "}
-          Query {i + 1} of {total}
+          查询 {i + 1} / {total}
         </span>
         {query.queryType === "experimentMultiMetric" && (
           <div className="ml-auto">
@@ -67,7 +67,7 @@ const ExpandableQuery: FC<{
                     This is a new feature, so please report any issues you
                     encounter. You can disable this optimization under{" "}
                     <strong>Settings</strong> -&gt; <strong>General</strong>{" "}
-                    -&gt; <strong>Experiment Settings</strong>.
+                    -&gt; <strong>实验设置</strong>.
                   </p>
                 </>
               }
@@ -143,7 +143,7 @@ const ExpandableQuery: FC<{
             </div>
           ) : (
             <Callout status="warning" my="3">
-              No rows returned
+              无结果返回
             </Callout>
           )}
         </>
@@ -155,7 +155,7 @@ const ExpandableQuery: FC<{
           ) : (
             <div className="row">
               <div className="col-auto mb-2">
-                <em>Total time</em>:{" "}
+                <em>总耗时</em>:{" "}
                 <strong>
                   {formatDistanceStrict(
                     getValidDate(query.startedAt),
@@ -164,7 +164,7 @@ const ExpandableQuery: FC<{
                 </strong>
               </div>
               <div className="col-auto mb-2">
-                <em>Time queued</em>:{" "}
+                <em>队列耗时</em>:{" "}
                 <strong>
                   {formatDistanceStrict(
                     getValidDate(query.createdAt),

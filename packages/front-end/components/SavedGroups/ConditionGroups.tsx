@@ -46,8 +46,8 @@ export default function ConditionGroups({ groups, mutate }: Props) {
 
   const filteredConditionGroups = project
     ? conditionGroups.filter((group) =>
-        isProjectListValidForProject(group.projects, project)
-      )
+      isProjectListValidForProject(group.projects, project)
+    )
     : conditionGroups;
 
   const { features } = useFeaturesList(false);
@@ -129,7 +129,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
               <Field
                 inputGroupClassName="bg-white"
                 prepend={<FaMagnifyingGlass />}
-                placeholder="Search..."
+                placeholder="搜索..."
                 type="search"
                 {...searchInputProps}
               />
@@ -140,12 +140,12 @@ export default function ConditionGroups({ groups, mutate }: Props) {
               <table className="table gbtable">
                 <thead>
                   <tr>
-                    <SortableTH field="groupName">Name</SortableTH>
-                    <SortableTH field="condition">Condition</SortableTH>
-                    <th>Description</th>
-                    <th className="col-2">Projects</th>
-                    <SortableTH field="owner">Owner</SortableTH>
-                    <SortableTH field="dateUpdated">Date Updated</SortableTH>
+                    <SortableTH field="groupName">名称</SortableTH>
+                    <SortableTH field="condition">条件</SortableTH>
+                    <th>描述</th>
+                    <th className="col-2">项目</th>
+                    <SortableTH field="owner">负责人</SortableTH>
+                    <SortableTH field="dateUpdated">更新日期</SortableTH>
                     <th />
                   </tr>
                 </thead>

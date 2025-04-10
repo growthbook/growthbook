@@ -84,7 +84,7 @@ export async function putUser(
       return res.status(400).json({
         schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
         status: "400",
-        detail: `"${growthbookRole}" is not a valid GrowthBook role.`,
+        detail: `"${growthbookRole}" is not a valid CSII role.`,
       });
     }
     try {

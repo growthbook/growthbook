@@ -65,7 +65,7 @@ export default function FactFilterList({ factTable }: Props) {
         {factTable.filters.length > 0 && (
           <div className="col-auto mr-auto">
             <Field
-              placeholder="Search..."
+              placeholder="搜索..."
               type="search"
               {...searchInputProps}
             />
@@ -76,7 +76,7 @@ export default function FactFilterList({ factTable }: Props) {
             body={
               canAddAndEdit
                 ? ""
-                : `You don't have permission to edit this fact table`
+                : `没有编辑权限`
             }
           >
             <button

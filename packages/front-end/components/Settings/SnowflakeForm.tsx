@@ -116,7 +116,7 @@ const SnowflakeForm: FC<{
         <div className="form-group col-md-12">
           <label>
             Access URL{" "}
-            <Tooltip body="覆盖账号，使GrowthBook指向特定URL" />
+            <Tooltip body="覆盖账号，使CSII指向特定URL" />
           </label>
           <input
             type="text"

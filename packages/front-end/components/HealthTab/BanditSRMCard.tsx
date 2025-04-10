@@ -63,14 +63,14 @@ export default function BanditSRMCard({ experiment, phase, onNotify }: Props) {
 
   useEffect(() => {
     if (overallHealth === "Issues detected") {
-      onNotify({ label: "Experiment Balance", value: "balanceCheck" });
+      onNotify({ label: "实验平衡", value: "balanceCheck" });
     }
   }, [overallHealth, onNotify]);
 
   if (srm === undefined) {
     return (
       <div className="box my-4 p-3">
-        <div className="alert alert-danger">Traffic data is missing</div>
+        <div className="alert alert-danger">流量数据缺失</div>
       </div>
     );
   }
@@ -79,28 +79,27 @@ export default function BanditSRMCard({ experiment, phase, onNotify }: Props) {
     <div className="box container-fluid my-4 p-3">
       <div className="row overflow-hidden" id="parent-container">
         <div className="col-12">
-          <h2 className="d-inline">Experiment Balance Check</h2>{" "}
+          <h2 className="d-inline">实验平衡检查</h2>{" "}
           {overallHealth && overallHealth !== "healthy" && (
             <StatusBadge status={overallHealth} />
           )}
           <p className="mt-1">
-            Shows actual unit split compared to percent selected for the
-            experiment
+            显示实际单位分配与实验所选百分比的对比
           </p>
           <hr />
           <div>
             <div className="mb-3">
-              <label className="uppercase-title">Chart</label>
+              <label className="uppercase-title">图表</label>
               <ButtonSelectField
                 value={chartMode}
                 setValue={(v) => setChartMode(v)}
                 options={[
                   {
-                    label: "Actual & Expected Traffic",
+                    label: "实际和预期流量",
                     value: "users",
                   },
                   {
-                    label: "Actual & Expected Traffic Split",
+                    label: "实际和预期流量分配",
                     value: "weights",
                   },
                 ]}
@@ -115,23 +114,22 @@ export default function BanditSRMCard({ experiment, phase, onNotify }: Props) {
           <div>
             {(overallHealth === "healthy" ||
               overallHealth === "Issues detected") && (
-              <>
-                <div className="text-muted mx-3 mb-2">
-                  p-value:{" "}
-                  {srm !== undefined ? pValueFormatter(srm, 4) : <em>n/a</em>}
-                </div>
-                <SRMWarning
-                  srm={srm !== undefined ? srm : Infinity}
-                  users={users}
-                  showWhenHealthy
-                  isBandit={true}
-                />
-              </>
-            )}
+                <>
+                  <div className="text-muted mx-3 mb-2">
+                    p-value:{" "}
+                    {srm !== undefined ? pValueFormatter(srm, 4) : <em>n/a</em>}
+                  </div>
+                  <SRMWarning
+                    srm={srm !== undefined ? srm : Infinity}
+                    users={users}
+                    showWhenHealthy
+                    isBandit={true}
+                  />
+                </>
+              )}
             {overallHealth === "Not enough traffic" && (
               <div className="alert alert-info font-weight-bold">
-                More traffic is required to detect a Sample Ratio Mismatch
-                (SRM).
+                需要更多流量才能检测到样本比例不匹配 (SRM).
               </div>
             )}
           </div>

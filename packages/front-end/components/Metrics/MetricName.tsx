@@ -79,7 +79,7 @@ export function OfficialBadge({
               ) : (
                 <>the API</>
               )}
-              . It is read-only and cannot be modified from within GrowthBook.
+              . It is read-only and cannot be modified from within CSII.
             </>
           )
         }

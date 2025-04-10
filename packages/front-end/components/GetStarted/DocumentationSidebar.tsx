@@ -34,7 +34,7 @@ const DocumentationSidebar = ({
               target="_blank"
               rel="noreferrer"
             >
-              GrowthBook SDK
+              CSII SDK
             </a>
           </li>
           <li className="mb-2">
@@ -206,7 +206,7 @@ const DocumentationSidebar = ({
               height={"18px"}
               style={{ margin: "1px 5px 1px 2px" }}
             />{" "}
-            <span className="align-middle">GrowthBook Slack</span>
+            <span className="align-middle">CSII Slack</span>
           </a>
         </li>
         <li className="mb-2">
@@ -219,7 +219,7 @@ const DocumentationSidebar = ({
               className="mr-1"
               style={{ width: "20px", height: "20px" }}
             />{" "}
-            <span className="align-middle">GrowthBook FAQs</span>
+            <span className="align-middle">CSII FAQs</span>
           </a>
         </li>
       </ul>
@@ -231,7 +231,7 @@ const DocumentationSidebar = ({
             setUpgradeModal(true);
           }}
         >
-          Upgrade
+          升级
         </button>
       )}
     </div>

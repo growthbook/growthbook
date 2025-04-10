@@ -387,7 +387,7 @@ const TopNav: FC<{
   return (
     <>
       <Head>
-        <title>GrowthBook &gt; {pageTitle}</title>
+        <title>CSII &gt; {pageTitle}</title>
       </Head>
       {editUserOpen && (
         <Modal
@@ -402,7 +402,7 @@ const TopNav: FC<{
             允许庆祝效果{" "}
             <Tooltip
               body={
-                "当你完成某些操作（如启动一个实验）时，GrowthBook会随机在屏幕上添加五彩纸屑庆祝效果。如果你觉得它会分散注意力，可以禁用它。"
+                "当你完成某些操作（如启动一个实验）时，CSII会随机在屏幕上添加五彩纸屑庆祝效果。如果你觉得它会分散注意力，可以禁用它。"
               }
             />
           </label>
@@ -441,7 +441,7 @@ const TopNav: FC<{
           ) : showLogo ? (
             <div>
               <img
-                alt="GrowthBook"
+                alt="CSII"
                 src="/logo/growthbook-logo.png"
                 style={{ height: 40 }}
               />

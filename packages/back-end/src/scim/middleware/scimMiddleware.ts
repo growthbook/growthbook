@@ -39,7 +39,7 @@ export default function scimMiddleware(
     return res.status(403).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
       status: "403",
-      detail: "SCIM requires an Enterprise GrowthBook License.",
+      detail: "SCIM requires an Enterprise CSII License.",
     });
   }
 
@@ -48,7 +48,7 @@ export default function scimMiddleware(
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
       status: "403",
       detail:
-        "SCIM is not available for Growthbook organizations not using SSO.",
+        "SCIM is not available for CSII organizations not using SSO.",
     });
   }
 

@@ -84,7 +84,7 @@ export default function ColumnList({ factTable }: Props) {
         {columns.length > 0 && (
           <div className="col-auto mr-auto">
             <Field
-              placeholder="Search..."
+              placeholder="搜索..."
               type="search"
               {...searchInputProps}
             />

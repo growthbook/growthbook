@@ -329,7 +329,7 @@ export default function SDKConnectionPage() {
               <img
                 src="/logo/growthbook-logo.png"
                 style={{ width: 130 }}
-                alt="GrowthBook"
+                alt="CSII"
               />
               <span style={{ verticalAlign: "sub", marginLeft: 3 }}>API</span>
             </>
@@ -347,14 +347,14 @@ export default function SDKConnectionPage() {
               <div style={{ lineHeight: 1.5 }}>
                 <p className="mb-0">
                   <BsLightningFill className="text-warning" />
-                  <strong>流式更新</strong> 允许您在 GrowthBook 中进行任何功能更改时，即时更新任何已订阅的软件开发工具包（SDK）。对于前端 SDK，活跃用户无需刷新页面即可立即看到更改。
+                  <strong>流式更新</strong> 允许您在 CSII 中进行任何功能更改时，即时更新任何已订阅的软件开发工具包（SDK）。对于前端 SDK，活跃用户无需刷新页面即可立即看到更改。
                 </p>
               </div>
             }
           >
             <BsLightningFill className="text-warning" />
             流式更新:{" "}
-            <strong>{isCloud() || hasProxy? "已启用" : "已禁用"}</strong>
+            <strong>{isCloud() || hasProxy ? "已启用" : "已禁用"}</strong>
             <div
               className="text-right text-muted"
               style={{ fontSize: "0.75rem" }}

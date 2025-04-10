@@ -58,10 +58,10 @@ export default function UpgradeModal({ close, source }: Props) {
     (accountPlan === "enterprise"
       ? "Enterprise"
       : accountPlan === "pro"
-      ? "Pro"
-      : accountPlan === "pro_sso"
-      ? "Pro + SSO"
-      : "Starter") + (license && license.isTrial ? " trial" : "");
+        ? "Pro"
+        : accountPlan === "pro_sso"
+          ? "Pro + SSO"
+          : "Starter") + (license && license.isTrial ? " trial" : "");
 
   // When signing up to pro, but not finishing the checkout process a license gets generated and saved but has no plan.
   const freeTrialAvailable =
@@ -324,7 +324,7 @@ export default function UpgradeModal({ close, source }: Props) {
           includeCloseCta={false}
           close={close}
           size="lg"
-          header={<>Get more out of GrowthBook</>}
+          header={<>Get more out of CSII</>}
           loading={loading}
         >
           {!permissionsUtil.canManageBilling() ? (
@@ -385,13 +385,12 @@ export default function UpgradeModal({ close, source }: Props) {
                 ))}
               {license?.isTrial && (
                 <div
-                  className={`row p-3 mb-3 rounded ${
-                    daysToGo <= 3
+                  className={`row p-3 mb-3 rounded ${daysToGo <= 3
                       ? "alert-danger"
                       : daysToGo <= 7
-                      ? "bg-muted-yellow"
-                      : "bg-main-color"
-                  }`}
+                        ? "bg-muted-yellow"
+                        : "bg-main-color"
+                    }`}
                 >
                   {(daysToGo >= 0 && (
                     <div>
@@ -408,17 +407,17 @@ export default function UpgradeModal({ close, source }: Props) {
                       ↗
                     </div>
                   )) || (
-                    <div>
-                      <span>Your {licensePlanText} of Growthbook with </span>
-                      <Link
-                        href="/settings/team"
-                        className="mx-1 font-weight-bold"
-                      >
-                        {currentUsers} team members
-                      </Link>
-                      ↗<span> has expired</span>
-                    </div>
-                  )}
+                      <div>
+                        <span>Your {licensePlanText} of Growthbook with </span>
+                        <Link
+                          href="/settings/team"
+                          className="mx-1 font-weight-bold"
+                        >
+                          {currentUsers} team members
+                        </Link>
+                        ↗<span> has expired</span>
+                      </div>
+                    )}
                 </div>
               )}
               <div className="row">

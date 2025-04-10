@@ -169,7 +169,7 @@ export default function FactTablesPage() {
               body={
                 <div style={{ textAlign: "left" }}>
                   <p>
-                    <strong>仅企业版</strong> GrowthBook在多个指标共享同一个事实表时，会在单个数据库查询中计算这些指标。
+                    <strong>仅企业版</strong> CSII在多个指标共享同一个事实表时，会在单个数据库查询中计算这些指标。
                   </p>
                   <p>
                     对于像BigQuery这样按扫描数据收费的仓库，这可以大幅降低成本，特别是当一个实验有很多指标时。

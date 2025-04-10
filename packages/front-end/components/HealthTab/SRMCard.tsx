@@ -115,14 +115,13 @@ export default function SRMCard({
               }
             }}
           >
-            <h2 className="d-inline">Experiment Balance Check</h2>{" "}
+            <h2 className="d-inline">实验平衡检查</h2>{" "}
             {/* <p className="d-inline text-muted">{helpText}</p> */}
             {overallHealth && overallHealth !== "healthy" && (
               <StatusBadge status={overallHealth} />
             )}
             <p className="mt-1">
-              Shows actual unit split compared to percent selected for the
-              experiment
+              显示实际单位分配与实验所选百分比的对比
             </p>
             <hr className="mb-0"></hr>
             <div style={{ paddingTop: "10px" }}>
@@ -136,19 +135,18 @@ export default function SRMCard({
               <div>
                 {(overallHealth === "healthy" ||
                   overallHealth === "Issues detected") && (
-                  <SRMWarning
-                    srm={traffic.overall.srm}
-                    variations={variations}
-                    users={traffic.overall.variationUnits}
-                    showWhenHealthy
-                    isBandit={false}
-                  />
-                )}
+                    <SRMWarning
+                      srm={traffic.overall.srm}
+                      variations={variations}
+                      users={traffic.overall.variationUnits}
+                      showWhenHealthy
+                      isBandit={false}
+                    />
+                  )}
                 {overallHealth === "Not enough traffic" && (
                   <div className="alert alert-info">
                     <b>
-                      More traffic is required to detect a Sample Ratio Mismatch
-                      (SRM).
+                      需要更多流量才能检测到样本比例不匹配 (SRM)。
                     </b>
                   </div>
                 )}

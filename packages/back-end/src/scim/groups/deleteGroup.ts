@@ -25,7 +25,7 @@ export async function deleteGroup(
     return res.status(400).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
       detail:
-        "Team is currently managed by GrowthBook. Please link to a group in your idP to use SCIM.",
+        "Team is currently managed by CSII. Please link to a group in your idP to use SCIM.",
       status: "400",
     });
   }
@@ -44,7 +44,7 @@ export async function deleteGroup(
   } catch (e) {
     return res.status(400).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
-      detail: `Unable to delete team from GrowthBook: ${e.message}`,
+      detail: `Unable to delete team from CSII: ${e.message}`,
       status: "400",
     });
   }

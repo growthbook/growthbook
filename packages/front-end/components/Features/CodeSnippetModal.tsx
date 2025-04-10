@@ -242,7 +242,7 @@ export default function CodeSnippetModal({
             </div>
           ) : (
             <p>
-              以下是一些将GrowthBook集成到您应用中的入门代码。阅读 <DocLink docSection={docs}>{docLabel || label} 文档</DocLink> 以获取更多详细信息。
+              以下是一些将CSII集成到您应用中的入门代码。阅读 <DocLink docSection={docs}>{docLabel || label} 文档</DocLink> 以获取更多详细信息。
             </p>
           )}
           {!language.match(/^nocode/) && (

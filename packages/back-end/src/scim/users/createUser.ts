@@ -49,7 +49,7 @@ export async function createUser(
         status: "409",
       });
     } else if (existingOrgMember && !existingOrgMember.managedByIdp) {
-      // If created through GrowthBook, update the user with the externalId and managedByIdp: true
+      // If created through CSII, update the user with the externalId and managedByIdp: true
       await convertMemberToManagedByIdp({
         organization: org,
         userId: existingOrgMember.id,
@@ -80,7 +80,7 @@ export async function createUser(
   } catch (e) {
     return res.status(400).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
-      detail: `Unable to create the new user in GrowthBook: ${e.message}`,
+      detail: `Unable to create the new user in CSII: ${e.message}`,
       status: "400",
     });
   }

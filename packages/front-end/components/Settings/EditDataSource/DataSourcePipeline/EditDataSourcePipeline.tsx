@@ -54,7 +54,7 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
     >
       <div>
         <label className="mr-2">
-          Allow GrowthBook to write tables during experiment analyses?
+          Allow CSII to write tables during experiment analyses?
         </label>
         <Toggle
           id={"toggle-allowWriting"}

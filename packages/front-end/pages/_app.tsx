@@ -101,7 +101,7 @@ function App({
   useEffect(() => {
     // Load feature definitions JSON from GrowthBook API
     growthbook.init({ streaming: true }).catch(() => {
-      console.log("Failed to fetch GrowthBook feature definitions");
+      console.log("Failed to fetch CSII feature definitions");
     });
   }, []);
 
@@ -142,7 +142,7 @@ function App({
         }
       `}</style>
       <Head>
-        <title>GrowthBook</title>
+        <title>CSII</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
       {ready ? (
@@ -188,7 +188,7 @@ function App({
       ) : error ? (
         <div className="container mt-3">
           <div className="alert alert-danger">
-            Error Initializing GrowthBook: {error}
+            Error Initializing CSII: {error}
           </div>
         </div>
       ) : (

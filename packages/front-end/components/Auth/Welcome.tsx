@@ -36,8 +36,8 @@ export default function Welcome({
   }, [pathname]);
 
   const welcomeMsg = [
-    <>欢迎来到GrowthBook！</>,
-    <>你好！欢迎来到GrowthBook</>,
+    <>欢迎来到CSII！</>,
+    <>你好！欢迎来到CSII</>,
     "你好呀，欢迎！",
     "嘿，在这儿呢！",
   ];
@@ -101,7 +101,7 @@ export default function Welcome({
     ) : state === "firsttime" ? (
       <>
         <p>
-          开始使用GrowthBook只需几分钟。<br />
+          开始使用CSII只需几分钟。<br />
           首先，我们需要您的一些信息。
         </p>
       </>

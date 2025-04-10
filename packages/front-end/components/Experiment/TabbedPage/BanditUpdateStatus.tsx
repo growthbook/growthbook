@@ -44,11 +44,11 @@ export default function BanditUpdateStatus({
   const burnInHoursMultiple = experiment.banditBurnInUnit === "days" ? 24 : 1;
   const burnInRunDate = getValidDate(
     start +
-      (experiment?.banditBurnInValue ?? 0) *
-        burnInHoursMultiple *
-        60 *
-        60 *
-        1000
+    (experiment?.banditBurnInValue ?? 0) *
+    burnInHoursMultiple *
+    60 *
+    60 *
+    1000
   );
 
   const _error = !lastEvent?.banditResult
@@ -76,7 +76,7 @@ export default function BanditUpdateStatus({
                   size={14}
                 />
               ) : null}
-              last updated
+              最近一次更新
             </div>
             <div className="d-flex align-items-center">
               <div
@@ -138,7 +138,7 @@ export default function BanditUpdateStatus({
                       <td className="text-muted">Next scheduled update:</td>
                       <td>
                         {experiment.nextSnapshotAttempt &&
-                        experiment.autoSnapshots ? (
+                          experiment.autoSnapshots ? (
                           ago(experiment.nextSnapshotAttempt)
                         ) : (
                           <em>Not scheduled</em>
@@ -163,7 +163,7 @@ export default function BanditUpdateStatus({
             <p>
               The Bandit is{" "}
               {experiment.banditStage === "paused" ||
-              experiment.status !== "running" ? (
+                experiment.status !== "running" ? (
                 "not running"
               ) : experiment.banditStage ? (
                 <>

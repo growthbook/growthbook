@@ -638,7 +638,7 @@ const ShareModal = ({
               <div className="filters md-form row mb-3 align-items-center">
                 <div className="col">
                   <Field
-                    placeholder="Search..."
+                    placeholder="搜索..."
                     type="search"
                     {...searchInputProps}
                   />

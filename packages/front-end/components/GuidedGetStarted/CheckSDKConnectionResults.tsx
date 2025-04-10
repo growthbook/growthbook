@@ -39,7 +39,7 @@ export default function TestConnectionResults({
           <h2 className={styles.connected}>Connected</h2>
           <p>
             Great job! You&apos;ve successfully connected your application to
-            GrowthBook.
+            CSII.
           </p>
         </>
       ) : (

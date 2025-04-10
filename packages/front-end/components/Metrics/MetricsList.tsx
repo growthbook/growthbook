@@ -380,7 +380,7 @@ const MetricsList = (): React.ReactElement => {
       </div>
       <div className="row mb-2 align-items-center">
         <div className="col-lg-3 col-md-4 col-6">
-          <Field placeholder="Search..." type="search" {...searchInputProps} />
+          <Field placeholder="搜索..." type="search" {...searchInputProps} />
         </div>
         {hasArchivedMetrics && (
           <div className="col-auto text-muted">
@@ -390,7 +390,7 @@ const MetricsList = (): React.ReactElement => {
               id="show-archived"
               label="show archived"
             />
-            Show archived
+            显示已归档
           </div>
         )}
         <div className="col-auto">

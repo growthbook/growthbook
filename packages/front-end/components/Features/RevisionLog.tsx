@@ -152,7 +152,7 @@ const Revisionlog: React.ForwardRefRenderFunction<MutateLog, Props> = (
   if (!data.log.length) {
     return (
       <p>
-        <em>No history for this revision</em>
+        <em>该版本历史为空</em>
       </p>
     );
   }

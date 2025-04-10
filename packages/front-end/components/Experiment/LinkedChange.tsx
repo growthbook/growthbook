@@ -53,7 +53,7 @@ export default function LinkedChange({
                     className="ml-4 link-purple"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    View Feature
+                    查看Feature
                     <FaExternalLinkAlt className="ml-1" />
                   </Link>
                 </div>
@@ -61,7 +61,7 @@ export default function LinkedChange({
             ) : (
               <>
                 <div className="col-auto d-flex align-items-center">
-                  <span className="text-muted">Page:</span>{" "}
+                  <span className="text-muted">页:</span>{" "}
                   <span
                     className="ml-1 d-inline-block text-ellipsis"
                     style={{ width: 300 }}
@@ -70,7 +70,7 @@ export default function LinkedChange({
                   </span>
                 </div>
                 <div className="col-auto">
-                  <span className="text-muted">Changes:</span>{" "}
+                  <span className="text-muted">修改:</span>{" "}
                   <span>
                     {(changes?.length || 0) > 0 ? (
                       changes?.join(" + ")

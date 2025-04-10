@@ -54,7 +54,7 @@ export async function createGroup(
   } catch (e) {
     return res.status(400).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
-      detail: `Unable to create the new team in GrowthBook: ${e.message}`,
+      detail: `Unable to create the new team in CSII: ${e.message}`,
       status: "400",
     });
   }

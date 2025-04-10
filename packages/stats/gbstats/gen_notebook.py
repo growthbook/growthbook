@@ -66,7 +66,7 @@ def create_notebook(data: DataForStatsEngine, params: NotebookParams):
     cells = [
         nbf.new_markdown_cell(
             f"# {params.name}\n"
-            f"[View on GrowthBook]({params.url})\n\n"
+            f"[View on CSII]({params.url})\n\n"
             f"**Hypothesis:** {params.hypothesis}"
         ),
         nbf.new_markdown_cell("## Notebook Setup"),

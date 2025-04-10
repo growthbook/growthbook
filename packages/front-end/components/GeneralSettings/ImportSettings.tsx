@@ -42,10 +42,10 @@ export default function ImportSettings({
     //     <div className="alert alert-info my-3">
     //         <h3>导入/导出config.yml</h3>
     //         <p>
-    //             {isCloud? "GrowthBook云存储" : "您目前正在存储"}所有组织设置、数据源、指标和维度到一个数据库中。
+    //             {isCloud? "CSII云存储" : "您目前正在存储"}所有组织设置、数据源、指标和维度到一个数据库中。
     //         </p>
     //         <p>
-    //             您可以将这些设置导入/导出到一个 <code>config.yml</code> 文件中，以便更轻松地在GrowthBook云账户和/或自托管环境之间迁移。{" "}
+    //             您可以将这些设置导入/导出到一个 <code>config.yml</code> 文件中，以便更轻松地在CSII云账户和/或自托管环境之间迁移。{" "}
     //             <DocLink docSection="config_yml" className="font-weight-bold">
     //                 了解更多
     //             </DocLink>

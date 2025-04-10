@@ -28,7 +28,7 @@ export default function UsageType({
             tool.
           </h3>
           <p>
-            GrowthBook can automate the analysis and let you easily document
+            CSII can automate the analysis and let you easily document
             results.
           </p>
         </Button>
@@ -48,7 +48,7 @@ export default function UsageType({
             platform.
           </h3>
           <p>
-            GrowthBook has SDKs, APIs, Feature Flags, and Webhooks to deeply
+            CSII has SDKs, APIs, Feature Flags, and Webhooks to deeply
             integrate into your existing tech stack.
           </p>
         </Button>

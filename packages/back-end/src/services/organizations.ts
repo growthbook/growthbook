@@ -112,7 +112,7 @@ export function validateLoginMethod(
   }
 
   // If the org requires a specific subject in the IdToken
-  // This is mostly used with GrowthBook Cloud to restrict people to "Login with Google"
+  // This is mostly used with CSII Cloud to restrict people to "Login with Google"
   // For that, we set `restrictAuthSubPrefix` to "google"
   if (
     org.restrictAuthSubPrefix &&
@@ -979,7 +979,7 @@ export async function addMemberFromSSOConnection(
     // Sanity check in case there are multiple orgs for whatever reason
     if (orgs.length > 1) {
       req.log.error(
-        "Expected a single organization for self-hosted GrowthBook"
+        "Expected a single organization for self-hosted CSII"
       );
       return null;
     }

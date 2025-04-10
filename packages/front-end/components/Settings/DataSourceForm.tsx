@@ -186,7 +186,7 @@ const DataSourceForm: FC<{
                 <div>
                   <strong>还没准备好连接到你的数据源？</strong>
                 </div>{" "}
-                先使用示例数据集试用一下 GrowthBook。
+                先使用示例数据集试用一下 CSII。
               </div>
               <div className="col-auto">
                 <Button

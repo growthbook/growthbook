@@ -49,7 +49,7 @@ export default function QueryStatsRow({
             <>
               <h5>Pipeline Mode</h5>
               <div>
-                When enabled, GrowthBook will persist intermediate exposure data
+                When enabled, CSII will persist intermediate exposure data
                 back to your warehouse to reduce the amount scanned by
                 subsequent metric queries.
               </div>

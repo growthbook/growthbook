@@ -302,20 +302,20 @@ export default function FeaturesOverview({
       case "approved":
         return (
           <span className="mr-3">
-            <PiCheckCircleFill className="text-success  mr-1" /> Approved
+            <PiCheckCircleFill className="text-success  mr-1" /> 通过
           </span>
         );
       case "pending-review":
         return (
           <span className="mr-3">
-            <PiCircleDuotone className="text-warning  mr-1" /> Pending Review
+            <PiCircleDuotone className="text-warning  mr-1" /> 暂停审阅
           </span>
         );
       case "changes-requested":
         return (
           <span className="mr-3">
             <PiFileX className="text-danger mr-1" />
-            Changes Requested
+            修改请求
           </span>
         );
       default:
@@ -326,14 +326,14 @@ export default function FeaturesOverview({
     if (isPendingReview) {
       return (
         <>
-          <BsClock /> Review and Approve
+          <BsClock /> 审阅通过
         </>
       );
     }
     if (approved) {
       return (
         <>
-          <MdRocketLaunch /> Review and Publish
+          <MdRocketLaunch /> 审阅发布
         </>
       );
     }
@@ -379,11 +379,10 @@ export default function FeaturesOverview({
         <div className="mt-3">
           <CustomMarkdown page={"feature"} variables={variables} />
         </div>
-        <h3 className="mt-4 mb-3">Enabled Environments</h3>
+        <h3 className="mt-4 mb-3">启用环境</h3>
         <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
           <div className="mb-2">
-            When disabled, this feature will evaluate to <code>null</code>. The
-            default value and rules will be ignored.
+            当禁用时，此功能将计算为 <code>null</code>。默认值和规则将被忽略。
           </div>
           {prerequisites.length > 0 ? (
             <table className="table border bg-white mb-2 w-100">
@@ -404,19 +403,17 @@ export default function FeaturesOverview({
                   ))}
                   {envs.length === 0 ? (
                     <th className="text-center align-bottom">
-                      <span className="font-italic">No environments</span>
+                      <span className="font-italic">无环境</span>
                       <Tooltip
                         className="ml-1"
                         popperClassName="text-left font-weight-normal"
                         body={
                           <>
                             <div className="text-warning-orange mb-2">
-                              <FaExclamationTriangle /> This feature has no
-                              associated environments
+                              <FaExclamationTriangle /> 此Feature没有关联的环境
                             </div>
                             <div>
-                              Ensure that this feature&apos;s project is
-                              included in at least one environment to use it.
+                              请确保此Feature所属的项目至少包含在一个环境中以使用它。
                             </div>
                           </>
                         }
@@ -425,7 +422,7 @@ export default function FeaturesOverview({
                         className="float-right small position-relative"
                         style={{ top: 5 }}
                       >
-                        <Link href="/environments">Manage Environments</Link>
+                        <Link href="/environments">管理环境</Link>
                       </div>
                     </th>
                   ) : (
@@ -439,7 +436,7 @@ export default function FeaturesOverview({
                     className="pl-3 align-bottom font-weight-bold border-right"
                     style={{ minWidth: 350 }}
                   >
-                    Kill Switch
+                    终止开关
                   </td>
                   {envs.map((env) => (
                     <td
@@ -480,7 +477,7 @@ export default function FeaturesOverview({
               <tbody>
                 <tr className="bg-light">
                   <td className="pl-3 font-weight-bold border-right">
-                    Summary
+                    摘要
                   </td>
                   {envs.length > 0 && (
                     <PrerequisiteStatesCols
@@ -517,13 +514,11 @@ export default function FeaturesOverview({
               ) : (
                 <div className="alert alert-warning pt-3 pb-2 w-100">
                   <div className="h4 mb-3">
-                    <FaExclamationTriangle /> This feature has no associated
-                    environments
+                    <FaExclamationTriangle /> 此Feature没有关联的环境
                   </div>
                   <div className="mb-2">
-                    Ensure that this feature&apos;s project is included in at
-                    least one environment to use it.{" "}
-                    <Link href="/environments">Manage Environments</Link>
+                    请确保此Feature所属的项目至少包含在一个环境中以使用它。{" "}
+                    <Link href="/environments">管理环境</Link>
                   </div>
                 </div>
               )}
@@ -566,7 +561,7 @@ export default function FeaturesOverview({
         {dependents > 0 && (
           <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
             <h4>
-              Dependents
+              依赖项
               <div
                 className="ml-2 d-inline-block badge-warning font-weight-bold text-center"
                 style={{
@@ -582,21 +577,19 @@ export default function FeaturesOverview({
             </h4>
             <div className="mb-2">
               {dependents === 1
-                ? `Another ${dependentFeatures.length ? "feature" : "experiment"
-                } depends on this feature as a prerequisite. Modifying the current feature may affect its behavior.`
-                : `Other ${dependentFeatures.length
+                ? `另一个${dependentFeatures.length ? "Feature" : "实验"}将此Feature作为先决条件。修改当前Feature可能会影响其行为。`
+                : `其他${dependentFeatures.length
                   ? dependentExperiments.length
-                    ? "features and experiments"
-                    : "features"
-                  : "experiments"
-                } depend on this feature as a prerequisite. Modifying the current feature may affect their behavior.`}
+                    ? "Feature和实验"
+                    : "Feature"
+                  : "实验"}将此Feature作为先决条件。修改当前Feature可能会影响它们的行为。`}
             </div>
             <hr className="mb-2" />
             {showDependents ? (
               <div className="mt-3">
                 {dependentFeatures.length > 0 && (
                   <>
-                    <label>Dependent Features</label>
+                    <label>依赖的Features</label>
                     <ul className="pl-4">
                       {dependentFeatures.map((fid, i) => (
                         <li className="my-1" key={i}>
@@ -614,7 +607,7 @@ export default function FeaturesOverview({
                 )}
                 {dependentExperiments.length > 0 && (
                   <>
-                    <label>Dependent Experiments</label>
+                    <label>依赖的实验</label>
                     <ul className="pl-4">
                       {dependentExperiments.map((exp, i) => (
                         <li className="my-1" key={i}>
@@ -635,7 +628,7 @@ export default function FeaturesOverview({
                   className="d-inline-block a link-purple mt-1"
                   onClick={() => setShowDependents(false)}
                 >
-                  <BiHide /> Hide details
+                  <BiHide /> 隐藏详情
                 </a>
               </div>
             ) : (
@@ -645,7 +638,7 @@ export default function FeaturesOverview({
                   className="d-inline-block a link-purple"
                   onClick={() => setShowDependents(true)}
                 >
-                  <BiShow /> Show details
+                  <BiShow /> 显示详情
                 </a>
               </>
             )}
@@ -655,17 +648,17 @@ export default function FeaturesOverview({
         {feature.valueType === "json" && (
           <div>
             <h3>
-              JSON Validation{" "}
+              JSON 验证{" "}
               <Tooltip
                 body={
-                  "Prevent typos and mistakes by specifying validation rules using JSON Schema or our Simple Validation Builder"
+                  "通过使用 JSON 模式或我们的简单验证构建器指定验证规则，防止拼写错误和失误"
                 }
               />
               <span
                 className="badge badge-dark ml-2"
                 style={{ fontStyle: "normal", fontSize: "0.7em" }}
               >
-                ENTERPRISE
+                企业版
               </span>
             </h3>
             <div className="appbox mb-4 p-3 card">
@@ -673,12 +666,12 @@ export default function FeaturesOverview({
                 <>
                   <div className="d-flex align-items-center">
                     <strong>
-                      {validationEnabled ? "Enabled" : "Disabled"}
+                      {validationEnabled ? "已启用" : "已禁用"}
                     </strong>
 
                     {schemaDateUpdated && (
                       <div className="text-muted ml-3">
-                        Updated{" "}
+                        更新于{" "}
                         {schemaDateUpdated ? ago(schemaDateUpdated) : ""}
                       </div>
                     )}
@@ -694,8 +687,8 @@ export default function FeaturesOverview({
                         >
                           <small>
                             {showSchema
-                              ? "Hide JSON Schema"
-                              : "Show JSON Schema"}
+                              ? "隐藏 JSON 模式"
+                              : "显示 JSON 模式"}
                           </small>
                         </a>
                       </div>
@@ -715,7 +708,7 @@ export default function FeaturesOverview({
                 </>
               ) : (
                 <div>
-                  <em>No validation added.</em>
+                  <em>未添加验证。</em>
                 </div>
               )}
 
@@ -730,7 +723,7 @@ export default function FeaturesOverview({
                     }}
                   >
                     {validationEnabled ? <GBEdit /> : <GBAddCircle />}{" "}
-                    {validationEnabled ? "编辑" : "新增"} JSON Validation
+                    {validationEnabled ? "编辑" : "新增"} JSON 验证
                   </a>
                 </div>
               )}
@@ -742,7 +735,7 @@ export default function FeaturesOverview({
           <>
             <div className="row mb-2 align-items-center">
               <div className="col-auto">
-                <h3 className="mb-0">Rules and Values</h3>
+                <h3 className="mb-0">规则和值</h3>
               </div>
               <div className="col-auto">
                 <RevisionDropdown
@@ -754,7 +747,7 @@ export default function FeaturesOverview({
               </div>
               <div className="col-auto">
                 <a
-                  title="Copy a link to this revision"
+                  title="复制此版本的链接"
                   href={`/features/${fid}?v=${version}`}
                   className="position-relative"
                   onClick={(e) => {
@@ -770,7 +763,7 @@ export default function FeaturesOverview({
                   <FaLink />
                   {copySuccess ? (
                     <SimpleTooltip position="right">
-                      Copied to clipboard!
+                      已复制到剪贴板！
                     </SimpleTooltip>
                   ) : null}
                 </a>
@@ -786,15 +779,14 @@ export default function FeaturesOverview({
               >
                 <div className="d-flex align-items-center">
                   <strong className="mr-3">
-                    <MdRocketLaunch /> Live Revision
+                    <MdRocketLaunch /> 实时版本
                   </strong>
                   <div className="mr-3">
                     {!isLocked ? (
-                      "Changes you make below will start a new draft"
+                      "您在下面所做的更改将启动一个新的草稿"
                     ) : (
                       <>
-                        There is already an active draft. Switch to that to make
-                        changes.
+                        已经有一个活跃的草稿。切换到该草稿进行更改。
                       </>
                     )}
                   </div>
@@ -809,7 +801,7 @@ export default function FeaturesOverview({
                           setVersion(drafts[0].version);
                         }}
                       >
-                        <FaExchangeAlt /> Switch to Draft
+                        <FaExchangeAlt /> 切换到草稿
                       </a>
                     </div>
                   )}
@@ -835,7 +827,7 @@ export default function FeaturesOverview({
                           }
                         }}
                       >
-                        <MdHistory /> Revert to Previous
+                        <MdHistory /> 恢复到上一版本
                       </a>
                     </div>
                   )}
@@ -851,10 +843,10 @@ export default function FeaturesOverview({
               >
                 <div className="d-flex align-items-center">
                   <strong className="mr-3">
-                    <FaLock /> Revision Locked
+                    <FaLock /> 版本已锁定
                   </strong>
                   <div className="mr-2">
-                    This revision is no longer active and cannot be modified.
+                    此版本不再活跃，无法修改。
                   </div>
                   <div className="ml-auto"></div>
                   {canEditDrafts && (
@@ -866,9 +858,9 @@ export default function FeaturesOverview({
                           e.preventDefault();
                           setRevertIndex(revision.version);
                         }}
-                        title="Create a new Draft based on this revision"
+                        title="基于此版本创建一个新的草稿"
                       >
-                        <MdHistory /> Revert to this Revision
+                        <MdHistory /> 恢复到此版本
                       </a>
                     </div>
                   )}
@@ -884,12 +876,12 @@ export default function FeaturesOverview({
               >
                 <div className="d-flex align-items-center">
                   <strong className="mr-3">
-                    <FaDraftingCompass /> Draft Revision
+                    <FaDraftingCompass /> 草稿版本
                   </strong>
                   <div className="mr-3">
                     {requireReviews
-                      ? "Make changes below and request review when you are ready"
-                      : "Make changes below and publish when you are ready"}
+                      ? "在下方进行修改，准备好后请求审核"
+                      : "在下方进行修改，准备好后发布"}
                   </div>
                   <div className="ml-auto"></div>
                   {mergeResult?.success && requireReviews && (
@@ -897,7 +889,7 @@ export default function FeaturesOverview({
                       <Tooltip
                         body={
                           !revisionHasChanges
-                            ? "Draft is identical to the live version. Make changes first before requesting review"
+                            ? "草稿与实时版本完全相同。修改后再请求审核"
                             : ""
                         }
                       >
@@ -922,9 +914,9 @@ export default function FeaturesOverview({
                       <Tooltip
                         body={
                           !revisionHasChanges
-                            ? "Draft is identical to the live version. Make changes first before publishing"
+                            ? "草稿与实时版本完全相同。修改后再发布"
                             : !hasDraftPublishPermission
-                              ? "You do not have permission to publish this draft."
+                              ? "你没有权限发布此草稿。"
                               : ""
                         }
                       >
@@ -941,14 +933,14 @@ export default function FeaturesOverview({
                             setDraftModal(true);
                           }}
                         >
-                          <MdRocketLaunch /> Review and Publish
+                          <MdRocketLaunch /> 审核并发布
                         </a>
                       </Tooltip>
                     </div>
                   )}
                   {canEditDrafts && mergeResult && !mergeResult.success && (
                     <div>
-                      <Tooltip body="There have been new conflicting changes published since this draft was created that must be resolved before you can publish">
+                      <Tooltip body="自草稿创建以来已有新的冲突变更发布，发布前必须解决冲突">
                         <a
                           role="button"
                           className="a font-weight-bold link-purple"
@@ -957,7 +949,7 @@ export default function FeaturesOverview({
                             setConflictModal(true);
                           }}
                         >
-                          <FaPlusMinus /> Fix Conflicts
+                          <FaPlusMinus /> 解决冲突
                         </a>
                       </Tooltip>
                     </div>
@@ -972,7 +964,7 @@ export default function FeaturesOverview({
                           setConfirmDiscard(true);
                         }}
                       >
-                        <FaTimes /> Discard Draft
+                        <FaTimes /> 放弃草稿
                       </a>
                     </div>
                   )}
@@ -991,14 +983,14 @@ export default function FeaturesOverview({
           {revision && (
             <div className="row mb-3">
               <div className="col-auto">
-                <span className="text-muted">Revision created by</span>{" "}
+                <span className="text-muted">版本由</span>{" "}
                 <EventUser user={revision.createdBy} display="name" />{" "}
                 <span className="text-muted">on</span>{" "}
                 {datetime(revision.dateCreated)}
               </div>
               <div className="col-auto">
-                <span className="text-muted">Revision Comment:</span>{" "}
-                {revision.comment || <em>None</em>}
+                <span className="text-muted">版本注释:</span>{" "}
+                {revision.comment || <em>无</em>}
                 {canEditDrafts && (
                   <a
                     href="#"
@@ -1015,13 +1007,13 @@ export default function FeaturesOverview({
               <div className="ml-auto"></div>
               {revision.status === "published" && revision.datePublished && (
                 <div className="col-auto">
-                  <span className="text-muted">Published on</span>{" "}
+                  <span className="text-muted">发布于</span>{" "}
                   {datetime(revision.datePublished)}
                 </div>
               )}
               {revision.status === "draft" && (
                 <div className="col-auto">
-                  <span className="text-muted">Last updated</span>{" "}
+                  <span className="text-muted">最后更新</span>{" "}
                   {ago(revision.dateUpdated)}
                 </div>
               )}
@@ -1034,7 +1026,7 @@ export default function FeaturesOverview({
                     setLogModal(true);
                   }}
                 >
-                  <FaList /> View Log
+                  <FaList /> 查看日志
                 </a>
               </div>
             </div>
@@ -1057,10 +1049,9 @@ export default function FeaturesOverview({
 
           {environments.length > 0 && (
             <>
-              <h3>Rules</h3>
+              <h3>规则</h3>
               <p>
-                Add powerful logic on top of your feature. The first rule that
-                matches will be applied and override the Default Value.
+                在功能之上添加强大逻辑。匹配的第一条规则将被应用并覆盖默认值。
               </p>
 
               <div className="mb-0">
@@ -1098,13 +1089,13 @@ export default function FeaturesOverview({
                             />
                           ) : (
                             <div className="p-3 bg-white border-bottom">
-                              <em>No rules for this environment yet</em>
+                              <em>此环境暂无规则</em>
                             </div>
                           )}
 
                           {canEditDrafts && !isLocked && (
                             <div className="p-3 d-flex align-items-center">
-                              <h5 className="ml-0 mb-0">Add Rule to {env}</h5>
+                              <h5 className="ml-0 mb-0">向 {env} 添加规则</h5>
                               <div className="flex-1" />
                               <Button
                                 onClick={() => {
@@ -1134,7 +1125,7 @@ export default function FeaturesOverview({
 
         {environments.length > 0 && (
           <div className="mb-4">
-            <h3>Test Feature Rules</h3>
+            <h3>测试功能规则</h3>
             <AssignmentTester
               feature={feature}
               version={currentVersion}
@@ -1144,7 +1135,7 @@ export default function FeaturesOverview({
         )}
 
         <div className="mb-4">
-          <h3>Comments</h3>
+          <h3>评论</h3>
           <DiscussionThread
             type="feature"
             id={feature.id}
@@ -1211,10 +1202,10 @@ export default function FeaturesOverview({
           <EditProjectForm
             label={
               <>
-                Projects{" "}
+                项目{" "}
                 <Tooltip
                   body={
-                    "The dropdown below has been filtered to only include projects where you have permission to update Features"
+                    "下方的下拉列表已过滤，仅包含您有权限更新功能的项目"
                   }
                 />
               </>
@@ -1229,8 +1220,7 @@ export default function FeaturesOverview({
             current={feature.project}
             additionalMessage={
               <div className="alert alert-danger">
-                Changing the project may prevent this Feature Flag and any
-                linked Experiments from being sent to users.
+                更改项目可能会导致此Feature开关和任何关联的实验无法发送给用户。
               </div>
             }
           />
@@ -1253,11 +1243,11 @@ export default function FeaturesOverview({
             trackingEventModalType=""
             open={true}
             close={() => setLogModal(false)}
-            header="Revision Log"
+            header="版本日志"
             closeCta={"关闭"}
             size="lg"
           >
-            <h3>Revision {revision.version}</h3>
+            <h3>版本 {revision.version}</h3>
             <Revisionlog feature={feature} revision={revision} />
           </Modal>
         )}
@@ -1314,8 +1304,8 @@ export default function FeaturesOverview({
             trackingEventModalType=""
             open={true}
             close={() => setConfirmDiscard(false)}
-            header="Discard Draft"
-            cta={"Discard"}
+            header="放弃草稿"
+            cta={"放弃"}
             submitColor="danger"
             closeCta={"取消"}
             submit={async () => {
@@ -1335,8 +1325,7 @@ export default function FeaturesOverview({
             }}
           >
             <p>
-              Are you sure you want to discard this draft? This action cannot be
-              undone.
+              您确定要放弃此草稿吗？此操作无法撤销。
             </p>
           </Modal>
         )}

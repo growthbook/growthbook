@@ -342,7 +342,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!data?.email) return;
 
-    // Error tracking only enabled on GrowthBook Cloud
+    // Error tracking only enabled on CSII Cloud
     if (isSentryEnabled()) {
       Sentry.setUser({ email: data.email, id: data.userId });
     }

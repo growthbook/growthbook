@@ -136,13 +136,13 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
       // Only selected `experiment_name`, add warning
       else if (returnedColumns.has("experiment_name")) {
         throw new Error(
-          "缺少“版本名称”列。请将其添加到您的SELECT子句中，以便GrowthBook能够自动填充名称，或者移除“实验名称”。"
+          "缺少“版本名称”列。请将其添加到您的SELECT子句中，以便CSII能够自动填充名称，或者移除“实验名称”。"
         );
       }
       // Only selected `variation_name`, add warning
       else if (returnedColumns.has("variation_name")) {
         throw new Error(
-          "缺少“实验名称”列。请将其添加到您的SELECT子句中，以便GrowthBook能够自动填充名称，或者移除“版本名称”。"
+          "缺少“实验名称”列。请将其添加到您的SELECT子句中，以便CSII能够自动填充名称，或者移除“版本名称”。"
         );
       }
     } else {
@@ -161,14 +161,14 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
         !returnedColumns.has("variation_name")
       ) {
         throw new Error(
-          "缺少“版本名称”列。请将其添加到您的SELECT子句中，以便GrowthBook能够自动填充名称，或者移除“实验名称”。"
+          "缺少“版本名称”列。请将其添加到您的SELECT子句中，以便CSII能够自动填充名称，或者移除“实验名称”。"
         );
       } else if (
         returnedColumns.has("variation_name") &&
         !returnedColumns.has("experiment_name")
       ) {
         throw new Error(
-          "缺少“实验名称”列。请将其添加到您的SELECT子句中，以便GrowthBook能够自动填充名称，或者移除“版本名称”。"
+          "缺少“实验名称”列。请将其添加到您的SELECT子句中，以便CSII能够自动填充名称，或者移除“版本名称”。"
         );
       }
     }

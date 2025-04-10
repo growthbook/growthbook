@@ -331,7 +331,7 @@ export default function EditSavedGroupPage() {
         <div className="row m-0 mb-4 align-items-center justify-content-between">
           <div className="">
             <Field
-              placeholder="Search..."
+              placeholder="搜索..."
               type="search"
               value={filter}
               onChange={(e) => {
@@ -381,9 +381,8 @@ export default function EditSavedGroupPage() {
                   }}
                   link={true}
                   useIcon={true}
-                  displayName={`${selected.size} selected item${
-                    selected.size > 1 ? "s" : ""
-                  }`}
+                  displayName={`${selected.size} selected item${selected.size > 1 ? "s" : ""
+                    }`}
                 />
               </>
             )}

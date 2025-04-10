@@ -30,7 +30,7 @@ const Webhooks: FC = () => {
     <div>
       <p>
         SDK Endpoint Webhooks push the latest feature definitions to your server
-        whenever they are modified within the GrowthBook app.
+        whenever they are modified within the CSII app.
       </p>
 
       {data.webhooks.length > 0 && (

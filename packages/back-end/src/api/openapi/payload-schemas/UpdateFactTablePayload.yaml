@@ -28,7 +28,7 @@ properties:
     description: The SQL query for this fact table
   managedBy:
     type: string
-    description: Set this to "api" to disable editing in the GrowthBook UI
+    description: Set this to "api" to disable editing in the CSII UI
     enum:
       - ""
       - api

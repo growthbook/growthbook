@@ -15,7 +15,7 @@ export default function HostWarning({
     if (isCloud()) {
       return (
         <div className="alert alert-danger">
-          GrowthBook Cloud cannot access your local computer with that hostname.
+          CSII Cloud cannot access your local computer with that hostname.
           You must use a public ip address.
         </div>
       );
@@ -23,7 +23,7 @@ export default function HostWarning({
 
     return (
       <div className="alert alert-danger">
-        GrowthBook runs inside Docker. To connect to localhost, you should use{" "}
+        CSII runs inside Docker. To connect to localhost, you should use{" "}
         <a
           href="#"
           onClick={(e) => {
@@ -51,7 +51,7 @@ export default function HostWarning({
   if (isCloud()) {
     return (
       <div className="alert alert-info">
-        If your database is behind a firewall, add GrowthBook Cloud&apos;s ip (
+        If your database is behind a firewall, add CSII Cloud&apos;s ip (
         <code>52.70.79.40</code>) to your allowlist.
       </div>
     );

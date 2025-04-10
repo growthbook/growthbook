@@ -224,7 +224,7 @@ export default function FeatureVariationsInput({
                   {!valueAsId && <th>版本</th>}
                   <th>
                     <Tooltip
-                      body="在GrowthBook内识别版本的可选方式。"
+                      body="在GCSII内识别版本的可选方式。"
                       tipPosition="top"
                     >
                       名称 <FaInfoCircle />

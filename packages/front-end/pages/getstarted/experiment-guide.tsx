@@ -82,8 +82,8 @@ const ExperimentGuide = (): React.ReactElement => {
   // Ignore the demo datasource
   const hasExperiments = project
     ? experiments.some(
-        (e) => e.project !== demoProjectId && e.project === project
-      )
+      (e) => e.project !== demoProjectId && e.project === project
+    )
     : experiments.some((e) => e.project !== demoProjectId);
 
   // Ignore the demo datasource
@@ -93,14 +93,14 @@ const ExperimentGuide = (): React.ReactElement => {
 
   const hasStartedExperiment = project
     ? experiments.some(
-        (e) =>
-          e.project !== demoProjectId &&
-          e.status !== "draft" &&
-          e.project === project
-      )
+      (e) =>
+        e.project !== demoProjectId &&
+        e.status !== "draft" &&
+        e.project === project
+    )
     : experiments.some(
-        (e) => e.project !== demoProjectId && e.status !== "draft"
-      );
+      (e) => e.project !== demoProjectId && e.status !== "draft"
+    );
 
   // if coming from hypothesis generator, show slightly different UI
   const title = generatedHypothesis
@@ -178,16 +178,16 @@ const ExperimentGuide = (): React.ReactElement => {
                   }}
                   onClick={() =>
                     setStep({
-                      step: "Integrate the GrowthBook SDK into your app",
+                      step: "Integrate the CSII SDK into your app",
                       source: "experiments",
                       sourceParams: params.hypId ? `hypId=${params.hypId}` : "",
                       stepKey: "sdk",
                     })
                   }
                 >
-                  Integrate the GrowthBook SDK into your app
+                  Integrate the CSII SDK into your app
                 </Link>
-                <Box mt="2">Allow GrowthBook to communicate with your app.</Box>
+                <Box mt="2">Allow CSII to communicate with your app.</Box>
                 <Separator size="4" my="4" />
               </div>
             </div>
@@ -427,7 +427,7 @@ const ExperimentGuide = (): React.ReactElement => {
                   Connect to Your Data Warehouse
                 </Link>
                 <Box mt="2">
-                  Allow GrowthBook to query your warehouse to compute traffic
+                  Allow CSII to query your warehouse to compute traffic
                   totals and metric results.
                 </Box>
               </div>

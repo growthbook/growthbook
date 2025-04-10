@@ -10,11 +10,11 @@ export default function TopNavLite() {
   return (
     <div className="navbar bg-white border-bottom">
       <Head>
-        <title>GrowthBook</title>
+        <title>CSII</title>
       </Head>
       <div>
         <img
-          alt="GrowthBook"
+          alt="CSII"
           src="/logo/growthbook-logo.png"
           style={{ height: 36 }}
         />

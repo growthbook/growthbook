@@ -132,7 +132,7 @@ export default function Implementation({
 
       {experiment.status !== "draft" && !hasLinkedChanges ? (
         <Callout status="info" mb="4">
-          该实验没有关联的GrowthBook实现（关联特性标记、可视化编辑器变更或URL重定向）。{" "}
+          该实验没有关联的CSII实现（关联特性标记、可视化编辑器变更或URL重定向）。{" "}
           {experiment.status === "stopped"
             ? "要么是实现已被删除，要么是实现、流量和目标定位由外部系统管理。"
             : "实现、流量和目标定位可能由外部系统管理。"}

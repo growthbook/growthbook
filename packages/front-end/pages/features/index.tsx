@@ -636,7 +636,7 @@ export default function FeaturesPage() {
           )}
       </div>
       <p>
-        Feature使您能够在GrowthBook UI内更改应用程序的行为。例如，打开/关闭销售横幅或更改定价页面的标题。
+        Feature使您能够在CSII UI内更改应用程序的行为。例如，打开/关闭销售横幅或更改定价页面的标题。
       </p>
       <div className="mt-3">
         <CustomMarkdown page={"featureList"} />

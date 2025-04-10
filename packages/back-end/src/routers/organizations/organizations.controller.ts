@@ -1799,7 +1799,7 @@ export async function getOrphanedUsers(req: AuthRequest, res: Response) {
   }
 
   if (IS_CLOUD) {
-    throw new Error("Unable to get orphaned users on GrowthBook Cloud");
+    throw new Error("Unable to get orphaned users on CSII Cloud");
   }
 
   if (IS_MULTI_ORG && !req.superAdmin) {
@@ -1843,7 +1843,7 @@ export async function addOrphanedUser(
   }
 
   if (IS_CLOUD) {
-    throw new Error("This action is not permitted on GrowthBook Cloud");
+    throw new Error("This action is not permitted on CSII Cloud");
   }
 
   if (IS_MULTI_ORG && !req.superAdmin) {
@@ -1895,7 +1895,7 @@ export async function addOrphanedUser(
     getNumberOfUniqueMembersAndInvites(org) >= (license.seats || 0)
   ) {
     throw new Error(
-      "Whoops! You've reached the seat limit on your license. Please contact sales@growthbook.io to increase your seat limit."
+      "Whoops! You've reached the seat limit on your license. Please contact sales@CSII.io to increase your seat limit."
     );
   }
 
@@ -1924,7 +1924,7 @@ export async function deleteOrphanedUser(
   }
 
   if (IS_CLOUD) {
-    throw new Error("Unable to delete orphaned users on GrowthBook Cloud");
+    throw new Error("Unable to delete orphaned users on CSII Cloud");
   }
 
   if (IS_MULTI_ORG && !req.superAdmin) {

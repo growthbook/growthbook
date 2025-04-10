@@ -103,13 +103,13 @@ export default function TrafficCard({
     <div className="box my-4 p-3">
       <div className="mx-2">
         <div className="d-flex flex-row mt-1">
-          <h2 className="d-inline">{"Traffic"}</h2>
+          <h2 className="d-inline">{"流量"}</h2>
           <div className="flex-1" />
           <div className="col-auto">
-            <div className="uppercase-title text-muted">Dimension</div>
+            <div className="uppercase-title text-muted">维度</div>
             <SelectField
               containerClassName={"select-dropdown-underline"}
-              initialOption="Over Time"
+              initialOption="随时间变化"
               options={availableDimensions}
               value={selectedDimension}
               onChange={(v) => {
@@ -125,16 +125,14 @@ export default function TrafficCard({
         <div className="mt-3 mb-3 d-flex align-items-center">
           <h3>
             {selectedDimension
-              ? `Experiment Traffic by ${
-                  dimensionWithIssues?.label ?? "Dimension"
-                }`
-              : "Experiment Traffic Over Time"}
+              ? `按 ${dimensionWithIssues?.label ?? "维度"} 划分的实验流量`
+              : "实验流量随时间的变化"}
           </h3>
           {!selectedDimension && (
             <div className="ml-auto">
-              Cumulative{" "}
+              累积显示{" "}
               <Toggle
-                label="Cumulative"
+                label="累积显示"
                 id="cumulative"
                 value={cumulative}
                 setValue={setCumulative}
@@ -167,8 +165,8 @@ export default function TrafficCard({
                   {v.name}
                 </th>
               ))}
-              <th className="border-top-0">Expected %</th>
-              <th className="border-top-0">Actual %</th>
+              <th className="border-top-0">预期占比 %</th>
+              <th className="border-top-0">实际占比 %</th>
             </tr>
           </thead>
           <tbody>
@@ -184,8 +182,8 @@ export default function TrafficCard({
                         <Tooltip
                           body={
                             showWarning
-                              ? "Issues detected"
-                              : "No issues detected"
+                              ? "检测到问题"
+                              : "未检测到问题"
                           }
                           tipPosition="top"
                         >
@@ -238,7 +236,7 @@ export default function TrafficCard({
           <ExperimentDateGraph
             yaxis="users"
             variationNames={variations.map((v) => v.name)}
-            label="Users"
+            label="用户数"
             datapoints={usersPerDate}
             formatter={formatNumber}
             cumulative={cumulative}

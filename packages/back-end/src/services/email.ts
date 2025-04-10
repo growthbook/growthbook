@@ -33,17 +33,17 @@ env.addFilter("noHyperlink", noHyperlink);
 
 const transporter = isEmailEnabled()
   ? nodemailer.createTransport({
-      host: EMAIL_HOST,
-      port: EMAIL_PORT,
-      secure: EMAIL_PORT === 465,
-      ...(EMAIL_HOST_USER &&
-        EMAIL_HOST_PASSWORD && {
-          auth: {
-            user: EMAIL_HOST_USER,
-            pass: EMAIL_HOST_PASSWORD,
-          },
-        }),
-    })
+    host: EMAIL_HOST,
+    port: EMAIL_PORT,
+    secure: EMAIL_PORT === 465,
+    ...(EMAIL_HOST_USER &&
+      EMAIL_HOST_PASSWORD && {
+      auth: {
+        user: EMAIL_HOST_USER,
+        pass: EMAIL_HOST_PASSWORD,
+      },
+    }),
+  })
   : null;
 
 async function sendMail({
@@ -75,7 +75,7 @@ async function sendMail({
   }
 
   await transporter.sendMail({
-    from: `"GrowthBook" <${EMAIL_FROM}>`,
+    from: `"CSII" <${EMAIL_FROM}>`,
     to,
     subject,
     text,
@@ -103,9 +103,9 @@ export async function sendInviteEmail(
     html,
     subject: `You've been invited to join ${noHyperlink(
       organization.name
-    )} on GrowthBook`,
+    )} on CSII`,
     to: invite.email,
-    text: `Join ${organization.name} on GrowthBook by visiting ${inviteUrl}`,
+    text: `Join ${organization.name} on CSII by visiting ${inviteUrl}`,
     ignoreUnsubscribes: true,
   });
 }
@@ -154,7 +154,7 @@ export async function sendResetPasswordEmail(email: string, resetUrl: string) {
   });
   await sendMail({
     html,
-    subject: "Reset GrowthBook Password",
+    subject: "Reset CSII Password",
     to: email,
     text: `Reset your password by visiting ${resetUrl}`,
     ignoreUnsubscribes: true,
@@ -190,7 +190,7 @@ export async function sendNewMemberEmail(
 
   await sendMail({
     html,
-    subject: `A new user joined your GrowthBook account: ${noHyperlink(
+    subject: `A new user joined your CSII account: ${noHyperlink(
       name
     )} (${email})`,
     to: ownerEmail,
@@ -216,7 +216,7 @@ export async function sendPendingMemberEmail(
 
   await sendMail({
     html,
-    subject: `A new user is requesting to join your GrowthBook account: ${noHyperlink(
+    subject: `A new user is requesting to join your CSII account: ${noHyperlink(
       name
     )} (${email})`,
     to: ownerEmail,
@@ -242,9 +242,9 @@ export async function sendPendingMemberApprovalEmail(
     html,
     subject: `You've been approved as a member with ${noHyperlink(
       organization
-    )} on GrowthBook`,
+    )} on CSII`,
     to: email,
-    text: `Join ${noHyperlink(organization)} on GrowthBook`,
+    text: `Join ${noHyperlink(organization)} on CSII`,
   });
 }
 
@@ -262,9 +262,8 @@ export async function sendStripeTrialWillEndEmail({
   billingUrl: string;
 }) {
   const trialRemaining = Math.max(daysLeft(endDate), 1);
-  const trialDaysText = `${trialRemaining} day${
-    trialRemaining === 1 ? "" : "s"
-  }`;
+  const trialDaysText = `${trialRemaining} day${trialRemaining === 1 ? "" : "s"
+    }`;
   const html = nunjucks.render("trial-will-end.jinja", {
     trialDaysText,
     hasPaymentMethod,
@@ -272,15 +271,14 @@ export async function sendStripeTrialWillEndEmail({
     billingUrl,
   });
 
-  const text = `Your GrowthBook Pro trial will end soon in ${trialDaysText}. ${
-    hasPaymentMethod
-      ? "Your credit card will be billed automatically."
-      : "Add a credit card to avoid losing access to GrowthBook Pro."
-  }`;
+  const text = `Your CSII Pro trial will end soon in ${trialDaysText}. ${hasPaymentMethod
+    ? "Your credit card will be billed automatically."
+    : "Add a credit card to avoid losing access to CSII Pro."
+    }`;
 
   await sendMail({
     html,
-    subject: `Your GrowthBook Pro trial will end in ${trialDaysText}`,
+    subject: `Your CSII Pro trial will end in ${trialDaysText}`,
     to: email,
     text,
   });
@@ -301,15 +299,15 @@ export async function sendOwnerEmailChangeEmail(
 
   await sendMail({
     html,
-    subject: `The owner for ${organization} on GrowthBook has changed`,
+    subject: `The owner for ${organization} on CSII has changed`,
     to: originalOwner,
-    text: `The owner for ${organization} on GrowthBook has been changed to ${newOwner} by ${email}`,
+    text: `The owner for ${organization} on CSII has been changed to ${newOwner} by ${email}`,
   });
 
   await sendMail({
     html,
-    subject: `The owner for ${organization} on GrowthBook has changed`,
+    subject: `The owner for ${organization} on CSII has changed`,
     to: newOwner,
-    text: `The owner for ${organization} on GrowthBook has been changed to ${newOwner} by ${email}`,
+    text: `The owner for ${organization} on CSII has been changed to ${newOwner} by ${email}`,
   });
 }

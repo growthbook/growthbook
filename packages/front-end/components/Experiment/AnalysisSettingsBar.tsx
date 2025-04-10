@@ -197,7 +197,7 @@ export default function AnalysisSettingsBar({
           <div style={{ flex: 1 }} />
           {!isBandit && (
             <div className="col-auto">
-              {regressionAdjustmentAvailable && (
+              {/* {regressionAdjustmentAvailable && (
                 <PremiumTooltip
                   commercialFeature="regression-adjustment"
                   className="form-inline"
@@ -260,7 +260,7 @@ export default function AnalysisSettingsBar({
                     )}
                   </label>
                 </PremiumTooltip>
-              )}
+              )} */}
             </div>
           )}
           {isBandit && snapshot ? (

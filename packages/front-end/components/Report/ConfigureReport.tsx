@@ -314,7 +314,7 @@ export default function ConfigureReport({
             labelClassName="font-weight-bold"
             type="datetime-local"
             {...form.register("startDate")}
-            helpText="Only include users who entered the experiment between the start and end dates"
+            helpText="仅包含在开始日期和结束日期之间进入实验的用户"
           />
         </div>
         <div className="col">

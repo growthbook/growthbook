@@ -405,7 +405,7 @@ const NewDataSourceForm: FC<{
       stepContents = (
         <div>
           <p className="底部外边距_4px">
-            GrowthBook是< strong>数据仓库原生</strong>的，这意味着我们基于您现有的数据，而不是存储我们自己的数据副本。这种方式更经济、更安全且更灵活。
+            CSII是< strong>数据仓库原生</strong>的，这意味着我们基于您现有的数据，而不是存储我们自己的数据副本。这种方式更经济、更安全且更灵活。
           </p>
           <div>
             <label>您将分析数据存储在哪里？</label>
@@ -544,7 +544,7 @@ const NewDataSourceForm: FC<{
                 </>
               ) : null}
               <DocLink docSection={datasourceInfo.docs}>
-                {datasourceInfo.display} 到GrowthBook <FaExternalLinkAlt />
+                {datasourceInfo.display} 到CSII <FaExternalLinkAlt />
               </DocLink>{" "}
             </Callout>
           ) : null}

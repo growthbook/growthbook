@@ -68,7 +68,7 @@ export default function FeaturesStats({
             </PremiumTooltip>
             <p style={{ width: "32rem" }}>
               Quickly see instances of feature flags being leveraged in your
-              codebase, with direct links from GrowthBook to the platform of
+              codebase, with direct links from CSII to the platform of
               your choice.
             </p>
             {hasFeature ? (
@@ -141,7 +141,7 @@ export default function FeaturesStats({
                           codeRef.branch,
                           ref.filePath,
                           ref.startingLineNumber +
-                            ((ref.lines.split("\n").length / 2) | 0)
+                          ((ref.lines.split("\n").length / 2) | 0)
                         )}
                       >
                         <FaExternalLinkAlt className="mr-2 cursor-pointer" />

@@ -152,7 +152,7 @@ export class GrowthBook<
         // ignore invalid URLs
       }
       if (isGbHost) {
-        throw new Error("Cannot use remoteEval on GrowthBook Cloud");
+        throw new Error("Cannot use remoteEval on CSII Cloud");
       }
     } else {
       if (context.cacheKeyAttributes) {
@@ -225,7 +225,7 @@ export class GrowthBook<
       !this._ctx.stickyBucketAssignmentDocs
     ) {
       throw new Error(
-        "initSync requires you to pass stickyBucketAssignmentDocs into the GrowthBook constructor"
+        "initSync requires you to pass stickyBucketAssignmentDocs into the CSII constructor"
       );
     }
 
@@ -746,11 +746,11 @@ export class GrowthBook<
             Promise.all([
               ...(trackingCall
                 ? [
-                    promiseTimeout(
-                      trackingCall,
-                      this._ctx.maxNavigateDelay ?? 1000
-                    ),
-                  ]
+                  promiseTimeout(
+                    trackingCall,
+                    this._ctx.maxNavigateDelay ?? 1000
+                  ),
+                ]
                 : []),
               new Promise((resolve) =>
                 window.setTimeout(resolve, this._ctx.navigateDelay ?? delay)
@@ -880,8 +880,7 @@ export class GrowthBook<
 
         window
           .fetch(
-            `https://rt.growthbook.io/?key=${
-              this._ctx.realtimeKey
+            `https://rt.growthbook.io/?key=${this._ctx.realtimeKey
             }&events=${encodeURIComponent(JSON.stringify(q))}`,
 
             {
@@ -1181,8 +1180,8 @@ export class GrowthBook<
     return range
       ? inRange(n, range)
       : coverage !== undefined
-      ? n <= coverage
-      : true;
+        ? n <= coverage
+        : true;
   }
 
   private _conditionPasses(condition: ConditionInterface): boolean {
@@ -1994,7 +1993,7 @@ export class GrowthBook<
     const key = `${attributeName}||${attributeValue}`;
     const existingAssignments =
       this._ctx.stickyBucketAssignmentDocs &&
-      this._ctx.stickyBucketAssignmentDocs[key]
+        this._ctx.stickyBucketAssignmentDocs[key]
         ? this._ctx.stickyBucketAssignmentDocs[key].assignments || {}
         : {};
     const newAssignments = { ...existingAssignments, ...assignments };

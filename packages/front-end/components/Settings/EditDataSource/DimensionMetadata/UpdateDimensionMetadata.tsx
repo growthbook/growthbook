@@ -258,9 +258,8 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
                   }}
                 >
                   <RunQueriesButton
-                    cta={`${
-                      dimensionSlices ? "Refresh" : "Query"
-                    } Dimension Slices`}
+                    cta={`${dimensionSlices ? "Refresh" : "Query"
+                      } Dimension Slices`}
                     icon={dimensionSlices ? "refresh" : "run"}
                     position={"left"}
                     mutate={mutate}
@@ -280,7 +279,7 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
                   style={{ fontSize: "0.7em" }}
                   title={datetime(dimensionSlices.runStarted)}
                 >
-                  last updated {ago(dimensionSlices.runStarted)}
+                  最近一次更新 {ago(dimensionSlices.runStarted)}
                 </div>
               </div>
             ) : null}
@@ -431,14 +430,14 @@ export const DimensionSlicesResults: FC<DimensionSlicesProps> = ({
                   ) : (
                     <div className="text-muted">
                       {status !== "running" &&
-                      (!dimensionSlices || !dimensionValueResult)
+                        (!dimensionSlices || !dimensionValueResult)
                         ? "Run dimension slices query to populate"
                         : status === "succeeded" &&
                           dimensionSlices?.results?.length === 0
-                        ? "No data found"
-                        : status === "running"
-                        ? "Updating data"
-                        : ""}
+                          ? "No data found"
+                          : status === "running"
+                            ? "Updating data"
+                            : ""}
                     </div>
                   )}
                 </td>

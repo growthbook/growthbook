@@ -82,7 +82,7 @@ export default function SDKConnectionsList() {
   const emptyStateContentControl = (
     <div className="appbox p-5 text-center">
       <p>
-        <strong>SDK连接</strong> 可轻松将GrowthBook集成到您的前端、后端或移动应用程序中。
+        <strong>SDK连接</strong> 可轻松将CSII集成到您的前端、后端或移动应用程序中。
       </p>
       <button
         className="btn btn-primary"
@@ -106,7 +106,7 @@ export default function SDKConnectionsList() {
     >
       <Flex direction="column" align="center">
         <Heading as="h2" size="6" align="center">
-          轻松将GrowthBook集成到您的应用程序或网站中
+          轻松将CSII集成到您的应用程序或网站中
         </Heading>
         <Text size="3" align="center">
           选择我们的一个SDK来连接您的前端、后端或移动应用。

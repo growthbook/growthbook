@@ -46,7 +46,7 @@ export default function GrowthBookSetupCodeSnippet({
 
         {eventTracker === "other" ? (
           <>
-            您需要在上述GrowthBook代码片段之前添加自己的自定义实验跟踪回调函数：
+            您需要在上述CSII代码片段之前添加自己的自定义实验跟踪回调函数：
             <Code
               language="html"
               code={`
@@ -76,7 +76,7 @@ window.growthbook_config.trackingCallback = (experiment, result) => {
       paddedVersionString(version) >= paddedVersionString("1.0.0");
     return (
       <>
-        创建一个GrowthBook实例
+        创建一个CSII实例
         <Code
           language="javascript"
           code={`
@@ -112,7 +112,7 @@ const growthbook = new GrowthBook({
       paddedVersionString(version) >= paddedVersionString("1.0.0");
     return (
       <>
-        创建一个GrowthBook实例
+        创建一个CSII实例
         <Code
           language="tsx"
           code={`
@@ -135,7 +135,7 @@ const growthbook = new GrowthBook({
 });
 `.trim()}
         />
-        将应用包裹在GrowthBookProvider中
+        将应用包裹在CSIIProvider中
         <Code
           language="tsx"
           code={`
@@ -163,7 +163,7 @@ export default function MyApp() {
           href="https://github.com/growthbook/examples/tree/main/next-js"
           target="_blank"
           rel="noreferrer"
-        >查看我们在GitHub上的示例应用</a>，其中包含了使用GrowthBook进行服务器端渲染、API路由、静态页面等的示例。
+        >查看我们在GitHub上的示例应用</a>，其中包含了使用CSII进行服务器端渲染、API路由、静态页面等的示例。
       </>
     );
   }
@@ -190,14 +190,14 @@ setPolyfills({
 })
         `.trim()}
         />
-        在任何将使用GrowthBook的路由之前添加一个中间件
+        在任何将使用CSII的路由之前添加一个中间件
         <Code
           language="javascript"
           code={`
 const { GrowthBook } = require("@growthbook/growthbook");
 
 app.use(function(req, res, next) {
-  // Create a GrowthBook Context
+  // Create a CSII Context
   req.growthbook = new GrowthBook({
     apiHost: ${JSON.stringify(apiHost)},
     clientKey: ${JSON.stringify(apiKey)},${encryptionKey
@@ -230,7 +230,7 @@ app.use(function(req, res, next) {
   if (language === "android") {
     return (
       <>
-        创建GrowthBook实例
+        创建CSII实例
         <Code
           language="kotlin"
           code={`
@@ -253,7 +253,7 @@ val gb = GBSDKBuilder(
   if (language === "ios") {
     return (
       <>
-        创建GrowthBook实例
+        创建CSII实例
         <Code
           language="swift"
           code={`
@@ -275,7 +275,7 @@ var gb: GrowthBookSDK = GrowthBookBuilder(
   if (language === "go") {
     return (
       <>
-        用于从GrowthBook API加载特性的辅助函数
+        用于从CSII API加载特性的辅助函数
         <Code
           language="go"
           code={`
@@ -309,7 +309,7 @@ func GetFeatureMap() []byte {
 }
             `.trim()}
         />
-        创建GrowthBook实例
+        创建CSII实例
         <Code
           language="go"
           code={`
@@ -342,7 +342,7 @@ func main() {
   if (language === "ruby") {
     return (
       <>
-        从GrowthBook API获取特性
+        从CSII API获取特性
         <Code
           language="ruby"
           code={`
@@ -374,7 +374,7 @@ class MyImpressionListener
 end
             `.trim()}
         />
-        创建一个GrowthBook实例
+        创建一个CSII实例
         <Code
           language="ruby"
           code={`
@@ -391,7 +391,7 @@ gb = Growthbook::Context.new(
   if (language === "php") {
     return (
       <>
-        创建一个GrowthBook实例
+        创建一个CSII实例
         <Code
           language="php"
           code={`
@@ -410,7 +410,7 @@ $growthbook = Growthbook::create()
   });
             `.trim()}
         />
-        从GrowthBook API加载特性
+        从CSII API加载特性
         <Code
           language="php"
           code={`
@@ -445,7 +445,7 @@ def on_experiment_viewed(experiment, result):
   print("Variation Id: " + result.key)
             `.trim()}
         />
-        创建一个GrowthBook实例并加载特性
+        创建一个CSII实例并加载特性
         <Code
           language="python"
           code={`
@@ -470,7 +470,7 @@ gb.load_features()
   if (language === "java") {
     return (
       <>
-        从GrowthBook API获取特性
+        从CSII API获取特性
         <Code
           language="java"
           code={`
@@ -499,7 +499,7 @@ TrackingCallback trackingCallback = new TrackingCallback() {
 
             `.trim()}
         />
-        创建一个GrowthBook实例
+        创建一个CSII实例
         <Code
           language="java"
           code={
@@ -529,7 +529,7 @@ GrowthBook growthBook = new GrowthBook(context);
   if (language === "flutter") {
     return (
       <>
-        创建一个GrowthBook实例
+        创建一个CSII实例
         <Code
           language="dart"
           code={`
@@ -551,13 +551,13 @@ final GrowthBookSDK gb = GBSDKBuilderApp(
   if (language === "csharp") {
     return (
       <>
-        从GrowthBook API获取特性
+        从CSII API获取特性
         <Code
           language="csharp"
           code={`
 using GrowthBook;
 
-// Fetch feature flags from the GrowthBook API
+// Fetch feature flags from the CSII API
 var features = new Dictionary<string, Feature>{};
 public class FeaturesResult
 {
@@ -575,7 +575,7 @@ if (response.IsSuccessStatusCode)
 }
     `.trim()}
         />
-        创建一个GrowthBook实例
+        创建一个CSII实例
         <Code
           language="csharp"
           code={`
@@ -593,7 +593,7 @@ var gb = new GrowthBook.GrowthBook(context);
   if (language === "elixir") {
     return (
       <>
-        从GrowthBook API获取特性
+        从CSII API获取特性
         <Code
           language="elixir"
           code={`
@@ -686,7 +686,7 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${encryptionKey
 
         <div className="h4 mt-4 mb-3">Step 4: Set up payload caching</div>
         <p>
-          设置一个 <strong>Cloudflare KV</strong> 存储，并使用GrowthBook <strong>SDK网络钩子</strong> 来保持GrowthBook和您的Cloudflare Worker之间的特性和实验值同步。这将消除从边缘到GrowthBook的网络请求。
+          设置一个 <strong>Cloudflare KV</strong> 存储，并使用CSII <strong>SDK网络钩子</strong> 来保持CSII和您的Cloudflare Worker之间的特性和实验值同步。这将消除从边缘到CSII的网络请求。
         </p>
 
         <div className="h4 mt-4 mb-3">Further customization</div>
@@ -777,7 +777,7 @@ async function handleRequest(event) {
 
         <div className="h4 mt-4 mb-3">步骤3：设置后端（源）</div>
         <p>
-          通过在Fastly控制台为您的计算服务设置后端（源），允许您的工作者连接到您的源站点和GrowthBook API。
+          通过在Fastly控制台为您的计算服务设置后端（源），允许您的工作者连接到您的源站点和CSII API。
           <ul>
             <li className="mt-3">
               在Fastly中，创建一个名为 <code>api_host</code> 的后端，指向您的API主机（<code>{apiHost}</code>）。
@@ -812,7 +812,7 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${encryptionKey
 
         <div className="h4 mt-4 mb-3">步骤5：设置负载缓存</div>
         <p>
-          设置一个 <strong>Fastly KV</strong> 存储，并使用GrowthBook <strong>SDK网络钩子</strong> 来保持GrowthBook和您的Fastly工作者之间的特性和实验值同步。这将消除从边缘到GrowthBook的网络请求。
+          设置一个 <strong>Fastly KV</strong> 存储，并使用CSII <strong>SDK网络钩子</strong> 来保持CSII和您的Fastly工作者之间的特性和实验值同步。这将消除从边缘到CSII的网络请求。
         </p>
 
         <div className="h4 mt-4 mb-3">进一步定制</div>
@@ -898,7 +898,7 @@ function buildEnv() {
         <div className="h4 mt-4 mb-3">进一步定制</div>
         <ul>
           <li>
-            设置一个边缘键值存储，如 <strong>DynamoDB</strong>，并使用GrowthBook <strong>SDK网络钩子</strong> 来保持GrowthBook和您的边缘工作者之间的特性和实验值同步。这将消除从边缘到GrowthBook的网络请求。
+            设置一个边缘键值存储，如 <strong>DynamoDB</strong>，并使用CSII <strong>SDK网络钩子</strong> 来保持CSII和您的边缘工作者之间的特性和实验值同步。这将消除从边缘到CSII的网络请求。
           </li>
           <li>
             通过设置 <code>{`RUN_URL_REDIRECT_EXPERIMENTS="everywhere"`}</code> 来在边缘启用URL重定向实验（默认关闭）。
@@ -978,7 +978,7 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${encryptionKey
         <div className="h4 mt-4 mb-3">进一步定制</div>
         <ul>
           <li>
-            设置一个边缘键值存储，并使用GrowthBook <strong>SDK网络钩子</strong> 来保持GrowthBook和您的边缘工作者之间的特性和实验值同步。这将消除从边缘到GrowthBook的网络请求。
+            设置一个边缘键值存储，并使用CSII <strong>SDK网络钩子</strong> 来保持CSII和您的边缘工作者之间的特性和实验值同步。这将消除从边缘到CSII的网络请求。
           </li>
           <li>
             通过设置 <code>{`RUN_URL_REDIRECT_EXPERIMENTS="everywise"`}</code> 来在边缘启用URL重定向实验（默认关闭）。

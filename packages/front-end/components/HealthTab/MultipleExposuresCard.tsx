@@ -46,7 +46,7 @@ export default function MultipleExposuresCard({ totalUsers, onNotify }: Props) {
   });
   useEffect(() => {
     if (health === "Issues detected") {
-      onNotify({ label: "Multiple Exposures", value: "multipleExposures" });
+      onNotify({ label: "多次曝光", value: "multipleExposures" });
     }
   }, [snapshot, health, onNotify]);
 
@@ -56,11 +56,11 @@ export default function MultipleExposuresCard({ totalUsers, onNotify }: Props) {
 
   return (
     <div className="appbox p-3">
-      <h2 className="d-inline">Multiple Exposures Check</h2>{" "}
+      <h2 className="d-inline">多次曝光检查</h2>{" "}
       {/* <p className="d-inline text-muted">{helpText}</p> */}
       {health && health !== "healthy" && <StatusBadge status={health} />}
       <p className="mt-1">
-        Detects whether units have been exposed to multiple variations
+        检测单位是否接触过多种变体
       </p>
       <hr></hr>
       <div className="row justify-content-start">
@@ -68,25 +68,23 @@ export default function MultipleExposuresCard({ totalUsers, onNotify }: Props) {
           {health === "healthy" ? (
             <div className="alert alert-info">
               {multipleExposures === 0 ? (
-                <b>Multiple exposures were not detected.</b>
+                <b>未检测到多次曝光情况。</b>
               ) : (
                 `${numberFormatter.format(
                   multipleExposures
-                )} multiple exposures detected, but that is below your threshold of ${percentFormatter.format(
+                )} 次多次曝光情况被检测到，但这低于您设定的阈值 ${percentFormatter.format(
                   MIN_PERCENT
                 )}`
               )}
             </div>
           ) : (
             <div className="alert alert-warning mb-0">
-              <strong>Multiple Exposures Warning</strong>.{" "}
-              {numberFormatter.format(multipleExposures)} users (
+              <strong>多次曝光警告</strong>.{" "}
+              {numberFormatter.format(multipleExposures)} 名用户 (
               {percentFormatter.format(
                 multipleExposures / (multipleExposures + totalUsers)
               )}
-              ) saw multiple variations and were automatically removed from
-              results. Check for bugs in your implementation, event tracking, or
-              data pipeline.
+              ) 接触过多种变体，这些用户已自动从结果中移除。请检查您的实现代码、事件跟踪或数据管道中是否存在错误。
             </div>
           )}
         </div>

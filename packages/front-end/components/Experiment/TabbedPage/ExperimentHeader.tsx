@@ -283,7 +283,7 @@ export default function ExperimentHeader({
               ) : null}
               {!verifiedConnections.length ? (
                 <div className="alert alert-warning">
-                  您尚未将GrowthBook集成到您的应用程序中。{" "}
+                  您尚未将CSII集成到您的应用程序中。{" "}
                   {connections.length > 0 ? (
                     <Link href="/sdks">管理SDK连接</Link>
                   ) : (

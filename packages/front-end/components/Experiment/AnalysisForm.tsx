@@ -765,7 +765,7 @@ const AnalysisForm: FC<{
                 goalDisabled={isBandit && experiment.status !== "draft"}
               />
 
-              {hasMetrics && !isBandit && (
+              {/* {hasMetrics && !isBandit && (
                 <div className="form-group mb-2">
                   <PremiumTooltip commercialFeature="override-metrics">
                     指标覆盖设置（可选）
@@ -796,7 +796,7 @@ const AnalysisForm: FC<{
                     />
                   )}
                 </div>
-              )}
+              )} */}
             </>
           )}
         </div>
