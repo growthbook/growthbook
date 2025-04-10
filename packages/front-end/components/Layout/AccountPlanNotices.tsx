@@ -3,7 +3,7 @@ import { FaExclamationTriangle } from "react-icons/fa";
 import { date, daysLeft } from "shared/dates";
 import { useState } from "react";
 import Link from "next/link";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -45,15 +45,15 @@ export default function AccountPlanNotices() {
   if (usage?.cdn.status === "approaching") {
     usageMessage = (
       <>
-        <div>
-          {upgradeModal && (
+        {upgradeModal && (
+          <div>
             <UpgradeModal
               close={() => setUpgradeModal(false)}
               source={"usage-approaching-topnav-notification"}
               commercialFeature="unlimited-cdn-usage"
             />
-          )}
-        </div>
+          </div>
+        )}
         <Tooltip body={usageTooltipBody}>
           <Box className={styles["warning-notification"]}>
             Approaching CDN usage limit.{" "}
@@ -67,15 +67,15 @@ export default function AccountPlanNotices() {
   } else if (usage?.cdn.status === "over") {
     usageMessage = (
       <>
-        <div>
-          {upgradeModal && (
+        {upgradeModal && (
+          <div>
             <UpgradeModal
               close={() => setUpgradeModal(false)}
               source={"usage-exceeded-topnav-notification"}
               commercialFeature="unlimited-cdn-usage"
             />
-          )}
-        </div>
+          </div>
+        )}
         <Tooltip body={usageTooltipBody}>
           <Box className={styles["error-notification"]}>
             CDN usage limit exceeded.{" "}
@@ -107,7 +107,7 @@ export default function AccountPlanNotices() {
       switch (licenseError) {
         case "Invalid license key signature":
           return (
-            <>
+            <Flex gap={"3"} align="center">
               {usageMessage}
               <Tooltip
                 body={
@@ -121,11 +121,11 @@ export default function AccountPlanNotices() {
                   <FaExclamationTriangle /> invalid license key signature
                 </Box>
               </Tooltip>
-            </>
+            </Flex>
           );
         case "License server unreachable for too long":
           return (
-            <>
+            <Flex gap={"3"} align="center">
               {usageMessage}
               <Tooltip
                 body={
@@ -136,22 +136,22 @@ export default function AccountPlanNotices() {
                   <FaExclamationTriangle /> license server unreachable
                 </Box>
               </Tooltip>
-            </>
+            </Flex>
           );
         case "License server erroring for too long":
           return (
-            <>
+            <Flex gap={"3"} align="center">
               {usageMessage}
               <Tooltip body={<>{license.lastServerErrorMessage}</>}>
                 <Box className={styles["error-notification"]}>
                   <FaExclamationTriangle /> license server error
                 </Box>
               </Tooltip>
-            </>
+            </Flex>
           );
         case "No support for SSO":
           return (
-            <>
+            <Flex gap={"3"} align="center">
               {usageMessage}
               <Tooltip
                 body={
@@ -165,11 +165,11 @@ export default function AccountPlanNotices() {
                   <FaExclamationTriangle /> invalid sso configuration
                 </Box>
               </Tooltip>
-            </>
+            </Flex>
           );
         case "No support for multi-org":
           return (
-            <>
+            <Flex gap={"3"} align="center">
               {usageMessage}
               <Tooltip
                 body={
@@ -183,7 +183,7 @@ export default function AccountPlanNotices() {
                   <FaExclamationTriangle /> invalid multi-org configuration
                 </Box>
               </Tooltip>
-            </>
+            </Flex>
           );
         case "License expired":
           // if the license expired more than 30 days ago, we don't show the notice
@@ -211,12 +211,18 @@ export default function AccountPlanNotices() {
                   </div>
                   <Tooltip
                     body={
-                      <Box className={styles["notice-tooltip"]}>
-                        Pro license expired {date(license.dateExpires || "")}.
-                        Click to upgrade, or go to{" "}
-                        <Link href="/settings/usage">Settings &gt; Usage</Link>{" "}
-                        to learn more.
-                      </Box>
+                      license.plan === "enterprise" ? (
+                        <>Contact sales@growthbook.io to renew.</>
+                      ) : (
+                        <Box className={styles["notice-tooltip"]}>
+                          Pro license expired {date(license.dateExpires || "")}.
+                          Click to upgrade, or go to{" "}
+                          <Link href="/settings/usage">
+                            Settings &gt; Usage
+                          </Link>{" "}
+                          to learn more.
+                        </Box>
+                      )
                     }
                   >
                     <Box className={styles["warning-notification"]}>
@@ -246,8 +252,8 @@ export default function AccountPlanNotices() {
                         <>Contact sales@growthbook.io to renew.</>
                       ) : (
                         <Box className={styles["notice-tooltip"]}>
-                          Pro license expired ${date(license.dateExpires || "")}
-                          . Click to upgrade, or go to{" "}
+                          Pro license expired {date(license.dateExpires || "")}.
+                          Click to upgrade, or go to{" "}
                           <Link href="/settings/usage">
                             Settings &gt; Usage
                           </Link>{" "}
@@ -257,7 +263,7 @@ export default function AccountPlanNotices() {
                     }
                   >
                     <Box className={styles["error-notification"]}>
-                      Approaching CDN usage limit.{" "}
+                      CDN usage limit exceeded.{" "}
                       <a href="#" onClick={() => setUpgradeModal(true)}>
                         Upgrade License
                       </a>
@@ -296,7 +302,11 @@ export default function AccountPlanNotices() {
                       {license.plan === "enterprise" ? (
                         badgeTextDiv
                       ) : (
-                        <a href="#" onClick={() => setUpgradeModal(true)}>
+                        <a
+                          href="#"
+                          onClick={() => setUpgradeModal(true)}
+                          style={{ textDecoration: "none" }}
+                        >
                           {badgeTextDiv}
                         </a>
                       )}
@@ -327,7 +337,7 @@ export default function AccountPlanNotices() {
           );
         case "Invalid license":
           return (
-            <>
+            <Flex gap={"3"} align="center">
               {usageMessage}
               <Tooltip
                 body={
@@ -341,11 +351,11 @@ export default function AccountPlanNotices() {
                   <FaExclamationTriangle /> invalid license
                 </Box>
               </Tooltip>
-            </>
+            </Flex>
           );
         case "License invalidated":
           return (
-            <>
+            <Flex gap={"3"} align="center">
               {usageMessage}
               <Tooltip
                 body={
@@ -359,11 +369,11 @@ export default function AccountPlanNotices() {
                   <FaExclamationTriangle /> license invalidated
                 </Box>
               </Tooltip>
-            </>
+            </Flex>
           );
         default:
           return (
-            <>
+            <Flex gap={"3"} align="center">
               {usageMessage}
               <Tooltip
                 body={<>Please contact support@growthbook.io for assistance.</>}
@@ -372,7 +382,7 @@ export default function AccountPlanNotices() {
                   <FaExclamationTriangle /> {licenseError.toLowerCase()}
                 </Box>
               </Tooltip>
-            </>
+            </Flex>
           );
       }
     }

@@ -103,7 +103,7 @@ export default function UpgradeModal({
     ? commercialFeatureLowestPlan?.[commercialFeature]
     : "starter";
   const featureFlagValue =
-    isCloud() && lowestPlan !== "enterprise"
+    isCloud() && lowestPlan !== "enterprise" && license?.plan !== "enterprise"
       ? growthbook.getFeatureValue("pro-upgrade-modal", "OFF")
       : "OFF";
   const daysToGo = license?.dateExpires ? daysLeft(license.dateExpires) : 0;
@@ -667,8 +667,10 @@ export default function UpgradeModal({
           includeCloseCta={featureFlagValue !== "OFF" ? true : false}
           close={close}
           size="lg"
-          header={null}
-          showHeaderCloseButton={false}
+          header={
+            featureFlagValue === "OFF" ? <>Get more out of GrowthBook</> : null
+          }
+          showHeaderCloseButton={featureFlagValue === "OFF" ? true : false}
           loading={loading}
           cta={
             <>
