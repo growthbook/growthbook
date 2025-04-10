@@ -19,7 +19,7 @@ export const safeRollout = z.object({
   seed: z.string(),
   guardrailMetrics: z.array(z.string()),
   status: z.enum(safeRolloutStatus),
-  startedAt: z.date(),
+  startedAt: z.date().optional(),
   lastSnapshotAttempt: z.date().optional(),
   nextSnapshotAttempt: z.date().optional(),
   autoSnapshots: z.boolean().default(true),

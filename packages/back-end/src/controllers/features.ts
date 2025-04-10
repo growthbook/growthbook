@@ -121,7 +121,6 @@ import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
 import { FeatureUsageLookback } from "back-end/src/types/Integration";
 import { getChangesToStartExperiment } from "back-end/src/services/experiments";
 import { getMetricMap } from "back-end/src/models/MetricModel";
-import { safeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
     super(message);
@@ -1246,7 +1245,7 @@ export async function postFeatureRule(
       autoSnapshots: true,
       coverage: 0,
       controlValue: rule.controlValue,
-      variationValue: rule.variationValue,
+      variationValue: rule.value,
       status: "draft",
     });
   }

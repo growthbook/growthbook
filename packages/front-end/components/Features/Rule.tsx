@@ -25,7 +25,6 @@ import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/Experi
 import Callout from "@/components/Radix/Callout";
 import SafeRolloutSummary from "@/components/Features/SafeRolloutSummary";
 import SafeRolloutSnapshotProvider from "@/components/SafeRollout/SnapshotProvider";
-import SafeRolloutDetails from "../SafeRollout/SafeRolloutDetails";
 import DecisionBanner from "../SafeRollout/DecisionBanner";
 import ConditionDisplay from "./ConditionDisplay";
 import ForceSummary from "./ForceSummary";
@@ -294,10 +293,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       />
                       {/* TODO: Once modal exists to change Safe Rollout status, plug in setStatusModalOpen here */}
                       <DecisionBanner openStatusModal={() => undefined} />
-                      <SafeRolloutDetails
+                      {/* <SafeRolloutDetails
                         safeRollout={rule}
                         feature={feature}
-                      />
+                      /> */}
                     </SafeRolloutSnapshotProvider>
                   )}
                   {rule.type === "experiment" && (
