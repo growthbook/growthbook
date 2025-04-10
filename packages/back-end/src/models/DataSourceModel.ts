@@ -155,10 +155,34 @@ export async function removeProjectFromDatasources(
   project: string,
   organization: string
 ) {
-  await DataSourceModel.updateMany(
-    { organization, projects: project },
-    { $pull: { projects: project } }
-  );
+  // Find all data sources with this project
+  const datasources = await DataSourceModel.find({
+    organization,
+    projects: project,
+  });
+
+  // Update each data source to remove the project
+  if (datasources.length > 0) {
+    const writeOperations = datasources.map((datasource) => {
+      const updatedProjects = (datasource.projects || []).filter(
+        (p) => p !== project
+      );
+
+      return {
+        updateOne: {
+          filter: { _id: datasource._id },
+          update: {
+            $set: {
+              projects: updatedProjects,
+              dateUpdated: new Date(),
+            },
+          },
+        },
+      };
+    });
+
+    await DataSourceModel.bulkWrite(writeOperations);
+  }
 }
 
 export async function deleteDatasource(

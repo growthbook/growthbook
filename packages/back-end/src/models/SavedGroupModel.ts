@@ -134,10 +134,24 @@ export async function removeProjectFromSavedGroups(
   project: string,
   organization: string
 ) {
-  await SavedGroupModel.updateMany(
-    { organization, projects: project },
-    { $pull: { projects: project } }
-  );
+  // Find all saved groups containing this project
+  const savedGroups = await SavedGroupModel.find({
+    organization,
+    projects: project,
+  });
+
+  // Update each saved group to remove the project
+  for (const group of savedGroups) {
+    await SavedGroupModel.updateOne(
+      { _id: group._id },
+      {
+        $set: {
+          projects: (group.projects || []).filter((p) => p !== project),
+          dateUpdated: new Date(),
+        },
+      }
+    );
+  }
 }
 
 export async function deleteSavedGroupById(id: string, organization: string) {

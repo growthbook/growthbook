@@ -368,12 +368,24 @@ export const removeTagFromSlackIntegration = async ({
   organizationId,
   tag,
 }: RemoveTagOptions): Promise<void> => {
-  await SlackIntegrationModel.updateMany(
-    { organizationId, tags: tag },
-    {
-      $pull: { tags: tag },
-    }
-  );
+  // Find all slack integrations containing this tag
+  const slackIntegrations = await SlackIntegrationModel.find({
+    organizationId,
+    tags: tag,
+  });
+
+  // Update each integration to remove the tag
+  for (const integration of slackIntegrations) {
+    await SlackIntegrationModel.updateOne(
+      { _id: integration._id },
+      {
+        $set: {
+          tags: integration.tags.filter((t) => t !== tag),
+          dateUpdated: new Date(),
+        },
+      }
+    );
+  }
 };
 
 type RemoveProjectOptions = {
@@ -385,12 +397,24 @@ export const removeProjectFromSlackIntegration = async ({
   organizationId,
   projectId,
 }: RemoveProjectOptions) => {
-  await SlackIntegrationModel.updateMany(
-    { organizationId, projects: projectId },
-    {
-      $pull: { projects: projectId },
-    }
-  );
+  // Find all slack integrations containing this project
+  const slackIntegrations = await SlackIntegrationModel.find({
+    organizationId,
+    projects: projectId,
+  });
+
+  // Update each integration to remove the project
+  for (const integration of slackIntegrations) {
+    await SlackIntegrationModel.updateOne(
+      { _id: integration._id },
+      {
+        $set: {
+          projects: integration.projects.filter((id) => id !== projectId),
+          dateUpdated: new Date(),
+        },
+      }
+    );
+  }
 };
 
 type RemoveEnvironmentOptions = {
@@ -402,12 +426,24 @@ export const removeEnvironmentFromSlackIntegration = async ({
   organizationId,
   envId,
 }: RemoveEnvironmentOptions) => {
-  await SlackIntegrationModel.updateMany(
-    { organizationId, environments: envId },
-    {
-      $pull: { environments: envId },
-    }
-  );
+  // Find all slack integrations containing this environment
+  const slackIntegrations = await SlackIntegrationModel.find({
+    organizationId,
+    environments: envId,
+  });
+
+  // Update each integration to remove the environment
+  for (const integration of slackIntegrations) {
+    await SlackIntegrationModel.updateOne(
+      { _id: integration._id },
+      {
+        $set: {
+          environments: integration.environments.filter((id) => id !== envId),
+          dateUpdated: new Date(),
+        },
+      }
+    );
+  }
 };
 
 // endregion Delete

@@ -61,20 +61,58 @@ export async function upsertWatch({
   item,
   type,
 }: UpdateWatchOptions): Promise<UpdateResult> {
-  return await WatchModel.updateOne(
-    {
+  // First try to find the existing watch document
+  const doc = await WatchModel.findOne({
+    userId,
+    organization,
+  });
+
+  if (doc) {
+    // Get current items or initialize empty array
+    const currentItems = doc[type] || [];
+
+    // Only add the item if it doesn't already exist
+    if (!currentItems.includes(item)) {
+      const updatedItems = [...currentItems, item];
+
+      return await WatchModel.updateOne(
+        {
+          userId,
+          organization,
+        },
+        {
+          $set: {
+            [type]: updatedItems,
+          },
+        }
+      );
+    }
+
+    // Item already exists, no update needed
+    return {
+      acknowledged: true,
+      modifiedCount: 0,
+      upsertedCount: 0,
+      upsertedId: undefined,
+      matchedCount: 1,
+    };
+  } else {
+    // Document doesn't exist, create a new one
+    const newDoc = {
       userId,
       organization,
-    },
-    {
-      $addToSet: {
-        [type]: item,
-      },
-    },
-    {
-      upsert: true,
-    }
-  );
+      [type]: [item],
+    };
+
+    const result = await WatchModel.create(newDoc);
+    return {
+      acknowledged: true,
+      modifiedCount: 0,
+      upsertedCount: 1,
+      upsertedId: result._id,
+      matchedCount: 0,
+    };
+  }
 }
 
 export async function deleteWatchedByEntity({
@@ -83,14 +121,38 @@ export async function deleteWatchedByEntity({
   type,
   item,
 }: UpdateWatchOptions): Promise<UpdateResult> {
+  // Find the document
+  const doc = await WatchModel.findOne({
+    userId,
+    organization,
+  });
+
+  // If no document found, nothing to delete
+  if (!doc) {
+    return {
+      acknowledged: true,
+      modifiedCount: 0,
+      upsertedCount: 0,
+      upsertedId: undefined,
+      matchedCount: 0,
+    };
+  }
+
+  // Get current items or initialize empty array
+  const currentItems = doc[type] || [];
+
+  // Remove the item from the array
+  const updatedItems = currentItems.filter((i) => i !== item);
+
+  // Update the document
   return await WatchModel.updateOne(
     {
-      userId: userId,
-      organization: organization,
+      userId,
+      organization,
     },
     {
-      $pull: {
-        [type]: item,
+      $set: {
+        [type]: updatedItems,
       },
     }
   );

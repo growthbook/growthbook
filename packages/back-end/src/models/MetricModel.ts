@@ -423,13 +423,25 @@ export async function removeProjectFromMetrics(
   project: string,
   organization: string
 ) {
-  await MetricModel.updateMany(
-    { organization, projects: project },
-    {
-      $pull: { projects: project },
-      $set: { dateUpdated: new Date() },
-    }
-  );
+  // First find all metrics that contain this project
+  const metrics = await MetricModel.find({ organization, projects: project });
+
+  // For each metric, update the projects array without the removed project
+  for (const metric of metrics) {
+    const updatedProjects = (metric.projects || []).filter(
+      (p) => p !== project
+    );
+
+    await MetricModel.updateOne(
+      { _id: metric._id },
+      {
+        $set: {
+          projects: updatedProjects,
+          dateUpdated: new Date(),
+        },
+      }
+    );
+  }
 }
 
 export async function getMetricsUsingSegment(
@@ -542,11 +554,21 @@ export async function removeSegmentFromAllMetrics(
 }
 
 export async function removeTagInMetrics(organization: string, tag: string) {
-  await MetricModel.updateMany(
-    { organization, tags: tag },
-    {
-      $set: { dateUpdated: new Date() },
-      $pull: { tags: tag },
-    }
-  );
+  // First find all metrics that contain this tag
+  const metrics = await MetricModel.find({ organization, tags: tag });
+
+  // For each metric, update the tags array without the removed tag
+  for (const metric of metrics) {
+    const updatedTags = (metric.tags || []).filter((t) => t !== tag);
+
+    await MetricModel.updateOne(
+      { _id: metric._id },
+      {
+        $set: {
+          tags: updatedTags,
+          dateUpdated: new Date(),
+        },
+      }
+    );
+  }
 }

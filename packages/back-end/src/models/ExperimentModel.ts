@@ -998,9 +998,23 @@ export const removeTagFromExperiments = async ({
   const query = { organization: context.org.id, tags: tag };
   const previousExperiments = await findExperiments(context, query);
 
-  await ExperimentModel.updateMany(query, {
-    $pull: { tags: tag },
-  });
+  if (previousExperiments.length > 0) {
+    const writeOperations = previousExperiments.map((experiment) => {
+      return {
+        updateOne: {
+          filter: { id: experiment.id, organization: experiment.organization },
+          update: {
+            $set: {
+              tags: experiment.tags.filter((t) => t !== tag),
+              dateUpdated: new Date(),
+            },
+          },
+        },
+      };
+    });
+
+    await ExperimentModel.bulkWrite(writeOperations);
+  }
 
   logAllChanges(context, previousExperiments, (exp) => ({
     ...exp,
@@ -1051,35 +1065,64 @@ export async function removeMetricFromExperiments(
     }
   });
 
-  // Remove from metrics
-  await ExperimentModel.updateMany(oldMetricQuery, {
-    $pull: { metrics: metricId },
-  });
+  // Update each experiment to remove the metric from different arrays
+  for (const experiment of docsToTrackChanges) {
+    const updates: Record<string, any> = {
+      dateUpdated: new Date(),
+    };
 
-  // Remove from guardrails
-  await ExperimentModel.updateMany(oldGuardRailsQuery, {
-    $pull: { guardrails: metricId },
-  });
+    // Remove from metrics
+    if (experiment.metrics && experiment.metrics.includes(metricId)) {
+      updates.metrics = experiment.metrics.filter(
+        (id: string) => id !== metricId
+      );
+    }
 
-  // Remove from goalMetrics
-  await ExperimentModel.updateMany(goalQuery, {
-    $pull: { goalMetrics: metricId },
-  });
+    // Remove from guardrails
+    if (experiment.guardrails && experiment.guardrails.includes(metricId)) {
+      updates.guardrails = experiment.guardrails.filter(
+        (id: string) => id !== metricId
+      );
+    }
 
-  // Remove from secondaryMetrics
-  await ExperimentModel.updateMany(secondaryQuery, {
-    $pull: { secondaryMetrics: metricId },
-  });
+    // Remove from goalMetrics
+    if (experiment.goalMetrics && experiment.goalMetrics.includes(metricId)) {
+      updates.goalMetrics = experiment.goalMetrics.filter(
+        (id: string) => id !== metricId
+      );
+    }
 
-  // Remove from guardrailMetrics
-  await ExperimentModel.updateMany(guardrailQuery, {
-    $pull: { guardrailMetrics: metricId },
-  });
+    // Remove from secondaryMetrics
+    if (
+      experiment.secondaryMetrics &&
+      experiment.secondaryMetrics.includes(metricId)
+    ) {
+      updates.secondaryMetrics = experiment.secondaryMetrics.filter(
+        (id: string) => id !== metricId
+      );
+    }
 
-  // Remove from activationMetric
-  await ExperimentModel.updateMany(activationMetricQuery, {
-    $set: { activationMetric: "" },
-  });
+    // Remove from guardrailMetrics
+    if (
+      experiment.guardrailMetrics &&
+      experiment.guardrailMetrics.includes(metricId)
+    ) {
+      updates.guardrailMetrics = experiment.guardrailMetrics.filter(
+        (id: string) => id !== metricId
+      );
+    }
+
+    // Remove from activationMetric
+    if (experiment.activationMetric === metricId) {
+      updates.activationMetric = "";
+    }
+
+    // Apply all updates at once
+    await ExperimentModel.updateOne(
+      { id: experiment.id, organization: orgId },
+      { $set: updates }
+    );
+  }
 
   const ids = Object.keys(oldExperiments);
 
@@ -1146,14 +1189,18 @@ export async function addLinkedFeatureToExperiment(
 
   if (experiment.linkedFeatures?.includes(featureId)) return;
 
+  // Create new linkedFeatures array with the featureId added
+  const linkedFeatures = [...(experiment.linkedFeatures || []), featureId];
+
   await ExperimentModel.updateOne(
     {
       id: experimentId,
       organization: context.org.id,
     },
     {
-      $addToSet: {
-        linkedFeatures: featureId,
+      $set: {
+        linkedFeatures,
+        dateUpdated: new Date(),
       },
     }
   );
@@ -1163,7 +1210,7 @@ export async function addLinkedFeatureToExperiment(
     oldExperiment: experiment,
     newExperiment: {
       ...experiment,
-      linkedFeatures: [...(experiment.linkedFeatures || []), featureId],
+      linkedFeatures,
     },
   }).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload on experiment update");
@@ -1184,14 +1231,19 @@ export async function removeLinkedFeatureFromExperiment(
 
   if (!experiment.linkedFeatures?.includes(featureId)) return;
 
+  const linkedFeatures = experiment.linkedFeatures.filter(
+    (id) => id !== featureId
+  );
+
   await ExperimentModel.updateOne(
     {
       id: experimentId,
       organization: context.org.id,
     },
     {
-      $pull: {
-        linkedFeatures: featureId,
+      $set: {
+        linkedFeatures,
+        dateUpdated: new Date(),
       },
     }
   );
@@ -1201,9 +1253,7 @@ export async function removeLinkedFeatureFromExperiment(
     oldExperiment: experiment,
     newExperiment: {
       ...experiment,
-      linkedFeatures: (experiment.linkedFeatures || []).filter(
-        (f) => f !== featureId
-      ),
+      linkedFeatures,
     },
   }).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload on experiment update");
@@ -1358,7 +1408,7 @@ export const getAllVisualExperiments = async (
       // Exclude experiments from SDK payload
       if (!includeExperimentInPayload(e.experiment)) return false;
 
-      // Exclude experiments that are stopped and the released variation doesn’t have any visual changes
+      // Exclude experiments that are stopped and the released variation doesn't have any visual changes
       if (
         e.experiment.status === "stopped" &&
         !hasVisualChangesForVariation(
@@ -1389,7 +1439,7 @@ export const getAllURLRedirectExperiments = async (
     // Exclude experiments from SDK payload
     if (!includeExperimentInPayload(experiment)) return;
 
-    // Exclude experiments that are stopped and the released variation doesn’t have a destination URL
+    // Exclude experiments that are stopped and the released variation doesn't have a destination URL
     if (experiment.status === "stopped") {
       const destination = r.destinationURLs.find(
         (d) => d.variation === experiment.releasedVariationId

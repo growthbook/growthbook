@@ -303,20 +303,34 @@ export async function addOrUpdateSnapshotAnalysis(
   params: AddOrUpdateSnapshotAnalysisParams
 ) {
   const { organization, id, analysis } = params;
-  // looks for snapshots with this ID but WITHOUT these analysis settings
-  const experimentSnapshotModel = await ExperimentSnapshotModel.updateOne(
-    {
-      organization,
-      id,
-      "analyses.settings": { $ne: analysis.settings },
-    },
-    {
-      $push: { analyses: analysis },
-    }
-  );
-  // if analysis already exist, no documents will be returned by above query
-  // so instead find and update existing analysis in DB
-  if (experimentSnapshotModel.matchedCount === 0) {
+
+  // Find the snapshot document
+  const snapshot = await ExperimentSnapshotModel.findOne({
+    organization,
+    id,
+    "analyses.settings": { $ne: analysis.settings },
+  });
+
+  // If found and this analysis doesn't exist yet, append it
+  if (snapshot) {
+    // Get the current analyses array or initialize an empty one
+    const analyses = snapshot.analyses || [];
+
+    // Append the new analysis
+    const updatedAnalyses = [...analyses, analysis];
+
+    // Update with $set instead of $push
+    await ExperimentSnapshotModel.updateOne(
+      {
+        organization,
+        id,
+      },
+      {
+        $set: { analyses: updatedAnalyses },
+      }
+    );
+  } else {
+    // If analysis already exists, update it
     await updateSnapshotAnalysis({ organization, id, analysis });
   }
 }
@@ -471,55 +485,71 @@ export async function getLatestSnapshotMultipleExperiments(
   withResults: boolean = true
 ): Promise<ExperimentSnapshotInterface[]> {
   const experimentPhasesToGet = new Map(experimentPhaseMap);
+  const experiments = Array.from(experimentPhasesToGet.keys());
+  if (!experiments.length) return [];
+
   const query: FilterQuery<ExperimentSnapshotDocument> = {
-    experiment: { $in: Array.from(experimentPhasesToGet.keys()) },
-    dimension: dimension || null,
-    ...(withResults
-      ? {
-          $or: [
-            { status: "success" },
-            // get old snapshots if status field is missing
-            { results: { $exists: true, $type: "array", $ne: [] } },
-          ],
-        }
-      : {}),
+    experiment: { $in: experiments },
+    dimension: dimension || "",
   };
 
-  const aggregatePipeline: PipelineStage[] = [
-    // find all snapshots for those experiments matching dimension and result status
-    { $match: query },
-    // sort so latest is first
-    { $sort: { dateCreated: -1 } },
-    // group by experiment-phase and call latest snapshot `latestSnapshot`
-    {
-      $group: {
-        _id: { experiment: "$experiment", phase: "$phase" },
-        latestSnapshot: { $first: "$$ROOT" },
-      },
-    },
-    // take latest snapshot and put it at the top level so we return an array of snapshots
-    {
-      $replaceRoot: { newRoot: "$latestSnapshot" },
-    },
-  ];
+  // Only return snapshots where we have results if `withResults` is true
+  if (withResults) {
+    query["analyses.0.results.0"] = { $exists: true };
+  }
 
-  const all = await ExperimentSnapshotModel.aggregate<ExperimentSnapshotDocument>(
-    aggregatePipeline
-  ).exec();
+  // Find all matching snapshots
+  const allSnapshots = await ExperimentSnapshotModel.find(query);
 
+  // Group by experiment and phase
+  const groupedSnapshots = new Map<
+    string,
+    Map<number, ExperimentSnapshotDocument[]>
+  >();
+
+  allSnapshots.forEach((snapshot) => {
+    const key = snapshot.experiment;
+    if (!groupedSnapshots.has(key)) {
+      groupedSnapshots.set(key, new Map());
+    }
+
+    const phaseMap = groupedSnapshots.get(key)!;
+    const phase = snapshot.phase;
+
+    if (!phaseMap.has(phase)) {
+      phaseMap.set(phase, []);
+    }
+
+    phaseMap.get(phase)!.push(snapshot);
+  });
+
+  // Find the latest snapshot for each experiment-phase
   const snapshots: ExperimentSnapshotInterface[] = [];
-  if (all[0]) {
-    // get interfaces matching the right phase
-    all.forEach((doc) => {
-      // aggregate returns document directly, no need for toJSON
-      const snapshot = migrateSnapshot(omit(doc, ["__v", "_id"]));
-      const desiredPhase = experimentPhaseMap.get(snapshot.experiment);
-      if (desiredPhase !== undefined && snapshot.phase === desiredPhase) {
-        snapshots.push(snapshot);
-        experimentPhasesToGet.delete(snapshot.experiment);
+
+  groupedSnapshots.forEach((phaseMap, experiment) => {
+    phaseMap.forEach((phaseSnapshots, phase) => {
+      // Sort snapshots by dateCreated (descending)
+      phaseSnapshots.sort(
+        (a, b) => b.dateCreated.getTime() - a.dateCreated.getTime()
+      );
+
+      // Take the latest snapshot
+      const latest = phaseSnapshots[0];
+      if (latest) {
+        // Convert to JSON and then to interface
+        const latestInterface = toInterface(latest);
+        const desiredPhase = experimentPhaseMap.get(latestInterface.experiment);
+
+        if (
+          desiredPhase !== undefined &&
+          latestInterface.phase === desiredPhase
+        ) {
+          snapshots.push(latestInterface);
+          experimentPhasesToGet.delete(latestInterface.experiment);
+        }
       }
     });
-  }
+  });
 
   return snapshots;
 }

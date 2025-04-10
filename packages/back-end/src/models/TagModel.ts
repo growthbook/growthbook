@@ -46,17 +46,32 @@ export async function addTags(organization: string, tags: string[]) {
   );
   if (!tags.length) return;
 
-  await TagModel.updateOne(
-    { organization },
-    {
-      $addToSet: {
-        tags: { $each: tags },
-      },
-    },
-    {
-      upsert: true,
-    }
-  );
+  // First get the existing document
+  const existing = await TagModel.findOne({ organization });
+
+  if (existing) {
+    // Get current tags
+    const currentTags = existing.tags || [];
+
+    // Add only the new tags that don't already exist
+    const uniqueTags = [...new Set([...currentTags, ...tags])];
+
+    await TagModel.updateOne(
+      { organization },
+      {
+        $set: {
+          tags: uniqueTags,
+        },
+      }
+    );
+  } else {
+    // Create a new document
+    await TagModel.create({
+      organization,
+      tags,
+      settings: {},
+    });
+  }
 }
 
 export async function addTag(
@@ -77,34 +92,67 @@ export async function addTag(
   const existing = await TagModel.findOne({
     organization,
   });
-  const settings = existing?.settings || {};
-  settings[tag] = { color, description };
+
+  if (existing) {
+    // Get current tags
+    const currentTags = existing.tags || [];
+
+    // Only add if tag doesn't already exist
+    const updatedTags = currentTags.includes(tag)
+      ? currentTags
+      : [...currentTags, tag];
+
+    // Update settings
+    const settings: Record<string, { color: string; description: string }> =
+      existing.settings || {};
+    settings[tag] = { color, description };
+
+    await TagModel.updateOne(
+      { organization },
+      {
+        $set: {
+          tags: updatedTags,
+          settings,
+        },
+      }
+    );
+  } else {
+    // Create new document
+    const settings: Record<string, { color: string; description: string }> = {};
+    settings[tag] = { color, description };
+
+    await TagModel.create({
+      organization,
+      tags: [tag],
+      settings,
+    });
+  }
+}
+
+export async function removeTag(organization: string, tag: string) {
+  // First get the existing document
+  const existing = await TagModel.findOne({ organization });
+
+  if (!existing) {
+    return; // Nothing to remove
+  }
+
+  // Filter out the tag to remove
+  const updatedTags = (existing.tags || []).filter((t) => t !== tag);
+
+  // Remove from settings if it exists
+  const settings = existing.settings || {};
+  if (settings[tag]) {
+    delete settings[tag];
+  }
 
   await TagModel.updateOne(
     { organization },
     {
-      $addToSet: {
-        tags: tag,
-      },
       $set: {
-        // Need to set the entire settings object, not just settings.{tag},
-        // since tags can contains dots in the name
+        tags: updatedTags,
         settings,
       },
-    },
-    {
-      upsert: true,
-    }
-  );
-}
-
-export async function removeTag(organization: string, tag: string) {
-  await TagModel.updateOne(
-    {
-      organization,
-    },
-    {
-      $pull: { tags: tag },
     }
   );
 }

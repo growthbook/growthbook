@@ -613,12 +613,25 @@ export async function activateRoleById(org: OrganizationInterface, id: string) {
 }
 
 export async function addGetStartedChecklistItem(id: string, item: string) {
-  await OrganizationModel.updateOne(
-    {
-      id,
-    },
-    {
-      $addToSet: { getStartedChecklistItems: item },
-    }
-  );
+  // First get the organization to access its checklist items
+  const organization = await OrganizationModel.findOne({ id });
+
+  if (!organization) {
+    throw new Error("Organization not found");
+  }
+
+  // Get current checklist items or initialize empty array
+  const currentItems = organization.getStartedChecklistItems || [];
+
+  // Only add the item if it doesn't already exist
+  if (!currentItems.includes(item)) {
+    const updatedItems = [...currentItems, item];
+
+    await OrganizationModel.updateOne(
+      { id },
+      {
+        $set: { getStartedChecklistItems: updatedItems },
+      }
+    );
+  }
 }

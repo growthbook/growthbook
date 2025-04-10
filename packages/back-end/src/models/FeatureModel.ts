@@ -635,14 +635,32 @@ export async function addLinkedExperiment(
 ) {
   if (feature.linkedExperiments?.includes(experimentId)) return;
 
-  await FeatureModel.updateOne(
-    { organization: feature.organization, id: feature.id },
-    {
-      $addToSet: {
-        linkedExperiments: experimentId,
-      },
-    }
-  );
+  // Get the current feature document
+  const doc = await FeatureModel.findOne({
+    organization: feature.organization,
+    id: feature.id,
+  });
+
+  if (!doc) {
+    throw new Error("Feature not found");
+  }
+
+  // Get current linkedExperiments or initialize empty array
+  const linkedExperiments = doc.linkedExperiments || [];
+
+  // Add the new experiment ID if it's not already included
+  if (!linkedExperiments.includes(experimentId)) {
+    const updatedLinkedExperiments = [...linkedExperiments, experimentId];
+
+    await FeatureModel.updateOne(
+      { organization: feature.organization, id: feature.id },
+      {
+        $set: {
+          linkedExperiments: updatedLinkedExperiments,
+        },
+      }
+    );
+  }
 }
 
 export async function getScheduledFeaturesToUpdate() {
@@ -831,12 +849,25 @@ export async function removeTagInFeature(
   const query = { organization: context.org.id, tags: tag };
 
   const featureDocs = await FeatureModel.find(query);
-  const features = (featureDocs || []).map((m) => toInterface(m, context));
 
-  await FeatureModel.updateMany(query, {
-    $pull: { tags: tag },
-  });
+  // No need to proceed if no features are found
+  if (!featureDocs.length) return;
 
+  const features = featureDocs.map((m) => toInterface(m, context));
+
+  // Update each feature to remove the tag
+  for (const featureDoc of featureDocs) {
+    const updatedTags = (featureDoc.tags || []).filter((t) => t !== tag);
+
+    await FeatureModel.updateOne(
+      { _id: featureDoc._id },
+      {
+        $set: { tags: updatedTags },
+      }
+    );
+  }
+
+  // Handle side effects
   features.forEach((feature) => {
     const updatedFeature = {
       ...feature,

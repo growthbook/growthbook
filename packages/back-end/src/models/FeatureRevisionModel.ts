@@ -365,6 +365,28 @@ export async function updateRevision(
   if (resetReview && revision.status === "approved") {
     status = "pending-review";
   }
+
+  // First get the current document to access its log array
+  const doc = await FeatureRevisionModel.findOne({
+    organization: revision.organization,
+    featureId: revision.featureId,
+    version: revision.version,
+  });
+
+  if (!doc) {
+    throw new Error("Revision not found");
+  }
+
+  // Create updated log array with the new log entry
+  const updatedLog = [
+    ...(doc.log || []),
+    {
+      ...log,
+      timestamp: new Date(),
+    },
+  ];
+
+  // Update with $set instead of $push
   await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
@@ -372,12 +394,11 @@ export async function updateRevision(
       version: revision.version,
     },
     {
-      $set: { ...changes, status, dateUpdated: new Date() },
-      $push: {
-        log: {
-          ...log,
-          timestamp: new Date(),
-        },
+      $set: {
+        ...changes,
+        status,
+        dateUpdated: new Date(),
+        log: updatedLog,
       },
     }
   );
@@ -398,6 +419,21 @@ export async function markRevisionAsPublished(
     value: JSON.stringify(comment ? { comment } : {}),
   };
   const revisionComment = revision.comment ? revision.comment : comment;
+
+  // First get the current document to access its log array
+  const doc = await FeatureRevisionModel.findOne({
+    organization: revision.organization,
+    featureId: revision.featureId,
+    version: revision.version,
+  });
+
+  if (!doc) {
+    throw new Error("Revision not found");
+  }
+
+  // Create updated log array with the new log entry
+  const updatedLog = [...(doc.log || []), log];
+
   await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
@@ -411,9 +447,7 @@ export async function markRevisionAsPublished(
         datePublished: new Date(),
         dateUpdated: new Date(),
         comment: revisionComment,
-      },
-      $push: {
-        log,
+        log: updatedLog,
       },
     }
   );
@@ -433,6 +467,21 @@ export async function markRevisionAsReviewRequested(
     user,
     value: JSON.stringify(comment ? { comment } : {}),
   };
+
+  // First get the current document to access its log array
+  const doc = await FeatureRevisionModel.findOne({
+    organization: revision.organization,
+    featureId: revision.featureId,
+    version: revision.version,
+  });
+
+  if (!doc) {
+    throw new Error("Revision not found");
+  }
+
+  // Create updated log array with the new log entry
+  const updatedLog = [...(doc.log || []), log];
+
   await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
@@ -445,9 +494,7 @@ export async function markRevisionAsReviewRequested(
         datePublished: null,
         dateUpdated: new Date(),
         comment: comment,
-      },
-      $push: {
-        log,
+        log: updatedLog,
       },
     }
   );
@@ -480,6 +527,20 @@ export async function submitReviewAndComments(
     value: JSON.stringify(comment ? { comment } : {}),
   };
 
+  // First get the current document to access its log array
+  const doc = await FeatureRevisionModel.findOne({
+    organization: revision.organization,
+    featureId: revision.featureId,
+    version: revision.version,
+  });
+
+  if (!doc) {
+    throw new Error("Revision not found");
+  }
+
+  // Create updated log array with the new log entry
+  const updatedLog = [...(doc.log || []), log];
+
   await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
@@ -491,9 +552,7 @@ export async function submitReviewAndComments(
         status,
         datePublished: null,
         dateUpdated: new Date(),
-      },
-      $push: {
-        log,
+        log: updatedLog,
       },
     }
   );
@@ -515,6 +574,20 @@ export async function discardRevision(
     value: JSON.stringify({}),
   };
 
+  // First get the current document to access its log array
+  const doc = await FeatureRevisionModel.findOne({
+    organization: revision.organization,
+    featureId: revision.featureId,
+    version: revision.version,
+  });
+
+  if (!doc) {
+    throw new Error("Revision not found");
+  }
+
+  // Create updated log array with the new log entry
+  const updatedLog = [...(doc.log || []), log];
+
   await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
@@ -522,9 +595,10 @@ export async function discardRevision(
       version: revision.version,
     },
     {
-      $set: { status: "discarded", dateUpdated: new Date() },
-      $push: {
-        log,
+      $set: {
+        status: "discarded",
+        dateUpdated: new Date(),
+        log: updatedLog,
       },
     }
   );

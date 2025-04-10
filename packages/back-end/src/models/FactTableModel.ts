@@ -325,6 +325,19 @@ export async function createFactFilter(
     throw new Error("Filter id already exists in this fact table");
   }
 
+  // First get the current document
+  const doc = await FactTableModel.findOne({
+    id: factTable.id,
+    organization: factTable.organization,
+  });
+
+  if (!doc) {
+    throw new Error("Fact table not found");
+  }
+
+  // Append the new filter to the existing filters
+  const updatedFilters = [...doc.filters, filter];
+
   await FactTableModel.updateOne(
     {
       id: factTable.id,
@@ -333,9 +346,7 @@ export async function createFactFilter(
     {
       $set: {
         dateUpdated: new Date(),
-      },
-      $push: {
-        filters: filter,
+        filters: updatedFilters,
       },
     }
   );
