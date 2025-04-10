@@ -49,6 +49,7 @@ export default function AccountPlanNotices() {
           <div>
             <UpgradeModal
               close={() => setUpgradeModal(false)}
+              reason=""
               source={"usage-approaching-topnav-notification"}
               commercialFeature="unlimited-cdn-usage"
             />
@@ -71,6 +72,7 @@ export default function AccountPlanNotices() {
           <div>
             <UpgradeModal
               close={() => setUpgradeModal(false)}
+              reason=""
               source={"usage-exceeded-topnav-notification"}
               commercialFeature="unlimited-cdn-usage"
             />
@@ -204,6 +206,7 @@ export default function AccountPlanNotices() {
                     {upgradeModal && (
                       <UpgradeModal
                         close={() => setUpgradeModal(false)}
+                        reason=""
                         source={"topnav-expired-notification"}
                         commercialFeature={null}
                       />
@@ -241,6 +244,7 @@ export default function AccountPlanNotices() {
                     {upgradeModal && (
                       <UpgradeModal
                         close={() => setUpgradeModal(false)}
+                        reason=""
                         source={"topnav-expired-notification"}
                         commercialFeature={null}
                       />
@@ -278,6 +282,7 @@ export default function AccountPlanNotices() {
                     {upgradeModal && (
                       <UpgradeModal
                         close={() => setUpgradeModal(false)}
+                        reason=""
                         source={"topnav-expired-notification"}
                         commercialFeature={null}
                       />
