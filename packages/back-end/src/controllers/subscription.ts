@@ -34,6 +34,7 @@ import {
   updateDefaultPaymentMethod,
   getPaymentMethodsByLicenseKey,
 } from "back-end/src/enterprise/billing/index";
+import { getUsage as getOrgUsage } from "back-end/src/enterprise/billing/index";
 
 function withLicenseServerErrorHandling<T>(
   fn: (req: AuthRequest<T>, res: Response) => Promise<void>
@@ -426,7 +427,7 @@ export async function getUsage(
 
   const {
     limits: { requests: cdnRequests, bandwidth: cdnBandwidth },
-  } = await context.usage();
+  } = await getOrgUsage(org, true);
 
   res.json({ status: 200, cdnUsage, limits: { cdnRequests, cdnBandwidth } });
 }

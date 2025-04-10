@@ -78,7 +78,7 @@ export class ReqContextClass {
   }
 
   public org: OrganizationInterface;
-  public usage: () => Promise<OrganizationUsage>;
+  public usage: OrganizationUsage;
   public userId = "";
   public email = "";
   public userName = "";
@@ -106,7 +106,6 @@ export class ReqContextClass {
     req,
   }: {
     org: OrganizationInterface;
-    usage: () => Promise<OrganizationUsage>;
     user?: {
       id: string;
       email: string;

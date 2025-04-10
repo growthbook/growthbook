@@ -10,6 +10,7 @@ import {
 } from "back-end/types/organization";
 import { getEffectiveAccountPlan } from "back-end/src/enterprise";
 import { IS_CLOUD } from "back-end/src/util/secrets";
+import { logger } from "back-end/src/util/logger";
 
 const PLANS_WITH_UNLIMITED_USAGE: AccountPlan[] = [
   "pro",
@@ -81,21 +82,21 @@ export async function deletePaymentMethodById(
   return res;
 }
 
-export async function getUsageDataFromServer(
-  organization: string
-): Promise<OrganizationUsage> {
+export async function updateUsageDataFromServer(organization: string) {
   try {
     const url = `${LICENSE_SERVER_URL}cdn/${organization}/usage`;
 
     const usage = await callLicenseServer({ url, method: "GET" });
 
-    return {
-      ...usage,
-      cdn: { ...usage.cdn, lastUpdated: new Date(usage.cdn.lastUpdated) },
+    keyToUsageData[organization] = {
+      timestamp: new Date(),
+      usage: {
+        ...usage,
+        cdn: { ...usage.cdn, lastUpdated: new Date(usage.cdn.lastUpdated) },
+      },
     };
   } catch (err) {
     Sentry.captureException(err);
-    return UNLIMITED_USAGE;
   }
 }
 
@@ -105,6 +106,17 @@ type StoredUsage = {
 };
 
 const keyToUsageData: Record<string, StoredUsage> = {};
+
+export function getUsageFromCache(organization: OrganizationInterface) {
+  if (keyToUsageData[organization.id]?.usage) {
+    return keyToUsageData[organization.id].usage;
+  }
+  // Update the usage data in the background
+  updateUsageDataFromServer(organization.id).catch((err) => {
+    logger.error(`Error getting usage data from server`, err);
+  });
+  return UNLIMITED_USAGE;
+}
 
 export async function getUsage(organization: OrganizationInterface) {
   if (!IS_CLOUD) {
@@ -117,18 +129,21 @@ export async function getUsage(organization: OrganizationInterface) {
   const cacheCutOff = new Date();
   cacheCutOff.setHours(cacheCutOff.getHours() - 1);
 
-  if (keyToUsageData[organization.id]?.timestamp <= cacheCutOff)
-    delete keyToUsageData[organization.id];
+  if (keyToUsageData[organization.id]?.timestamp <= cacheCutOff) {
+    // Don't await for the result, we will just keep showing out of date cached version
+    updateUsageDataFromServer(organization.id).catch((err) => {
+      logger.error(`Error getting usage data from server`, err);
+    });
+  }
 
-  if (keyToUsageData[organization.id])
+  if (!keyToUsageData[organization.id]) {
+    await updateUsageDataFromServer(organization.id);
+  }
+
+  if (keyToUsageData[organization.id]) {
     return keyToUsageData[organization.id].usage;
+  }
 
-  const usage = await getUsageDataFromServer(organization.id);
-
-  keyToUsageData[organization.id] = {
-    timestamp: new Date(),
-    usage,
-  };
-
-  return usage;
+  // If the updateUsageDataFromServer failed to set the cache we return the unlimited usage
+  return UNLIMITED_USAGE;
 }
