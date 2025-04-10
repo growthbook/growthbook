@@ -4,8 +4,10 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 
 export default function ExperimentTemplatePromoCard({
   hasFeature,
+  onClick,
 }: {
   hasFeature: boolean;
+  onClick?: () => void;
 }) {
   return (
     <Flex
@@ -40,9 +42,7 @@ export default function ExperimentTemplatePromoCard({
             as you scale up experimentation.
           </Text>
           {hasFeature ? (
-            <a href={"/experiments#templates"}>
-              <Button>Create Template</Button>
-            </a>
+            <Button onClick={onClick}>Create Template</Button>
           ) : (
             <a
               href={"https://www.growthbook.io/demo"}
