@@ -595,6 +595,7 @@ export default function LegacyReportPage({
                       sequentialTestingEnabled={sequentialTestingEnabled}
                       differenceType={differenceType}
                       isTabActive={true}
+                      disableTimeSeriesButton={true}
                     />
                   </div>
                 )}
