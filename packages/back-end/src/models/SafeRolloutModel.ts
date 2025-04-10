@@ -117,6 +117,9 @@ export class SafeRolloutModel extends BaseClass {
   public async findByRuleId(ruleId: string) {
     return await this._findOne({ ruleId });
   }
+  public async findByRuleIds(ruleIds: string[]) {
+    return await this._find({ ruleId: { $in: ruleIds } });
+  }
 }
 export async function getAllRolloutsToBeUpdated() {
   const now = new Date();

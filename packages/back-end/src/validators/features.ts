@@ -174,6 +174,29 @@ export const safeRolloutRule = baseRule
     controlValue: z.string(),
     value: z.string(),
     coverage: z.number(),
+    autoSnapshots: z.boolean().optional(),
+    guardrailMetrics: z.array(z.string()).optional(),
+    datasource: z.string().optional(),
+    exposureQueryId: z.string().optional(),
+    hashAttribute: z.string().optional(),
+    seed: z.string().optional(),
+    trackingKey: z.string().optional(),
+    variationValue: z.string().optional(),
+    safeRollout: z
+      .object({
+        status: z.enum([
+          "running",
+          "rolled-back",
+          "released",
+          "completed",
+          "draft",
+        ]),
+        startedAt: z.date(),
+        lastSnapshotAttempt: z.date().optional(),
+        nextSnapshotAttempt: z.date().optional(),
+        autoSnapshots: z.boolean().default(true),
+      })
+      .optional(),
   })
   .strict();
 
