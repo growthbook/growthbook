@@ -20,6 +20,8 @@ import { PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import { kebabCase } from "lodash";
+import { SafeRolloutRule } from "back-end/src/validators/features";
+import { fullSafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
 import {
   NewExperimentRefRule,
   getDefaultRuleValue,
@@ -142,7 +144,9 @@ export default function RuleModal({
   // Paged modal
   const [step, setStep] = useState(0);
 
-  const form = useForm<FeatureRule | NewExperimentRefRule>({
+  const form = useForm<
+    FeatureRule | NewExperimentRefRule | fullSafeRolloutInterface
+  >({
     defaultValues,
   });
 
@@ -233,6 +237,7 @@ export default function RuleModal({
   function changeRuleType(v: string) {
     const existingCondition = form.watch("condition");
     const existingSavedGroups = form.watch("savedGroups");
+    console.log(v, "v");
     const newVal = {
       ...getDefaultRuleValue({
         defaultValue: getFeatureDefaultValue(feature),
@@ -618,6 +623,7 @@ export default function RuleModal({
       >
         <div className="bg-highlight rounded p-3 mb-3">
           <h5>Select rule type</h5>
+          <h6>Safe Rollout</h6>
           <RadioCards
             mt="4"
             width="100%"
@@ -685,7 +691,6 @@ export default function RuleModal({
               v: "force" | "rollout" | "safe-rollout" | "experiment" | "bandit"
             ) => {
               setOverviewRadioSelectorRuleType(v);
-              console.log(v, "v");
               if (v === "force") {
                 setOverviewRuleType("force");
               } else if (v === "rollout") {

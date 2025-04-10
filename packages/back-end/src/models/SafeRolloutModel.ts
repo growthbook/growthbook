@@ -9,6 +9,7 @@ export const safeRolloutStatus = [
   "rolled-back",
   "released",
   "completed",
+  "draft",
 ] as const;
 export const safeRolloutValidator = baseSchema
   .extend({

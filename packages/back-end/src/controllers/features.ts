@@ -1231,7 +1231,7 @@ export async function postFeatureRule(
     rule.seed = uuidv4();
   }
   if (rule.type === "safe-rollout" && !rule.trackingKey) {
-    rule.trackingKey = uuidv4();
+    rule.trackingKey = `sf__${uuidv4()}`;
   }
   if (rule.type === "safe-rollout") {
     await context.models.safeRollout.create({

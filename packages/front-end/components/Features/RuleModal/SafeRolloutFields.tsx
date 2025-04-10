@@ -79,27 +79,6 @@ export default function SafeRolloutFields({
             renderJSONInline={true}
           />
         </div>
-
-        <div className="appbox mt-4 mb-4 px-3 pt-3 bg-light">
-          <RolloutPercentInput
-            value={form.watch("coverage") || 0}
-            setValue={(coverage) => {
-              form.setValue("coverage", coverage);
-            }}
-            className="mb-1"
-          />
-          <SelectField
-            label="Enroll based on attribute"
-            options={attributeSchema
-              .filter((s) => !hasHashAttributes || s.hashAttribute)
-              .map((s) => ({ label: s.property, value: s.property }))}
-            value={form.watch("hashAttribute")}
-            onChange={(v) => {
-              form.setValue("hashAttribute", v);
-            }}
-          />
-        </div>
-
         <SavedGroupTargetingField
           value={form.watch("savedGroups") || []}
           setValue={(savedGroups) => form.setValue("savedGroups", savedGroups)}
