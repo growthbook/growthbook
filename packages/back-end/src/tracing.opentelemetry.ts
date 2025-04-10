@@ -18,7 +18,11 @@ import * as opentelemetry from "@opentelemetry/sdk-node";
 import { PinoInstrumentation } from "@opentelemetry/instrumentation-pino";
 import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
 import { BatchLogRecordProcessor } from "@opentelemetry/sdk-logs";
-import { diag, DiagConsoleLogger } from "@opentelemetry/api";
+import {
+  diag,
+  metrics as otlMetrics,
+  DiagConsoleLogger,
+} from "@opentelemetry/api";
 import {
   getNodeAutoInstrumentations,
   getResourceDetectors,
@@ -28,6 +32,7 @@ import { SemanticResourceAttributes } from "@opentelemetry/semantic-conventions"
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-proto";
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
 import { getBuild } from "./util/handler";
+import { metrics } from "./util/metrics";
 
 diag.setLogger(
   new DiagConsoleLogger(),
@@ -72,3 +77,9 @@ process.on("SIGTERM", () => {
     .then(() => diag.debug("OpenTelemetry SDK terminated"))
     .catch((error) => diag.error("Error terminating OpenTelemetry SDK", error));
 });
+
+metrics.getCounter = (name: string) =>
+  otlMetrics.getMeter(name).createCounter(name);
+
+metrics.getHistogram = (name: string) =>
+  otlMetrics.getMeter(name).createHistogram(name);
