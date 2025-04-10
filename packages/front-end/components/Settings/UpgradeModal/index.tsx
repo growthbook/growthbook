@@ -420,7 +420,7 @@ export default function UpgradeModal({
         )}
         <div className="py-4">
           <Flex align="center" className="pb-2">
-            <FaCheckCircle className="mr-2" color="blue" />
+            <FaCheckCircle className="mr-2" color="var(--indigo-9)" />
             <Text
               size={"3"}
               style={{ color: "var(--color-text-high)", fontWeight: 500 }}
@@ -429,7 +429,7 @@ export default function UpgradeModal({
             </Text>
           </Flex>
           <Flex align="center" className="pb-2">
-            <FaCheckCircle className="mr-2" color="blue" />
+            <FaCheckCircle className="mr-2" color="var(--indigo-9)" />
             <Text
               size={"3"}
               style={{ color: "var(--color-text-high)", fontWeight: 500 }}
@@ -440,7 +440,7 @@ export default function UpgradeModal({
             </Text>
           </Flex>
           <Flex align="center" className="pb-2">
-            <FaCheckCircle className="mr-2" color="blue" />
+            <FaCheckCircle className="mr-2" color="var(--indigo-9)" />
             <Text
               size={"3"}
               style={{ color: "var(--color-text-high)", fontWeight: 500 }}
@@ -494,7 +494,7 @@ export default function UpgradeModal({
                 <li> $1 per GB </li>
               </ul>
 
-              <hr />
+              <hr style={{ borderColor: "var(--slate-a6)" }} />
               <p className="mb-0">
                 <a
                   href="/settings/usage"
