@@ -9,6 +9,10 @@ import { useState } from "react";
 import Link from "@/components/Radix/Link";
 import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteriaModal";
 import ExperimentDecisionExplanation from "./ExperimentDecisionExplanation";
+import { BsLightningFill } from "react-icons/bs";
+import Collapsible from "react-collapsible";
+import { FaAngleRight } from "react-icons/fa";
+import { PiCaretRightFill } from "react-icons/pi";
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -65,112 +69,68 @@ export default function RunningExperimentDecisionBanner({
   });
   if (decidedVariations.length === 0) return null; // TODO
 
-  let content: JSX.Element | null = null;
-  let status: "success" | "warning" | "danger" = "warning";
-
+  let decisionContent: JSX.Element | null = null;
   if (runningExperimentStatus.status === "ship-now") {
-    content = (
+    decisionContent = (
       <>
-        {decidedVariations.length === 1 ? (
-          <>
-            {variationNames[decidedVariations[0].id]}
-            <Text ml="1" mr="2">
-              {" "}
-              is ready to ship.
-            </Text>
-          </>
-        ) : (
-          <>
-            <Flex direction="row" gap="1">
-              {decidedVariations.map((v, i) => (
-                <>
-                  <Box key={v.id}>{variationNames[v.id]}</Box>
-                  {i !== decidedVariations.length - 1 ? <Text>&</Text> : null}
-                </>
-              ))}
-            </Flex>
-            <Text ml="1" mr="2">
-              {" "}
-              are ready to ship.
-            </Text>
-          </>
-        )}
+        <BsLightningFill className="mx-1 text-success" />
+        <Text weight="bold">Ship now:</Text>
       </>
     );
-    status = "success";
   } else if (runningExperimentStatus.status === "ready-for-review") {
-    content = (
+    decisionContent = (
       <>
-        {decidedVariations.length === 1 ? (
-          <>
-            {variationNames[decidedVariations[0].id]}
-            <Text ml="1" mr="2">
-              {" "}
-              is ready for a decision, but results require review.
-            </Text>
-          </>
-        ) : (
-          <>
-            <Flex direction="row" gap="1">
-              {decidedVariations.map((v, i) => (
-                <>
-                  <Box key={v.id}>{variationNames[v.id]}</Box>
-                  {i !== decidedVariations.length - 1 ? <Text>&</Text> : null}
-                </>
-              ))}
-            </Flex>
-            <Text ml="1" mr="2">
-              {" "}
-              are ready for a decision, but results require review.
-            </Text>
-          </>
-        )}
+        <BsLightningFill className="mx-1 text-warning" />
+        <Text weight="bold">Ready for review:</Text>
       </>
     );
-    status = "warning";
   } else if (runningExperimentStatus.status === "rollback-now") {
-    content = (
+    decisionContent = (
       <>
-        {decidedVariations.length === 1 ? (
-          <>
-            {variationNames[decidedVariations[0].id]}
-            <Text ml="1" mr="2">
-              {" "}
-              should be rolled back.
-            </Text>
-          </>
-        ) : (
-          <Text>All variations should be rolled back.</Text>
-        )}
+        <BsLightningFill className="mx-1 text-danger" />
+        <Text weight="bold">Rollback now:</Text>
+
       </>
     );
-    status = "danger";
   }
 
-  const banner = content && (
-    <div className={`alert alert-${status}`}>
+  const banner = decisionContent && (
+    <div className="appbox p-3">
       <Box>
-        <Flex direction="column" gap="2">
-          <Flex direction="row" align="center" justify="between">
+            <Collapsible
+              trigger={
+                <Flex direction="row" align="center" justify="between">
             <Box>
-              <Flex direction="row">
-                {content}
-                <Link onClick={() => setShowDetails(!showDetails)}>
-                  View Details
-                </Link>
-              </Flex>
-            </Box>
-          </Flex>
-          {showDetails && (
-            <ExperimentDecisionExplanation
-              status={runningExperimentStatus}
-              variations={runningExperimentStatus.variations}
-              variationNames={variationNames}
-              showDecisionCriteria={showDecisionCriteria}
-              setShowDecisionCriteria={setShowDecisionCriteria}
-            />
-          )}
-        </Flex>
+              <Flex direction="row" align="center">
+                {decisionContent}
+                <Flex direction="row" gap="1" ml="2">
+                  {decidedVariations.map((v, i) => (
+                    <>
+                      <Box key={v.id}>{variationNames[v.id]}</Box>
+                      {i !== decidedVariations.length - 1 ? <Text mx="1">,</Text> : null}
+                    </>
+                  ))}
+                </Flex>
+                </Flex>
+              </Box>
+              <Link>
+                View Details
+                <FaAngleRight className="chevron ml-1" />
+              </Link>
+            </Flex>
+          }
+          transitionTime={100}
+        >
+          <>
+          <ExperimentDecisionExplanation
+                status={runningExperimentStatus}
+                variations={runningExperimentStatus.variations}
+                variationNames={variationNames}
+                showDecisionCriteria={showDecisionCriteria}
+                setShowDecisionCriteria={setShowDecisionCriteria}
+              />
+              </>
+            </Collapsible>
       </Box>
     </div>
   );
