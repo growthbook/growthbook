@@ -204,9 +204,6 @@ export default function AccountPlanNotices() {
                     {upgradeModal && (
                       <UpgradeModal
                         close={() => setUpgradeModal(false)}
-                        notice={`Pro license expired ${date(
-                          license.dateExpires || ""
-                        )}. Renew to regain access to Pro features and higher usage limits.`}
                         source={"topnav-expired-notification"}
                         commercialFeature={null}
                       />
@@ -238,9 +235,6 @@ export default function AccountPlanNotices() {
                     {upgradeModal && (
                       <UpgradeModal
                         close={() => setUpgradeModal(false)}
-                        notice={`Pro license expired ${date(
-                          license.dateExpires || ""
-                        )}. Renew to regain access to Pro features and higher usage limits.`}
                         source={"topnav-expired-notification"}
                         commercialFeature={null}
                       />
@@ -278,9 +272,6 @@ export default function AccountPlanNotices() {
                     {upgradeModal && (
                       <UpgradeModal
                         close={() => setUpgradeModal(false)}
-                        notice={`Pro license expired ${date(
-                          license.dateExpires || ""
-                        )}. Renew to regain access to Pro features and higher usage limits.`}
                         source={"topnav-expired-notification"}
                         commercialFeature={null}
                       />

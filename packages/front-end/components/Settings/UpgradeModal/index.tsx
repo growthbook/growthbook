@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import clsx from "clsx";
-import { daysLeft } from "shared/dates";
+import { date, daysLeft } from "shared/dates";
 import Link from "next/link";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { FaCheckCircle } from "react-icons/fa";
@@ -27,14 +27,12 @@ import SelfHostedTrialConfirmationModal from "./SelfHostedTrialConfirmationModal
 export interface Props {
   close: () => void;
   source: string;
-  notice?: string;
   commercialFeature: CommercialFeature | null;
 }
 
 export default function UpgradeModal({
   close,
   source,
-  notice,
   commercialFeature,
 }: Props) {
   const [error, setError] = useState("");
@@ -410,6 +408,17 @@ export default function UpgradeModal({
 
   function upgradeOnlyTreatment() {
     const dynamicBullet = commercialFeature ? bullets[commercialFeature] : null;
+    const now = new Date();
+
+    const licensePlanText =
+      license?.plan === "enterprise" ? "Enterprise" : "Pro";
+    const notice =
+      license?.dateExpires && new Date(license?.dateExpires) < now
+        ? `${licensePlanText} license expired ${date(
+            license.dateExpires || ""
+          )}. Renew to regain access to ${licensePlanText} features and higher usage limits.`
+        : null;
+
     return (
       <div>
         {upgradeHeader}
