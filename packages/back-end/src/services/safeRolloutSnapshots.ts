@@ -55,11 +55,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { CreateProps } from "back-end/src/models/BaseModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ExperimentAnalysisSummary } from "back-end/src/validators/experiments";
-import {
-  determineNextDate,
-  isJoinableMetric,
-  isJoinableMetric,
-} from "./experiments";
+import { determineNextDate, isJoinableMetric } from "./experiments";
 import { getSourceIntegrationObject } from "./datasource";
 
 export function getMetricForSnapshot(
