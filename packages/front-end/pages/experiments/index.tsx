@@ -729,7 +729,9 @@ const ExperimentsPage = (): React.ReactElement => {
                         onPageChange={setCurrentPage}
                       />
                     )}
-                    {canAddTemplate && !templates.length ? (
+                    {canAddTemplate &&
+                    !templates.length &&
+                    experiments.length >= 5 ? (
                       <div className="row justify-content-center m-3">
                         <ExperimentTemplatePromoCard
                           hasFeature={hasTemplatesFeature}
