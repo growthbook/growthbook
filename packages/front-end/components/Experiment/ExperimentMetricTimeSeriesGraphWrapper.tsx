@@ -4,7 +4,7 @@ import { ExperimentStatus } from "back-end/src/validators/experiments";
 import { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
 import { daysBetween, getValidDate } from "shared/dates";
 import { ExperimentMetricInterface } from "shared/src/experiments";
-import { addDays } from "date-fns";
+import { addDays, min } from "date-fns";
 import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -70,29 +70,29 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
     return <Message>No time series data available for this metric.</Message>;
   }
 
-  // Ensure we always render at least 7 days in case we have less than 7 days worth of data
-  const additionalGraphDataPoints: ExperimentTimeSeriesGraphDataPoint[] = [];
+  // NB: Can use data.timeSeries[0] because we only fetch one metric
   const timeSeries = data.timeSeries[0];
-  const firstDate = getValidDate(timeSeries.dataPoints[0].date);
-  const realFirstDate =
-    firstDate < firstDateToRender ? firstDateToRender : firstDate;
-  const lastDate = timeSeries.dataPoints[timeSeries.dataPoints.length - 1].date;
-  const numOfDays = daysBetween(realFirstDate, lastDate);
-  if (numOfDays < 7) {
-    additionalGraphDataPoints.push({
-      d: addDays(new Date(lastDate), 7 - numOfDays),
-    });
-  }
-  if (firstDateToRender < firstDate) {
+
+  const additionalGraphDataPoints: ExperimentTimeSeriesGraphDataPoint[] = [];
+  const firstDataPointDate = getValidDate(timeSeries.dataPoints[0].date);
+  if (firstDateToRender < firstDataPointDate) {
     additionalGraphDataPoints.push({
       d: firstDateToRender,
     });
   }
 
-  // When experiment is running, always show one additional day at the end of the graph
-  if (experimentStatus === "running" && numOfDays >= 7) {
+  const firstDate = min([firstDateToRender, firstDataPointDate]);
+  const lastDataPointDate =
+    timeSeries.dataPoints[timeSeries.dataPoints.length - 1].date;
+  const numOfDays = daysBetween(firstDate, lastDataPointDate);
+  if (numOfDays < 7) {
     additionalGraphDataPoints.push({
-      d: addDays(new Date(lastDate), 1),
+      d: addDays(new Date(lastDataPointDate), 7 - numOfDays),
+    });
+  } else if (experimentStatus === "running") {
+    // When experiment is running, always show one additional day at the end of the graph
+    additionalGraphDataPoints.push({
+      d: addDays(new Date(lastDataPointDate), 1),
     });
   }
 
