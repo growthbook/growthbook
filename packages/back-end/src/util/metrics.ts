@@ -21,3 +21,9 @@ export const metrics: Metrics = {
     record: () => undefined,
   }),
 };
+
+export const setMetrics = (newMetrics: Metrics) => {
+  (Object.keys(metrics) as (keyof Metrics)[]).forEach(
+    <K extends keyof Metrics>(k: K) => (metrics[k] = newMetrics[k])
+  );
+};
