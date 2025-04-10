@@ -15,7 +15,7 @@ export default async (): Promise<void> => {
   const mongooseOpts: ConnectOptions = {
     bufferCommands: false,
     autoCreate: true,
-    autoIndex: true,
+    autoIndex: false,
   };
 
   // Connect to MongoDB

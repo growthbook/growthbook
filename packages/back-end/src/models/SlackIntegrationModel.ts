@@ -87,7 +87,7 @@ const slackIntegrationSchema = new mongoose.Schema({
   },
 });
 
-slackIntegrationSchema.index({ organizationId: 1 });
+// slackIntegrationSchema.index({ organizationId: 1 });
 
 type SlackIntegrationDocument = mongoose.Document & SlackIntegrationInterface;
 

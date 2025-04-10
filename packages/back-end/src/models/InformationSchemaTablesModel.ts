@@ -49,10 +49,10 @@ const informationSchemaTablesSchema = new mongoose.Schema({
   dateUpdated: Date,
 });
 
-informationSchemaTablesSchema.index(
-  { id: 1, organization: 1 },
-  { unique: true }
-);
+// informationSchemaTablesSchema.index(
+//   { id: 1, organization: 1 },
+//   { unique: true }
+// );
 
 type InformationSchemaTablesDocument = mongoose.Document &
   InformationSchemaTablesInterface;

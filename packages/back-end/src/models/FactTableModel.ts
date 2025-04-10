@@ -63,7 +63,7 @@ const factTableSchema = new mongoose.Schema({
   archived: Boolean,
 });
 
-factTableSchema.index({ id: 1, organization: 1 }, { unique: true });
+// factTableSchema.index({ id: 1, organization: 1 }, { unique: true });
 
 type FactTableDocument = mongoose.Document & FactTableInterface;
 

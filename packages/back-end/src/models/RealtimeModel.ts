@@ -6,7 +6,7 @@ const realtimeUsageSchema = new mongoose.Schema({
   hour: String,
   features: {},
 });
-realtimeUsageSchema.index({ organization: 1, hour: 1 }, { unique: true });
+// realtimeUsageSchema.index({ organization: 1, hour: 1 }, { unique: true });
 
 export type RealtimeUsageDocument = mongoose.Document & RealtimeUsageInterface;
 

@@ -13,7 +13,7 @@ const watchSchema = new mongoose.Schema({
   experiments: [String],
   features: [String],
 });
-watchSchema.index({ userId: 1, organization: 1 }, { unique: true });
+// watchSchema.index({ userId: 1, organization: 1 }, { unique: true });
 
 export type WatchDocument = mongoose.Document & WatchInterface;
 

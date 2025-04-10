@@ -23,10 +23,10 @@ const featureCodeRefsSchema = new mongoose.Schema({
   ],
 });
 
-featureCodeRefsSchema.index(
-  { organization: 1, repo: 1, branch: 1, feature: 1 },
-  { unique: true }
-);
+// featureCodeRefsSchema.index(
+//   { organization: 1, repo: 1, branch: 1, feature: 1 },
+//   { unique: true }
+// );
 
 type FeatureCodeRefsDocument = mongoose.Document & FeatureCodeRefsInterface;
 

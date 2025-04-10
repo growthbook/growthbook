@@ -50,7 +50,7 @@ const sdkWebHookLogSchema = new mongoose.Schema({
   },
 });
 
-sdkWebHookLogSchema.index({ eventWebHookId: 1 });
+// sdkWebHookLogSchema.index({ eventWebHookId: 1 });
 
 export type SdkWebHookLogDocument = mongoose.Document & SdkWebHookLogInterface;
 

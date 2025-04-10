@@ -37,11 +37,11 @@ export async function queueInit() {
   updateLicenseJob(agenda);
 
   // Make sure we have index needed to delete efficiently
-  agenda._collection
-    .createIndex({ lastFinishedAt: 1, nextRunAt: 1 })
-    .catch((e) => {
-      logger.error("Error creating index needed for deleteOldAgendaJobs: " + e);
-    });
+  // agenda._collection
+  //   .createIndex({ lastFinishedAt: 1, nextRunAt: 1 })
+  //   .catch((e) => {
+  //     logger.error("Error creating index needed for deleteOldAgendaJobs: " + e);
+  //   });
   deleteOldAgendaJobs(agenda);
 
   await agenda.start();

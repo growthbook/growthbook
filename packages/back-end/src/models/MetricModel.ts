@@ -133,7 +133,7 @@ const metricSchema = new mongoose.Schema({
   },
 });
 
-metricSchema.index({ id: 1, organization: 1 }, { unique: true });
+// metricSchema.index({ id: 1, organization: 1 }, { unique: true });
 
 const MetricModel = mongoose.model<LegacyMetricInterface>(
   "Metric",

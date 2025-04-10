@@ -20,10 +20,10 @@ const sdkPayloadSchema = new mongoose.Schema({
   schemaVersion: Number,
   contents: String,
 });
-sdkPayloadSchema.index(
-  { organization: 1, environment: 1, schemaVersion: 1 },
-  { unique: true }
-);
+// sdkPayloadSchema.index(
+//   { organization: 1, environment: 1, schemaVersion: 1 },
+//   { unique: true }
+// );
 type SDKPayloadDocument = mongoose.Document & SDKStringifiedPayloadInterface;
 
 const SDKPayloadModel = mongoose.model<SDKStringifiedPayloadInterface>(

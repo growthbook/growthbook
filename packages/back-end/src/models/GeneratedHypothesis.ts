@@ -26,7 +26,7 @@ const generatedHypothesisSchema = new mongoose.Schema({
   },
 });
 
-generatedHypothesisSchema.index({ weblensUuid: 1 }, { unique: false });
+// generatedHypothesisSchema.index({ weblensUuid: 1 }, { unique: false });
 
 const GeneratedHypothesisModel = mongoose.model<GeneratedHypothesisDocument>(
   "GeneratedHypothesis",

@@ -26,8 +26,8 @@ const githubIntegrationSchema = new mongoose.Schema({
   ],
 });
 
-githubIntegrationSchema.index({ organization: 1 }, { unique: true });
-githubIntegrationSchema.index({ tokenId: 1 }, { unique: true });
+// githubIntegrationSchema.index({ organization: 1 }, { unique: true });
+// githubIntegrationSchema.index({ tokenId: 1 }, { unique: true });
 
 const GithubIntegrationModel = mongoose.model<GithubIntegrationDocument>(
   "GithubIntegration",

@@ -149,7 +149,7 @@ const organizationSchema = new mongoose.Schema({
   setupEventTracker: String,
 });
 
-organizationSchema.index({ "members.id": 1 });
+// organizationSchema.index({ "members.id": 1 });
 
 const OrganizationModel = mongoose.model<OrganizationInterface>(
   "Organization",

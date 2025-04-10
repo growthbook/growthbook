@@ -158,7 +158,7 @@ const eventWebHookSchema = new mongoose.Schema({
   },
 });
 
-eventWebHookSchema.index({ organizationId: 1 });
+// eventWebHookSchema.index({ organizationId: 1 });
 
 type EventWebHookDocument = mongoose.Document & EventWebHookInterface;
 

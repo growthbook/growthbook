@@ -16,7 +16,7 @@ const aiTokenUsageSchema = new mongoose.Schema({
   dailyLimit: { type: Number, default: DAILY_TOKEN_LIMIT },
 });
 
-aiTokenUsageSchema.index({ organization: 1 }, { unique: true });
+// aiTokenUsageSchema.index({ organization: 1 }, { unique: true });
 
 const AITokenUsageModel = mongoose.model<AITokenUsageDocument>(
   "AITokenUsage",

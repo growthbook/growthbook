@@ -140,8 +140,8 @@ const featureSchema = new mongoose.Schema({
   customFields: {},
 });
 
-featureSchema.index({ id: 1, organization: 1 }, { unique: true });
-featureSchema.index({ organization: 1, project: 1 });
+// featureSchema.index({ id: 1, organization: 1 }, { unique: true });
+// featureSchema.index({ organization: 1, project: 1 });
 
 type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
 

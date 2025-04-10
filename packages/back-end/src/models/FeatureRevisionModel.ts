@@ -41,11 +41,11 @@ const featureRevisionSchema = new mongoose.Schema({
   ],
 });
 
-featureRevisionSchema.index(
-  { organization: 1, featureId: 1, version: 1 },
-  { unique: true }
-);
-featureRevisionSchema.index({ organization: 1, status: 1 });
+// featureRevisionSchema.index(
+//   { organization: 1, featureId: 1, version: 1 },
+//   { unique: true }
+// );
+// featureRevisionSchema.index({ organization: 1, status: 1 });
 
 type FeatureRevisionDocument = mongoose.Document & FeatureRevisionInterface;
 

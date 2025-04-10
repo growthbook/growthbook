@@ -18,7 +18,7 @@ const dimensionSchema = new mongoose.Schema({
   dateCreated: Date,
   dateUpdated: Date,
 });
-dimensionSchema.index({ id: 1, organization: 1 }, { unique: true });
+// dimensionSchema.index({ id: 1, organization: 1 }, { unique: true });
 type DimensionDocument = mongoose.Document & DimensionInterface;
 const DimensionModel = mongoose.model<DimensionInterface>(
   "Dimension",

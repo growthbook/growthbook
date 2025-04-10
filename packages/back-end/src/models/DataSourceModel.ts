@@ -46,7 +46,7 @@ const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   },
   settings: {},
 });
-dataSourceSchema.index({ id: 1, organization: 1 }, { unique: true });
+// dataSourceSchema.index({ id: 1, organization: 1 }, { unique: true });
 type DataSourceDocument = mongoose.Document & DataSourceInterface;
 
 const DataSourceModel = mongoose.model<DataSourceInterface>(

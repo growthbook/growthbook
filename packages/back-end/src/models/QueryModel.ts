@@ -45,7 +45,7 @@ const querySchema = new mongoose.Schema({
   cachedQueryUsed: String,
 });
 
-querySchema.index({ organization: 1, datasource: 1, status: 1, createdAt: -1 });
+// querySchema.index({ organization: 1, datasource: 1, status: 1, createdAt: -1 });
 
 type QueryDocument = mongoose.Document & QueryInterface;
 

@@ -48,7 +48,7 @@ const eventWebHookLogSchema = new mongoose.Schema({
   },
 });
 
-eventWebHookLogSchema.index({ eventWebHookId: 1 });
+// eventWebHookLogSchema.index({ eventWebHookId: 1 });
 
 type EventWebHookLogDocument = mongoose.Document & EventWebHookLogInterface;
 

@@ -147,7 +147,7 @@ export abstract class BaseModel<
     this.validator = this.config.schema;
     this.createValidator = createSchema(this.config.schema);
     this.updateValidator = updateSchema(this.config.schema);
-    this.updateIndexes();
+    // this.updateIndexes();
   }
 
   /***************
@@ -739,60 +739,60 @@ export abstract class BaseModel<
     indexesUpdated.add(this.config.collectionName);
 
     // Always create a unique index for organization and id
-    this._dangerousGetCollection()
-      .createIndex({ id: 1, organization: 1 }, { unique: true })
-      .catch((err) => {
-        logger.error(
-          `Error creating org/id unique index for ${this.config.collectionName}`,
-          err
-        );
-      });
+    // this._dangerousGetCollection()
+    //   .createIndex({ id: 1, organization: 1 }, { unique: true })
+    //   .catch((err) => {
+    //     logger.error(
+    //       `Error creating org/id unique index for ${this.config.collectionName}`,
+    //       err
+    //     );
+    //   });
 
     // If id is globally unique, create an index for that
-    if (this.config.globallyUniqueIds) {
-      this._dangerousGetCollection()
-        .createIndex({ id: 1 }, { unique: true })
-        .catch((err) => {
-          logger.error(
-            `Error creating id unique index for ${this.config.collectionName}`,
-            err
-          );
-        });
-    }
+    // if (this.config.globallyUniqueIds) {
+    //   this._dangerousGetCollection()
+    //     .createIndex({ id: 1 }, { unique: true })
+    //     .catch((err) => {
+    //       logger.error(
+    //         `Error creating id unique index for ${this.config.collectionName}`,
+    //         err
+    //       );
+    //     });
+    // }
 
     // Remove any explicitly defined indexes that are no longer needed
-    const indexesToRemove = this.config.indexesToRemove;
-    if (indexesToRemove) {
-      const existingIndexes = this._dangerousGetCollection().listIndexes();
-      existingIndexes.forEach((index) => {
-        if (!indexesToRemove.includes(index.name)) return;
+    // const indexesToRemove = this.config.indexesToRemove;
+    // if (indexesToRemove) {
+    //   const existingIndexes = this._dangerousGetCollection().listIndexes();
+    //   existingIndexes.forEach((index) => {
+    //     if (!indexesToRemove.includes(index.name)) return;
 
-        this._dangerousGetCollection()
-          .dropIndex(index.name)
-          .catch((err) => {
-            logger.error(
-              `Error dropping index ${index.name} for ${this.config.collectionName}`,
-              err
-            );
-          });
-      });
-    }
+    //     this._dangerousGetCollection()
+    //       .dropIndex(index.name)
+    //       .catch((err) => {
+    //         logger.error(
+    //           `Error dropping index ${index.name} for ${this.config.collectionName}`,
+    //           err
+    //         );
+    //       });
+    //   });
+    // }
 
     // Create any additional indexes
-    this.config.additionalIndexes?.forEach((index) => {
-      this._dangerousGetCollection()
-        .createIndex(index.fields as { [key: string]: number }, {
-          unique: !!index.unique,
-        })
-        .catch((err) => {
-          logger.error(
-            `Error creating ${Object.keys(index.fields).join("/")} ${
-              index.unique ? "unique " : ""
-            }index for ${this.config.collectionName}`,
-            err
-          );
-        });
-    });
+    // this.config.additionalIndexes?.forEach((index) => {
+    //   this._dangerousGetCollection()
+    //     .createIndex(index.fields as { [key: string]: number }, {
+    //       unique: !!index.unique,
+    //     })
+    //     .catch((err) => {
+    //       logger.error(
+    //         `Error creating ${Object.keys(index.fields).join("/")} ${
+    //           index.unique ? "unique " : ""
+    //         }index for ${this.config.collectionName}`,
+    //         err
+    //       );
+    //     });
+    // });
   }
 
   /***************

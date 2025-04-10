@@ -166,10 +166,10 @@ const experimentSnapshotSchema = new mongoose.Schema({
   sequentialTestingEnabled: Boolean,
   sequentialTestingTuningParameter: Number,
 });
-experimentSnapshotSchema.index({
-  experiment: 1,
-  dateCreated: -1,
-});
+// experimentSnapshotSchema.index({
+//   experiment: 1,
+//   dateCreated: -1,
+// });
 
 export type ExperimentSnapshotDocument = mongoose.Document &
   LegacyExperimentSnapshotInterface;
