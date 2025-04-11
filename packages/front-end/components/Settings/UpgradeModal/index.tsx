@@ -463,7 +463,7 @@ export default function UpgradeModal({
   }
 
   return (
-    <div>
+    <>
       {showSHProTrial ? (
         <SelfHostedTrialConfirmationModal
           close={close}
@@ -781,6 +781,6 @@ export default function UpgradeModal({
           {error && <div className="alert alert-danger">{error}</div>}
         </Modal>
       )}
-    </div>
+    </>
   );
 }

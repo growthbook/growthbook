@@ -2,18 +2,20 @@ import { CommercialFeature } from "shared/enterprise";
 import { Flex, IconButton, Callout as RadixCallout } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { useState } from "react";
-import { PiArrowSquareOut, PiLightbulb } from "react-icons/pi";
+import { PiArrowSquareOut, PiLightbulb, PiX } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
 import { DocLink, DocSection } from "@/components/DocLink";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
+import Link from "@/components/Radix/Link";
 import styles from "./RadixOverrides.module.scss";
 
 export type Props = {
   commercialFeature: CommercialFeature;
   id: string;
   dismissable?: boolean;
+  renderWhenDismissed?: (undismiss: () => void) => React.ReactElement;
   children: React.ReactNode;
   docSection?: DocSection;
 } & MarginProps;
@@ -24,20 +26,24 @@ export default function PremiumCallout({
   dismissable = false,
   children,
   docSection,
+  renderWhenDismissed,
   ...containerProps
 }: Props) {
   const { hasCommercialFeature, commercialFeatureLowestPlan } = useUser();
   const hasFeature = hasCommercialFeature(commercialFeature);
 
   const [dismissed, setDismissed] = useLocalStorage(
-    `premium-callout-${id}`,
+    `premium-callout:${id}`,
     false
   );
 
   const [upgradeModal, setUpgradeModal] = useState(false);
 
   if (hasFeature && !docSection) return null;
-  if (dismissed) return null;
+  if (dismissable && dismissed)
+    return renderWhenDismissed
+      ? renderWhenDismissed(() => setDismissed(false))
+      : null;
 
   const lowestPlanLevel =
     commercialFeatureLowestPlan?.[commercialFeature] || "";
@@ -50,30 +56,24 @@ export default function PremiumCallout({
     return null;
   }
 
-  if (upgradeModal) {
-    return (
-      <UpgradeModal
-        commercialFeature={commercialFeature}
-        close={() => setUpgradeModal(false)}
-        source={`premium-callout-${id}`}
-      />
-    );
-  }
-
   const color = hasFeature ? "violet" : pro ? "gold" : "indigo";
   const icon = hasFeature ? (
     <PiLightbulb size={15} />
   ) : (
-    <PaidFeatureBadge commercialFeature={commercialFeature} useTip={false} />
+    <PaidFeatureBadge
+      commercialFeature={commercialFeature}
+      useTip={false}
+      noRightMargin
+    />
   );
 
   const link =
     hasFeature && docSection ? (
-      <DocLink docSection={docSection}>
+      <DocLink docSection={docSection} useRadix={true}>
         View docs <PiArrowSquareOut size={15} />
       </DocLink>
     ) : pro ? (
-      <a
+      <Link
         href="#"
         onClick={(e) => {
           e.preventDefault();
@@ -81,40 +81,61 @@ export default function PremiumCallout({
         }}
       >
         Upgrade Now
-      </a>
+      </Link>
     ) : (
-      <a href="https://www.growthbook.io/demo" target="_blank" rel="noreferrer">
+      <Link
+        href="https://www.growthbook.io/demo"
+        target="_blank"
+        rel="noreferrer"
+      >
         Talk to Sales <PiArrowSquareOut size={15} />
-      </a>
+      </Link>
     );
 
   return (
-    <RadixCallout.Root
-      className={styles.callout}
-      color={color}
-      role="alert"
-      size="2"
-      {...containerProps}
-    >
-      <RadixCallout.Icon>{icon}</RadixCallout.Icon>
-      <RadixCallout.Text size="2">
-        <Flex align="center" gap="1">
-          <div>{children}</div>
-          <div>{link}</div>
-          {dismissable ? (
-            <IconButton
-              variant="ghost"
-              color="gray"
-              size="1"
-              onClick={() => setDismissed(true)}
-              aria-label="Dismiss"
-              ml="auto"
-            >
-              x
-            </IconButton>
-          ) : null}
-        </Flex>
-      </RadixCallout.Text>
-    </RadixCallout.Root>
+    <>
+      {upgradeModal ? (
+        <UpgradeModal
+          commercialFeature={commercialFeature}
+          close={() => setUpgradeModal(false)}
+          source={`premium-callout-${id}`}
+        />
+      ) : null}
+      <RadixCallout.Root
+        className={styles.callout}
+        color={color}
+        role="alert"
+        size="2"
+        {...containerProps}
+        style={{
+          position: "relative",
+        }}
+      >
+        <RadixCallout.Icon>{icon}</RadixCallout.Icon>
+        <RadixCallout.Text size="2">
+          <Flex align="start" gap="1" pr="3">
+            <div>{children}</div>
+            <div style={{ flex: 1 }}>{link}</div>
+          </Flex>
+        </RadixCallout.Text>
+        {dismissable ? (
+          <IconButton
+            variant="ghost"
+            color="gray"
+            size="1"
+            onClick={() => setDismissed(true)}
+            aria-label="Dismiss"
+            style={{
+              position: "absolute",
+              right: 8,
+              top: "50%",
+              marginTop: -11,
+            }}
+          >
+            <PiX />
+          </IconButton>
+        ) : null}
+      </RadixCallout.Root>
+    </>
   );
 }
