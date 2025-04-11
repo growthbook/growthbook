@@ -33,8 +33,8 @@ import {
   deletePaymentMethodById,
   updateDefaultPaymentMethod,
   getPaymentMethodsByLicenseKey,
+  getUsage as getOrgUsage,
 } from "back-end/src/enterprise/billing/index";
-import { getUsage as getOrgUsage } from "back-end/src/enterprise/billing/index";
 
 function withLicenseServerErrorHandling<T>(
   fn: (req: AuthRequest<T>, res: Response) => Promise<void>
