@@ -140,21 +140,20 @@ export abstract class BaseModel<
   public updateValidator: UpdateZodObject<T>;
 
   protected context: Context;
+  protected config: ModelConfig<T, E>;
 
   public constructor(context: Context) {
     this.context = context;
     this.config = this.getConfig();
     this.validator = this.config.schema;
-    this.createValidator = createSchema(this.config.schema);
-    this.updateValidator = updateSchema(this.config.schema);
+    this.createValidator = this.getCreateValidator();
+    this.updateValidator = this.getUpdateValidator();
     this.updateIndexes();
   }
 
   /***************
    * Required methods that MUST be overridden by subclasses
    ***************/
-  protected config: ModelConfig<T, E>;
-  protected abstract getConfig(): ModelConfig<T, E>;
   protected abstract canRead(doc: z.infer<T>): boolean;
   protected abstract canCreate(doc: z.infer<T>): boolean;
   protected abstract canUpdate(
@@ -263,6 +262,13 @@ export abstract class BaseModel<
 
     return keys;
   }
+
+  /***************
+   * These methods are implemented by the MakeModelClass helper function
+   ***************/
+  protected abstract getConfig(): ModelConfig<T, E>;
+  protected abstract getCreateValidator(): CreateZodObject<T>;
+  protected abstract getUpdateValidator(): UpdateZodObject<T>;
 
   /***************
    * Built-in public methods
@@ -831,6 +837,9 @@ export abstract class BaseModel<
 export const MakeModelClass = <T extends BaseSchema, E extends EntityType>(
   config: ModelConfig<T, E>
 ) => {
+  const createValidator = createSchema(config.schema);
+  const updateValidator = updateSchema(config.schema);
+
   abstract class Model<WriteOptions = never> extends BaseModel<
     T,
     E,
@@ -838,6 +847,12 @@ export const MakeModelClass = <T extends BaseSchema, E extends EntityType>(
   > {
     getConfig() {
       return config;
+    }
+    getCreateValidator() {
+      return createValidator;
+    }
+    getUpdateValidator() {
+      return updateValidator;
     }
   }
 
