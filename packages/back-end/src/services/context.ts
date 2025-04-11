@@ -118,7 +118,6 @@ export class ReqContextClass {
     req?: Request;
   }) {
     this.org = org;
-    this.usage = usage;
     this.auditUser = auditUser;
     this.teams = teams || [];
 
