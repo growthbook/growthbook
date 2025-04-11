@@ -94,6 +94,8 @@ export async function updateUsageDataFromServer(orgId: string) {
   }
 }
 
+export let backgroundUpdateUsageDataFromServerForTests: Promise<void>;
+
 type StoredUsage = {
   timestamp: Date;
   usage: OrganizationUsage;
@@ -142,7 +144,9 @@ export async function getUsage(
     keyToUsageData[organization.id]?.timestamp <= cacheCutOff
   ) {
     // Don't await for the result, we will just keep showing out of date cached version or the fallback
-    updateUsageDataFromServer(organization.id).catch((err) => {
+    backgroundUpdateUsageDataFromServerForTests = updateUsageDataFromServer(
+      organization.id
+    ).catch((err) => {
       logger.error(`Error getting usage data from server`, err);
     });
   }
