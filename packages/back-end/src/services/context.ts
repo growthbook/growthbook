@@ -77,7 +77,7 @@ export class ReqContextClass {
       segments: new SegmentModel(this),
       experimentTemplates: new ExperimentTemplatesModel(this),
       safeRolloutSnapshots: new SafeRolloutSnapshotModel(this),
-      safeRollouts: new SafeRolloutModel(this),
+      safeRollout: new SafeRolloutModel(this),
       decisionCriteria: new DecisionCriteriaModel(this),
       metricTimeSeries: new MetricTimeSeriesModel(this),
     };
