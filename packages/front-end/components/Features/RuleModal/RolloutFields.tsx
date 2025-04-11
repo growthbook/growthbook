@@ -11,7 +11,7 @@ import ScheduleInputs from "@/components/Features/ScheduleInputs";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ConditionInput from "@/components/Features/ConditionInput";
 import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
-
+import { useDefinitions } from "@/services/DefinitionsContext";
 export default function RolloutFields({
   feature,
   environment,
@@ -38,91 +38,103 @@ export default function RolloutFields({
   setScheduleToggleEnabled: (b: boolean) => void;
 }) {
   const form = useFormContext();
-
   const attributeSchema = useAttributeSchema(false, feature.project);
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
-
-  return (
-    <>
-      <Field
-        label="Description"
-        textarea
-        minRows={1}
-        {...form.register("description")}
-        placeholder="Short human-readable description of the rule"
-      />
-
-      <div className="mb-3 pb-1">
-        <FeatureValueField
-          label="Value to roll out"
-          id="value"
-          value={form.watch("value")}
-          setValue={(v) => form.setValue("value", v)}
-          valueType={feature.valueType}
-          feature={feature}
-          renderJSONInline={true}
-        />
-      </div>
-
-      <ScheduleInputs
-        defaultValue={defaultValues.scheduleRules || []}
-        onChange={(value) => form.setValue("scheduleRules", value)}
-        scheduleToggleEnabled={scheduleToggleEnabled}
-        setScheduleToggleEnabled={setScheduleToggleEnabled}
-      />
-
-      <div className="appbox mt-4 mb-4 px-3 pt-3 bg-light">
-        <RolloutPercentInput
-          value={form.watch("coverage") || 0}
-          setValue={(coverage) => {
-            form.setValue("coverage", coverage);
-          }}
-          className="mb-1"
-        />
-        <SelectField
-          label="Enroll based on attribute"
-          options={attributeSchema
-            .filter((s) => !hasHashAttributes || s.hashAttribute)
-            .map((s) => ({ label: s.property, value: s.property }))}
-          value={form.watch("hashAttribute")}
-          onChange={(v) => {
-            form.setValue("hashAttribute", v);
-          }}
-        />
-      </div>
-
-      <SavedGroupTargetingField
-        value={form.watch("savedGroups") || []}
-        setValue={(savedGroups) => form.setValue("savedGroups", savedGroups)}
-        project={feature.project || ""}
-      />
-      <hr />
-      <ConditionInput
-        defaultValue={form.watch("condition") || ""}
-        onChange={(value) => form.setValue("condition", value)}
-        key={conditionKey}
-        project={feature.project || ""}
-      />
-      <hr />
-      <PrerequisiteTargetingField
-        value={form.watch("prerequisites") || []}
-        setValue={(prerequisites) =>
-          form.setValue("prerequisites", prerequisites)
-        }
-        feature={feature}
-        revisions={revisions}
-        version={version}
-        environments={[environment]}
-        setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
-      />
-      {isCyclic && (
-        <div className="alert alert-danger">
-          <FaExclamationTriangle /> A prerequisite (
-          <code>{cyclicFeatureId}</code>) creates a circular dependency. Remove
-          this prerequisite to continue.
-        </div>
-      )}
-    </>
+  const { datasources } = useDefinitions();
+  const dataSourceOptions =
+    datasources?.map((ds) => ({
+      label: ds.name,
+      value: ds.id,
+    })) || [];
+  const dataSource = datasources?.find(
+    (ds) => ds.id === form.watch("datasource")
   );
+  const exposureQueries = dataSource?.settings?.queries?.exposure || [];
+
+  const renderOverviewSteps = () => {
+    return (
+      <>
+        <Field
+          label="Description"
+          textarea
+          minRows={1}
+          {...form.register("description")}
+          placeholder="Short human-readable description of the rule"
+        />
+
+        <div className="mb-3 pb-1">
+          <FeatureValueField
+            label="Value to roll out"
+            id="value"
+            value={form.watch("value")}
+            setValue={(v) => form.setValue("value", v)}
+            valueType={feature.valueType}
+            feature={feature}
+            renderJSONInline={true}
+          />
+        </div>
+        <ScheduleInputs
+          defaultValue={defaultValues.scheduleRules || []}
+          onChange={(value) => form.setValue("scheduleRules", value)}
+          scheduleToggleEnabled={scheduleToggleEnabled}
+          setScheduleToggleEnabled={setScheduleToggleEnabled}
+        />
+
+        <div className="appbox mt-4 mb-4 px-3 pt-3 bg-light">
+          <RolloutPercentInput
+            value={form.watch("coverage") || 0}
+            setValue={(coverage) => {
+              form.setValue("coverage", coverage);
+            }}
+            className="mb-1"
+          />
+          <SelectField
+            label="Enroll based on attribute"
+            options={attributeSchema
+              .filter((s) => !hasHashAttributes || s.hashAttribute)
+              .map((s) => ({ label: s.property, value: s.property }))}
+            value={form.watch("hashAttribute")}
+            onChange={(v) => {
+              form.setValue("hashAttribute", v);
+            }}
+          />
+        </div>
+
+        <SavedGroupTargetingField
+          value={form.watch("savedGroups") || []}
+          setValue={(savedGroups) => form.setValue("savedGroups", savedGroups)}
+          project={feature.project || ""}
+        />
+        <hr />
+        <ConditionInput
+          defaultValue={form.watch("condition") || ""}
+          onChange={(value) => form.setValue("condition", value)}
+          key={conditionKey}
+          project={feature.project || ""}
+        />
+        <hr />
+        <PrerequisiteTargetingField
+          value={form.watch("prerequisites") || []}
+          setValue={(prerequisites) =>
+            form.setValue("prerequisites", prerequisites)
+          }
+          feature={feature}
+          revisions={revisions}
+          version={version}
+          environments={[environment]}
+          setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
+        />
+        {isCyclic && (
+          <div className="alert alert-danger">
+            <FaExclamationTriangle /> A prerequisite (
+            <code>{cyclicFeatureId}</code>) creates a circular dependency.
+            Remove this prerequisite to continue.
+          </div>
+        )}
+      </>
+    );
+  };
+
+  return <>{renderOverviewSteps()}</>;
 }

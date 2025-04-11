@@ -10,6 +10,7 @@ import { EventUser, EventUserLoggedIn } from "back-end/src/events/event-types";
 import { OrganizationInterface, ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
 import { applyEnvironmentInheritance } from "back-end/src/util/features";
+import { SafeRolloutRule } from "back-end/src/validators/features";
 
 export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
 
@@ -53,6 +54,35 @@ const FeatureRevisionModel = mongoose.model<FeatureRevisionInterface>(
   "FeatureRevision",
   featureRevisionSchema
 );
+
+export function safeRolloutRuleToInterface(
+  doc: FeatureRevisionDocument[]
+): {
+  rules: (SafeRolloutRule & { organization: string })[];
+} {
+  let rules: (SafeRolloutRule & { organization: string })[] = [];
+  for (const revision of doc) {
+    const currentRevision = omit(revision.toJSON<FeatureRevisionDocument>(), [
+      "__v",
+      "_id",
+    ]);
+    rules = [
+      ...rules,
+      ...Object.values(
+        (currentRevision.rules as Record<string, FeatureRule[]>) || {}
+      )
+        .flat()
+        .filter((rule): rule is SafeRolloutRule => rule.type === "safe-rollout")
+        .map((rule: FeatureRule) => ({
+          ...rule,
+          organization: revision.organization,
+        })),
+    ] as (SafeRolloutRule & { organization: string })[];
+  }
+  return {
+    rules,
+  };
+}
 
 function toInterface(
   doc: FeatureRevisionDocument,
@@ -330,6 +360,54 @@ export async function createRevision({
   const doc = await FeatureRevisionModel.create(revision);
 
   return toInterface(doc, context);
+}
+export async function getSafeRolloutRulesToUpdate() {
+  const revisions = await FeatureRevisionModel.find({
+    "rules.type": "safe-rollout",
+    datePublished: {
+      $exists: true,
+    },
+    "rule.autoSnapshots": true,
+    "rule.nextSnapshotAttempt": {
+      $exists: true,
+      $lte: new Date(),
+    },
+    "rule.status": "running",
+  })
+    .limit(100)
+    .sort({ nextSnapshotAttempt: 1 });
+
+  safeRolloutRuleToInterface(revisions);
+  return revisions;
+}
+export async function getSafeRolloutRuleById(
+  context: ReqContext,
+  ruleId: string
+): Promise<SafeRolloutRule | null> {
+  const rule = await FeatureRevisionModel.findOne({
+    organization: context.org.id,
+    "rules.type": "safe-rollout",
+    "rules.id": ruleId,
+  });
+  if (!rule) return null;
+  const revision = toInterface(rule, context);
+  const allRules = Object.values(revision.rules).flat();
+  return allRules.find(
+    (r) => r.id === ruleId && r.type === "safe-rollout"
+  ) as SafeRolloutRule | null;
+}
+
+export async function updateSafeRolloutRule(
+  context: ReqContext,
+  rule: SafeRolloutRule
+) {
+  await FeatureRevisionModel.updateOne(
+    {
+      organization: context.org.id,
+      "rules.id": rule.id,
+    },
+    { $set: { "rules.$.nextSnapshotAttempt": rule.nextSnapshotAttempt } }
+  );
 }
 
 export async function updateRevision(

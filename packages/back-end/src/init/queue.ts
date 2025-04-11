@@ -17,6 +17,7 @@ import updateLicenseJob, {
 } from "back-end/src/jobs/updateLicense";
 import deleteOldAgendaJobs from "back-end/src/jobs/deleteOldAgendaJobs";
 import { logger } from "back-end/src/util/logger";
+import addSafeRolloutSnapshotJob from "back-end/src/jobs/addSafeRolloutSnapshotJob";
 
 export async function queueInit() {
   if (!CRON_ENABLED) return;
@@ -35,6 +36,7 @@ export async function queueInit() {
   refreshFactTableColumns(agenda);
   addSdkWebhooksJob(agenda);
   updateLicenseJob(agenda);
+  addSafeRolloutSnapshotJob(agenda);
 
   // Make sure we have index needed to delete efficiently
   agenda._collection

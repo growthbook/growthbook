@@ -23,6 +23,9 @@ import HelperText from "@/components/Radix/HelperText";
 import Badge from "@/components/Radix/Badge";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Callout from "@/components/Radix/Callout";
+import SafeRolloutSummary from "@/components/Features/SafeRolloutSummary";
+import SafeRolloutSnapshotProvider from "@/components/SafeRollout/SnapshotProvider";
+import DecisionBanner from "../SafeRollout/DecisionBanner";
 import ConditionDisplay from "./ConditionDisplay";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
@@ -229,6 +232,13 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           experimentData={linkedExperiment}
                         />
                       </Flex>
+                    ) : rule.type === "safe-rollout" ? (
+                      <Flex gap="3" align="center">
+                        <div>{title}</div>
+                        {/* <ExperimentStatusIndicator
+                experimentData={safeRollout as ExperimentData}
+              /> */}
+                      </Flex>
                     ) : (
                       title
                     )}
@@ -267,6 +277,27 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       feature={feature}
                       hashAttribute={rule.hashAttribute || ""}
                     />
+                  )}
+                  {rule.type === "safe-rollout" && (
+                    <SafeRolloutSnapshotProvider
+                      safeRollout={rule}
+                      feature={feature}
+                    >
+                      <SafeRolloutSummary
+                        value={rule.value ?? ""}
+                        coverage={rule.coverage ?? 1}
+                        feature={feature}
+                        hashAttribute={rule.hashAttribute || ""}
+                        guardrailMetrics={rule.guardrailMetrics || []}
+                        controlValue={rule.controlValue}
+                      />
+                      {/* TODO: Once modal exists to change Safe Rollout status, plug in setStatusModalOpen here */}
+                      <DecisionBanner openStatusModal={() => undefined} />
+                      {/* <SafeRolloutDetails
+                        safeRollout={rule}
+                        feature={feature}
+                      /> */}
+                    </SafeRolloutSnapshotProvider>
                   )}
                   {rule.type === "experiment" && (
                     <ExperimentSummary

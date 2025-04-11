@@ -228,8 +228,8 @@ export default function ResultsTableTooltip({
     ? data.metric.quantileSettings?.quantile
     : undefined;
   // Lift units
-  const ci1 = data.stats?.ciAdjusted?.[1] ?? data.stats?.ci?.[1] ?? 0;
-  const ci0 = data.stats?.ciAdjusted?.[0] ?? data.stats?.ci?.[0] ?? 0;
+  const ci1 = data.stats?.ciAdjusted?.[1] ?? data.stats?.ci?.[1] ?? Infinity;
+  const ci0 = data.stats?.ciAdjusted?.[0] ?? data.stats?.ci?.[0] ?? -Infinity;
   const ciRangeText =
     data.stats?.ciAdjusted?.[0] !== undefined ? (
       <>
@@ -239,14 +239,24 @@ export default function ResultsTableTooltip({
         </div>
         <div className="text-muted font-weight-normal">
           (unadj.:&nbsp; [
-          {deltaFormatter(data.stats.ci?.[0] ?? 0, deltaFormatterOptions)},{" "}
-          {deltaFormatter(data.stats.ci?.[1] ?? 0, deltaFormatterOptions)}] )
+          {deltaFormatter(
+            data.stats.ci?.[0] ?? -Infinity,
+            deltaFormatterOptions
+          )}
+          ,{" "}
+          {deltaFormatter(
+            data.stats.ci?.[1] ?? Infinity,
+            deltaFormatterOptions
+          )}
+          ] )
         </div>
       </>
     ) : (
       <>
-        [{deltaFormatter(data.stats.ci?.[0] ?? 0, deltaFormatterOptions)},{" "}
-        {deltaFormatter(data.stats.ci?.[1] ?? 0, deltaFormatterOptions)}]
+        [
+        {deltaFormatter(data.stats.ci?.[0] ?? -Infinity, deltaFormatterOptions)}
+        ,{" "}
+        {deltaFormatter(data.stats.ci?.[1] ?? Infinity, deltaFormatterOptions)}]
       </>
     );
 

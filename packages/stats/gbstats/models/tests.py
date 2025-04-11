@@ -34,7 +34,7 @@ class Uplift:
 @dataclass
 class TestResult:
     expected: float
-    ci: List[float]
+    ci: List[Optional[float]]
     uplift: Uplift
     error_message: Optional[str]
 

@@ -142,9 +142,7 @@ const featureSchema = new mongoose.Schema({
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
 featureSchema.index({ organization: 1, project: 1 });
-
 type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
-
 export const FeatureModel = mongoose.model<LegacyFeatureInterface>(
   "Feature",
   featureSchema
@@ -257,7 +255,38 @@ export async function getFeature(
     id,
   });
   if (!feature) return null;
+  // get safe rollouts for the feature
+  const safeRolloutIds: string[] = [];
+  Object.keys(feature.environmentSettings)?.forEach((key: string) => {
+    const env = feature.environmentSettings?.[key];
+    env.rules.forEach((rule: FeatureRule) => {
+      if (rule.type === "safe-rollout") {
+        safeRolloutIds.push(rule.id);
+      }
+    });
+  });
+  const safeRollouts = await context.models.safeRollout.findByRuleIds(
+    safeRolloutIds
+  );
 
+  // recombine the safe rollouts with the feature environment settings
+  feature.environmentSettings = Object.fromEntries(
+    Object.entries(feature.environmentSettings || {}).map(([env, settings]) => [
+      env,
+      {
+        ...settings,
+        rules: settings.rules.map((rule: FeatureRule) => {
+          if (rule.type === "safe-rollout") {
+            return {
+              ...rule,
+              ...safeRollouts.find((s) => s.ruleId === rule.id),
+            };
+          }
+          return rule;
+        }),
+      },
+    ])
+  );
   return context.permissions.canReadSingleProjectResource(feature.project)
     ? upgradeFeatureInterface(toInterface(feature, context))
     : null;

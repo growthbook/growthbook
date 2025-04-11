@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
-import { isEqual } from "lodash";
+import { isEqual, omit } from "lodash";
 import {
   autoMerge,
   filterEnvironmentsByFeature,
@@ -15,6 +15,7 @@ import {
   getConnectionSDKCapabilities,
   SDKCapability,
 } from "shared/sdk-versioning";
+import { v4 as uuidv4 } from "uuid";
 import {
   ExperimentRefRule,
   FeatureInterface,
@@ -119,7 +120,7 @@ import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
 import { FeatureUsageLookback } from "back-end/src/types/Integration";
 import { getChangesToStartExperiment } from "back-end/src/services/experiments";
-
+import { getMetricMap } from "back-end/src/models/MetricModel";
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
     super(message);
@@ -1179,10 +1180,80 @@ export async function postFeatureRule(
     defaultValueChanged: false,
     settings: org?.settings,
   });
+
+  // Validate that specified metrics exist and belong to the organization for safe-rollout rules
+  if (rule.type === "safe-rollout") {
+    rule.autoSnapshots = true; // MVP this is going to be true by default
+    const metricIds = rule.guardrailMetrics;
+    if (metricIds.length) {
+      const map = await getMetricMap(context);
+      for (let i = 0; i < metricIds.length; i++) {
+        const metric = map.get(metricIds[i]);
+        if (metric) {
+          if (rule.datasource && metric.datasource !== rule.datasource) {
+            throw new Error(
+              "Metrics must be tied to the same datasource as the experiment: " +
+                metricIds[i]
+            );
+          }
+        } else {
+          // check to see if this metric is actually a metric group
+          const metricGroup = await context.models.metricGroups.getById(
+            metricIds[i]
+          );
+          if (metricGroup) {
+            // Make sure it is tied to the same datasource as the experiment
+            if (rule.datasource && metricGroup.datasource !== rule.datasource) {
+              throw new Error(
+                "Metrics must be tied to the same datasource as the experiment: " +
+                  metricIds[i]
+              );
+            }
+          } else {
+            // new metric that's not recognized...
+            throw new Error("Invalid metric specified: " + metricIds[i]);
+          }
+        }
+      }
+    }
+  }
+  // omit the fields from the rule that are in the safeRollout interface
+  const featureRule = (omit(rule, [
+    "trackingKey",
+    "datasource",
+    "exposureQueryId",
+    "hashAttribute",
+    "seed",
+    "guardrailMetrics",
+  ]) as unknown) as FeatureRule;
+  if (rule.type === "safe-rollout" && !rule.seed) {
+    rule.seed = uuidv4();
+  }
+  if (rule.type === "safe-rollout" && !rule.trackingKey) {
+    rule.trackingKey = `sf__${uuidv4()}`;
+  }
+  if (rule.type === "safe-rollout") {
+    await context.models.safeRollout.create({
+      featureId: feature.id,
+      ruleId: rule.id,
+      trackingKey: rule.trackingKey,
+      datasource: rule.datasource,
+      exposureQueryId: rule.exposureQueryId,
+      hashAttribute: rule.hashAttribute,
+      seed: rule.seed,
+      guardrailMetrics: rule.guardrailMetrics,
+      autoSnapshots: true,
+      coverage: 0,
+      controlValue: rule.controlValue,
+      variationValue: rule.value,
+      status: "draft",
+    });
+  }
+
   await addFeatureRule(
     revision,
     environment,
-    rule,
+    featureRule,
     res.locals.eventAudit,
     resetReview
   );

@@ -20,6 +20,8 @@ import { PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import { kebabCase } from "lodash";
+import { SafeRolloutRule } from "back-end/src/validators/features";
+import { fullSafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
 import {
   NewExperimentRefRule,
   getDefaultRuleValue,
@@ -54,6 +56,7 @@ import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFiel
 import { useIncrementer } from "@/hooks/useIncrementer";
 import HelperText from "@/components/Radix/HelperText";
 import { useTemplates } from "@/hooks/useTemplates";
+import SafeRolloutFields from "@/components/Features/RuleModal/SafeRolloutFields";
 
 export interface Props {
   close: () => void;
@@ -68,13 +71,18 @@ export interface Props {
   duplicate?: boolean;
 }
 
-type RadioSelectorRuleType = "force" | "rollout" | "experiment" | "bandit" | "";
+type RadioSelectorRuleType =
+  | "force"
+  | "rollout"
+  | "experiment"
+  | "bandit"
+  | "safe-rollout";
 type OverviewRuleType =
   | "force"
   | "rollout"
   | "experiment-ref"
   | "experiment-ref-new"
-  | "";
+  | "safe-rollout";
 
 export default function RuleModal({
   close,
@@ -136,7 +144,9 @@ export default function RuleModal({
   // Paged modal
   const [step, setStep] = useState(0);
 
-  const form = useForm<FeatureRule | NewExperimentRefRule>({
+  const form = useForm<
+    FeatureRule | NewExperimentRefRule | fullSafeRolloutInterface
+  >({
     defaultValues,
   });
 
@@ -227,6 +237,7 @@ export default function RuleModal({
   function changeRuleType(v: string) {
     const existingCondition = form.watch("condition");
     const existingSavedGroups = form.watch("savedGroups");
+    console.log(v, "v");
     const newVal = {
       ...getDefaultRuleValue({
         defaultValue: getFeatureDefaultValue(feature),
@@ -612,6 +623,7 @@ export default function RuleModal({
       >
         <div className="bg-highlight rounded p-3 mb-3">
           <h5>Select rule type</h5>
+          <h6>Safe Rollout</h6>
           <RadioCards
             mt="4"
             width="100%"
@@ -625,6 +637,12 @@ export default function RuleModal({
               {
                 value: "rollout",
                 label: "Percentage rollout",
+                description:
+                  "Release to small percent of users while monitoring logs",
+              },
+              {
+                value: "safe-rollout",
+                label: "Safe rollout",
                 description:
                   "Release to small percent of users while monitoring logs",
               },
@@ -669,12 +687,16 @@ export default function RuleModal({
                 : []),
             ]}
             value={overviewRadioSelectorRuleType}
-            setValue={(v: "force" | "rollout" | "experiment" | "bandit") => {
+            setValue={(
+              v: "force" | "rollout" | "safe-rollout" | "experiment" | "bandit"
+            ) => {
               setOverviewRadioSelectorRuleType(v);
               if (v === "force") {
                 setOverviewRuleType("force");
               } else if (v === "rollout") {
                 setOverviewRuleType("rollout");
+              } else if (v === "safe-rollout") {
+                setOverviewRuleType("safe-rollout");
               } else {
                 setOverviewRuleType("experiment-ref-new");
               }
@@ -741,10 +763,12 @@ export default function RuleModal({
       ? `${
           ruleType === "experiment-ref-new" ? "new" : "existing"
         } Experiment as Rule`
+      : ruleType === "safe-rollout"
+      ? "Safe Rollout Rule"
       : "Rule";
   const trackingEventModalType = kebabCase(headerText);
   headerText += ` in ${environment}`;
-
+  console.log(ruleType, "ruleType");
   return (
     <FormProvider {...form}>
       <PagedModal
@@ -804,6 +828,30 @@ export default function RuleModal({
             setScheduleToggleEnabled={setScheduleToggleEnabled}
           />
         )}
+
+        {ruleType === "safe-rollout" &&
+          ["Overview", "Metrics"].map((p, i) => {
+            return (
+              <Page display={p} key={i}>
+                <SafeRolloutFields
+                  step={i}
+                  feature={feature}
+                  environment={environment}
+                  defaultValues={defaultValues}
+                  version={version}
+                  revisions={revisions}
+                  setPrerequisiteTargetingSdkIssues={
+                    setPrerequisiteTargetingSdkIssues
+                  }
+                  isCyclic={isCyclic}
+                  cyclicFeatureId={cyclicFeatureId}
+                  conditionKey={conditionKey}
+                  scheduleToggleEnabled={scheduleToggleEnabled}
+                  setScheduleToggleEnabled={setScheduleToggleEnabled}
+                />
+              </Page>
+            );
+          })}
 
         {(ruleType === "experiment-ref" || ruleType === "experiment") &&
         experimentType === "experiment" ? (
