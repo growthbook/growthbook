@@ -39,7 +39,7 @@ const LINKED_CHANGES: Record<
   },
   redirects: {
     header: "URL Redirects",
-    cta: "Add URL Redirects",
+    cta: "Add URL Redirect",
     description:
       "Use our no-code tool to A/B test URL redirects for whole pages, or to test parts of a URL.",
     commercialFeature: "redirects",
@@ -121,6 +121,7 @@ const AddLinkedChangeRow = ({
                 body={
                   "You can add this to your draft, but you will not be able to start the experiment until upgrading."
                 }
+                usePortal={true}
               >
                 <div
                   className="btn btn-link link-purple p-0"
@@ -132,13 +133,13 @@ const AddLinkedChangeRow = ({
                 </div>
               </PremiumTooltip>
             ) : (
-              <div>
-                <Tooltip
-                  body={`The SDKs in this project don't support ${header}. Upgrade your SDK(s) or add a supported SDK.`}
-                  tipPosition="top"
-                >
-                  <div className="btn btn-link disabled p-0">{cta}</div>
-                </Tooltip>
+              <div
+                className="btn btn-link link-purple p-0"
+                onClick={() => {
+                  setModal(true);
+                }}
+              >
+                {cta}
               </div>
             )
           ) : (
