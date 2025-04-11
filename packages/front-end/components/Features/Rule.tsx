@@ -10,6 +10,7 @@ import { RiAlertLine, RiDraggable } from "react-icons/ri";
 import { RxCircleBackslash } from "react-icons/rx";
 import { PiArrowBendRightDown } from "react-icons/pi";
 import { format as formatTimeZone } from "date-fns-tz";
+import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { getRules, isRuleInactive, useEnvironments } from "@/services/features";
@@ -25,6 +26,8 @@ import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/Experi
 import Callout from "@/components/Radix/Callout";
 import SafeRolloutSummary from "@/components/Features/SafeRolloutSummary";
 import SafeRolloutSnapshotProvider from "@/components/SafeRollout/SnapshotProvider";
+import SafeRolloutDetails from "@/components/SafeRollout/SafeRolloutDetails";
+import useApi from "@/hooks/useApi";
 import DecisionBanner from "../SafeRollout/DecisionBanner";
 import ConditionDisplay from "./ConditionDisplay";
 import ForceSummary from "./ForceSummary";
@@ -56,6 +59,7 @@ interface SortableProps {
   setVersion: (version: number) => void;
   locked: boolean;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
+  safeRolloutsMap: Map<string, SafeRolloutInterface>;
   hideInactive?: boolean;
   isDraft: boolean;
 }
@@ -115,6 +119,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       setVersion,
       locked,
       experimentsMap,
+      safeRolloutsMap,
       hideInactive,
       isDraft,
       ...props
@@ -174,6 +179,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       return null;
     }
 
+    console.log(safeRolloutsMap, "safeRolloutsMap");
+    //get first safe rollout
+    const safeRollout = safeRolloutsMap.values().next().value;
     return (
       <Box {...props} ref={ref}>
         <Box mt="3">
@@ -284,19 +292,21 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       feature={feature}
                     >
                       <SafeRolloutSummary
-                        value={rule.value ?? ""}
-                        coverage={rule.coverage ?? 1}
+                        safeRollout={safeRollout}
+                        rule={rule}
                         feature={feature}
-                        hashAttribute={rule.hashAttribute || ""}
-                        guardrailMetrics={rule.guardrailMetrics || []}
-                        controlValue={rule.controlValue}
                       />
                       {/* TODO: Once modal exists to change Safe Rollout status, plug in setStatusModalOpen here */}
                       <DecisionBanner openStatusModal={() => undefined} />
-                      {/* <SafeRolloutDetails
-                        safeRollout={rule}
+                      <SafeRolloutDetails
+                        safeRollout={{
+                          ...rule,
+                          organization: feature.organization,
+                          dateCreated: feature.dateCreated,
+                          dateUpdated: feature.dateUpdated,
+                        }}
                         feature={feature}
-                      /> */}
+                      />
                     </SafeRolloutSnapshotProvider>
                   )}
                   {rule.type === "experiment" && (

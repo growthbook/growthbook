@@ -1,7 +1,3 @@
-import {
-  DEFAULT_DECISION_CRITERIAS,
-  getDecisionFrameworkStatus,
-} from "shared/enterprise";
 import { addDays, differenceInDays } from "date-fns";
 import { getMetricResultStatus } from "shared/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
@@ -22,7 +18,9 @@ const DecisionBanner = ({ openStatusModal }) => {
   }
 
   // Use latest snapshot date and safe rollout start date plus maxDurationDays to determine days left
-  const startDate = new Date(safeRollout.startedAt);
+  const startDate = safeRollout?.startedAt
+    ? new Date(safeRollout.startedAt)
+    : new Date();
   const endDate = addDays(
     new Date(startDate.getTime()),
     safeRollout.maxDurationDays
@@ -36,6 +34,8 @@ const DecisionBanner = ({ openStatusModal }) => {
 
   // Get all metrics from the latest snapshot with results and determine whether or not they're failing
   // baseline and stats should come from the snapshot
+  const failingGuardrails = ["x", "y"];
+  // safeRollout?.guardrailMetrics?.forEach((metric) => {
   //   const {
   //     resultsStatus,
   //     directionalStatus,
@@ -50,17 +50,20 @@ const DecisionBanner = ({ openStatusModal }) => {
   //     pValueThreshold,
   //     statsEngine: "frequentist",
   //   });
-  const failingGuardrails = ["X", "Y", "Z"]; // Mocked for demonstration
+  //   if (resultsStatus === "failing") {
+  //     failingGuardrails.push(metric.id);
+  //   }
+  // });
 
   // Uncomment when analysisSummary is added to safe rollout
-  //   const resultsStatus = safeRollout.analysisSummary?.resultsStatus;
-  //   const [, doNoHarm] = DEFAULT_DECISION_CRITERIAS;
-  //   const decisionStatus = getDecisionFrameworkStatus({
-  //     resultsStatus,
-  //     decisionCriteria: doNoHarm,
-  //     goalMetrics: [],
-  //     guardrailMetrics: safeRollout.guardrailMetrics,
-  //   });
+  // const resultsStatus = safeRollout.analysisSummary?.resultsStatus;
+  // const [, doNoHarm] = DEFAULT_DECISION_CRITERIAS;
+  // const decisionStatus = getDecisionFrameworkStatus({
+  //   resultsStatus,
+  //   decisionCriteria: doNoHarm,
+  //   goalMetrics: [],
+  //   guardrailMetrics: safeRollout.guardrailMetrics,
+  // });
 
   const decisionStatus = { status: "rollback-now" }; // Mocked decision status for demonstration
 

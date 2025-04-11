@@ -277,10 +277,16 @@ export async function getFeature(
         ...settings,
         rules: settings.rules.map((rule: FeatureRule) => {
           if (rule.type === "safe-rollout") {
-            return {
-              ...rule,
-              ...safeRollouts.find((s) => s.ruleId === rule.id),
-            };
+            console.log(
+              "rule",
+              rule,
+              safeRollouts.find((s) => s.ruleId === rule.id) ?? {}
+            );
+            return Object.assign(
+              {},
+              rule,
+              safeRollouts.find((s) => s.ruleId === rule.id) ?? {}
+            );
           }
           return rule;
         }),

@@ -8,6 +8,10 @@ import {
 import { Environment } from "back-end/types/organization";
 import { Box, Container, Flex, Text } from "@radix-ui/themes";
 import clsx from "clsx";
+import {
+  fullSafeRolloutInterface,
+  SafeRolloutInterface,
+} from "back-end/src/models/SafeRolloutModel";
 import RuleModal from "@/components/Features/RuleModal/index";
 import RuleList from "@/components/Features/RuleList";
 import track from "@/services/track";
@@ -22,6 +26,7 @@ import {
 } from "@/components/Radix/Tabs";
 import Badge from "@/components/Radix/Badge";
 import Link from "@/components/Radix/Link";
+import useApi from "@/hooks/useApi";
 import EnvironmentDropdown from "../Environments/EnvironmentDropdown";
 import CompareEnvironmentsModal from "./CompareEnvironmentsModal";
 
@@ -37,6 +42,7 @@ export default function FeatureRules({
   setVersion,
   hideInactive,
   isDraft,
+  safeRolloutsMap,
 }: {
   environments: Environment[];
   feature: FeatureInterface;
@@ -49,9 +55,14 @@ export default function FeatureRules({
   setVersion: (v: number) => void;
   hideInactive: boolean;
   isDraft: boolean;
+  safeRolloutsMap: Map<string, SafeRolloutInterface>;
 }) {
   const envs = environments.map((e) => e.id);
   const [env, setEnv] = useEnvironmentState();
+  const safeRolloutUrl = `/feature/${feature.id}/safe-rollouts`;
+  const { data, error } = useApi<{
+    safeRollouts: fullSafeRolloutInterface[];
+  }>(safeRolloutUrl);
   const [ruleModal, setRuleModal] = useState<{
     i: number;
     environment: string;
@@ -196,6 +207,7 @@ export default function FeatureRules({
                     experimentsMap={experimentsMap}
                     hideInactive={hideInactive}
                     isDraft={isDraft}
+                    safeRolloutsMap={safeRolloutsMap}
                   />
                 ) : (
                   <Box py="4" className="text-muted">

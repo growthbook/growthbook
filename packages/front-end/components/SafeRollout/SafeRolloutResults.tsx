@@ -108,7 +108,7 @@ const SafeRolloutResults: FC<{
 
   const datasource = getDatasourceById(safeRollout.datasource);
 
-  const hasMetrics = safeRollout.guardrailMetrics.length > 0;
+  const hasMetrics = safeRollout?.guardrailMetrics?.length > 0;
 
   return (
     <>

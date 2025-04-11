@@ -22,6 +22,7 @@ import { getScopedSettings } from "shared/settings";
 import { kebabCase } from "lodash";
 import { SafeRolloutRule } from "back-end/src/validators/features";
 import { fullSafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
+import { Text } from "@radix-ui/themes";
 import {
   NewExperimentRefRule,
   getDefaultRuleValue,
@@ -622,10 +623,13 @@ export default function RuleModal({
         autoCloseOnSubmit={false}
       >
         <div className="bg-highlight rounded p-3 mb-3">
-          <h5>Select rule type</h5>
-          <h6>Safe Rollout</h6>
+          <Text size="4" weight="bold" as="div" mb="4">
+            Select Implementation
+          </Text>
+          <Text>MANUAL</Text>
           <RadioCards
-            mt="4"
+            mt="2"
+            mb="5"
             width="100%"
             options={[
               {
@@ -640,9 +644,18 @@ export default function RuleModal({
                 description:
                   "Release to small percent of users while monitoring logs",
               },
+            ]}
+          />
+
+          <Text>DATA-DRIVEN</Text>
+          <RadioCards
+            mt="2"
+            width="100%"
+            options={[
               {
                 value: "safe-rollout",
                 label: "Safe rollout",
+                badge: "NEW!",
                 description:
                   "Release to small percent of users while monitoring logs",
               },

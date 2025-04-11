@@ -393,6 +393,11 @@ export async function createSnapshot({
   await safeRolloutModel.update(safeRollout, {
     nextSnapshotAttempt:
       nextUpdate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    analysisSummary: getSafeRolloutAnalysisSummary({
+      context,
+      safeRollout,
+      experimentSnapshot: data,
+    }),
   });
 
   const snapshot = await context.models.safeRolloutSnapshots.create(data);
@@ -472,40 +477,38 @@ export async function createSafeRolloutSnapshot({
 }
 
 export async function getSafeRolloutAnalysisSummary({
-  context,
-  safeRollout,
-  experimentSnapshot,
+  safeRolloutSnapshot,
 }: {
   context: ReqContext;
-  safeRollout: SafeRolloutRule;
-  experimentSnapshot: SafeRolloutSnapshotInterface;
+  safeRollout: fullSafeRolloutInterface;
+  safeRolloutSnapshot: SafeRolloutSnapshotInterface;
 }): Promise<ExperimentAnalysisSummary> {
   const analysisSummary: ExperimentAnalysisSummary = {
-    snapshotId: experimentSnapshot.id,
+    snapshotId: safeRolloutSnapshot.id,
   };
 
-  const overallTraffic = experimentSnapshot.health?.traffic?.overall;
+  const overallTraffic = safeRolloutSnapshot.health?.traffic?.overall;
 
   const standardSnapshot =
-    experimentSnapshot.analyses?.[0]?.results?.length === 1;
+    safeRolloutSnapshot.analyses?.[0]?.results?.length === 1;
   const totalUsers =
     (overallTraffic?.variationUnits.length
       ? overallTraffic.variationUnits.reduce((acc, a) => acc + a, 0)
       : standardSnapshot
       ? // fall back to first result for standard snapshots if overall traffic
         // is missing
-        experimentSnapshot?.analyses?.[0]?.results?.[0]?.variations?.reduce(
+        safeRolloutSnapshot?.analyses?.[0]?.results?.[0]?.variations?.reduce(
           (acc, a) => acc + a.users,
           0
         )
       : null) ?? null;
 
-  const srm = getSafeRolloutSRMValue(experimentSnapshot);
+  const srm = getSafeRolloutSRMValue(safeRolloutSnapshot);
 
   if (srm !== undefined) {
     analysisSummary.health = {
       srm,
-      multipleExposures: experimentSnapshot.multipleExposures,
+      multipleExposures: safeRolloutSnapshot.multipleExposures,
       totalUsers,
     };
   }

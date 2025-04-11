@@ -9,10 +9,11 @@ import {
   SafeRolloutSnapshotAnalysis,
   SafeRolloutSnapshotInterface,
 } from "back-end/src/validators/safe-rollout";
+import { fullSafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
 import useApi from "@/hooks/useApi";
 
 const snapshotContext = React.createContext<{
-  safeRollout?: SafeRolloutRule;
+  safeRollout?: fullSafeRolloutInterface;
   feature?: FeatureInterface;
   snapshot?: SafeRolloutSnapshotInterface;
   analysis?: SafeRolloutSnapshotAnalysis | undefined;
@@ -33,7 +34,7 @@ export default function SafeRolloutSnapshotProvider({
   feature,
   children,
 }: {
-  safeRollout: SafeRolloutRule;
+  safeRollout: fullSafeRolloutInterface;
   feature: FeatureInterface;
   children: ReactNode;
 }) {

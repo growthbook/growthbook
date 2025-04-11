@@ -121,6 +121,7 @@ import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
 import { FeatureUsageLookback } from "back-end/src/types/Integration";
 import { getChangesToStartExperiment } from "back-end/src/services/experiments";
 import { getMetricMap } from "back-end/src/models/MetricModel";
+import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
     super(message);
@@ -1233,6 +1234,7 @@ export async function postFeatureRule(
     rule.trackingKey = `sf__${uuidv4()}`;
   }
   if (rule.type === "safe-rollout") {
+    rule.coverage = 1; // hardcode to 100% for now
     await context.models.safeRollout.create({
       featureId: feature.id,
       ruleId: rule.id,
@@ -1243,10 +1245,12 @@ export async function postFeatureRule(
       seed: rule.seed,
       guardrailMetrics: rule.guardrailMetrics,
       autoSnapshots: true,
-      coverage: 0,
-      controlValue: rule.controlValue,
-      variationValue: rule.value,
+      coverage: rule.coverage,
       status: "draft",
+      analysisSummary: {
+        status: "draft",
+        analysis: [],
+      },
     });
   }
 
@@ -2365,10 +2369,10 @@ export async function getFeatureById(
     }
   }
 
-  // Get all linked experiments
+  // Get all linked experiments and  saferollouts
   const experimentIds = new Set<string>();
   const trackingKeys = new Set<string>();
-
+  let hasSafeRollout = false;
   revisions.forEach((revision) => {
     environments.forEach((env) => {
       const rules = revision.rules[env];
@@ -2381,11 +2385,14 @@ export async function getFeatureById(
         // Old rules store the trackingKey
         else if (rule.type === "experiment") {
           trackingKeys.add(rule.trackingKey || feature.id);
+        } else if (rule.type === "safe-rollout") {
+          hasSafeRollout = true;
         }
       });
     });
   });
   const experimentsMap: Map<string, ExperimentInterface> = new Map();
+  const safeRolloutMap: Map<string, SafeRolloutInterface> = new Map();
   if (trackingKeys.size) {
     const exps = await getExperimentsByTrackingKeys(context, [...trackingKeys]);
     exps.forEach((exp) => {
@@ -2397,6 +2404,14 @@ export async function getFeatureById(
     const exps = await getExperimentsByIds(context, [...experimentIds]);
     exps.forEach((exp) => {
       experimentsMap.set(exp.id, exp);
+    });
+  }
+  if (hasSafeRollout) {
+    const safeRollouts = await context.models.safeRollout.getAllByFeatureId(
+      feature.id
+    );
+    safeRollouts.forEach((safeRollout: SafeRolloutInterface) => {
+      safeRolloutMap.set(safeRollout.id, safeRollout);
     });
   }
 
@@ -2428,12 +2443,13 @@ export async function getFeatureById(
     feature: feature.id,
     organization: org,
   });
-
+  console.log("safeRolloutMap", safeRolloutMap);
   res.status(200).json({
     status: 200,
     feature,
     revisions,
     experiments: [...experimentsMap.values()],
+    safeRollouts: [...safeRolloutMap.values()],
     codeRefs,
   });
 }

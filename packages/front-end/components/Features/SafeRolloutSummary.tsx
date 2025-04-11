@@ -1,5 +1,7 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { Box, Flex } from "@radix-ui/themes";
+import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
+import { SafeRolloutRule } from "back-end/src/validators/features";
 import ValidateValue from "@/components/Features/ValidateValue";
 import Badge from "@/components/Radix/Badge";
 import ValueDisplay from "./ValueDisplay";
@@ -10,22 +12,19 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 });
 
 export default function SafeRolloutSummary({
-  value,
-  coverage,
+  safeRollout,
+  rule,
   feature,
-  hashAttribute,
-  guardrailMetrics,
-  controlValue,
 }: {
-  value: string;
-  coverage: number;
+  safeRollout: SafeRolloutInterface;
+  rule: SafeRolloutRule;
   feature: FeatureInterface;
-  hashAttribute: string;
-  guardrailMetrics: string[];
-  controlValue: string;
 }) {
+  const { coverage, hashAttribute, guardrailMetrics } = safeRollout;
+  const { value, variationValue } = rule;
   const type = feature.valueType;
   const coveragePercent = (coverage / 2) * 100;
+  console.log("coverage", coverage);
   return (
     <Box>
       <div className="mb-2">
@@ -104,7 +103,7 @@ export default function SafeRolloutSummary({
           <strong className="font-weight-semibold">COMPARE AGAINST</strong>
         </Box>
         <Box>
-          <ValueDisplay value={controlValue} type="boolean" />
+          <ValueDisplay value={variationValue} type={type} />
         </Box>
       </Flex>
       <Flex gap="3" className="mt-2">

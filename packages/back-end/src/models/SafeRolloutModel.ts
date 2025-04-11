@@ -24,17 +24,20 @@ export const safeRollout = z.object({
   nextSnapshotAttempt: z.date().optional(),
   autoSnapshots: z.boolean().default(true),
   ruleId: z.string(),
+  maxDurationDays: z.number().default(30),
   featureId: z.string(),
-  coverage: z.number(),
-  controlValue: z.string(),
-  variationValue: z.string(),
+  coverage: z.number().default(1),
+  analysisSummary: z.object({
+    status: z.enum(safeRolloutStatus),
+    analysis: z.array(z.any()),
+  }),
 });
 
 export const safeRolloutValidator = baseSchema
   .extend(safeRollout.shape)
   .strict();
-export type safeRolloutInterface = z.infer<typeof safeRolloutValidator>;
-export type fullSafeRolloutInterface = safeRolloutInterface & SafeRolloutRule;
+export type SafeRolloutInterface = z.infer<typeof safeRolloutValidator>;
+export type fullSafeRolloutInterface = SafeRolloutInterface & SafeRolloutRule;
 
 const BaseClass = MakeModelClass({
   schema: safeRolloutValidator,
@@ -63,8 +66,7 @@ interface createProps {
   status: typeof safeRolloutStatus[number];
   startedAt?: Date;
   coverage: number;
-  controlValue: string;
-  variationValue: string;
+  analysisSummary: SafeRolloutAnalysisSummary;
 }
 
 export class SafeRolloutModel extends BaseClass {
@@ -101,8 +103,6 @@ export class SafeRolloutModel extends BaseClass {
       ruleId: doc.ruleId,
       featureId: doc.featureId,
       coverage: doc.coverage,
-      controlValue: doc.controlValue,
-      variationValue: doc.variationValue,
       startedAt: doc.startedAt,
       status: doc.status,
       datasource: doc.datasource,
@@ -119,6 +119,9 @@ export class SafeRolloutModel extends BaseClass {
   }
   public async findByRuleIds(ruleIds: string[]) {
     return await this._find({ ruleId: { $in: ruleIds } });
+  }
+  public async getAllByFeatureId(featureId: string) {
+    return await this._find({ featureId });
   }
 }
 export async function getAllRolloutsToBeUpdated() {
