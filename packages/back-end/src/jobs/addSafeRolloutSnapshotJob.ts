@@ -13,11 +13,7 @@ import {
   SafeRolloutInterface,
   FullSafeRolloutInterface,
 } from "back-end/src/models/SafeRolloutModel";
-import {
-  FeatureInterface,
-  FeatureRule,
-  SafeRolloutRule,
-} from "back-end/src/validators/features";
+import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout-snapshot/safe-rollout.helper";
 type UpdateSingleSafeRolloutRuleJob = Job<{
   rule: FullSafeRolloutInterface;
 }>;
@@ -58,20 +54,6 @@ export default async function (agenda: Agenda) {
     job.schedule(new Date());
     await job.save();
   }
-}
-
-function getSafeRolloutRuleFromFeature(
-  feature: FeatureInterface,
-  ruleId: string
-): SafeRolloutRule | null {
-  Object.keys(feature.environmentSettings).forEach((env: string) =>
-    feature.environmentSettings[env].rules.forEach((rule: FeatureRule) => {
-      if (rule.id === ruleId) {
-        return rule;
-      }
-    })
-  );
-  return null;
 }
 
 async function updateSingleSafeRolloutRule(

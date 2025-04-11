@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { getCollection } from "back-end/src/util/mongo.util";
 import { SafeRolloutRule } from "back-end/src/validators/features";
+import { experimentAnalysisSummary } from "back-end/src/validators/experiments";
 import { baseSchema, MakeModelClass } from "./BaseModel";
 const COLLECTION = "safeRolloutAnalysisSettings";
 
@@ -29,6 +30,7 @@ export const safeRollout = z.object({
   controlValue: z.string(),
   variationValue: z.string(),
   maxDurationDays: z.number(),
+  analysisSummary: experimentAnalysisSummary,
 });
 
 export const safeRolloutValidator = baseSchema
@@ -69,7 +71,7 @@ interface createProps {
   variationValue: string;
 }
 
-export class SafeRolloutModel extends BaseClass { 
+export class SafeRolloutModel extends BaseClass {
   protected canRead(_doc: SafeRolloutInterface): boolean {
     return true;
   }

@@ -149,7 +149,6 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
       );
     }
     const strippedResult = omit(result, ["unknownVariations"]);
-    // TODO: add update the safe rollout interface with analysis summary
     const updates: Partial<SafeRolloutSnapshotInterface> = {
       queries,
       ...(runStarted && { runStarted }),
