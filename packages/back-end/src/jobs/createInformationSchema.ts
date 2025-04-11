@@ -11,7 +11,7 @@ import {
   MissingDatasourceParamsError,
 } from "back-end/src/types/Integration";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
-import { trackJob } from "back-end/src/services/otel";
+import { trackJob } from "back-end/src/services/tracing";
 
 const CREATE_INFORMATION_SCHEMA_JOB_NAME = "createInformationSchema";
 type CreateInformationSchemaJob = Job<{

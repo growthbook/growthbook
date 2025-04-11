@@ -10,7 +10,7 @@ import {
 import { Column } from "back-end/src/types/Integration";
 import { getPath } from "back-end/src/util/informationSchemas";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
-import { trackJob } from "back-end/src/services/otel";
+import { trackJob } from "back-end/src/services/tracing";
 
 const UPDATE_STALE_INFORMATION_SCHEMA_TABLE_JOB_NAME =
   "updateStaleInformationSchemaTable";
