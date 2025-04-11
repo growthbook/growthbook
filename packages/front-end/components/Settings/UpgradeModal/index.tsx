@@ -690,7 +690,7 @@ export default function UpgradeModal({
                             Upgrade Now
                           </button>
                         </div>
-                        {freeTrialAvailable && (
+                        {freeTrialAvailable && !isCloud() && (
                           <div className="mb-4 text-center">
                             or, start a{" "}
                             {isAtLeastPro ? (

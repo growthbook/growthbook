@@ -8,6 +8,7 @@ import asyncHandler from "express-async-handler";
 import compression from "compression";
 import * as Sentry from "@sentry/node";
 import { populationDataRouter } from "back-end/src/routers/population-data/population-data.router";
+import decisionCriteriaRouter from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.router";
 import { usingFileConfig } from "./init/config";
 import { AuthRequest } from "./types/AuthRequest";
 import {
@@ -602,6 +603,12 @@ app.delete(
   experimentsController.deleteVisualChangeset
 );
 
+// Time Series
+app.get(
+  "/experiments/:id/time-series",
+  experimentsController.getExperimentTimeSeries
+);
+
 // Visual editor auth
 app.get(
   "/visual-editor/key",
@@ -610,6 +617,9 @@ app.get(
 
 // Experiment Templates
 app.use("/templates", templateRouter);
+
+// Decision Criteria
+app.use("/decision-criteria", decisionCriteriaRouter);
 
 // URL Redirects
 app.use("/url-redirects", urlRedirectRouter);

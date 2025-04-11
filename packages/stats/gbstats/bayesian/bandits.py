@@ -188,9 +188,11 @@ class Bandits(ABC):
             bandit_weights=p.tolist() if enough_units else None,
             best_arm_probabilities=best_arm_probabilities.tolist(),
             seed=seed,
-            bandit_update_message=update_message
-            if enough_units
-            else "total sample size must be at least 100 per variation",
+            bandit_update_message=(
+                update_message
+                if enough_units
+                else "total sample size must be at least 100 per variation"
+            ),
             enough_units=enough_units,
         )
 
@@ -316,15 +318,17 @@ class BanditsRatio(Bandits):
     def variation_variances(self) -> np.ndarray:
         return np.array(
             [
-                variance_of_ratios(
-                    self.numerator_means[variation],
-                    self.numerator_variances[variation],
-                    self.denominator_means[variation],
-                    self.denominator_variances[variation],
-                    self.covariances[variation],
+                (
+                    variance_of_ratios(
+                        self.numerator_means[variation],
+                        self.numerator_variances[variation],
+                        self.denominator_means[variation],
+                        self.denominator_variances[variation],
+                        self.covariances[variation],
+                    )
+                    if self.variation_counts[variation] > 0
+                    else 0
                 )
-                if self.variation_counts[variation] > 0
-                else 0
                 for variation in range(self.num_variations)
             ]
         )
