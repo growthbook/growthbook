@@ -9,7 +9,6 @@ import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
   OrganizationInterface,
-  OrganizationUsage,
   Permission,
   UserPermissions,
 } from "back-end/types/organization";
@@ -78,7 +77,6 @@ export class ReqContextClass {
   }
 
   public org: OrganizationInterface;
-  public usage: OrganizationUsage;
   public userId = "";
   public email = "";
   public userName = "";
