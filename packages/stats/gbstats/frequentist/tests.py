@@ -319,7 +319,7 @@ def one_sided_confidence_interval(
 def two_sided_confidence_interval(
     point_estimate: float, halfwidth: float
 ) -> List[Optional[float]]:
-    return [point_estimate - halfwidth, None]
+    return [point_estimate - halfwidth, point_estimate + halfwidth]
 
 
 class TwoSidedTTest(TTest):
