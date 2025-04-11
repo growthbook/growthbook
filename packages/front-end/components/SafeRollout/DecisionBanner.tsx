@@ -1,6 +1,8 @@
 import {
   DEFAULT_DECISION_CRITERIAS,
   getDecisionFrameworkStatus,
+  getHealthSettings,
+  getSafeRolloutResultStatus,
 } from "shared/enterprise";
 import { addDays, differenceInDays } from "date-fns";
 import { getMetricResultStatus } from "shared/experiments";
@@ -9,10 +11,14 @@ import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Callout from "../Radix/Callout";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
+import { useUser } from "@/services/UserContext";
+import { useOrganization } from "@/services/OrganizationContext";
 
 const DecisionBanner = ({ openStatusModal }) => {
   const { safeRollout, snapshot: snapshotWithResults } = useSafeRolloutSnapshot();
   const { metricDefaults } = useOrganizationMetricDefaults();
+  const { hasCommercialFeature } = useUser();
+  const { settings } = useOrganization();
 
   const { ciUpper, ciLower } = useConfidenceLevels();
   const pValueThreshold = usePValueThreshold();
@@ -34,20 +40,19 @@ const DecisionBanner = ({ openStatusModal }) => {
     ? differenceInDays(endDate, latestSnapshotDate)
     : safeRollout.maxDurationDays;
 
-  // Uncomment when analysisSummary is added to safe rollout
-  //   const resultsStatus = safeRollout.analysisSummary?.resultsStatus;
-  //   const [, doNoHarm] = DEFAULT_DECISION_CRITERIAS;
-  //   const decisionStatus = getDecisionFrameworkStatus({
-  //     resultsStatus,
-  //     decisionCriteria: doNoHarm,
-  //     goalMetrics: [],
-  //     guardrailMetrics: safeRollout.guardrailMetrics,
-  //   });
+  // const decisionStatus = getSafeRolloutResultStatus({
+  //   safeRollout,
+  //   healthSettings: getHealthSettings(
+  //     settings,
+  //     hasCommercialFeature("decision-framework")
+  //   ),
+  //   daysLeft,
+  // });
 
+  // failingGuardrails comes from the analysis summary for now, but we could return it in the above
   const failingGuardrails = ["X", "Y", "Z"]; // Mocked for demonstration
-
   const decisionStatus = { status: "rollback-now" }; // Mocked decision status for demonstration
-
+ 
   if (decisionStatus?.status === "rollback-now") {
     return (
       <Callout status="error" my="4">

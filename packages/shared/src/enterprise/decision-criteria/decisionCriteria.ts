@@ -468,11 +468,11 @@ export function getExperimentResultStatus({
 export function getSafeRolloutResultStatus({
   safeRollout,
   healthSettings,
-  safeRolloutSnapshotDate,
+  daysLeft,
 }: {
   safeRollout: SafeRolloutInterface;
   healthSettings: ExperimentHealthSettings;
-  safeRolloutSnapshotDate: Date;
+  daysLeft: number;
 }): ExperimentResultStatusData | undefined {
   const unhealthyData: ExperimentUnhealthyData = {};
   // TODO add analysis summary to safe rollout interface
@@ -553,7 +553,6 @@ export function getSafeRolloutResultStatus({
   }
 
   // If no decision status, return days left status
-  const daysLeft = safeRollout.maxDurationDays - daysBetween(safeRollout.dateStarted, safeRolloutSnapshotDate);
   if (daysLeft > 0) {
     return {
       status: "days-left",

@@ -28,6 +28,7 @@ export const safeRollout = z.object({
   coverage: z.number(),
   controlValue: z.string(),
   variationValue: z.string(),
+  maxDurationDays: z.number(),
 });
 
 export const safeRolloutValidator = baseSchema
@@ -63,11 +64,12 @@ interface createProps {
   status: typeof safeRolloutStatus[number];
   startedAt?: Date;
   coverage: number;
+  maxDurationDays: number;
   controlValue: string;
   variationValue: string;
 }
 
-export class SafeRolloutModel extends BaseClass {
+export class SafeRolloutModel extends BaseClass { 
   protected canRead(_doc: SafeRolloutInterface): boolean {
     return true;
   }
@@ -103,6 +105,7 @@ export class SafeRolloutModel extends BaseClass {
       coverage: doc.coverage,
       controlValue: doc.controlValue,
       variationValue: doc.variationValue,
+      maxDurationDays: doc.maxDurationDays,
       startedAt: doc.startedAt,
       status: doc.status,
       datasource: doc.datasource,
