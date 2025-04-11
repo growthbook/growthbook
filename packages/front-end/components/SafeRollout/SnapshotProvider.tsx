@@ -1,26 +1,23 @@
 import React, { ReactNode, useContext } from "react";
-import { ExperimentSnapshotAnalysisSettings } from "back-end/types/experiment-snapshot";
-import { getSnapshotAnalysis } from "shared/util";
-import {
-  FeatureInterface,
-  SafeRolloutRule,
-} from "back-end/src/validators/features";
 import {
   SafeRolloutSnapshotAnalysis,
+  SafeRolloutSnapshotAnalysisSettings,
   SafeRolloutSnapshotInterface,
-} from "back-end/src/validators/safe-rollout";
-import { fullSafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
+} from "back-end/types/safe-rollout";
+import { getSafeRolloutSnapshotAnalysis } from "shared/util";
+import { FeatureInterface } from "back-end/src/validators/features";
+import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
 import useApi from "@/hooks/useApi";
 
 const snapshotContext = React.createContext<{
-  safeRollout?: fullSafeRolloutInterface;
+  safeRollout?: SafeRolloutInterface;
   feature?: FeatureInterface;
   snapshot?: SafeRolloutSnapshotInterface;
   analysis?: SafeRolloutSnapshotAnalysis | undefined;
   latestAnalysis?: SafeRolloutSnapshotAnalysis | undefined;
   latest?: SafeRolloutSnapshotInterface;
   mutateSnapshot: () => void;
-  analysisSettings?: ExperimentSnapshotAnalysisSettings | null;
+  analysisSettings?: SafeRolloutSnapshotAnalysisSettings | null;
   loading?: boolean;
   error?: Error;
 }>({
@@ -34,7 +31,7 @@ export default function SafeRolloutSnapshotProvider({
   feature,
   children,
 }: {
-  safeRollout: fullSafeRolloutInterface;
+  safeRollout: SafeRolloutInterface;
   feature: FeatureInterface;
   children: ReactNode;
 }) {
@@ -44,7 +41,7 @@ export default function SafeRolloutSnapshotProvider({
   }>(`/safe-rollout/${safeRollout.id}/snapshot`);
 
   const defaultAnalysisSettings = data?.snapshot
-    ? getSnapshotAnalysis(data?.snapshot)?.settings
+    ? getSafeRolloutSnapshotAnalysis(data?.snapshot)?.settings
     : null;
 
   return (
@@ -55,12 +52,16 @@ export default function SafeRolloutSnapshotProvider({
         snapshot: data?.snapshot,
         latest: data?.latest,
         analysis: data?.snapshot
-          ? getSnapshotAnalysis(data?.snapshot, defaultAnalysisSettings) ??
-            undefined
+          ? getSafeRolloutSnapshotAnalysis(
+              data?.snapshot,
+              defaultAnalysisSettings
+            ) ?? undefined
           : undefined,
         latestAnalysis: data?.latest
-          ? getSnapshotAnalysis(data?.latest, defaultAnalysisSettings) ??
-            undefined
+          ? getSafeRolloutSnapshotAnalysis(
+              data?.latest,
+              defaultAnalysisSettings
+            ) ?? undefined
           : undefined,
         mutateSnapshot: mutate,
         analysisSettings: defaultAnalysisSettings,
@@ -73,6 +74,6 @@ export default function SafeRolloutSnapshotProvider({
   );
 }
 
-export function useSnapshot() {
+export function useSafeRolloutSnapshot() {
   return useContext(snapshotContext);
 }

@@ -33,7 +33,7 @@ import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import isEqual from "lodash/isEqual";
 import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
 import { SavedGroupInterface } from "shared/src/types";
-import { fullSafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
+import { FullSafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
@@ -633,7 +633,7 @@ export function getDefaultRuleValue({
   defaultValue: string;
   attributeSchema?: SDKAttributeSchema;
   ruleType: string;
-}): FeatureRule | NewExperimentRefRule | fullSafeRolloutInterface {
+}): FeatureRule | NewExperimentRefRule | FullSafeRolloutInterface {
   const hashAttributes =
     attributeSchema?.filter((a) => a.hashAttribute)?.map((a) => a.property) ||
     [];

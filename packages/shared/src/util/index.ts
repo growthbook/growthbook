@@ -18,6 +18,7 @@ import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { Environment } from "back-end/types/organization";
 import {
   SafeRolloutSnapshotAnalysis,
+  SafeRolloutSnapshotAnalysisSettings,
   SafeRolloutSnapshotInterface,
 } from "back-end/src/validators/safe-rollout";
 import { SavedGroupInterface } from "../types";
@@ -87,9 +88,9 @@ export function getAffectedEnvsForExperiment({
 }
 
 export function getSnapshotAnalysis(
-  snapshot: ExperimentSnapshotInterface | SafeRolloutSnapshotInterface,
+  snapshot: ExperimentSnapshotInterface,
   analysisSettings?: ExperimentSnapshotAnalysisSettings | null
-): ExperimentSnapshotAnalysis | SafeRolloutSnapshotAnalysis | null {
+): ExperimentSnapshotAnalysis | null {
   // TODO make it so order doesn't matter
   return (
     (analysisSettings
@@ -98,6 +99,14 @@ export function getSnapshotAnalysis(
   );
 }
 
+export function getSafeRolloutSnapshotAnalysis(
+  snapshot: SafeRolloutSnapshotInterface,
+  analysisSettings?: SafeRolloutSnapshotAnalysisSettings | null
+): SafeRolloutSnapshotAnalysis | null {
+  return (analysisSettings
+    ? snapshot?.analyses?.find((a) => isEqual(a.settings, analysisSettings))
+    : snapshot?.analyses?.[0]) || null;
+}
 export function putBaselineVariationFirst(
   variations: ExperimentReportVariation[],
   baselineVariationIndex: number | null

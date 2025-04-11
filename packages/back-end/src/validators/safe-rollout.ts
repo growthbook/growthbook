@@ -29,12 +29,12 @@ const metricPowerResponseFromStatsEngineObject = z.object({
   scalingFactor: z.number().optional(),
 });
 
-const snapshotMetricObject = z.object({
+const safeRolloutSnapshotMetricObject = z.object({
   value: z.number(),
   cr: z.number(),
   users: z.number(),
   denominator: z.number().optional(),
-  ci: z.tuple([z.number().nullable(), z.number().nullable()]).optional(),
+  ci: z.tuple([z.number(), z.number()]).optional(),
   ciAdjusted: z.tuple([z.number(), z.number()]).optional(),
   expected: z.number().optional(),
   risk: z.tuple([z.number(), z.number()]).optional(),
@@ -62,21 +62,21 @@ const snapshotMetricObject = z.object({
   power: metricPowerResponseFromStatsEngineObject.optional(),
 });
 
-const experimentSnapshotTrafficDimensionObject = z.object({
+const safeRolloutSnapshotTrafficDimensionObject = z.object({
   name: z.string(),
   srm: z.number(),
   variationUnits: z.array(z.number()),
 });
 
-export type ExperimentSnapshotTrafficDimension = z.infer<
-  typeof experimentSnapshotTrafficDimensionObject
+export type SafeRolloutSnapshotTrafficDimension = z.infer<
+  typeof safeRolloutSnapshotTrafficDimensionObject
 >;
 
-const experimentSnapshotTrafficObject = z.object({
-  overall: experimentSnapshotTrafficDimensionObject,
+const safeRolloutSnapshotTrafficObject = z.object({
+  overall: safeRolloutSnapshotTrafficDimensionObject,
   dimension: z.record(
     z.string(),
-    z.array(experimentSnapshotTrafficDimensionObject)
+    z.array(safeRolloutSnapshotTrafficDimensionObject)
   ),
   error: z
     .enum(["NO_ROWS_IN_UNIT_QUERY", "TOO_MANY_ROWS"])
@@ -84,13 +84,13 @@ const experimentSnapshotTrafficObject = z.object({
     .optional(),
 });
 
-const experimentSnapshotHealthObject = z.object({
-  traffic: experimentSnapshotTrafficObject,
+const safeRolloutSnapshotHealthObject = z.object({
+  traffic: safeRolloutSnapshotTrafficObject,
   power: MidExperimentPowerCalculationResultValidator.optional(),
 });
 
 export type SafeRolloutSnapshotHealth = z.infer<
-  typeof experimentSnapshotHealthObject
+  typeof safeRolloutSnapshotHealthObject
 >;
 
 const dimensionForSnapshotObject = z.object({
@@ -131,7 +131,7 @@ const metricForSnapshotObject = z.object({
     .optional(),
 });
 
-export type MetricForSnapshot = z.infer<typeof metricForSnapshotObject>;
+export type MetricForSafeRolloutSnapshot = z.infer<typeof metricForSnapshotObject>;
 
 const snapshotSettingsVariationValidator = z.object({
   id: z.string(),
@@ -139,7 +139,6 @@ const snapshotSettingsVariationValidator = z.object({
 });
 
 const safeRolloutSnapshotSettings = z.object({
-  manual: z.boolean(),
   dimensions: z.array(dimensionForSnapshotObject),
   metricSettings: z.array(metricForSnapshotObject),
   guardrailMetrics: z.array(z.string()),
@@ -159,50 +158,46 @@ export type SafeRolloutSnapshotSettings = z.infer<
   typeof safeRolloutSnapshotSettings
 >;
 
-const snapshotVariationObject = z.object({
+const safeRolloutSnapshotVariationObject = z.object({
   users: z.number(),
-  metrics: z.record(z.string(), snapshotMetricObject),
+  metrics: z.record(z.string(), safeRolloutSnapshotMetricObject),
 });
 
-const experimentReportResultDimensionObject = z.object({
+const safeRolloutReportResultDimensionObject = z.object({
   name: z.string(),
   srm: z.number(),
-  variations: z.array(snapshotVariationObject),
+  variations: z.array(safeRolloutSnapshotVariationObject),
 });
 export type SafeRolloutReportResultDimension = z.infer<
-  typeof experimentReportResultDimensionObject
+  typeof safeRolloutReportResultDimensionObject
 >;
 
 const safeRolloutSnapshotAnalysisSettingsValidator = z.object({
-  dimensions: z.array(z.string()),
   statsEngine: statsEnginesValidator,
   regressionAdjusted: z.boolean().optional(),
   sequentialTesting: z.boolean().optional(),
   sequentialTestingTuningParameter: z.number().optional(),
-  differenceType: z.enum(["absolute", "relative", "scaled"]), // not needed
   pValueCorrection: z
     .enum(["holm-bonferroni", "benjamini-hochberg"])
     .nullable()
     .optional(),
   pValueThreshold: z.number().optional(),
-  baselineVariationIndex: z.number().optional(), // Maybe not needed
-  numGoalMetrics: z.number(),
 });
 
 export type SafeRolloutSnapshotAnalysisSettings = z.infer<
   typeof safeRolloutSnapshotAnalysisSettingsValidator
 >;
 
-const experimentSnapshotAnalysisObject = z.object({
+const safeRolloutSnapshotAnalysisObject = z.object({
   settings: safeRolloutSnapshotAnalysisSettingsValidator,
   dateCreated: z.date(),
   status: z.enum(["running", "success", "error"]),
   error: z.string().optional(),
-  results: z.array(experimentReportResultDimensionObject),
+  results: z.array(safeRolloutReportResultDimensionObject),
 });
 
 export type SafeRolloutSnapshotAnalysis = z.infer<
-  typeof experimentSnapshotAnalysisObject
+  typeof safeRolloutSnapshotAnalysisObject
 >;
 
 export const safeRolloutSnapshotInterface = z
@@ -221,8 +216,8 @@ export const safeRolloutSnapshotInterface = z
     triggeredBy: z.enum(["manual", "schedule"]),
     queries: z.array(queryPointerValidator),
     multipleExposures: z.number(),
-    analyses: z.array(experimentSnapshotAnalysisObject),
-    health: experimentSnapshotHealthObject.optional(),
+    analyses: z.array(safeRolloutSnapshotAnalysisObject),
+    health: safeRolloutSnapshotHealthObject.optional(),
   })
   .strict();
 

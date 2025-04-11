@@ -10,25 +10,14 @@ const router = express.Router();
 const safeRolloutSnapshotController = wrapController(rawSnapshotController);
 
 const snapshotParams = z.object({ id: z.string() }).strict();
-const snapshotDimensionParams = z
-  .object({ id: z.string(), dimension: z.string() })
-  .strict();
+
 // Get the latest snapshot for a safe rollout rule
 router.get(
   "/:id/snapshot",
   validateRequestMiddleware({
     params: snapshotParams,
   }),
-  safeRolloutSnapshotController.getLatestSnapshot
-);
-
-// Get a snapshot for a safe rollout rule by dimension
-router.get(
-  "/:id/snapshot/:dimension",
-  validateRequestMiddleware({
-    params: snapshotDimensionParams,
-  }),
-  safeRolloutSnapshotController.getSnapshotWithDimension
+  safeRolloutSnapshotController.getLatestSafeRolloutSnapshot
 );
 
 // Create a snapshot for a safe rollout rule
@@ -39,7 +28,7 @@ router.post(
     params: snapshotParams,
     query: z.object({ force: z.string().optional() }).optional(),
   }),
-  safeRolloutSnapshotController.createSnapshot
+  safeRolloutSnapshotController.postSafeRolloutSnapshot
 );
 
 // Cancel a running snapshot for a safe rollout rule
@@ -48,7 +37,7 @@ router.post(
   validateRequestMiddleware({
     params: snapshotParams,
   }),
-  safeRolloutSnapshotController.cancelSnapshot
+  safeRolloutSnapshotController.cancelSafeRolloutSnapshot
 );
 
 export { router as safeRolloutSnapshotRouter };

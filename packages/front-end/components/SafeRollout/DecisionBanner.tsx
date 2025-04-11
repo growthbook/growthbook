@@ -1,14 +1,27 @@
+import {
+  DEFAULT_DECISION_CRITERIAS,
+  getDecisionFrameworkStatus,
+  getHealthSettings,
+  getSafeRolloutResultStatus,
+} from "shared/enterprise";
 import { addDays, differenceInDays } from "date-fns";
 import { getMetricResultStatus } from "shared/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
+import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
+import { useUser } from "@/services/UserContext";
 import Callout from "../Radix/Callout";
-import { useSnapshot } from "./SnapshotProvider";
 
 const DecisionBanner = ({ openStatusModal }) => {
-  const { safeRollout, snapshot: snapshotWithResults } = useSnapshot();
+  const {
+    safeRollout,
+    snapshot: snapshotWithResults,
+  } = useSafeRolloutSnapshot();
   const { metricDefaults } = useOrganizationMetricDefaults();
+  const { hasCommercialFeature } = useUser();
+  const { organization } = useUser();
+  const settings = organization?.settings;
 
   const { ciUpper, ciLower } = useConfidenceLevels();
   const pValueThreshold = usePValueThreshold();
@@ -32,39 +45,17 @@ const DecisionBanner = ({ openStatusModal }) => {
     ? differenceInDays(endDate, latestSnapshotDate)
     : safeRollout.maxDurationDays;
 
-  // Get all metrics from the latest snapshot with results and determine whether or not they're failing
-  // baseline and stats should come from the snapshot
-  const failingGuardrails = ["x", "y"];
-  // safeRollout?.guardrailMetrics?.forEach((metric) => {
-  //   const {
-  //     resultsStatus,
-  //     directionalStatus,
-  //     shouldHighlight,
-  //   } = getMetricResultStatus({
-  //     metric,
-  //     metricDefaults,
-  //     baseline,
-  //     stats,
-  //     ciLower,
-  //     ciUpper,
-  //     pValueThreshold,
-  //     statsEngine: "frequentist",
-  //   });
-  //   if (resultsStatus === "failing") {
-  //     failingGuardrails.push(metric.id);
-  //   }
+  // const decisionStatus = getSafeRolloutResultStatus({
+  //   safeRollout,
+  //   healthSettings: getHealthSettings(
+  //     settings,
+  //     hasCommercialFeature("decision-framework")
+  //   ),
+  //   daysLeft,
   // });
 
-  // Uncomment when analysisSummary is added to safe rollout
-  // const resultsStatus = safeRollout.analysisSummary?.resultsStatus;
-  // const [, doNoHarm] = DEFAULT_DECISION_CRITERIAS;
-  // const decisionStatus = getDecisionFrameworkStatus({
-  //   resultsStatus,
-  //   decisionCriteria: doNoHarm,
-  //   goalMetrics: [],
-  //   guardrailMetrics: safeRollout.guardrailMetrics,
-  // });
-
+  // failingGuardrails comes from the analysis summary for now, but we could return it in the above
+  const failingGuardrails = ["X", "Y", "Z"]; // Mocked for demonstration
   const decisionStatus = { status: "rollback-now" }; // Mocked decision status for demonstration
 
   if (decisionStatus?.status === "rollback-now") {

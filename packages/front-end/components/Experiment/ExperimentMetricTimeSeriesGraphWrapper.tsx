@@ -122,7 +122,7 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
       });
       const parsedPoint: ExperimentTimeSeriesGraphDataPoint = {
         d: new Date(point.date),
-        variations: variations,
+        variations,
         helperText:
           idx < lastIndexInvalidConfiguration
             ? "Analysis or metric settings do not match current version"

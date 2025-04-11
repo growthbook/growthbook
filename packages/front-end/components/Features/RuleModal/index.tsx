@@ -20,9 +20,9 @@ import { PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import { kebabCase } from "lodash";
-import { SafeRolloutRule } from "back-end/src/validators/features";
-import { fullSafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
 import { Text } from "@radix-ui/themes";
+import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
+import { SafeRolloutRule } from "back-end/src/validators/features";
 import {
   NewExperimentRefRule,
   getDefaultRuleValue,
@@ -146,7 +146,9 @@ export default function RuleModal({
   const [step, setStep] = useState(0);
 
   const form = useForm<
-    FeatureRule | NewExperimentRefRule | fullSafeRolloutInterface
+    | FeatureRule
+    | NewExperimentRefRule
+    | (SafeRolloutRule & SafeRolloutInterface)
   >({
     defaultValues,
   });

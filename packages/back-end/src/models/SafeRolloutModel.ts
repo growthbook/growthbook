@@ -1,16 +1,14 @@
 import { z } from "zod";
 import { getCollection } from "back-end/src/util/mongo.util";
 import { SafeRolloutRule } from "back-end/src/validators/features";
+import { experimentAnalysisSummary } from "back-end/src/validators/experiments";
+import { safeRolloutStatus } from "back-end/src/validators/shared";
 import { baseSchema, MakeModelClass } from "./BaseModel";
 const COLLECTION = "safeRolloutAnalysisSettings";
 
-export const safeRolloutStatus = [
-  "running",
-  "rolled-back",
-  "released",
-  "completed",
-  "draft",
-] as const;
+// Export shared validators
+export { safeRolloutStatus };
+
 export const safeRollout = z.object({
   trackingKey: z.string(),
   datasource: z.string(),
@@ -24,20 +22,19 @@ export const safeRollout = z.object({
   nextSnapshotAttempt: z.date().optional(),
   autoSnapshots: z.boolean().default(true),
   ruleId: z.string(),
-  maxDurationDays: z.number().default(30),
   featureId: z.string(),
-  coverage: z.number().default(1),
-  analysisSummary: z.object({
-    status: z.enum(safeRolloutStatus),
-    analysis: z.array(z.any()),
-  }),
+  coverage: z.number(),
+  controlValue: z.string(),
+  variationValue: z.string(),
+  maxDurationDays: z.number(),
+  analysisSummary: experimentAnalysisSummary,
 });
 
 export const safeRolloutValidator = baseSchema
   .extend(safeRollout.shape)
   .strict();
 export type SafeRolloutInterface = z.infer<typeof safeRolloutValidator>;
-export type fullSafeRolloutInterface = SafeRolloutInterface & SafeRolloutRule;
+export type FullSafeRolloutInterface = SafeRolloutInterface & SafeRolloutRule;
 
 const BaseClass = MakeModelClass({
   schema: safeRolloutValidator,
@@ -66,11 +63,12 @@ interface createProps {
   status: typeof safeRolloutStatus[number];
   startedAt?: Date;
   coverage: number;
+  maxDurationDays: number;
   analysisSummary: SafeRolloutAnalysisSummary;
 }
 
 export class SafeRolloutModel extends BaseClass {
-  protected canRead(_doc: safeRolloutInterface): boolean {
+  protected canRead(_doc: SafeRolloutInterface): boolean {
     return true;
   }
   protected canReadAll() {
@@ -80,18 +78,18 @@ export class SafeRolloutModel extends BaseClass {
     return true;
   }
 
-  protected canUpdate(_doc: safeRolloutInterface) {
+  protected canUpdate(_doc: SafeRolloutInterface) {
     return true;
   }
 
-  protected canDelete(_doc: safeRolloutInterface) {
+  protected canDelete(_doc: SafeRolloutInterface) {
     return true;
   }
 
   public create(props: createProps) {
     return super.create(props);
   }
-  public toApiInterface(doc: safeRolloutInterface): safeRolloutInterface {
+  public toApiInterface(doc: SafeRolloutInterface): SafeRolloutInterface {
     return {
       id: doc.id,
       organization: doc.organization,
@@ -103,6 +101,7 @@ export class SafeRolloutModel extends BaseClass {
       ruleId: doc.ruleId,
       featureId: doc.featureId,
       coverage: doc.coverage,
+      maxDurationDays: doc.maxDurationDays,
       startedAt: doc.startedAt,
       status: doc.status,
       datasource: doc.datasource,

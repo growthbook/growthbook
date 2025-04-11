@@ -21,7 +21,7 @@ import {
   TRAFFIC_QUERY_NAME,
 } from "./ExperimentResultsQueryRunner";
 
-export type SnapshotResult = {
+export type SafeRolloutSnapshotResult = {
   unknownVariations: string[];
   multipleExposures: number;
   analyses: SafeRolloutSnapshotAnalysis[];
@@ -36,7 +36,7 @@ export type SafeRolloutQueryParams = {
 export class SafeRolloutResultsQueryRunner extends QueryRunner<
   SafeRolloutSnapshotInterface,
   SafeRolloutQueryParams,
-  SnapshotResult
+  SafeRolloutSnapshotResult
 > {
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
 
@@ -70,7 +70,7 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
     );
   }
 
-  async runAnalysis(queryMap: QueryMap): Promise<SnapshotResult> {
+  async runAnalysis(queryMap: QueryMap): Promise<SafeRolloutSnapshotResult> {
     const {
       snapshotSettings,
       analysisSettings,
@@ -84,7 +84,7 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
       metricMap: this.metricMap,
     });
 
-    const result: SnapshotResult = {
+    const result: SafeRolloutSnapshotResult = {
       analyses: this.model.analyses,
       multipleExposures: 0,
       unknownVariations: [],
@@ -139,7 +139,7 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
     status: QueryStatus;
     queries: Queries;
     runStarted?: Date;
-    result?: SnapshotResult;
+    result?: SafeRolloutSnapshotResult;
     error?: string;
   }): Promise<SafeRolloutSnapshotInterface> {
     if (result?.unknownVariations.length) {

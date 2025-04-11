@@ -599,8 +599,15 @@ function parseStatsEngineResult({
             metrics: {},
           };
           data.users = Math.max(data.users, v.users);
-          data.metrics[metric] = {
+          
+          // translate null in CI to infinity
+          const ci: [number, number] | undefined = v.ci ? [v.ci[0] ?? Infinity, v.ci[1] ?? Infinity] : undefined;
+          const parsedVariation = {
             ...v,
+            ci
+          };
+          data.metrics[metric] = {
+            ...parsedVariation,
             buckets: [],
           };
           dim.variations[i] = data;
