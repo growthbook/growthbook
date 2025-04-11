@@ -274,26 +274,20 @@ export default function ExperimentHeader({
       }
     }
 
-    try {
-      await apiCall(`/experiment/${experiment.id}/status`, {
-        method: "POST",
-        body: JSON.stringify({
-          status: "running",
-        }),
-      });
-      await mutate();
-      startCelebration();
+    await apiCall(`/experiment/${experiment.id}/status`, {
+      method: "POST",
+      body: JSON.stringify({
+        status: "running",
+      }),
+    });
+    await mutate();
+    startCelebration();
 
-      track("Start experiment", {
-        source: "experiment-start-banner",
-        action: "main CTA",
-      });
-      setTab("results");
-      setShowStartExperiment(false);
-    } catch (e) {
-      setShowStartExperiment(false);
-      throw e;
-    }
+    track("Start experiment", {
+      source: "experiment-start-banner",
+      action: "main CTA",
+    });
+    setTab("results");
   }
 
   useEffect(() => {

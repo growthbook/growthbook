@@ -4,6 +4,8 @@ import Modal from "@/components/Modal";
 import { useUser } from "@/services/UserContext";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import PremiumCallout from "@/components/Radix/PremiumCallout";
+import Button from "@/components/Radix/Button";
+import Callout from "@/components/Radix/Callout";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -32,6 +34,8 @@ export default function StartExperimentModal({
 
   const needsUpgrade = needsVisualEditorUpgrade || needsRedirectUpgrade;
 
+  const [startError, setStartError] = useState<string | null>(null);
+
   if (needsUpgrade && upgradeModal) {
     return (
       <UpgradeModal
@@ -56,20 +60,18 @@ export default function StartExperimentModal({
       cta="Start Now"
       ctaEnabled={!checklistIncomplete && !needsUpgrade}
       close={close}
+      useRadixButton={true}
       secondaryCTA={
         checklistIncomplete && !needsUpgrade ? (
-          <button
-            className="btn btn-link text-decoration-none"
-            onClick={async () => startExperiment()}
+          <Button
+            variant="ghost"
+            color="red"
+            onClick={startExperiment}
+            setError={setStartError}
+            type="button"
           >
-            <span
-              style={{
-                color: "var(--text-color-danger)",
-              }}
-            >
-              Start Anyway
-            </span>
-          </button>
+            Start Anyway
+          </Button>
         ) : null
       }
       header="Start Experiment"
@@ -109,6 +111,12 @@ export default function StartExperimentModal({
             Once started, linked changes will be activated and users will begin
             to see your experiment variations <strong>immediately</strong>.
           </div>
+        )}
+
+        {startError && (
+          <Callout status="error" mt="3">
+            {startError}
+          </Callout>
         )}
       </div>
     </Modal>
