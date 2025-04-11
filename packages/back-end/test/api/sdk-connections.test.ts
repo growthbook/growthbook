@@ -18,6 +18,10 @@ import {
 } from "back-end/src/api/sdk-connections/validations";
 import { sdkConnectionFactory } from "back-end/test/factories/SdkConnection.factory";
 import { setupApp } from "./api.setup";
+import {
+  findAllSdkWebhooksByConnection,
+  deleteSdkWebhookById
+} from "back-end/src/models/WebhookModel";
 
 jest.mock("back-end/src/api/sdk-connections/validations", () => ({
   validatePutPayload: jest.fn(),
@@ -45,6 +49,11 @@ jest.mock("shared/sdk-versioning", () => ({
   getLatestSDKVersion: jest.fn(),
   getSDKCapabilities: jest.fn(),
   getSDKVersions: jest.fn(),
+}));
+
+jest.mock("back-end/src/models/WebhookModel", () => ({
+  findAllSdkWebhooksByConnection: jest.fn(),
+  deleteSdkWebhookById: jest.fn(),
 }));
 
 describe("sdk-connections API", () => {
@@ -547,5 +556,47 @@ describe("sdk-connections API", () => {
     expect(response.status).toBe(400);
     expect(deleteSDKConnectionById).not.toHaveBeenCalledWith();
     expect(response.body).toEqual({ message: "permission error" });
+  });
+
+  it("deletes associated webhooks when deleting sdk-connections", async () => {
+    setReqContext({
+      org,
+      permissions: { canDeleteSDKConnection: () => true },
+    });
+
+    const existing = sdkConnectionFactory.build({
+      name: "my-connection",
+      environment: org.environments[0].id,
+      language: "javascript",
+    });
+
+    const associatedWebhooks = [
+      { id: "webhook1", name: "First Webhook" },
+      { id: "webhook2", name: "Second Webhook" },
+    ];
+
+    findSDKConnectionById.mockReturnValue(existing);
+    findAllSdkWebhooksByConnection.mockResolvedValue(associatedWebhooks);
+
+    const response = await request(app)
+      .delete(`/api/v1/sdk-connections/${existing.id}`)
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(200);
+    expect(findAllSdkWebhooksByConnection).toHaveBeenCalledWith(
+      expect.any(Object),
+      existing.id
+    );
+    expect(deleteSdkWebhookById).toHaveBeenCalledTimes(2);
+    expect(deleteSdkWebhookById).toHaveBeenCalledWith(
+      expect.any(Object),
+      "webhook1"
+    );
+    expect(deleteSdkWebhookById).toHaveBeenCalledWith(
+      expect.any(Object),
+      "webhook2"
+    );
+    expect(deleteSDKConnectionById).toHaveBeenCalledWith("org", existing.id);
+    expect(response.body).toEqual({ deletedId: existing.id });
   });
 });
