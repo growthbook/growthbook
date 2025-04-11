@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { statsEngines } from "back-end/src/util/constants";
-import { safeRollout } from "back-end/src/models/SafeRolloutModel";
 import { eventUser } from "./events";
 export const simpleSchemaFieldValidator = z.object({
   key: z.string().max(64),
@@ -172,8 +171,8 @@ export const safeRolloutRule = baseRule
   .extend({
     type: z.literal("safe-rollout"),
     controlValue: z.string(),
-    value: z.string(),
     variationValue: z.string(),
+    safeRolloutId: z.string(),
   })
   .strict();
 

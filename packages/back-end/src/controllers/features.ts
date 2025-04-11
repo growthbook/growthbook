@@ -1238,7 +1238,7 @@ export async function postFeatureRule(
   }
   if (rule.type === "safe-rollout") {
     rule.coverage = 1; // hardcode to 100% for now
-    await context.models.safeRollout.create({
+    const safeRollout = await context.models.safeRollout.create({
       featureId: feature.id,
       ruleId: rule.id,
       trackingKey: rule.trackingKey,
@@ -1254,7 +1254,9 @@ export async function postFeatureRule(
         status: "draft",
         analysis: [],
       },
+      maxDurationDays: rule.maxDurationDays,
     });
+    rule.safeRolloutId = safeRollout.id;
   }
 
   await addFeatureRule(

@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { getCollection } from "back-end/src/util/mongo.util";
-import { SafeRolloutRule } from "back-end/src/validators/features";
 import { experimentAnalysisSummary } from "back-end/src/validators/experiments";
 import { safeRolloutStatus } from "back-end/src/validators/shared";
 import { baseSchema, MakeModelClass } from "./BaseModel";
@@ -21,11 +20,8 @@ export const safeRollout = z.object({
   lastSnapshotAttempt: z.date().optional(),
   nextSnapshotAttempt: z.date().optional(),
   autoSnapshots: z.boolean().default(true),
-  ruleId: z.string(),
   featureId: z.string(),
   coverage: z.number(),
-  controlValue: z.string(),
-  variationValue: z.string(),
   maxDurationDays: z.number(),
   analysisSummary: experimentAnalysisSummary,
 });
@@ -47,23 +43,10 @@ const BaseClass = MakeModelClass({
   globallyUniqueIds: true,
 });
 
-interface createProps {
-  nextSnapshotUpdate?: Date;
-  autoSnapshots: boolean;
-  ruleId: string;
-  featureId: string;
-  trackingKey: string;
-  datasource: string;
-  exposureQueryId: string;
-  hashAttribute: string;
-  seed: string;
-  guardrailMetrics: string[];
-  status: typeof safeRolloutStatus[number];
-  startedAt?: Date;
-  coverage: number;
-  maxDurationDays: number;
-  analysisSummary: SafeRolloutAnalysisSummary;
-}
+type createProps = Omit<
+  SafeRolloutInterface,
+  "id" | "dateCreated" | "dateUpdated"
+>;
 
 export class SafeRolloutModel extends BaseClass {
   protected canRead(_doc: SafeRolloutInterface): boolean {
