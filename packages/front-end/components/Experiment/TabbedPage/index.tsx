@@ -173,9 +173,6 @@ export default function TabbedPage({
     (connection) =>
       !visualChangesets.length || connection.includeVisualExperiments
   );
-  const verifiedConnections = matchingConnections.filter(
-    (connection) => connection.connected
-  );
 
   const { data, mutate: mutateWatchers } = useApi<{
     userIds: string[];
@@ -292,7 +289,6 @@ export default function TabbedPage({
         editPhases={editPhases}
         healthNotificationCount={healthNotificationCount}
         checklistItemsRemaining={checklistItemsRemaining}
-        verifiedConnections={verifiedConnections}
         linkedFeatures={linkedFeatures}
       />
 
