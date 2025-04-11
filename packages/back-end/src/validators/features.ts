@@ -173,6 +173,7 @@ export const safeRolloutRule = baseRule
     type: z.literal("safe-rollout"),
     controlValue: z.string(),
     value: z.string(),
+    maxDurationDays: z.number(),
     coverage: z.number(),
     autoSnapshots: z.boolean().optional(),
     guardrailMetrics: z.array(z.string()).optional(),

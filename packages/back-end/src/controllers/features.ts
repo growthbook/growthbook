@@ -1243,9 +1243,10 @@ export async function postFeatureRule(
       seed: rule.seed,
       guardrailMetrics: rule.guardrailMetrics,
       autoSnapshots: true,
-      coverage: 0,
+      coverage: 0, // TODO why is this 0?
       controlValue: rule.controlValue,
       variationValue: rule.value,
+      maxDurationDays: rule.maxDurationDays,
       status: "draft",
     });
   }
