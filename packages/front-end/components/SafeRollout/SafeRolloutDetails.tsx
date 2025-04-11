@@ -1,15 +1,15 @@
 import { Box } from "@radix-ui/themes";
 import { FeatureInterface } from "back-end/src/validators/features";
-import { FullSafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
+import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";
+import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 import SRMCard from "../HealthTab/SRMCard";
 import Callout from "../Radix/Callout";
 import SafeRolloutResults from "./SafeRolloutResults";
-import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";
-import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 
 interface Props {
-  safeRollout: FullSafeRolloutInterface;
+  safeRollout: SafeRolloutInterface;
   feature: FeatureInterface;
 }
 
@@ -26,8 +26,8 @@ const variations = [
   },
 ];
 
-export default function SafeRolloutDetails({ safeRollout, feature }: Props) {
-  const { error, snapshot } = useSafeRolloutSnapshot();
+export default function SafeRolloutDetails({ safeRollout }: Props) {
+  const { snapshot } = useSafeRolloutSnapshot();
   const { getDatasourceById } = useDefinitions();
   const datasource = getDatasourceById(safeRollout.datasource);
 
@@ -61,7 +61,11 @@ export default function SafeRolloutDetails({ safeRollout, feature }: Props) {
               exposureQuery={exposureQuery}
               canConfigHealthTab={false}
             />
-            <MultipleExposuresCard totalUsers={totalUsers} snapshot={snapshot} onNotify={() => {}} />
+            <MultipleExposuresCard
+              totalUsers={totalUsers}
+              snapshot={snapshot}
+              onNotify={() => {}}
+            />
           </>
         ) : (
           <Callout status="info" mt="3">

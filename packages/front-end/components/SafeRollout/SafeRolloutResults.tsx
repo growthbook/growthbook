@@ -4,7 +4,7 @@ import { getValidDate, ago, relativeDate } from "shared/dates";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { MetricSnapshotSettings } from "back-end/types/report";
-import { FullSafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
+import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -32,7 +32,7 @@ const SAFE_ROLLOUT_VARIATIONS = [
 ];
 
 const SafeRolloutResults: FC<{
-  safeRollout: FullSafeRolloutInterface;
+  safeRollout: SafeRolloutInterface;
   draftMode?: boolean;
   editMetrics?: () => void;
   metricFilter?: ResultsMetricFilters;
@@ -91,11 +91,7 @@ const SafeRolloutResults: FC<{
         ?.regressionAdjustmentAvailable,
     })) || [];
 
-  const showCompactResults =
-    !draftMode &&
-    hasData &&
-    snapshot &&
-    analysis;
+  const showCompactResults = !draftMode && hasData && snapshot && analysis;
 
   if (error) {
     return (

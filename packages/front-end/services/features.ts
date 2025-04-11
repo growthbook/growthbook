@@ -33,7 +33,8 @@ import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import isEqual from "lodash/isEqual";
 import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
 import { SavedGroupInterface } from "shared/src/types";
-import { FullSafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
+import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
+import { SafeRolloutRule } from "back-end/src/validators/features";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
@@ -633,7 +634,10 @@ export function getDefaultRuleValue({
   defaultValue: string;
   attributeSchema?: SDKAttributeSchema;
   ruleType: string;
-}): FeatureRule | NewExperimentRefRule | FullSafeRolloutInterface {
+}):
+  | FeatureRule
+  | NewExperimentRefRule
+  | (SafeRolloutInterface & SafeRolloutRule) {
   const hashAttributes =
     attributeSchema?.filter((a) => a.hashAttribute)?.map((a) => a.property) ||
     [];
@@ -671,15 +675,16 @@ export function getDefaultRuleValue({
       description: "",
       id: "",
       value,
-      coverage: 0.5,
       condition: "",
       enabled: true,
       hashAttribute,
       prerequisites: [],
-      controlValue: "",
+      controlValue: value,
+      variationValue: value,
       status: "draft",
       guardrailMetrics: [],
       seed: "",
+      coverage: 1,
       scheduleRules: [
         {
           enabled: true,

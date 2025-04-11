@@ -11,19 +11,20 @@ const UPDATE_SINGLE_SAFE_ROLLOUT_RULE = "updateSingleSafeRolloutRule";
 import {
   getAllRolloutsToBeUpdated,
   SafeRolloutInterface,
-  FullSafeRolloutInterface,
 } from "back-end/src/models/SafeRolloutModel";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout-snapshot/safe-rollout.helper";
+import { SafeRolloutRule } from "back-end/src/validators/features";
 type UpdateSingleSafeRolloutRuleJob = Job<{
-  rule: FullSafeRolloutInterface;
+  safeRollout: SafeRolloutInterface;
+  safeRolloutRule: SafeRolloutRule;
 }>;
 
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_SAFE_ROLLOUT_SNAPSHOT_UPDATES, async () => {
-    const rules = await getAllRolloutsToBeUpdated();
+    const safeRollouts = await getAllRolloutsToBeUpdated();
 
-    for await (const rule of rules) {
-      await queueSafeRolloutSnapshotUpdate(rule);
+    for await (const safeRollout of safeRollouts) {
+      await queueSafeRolloutSnapshotUpdate(safeRollout);
     }
   });
 
@@ -43,13 +44,15 @@ export default async function (agenda: Agenda) {
     await updateResultsJob.save();
   }
 
-  async function queueSafeRolloutSnapshotUpdate(rule: SafeRolloutInterface) {
+  async function queueSafeRolloutSnapshotUpdate(
+    safeRollout: SafeRolloutInterface
+  ) {
     const job = agenda.create(UPDATE_SINGLE_SAFE_ROLLOUT_RULE, {
-      rule,
+      safeRollout,
     }) as UpdateSingleSafeRolloutRuleJob;
 
     job.unique({
-      rule,
+      safeRollout,
     });
     job.schedule(new Date());
     await job.save();
@@ -59,8 +62,8 @@ export default async function (agenda: Agenda) {
 async function updateSingleSafeRolloutRule(
   job: UpdateSingleSafeRolloutRuleJob
 ) {
-  const rule = job.attrs.data?.rule;
-  const { ruleId, organization, featureId } = rule;
+  const safeRollout = job.attrs.data?.safeRollout;
+  const { ruleId, organization, featureId } = safeRollout;
 
   if (!ruleId || !organization || !featureId) return;
   const context = await getContextForAgendaJobByOrgId(organization);
@@ -77,7 +80,7 @@ async function updateSingleSafeRolloutRule(
     await createSafeRolloutSnapshot({
       context,
       safeRolloutRule,
-      safeRollout: rule,
+      safeRollout,
       triggeredBy: "schedule",
       feature,
     });

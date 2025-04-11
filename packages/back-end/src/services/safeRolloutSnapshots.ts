@@ -19,7 +19,6 @@ import {
 } from "shared/experiments";
 import { getSafeRolloutSRMValue } from "shared/health";
 import {
-  FullSafeRolloutInterface,
   SafeRolloutInterface,
   SafeRolloutModel,
 } from "back-end/src/models/SafeRolloutModel";
@@ -177,7 +176,7 @@ export function getSnapshotSettingsFromSafeRolloutArgs(
 
 export async function getSettingsForSnapshotMetrics(
   context: ReqContext | ApiReqContext,
-  fullSafeRollout: FullSafeRolloutInterface
+  safeRollout: SafeRolloutInterface
 ): Promise<{
   regressionAdjustmentEnabled: boolean;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
@@ -188,7 +187,7 @@ export async function getSettingsForSnapshotMetrics(
   const metricMap = await getMetricMap(context);
 
   const allExperimentMetricIds = getAllMetricIdsFromExperiment(
-    fullSafeRollout,
+    safeRollout,
     false
   );
   const allExperimentMetrics = allExperimentMetricIds
@@ -254,7 +253,7 @@ export function getDefaultExperimentAnalysisSettingsForSafeRollout(
 }
 
 function getSafeRolloutSnapshotSettings({
-  fullSafeRollout,
+  safeRollout,
   settings,
   orgPriorSettings,
   settingsForSnapshotMetrics,
@@ -263,7 +262,8 @@ function getSafeRolloutSnapshotSettings({
   metricGroups,
   datasource,
 }: {
-  fullSafeRollout: FullSafeRolloutInterface;
+  safeRollout: SafeRolloutInterface;
+  safeRolloutRule: SafeRolloutRule;
   settings: ExperimentSnapshotAnalysisSettings;
   orgPriorSettings: MetricPriorSettings | undefined;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
@@ -281,12 +281,12 @@ function getSafeRolloutSnapshotSettings({
 
   const queries = datasource?.settings?.queries?.exposure || [];
   const exposureQuery = queries.find(
-    (q) => q.id === fullSafeRollout.exposureQueryId
+    (q) => q.id === safeRollout.exposureQueryId
   );
 
   // expand metric groups and scrub unjoinable metrics
   const guardrailMetrics = expandMetricGroups(
-    fullSafeRollout.guardrailMetrics,
+    safeRollout.guardrailMetrics,
     metricGroups
   ).filter((m) =>
     isJoinableMetric({
@@ -299,7 +299,7 @@ function getSafeRolloutSnapshotSettings({
   );
 
   const metricSettings = expandMetricGroups(
-    getAllMetricIdsFromExperiment(fullSafeRollout),
+    getAllMetricIdsFromExperiment(safeRollout),
     metricGroups
   )
     .map((m) =>
@@ -309,26 +309,26 @@ function getSafeRolloutSnapshotSettings({
 
   return {
     queryFilter: "",
-    datasourceId: fullSafeRollout.datasource || "",
+    datasourceId: safeRollout.datasource || "",
     dimensions: settings.dimensions.map((id) => ({ id })),
-    startDate: fullSafeRollout.startedAt || new Date(), // might want to fix this
+    startDate: safeRollout.startedAt || new Date(), // might want to fix this
     endDate: new Date(),
-    experimentId: fullSafeRollout.trackingKey || fullSafeRollout.id,
+    experimentId: safeRollout.trackingKey || safeRollout.id,
     guardrailMetrics,
     regressionAdjustmentEnabled: !!settings.regressionAdjusted,
     defaultMetricPriorSettings: defaultPriorSettings,
-    exposureQueryId: fullSafeRollout.exposureQueryId,
+    exposureQueryId: safeRollout.exposureQueryId,
     metricSettings,
     variations: [
       { id: "0", weight: 0.5 },
       { id: "1", weight: 0.5 },
     ],
-    coverage: fullSafeRollout.coverage,
+    coverage: 1, //hardcoded for now
   };
 }
 
 export async function _createSafeRolloutSnapshot({
-  fullSafeRollout,
+  safeRolloutRule,
   feature,
   context,
   triggeredBy,
@@ -339,7 +339,7 @@ export async function _createSafeRolloutSnapshot({
   factTableMap,
   safeRollout,
 }: {
-  fullSafeRollout: FullSafeRolloutInterface;
+  safeRolloutRule: SafeRolloutRule;
   feature: FeatureInterface;
   context: ReqContext | ApiReqContext;
   triggeredBy: SnapshotTriggeredBy;
@@ -360,7 +360,8 @@ export async function _createSafeRolloutSnapshot({
   }
 
   const snapshotSettings = getSafeRolloutSnapshotSettings({
-    fullSafeRollout,
+    safeRollout,
+    safeRolloutRule,
     orgPriorSettings: organization.settings?.metricDefaults?.priorSettings,
     settings: defaultAnalysisSettings,
     settingsForSnapshotMetrics,
@@ -371,7 +372,7 @@ export async function _createSafeRolloutSnapshot({
   });
   const data: CreateProps<SafeRolloutSnapshotInterface> = {
     featureId: feature.id,
-    safeRolloutRuleId: safeRollout.id,
+    safeRolloutRuleId: safeRolloutRule.id,
     runStarted: new Date(),
     error: "",
     queries: [],
@@ -396,11 +397,6 @@ export async function _createSafeRolloutSnapshot({
   await safeRolloutModel.update(safeRollout, {
     nextSnapshotAttempt:
       nextUpdate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-    analysisSummary: getSafeRolloutAnalysisSummary({
-      context,
-      safeRollout,
-      experimentSnapshot: data,
-    }),
   });
 
   const snapshot = await context.models.safeRolloutSnapshots.create(data);
@@ -440,10 +436,6 @@ export async function createSafeRolloutSnapshot({
   snapshot: SafeRolloutSnapshotInterface;
   queryRunner: SafeRolloutResultsQueryRunner;
 }> {
-  const fullSafeRollout: FullSafeRolloutInterface = {
-    ...safeRollout,
-    ...safeRolloutRule,
-  };
   const { org } = context;
 
   const metricMap = await getMetricMap(context);
@@ -452,7 +444,7 @@ export async function createSafeRolloutSnapshot({
   const {
     settingsForSnapshotMetrics,
     regressionAdjustmentEnabled,
-  } = await getSettingsForSnapshotMetrics(context, fullSafeRollout);
+  } = await getSettingsForSnapshotMetrics(context, safeRollout);
 
   const analysisSettings = getDefaultExperimentAnalysisSettingsForSafeRollout(
     org,
@@ -460,7 +452,7 @@ export async function createSafeRolloutSnapshot({
   );
 
   const queryRunner = await _createSafeRolloutSnapshot({
-    fullSafeRollout,
+    safeRolloutRule,
     feature,
     context,
     useCache,
@@ -482,7 +474,7 @@ export async function getSafeRolloutAnalysisSummary({
   safeRolloutSnapshot,
 }: {
   context: ReqContext;
-  safeRollout: FullSafeRolloutInterface;
+  safeRollout: SafeRolloutInterface;
   safeRolloutSnapshot: SafeRolloutSnapshotInterface;
 }): Promise<ExperimentAnalysisSummary> {
   const analysisSummary: ExperimentAnalysisSummary = {

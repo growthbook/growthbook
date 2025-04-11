@@ -137,6 +137,8 @@ import { ApiReqContext } from "back-end/types/api";
 import { ProjectInterface } from "back-end/types/project";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { SafeRolloutSnapshotAnalysis } from "back-end/src/validators/safe-rollout";
+import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import {
   getIntegrationFromDatasourceId,
@@ -158,8 +160,6 @@ import {
   getMetricDefaultsForOrg,
   getPValueThresholdForOrg,
 } from "./organizations";
-import { SafeRolloutSnapshotAnalysis } from "back-end/src/validators/safe-rollout";
-import { FullSafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -324,12 +324,14 @@ export async function getManualSnapshotData(
     const res = analyses[0];
     const data = res.dimensions[0];
     if (!data) return;
-    
+
     data.variations.map((v, i) => {
-      const ci: [number, number] | undefined = v.ci ? [v.ci[0] ?? Infinity, v.ci[1] ?? Infinity] : undefined;
+      const ci: [number, number] | undefined = v.ci
+        ? [v.ci[0] ?? Infinity, v.ci[1] ?? Infinity]
+        : undefined;
       variations[i].metrics[metric] = {
         ...v,
-        ci
+        ci,
       };
     });
   });
@@ -3047,7 +3049,10 @@ export async function updateExperimentAnalysisSummary({
   });
 }
 
-function getVariationId(experiment: ExperimentInterface | FullSafeRolloutInterface, i: number) {
+function getVariationId(
+  experiment: ExperimentInterface | SafeRolloutInterface,
+  i: number
+) {
   if ("variations" in experiment) {
     return experiment.variations?.[i]?.id;
   }
@@ -3061,7 +3066,7 @@ export async function computeResultsStatus({
 }: {
   context: ReqContext;
   analysis: ExperimentSnapshotAnalysis | SafeRolloutSnapshotAnalysis;
-  experiment: ExperimentInterface | FullSafeRolloutInterface;
+  experiment: ExperimentInterface | SafeRolloutInterface;
 }): Promise<ExperimentAnalysisSummaryResultsStatus | undefined> {
   const statsEngine = analysis.settings.statsEngine;
   const { ciUpper, ciLower } = getConfidenceLevelsForOrg(context);
@@ -3087,7 +3092,10 @@ export async function computeResultsStatus({
       guardrailMetrics: {},
     };
     for (const m in currentVariation.metrics) {
-      const goalMetric = "goalMetrics" in experiment ? experiment.goalMetrics.includes(m) : false;
+      const goalMetric =
+        "goalMetrics" in experiment
+          ? experiment.goalMetrics.includes(m)
+          : false;
       const guardrailMetric = experiment.guardrailMetrics.includes(m);
       if (goalMetric || guardrailMetric) {
         const baselineMetric = baselineVariation.metrics?.[m];
