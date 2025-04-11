@@ -35,7 +35,7 @@ export default function ExperimentTemplatePromoCard({
       </Flex>
       <Flex align="center" className="md-pl-4">
         <Box>
-          <PaidFeatureBadge commercialFeature="templates" marginLeft="0" />
+          <PaidFeatureBadge commercialFeature="templates" mr="2" />
           <h3 className="pt-2">Experiment Templates</h3>
           <Text as="p">
             Experiment Templates can help enforce consistency and best practices

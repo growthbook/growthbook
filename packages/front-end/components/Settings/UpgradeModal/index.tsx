@@ -26,7 +26,6 @@ import SelfHostedTrialConfirmationModal from "./SelfHostedTrialConfirmationModal
 export interface Props {
   close: () => void;
   source: string;
-  reason: string;
   commercialFeature: CommercialFeature | null;
 }
 
@@ -464,7 +463,7 @@ export default function UpgradeModal({
   }
 
   return (
-    <div>
+    <>
       {showSHProTrial ? (
         <SelfHostedTrialConfirmationModal
           close={close}
@@ -782,6 +781,6 @@ export default function UpgradeModal({
           {error && <div className="alert alert-danger">{error}</div>}
         </Modal>
       )}
-    </div>
+    </>
   );
 }
