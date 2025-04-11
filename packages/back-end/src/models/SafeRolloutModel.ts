@@ -2,16 +2,13 @@ import { z } from "zod";
 import { getCollection } from "back-end/src/util/mongo.util";
 import { SafeRolloutRule } from "back-end/src/validators/features";
 import { experimentAnalysisSummary } from "back-end/src/validators/experiments";
+import { safeRolloutStatus } from "back-end/src/validators/shared";
 import { baseSchema, MakeModelClass } from "./BaseModel";
 const COLLECTION = "safeRolloutAnalysisSettings";
 
-export const safeRolloutStatus = [
-  "running",
-  "rolled-back",
-  "released",
-  "completed",
-  "draft",
-] as const;
+// Export shared validators
+export { safeRolloutStatus };
+
 export const safeRollout = z.object({
   trackingKey: z.string(),
   datasource: z.string(),

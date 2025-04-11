@@ -2,10 +2,10 @@ import { z } from "zod";
 import { windowTypeValidator } from "back-end/src/routers/fact-table/fact-table.validators";
 import { statsEngines } from "back-end/src/util/constants";
 import {
-  namespaceValue,
-  featurePrerequisite,
   savedGroupTargeting,
-} from "./features";
+  featurePrerequisite,
+  namespaceValue,
+} from "./shared";
 
 export const experimentResultsType = [
   "dnf",
