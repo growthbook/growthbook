@@ -12,13 +12,16 @@ import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Callout from "../Radix/Callout";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 import { useUser } from "@/services/UserContext";
-import { useOrganization } from "@/services/OrganizationContext";
 
 const DecisionBanner = ({ openStatusModal }) => {
-  const { safeRollout, snapshot: snapshotWithResults } = useSafeRolloutSnapshot();
+  const {
+    safeRollout,
+    snapshot: snapshotWithResults,
+  } = useSafeRolloutSnapshot();
   const { metricDefaults } = useOrganizationMetricDefaults();
   const { hasCommercialFeature } = useUser();
-  const { settings } = useOrganization();
+  const { organization } = useUser();
+  const settings = organization?.settings;
 
   const { ciUpper, ciLower } = useConfidenceLevels();
   const pValueThreshold = usePValueThreshold();
@@ -52,7 +55,7 @@ const DecisionBanner = ({ openStatusModal }) => {
   // failingGuardrails comes from the analysis summary for now, but we could return it in the above
   const failingGuardrails = ["X", "Y", "Z"]; // Mocked for demonstration
   const decisionStatus = { status: "rollback-now" }; // Mocked decision status for demonstration
- 
+
   if (decisionStatus?.status === "rollback-now") {
     return (
       <Callout status="error" my="4">
