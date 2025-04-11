@@ -120,7 +120,14 @@ export const resetUsageCache = () => {
 };
 
 export function getUsageFromCache(organization: OrganizationInterface) {
-  return getUsage(organization, false);
+  if (keyToUsageData[organization.id]) {
+    return keyToUsageData[organization.id].usage;
+  } else {
+    getUsage(organization, false).catch((err) => {
+      logger.error(`Error getting usage data from server`, err);
+    });
+    return UNLIMITED_USAGE;
+  }
 }
 
 export async function getUsage(
