@@ -7,6 +7,7 @@ import {
   BanditEvent,
 } from "back-end/src/validators/experiments";
 import { ExperimentRefVariation, FeatureInterface } from "./feature";
+import { DecisionCriteriaRule } from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.validators";
 
 export {
   AttributionModel,
@@ -41,23 +42,28 @@ export {
   DecisionCriteriaRule,
 } from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.validators";
 
+export type DecisionFrameworkVariation = {
+  variationId: string;
+  decidingRule: DecisionCriteriaRule | null;
+};
+
 export type DecisionFrameworkExperimentRecommendationStatus =
   | { status: "days-left"; daysLeft: number }
   | {
       status: "ship-now";
-      variationIds: string[];
+      variations: DecisionFrameworkVariation[];
       powerReached: boolean;
       sequentialUsed: boolean;
     }
   | {
       status: "rollback-now";
-      variationIds: string[];
+      variations: DecisionFrameworkVariation[];
       powerReached: boolean;
       sequentialUsed: boolean;
     }
   | {
       status: "ready-for-review";
-      variationIds: string[];
+      variations: DecisionFrameworkVariation[];
       powerReached: boolean;
       sequentialUsed: boolean;
     };

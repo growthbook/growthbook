@@ -25,14 +25,9 @@ export type StatusIndicatorData = {
   sortOrder: number;
 };
 
-export function useExperimentStatusIndicator() {
-  const { hasCommercialFeature } = useUser();
-  const settings = useOrgSettings();
-  const healthSettings = getHealthSettings(
-    settings,
-    hasCommercialFeature("decision-framework")
-  );
 
+export function useExperimentDecisionCriteria() {
+  const settings = useOrgSettings();
   const decisionCriteria = !settings?.defaultDecisionCriteriaId
     ? DEFAULT_DECISION_CRITERIA
     : DEFAULT_DECISION_CRITERIAS.find(
@@ -45,7 +40,42 @@ export function useExperimentStatusIndicator() {
         !!settings?.defaultDecisionCriteriaId && !decisionCriteria,
     }
   );
+  return data?.decisionCriteria ?? decisionCriteria ?? DEFAULT_DECISION_CRITERIA;
+}
 
+export function useRunningExperimentStatus() {
+  const { hasCommercialFeature } = useUser();
+  const settings = useOrgSettings();
+  const healthSettings = getHealthSettings(
+    settings,
+    hasCommercialFeature("decision-framework")
+  );
+
+  const decisionCriteria = useExperimentDecisionCriteria();
+
+  return {
+    decisionCriteria,
+    getRunningExperimentResultStatus: (
+      experimentData: ExperimentDataForStatusStringDates
+    ) => getRunningExperimentResultStatus({
+      experimentData,
+      healthSettings,
+      decisionCriteria
+    })
+  };
+}
+
+
+
+export function useExperimentStatusIndicator() {
+  const { hasCommercialFeature } = useUser();
+  const settings = useOrgSettings();
+  const healthSettings = getHealthSettings(
+    settings,
+    hasCommercialFeature("decision-framework")
+  );
+
+  const decisionCriteria = useExperimentDecisionCriteria();
   return (
     experimentData: ExperimentDataForStatusStringDates,
     skipArchived: boolean = false
@@ -54,8 +84,26 @@ export function useExperimentStatusIndicator() {
       experimentData,
       skipArchived,
       healthSettings,
-      decisionCriteria ?? data?.decisionCriteria ?? DEFAULT_DECISION_CRITERIA
+      decisionCriteria,
     );
+}
+function getRunningExperimentResultStatus({
+  experimentData,
+  healthSettings,
+  decisionCriteria,
+}: {
+  experimentData: ExperimentDataForStatusStringDates;
+  healthSettings: ExperimentHealthSettings;
+  decisionCriteria: DecisionCriteriaData;
+}) {
+  if (experimentData.status !== "running") {
+    return undefined;
+  }
+  return getExperimentResultStatus({
+    experimentData,
+    healthSettings,
+    decisionCriteria,
+  });
 }
 
 function getDetailedRunningStatusIndicatorData(
