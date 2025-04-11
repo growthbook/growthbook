@@ -33,6 +33,7 @@ import {
   deletePaymentMethodById,
   updateDefaultPaymentMethod,
   getPaymentMethodsByLicenseKey,
+  getUsage as getOrgUsage,
 } from "back-end/src/enterprise/billing/index";
 
 function withLicenseServerErrorHandling<T>(
@@ -426,7 +427,7 @@ export async function getUsage(
 
   const {
     limits: { requests: cdnRequests, bandwidth: cdnBandwidth },
-  } = await context.usage();
+  } = await getOrgUsage(org, true);
 
   res.json({ status: 200, cdnUsage, limits: { cdnRequests, cdnBandwidth } });
 }

@@ -21,7 +21,6 @@ import {
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
 import { ReqContextClass } from "back-end/src/services/context";
-import { getUsage } from "back-end/src/enterprise/billing";
 
 export default function authenticateApiRequestMiddleware(
   req: Request & ApiRequestLocals,
@@ -124,7 +123,6 @@ export default function authenticateApiRequestMiddleware(
 
       req.context = new ReqContextClass({
         org,
-        usage: () => getUsage(org),
         auditUser: eventAudit,
         teams,
         user: req.user,
