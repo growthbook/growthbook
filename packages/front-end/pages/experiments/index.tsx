@@ -55,6 +55,8 @@ import ViewSampleDataButton from "@/components/GetStarted/ViewSampleDataButton";
 import EmptyState from "@/components/EmptyState";
 import Callout from "@/components/Radix/Callout";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
+import ExperimentTemplatePromoCard from "@/enterprise/components/feature-promos/ExperimentTemplatePromoCard";
+import { useTemplates } from "@/hooks/useTemplates";
 
 const NUM_PER_PAGE = 20;
 
@@ -79,6 +81,8 @@ const ExperimentsPage = (): React.ReactElement => {
     getDatasourceById,
     getSavedGroupById,
   } = useDefinitions();
+
+  const { templates } = useTemplates();
 
   const [tabs, setTabs] = useLocalStorage<string[]>("experiment_tabs", []);
   const analyzeExisting = useRouter().query?.analyzeExisting === "true";
@@ -725,6 +729,16 @@ const ExperimentsPage = (): React.ReactElement => {
                         onPageChange={setCurrentPage}
                       />
                     )}
+                    {canAddTemplate &&
+                    !templates.length &&
+                    experiments.length >= 5 ? (
+                      <div className="row justify-content-center m-3">
+                        <ExperimentTemplatePromoCard
+                          hasFeature={hasTemplatesFeature}
+                          onClick={() => setOpenTemplateModal({})}
+                        />
+                      </div>
+                    ) : null}
                   </>
                 )
               )}

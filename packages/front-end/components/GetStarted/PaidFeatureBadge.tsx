@@ -10,10 +10,12 @@ const PaidFeatureBadge = ({
   commercialFeature,
   premiumText,
   useTip = true,
+  marginLeft = "2",
 }: {
   commercialFeature?: CommercialFeature;
   premiumText?: string | JSX.Element;
   useTip?: boolean;
+  marginLeft?: string;
 }) => {
   const { hasCommercialFeature, commercialFeatureLowestPlan } = useUser();
   const hasFeature = commercialFeature
@@ -49,7 +51,7 @@ const PaidFeatureBadge = ({
       color={badgeColor as RadixColor}
       variant="outline"
       radius="full"
-      ml="2"
+      ml={marginLeft}
       mr="2"
       style={{
         cursor: "default",
