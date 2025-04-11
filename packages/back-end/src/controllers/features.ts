@@ -1144,7 +1144,10 @@ export async function postFeatureDiscard(
 
 export async function postFeatureRule(
   req: AuthRequest<
-    { rule: FeatureRule; environment: string },
+    {
+      rule: FeatureRule | (SafeRolloutRule & SafeRolloutInterface);
+      environment: string;
+    },
     { id: string; version: string }
   >,
   res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
