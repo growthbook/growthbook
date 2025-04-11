@@ -53,7 +53,8 @@ export type CommercialFeature =
   | "environment-inheritance"
   | "templates"
   | "historical-power"
-  | "decision-framework";
+  | "decision-framework"
+  | "unlimited-cdn-usage";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 

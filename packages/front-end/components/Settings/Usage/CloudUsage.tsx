@@ -8,7 +8,7 @@ import { scaleLinear, scaleTime } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { useRouter } from "next/router";
 import { curveLinear } from "@visx/curve";
-import { PiCaretLeft, PiCaretRight } from "react-icons/pi";
+import { PiArrowSquareOut, PiCaretLeft, PiCaretRight } from "react-icons/pi";
 import useApi from "@/hooks/useApi";
 import Callout from "@/components/Radix/Callout";
 import Frame from "@/components/Radix/Frame";
@@ -17,6 +17,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { isCloud } from "@/services/env";
 import Badge from "@/components/Radix/Badge";
 import Button from "@/components/Radix/Button";
+import track from "@/services/track";
 
 // Formatter for numbers
 const requestsFormatter = new Intl.NumberFormat("en-US", {
@@ -209,6 +210,22 @@ export default function CloudUsage() {
           />
         </Box>
       )}
+      <Box mt="5">
+        <a
+          href="https://docs.growthbook.io/faq#what-are-the-growthbook-cloud-cdn-usage-limits"
+          className="text-decoration-none"
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => {
+            track("Clicked Read About CDN Limits Link");
+          }}
+        >
+          <strong className="a link-purple">
+            Read about CDN limits and techniques to reduce usage{" "}
+            <PiArrowSquareOut style={{ position: "relative", top: "-2px" }} />
+          </strong>
+        </a>
+      </Box>
     </Frame>
   );
 }
