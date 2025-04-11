@@ -60,11 +60,7 @@ export default function PremiumCallout({
   const icon = hasFeature ? (
     <PiLightbulb size={15} />
   ) : (
-    <PaidFeatureBadge
-      commercialFeature={commercialFeature}
-      useTip={false}
-      noRightMargin
-    />
+    <PaidFeatureBadge commercialFeature={commercialFeature} useTip={false} />
   );
 
   const link =

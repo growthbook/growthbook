@@ -41,7 +41,7 @@ const PremiumEmptyState: FC<Props> = ({
       {h1 && (
         <div className="mb-4 mt-3 d-flex align-items-center">
           <h1 className="mb-0">{h1}</h1>{" "}
-          <PaidFeatureBadge commercialFeature={commercialFeature} />
+          <PaidFeatureBadge commercialFeature={commercialFeature} mx="2" />
         </div>
       )}
       <div className="mb-5">
