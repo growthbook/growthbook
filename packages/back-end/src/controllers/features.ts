@@ -2443,7 +2443,6 @@ export async function getFeatureById(
     feature: feature.id,
     organization: org,
   });
-  console.log("safeRolloutMap", safeRolloutMap);
   res.status(200).json({
     status: 200,
     feature,

@@ -1220,42 +1220,20 @@ export function getApiFeatureObj({
   environments.forEach((env) => {
     const envSettings = feature.environmentSettings?.[env];
     const enabled = !!envSettings?.enabled;
-    const rules = (envSettings?.rules || []).map((rule) => {
-      console.log("rule upper", rule);
-      return {
-        ...rule,
-        coverage:
-          rule.type === "rollout" ||
-          rule.type === "experiment" ||
-          rule.type === "safe-rollout"
-            ? rule.coverage ?? 1
-            : 1,
-        condition: rule.condition || "",
-        savedGroupTargeting: (rule.savedGroups || []).map((s) => ({
-          matchType: s.match,
-          savedGroups: s.ids,
-        })),
-        prerequisites: rule.prerequisites || [],
-        enabled: !!rule.enabled,
-        ...(rule.type === "safe-rollout" && {
-          trackingKey: rule.trackingKey || feature.id,
-          guardrailMetics: rule.guardrailMetrics || [],
-          status: rule.status || "draft",
-          startedAt: rule.startedAt || null,
-          lastSnapshotAttempt: rule.lastSnapshotAttempt || null,
-          nextSnapshotAttempt: rule.nextSnapshotAttempt || null,
-          autoSnapshots: rule.autoSnapshots || false,
-          ruleId: rule.id || "",
-          featureId: feature.id,
-          datasource: rule.datasource || "",
-          exposureQueryId: rule.exposureQueryId || "",
-          hashAttribute: rule.hashAttribute || "",
-          seed: rule.seed || "",
-          controlValue: rule.controlValue || "",
-          variationValue: rule.variationValue || "",
-        }),
-      };
-    });
+    const rules = (envSettings?.rules || []).map((rule) => ({
+      ...rule,
+      coverage:
+        rule.type === "rollout" || rule.type === "experiment"
+          ? rule.coverage ?? 1
+          : 1,
+      condition: rule.condition || "",
+      savedGroupTargeting: (rule.savedGroups || []).map((s) => ({
+        matchType: s.match,
+        savedGroups: s.ids,
+      })),
+      prerequisites: rule.prerequisites || [],
+      enabled: !!rule.enabled,
+    }));
     const definition = getFeatureDefinition({
       feature,
       groupMap,
@@ -1294,23 +1272,6 @@ export function getApiFeatureObj({
         })),
         prerequisites: rule.prerequisites || [],
         enabled: !!rule.enabled,
-        ...(rule.type === "safe-rollout" && {
-          trackingKey: rule.trackingKey || feature.id,
-          guardrailMetics: rule.guardrailMetrics || [],
-          status: rule.status || "draft",
-          startedAt: rule.startedAt || null,
-          lastSnapshotAttempt: rule.lastSnapshotAttempt || null,
-          nextSnapshotAttempt: rule.nextSnapshotAttempt || null,
-          autoSnapshots: rule.autoSnapshots || false,
-          ruleId: rule.id || "",
-          featureId: feature.id,
-          datasource: rule.datasource || "",
-          exposureQueryId: rule.exposureQueryId || "",
-          hashAttribute: rule.hashAttribute || "",
-          seed: rule.seed || "",
-          controlValue: rule.controlValue || "",
-          variationValue: rule.variationValue || "",
-        }),
       }));
       const definition = getFeatureDefinition({
         feature: {
