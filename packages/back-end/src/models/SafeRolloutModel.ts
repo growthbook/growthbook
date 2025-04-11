@@ -34,8 +34,6 @@ export const safeRolloutValidator = baseSchema
   .extend(safeRollout.shape)
   .strict();
 export type SafeRolloutInterface = z.infer<typeof safeRolloutValidator>;
-export type FullSafeRolloutInterface = SafeRolloutInterface & SafeRolloutRule;
-
 const BaseClass = MakeModelClass({
   schema: safeRolloutValidator,
   collectionName: COLLECTION,

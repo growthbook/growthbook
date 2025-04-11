@@ -178,13 +178,12 @@ export const safeRolloutRule = baseRule
   .strict();
 
 export type SafeRolloutRule = z.infer<typeof safeRolloutRule>;
-const safeRolloutWithRule = safeRolloutRule.extend(safeRollout.shape);
 export const featureRule = z.union([
   forceRule,
   rolloutRule,
   experimentRule,
   experimentRefRule,
-  safeRolloutWithRule, // we want to include the safe rollout interface so we can show the details on the rule list
+  safeRolloutRule,
 ]);
 
 export type FeatureRule = z.infer<typeof featureRule>;
