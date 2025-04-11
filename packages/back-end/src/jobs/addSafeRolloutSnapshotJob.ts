@@ -10,8 +10,8 @@ import { getFeature } from "back-end/src/models/FeatureModel";
 const UPDATE_SINGLE_SAFE_ROLLOUT_RULE = "updateSingleSafeRolloutRule";
 import {
   getAllRolloutsToBeUpdated,
-  safeRolloutInterface,
-  fullSafeRolloutInterface,
+  SafeRolloutInterface,
+  FullSafeRolloutInterface,
 } from "back-end/src/models/SafeRolloutModel";
 import {
   FeatureInterface,
@@ -19,7 +19,7 @@ import {
   SafeRolloutRule,
 } from "back-end/src/validators/features";
 type UpdateSingleSafeRolloutRuleJob = Job<{
-  rule: fullSafeRolloutInterface;
+  rule: FullSafeRolloutInterface;
 }>;
 
 export default async function (agenda: Agenda) {
@@ -47,7 +47,7 @@ export default async function (agenda: Agenda) {
     await updateResultsJob.save();
   }
 
-  async function queueSafeRolloutSnapshotUpdate(rule: safeRolloutInterface) {
+  async function queueSafeRolloutSnapshotUpdate(rule: SafeRolloutInterface) {
     const job = agenda.create(UPDATE_SINGLE_SAFE_ROLLOUT_RULE, {
       rule,
     }) as UpdateSingleSafeRolloutRuleJob;
@@ -97,6 +97,7 @@ async function updateSingleSafeRolloutRule(
       safeRolloutRule,
       safeRollout: rule,
       triggeredBy: "schedule",
+      feature,
     });
   } catch (e) {
     logger.error(e, "Failed to create SafeRollout Snapshot: " + ruleId);

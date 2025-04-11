@@ -33,8 +33,8 @@ export const safeRollout = z.object({
 export const safeRolloutValidator = baseSchema
   .extend(safeRollout.shape)
   .strict();
-export type safeRolloutInterface = z.infer<typeof safeRolloutValidator>;
-export type fullSafeRolloutInterface = safeRolloutInterface & SafeRolloutRule;
+export type SafeRolloutInterface = z.infer<typeof safeRolloutValidator>;
+export type FullSafeRolloutInterface = SafeRolloutInterface & SafeRolloutRule;
 
 const BaseClass = MakeModelClass({
   schema: safeRolloutValidator,
@@ -68,7 +68,7 @@ interface createProps {
 }
 
 export class SafeRolloutModel extends BaseClass {
-  protected canRead(_doc: safeRolloutInterface): boolean {
+  protected canRead(_doc: SafeRolloutInterface): boolean {
     return true;
   }
   protected canReadAll() {
@@ -78,18 +78,18 @@ export class SafeRolloutModel extends BaseClass {
     return true;
   }
 
-  protected canUpdate(_doc: safeRolloutInterface) {
+  protected canUpdate(_doc: SafeRolloutInterface) {
     return true;
   }
 
-  protected canDelete(_doc: safeRolloutInterface) {
+  protected canDelete(_doc: SafeRolloutInterface) {
     return true;
   }
 
   public create(props: createProps) {
     return super.create(props);
   }
-  public toApiInterface(doc: safeRolloutInterface): safeRolloutInterface {
+  public toApiInterface(doc: SafeRolloutInterface): SafeRolloutInterface {
     return {
       id: doc.id,
       organization: doc.organization,

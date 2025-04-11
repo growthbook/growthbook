@@ -4,14 +4,14 @@ import { getValidDate, ago, relativeDate } from "shared/dates";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { MetricSnapshotSettings } from "back-end/types/report";
-import { fullSafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
+import { FullSafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/components/Radix/Callout";
 import { ExperimentTab } from "../Experiment/TabbedPage";
-import { useSnapshot } from "./SnapshotProvider";
+import { useSafeRolloutSnapshot } from "./SnapshotProvider";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 
 const CompactResults = dynamic(
@@ -32,7 +32,7 @@ const SAFE_ROLLOUT_VARIATIONS = [
 ];
 
 const SafeRolloutResults: FC<{
-  safeRollout: fullSafeRolloutInterface;
+  safeRollout: FullSafeRolloutInterface;
   draftMode?: boolean;
   editMetrics?: () => void;
   metricFilter?: ResultsMetricFilters;
@@ -59,7 +59,7 @@ const SafeRolloutResults: FC<{
     analysis,
     mutateSnapshot: mutate,
     loading: snapshotLoading,
-  } = useSnapshot();
+  } = useSafeRolloutSnapshot();
 
   const queryStatusData = getQueryStatus(latest?.queries || [], latest?.error);
 
@@ -95,8 +95,7 @@ const SafeRolloutResults: FC<{
     !draftMode &&
     hasData &&
     snapshot &&
-    analysis &&
-    !analysis?.settings?.dimensions?.length;
+    analysis;
 
   if (error) {
     return (

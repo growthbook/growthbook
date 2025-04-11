@@ -16,8 +16,8 @@ import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import OutdatedBadge from "@/components/OutdatedBadge";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import OverflowText from "../Experiment/TabbedPage/OverflowText";
-import { useSnapshot } from "./SnapshotProvider";
 import RefreshSnapshotButton from "./RefreshSnapshotButton";
+import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 
 export interface Props {
   safeRollout: SafeRolloutRule;
@@ -36,7 +36,7 @@ export default function AnalysisSettingsSummary({
 
   const permissionsUtil = usePermissionsUtil();
 
-  const { snapshot, feature, latest, analysis, mutateSnapshot } = useSnapshot();
+  const { snapshot, feature, latest, analysis, mutateSnapshot } = useSafeRolloutSnapshot();
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const [refreshError, setRefreshError] = useState("");

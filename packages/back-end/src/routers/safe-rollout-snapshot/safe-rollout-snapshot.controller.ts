@@ -17,7 +17,7 @@ import { SafeRolloutModel } from "back-end/src/models/SafeRolloutModel";
  * @param req
  * @param res
  */
-export const getLatestSnapshot = async (
+export const getLatestSafeRolloutSnapshot = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<{
     status: 200;
@@ -49,51 +49,6 @@ export const getLatestSnapshot = async (
 
 // endregion GET /safeRollout/:id/snapshot
 
-// region GET /safeRollout/:id/snapshot/:dimension
-/**
- * GET /safeRollout/:id/snapshot/:dimension
- * Get a snapshot for a safe rollout by dimension
- * @param req
- * @param res
- */
-export async function getSnapshotWithDimension(
-  req: AuthRequest<null, { id: string; dimension: string }>,
-  res: Response
-) {
-  const context = getContextFromReq(req);
-  const { id, dimension } = req.params;
-
-  const snapshot = await context.models.safeRolloutSnapshots.getSnapshotForSafeRollout(
-    {
-      safeRollout: id,
-      dimension,
-    }
-  );
-  const latest = await context.models.safeRolloutSnapshots.getSnapshotForSafeRollout(
-    {
-      safeRollout: id,
-      dimension,
-      withResults: false,
-    }
-  );
-
-  const dimensionless =
-    snapshot?.dimension === ""
-      ? snapshot
-      : await context.models.safeRolloutSnapshots.getSnapshotForSafeRollout({
-          safeRollout: id,
-        });
-
-  res.status(200).json({
-    status: 200,
-    snapshot,
-    latest,
-    dimensionless,
-  });
-}
-
-// endregion GET /safe-rollout/:id/snapshot/:dimension
-
 // region POST /safe-rollout/:id/snapshot
 /**
  * POST /safe-rollout/:id/snapshot
@@ -101,11 +56,10 @@ export async function getSnapshotWithDimension(
  * @param req
  * @param res
  */
-export const createSnapshot = async (
+export const postSafeRolloutSnapshot = async (
   req: AuthRequest<
     {
       featureId: string;
-      dimension?: string;
     },
     { id: string },
     { force?: string }
@@ -117,7 +71,7 @@ export const createSnapshot = async (
   }>
 ) => {
   const context = getContextFromReq(req);
-  const { dimension, featureId } = req.body;
+  const { featureId } = req.body;
   const { id } = req.params;
   const useCache = !req.query["force"];
 
@@ -157,7 +111,6 @@ export const createSnapshot = async (
     context,
     safeRolloutRule,
     feature,
-    dimension,
     useCache,
     safeRollout,
   });
@@ -176,7 +129,7 @@ export const createSnapshot = async (
  * @param req
  * @param res
  */
-export const cancelSnapshot = async (
+export const cancelSafeRolloutSnapshot = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<{ status: 200 | 400 | 404; message?: string }>
 ) => {

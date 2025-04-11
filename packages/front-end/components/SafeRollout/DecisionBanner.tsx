@@ -8,10 +8,10 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Callout from "../Radix/Callout";
-import { useSnapshot } from "./SnapshotProvider";
+import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 
 const DecisionBanner = ({ openStatusModal }) => {
-  const { safeRollout, snapshot: snapshotWithResults } = useSnapshot();
+  const { safeRollout, snapshot: snapshotWithResults } = useSafeRolloutSnapshot();
   const { metricDefaults } = useOrganizationMetricDefaults();
 
   const { ciUpper, ciLower } = useConfidenceLevels();
@@ -34,24 +34,6 @@ const DecisionBanner = ({ openStatusModal }) => {
     ? differenceInDays(endDate, latestSnapshotDate)
     : safeRollout.maxDurationDays;
 
-  // Get all metrics from the latest snapshot with results and determine whether or not they're failing
-  // baseline and stats should come from the snapshot
-  //   const {
-  //     resultsStatus,
-  //     directionalStatus,
-  //     shouldHighlight,
-  //   } = getMetricResultStatus({
-  //     metric,
-  //     metricDefaults,
-  //     baseline,
-  //     stats,
-  //     ciLower,
-  //     ciUpper,
-  //     pValueThreshold,
-  //     statsEngine: "frequentist",
-  //   });
-  const failingGuardrails = ["X", "Y", "Z"]; // Mocked for demonstration
-
   // Uncomment when analysisSummary is added to safe rollout
   //   const resultsStatus = safeRollout.analysisSummary?.resultsStatus;
   //   const [, doNoHarm] = DEFAULT_DECISION_CRITERIAS;
@@ -61,6 +43,8 @@ const DecisionBanner = ({ openStatusModal }) => {
   //     goalMetrics: [],
   //     guardrailMetrics: safeRollout.guardrailMetrics,
   //   });
+
+  const failingGuardrails = ["X", "Y", "Z"]; // Mocked for demonstration
 
   const decisionStatus = { status: "rollback-now" }; // Mocked decision status for demonstration
 
