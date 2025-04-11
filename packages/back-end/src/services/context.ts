@@ -97,7 +97,6 @@ export class ReqContextClass {
 
   public constructor({
     org,
-    usage,
     auditUser,
     teams,
     user,
