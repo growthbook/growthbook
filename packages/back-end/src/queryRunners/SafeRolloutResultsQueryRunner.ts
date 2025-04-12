@@ -117,7 +117,7 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
         traffic: trafficHealth,
       };
     }
-    updateFeatureRulesForSnapShotCreated();
+    //TODO:updateFeatureRulesForSnapShotCreated();
     return result;
   }
 

@@ -3,14 +3,14 @@ import { BsArrowRepeat } from "react-icons/bs";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import {
   FeatureInterface,
-  SafeRolloutRule,
 } from "back-end/src/validators/features";
 import { useAuth } from "@/services/auth";
 import Button from "@/components/Button";
+import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
 
 const RefreshSnapshotButton: FC<{
   mutate: () => void;
-  safeRollout: SafeRolloutRule;
+  safeRollout: SafeRolloutInterface;
   feature: FeatureInterface;
 }> = ({ mutate, safeRollout, feature }) => {
   const [loading, setLoading] = useState(false);
@@ -25,9 +25,9 @@ const RefreshSnapshotButton: FC<{
       snapshot: ExperimentSnapshotInterface;
     }>(`/safe-rollout/${safeRollout.id}/snapshot`, {
       method: "POST",
-      body: JSON.stringify({
-        featureId: feature.id,
-      }),
+      // body: JSON.stringify({
+      //   featureId: feature.id,
+      // }),
     });
     mutate();
   };

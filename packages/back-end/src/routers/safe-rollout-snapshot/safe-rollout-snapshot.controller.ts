@@ -3,12 +3,10 @@ import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { SafeRolloutSnapshotInterface } from "back-end/src/validators/safe-rollout";
 import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnapshots";
-import { SafeRolloutRule } from "back-end/src/validators/features";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { SafeRolloutResultsQueryRunner } from "back-end/src/queryRunners/SafeRolloutResultsQueryRunner";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { SNAPSHOT_TIMEOUT } from "back-end/src/controllers/experiments";
-import { SafeRolloutModel } from "back-end/src/models/SafeRolloutModel";
 
 // region GET /safe-rollout/:id/snapshot
 /**
@@ -21,8 +19,8 @@ export const getLatestSafeRolloutSnapshot = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<{
     status: 200;
-    snapshot: SafeRolloutSnapshotInterface;
-    latest: SafeRolloutSnapshotInterface;
+    snapshot?: SafeRolloutSnapshotInterface;
+    latest?: SafeRolloutSnapshotInterface;
   }>
 ) => {
   const context = getContextFromReq(req);
@@ -57,13 +55,7 @@ export const getLatestSafeRolloutSnapshot = async (
  * @param res
  */
 export const postSafeRolloutSnapshot = async (
-  req: AuthRequest<
-    {
-      featureId: string;
-    },
-    { id: string },
-    { force?: string }
-  >,
+  req: AuthRequest<never, { id: string }, { force?: string }>,
   res: Response<{
     status: 200 | 404;
     snapshot?: SafeRolloutSnapshotInterface;
@@ -71,36 +63,13 @@ export const postSafeRolloutSnapshot = async (
   }>
 ) => {
   const context = getContextFromReq(req);
-  const { featureId } = req.body;
   const { id } = req.params;
   const useCache = !req.query["force"];
-
-  const feature = await getFeature(context, featureId);
-  if (!feature) {
-    throw new Error("Could not find feature");
-  }
-
-  let safeRolloutRule: SafeRolloutRule | undefined;
-  for (const [, environment] of Object.entries(feature.environmentSettings)) {
-    for (const rule of environment.rules) {
-      if (rule.id === id && rule.type === "safe-rollout") {
-        safeRolloutRule = rule;
-      }
-    }
-  }
-
-  if (!safeRolloutRule) {
-    return res.status(404).json({
-      status: 404,
-      message: "Safe Rollout not found",
-    });
-  }
 
   // This is doing an expensive analytics SQL query, so may take a long time
   // Set timeout to 30 minutes
   req.setTimeout(SNAPSHOT_TIMEOUT);
-  const safeRolloutModel = new SafeRolloutModel(context);
-  const safeRollout = await safeRolloutModel.findByRuleId(safeRolloutRule.id);
+  const safeRollout = await context.models.safeRollout.getById(id);
   if (!safeRollout) {
     return res.status(404).json({
       status: 404,
@@ -109,8 +78,6 @@ export const postSafeRolloutSnapshot = async (
   }
   const { snapshot } = await createSafeRolloutSnapshot({
     context,
-    safeRolloutRule,
-    feature,
     useCache,
     safeRollout,
   });
@@ -143,30 +110,19 @@ export const cancelSafeRolloutSnapshot = async (
     });
   }
 
-  const feature = await getFeature(context, snapshot.featureId);
-  if (!feature) {
-    throw new Error("Could not find feature");
-  }
-  // loop through environment settings in the feature and through the rules to find a safe rollout with snapshot.safeRolloutRuleId
-  let safeRollout: SafeRolloutRule | undefined;
-  for (const [_envKey, environment] of Object.entries(
-    feature.environmentSettings
-  )) {
-    for (const rule of environment.rules) {
-      if (
-        rule.id === snapshot.safeRolloutRuleId &&
-        rule.type === "safe-rollout"
-      ) {
-        safeRollout = rule;
-      }
-    }
-  }
-
+  const safeRollout = await context.models.safeRollout.getById(
+    snapshot.safeRolloutId
+  );
   if (!safeRollout) {
     return res.status(404).json({
       status: 404,
       message: "Safe Rollout not found",
     });
+  }
+
+  const feature = await getFeature(context, safeRollout.featureId);
+  if (!feature) {
+    throw new Error("Could not find feature");
   }
 
   const integration = await getIntegrationFromDatasourceId(

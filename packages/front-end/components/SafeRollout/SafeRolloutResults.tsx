@@ -13,6 +13,7 @@ import Callout from "@/components/Radix/Callout";
 import { ExperimentTab } from "../Experiment/TabbedPage";
 import { useSafeRolloutSnapshot } from "./SnapshotProvider";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
+import SafeRolloutAnalysisSettingsSummary from "./AnalysisSettingsSummary";
 
 const CompactResults = dynamic(
   () => import("@/components/SafeRollout/Results/CompactResults")
@@ -108,7 +109,7 @@ const SafeRolloutResults: FC<{
   return (
     <>
       <h3>Analysis</h3>
-      <AnalysisSettingsSummary safeRollout={safeRollout} mutate={mutate} />
+      <SafeRolloutAnalysisSettingsSummary safeRollout={safeRollout} mutate={mutate} />
       {!hasMetrics && (
         <div className="alert alert-info m-3">
           Add at least 1 metric to view results.{" "}

@@ -53,7 +53,7 @@ export default function SafeRolloutFields({
       value: ds.id,
     })) || [];
   const dataSource = datasources?.find(
-    (ds) => ds.id === form.watch("datasource")
+    (ds) => ds.id === form.watch("safeRolloutInterfaceFields.datasource")
   );
   const exposureQueries = dataSource?.settings?.queries?.exposure || [];
 
@@ -72,13 +72,24 @@ export default function SafeRolloutFields({
           <FeatureValueField
             label="Value to roll out"
             id="value"
-            value={form.watch("value")}
-            setValue={(v) => form.setValue("value", v)}
+            value={form.watch("variationValue")}
+            setValue={(v) => form.setValue("variationValue", v)}
             valueType={feature.valueType}
             feature={feature}
             renderJSONInline={true}
           />
         </div>
+        <SelectField
+          label="Enroll based on attribute"
+          options={attributeSchema
+            .filter((s) => !hasHashAttributes || s.hashAttribute)
+            .map((s) => ({ label: s.property, value: s.property }))}
+          value={form.watch("safeRolloutInterfaceFields.hashAttribute")}
+          onChange={(v) => {
+            form.setValue("safeRolloutInterfaceFields.hashAttribute", v);
+          }}
+          required
+        />
         <SavedGroupTargetingField
           value={form.watch("savedGroups") || []}
           setValue={(savedGroups) => form.setValue("savedGroups", savedGroups)}
@@ -122,8 +133,10 @@ export default function SafeRolloutFields({
             <SelectField
               label="Data source"
               options={dataSourceOptions}
-              value={form.watch("datasource")}
-              onChange={(v) => form.setValue("datasource", v)}
+              value={form.watch("safeRolloutInterfaceFields.datasource")}
+              onChange={(v) =>
+                form.setValue("safeRolloutInterfaceFields.datasource", v)
+              }
               required
               placeholder="Select a data source"
               // Add a disabled state while loading
@@ -145,19 +158,29 @@ export default function SafeRolloutFields({
                 label: q.name,
                 value: q.id,
               }))}
-              value={form.watch("exposureQueryId")}
-              onChange={(v) => form.setValue("exposureQueryId", v)}
+              required
+              value={form.watch("safeRolloutInterfaceFields.exposureQueryId")}
+              onChange={(v) =>
+                form.setValue("safeRolloutInterfaceFields.exposureQueryId", v)
+              }
             />
           </div>
         </div>
         <div className="mb-3 pb-1">
           <label>Guardrail metrics</label>
+          {/* TODO validate at least one metric is selected */}
           <MetricsSelector
-            datasource={form.watch("datasource")}
-            exposureQueryId={form.watch("exposureQueryId")}
+            datasource={form.watch("safeRolloutInterfaceFields.datasource")}
+            exposureQueryId={form.watch(
+              "safeRolloutInterfaceFields.exposureQueryId"
+            )}
             project={feature.project}
-            selected={form.watch("guardrailMetrics") || []}
-            onChange={(v) => form.setValue("guardrailMetrics", v)}
+            selected={
+              form.watch("safeRolloutInterfaceFields.guardrailMetrics") || []
+            }
+            onChange={(v) =>
+              form.setValue("safeRolloutInterfaceFields.guardrailMetrics", v)
+            }
           />
         </div>
         <div className="mb-3 pb-1">
@@ -165,10 +188,14 @@ export default function SafeRolloutFields({
           <Box maxWidth="300px">
             <TextField.Root
               type="number"
-              value={form.watch("maxDurationDays")}
+              value={form.watch("safeRolloutInterfaceFields.maxDurationDays")}
               onChange={(e) =>
-                form.setValue("maxDurationDays", parseInt(e.target.value) || 0)
+                form.setValue(
+                  "safeRolloutInterfaceFields.maxDurationDays",
+                  parseInt(e.target.value) || 0
+                )
               }
+              required
             >
               <TextField.Slot></TextField.Slot>
               <TextField.Slot>Days</TextField.Slot>

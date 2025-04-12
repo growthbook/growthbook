@@ -263,7 +263,6 @@ function getSafeRolloutSnapshotSettings({
   datasource,
 }: {
   safeRollout: SafeRolloutInterface;
-  safeRolloutRule: SafeRolloutRule;
   settings: ExperimentSnapshotAnalysisSettings;
   orgPriorSettings: MetricPriorSettings | undefined;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
@@ -328,8 +327,7 @@ function getSafeRolloutSnapshotSettings({
 }
 
 export async function _createSafeRolloutSnapshot({
-  safeRolloutRule,
-  feature,
+  safeRollout,
   context,
   triggeredBy,
   useCache = false,
@@ -337,10 +335,8 @@ export async function _createSafeRolloutSnapshot({
   settingsForSnapshotMetrics,
   metricMap,
   factTableMap,
-  safeRollout,
 }: {
-  safeRolloutRule: SafeRolloutRule;
-  feature: FeatureInterface;
+  safeRollout: SafeRolloutInterface;
   context: ReqContext | ApiReqContext;
   triggeredBy: SnapshotTriggeredBy;
   useCache?: boolean;
@@ -348,7 +344,6 @@ export async function _createSafeRolloutSnapshot({
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
-  safeRollout: SafeRolloutInterface;
 }): Promise<SafeRolloutResultsQueryRunner> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
@@ -361,7 +356,6 @@ export async function _createSafeRolloutSnapshot({
 
   const snapshotSettings = getSafeRolloutSnapshotSettings({
     safeRollout,
-    safeRolloutRule,
     orgPriorSettings: organization.settings?.metricDefaults?.priorSettings,
     settings: defaultAnalysisSettings,
     settingsForSnapshotMetrics,
@@ -371,13 +365,13 @@ export async function _createSafeRolloutSnapshot({
     datasource,
   });
   const data: CreateProps<SafeRolloutSnapshotInterface> = {
-    featureId: feature.id,
-    safeRolloutRuleId: safeRolloutRule.id,
+    safeRolloutId: safeRollout.id,
     runStarted: new Date(),
     error: "",
     queries: [],
     dimension: dimension || null,
     settings: snapshotSettings,
+    multipleExposures: 0,
     triggeredBy,
     analyses: [
       {
@@ -420,16 +414,12 @@ export async function _createSafeRolloutSnapshot({
 
 export async function createSafeRolloutSnapshot({
   context,
-  safeRolloutRule,
-  feature,
+  safeRollout,
   useCache = true,
   triggeredBy,
-  safeRollout,
 }: {
   context: ReqContext;
-  safeRolloutRule: SafeRolloutRule;
   safeRollout: SafeRolloutInterface;
-  feature: FeatureInterface;
   useCache?: boolean;
   triggeredBy?: SnapshotTriggeredBy;
 }): Promise<{
@@ -452,8 +442,6 @@ export async function createSafeRolloutSnapshot({
   );
 
   const queryRunner = await _createSafeRolloutSnapshot({
-    safeRolloutRule,
-    feature,
     context,
     useCache,
     defaultAnalysisSettings: analysisSettings,
@@ -483,20 +471,13 @@ export async function getSafeRolloutAnalysisSummary({
 
   const overallTraffic = safeRolloutSnapshot.health?.traffic?.overall;
 
-  const standardSnapshot =
-    safeRolloutSnapshot.analyses?.[0]?.results?.length === 1;
-
   const totalUsers =
     (overallTraffic?.variationUnits.length
       ? overallTraffic.variationUnits.reduce((acc, a) => acc + a, 0)
-      : standardSnapshot
-      ? // fall back to first result for standard snapshots if overall traffic
-        // is missing
-        safeRolloutSnapshot?.analyses?.[0]?.results?.[0]?.variations?.reduce(
+      : safeRolloutSnapshot?.analyses?.[0]?.results?.[0]?.variations?.reduce(
           (acc, a) => acc + a.users,
           0
-        )
-      : null) ?? null;
+        )) ?? null;
 
   const srm = getSafeRolloutSRMValue(safeRolloutSnapshot);
 

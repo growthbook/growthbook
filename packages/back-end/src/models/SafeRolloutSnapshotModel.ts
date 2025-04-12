@@ -52,7 +52,7 @@ export class SafeRolloutSnapshotModel extends BaseClass {
     withResults?: boolean;
   }): Promise<SafeRolloutSnapshotInterface | undefined> {
     const query: FilterQuery<SafeRolloutSnapshotInterface> = {
-      safeRolloutRuleId: safeRollout,
+      safeRolloutId: safeRollout,
       dimension: dimension || null,
     };
 
@@ -96,7 +96,7 @@ export class SafeRolloutSnapshotModel extends BaseClass {
     const safeRolloutSnapshot = await super.updateById(id, updates);
 
     const latestSafeRolloutSnapshot = await this.getSnapshotForSafeRollout({
-      safeRollout: safeRolloutSnapshot.safeRolloutRuleId,
+      safeRollout: safeRolloutSnapshot.safeRolloutId,
       withResults: false,
     });
 
@@ -105,24 +105,9 @@ export class SafeRolloutSnapshotModel extends BaseClass {
       latestSafeRolloutSnapshot?.id === safeRolloutSnapshot.id;
 
     if (isLatestSnapshot && safeRolloutSnapshot.status === "success") {
-      const feature = await getFeature(
-        this.context,
-        safeRolloutSnapshot.featureId
-      );
-      if (!feature) {
-        throw new Error("Feature not found");
-      }
 
-      const safeRolloutRule = getSafeRolloutRuleFromFeature(
-        feature,
-        safeRolloutSnapshot.safeRolloutRuleId
-      );
-      if (!safeRolloutRule) {
-        throw new Error("Safe rollout rule not found");
-      }
-
-      const safeRollout = await this.context.models.safeRollout.findByRuleId(
-        safeRolloutSnapshot.safeRolloutRuleId
+      const safeRollout = await this.context.models.safeRollout.getById(
+        safeRolloutSnapshot.safeRolloutId
       );
       if (!safeRollout) {
         throw new Error("Safe rollout not found");
@@ -130,10 +115,7 @@ export class SafeRolloutSnapshotModel extends BaseClass {
 
       const safeRolloutAnalysisSummary = await getSafeRolloutAnalysisSummary({
         context: this.context,
-        safeRollout: {
-          ...safeRollout,
-          ...safeRolloutRule,
-        },
+        safeRollout,
         safeRolloutSnapshot: safeRolloutSnapshot,
       });
 

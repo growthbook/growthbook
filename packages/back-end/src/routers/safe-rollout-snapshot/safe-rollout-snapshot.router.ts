@@ -3,7 +3,6 @@ import { z } from "zod";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawSnapshotController from "./safe-rollout-snapshot.controller";
-import { createSafeRolloutSnapshotValidator } from "./safe-rollout-snapshot.validators";
 
 const router = express.Router();
 
@@ -24,7 +23,6 @@ router.get(
 router.post(
   "/:id/snapshot",
   validateRequestMiddleware({
-    body: createSafeRolloutSnapshotValidator,
     params: snapshotParams,
     query: z.object({ force: z.string().optional() }).optional(),
   }),

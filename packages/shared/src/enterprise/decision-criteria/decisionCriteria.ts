@@ -476,8 +476,8 @@ export function getSafeRolloutResultStatus({
 }): ExperimentResultStatusData | undefined {
   const unhealthyData: ExperimentUnhealthyData = {};
   // TODO add analysis summary to safe rollout interface
-  const healthSummary = safeRolloutInterface.analysisSummary?.health;
-  const resultsStatus = safeRolloutInterface.analysisSummary?.resultsStatus;
+  const healthSummary = safeRollout.analysisSummary?.health;
+  const resultsStatus = safeRollout.analysisSummary?.resultsStatus;
 
   if (healthSummary?.totalUsers) {
     const srmHealthData = getSRMHealthData({
@@ -526,13 +526,13 @@ export function getSafeRolloutResultStatus({
     defaultAction: "review",
   };
 
-  const decisionStatus = getDecisionFrameworkStatus({
+  const decisionStatus = resultsStatus ? getDecisionFrameworkStatus({
     resultsStatus,
     decisionCriteria: ROLLBACK_SAFE_ROLLOUT_DECISION_CRITERIA,
     goalMetrics: [],
     guardrailMetrics: safeRollout.guardrailMetrics,
     daysNeeded: Infinity, // sequential relied upon solely for safe rollouts
-  })
+  }) : undefined;
 
   // If rollback now, return rollback now
   if (decisionStatus?.status === "rollback-now") {

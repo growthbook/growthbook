@@ -44,6 +44,7 @@ export default function SafeRolloutSnapshotProvider({
     ? getSafeRolloutSnapshotAnalysis(data?.snapshot)?.settings
     : null;
 
+  console.log("data", data);
   return (
     <snapshotContext.Provider
       value={{

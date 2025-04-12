@@ -18,13 +18,14 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import OverflowText from "../Experiment/TabbedPage/OverflowText";
 import RefreshSnapshotButton from "./RefreshSnapshotButton";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
+import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
 
 export interface Props {
-  safeRollout: SafeRolloutRule;
+  safeRollout: SafeRolloutInterface;
   mutate: () => void;
 }
 
-export default function AnalysisSettingsSummary({
+export default function SafeRolloutAnalysisSettingsSummary({
   safeRollout,
   mutate,
 }: Props) {
@@ -37,7 +38,7 @@ export default function AnalysisSettingsSummary({
   const permissionsUtil = usePermissionsUtil();
 
   const { snapshot, feature, latest, analysis, mutateSnapshot } = useSafeRolloutSnapshot();
-
+  console.log("latest", latest);
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const [refreshError, setRefreshError] = useState("");
 
@@ -144,9 +145,10 @@ export default function AnalysisSettingsSummary({
                           snapshot: SafeRolloutSnapshotInterface;
                         }>(`/safe-rollout/${safeRollout.id}/snapshot`, {
                           method: "POST",
-                          body: JSON.stringify({
-                            featureId: feature.id,
-                          }),
+                          // Luke Sonnet doesnt think we need the featureId in the body
+                          // body: JSON.stringify({
+                          //   featureId: feature.id,
+                          // }),
                         })
                           .then(() => {
                             mutateSnapshot();
@@ -173,8 +175,8 @@ export default function AnalysisSettingsSummary({
 
             {ds &&
               permissionsUtil.canRunExperimentQueries(ds) &&
-              latest &&
-              (status === "failed" || status === "partially-succeeded") && (
+              latest && (
+              // (status === "failed" || status === "partially-succeeded") && (
                 <div className="col-auto pl-1">
                   <ViewAsyncQueriesButton
                     queries={latest.queries.map((q) => q.query)}

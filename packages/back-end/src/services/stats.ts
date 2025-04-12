@@ -728,8 +728,9 @@ export async function analyzeExperimentResults({
     metrics: metricSettings,
     banditSettings: snapshotSettings.banditSettings,
   };
+  console.log("params", params);
   const { results: analysis, banditResult } = await runSnapshotAnalysis(params);
-
+  console.log("analysis", analysis);
   const results = parseStatsEngineResult({
     analysisSettings,
     snapshotSettings,

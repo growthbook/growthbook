@@ -19,10 +19,17 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import { PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
-import { kebabCase } from "lodash";
+import { kebabCase, method } from "lodash";
 import { Text } from "@radix-ui/themes";
-import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
+import {
+  SafeRolloutInterface,
+  SafeRolloutInterfaceCreateFields,
+} from "back-end/src/models/SafeRolloutModel";
 import { SafeRolloutRule } from "back-end/src/validators/features";
+import {
+  PostFeatureRuleBody,
+  PutFeatureRuleBody,
+} from "back-end/types/safe-rollout";
 import {
   NewExperimentRefRule,
   getDefaultRuleValue,
@@ -85,6 +92,10 @@ type OverviewRuleType =
   | "experiment-ref-new"
   | "safe-rollout";
 
+type SafeRolloutRuleCreateFields = SafeRolloutRule & {
+  safeRolloutInterfaceFields: SafeRolloutInterfaceCreateFields;
+};
+
 export default function RuleModal({
   close,
   feature,
@@ -146,9 +157,9 @@ export default function RuleModal({
   const [step, setStep] = useState(0);
 
   const form = useForm<
-    | FeatureRule
+    | Exclude<FeatureRule, SafeRolloutRule>
     | NewExperimentRefRule
-    | (SafeRolloutRule & SafeRolloutInterface)
+    | SafeRolloutRuleCreateFields
   >({
     defaultValues,
   });
@@ -240,7 +251,6 @@ export default function RuleModal({
   function changeRuleType(v: string) {
     const existingCondition = form.watch("condition");
     const existingSavedGroups = form.watch("savedGroups");
-    console.log(v, "v");
     const newVal = {
       ...getDefaultRuleValue({
         defaultValue: getFeatureDefaultValue(feature),
@@ -331,6 +341,9 @@ export default function RuleModal({
       }
     }
 
+    let safeRolloutInterfaceFields:
+      | SafeRolloutInterfaceCreateFields
+      | undefined;
     try {
       if (values.type === "experiment-ref-new") {
         // Make sure there's an experiment name
@@ -545,6 +558,10 @@ export default function RuleModal({
         delete (values as FeatureRule).prerequisites;
         // eslint-disable-next-line
         delete (values as any).value;
+      } else if (values.type === "safe-rollout") {
+        if (values.safeRolloutInterfaceFields) {
+          safeRolloutInterfaceFields = values.safeRolloutInterfaceFields;
+        }
       }
 
       if (
@@ -574,15 +591,26 @@ export default function RuleModal({
         hasDescription: values.description.length > 0,
       });
 
+      let method = "POST";
+      let body: PostFeatureRuleBody | PutFeatureRuleBody = {
+        rule: values,
+        environment,
+        interfaceFields: safeRolloutInterfaceFields,
+      };
+      if (!duplicate && i !== rules.length) {
+        // TODO interface fields?
+        method = "PUT";
+        body = {
+          rule: values,
+          environment,
+          i,
+        };
+      }
       const res = await apiCall<{ version: number }>(
         `/feature/${feature.id}/${version}/rule`,
         {
-          method: duplicate ? "POST" : i === rules.length ? "POST" : "PUT",
-          body: JSON.stringify({
-            rule: values,
-            environment,
-            i,
-          }),
+          method: method,
+          body: JSON.stringify(body),
         }
       );
       await mutate();

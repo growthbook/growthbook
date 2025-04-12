@@ -21,7 +21,7 @@ export default function SafeRolloutSummary({
   feature: FeatureInterface;
 }) {
   const { coverage, hashAttribute, guardrailMetrics } = safeRollout;
-  const { value, variationValue } = rule;
+  const { controlValue, variationValue } = rule;
   const type = feature.valueType;
   const coveragePercent = (coverage / 2) * 100;
   console.log("coverage", coverage);
@@ -95,7 +95,7 @@ export default function SafeRolloutSummary({
           <strong className="font-weight-semibold">SERVE</strong>
         </Box>
         <Box>
-          <ValueDisplay value={value} type={type} />
+          <ValueDisplay value={controlValue} type={type} />
         </Box>
       </Flex>
       <Flex gap="3" className="mt-2">
@@ -115,7 +115,7 @@ export default function SafeRolloutSummary({
           <span className="pl-2">metrics</span>
         </Box>
       </Flex>
-      <ValidateValue value={value} feature={feature} />
+      <ValidateValue value={controlValue} feature={feature} />
     </Box>
   );
 }

@@ -179,9 +179,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       return null;
     }
 
-    console.log(safeRolloutsMap, "safeRolloutsMap");
-    //get first safe rollout
-    const safeRollout = safeRolloutsMap.values().next().value;
+    let safeRollout: SafeRolloutInterface | undefined;
+    if (rule.type === "safe-rollout") {
+      safeRollout = safeRolloutsMap.get(rule.safeRolloutId);
+    }
+
     return (
       <Box {...props} ref={ref}>
         <Box mt="3">
@@ -287,8 +289,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     />
                   )}
                   {rule.type === "safe-rollout" && (
+                    safeRollout ? (
                     <SafeRolloutSnapshotProvider
-                      safeRollout={rule}
+                      safeRollout={safeRollout}
                       feature={feature}
                     >
                       <SafeRolloutSummary
@@ -299,16 +302,16 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       {/* TODO: Once modal exists to change Safe Rollout status, plug in setStatusModalOpen here */}
                       <DecisionBanner openStatusModal={() => undefined} />
                       <SafeRolloutDetails
-                        safeRollout={{
-                          ...rule,
-                          organization: feature.organization,
-                          dateCreated: feature.dateCreated,
-                          dateUpdated: feature.dateUpdated,
-                        }}
+                        safeRollout={safeRollout}
                         feature={feature}
                       />
                     </SafeRolloutSnapshotProvider>
-                  )}
+                  ): (
+                    <div>
+                     {/* Better error state if safe rollout is not found */}
+                      <p>Safe Rollout not found</p> 
+                    </div>
+                  ))}
                   {rule.type === "experiment" && (
                     <ExperimentSummary
                       feature={feature}

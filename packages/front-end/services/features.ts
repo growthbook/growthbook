@@ -543,6 +543,25 @@ export function validateFeatureRule(
         (ruleCopy as ExperimentRefRule).variations[i].value = newValue;
       }
     });
+  } else if (rule.type === "safe-rollout") {
+    const newVariationValue = validateFeatureValue(
+      feature,
+      rule.variationValue,
+      "Value to Rollout"
+    );
+    if (newVariationValue !== rule.variationValue) {
+      hasChanges = true;
+      (ruleCopy as SafeRolloutRule).variationValue = newVariationValue;
+    }
+    const newControlValue = validateFeatureValue(
+      feature,
+      rule.controlValue,
+      "Control Value"
+    );
+    if (newControlValue !== rule.controlValue) {
+      hasChanges = true;
+      (ruleCopy as SafeRolloutRule).controlValue = newControlValue;
+    }
   } else {
     const newValue = validateFeatureValue(
       feature,
@@ -637,7 +656,7 @@ export function getDefaultRuleValue({
 }):
   | FeatureRule
   | NewExperimentRefRule
-  | (SafeRolloutInterface & SafeRolloutRule) {
+  | SafeRolloutRule {
   const hashAttributes =
     attributeSchema?.filter((a) => a.hashAttribute)?.map((a) => a.property) ||
     [];
@@ -674,17 +693,12 @@ export function getDefaultRuleValue({
       type: "safe-rollout",
       description: "",
       id: "",
-      value,
       condition: "",
+      safeRolloutId: "",
       enabled: true,
-      hashAttribute,
       prerequisites: [],
       controlValue: value,
       variationValue: value,
-      status: "draft",
-      guardrailMetrics: [],
-      seed: "",
-      coverage: 1,
       scheduleRules: [
         {
           enabled: true,

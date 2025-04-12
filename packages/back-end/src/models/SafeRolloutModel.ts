@@ -21,6 +21,7 @@ export const safeRollout = z.object({
   nextSnapshotAttempt: z.date().optional(),
   autoSnapshots: z.boolean().default(true),
   featureId: z.string(),
+  ruleId: z.string(),
   coverage: z.number(),
   maxDurationDays: z.number(),
   analysisSummary: experimentAnalysisSummary,
@@ -43,10 +44,11 @@ const BaseClass = MakeModelClass({
   globallyUniqueIds: true,
 });
 
-type createProps = Omit<
-  SafeRolloutInterface,
-  "id" | "dateCreated" | "dateUpdated"
->;
+// TODO partial?
+export type SafeRolloutInterfaceCreateFields = Partial<Pick<
+SafeRolloutInterface,
+"datasource" | "exposureQueryId" | "hashAttribute" | "maxDurationDays" | "seed" | "guardrailMetrics" | "trackingKey"
+>>;
 
 export class SafeRolloutModel extends BaseClass {
   protected canRead(_doc: SafeRolloutInterface): boolean {
@@ -67,9 +69,6 @@ export class SafeRolloutModel extends BaseClass {
     return true;
   }
 
-  public create(props: createProps) {
-    return super.create(props);
-  }
   public toApiInterface(doc: SafeRolloutInterface): SafeRolloutInterface {
     return {
       id: doc.id,
@@ -79,8 +78,8 @@ export class SafeRolloutModel extends BaseClass {
       lastSnapshotAttempt: doc.lastSnapshotAttempt,
       nextSnapshotAttempt: doc.nextSnapshotAttempt,
       autoSnapshots: doc.autoSnapshots,
-      ruleId: doc.ruleId,
       featureId: doc.featureId,
+      ruleId: doc.ruleId,
       coverage: doc.coverage,
       maxDurationDays: doc.maxDurationDays,
       startedAt: doc.startedAt,

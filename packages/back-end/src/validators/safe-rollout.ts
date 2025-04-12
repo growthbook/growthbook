@@ -204,8 +204,7 @@ export const safeRolloutSnapshotInterface = z
   .object({
     id: z.string(),
     organization: z.string(),
-    safeRolloutRuleId: z.string(),
-    featureId: z.string(),
+    safeRolloutId: z.string(),
     dimension: z.string().nullable(),
     dateCreated: z.date(),
     dateUpdated: z.date(),

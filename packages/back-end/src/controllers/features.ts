@@ -122,6 +122,8 @@ import { FeatureUsageLookback } from "back-end/src/types/Integration";
 import { getChangesToStartExperiment } from "back-end/src/services/experiments";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
+import { CreateProps } from "back-end/src/models/BaseModel";
+import { PostFeatureRuleBody, PutFeatureRuleBody } from "back-end/types/safe-rollout";
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
     super(message);
@@ -1144,10 +1146,7 @@ export async function postFeatureDiscard(
 
 export async function postFeatureRule(
   req: AuthRequest<
-    {
-      rule: FeatureRule | (SafeRolloutRule & SafeRolloutInterface);
-      environment: string;
-    },
+    PostFeatureRuleBody,
     { id: string; version: string }
   >,
   res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
@@ -1155,7 +1154,7 @@ export async function postFeatureRule(
   const context = getContextFromReq(req);
   const { org } = context;
   const { id, version } = req.params;
-  const { environment, rule } = req.body;
+  const { environment, rule, interfaceFields } = req.body;
 
   const feature = await getFeature(context, id);
   if (!feature) {
@@ -1187,16 +1186,39 @@ export async function postFeatureRule(
 
   // Validate that specified metrics exist and belong to the organization for safe-rollout rules
   if (rule.type === "safe-rollout") {
-    rule.autoSnapshots = true; // MVP this is going to be true by default
-    const metricIds = rule.guardrailMetrics;
+    // Validate that the interface fields are valid
+    if (!interfaceFields) {
+      throw new Error("Safe rollout interface settings must be set");
+    }
+
+    if (!interfaceFields.maxDurationDays) {
+      throw new Error("Max duration days is required for safe rollouts");
+    }
+    // TODO: should this live on the rule?
+    if (interfaceFields.hashAttribute === undefined) {
+      throw new Error("Hash attribute is required for safe rollouts");
+    }
+    // TODO: are these required?
+    if (interfaceFields.exposureQueryId === undefined) {
+      throw new Error("Exposure query is required for safe rollouts");
+    }
+    if (interfaceFields.datasource === undefined) {
+      throw new Error("Datasource is required for safe rollouts");
+    }
+    if (interfaceFields.guardrailMetrics === undefined) {
+      throw new Error("Guardrail metrics are required for safe rollouts");
+    }
+
+    const metricIds = interfaceFields.guardrailMetrics;
+    const datasource = interfaceFields.datasource;
     if (metricIds.length) {
       const map = await getMetricMap(context);
       for (let i = 0; i < metricIds.length; i++) {
         const metric = map.get(metricIds[i]);
         if (metric) {
-          if (rule.datasource && metric.datasource !== rule.datasource) {
+          if (datasource && metric.datasource !== datasource) {
             throw new Error(
-              "Metrics must be tied to the same datasource as the experiment: " +
+              "Metrics must be tied to the same datasource as the safe rollout: " +
                 metricIds[i]
             );
           }
@@ -1207,9 +1229,9 @@ export async function postFeatureRule(
           );
           if (metricGroup) {
             // Make sure it is tied to the same datasource as the experiment
-            if (rule.datasource && metricGroup.datasource !== rule.datasource) {
+            if (datasource && metricGroup.datasource !== datasource) {
               throw new Error(
-                "Metrics must be tied to the same datasource as the experiment: " +
+                "Metrics must be tied to the same datasource as the safe rollout: " +
                   metricIds[i]
               );
             }
@@ -1220,49 +1242,32 @@ export async function postFeatureRule(
         }
       }
     }
-  }
-  // omit the fields from the rule that are in the safeRollout interface
-  const featureRule = (omit(rule, [
-    "trackingKey",
-    "datasource",
-    "exposureQueryId",
-    "hashAttribute",
-    "seed",
-    "guardrailMetrics",
-  ]) as unknown) as FeatureRule;
-  if (rule.type === "safe-rollout" && !rule.seed) {
-    rule.seed = uuidv4();
-  }
-  if (rule.type === "safe-rollout" && !rule.trackingKey) {
-    rule.trackingKey = `sf__${uuidv4()}`;
-  }
-  if (rule.type === "safe-rollout") {
-    rule.coverage = 1; // hardcode to 100% for now
-    const safeRollout = await context.models.safeRollout.create({
+    
+    const safeRolloutCreateProps: CreateProps<SafeRolloutInterface> = {
+      ...interfaceFields,
+      coverage: 1, // hardcode to 100% for now
+      seed: interfaceFields.seed || uuidv4(),
+      trackingKey: interfaceFields.trackingKey || `sf__${uuidv4()}`,
+      status: "draft",
+      // TODO are these mandatory
+      datasource: interfaceFields.datasource,
+      exposureQueryId: interfaceFields.exposureQueryId,
+      hashAttribute: interfaceFields.hashAttribute,
+      autoSnapshots: true,
+      guardrailMetrics: interfaceFields.guardrailMetrics,
+      maxDurationDays: interfaceFields.maxDurationDays,
       featureId: feature.id,
       ruleId: rule.id,
-      trackingKey: rule.trackingKey,
-      datasource: rule.datasource,
-      exposureQueryId: rule.exposureQueryId,
-      hashAttribute: rule.hashAttribute,
-      seed: rule.seed,
-      guardrailMetrics: rule.guardrailMetrics,
-      autoSnapshots: true,
-      coverage: rule.coverage,
-      status: "draft",
-      analysisSummary: {
-        status: "draft",
-        analysis: [],
-      },
-      maxDurationDays: rule.maxDurationDays,
-    });
+    };
+
+    const safeRollout = await context.models.safeRollout.create(safeRolloutCreateProps);
     rule.safeRolloutId = safeRollout.id;
   }
 
   await addFeatureRule(
     revision,
     environment,
-    featureRule,
+    rule,
     res.locals.eventAudit,
     resetReview
   );
@@ -1707,7 +1712,7 @@ export async function postFeatureSchema(
 
 export async function putFeatureRule(
   req: AuthRequest<
-    { rule: Partial<FeatureRule>; environment: string; i: number },
+    PutFeatureRuleBody,
     { id: string; version: string }
   >,
   res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
