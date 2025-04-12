@@ -20,7 +20,6 @@ import {
   getSavedGroupsValuesFromInterfaces,
   NodeHandler,
   recursiveWalk,
-  filterEnvironmentsByFeature,
 } from "shared/util";
 import {
   scrubExperiments,
@@ -104,7 +103,6 @@ import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,
-  getEnvironments,
 } from "./organizations";
 
 export type AttributeMap = Map<string, string>;
@@ -1218,13 +1216,7 @@ export function getApiFeatureObj({
 }): ApiFeatureWithRevisions {
   const defaultValue = feature.defaultValue;
   const featureEnvironments: Record<string, ApiFeatureEnvironment> = {};
-
-  // Only get environments that are relevant for this feature (based on the feature's project)
-  const environments = filterEnvironmentsByFeature(
-    getEnvironments(organization),
-    feature
-  ).map((e) => e.id);
-
+  const environments = getEnvironmentIdsFromOrg(organization);
   environments.forEach((env) => {
     const envSettings = feature.environmentSettings?.[env];
     const enabled = !!envSettings?.enabled;
