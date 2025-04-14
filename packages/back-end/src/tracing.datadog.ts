@@ -2,7 +2,9 @@ import "./init/aliases";
 import tracer from "dd-trace";
 import { setMetrics } from "./util/metrics";
 
-tracer.init(); // initialized in a different file to avoid hoisting.
+tracer.init({
+  logInjection: true,
+});
 
 setMetrics({
   getCounter: (name: string) => ({
