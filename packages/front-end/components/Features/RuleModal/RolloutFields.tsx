@@ -46,16 +46,16 @@ export default function RolloutFields({
   return (
     <>
       <Field
-        label="Description"
+        label="描述"
         textarea
         minRows={1}
         {...form.register("description")}
-        placeholder="Short human-readable description of the rule"
+        placeholder="对规则简短说明"
       />
 
       <div className="mb-3 pb-1">
         <FeatureValueField
-          label="Value to roll out"
+          label="要推出的值"
           id="value"
           value={form.watch("value")}
           setValue={(v) => form.setValue("value", v)}
@@ -81,7 +81,7 @@ export default function RolloutFields({
           className="mb-1"
         />
         <SelectField
-          label="Enroll based on attribute"
+          label="基于属性进行纳入"
           options={attributeSchema
             .filter((s) => !hasHashAttributes || s.hashAttribute)
             .map((s) => ({ label: s.property, value: s.property }))}
@@ -118,9 +118,8 @@ export default function RolloutFields({
       />
       {isCyclic && (
         <div className="alert alert-danger">
-          <FaExclamationTriangle /> A prerequisite (
-          <code>{cyclicFeatureId}</code>) creates a circular dependency. Remove
-          this prerequisite to continue.
+          <FaExclamationTriangle /> 前置条件（
+          <code>{cyclicFeatureId}</code>）产生了循环依赖。请移除这个前置条件以继续。
         </div>
       )}
     </>

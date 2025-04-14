@@ -42,7 +42,7 @@ const DEMO_DATASOURCE_SETTINGS: DataSourceSettings = {
     exposure: [
       {
         id: "user_id",
-        name: "Logged-in User Experiments",
+        name: "已登录用户实验",
         userIdType: "user_id",
         query:
           "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\nexperimentId AS experiment_id,\nvariationId AS variation_id,\nbrowser\nFROM experiment_viewed",
@@ -77,59 +77,59 @@ const DEMO_METRICS: Pick<
   MetricInterface,
   "name" | "description" | "type" | "sql" | "windowSettings" | "aggregation"
 >[] = [
-  {
-    name: "Purchases - Total Revenue (72 hour window)",
-    description: "The total amount of USD spent aggregated at the user level",
-    type: "revenue",
-    sql:
-      "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\namount AS value\nFROM orders",
-    windowSettings: CONVERSION_WINDOW_SETTINGS,
-  },
-  {
-    name: "Purchases - Any Order (72 hour window)",
-    description: "Whether the user places any order or not (0/1)",
-    type: "binomial",
-    sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp\nFROM orders",
-    windowSettings: CONVERSION_WINDOW_SETTINGS,
-  },
-  {
-    name: DENOMINATOR_METRIC_NAME,
-    description: "Total number of discrete orders placed by a user",
-    type: "count",
-    sql:
-      "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\n1 AS value\nFROM orders",
-    windowSettings: CONVERSION_WINDOW_SETTINGS,
-  },
-  {
-    name: "Retention - [1, 14) Days",
-    description:
-      "Whether the user logged in 1-14 days after experiment exposure",
-    type: "binomial",
-    windowSettings: {
-      type: "conversion",
-      delayHours: 24,
-      windowUnit: "days",
-      windowValue: 13,
+    {
+      name: "Purchases - Total Revenue (72 hour window)",
+      description: "The total amount of USD spent aggregated at the user level",
+      type: "revenue",
+      sql:
+        "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\namount AS value\nFROM orders",
+      windowSettings: CONVERSION_WINDOW_SETTINGS,
     },
-    sql:
-      "SELECT\nuserId AS user_id,\ntimestamp AS timestamp\nFROM pages WHERE path = '/'",
-  },
-  {
-    name: "Days Active in Next 7 Days",
-    description:
-      "Count of times the user was active in the next 7 days after exposure",
-    type: "count",
-    windowSettings: {
-      type: "conversion",
-      delayHours: 0,
-      windowUnit: "days",
-      windowValue: 7,
+    {
+      name: "Purchases - Any Order (72 hour window)",
+      description: "Whether the user places any order or not (0/1)",
+      type: "binomial",
+      sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp\nFROM orders",
+      windowSettings: CONVERSION_WINDOW_SETTINGS,
     },
-    aggregation: "COUNT(DISTINCT value)",
-    sql:
-      "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\nDATE_TRUNC('day', timestamp) AS value\nFROM pages WHERE path = '/'",
-  },
-];
+    {
+      name: DENOMINATOR_METRIC_NAME,
+      description: "Total number of discrete orders placed by a user",
+      type: "count",
+      sql:
+        "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\n1 AS value\nFROM orders",
+      windowSettings: CONVERSION_WINDOW_SETTINGS,
+    },
+    {
+      name: "Retention - [1, 14) Days",
+      description:
+        "Whether the user logged in 1-14 days after experiment exposure",
+      type: "binomial",
+      windowSettings: {
+        type: "conversion",
+        delayHours: 24,
+        windowUnit: "days",
+        windowValue: 13,
+      },
+      sql:
+        "SELECT\nuserId AS user_id,\ntimestamp AS timestamp\nFROM pages WHERE path = '/'",
+    },
+    {
+      name: "Days Active in Next 7 Days",
+      description:
+        "Count of times the user was active in the next 7 days after exposure",
+      type: "count",
+      windowSettings: {
+        type: "conversion",
+        delayHours: 0,
+        windowUnit: "days",
+        windowValue: 7,
+      },
+      aggregation: "COUNT(DISTINCT value)",
+      sql:
+        "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\nDATE_TRUNC('day', timestamp) AS value\nFROM pages WHERE path = '/'",
+    },
+  ];
 
 const DEMO_RATIO_METRIC: Pick<
   MetricInterface,
@@ -244,16 +244,16 @@ export const postDemoDatasourceProject = async (
     )?.id;
     const ratioMetric = denominatorMetricId
       ? await createMetric({
-          ...DEMO_RATIO_METRIC,
-          denominator: denominatorMetricId,
-          organization: org.id,
-          owner: ASSET_OWNER,
-          userIdColumns: { user_id: "user_id" },
-          userIdTypes: ["user_id"],
-          datasource: datasource.id,
-          projects: [project.id],
-          tags: DEMO_TAGS,
-        })
+        ...DEMO_RATIO_METRIC,
+        denominator: denominatorMetricId,
+        organization: org.id,
+        owner: ASSET_OWNER,
+        userIdColumns: { user_id: "user_id" },
+        userIdTypes: ["user_id"],
+        datasource: datasource.id,
+        projects: [project.id],
+        tags: DEMO_TAGS,
+      })
       : undefined;
 
     // Create experiment

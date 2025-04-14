@@ -1,7 +1,7 @@
 export function MetricDelayHours({ form }) {
   return (
     <div className="form-group">
-      <label>Metric Delay (hours)</label>
+      <label>指标延迟（小时）</label>
       <input
         type="number"
         step="any"

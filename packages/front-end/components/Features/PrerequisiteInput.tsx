@@ -298,7 +298,7 @@ export default function PrerequisiteInput(props: Props) {
                     handleCondsChange(v, "value");
                   }}
                   name="value"
-                  initialOption="Choose One..."
+                  initialOption="选择..."
                   containerClassName="col-sm-12 col-md"
                   required
                 />

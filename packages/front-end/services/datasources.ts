@@ -63,23 +63,19 @@ WHERE
     return `SELECT
   user_id,
   user_pseudo_id as anonymous_id,
-  TIMESTAMP_MICROS(event_timestamp) as timestamp${
-    type === "revenue"
-      ? ",\n  event_value_in_usd as value"
-      : type === "binomial"
-      ? ""
-      : `,\n  value_param.value.${
-          type === "count" ? "int" : "float"
-        }_value as value`
-  }
+  TIMESTAMP_MICROS(event_timestamp) as timestamp${type === "revenue"
+        ? ",\n  event_value_in_usd as value"
+        : type === "binomial"
+          ? ""
+          : `,\n  value_param.value.${type === "count" ? "int" : "float"
+          }_value as value`
+      }
 FROM
-  ${tablePrefix}\`events_*\`${
-      joinValueParams ? `,\n  UNNEST(event_params) AS value_param` : ""
-    }
+  ${tablePrefix}\`events_*\`${joinValueParams ? `,\n  UNNEST(event_params) AS value_param` : ""
+      }
 WHERE
-  event_name = '{{eventName}}'${
-    joinValueParams ? `\n  AND value_param.key = 'value'` : ""
-  }
+  event_name = '{{eventName}}'${joinValueParams ? `\n  AND value_param.key = 'value'` : ""
+      }
   AND ((_TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}') OR
        (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO "yyyyMMdd"}}' AND 'intraday_{{date endDateISO "yyyyMMdd"}}'))
     `;
@@ -125,23 +121,21 @@ WHERE
     return `SELECT
   user_id,
   domain_userid as anonymous_id,
-  collector_tstamp as timestamp${
-    type === "revenue"
-      ? ",\n  tr_total as value"
-      : type === "binomial"
-      ? ""
-      : type === "count"
-      ? ",\n  1 as value"
-      : `,\n  se_value as value`
-  }
+  collector_tstamp as timestamp${type === "revenue"
+        ? ",\n  tr_total as value"
+        : type === "binomial"
+          ? ""
+          : type === "count"
+            ? ",\n  1 as value"
+            : `,\n  se_value as value`
+      }
 FROM
   ${tablePrefix}events
 WHERE
-  ${
-    type === "revenue"
-      ? "event_name = 'transaction'"
-      : `se_action = '{{eventName}}'`
-  }
+  ${type === "revenue"
+        ? "event_name = 'transaction'"
+        : `se_action = '{{eventName}}'`
+      }
     `;
   },
 };
@@ -164,13 +158,12 @@ FROM
   getMetricSQL: (type, tablePrefix) => {
     return `SELECT
   user_id as user_id,
-  timestamp as timestamp${
-    type === "revenue"
-      ? ",\n  revenue as value"
-      : type === "binomial"
-      ? ""
-      : `,\n  {{valueColumn}} as value`
-  }
+  timestamp as timestamp${type === "revenue"
+        ? ",\n  revenue as value"
+        : type === "binomial"
+          ? ""
+          : `,\n  {{valueColumn}} as value`
+      }
 FROM
   ${tablePrefix}{{snakecase eventName}}`;
   },
@@ -207,15 +200,14 @@ WHERE
     return `SELECT
   user_id,
   amplitude_id as anonymous_id,
-  event_time as timestamp${
-    type === "revenue"
-      ? ",\n  event_properties:revenue as value"
-      : type === "binomial"
-      ? ""
-      : type === "count"
-      ? ",\n  1 as value"
-      : `,\n  event_properties:value as value`
-  }
+  event_time as timestamp${type === "revenue"
+        ? ",\n  event_properties:revenue as value"
+        : type === "binomial"
+          ? ""
+          : type === "count"
+            ? ",\n  1 as value"
+            : `,\n  event_properties:value as value`
+      }
 FROM
   ${tablePrefix}EVENTS_AMPLITUDE_PROJECT_ID
 WHERE
@@ -271,9 +263,8 @@ FROM
     return `SELECT
   user_id,
   anonymous_id,
-  received_at as timestamp${
-    type === "binomial" ? "" : ",\n  {{valueColumn}} as value"
-  }
+  received_at as timestamp${type === "binomial" ? "" : ",\n  {{valueColumn}} as value"
+      }
 FROM
   ${tablePrefix}{{snakecase eventName}}`;
   },
@@ -314,9 +305,8 @@ WHERE
   getMetricSQL: (type, tablePrefix) => {
     return `SELECT
   anonymous_id,
-  received_at as timestamp${
-    type === "binomial" ? "" : ",\n  {{valueColumn}} as value"
-  }
+  received_at as timestamp${type === "binomial" ? "" : ",\n  {{valueColumn}} as value"
+      }
 FROM
   ${tablePrefix}{{snakecase eventName}}`;
   },
@@ -371,9 +361,8 @@ FROM
   getMetricSQL: (type, tablePrefix) => {
     return `SELECT
   conv(hex(events.idvisitor), 16, 16) as anonymous_id,
-  server_time as timestamp${
-    type === "binomial" ? "" : ",\n  {{valueColumn}} as value"
-  }
+  server_time as timestamp${type === "binomial" ? "" : ",\n  {{valueColumn}} as value"
+      }
 FROM
   ${tablePrefix}_log_link_visit_action`;
   },
@@ -417,9 +406,8 @@ FROM
     return `SELECT
   user_id,
   device_id,
-  sent_at as timestamp${
-    type === "binomial" ? "" : ",\n  {{valueColumn}} as value"
-  }
+  sent_at as timestamp${type === "binomial" ? "" : ",\n  {{valueColumn}} as value"
+      }
 FROM
   ${tablePrefix}{{snakecase eventName}}`;
   },
@@ -463,9 +451,8 @@ WHERE
   getMetricSQL: (type, tablePrefix) => {
     return `SELECT
   user_id,
-  sent_at as timestamp${
-    type === "binomial" ? "" : ",\n  {{valueColumn}} as value"
-  }
+  sent_at as timestamp${type === "binomial" ? "" : ",\n  {{valueColumn}} as value"
+      }
 FROM
   ${tablePrefix}{{snakecase eventName}}`;
   },
@@ -505,9 +492,8 @@ WHERE
   getMetricSQL: (type, tablePrefix) => {
     return `SELECT
   device_id,
-  TIMESTAMP_MICROS(event_time) as timestamp${
-    type === "binomial" ? "" : ",\n  {{valueColumn}} as value"
-  }
+  TIMESTAMP_MICROS(event_time) as timestamp${type === "binomial" ? "" : ",\n  {{valueColumn}} as value"
+      }
   FROM
     ${tablePrefix}{{snakecase eventName}}`;
   },
@@ -568,9 +554,8 @@ export function getTablePrefix(params: DataSourceParams) {
   }
   // PrestoDB
   else if ("catalog" in params && "schema" in params) {
-    return `${params.catalog ? params.catalog + "." : ""}${
-      params.schema || "public"
-    }.`;
+    return `${params.catalog ? params.catalog + "." : ""}${params.schema || "public"
+      }.`;
   }
   // Athena
   else if ("catalog" in params && "database" in params) {
@@ -594,10 +579,10 @@ export function getInitialSettings(
         userIdType: type,
         description:
           type === "user_id"
-            ? "Logged-in user id"
+            ? "登录用户ID"
             : type === "anonymous_id"
-            ? "Anonymous visitor id"
-            : "",
+              ? "匿名访客ID"
+              : "",
       };
     }),
     queries: {
@@ -607,10 +592,10 @@ export function getInitialSettings(
         dimensions: schema.experimentDimensions,
         name:
           id === "user_id"
-            ? "Logged-in Users"
+            ? "已登录用户"
             : id === "anonymous_id"
-            ? "Anonymous Visitors"
-            : id,
+              ? "匿名访客"
+              : id,
         description: "",
         query: schema.getExperimentSQL(getTablePrefix(params), id, options),
       })),

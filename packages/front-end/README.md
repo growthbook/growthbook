@@ -13,7 +13,7 @@ This document is meant for developers who want to contribute to the GrowthBook p
 
 ## Interacting with the API
 
-There are two main ways to interact with the GrowthBook API. First is the `useApi` hook for fetching data for a component. Second is the `apiCall` function for making calls in response to user actions.
+There are two main ways to interact with the CSII API. First is the `useApi` hook for fetching data for a component. Second is the `apiCall` function for making calls in response to user actions.
 
 ### useApi
 

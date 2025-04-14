@@ -153,7 +153,7 @@ export default function Auth() {
 
 ## Loading Features
 
-In order for the GrowthBook SDK to work, it needs to have feature definitions from the GrowthBook API. There are 2 ways to get this data into the SDK.
+In order for the GrowthBook SDK to work, it needs to have feature definitions from the CSII API. There are 2 ways to get this data into the SDK.
 
 ### Built-in Fetching and Caching
 

@@ -126,20 +126,20 @@ const SegmentForm: FC<{
             </a>
           </div>
         ) : null}
-        <Field label="Name" required {...form.register("name")} />
+        <Field label="名称" required {...form.register("name")} />
         <Field
-          label="Owner"
+          label="负责人"
           options={memberUsernameOptions}
           comboBox
           {...form.register("owner")}
         />
-        <Field label="Description" {...form.register("description")} textarea />
+        <Field label="描述" {...form.register("description")} textarea />
         <SelectField
-          label="Data Source"
+          label="数据源"
           required
           value={form.watch("datasource")}
           onChange={(v) => form.setValue("datasource", v)}
-          placeholder="Choose one..."
+          placeholder="选择..."
           options={filteredDatasources.map((d) => ({
             value: d.id,
             label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
@@ -148,7 +148,7 @@ const SegmentForm: FC<{
         />
         {datasource?.properties?.userIds && (
           <SelectField
-            label="Identifier Type"
+            label="分隔符类型"
             required
             value={userIdType}
             onChange={(v) => form.setValue("userIdType", v)}
@@ -162,7 +162,7 @@ const SegmentForm: FC<{
         )}
         {supportsSQL ? (
           <div className="form-group">
-            <label>Query</label>
+            <label>查询</label>
             {sql && <Code language="sql" code={sql} expandable={true} />}
             <div>
               <button
@@ -179,7 +179,7 @@ const SegmentForm: FC<{
           </div>
         ) : (
           <Field
-            label="Event Condition"
+            label="事件条件"
             required
             {...form.register("sql")}
             textarea

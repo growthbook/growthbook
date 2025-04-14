@@ -333,13 +333,13 @@ export default function FactTablePage() {
         </div>
       </div>
 
-      <h3>Metrics</h3>
+      <h3>指标</h3>
       <div className="mb-5">
         <div className="mb-1">
           Metrics are built on top of Columns and Filters. These are what you
           use as Goals and Guardrails in experiments. This page only shows
           metrics tied to this Fact Table.{" "}
-          <Link href="/metrics">View all Metrics</Link>
+          <Link href="/metrics">查看全部指标</Link>
         </div>
         <div className="appbox p-3">
           <FactMetricList factTable={factTable} />

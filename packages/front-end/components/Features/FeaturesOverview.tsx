@@ -347,7 +347,7 @@ export default function FeaturesOverview({
   return (
     <>
       <div className="contents container-fluid pagecontents mt-2">
-        <h2 className="mb-3">Overview</h2>
+        <h2 className="mb-3">概览</h2>
 
         <div className="box">
           <div
@@ -369,7 +369,7 @@ export default function FeaturesOverview({
               canCreate={canEdit}
               canEdit={canEdit}
               label="description"
-              header="Description"
+              header="描述"
               headerClassName="h4"
               containerClassName="mb-1"
             />
@@ -1122,7 +1122,7 @@ export default function FeaturesOverview({
             </>
           )}
         </div>
-
+        {/* 
         {environments.length > 0 && (
           <div className="mb-4">
             <h3>测试功能规则</h3>
@@ -1132,7 +1132,7 @@ export default function FeaturesOverview({
               project={feature.project}
             />
           </div>
-        )}
+        )} */}
 
         <div className="mb-4">
           <h3>评论</h3>

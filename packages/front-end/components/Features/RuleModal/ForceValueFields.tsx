@@ -40,16 +40,16 @@ export default function ForceValueFields({
   return (
     <>
       <Field
-        label="Description"
+        label="描述"
         textarea
         minRows={1}
         {...form.register("description")}
-        placeholder="Short human-readable description of the rule"
+        placeholder="对规则简短说明"
       />
 
       <div className="mb-3 pb-1">
         <FeatureValueField
-          label="Value to Force"
+          label="强制赋值的值"
           id="value"
           value={form.watch("value")}
           setValue={(v) => form.setValue("value", v)}

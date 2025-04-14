@@ -533,11 +533,11 @@ describe("Datasource Migration", () => {
       userIdTypes: [
         {
           userIdType: "user_id",
-          description: "Logged-in user id",
+          description: "登录用户ID",
         },
         {
           userIdType: "anonymous_id",
-          description: "Anonymous visitor id",
+          description: "匿名访客ID",
         },
       ],
     });

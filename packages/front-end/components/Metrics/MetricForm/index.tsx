@@ -1298,11 +1298,11 @@ const MetricForm: FC<MetricFormProps> = ({
                 helpText={`若实验使指标变化小于此百分比，将被视为平局（默认值为${metricDefaults.minPercentageChange * 100}）`}
               />
 
-              <PremiumTooltip commercialFeature="regression-adjustment">
+              {/* <PremiumTooltip commercialFeature="regression-adjustment">
                 <label className="mb-1">
                   <GBCuped /> 回归调整（CUPED）
                 </label>
-              </PremiumTooltip>
+              </PremiumTooltip> */}
               <div className="px-3 py-2 pb-0 mb-2 border rounded">
                 {regressionAdjustmentAvailableForMetric ? (
                   <>

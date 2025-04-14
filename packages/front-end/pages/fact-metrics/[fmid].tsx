@@ -695,9 +695,9 @@ export default function FactMetricPage() {
               <RightRailSectionGroup type="custom" empty="">
                 <ul className="right-rail-subsection list-unstyled mb-4">
                   <li className="mt-3 mb-2">
-                    <span className="uppercase-title lg">Risk Thresholds</span>
+                    <span className="uppercase-title lg">风险阈值</span>
                     <small className="d-block mb-1 text-muted">
-                      Only applicable to Bayesian analyses
+                      仅适用于贝叶斯分析
                     </small>
                   </li>
                   <li className="mb-2">
@@ -764,7 +764,7 @@ export default function FactMetricPage() {
                       <li className="mb-1">
                         <div className="mb-1">
                           <em className="text-gray">
-                            Using organization defaults
+                            使用集团默认
                           </em>
                         </div>
                         <div className="ml-2 px-2 border-left">

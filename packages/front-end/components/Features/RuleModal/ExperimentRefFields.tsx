@@ -67,8 +67,8 @@ export default function ExperimentRefFields({
       <div>
         {experimentOptions.length > 0 ? (
           <SelectField
-            label="Experiment"
-            initialOption="Choose One..."
+            label="实验"
+            initialOption="选择一个..."
             options={experimentOptions}
             readOnly={!!rules[i]}
             disabled={!!rules[i]}
@@ -99,7 +99,7 @@ export default function ExperimentRefFields({
                       <strong>{exp.name}</strong>
                     </div>
                     <div className="ml-4 text-muted">
-                      Created: {date(exp.dateCreated)}
+                      创建于: {date(exp.dateCreated)}
                     </div>
                     <div className="ml-auto d-flex align-items-center">
                       <StatusIndicator
@@ -133,7 +133,7 @@ export default function ExperimentRefFields({
                   changeRuleType("experiment-ref-new");
                 }}
               >
-                Create New Experiment
+                创建新实验
               </button>
             </div>
           </div>
@@ -147,7 +147,7 @@ export default function ExperimentRefFields({
           <div className="appbox px-3 pt-3">
             <Callout status="info" mb="5">
               <Link href={`/experiment/${selectedExperiment.id}#overview`}>
-                View this Experiment <FaExternalLinkAlt />
+                查看这个实验 <FaExternalLinkAlt />
               </Link>{" "}
               to make changes to assignment or targeting conditions.
             </Callout>
@@ -177,11 +177,11 @@ export default function ExperimentRefFields({
       </div>
 
       <Field
-        label="Description"
+        label="描述"
         textarea
         minRows={1}
         {...form.register("description")}
-        placeholder="Short human-readable description of the rule"
+        placeholder="对规则简短说明"
       />
 
       {!noSchedule && setScheduleToggleEnabled ? (

@@ -56,7 +56,7 @@ export default function BanditRefFields({
         {experimentOptions.length > 0 ? (
           <SelectField
             label="Bandit"
-            initialOption="Choose One..."
+            initialOption="选择..."
             options={experimentOptions}
             readOnly={!!rules[i]}
             disabled={!!rules[i]}
@@ -160,11 +160,11 @@ export default function BanditRefFields({
       </div>
 
       <Field
-        label="Description"
+        label="描述"
         textarea
         minRows={1}
         {...form.register("description")}
-        placeholder="Short human-readable description of the rule"
+        placeholder="对规则简短说明"
       />
     </>
   );

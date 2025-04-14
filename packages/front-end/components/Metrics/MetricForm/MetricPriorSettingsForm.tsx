@@ -24,9 +24,9 @@ export function MetricPriorSettingsForm({
 
   return (
     <div className="form-group">
-      <label className="mb-1">Metric Priors</label>
+      <label className="mb-1">先验指标</label>
       <small className="d-block mb-1 text-muted">
-        Only applicable to Bayesian analyses
+        仅适用于贝叶斯分析
       </small>
       <div className="px-3 py-2 pb-0 mb-2 border rounded">
         <div className="form-group mb-0 mr-0 form-inline">
@@ -78,7 +78,7 @@ export function MetricPriorSettingsForm({
           </div>
 
           {(metricDefaults.priorSettings?.proper && !priorSettings.override) ||
-          priorSettings.proper ? (
+            priorSettings.proper ? (
             <>
               <div className="row">
                 <div className="col">
@@ -88,9 +88,8 @@ export function MetricPriorSettingsForm({
                     step="any"
                     containerClassName="mb-0 mt-3"
                     required
-                    helpText={`Organization default: ${
-                      metricDefaults.priorSettings?.mean ?? 0
-                    }`}
+                    helpText={`Organization default: ${metricDefaults.priorSettings?.mean ?? 0
+                      }`}
                     value={mean}
                     onChange={(e) => {
                       const value = e.target.value;
@@ -111,10 +110,9 @@ export function MetricPriorSettingsForm({
                     step="any"
                     containerClassName="mb-0 mt-3"
                     required
-                    helpText={`Organization default: ${
-                      metricDefaults.priorSettings?.stddev ??
+                    helpText={`Organization default: ${metricDefaults.priorSettings?.stddev ??
                       DEFAULT_PROPER_PRIOR_STDDEV
-                    }`}
+                      }`}
                     value={stddev}
                     onChange={(e) => {
                       const value = e.target.value;

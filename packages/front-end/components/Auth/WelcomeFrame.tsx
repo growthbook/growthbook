@@ -21,7 +21,7 @@ const WelcomeFrame: FC<WelcomeFrameProps> = ({
             <div className="p-sm-1 p-md-3 pt-3 pt-sm-3 pt-md-5 d-flex align-items-center justify-content-center h-100">
               <div className="text-center">{leftside}</div>
             </div>
-            <div className="logo">
+            {/* <div className="logo">
               <a
                 href="https://www.growthbook.io"
                 target="_blank"
@@ -32,7 +32,7 @@ const WelcomeFrame: FC<WelcomeFrameProps> = ({
                   style={{ maxWidth: "150px" }}
                 />
               </a>
-            </div>
+            </div> */}
           </div>
           <div className="col-sm-7 form-side p-0">
             <div className="welcomemodal p-4 h-100">

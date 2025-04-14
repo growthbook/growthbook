@@ -56,7 +56,7 @@ const MetricsPage = (): React.ReactElement => {
             <Tabs.Trigger value="metrics">单个指标</Tabs.Trigger>
             <Tabs.Trigger value="metricgroups">
               <PremiumTooltip commercialFeature="metric-groups">
-                Metric Groups
+                指标组
               </PremiumTooltip>
             </Tabs.Trigger>
           </Tabs.List>

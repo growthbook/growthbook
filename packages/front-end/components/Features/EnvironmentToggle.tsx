@@ -52,7 +52,7 @@ export default function EnvironmentToggle({
           state,
         }),
       });
-      track("Feature Environment Toggle", {
+      track("功能环境切换", {
         environment,
         enabled: state,
       });
@@ -69,7 +69,7 @@ export default function EnvironmentToggle({
       {confirming ? (
         <Modal
           trackingEventModalType=""
-          header="Toggle environment"
+          header="切换环境状态"
           close={() => {
             setConfirming(false);
             setToggling(false);
@@ -78,8 +78,7 @@ export default function EnvironmentToggle({
           cta="确认"
           submit={() => submit(feature, environment, desiredState)}
         >
-          You are about to set the <strong>{environment}</strong> environment to{" "}
-          <strong>{desiredState ? "enabled" : "disabled"}</strong>.
+          你即将把 <strong>{environment}</strong> 环境设置为 <strong>{desiredState ? "启用" : "禁用"}</strong>。
         </Modal>
       ) : (
         ""
@@ -87,7 +86,7 @@ export default function EnvironmentToggle({
       <Toggle
         value={env?.enabled ?? false}
         id={id}
-        disabledMessage="You don't have permission to change features in this environment"
+        disabledMessage="你没有权限更改此环境中的功能状态"
         disabled={!permissionsUtil.canPublishFeature(feature, [environment])}
         setValue={async (on) => {
           if (toggling) return;

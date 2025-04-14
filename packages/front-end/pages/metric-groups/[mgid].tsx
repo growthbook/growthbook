@@ -17,18 +17,18 @@ export default function MetricGroupDetailPage() {
   const [openEditModal, setOpenEditModal] = useState(false);
 
   if (!group) {
-    return <div>Group not found</div>;
+    return <div>未找到组</div>;
   }
   return (
     <>
       <PageHead
         breadcrumb={[
           {
-            display: "Metrics",
+            display: "指标",
             href: `/metrics`,
           },
           {
-            display: "Metric Groups",
+            display: "指标组",
             href: `/metrics#metricgroups`,
           },
           { display: group.name },
@@ -49,7 +49,7 @@ export default function MetricGroupDetailPage() {
                   setOpenEditModal(true);
                 }}
               >
-                Edit Metric Group
+                编辑指标组
               </Button>
             )}
           </div>

@@ -32,15 +32,15 @@ export function MetricWindowSettingsForm({ form }) {
           sort={false}
           options={[
             {
-              label: "Hours",
+              label: "小时",
               value: "hours",
             },
             {
-              label: "Days",
+              label: "天",
               value: "days",
             },
             {
-              label: "Weeks",
+              label: "周",
               value: "weeks",
             },
           ]}
@@ -52,7 +52,7 @@ export function MetricWindowSettingsForm({ form }) {
     <div className="mb-3 mt-4">
       <div className="form-group mb-1">
         <SelectField
-          label={"Metric Window"}
+          label={"指标窗口"}
           value={form.watch("windowSettings.type")}
           onChange={(value) => {
             form.setValue(
@@ -63,15 +63,15 @@ export function MetricWindowSettingsForm({ form }) {
           sort={false}
           options={[
             {
-              label: "None",
+              label: "无",
               value: "",
             },
             {
-              label: "Conversion Window",
+              label: "转化窗口",
               value: "conversion",
             },
             {
-              label: "Lookback Window",
+              label: "回溯窗口",
               value: "lookback",
             },
           ]}
@@ -83,13 +83,13 @@ export function MetricWindowSettingsForm({ form }) {
           <div className="row align-items-center">
             {form.watch("windowSettings.type") === "conversion" && (
               <>
-                <div className="col-auto">Use only data within</div>
+                <div className="col-auto">仅使用以下时间范围内的数据</div>
                 {windowSettingsFields}
                 <div className="col-auto">
-                  of first experiment exposure{" "}
+                  自首次实验曝光起{" "}
                   <Tooltip
                     body={
-                      "If you specify a conversion delay, then the conversion window will be a length of time starting from the first experiment exposure plus the conversion delay."
+                      "如果您指定了转化延迟，那么转化窗口将是从首次实验曝光加上转化延迟开始的一段时间长度。"
                     }
                   />
                 </div>
@@ -97,9 +97,9 @@ export function MetricWindowSettingsForm({ form }) {
             )}
             {form.watch("windowSettings.type") === "lookback" && (
               <>
-                <div className="col-auto">Only use the latest</div>
+                <div className="col-auto">仅使用实验中最新的</div>
                 {windowSettingsFields}
-                <div className="col-auto">of metric data in the experiment</div>
+                <div className="col-auto">指标数据</div>
               </>
             )}
           </div>

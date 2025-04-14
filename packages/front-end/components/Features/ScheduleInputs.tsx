@@ -57,12 +57,12 @@ export default function ScheduleInputs(props: Props) {
     <div className="my-3">
       <Checkbox
         size="lg"
-        label={
-          <PremiumTooltip commercialFeature="schedule-feature-flag">
-            Apply Schedule
-          </PremiumTooltip>
-        }
-        description="Enable/disable rule based on selected date and time"
+        // label={
+        //   <PremiumTooltip commercialFeature="schedule-feature-flag">
+        //     Apply Schedule
+        //   </PremiumTooltip>
+        // }
+        description="根据选定的日期和时间启用/禁用规则"
         value={props.scheduleToggleEnabled}
         setValue={(v) => {
           props.setScheduleToggleEnabled(v === true);
@@ -87,15 +87,15 @@ export default function ScheduleInputs(props: Props) {
           <ul className={styles.conditionslist}>
             <li className={styles.listitem}>
               <div className="row align-items-center">
-                <span className="ml-2 mb-2">Launch rule</span>
+                <span className="ml-2 mb-2">启动规则</span>
                 <div className="col-sm-12 col-md mb-2 pl-2 pr-2">
                   <SelectField
                     name="date-operator"
                     value={rules[0].timestamp === null ? "" : "timestamp"}
                     options={[
-                      { label: "immediately", value: "" },
+                      { label: "立即", value: "" },
                       {
-                        label: "at a specific date and time",
+                        label: "在特定的日期和时间",
                         value: "timestamp",
                       },
                     ]}
@@ -115,7 +115,7 @@ export default function ScheduleInputs(props: Props) {
                 {rules[0].timestamp !== null && (
                   <>
                     <div className="w-auto mb-2 p-2">
-                      <span className="mb-2">ON</span>
+                      <span className="mb-2">于</span>
                     </div>
                     <div className="col-sm-12 col-md mb-2 d-flex align-items-center">
                       <Field
@@ -136,15 +136,15 @@ export default function ScheduleInputs(props: Props) {
             </li>
             <li className={styles.listitem}>
               <div className="row align-items-center">
-                <span className="ml-2 mb-2">Disable rule </span>
+                <span className="ml-2 mb-2">禁用规则 </span>
                 <div className="col-sm-12 col-md mb-2 pl-2 pr-2">
                   <SelectField
                     name="date-operator"
                     value={rules[1].timestamp === null ? "" : "timestamp"}
                     options={[
-                      { label: "manually", value: "" },
+                      { label: "手动", value: "" },
                       {
-                        label: "at a specific date and time",
+                        label: "在特定的日期和时间",
                         value: "timestamp",
                       },
                     ]}
@@ -164,7 +164,7 @@ export default function ScheduleInputs(props: Props) {
                 {rules[1].timestamp !== null && (
                   <>
                     <div className="w-auto mb-2 p-2">
-                      <span className="mb-2">ON</span>
+                      <span className="mb-2">于</span>
                     </div>
                     <div className="col-sm-12 col-md mb-2 d-flex align-items-center">
                       <Field
@@ -176,10 +176,10 @@ export default function ScheduleInputs(props: Props) {
                           if (
                             rules[0].timestamp &&
                             getValidDate(e.target.value) <
-                              getValidDate(rules[0].timestamp)
+                            getValidDate(rules[0].timestamp)
                           ) {
                             setDateErrors(
-                              "End date must be greater than the previous rule date."
+                              "结束日期必须大于上一条规则的日期。"
                             );
                             return;
                           }

@@ -105,7 +105,7 @@ const DimensionForm: FC<{
           required
           value={form.watch("datasource")}
           onChange={(v) => form.setValue("datasource", v)}
-          placeholder="Choose one..."
+          placeholder="选择..."
           options={validDatasources.map((d) => ({
             value: d.id,
             label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,

@@ -165,14 +165,14 @@ const MetricPage: FC = () => {
     regressionAdjustmentAvailableForMetric = false;
     regressionAdjustmentAvailableForMetricReason = (
       <>
-        Not available for ratio metrics with <em>count</em> denominators.
+        对于分母为 <em>计数</em> 类型的比率指标，回归调整不可用。
       </>
     );
   }
   if (metric.aggregation) {
     regressionAdjustmentAvailableForMetric = false;
     regressionAdjustmentAvailableForMetricReason = (
-      <>Not available for metrics with custom aggregations.</>
+      <>对于使用自定义聚合的指标，回归调整不可用。</>
     );
   }
 
@@ -196,15 +196,15 @@ const MetricPage: FC = () => {
 
         const experimentLinks: (string | ReactNode)[] = [];
         const ideaLinks: (string | ReactNode)[] = [];
-        let subtitleText = "This metric is not referenced anywhere else.";
+        let subtitleText = "此指标未在其他地方被引用。";
         if (res.ideas?.length || res.experiments?.length) {
-          subtitleText = "This metric is referenced in ";
-          const refs: (string | ReactNode)[] = [];
+          subtitleText = "此指标在以下地方被引用：";
+          const refs = [];
           if (res.experiments && res.experiments.length) {
             refs.push(
               res.experiments.length === 1
-                ? "1 experiment"
-                : res.experiments.length + " experiments"
+                ? "1 个实验"
+                : res.experiments.length + " 个实验"
             );
             res.experiments.forEach((e) => {
               experimentLinks.push(
@@ -214,13 +214,13 @@ const MetricPage: FC = () => {
           }
           if (res.ideas && res.ideas.length) {
             refs.push(
-              res.ideas.length === 1 ? "1 idea" : res.ideas.length + " ideas"
+              res.ideas.length === 1 ? "1 个想法" : res.ideas.length + " 个想法"
             );
             res.ideas.forEach((i) => {
               ideaLinks.push(<Link href={`/idea/${i.id}`}>{i.text}</Link>);
             });
           }
-          subtitleText += refs.join(" and ");
+          subtitleText += refs.join(" 和 ");
 
           return (
             <div>
@@ -233,7 +233,7 @@ const MetricPage: FC = () => {
                   >
                     {experimentLinks.length > 0 && (
                       <div className="col-6 text-smaller text-left">
-                        Experiments:{" "}
+                        实验:{" "}
                         <ul className="mb-0 pl-3">
                           {experimentLinks.map((l, i) => {
                             return (
@@ -247,7 +247,7 @@ const MetricPage: FC = () => {
                     )}
                     {ideaLinks.length > 0 && (
                       <div className="col-6 text-smaller text-left">
-                        Ideas:{" "}
+                        想法:{" "}
                         <ul className="mb-0 pl-3">
                           {ideaLinks.map((l, i) => {
                             return (
@@ -261,15 +261,13 @@ const MetricPage: FC = () => {
                     )}
                   </div>
                   <p className="mb-0">
-                    Deleting this metric will remove these references.
+                    删除该指标将移除这些引用.
                   </p>
                 </>
               )}
-              <p>This delete action cannot be undone. </p>
+              <p>此删除操作不可撤销。</p>
               <p>
-                If you would rather keep existing references, but prevent this
-                metric from being used in the future, you can archive this
-                metric instead.
+                如果你希望保留现有引用，但防止此指标在未来被使用，你可以将此指标归档。
               </p>
             </div>
           );
@@ -278,7 +276,7 @@ const MetricPage: FC = () => {
         console.error(e);
         return (
           <div className="alert alert-danger">
-            An error occurred getting the metric usage
+            发生错误
           </div>
         );
       }
@@ -322,10 +320,10 @@ const MetricPage: FC = () => {
         <EditProjectsForm
           label={
             <>
-              Projects{" "}
+              项目{" "}
               <Tooltip
                 body={
-                  "The dropdown below has been filtered to only include projects where you have permission to update Metrics"
+                  "以下下拉菜单已过滤，仅包含你有权限更新指标的项目"
                 }
               />
             </>
@@ -385,16 +383,14 @@ const MetricPage: FC = () => {
 
       <PageHead
         breadcrumb={[
-          { display: "Metrics", href: "/metrics" },
+          { display: "指标", href: "/metrics" },
           { display: metric.name },
         ]}
       />
 
       {metric.status === "archived" && (
         <div className="alert alert-secondary mb-2">
-          <strong>This metric is archived.</strong> Existing references will
-          continue working, but you will be unable to add this metric to new
-          experiments.
+          <strong>此指标已归档。</strong> 现有引用将继续生效，但你将无法将此指标添加到新实验中。
         </div>
       )}
 
@@ -403,8 +399,7 @@ const MetricPage: FC = () => {
       ) && (
           <div className="alert alert-info mb-3 d-flex align-items-center mt-3">
             <div className="flex-1">
-              This metric is part of our sample dataset. You can safely delete
-              this once you are done exploring.
+              此指标是我们示例数据集的一部分。你完成探索后可以安全删除。
             </div>
             <div style={{ width: 180 }} className="ml-2">
               <DeleteDemoDatasourceButton
@@ -426,7 +421,7 @@ const MetricPage: FC = () => {
               <DeleteButton
                 className="btn dropdown-item py-2"
                 text="删除"
-                title="Delete this metric"
+                title="删除该指标"
                 getConfirmationContent={getMetricUsage(metric)}
                 onClick={async () => {
                   await apiCall(`/metric/${metric.id}`, {
@@ -436,7 +431,7 @@ const MetricPage: FC = () => {
                   router.push("/metrics");
                 }}
                 useIcon={true}
-                displayName={"Metric '" + metric.name + "'"}
+                displayName={"指标 '" + metric.name + "'"}
               />
             ) : null}
             {canEditMetric ? (
@@ -457,7 +452,7 @@ const MetricPage: FC = () => {
                 }}
               >
                 <FaArchive />{" "}
-                {metric.status === "archived" ? "Unarchive" : "Archive"}
+                {metric.status === "archived" ? "取消归档" : "归档"}
               </Button>
             ) : null}
           </MoreMenu>
@@ -465,7 +460,7 @@ const MetricPage: FC = () => {
       </div>
       <div className="row mb-3 align-items-center">
         <div className="col">
-          Projects:{" "}
+          项目:{" "}
           {metric?.projects?.length ? (
             <ProjectBadges
               resourceType="metric"
@@ -500,7 +495,7 @@ const MetricPage: FC = () => {
       <div className="row">
         <div className="col-12 col-md-8">
           <Tabs newStyle={true}>
-            <Tab display="Info" anchor="info" lazy={true}>
+            <Tab display="信息" anchor="info" lazy={true}>
               <div className="row">
                 <div className="col-12">
                   <InlineForm
@@ -566,27 +561,27 @@ const MetricPage: FC = () => {
                     value={metric.description}
                     canCreate={canEditMetric}
                     canEdit={canEditMetric}
-                    label="Description"
+                    label="描述"
                   />
                   <hr />
                   {!!datasource && (
                     <div>
                       <div className="row mb-1 align-items-center">
                         <div className="col-auto">
-                          <h3 className="d-inline-block mb-0">Data Preview</h3>
+                          <h3 className="d-inline-block mb-0">数据预览</h3>
                         </div>
                         <div className="small col-auto">
                           {segments.length > 0 && (
                             <>
                               {segment?.name ? (
                                 <>
-                                  Segment applied:{" "}
+                                  已应用分段:{" "}
                                   <span className="badge badge-primary mr-1">
                                     {segment?.name || "Everyone"}
                                   </span>
                                 </>
                               ) : (
-                                <span className="mr-1">Apply a segment</span>
+                                <span className="mr-1">应用分段</span>
                               )}
                               {canEditMetric && canRunMetricQuery && (
                                 <a
@@ -637,21 +632,19 @@ const MetricPage: FC = () => {
                         <div className="small text-muted col">
                           {denominator && (
                             <>
-                              The data below only aggregates the numerator. The
-                              denominator ({denominator.name}) is only used in
-                              experiment analyses.
+                              以下数据仅聚合了分子。分母 ({denominator.name}) 仅用于实验分析。
                             </>
                           )}
                         </div>
                         {analysis && (
                           <div className="small text-muted col-auto">
-                            Last updated on {date(analysis?.createdAt)}
+                            最近修改于 {date(analysis?.createdAt)}
                           </div>
                         )}
                       </div>
                       {hasQueries && status === "failed" && (
                         <div className="alert alert-danger my-3">
-                          Error running the analysis.{" "}
+                          执行分析出错.{" "}
                           <ViewAsyncQueriesButton
                             queries={metric.queries.map((q) => q.query)}
                             error={metric.analysisError}
@@ -665,14 +658,14 @@ const MetricPage: FC = () => {
                               </a>
                             )}
                           />{" "}
-                          for more info
+                          查看更多信息
                         </div>
                       )}
                       {hasQueries && status === "running" && (
                         <div className="alert alert-info">
                           您的分析正在运行{" "}
                           {analysis &&
-                            "The data below is from the previous run."}
+                            "以下数据来自上一次运行。"}
                         </div>
                       )}
                       {analysis &&
@@ -680,8 +673,7 @@ const MetricPage: FC = () => {
                         (metric.segment || analysis.segment) &&
                         metric.segment !== analysis.segment && (
                           <div className="alert alert-info">
-                            The graphs below are using an old Segment. Update
-                            them to see the latest numbers.
+                            以下图表使用的是旧的分段。更新它们以查看最新数据。
                           </div>
                         )}
                       {analysis && (
@@ -696,7 +688,7 @@ const MetricPage: FC = () => {
                                   }
                                 )}
                               </div>
-                              <div className="pb-2 ml-1">average</div>
+                              <div className="pb-2 ml-1">平均值</div>
                             </div>
                           )}
                         </div>
@@ -707,9 +699,8 @@ const MetricPage: FC = () => {
                             <div className="col-auto">
                               <h5 className="mb-1 mt-1">
                                 {metric.type === "binomial"
-                                  ? "Conversions"
-                                  : "Metric Value"}{" "}
-                                Over Time
+                                  ? "转化率"
+                                  : "指标值"} {"随时间变化"}
                               </h5>
                             </div>
                           </div>
@@ -722,27 +713,19 @@ const MetricPage: FC = () => {
                                     body={
                                       <>
                                         <p>
-                                          This figure shows the average metric
-                                          value on a day divided by number of
-                                          unique units (e.g. users) in the
-                                          metric source on that day.
+                                          此图显示了一天内的平均指标值除以该天指标源中的唯一单位（例如用户）数量。
                                         </p>
                                         <p>
-                                          The standard deviation shows the
-                                          spread of the daily user metric
-                                          values.
+                                          标准差显示了每日用户指标值的分布情况。
                                         </p>
                                         <p>
-                                          When smoothing is turned on, we simply
-                                          average values and standard deviations
-                                          over the 7 trailing days (including
-                                          the selected day).
+                                          开启平滑后，我们会对过去 7 天（包括所选日期）的值和标准差进行平均。
                                         </p>
                                       </>
                                     }
                                   >
                                     <strong className="ml-4 align-bottom">
-                                      Daily Average <FaQuestionCircle />
+                                      日平均 <FaQuestionCircle />
                                     </strong>
                                   </Tooltip>
                                 </div>
@@ -752,9 +735,9 @@ const MetricPage: FC = () => {
                                       className="small my-0 mr-2 text-right align-middle"
                                       htmlFor="toggle-group-by-avg"
                                     >
-                                      Smoothing
+                                      平滑
                                       <br />
-                                      (7 day trailing)
+                                      (过去 7 天)
                                     </label>
                                     <Toggle
                                       value={smoothByAvg === "week"}
@@ -790,27 +773,19 @@ const MetricPage: FC = () => {
                                     {metric.type !== "binomial" ? (
                                       <>
                                         <p>
-                                          This figure shows the daily sum of
-                                          values in the metric source on that
-                                          day.
+                                          此图显示了该天指标源中值的每日总和。
                                         </p>
                                         <p>
-                                          When smoothing is turned on, we simply
-                                          average values over the 7 trailing
-                                          days (including the selected day).
+                                          开启平滑后，我们会对过去 7 天（包括所选日期）的值进行平均。
                                         </p>
                                       </>
                                     ) : (
                                       <>
                                         <p>
-                                          This figure shows the total count of
-                                          units (e.g. users) in the metric
-                                          source on that day.
+                                          此图显示了该天指标源中单位（例如用户）的总数。
                                         </p>
                                         <p>
-                                          When smoothing is turned on, we simply
-                                          average counts over the 7 trailing
-                                          days (including the selected day).
+                                          开启平滑后，我们会对过去 7 天（包括所选日期）的计数进行平均。
                                         </p>
                                       </>
                                     )}
@@ -818,8 +793,8 @@ const MetricPage: FC = () => {
                                 }
                               >
                                 <strong className="ml-4 align-bottom">
-                                  Daily{" "}
-                                  {metric.type !== "binomial" ? "Sum" : "Count"}{" "}
+                                  每日{" "}
+                                  {metric.type !== "binomial" ? "总和" : "计数"}{" "}
                                   <FaQuestionCircle />
                                 </strong>
                               </Tooltip>
@@ -830,9 +805,9 @@ const MetricPage: FC = () => {
                                   className="small my-0 mr-2 text-right align-middle"
                                   htmlFor="toggle-group-by-sum"
                                 >
-                                  Smoothing
+                                  平滑
                                   <br />
-                                  (7 day trailing)
+                                  (过去 7 天)
                                 </label>
                                 <Toggle
                                   value={smoothBySum === "week"}
@@ -861,7 +836,7 @@ const MetricPage: FC = () => {
                       {!analysis && (
                         <div>
                           <em>
-                            No data for this metric yet.{" "}
+                            该指标暂无数据.{" "}
                             {canRunMetricQuery
                               ? "点击上方的运行分析按钮。"
                               : null}
@@ -897,7 +872,7 @@ const MetricPage: FC = () => {
                 projects={metric.projects || []}
               />
             </Tab>
-            <Tab display="History" anchor="history" lazy={true}>
+            <Tab display="历史" anchor="history" lazy={true}>
               <HistoryTable type="metric" id={metric.id} />
             </Tab>
           </Tabs>
@@ -995,14 +970,14 @@ const MetricPage: FC = () => {
                     <>
                       {metric.userIdTypes && customizeUserIds && (
                         <RightRailSectionGroup
-                          title="Identifier Types"
+                          title="标识符类型"
                           type="commaList"
                         >
                           {metric.userIdTypes}
                         </RightRailSectionGroup>
                       )}
                       {metric.templateVariables?.eventName && (
-                        <RightRailSectionGroup title="Event Name" type="custom">
+                        <RightRailSectionGroup title="事件名称" type="custom">
                           <span className="font-weight-bold">
                             {metric.templateVariables.eventName}
                           </span>
@@ -1012,7 +987,7 @@ const MetricPage: FC = () => {
                         metric.templateVariables?.valueColumn &&
                         usesValueColumn(metric.sql) && (
                           <RightRailSectionGroup
-                            title="Value Column"
+                            title="值列"
                             type="custom"
                           >
                             <span className="font-weight-bold">
@@ -1025,21 +1000,21 @@ const MetricPage: FC = () => {
                       </RightRailSectionGroup>
                       {metric.type !== "binomial" && metric.aggregation && (
                         <RightRailSectionGroup
-                          title="User Value Aggregation"
+                          title="用户值聚合"
                           type="custom"
                         >
                           <Code language="sql" code={metric.aggregation} />
                         </RightRailSectionGroup>
                       )}
-                      <RightRailSectionGroup title="Denominator" type="custom">
+                      <RightRailSectionGroup title="分母" type="custom">
                         <strong>
                           {metric.denominator ? (
                             <Link href={`/metric/${metric.denominator}`}>
                               {getMetricById(metric.denominator)?.name ||
-                                "Unknown"}
+                                "未知"}
                             </Link>
                           ) : (
-                            "All Experiment Users"
+                            "所有实验用户"
                           )}
                         </strong>
                       </RightRailSectionGroup>
@@ -1047,13 +1022,13 @@ const MetricPage: FC = () => {
                   ) : (
                     <>
                       <RightRailSectionGroup
-                        title={supportsSQL ? "Table Name" : "Event Name"}
+                        title={supportsSQL ? "表名" : "事件名称"}
                         type="code"
                       >
                         {metric.table}
                       </RightRailSectionGroup>
                       {metric.conditions && metric.conditions.length > 0 && (
-                        <RightRailSectionGroup title="Conditions" type="list">
+                        <RightRailSectionGroup title="条件" type="list">
                           {metric.conditions.map(
                             (c) => `${c.column} ${c.operator} "${c.value}"`
                           )}
@@ -1062,7 +1037,7 @@ const MetricPage: FC = () => {
                       {metric.type !== "binomial" &&
                         metric.column &&
                         supportsSQL && (
-                          <RightRailSectionGroup title="Column" type="code">
+                          <RightRailSectionGroup title="列" type="code">
                             {metric.column}
                           </RightRailSectionGroup>
                         )}
@@ -1071,7 +1046,7 @@ const MetricPage: FC = () => {
                         !supportsSQL && (
                           <div className="mt-2">
                             <span className="text-muted">
-                              Event Value Expression
+                              事件值表达式
                             </span>
                             <Code language="javascript" code={metric.column} />
                           </div>
@@ -1081,7 +1056,7 @@ const MetricPage: FC = () => {
                         !supportsSQL && (
                           <div className="mt-2">
                             <span className="text-muted">
-                              User Value Aggregation:
+                              用户值聚合:
                             </span>
                             <Code
                               language="javascript"
@@ -1091,7 +1066,7 @@ const MetricPage: FC = () => {
                         )}
                       {customzeTimestamp && (
                         <RightRailSectionGroup
-                          title="Timestamp Col"
+                          title="时间戳列"
                           type="code"
                         >
                           {metric.timestampColumn}
@@ -1099,7 +1074,7 @@ const MetricPage: FC = () => {
                       )}
                       {metric.userIdTypes && customizeUserIds && (
                         <RightRailSectionGroup
-                          title="Identifier Columns"
+                          title="标识符列"
                           type="custom"
                         >
                           <ul>
@@ -1128,8 +1103,8 @@ const MetricPage: FC = () => {
                 <ul className="right-rail-subsection list-unstyled mb-4">
                   {metric.inverse && (
                     <li className="mb-2">
-                      <span className="text-gray">Goal:</span>{" "}
-                      <span className="font-weight-bold">Inverse</span>
+                      <span className="text-gray">目标:</span>{" "}
+                      <span className="font-weight-bold">取反</span>
                     </li>
                   )}
                   {metric.cappingSettings.type && metric.cappingSettings.value && (
@@ -1137,7 +1112,7 @@ const MetricPage: FC = () => {
                       <li className="mb-2">
                         <span className="uppercase-title lg">
                           {capitalizeFirstLetter(metric.cappingSettings.type)}
-                          {" capping"}
+                          {" 封顶"}
                         </span>
                       </li>
                       <li>
@@ -1146,8 +1121,8 @@ const MetricPage: FC = () => {
                         </span>{" "}
                         {metric.cappingSettings.type === "percentile" ? (
                           <span className="text-gray">{`(${100 * metric.cappingSettings.value
-                            } pctile${metric.cappingSettings.ignoreZeros
-                              ? ", ignoring zeros"
+                            } 百分位数${metric.cappingSettings.ignoreZeros
+                              ? ", 忽略零值"
                               : ""
                             })`}</span>
                         ) : (
@@ -1158,8 +1133,8 @@ const MetricPage: FC = () => {
                   )}
                   {metric.ignoreNulls && (
                     <li className="mb-2">
-                      <span className="text-gray">Converted users only:</span>{" "}
-                      <span className="font-weight-bold">Yes</span>
+                      <span className="text-gray">仅已转化用户:</span>{" "}
+                      <span className="font-weight-bold">是</span>
                     </li>
                   )}
                 </ul>
@@ -1168,27 +1143,26 @@ const MetricPage: FC = () => {
               <RightRailSectionGroup type="custom" empty="">
                 <ul className="right-rail-subsection list-unstyled mb-4">
                   <li className="mt-3 mb-1">
-                    <span className="uppercase-title lg">Metric Window</span>
+                    <span className="uppercase-title lg">指标窗口</span>
                   </li>
                   {metric.windowSettings.type === "conversion" ? (
                     <>
                       <li>
                         <span className="font-weight-bold">
-                          Conversion Window
+                          转化窗口
                         </span>
                       </li>
                       <li>
                         <span className="text-gray">
-                          {`Require conversions to happen within `}
+                          {`要求转化在首次实验曝光后的 `}
                         </span>
                         <strong>
                           {metric.windowSettings.windowValue}{" "}
                           {metric.windowSettings.windowUnit}
                         </strong>
                         <span className="text-gray">{` 
-                        of first experiment exposure
-                        ${metric.windowSettings.delayHours
-                            ? " plus the conversion delay"
+                        内发生${metric.windowSettings.delayHours
+                            ? " 加上转化延迟"
                             : ""
                           }`}</span>
                       </li>
@@ -1197,11 +1171,11 @@ const MetricPage: FC = () => {
                     <>
                       <li>
                         <span className="font-weight-bold">
-                          Lookback Window
+                          回溯窗口
                         </span>
                       </li>
                       <li>
-                        <span className="text-gray">{`Require metric data to be in latest `}</span>
+                        <span className="text-gray">{`要求指标数据在实验的最新 `}</span>
                         <strong>
                           {metric.windowSettings.windowValue}{" "}
                           {metric.windowSettings.windowUnit}
@@ -1212,12 +1186,12 @@ const MetricPage: FC = () => {
                   ) : (
                     <>
                       <li>
-                        <span className="font-weight-bold">Disabled</span>
+                        <span className="font-weight-bold">禁用</span>
                       </li>
                       <li>
-                        <span className="text-gray">{`Include all metric data after first experiment exposure
+                        <span className="text-gray">{`包括首次实验曝光后的所有指标数据
                       ${metric.windowSettings.delayHours
-                            ? " plus the conversion delay"
+                            ? " 加上转化延迟"
                             : ""
                           }`}</span>
                       </li>
@@ -1226,11 +1200,11 @@ const MetricPage: FC = () => {
                   {metric.windowSettings.delayHours ? (
                     <>
                       <li className="mt-3 mb-1">
-                        <span className="uppercase-title lg">Metric Delay</span>
+                        <span className="uppercase-title lg">指标延迟</span>
                       </li>
                       <li className="mt-1">
                         <span className="font-weight-bold">
-                          {metric.windowSettings.delayHours} hours
+                          {metric.windowSettings.delayHours} 小时
                         </span>
                       </li>
                     </>
@@ -1241,22 +1215,22 @@ const MetricPage: FC = () => {
               <RightRailSectionGroup type="custom" empty="">
                 <ul className="right-rail-subsection list-unstyled mb-4">
                   <li className="mt-3 mb-1">
-                    <span className="uppercase-title lg">Thresholds</span>
+                    <span className="uppercase-title lg">阈值</span>
                   </li>
                   <li className="mb-2">
-                    <span className="text-gray">Minimum sample size:</span>{" "}
+                    <span className="text-gray">最小样本量:</span>{" "}
                     <span className="font-weight-bold">
                       {getMinSampleSizeForMetric(metric)}
                     </span>
                   </li>
                   <li className="mb-2">
-                    <span className="text-gray">Max percent change:</span>{" "}
+                    <span className="text-gray">最大百分比变化:</span>{" "}
                     <span className="font-weight-bold">
                       {getMaxPercentageChangeForMetric(metric) * 100}%
                     </span>
                   </li>
                   <li className="mb-2">
-                    <span className="text-gray">Min percent change :</span>{" "}
+                    <span className="text-gray">最小百分比变化 :</span>{" "}
                     <span className="font-weight-bold">
                       {getMinPercentageChangeForMetric(metric) * 100}%
                     </span>
@@ -1267,19 +1241,19 @@ const MetricPage: FC = () => {
               <RightRailSectionGroup type="custom" empty="">
                 <ul className="right-rail-subsection list-unstyled mb-4">
                   <li className="mt-3 mb-2">
-                    <span className="uppercase-title lg">Risk Thresholds</span>
+                    <span className="uppercase-title lg">风险阈值</span>
                     <small className="d-block mb-1 text-muted">
-                      Only applicable to Bayesian analyses
+                      仅适用于贝叶斯分析
                     </small>
                   </li>
                   <li className="mb-2">
-                    <span className="text-gray">Acceptable risk &lt;</span>{" "}
+                    <span className="text-gray">可接受风险 &lt;</span>{" "}
                     <span className="font-weight-bold">
                       {(metric.winRisk || DEFAULT_WIN_RISK_THRESHOLD) * 100}%
                     </span>
                   </li>
                   <li className="mb-2">
-                    <span className="text-gray">Unacceptable risk &gt;</span>{" "}
+                    <span className="text-gray">不可接受风险 &gt;</span>{" "}
                     <span className="font-weight-bold">
                       {(metric.loseRisk || DEFAULT_LOSE_RISK_THRESHOLD) * 100}%
                     </span>
@@ -1292,11 +1266,11 @@ const MetricPage: FC = () => {
                 metricDefaults={metricDefaults}
               />
 
-              <RightRailSectionGroup type="custom" empty="">
+              {/* <RightRailSectionGroup type="custom" empty="">
                 <ul className="right-rail-subsection list-unstyled mb-2">
                   <li className="mt-3 mb-2">
                     <span className="uppercase-title lg">
-                      <GBCuped size={14} /> Regression Adjustment (CUPED)
+                      <GBCuped size={14} /> 回归调整（CUPED）
                     </span>
                   </li>
                   {!regressionAdjustmentAvailableForMetric ? (
@@ -1310,7 +1284,7 @@ const MetricPage: FC = () => {
                     <>
                       <li className="mb-2">
                         <span className="text-gray">
-                          Apply regression adjustment:
+                          应用回归调整:
                         </span>{" "}
                         <span className="font-weight-bold">
                           {metric?.regressionAdjustmentEnabled ? "On" : "Off"}
@@ -1318,7 +1292,7 @@ const MetricPage: FC = () => {
                       </li>
                       <li className="mb-2">
                         <span className="text-gray">
-                          Lookback period (days):
+                          回溯期（天数）:
                         </span>{" "}
                         <span className="font-weight-bold">
                           {metric?.regressionAdjustmentDays}
@@ -1330,23 +1304,23 @@ const MetricPage: FC = () => {
                       <li className="mb-1">
                         <div className="mb-1">
                           <em className="text-gray">
-                            Using organization defaults
+                            使用集团默认
                           </em>
                         </div>
                         <div className="ml-2 px-2 border-left">
                           <div className="mb-1 small">
                             <span className="text-gray">
-                              Apply regression adjustment:
+                              应用回归调整:
                             </span>{" "}
                             <span className="font-weight-bold">
                               {settings?.regressionAdjustmentEnabled
-                                ? "On"
-                                : "Off"}
+                                ? "开启"
+                                : "关闭"}
                             </span>
                           </div>
                           <div className="mb-1 small">
                             <span className="text-gray">
-                              Lookback period (days):
+                              回溯期（天数）:
                             </span>{" "}
                             <span className="font-weight-bold">
                               {settings?.regressionAdjustmentDays}
@@ -1358,12 +1332,12 @@ const MetricPage: FC = () => {
                   ) : (
                     <li className="mb-2">
                       <div className="mb-1">
-                        <em className="text-gray">Disabled</em>
+                        <em className="text-gray">禁用</em>
                       </div>
                     </li>
                   )}
                 </ul>
-              </RightRailSectionGroup>
+              </RightRailSectionGroup> */}
             </RightRailSection>
           </div>
         </div>

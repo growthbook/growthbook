@@ -122,11 +122,11 @@ export default function MetricsOverridesSelector({
           const defaultPriorSettings = metricDefinition?.priorSettings.override
             ? metricDefinition.priorSettings
             : settings.metricDefaults?.priorSettings ?? {
-                override: false,
-                proper: false,
-                mean: 0,
-                stddev: DEFAULT_PROPER_PRIOR_STDDEV,
-              };
+              override: false,
+              proper: false,
+              mean: 0,
+              stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+            };
 
           const hasRegressionAdjustmentFeature = hasCommercialFeature(
             "regression-adjustment"
@@ -188,18 +188,18 @@ export default function MetricsOverridesSelector({
 
           const regressionAdjustmentDaysHighlightColor =
             !isUndefined(mo.regressionAdjustmentDays) &&
-            (mo.regressionAdjustmentDays > 28 ||
-              mo.regressionAdjustmentDays < 7)
+              (mo.regressionAdjustmentDays > 28 ||
+                mo.regressionAdjustmentDays < 7)
               ? "#e27202"
               : "";
           const regressionAdjustmentDaysWarningMsg =
             !isUndefined(mo.regressionAdjustmentDays) &&
-            mo.regressionAdjustmentDays > 28
+              mo.regressionAdjustmentDays > 28
               ? "Longer lookback periods can sometimes be useful, but also will reduce query performance and may incorporate less useful data"
               : !isUndefined(mo.regressionAdjustmentDays) &&
                 mo.regressionAdjustmentDays < 7
-              ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
-              : "";
+                ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
+                : "";
 
           return (
             <div className="appbox px-3 pt-1 bg-light" key={i}>
@@ -239,13 +239,12 @@ export default function MetricsOverridesSelector({
                     <div className="row py-1">
                       <div className="col">
                         <SelectField
-                          placeholder={`${
-                            metricDefinition?.windowSettings?.type !== undefined
-                              ? capitalizeFirstLetter(
-                                  metricDefinition.windowSettings.type || "none"
-                                )
-                              : ""
-                          } (default)`}
+                          placeholder={`${metricDefinition?.windowSettings?.type !== undefined
+                            ? capitalizeFirstLetter(
+                              metricDefinition.windowSettings.type || "none"
+                            )
+                            : ""
+                            } (default)`}
                           value={
                             form.watch(`metricOverrides.${i}.windowType`) ??
                             metricDefinition?.windowSettings?.type ??
@@ -286,11 +285,11 @@ export default function MetricsOverridesSelector({
                       </div>
                       {(form.watch(`metricOverrides.${i}.windowType`) ??
                         metricDefinition?.windowSettings?.type) ===
-                      "conversion" ? (
+                        "conversion" ? (
                         <div className="row m-1 mr-1 px-1">
                           <div className="col">
                             <Field
-                              label="Metric Delay (hours)"
+                              label="指标延迟（小时）"
                               placeholder="default"
                               helpText={
                                 <div className="text-right">
@@ -311,19 +310,19 @@ export default function MetricsOverridesSelector({
                           </div>
                           <div className="col">
                             <Field
-                              label="Conversion Window (hours)"
+                              label="转化窗口（小时）"
                               placeholder="default"
                               helpText={
                                 <div className="text-right">
                                   default:{" "}
                                   {metricDefinition?.windowSettings?.type !==
-                                  "conversion"
+                                    "conversion"
                                     ? "No conversion window "
                                     : metricDefinition?.windowSettings
-                                    ? getConversionWindowHours(
+                                      ? getConversionWindowHours(
                                         metricDefinition.windowSettings
                                       )
-                                    : null}{" "}
+                                      : null}{" "}
                                 </div>
                               }
                               labelClassName="small mb-1"
@@ -335,7 +334,7 @@ export default function MetricsOverridesSelector({
                               }
                               min={
                                 metricDefinition &&
-                                isFactMetric(metricDefinition)
+                                  isFactMetric(metricDefinition)
                                   ? 0
                                   : 0.125
                               }
@@ -350,11 +349,11 @@ export default function MetricsOverridesSelector({
                       ) : null}
                       {(form.watch(`metricOverrides.${i}.windowType`) ??
                         metricDefinition?.windowSettings?.type) ===
-                      "lookback" ? (
+                        "lookback" ? (
                         <div className="row m-1 mr-1 px-1">
                           <div className="col">
                             <Field
-                              label="Metric Delay (hours)"
+                              label="指标延迟（小时）"
                               placeholder="default"
                               helpText={
                                 <div className="text-right">
@@ -362,9 +361,9 @@ export default function MetricsOverridesSelector({
                                   {["conversion", "lookback"].includes(
                                     metricDefinition?.windowSettings?.type ?? ""
                                   )
-                                    ? "No delay"
+                                    ? "无延迟"
                                     : metricDefinition?.windowSettings
-                                        .delayHours}
+                                      .delayHours}
                                 </div>
                               }
                               labelClassName="small mb-1"
@@ -379,19 +378,19 @@ export default function MetricsOverridesSelector({
                           </div>
                           <div className="col">
                             <Field
-                              label="Lookback Window (hours)"
+                              label="回溯窗口（小时）"
                               placeholder="default"
                               helpText={
                                 <div className="text-right">
                                   default:{" "}
                                   {metricDefinition?.windowSettings?.type !==
-                                  "lookback"
-                                    ? "No lookback window "
+                                    "lookback"
+                                    ? "无回溯窗口 "
                                     : metricDefinition?.windowSettings
-                                    ? getConversionWindowHours(
+                                      ? getConversionWindowHours(
                                         metricDefinition.windowSettings
                                       )
-                                    : null}{" "}
+                                      : null}{" "}
                                 </div>
                               }
                               labelClassName="small mb-1"
@@ -399,7 +398,7 @@ export default function MetricsOverridesSelector({
                               containerClassName="mb-0 metric-override"
                               min={
                                 metricDefinition &&
-                                isFactMetric(metricDefinition)
+                                  isFactMetric(metricDefinition)
                                   ? 0
                                   : 0.125
                               }
@@ -426,7 +425,7 @@ export default function MetricsOverridesSelector({
                           placeholder="default"
                           helpText={
                             <div className="text-right">
-                              default: {(metricDefinition?.winRisk ?? 0) * 100}%
+                              默认: {(metricDefinition?.winRisk ?? 0) * 100}%
                             </div>
                           }
                           append="%"
@@ -472,8 +471,8 @@ export default function MetricsOverridesSelector({
 
                 <div className="row mt-1">
                   <div className="col">
-                    <span className="uppercase-title">Bayesian Priors</span>{" "}
-                    <span className="small text-muted">(Bayesian only)</span>
+                    <span className="uppercase-title">贝叶斯先验</span>{" "}
+                    <span className="small text-muted">(仅贝叶斯)</span>
                   </div>
                 </div>
 
@@ -541,9 +540,9 @@ export default function MetricsOverridesSelector({
                         !form.watch(
                           `metricOverrides.${i}.properPriorOverride`
                         )) ||
-                      !!form.watch(
-                        `metricOverrides.${i}.properPriorEnabled`
-                      ) ? (
+                        !!form.watch(
+                          `metricOverrides.${i}.properPriorEnabled`
+                        ) ? (
                         <>
                           <div className="row">
                             <div className="col">
@@ -566,7 +565,7 @@ export default function MetricsOverridesSelector({
                             </div>
                             <div className="col">
                               <Field
-                                label="Prior Standard Deviation"
+                                label="先验标准差"
                                 type="number"
                                 step="any"
                                 placeholder="default"
@@ -694,7 +693,7 @@ export default function MetricsOverridesSelector({
                                 borderColor: regressionAdjustmentDaysHighlightColor,
                                 backgroundColor: regressionAdjustmentDaysHighlightColor
                                   ? regressionAdjustmentDaysHighlightColor +
-                                    "15"
+                                  "15"
                                   : "",
                               }}
                               className="ml-2"

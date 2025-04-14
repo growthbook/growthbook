@@ -419,15 +419,15 @@ const Layout = (): React.ReactElement => {
                     </>
                   ) : (
                     <>
-                      <img
+                      {/* <img
                         className={styles.logo}
                         alt="CSII"
                         src="/logo/growth-book-logomark-white.svg"
-                      />
+                      /> */}
                       <img
                         className={styles.logotext}
                         alt="CSII"
-                        src="/logo/growth-book-name-white.svg"
+                        src="/logo/csii-name-white.svg"
                       />
                     </>
                   )}

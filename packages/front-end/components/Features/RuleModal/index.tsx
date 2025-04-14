@@ -153,10 +153,10 @@ export default function RuleModal({
       ? "bandit"
       : "experiment"
     : overviewRadioSelectorRuleType === "bandit"
-    ? "bandit"
-    : overviewRadioSelectorRuleType === "experiment"
-    ? "experiment"
-    : null;
+      ? "bandit"
+      : overviewRadioSelectorRuleType === "experiment"
+        ? "experiment"
+        : null;
 
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
@@ -365,8 +365,8 @@ export default function RuleModal({
             values.experimentType === "multi-armed-bandit"
               ? "draft"
               : values.autoStart
-              ? "running"
-              : "draft",
+                ? "running"
+                : "draft",
           tags: feature.tags || [],
           trackingKey: values.trackingKey || feature.id,
           description: values.description,
@@ -403,7 +403,7 @@ export default function RuleModal({
             values.experimentType === "multi-armed-bandit"
               ? false
               : values.sequentialTestingEnabled ??
-                !!settings?.sequentialTestingEnabled,
+              !!settings?.sequentialTestingEnabled,
           sequentialTestingTuningParameter:
             values.sequentialTestingTuningParameter ??
             settings?.sequentialTestingTuningParameter ??
@@ -427,8 +427,7 @@ export default function RuleModal({
           | { experiment: ExperimentInterfaceStringDates }
           | { duplicateTrackingKey: true; existingId: string }
         >(
-          `/experiments${
-            allowDuplicateTrackingKey ? "?allowDuplicateTrackingKey=true" : ""
+          `/experiments${allowDuplicateTrackingKey ? "?allowDuplicateTrackingKey=true" : ""
           }`,
           {
             method: "POST",
@@ -568,71 +567,71 @@ export default function RuleModal({
         }
         ctaEnabled={!!overviewRuleType}
         bodyClassName="px-4"
-        header={`New Rule in ${environment}`}
-        subHeader="You will have a chance to review new rules as a draft before publishing changes."
+        header={`在${environment}中的新规则`}
+        subHeader="在发布修改前，你将可以对新增规则进行核对."
         submit={submitOverview}
         autoCloseOnSubmit={false}
       >
         <div className="bg-highlight rounded p-3 mb-3">
-          <h5>Select rule type</h5>
+          <h5>选择规则类型</h5>
           <RadioCards
             mt="4"
             width="100%"
             options={[
               {
                 value: "force",
-                label: "Force value",
+                label: "强制赋值",
                 description:
-                  "Target groups of users and give them all the same value",
+                  "针对特定用户群体，并为他们赋予相同的值",
               },
               {
                 value: "rollout",
-                label: "Percentage rollout",
+                label: "按百分比逐步推出",
                 description:
-                  "Release to small percent of users while monitoring logs",
+                  "在监控日志的同时，向一小部分用户发布",
               },
               {
                 value: "experiment",
-                label: "Experiment",
+                label: "实验",
                 description:
-                  "Measure the impact of this feature on your key metrics",
+                  "衡量此功能对关键指标的影响",
               },
-              ...(growthbook.isOn("bandits")
-                ? [
-                    {
-                      value: "bandit",
-                      disabled:
-                        !hasMultiArmedBanditFeature ||
-                        !hasStickyBucketFeature ||
-                        !orgStickyBucketing,
-                      label: (
-                        <PremiumTooltip
-                          commercialFeature="multi-armed-bandits"
-                          usePortal={true}
-                        >
-                          Bandit
-                          <span className="mr-auto badge badge-purple text-uppercase ml-2">
-                            Beta
-                          </span>
-                        </PremiumTooltip>
-                      ),
-                      description: (
-                        <>
-                          <div>
-                            Find a winner among many variations on one goal
-                            metric
-                          </div>
-                          {hasStickyBucketFeature && !orgStickyBucketing && (
-                            <HelperText status="info" size="sm" mt="2">
-                              Enable Sticky Bucketing in your organization
-                              settings to run a Bandit
-                            </HelperText>
-                          )}
-                        </>
-                      ),
-                    },
-                  ]
-                : []),
+              // ...(growthbook.isOn("bandits")
+              //   ? [
+              //     {
+              //       value: "bandit",
+              //       disabled:
+              //         !hasMultiArmedBanditFeature ||
+              //         !hasStickyBucketFeature ||
+              //         !orgStickyBucketing,
+              //       label: (
+              //         <PremiumTooltip
+              //           commercialFeature="multi-armed-bandits"
+              //           usePortal={true}
+              //         >
+              //           Bandit
+              //           <span className="mr-auto badge badge-purple text-uppercase ml-2">
+              //             Beta
+              //           </span>
+              //         </PremiumTooltip>
+              //       ),
+              //       description: (
+              //         <>
+              //           <div>
+              //             Find a winner among many variations on one goal
+              //             metric
+              //           </div>
+              //           {hasStickyBucketFeature && !orgStickyBucketing && (
+              //             <HelperText status="info" size="sm" mt="2">
+              //               Enable Sticky Bucketing in your organization
+              //               settings to run a Bandit
+              //             </HelperText>
+              //           )}
+              //         </>
+              //       ),
+              //     },
+              //   ]
+              //   : []),
             ]}
             value={overviewRadioSelectorRuleType}
             setValue={(v: "force" | "rollout" | "experiment" | "bandit") => {
@@ -649,16 +648,16 @@ export default function RuleModal({
         </div>
         {overviewRadioSelectorRuleType === "experiment" && (
           <>
-            <h5>Add Experiment</h5>
+            <h5>添加实验</h5>
             <RadioGroup
               options={[
                 {
                   value: "experiment-ref-new",
-                  label: "Create new Experiment",
+                  label: "创建新实验",
                 },
                 {
                   value: "experiment-ref",
-                  label: "Add existing Experiment",
+                  label: "添加已有实验",
                 },
               ]}
               value={overviewRuleType}
@@ -689,27 +688,25 @@ export default function RuleModal({
     );
   }
 
-  let headerText = isNewRule ? "Add " : "Edit ";
+  let headerText = isNewRule ? "添加 " : "编辑 ";
   headerText +=
     ruleType === "force"
-      ? `${isNewRule ? "new " : ""}Force Value Rule`
+      ? `${isNewRule ? "新的 " : ""}强制赋值规则`
       : ruleType === "rollout"
-      ? `${isNewRule ? "new " : ""}Percentage Rollout Rule`
-      : ["experiment-ref", "experiment-ref-new", "experiment"].includes(
+        ? `${isNewRule ? "new " : ""}Percentage Rollout Rule`
+        : ["experiment-ref", "experiment-ref-new", "experiment"].includes(
           ruleType ?? ""
         ) && experimentType === "bandit"
-      ? `${
-          ruleType === "experiment-ref-new" ? "new" : "existing"
-        } Bandit as Rule`
-      : ["experiment-ref", "experiment-ref-new", "experiment"].includes(
-          ruleType ?? ""
-        ) && experimentType === "experiment"
-      ? `${
-          ruleType === "experiment-ref-new" ? "new" : "existing"
-        } Experiment as Rule`
-      : "Rule";
+          ? `${ruleType === "experiment-ref-new" ? "新" : "已有"
+          } Bandit as Rule`
+          : ["experiment-ref", "experiment-ref-new", "experiment"].includes(
+            ruleType ?? ""
+          ) && experimentType === "experiment"
+            ? `${ruleType === "experiment-ref-new" ? "新" : "已有"
+            } 实验当做规则`
+            : "规则";
   const trackingEventModalType = kebabCase(headerText);
-  headerText += ` in ${environment}`;
+  headerText = `在 ${environment}中` + headerText;
 
   return (
     <FormProvider {...form}>
@@ -772,7 +769,7 @@ export default function RuleModal({
         )}
 
         {(ruleType === "experiment-ref" || ruleType === "experiment") &&
-        experimentType === "experiment" ? (
+          experimentType === "experiment" ? (
           <ExperimentRefFields
             feature={feature}
             environment={environment}
@@ -786,7 +783,7 @@ export default function RuleModal({
         ) : null}
 
         {(ruleType === "experiment-ref" || ruleType === "experiment") &&
-        experimentType === "bandit" ? (
+          experimentType === "bandit" ? (
           <BanditRefFields
             feature={feature}
             environment={environment}
@@ -797,127 +794,127 @@ export default function RuleModal({
 
         {ruleType === "experiment-ref-new" && experimentType === "experiment"
           ? ["Overview", "Traffic", "Targeting"].map((p, i) => (
-              <Page display={p} key={i}>
-                <ExperimentRefNewFields
-                  step={i}
-                  source="rule"
-                  feature={feature}
-                  project={feature.project}
-                  environment={environment}
-                  defaultValues={defaultValues}
-                  version={version}
-                  revisions={revisions}
-                  prerequisiteValue={form.watch("prerequisites") || []}
-                  setPrerequisiteValue={(prerequisites) =>
-                    form.setValue("prerequisites", prerequisites)
-                  }
-                  setPrerequisiteTargetingSdkIssues={
-                    setPrerequisiteTargetingSdkIssues
-                  }
-                  isCyclic={isCyclic}
-                  cyclicFeatureId={cyclicFeatureId}
-                  savedGroupValue={form.watch("savedGroups") || []}
-                  setSavedGroupValue={(savedGroups) =>
-                    form.setValue("savedGroups", savedGroups)
-                  }
-                  defaultConditionValue={form.watch("condition") || ""}
-                  setConditionValue={(value) =>
-                    form.setValue("condition", value)
-                  }
-                  conditionKey={conditionKey}
-                  scheduleToggleEnabled={scheduleToggleEnabled}
-                  setScheduleToggleEnabled={setScheduleToggleEnabled}
-                  coverage={form.watch("coverage") || 0}
-                  setCoverage={(coverage) =>
-                    form.setValue("coverage", coverage)
-                  }
-                  setWeight={(i, weight) =>
-                    form.setValue(`values.${i}.weight`, weight)
-                  }
-                  variations={
-                    form
-                      .watch("values")
-                      ?.map((v: ExperimentValue & { id?: string }) => {
-                        return {
-                          value: v.value || "",
-                          name: v.name,
-                          weight: v.weight,
-                          id: v.id || generateVariationId(),
-                        };
-                      }) || []
-                  }
-                  setVariations={(variations) =>
-                    form.setValue("values", variations)
-                  }
-                  orgStickyBucketing={orgStickyBucketing}
-                />
-              </Page>
-            ))
+            <Page display={p} key={i}>
+              <ExperimentRefNewFields
+                step={i}
+                source="rule"
+                feature={feature}
+                project={feature.project}
+                environment={environment}
+                defaultValues={defaultValues}
+                version={version}
+                revisions={revisions}
+                prerequisiteValue={form.watch("prerequisites") || []}
+                setPrerequisiteValue={(prerequisites) =>
+                  form.setValue("prerequisites", prerequisites)
+                }
+                setPrerequisiteTargetingSdkIssues={
+                  setPrerequisiteTargetingSdkIssues
+                }
+                isCyclic={isCyclic}
+                cyclicFeatureId={cyclicFeatureId}
+                savedGroupValue={form.watch("savedGroups") || []}
+                setSavedGroupValue={(savedGroups) =>
+                  form.setValue("savedGroups", savedGroups)
+                }
+                defaultConditionValue={form.watch("condition") || ""}
+                setConditionValue={(value) =>
+                  form.setValue("condition", value)
+                }
+                conditionKey={conditionKey}
+                scheduleToggleEnabled={scheduleToggleEnabled}
+                setScheduleToggleEnabled={setScheduleToggleEnabled}
+                coverage={form.watch("coverage") || 0}
+                setCoverage={(coverage) =>
+                  form.setValue("coverage", coverage)
+                }
+                setWeight={(i, weight) =>
+                  form.setValue(`values.${i}.weight`, weight)
+                }
+                variations={
+                  form
+                    .watch("values")
+                    ?.map((v: ExperimentValue & { id?: string }) => {
+                      return {
+                        value: v.value || "",
+                        name: v.name,
+                        weight: v.weight,
+                        id: v.id || generateVariationId(),
+                      };
+                    }) || []
+                }
+                setVariations={(variations) =>
+                  form.setValue("values", variations)
+                }
+                orgStickyBucketing={orgStickyBucketing}
+              />
+            </Page>
+          ))
           : null}
 
         {ruleType === "experiment-ref-new" && experimentType === "bandit"
           ? [
-              "Overview",
-              "Traffic",
-              "Targeting",
-              <>
-                Analysis
-                <br />
-                Settings
-              </>,
-            ].map((p, i) => (
-              <Page display={p} key={i}>
-                <BanditRefNewFields
-                  step={i}
-                  source="rule"
-                  feature={feature}
-                  project={feature.project}
-                  environment={environment}
-                  version={version}
-                  revisions={revisions}
-                  prerequisiteValue={form.watch("prerequisites") || []}
-                  setPrerequisiteValue={(prerequisites) =>
-                    form.setValue("prerequisites", prerequisites)
-                  }
-                  setPrerequisiteTargetingSdkIssues={
-                    setPrerequisiteTargetingSdkIssues
-                  }
-                  isCyclic={isCyclic}
-                  cyclicFeatureId={cyclicFeatureId}
-                  savedGroupValue={form.watch("savedGroups") || []}
-                  setSavedGroupValue={(savedGroups) =>
-                    form.setValue("savedGroups", savedGroups)
-                  }
-                  defaultConditionValue={form.watch("condition") || ""}
-                  setConditionValue={(value) =>
-                    form.setValue("condition", value)
-                  }
-                  conditionKey={conditionKey}
-                  coverage={form.watch("coverage") || 0}
-                  setCoverage={(coverage) =>
-                    form.setValue("coverage", coverage)
-                  }
-                  setWeight={(i, weight) =>
-                    form.setValue(`values.${i}.weight`, weight)
-                  }
-                  variations={
-                    form
-                      .watch("values")
-                      ?.map((v: ExperimentValue & { id?: string }) => {
-                        return {
-                          value: v.value || "",
-                          name: v.name,
-                          weight: v.weight,
-                          id: v.id || generateVariationId(),
-                        };
-                      }) || []
-                  }
-                  setVariations={(variations) =>
-                    form.setValue("values", variations)
-                  }
-                />
-              </Page>
-            ))
+            "Overview",
+            "Traffic",
+            "Targeting",
+            <>
+              分析
+              <br />
+              设置
+            </>,
+          ].map((p, i) => (
+            <Page display={p} key={i}>
+              <BanditRefNewFields
+                step={i}
+                source="rule"
+                feature={feature}
+                project={feature.project}
+                environment={environment}
+                version={version}
+                revisions={revisions}
+                prerequisiteValue={form.watch("prerequisites") || []}
+                setPrerequisiteValue={(prerequisites) =>
+                  form.setValue("prerequisites", prerequisites)
+                }
+                setPrerequisiteTargetingSdkIssues={
+                  setPrerequisiteTargetingSdkIssues
+                }
+                isCyclic={isCyclic}
+                cyclicFeatureId={cyclicFeatureId}
+                savedGroupValue={form.watch("savedGroups") || []}
+                setSavedGroupValue={(savedGroups) =>
+                  form.setValue("savedGroups", savedGroups)
+                }
+                defaultConditionValue={form.watch("condition") || ""}
+                setConditionValue={(value) =>
+                  form.setValue("condition", value)
+                }
+                conditionKey={conditionKey}
+                coverage={form.watch("coverage") || 0}
+                setCoverage={(coverage) =>
+                  form.setValue("coverage", coverage)
+                }
+                setWeight={(i, weight) =>
+                  form.setValue(`values.${i}.weight`, weight)
+                }
+                variations={
+                  form
+                    .watch("values")
+                    ?.map((v: ExperimentValue & { id?: string }) => {
+                      return {
+                        value: v.value || "",
+                        name: v.name,
+                        weight: v.weight,
+                        id: v.id || generateVariationId(),
+                      };
+                    }) || []
+                }
+                setVariations={(variations) =>
+                  form.setValue("values", variations)
+                }
+              />
+            </Page>
+          ))
           : null}
       </PagedModal>
     </FormProvider>

@@ -245,7 +245,7 @@ export const POLICY_METADATA_MAP: Record<
       "Execute queries against data sources. Required to refresh experiment results.",
   },
   MetricsFullAccess: {
-    displayName: "Metrics Full Access",
+    displayName: "指标全部权限",
     description:
       "Create, edit, and delete regular metrics (does not include Fact Metrics)",
   },

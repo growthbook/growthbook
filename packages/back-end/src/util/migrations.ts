@@ -164,19 +164,16 @@ export function getDefaultExperimentQuery(
 
   return `SELECT
   ${column} as ${userIdType},
-  ${
-    settings?.experiments?.timestampColumn ||
+  ${settings?.experiments?.timestampColumn ||
     settings?.default?.timestampColumn ||
     "received_at"
-  } as timestamp,
-  ${
-    settings?.experiments?.experimentIdColumn || "experiment_id"
-  } as experiment_id,
+    } as timestamp,
+  ${settings?.experiments?.experimentIdColumn || "experiment_id"
+    } as experiment_id,
   ${settings?.experiments?.variationColumn || "variation_id"} as variation_id
 FROM 
-  ${schema && !settings?.experiments?.table?.match(/\./) ? schema + "." : ""}${
-    settings?.experiments?.table || "experiment_viewed"
-  }`;
+  ${schema && !settings?.experiments?.table?.match(/\./) ? schema + "." : ""}${settings?.experiments?.table || "experiment_viewed"
+    }`;
 }
 
 export function upgradeDatasourceObject(
@@ -189,8 +186,8 @@ export function upgradeDatasourceObject(
   // Add default randomization units
   if (settings && !settings?.userIdTypes) {
     settings.userIdTypes = [
-      { userIdType: "user_id", description: "Logged-in user id" },
-      { userIdType: "anonymous_id", description: "Anonymous visitor id" },
+      { userIdType: "user_id", description: "登录用户ID" },
+      { userIdType: "anonymous_id", description: "匿名访客ID" },
     ];
   }
 
@@ -215,7 +212,7 @@ export function upgradeDatasourceObject(
       settings.queries.exposure = [
         {
           id: "user_id",
-          name: "Logged-in User Experiments",
+          name: "已登录用户",
           description: "",
           userIdType: "user_id",
           dimensions: settings.experimentDimensions || [],
@@ -685,9 +682,9 @@ export function migrateSnapshot(
     if (results) {
       const regressionAdjusted =
         regressionAdjustmentEnabled &&
-        metricRegressionAdjustmentStatuses?.some(
-          (s) => s.regressionAdjustmentEnabled
-        )
+          metricRegressionAdjustmentStatuses?.some(
+            (s) => s.regressionAdjustmentEnabled
+          )
           ? true
           : false;
 
@@ -722,8 +719,8 @@ export function migrateSnapshot(
     snapshot.status = snapshot.error
       ? "error"
       : snapshot.analyses.length > 0
-      ? "success"
-      : "running";
+        ? "success"
+        : "running";
   }
 
   const defaultMetricPriorSettings = {
@@ -779,10 +776,10 @@ export function migrateSnapshot(
       manual: !!manual,
       dimensions: snapshot.dimension
         ? [
-            {
-              id: snapshot.dimension,
-            },
-          ]
+          {
+            id: snapshot.dimension,
+          },
+        ]
         : [],
       metricSettings,
       // We know the metric ids included, but don't know if they were goals or guardrails

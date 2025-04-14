@@ -217,7 +217,7 @@ const SavedGroupForm: FC<{
             value={form.watch("attributeKey") || ""}
             disabled={!!current.attributeKey}
             onChange={(v) => form.setValue("attributeKey", v)}
-            placeholder="Choose one..."
+            placeholder="选择..."
             options={attributeSchema.map((a) => ({
               value: a.property,
               label: a.property,

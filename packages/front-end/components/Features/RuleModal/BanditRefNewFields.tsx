@@ -146,7 +146,7 @@ export default function BanditRefNewFields({
           />
 
           <Field
-            label="Description"
+            label="描述"
             textarea
             minRows={1}
             {...form.register("description")}
@@ -333,7 +333,7 @@ export default function BanditRefNewFields({
                           className="text-muted small float-right position-relative"
                           style={{ top: 3 }}
                         >
-                          Identifier Type: <code>{userIdType}</code>
+                          标识符类型: <code>{userIdType}</code>
                         </span>
                       ) : null}
                     </>

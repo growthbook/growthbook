@@ -11,37 +11,36 @@ export function MetricCappingSettingsForm({
   const cappingOptions = [
     {
       value: "",
-      label: "No",
+      label: "否",
     },
     ...(metricType !== "ratio"
       ? [
-          {
-            value: "absolute",
-            label: "Absolute capping",
-          },
-        ]
+        {
+          value: "absolute",
+          label: "绝对封顶",
+        },
+      ]
       : []),
     ...(datasourceType !== "mixpanel"
       ? [
-          {
-            value: "percentile",
-            label: "Percentile capping",
-          },
-        ]
+        {
+          value: "percentile",
+          label: "百分位数封顶",
+        },
+      ]
       : []),
   ];
   return (
     <div className="form-group">
       <SelectField
-        label="Cap User Values?"
+        label="是否限制用户值？"
         value={form.watch("cappingSettings.type")}
         onChange={(v: CappingType) => {
           form.setValue("cappingSettings.type", v);
         }}
         sort={false}
         options={cappingOptions}
-        helpText="Capping (winsorization) can reduce variance by capping aggregated
-      user values."
+        helpText="封顶（缩尾处理）可以通过限制聚合的用户值来减少方差。"
       />
       <div
         style={{
@@ -52,7 +51,7 @@ export function MetricCappingSettingsForm({
         {form.watch("cappingSettings.type") ? (
           <>
             <Field
-              label="Capped Value"
+              label="限制值"
               type="number"
               step="any"
               min="0"
@@ -65,14 +64,14 @@ export function MetricCappingSettingsForm({
               helpText={
                 form.watch("cappingSettings.type") === "absolute"
                   ? `
-              Absolute capping: if greater than zero, aggregated user values will be capped at this value.`
-                  : `Percentile capping: if greater than zero, we use all metric data in the experiment to compute the percentiles of the user aggregated values. Then, we get the value at the percentile provided and cap all users at this value. Enter a number between 0 and 0.99999`
+              绝对封顶：如果大于零，聚合的用户值将被限制在这个值。`
+                  : `百分位数封顶：如果大于零，我们将使用实验中的所有指标数据来计算用户聚合值的百分位数。然后，我们获取所提供百分位数处的值，并将所有用户的值限制在这个值。输入一个介于 0 和 0.99999 之间的数字`
               }
             />
             {form.watch("cappingSettings.type") === "percentile" ? (
               <div className="mt-3">
                 <label className="mr-1" htmlFor="toggle-ignoreZeros">
-                  Ignore zero values in percentile calculation?
+                  在计算百分位数时是否忽略零值？
                 </label>
                 <Toggle
                   value={form.watch("cappingSettings.ignoreZeros")}

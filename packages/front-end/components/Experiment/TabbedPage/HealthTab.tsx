@@ -117,7 +117,7 @@ export default function HealthTab({
             : "在你的组织设置中，健康查询已被禁用。要启用它们并设置健康标签页，"}
           {hasPermissionToConfigHealthTag ? (
             <>
-              click the button on the right.
+              点击右侧按钮.
               <Button
                 className="ml-2"
                 style={{ width: "200px" }}

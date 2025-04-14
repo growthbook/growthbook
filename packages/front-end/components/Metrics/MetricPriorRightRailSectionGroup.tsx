@@ -16,7 +16,7 @@ export default function MetricPriorRightRailSectionGroup({
         <li className="mt-3 mb-2">
           <span className="uppercase-title lg">Priors</span>
           <small className="d-block mb-1 text-muted">
-            Only applicable to Bayesian analyses
+            仅适用于贝叶斯分析
           </small>
         </li>
         {metric.priorSettings?.override ? (
@@ -24,7 +24,7 @@ export default function MetricPriorRightRailSectionGroup({
             <li className="mb-2">
               <span className="text-gray">Use proper prior:</span>{" "}
               <span className="font-weight-bold">
-                {metric.priorSettings.proper ? "On" : "Off"}
+                {metric.priorSettings.proper ? "开启" : "关闭"}
               </span>
             </li>
             {metric.priorSettings.proper ? (
@@ -48,25 +48,25 @@ export default function MetricPriorRightRailSectionGroup({
           <>
             <li className="mb-1">
               <div className="mb-1">
-                <em className="text-gray">Using organization defaults</em>
+                <em className="text-gray">使用集团默认</em>
               </div>
               <div className="ml-2 px-2 border-left">
                 <div className="mb-1 small">
                   <span className="text-gray">Use proper prior:</span>{" "}
                   <span className="font-weight-bold">
-                    {metricDefaults?.priorSettings?.proper ? "On" : "Off"}
+                    {metricDefaults?.priorSettings?.proper ? "开启" : "关闭"}
                   </span>
                 </div>
                 {metricDefaults?.priorSettings?.proper ? (
                   <>
                     <div className="mb-1 small">
-                      <span className="text-gray">Mean:</span>{" "}
+                      <span className="text-gray">均值:</span>{" "}
                       <span className="font-weight-bold">
                         {metricDefaults?.priorSettings.mean ?? 0}
                       </span>
                     </div>
                     <div className="mb-1 small">
-                      <span className="text-gray">Standard Deviation:</span>{" "}
+                      <span className="text-gray">标准差:</span>{" "}
                       <span className="font-weight-bold">
                         {metricDefaults?.priorSettings.stddev ??
                           DEFAULT_PROPER_PRIOR_STDDEV}

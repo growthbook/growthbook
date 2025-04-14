@@ -78,7 +78,7 @@ export default function AssignmentTester({ feature, version, project }: Props) {
 
   const showResults = () => {
     if (!results) {
-      return <div>Add attributes to see results</div>;
+      return <div>添加属性以查看结果</div>;
     }
 
     return (
@@ -98,33 +98,32 @@ export default function AssignmentTester({ feature, version, project }: Props) {
               tr?.result?.experiment?.key ||
               null;
             matchedRuleName =
-              "Experiment" + (expName ? " (" + expName + ")" : "");
+              "实验" + (expName ? " (" + expName + ")" : "");
           } else if (tr?.result?.source === "force") {
-            matchedRuleName = "Forced";
+            matchedRuleName = "强制";
             if (matchedRule && matchedRule?.coverage) {
               matchedRuleName =
-                "Rollout (" + matchedRule?.coverage * 100 + "%)";
+                "推出 (" + matchedRule?.coverage * 100 + "%)";
             }
           } else if (tr?.result?.source === "defaultValue") {
-            matchedRuleName = "None - Returned Default Value";
+            matchedRuleName = "无 - 返回默认值";
           }
           if (tr?.log) {
             tr.log.forEach((log, n) => {
               const reason = log[0];
               if (reason === "Skip rule because of condition") {
                 debugLog.push(
-                  `Rule ${
-                    n + 1
-                  }: Skipped because user did not match the rule conditions`
+                  `规则 ${n + 1
+                  }: 跳过，因为用户不满足规则条件`
                 );
               } else if (reason === "In experiment") {
                 debugLog.push(
-                  `Rule ${n + 1}: Included user in experiment rule`
+                  `规则 ${n + 1}: 将用户纳入实验规则`
                 );
               } else if (reason === "Use default value") {
-                debugLog.push(`No rules matched, using default value`);
+                debugLog.push(`没有匹配的规则，使用默认值`);
               } else {
-                debugLog.push(`Rule ${n + 1}: ${log[0]}`);
+                debugLog.push(`规则 ${n + 1}: ${log[0]}`);
               }
             });
           }
@@ -132,9 +131,8 @@ export default function AssignmentTester({ feature, version, project }: Props) {
           return (
             <div className={`col-12`} key={i}>
               <div
-                className={`appbox bg-light ${styles.resultsBox} ${
-                  tr?.enabled ? "" : styles.disabledResult
-                }`}
+                className={`appbox bg-light ${styles.resultsBox} ${tr?.enabled ? "" : styles.disabledResult
+                  }`}
               >
                 <div className={`${styles.resultsHeader} border-bottom`}>
                   <span className="small text-muted">环境: </span>
@@ -143,7 +141,7 @@ export default function AssignmentTester({ feature, version, project }: Props) {
                 <div className="px-3 pb-1">
                   <div className="row align-items-top pt-3">
                     <div className="col-auto">
-                      <span className="text-muted">Value served:</span>
+                      <span className="text-muted">提供的值:</span>
                     </div>
                     {tr?.result?.value !== undefined ? (
                       <div className="col">
@@ -157,19 +155,19 @@ export default function AssignmentTester({ feature, version, project }: Props) {
                         />
                       </div>
                     ) : (
-                      <strong>null</strong>
+                      <strong>空</strong>
                     )}
                   </div>
                 </div>
                 {!tr?.enabled && (
                   <div className="px-3 pb-3">
-                    <strong className="text-muted">Feature disabled</strong>
+                    <strong className="text-muted">Feature已禁用</strong>
                   </div>
                 )}
                 {tr?.result && (
                   <>
                     <div className="px-3 pb-3">
-                      <span className="mr-2 text-muted">Matched rule: </span>
+                      <span className="mr-2 text-muted">匹配的规则: </span>
                       <strong>{matchedRuleName}</strong>
                     </div>
                     <div
@@ -187,9 +185,8 @@ export default function AssignmentTester({ feature, version, project }: Props) {
                       <div className={styles.resultsExpand}>
                         <FaChevronRight
                           style={{
-                            transform: `rotate(${
-                              expandResults.includes(i) ? "270deg" : "90deg"
-                            })`,
+                            transform: `rotate(${expandResults.includes(i) ? "270deg" : "90deg"
+                              })`,
                           }}
                         />
                       </div>
@@ -198,7 +195,7 @@ export default function AssignmentTester({ feature, version, project }: Props) {
                       <div className="p-3">
                         {debugLog && (
                           <div className="mb-3">
-                            <h5>Log</h5>
+                            <h5>日志</h5>
                             <div className="bg-white border border-light rounded p-3">
                               {debugLog.map((log, i) => (
                                 <div className="row my-2" key={i}>
@@ -210,7 +207,7 @@ export default function AssignmentTester({ feature, version, project }: Props) {
                         )}
                         {tr?.result?.experimentResult && (
                           <div>
-                            <h5>Experiment result</h5>
+                            <h5>实验结果</h5>
                             <Code
                               language="json"
                               code={JSON.stringify(
@@ -223,7 +220,7 @@ export default function AssignmentTester({ feature, version, project }: Props) {
                         )}
                         {tr?.result?.ruleId && (
                           <div>
-                            <h5>Matched Rule</h5>
+                            <h5>匹配的规则</h5>
                             <Code
                               language="json"
                               code={JSON.stringify(matchedRule, null, 2)}
@@ -251,18 +248,18 @@ export default function AssignmentTester({ feature, version, project }: Props) {
         >
           <div>
             <div className="text-gray">
-              <span className="font-weight-bold">Prereq evaluation:</span>{" "}
+              <span className="font-weight-bold">前置条件评估:</span>{" "}
               <span>
-                Top-level: <span className="text-success">pass</span>.
+                顶级: <span className="text-success">通过</span>。
               </span>{" "}
               <span>
-                Rules:{" "}
+                规则:{" "}
                 {skipRulesWithPrerequisites ? (
-                  <span className="text-danger">fail</span>
+                  <span className="text-danger">失败</span>
                 ) : (
-                  <span className="text-success">pass</span>
+                  <span className="text-success">通过</span>
                 )}
-                .
+                。
               </span>
             </div>
             <div className="d-flex mt-1 align-items-center">
@@ -271,7 +268,7 @@ export default function AssignmentTester({ feature, version, project }: Props) {
                 className="mb-1 mr-2 small"
                 htmlFor="skipRulesWithPrerequisites"
               >
-                Skip rules with prerequisite targeting
+                跳过带有前置条件定向的规则
               </label>
               <Toggle
                 id="skipRulesWithPrerequisites"
@@ -303,7 +300,7 @@ export default function AssignmentTester({ feature, version, project }: Props) {
         >
           <div>
             模拟你的规则如何作用于用户.{" "}
-            <Tooltip body="Enter attributes and see how Growthbook would evaluate this feature for the different environments. Will use draft rules."></Tooltip>
+            <Tooltip body="输入属性，查看 Growthbook 如何为不同环境评估此功能。将使用草稿规则。"></Tooltip>
           </div>
 
           <div className="cursor-pointer">
@@ -337,26 +334,22 @@ export default function AssignmentTester({ feature, version, project }: Props) {
                       href="#"
                       className="btn btn-outline-primary"
                     >
-                      Save Archetype
+                      保存原型
                     </a>
                   </PremiumTooltip>
                 </div>
               </div>
               <div className="mb-2 col-6" style={{ paddingTop: "32px" }}>
                 <h4>
-                  Results{" "}
+                  结果{" "}
                   <div className="text-warning float-right">
                     <Tooltip
                       body={
                         <>
-                          These results use the JS SDK, which supports the V2
-                          hashing algorithm. If you use one of the older or
-                          unsupported SDKs, you may want to change the hashing
-                          algorithm of the experiment to v1 to ensure accurate
-                          results.
+                          这些结果使用 JS SDK，它支持 V2 哈希算法。如果你使用的是较旧或不支持的 SDK 之一，你可能需要将实验的哈希算法更改为 v1 以确保结果准确。
                           <br />
                           <br />
-                          The following SDK versions support V2 hashing:
+                          以下 SDK 版本支持 V2 哈希：
                           <MinSDKVersionsList capability="bucketingV2" />
                         </>
                       }
@@ -380,7 +373,7 @@ export default function AssignmentTester({ feature, version, project }: Props) {
                 setOpenArchetypeModal(null);
               }}
               initialValues={openArchetypeModal}
-              header="Save Archetype"
+              header="保存原型"
             />
           ) : (
             <Modal
@@ -389,9 +382,7 @@ export default function AssignmentTester({ feature, version, project }: Props) {
               close={() => setOpenArchetypeModal(null)}
             >
               <div className="p-3">
-                Archetypes allow you set up user attribute traits to test how
-                feature will be applied to your real users. This feature is part
-                of our Pro or Enterprise plans.
+                原型允许你设置用户属性特征，以测试功能将如何应用于你的真实用户。此功能是我们专业版或企业版计划的一部分。
               </div>
             </Modal>
           )}

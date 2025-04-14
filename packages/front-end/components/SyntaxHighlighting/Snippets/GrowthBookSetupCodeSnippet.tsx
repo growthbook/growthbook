@@ -759,7 +759,7 @@ async function handleRequest(event) {
   const env = getConfigEnvFromStore(envVarsStore);
 
   const config = {
-    // Name of Fastly backend pointing to your GrowthBook API Endpoint
+    // Name of Fastly backend pointing to your CSII API Endpoint
     apiHostBackend: "api_host",
     
     // Map of proxy origins to named Fastly backends

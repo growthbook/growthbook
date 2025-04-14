@@ -180,10 +180,10 @@ function MetricExperimentResultTab({
           {e.status === "running"
             ? "started"
             : e.status === "draft"
-            ? "created"
-            : e.status === "stopped"
-            ? "ended"
-            : ""}{" "}
+              ? "created"
+              : e.status === "stopped"
+                ? "ended"
+                : ""}{" "}
           {date(e.date)}
         </td>
         <td>
@@ -220,13 +220,13 @@ function MetricExperimentResultTab({
       <table className="table bg-white border">
         <thead className="bg-light">
           <tr>
-            <SortableTH field="name">Experiment</SortableTH>
-            <SortableTH field="variationId">Variation</SortableTH>
-            <SortableTH field="date">Date</SortableTH>
-            <SortableTH field="status">Status</SortableTH>
-            <SortableTH field="users">Variation Users</SortableTH>
+            <SortableTH field="name">实验</SortableTH>
+            <SortableTH field="variationId">变体</SortableTH>
+            <SortableTH field="date">日期</SortableTH>
+            <SortableTH field="status">状态</SortableTH>
+            <SortableTH field="users">变体用户量</SortableTH>
             {/* <th>Won/lost</th> */}
-            {!bandits && <SortableTH field="lift">Lift</SortableTH>}
+            {!bandits && <SortableTH field="lift">提升</SortableTH>}
           </tr>
         </thead>
         <tbody>{expRows}</tbody>
