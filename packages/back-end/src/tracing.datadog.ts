@@ -8,7 +8,7 @@ setMetrics({
   getCounter: (name: string) => ({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     add: (incr: number, attributes?: any) =>
-      tracer.dogstatsd.increment(name, incr, attributes),
+      tracer.dogstatsd.count(name, incr, attributes),
   }),
   getHistogram: (name: string) => ({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
