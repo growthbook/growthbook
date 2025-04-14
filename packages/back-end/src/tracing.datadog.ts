@@ -1,14 +1,12 @@
 import "./init/aliases";
 import tracer from "dd-trace";
-import { setMetrics } from "./util/metrics";
+import { Attributes, setMetrics } from "./util/metrics";
 
 tracer.init({
   logInjection: true,
 });
 
 const COLLECTION_INTERVAL_SECONDS = 15;
-
-type Attributes = Record<string, string | number>;
 
 class Counter {
   name: string;
