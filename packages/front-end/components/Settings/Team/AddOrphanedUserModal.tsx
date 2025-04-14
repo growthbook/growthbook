@@ -30,7 +30,6 @@ const AddOrphanedUserModal: FC<{
       <UpgradeModal
         close={close}
         source="add orphaned user"
-        reason={"To enable advanced permissioning,"}
         commercialFeature="advanced-permissions"
       />
     );

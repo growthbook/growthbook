@@ -260,6 +260,7 @@ export default function ReportResults({
                 experimentType={report.experimentMetadata.type}
                 ssrPolyfills={ssrPolyfills}
                 hideDetails={!showDetails}
+                disableTimeSeriesButton={true}
               />
             ) : (
               <div className="mx-3 mb-3">

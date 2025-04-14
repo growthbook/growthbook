@@ -1,5 +1,5 @@
 import Agenda from "agenda";
-import { trackJob } from "back-end/src/services/otel";
+import { trackJob } from "back-end/src/services/tracing";
 import { getAgendaInstance } from "back-end/src/services/queueing";
 import { logger } from "back-end/src/util/logger";
 const JOB_NAME = "deleteOldAgendaJobs";

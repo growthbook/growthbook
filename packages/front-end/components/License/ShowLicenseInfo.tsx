@@ -39,7 +39,6 @@ const ShowLicenseInfo: FC<{
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason=""
           source="settings"
           commercialFeature={null}
         />

@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "start:with-tracing": "next start",
+    "start:with-datadog": "next start",
     "clean": "rimraf node_modules && rimraf tsconfig.tsbuildinfo",
     "type-check": "tsc --pretty --noEmit",
     "unused-export-check": "npx ts-unused-exports tsconfig.json --findCompletelyUnusedFiles --allowUnusedTypes --showLineNumber --excludePathsFromReport=pages;",
