@@ -1,11 +1,11 @@
+export type Attributes = Record<string, string | number>;
+
 export type Counter = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  add: (incr: number, attributes?: any) => void;
+  add: (incr: number, attributes?: Attributes) => void;
 };
 
 export type Histogram = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  record: (value: number, attributes?: any) => void;
+  record: (value: number, attributes?: Attributes) => void;
 };
 
 type Metrics = {
