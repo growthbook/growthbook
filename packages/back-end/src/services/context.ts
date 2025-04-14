@@ -9,7 +9,6 @@ import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
   OrganizationInterface,
-  OrganizationUsage,
   Permission,
   UserPermissions,
 } from "back-end/types/organization";
@@ -78,7 +77,6 @@ export class ReqContextClass {
   }
 
   public org: OrganizationInterface;
-  public usage: () => Promise<OrganizationUsage>;
   public userId = "";
   public email = "";
   public userName = "";
@@ -97,7 +95,6 @@ export class ReqContextClass {
 
   public constructor({
     org,
-    usage,
     auditUser,
     teams,
     user,
@@ -106,7 +103,6 @@ export class ReqContextClass {
     req,
   }: {
     org: OrganizationInterface;
-    usage: () => Promise<OrganizationUsage>;
     user?: {
       id: string;
       email: string;
@@ -120,7 +116,6 @@ export class ReqContextClass {
     req?: Request;
   }) {
     this.org = org;
-    this.usage = usage;
     this.auditUser = auditUser;
     this.teams = teams || [];
 
