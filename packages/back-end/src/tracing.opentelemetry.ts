@@ -80,7 +80,7 @@ process.on("SIGTERM", () => {
 
 setMetrics({
   getCounter: (name: string) =>
-    otlMetrics.getMeter(name).getUpDownCounter(name),
+    otlMetrics.getMeter(name).createUpDownCounter(name),
   getHistogram: (name: string) =>
     otlMetrics.getMeter(name).createHistogram(name),
 });
