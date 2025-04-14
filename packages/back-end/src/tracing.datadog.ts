@@ -16,7 +16,7 @@ class Counter {
   constructor(name: string) {
     this.name = name;
     this.value = 0;
-    setInterval(this.collect, COLLECTION_INTERVAL_SECONDS * 100);
+    setInterval(() => this.collect(), COLLECTION_INTERVAL_SECONDS * 1000);
   }
 
   add(v: number, attributes?: Attributes) {
@@ -39,7 +39,7 @@ class Histogram {
     this.name = name;
     this.value = 0;
     this.count = 0;
-    setInterval(this.collect, COLLECTION_INTERVAL_SECONDS * 100);
+    setInterval(() => this.collect(), COLLECTION_INTERVAL_SECONDS * 1000);
   }
 
   record(v: number, attributes?: Attributes) {
