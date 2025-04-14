@@ -17,8 +17,7 @@ export type PostFeatureRuleBody = {
 
 export type PutFeatureRuleBody = {
   rule: Partial<FeatureRule>;
+  interfaceFields?: Partial<SafeRolloutInterfaceCreateFields>;
   environment: string;
-  // TODO interface fields?
-  //interfaceFields?: SafeRolloutInterfaceCreateFields;
   i: number;
 };

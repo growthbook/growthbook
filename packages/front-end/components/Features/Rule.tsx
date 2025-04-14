@@ -1,7 +1,7 @@
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import React, { forwardRef, ReactElement } from "react";
+import React, { forwardRef, ReactElement, useState } from "react";
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { filterEnvironmentsByFeature } from "shared/util";
@@ -27,7 +27,6 @@ import Callout from "@/components/Radix/Callout";
 import SafeRolloutSummary from "@/components/Features/SafeRolloutSummary";
 import SafeRolloutSnapshotProvider from "@/components/SafeRollout/SnapshotProvider";
 import SafeRolloutDetails from "@/components/SafeRollout/SafeRolloutDetails";
-import useApi from "@/hooks/useApi";
 import DecisionBanner from "../SafeRollout/DecisionBanner";
 import ConditionDisplay from "./ConditionDisplay";
 import ForceSummary from "./ForceSummary";
@@ -131,7 +130,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const allEnvironments = useEnvironments();
     const environments = filterEnvironmentsByFeature(allEnvironments, feature);
     const { featureUsage } = useFeatureUsage();
-
+    const [
+      _safeRolloutStatusModalOpen,
+      setSafeRolloutStatusModalOpen,
+    ] = useState(false);
     let title: string | ReactElement =
       rule.description ||
       rule.type[0].toUpperCase() + rule.type.slice(1) + " Rule";
@@ -180,6 +182,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     }
 
     let safeRollout: SafeRolloutInterface | undefined;
+
     if (rule.type === "safe-rollout") {
       safeRollout = safeRolloutsMap.get(rule.safeRolloutId);
     }
@@ -288,30 +291,41 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       hashAttribute={rule.hashAttribute || ""}
                     />
                   )}
-                  {rule.type === "safe-rollout" && (
-                    safeRollout ? (
-                    <SafeRolloutSnapshotProvider
-                      safeRollout={safeRollout}
-                      feature={feature}
-                    >
-                      <SafeRolloutSummary
-                        safeRollout={safeRollout}
-                        rule={rule}
-                        feature={feature}
-                      />
-                      {/* TODO: Once modal exists to change Safe Rollout status, plug in setStatusModalOpen here */}
-                      <DecisionBanner openStatusModal={() => undefined} />
-                      <SafeRolloutDetails
+                  {rule.type === "safe-rollout" &&
+                    (safeRollout ? (
+                      <SafeRolloutSnapshotProvider
                         safeRollout={safeRollout}
                         feature={feature}
-                      />
-                    </SafeRolloutSnapshotProvider>
-                  ): (
-                    <div>
-                     {/* Better error state if safe rollout is not found */}
-                      <p>Safe Rollout not found</p> 
-                    </div>
-                  ))}
+                      >
+                        <SafeRolloutSummary
+                          safeRollout={safeRollout}
+                          rule={rule}
+                          feature={feature}
+                        />
+                        {/* TODO: Once modal exists to change Safe Rollout status, plug in setStatusModalOpen here */}
+                        {/* <SafeRolloutStatusModal
+                          safeRollout={safeRollout}
+                          open={safeRolloutStatusModalOpen}
+                          setStatusModalOpen={() =>
+                            setSafeRolloutStatusModalOpen
+                          }
+                        /> */}
+                        <DecisionBanner
+                          openStatusModal={() =>
+                            setSafeRolloutStatusModalOpen(true)
+                          }
+                        />
+                        <SafeRolloutDetails
+                          safeRollout={safeRollout}
+                          feature={feature}
+                        />
+                      </SafeRolloutSnapshotProvider>
+                    ) : (
+                      <div>
+                        {/* Better error state if safe rollout is not found */}
+                        <p>Safe Rollout not found</p>
+                      </div>
+                    ))}
                   {rule.type === "experiment" && (
                     <ExperimentSummary
                       feature={feature}

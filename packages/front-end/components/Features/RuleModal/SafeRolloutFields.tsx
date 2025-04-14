@@ -5,28 +5,23 @@ import { FaExclamationTriangle } from "react-icons/fa";
 import { Box, TextField } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
-import RolloutPercentInput from "@/components/Features/RolloutPercentInput";
 import SelectField from "@/components/Forms/SelectField";
 import { NewExperimentRefRule, useAttributeSchema } from "@/services/features";
-import ScheduleInputs from "@/components/Features/ScheduleInputs";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ConditionInput from "@/components/Features/ConditionInput";
 import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
-import Checkbox from "@/components/Radix/Checkbox";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
 export default function SafeRolloutFields({
   feature,
   environment,
-  defaultValues,
   version,
   revisions,
   setPrerequisiteTargetingSdkIssues,
   isCyclic,
   cyclicFeatureId,
   conditionKey,
-  scheduleToggleEnabled,
-  setScheduleToggleEnabled,
+  isNewRule,
   step,
 }: {
   feature: FeatureInterface;
@@ -41,6 +36,7 @@ export default function SafeRolloutFields({
   scheduleToggleEnabled: boolean;
   setScheduleToggleEnabled: (b: boolean) => void;
   step: number;
+  isNewRule: boolean;
 }) {
   const form = useFormContext();
   const attributeSchema = useAttributeSchema(false, feature.project);
@@ -56,7 +52,6 @@ export default function SafeRolloutFields({
     (ds) => ds.id === form.watch("safeRolloutInterfaceFields.datasource")
   );
   const exposureQueries = dataSource?.settings?.queries?.exposure || [];
-
   const renderOverviewSteps = () => {
     return (
       <>
@@ -140,7 +135,7 @@ export default function SafeRolloutFields({
               required
               placeholder="Select a data source"
               // Add a disabled state while loading
-              disabled={!dataSourceOptions}
+              disabled={!dataSourceOptions || !isNewRule}
             />
             {dataSourceOptions.length === 0 && (
               <div className="alert alert-warning mt-2">
@@ -159,6 +154,10 @@ export default function SafeRolloutFields({
                 value: q.id,
               }))}
               required
+              disabled={
+                !isNewRule ||
+                !form.watch("safeRolloutInterfaceFields.datasource")
+              }
               value={form.watch("safeRolloutInterfaceFields.exposureQueryId")}
               onChange={(v) =>
                 form.setValue("safeRolloutInterfaceFields.exposureQueryId", v)

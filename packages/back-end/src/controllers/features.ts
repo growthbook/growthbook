@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
-import { isEqual, omit } from "lodash";
+import { isEqual } from "lodash";
 import {
   autoMerge,
   filterEnvironmentsByFeature,
@@ -123,7 +123,10 @@ import { getChangesToStartExperiment } from "back-end/src/services/experiments";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
 import { CreateProps } from "back-end/src/models/BaseModel";
-import { PostFeatureRuleBody, PutFeatureRuleBody } from "back-end/types/safe-rollout";
+import {
+  PostFeatureRuleBody,
+  PutFeatureRuleBody,
+} from "back-end/types/safe-rollout";
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
     super(message);
@@ -1145,10 +1148,7 @@ export async function postFeatureDiscard(
 }
 
 export async function postFeatureRule(
-  req: AuthRequest<
-    PostFeatureRuleBody,
-    { id: string; version: string }
-  >,
+  req: AuthRequest<PostFeatureRuleBody, { id: string; version: string }>,
   res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
 ) {
   const context = getContextFromReq(req);
@@ -1242,7 +1242,7 @@ export async function postFeatureRule(
         }
       }
     }
-    
+
     const safeRolloutCreateProps: CreateProps<SafeRolloutInterface> = {
       ...interfaceFields,
       coverage: 1, // hardcode to 100% for now
@@ -1260,10 +1260,11 @@ export async function postFeatureRule(
       ruleId: rule.id,
     };
 
-    const safeRollout = await context.models.safeRollout.create(safeRolloutCreateProps);
+    const safeRollout = await context.models.safeRollout.create(
+      safeRolloutCreateProps
+    );
     rule.safeRolloutId = safeRollout.id;
   }
-
   await addFeatureRule(
     revision,
     environment,
@@ -1711,17 +1712,15 @@ export async function postFeatureSchema(
 }
 
 export async function putFeatureRule(
-  req: AuthRequest<
-    PutFeatureRuleBody,
-    { id: string; version: string }
-  >,
+  req: AuthRequest<PutFeatureRuleBody, { id: string; version: string }>,
   res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
   const { id, version } = req.params;
-  const { environment, rule, i } = req.body;
-
+  const { environment, i } = req.body;
+  const rule = req.body.rule;
+  const interfaceFields = req.body.interfaceFields;
   const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
@@ -1749,6 +1748,23 @@ export async function putFeatureRule(
     defaultValueChanged: false,
     settings: org?.settings,
   });
+  if (rule.type === "safe-rollout") {
+    if (!rule.safeRolloutId) {
+      throw new Error("Safe rollout rule must have a safeRolloutId");
+    }
+    const existing = await context.models.safeRollout.getById(
+      rule.safeRolloutId
+    );
+    if (!existing) {
+      throw new Error("Safe rollout rule must have a safeRolloutId");
+    }
+
+    if (interfaceFields) {
+      await context.models.safeRollout.update(existing, {
+        ...interfaceFields,
+      });
+    }
+  }
   await editFeatureRule(
     revision,
     environment,

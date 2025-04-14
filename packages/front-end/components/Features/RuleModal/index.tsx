@@ -19,12 +19,9 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import { PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
-import { kebabCase, method } from "lodash";
+import { kebabCase } from "lodash";
 import { Text } from "@radix-ui/themes";
-import {
-  SafeRolloutInterface,
-  SafeRolloutInterfaceCreateFields,
-} from "back-end/src/models/SafeRolloutModel";
+import { SafeRolloutInterfaceCreateFields } from "back-end/src/models/SafeRolloutModel";
 import { SafeRolloutRule } from "back-end/src/validators/features";
 import {
   PostFeatureRuleBody,
@@ -561,6 +558,8 @@ export default function RuleModal({
       } else if (values.type === "safe-rollout") {
         if (values.safeRolloutInterfaceFields) {
           safeRolloutInterfaceFields = values.safeRolloutInterfaceFields;
+          // eslint-disable-next-line
+          delete (values as any).safeRolloutInterfaceFields;
         }
       }
 
@@ -598,10 +597,10 @@ export default function RuleModal({
         interfaceFields: safeRolloutInterfaceFields,
       };
       if (!duplicate && i !== rules.length) {
-        // TODO interface fields?
         method = "PUT";
         body = {
           rule: values,
+          interfaceFields: safeRolloutInterfaceFields,
           environment,
           i,
         };
@@ -891,6 +890,7 @@ export default function RuleModal({
                   conditionKey={conditionKey}
                   scheduleToggleEnabled={scheduleToggleEnabled}
                   setScheduleToggleEnabled={setScheduleToggleEnabled}
+                  isNewRule={isNewRule}
                 />
               </Page>
             );

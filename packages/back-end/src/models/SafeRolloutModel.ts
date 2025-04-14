@@ -3,7 +3,7 @@ import { getCollection } from "back-end/src/util/mongo.util";
 import { experimentAnalysisSummary } from "back-end/src/validators/experiments";
 import { safeRolloutStatus } from "back-end/src/validators/shared";
 import { baseSchema, MakeModelClass } from "./BaseModel";
-const COLLECTION = "safeRolloutAnalysisSettings";
+const COLLECTION = "safeRollout";
 
 // Export shared validators
 export { safeRolloutStatus };
@@ -45,10 +45,18 @@ const BaseClass = MakeModelClass({
 });
 
 // TODO partial?
-export type SafeRolloutInterfaceCreateFields = Partial<Pick<
-SafeRolloutInterface,
-"datasource" | "exposureQueryId" | "hashAttribute" | "maxDurationDays" | "seed" | "guardrailMetrics" | "trackingKey"
->>;
+export type SafeRolloutInterfaceCreateFields = Partial<
+  Pick<
+    SafeRolloutInterface,
+    | "datasource"
+    | "exposureQueryId"
+    | "hashAttribute"
+    | "maxDurationDays"
+    | "seed"
+    | "guardrailMetrics"
+    | "trackingKey"
+  >
+>;
 
 export class SafeRolloutModel extends BaseClass {
   protected canRead(_doc: SafeRolloutInterface): boolean {
