@@ -79,7 +79,8 @@ process.on("SIGTERM", () => {
 });
 
 setMetrics({
-  getCounter: (name: string) => otlMetrics.getMeter(name).createCounter(name),
+  getCounter: (name: string) =>
+    otlMetrics.getMeter(name).createUpDownCounter(name),
   getHistogram: (name: string) =>
     otlMetrics.getMeter(name).createHistogram(name),
 });
