@@ -6,22 +6,22 @@ tracer.init({
   logInjection: true,
 });
 
-const COLLECTION_INTERVAL = 15;
+const COLLECTION_INTERVAL_SECONDS = 15;
+
+type Attributes = Record<string, string | number>;
 
 class Counter {
   name: string;
   value: number;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  attributes?: any;
+  attributes?: Attributes;
 
   constructor(name: string) {
     this.name = name;
     this.value = 0;
-    setInterval(this.collect, COLLECTION_INTERVAL);
+    setInterval(this.collect, COLLECTION_INTERVAL_SECONDS * 100);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  add(v: number, attributes?: any) {
+  add(v: number, attributes?: Attributes) {
     this.value += v;
     this.attributes = attributes;
   }
@@ -35,18 +35,16 @@ class Histogram {
   name: string;
   value: number;
   count: number;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  attributes?: any;
+  attributes?: Attributes;
 
   constructor(name: string) {
     this.name = name;
     this.value = 0;
     this.count = 0;
-    setInterval(this.collect, COLLECTION_INTERVAL);
+    setInterval(this.collect, COLLECTION_INTERVAL_SECONDS * 100);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  record(v: number, attributes?: any) {
+  record(v: number, attributes?: Attributes) {
     this.value += v;
     this.count++;
     this.attributes = attributes;
