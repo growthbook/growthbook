@@ -134,24 +134,22 @@ function App({
 
     return (
       <AuthProvider exitOnNoAuth={!(preAuth || progressiveAuth)}>
-        <GrowthBookProvider growthbook={growthbook}>
-          <UserContextProvider key={orgId}>
-            <DefinitionsProvider>
-              <PageHeadProvider>
-                {preAuthTopNav || progressiveAuthTopNav ? (
-                  <>
-                    <TopNavLite />
-                    <main className={`main lite ${parts[0]}`}>
-                      <Component {...{ ...pageProps, envReady: ready }} />
-                    </main>
-                  </>
-                ) : (
-                  <Component {...{ ...pageProps, envReady: ready }} />
-                )}
-              </PageHeadProvider>
-            </DefinitionsProvider>
-          </UserContextProvider>
-        </GrowthBookProvider>
+        <UserContextProvider key={orgId}>
+          <DefinitionsProvider>
+            <PageHeadProvider>
+              {preAuthTopNav || progressiveAuthTopNav ? (
+                <>
+                  <TopNavLite />
+                  <main className={`main lite ${parts[0]}`}>
+                    <Component {...{ ...pageProps, envReady: ready }} />
+                  </main>
+                </>
+              ) : (
+                <Component {...{ ...pageProps, envReady: ready }} />
+              )}
+            </PageHeadProvider>
+          </DefinitionsProvider>
+        </UserContextProvider>
       </AuthProvider>
     );
   };
