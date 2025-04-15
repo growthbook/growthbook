@@ -233,7 +233,6 @@ export function getDecisionFrameworkStatus({
     // only return ready for review if power is reached, not for premature
     // sequential results
     if (powerReached) {
-
       const reviewVariations = variationDecisions.filter(
         (d) => d.decisionCriteriaAction === "review"
       );

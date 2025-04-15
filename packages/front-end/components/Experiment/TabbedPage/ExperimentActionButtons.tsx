@@ -1,5 +1,5 @@
-import Button from "@/components/Radix/Button";
 import { ExperimentResultStatusData } from "back-end/types/experiment";
+import Button from "@/components/Radix/Button";
 
 export interface Props {
   editResult?: () => void;
@@ -14,15 +14,17 @@ export default function ExperimentActionButtons({
   isBandit,
   runningExperimentStatus,
 }: Props) {
-
   const runningStatus = runningExperimentStatus?.status;
-  
-  const primaryButton = runningStatus === "ship-now" || runningStatus === "ready-for-review" || runningStatus === "rollback-now" ? "stop" : "make-changes";
+
+  const readyForDecision =
+    runningStatus === "ship-now" ||
+    runningStatus === "ready-for-review" ||
+    runningStatus === "rollback-now";
 
   return (
     <div className="d-flex ml-2">
       <Button
-        variant={primaryButton === "make-changes" ? "solid" : "outline"}
+        variant={readyForDecision ? "outline" : "solid"}
         mr="3"
         disabled={!editTargeting}
         onClick={() => editTargeting?.()}
@@ -30,11 +32,15 @@ export default function ExperimentActionButtons({
         Make Changes
       </Button>
       <Button
-        variant={primaryButton === "stop" ? "solid" : "outline"}
+        variant={readyForDecision ? "solid" : "outline"}
         onClick={() => editResult?.()}
         disabled={!editResult}
       >
-        Stop {isBandit ? "Bandit" : "Experiment"}
+        {readyForDecision ? (
+          "Make Decision"
+        ) : (
+          <>Stop {isBandit ? "Bandit" : "Experiment"}</>
+        )}
       </Button>
     </div>
   );

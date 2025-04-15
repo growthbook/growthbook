@@ -6,26 +6,26 @@ import {
   VariationWithIndex,
 } from "back-end/types/experiment";
 import { useState } from "react";
-import Link from "@/components/Radix/Link";
-import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteriaModal";
-import ExperimentDecisionExplanation from "./ExperimentDecisionExplanation";
 import { BsLightningFill } from "react-icons/bs";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
-import { PiCaretRightFill } from "react-icons/pi";
+import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteriaModal";
+import Link from "@/components/Radix/Link";
+import ExperimentDecisionExplanation from "./ExperimentDecisionExplanation";
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;
   runningExperimentStatus: ExperimentResultStatusData;
   decisionCriteria: DecisionCriteriaData;
+  showDecisionCriteriaLink?: boolean;
 }
 
 export default function RunningExperimentDecisionBanner({
   experiment,
   runningExperimentStatus,
   decisionCriteria,
+  showDecisionCriteriaLink = true,
 }: Props) {
-  const [showDetails, setShowDetails] = useState(false);
   const [showDecisionCriteria, setShowDecisionCriteria] = useState(false);
   // TODO resolver
 
@@ -89,7 +89,6 @@ export default function RunningExperimentDecisionBanner({
       <>
         <BsLightningFill className="mx-1 text-danger" />
         <Text weight="bold">Rollback now:</Text>
-
       </>
     );
   }
@@ -97,20 +96,22 @@ export default function RunningExperimentDecisionBanner({
   const banner = decisionContent && (
     <div className="appbox p-3">
       <Box>
-            <Collapsible
-              trigger={
-                <Flex direction="row" align="center" justify="between">
-            <Box>
-              <Flex direction="row" align="center">
-                {decisionContent}
-                <Flex direction="row" gap="1" ml="2">
-                  {decidedVariations.map((v, i) => (
-                    <>
-                      <Box key={v.id}>{variationNames[v.id]}</Box>
-                      {i !== decidedVariations.length - 1 ? <Text mx="1">,</Text> : null}
-                    </>
-                  ))}
-                </Flex>
+        <Collapsible
+          trigger={
+            <Flex direction="row" align="center" justify="between">
+              <Box>
+                <Flex direction="row" align="center">
+                  {decisionContent}
+                  <Flex direction="row" gap="1" ml="2">
+                    {decidedVariations.map((v, i) => (
+                      <>
+                        <Box key={v.id}>{variationNames[v.id]}</Box>
+                        {i !== decidedVariations.length - 1 ? (
+                          <Text mx="1">,</Text>
+                        ) : null}
+                      </>
+                    ))}
+                  </Flex>
                 </Flex>
               </Box>
               <Link>
@@ -122,15 +123,17 @@ export default function RunningExperimentDecisionBanner({
           transitionTime={100}
         >
           <>
-          <ExperimentDecisionExplanation
-                status={runningExperimentStatus}
-                variations={runningExperimentStatus.variations}
-                variationNames={variationNames}
-                showDecisionCriteria={showDecisionCriteria}
-                setShowDecisionCriteria={setShowDecisionCriteria}
-              />
-              </>
-            </Collapsible>
+            <hr className="mt-3" />
+            <ExperimentDecisionExplanation
+              status={runningExperimentStatus}
+              variations={runningExperimentStatus.variations}
+              variationNames={variationNames}
+              showDecisionCriteria={showDecisionCriteria}
+              setShowDecisionCriteria={setShowDecisionCriteria}
+              showDecisionCriteriaLink={showDecisionCriteriaLink}
+            />
+          </>
+        </Collapsible>
       </Box>
     </div>
   );

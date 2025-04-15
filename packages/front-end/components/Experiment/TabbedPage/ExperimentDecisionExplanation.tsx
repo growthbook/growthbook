@@ -15,7 +15,26 @@ interface Props {
   variationNames: Record<string, JSX.Element>;
   showDecisionCriteria: boolean;
   setShowDecisionCriteria: (show: boolean) => void;
+  showDecisionCriteriaLink?: boolean;
 }
+
+const getRecommendationText = (
+  status: "ship-now" | "ready-for-review" | "rollback-now",
+  multipleVariations: boolean
+) => {
+  switch (status) {
+    case "ship-now":
+      return `Review reasons to ship${
+        multipleVariations ? " and select the preferred variation" : ""
+      }.`;
+    case "ready-for-review":
+      return `Reasons to review${
+        multipleVariations ? " the eligible variations" : ""
+      }.`;
+    case "rollback-now":
+      return "Review reasons to rollback.";
+  }
+};
 
 export default function ExperimentDecisionExplanation({
   status,
@@ -23,6 +42,7 @@ export default function ExperimentDecisionExplanation({
   variationNames,
   showDecisionCriteria,
   setShowDecisionCriteria,
+  showDecisionCriteriaLink,
 }: Props) {
   // If the experiment is not in a decision state, don't show anything
   if (
@@ -74,28 +94,27 @@ export default function ExperimentDecisionExplanation({
     return 0;
   });
 
+  console.log(showDecisionCriteria);
   return (
-    <Box mt="4">
+    <Box mt="4" ml="3">
+      <Text size="2">
+        {getRecommendationText(status.status, variations.length > 1)}
+      </Text>
       {decidingRules.map((r) => (
         <>
           <Flex direction="column" mb="2">
             <Flex direction="row" gap="1" mb="1">
-              {r.variationIds.map((v, i) => (
-                <>
-                  <Box>{variationNames[v]}</Box>
-                  {i !== r.variationIds.length - 1 ? <Text>&</Text> : null}
-                </>
-              ))}
+              {decidingRules.length > 1
+                ? r.variationIds.map((v, i) => (
+                    <>
+                      <Box>{variationNames[v]}</Box>
+                      {i !== r.variationIds.length - 1 ? (
+                        <Text mx="1">,</Text>
+                      ) : null}
+                    </>
+                  ))
+                : null}
             </Flex>
-            <Text size="2">
-              The recommendation to{" "}
-              {status.status === "ship-now"
-                ? "ship"
-                : status.status === "ready-for-review"
-                ? "review"
-                : "rollback"}{" "}
-              is based on:
-            </Text>
           </Flex>
           <Flex direction="column" gap="2">
             {status.powerReached && (
@@ -104,8 +123,7 @@ export default function ExperimentDecisionExplanation({
                   •
                 </Text>
                 <Text size="2">
-                  The required statistical power for the experiment has been
-                  reached
+                  The experiment has reached the targeted statistical power.
                 </Text>
               </Flex>
             )}
@@ -116,7 +134,7 @@ export default function ExperimentDecisionExplanation({
                 </Text>
                 <Text size="2">
                   Sequential testing was used in the analysis, enabling early
-                  stopping
+                  stopping.
                 </Text>
               </Flex>
             )}
@@ -139,7 +157,7 @@ export default function ExperimentDecisionExplanation({
                   •
                 </Text>
                 <Text size="2">
-                  No other decision criteria were triggered, and{" "}
+                  No other decision rules were triggered, and{" "}
                   {status.status === "ship-now"
                     ? "ship"
                     : status.status === "ready-for-review"
@@ -152,11 +170,13 @@ export default function ExperimentDecisionExplanation({
           </Flex>
         </>
       ))}
-      <Box mt="4">
-        <Link onClick={() => setShowDecisionCriteria(!showDecisionCriteria)}>
-          View Decision Criteria
-        </Link>
-      </Box>
+      {showDecisionCriteriaLink ? (
+        <Box mt="4" mb="2">
+          <Link onClick={() => setShowDecisionCriteria(!showDecisionCriteria)}>
+            View Decision Criteria
+          </Link>
+        </Box>
+      ) : null}
     </Box>
   );
 }

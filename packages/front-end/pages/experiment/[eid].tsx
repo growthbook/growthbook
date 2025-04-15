@@ -25,11 +25,17 @@ import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 
 const ExperimentPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
   const router = useRouter();
   const { eid } = router.query;
+
+  const {
+    decisionCriteria,
+    getRunningExperimentResultStatus,
+  } = useRunningExperimentStatus();
 
   const [stopModalOpen, setStopModalOpen] = useState(false);
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
@@ -69,7 +75,6 @@ const ExperimentPage = (): ReactElement => {
   if (!data) {
     return <LoadingOverlay />;
   }
-
   const {
     experiment,
     visualChangesets = [],
@@ -77,6 +82,8 @@ const ExperimentPage = (): ReactElement => {
     urlRedirects = [],
     envs = [],
   } = data;
+
+  const runningExperimentStatus = getRunningExperimentResultStatus(experiment);
 
   const canEditExperiment =
     permissionsUtil.canViewExperimentModal(experiment.project) &&
@@ -131,6 +138,8 @@ const ExperimentPage = (): ReactElement => {
           close={() => setStopModalOpen(false)}
           mutate={mutate}
           experiment={experiment}
+          runningExperimentStatus={runningExperimentStatus}
+          decisionCriteria={decisionCriteria}
           source="eid"
         />
       )}

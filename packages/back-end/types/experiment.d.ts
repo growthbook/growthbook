@@ -6,8 +6,8 @@ import {
   BanditResult,
   BanditEvent,
 } from "back-end/src/validators/experiments";
-import { ExperimentRefVariation, FeatureInterface } from "./feature";
 import { DecisionCriteriaRule } from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.validators";
+import { ExperimentRefVariation, FeatureInterface } from "./feature";
 
 export {
   AttributionModel,

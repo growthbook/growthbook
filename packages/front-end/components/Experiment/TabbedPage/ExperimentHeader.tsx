@@ -54,6 +54,8 @@ import Callout from "@/components/Radix/Callout";
 import SelectField from "@/components/Forms/SelectField";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import HelperText from "@/components/Radix/HelperText";
+import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
+import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
 import TemplateForm from "../Templates/TemplateForm";
 import ProjectTagBar from "./ProjectTagBar";
 import EditExperimentInfoModal, {
@@ -62,8 +64,6 @@ import EditExperimentInfoModal, {
 import ExperimentActionButtons from "./ExperimentActionButtons";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import { ExperimentTab } from ".";
-import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
-import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
 
 export interface Props {
   tab: ExperimentTab;
@@ -253,8 +253,10 @@ export default function ExperimentHeader({
   const isBandit = experiment.type === "multi-armed-bandit";
   const hasResults = !!analysis?.results?.[0];
 
-  
-  const { decisionCriteria, getRunningExperimentResultStatus } = useRunningExperimentStatus();
+  const {
+    decisionCriteria,
+    getRunningExperimentResultStatus,
+  } = useRunningExperimentStatus();
   const runningExperimentStatus = getRunningExperimentResultStatus(experiment);
   const shouldHideTabs =
     experiment.status === "draft" && !hasResults && phases.length === 1;
@@ -1018,7 +1020,7 @@ export default function ExperimentHeader({
           editTags={!viewingOldPhase ? editTags : undefined}
         />
 
-      {experiment.status === "running" && runningExperimentStatus && (
+        {experiment.status === "running" && runningExperimentStatus && (
           <Box pt="1" pb="1">
             <RunningExperimentDecisionBanner
               experiment={experiment}

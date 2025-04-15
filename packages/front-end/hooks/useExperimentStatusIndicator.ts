@@ -25,7 +25,6 @@ export type StatusIndicatorData = {
   sortOrder: number;
 };
 
-
 export function useExperimentDecisionCriteria() {
   const settings = useOrgSettings();
   const decisionCriteria = !settings?.defaultDecisionCriteriaId
@@ -40,7 +39,9 @@ export function useExperimentDecisionCriteria() {
         !!settings?.defaultDecisionCriteriaId && !decisionCriteria,
     }
   );
-  return data?.decisionCriteria ?? decisionCriteria ?? DEFAULT_DECISION_CRITERIA;
+  return (
+    data?.decisionCriteria ?? decisionCriteria ?? DEFAULT_DECISION_CRITERIA
+  );
 }
 
 export function useRunningExperimentStatus() {
@@ -57,15 +58,14 @@ export function useRunningExperimentStatus() {
     decisionCriteria,
     getRunningExperimentResultStatus: (
       experimentData: ExperimentDataForStatusStringDates
-    ) => getRunningExperimentResultStatus({
-      experimentData,
-      healthSettings,
-      decisionCriteria
-    })
+    ) =>
+      getRunningExperimentResultStatus({
+        experimentData,
+        healthSettings,
+        decisionCriteria,
+      }),
   };
 }
-
-
 
 export function useExperimentStatusIndicator() {
   const { hasCommercialFeature } = useUser();
@@ -84,7 +84,7 @@ export function useExperimentStatusIndicator() {
       experimentData,
       skipArchived,
       healthSettings,
-      decisionCriteria,
+      decisionCriteria
     );
 }
 function getRunningExperimentResultStatus({

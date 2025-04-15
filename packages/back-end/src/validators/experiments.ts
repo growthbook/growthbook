@@ -1,12 +1,12 @@
 import { z } from "zod";
 import { windowTypeValidator } from "back-end/src/routers/fact-table/fact-table.validators";
 import { statsEngines } from "back-end/src/util/constants";
+import { decisionCriteriaInterface } from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.validators";
 import {
   namespaceValue,
   featurePrerequisite,
   savedGroupTargeting,
 } from "./features";
-import { decisionCriteriaInterface } from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.validators";
 
 export const experimentResultsType = [
   "dnf",
