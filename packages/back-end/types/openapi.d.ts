@@ -119,6 +119,10 @@ export interface paths {
     /** Create a single experiment */
     post: operations["postExperiment"];
   };
+  "/experiment-names": {
+    /** Get a list of experiments with names and ids */
+    get: operations["getExperimentNames"];
+  };
   "/experiments/{id}": {
     /** Get a single experiment */
     get: operations["getExperiment"];
@@ -1417,6 +1421,9 @@ export interface components {
       banditBurnInValue?: number;
       /** @enum {string} */
       banditBurnInUnit?: "days" | "hours";
+      linkedFeatures?: (string)[];
+      hasVisualChangesets?: boolean;
+      hasURLRedirects?: boolean;
     };
     ExperimentSnapshot: {
       id: string;
@@ -4343,6 +4350,9 @@ export interface operations {
                 banditBurnInValue?: number;
                 /** @enum {string} */
                 banditBurnInUnit?: "days" | "hours";
+                linkedFeatures?: (string)[];
+                hasVisualChangesets?: boolean;
+                hasURLRedirects?: boolean;
               })[];
           }) & {
             limit: number;
@@ -4612,7 +4622,31 @@ export interface operations {
               banditBurnInValue?: number;
               /** @enum {string} */
               banditBurnInUnit?: "days" | "hours";
+              linkedFeatures?: (string)[];
+              hasVisualChangesets?: boolean;
+              hasURLRedirects?: boolean;
             };
+          };
+        };
+      };
+    };
+  };
+  getExperimentNames: {
+    /** Get a list of experiments with names and ids */
+    parameters: {
+        /** @description Filter by project id */
+      query: {
+        projectId?: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            experiments: ({
+                id: string;
+                name: string;
+              })[];
           };
         };
       };
@@ -4767,6 +4801,9 @@ export interface operations {
               banditBurnInValue?: number;
               /** @enum {string} */
               banditBurnInUnit?: "days" | "hours";
+              linkedFeatures?: (string)[];
+              hasVisualChangesets?: boolean;
+              hasURLRedirects?: boolean;
             };
           };
         };
@@ -5034,6 +5071,9 @@ export interface operations {
               banditBurnInValue?: number;
               /** @enum {string} */
               banditBurnInUnit?: "days" | "hours";
+              linkedFeatures?: (string)[];
+              hasVisualChangesets?: boolean;
+              hasURLRedirects?: boolean;
             };
           };
         };
@@ -6120,6 +6160,9 @@ export interface operations {
               banditBurnInValue?: number;
               /** @enum {string} */
               banditBurnInUnit?: "days" | "hours";
+              linkedFeatures?: (string)[];
+              hasVisualChangesets?: boolean;
+              hasURLRedirects?: boolean;
             };
           };
         };
@@ -8439,6 +8482,7 @@ export type ListDataSourcesResponse = operations["listDataSources"]["responses"]
 export type GetDataSourceResponse = operations["getDataSource"]["responses"]["200"]["content"]["application/json"];
 export type ListExperimentsResponse = operations["listExperiments"]["responses"]["200"]["content"]["application/json"];
 export type PostExperimentResponse = operations["postExperiment"]["responses"]["200"]["content"]["application/json"];
+export type GetExperimentNamesResponse = operations["getExperimentNames"]["responses"]["200"]["content"]["application/json"];
 export type GetExperimentResponse = operations["getExperiment"]["responses"]["200"]["content"]["application/json"];
 export type UpdateExperimentResponse = operations["updateExperiment"]["responses"]["200"]["content"]["application/json"];
 export type PostExperimentSnapshotResponse = operations["postExperimentSnapshot"]["responses"]["200"]["content"]["application/json"];
