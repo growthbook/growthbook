@@ -1673,6 +1673,40 @@ paths:
                 properties:
                   experiment:
                     $ref: '#/components/schemas/Experiment'
+  /experiment-names:
+    get:
+      summary: Get a list of experiments with names and ids
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      operationId: getExperimentNames
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/experiment-names?projectId=prj_5l652 \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - experiments
+                properties:
+                  experiments:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - id
+                        - name
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
   '/experiments/{id}':
     get:
       parameters:
@@ -6203,6 +6237,14 @@ components:
           enum:
             - days
             - hours
+        linkedFeatures:
+          type: array
+          items:
+            type: string
+        hasVisualChangesets:
+          type: boolean
+        hasURLRedirects:
+          type: boolean
     ExperimentSnapshot:
       type: object
       required:
