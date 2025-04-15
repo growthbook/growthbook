@@ -356,58 +356,9 @@ export async function createRevision({
   } else if (publish && requiresReview) {
     revision.status = "pending-review";
   }
-
   const doc = await FeatureRevisionModel.create(revision);
 
   return toInterface(doc, context);
-}
-export async function getSafeRolloutRulesToUpdate() {
-  const revisions = await FeatureRevisionModel.find({
-    "rules.type": "safe-rollout",
-    datePublished: {
-      $exists: true,
-    },
-    "rule.autoSnapshots": true,
-    "rule.nextSnapshotAttempt": {
-      $exists: true,
-      $lte: new Date(),
-    },
-    "rule.status": "running",
-  })
-    .limit(100)
-    .sort({ nextSnapshotAttempt: 1 });
-
-  safeRolloutRuleToInterface(revisions);
-  return revisions;
-}
-export async function getSafeRolloutRuleById(
-  context: ReqContext,
-  ruleId: string
-): Promise<SafeRolloutRule | null> {
-  const rule = await FeatureRevisionModel.findOne({
-    organization: context.org.id,
-    "rules.type": "safe-rollout",
-    "rules.id": ruleId,
-  });
-  if (!rule) return null;
-  const revision = toInterface(rule, context);
-  const allRules = Object.values(revision.rules).flat();
-  return allRules.find(
-    (r) => r.id === ruleId && r.type === "safe-rollout"
-  ) as SafeRolloutRule | null;
-}
-
-export async function updateSafeRolloutRule(
-  context: ReqContext,
-  rule: SafeRolloutRule
-) {
-  await FeatureRevisionModel.updateOne(
-    {
-      organization: context.org.id,
-      "rules.id": rule.id,
-    },
-    { $set: { "rules.$.nextSnapshotAttempt": rule.nextSnapshotAttempt } }
-  );
 }
 
 export async function updateRevision(

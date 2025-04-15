@@ -36,6 +36,7 @@ import { ApiReqContext } from "back-end/types/api";
 import { simpleSchemaValidator } from "back-end/src/validators/features";
 import { getChangedApiFeatureEnvironments } from "back-end/src/events/handlers/utils";
 import { ResourceEvents } from "back-end/src/events/base-types";
+import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
 import {
   createEvent,
   hasPreviousObject,
@@ -964,6 +965,25 @@ export async function publishRevision(
   if (revision.status === "published" || revision.status === "discarded") {
     throw new Error("Can only publish a draft revision");
   }
+  const safeRolloutIds: string[] = [];
+  Object.keys(revision.rules).forEach((key) => {
+    for (const rule of revision.rules[key]) {
+      if (rule.type === "safe-rollout") {
+        safeRolloutIds.push(rule.safeRolloutId);
+      }
+    }
+  });
+  const safeRollouts = await context.models.safeRollout.findByRuleIds(
+    safeRolloutIds
+  );
+  safeRollouts.forEach((safeRollout: SafeRolloutInterface) => {
+    //TODO: we might want to write an updateMany function
+    if (safeRollout.status !== "running") {
+      context.models.safeRollout.update(safeRollout, {
+        status: "running",
+      });
+    }
+  });
 
   // TODO: wrap these 2 calls in a transaction
   const updatedFeature = await applyRevisionChanges(
