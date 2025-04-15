@@ -178,13 +178,13 @@ function App({
       {ready || noLoadingOverlay ? (
         <AppearanceUIThemeProvider>
           <RadixTheme>
-            <div id="portal-root" />
-            {preAuth || progressiveAuth ? (
-              renderPreAuth()
-            ) : (
-              <PageHeadProvider>
-                <AuthProvider>
-                  <GrowthBookProvider growthbook={growthbook}>
+            <GrowthBookProvider growthbook={growthbook}>
+              <div id="portal-root" />
+              {preAuth || progressiveAuth ? (
+                renderPreAuth()
+              ) : (
+                <PageHeadProvider>
+                  <AuthProvider>
                     <ProtectedPage organizationRequired={organizationRequired}>
                       {organizationRequired ? (
                         <GetStartedProvider>
@@ -211,10 +211,10 @@ function App({
                         </div>
                       )}
                     </ProtectedPage>
-                  </GrowthBookProvider>
-                </AuthProvider>
-              </PageHeadProvider>
-            )}
+                  </AuthProvider>
+                </PageHeadProvider>
+              )}
+            </GrowthBookProvider>
           </RadixTheme>
         </AppearanceUIThemeProvider>
       ) : error ? (
