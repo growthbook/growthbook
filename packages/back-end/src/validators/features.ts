@@ -173,18 +173,6 @@ export const safeRolloutRule = baseRule
     controlValue: z.string(),
     variationValue: z.string(),
     safeRolloutId: z.string(),
-    safeRolloutInterfaceFields: z
-      .object({
-        trackingKey: z.string(),
-        datasource: z.string(),
-        exposureQueryId: z.string(),
-        hashAttribute: z.string(),
-        seed: z.string(),
-        guardrailMetrics: z.array(z.string()),
-        coverage: z.number(),
-        maxDurationDays: z.number(),
-      })
-      .optional(),
   })
   .strict();
 

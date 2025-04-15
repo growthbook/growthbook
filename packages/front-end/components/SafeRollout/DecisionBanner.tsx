@@ -13,7 +13,11 @@ import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvide
 import { useUser } from "@/services/UserContext";
 import Callout from "../Radix/Callout";
 
-const DecisionBanner = ({ openStatusModal }) => {
+const DecisionBanner = ({
+  openStatusModal,
+}: {
+  openStatusModal: () => void;
+}) => {
   const {
     safeRollout,
     snapshot: snapshotWithResults,
@@ -57,7 +61,6 @@ const DecisionBanner = ({ openStatusModal }) => {
   // failingGuardrails comes from the analysis summary for now, but we could return it in the above
   const failingGuardrails = ["X", "Y", "Z"]; // Mocked for demonstration
   const decisionStatus = { status: "rollback-now" }; // Mocked decision status for demonstration
-
   if (decisionStatus?.status === "rollback-now") {
     return (
       <Callout status="error" my="4">

@@ -121,7 +121,10 @@ import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
 import { FeatureUsageLookback } from "back-end/src/types/Integration";
 import { getChangesToStartExperiment } from "back-end/src/services/experiments";
 import { getMetricMap } from "back-end/src/models/MetricModel";
-import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
+import {
+  safeRollout,
+  SafeRolloutInterface,
+} from "back-end/src/models/SafeRolloutModel";
 import { CreateProps } from "back-end/src/models/BaseModel";
 import {
   PostFeatureRuleBody,
@@ -2884,5 +2887,23 @@ export async function postCopyEnvironmentRules(
   res.status(200).json({
     status: 200,
     version: revision.version,
+  });
+}
+export async function postRevertSafeRollout(
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{ status: 200 }, EventUserForResponseLocals>
+) {
+  const { id } = req.params;
+  const context = getContextFromReq(req);
+  const safeRollout = await context.models.safeRollout.getById(id);
+  if (!safeRollout) {
+    throw new Error("Could not find safe rollout");
+  }
+  await context.models.safeRollout.update(safeRollout, {
+    status: "rolled-back",
+  });
+
+  res.status(200).json({
+    status: 200,
   });
 }

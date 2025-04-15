@@ -27,6 +27,7 @@ import Callout from "@/components/Radix/Callout";
 import SafeRolloutSummary from "@/components/Features/SafeRolloutSummary";
 import SafeRolloutSnapshotProvider from "@/components/SafeRollout/SnapshotProvider";
 import SafeRolloutDetails from "@/components/SafeRollout/SafeRolloutDetails";
+import SafeRolloutStatusModal from "@/components/Features/SafeRollout/SafeRolloutStatusModal";
 import DecisionBanner from "../SafeRollout/DecisionBanner";
 import ConditionDisplay from "./ConditionDisplay";
 import ForceSummary from "./ForceSummary";
@@ -131,7 +132,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const environments = filterEnvironmentsByFeature(allEnvironments, feature);
     const { featureUsage } = useFeatureUsage();
     const [
-      _safeRolloutStatusModalOpen,
+      safeRolloutStatusModalOpen,
       setSafeRolloutStatusModalOpen,
     ] = useState(false);
     let title: string | ReactElement =
@@ -163,7 +164,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       permissionsUtil.canViewFeatureModal(feature.project) &&
       permissionsUtil.canManageFeatureDrafts(feature);
 
-    const isInactive = isRuleInactive(rule, experimentsMap);
+    const isInactive = isRuleInactive(rule, experimentsMap, safeRolloutsMap);
 
     const hasCondition =
       (rule.condition && rule.condition !== "{}") ||
@@ -173,6 +174,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const info = getRuleMetaInfo({
       rule,
       experimentsMap,
+      safeRolloutsMap,
       isDraft,
       unreachable,
     });
@@ -302,14 +304,16 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           rule={rule}
                           feature={feature}
                         />
-                        {/* TODO: Once modal exists to change Safe Rollout status, plug in setStatusModalOpen here */}
-                        {/* <SafeRolloutStatusModal
-                          safeRollout={safeRollout}
-                          open={safeRolloutStatusModalOpen}
-                          setStatusModalOpen={() =>
-                            setSafeRolloutStatusModalOpen
-                          }
-                        /> */}
+                        {safeRollout?.status === "running" &&
+                          safeRolloutStatusModalOpen && (
+                            <SafeRolloutStatusModal
+                              safeRollout={safeRollout}
+                              open={safeRolloutStatusModalOpen}
+                              setStatusModalOpen={() =>
+                                setSafeRolloutStatusModalOpen(true)
+                              }
+                            />
+                          )}
                         <DecisionBanner
                           openStatusModal={() =>
                             setSafeRolloutStatusModalOpen(true)
@@ -512,11 +516,13 @@ export type RuleMetaInfo = {
 export function getRuleMetaInfo({
   rule,
   experimentsMap,
+  safeRolloutsMap,
   isDraft,
   unreachable,
 }: {
   rule: FeatureRule;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
+  safeRolloutsMap: Map<string, SafeRolloutInterface>;
   isDraft: boolean;
   unreachable?: boolean;
 }): RuleMetaInfo {
@@ -524,7 +530,7 @@ export function getRuleMetaInfo({
     rule.type === "experiment-ref"
       ? experimentsMap.get(rule.experimentId)
       : undefined;
-  const ruleInactive = isRuleInactive(rule, experimentsMap);
+  const ruleInactive = isRuleInactive(rule, experimentsMap, safeRolloutsMap);
   const ruleSkipped = isRuleSkipped({
     rule,
     linkedExperiment,

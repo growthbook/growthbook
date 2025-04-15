@@ -304,7 +304,8 @@ export function getVariationDefaultName(
 
 export function isRuleInactive(
   rule: FeatureRule,
-  experimentsMap: Map<string, ExperimentInterfaceStringDates>
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>,
+  safeRolloutsMap: Map<string, SafeRolloutInterface>
 ): boolean {
   // Explicitly disabled
   if (!rule.enabled) return true;
@@ -318,7 +319,12 @@ export function isRuleInactive(
   if (scheduleCompletedAndDisabled) {
     return true;
   }
-
+  if (rule.type === "safe-rollout") {
+    const safeRollout = safeRolloutsMap?.get(rule.safeRolloutId);
+    if (safeRollout?.status === "rolled-back") {
+      return true;
+    }
+  }
   // Linked experiment is missing, archived, or stopped with no temp rollout
   if (rule.type === "experiment-ref") {
     const linkedExperiment = experimentsMap.get(rule.experimentId);
@@ -653,10 +659,7 @@ export function getDefaultRuleValue({
   defaultValue: string;
   attributeSchema?: SDKAttributeSchema;
   ruleType: string;
-}):
-  | FeatureRule
-  | NewExperimentRefRule
-  | SafeRolloutRule {
+}): FeatureRule | NewExperimentRefRule | SafeRolloutRule {
   const hashAttributes =
     attributeSchema?.filter((a) => a.hashAttribute)?.map((a) => a.property) ||
     [];
@@ -838,13 +841,14 @@ export function getDefaultRuleValue({
 
 export function getUnreachableRuleIndex(
   rules: FeatureRule[],
-  experimentsMap: Map<string, ExperimentInterfaceStringDates>
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>,
+  safeRolloutsMap: Map<string, SafeRolloutInterface>
 ) {
   for (let i = 0; i < rules.length; i++) {
     const rule = rules[i];
 
     // Skip over inactive rules
-    if (isRuleInactive(rule, experimentsMap)) continue;
+    if (isRuleInactive(rule, experimentsMap, safeRolloutsMap)) continue;
 
     // Skip rules that are conditional based on a schedule
     const upcomingScheduleRule = getUpcomingScheduleRule(rule);

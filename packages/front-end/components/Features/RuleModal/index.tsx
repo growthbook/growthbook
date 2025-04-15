@@ -19,9 +19,12 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import { PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
-import { kebabCase } from "lodash";
+import { kebabCase, omit } from "lodash";
 import { Text } from "@radix-ui/themes";
-import { SafeRolloutInterfaceCreateFields } from "back-end/src/models/SafeRolloutModel";
+import {
+  SafeRolloutInterface,
+  SafeRolloutInterfaceCreateFields,
+} from "back-end/src/models/SafeRolloutModel";
 import { SafeRolloutRule } from "back-end/src/validators/features";
 import {
   PostFeatureRuleBody,
@@ -74,6 +77,7 @@ export interface Props {
   defaultType?: string;
   revisions?: FeatureRevisionInterface[];
   duplicate?: boolean;
+  safeRolloutsMap?: Map<string, SafeRolloutInterface>;
 }
 
 type RadioSelectorRuleType =
@@ -104,6 +108,7 @@ export default function RuleModal({
   setVersion,
   revisions,
   duplicate,
+  safeRolloutsMap,
 }: Props) {
   const growthbook = useGrowthBook<AppFeatures>();
   const { hasCommercialFeature, organization } = useUser();
@@ -114,7 +119,10 @@ export default function RuleModal({
   const rules = getRules(feature, environment);
   const rule = rules[i];
   const isNewRule = !rule;
-
+  const safeRollout =
+    rule.type === "safe-rollout"
+      ? safeRolloutsMap?.get(rule?.safeRolloutId)
+      : undefined;
   const { features } = useFeaturesList();
   const { datasources, project: currentProject } = useDefinitions();
   const { experimentsMap, mutateExperiments } = useExperiments();
@@ -133,9 +141,37 @@ export default function RuleModal({
     attributeSchema,
   });
 
+  const convertRuleToFormValues = (rule: FeatureRule) => {
+    if (rule.type === "safe-rollout") {
+      console.log("testing guy 2", { safeRolloutInterfaceFields: safeRollout });
+      return {
+        ...rule,
+        safeRolloutInterfaceFields: safeRollout,
+      };
+    }
+    return rule;
+  };
+
+  const convertSafeRolloutFromFormValues = (
+    formValues: SafeRolloutRuleCreateFields
+  ) => {
+    if (formValues.type === "safe-rollout" && safeRollout) {
+      return {
+        rule: omit(
+          formValues,
+          "safeRolloutInterfaceFields"
+        ) as Partial<SafeRolloutRule>,
+        safeRolloutInterfaceFields: formValues.safeRolloutInterfaceFields as Partial<SafeRolloutInterfaceCreateFields>,
+      };
+    }
+    return {
+      rule: formValues as SafeRolloutRule,
+    };
+  };
+  console.log("testing guy", convertRuleToFormValues(rule));
   const defaultValues = {
     ...defaultRuleValues,
-    ...rule,
+    ...convertRuleToFormValues(rule),
   };
 
   // Overview Page
@@ -338,9 +374,7 @@ export default function RuleModal({
       }
     }
 
-    let safeRolloutInterfaceFields:
-      | SafeRolloutInterfaceCreateFields
-      | undefined;
+    let interfaceFields: Partial<SafeRolloutInterfaceCreateFields> | undefined;
     try {
       if (values.type === "experiment-ref-new") {
         // Make sure there's an experiment name
@@ -556,11 +590,11 @@ export default function RuleModal({
         // eslint-disable-next-line
         delete (values as any).value;
       } else if (values.type === "safe-rollout") {
-        if (values.safeRolloutInterfaceFields) {
-          safeRolloutInterfaceFields = values.safeRolloutInterfaceFields;
-          // eslint-disable-next-line
-          delete (values as any).safeRolloutInterfaceFields;
-        }
+        const { safeRolloutInterfaceFields } = convertSafeRolloutFromFormValues(
+          values as SafeRolloutRuleCreateFields
+        );
+        delete (values as any).safeRolloutInterfaceFields;
+        interfaceFields = safeRolloutInterfaceFields;
       }
 
       if (
@@ -594,13 +628,13 @@ export default function RuleModal({
       let body: PostFeatureRuleBody | PutFeatureRuleBody = {
         rule: values,
         environment,
-        interfaceFields: safeRolloutInterfaceFields,
+        interfaceFields,
       };
       if (!duplicate && i !== rules.length) {
         method = "PUT";
         body = {
           rule: values,
-          interfaceFields: safeRolloutInterfaceFields,
+          interfaceFields,
           environment,
           i,
         };

@@ -235,6 +235,7 @@ export default function FeatureRules({
           feature={feature}
           close={() => setRuleModal(null)}
           i={ruleModal.i}
+          safeRolloutsMap={safeRolloutsMap}
           environment={ruleModal.environment}
           mutate={mutate}
           defaultType={ruleModal.defaultType || ""}
