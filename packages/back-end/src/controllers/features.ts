@@ -1268,13 +1268,22 @@ export async function postFeatureRule(
     );
     rule.safeRolloutId = safeRollout.id;
   }
-  await addFeatureRule(
-    revision,
-    environment,
-    rule,
-    res.locals.eventAudit,
-    resetReview
-  );
+  if (
+    (rule.type === "safe-rollout" && rule.safeRolloutId) || // make sure the safe rollout is created
+    rule.type !== "safe-rollout"
+  ) {
+    await addFeatureRule(
+      revision,
+      environment,
+      rule,
+      res.locals.eventAudit,
+      resetReview
+    );
+  } else {
+    throw new Error(
+      "Safe rollout rule must be created before adding to feature"
+    );
+  }
 
   // If referencing a new experiment, add it to linkedExperiments
   if (
