@@ -58,8 +58,9 @@ const safeRolloutSnapshotMetricObject = z.object({
     )
     .optional(),
   chanceToWin: z.number().optional(),
-  errorMessage: z.string().optional(),
-  power: metricPowerResponseFromStatsEngineObject.optional(),
+  // TODO: do we want to have nullish here or should we parse to undefined?
+  errorMessage: z.string().nullish(),
+  power: metricPowerResponseFromStatsEngineObject.nullish(),
 });
 
 const safeRolloutSnapshotTrafficDimensionObject = z.object({
@@ -131,7 +132,9 @@ const metricForSnapshotObject = z.object({
     .optional(),
 });
 
-export type MetricForSafeRolloutSnapshot = z.infer<typeof metricForSnapshotObject>;
+export type MetricForSafeRolloutSnapshot = z.infer<
+  typeof metricForSnapshotObject
+>;
 
 const snapshotSettingsVariationValidator = z.object({
   id: z.string(),

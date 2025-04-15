@@ -1,3 +1,4 @@
+import { subDays } from "date-fns";
 import {
   DEFAULT_METRIC_WINDOW,
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
@@ -38,10 +39,6 @@ import { OrganizationInterface, ReqContext } from "back-end/types/organization";
 import { MetricSnapshotSettings } from "back-end/types/report";
 import { MetricInterface } from "back-end/types/metric";
 import { getMetricMap } from "back-end/src/models/MetricModel";
-import {
-  FeatureInterface,
-  SafeRolloutRule,
-} from "back-end/src/validators/features";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
@@ -310,7 +307,7 @@ function getSafeRolloutSnapshotSettings({
     queryFilter: "",
     datasourceId: safeRollout.datasource || "",
     dimensions: settings.dimensions.map((id) => ({ id })),
-    startDate: safeRollout.startedAt || new Date(), // might want to fix this
+    startDate: safeRollout.startedAt || subDays(new Date(), 10), // should fix this. using 2 hardcoded just for testing
     endDate: new Date(),
     experimentId: safeRollout.trackingKey || safeRollout.id,
     guardrailMetrics,

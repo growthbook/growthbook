@@ -290,6 +290,7 @@ export default function ResultsTable({
     hoveredMetricRow,
     hoveredVariationRow,
     resetTimeout,
+    TooltipInPortal,
   } = useResultsTableTooltip({
     orderedVariations,
     rows,
@@ -326,19 +327,21 @@ export default function ResultsTable({
         classNames="tooltip-animate"
         appear={true}
       >
-        <ResultsTableTooltip
-          left={hoveredX ?? 0}
-          top={hoveredY ?? 0}
-          data={tooltipData}
-          tooltipOpen={tooltipOpen}
-          close={closeTooltip}
-          differenceType={differenceType}
-          onPointerMove={resetTimeout}
-          onClick={resetTimeout}
-          onPointerLeave={leaveRow}
-          isBandit={isBandit}
-          ssrPolyfills={ssrPolyfills}
-        />
+        <TooltipInPortal>
+          <ResultsTableTooltip
+            left={hoveredX ?? 0}
+            top={hoveredY ?? 0}
+            data={tooltipData}
+            tooltipOpen={tooltipOpen}
+            close={closeTooltip}
+            differenceType={differenceType}
+            onPointerMove={resetTimeout}
+            onClick={resetTimeout}
+            onPointerLeave={leaveRow}
+            isBandit={isBandit}
+            ssrPolyfills={ssrPolyfills}
+          />
+        </TooltipInPortal>
       </CSSTransition>
 
       <div ref={tableContainerRef} className="experiment-results-wrapper">
