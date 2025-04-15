@@ -27,7 +27,6 @@ export default function RunningExperimentDecisionBanner({
   showDecisionCriteriaLink = true,
 }: Props) {
   const [showDecisionCriteria, setShowDecisionCriteria] = useState(false);
-  // TODO resolver
 
   const variations = experiment.variations;
   const indexedVariations = variations.map<VariationWithIndex>((v, i) => ({
