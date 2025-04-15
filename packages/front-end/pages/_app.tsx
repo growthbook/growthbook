@@ -134,24 +134,22 @@ function App({
 
     return (
       <AuthProvider exitOnNoAuth={!(preAuth || progressiveAuth)}>
-        <GrowthBookProvider growthbook={growthbook}>
-          <UserContextProvider key={orgId}>
-            <DefinitionsProvider>
-              <PageHeadProvider>
-                {preAuthTopNav || progressiveAuthTopNav ? (
-                  <>
-                    <TopNavLite />
-                    <main className={`main lite ${parts[0]}`}>
-                      <Component {...{ ...pageProps, envReady: ready }} />
-                    </main>
-                  </>
-                ) : (
-                  <Component {...{ ...pageProps, envReady: ready }} />
-                )}
-              </PageHeadProvider>
-            </DefinitionsProvider>
-          </UserContextProvider>
-        </GrowthBookProvider>
+        <UserContextProvider key={orgId}>
+          <DefinitionsProvider>
+            <PageHeadProvider>
+              {preAuthTopNav || progressiveAuthTopNav ? (
+                <>
+                  <TopNavLite />
+                  <main className={`main lite ${parts[0]}`}>
+                    <Component {...{ ...pageProps, envReady: ready }} />
+                  </main>
+                </>
+              ) : (
+                <Component {...{ ...pageProps, envReady: ready }} />
+              )}
+            </PageHeadProvider>
+          </DefinitionsProvider>
+        </UserContextProvider>
       </AuthProvider>
     );
   };
@@ -178,13 +176,13 @@ function App({
       {ready || noLoadingOverlay ? (
         <AppearanceUIThemeProvider>
           <RadixTheme>
-            <div id="portal-root" />
-            {preAuth || progressiveAuth ? (
-              renderPreAuth()
-            ) : (
-              <PageHeadProvider>
-                <AuthProvider>
-                  <GrowthBookProvider growthbook={growthbook}>
+            <GrowthBookProvider growthbook={growthbook}>
+              <div id="portal-root" />
+              {preAuth || progressiveAuth ? (
+                renderPreAuth()
+              ) : (
+                <PageHeadProvider>
+                  <AuthProvider>
                     <ProtectedPage organizationRequired={organizationRequired}>
                       {organizationRequired ? (
                         <GetStartedProvider>
@@ -211,10 +209,10 @@ function App({
                         </div>
                       )}
                     </ProtectedPage>
-                  </GrowthBookProvider>
-                </AuthProvider>
-              </PageHeadProvider>
-            )}
+                  </AuthProvider>
+                </PageHeadProvider>
+              )}
+            </GrowthBookProvider>
           </RadixTheme>
         </AppearanceUIThemeProvider>
       ) : error ? (
