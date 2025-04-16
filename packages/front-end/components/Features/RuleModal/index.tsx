@@ -120,7 +120,7 @@ export default function RuleModal({
   const rule = rules[i];
   const isNewRule = !rule;
   const safeRollout =
-    rule.type === "safe-rollout"
+    rule?.type === "safe-rollout"
       ? safeRolloutsMap?.get(rule?.safeRolloutId)
       : undefined;
   const { features } = useFeaturesList();
