@@ -1,7 +1,8 @@
 export type Attributes = Record<string, string | number>;
 
 export type Counter = {
-  add: (incr: number, attributes?: Attributes) => void;
+  increment: (attributes?: Attributes) => void;
+  decrement: (attributes?: Attributes) => void;
 };
 
 export type Histogram = {
@@ -15,7 +16,8 @@ type Metrics = {
 
 export const metrics: Metrics = {
   getCounter: (_: string) => ({
-    add: () => undefined,
+    increment: () => undefined,
+    decrement: () => undefined,
   }),
   getHistogram: (_: string) => ({
     record: () => undefined,

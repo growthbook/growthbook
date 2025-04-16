@@ -32,7 +32,7 @@ import { SemanticResourceAttributes } from "@opentelemetry/semantic-conventions"
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-proto";
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
 import { getBuild } from "./util/handler";
-import { setMetrics } from "./util/metrics";
+import { setMetrics, Attributes } from "./util/metrics";
 
 diag.setLogger(
   new DiagConsoleLogger(),
@@ -78,9 +78,17 @@ process.on("SIGTERM", () => {
     .catch((error) => diag.error("Error terminating OpenTelemetry SDK", error));
 });
 
+const getCounter = (name: string) => {
+  const counter = otlMetrics.getMeter(name).createUpDownCounter(name);
+
+  return {
+    increment: (attributes?: Attributes) => counter.add(1, attributes),
+    decrement: (attributes?: Attributes) => counter.add(-1, attributes),
+  };
+};
+
 setMetrics({
-  getCounter: (name: string) =>
-    otlMetrics.getMeter(name).createUpDownCounter(name),
+  getCounter,
   getHistogram: (name: string) =>
     otlMetrics.getMeter(name).createHistogram(name),
 });

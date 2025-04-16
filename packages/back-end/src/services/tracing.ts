@@ -27,7 +27,7 @@ export const trackJob = (
   // init metrics
   try {
     counter = metrics.getCounter(`jobs.running_count`);
-    counter.add(1, attributes);
+    counter.increment(attributes);
     hasMetricsStarted = true;
   } catch (e) {
     logger.error(`error init'ing counter for job: ${jobName}: ${e}`);
@@ -47,7 +47,7 @@ export const trackJob = (
     }
     if (!hasMetricsStarted) return;
     try {
-      counter.add(-1, attributes);
+      counter.decrement(attributes);
     } catch (e) {
       logger.error(`error decrementing count metric for job: ${jobName}: ${e}`);
     }
@@ -61,7 +61,7 @@ export const trackJob = (
     logger.error(`error running job: ${jobName}: ${e}`);
     try {
       wrapUpMetrics();
-      metrics.getCounter(`jobs.errors`).add(1, attributes);
+      metrics.getCounter(`jobs.errors`).increment(attributes);
     } catch (e) {
       logger.error(`error wrapping up metrics: ${jobName}: ${e}`);
     }
@@ -71,7 +71,7 @@ export const trackJob = (
   // on successful job
   try {
     wrapUpMetrics();
-    metrics.getCounter(`jobs.successes`).add(1, attributes);
+    metrics.getCounter(`jobs.successes`).increment(attributes);
   } catch (e) {
     logger.error(`error wrapping up metrics: ${jobName}: ${e}`);
   }
