@@ -56,7 +56,6 @@ export default function FeaturesStats({
               codebase, with direct links from GrowthBook to the platform of
               your choice."
             commercialFeature="code-references"
-            reason="Code ref on features no access"
             learnMoreLink="https://docs.growthbook.io/features/code-references"
           />
         </div>

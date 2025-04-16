@@ -17,7 +17,7 @@ import {
   findReportsByQueryId,
   updateReport,
 } from "back-end/src/models/ReportModel";
-import { trackJob } from "back-end/src/services/otel";
+import { trackJob } from "back-end/src/services/tracing";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 const JOB_NAME = "expireOldQueries";

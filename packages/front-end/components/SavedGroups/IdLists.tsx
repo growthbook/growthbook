@@ -106,7 +106,6 @@ export default function IdLists({ groups, mutate }: Props) {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason=""
           source="large-saved-groups"
           commercialFeature="large-saved-groups"
         />

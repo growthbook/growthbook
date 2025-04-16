@@ -76,7 +76,7 @@ export const DO_NO_HARM_DECISION_CRITERIA: DecisionCriteriaData = {
   defaultAction: "rollback",
 };
 
-export const DEFAULT_DECISION_CRITERIAS: DecisionCriteriaData[] = [
+export const PRESET_DECISION_CRITERIAS: DecisionCriteriaData[] = [
   DEFAULT_DECISION_CRITERIA,
   DO_NO_HARM_DECISION_CRITERIA,
 ];
