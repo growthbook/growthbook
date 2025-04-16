@@ -9,6 +9,10 @@ export {
   SafeRolloutSnapshotInterface,
 } from "back-end/src/validators/safe-rollout";
 
+export {
+  SafeRolloutInterface,
+} from "back-end/src/models/SafeRolloutModel";
+
 export type PostFeatureRuleBody = {
   rule: FeatureRule;
   environment: string;

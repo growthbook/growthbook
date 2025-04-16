@@ -11,9 +11,8 @@ import {
   ExperimentResultStatusData,
   ExperimentUnhealthyData,
 } from "back-end/types/experiment";
-import { SafeRolloutSnapshotInterface } from "back-end/types/safe-rollout";
+import { SafeRolloutInterface, SafeRolloutSnapshotInterface } from "back-end/types/safe-rollout";
 import { OrganizationSettings } from "back-end/types/organization";
-import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
 import { addDays, differenceInDays } from "date-fns";
 import {
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
