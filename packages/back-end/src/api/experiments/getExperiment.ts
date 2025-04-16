@@ -28,7 +28,7 @@ export const getExperiment = createApiRequestHandler(getExperimentValidator)(
       try {
         decisionCriteria ||=
           (await req.context.models.decisionCriteria.getById(
-            settings!.defaultDecisionCriteriaId!
+            settings.defaultDecisionCriteriaId
           )) ?? DEFAULT_DECISION_CRITERIA;
       } catch {
         // Empty catch - we fall back to the default below if the query failed.
