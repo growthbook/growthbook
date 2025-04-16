@@ -590,10 +590,7 @@ export default function RuleModal({
         // eslint-disable-next-line
         delete (values as any).value;
       } else if (values.type === "safe-rollout") {
-        const { safeRolloutInterfaceFields } = convertSafeRolloutFromFormValues(
-          values as SafeRolloutRuleCreateFields
-        );
-        interfaceFields = safeRolloutInterfaceFields;
+        interfaceFields = values.safeRolloutInterfaceFields;
         delete (values as any).safeRolloutInterfaceFields;
       }
 
