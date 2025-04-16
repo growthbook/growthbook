@@ -38,7 +38,6 @@ export default function SubscriptionInfo() {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason="Your subscription has expired."
           source="billing-renew"
           commercialFeature={null}
         />

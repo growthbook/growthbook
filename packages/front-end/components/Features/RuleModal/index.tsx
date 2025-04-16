@@ -117,7 +117,7 @@ export default function RuleModal({
   const attributeSchema = useAttributeSchema(false, feature.project);
 
   const rules = getRules(feature, environment);
-  const rule = rules[i];
+  const rule: typeof rules[number] | undefined = rules[i];
   const isNewRule = !rule;
   const safeRollout =
     rule?.type === "safe-rollout"

@@ -176,6 +176,9 @@ paths:
       $ref: "./paths/listExperiments.yaml"
     post:
       $ref: "./paths/postExperiment.yaml"
+  /experiment-names:
+    get:
+      $ref: "./paths/getExperimentNames.yaml"
   /experiments/{id}:
     get:
       $ref: "./paths/getExperiment.yaml"

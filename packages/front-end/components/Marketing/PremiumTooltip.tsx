@@ -130,6 +130,7 @@ export default function PremiumTooltip({
             commercialFeature={commercialFeature}
             premiumText={tooltipText}
             useTip={false}
+            mx="2"
           />
         )}
       </Flex>

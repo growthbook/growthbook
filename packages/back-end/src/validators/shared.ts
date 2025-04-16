@@ -25,12 +25,3 @@ export const namespaceValue = z
   })
   .strict();
 export type NamespaceValue = z.infer<typeof namespaceValue>;
-
-export const safeRolloutStatus = [
-  "running",
-  "rolled-back",
-  "released",
-  "completed",
-  "draft",
-] as const;
-export type SafeRolloutStatus = typeof safeRolloutStatus[number];

@@ -23,8 +23,10 @@ import {
 } from "../../constants";
 import { daysBetween } from "../../dates";
 import { getMultipleExposureHealthData, getSRMHealthData } from "../../health";
-import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
-import { DEFAULT_DECISION_CRITERIAS, DO_NO_HARM_DECISION_CRITERIA } from "./constants";
+import {
+  DEFAULT_DECISION_CRITERIA,
+  PRESET_DECISION_CRITERIAS,
+} from "./constants";
 
 // Evaluate a single rule on a variation result
 // Returns the action if the rule is met, otherwise undefined
@@ -464,109 +466,12 @@ export function getExperimentResultStatus({
   }
 }
 
-
-export function getSafeRolloutResultStatus({
-  safeRollout,
-  healthSettings,
-  daysLeft,
-}: {
-  safeRollout: SafeRolloutInterface;
-  healthSettings: ExperimentHealthSettings;
-  daysLeft: number;
-}): ExperimentResultStatusData | undefined {
-  const unhealthyData: ExperimentUnhealthyData = {};
-  // TODO add analysis summary to safe rollout interface
-  const healthSummary = safeRollout.analysisSummary?.health;
-  const resultsStatus = safeRollout.analysisSummary?.resultsStatus;
-
-  if (healthSummary?.totalUsers) {
-    const srmHealthData = getSRMHealthData({
-      srm: healthSummary.srm,
-      srmThreshold: healthSettings.srmThreshold,
-      totalUsersCount: healthSummary.totalUsers,
-      numOfVariations: 2,
-      minUsersPerVariation: DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
-    });
-  
-    if (srmHealthData === "unhealthy") {
-      unhealthyData.srm = true;
-    }
-
-    const multipleExposuresHealthData = getMultipleExposureHealthData({
-      multipleExposuresCount: healthSummary.multipleExposures,
-      totalUsersCount: healthSummary.totalUsers,
-      minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
-      minPercentThreshold: healthSettings.multipleExposureMinPercent,
-    });
-
-    if (multipleExposuresHealthData.status === "unhealthy") {
-      unhealthyData.multipleExposures = {
-        rawDecimal: multipleExposuresHealthData.rawDecimal,
-        multipleExposedUsers: healthSummary.multipleExposures,
-      };
-    }
-  }
-  
-  const ROLLBACK_SAFE_ROLLOUT_DECISION_CRITERIA: DecisionCriteriaData = {
-    id: "gbdeccrit_rollback_safe_rollout",
-    name: "Rollback Safe Rollout",
-    description: "",
-    rules: [
-      {
-        conditions: [
-          {
-            match: "any",
-            metrics: "guardrails",
-            direction: "statsigLoser",
-          },
-        ],
-        action: "rollback",
-      },
-    ],
-    defaultAction: "review",
-  };
-
-  const decisionStatus = resultsStatus ? getDecisionFrameworkStatus({
-    resultsStatus,
-    decisionCriteria: ROLLBACK_SAFE_ROLLOUT_DECISION_CRITERIA,
-    goalMetrics: [],
-    guardrailMetrics: safeRollout.guardrailMetrics,
-    daysNeeded: Infinity, // sequential relied upon solely for safe rollouts
-  }) : undefined;
-
-  // If rollback now, return rollback now
-  if (decisionStatus?.status === "rollback-now") {
-    return {
-      status: "rollback-now",
-      variationIds: decisionStatus.variationIds,
-      sequentialUsed: false,
-      powerReached: false,
-    };
-  }
-  
-  // If unhealthy, return unhealthy status
-  if (unhealthyData.srm || unhealthyData.multipleExposures) {
-    return {
-      status: "unhealthy",
-      unhealthyData,
-    };
-  }
-
-  // If no decision status, return days left status
-  if (daysLeft > 0) {
-    return {
-      status: "days-left",
-      daysLeft,
-    };
-  }
-
-  if (daysLeft <= 0) {
-    // If no days left, return ship decision
-    return {
-      status: "ship-now",
-      variationIds: ["1"],
-      sequentialUsed: true,
-      powerReached: false,
-    }
-  }
+export function getPresetDecisionCriteriaForOrg(
+  settings?: OrganizationSettings
+) {
+  return !settings?.defaultDecisionCriteriaId
+    ? DEFAULT_DECISION_CRITERIA
+    : PRESET_DECISION_CRITERIAS.find(
+        (dc) => dc.id === settings.defaultDecisionCriteriaId
+      );
 }

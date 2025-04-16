@@ -1,21 +1,5 @@
-import { Histogram, metrics, UpDownCounter } from "@opentelemetry/api";
 import { logger } from "back-end/src/util/logger";
-
-const getMeter = (name: string) => {
-  return metrics.getMeter(name);
-};
-
-const getCounter = (name: string) => {
-  return getMeter(name).createCounter(name);
-};
-
-const getUpDownCounter = (name: string) => {
-  return getMeter(name).createUpDownCounter(name);
-};
-
-const getHistogram = (name: string) => {
-  return getMeter(name).createHistogram(name);
-};
+import { metrics, Counter, Histogram } from "back-end/src/util/metrics";
 
 // Datadog downcases tag values, so it is best to use snake case
 const normalizeJobName = (jobName: string) => {
@@ -29,7 +13,7 @@ export const trackJob = (
   jobNameRaw: string,
   fn: (...args: unknown[]) => Promise<unknown>
 ) => async (...args: unknown[]) => {
-  let counter: UpDownCounter;
+  let counter: Counter;
   let histogram: Histogram;
   let hasMetricsStarted = false;
 
@@ -42,14 +26,14 @@ export const trackJob = (
 
   // init metrics
   try {
-    counter = getUpDownCounter(`jobs.running_count`);
-    counter.add(1, attributes);
+    counter = metrics.getCounter(`jobs.running_count`);
+    counter.increment(attributes);
     hasMetricsStarted = true;
   } catch (e) {
     logger.error(`error init'ing counter for job: ${jobName}: ${e}`);
   }
   try {
-    histogram = getHistogram(`jobs.duration`);
+    histogram = metrics.getHistogram(`jobs.duration`);
   } catch (e) {
     logger.error(`error init'ing histogram for job: ${jobName}: ${e}`);
   }
@@ -63,7 +47,7 @@ export const trackJob = (
     }
     if (!hasMetricsStarted) return;
     try {
-      counter.add(-1, attributes);
+      counter.decrement(attributes);
     } catch (e) {
       logger.error(`error decrementing count metric for job: ${jobName}: ${e}`);
     }
@@ -77,7 +61,7 @@ export const trackJob = (
     logger.error(`error running job: ${jobName}: ${e}`);
     try {
       wrapUpMetrics();
-      getCounter(`jobs.errors`).add(1, attributes);
+      metrics.getCounter(`jobs.errors`).increment(attributes);
     } catch (e) {
       logger.error(`error wrapping up metrics: ${jobName}: ${e}`);
     }
@@ -87,7 +71,7 @@ export const trackJob = (
   // on successful job
   try {
     wrapUpMetrics();
-    getCounter(`jobs.successes`).add(1, attributes);
+    metrics.getCounter(`jobs.successes`).increment(attributes);
   } catch (e) {
     logger.error(`error wrapping up metrics: ${jobName}: ${e}`);
   }

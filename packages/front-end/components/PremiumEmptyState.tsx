@@ -12,7 +12,6 @@ interface Props {
   description: string;
   learnMoreLink?: string;
   commercialFeature: CommercialFeature;
-  reason: string;
   image?: string;
 }
 
@@ -22,7 +21,6 @@ const PremiumEmptyState: FC<Props> = ({
   h1 = "",
   learnMoreLink,
   commercialFeature,
-  reason,
   image,
 }) => {
   const [upgradeModal, setUpgradeModal] = useState(false);
@@ -43,7 +41,7 @@ const PremiumEmptyState: FC<Props> = ({
       {h1 && (
         <div className="mb-4 mt-3 d-flex align-items-center">
           <h1 className="mb-0">{h1}</h1>{" "}
-          <PaidFeatureBadge commercialFeature={commercialFeature} />
+          <PaidFeatureBadge commercialFeature={commercialFeature} mx="2" />
         </div>
       )}
       <div className="mb-5">
@@ -91,7 +89,6 @@ const PremiumEmptyState: FC<Props> = ({
           {upgradeModal && (
             <UpgradeModal
               close={() => setUpgradeModal(false)}
-              reason={reason}
               source={commercialFeature}
               commercialFeature={commercialFeature}
             />
