@@ -6245,6 +6245,20 @@ components:
           type: boolean
         hasURLRedirects:
           type: boolean
+        decisionCriteriaStatus:
+          type: object
+          required:
+            - status
+          properties:
+            status:
+              type: string
+              enum:
+                - Running
+                - Stopped
+                - Draft
+                - Archived
+            detailedStatus:
+              type: string
     ExperimentSnapshot:
       type: object
       required:

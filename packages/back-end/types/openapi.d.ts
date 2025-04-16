@@ -1424,6 +1424,11 @@ export interface components {
       linkedFeatures?: (string)[];
       hasVisualChangesets?: boolean;
       hasURLRedirects?: boolean;
+      decisionCriteriaStatus?: {
+        /** @enum {string} */
+        status: "Running" | "Stopped" | "Draft" | "Archived";
+        detailedStatus?: string;
+      };
     };
     ExperimentSnapshot: {
       id: string;
@@ -4353,6 +4358,11 @@ export interface operations {
                 linkedFeatures?: (string)[];
                 hasVisualChangesets?: boolean;
                 hasURLRedirects?: boolean;
+                decisionCriteriaStatus?: {
+                  /** @enum {string} */
+                  status: "Running" | "Stopped" | "Draft" | "Archived";
+                  detailedStatus?: string;
+                };
               })[];
           }) & {
             limit: number;
@@ -4625,6 +4635,11 @@ export interface operations {
               linkedFeatures?: (string)[];
               hasVisualChangesets?: boolean;
               hasURLRedirects?: boolean;
+              decisionCriteriaStatus?: {
+                /** @enum {string} */
+                status: "Running" | "Stopped" | "Draft" | "Archived";
+                detailedStatus?: string;
+              };
             };
           };
         };
@@ -4804,6 +4819,11 @@ export interface operations {
               linkedFeatures?: (string)[];
               hasVisualChangesets?: boolean;
               hasURLRedirects?: boolean;
+              decisionCriteriaStatus?: {
+                /** @enum {string} */
+                status: "Running" | "Stopped" | "Draft" | "Archived";
+                detailedStatus?: string;
+              };
             };
           };
         };
@@ -5074,6 +5094,11 @@ export interface operations {
               linkedFeatures?: (string)[];
               hasVisualChangesets?: boolean;
               hasURLRedirects?: boolean;
+              decisionCriteriaStatus?: {
+                /** @enum {string} */
+                status: "Running" | "Stopped" | "Draft" | "Archived";
+                detailedStatus?: string;
+              };
             };
           };
         };
@@ -6163,6 +6188,11 @@ export interface operations {
               linkedFeatures?: (string)[];
               hasVisualChangesets?: boolean;
               hasURLRedirects?: boolean;
+              decisionCriteriaStatus?: {
+                /** @enum {string} */
+                status: "Running" | "Stopped" | "Draft" | "Archived";
+                detailedStatus?: string;
+              };
             };
           };
         };

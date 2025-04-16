@@ -1,8 +1,16 @@
+import {
+  DEFAULT_DECISION_CRITERIA,
+  getDefaultDecisionCriteriaForOrg,
+  getHealthSettings,
+  getStatusIndicatorData,
+  StatusIndicatorData,
+} from "shared/enterprise";
 import { GetExperimentResponse } from "back-end/types/openapi";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { toExperimentApiInterface } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getExperimentValidator } from "back-end/src/validators/openapi";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
 
 export const getExperiment = createApiRequestHandler(getExperimentValidator)(
   async (req): Promise<GetExperimentResponse> => {
@@ -11,9 +19,41 @@ export const getExperiment = createApiRequestHandler(getExperimentValidator)(
       throw new Error("Could not find experiment with that id");
     }
 
+    let statusData:
+      | Pick<StatusIndicatorData, "status" | "detailedStatus">
+      | undefined;
+
+    if (orgHasPremiumFeature(req.context.org, "decision-framework")) {
+      const settings = req.context.org.settings;
+      const healthSettings = getHealthSettings(settings, true);
+      const decisionCriteria =
+        // Prioritize default criteria in org settings
+        getDefaultDecisionCriteriaForOrg(settings) ??
+        // Fetch criteria from mongo if needed
+        settings?.defaultDecisionCriteriaId
+          ? (await req.context.models.decisionCriteria.getById(
+              settings!.defaultDecisionCriteriaId!
+            )) ?? DEFAULT_DECISION_CRITERIA
+          : DEFAULT_DECISION_CRITERIA;
+      {
+        statusData = (({ status, detailedStatus }) => ({
+          status,
+          detailedStatus,
+        }))(
+          getStatusIndicatorData(
+            experiment,
+            false,
+            healthSettings,
+            decisionCriteria
+          )
+        );
+      }
+    }
+
     const apiExperiment = await toExperimentApiInterface(
       req.context,
-      experiment
+      experiment,
+      statusData
     );
     return {
       experiment: apiExperiment,
