@@ -51,7 +51,7 @@ export default function SafeRolloutFields({
       value: ds.id,
     })) || [];
   const dataSource = datasources?.find(
-    (ds) => ds.id === form.watch("safeRolloutInterfaceFields.datasource")
+    (ds) => ds.id === form.watch("safeRolloutInterfaceFields.datasourceId")
   );
   const exposureQueries = dataSource?.settings?.queries?.exposure || [];
   const disableFields = !isDraft && !isNewRule;
@@ -133,9 +133,9 @@ export default function SafeRolloutFields({
             <SelectField
               label="Data source"
               options={dataSourceOptions}
-              value={form.watch("safeRolloutInterfaceFields.datasource")}
+              value={form.watch("safeRolloutInterfaceFields.datasourceId")}
               onChange={(v) =>
-                form.setValue("safeRolloutInterfaceFields.datasource", v)
+                form.setValue("safeRolloutInterfaceFields.datasourceId", v)
               }
               required
               placeholder="Select a data source"
@@ -160,8 +160,8 @@ export default function SafeRolloutFields({
               }))}
               required
               disabled={
-                disableFields ||
-                !form.watch("safeRolloutInterfaceFields.datasource")
+                !isNewRule ||
+                !form.watch("safeRolloutInterfaceFields.datasourceId")
               }
               value={form.watch("safeRolloutInterfaceFields.exposureQueryId")}
               onChange={(v) =>
@@ -174,16 +174,16 @@ export default function SafeRolloutFields({
           <label>Guardrail metrics</label>
           {/* TODO validate at least one metric is selected */}
           <MetricsSelector
-            datasource={form.watch("safeRolloutInterfaceFields.datasource")}
+            datasource={form.watch("safeRolloutInterfaceFields.datasourceId")}
             exposureQueryId={form.watch(
               "safeRolloutInterfaceFields.exposureQueryId"
             )}
             project={feature.project}
             selected={
-              form.watch("safeRolloutInterfaceFields.guardrailMetrics") || []
+              form.watch("safeRolloutInterfaceFields.guardrailMetricIds") || []
             }
             onChange={(v) =>
-              form.setValue("safeRolloutInterfaceFields.guardrailMetrics", v)
+              form.setValue("safeRolloutInterfaceFields.guardrailMetricIds", v)
             }
           />
         </div>

@@ -36,7 +36,6 @@ import { ApiReqContext } from "back-end/types/api";
 import { simpleSchemaValidator } from "back-end/src/validators/features";
 import { getChangedApiFeatureEnvironments } from "back-end/src/events/handlers/utils";
 import { ResourceEvents } from "back-end/src/events/base-types";
-import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
 import {
   createEvent,
   hasPreviousObject,
@@ -975,7 +974,7 @@ export async function publishRevision(
   const safeRollouts = await context.models.safeRollout.findByIds(
     safeRolloutIds
   );
-  safeRollouts.forEach((safeRollout: SafeRolloutInterface) => {
+  safeRollouts.forEach((safeRollout) => {
     // TODO: we might want to write an updateMany function
     if (safeRollout.status === "draft") {
       context.models.safeRollout.update(safeRollout, {

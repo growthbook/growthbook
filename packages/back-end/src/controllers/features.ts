@@ -1194,21 +1194,21 @@ export async function postFeatureRule(
     if (interfaceFields.exposureQueryId === undefined) {
       throw new Error("Exposure query is required for safe rollouts");
     }
-    if (interfaceFields.datasource === undefined) {
+    if (interfaceFields.datasourceId === undefined) {
       throw new Error("Datasource is required for safe rollouts");
     }
-    if (interfaceFields.guardrailMetrics === undefined) {
+    if (interfaceFields.guardrailMetricIds === undefined) {
       throw new Error("Guardrail metrics are required for safe rollouts");
     }
 
-    const metricIds = interfaceFields.guardrailMetrics;
-    const datasource = interfaceFields.datasource;
+    const metricIds = interfaceFields.guardrailMetricIds;
+    const datasourceId = interfaceFields.datasourceId;
     if (metricIds.length) {
       const map = await getMetricMap(context);
       for (let i = 0; i < metricIds.length; i++) {
         const metric = map.get(metricIds[i]);
         if (metric) {
-          if (datasource && metric.datasource !== datasource) {
+          if (datasourceId && metric.datasource !== datasourceId) {
             throw new Error(
               "Metrics must be tied to the same datasource as the safe rollout: " +
                 metricIds[i]
@@ -1221,7 +1221,7 @@ export async function postFeatureRule(
           );
           if (metricGroup) {
             // Make sure it is tied to the same datasource as the experiment
-            if (datasource && metricGroup.datasource !== datasource) {
+            if (datasourceId && metricGroup.datasource !== datasourceId) {
               throw new Error(
                 "Metrics must be tied to the same datasource as the safe rollout: " +
                   metricIds[i]
@@ -1239,14 +1239,14 @@ export async function postFeatureRule(
       ...interfaceFields,
       coverage: 1, // hardcode to 100% for now
       seed: interfaceFields.seed || uuidv4(),
-      trackingKey: interfaceFields.trackingKey || `sf__${uuidv4()}`,
+      trackingKey: interfaceFields.trackingKey || `srk_${uuidv4()}`,
       status: "draft",
       // TODO are these mandatory
-      datasource: interfaceFields.datasource,
+      datasourceId: interfaceFields.datasourceId,
       exposureQueryId: interfaceFields.exposureQueryId,
       hashAttribute: interfaceFields.hashAttribute,
       autoSnapshots: true,
-      guardrailMetrics: interfaceFields.guardrailMetrics,
+      guardrailMetricIds: interfaceFields.guardrailMetricIds,
       maxDurationDays: interfaceFields.maxDurationDays,
       featureId: feature.id,
       ruleId: rule.id,

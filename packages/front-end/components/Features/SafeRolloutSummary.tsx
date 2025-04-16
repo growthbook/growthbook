@@ -1,4 +1,4 @@
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import { FeatureInterface } from "back-end/types/feature";
 import { Box, Flex } from "@radix-ui/themes";
 import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
 import { SafeRolloutRule } from "back-end/src/validators/features";
@@ -20,7 +20,7 @@ export default function SafeRolloutSummary({
   rule: SafeRolloutRule;
   feature: FeatureInterface;
 }) {
-  const { coverage, hashAttribute, guardrailMetrics } = safeRollout;
+  const { coverage, hashAttribute, guardrailMetricIds } = safeRollout;
   const { controlValue, variationValue } = rule;
   const type = feature.valueType;
   const coveragePercent = (coverage / 2) * 100;
@@ -111,7 +111,7 @@ export default function SafeRolloutSummary({
           <strong className="font-weight-semibold">MONITOR</strong>
         </Box>
         <Box>
-          <Badge color="gray" label={`${guardrailMetrics.length}`}></Badge>
+          <Badge color="gray" label={`${guardrailMetricIds.length}`}></Badge>
           <span className="pl-2">metrics</span>
         </Box>
       </Flex>

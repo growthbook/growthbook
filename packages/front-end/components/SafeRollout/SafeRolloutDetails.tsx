@@ -31,7 +31,7 @@ const variations = [
 export default function SafeRolloutDetails({ safeRollout }: Props) {
   const { snapshot } = useSafeRolloutSnapshot();
   const { getDatasourceById } = useDefinitions();
-  const datasource = getDatasourceById(safeRollout.datasource);
+  const datasource = getDatasourceById(safeRollout.datasourceId);
 
   const exposureQuery = datasource?.settings.queries?.exposure?.find(
     (e) => e.id === safeRollout.exposureQueryId

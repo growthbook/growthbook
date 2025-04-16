@@ -282,7 +282,7 @@ function getSafeRolloutSnapshotSettings({
 
   // expand metric groups and scrub unjoinable metrics
   const guardrailMetrics = expandMetricGroups(
-    safeRollout.guardrailMetrics,
+    safeRollout.guardrailMetricIds,
     metricGroups
   ).filter((m) =>
     isJoinableMetric({
@@ -305,7 +305,7 @@ function getSafeRolloutSnapshotSettings({
 
   return {
     queryFilter: "",
-    datasourceId: safeRollout.datasource || "",
+    datasourceId: safeRollout.datasourceId || "",
     dimensions: settings.dimensions.map((id) => ({ id })),
     startDate: safeRollout.startedAt || subDays(new Date(), 10), // should fix this. using 2 hardcoded just for testing
     endDate: new Date(),

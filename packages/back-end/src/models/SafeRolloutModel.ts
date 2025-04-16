@@ -2,7 +2,7 @@ import { z } from "zod";
 import { experimentAnalysisSummary } from "back-end/src/validators/experiments";
 import { baseSchema, MakeModelClass } from "./BaseModel";
 
-export const COLLECTION_NAME = "safeRollout";
+export const COLLECTION_NAME = "saferollout";
 
 const safeRolloutStatus = [
   "running",
@@ -15,11 +15,11 @@ export type SafeRolloutStatus = typeof safeRolloutStatus[number];
 
 const safeRollout = z.object({
   trackingKey: z.string(),
-  datasource: z.string(),
+  datasourceId: z.string(),
   exposureQueryId: z.string(),
   hashAttribute: z.string(),
   seed: z.string(),
-  guardrailMetrics: z.array(z.string()),
+  guardrailMetricIds: z.array(z.string()),
   status: z.enum(safeRolloutStatus),
   startedAt: z.date().optional(),
   lastSnapshotAttempt: z.date().optional(),
@@ -51,15 +51,16 @@ const BaseClass = MakeModelClass({
 
 export type CreateSafeRolloutInterface = Pick<
   SafeRolloutInterface,
-  | "datasource"
+  | "datasourceId"
   | "exposureQueryId"
   | "hashAttribute"
   | "maxDurationDays"
   | "seed"
-  | "guardrailMetrics"
+  | "guardrailMetricIds"
   | "trackingKey"
 >;
 export class SafeRolloutModel extends BaseClass {
+  // TODO: fix permissions
   protected canRead() {
     return true;
   }

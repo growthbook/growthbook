@@ -207,12 +207,13 @@ export const safeRolloutSnapshotInterface = z
   .object({
     id: z.string(),
     organization: z.string(),
-    safeRolloutId: z.string(),
-    dimension: z.string().nullable(),
     dateCreated: z.date(),
     dateUpdated: z.date(),
-    error: z.string().optional().nullable(),
+
+    safeRolloutId: z.string(),
     runStarted: z.date(),
+    dimension: z.string().optional(),
+    error: z.string().optional(),
     status: z.enum(["running", "success", "error"]),
     settings: safeRolloutSnapshotSettings,
     triggeredBy: z.enum(["manual", "schedule"]),

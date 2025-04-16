@@ -12,11 +12,11 @@ import Link from "@/components/Radix/Link";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/components/Radix/Callout";
-import { StatusIndicatorData } from "@/hooks/useExperimentStatusIndicator";
 import { RawExperimentStatusIndicator } from "../Experiment/TabbedPage/ExperimentStatusIndicator";
 import { ExperimentTab } from "../Experiment/TabbedPage";
 import { useSafeRolloutSnapshot } from "./SnapshotProvider";
 import SafeRolloutAnalysisSettingsSummary from "./AnalysisSettingsSummary";
+import { StatusIndicatorData } from "shared/enterprise";
 
 const CompactResults = dynamic(
   () => import("@/components/SafeRollout/Results/CompactResults")
@@ -107,9 +107,9 @@ const SafeRolloutResults: FC<{
     );
   }
 
-  const datasource = getDatasourceById(safeRollout.datasource);
+  const datasource = getDatasourceById(safeRollout.datasourceId);
 
-  const hasMetrics = safeRollout?.guardrailMetrics?.length > 0;
+  const hasMetrics = safeRollout?.guardrailMetricIds?.length > 0;
 
   // TODO: how to integrate this and experiment status indicator?
   const statusIndicatorData: StatusIndicatorData = (() => {
@@ -234,7 +234,7 @@ const SafeRolloutResults: FC<{
               status={safeRollout.status === "running" ? "running" : "stopped"}
               goalMetrics={[]}
               secondaryMetrics={[]}
-              guardrailMetrics={safeRollout.guardrailMetrics}
+              guardrailMetrics={safeRollout.guardrailMetricIds}
               metricOverrides={[]}
               id={safeRollout.id}
               statsEngine={"frequentist"}
