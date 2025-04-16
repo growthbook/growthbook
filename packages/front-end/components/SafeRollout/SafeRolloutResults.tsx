@@ -1,5 +1,6 @@
-import React, { FC } from "react";
+import React, { FC, useState } from "react";
 import dynamic from "next/dynamic";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import { getValidDate, ago, relativeDate } from "shared/dates";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { ExperimentMetricInterface } from "shared/experiments";
@@ -7,12 +8,14 @@ import { MetricSnapshotSettings } from "back-end/types/report";
 import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
+import Link from "@/components/Radix/Link";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/components/Radix/Callout";
+import { StatusIndicatorData } from "@/hooks/useExperimentStatusIndicator";
+import { RawExperimentStatusIndicator } from "../Experiment/TabbedPage/ExperimentStatusIndicator";
 import { ExperimentTab } from "../Experiment/TabbedPage";
 import { useSafeRolloutSnapshot } from "./SnapshotProvider";
-import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import SafeRolloutAnalysisSettingsSummary from "./AnalysisSettingsSummary";
 
 const CompactResults = dynamic(
@@ -94,6 +97,8 @@ const SafeRolloutResults: FC<{
 
   const showCompactResults = !draftMode && hasData && snapshot && analysis;
 
+  const [isAnalysisExpanded, setIsAnalysisExpanded] = useState(false);
+
   if (error) {
     return (
       <Callout status="error" mx="3" my="4">
@@ -106,79 +111,148 @@ const SafeRolloutResults: FC<{
 
   const hasMetrics = safeRollout?.guardrailMetrics?.length > 0;
 
+  // TODO: how to integrate this and experiment status indicator?
+  const statusIndicatorData: StatusIndicatorData = (() => {
+    switch (safeRollout.status) {
+      case "running":
+        return {
+          color: "indigo",
+          status: "Running",
+          sortOrder: 1,
+        };
+      case "released":
+        return {
+          color: "green",
+          status: "Stopped",
+          detailedStatus: "Released",
+          sortOrder: 1,
+        };
+      case "rolled-back":
+        return {
+          color: "red",
+          status: "Stopped",
+          detailedStatus: "Rolled Back",
+          sortOrder: 1,
+        };
+      case "completed":
+        return {
+          color: "gold",
+          status: "Stopped",
+          detailedStatus: "Completed",
+          sortOrder: 1,
+        };
+      case "draft":
+        return {
+          color: "gray",
+          status: "Draft",
+          sortOrder: 1,
+        };
+    }
+  })();
+
   return (
     <>
-      <h3>Analysis</h3>
-      <SafeRolloutAnalysisSettingsSummary safeRollout={safeRollout} mutate={mutate} />
-      {!hasMetrics && (
-        <div className="alert alert-info m-3">
-          Add at least 1 metric to view results.{" "}
-          {editMetrics && (
-            <button
-              className="btn btn-primary btn-sm ml-3"
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                editMetrics();
-              }}
-            >
-              Add Metrics
-            </button>
-          )}
-        </div>
-      )}
-
-      {!hasData && status !== "running" && hasMetrics && !snapshotLoading && (
-        <Callout status="info" mx="3" my="4">
-          No data yet.{" "}
-          {snapshot &&
-            phaseAgeMinutes >= 120 &&
-            "Make sure your safe rollout is tracking properly."}
-          {snapshot &&
-            phaseAgeMinutes < 120 &&
-            (phaseAgeMinutes < 0
-              ? "This safe rollout will start " +
-                relativeDate(safeRollout.startedAt ?? "") +
-                ". Wait until it's been running for a little while and click the 'Update' button above to check again."
-              : "It was just started " +
-                ago(safeRollout.startedAt ?? "") +
-                ". Give it a little longer and click the 'Update' button above to check again.")}
-          {!snapshot &&
-            datasource &&
-            permissionsUtil.canRunExperimentQueries(datasource) &&
-            `Click the "Update" button above.`}
-          {snapshotLoading && <div> Snapshot loading...</div>}
-        </Callout>
-      )}
-
-      {showCompactResults ? (
-        <CompactResults
-          editMetrics={editMetrics}
-          variations={SAFE_ROLLOUT_VARIATIONS}
-          multipleExposures={snapshot.multipleExposures || 0}
-          results={analysis.results[0]}
-          queryStatusData={queryStatusData}
-          reportDate={snapshot.dateCreated}
-          startDate={safeRollout.startedAt ?? ""} // TODO: investigate why its a string by this point
-          isLatestPhase={true}
-          status={safeRollout.status === "running" ? "running" : "stopped"}
-          goalMetrics={[]}
-          secondaryMetrics={[]}
-          guardrailMetrics={safeRollout.guardrailMetrics}
-          metricOverrides={[]}
-          id={safeRollout.id}
-          statsEngine={"frequentist"}
-          pValueCorrection={pValueCorrection}
-          regressionAdjustmentEnabled={analysis.settings?.regressionAdjusted}
-          settingsForSnapshotMetrics={settingsForSnapshotMetrics}
-          sequentialTestingEnabled={true}
-          differenceType={"absolute"}
-          metricFilter={metricFilter}
-          setMetricFilter={setMetricFilter}
-          isTabActive={isTabActive}
-          setTab={setTab}
-          experimentType={"standard"}
+      <Flex align="center" justify="between">
+        <Text weight="medium" size="3">
+          Analysis
+        </Text>
+        <Link
+          weight="medium"
+          onClick={() => setIsAnalysisExpanded(!isAnalysisExpanded)}
+        >
+          Show {isAnalysisExpanded ? "less" : "more"}
+        </Link>
+      </Flex>
+      <Box mt="3">
+        <RawExperimentStatusIndicator
+          statusIndicatorData={statusIndicatorData}
         />
+      </Box>
+      {isAnalysisExpanded ? (
+        <Box
+          mt="3"
+          style={{
+            border: "1px solid var(--slate-a4)",
+            borderRadius: "var(--radius-2)",
+          }}
+        >
+          <SafeRolloutAnalysisSettingsSummary
+            safeRollout={safeRollout}
+            mutate={mutate}
+          />
+          {!hasMetrics && (
+            <div className="alert alert-info m-3">
+              Add at least 1 metric to view results.{" "}
+              {editMetrics && (
+                <button
+                  className="btn btn-primary btn-sm ml-3"
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    editMetrics();
+                  }}
+                >
+                  Add Metrics
+                </button>
+              )}
+            </div>
+          )}
+
+          {!hasData && status !== "running" && hasMetrics && !snapshotLoading && (
+            <Callout status="info" mx="3" my="4">
+              No data yet.{" "}
+              {snapshot &&
+                phaseAgeMinutes >= 120 &&
+                "Make sure your safe rollout is tracking properly."}
+              {snapshot &&
+                phaseAgeMinutes < 120 &&
+                (phaseAgeMinutes < 0
+                  ? "This safe rollout will start " +
+                    relativeDate(safeRollout.startedAt ?? "") +
+                    ". Wait until it's been running for a little while and click the 'Update' button above to check again."
+                  : "It was just started " +
+                    ago(safeRollout.startedAt ?? "") +
+                    ". Give it a little longer and click the 'Update' button above to check again.")}
+              {!snapshot &&
+                datasource &&
+                permissionsUtil.canRunExperimentQueries(datasource) &&
+                `Click the "Update" button above.`}
+              {snapshotLoading && <div> Snapshot loading...</div>}
+            </Callout>
+          )}
+
+          {showCompactResults ? (
+            <CompactResults
+              editMetrics={editMetrics}
+              variations={SAFE_ROLLOUT_VARIATIONS}
+              multipleExposures={snapshot.multipleExposures || 0}
+              results={analysis.results[0]}
+              queryStatusData={queryStatusData}
+              reportDate={snapshot.dateCreated}
+              startDate={safeRollout.startedAt ?? ""} // TODO: investigate why its a string by this point
+              isLatestPhase={true}
+              status={safeRollout.status === "running" ? "running" : "stopped"}
+              goalMetrics={[]}
+              secondaryMetrics={[]}
+              guardrailMetrics={safeRollout.guardrailMetrics}
+              metricOverrides={[]}
+              id={safeRollout.id}
+              statsEngine={"frequentist"}
+              pValueCorrection={pValueCorrection}
+              regressionAdjustmentEnabled={
+                analysis.settings?.regressionAdjusted
+              }
+              settingsForSnapshotMetrics={settingsForSnapshotMetrics}
+              sequentialTestingEnabled={true}
+              differenceType={"absolute"}
+              metricFilter={metricFilter}
+              setMetricFilter={setMetricFilter}
+              isTabActive={isTabActive}
+              setTab={setTab}
+              experimentType={"standard"}
+            />
+          ) : null}
+        </Box>
       ) : null}
     </>
   );

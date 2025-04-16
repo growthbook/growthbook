@@ -1,7 +1,9 @@
-import { Box } from "@radix-ui/themes";
+import { useState } from "react";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import { FeatureInterface } from "back-end/src/validators/features";
 import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import Link from "@/components/Radix/Link";
 import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 import SRMCard from "../HealthTab/SRMCard";
@@ -41,6 +43,7 @@ export default function SafeRolloutDetails({ safeRollout }: Props) {
   );
 
   const traffic = snapshot?.health?.traffic;
+  const [isHealthExpanded, setIsHealthExpanded] = useState(false);
 
   return (
     <div>
@@ -51,21 +54,36 @@ export default function SafeRolloutDetails({ safeRollout }: Props) {
 
         {traffic && totalUsers ? (
           <>
-            <h2>Health</h2>
-            <SRMCard
-              traffic={traffic}
-              variations={variations}
-              totalUsers={totalUsers}
-              onNotify={() => {}}
-              dataSource={datasource}
-              exposureQuery={exposureQuery}
-              canConfigHealthTab={false}
-            />
-            <MultipleExposuresCard
-              totalUsers={totalUsers}
-              snapshot={snapshot}
-              onNotify={() => {}}
-            />
+            <Flex align="center" justify="between" mb="3">
+              <Text weight="medium" size="3">
+                Health
+              </Text>
+              <Link
+                weight="medium"
+                onClick={() => setIsHealthExpanded(!isHealthExpanded)}
+              >
+                Show {isHealthExpanded ? "less" : "more"}
+              </Link>
+            </Flex>
+            {isHealthExpanded ? (
+              <>
+                <SRMCard
+                  newDesign={true}
+                  traffic={traffic}
+                  variations={variations}
+                  totalUsers={totalUsers}
+                  onNotify={() => {}}
+                  dataSource={datasource}
+                  exposureQuery={exposureQuery}
+                  canConfigHealthTab={false}
+                />
+                <MultipleExposuresCard
+                  totalUsers={totalUsers}
+                  snapshot={snapshot}
+                  onNotify={() => {}}
+                />
+              </>
+            ) : null}
           </>
         ) : (
           <Callout status="info" mt="3">

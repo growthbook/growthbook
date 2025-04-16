@@ -27,6 +27,7 @@ interface Props {
   exposureQuery?: ExposureQuery;
   healthTabConfigParams?: HealthTabConfigParams;
   canConfigHealthTab: boolean;
+  newDesign?: boolean;
 }
 
 export const EXPERIMENT_DIMENSION_PREFIX = "dim_exp_";
@@ -41,6 +42,7 @@ export default function SRMCard({
   exposureQuery,
   healthTabConfigParams,
   canConfigHealthTab,
+  newDesign = false,
 }: Props) {
   const { settings } = useUser();
 
@@ -86,8 +88,19 @@ export default function SRMCard({
     );
   }
 
+  const classes = !newDesign ? "appbox container-fluid my-4 pl-3 py-3" : "";
+
   return (
-    <div className="appbox container-fluid my-4 pl-3 py-3">
+    <div
+      className={classes}
+      style={{
+        ...(newDesign && {
+          border: "1px solid var(--slate-a4)",
+          borderRadius: "var(--radius-1)",
+          padding: "var(--space-4) var(--space-3) 0",
+        }),
+      }}
+    >
       <div className="row overflow-hidden" id="parent-container">
         <div className="col-8 border-right pr-4">
           <div
