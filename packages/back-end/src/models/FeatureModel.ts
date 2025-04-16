@@ -968,7 +968,7 @@ export async function publishRevision(
   const safeRolloutIds: string[] = [];
   Object.keys(revision.rules).forEach((key) => {
     for (const rule of revision.rules[key]) {
-      if (rule.type === "safe-rollout") {
+      if (rule?.type === "safe-rollout") {
         safeRolloutIds.push(rule.safeRolloutId);
       }
     }

@@ -142,7 +142,7 @@ export default function RuleModal({
   });
 
   const convertRuleToFormValues = (rule: FeatureRule) => {
-    if (rule.type === "safe-rollout") {
+    if (rule?.type === "safe-rollout") {
       console.log("testing guy 2", { safeRolloutInterfaceFields: safeRollout });
       return {
         ...rule,
@@ -593,8 +593,8 @@ export default function RuleModal({
         const { safeRolloutInterfaceFields } = convertSafeRolloutFromFormValues(
           values as SafeRolloutRuleCreateFields
         );
-        delete (values as any).safeRolloutInterfaceFields;
         interfaceFields = safeRolloutInterfaceFields;
+        delete (values as any).safeRolloutInterfaceFields;
       }
 
       if (

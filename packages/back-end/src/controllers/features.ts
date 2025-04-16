@@ -1758,11 +1758,8 @@ export async function putFeatureRule(
     settings: org?.settings,
   });
   if (rule.type === "safe-rollout") {
-    if (!rule.safeRolloutId) {
-      throw new Error("Safe rollout rule must have a safeRolloutId");
-    }
     const existing = await context.models.safeRollout.getById(
-      rule.safeRolloutId
+      rule?.safeRolloutId
     );
     if (!existing) {
       throw new Error("Safe rollout rule must have a safeRolloutId");
