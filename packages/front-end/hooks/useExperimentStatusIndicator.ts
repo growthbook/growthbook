@@ -2,7 +2,7 @@ import {
   getHealthSettings,
   DEFAULT_DECISION_CRITERIA,
   getStatusIndicatorData,
-  getDefaultDecisionCriteriaForOrg,
+  getPresetDecisionCriteriaForOrg,
 } from "shared/enterprise";
 import {
   ExperimentDataForStatusStringDates,
@@ -20,7 +20,7 @@ export function useExperimentStatusIndicator() {
     hasCommercialFeature("decision-framework")
   );
 
-  const decisionCriteria = getDefaultDecisionCriteriaForOrg(settings);
+  const decisionCriteria = getPresetDecisionCriteriaForOrg(settings);
   const { data } = useApi<{ decisionCriteria: DecisionCriteriaInterface }>(
     `/decision-criteria/${settings?.defaultDecisionCriteriaId}`,
     {
