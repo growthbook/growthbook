@@ -23,6 +23,7 @@ export default function SafeRolloutFields({
   conditionKey,
   isNewRule,
   step,
+  isDraft,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -37,6 +38,7 @@ export default function SafeRolloutFields({
   setScheduleToggleEnabled: (b: boolean) => void;
   step: number;
   isNewRule: boolean;
+  isDraft: boolean;
 }) {
   const form = useFormContext();
   const attributeSchema = useAttributeSchema(false, feature.project);
@@ -52,6 +54,7 @@ export default function SafeRolloutFields({
     (ds) => ds.id === form.watch("safeRolloutInterfaceFields.datasource")
   );
   const exposureQueries = dataSource?.settings?.queries?.exposure || [];
+  const disableFields = !isDraft && !isNewRule;
   const renderOverviewSteps = () => {
     return (
       <>
@@ -72,9 +75,11 @@ export default function SafeRolloutFields({
             valueType={feature.valueType}
             feature={feature}
             renderJSONInline={true}
+            disabled={disableFields}
           />
         </div>
         <SelectField
+          disabled={disableFields}
           label="Enroll based on attribute"
           options={attributeSchema
             .filter((s) => !hasHashAttributes || s.hashAttribute)
@@ -135,7 +140,7 @@ export default function SafeRolloutFields({
               required
               placeholder="Select a data source"
               // Add a disabled state while loading
-              disabled={!dataSourceOptions || !isNewRule}
+              disabled={!dataSourceOptions || disableFields}
             />
             {dataSourceOptions.length === 0 && (
               <div className="alert alert-warning mt-2">
@@ -155,7 +160,7 @@ export default function SafeRolloutFields({
               }))}
               required
               disabled={
-                !isNewRule ||
+                disableFields ||
                 !form.watch("safeRolloutInterfaceFields.datasource")
               }
               value={form.watch("safeRolloutInterfaceFields.exposureQueryId")}
@@ -210,6 +215,7 @@ export default function SafeRolloutFields({
             valueType={feature.valueType}
             feature={feature}
             renderJSONInline={true}
+            disabled={disableFields}
           />
         </div>
       </>

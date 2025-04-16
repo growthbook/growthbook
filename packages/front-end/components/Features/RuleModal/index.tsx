@@ -19,7 +19,7 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import { PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
-import { kebabCase, omit } from "lodash";
+import { kebabCase } from "lodash";
 import { Text } from "@radix-ui/themes";
 import {
   SafeRolloutInterface,
@@ -152,23 +152,6 @@ export default function RuleModal({
     return rule;
   };
 
-  const convertSafeRolloutFromFormValues = (
-    formValues: SafeRolloutRuleCreateFields
-  ) => {
-    if (formValues.type === "safe-rollout" && safeRollout) {
-      return {
-        rule: omit(
-          formValues,
-          "safeRolloutInterfaceFields"
-        ) as Partial<SafeRolloutRule>,
-        safeRolloutInterfaceFields: formValues.safeRolloutInterfaceFields as Partial<SafeRolloutInterfaceCreateFields>,
-      };
-    }
-    return {
-      rule: formValues as SafeRolloutRule,
-    };
-  };
-  console.log("testing guy", convertRuleToFormValues(rule));
   const defaultValues = {
     ...defaultRuleValues,
     ...convertRuleToFormValues(rule),
@@ -591,6 +574,7 @@ export default function RuleModal({
         delete (values as any).value;
       } else if (values.type === "safe-rollout") {
         interfaceFields = values.safeRolloutInterfaceFields;
+        // eslint-disable-next-line
         delete (values as any).safeRolloutInterfaceFields;
       }
 
@@ -922,6 +906,7 @@ export default function RuleModal({
                   scheduleToggleEnabled={scheduleToggleEnabled}
                   setScheduleToggleEnabled={setScheduleToggleEnabled}
                   isNewRule={isNewRule}
+                  isDraft={safeRollout?.status === "draft"}
                 />
               </Page>
             );

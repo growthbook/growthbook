@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
-import { isEqual } from "lodash";
+import { isEqual, omit } from "lodash";
 import {
   autoMerge,
   filterEnvironmentsByFeature,
@@ -1176,14 +1176,6 @@ export async function postFeatureRule(
     context.permissions.throwPermissionError();
   }
 
-  const revision = await getDraftRevision(context, feature, parseInt(version));
-  const resetReview = resetReviewOnChange({
-    feature,
-    changedEnvironments: [environment],
-    defaultValueChanged: false,
-    settings: org?.settings,
-  });
-
   // Validate that specified metrics exist and belong to the organization for safe-rollout rules
   if (rule.type === "safe-rollout") {
     // Validate that the interface fields are valid
@@ -1263,12 +1255,19 @@ export async function postFeatureRule(
     const safeRollout = await context.models.safeRollout.create(
       safeRolloutCreateProps
     );
-    rule.safeRolloutId = safeRollout.id;
+    if (safeRollout && safeRollout.id) rule.safeRolloutId = safeRollout.id;
   }
+  const revision = await getDraftRevision(context, feature, parseInt(version));
   if (
     (rule.type === "safe-rollout" && rule.safeRolloutId) || // make sure the safe rollout is created
     rule.type !== "safe-rollout"
   ) {
+    const resetReview = resetReviewOnChange({
+      feature,
+      changedEnvironments: [environment],
+      defaultValueChanged: false,
+      settings: org?.settings,
+    });
     await addFeatureRule(
       revision,
       environment,
@@ -1749,40 +1748,59 @@ export async function putFeatureRule(
   ) {
     context.permissions.throwPermissionError();
   }
-
-  const revision = await getDraftRevision(context, feature, parseInt(version));
-  const resetReview = resetReviewOnChange({
-    feature,
-    changedEnvironments: [environment],
-    defaultValueChanged: false,
-    settings: org?.settings,
-  });
+  let canUpdateRevision = true;
   if (rule.type === "safe-rollout") {
-    const existing = await context.models.safeRollout.getById(
-      rule?.safeRolloutId
+    if (!rule.safeRolloutId) {
+      throw new Error("Safe rollout rule must have a safeRolloutId");
+    }
+    const existingSafeRollout = await context.models.safeRollout.getById(
+      rule.safeRolloutId
     );
-    if (!existing) {
+    if (!existingSafeRollout) {
       throw new Error("Safe rollout rule must have a safeRolloutId");
     }
 
     if (interfaceFields) {
-      await context.models.safeRollout.update(existing, {
-        ...interfaceFields,
+      await context.models.safeRollout.update(existingSafeRollout, {
+        ...omit(interfaceFields, [
+          "organization",
+          "dateCreated",
+          "dateUpdated",
+        ]),
       });
     }
+    if (existingSafeRollout.status !== "draft") {
+      // revsion is locked for the safe rollout once it's released
+      canUpdateRevision = false;
+    }
   }
-  await editFeatureRule(
-    revision,
-    environment,
-    i,
-    rule,
-    res.locals.eventAudit,
-    resetReview
-  );
+  let revsisonVersion = parseInt(version);
+  if (canUpdateRevision) {
+    const revision = await getDraftRevision(
+      context,
+      feature,
+      parseInt(version)
+    );
+    revsisonVersion = revision.version;
+    const resetReview = resetReviewOnChange({
+      feature,
+      changedEnvironments: [environment],
+      defaultValueChanged: false,
+      settings: org?.settings,
+    });
+    await editFeatureRule(
+      revision,
+      environment,
+      i,
+      rule,
+      res.locals.eventAudit,
+      resetReview
+    );
+  }
 
   res.status(200).json({
     status: 200,
-    version: revision.version,
+    version: revsisonVersion,
   });
 }
 

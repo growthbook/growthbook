@@ -973,11 +973,11 @@ export async function publishRevision(
       }
     }
   });
-  const safeRollouts = await context.models.safeRollout.findByRuleIds(
+
+  const safeRollouts = await context.models.safeRollout.findByIds(
     safeRolloutIds
   );
   safeRollouts.forEach((safeRollout: SafeRolloutInterface) => {
-    //TODO: we might want to write an updateMany function
     if (safeRollout.status === "draft") {
       context.models.safeRollout.update(safeRollout, {
         status: "running",
