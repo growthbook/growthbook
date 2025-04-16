@@ -17,7 +17,10 @@ export type PostFeatureRuleBody = {
 
 export type PutFeatureRuleBody = {
   rule: Partial<FeatureRule>;
-  interfaceFields?: Partial<CreateSafeRolloutInterface>;
+  interfaceFields?: Omit<
+    Partial<CreateSafeRolloutInterface>,
+    "organization" | "dateCreated" | "dateUpdated"
+  >;
   environment: string;
   i: number;
 };

@@ -1766,6 +1766,7 @@ export async function putFeatureRule(
           "organization",
           "dateCreated",
           "dateUpdated",
+          "startedAt",
         ]),
       });
     }
