@@ -8,16 +8,17 @@ tracer.init({
 
 class Counter {
   name: string;
-  value: number;
 
   constructor(name: string) {
     this.name = name;
-    this.value = 0;
   }
 
-  add(v: number, attributes?: Attributes) {
-    this.value += v;
-    tracer.dogstatsd.gauge(this.name, this.value, attributes);
+  increment(attributes?: Attributes) {
+    tracer.dogstatsd.increment(this.name, 1, attributes);
+  }
+
+  decrement(attributes?: Attributes) {
+    tracer.dogstatsd.decrement(this.name, 1, attributes);
   }
 }
 
@@ -29,7 +30,7 @@ class Histogram {
   }
 
   record(v: number, attributes?: Attributes) {
-    tracer.dogstatsd.gauge(this.name, v, attributes);
+    tracer.dogstatsd.histogram(this.name, v, attributes);
   }
 }
 
