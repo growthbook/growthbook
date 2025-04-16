@@ -3,7 +3,6 @@ import {
   getDefaultDecisionCriteriaForOrg,
   getHealthSettings,
   getStatusIndicatorData,
-  StatusIndicatorData,
 } from "shared/enterprise";
 import { GetExperimentResponse } from "back-end/types/openapi";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
@@ -19,40 +18,35 @@ export const getExperiment = createApiRequestHandler(getExperimentValidator)(
       throw new Error("Could not find experiment with that id");
     }
 
-    let statusData:
-      | Pick<StatusIndicatorData, "status" | "detailedStatus">
-      | undefined;
-
-    if (orgHasPremiumFeature(req.context.org, "decision-framework")) {
-      const settings = req.context.org.settings;
-      const healthSettings = getHealthSettings(settings, true);
-      let decisionCriteria = getDefaultDecisionCriteriaForOrg(settings);
-      if (settings?.defaultDecisionCriteriaId) {
-        try {
-          decisionCriteria ||=
-            (await req.context.models.decisionCriteria.getById(
-              settings!.defaultDecisionCriteriaId!
-            )) ?? DEFAULT_DECISION_CRITERIA;
-        } catch {
-          // Empty catch
-        }
-      }
-      decisionCriteria ||= DEFAULT_DECISION_CRITERIA;
-
-      {
-        statusData = (({ status, detailedStatus }) => ({
-          status,
-          detailedStatus,
-        }))(
-          getStatusIndicatorData(
-            experiment,
-            false,
-            healthSettings,
-            decisionCriteria
-          )
-        );
+    const settings = req.context.org.settings;
+    const healthSettings = getHealthSettings(
+      settings,
+      orgHasPremiumFeature(req.context.org, "decision-framework")
+    );
+    let decisionCriteria = getDefaultDecisionCriteriaForOrg(settings);
+    if (settings?.defaultDecisionCriteriaId) {
+      try {
+        decisionCriteria ||=
+          (await req.context.models.decisionCriteria.getById(
+            settings!.defaultDecisionCriteriaId!
+          )) ?? DEFAULT_DECISION_CRITERIA;
+      } catch {
+        // Empty catch
       }
     }
+    decisionCriteria ||= DEFAULT_DECISION_CRITERIA;
+
+    const statusData = (({ status, detailedStatus }) => ({
+      status,
+      detailedStatus,
+    }))(
+      getStatusIndicatorData(
+        experiment,
+        false,
+        healthSettings,
+        decisionCriteria
+      )
+    );
 
     const apiExperiment = await toExperimentApiInterface(
       req.context,
