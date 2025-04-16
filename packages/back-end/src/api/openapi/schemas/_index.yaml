@@ -42,6 +42,8 @@ ExperimentAnalysisSettings:
   $ref: "./ExperimentAnalysisSettings.yaml"
 ExperimentResults:
   $ref: "./ExperimentResults.yaml"
+ExperimentWithEnhancedStatus:
+  $ref: "./ExperimentWithEnhancedStatus.yaml"
 DataSource:
   $ref: "./DataSource.yaml"
 VisualChangeset:

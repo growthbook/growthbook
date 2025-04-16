@@ -76,7 +76,7 @@ const secondaryDecisionCriteria: DecisionCriteriaData = {
   defaultAction: "rollback",
 };
 
-export const DEFAULT_DECISION_CRITERIAS: DecisionCriteriaData[] = [
+export const PRESET_DECISION_CRITERIAS: DecisionCriteriaData[] = [
   DEFAULT_DECISION_CRITERIA,
   secondaryDecisionCriteria,
 ];

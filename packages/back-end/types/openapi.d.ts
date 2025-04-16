@@ -1608,6 +1608,153 @@ export interface components {
             })[];
         })[];
     };
+    ExperimentWithEnhancedStatus: ({
+      id: string;
+      trackingKey: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      name: string;
+      /** @enum {string} */
+      type: "standard" | "multi-armed-bandit";
+      project: string;
+      hypothesis: string;
+      description: string;
+      tags: (string)[];
+      owner: string;
+      archived: boolean;
+      status: string;
+      autoRefresh: boolean;
+      hashAttribute: string;
+      fallbackAttribute?: string;
+      /** @enum {number} */
+      hashVersion: 1 | 2;
+      disableStickyBucketing?: boolean;
+      bucketVersion?: number;
+      minBucketVersion?: number;
+      variations: ({
+          variationId: string;
+          key: string;
+          name: string;
+          description: string;
+          screenshots: (string)[];
+        })[];
+      phases: ({
+          name: string;
+          dateStarted: string;
+          dateEnded: string;
+          reasonForStopping: string;
+          seed: string;
+          coverage: number;
+          trafficSplit: ({
+              variationId: string;
+              weight: number;
+            })[];
+          namespace?: {
+            namespaceId: string;
+            range: (unknown)[];
+          };
+          targetingCondition: string;
+          prerequisites?: ({
+              id: string;
+              condition: string;
+            })[];
+          savedGroupTargeting?: ({
+              /** @enum {string} */
+              matchType: "all" | "any" | "none";
+              savedGroups: (string)[];
+            })[];
+        })[];
+      settings: {
+        datasourceId: string;
+        assignmentQueryId: string;
+        experimentId: string;
+        segmentId: string;
+        queryFilter: string;
+        /** @enum {unknown} */
+        inProgressConversions: "include" | "exclude";
+        /**
+         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+         * @enum {unknown}
+         */
+        attributionModel: "firstExposure" | "experimentDuration";
+        /** @enum {unknown} */
+        statsEngine: "bayesian" | "frequentist";
+        regressionAdjustmentEnabled?: boolean;
+        sequentialTestingEnabled?: boolean;
+        sequentialTestingTuningParameter?: number;
+        goals: ({
+            metricId: string;
+            overrides: {
+              delayHours?: number;
+              windowHours?: number;
+              /** @enum {string} */
+              window?: "conversion" | "lookback" | "";
+              winRiskThreshold?: number;
+              loseRiskThreshold?: number;
+            };
+          })[];
+        secondaryMetrics: ({
+            metricId: string;
+            overrides: {
+              delayHours?: number;
+              windowHours?: number;
+              /** @enum {string} */
+              window?: "conversion" | "lookback" | "";
+              winRiskThreshold?: number;
+              loseRiskThreshold?: number;
+            };
+          })[];
+        guardrails: ({
+            metricId: string;
+            overrides: {
+              delayHours?: number;
+              windowHours?: number;
+              /** @enum {string} */
+              window?: "conversion" | "lookback" | "";
+              winRiskThreshold?: number;
+              loseRiskThreshold?: number;
+            };
+          })[];
+        activationMetric?: {
+          metricId: string;
+          overrides: {
+            delayHours?: number;
+            windowHours?: number;
+            /** @enum {string} */
+            window?: "conversion" | "lookback" | "";
+            winRiskThreshold?: number;
+            loseRiskThreshold?: number;
+          };
+        };
+      };
+      resultSummary?: {
+        status: string;
+        winner: string;
+        conclusions: string;
+        releasedVariationId: string;
+        excludeFromPayload: boolean;
+      };
+      /** @enum {string} */
+      shareLevel?: "public" | "organization";
+      publicUrl?: string;
+      banditScheduleValue?: number;
+      /** @enum {string} */
+      banditScheduleUnit?: "days" | "hours";
+      banditBurnInValue?: number;
+      /** @enum {string} */
+      banditBurnInUnit?: "days" | "hours";
+      linkedFeatures?: (string)[];
+      hasVisualChangesets?: boolean;
+      hasURLRedirects?: boolean;
+    }) & ({
+      enhancedStatus?: {
+        /** @enum {string} */
+        status: "Running" | "Stopped" | "Draft" | "Archived";
+        detailedStatus?: string;
+      };
+    });
     DataSource: {
       id: string;
       /** Format: date-time */
@@ -4664,7 +4811,7 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            experiment: {
+            experiment: ({
               id: string;
               trackingKey: string;
               /** Format: date-time */
@@ -4804,7 +4951,13 @@ export interface operations {
               linkedFeatures?: (string)[];
               hasVisualChangesets?: boolean;
               hasURLRedirects?: boolean;
-            };
+            }) & ({
+              enhancedStatus?: {
+                /** @enum {string} */
+                status: "Running" | "Stopped" | "Draft" | "Archived";
+                detailedStatus?: string;
+              };
+            });
           };
         };
       };
@@ -8444,6 +8597,7 @@ export type ApiExperimentSnapshot = z.infer<typeof openApiValidators.apiExperime
 export type ApiExperimentMetric = z.infer<typeof openApiValidators.apiExperimentMetricValidator>;
 export type ApiExperimentAnalysisSettings = z.infer<typeof openApiValidators.apiExperimentAnalysisSettingsValidator>;
 export type ApiExperimentResults = z.infer<typeof openApiValidators.apiExperimentResultsValidator>;
+export type ApiExperimentWithEnhancedStatus = z.infer<typeof openApiValidators.apiExperimentWithEnhancedStatusValidator>;
 export type ApiDataSource = z.infer<typeof openApiValidators.apiDataSourceValidator>;
 export type ApiVisualChangeset = z.infer<typeof openApiValidators.apiVisualChangesetValidator>;
 export type ApiVisualChange = z.infer<typeof openApiValidators.apiVisualChangeValidator>;
