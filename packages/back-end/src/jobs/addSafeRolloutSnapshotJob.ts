@@ -79,8 +79,10 @@ async function updateSingleSafeRolloutRule(
     logger.info("Start Refreshing Results for SafeRollout " + ruleId);
     await createSafeRolloutSnapshot({
       context,
+      safeRolloutRule,
       safeRollout,
       triggeredBy: "schedule",
+      feature,
     });
   } catch (e) {
     logger.error(e, "Failed to create SafeRollout Snapshot: " + ruleId);

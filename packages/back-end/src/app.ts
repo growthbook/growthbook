@@ -714,7 +714,7 @@ app.post(
   "/feature/:id/:version/copyEnvironment",
   featuresController.postCopyEnvironmentRules
 );
-app.post("/safe-rollout/revert/:id", featuresController.postRevertSafeRollout);
+app.put("/safe-rollout/status/:id", featuresController.putSafeRolloutStatus);
 app.get("/revision/feature", featuresController.getDraftandReviewRevisions);
 // Data Sources
 app.get("/datasources", datasourcesController.getDataSources);

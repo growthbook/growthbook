@@ -1,8 +1,8 @@
-import { useForm } from "react-hook-form";
-
 import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
+import { useState } from "react";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
+import RadioGroup from "@/components/Radix/RadioGroup";
 export interface Props {
   safeRollout: SafeRolloutInterface;
   open: boolean;
@@ -18,13 +18,15 @@ export default function SafeRolloutStatusModal({
 }: Props) {
   const { apiCall } = useAuth();
   const onSubmit = async () => {
-    await apiCall(`/safe-rollout/revert/${safeRollout.id}`, {
-      method: "POST",
+    const status = radioSelected === "revert" ? "rolled-back" : "released";
+    await apiCall(`/safe-rollout/status/${safeRollout.id}`, {
+      method: "PUT",
+      body: JSON.stringify({ status }),
     });
     mutate?.();
     setStatusModalOpen(false);
   };
-  console.log(open);
+  const [radioSelected, setRadioSelected] = useState<string>("revert");
   return (
     <Modal
       open={open}
@@ -33,11 +35,19 @@ export default function SafeRolloutStatusModal({
       submit={() => onSubmit()}
       size="lg"
       bodyClassName="px-4 pt-4"
-      trackingEventModalType={""}
+      trackingEventModalType={"updateSafeRolloutStatus"}
     >
       <div>
-        warning: You are about to revert the safe rollout back to the control
-        group.
+        <RadioGroup
+          value={radioSelected}
+          setValue={(v) => {
+            setRadioSelected(v);
+          }}
+          options={[
+            { value: "revert", label: "Revert" },
+            { value: "rollout", label: "Rollout" },
+          ]}
+        />
       </div>
     </Modal>
   );
