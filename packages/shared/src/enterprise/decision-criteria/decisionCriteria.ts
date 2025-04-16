@@ -190,12 +190,17 @@ export function getDecisionFrameworkStatus({
   guardrailMetrics: string[];
   daysNeeded?: number;
 }): ExperimentResultStatusData | undefined {
+  // what is power reached when there are no goal metrics?
   const powerReached = daysNeeded === 0;
   const sequentialTesting = resultsStatus?.settings?.sequentialTesting;
 
   // Rendering a decision with regular stat sig metrics is only valid
   // if you have reached your needed power or if you used sequential testing
   const decisionReady = powerReached || sequentialTesting;
+
+  const rollbackTooltip = `The test variation(s) should be rolled back.`;
+  const shipTooltip = `A test variation is ready to ship.`;
+  const reviewTooltip = `A test variation is ready to be reviewed.`;
 
   if (decisionReady) {
     const variationDecisions = getVariationDecisions({
@@ -215,6 +220,7 @@ export function getDecisionFrameworkStatus({
         variations: variationDecisions.map(({ variation }) => variation),
         sequentialUsed: sequentialTesting,
         powerReached: powerReached,
+        tooltip: rollbackTooltip,
       };
     }
 
@@ -227,6 +233,7 @@ export function getDecisionFrameworkStatus({
         variations: shipVariations.map(({ variation }) => variation),
         sequentialUsed: sequentialTesting,
         powerReached: powerReached,
+        tooltip: shipTooltip,
       };
     }
 
@@ -242,6 +249,7 @@ export function getDecisionFrameworkStatus({
           variations: reviewVariations.map(({ variation }) => variation),
           sequentialUsed: sequentialTesting,
           powerReached: powerReached,
+          tooltip: reviewTooltip,
         };
       }
     }
@@ -268,7 +276,7 @@ export function getDecisionFrameworkStatus({
         ),
         sequentialUsed: sequentialTesting,
         powerReached: powerReached,
-        tooltip: `The experiment has not reached the target statistical power, however there are strong negative signals for all test variations.`,
+        tooltip: rollbackTooltip,
       };
     }
 
@@ -281,7 +289,7 @@ export function getDecisionFrameworkStatus({
         variations: shipVariations.map(({ variation }) => variation),
         sequentialUsed: sequentialTesting,
         powerReached: powerReached,
-        tooltip: `The experiment has not reached the target statistical power, however there are strong positive signals for a test variation.`,
+        tooltip: shipTooltip,
       };
     }
   }

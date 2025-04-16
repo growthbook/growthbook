@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { windowTypeValidator } from "back-end/src/routers/fact-table/fact-table.validators";
 import { statsEngines } from "back-end/src/util/constants";
-import { decisionCriteriaInterface } from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.validators";
 import {
   namespaceValue,
   featurePrerequisite,
@@ -299,8 +298,6 @@ export const experimentInterface = z
     shareLevel: z.enum(["public", "organization"]).optional(),
     analysisSummary: experimentAnalysisSummary,
     dismissedWarnings: z.array(z.enum(["low-power"])).optional(),
-    // TODO
-    decisionCriteria: decisionCriteriaInterface.optional(),
   })
   .strict()
   .merge(experimentAnalysisSettings);
