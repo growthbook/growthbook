@@ -26,15 +26,19 @@ export const getExperiment = createApiRequestHandler(getExperimentValidator)(
     if (orgHasPremiumFeature(req.context.org, "decision-framework")) {
       const settings = req.context.org.settings;
       const healthSettings = getHealthSettings(settings, true);
-      const decisionCriteria =
-        // Prioritize default criteria in org settings
-        getDefaultDecisionCriteriaForOrg(settings) ??
-        // Fetch criteria from mongo if needed
-        settings?.defaultDecisionCriteriaId
-          ? (await req.context.models.decisionCriteria.getById(
+      let decisionCriteria = getDefaultDecisionCriteriaForOrg(settings);
+      if (settings?.defaultDecisionCriteriaId) {
+        try {
+          decisionCriteria ||=
+            (await req.context.models.decisionCriteria.getById(
               settings!.defaultDecisionCriteriaId!
-            )) ?? DEFAULT_DECISION_CRITERIA
-          : DEFAULT_DECISION_CRITERIA;
+            )) ?? DEFAULT_DECISION_CRITERIA;
+        } catch {
+          // Empty catch
+        }
+      }
+      decisionCriteria ||= DEFAULT_DECISION_CRITERIA;
+
       {
         statusData = (({ status, detailedStatus }) => ({
           status,
