@@ -1,8 +1,8 @@
-import { addDays, differenceInDays } from "date-fns";
 // import {
 //   getHealthSettings,
 //   getSafeRolloutResultStatus,
 // } from "shared/src/enterprise/decision-criteria";
+import { getSafeRolloutDaysLeft } from "shared/enterprise";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 // import { useUser } from "@/services/UserContext";
 import Callout from "../Radix/Callout";
@@ -30,20 +30,10 @@ const DecisionBanner = ({
     return null;
   }
 
-  // Use latest snapshot date and safe rollout start date plus maxDurationDays to determine days left
-  const startDate = safeRollout?.startedAt
-    ? new Date(safeRollout.startedAt)
-    : new Date();
-  const endDate = addDays(
-    new Date(startDate.getTime()),
-    safeRollout.maxDurationDays
-  );
-  const latestSnapshotDate = snapshotWithResults?.runStarted
-    ? new Date(snapshotWithResults?.runStarted)
-    : null;
-  const daysLeft = latestSnapshotDate
-    ? differenceInDays(endDate, latestSnapshotDate)
-    : safeRollout.maxDurationDays;
+  const daysLeft = getSafeRolloutDaysLeft({
+    safeRollout,
+    snapshotWithResults,
+  });
 
   // const decisionStatus = getSafeRolloutResultStatus({
   //   safeRollout,

@@ -73,6 +73,19 @@ export const eventWebHookEventOptions: {
     id: "feature.deleted",
     name: "feature.deleted",
   },
+  // Safe Rollouts
+  {
+    id: "feature.saferollout.ship",
+    name: "feature.saferollout.ship",
+  },
+  {
+    id: "feature.saferollout.rollback",
+    name: "feature.saferollout.rollback",
+  },
+  {
+    id: "feature.saferollout.unhealthy",
+    name: "feature.saferollout.unhealthy",
+  },
   // Experiments
   {
     id: "experiment.created",

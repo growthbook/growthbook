@@ -11,7 +11,10 @@ import {
   ExperimentResultStatusData,
   ExperimentUnhealthyData,
 } from "back-end/types/experiment";
+import { SafeRolloutSnapshotInterface } from "back-end/types/safe-rollout";
 import { OrganizationSettings } from "back-end/types/organization";
+import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
+import { addDays, differenceInDays } from "date-fns";
 import {
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
   DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
@@ -23,8 +26,6 @@ import {
 } from "../../constants";
 import { daysBetween } from "../../dates";
 import { getMultipleExposureHealthData, getSRMHealthData } from "../../health";
-import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
-import { DEFAULT_DECISION_CRITERIAS, DO_NO_HARM_DECISION_CRITERIA } from "./constants";
 
 // Evaluate a single rule on a variation result
 // Returns the action if the rule is met, otherwise undefined
@@ -464,6 +465,31 @@ export function getExperimentResultStatus({
   }
 }
 
+export function getSafeRolloutDaysLeft({
+  safeRollout,
+  snapshotWithResults,
+}: {
+  safeRollout: SafeRolloutInterface;
+  snapshotWithResults?: SafeRolloutSnapshotInterface;
+}) {
+  // Use latest snapshot date and safe rollout start date plus maxDurationDays to determine days left
+  const startDate = safeRollout.startedAt
+    ? new Date(safeRollout.startedAt)
+    : new Date();
+  const endDate = addDays(
+    new Date(startDate.getTime()),
+    safeRollout.maxDurationDays
+  );
+  const latestSnapshotDate = snapshotWithResults?.runStarted
+    ? new Date(snapshotWithResults?.runStarted)
+    : null;
+
+  const daysLeft = latestSnapshotDate
+    ? differenceInDays(endDate, latestSnapshotDate)
+    : safeRollout.maxDurationDays;
+
+  return daysLeft;
+}
 
 export function getSafeRolloutResultStatus({
   safeRollout,
@@ -485,9 +511,9 @@ export function getSafeRolloutResultStatus({
       srmThreshold: healthSettings.srmThreshold,
       totalUsersCount: healthSummary.totalUsers,
       numOfVariations: 2,
-      minUsersPerVariation: DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
+      minUsersPerVariation: DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
     });
-  
+
     if (srmHealthData === "unhealthy") {
       unhealthyData.srm = true;
     }
@@ -506,7 +532,7 @@ export function getSafeRolloutResultStatus({
       };
     }
   }
-  
+
   const ROLLBACK_SAFE_ROLLOUT_DECISION_CRITERIA: DecisionCriteriaData = {
     id: "gbdeccrit_rollback_safe_rollout",
     name: "Rollback Safe Rollout",
@@ -526,13 +552,15 @@ export function getSafeRolloutResultStatus({
     defaultAction: "review",
   };
 
-  const decisionStatus = resultsStatus ? getDecisionFrameworkStatus({
-    resultsStatus,
-    decisionCriteria: ROLLBACK_SAFE_ROLLOUT_DECISION_CRITERIA,
-    goalMetrics: [],
-    guardrailMetrics: safeRollout.guardrailMetrics,
-    daysNeeded: Infinity, // sequential relied upon solely for safe rollouts
-  }) : undefined;
+  const decisionStatus = resultsStatus
+    ? getDecisionFrameworkStatus({
+        resultsStatus,
+        decisionCriteria: ROLLBACK_SAFE_ROLLOUT_DECISION_CRITERIA,
+        goalMetrics: [],
+        guardrailMetrics: safeRollout.guardrailMetrics,
+        daysNeeded: Infinity, // sequential relied upon solely for safe rollouts
+      })
+    : undefined;
 
   // If rollback now, return rollback now
   if (decisionStatus?.status === "rollback-now") {
@@ -543,7 +571,7 @@ export function getSafeRolloutResultStatus({
       powerReached: false,
     };
   }
-  
+
   // If unhealthy, return unhealthy status
   if (unhealthyData.srm || unhealthyData.multipleExposures) {
     return {
@@ -567,6 +595,6 @@ export function getSafeRolloutResultStatus({
       variationIds: ["1"],
       sequentialUsed: true,
       powerReached: false,
-    }
+    };
   }
 }
