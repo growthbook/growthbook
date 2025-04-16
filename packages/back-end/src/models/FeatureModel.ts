@@ -980,6 +980,7 @@ export async function publishRevision(
     if (safeRollout.status === "draft") {
       context.models.safeRollout.update(safeRollout, {
         status: "running",
+        startedAt: new Date(),
       });
     }
   });
