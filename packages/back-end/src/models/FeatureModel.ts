@@ -978,7 +978,7 @@ export async function publishRevision(
   );
   safeRollouts.forEach((safeRollout: SafeRolloutInterface) => {
     //TODO: we might want to write an updateMany function
-    if (safeRollout.status !== "running") {
+    if (safeRollout.status === "draft") {
       context.models.safeRollout.update(safeRollout, {
         status: "running",
       });

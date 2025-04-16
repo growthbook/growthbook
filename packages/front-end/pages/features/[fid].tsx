@@ -64,7 +64,6 @@ export default function FeaturePage() {
   const revisions = data?.revisions;
   const experiments = data?.experiments;
   const safeRollouts = data?.safeRollouts;
-  console.log(safeRollouts, "safeRollouts");
   const [tab, setTab] = useLocalStorage<FeatureTab>(
     `tabbedPageTab__${fid}`,
     "overview"
