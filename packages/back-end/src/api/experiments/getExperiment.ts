@@ -1,6 +1,6 @@
 import {
   DEFAULT_DECISION_CRITERIA,
-  getDefaultDecisionCriteriaForOrg,
+  getPresetDecisionCriteriaForOrg,
   getHealthSettings,
   getStatusIndicatorData,
 } from "shared/enterprise";
@@ -23,7 +23,7 @@ export const getExperiment = createApiRequestHandler(getExperimentValidator)(
       settings,
       orgHasPremiumFeature(req.context.org, "decision-framework")
     );
-    let decisionCriteria = getDefaultDecisionCriteriaForOrg(settings);
+    let decisionCriteria = getPresetDecisionCriteriaForOrg(settings);
     if (settings?.defaultDecisionCriteriaId) {
       try {
         decisionCriteria ||=
@@ -36,17 +36,13 @@ export const getExperiment = createApiRequestHandler(getExperimentValidator)(
     }
     decisionCriteria ||= DEFAULT_DECISION_CRITERIA;
 
-    const statusData = (({ status, detailedStatus }) => ({
-      status,
-      detailedStatus,
-    }))(
-      getStatusIndicatorData(
-        experiment,
-        false,
-        healthSettings,
-        decisionCriteria
-      )
+    const { status, detailedStatus } = getStatusIndicatorData(
+      experiment,
+      false,
+      healthSettings,
+      decisionCriteria
     );
+    const statusData = { status, detailedStatus };
 
     const apiExperiment = await toExperimentApiInterface(
       req.context,

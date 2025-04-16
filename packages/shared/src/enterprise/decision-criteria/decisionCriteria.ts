@@ -25,7 +25,7 @@ import { daysBetween } from "../../dates";
 import { getMultipleExposureHealthData, getSRMHealthData } from "../../health";
 import {
   DEFAULT_DECISION_CRITERIA,
-  DEFAULT_DECISION_CRITERIAS,
+  PRESET_DECISION_CRITERIAS,
 } from "./constants";
 
 // Evaluate a single rule on a variation result
@@ -466,12 +466,12 @@ export function getExperimentResultStatus({
   }
 }
 
-export function getDefaultDecisionCriteriaForOrg(
+export function getPresetDecisionCriteriaForOrg(
   settings?: OrganizationSettings
 ) {
   return !settings?.defaultDecisionCriteriaId
     ? DEFAULT_DECISION_CRITERIA
-    : DEFAULT_DECISION_CRITERIAS.find(
+    : PRESET_DECISION_CRITERIAS.find(
         (dc) => dc.id === settings.defaultDecisionCriteriaId
       );
 }
