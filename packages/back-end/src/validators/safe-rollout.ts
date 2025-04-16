@@ -227,25 +227,21 @@ export type SafeRolloutSnapshotInterface = z.infer<
   typeof safeRolloutSnapshotInterface
 >;
 
-export const safeRolloutDecisionNotificationPayload = z
-  .object({
-    featureId: z.string(),
-    ruleId: z.string(), // TODO: remove this if no anchors
-    safeRolloutId: z.string(),
-    environment: z.string().optional(),
-  })
-  .strict();
+export const safeRolloutBaseNotificationPayload = z.object({
+  featureId: z.string(),
+  ruleId: z.string(),
+  safeRolloutId: z.string(),
+  environments: z.array(z.string()),
+});
+
+export const safeRolloutDecisionNotificationPayload = safeRolloutBaseNotificationPayload.strict();
 
 export type SafeRolloutDecisionNotificationPayload = z.infer<
   typeof safeRolloutDecisionNotificationPayload
 >;
 
-export const safeRolloutUnhealthyNotificationPayload = z
-  .object({
-    featureId: z.string(),
-    ruleId: z.string(), // TODO: remove this if no anchors
-    safeRolloutId: z.string(),
-    environment: z.string().optional(),
+export const safeRolloutUnhealthyNotificationPayload = safeRolloutBaseNotificationPayload
+  .extend({
     unhealthyReason: z.array(z.enum(["srm", "multipleExposures"])),
   })
   .strict();

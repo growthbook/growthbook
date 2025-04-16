@@ -17,7 +17,10 @@ import {
 import { ExperimentWarningNotificationPayload } from "back-end/src/validators/experiment-warnings";
 import { ExperimentInfoSignificancePayload } from "back-end/src/validators/experiment-info";
 import { ExperimentDecisionNotificationPayload } from "back-end/src/validators/experiment-decision";
-import { SafeRolloutNotificationPayload } from "back-end/src/validators/safe-rollout";
+import {
+  SafeRolloutDecisionNotificationPayload,
+  SafeRolloutUnhealthyNotificationPayload,
+} from "back-end/src/validators/safe-rollout";
 
 // region Filtering
 
@@ -317,10 +320,14 @@ const buildSlackMessageForFeatureDeletedEvent = async (
 };
 
 const buildSlackMessageForSafeRolloutShipEvent = (
-  data: SafeRolloutNotificationPayload,
+  data: SafeRolloutDecisionNotificationPayload,
   eventId: string
 ): SlackMessage => {
-  const text = `A Safe Rollout is completed and ready to ship to 100% of traffic.`;
+  const text = `A Safe Rollout on feature ${
+    data.featureId
+  } in environment(s) ${data.environments.join(
+    ", "
+  )} is ready to ship to 100% of traffic.`;
   return {
     text,
     blocks: [
@@ -329,7 +336,7 @@ const buildSlackMessageForSafeRolloutShipEvent = (
         text: {
           type: "mrkdwn",
           text:
-            `A Safe Rollout is completed and ready to ship to 100% of traffic.` +
+            text +
             getFeatureUrlFormatted(data.featureId) +
             getEventUrlFormatted(eventId),
         },
@@ -339,10 +346,14 @@ const buildSlackMessageForSafeRolloutShipEvent = (
 };
 
 const buildSlackMessageForSafeRolloutRollbackEvent = (
-  data: SafeRolloutNotificationPayload,
+  data: SafeRolloutDecisionNotificationPayload,
   eventId: string
 ): SlackMessage => {
-  const text = `A Safe Rollout has a failing guardrail and should be rolled back.`;
+  const text = `A Safe Rollout on feature ${
+    data.featureId
+  } in environment(s) ${data.environments.join(
+    ", "
+  )} has a failing guardrail and should be rolled back.`;
   return {
     text,
     blocks: [
@@ -351,7 +362,7 @@ const buildSlackMessageForSafeRolloutRollbackEvent = (
         text: {
           type: "mrkdwn",
           text:
-            `A Safe Rollout has a failing guardrail and should be rolled back.` +
+            text +
             getFeatureUrlFormatted(data.featureId) +
             getEventUrlFormatted(eventId),
         },
@@ -361,10 +372,14 @@ const buildSlackMessageForSafeRolloutRollbackEvent = (
 };
 
 const buildSlackMessageForSafeRolloutUnhealthyEvent = (
-  data: SafeRolloutNotificationPayload,
+  data: SafeRolloutUnhealthyNotificationPayload,
   eventId: string
 ): SlackMessage => {
-  const text = `A Safe Rollout is failing a health check and may not be working as expected.`;
+  const text = `A Safe Rollout on feature ${
+    data.featureId
+  } in environment(s) ${data.environments.join(
+    ", "
+  )} is failing a health check and may not be working as expected.`;
   return {
     text,
     blocks: [
@@ -373,7 +388,7 @@ const buildSlackMessageForSafeRolloutUnhealthyEvent = (
         text: {
           type: "mrkdwn",
           text:
-            `A Safe Rollout is failing a health check and may not be working as expected.` +
+            text +
             getFeatureUrlFormatted(data.featureId) +
             getEventUrlFormatted(eventId),
         },
