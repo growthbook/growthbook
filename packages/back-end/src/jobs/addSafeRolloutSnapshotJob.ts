@@ -12,7 +12,6 @@ import {
 } from "back-end/src/models/SafeRolloutModel";
 
 const UPDATE_SINGLE_SAFE_ROLLOUT_RULE = "updateSingleSafeRolloutRule";
-const QUEUE_SAFE_ROLLOUT_RULE_UPDATES = "queueSafeRolloutRuleUpdates";
 const QUEUE_SAFE_ROLLOUT_SNAPSHOT_UPDATES = "queueSafeRolloutSnapshotUpdates";
 
 type UpdateSingleSafeRolloutRuleJob = Job<{
@@ -39,7 +38,10 @@ export default async function (agenda: Agenda) {
   await startUpdateJob();
 
   async function startUpdateJob() {
-    const updateResultsJob = agenda.create(QUEUE_SAFE_ROLLOUT_RULE_UPDATES, {});
+    const updateResultsJob = agenda.create(
+      QUEUE_SAFE_ROLLOUT_SNAPSHOT_UPDATES,
+      {}
+    );
     updateResultsJob.unique({});
     updateResultsJob.repeatEvery("10 minutes");
     await updateResultsJob.save();
@@ -50,7 +52,7 @@ export default async function (agenda: Agenda) {
   ) {
     const job = agenda.create(UPDATE_SINGLE_SAFE_ROLLOUT_RULE, {
       safeRollout,
-    }) as UpdateSingleSafeRolloutRuleJob;
+    });
 
     job.unique({
       safeRollout,
