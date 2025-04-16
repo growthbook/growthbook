@@ -1608,7 +1608,7 @@ export interface components {
             })[];
         })[];
     };
-    ExperimentWithDecisionCriteriaStatus: ({
+    ExperimentWithEnhancedStatus: ({
       id: string;
       trackingKey: string;
       /** Format: date-time */
@@ -1749,7 +1749,7 @@ export interface components {
       hasVisualChangesets?: boolean;
       hasURLRedirects?: boolean;
     }) & ({
-      decisionCriteriaStatus?: {
+      enhancedStatus?: {
         /** @enum {string} */
         status: "Running" | "Stopped" | "Draft" | "Archived";
         detailedStatus?: string;
@@ -4952,7 +4952,7 @@ export interface operations {
               hasVisualChangesets?: boolean;
               hasURLRedirects?: boolean;
             }) & ({
-              decisionCriteriaStatus?: {
+              enhancedStatus?: {
                 /** @enum {string} */
                 status: "Running" | "Stopped" | "Draft" | "Archived";
                 detailedStatus?: string;
@@ -8597,7 +8597,7 @@ export type ApiExperimentSnapshot = z.infer<typeof openApiValidators.apiExperime
 export type ApiExperimentMetric = z.infer<typeof openApiValidators.apiExperimentMetricValidator>;
 export type ApiExperimentAnalysisSettings = z.infer<typeof openApiValidators.apiExperimentAnalysisSettingsValidator>;
 export type ApiExperimentResults = z.infer<typeof openApiValidators.apiExperimentResultsValidator>;
-export type ApiExperimentWithDecisionCriteriaStatus = z.infer<typeof openApiValidators.apiExperimentWithDecisionCriteriaStatusValidator>;
+export type ApiExperimentWithEnhancedStatus = z.infer<typeof openApiValidators.apiExperimentWithEnhancedStatusValidator>;
 export type ApiDataSource = z.infer<typeof openApiValidators.apiDataSourceValidator>;
 export type ApiVisualChangeset = z.infer<typeof openApiValidators.apiVisualChangesetValidator>;
 export type ApiVisualChange = z.infer<typeof openApiValidators.apiVisualChangeValidator>;

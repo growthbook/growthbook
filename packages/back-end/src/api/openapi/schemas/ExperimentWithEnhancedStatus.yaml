@@ -2,7 +2,7 @@ allOf:
   - $ref: "./Experiment.yaml"
   - type: object
     properties:
-      decisionCriteriaStatus:
+      enhancedStatus:
         type: object
         required:
           - status

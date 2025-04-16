@@ -19,4 +19,4 @@ responses:
             - experiment
           properties:
             experiment:
-              $ref: "../schemas/ExperimentWithDecisionCriteriaStatus.yaml"
+              $ref: "../schemas/ExperimentWithEnhancedStatus.yaml"

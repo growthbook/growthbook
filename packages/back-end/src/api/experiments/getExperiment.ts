@@ -31,7 +31,7 @@ export const getExperiment = createApiRequestHandler(getExperimentValidator)(
             settings!.defaultDecisionCriteriaId!
           )) ?? DEFAULT_DECISION_CRITERIA;
       } catch {
-        // Empty catch
+        // Empty catch - we fall back to the default below if the query failed.
       }
     }
     decisionCriteria ||= DEFAULT_DECISION_CRITERIA;
@@ -42,14 +42,14 @@ export const getExperiment = createApiRequestHandler(getExperimentValidator)(
       healthSettings,
       decisionCriteria
     );
-    const decisionCriteriaStatus = { status, detailedStatus };
+    const enhancedStatus = { status, detailedStatus };
 
     const apiExperiment = await toExperimentApiInterface(
       req.context,
       experiment
     );
     return {
-      experiment: { ...apiExperiment, decisionCriteriaStatus },
+      experiment: { ...apiExperiment, enhancedStatus },
     };
   }
 );
