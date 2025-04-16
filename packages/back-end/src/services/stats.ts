@@ -227,7 +227,7 @@ async function runStatsEngine(
   const escapedStatsData = JSON.stringify(statsData).replace(/\\/g, "\\\\");
   const start = Date.now();
   const cpus = os.cpus();
-  const options = process.env.DD_API_KEY
+  const options = process.env.GB_ENABLE_PYTHON_DD_PROFILING
     ? {
         pythonPath: "ddtrace-run",
         pythonOptions: ["python3"],
