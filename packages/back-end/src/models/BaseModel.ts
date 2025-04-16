@@ -593,9 +593,8 @@ export abstract class BaseModel<
       }
     );
 
+    const auditEvent = options?.auditEvent || this.config.auditLog?.updateEvent;
     if (this.config.auditLog) {
-      const auditEvent =
-        options?.auditEvent || this.config.auditLog.updateEvent;
       try {
         await this.context.auditLog({
           entity: {

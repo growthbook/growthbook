@@ -11,7 +11,7 @@ import { getFeature } from "./FeatureModel";
 const BaseClass = MakeModelClass({
   schema: safeRolloutSnapshotInterface,
   collectionName: "saferolloutsnapshots",
-  idPrefix: "srsnp__",
+  idPrefix: "srsnp_",
   globallyUniqueIds: false,
 });
 
@@ -105,7 +105,6 @@ export class SafeRolloutSnapshotModel extends BaseClass {
       latestSafeRolloutSnapshot?.id === safeRolloutSnapshot.id;
 
     if (isLatestSnapshot && safeRolloutSnapshot.status === "success") {
-
       const safeRollout = await this.context.models.safeRollout.getById(
         safeRolloutSnapshot.safeRolloutId
       );
