@@ -5,11 +5,11 @@ import { baseSchema, MakeModelClass } from "./BaseModel";
 export const COLLECTION_NAME = "saferollout";
 
 const safeRolloutStatus = [
+  "draft",
   "running",
   "rolled-back",
   "released",
-  "completed",
-  "draft",
+  "stopped",
 ] as const;
 export type SafeRolloutStatus = typeof safeRolloutStatus[number];
 

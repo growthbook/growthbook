@@ -27,13 +27,13 @@ export const getLatestSafeRolloutSnapshot = async (
 
   const snapshot = await context.models.safeRolloutSnapshots.getSnapshotForSafeRollout(
     {
-      safeRollout: req.params.id,
+      safeRolloutId: req.params.id,
     }
   );
 
   const latest = await context.models.safeRolloutSnapshots.getSnapshotForSafeRollout(
     {
-      safeRollout: req.params.id,
+      safeRolloutId: req.params.id,
       withResults: false,
     }
   );

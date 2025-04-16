@@ -184,7 +184,7 @@ export async function getSettingsForSnapshotMetrics(
   const metricMap = await getMetricMap(context);
 
   const allExperimentMetricIds = getAllMetricIdsFromExperiment(
-    safeRollout,
+    { guardrailMetrics: safeRollout.guardrailMetricIds },
     false
   );
   const allExperimentMetrics = allExperimentMetricIds
@@ -295,7 +295,9 @@ function getSafeRolloutSnapshotSettings({
   );
 
   const metricSettings = expandMetricGroups(
-    getAllMetricIdsFromExperiment(safeRollout),
+    getAllMetricIdsFromExperiment({
+      guardrailMetrics: safeRollout.guardrailMetricIds,
+    }),
     metricGroups
   )
     .map((m) =>
@@ -346,7 +348,7 @@ export async function _createSafeRolloutSnapshot({
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
   const metricGroups = await context.models.metricGroups.getAll();
 
-  const datasource = await getDataSourceById(context, safeRollout.datasource);
+  const datasource = await getDataSourceById(context, safeRollout.datasourceId);
   if (!datasource) {
     throw new Error("Could not load data source");
   }
@@ -366,7 +368,7 @@ export async function _createSafeRolloutSnapshot({
     runStarted: new Date(),
     error: "",
     queries: [],
-    dimension: dimension || null,
+    dimension: dimension ?? undefined,
     settings: snapshotSettings,
     multipleExposures: 0,
     triggeredBy,

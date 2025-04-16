@@ -3099,7 +3099,12 @@ export async function computeResultsStatus({
         "goalMetrics" in experiment
           ? experiment.goalMetrics.includes(m)
           : false;
-      const guardrailMetric = experiment.guardrailMetrics.includes(m);
+      const guardrailMetric =
+        "guardrailMetrics" in experiment
+          ? experiment.guardrailMetrics.includes(m)
+          : "guardrailMetricIds" in experiment
+          ? experiment.guardrailMetricIds.includes(m)
+          : false;
       if (goalMetric || guardrailMetric) {
         const baselineMetric = baselineVariation.metrics?.[m];
         const currentMetric = currentVariation.metrics?.[m];

@@ -92,6 +92,7 @@ async function getAllSafeRolloutsToUpdate() {
   const now = new Date();
 
   const cursor = getCollection<SafeRolloutInterface>(COLLECTION_NAME).find({
+    status: { $in: ["running"] },
     nextSnapshotUpdate: { $lte: now },
     autoSnapshots: true,
   });

@@ -689,6 +689,21 @@ export default function RuleModal({
                   "Release to small percent of users while monitoring logs",
               },
             ]}
+            value={overviewRadioSelectorRuleType}
+            setValue={(
+              v: "force" | "rollout" | "safe-rollout" | "experiment" | "bandit"
+            ) => {
+              setOverviewRadioSelectorRuleType(v);
+              if (v === "force") {
+                setOverviewRuleType("force");
+              } else if (v === "rollout") {
+                setOverviewRuleType("rollout");
+              } else if (v === "safe-rollout") {
+                setOverviewRuleType("safe-rollout");
+              } else {
+                setOverviewRuleType("experiment-ref-new");
+              }
+            }}
           />
 
           <Text>DATA-DRIVEN</Text>
