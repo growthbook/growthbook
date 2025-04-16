@@ -103,11 +103,9 @@ export function getSafeRolloutSnapshotAnalysis(
   snapshot: SafeRolloutSnapshotInterface,
   analysisSettings?: SafeRolloutSnapshotAnalysisSettings | null
 ): SafeRolloutSnapshotAnalysis | null {
-  return (
-    (analysisSettings
-      ? snapshot?.analyses?.find((a) => isEqual(a.settings, analysisSettings))
-      : snapshot?.analyses?.[0]) || null
-  );
+  return (analysisSettings
+    ? snapshot?.analyses?.find((a) => isEqual(a.settings, analysisSettings))
+    : snapshot?.analyses?.[0]) || null;
 }
 export function putBaselineVariationFirst(
   variations: ExperimentReportVariation[],

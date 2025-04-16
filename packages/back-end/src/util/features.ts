@@ -560,7 +560,7 @@ export function getFeatureDefinition({
           }
         } else if (r.type === "safe-rollout") {
           // TODO fix with safe rollout map
-
+          
           rule.coverage = r.coverage;
 
           rule.hashAttribute = r.hashAttribute;

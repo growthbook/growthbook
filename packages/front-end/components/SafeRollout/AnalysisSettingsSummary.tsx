@@ -5,7 +5,6 @@ import { expandMetricGroups } from "shared/experiments";
 import { SafeRolloutRule } from "back-end/src/validators/features";
 import { SafeRolloutSnapshotInterface } from "back-end/src/validators/safe-rollout";
 import { differenceInHours } from "date-fns";
-import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
@@ -16,9 +15,10 @@ import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton"
 import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import OutdatedBadge from "@/components/OutdatedBadge";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 import OverflowText from "../Experiment/TabbedPage/OverflowText";
 import RefreshSnapshotButton from "./RefreshSnapshotButton";
+import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
+import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
 
 export interface Props {
   safeRollout: SafeRolloutInterface;
@@ -37,13 +37,7 @@ export default function SafeRolloutAnalysisSettingsSummary({
 
   const permissionsUtil = usePermissionsUtil();
 
-  const {
-    snapshot,
-    feature,
-    latest,
-    analysis,
-    mutateSnapshot,
-  } = useSafeRolloutSnapshot();
+  const { snapshot, feature, latest, analysis, mutateSnapshot } = useSafeRolloutSnapshot();
   console.log("latest", latest);
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const [refreshError, setRefreshError] = useState("");
@@ -179,42 +173,45 @@ export default function SafeRolloutAnalysisSettingsSummary({
                 </div>
               )}
 
-            {ds && permissionsUtil.canRunExperimentQueries(ds) && latest && (
+            {ds &&
+              permissionsUtil.canRunExperimentQueries(ds) &&
+              latest && (
               // (status === "failed" || status === "partially-succeeded") && (
-              <div className="col-auto pl-1">
-                <ViewAsyncQueriesButton
-                  queries={latest.queries.map((q) => q.query)}
-                  error={latest.error ?? undefined}
-                  color={clsx(
-                    {
-                      "outline-danger":
-                        status === "failed" || status === "partially-succeeded",
-                    },
-                    " "
-                  )}
-                  display={null}
-                  status={status}
-                  icon={
-                    <span
-                      className="position-relative pr-2"
-                      style={{ marginRight: 6 }}
-                    >
-                      <span className="text-main">
-                        <FaDatabase />
+                <div className="col-auto pl-1">
+                  <ViewAsyncQueriesButton
+                    queries={latest.queries.map((q) => q.query)}
+                    error={latest.error ?? undefined}
+                    color={clsx(
+                      {
+                        "outline-danger":
+                          status === "failed" ||
+                          status === "partially-succeeded",
+                      },
+                      " "
+                    )}
+                    display={null}
+                    status={status}
+                    icon={
+                      <span
+                        className="position-relative pr-2"
+                        style={{ marginRight: 6 }}
+                      >
+                        <span className="text-main">
+                          <FaDatabase />
+                        </span>
+                        <FaExclamationTriangle
+                          className="position-absolute"
+                          style={{
+                            top: -6,
+                            right: -4,
+                          }}
+                        />
                       </span>
-                      <FaExclamationTriangle
-                        className="position-absolute"
-                        style={{
-                          top: -6,
-                          right: -4,
-                        }}
-                      />
-                    </span>
-                  }
-                  condensed={true}
-                />
-              </div>
-            )}
+                    }
+                    condensed={true}
+                  />
+                </div>
+              )}
 
             <div className="col-auto px-0"></div>
           </div>
