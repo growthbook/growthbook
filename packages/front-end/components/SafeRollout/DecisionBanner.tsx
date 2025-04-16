@@ -1,8 +1,8 @@
 import { addDays, differenceInDays } from "date-fns";
-import { getMetricResultStatus } from "shared/experiments";
-import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import useConfidenceLevels from "@/hooks/useConfidenceLevels";
-import usePValueThreshold from "@/hooks/usePValueThreshold";
+import {
+  getHealthSettings,
+  getSafeRolloutResultStatus,
+} from "shared/src/enterprise/decision-criteria";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 import { useUser } from "@/services/UserContext";
 import Callout from "../Radix/Callout";
@@ -16,13 +16,9 @@ const DecisionBanner = ({
     safeRollout,
     snapshot: snapshotWithResults,
   } = useSafeRolloutSnapshot();
-  const { metricDefaults } = useOrganizationMetricDefaults();
   const { hasCommercialFeature } = useUser();
   const { organization } = useUser();
   const settings = organization?.settings;
-
-  const { ciUpper, ciLower } = useConfidenceLevels();
-  const pValueThreshold = usePValueThreshold();
 
   if (!safeRollout) {
     return null;
@@ -43,22 +39,32 @@ const DecisionBanner = ({
     ? differenceInDays(endDate, latestSnapshotDate)
     : safeRollout.maxDurationDays;
 
-  // const decisionStatus = getSafeRolloutResultStatus({
-  //   safeRollout,
-  //   healthSettings: getHealthSettings(
-  //     settings,
-  //     hasCommercialFeature("decision-framework")
-  //   ),
-  //   daysLeft,
-  // });
-
+  const decisionStatus = getSafeRolloutResultStatus({
+    safeRollout,
+    healthSettings: getHealthSettings(
+      settings,
+      hasCommercialFeature("decision-framework")
+    ),
+    daysLeft,
+  });
   // failingGuardrails comes from the analysis summary for now, but we could return it in the above
-  const failingGuardrails = ["X", "Y", "Z"]; // Mocked for demonstration
-  const decisionStatus = { status: "rollback-now" }; // Mocked decision status for demonstration
-  if (decisionStatus?.status === "rollback-now") {
+  if (decisionStatus?.status === "unhealthy") {
     return (
       <Callout status="error" my="4">
-        Guardrail(s) {failingGuardrails.join(", ")} are failing.{" "}
+        {decisionStatus.unhealthyData.srm && <p>SRM is failing. Revert now.</p>}
+        {decisionStatus.unhealthyData.multipleExposures && (
+          <p>
+            Multiple exposures of{" "}
+            {
+              decisionStatus.unhealthyData.multipleExposures
+                .multipleExposedUsers
+            }
+            users detected. Revert now.
+          </p>
+        )}
+        {decisionStatus.unhealthyData.lowPowered && (
+          <p>Low powered. Revert now.</p>
+        )}
         <a
           role="button"
           className="link"
