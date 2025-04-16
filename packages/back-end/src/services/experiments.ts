@@ -39,7 +39,6 @@ import {
 } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
-import { StatusIndicatorData } from "shared/enterprise";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import {
@@ -1325,11 +1324,7 @@ function getExperimentMetric(
 
 export async function toExperimentApiInterface(
   context: ReqContext | ApiReqContext,
-  experiment: ExperimentInterface,
-  decisionCriteriaStatus?: Pick<
-    StatusIndicatorData,
-    "status" | "detailedStatus"
-  >
+  experiment: ExperimentInterface
 ): Promise<ApiExperiment> {
   const appOrigin = (APP_ORIGIN ?? "").replace(/\/$/, "");
 
@@ -1460,7 +1455,6 @@ export async function toExperimentApiInterface(
     linkedFeatures: experiment.linkedFeatures || [],
     hasVisualChangesets: experiment.hasVisualChangesets || false,
     hasURLRedirects: experiment.hasURLRedirects || false,
-    decisionCriteriaStatus: decisionCriteriaStatus,
   };
 }
 

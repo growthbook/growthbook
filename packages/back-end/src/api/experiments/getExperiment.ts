@@ -42,15 +42,14 @@ export const getExperiment = createApiRequestHandler(getExperimentValidator)(
       healthSettings,
       decisionCriteria
     );
-    const statusData = { status, detailedStatus };
+    const decisionCriteriaStatus = { status, detailedStatus };
 
     const apiExperiment = await toExperimentApiInterface(
       req.context,
-      experiment,
-      statusData
+      experiment
     );
     return {
-      experiment: apiExperiment,
+      experiment: { ...apiExperiment, decisionCriteriaStatus },
     };
   }
 );

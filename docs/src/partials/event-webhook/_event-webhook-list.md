@@ -896,10 +896,6 @@ Triggered when an experiment is created
             linkedFeatures?: string[] | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
-            decisionCriteriaStatus?: {
-                status: "Running" | "Stopped" | "Draft" | "Archived";
-                detailedStatus?: string | undefined;
-            } | undefined;
         };
     };
     user: {
@@ -1056,10 +1052,6 @@ Triggered when an experiment is updated
             linkedFeatures?: string[] | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
-            decisionCriteriaStatus?: {
-                status: "Running" | "Stopped" | "Draft" | "Archived";
-                detailedStatus?: string | undefined;
-            } | undefined;
         };
         previous_attributes: {
             id?: string | undefined;
@@ -1184,10 +1176,6 @@ Triggered when an experiment is updated
             linkedFeatures?: (string[] | undefined) | undefined;
             hasVisualChangesets?: (boolean | undefined) | undefined;
             hasURLRedirects?: (boolean | undefined) | undefined;
-            decisionCriteriaStatus?: ({
-                status: "Running" | "Stopped" | "Draft" | "Archived";
-                detailedStatus?: string | undefined;
-            } | undefined) | undefined;
         };
     };
     user: {
@@ -1344,10 +1332,6 @@ Triggered when an experiment is deleted
             linkedFeatures?: string[] | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
-            decisionCriteriaStatus?: {
-                status: "Running" | "Stopped" | "Draft" | "Archived";
-                detailedStatus?: string | undefined;
-            } | undefined;
         };
     };
     user: {

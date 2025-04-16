@@ -141,6 +141,9 @@ tags:
   - name: ExperimentSnapshot_model
     x-displayName: ExperimentSnapshot
     description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentSnapshot" />
+  - name: ExperimentWithDecisionCriteriaStatus_model
+    x-displayName: ExperimentWithDecisionCriteriaStatus
+    description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentWithDecisionCriteriaStatus" />
   - name: FactMetric_model
     x-displayName: FactMetric
     description: <SchemaDefinition schemaRef="#/components/schemas/FactMetric" />
@@ -1730,7 +1733,7 @@ paths:
                   - experiment
                 properties:
                   experiment:
-                    $ref: '#/components/schemas/Experiment'
+                    $ref: '#/components/schemas/ExperimentWithDecisionCriteriaStatus'
     post:
       parameters:
         - $ref: '#/components/parameters/id'
@@ -6245,20 +6248,6 @@ components:
           type: boolean
         hasURLRedirects:
           type: boolean
-        decisionCriteriaStatus:
-          type: object
-          required:
-            - status
-          properties:
-            status:
-              type: string
-              enum:
-                - Running
-                - Stopped
-                - Draft
-                - Archived
-            detailedStatus:
-              type: string
     ExperimentSnapshot:
       type: object
       required:
@@ -6477,6 +6466,25 @@ components:
                                   type: number
                                 chanceToBeatControl:
                                   type: number
+    ExperimentWithDecisionCriteriaStatus:
+      allOf:
+        - $ref: '#/components/schemas/Experiment'
+        - type: object
+          properties:
+            decisionCriteriaStatus:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - Running
+                    - Stopped
+                    - Draft
+                    - Archived
+                detailedStatus:
+                  type: string
     DataSource:
       type: object
       required:
@@ -7224,6 +7232,7 @@ x-tagGroups:
       - ExperimentMetric_model
       - ExperimentResults_model
       - ExperimentSnapshot_model
+      - ExperimentWithDecisionCriteriaStatus_model
       - FactMetric_model
       - FactTable_model
       - FactTableFilter_model
