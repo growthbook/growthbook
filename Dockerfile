@@ -77,7 +77,7 @@ COPY --from=nodebuild /usr/local/src/app/package.json ./package.json
 COPY buildinfo* ./buildinfo
 
 COPY --from=pybuild /usr/local/src/app/dist /usr/local/src/gbstats
-RUN pip3 install /usr/local/src/gbstats/*.whl
+RUN pip3 install /usr/local/src/gbstats/*.whl ddtrace
 ARG DD_GIT_COMMIT_SHA=""
 ARG DD_GIT_REPOSITORY_URL=https://github.com/growthbook/growthbook.git
 ARG DD_VERSION=""
