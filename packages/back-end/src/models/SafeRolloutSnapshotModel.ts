@@ -9,7 +9,7 @@ import { MakeModelClass } from "./BaseModel";
 const BaseClass = MakeModelClass({
   schema: safeRolloutSnapshotInterface,
   collectionName: "saferolloutsnapshots",
-  idPrefix: "srsnp__",
+  idPrefix: "srsnp_",
   globallyUniqueIds: false,
 });
 

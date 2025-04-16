@@ -1,4 +1,4 @@
-import { SafeRolloutInterfaceCreateFields } from "back-end/src/models/SafeRolloutModel";
+import { CreateSafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
 import { FeatureRule } from "back-end/src/validators/features";
 
 export {
@@ -12,12 +12,12 @@ export {
 export type PostFeatureRuleBody = {
   rule: FeatureRule;
   environment: string;
-  interfaceFields?: SafeRolloutInterfaceCreateFields;
+  interfaceFields?: CreateSafeRolloutInterface;
 };
 
 export type PutFeatureRuleBody = {
   rule: Partial<FeatureRule>;
-  interfaceFields?: Partial<SafeRolloutInterfaceCreateFields>;
+  interfaceFields?: Partial<CreateSafeRolloutInterface>;
   environment: string;
   i: number;
 };

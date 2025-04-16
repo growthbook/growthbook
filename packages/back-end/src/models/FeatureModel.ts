@@ -143,7 +143,9 @@ const featureSchema = new mongoose.Schema({
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
 featureSchema.index({ organization: 1, project: 1 });
+
 type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
+
 export const FeatureModel = mongoose.model<LegacyFeatureInterface>(
   "Feature",
   featureSchema
@@ -965,19 +967,16 @@ export async function publishRevision(
   if (revision.status === "published" || revision.status === "discarded") {
     throw new Error("Can only publish a draft revision");
   }
-  const safeRolloutIds: string[] = [];
-  Object.keys(revision.rules).forEach((key) => {
-    for (const rule of revision.rules[key]) {
-      if (rule?.type === "safe-rollout") {
-        safeRolloutIds.push(rule.safeRolloutId);
-      }
-    }
-  });
+
+  const safeRolloutIds: string[] = Object.values(revision.rules)
+    .flat()
+    .filter((rule) => rule?.type === "safe-rollout")
+    .map((rule) => rule.safeRolloutId);
   const safeRollouts = await context.models.safeRollout.findByRuleIds(
     safeRolloutIds
   );
   safeRollouts.forEach((safeRollout: SafeRolloutInterface) => {
-    //TODO: we might want to write an updateMany function
+    // TODO: we might want to write an updateMany function
     if (safeRollout.status === "draft") {
       context.models.safeRollout.update(safeRollout, {
         status: "running",

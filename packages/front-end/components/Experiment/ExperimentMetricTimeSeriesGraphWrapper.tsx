@@ -1,9 +1,10 @@
+import { Flex } from "@radix-ui/themes";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import { ExperimentStatus } from "back-end/src/validators/experiments";
 import { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
 import { daysBetween, getValidDate } from "shared/dates";
 import { ExperimentMetricInterface } from "shared/src/experiments";
-import { addDays } from "date-fns";
+import { addDays, min } from "date-fns";
 import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -48,37 +49,50 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
     getFactTableById
   );
 
-  const { data } = useApi<{ timeSeries: MetricTimeSeries[] }>(
+  const { data, isLoading, error } = useApi<{ timeSeries: MetricTimeSeries[] }>(
     `/experiments/${experimentId}/time-series?phase=${phase}&metricIds[]=${metric.id}`
   );
 
-  if (!data || !data.timeSeries || data.timeSeries.length === 0) {
-    return null;
+  if (error) {
+    return (
+      <Message>
+        An error occurred while loading the time series data. Please try again
+        later.
+      </Message>
+    );
   }
 
-  // Ensure we always render at least 7 days in case we have less than 7 days worth of data
-  const additionalGraphDataPoints: ExperimentTimeSeriesGraphDataPoint[] = [];
-  const timeSeries = data.timeSeries[0];
-  const firstDate = getValidDate(timeSeries.dataPoints[0].date);
-  const realFirstDate =
-    firstDate < firstDateToRender ? firstDateToRender : firstDate;
-  const lastDate = timeSeries.dataPoints[timeSeries.dataPoints.length - 1].date;
-  const numOfDays = daysBetween(realFirstDate, lastDate);
-  if (numOfDays < 7) {
-    additionalGraphDataPoints.push({
-      d: addDays(new Date(lastDate), 7 - numOfDays),
-    });
+  if (isLoading) {
+    return <Message>Loading...</Message>;
   }
-  if (firstDateToRender < firstDate) {
+
+  if (!data || data.timeSeries.length === 0) {
+    return <Message>No time series data available for this metric.</Message>;
+  }
+
+  // NB: Can use data.timeSeries[0] because we only fetch one metric
+  const timeSeries = data.timeSeries[0];
+
+  const additionalGraphDataPoints: ExperimentTimeSeriesGraphDataPoint[] = [];
+  const firstDataPointDate = getValidDate(timeSeries.dataPoints[0].date);
+  if (firstDateToRender < firstDataPointDate) {
     additionalGraphDataPoints.push({
       d: firstDateToRender,
     });
   }
 
-  // When experiment is running, always show one additional day at the end of the graph
-  if (experimentStatus === "running" && numOfDays >= 7) {
+  const firstDate = min([firstDateToRender, firstDataPointDate]);
+  const lastDataPointDate =
+    timeSeries.dataPoints[timeSeries.dataPoints.length - 1].date;
+  const numOfDays = daysBetween(firstDate, lastDataPointDate);
+  if (numOfDays < 7) {
     additionalGraphDataPoints.push({
-      d: addDays(new Date(lastDate), 1),
+      d: addDays(new Date(lastDataPointDate), 7 - numOfDays),
+    });
+  } else if (experimentStatus === "running") {
+    // When experiment is running, always show one additional day at the end of the graph
+    additionalGraphDataPoints.push({
+      d: addDays(new Date(lastDataPointDate), 1),
     });
   }
 
@@ -169,5 +183,20 @@ export default function ExperimentMetricTimeSeriesGraphWrapper({
       statsEngine={statsEngine}
       usesPValueAdjustment={pValueAdjustmentEnabled}
     />
+  );
+}
+
+function Message({ children }: { children: React.ReactNode }) {
+  return (
+    <Flex
+      align="center"
+      height="220px"
+      justify="center"
+      pb="1rem"
+      position="relative"
+      width="100%"
+    >
+      {children}
+    </Flex>
   );
 }

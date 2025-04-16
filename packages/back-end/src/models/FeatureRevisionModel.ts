@@ -10,7 +10,6 @@ import { EventUser, EventUserLoggedIn } from "back-end/src/events/event-types";
 import { OrganizationInterface, ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
 import { applyEnvironmentInheritance } from "back-end/src/util/features";
-import { SafeRolloutRule } from "back-end/src/validators/features";
 
 export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
 
@@ -54,35 +53,6 @@ const FeatureRevisionModel = mongoose.model<FeatureRevisionInterface>(
   "FeatureRevision",
   featureRevisionSchema
 );
-
-export function safeRolloutRuleToInterface(
-  doc: FeatureRevisionDocument[]
-): {
-  rules: (SafeRolloutRule & { organization: string })[];
-} {
-  let rules: (SafeRolloutRule & { organization: string })[] = [];
-  for (const revision of doc) {
-    const currentRevision = omit(revision.toJSON<FeatureRevisionDocument>(), [
-      "__v",
-      "_id",
-    ]);
-    rules = [
-      ...rules,
-      ...Object.values(
-        (currentRevision.rules as Record<string, FeatureRule[]>) || {}
-      )
-        .flat()
-        .filter((rule): rule is SafeRolloutRule => rule.type === "safe-rollout")
-        .map((rule: FeatureRule) => ({
-          ...rule,
-          organization: revision.organization,
-        })),
-    ] as (SafeRolloutRule & { organization: string })[];
-  }
-  return {
-    rules,
-  };
-}
 
 function toInterface(
   doc: FeatureRevisionDocument,
@@ -158,17 +128,21 @@ export async function getFeatureRevisionsByStatus({
   organization,
   featureId,
   status,
+  limit = 10,
 }: {
   context: ReqContext;
   organization: string;
   featureId: string;
   status?: string;
+  limit?: number;
 }): Promise<FeatureRevisionInterface[]> {
   const docs = await FeatureRevisionModel.find({
     organization,
     featureId,
     ...(status ? { status } : {}),
-  });
+  })
+    .sort({ version: -1 })
+    .limit(limit);
   return docs.map((m) => toInterface(m, context));
 }
 
@@ -356,6 +330,7 @@ export async function createRevision({
   } else if (publish && requiresReview) {
     revision.status = "pending-review";
   }
+
   const doc = await FeatureRevisionModel.create(revision);
 
   return toInterface(doc, context);

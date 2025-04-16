@@ -1,19 +1,20 @@
 import Agenda, { Job } from "agenda";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
-
-const QUEUE_SAFE_ROLLOUT_SNAPSHOT_UPDATES = "queueSafeRolloutSnapshotUpdates";
-const QUEUE_SAFE_ROLLOUT_RULE_UPDATES = "queueSafeRolloutRuleUpdates";
-
-import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnapshots";
+import { getCollection } from "back-end/src/util/mongo.util";
 import { getFeature } from "back-end/src/models/FeatureModel";
-const UPDATE_SINGLE_SAFE_ROLLOUT_RULE = "updateSingleSafeRolloutRule";
+import { SafeRolloutRule } from "back-end/src/validators/features";
+import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout-snapshot/safe-rollout.helper";
+import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnapshots";
 import {
-  getAllRolloutsToBeUpdated,
+  COLLECTION_NAME,
   SafeRolloutInterface,
 } from "back-end/src/models/SafeRolloutModel";
-import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout-snapshot/safe-rollout.helper";
-import { SafeRolloutRule } from "back-end/src/validators/features";
+
+const UPDATE_SINGLE_SAFE_ROLLOUT_RULE = "updateSingleSafeRolloutRule";
+const QUEUE_SAFE_ROLLOUT_RULE_UPDATES = "queueSafeRolloutRuleUpdates";
+const QUEUE_SAFE_ROLLOUT_SNAPSHOT_UPDATES = "queueSafeRolloutSnapshotUpdates";
+
 type UpdateSingleSafeRolloutRuleJob = Job<{
   safeRollout: SafeRolloutInterface;
   safeRolloutRule: SafeRolloutRule;
@@ -21,9 +22,9 @@ type UpdateSingleSafeRolloutRuleJob = Job<{
 
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_SAFE_ROLLOUT_SNAPSHOT_UPDATES, async () => {
-    const safeRollouts = await getAllRolloutsToBeUpdated();
+    const safeRollouts = await getAllSafeRolloutsToUpdate();
 
-    for await (const safeRollout of safeRollouts) {
+    for (const safeRollout of safeRollouts) {
       await queueSafeRolloutSnapshotUpdate(safeRollout);
     }
   });
@@ -79,12 +80,22 @@ async function updateSingleSafeRolloutRule(
     logger.info("Start Refreshing Results for SafeRollout " + ruleId);
     await createSafeRolloutSnapshot({
       context,
-      safeRolloutRule,
       safeRollout,
       triggeredBy: "schedule",
-      feature,
     });
   } catch (e) {
     logger.error(e, "Failed to create SafeRollout Snapshot: " + ruleId);
   }
+}
+
+async function getAllSafeRolloutsToUpdate() {
+  const now = new Date();
+
+  const cursor = getCollection<SafeRolloutInterface>(COLLECTION_NAME).find({
+    nextSnapshotUpdate: { $lte: now },
+    autoSnapshots: true,
+  });
+
+  const safeRollouts = await cursor.toArray();
+  return safeRollouts;
 }

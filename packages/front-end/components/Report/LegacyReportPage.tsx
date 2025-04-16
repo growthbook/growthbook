@@ -509,6 +509,7 @@ export default function LegacyReportPage({
                     startDate={getValidDate(
                       report.args.startDate
                     ).toISOString()}
+                    endDate={getValidDate(report.args.endDate).toISOString()}
                     dimensionId={report.args.dimension}
                     activationMetric={report.args.activationMetric}
                     variations={variations}
@@ -575,6 +576,7 @@ export default function LegacyReportPage({
                       startDate={getValidDate(
                         report.args.startDate
                       ).toISOString()}
+                      endDate={getValidDate(report.args.endDate).toISOString()}
                       isLatestPhase={true}
                       status={"stopped"}
                       goalMetrics={report.args.goalMetrics}
@@ -593,6 +595,7 @@ export default function LegacyReportPage({
                       sequentialTestingEnabled={sequentialTestingEnabled}
                       differenceType={differenceType}
                       isTabActive={true}
+                      disableTimeSeriesButton={true}
                     />
                   </div>
                 )}

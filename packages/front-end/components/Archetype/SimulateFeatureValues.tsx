@@ -456,7 +456,6 @@ export const SimulateFeatureValues: FC<{
               values they have or would receive. Simulation is a premium
               feature."
           commercialFeature="simulate"
-          reason="Simulate landing page no access"
           learnMoreLink="https://docs.growthbook.io/features/rules#simulation"
         />
       </div>
