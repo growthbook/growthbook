@@ -566,7 +566,7 @@ export function getFeatureDefinition({
           const safeRollout = safeRolloutMap.get(r.safeRolloutId);
           if (!safeRollout) return null;
 
-          rule.coverage = safeRollout.coverage;
+          rule.coverage = 1; // Always 100% right now
 
           rule.hashAttribute = safeRollout.hashAttribute;
 
