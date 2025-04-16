@@ -72,6 +72,8 @@ export const apiMemberValidator = z.object({ "id": z.string(), "name": z.string(
 
 export const apiArchetypeValidator = z.object({ "id": z.string(), "dateCreated": z.string(), "dateUpdated": z.string(), "name": z.string(), "description": z.string().optional(), "owner": z.string(), "isPublic": z.boolean(), "attributes": z.record(z.any()).describe("The attributes to set when using this Archetype"), "projects": z.array(z.string()).optional() }).strict()
 
+export const apiSafeRolloutSnapshotValidator = z.object({ "id": z.string(), "safeRolloutId": z.string(), "status": z.string() }).strict()
+
 export const listFeaturesValidator = {
   bodySchema: z.never(),
   querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0), "projectId": z.string().optional() }).strict(),
@@ -568,4 +570,16 @@ export const postCodeRefsValidator = {
   bodySchema: z.object({ "branch": z.string(), "repoName": z.string(), "refs": z.array(z.object({ "filePath": z.string(), "startingLineNumber": z.number().int(), "lines": z.string(), "flagKey": z.string(), "contentHash": z.string() })) }).strict(),
   querySchema: z.never(),
   paramsSchema: z.never(),
+};
+
+export const postSafeRolloutSnapshotValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const getSafeRolloutSnapshotValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
 };

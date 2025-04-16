@@ -1,0 +1,28 @@
+parameters:
+  - name: id
+    in: path
+    required: true
+    description: The safe rollout id of the safe rollout to update
+    schema:
+      type: string
+post:
+  tags:
+    - safe-rollouts
+  summary: Create a safe rollout snapshot
+  operationId: postSafeRolloutSnapshot
+  x-codeSamples:
+    - lang: "cURL"
+      source: |
+        curl -X POST https://api.growthbook.io/api/v1/safe-rollouts/sr_1234/snapshot \
+          -u secret_abc123DEF456:
+  responses:
+    "200":
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - safeRolloutSnapshot
+            properties:
+              safeRolloutSnapshot:
+                $ref: "../schemas/SafeRolloutSnapshot.yaml"

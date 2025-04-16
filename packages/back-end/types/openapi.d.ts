@@ -329,6 +329,26 @@ export interface paths {
     /** Submit list of code references */
     post: operations["postCodeRefs"];
   };
+  "/safe-rollouts/{id}/snapshot": {
+    /** Create a safe rollout snapshot */
+    post: operations["postSafeRolloutSnapshot"];
+    parameters: {
+        /** @description The safe rollout id of the safe rollout to update */
+      path: {
+        id: string;
+      };
+    };
+  };
+  "/safe-rollouts/snapshot/{id}": {
+    /** Get a safe rollout snapshot status */
+    get: operations["getSafeRolloutSnapshot"];
+    parameters: {
+        /** @description The id of the requested resource (a safe rollout snapshot ID) */
+      path: {
+        id: string;
+      };
+    };
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -2189,6 +2209,11 @@ export interface components {
       /** @description The attributes to set when using this Archetype */
       attributes: any;
       projects?: (string)[];
+    };
+    SafeRolloutSnapshot: {
+      id: string;
+      safeRolloutId: string;
+      status: string;
     };
   };
   responses: {
@@ -8969,6 +8994,38 @@ export interface operations {
       };
     };
   };
+  postSafeRolloutSnapshot: {
+    /** Create a safe rollout snapshot */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            safeRolloutSnapshot: {
+              id: string;
+              safeRolloutId: string;
+              status: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  getSafeRolloutSnapshot: {
+    /** Get a safe rollout snapshot status */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            safeRolloutSnapshot: {
+              id: string;
+              safeRolloutId: string;
+              status: string;
+            };
+          };
+        };
+      };
+    };
+  };
 }
 import { z } from "zod";
 import * as openApiValidators from "back-end/src/validators/openapi";
@@ -9007,6 +9064,7 @@ export type ApiFactTableFilter = z.infer<typeof openApiValidators.apiFactTableFi
 export type ApiFactMetric = z.infer<typeof openApiValidators.apiFactMetricValidator>;
 export type ApiMember = z.infer<typeof openApiValidators.apiMemberValidator>;
 export type ApiArchetype = z.infer<typeof openApiValidators.apiArchetypeValidator>;
+export type ApiSafeRolloutSnapshot = z.infer<typeof openApiValidators.apiSafeRolloutSnapshotValidator>;
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
@@ -9092,3 +9150,5 @@ export type UpdateFactMetricResponse = operations["updateFactMetric"]["responses
 export type DeleteFactMetricResponse = operations["deleteFactMetric"]["responses"]["200"]["content"]["application/json"];
 export type PostBulkImportFactsResponse = operations["postBulkImportFacts"]["responses"]["200"]["content"]["application/json"];
 export type PostCodeRefsResponse = operations["postCodeRefs"]["responses"]["200"]["content"]["application/json"];
+export type PostSafeRolloutSnapshotResponse = operations["postSafeRolloutSnapshot"]["responses"]["200"]["content"]["application/json"];
+export type GetSafeRolloutSnapshotResponse = operations["getSafeRolloutSnapshot"]["responses"]["200"]["content"]["application/json"];

@@ -1,0 +1,28 @@
+parameters:
+  - name: id
+    in: path
+    required: true
+    description: The id of the requested resource (a safe rollout snapshot ID)
+    schema:
+      type: string
+get:
+  tags:
+    - safe-rollouts
+  summary: Get a safe rollout snapshot status
+  operationId: getSafeRolloutSnapshot
+  x-codeSamples:
+    - lang: "cURL"
+      source: |
+        curl -X GET https://api.growthbook.io/api/v1/safe-rollouts/snapshot/snp_1234 \
+          -u secret_abc123DEF456:
+  responses:
+    "200":
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - safeRolloutSnapshot
+            properties:
+              safeRolloutSnapshot:
+                $ref: "../schemas/SafeRolloutSnapshot.yaml"

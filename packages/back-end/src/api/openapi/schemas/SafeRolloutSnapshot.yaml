@@ -1,0 +1,12 @@
+type: object
+required:
+  - id
+  - safeRolloutId
+  - status
+properties:
+  id:
+    type: string
+  safeRolloutId:
+    type: string
+  status:
+    type: string

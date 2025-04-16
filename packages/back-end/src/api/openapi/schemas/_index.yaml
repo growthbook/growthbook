@@ -64,3 +64,5 @@ Member:
   $ref: "./Member.yaml"
 Archetype:
   $ref: "./Archetype.yaml"
+SafeRolloutSnapshot:
+  $ref: "./SafeRolloutSnapshot.yaml"

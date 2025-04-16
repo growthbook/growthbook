@@ -111,6 +111,9 @@ tags:
   - name: archetypes
     x-displayName: Archetypes
     description: Archetypes allow you to simulate the result of targeting rules on pre-set user attributes
+  - name: safe-rollouts
+    x-displayName: Safe Rollouts
+    description: Safe Rollouts are a feature rule to safely release features while measuring guardrail performance
   - name: Archetype_model
     x-displayName: Archetype
     description: <SchemaDefinition schemaRef="#/components/schemas/Archetype" />
@@ -198,6 +201,9 @@ tags:
   - name: Project_model
     x-displayName: Project
     description: <SchemaDefinition schemaRef="#/components/schemas/Project" />
+  - name: SafeRolloutSnapshot_model
+    x-displayName: SafeRolloutSnapshot
+    description: <SchemaDefinition schemaRef="#/components/schemas/SafeRolloutSnapshot" />
   - name: SavedGroup_model
     x-displayName: SavedGroup
     description: <SchemaDefinition schemaRef="#/components/schemas/SavedGroup" />
@@ -4996,6 +5002,64 @@ paths:
                     type: array
                     items:
                       type: string
+  '/safe-rollouts/{id}/snapshot':
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The safe rollout id of the safe rollout to update
+        schema:
+          type: string
+    post:
+      tags:
+        - safe-rollouts
+      summary: Create a safe rollout snapshot
+      operationId: postSafeRolloutSnapshot
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/safe-rollouts/sr_1234/snapshot \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - safeRolloutSnapshot
+                properties:
+                  safeRolloutSnapshot:
+                    $ref: '#/components/schemas/SafeRolloutSnapshot'
+  '/safe-rollouts/snapshot/{id}':
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The id of the requested resource (a safe rollout snapshot ID)
+        schema:
+          type: string
+    get:
+      tags:
+        - safe-rollouts
+      summary: Get a safe rollout snapshot status
+      operationId: getSafeRolloutSnapshot
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X GET https://api.growthbook.io/api/v1/safe-rollouts/snapshot/snp_1234 \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - safeRolloutSnapshot
+                properties:
+                  safeRolloutSnapshot:
+                    $ref: '#/components/schemas/SafeRolloutSnapshot'
 components:
   parameters:
     id:
@@ -7234,6 +7298,19 @@ components:
           type: array
           items:
             type: string
+    SafeRolloutSnapshot:
+      type: object
+      required:
+        - id
+        - safeRolloutId
+        - status
+      properties:
+        id:
+          type: string
+        safeRolloutId:
+          type: string
+        status:
+          type: string
   securitySchemes:
     bearerAuth:
       type: http
@@ -7288,6 +7365,7 @@ x-tagGroups:
       - fact-metrics
       - code-references
       - archetypes
+      - safe-rollouts
   - name: Models
     tags:
       - Archetype_model
@@ -7319,6 +7397,7 @@ x-tagGroups:
       - Organization_model
       - PaginationFields_model
       - Project_model
+      - SafeRolloutSnapshot_model
       - SavedGroup_model
       - SdkConnection_model
       - Segment_model

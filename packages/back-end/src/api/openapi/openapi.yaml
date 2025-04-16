@@ -114,6 +114,9 @@ tags:
   - name: archetypes
     x-displayName: Archetypes
     description: Archetypes allow you to simulate the result of targeting rules on pre-set user attributes
+  - name: safe-rollouts
+    x-displayName: Safe Rollouts
+    description: Safe Rollouts are a feature rule to safely release features while measuring guardrail performance
 paths:
   /features:
     get:
@@ -316,6 +319,17 @@ paths:
   /code-refs:
     post:
       $ref: "./paths/postCodeRefs.yaml"
+  # /safe-rollouts:
+  #   get:
+  #     $ref: "./paths/listSafeRollouts.yaml"
+  #   post:
+  #     $ref: "./paths/postSafeRollout.yaml"
+  # /safe-rollouts/{id}:
+  #   $ref: "./paths/getSafeRollout.yaml"
+  /safe-rollouts/{id}/snapshot:
+    $ref: "./paths/postSafeRolloutSnapshot.yaml"
+  /safe-rollouts/snapshot/{id}:
+    $ref: "./paths/getSafeRolloutSnapshot.yaml"
   # PLOP_INSERT_PATHS_HERE
 components:
   parameters:
