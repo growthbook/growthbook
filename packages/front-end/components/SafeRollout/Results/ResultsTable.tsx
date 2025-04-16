@@ -39,7 +39,6 @@ import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { useCurrency } from "@/hooks/useCurrency";
-import PValueColumn from "@/components/Experiment/PValueColumn";
 import ChangeColumn from "@/components/Experiment/ChangeColumn";
 import ResultsTableTooltip, {
   TooltipHoverSettings,
@@ -96,7 +95,7 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 });
 
 export default function ResultsTable({
-  id,
+  id: _,
   isLatestPhase,
   status,
   queryStatusData,
@@ -290,7 +289,6 @@ export default function ResultsTable({
     hoveredMetricRow,
     hoveredVariationRow,
     resetTimeout,
-    TooltipInPortal,
   } = useResultsTableTooltip({
     orderedVariations,
     rows,
@@ -327,21 +325,19 @@ export default function ResultsTable({
         classNames="tooltip-animate"
         appear={true}
       >
-        <TooltipInPortal>
-          <ResultsTableTooltip
-            left={hoveredX ?? 0}
-            top={hoveredY ?? 0}
-            data={tooltipData}
-            tooltipOpen={tooltipOpen}
-            close={closeTooltip}
-            differenceType={differenceType}
-            onPointerMove={resetTimeout}
-            onClick={resetTimeout}
-            onPointerLeave={leaveRow}
-            isBandit={isBandit}
-            ssrPolyfills={ssrPolyfills}
-          />
-        </TooltipInPortal>
+        <ResultsTableTooltip
+          left={hoveredX ?? 0}
+          top={hoveredY ?? 0}
+          data={tooltipData}
+          tooltipOpen={tooltipOpen}
+          close={closeTooltip}
+          differenceType={differenceType}
+          onPointerMove={resetTimeout}
+          onClick={resetTimeout}
+          onPointerLeave={leaveRow}
+          isBandit={isBandit}
+          ssrPolyfills={ssrPolyfills}
+        />
       </CSSTransition>
 
       <div ref={tableContainerRef} className="experiment-results-wrapper">
