@@ -1,13 +1,12 @@
 import { z } from "zod";
 import { statsEngines } from "back-end/src/util/constants";
 import { safeRolloutStatusArray } from "back-end/src/validators/safe-rollout";
-import { eventUser } from "./events";
-import { featurePrerequisite } from "./shared";
-export {
-  namespaceValue,
+import {
   featurePrerequisite,
+  namespaceValue,
   savedGroupTargeting,
-} from "./shared";
+} from "back-end/src/validators/shared";
+import { eventUser } from "./events";
 
 export const simpleSchemaFieldValidator = z.object({
   key: z.string().max(64),

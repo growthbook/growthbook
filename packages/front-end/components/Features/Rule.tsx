@@ -301,7 +301,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           rule={rule}
                           feature={feature}
                         />
-                        {safeRollout?.status === "running" &&
+                        {safeRollout?.startedAt &&
                           safeRolloutStatusModalOpen && (
                             <SafeRolloutStatusModal
                               safeRollout={safeRollout}
