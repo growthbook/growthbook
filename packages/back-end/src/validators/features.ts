@@ -175,6 +175,9 @@ export const safeRolloutRule = baseRule
     variationValue: z.string(),
     safeRolloutId: z.string(),
     status: z.enum(safeRolloutStatusArray).default("running"),
+    hashAttribute: z.string(),
+    seed: z.string(),
+    trackingKey: z.string(),
   })
   .strict();
 

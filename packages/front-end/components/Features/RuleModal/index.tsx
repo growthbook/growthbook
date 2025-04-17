@@ -23,7 +23,7 @@ import { kebabCase } from "lodash";
 import { Text } from "@radix-ui/themes";
 import {
   SafeRolloutInterface,
-  SafeRolloutInterfaceCreateFields,
+  CreateSafeRolloutInterface,
 } from "back-end/src/models/SafeRolloutModel";
 import { SafeRolloutRule } from "back-end/src/validators/features";
 import {
@@ -94,7 +94,7 @@ type OverviewRuleType =
   | "safe-rollout";
 
 type SafeRolloutRuleCreateFields = SafeRolloutRule & {
-  safeRolloutInterfaceFields: SafeRolloutInterfaceCreateFields;
+  safeRolloutInterfaceFields: CreateSafeRolloutInterface;
 };
 
 export default function RuleModal({
@@ -921,7 +921,7 @@ export default function RuleModal({
                   scheduleToggleEnabled={scheduleToggleEnabled}
                   setScheduleToggleEnabled={setScheduleToggleEnabled}
                   isNewRule={isNewRule}
-                  isDraft={safeRollout?.status === "draft"}
+                  isDraft={safeRollout?.status === "running"}
                 />
               </Page>
             );

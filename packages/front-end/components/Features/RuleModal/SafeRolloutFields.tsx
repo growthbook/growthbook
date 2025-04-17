@@ -84,9 +84,9 @@ export default function SafeRolloutFields({
           options={attributeSchema
             .filter((s) => !hasHashAttributes || s.hashAttribute)
             .map((s) => ({ label: s.property, value: s.property }))}
-          value={form.watch("safeRolloutInterfaceFields.hashAttribute")}
+          value={form.watch("hashAttribute")}
           onChange={(v) => {
-            form.setValue("safeRolloutInterfaceFields.hashAttribute", v);
+            form.setValue("hashAttribute", v);
           }}
           required
         />
