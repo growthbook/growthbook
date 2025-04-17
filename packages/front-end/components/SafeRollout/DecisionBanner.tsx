@@ -1,10 +1,11 @@
-import { addDays, differenceInDays } from "date-fns";
-// import {
-//   getHealthSettings,
-//   getSafeRolloutResultStatus,
-// } from "shared/src/enterprise/decision-criteria";
+import {
+  getHealthSettings,
+  getSafeRolloutDaysLeft,
+  getSafeRolloutResultStatus,
+} from "shared/enterprise";
+
+import { useUser } from "@/services/UserContext";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
-// import { useUser } from "@/services/UserContext";
 import Callout from "../Radix/Callout";
 
 const DecisionBanner = ({
@@ -16,9 +17,10 @@ const DecisionBanner = ({
     safeRollout,
     snapshot: snapshotWithResults,
   } = useSafeRolloutSnapshot();
-  // const { hasCommercialFeature } = useUser();
-  // const { organization } = useUser();
-  // const settings = organization?.settings;
+
+  const { hasCommercialFeature, organization } = useUser();
+  const settings = organization?.settings;
+
   const numberFormatter = Intl.NumberFormat();
   const percentFormatter = Intl.NumberFormat(undefined, {
     style: "percent",
@@ -30,44 +32,30 @@ const DecisionBanner = ({
     return null;
   }
 
-  // Use latest snapshot date and safe rollout start date plus maxDurationDays to determine days left
-  const startDate = safeRollout?.startedAt
-    ? new Date(safeRollout.startedAt)
-    : new Date();
-  const endDate = addDays(
-    new Date(startDate.getTime()),
-    safeRollout.maxDurationDays
-  );
-  const latestSnapshotDate = snapshotWithResults?.runStarted
-    ? new Date(snapshotWithResults?.runStarted)
-    : null;
-  const daysLeft = latestSnapshotDate
-    ? differenceInDays(endDate, latestSnapshotDate)
-    : safeRollout.maxDurationDays;
+  const daysLeft = getSafeRolloutDaysLeft({
+    safeRollout,
+    snapshotWithResults,
+  });
 
-  // const decisionStatus = getSafeRolloutResultStatus({
-  //   safeRollout,
-  //   healthSettings: getHealthSettings(
-  //     settings,
-  //     hasCommercialFeature("decision-framework")
-  //   ),
-  //   daysLeft,
-  // });
-  const decisionStatus = {
-    status: "healthy",
-    unhealthyData: {
-      srm: false,
-      multipleExposures: {
-        rawDecimal: 0,
-        multipleExposedUsers: 0,
-      },
-    },
-  }; // faked data for now until we fix the decision criteria type issue
+  const decisionStatus = getSafeRolloutResultStatus({
+    safeRollout,
+    healthSettings: getHealthSettings(
+      settings,
+      hasCommercialFeature("decision-framework")
+    ),
+    daysLeft,
+  });
+
   // failingGuardrails comes from the analysis summary for now, but we could return it in the above
   if (decisionStatus?.status === "unhealthy") {
     return (
-      <Callout status="error" my="4">
-        {decisionStatus.unhealthyData.srm && <p>SRM is failing. Revert now.</p>}
+      <Callout status="warning" my="4">
+        {decisionStatus.unhealthyData.srm && (
+          <p>
+            SRM Warning. Traffic is imbalanced and the rollout should be
+            stopped.
+          </p>
+        )}
         {decisionStatus.unhealthyData.multipleExposures && (
           <p>
             <strong>Multiple Exposures Warning</strong>.{" "}
@@ -80,8 +68,7 @@ const DecisionBanner = ({
               decisionStatus.unhealthyData.multipleExposures.rawDecimal
             )}
             ) saw multiple variations and were automatically removed from
-            results. Check for bugs in your implementation, event tracking, or
-            data pipeline.
+            results.
           </p>
         )}
         <a
@@ -115,7 +102,7 @@ const DecisionBanner = ({
   } else {
     return (
       <Callout status="info">
-        {daysLeft} days left in safe rollout{" "}
+        {daysLeft} days left{" "}
         <a
           role="button"
           className="link"

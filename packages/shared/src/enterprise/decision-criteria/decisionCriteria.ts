@@ -11,6 +11,7 @@ import {
   ExperimentResultStatusData,
   ExperimentUnhealthyData,
 } from "back-end/types/experiment";
+import { SafeRolloutInterface, SafeRolloutSnapshotInterface } from "back-end/types/safe-rollout";
 import { OrganizationSettings } from "back-end/types/organization";
 import {
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
@@ -27,6 +28,7 @@ import {
   DEFAULT_DECISION_CRITERIA,
   PRESET_DECISION_CRITERIAS,
 } from "./constants";
+import { addDays, differenceInDays } from "date-fns";
 
 // Evaluate a single rule on a variation result
 // Returns the action if the rule is met, otherwise undefined
@@ -463,6 +465,141 @@ export function getExperimentResultStatus({
     if (daysLeftStatus) {
       return daysLeftStatus;
     }
+  }
+}
+
+
+export function getSafeRolloutDaysLeft({
+  safeRollout,
+  snapshotWithResults,
+}: {
+  safeRollout: SafeRolloutInterface;
+  snapshotWithResults?: SafeRolloutSnapshotInterface;
+}) {
+  // Use latest snapshot date and safe rollout start date plus maxDurationDays to determine days left
+  const startDate = safeRollout.startedAt
+    ? new Date(safeRollout.startedAt)
+    : new Date();
+  const endDate = addDays(
+    new Date(startDate.getTime()),
+    safeRollout.maxDurationDays
+  );
+  const latestSnapshotDate = snapshotWithResults?.runStarted
+    ? new Date(snapshotWithResults?.runStarted)
+    : null;
+
+  const daysLeft = latestSnapshotDate
+    ? differenceInDays(endDate, latestSnapshotDate)
+    : safeRollout.maxDurationDays;
+
+  return daysLeft;
+}
+
+export function getSafeRolloutResultStatus({
+  safeRollout,
+  healthSettings,
+  daysLeft,
+}: {
+  safeRollout: SafeRolloutInterface;
+  healthSettings: ExperimentHealthSettings;
+  daysLeft: number;
+}): ExperimentResultStatusData | undefined {
+  const unhealthyData: ExperimentUnhealthyData = {};
+  
+  const healthSummary = safeRollout.analysisSummary?.health;
+  const resultsStatus = safeRollout.analysisSummary?.resultsStatus;
+
+  if (healthSummary?.totalUsers) {
+    const srmHealthData = getSRMHealthData({
+      srm: healthSummary.srm,
+      srmThreshold: healthSettings.srmThreshold,
+      totalUsersCount: healthSummary.totalUsers,
+      numOfVariations: 2,
+      minUsersPerVariation: DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+    });
+
+    if (srmHealthData === "unhealthy") {
+      unhealthyData.srm = true;
+    }
+
+    const multipleExposuresHealthData = getMultipleExposureHealthData({
+      multipleExposuresCount: healthSummary.multipleExposures,
+      totalUsersCount: healthSummary.totalUsers,
+      minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
+      minPercentThreshold: healthSettings.multipleExposureMinPercent,
+    });
+
+    if (multipleExposuresHealthData.status === "unhealthy") {
+      unhealthyData.multipleExposures = {
+        rawDecimal: multipleExposuresHealthData.rawDecimal,
+        multipleExposedUsers: healthSummary.multipleExposures,
+      };
+    }
+  }
+
+  const ROLLBACK_SAFE_ROLLOUT_DECISION_CRITERIA: DecisionCriteriaData = {
+    id: "gbdeccrit_rollback_safe_rollout",
+    name: "Rollback Safe Rollout",
+    description: "",
+    rules: [
+      {
+        conditions: [
+          {
+            match: "any",
+            metrics: "guardrails",
+            direction: "statsigLoser",
+          },
+        ],
+        action: "rollback",
+      },
+    ],
+    defaultAction: "review",
+  };
+
+  const decisionStatus = resultsStatus
+    ? getDecisionFrameworkStatus({
+        resultsStatus,
+        decisionCriteria: ROLLBACK_SAFE_ROLLOUT_DECISION_CRITERIA,
+        goalMetrics: [],
+        guardrailMetrics: safeRollout.guardrailMetricIds,
+        daysNeeded: Infinity, // sequential relied upon solely for safe rollouts
+      })
+    : undefined;
+
+  // If rollback now, return rollback now
+  if (decisionStatus?.status === "rollback-now") {
+    return {
+      status: "rollback-now",
+      variationIds: decisionStatus.variationIds,
+      sequentialUsed: false,
+      powerReached: false,
+    };
+  }
+
+  // If unhealthy, return unhealthy status
+  if (unhealthyData.srm || unhealthyData.multipleExposures) {
+    return {
+      status: "unhealthy",
+      unhealthyData,
+    };
+  }
+
+  // If no decision status, return days left status
+  if (daysLeft > 0) {
+    return {
+      status: "days-left",
+      daysLeft,
+    };
+  }
+
+  if (daysLeft <= 0) {
+    // If no days left, return ship decision
+    return {
+      status: "ship-now",
+      variationIds: ["1"],
+      sequentialUsed: true,
+      powerReached: false,
+    };
   }
 }
 
