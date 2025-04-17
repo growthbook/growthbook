@@ -104,7 +104,6 @@ const StopExperimentForm: FC<{
     },
   });
 
-  // TODO force winner to be the recommended release variation id if it exists?
   const decisionDoesNotMatchRecommendedResult =
     recommendedResult && form.watch("results") !== recommendedResult;
   const variationDoesNotMatchRecommendedReleaseVariationId =

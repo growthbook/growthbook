@@ -57,10 +57,24 @@ export default function ExperimentDecisionExplanation({
   const getConditionText = (
     condition: DecisionCriteriaInterface["rules"][0]["conditions"][0]
   ) => {
-    const metricType = condition.metrics === "goals" ? "goal" : "guardrail";
-    // TODO switch statements
-    const direction =
-      condition.direction === "statsigWinner" ? "beneficial" : "harmful";
+    const metricType = (() => {
+      switch (condition.metrics) {
+        case "goals":
+          return "goal";
+        case "guardrails":
+          return "guardrail";
+      }
+    })();
+
+    const direction = (() => {
+      switch (condition.direction) {
+        case "statsigWinner":
+          return "beneficial";
+        case "statsigLoser":
+          return "harmful";
+      }
+    })();
+
     return `${metricType} metrics are statistically significant and ${direction}`;
   };
 
@@ -83,18 +97,6 @@ export default function ExperimentDecisionExplanation({
     }
   });
 
-  // TODO: sort deciding rules so null is last
-  decidingRules.sort((a, b) => {
-    if (a.decidingRule === null) {
-      return 1;
-    }
-    if (b.decidingRule === null) {
-      return -1;
-    }
-    return 0;
-  });
-
-  console.log(showDecisionCriteria);
   return (
     <Box mt="4" ml="3">
       <Text size="2">
