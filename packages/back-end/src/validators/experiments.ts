@@ -1,31 +1,11 @@
 import { z } from "zod";
 import { windowTypeValidator } from "back-end/src/routers/fact-table/fact-table.validators";
 import { statsEngines } from "back-end/src/util/constants";
-
-export const savedGroupTargeting = z
-  .object({
-    match: z.enum(["all", "none", "any"]),
-    ids: z.array(z.string()),
-  })
-  .strict();
-export type SavedGroupTargeting = z.infer<typeof savedGroupTargeting>;
-
-export const featurePrerequisite = z
-  .object({
-    id: z.string(),
-    condition: z.string(),
-  })
-  .strict();
-export type FeaturePrerequisite = z.infer<typeof featurePrerequisite>;
-
-export const namespaceValue = z
-  .object({
-    enabled: z.boolean(),
-    name: z.string(),
-    range: z.tuple([z.number(), z.number()]),
-  })
-  .strict();
-export type NamespaceValue = z.infer<typeof namespaceValue>;
+import {
+  namespaceValue,
+  featurePrerequisite,
+  savedGroupTargeting,
+} from "./shared";
 
 export const experimentResultsType = [
   "dnf",
