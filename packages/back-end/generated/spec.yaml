@@ -5746,6 +5746,7 @@ components:
                 - running
                 - released
                 - rolled-back
+                - stopped
       discriminator:
         propertyName: type
         mapping:

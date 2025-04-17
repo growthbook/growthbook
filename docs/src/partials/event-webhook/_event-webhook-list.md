@@ -124,7 +124,7 @@ Triggered when a feature is created
                         }[] | undefined;
                         coverage: number;
                         hashAttribute: string;
-                        status?: ("running" | "released" | "rolled-back") | undefined;
+                        status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
                     })[];
                     /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string | undefined;
@@ -211,7 +211,7 @@ Triggered when a feature is created
                             }[] | undefined;
                             coverage: number;
                             hashAttribute: string;
-                            status?: ("running" | "released" | "rolled-back") | undefined;
+                            status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
                         })[];
                         /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                         definition?: string | undefined;
@@ -354,7 +354,7 @@ Triggered when a feature is updated
                         }[] | undefined;
                         coverage: number;
                         hashAttribute: string;
-                        status?: ("running" | "released" | "rolled-back") | undefined;
+                        status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
                     })[];
                     /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string | undefined;
@@ -441,7 +441,7 @@ Triggered when a feature is updated
                             }[] | undefined;
                             coverage: number;
                             hashAttribute: string;
-                            status?: ("running" | "released" | "rolled-back") | undefined;
+                            status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
                         })[];
                         /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                         definition?: string | undefined;
@@ -552,7 +552,7 @@ Triggered when a feature is updated
                         }[] | undefined;
                         coverage: number;
                         hashAttribute: string;
-                        status?: ("running" | "released" | "rolled-back") | undefined;
+                        status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
                     })[];
                     /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string | undefined;
@@ -639,7 +639,7 @@ Triggered when a feature is updated
                             }[] | undefined;
                             coverage: number;
                             hashAttribute: string;
-                            status?: ("running" | "released" | "rolled-back") | undefined;
+                            status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
                         })[];
                         /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                         definition?: string | undefined;
@@ -782,7 +782,7 @@ Triggered when a feature is deleted
                         }[] | undefined;
                         coverage: number;
                         hashAttribute: string;
-                        status?: ("running" | "released" | "rolled-back") | undefined;
+                        status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
                     })[];
                     /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string | undefined;
@@ -869,7 +869,7 @@ Triggered when a feature is deleted
                             }[] | undefined;
                             coverage: number;
                             hashAttribute: string;
-                            status?: ("running" | "released" | "rolled-back") | undefined;
+                            status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
                         })[];
                         /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                         definition?: string | undefined;

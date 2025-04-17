@@ -610,7 +610,7 @@ export interface components {
               coverage: number;
               hashAttribute: string;
               /** @enum {string} */
-              status?: "running" | "released" | "rolled-back";
+              status?: "running" | "released" | "rolled-back" | "stopped";
             }))[];
           /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
           definition?: string;
@@ -706,7 +706,7 @@ export interface components {
                 coverage: number;
                 hashAttribute: string;
                 /** @enum {string} */
-                status?: "running" | "released" | "rolled-back";
+                status?: "running" | "released" | "rolled-back" | "stopped";
               }))[];
             /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
             definition?: string;
@@ -830,7 +830,7 @@ export interface components {
               coverage: number;
               hashAttribute: string;
               /** @enum {string} */
-              status?: "running" | "released" | "rolled-back";
+              status?: "running" | "released" | "rolled-back" | "stopped";
             }))[];
           /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
           definition?: string;
@@ -926,7 +926,7 @@ export interface components {
                 coverage: number;
                 hashAttribute: string;
                 /** @enum {string} */
-                status?: "running" | "released" | "rolled-back";
+                status?: "running" | "released" | "rolled-back" | "stopped";
               }))[];
             /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
             definition?: string;
@@ -1041,7 +1041,7 @@ export interface components {
                 coverage: number;
                 hashAttribute: string;
                 /** @enum {string} */
-                status?: "running" | "released" | "rolled-back";
+                status?: "running" | "released" | "rolled-back" | "stopped";
               }))[]) | undefined;
           };
           definitions?: {
@@ -1141,7 +1141,7 @@ export interface components {
           coverage: number;
           hashAttribute: string;
           /** @enum {string} */
-          status?: "running" | "released" | "rolled-back";
+          status?: "running" | "released" | "rolled-back" | "stopped";
         }))[];
       /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
       definition?: string;
@@ -1237,7 +1237,7 @@ export interface components {
             coverage: number;
             hashAttribute: string;
             /** @enum {string} */
-            status?: "running" | "released" | "rolled-back";
+            status?: "running" | "released" | "rolled-back" | "stopped";
           }))[];
         /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
         definition?: string;
@@ -1332,7 +1332,7 @@ export interface components {
       coverage: number;
       hashAttribute: string;
       /** @enum {string} */
-      status?: "running" | "released" | "rolled-back";
+      status?: "running" | "released" | "rolled-back" | "stopped";
     });
     FeatureDefinition: {
       defaultValue: OneOf<[string, number, (unknown)[], any, null]>;
@@ -2354,7 +2354,7 @@ export interface operations {
                         coverage: number;
                         hashAttribute: string;
                         /** @enum {string} */
-                        status?: "running" | "released" | "rolled-back";
+                        status?: "running" | "released" | "rolled-back" | "stopped";
                       }))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
@@ -2450,7 +2450,7 @@ export interface operations {
                           coverage: number;
                           hashAttribute: string;
                           /** @enum {string} */
-                          status?: "running" | "released" | "rolled-back";
+                          status?: "running" | "released" | "rolled-back" | "stopped";
                         }))[];
                       /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                       definition?: string;
@@ -2826,7 +2826,7 @@ export interface operations {
                       coverage: number;
                       hashAttribute: string;
                       /** @enum {string} */
-                      status?: "running" | "released" | "rolled-back";
+                      status?: "running" | "released" | "rolled-back" | "stopped";
                     }))[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
@@ -2922,7 +2922,7 @@ export interface operations {
                         coverage: number;
                         hashAttribute: string;
                         /** @enum {string} */
-                        status?: "running" | "released" | "rolled-back";
+                        status?: "running" | "released" | "rolled-back" | "stopped";
                       }))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
@@ -3067,7 +3067,7 @@ export interface operations {
                       coverage: number;
                       hashAttribute: string;
                       /** @enum {string} */
-                      status?: "running" | "released" | "rolled-back";
+                      status?: "running" | "released" | "rolled-back" | "stopped";
                     }))[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
@@ -3163,7 +3163,7 @@ export interface operations {
                         coverage: number;
                         hashAttribute: string;
                         /** @enum {string} */
-                        status?: "running" | "released" | "rolled-back";
+                        status?: "running" | "released" | "rolled-back" | "stopped";
                       }))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
@@ -3278,7 +3278,7 @@ export interface operations {
                         coverage: number;
                         hashAttribute: string;
                         /** @enum {string} */
-                        status?: "running" | "released" | "rolled-back";
+                        status?: "running" | "released" | "rolled-back" | "stopped";
                       }))[]) | undefined;
                   };
                   definitions?: {
@@ -3634,7 +3634,7 @@ export interface operations {
                       coverage: number;
                       hashAttribute: string;
                       /** @enum {string} */
-                      status?: "running" | "released" | "rolled-back";
+                      status?: "running" | "released" | "rolled-back" | "stopped";
                     }))[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
@@ -3730,7 +3730,7 @@ export interface operations {
                         coverage: number;
                         hashAttribute: string;
                         /** @enum {string} */
-                        status?: "running" | "released" | "rolled-back";
+                        status?: "running" | "released" | "rolled-back" | "stopped";
                       }))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
@@ -3897,7 +3897,7 @@ export interface operations {
                       coverage: number;
                       hashAttribute: string;
                       /** @enum {string} */
-                      status?: "running" | "released" | "rolled-back";
+                      status?: "running" | "released" | "rolled-back" | "stopped";
                     }))[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
@@ -3993,7 +3993,7 @@ export interface operations {
                         coverage: number;
                         hashAttribute: string;
                         /** @enum {string} */
-                        status?: "running" | "released" | "rolled-back";
+                        status?: "running" | "released" | "rolled-back" | "stopped";
                       }))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
