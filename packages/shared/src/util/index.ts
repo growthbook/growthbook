@@ -20,7 +20,7 @@ import {
   SafeRolloutSnapshotAnalysis,
   SafeRolloutSnapshotAnalysisSettings,
   SafeRolloutSnapshotInterface,
-} from "back-end/src/validators/safe-rollout";
+} from "back-end/src/validators/safe-rollout-snapshot";
 import { SavedGroupInterface } from "../types";
 import { featureHasEnvironment } from "./features";
 

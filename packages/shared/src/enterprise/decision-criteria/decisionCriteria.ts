@@ -13,8 +13,8 @@ import {
   ExperimentUnhealthyData,
 } from "back-end/types/experiment";
 import { OrganizationSettings } from "back-end/types/organization";
-import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
-import { SafeRolloutSnapshotInterface } from "back-end/src/validators/safe-rollout";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { SafeRolloutSnapshotInterface } from "back-end/src/validators/safe-rollout-snapshot";
 import {
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
   DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,

@@ -39,7 +39,7 @@ import {
 } from "back-end/src/validators/features";
 import { getChangedApiFeatureEnvironments } from "back-end/src/events/handlers/utils";
 import { ResourceEvents } from "back-end/src/events/base-types";
-import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import {
   createEvent,
   hasPreviousObject,
@@ -983,7 +983,7 @@ export async function publishRevision(
       })
   );
 
-  const safeRollouts = await context.models.safeRollout.findByIds(
+  const safeRollouts = await context.models.safeRollout.getByIds(
     Object.keys(safeRolloutStatusesMap)
   );
 

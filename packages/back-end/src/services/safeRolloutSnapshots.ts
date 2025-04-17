@@ -19,16 +19,14 @@ import {
   isFactMetric,
 } from "shared/experiments";
 import { getSafeRolloutSRMValue } from "shared/health";
-import {
-  SafeRolloutInterface,
-  SafeRolloutModel,
-} from "back-end/src/models/SafeRolloutModel";
+import { SafeRolloutModel } from "back-end/src/models/SafeRolloutModel";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import {
   MetricForSafeRolloutSnapshot,
   SafeRolloutSnapshotAnalysisSettings,
   SafeRolloutSnapshotInterface,
   SafeRolloutSnapshotSettings,
-} from "back-end/src/validators/safe-rollout";
+} from "back-end/src/validators/safe-rollout-snapshot";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,

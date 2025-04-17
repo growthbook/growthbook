@@ -121,12 +121,12 @@ import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
 import { FeatureUsageLookback } from "back-end/src/types/Integration";
 import { getChangesToStartExperiment } from "back-end/src/services/experiments";
 import { getMetricMap } from "back-end/src/models/MetricModel";
-import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { CreateProps } from "back-end/src/models/BaseModel";
 import {
   PostFeatureRuleBody,
   PutFeatureRuleBody,
-} from "back-end/types/safe-rollout";
+} from "back-end/types/feature-rule";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {

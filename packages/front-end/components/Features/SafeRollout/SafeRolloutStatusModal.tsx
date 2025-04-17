@@ -1,4 +1,4 @@
-import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { useState } from "react";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";

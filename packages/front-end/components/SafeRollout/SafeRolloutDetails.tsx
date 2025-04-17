@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { FeatureInterface } from "back-end/src/validators/features";
-import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Link from "@/components/Radix/Link";
 import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";

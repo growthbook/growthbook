@@ -2,7 +2,7 @@ import express from "express";
 import { z } from "zod";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
-import { safeRolloutStatusArray } from "back-end/src/models/SafeRolloutModel";
+import { safeRolloutStatusArray } from "back-end/src/validators/safe-rollout";
 import * as rawSnapshotController from "./safe-rollout.controller";
 
 const router = express.Router();

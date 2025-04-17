@@ -6,7 +6,7 @@ import {
   SafeRolloutSnapshotAnalysis,
   SafeRolloutSnapshotHealth,
   SafeRolloutSnapshotInterface,
-} from "back-end/src/validators/safe-rollout";
+} from "back-end/src/validators/safe-rollout-snapshot";
 import { getSnapshotSettingsFromSafeRolloutArgs } from "back-end/src/services/safeRolloutSnapshots";
 import {
   analyzeExperimentResults,

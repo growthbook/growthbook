@@ -6,10 +6,8 @@ import { getFeature } from "back-end/src/models/FeatureModel";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnapshots";
 import { trackJob } from "back-end/src/services/tracing";
-import {
-  COLLECTION_NAME,
-  SafeRolloutInterface,
-} from "back-end/src/models/SafeRolloutModel";
+import { COLLECTION_NAME } from "back-end/src/models/SafeRolloutModel";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 
 const UPDATE_SINGLE_SAFE_ROLLOUT_SNAPSHOT = "updateSingleSafeRolloutSnapshot";
 const QUEUE_SAFE_ROLLOUT_SNAPSHOT_UPDATES = "queueSafeRolloutSnapshotUpdates";

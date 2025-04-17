@@ -2,8 +2,8 @@ import { FaDatabase, FaExclamationTriangle } from "react-icons/fa";
 import React, { ReactElement, useState } from "react";
 import clsx from "clsx";
 import { expandMetricGroups } from "shared/experiments";
-import { SafeRolloutSnapshotInterface } from "back-end/src/validators/safe-rollout";
-import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { SafeRolloutSnapshotInterface } from "back-end/src/validators/safe-rollout-snapshot";
 import { differenceInHours } from "date-fns";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -151,10 +151,6 @@ export default function SafeRolloutAnalysisSettingsSummary({
                           snapshot: SafeRolloutSnapshotInterface;
                         }>(`/safe-rollout/${safeRollout.id}/snapshot`, {
                           method: "POST",
-                          // Luke Sonnet doesnt think we need the featureId in the body
-                          // body: JSON.stringify({
-                          //   featureId: feature.id,
-                          // }),
                         })
                           .then(() => {
                             mutateSnapshot();
@@ -173,7 +169,6 @@ export default function SafeRolloutAnalysisSettingsSummary({
                         mutate();
                       }}
                       safeRollout={safeRollout}
-                      feature={feature}
                     />
                   )}
                 </div>

@@ -1,5 +1,5 @@
 import { ExperimentType } from "back-end/src/validators/experiments";
-import { SafeRolloutSnapshotInterface } from "back-end/src/validators/safe-rollout";
+import { SafeRolloutSnapshotInterface } from "back-end/src/validators/safe-rollout-snapshot";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 
 type MultipleExposureHealthStatus =

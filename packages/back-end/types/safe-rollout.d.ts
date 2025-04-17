@@ -1,8 +1,8 @@
-export { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
+export { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 export {
   SafeRolloutSnapshotHealth,
   SafeRolloutSnapshotTrafficDimension,
   SafeRolloutSnapshotAnalysis,
   SafeRolloutSnapshotAnalysisSettings,
   SafeRolloutSnapshotInterface,
-} from "back-end/src/validators/safe-rollout";
+} from "back-end/src/validators/safe-rollout-snapshot";
