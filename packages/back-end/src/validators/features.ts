@@ -2,6 +2,7 @@ import { z } from "zod";
 import { statsEngines } from "back-end/src/util/constants";
 import { safeRolloutStatusArray } from "back-end/src/validators/safe-rollout";
 import { eventUser } from "./events";
+import { featurePrerequisite } from "./shared";
 export {
   namespaceValue,
   featurePrerequisite,

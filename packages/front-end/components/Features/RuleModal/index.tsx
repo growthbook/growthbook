@@ -407,12 +407,9 @@ export default function RuleModal({
           }
         }
 
-        // @ts-expect-error Mangled types when coming from a feature rule
         if (values.skipPartialData === "strict") {
           values.skipPartialData = true;
-        }
-        // @ts-expect-error Mangled types when coming from a feature rule
-        else if (values.skipPartialData === "loose") {
+        } else if (values.skipPartialData === "loose") {
           values.skipPartialData = false;
         }
 
@@ -602,7 +599,7 @@ export default function RuleModal({
         hasCondition: values.condition && values.condition.length > 2,
         hasSavedGroups: !!values.savedGroups?.length,
         hasPrerequisites: !!values.prerequisites?.length,
-        hasDescription: values.description.length > 0,
+        hasDescription: values.description && values.description.length > 0,
       });
 
       let method = "POST";

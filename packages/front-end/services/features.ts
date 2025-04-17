@@ -702,6 +702,7 @@ export function getDefaultRuleValue({
       prerequisites: [],
       controlValue: value,
       variationValue: value,
+      hashAttribute,
       scheduleRules: [
         {
           enabled: true,
