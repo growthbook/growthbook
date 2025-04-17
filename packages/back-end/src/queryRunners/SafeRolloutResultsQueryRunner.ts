@@ -101,6 +101,20 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
       // TODO: do this once, not per analysis
       result.unknownVariations = results.unknownVariations || [];
       result.multipleExposures = results.multipleExposures ?? 0;
+
+      // Clear out any 'None' error messages from Python and standardize on undefined
+      analysis.results.forEach((dimension) => {
+        dimension.variations.forEach((variation) => {
+          Object.values(variation.metrics).forEach((metric) => {
+            if (metric.errorMessage === null || metric.errorMessage === "") {
+              metric.errorMessage = undefined;
+            }
+            if (metric.power === null) {
+              metric.power = undefined;
+            }
+          });
+        });
+      });
     });
 
     // Run health checks

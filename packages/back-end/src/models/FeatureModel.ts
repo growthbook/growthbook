@@ -969,7 +969,7 @@ export async function publishRevision(
 
   const safeRolloutIds: string[] = Object.values(revision.rules)
     .flat()
-    .filter((rule) => rule?.type === "safe-rollout")
+    .filter((rule) => rule.type === "safe-rollout")
     .map((rule) => rule.safeRolloutId);
   const safeRollouts = await context.models.safeRollout.findByIds(
     safeRolloutIds

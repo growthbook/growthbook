@@ -58,9 +58,8 @@ const safeRolloutSnapshotMetricObject = z.object({
     )
     .optional(),
   chanceToWin: z.number().optional(),
-  // TODO: do we want to have nullish here or should we parse to undefined?
-  errorMessage: z.string().nullish(),
-  power: metricPowerResponseFromStatsEngineObject.nullish(),
+  errorMessage: z.string().optional(),
+  power: metricPowerResponseFromStatsEngineObject.optional(),
 });
 
 const safeRolloutSnapshotTrafficDimensionObject = z.object({
