@@ -146,7 +146,7 @@ def get_metric_df(
     # We want to end up with one row per dimension
     for row in dfc.itertuples(index=False):
         # TODO fix dimensionname
-        dim = getattr(row, "dim_exp_" + dimension) if dimension else ""
+        dim = getattr(row, "dim_" + dimension.replace(":", "_")) if dimension else ""
         # If this is the first time we're seeing this dimension, create an empty dict
         if dim not in dimensions:
             # Overall columns
