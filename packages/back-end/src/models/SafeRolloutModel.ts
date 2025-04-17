@@ -4,14 +4,13 @@ import { baseSchema, MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "saferollout";
 
-const safeRolloutStatus = [
-  "draft",
+export const safeRolloutStatusArray = [
   "running",
   "rolled-back",
   "released",
   "stopped",
 ] as const;
-export type SafeRolloutStatus = typeof safeRolloutStatus[number];
+export type SafeRolloutStatus = typeof safeRolloutStatusArray[number];
 
 const safeRollout = z.object({
   trackingKey: z.string(),
@@ -20,7 +19,7 @@ const safeRollout = z.object({
   hashAttribute: z.string(),
   seed: z.string(),
   guardrailMetricIds: z.array(z.string()),
-  status: z.enum(safeRolloutStatus),
+  status: z.enum(safeRolloutStatusArray),
   startedAt: z.date().optional(),
   lastSnapshotAttempt: z.date().optional(),
   nextSnapshotAttempt: z.date().optional(),

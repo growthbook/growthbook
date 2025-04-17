@@ -160,7 +160,7 @@ export default function SafeRolloutFields({
               }))}
               required
               disabled={
-                !isNewRule ||
+                disableFields ||
                 !form.watch("safeRolloutInterfaceFields.datasourceId")
               }
               value={form.watch("safeRolloutInterfaceFields.exposureQueryId")}
@@ -182,6 +182,7 @@ export default function SafeRolloutFields({
             selected={
               form.watch("safeRolloutInterfaceFields.guardrailMetricIds") || []
             }
+            disabled={!form.watch("safeRolloutInterfaceFields.exposureQueryId")}
             onChange={(v) =>
               form.setValue("safeRolloutInterfaceFields.guardrailMetricIds", v)
             }

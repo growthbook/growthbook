@@ -1234,13 +1234,13 @@ export async function postFeatureRule(
         }
       }
     }
-
+    rule.status = "running";
     const safeRolloutCreateProps: CreateProps<SafeRolloutInterface> = {
       ...interfaceFields,
       coverage: 1, // hardcode to 100% for now
       seed: interfaceFields.seed || uuidv4(),
       trackingKey: interfaceFields.trackingKey || `srk_${uuidv4()}`,
-      status: "draft",
+      status: rule.status,
       // TODO are these mandatory
       datasourceId: interfaceFields.datasourceId,
       exposureQueryId: interfaceFields.exposureQueryId,
@@ -1770,7 +1770,8 @@ export async function putFeatureRule(
         ]),
       });
     }
-    if (existingSafeRollout.status !== "draft") {
+    if (existingSafeRollout.startedAt) {
+      // not sure if we want to lock or just create a new revision?
       // revsion is locked for the safe rollout once it's released
       canUpdateRevision = false;
     }

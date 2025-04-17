@@ -33,9 +33,13 @@ import {
   getEnvironmentIdsFromOrg,
 } from "back-end/src/services/organizations";
 import { ApiReqContext } from "back-end/types/api";
-import { simpleSchemaValidator } from "back-end/src/validators/features";
+import {
+  SafeRolloutRule,
+  simpleSchemaValidator,
+} from "back-end/src/validators/features";
 import { getChangedApiFeatureEnvironments } from "back-end/src/events/handlers/utils";
 import { ResourceEvents } from "back-end/src/events/base-types";
+import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
 import {
   createEvent,
   hasPreviousObject,
@@ -967,21 +971,32 @@ export async function publishRevision(
     throw new Error("Can only publish a draft revision");
   }
 
-  const safeRolloutIds: string[] = Object.values(revision.rules)
-    .flat()
-    .filter((rule) => rule?.type === "safe-rollout")
-    .map((rule) => rule.safeRolloutId);
-  const safeRollouts = await context.models.safeRollout.findByIds(
-    safeRolloutIds
+  const safeRolloutIds: Record<
+    string,
+    { status: "running" | "rolled-back" | "released" | "stopped" }
+  > = Object.fromEntries(
+    Object.values(revision.rules)
+      .flat()
+      .filter((rule) => rule?.type === "safe-rollout")
+      .map((rule: SafeRolloutRule) => {
+        return [rule.safeRolloutId, { status: rule.status }];
+      })
   );
+
+  const safeRollouts = await context.models.safeRollout.findByIds(
+    Object.keys(safeRolloutIds)
+  );
+
   safeRollouts.forEach((safeRollout) => {
-    // TODO: we might want to write an updateMany function
-    if (safeRollout.status === "draft") {
-      context.models.safeRollout.update(safeRollout, {
-        status: "running",
-        startedAt: new Date(),
-      });
+    // sync the status of the safe rollout to the status of the revision
+    const safeRolloutUpdates: Partial<SafeRolloutInterface> = {
+      status: safeRolloutIds[safeRollout.id].status,
+    };
+    if (!safeRollout.startedAt && safeRolloutUpdates.status === "running") {
+      safeRolloutUpdates["startedAt"] = new Date();
     }
+
+    context.models.safeRollout.update(safeRollout, safeRolloutUpdates);
   });
 
   // TODO: wrap these 2 calls in a transaction
