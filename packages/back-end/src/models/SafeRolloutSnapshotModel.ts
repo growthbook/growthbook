@@ -69,24 +69,24 @@ export class SafeRolloutSnapshotModel extends BaseClass {
     }
   }
 
-  public async updateById(
-    id: string,
-    updates: Partial<SafeRolloutSnapshotInterface>
+  protected async afterUpdate(
+    _existingDoc: SafeRolloutSnapshotInterface,
+    _updates: Partial<SafeRolloutSnapshotInterface>,
+    updatedDoc: SafeRolloutSnapshotInterface
   ) {
-    const safeRolloutSnapshot = await super.updateById(id, updates);
-
     const latestSafeRolloutSnapshot = await this.getSnapshotForSafeRollout({
-      safeRolloutId: safeRolloutSnapshot.safeRolloutId,
+      safeRolloutId: updatedDoc.safeRolloutId,
       withResults: false,
     });
 
+    // Ensure we only update the summary for the latest snapshot (or the new if it's the first one)
     const isLatestSnapshot =
       latestSafeRolloutSnapshot === null ||
-      latestSafeRolloutSnapshot?.id === safeRolloutSnapshot.id;
+      latestSafeRolloutSnapshot?.id === updatedDoc.id;
 
-    if (isLatestSnapshot && safeRolloutSnapshot.status === "success") {
+    if (isLatestSnapshot && updatedDoc.status === "success") {
       const safeRollout = await this.context.models.safeRollout.getById(
-        safeRolloutSnapshot.safeRolloutId
+        updatedDoc.safeRolloutId
       );
       if (!safeRollout) {
         throw new Error("Safe rollout not found");
@@ -95,14 +95,12 @@ export class SafeRolloutSnapshotModel extends BaseClass {
       const safeRolloutAnalysisSummary = await getSafeRolloutAnalysisSummary({
         context: this.context,
         safeRollout,
-        safeRolloutSnapshot: safeRolloutSnapshot,
+        safeRolloutSnapshot: updatedDoc,
       });
 
       await this.context.models.safeRollout.updateById(safeRollout.id, {
         analysisSummary: safeRolloutAnalysisSummary,
       });
     }
-
-    return safeRolloutSnapshot;
   }
 }
