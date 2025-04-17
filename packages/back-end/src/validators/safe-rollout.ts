@@ -11,11 +11,9 @@ export const safeRolloutStatusArray = [
 export type SafeRolloutStatus = typeof safeRolloutStatusArray[number];
 
 const safeRollout = z.object({
-  trackingKey: z.string(),
   datasourceId: z.string(),
   exposureQueryId: z.string(),
   hashAttribute: z.string(),
-  seed: z.string(),
   guardrailMetricIds: z.array(z.string()),
   status: z.enum(safeRolloutStatusArray),
   startedAt: z.date().optional(),
@@ -26,6 +24,7 @@ const safeRollout = z.object({
   ruleId: z.string(),
   maxDurationDays: z.number(),
   analysisSummary: experimentAnalysisSummary,
+  environment: z.string(),
 });
 export const safeRolloutValidator = baseSchema
   .extend(safeRollout.shape)
@@ -38,7 +37,5 @@ export type CreateSafeRolloutInterface = Pick<
   | "exposureQueryId"
   | "hashAttribute"
   | "maxDurationDays"
-  | "seed"
   | "guardrailMetricIds"
-  | "trackingKey"
 >;

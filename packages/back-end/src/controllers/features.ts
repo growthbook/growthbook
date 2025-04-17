@@ -1250,6 +1250,7 @@ export async function postFeatureRule(
       maxDurationDays: interfaceFields.maxDurationDays,
       featureId: feature.id,
       ruleId: rule.id,
+      environment: environment,
     };
 
     const safeRollout = await context.models.safeRollout.create(
