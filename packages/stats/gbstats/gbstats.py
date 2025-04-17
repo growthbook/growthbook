@@ -207,6 +207,24 @@ def reduce_dimensionality(
     return pd.DataFrame(newrows)
 
 
+def append_combined_row(df: pd.DataFrame) -> pd.DataFrame:
+    num_variations = df.at[0, "variations"]
+    rows = df.to_dict("records")
+    rows.sort(key=lambda i: i["total_users"], reverse=True)
+    new_row = copy.deepcopy(rows[0])
+    new_row["dimension"] = ""
+    new_row["total_users"] = 0
+    for i, row in enumerate(rows):
+        new_row["total_users"] += row["total_users"]
+        for v in range(num_variations):
+            prefix = f"v{v}" if v > 0 else "baseline"
+            for col in SUM_COLS:
+                if i > 0:
+                    new_row[f"{prefix}_{col}"] += row[f"{prefix}_{col}"]
+    df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+    return df
+
+
 def get_configured_test(
     row: pd.Series,
     test_index: int,
@@ -320,6 +338,7 @@ def analyze_metric_df(
                 row=s, test_index=i, analysis=analysis, metric=metric
             )
             res = test.compute_result()
+            raise ValueError(analysis.dimension)
             if decision_making_conditions(metric, analysis):
                 s[f"v{i}_decision_making_conditions"] = True
                 config = BaseConfig(
@@ -669,8 +688,10 @@ def process_analysis(
     # not possible to just re-sum for quantile metrics,
     # so we throw away "other" dimension
     keep_other = True
+    append_combined_dimension = True
     if metric.statistic_type in ["quantile_event", "quantile_unit"]:
         keep_other = False
+        append_combined_dimension = False
     if metric.keep_theta and metric.statistic_type == "mean_ra":
         keep_other = False
     reduced = reduce_dimensionality(
@@ -678,14 +699,15 @@ def process_analysis(
         max=max_dimensions,
         keep_other=keep_other,
     )
-
+    if append_combined_dimension:
+        reduced = append_combined_row(reduced)
     # Run the analysis for each variation and dimension
     result = analyze_metric_df(
         df=reduced,
         metric=metric,
         analysis=analysis,
     )
-
+    result.to_csv("/Users/lukesmith/Desktop/" + "result.csv")
     return result
 
 
