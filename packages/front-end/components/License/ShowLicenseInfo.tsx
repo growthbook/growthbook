@@ -76,7 +76,9 @@ const ShowLicenseInfo: FC<{
                     )}
                   </Flex>
                 </div>
-                <AccountPlanNotices />
+                <Box pl="2">
+                  <AccountPlanNotices />
+                </Box>
               </div>
               {permissionsUtil.canManageBilling() && (
                 <div className="form-group row mt-3 mb-0">
