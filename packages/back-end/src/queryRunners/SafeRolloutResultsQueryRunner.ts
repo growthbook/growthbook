@@ -131,7 +131,7 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
         traffic: trafficHealth,
       };
     }
-    //TODO:updateFeatureRulesForSnapShotCreated();
+    // TODO: Add functionality to dynamically update coverage here
     return result;
   }
 
