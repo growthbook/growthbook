@@ -4,7 +4,6 @@ import { Box, Flex, Text } from "@radix-ui/themes";
 import { getValidDate, ago, relativeDate } from "shared/dates";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { StatusIndicatorData } from "shared/enterprise";
 import { MetricSnapshotSettings } from "back-end/types/report";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -13,8 +12,6 @@ import Link from "@/components/Radix/Link";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/components/Radix/Callout";
-import { RawExperimentStatusIndicator } from "../Experiment/TabbedPage/ExperimentStatusIndicator";
-import { ExperimentTab } from "../Experiment/TabbedPage";
 import { useSafeRolloutSnapshot } from "./SnapshotProvider";
 import SafeRolloutAnalysisSettingsSummary from "./AnalysisSettingsSummary";
 
@@ -38,20 +35,7 @@ const SAFE_ROLLOUT_VARIATIONS = [
 const SafeRolloutResults: FC<{
   safeRollout: SafeRolloutInterface;
   draftMode?: boolean;
-  editMetrics?: () => void;
-  metricFilter?: ResultsMetricFilters;
-  setMetricFilter?: (metricFilter: ResultsMetricFilters) => void;
-  isTabActive?: boolean;
-  setTab?: (tab: ExperimentTab) => void;
-}> = ({
-  safeRollout,
-  draftMode = false,
-  editMetrics,
-  metricFilter,
-  setMetricFilter,
-  isTabActive = true,
-  setTab,
-}) => {
+}> = ({ safeRollout, draftMode = false }) => {
   // todo: move to snapshot property
   const orgSettings = useOrgSettings();
   const pValueCorrection = orgSettings?.pValueCorrection;
@@ -112,43 +96,43 @@ const SafeRolloutResults: FC<{
   const hasMetrics = safeRollout?.guardrailMetricIds?.length > 0;
 
   // TODO: how to integrate this and experiment status indicator?
-  const statusIndicatorData: StatusIndicatorData = (() => {
-    switch (safeRollout.status) {
-      case "running":
-        return {
-          color: "indigo",
-          status: "Running",
-          sortOrder: 1,
-        };
-      case "released":
-        return {
-          color: "green",
-          status: "Stopped",
-          detailedStatus: "Released",
-          sortOrder: 1,
-        };
-      case "rolled-back":
-        return {
-          color: "red",
-          status: "Stopped",
-          detailedStatus: "Rolled Back",
-          sortOrder: 1,
-        };
-      case "completed":
-        return {
-          color: "gold",
-          status: "Stopped",
-          detailedStatus: "Completed",
-          sortOrder: 1,
-        };
-      case "draft":
-        return {
-          color: "gray",
-          status: "Draft",
-          sortOrder: 1,
-        };
-    }
-  })();
+  // const statusIndicatorData: StatusIndicatorData = (() => {
+  //   switch (safeRollout.status) {
+  //     case "running":
+  //       return {
+  //         color: "indigo",
+  //         status: "Running",
+  //         sortOrder: 1,
+  //       };
+  //     case "released":
+  //       return {
+  //         color: "green",
+  //         status: "Stopped",
+  //         detailedStatus: "Released",
+  //         sortOrder: 1,
+  //       };
+  //     case "rolled-back":
+  //       return {
+  //         color: "red",
+  //         status: "Stopped",
+  //         detailedStatus: "Rolled Back",
+  //         sortOrder: 1,
+  //       };
+  //     case "completed":
+  //       return {
+  //         color: "gold",
+  //         status: "Stopped",
+  //         detailedStatus: "Completed",
+  //         sortOrder: 1,
+  //       };
+  //     case "draft":
+  //       return {
+  //         color: "gray",
+  //         status: "Draft",
+  //         sortOrder: 1,
+  //       };
+  //   }
+  // })();
 
   return (
     <>
@@ -163,11 +147,11 @@ const SafeRolloutResults: FC<{
           Show {isAnalysisExpanded ? "less" : "more"}
         </Link>
       </Flex>
-      <Box mt="3">
+      {/* <Box mt="3">
         <RawExperimentStatusIndicator
           statusIndicatorData={statusIndicatorData}
         />
-      </Box>
+      </Box> */}
       {isAnalysisExpanded ? (
         <Box
           mt="3"
@@ -180,23 +164,6 @@ const SafeRolloutResults: FC<{
             safeRollout={safeRollout}
             mutate={mutate}
           />
-          {!hasMetrics && (
-            <div className="alert alert-info m-3">
-              Add at least 1 metric to view results.{" "}
-              {editMetrics && (
-                <button
-                  className="btn btn-primary btn-sm ml-3"
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    editMetrics();
-                  }}
-                >
-                  Add Metrics
-                </button>
-              )}
-            </div>
-          )}
 
           {!hasData && status !== "running" && hasMetrics && !snapshotLoading && (
             <Callout status="info" mx="3" my="4">
@@ -223,13 +190,11 @@ const SafeRolloutResults: FC<{
 
           {showCompactResults ? (
             <CompactResults
-              editMetrics={editMetrics}
               variations={SAFE_ROLLOUT_VARIATIONS}
-              multipleExposures={snapshot.multipleExposures || 0}
               results={analysis.results[0]}
               queryStatusData={queryStatusData}
               reportDate={snapshot.dateCreated}
-              startDate={safeRollout.startedAt ?? ""} // TODO: investigate why its a string by this point
+              startDate={safeRollout.startedAt?.toDateString() ?? ""}
               isLatestPhase={true}
               status={safeRollout.status === "running" ? "running" : "stopped"}
               goalMetrics={[]}
@@ -243,12 +208,6 @@ const SafeRolloutResults: FC<{
                 analysis.settings?.regressionAdjusted
               }
               settingsForSnapshotMetrics={settingsForSnapshotMetrics}
-              sequentialTestingEnabled={true}
-              differenceType={"absolute"}
-              metricFilter={metricFilter}
-              setMetricFilter={setMetricFilter}
-              isTabActive={isTabActive}
-              setTab={setTab}
               experimentType={"standard"}
             />
           ) : null}

@@ -50,7 +50,7 @@ export default async function (agenda: Agenda) {
     const job = agenda.create(UPDATE_SINGLE_SAFE_ROLLOUT_SNAPSHOT, {
       safeRollout,
     });
-    job.unique({ id: safeRollout.id, trackingKey: safeRollout.trackingKey });
+    job.unique({ id: safeRollout.id });
     job.schedule(new Date());
     await job.save();
   }

@@ -703,6 +703,9 @@ export function getDefaultRuleValue({
       controlValue: value,
       variationValue: value,
       hashAttribute,
+      trackingKey: "",
+      seed: "",
+      status: "running", // TODO: Check if this is okay for the default value
       scheduleRules: [
         {
           enabled: true,

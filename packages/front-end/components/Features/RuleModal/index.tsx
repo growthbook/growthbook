@@ -143,7 +143,6 @@ export default function RuleModal({
 
   const convertRuleToFormValues = (rule: FeatureRule) => {
     if (rule?.type === "safe-rollout") {
-      console.log("testing guy 2", { safeRolloutInterfaceFields: safeRollout });
       return {
         ...rule,
         safeRolloutInterfaceFields: safeRollout,
@@ -407,9 +406,12 @@ export default function RuleModal({
           }
         }
 
+        // @ts-expect-error Mangled types when coming from a feature rule
         if (values.skipPartialData === "strict") {
           values.skipPartialData = true;
-        } else if (values.skipPartialData === "loose") {
+        }
+        // @ts-expect-error Mangled types when coming from a feature rule
+        else if (values.skipPartialData === "loose") {
           values.skipPartialData = false;
         }
 
@@ -602,28 +604,35 @@ export default function RuleModal({
         hasDescription: values.description && values.description.length > 0,
       });
 
-      let method = "POST";
-      let body: PostFeatureRuleBody | PutFeatureRuleBody = {
-        rule: values,
-        environment,
-        interfaceFields,
-      };
+      let res: { version: number };
+
       if (!duplicate && i !== rules.length) {
-        method = "PUT";
-        body = {
-          rule: values,
-          interfaceFields,
-          environment,
-          i,
-        };
+        res = await apiCall<{ version: number }>(
+          `/feature/${feature.id}/${version}/rule`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              rule: values,
+              environment,
+              interfaceFields,
+              i,
+            } as PutFeatureRuleBody),
+          }
+        );
+      } else {
+        res = await apiCall<{ version: number }>(
+          `/feature/${feature.id}/${version}/rule`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              rule: values,
+              environment,
+              interfaceFields,
+            } as PostFeatureRuleBody),
+          }
+        );
       }
-      const res = await apiCall<{ version: number }>(
-        `/feature/${feature.id}/${version}/rule`,
-        {
-          method: method,
-          body: JSON.stringify(body),
-        }
-      );
+
       await mutate();
       res.version && setVersion(res.version);
     } catch (e) {
