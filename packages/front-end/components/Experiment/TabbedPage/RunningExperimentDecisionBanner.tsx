@@ -47,7 +47,7 @@ export default function RunningExperimentDecisionBanner({
     .map(({ variationId }) =>
       indexedVariations.find((v) => v.id === variationId)
     )
-    .filter((v) => v !== undefined); // TODO deal with missing variations better
+    .filter((v) => v !== undefined);
 
   const variationNames: Record<string, JSX.Element> = {};
   variations.forEach((v, i) => {
@@ -66,7 +66,7 @@ export default function RunningExperimentDecisionBanner({
       </Flex>
     );
   });
-  if (decidedVariations.length === 0) return null; // TODO
+  if (decidedVariations.length === 0) return null;
 
   let decisionContent: JSX.Element | null = null;
   if (runningExperimentStatus.status === "ship-now") {
