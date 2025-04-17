@@ -141,3 +141,32 @@ export const cancelSafeRolloutSnapshot = async (
   res.status(200).json({ status: 200 });
 };
 // endregion POST /safe-rollout/snapshot/:id/cancel
+
+// region PUT /safe-rollout/:id/status
+/**
+ * PUT /safe-rollout/:id/status
+ * Update the status of a safe rollout rule (rolled back, released, etc)
+ * @param req
+ * @param res
+ */
+export async function putSafeRolloutStatus(
+  req: AuthRequest<{ status: "released" | "rolled-back" }, { id: string }>,
+  res: Response<{ status: 200 }>
+) {
+  const { id } = req.params;
+  const { status } = req.body;
+  const context = getContextFromReq(req);
+  const safeRollout = await context.models.safeRollout.getById(id);
+  if (!safeRollout) {
+    throw new Error("Could not find safe rollout");
+  }
+
+  await context.models.safeRollout.update(safeRollout, {
+    status,
+  });
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+// endregion PUT /safe-rollout/:id/status

@@ -137,18 +137,18 @@ export function getSRMValue(
 }
 
 export function getSafeRolloutSRMValue(
-  snapshot: SafeRolloutSnapshotInterface
+  safeRolloutSnapshot: SafeRolloutSnapshotInterface
 ): number | undefined {
-  const healthQuerySRM = snapshot.health?.traffic?.overall?.srm;
-
+  const healthQuerySRM = safeRolloutSnapshot.health?.traffic?.overall?.srm;
   if (healthQuerySRM !== undefined) {
     return healthQuerySRM;
   }
+
   // fall back to main results SRM for no dimension split snapshots
   // and without health query SRM
   // if no dimension && only one overall result (e.g. no dim splits)
-  if (snapshot.analyses?.[0]?.results?.length === 1) {
-    return snapshot.analyses?.[0]?.results?.[0]?.srm;
+  if (safeRolloutSnapshot.analyses?.[0]?.results?.length === 1) {
+    return safeRolloutSnapshot.analyses?.[0]?.results?.[0]?.srm;
   }
   return undefined;
 }

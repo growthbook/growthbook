@@ -19,7 +19,7 @@ export default function SafeRolloutStatusModal({
   const { apiCall } = useAuth();
   const onSubmit = async () => {
     const status = radioSelected === "revert" ? "rolled-back" : "released";
-    await apiCall(`/safe-rollout/status/${safeRollout.id}`, {
+    await apiCall(`/safe-rollout/${safeRollout.id}/status`, {
       method: "PUT",
       body: JSON.stringify({ status }),
     });
