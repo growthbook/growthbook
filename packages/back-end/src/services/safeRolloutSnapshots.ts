@@ -18,7 +18,6 @@ import {
   isFactMetric,
 } from "shared/experiments";
 import { getSafeRolloutSRMValue } from "shared/health";
-import { SafeRolloutModel } from "back-end/src/models/SafeRolloutModel";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import {
   MetricForSafeRolloutSnapshot,
@@ -157,7 +156,7 @@ export function getSnapshotSettingsFromSafeRolloutArgs(
     goalMetrics: [],
     secondaryMetrics: [],
     guardrailMetrics: settings.guardrailMetrics,
-    dimensions: settings.dimensions ?? [],
+    dimensions: [],
     variations: settings.variations.map((v) => ({
       id: v.id,
       weight: v.weight,
@@ -347,7 +346,6 @@ export async function _createSafeRolloutSnapshot({
   factTableMap: FactTableMap;
 }): Promise<SafeRolloutResultsQueryRunner> {
   const { org: organization } = context;
-  const dimension = defaultAnalysisSettings.dimensions[0] || null;
   const metricGroups = await context.models.metricGroups.getAll();
   const feature = await getFeature(context, safeRollout.featureId);
   if (!feature) {
@@ -382,7 +380,6 @@ export async function _createSafeRolloutSnapshot({
     runStarted: new Date(),
     error: "",
     queries: [],
-    dimension: dimension ?? undefined,
     settings: snapshotSettings,
     multipleExposures: 0,
     triggeredBy,
@@ -400,8 +397,8 @@ export async function _createSafeRolloutSnapshot({
   const nextUpdate = determineNextDate(
     organization.settings?.updateSchedule || null
   );
-  const safeRolloutModel = new SafeRolloutModel(context);
-  await safeRolloutModel.update(safeRollout, {
+
+  await context.models.safeRollout.update(safeRollout, {
     nextSnapshotAttempt:
       nextUpdate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
   });
