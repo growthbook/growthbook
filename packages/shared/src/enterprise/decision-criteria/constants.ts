@@ -1,7 +1,7 @@
 import { DecisionCriteriaData } from "back-end/types/experiment";
 
 // Default decision criteria for new users
-export const DEFAULT_DECISION_CRITERIA: DecisionCriteriaData = {
+export const PRESET_DECISION_CRITERIA: DecisionCriteriaData = {
   id: "gbdeccrit_strictrollout",
   name: "Clear Signals",
   description:
@@ -76,7 +76,7 @@ const secondaryDecisionCriteria: DecisionCriteriaData = {
   defaultAction: "rollback",
 };
 
-export const DEFAULT_DECISION_CRITERIAS: DecisionCriteriaData[] = [
-  DEFAULT_DECISION_CRITERIA,
+export const PRESET_DECISION_CRITERIAS: DecisionCriteriaData[] = [
+  PRESET_DECISION_CRITERIA,
   secondaryDecisionCriteria,
 ];

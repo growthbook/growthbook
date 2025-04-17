@@ -190,7 +190,12 @@ export function getDecisionFrameworkStatus({
   guardrailMetrics: string[];
   daysNeeded?: number;
 }): ExperimentResultStatusData | undefined {
-  // what is power reached when there are no goal metrics?
+  // Fully skip decision framework if there are no goal metrics
+  // TODO @dmf-experiment: Add front-end information about this
+  if (!goalMetrics.length) {
+    return undefined;
+  }
+
   const powerReached = daysNeeded === 0;
   const sequentialTesting = resultsStatus?.settings?.sequentialTesting;
 

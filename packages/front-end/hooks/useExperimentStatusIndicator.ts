@@ -1,8 +1,8 @@
 import {
   getHealthSettings,
   getExperimentResultStatus,
-  DEFAULT_DECISION_CRITERIA,
-  DEFAULT_DECISION_CRITERIAS,
+  PRESET_DECISION_CRITERIA,
+  PRESET_DECISION_CRITERIAS,
 } from "shared/enterprise";
 import {
   ExperimentHealthSettings,
@@ -28,8 +28,8 @@ export type StatusIndicatorData = {
 export function useExperimentDecisionCriteria() {
   const settings = useOrgSettings();
   const decisionCriteria = !settings?.defaultDecisionCriteriaId
-    ? DEFAULT_DECISION_CRITERIA
-    : DEFAULT_DECISION_CRITERIAS.find(
+    ? PRESET_DECISION_CRITERIA
+    : PRESET_DECISION_CRITERIAS.find(
         (dc) => dc.id === settings.defaultDecisionCriteriaId
       );
   const { data } = useApi<{ decisionCriteria: DecisionCriteriaInterface }>(
@@ -39,9 +39,7 @@ export function useExperimentDecisionCriteria() {
         !!settings?.defaultDecisionCriteriaId && !decisionCriteria,
     }
   );
-  return (
-    data?.decisionCriteria ?? decisionCriteria ?? DEFAULT_DECISION_CRITERIA
-  );
+  return data?.decisionCriteria ?? decisionCriteria ?? PRESET_DECISION_CRITERIA;
 }
 
 export function useRunningExperimentStatus() {
