@@ -5682,71 +5682,7 @@ components:
         - $ref: '#/components/schemas/FeatureRolloutRule'
         - $ref: '#/components/schemas/FeatureExperimentRule'
         - $ref: '#/components/schemas/FeatureExperimentRefRule'
-        - type: object
-          required:
-            - condition
-            - id
-            - enabled
-            - type
-            - value
-            - coverage
-            - hashAttribute
-          properties:
-            condition:
-              type: string
-            savedGroupTargeting:
-              type: array
-              items:
-                type: object
-                required:
-                  - matchType
-                  - savedGroups
-                properties:
-                  matchType:
-                    type: string
-                    enum:
-                      - all
-                      - any
-                      - none
-                  savedGroups:
-                    type: array
-                    items:
-                      type: string
-            id:
-              type: string
-            trackingKey:
-              type: string
-            enabled:
-              type: boolean
-            type:
-              type: string
-              enum:
-                - safe-rollout
-            values:
-              type: array
-              items:
-                type: object
-                required:
-                  - value
-                  - weight
-                properties:
-                  value:
-                    type: string
-                  weight:
-                    type: number
-                  name:
-                    type: string
-            coverage:
-              type: number
-            hashAttribute:
-              type: string
-            status:
-              type: string
-              enum:
-                - running
-                - released
-                - rolled-back
-                - stopped
+        - $ref: '#/components/schemas/FeatureSafeRolloutRule'
       discriminator:
         propertyName: type
         mapping:
@@ -5911,6 +5847,72 @@ components:
           type: number
         hashAttribute:
           type: string
+    FeatureSafeRolloutRule:
+      type: object
+      required:
+        - condition
+        - id
+        - enabled
+        - type
+        - value
+        - coverage
+        - hashAttribute
+      properties:
+        condition:
+          type: string
+        savedGroupTargeting:
+          type: array
+          items:
+            type: object
+            required:
+              - matchType
+              - savedGroups
+            properties:
+              matchType:
+                type: string
+                enum:
+                  - all
+                  - any
+                  - none
+              savedGroups:
+                type: array
+                items:
+                  type: string
+        id:
+          type: string
+        trackingKey:
+          type: string
+        enabled:
+          type: boolean
+        type:
+          type: string
+          enum:
+            - safe-rollout
+        values:
+          type: array
+          items:
+            type: object
+            required:
+              - value
+              - weight
+            properties:
+              value:
+                type: string
+              weight:
+                type: number
+              name:
+                type: string
+        coverage:
+          type: number
+        hashAttribute:
+          type: string
+        status:
+          type: string
+          enum:
+            - running
+            - released
+            - rolled-back
+            - stopped
     FeatureExperimentRule:
       type: object
       required:
