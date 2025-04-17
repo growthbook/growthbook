@@ -932,7 +932,6 @@ def process_data_dict(data: Dict[str, Any]) -> DataForStatsEngine:
 def process_experiment_results(
     data: Dict[str, Any]
 ) -> Tuple[List[ExperimentMetricAnalysis], Optional[BanditResult]]:
-    raise ValueError(["brenda"])
     d = process_data_dict(data)
     results: List[ExperimentMetricAnalysis] = []
     bandit_result: Optional[BanditResult] = None
