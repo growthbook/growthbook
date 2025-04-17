@@ -223,7 +223,6 @@ const AnalysisForm: FC<{
     return (
       <UpgradeModal
         close={() => setUpgradeModal(false)}
-        reason="To override metric conversion windows,"
         source="override-metrics"
         commercialFeature="override-metrics"
       />

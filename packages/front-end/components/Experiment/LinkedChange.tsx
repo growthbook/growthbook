@@ -10,7 +10,6 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Callout from "@/components/Radix/Callout";
 import Button from "@/components/Radix/Button";
 import OpenVisualEditorLink from "@/components/OpenVisualEditorLink";
-import { useUser } from "@/services/UserContext";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 
 type Props = {
@@ -55,8 +54,6 @@ export default function LinkedChange({
   state,
 }: Props) {
   const [expanded, setExpanded] = React.useState(open);
-  const { hasCommercialFeature } = useUser();
-  const hasVisualEditorFeature = hasCommercialFeature("visual-editor");
   //if (changeType === "visual" && !vc && !experiment) return null;
 
   return (
@@ -104,7 +101,6 @@ export default function LinkedChange({
                     <Flex gap="3">
                       {canEditVisualChangesets &&
                         experiment?.status === "draft" &&
-                        hasVisualEditorFeature &&
                         vc && (
                           <Box onClick={(e) => e.stopPropagation()}>
                             <OpenVisualEditorLink

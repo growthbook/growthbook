@@ -269,10 +269,16 @@ export default function SDKConnectionForm({
       form.setValue("includeVisualExperiments", showVisualEditorSettings);
       form.setValue("includeDraftExperiments", showVisualEditorSettings);
       form.setValue("includeRedirectExperiments", showRedirectSettings);
-    } else if (!showVisualEditorSettings) {
-      form.setValue("includeVisualExperiments", false);
-      form.setValue("includeDraftExperiments", false);
-      form.setValue("includeRedirectExperiments", false);
+    } else {
+      if (!showVisualEditorSettings) {
+        form.setValue("includeVisualExperiments", false);
+      }
+      if (!showRedirectSettings) {
+        form.setValue("includeRedirectExperiments", false);
+      }
+      if (!showVisualEditorSettings && !showRedirectSettings) {
+        form.setValue("includeDraftExperiments", false);
+      }
     }
   }, [showVisualEditorSettings, form, edit, showRedirectSettings]);
 

@@ -59,7 +59,7 @@ const MetricsPage = (): React.ReactElement => {
             <TabsTrigger value="metrics">Individual Metrics</TabsTrigger>
             <TabsTrigger value="metricgroups">
               Metric Groups{" "}
-              <PaidFeatureBadge commercialFeature="metric-groups" />
+              <PaidFeatureBadge commercialFeature="metric-groups" mx="2" />
             </TabsTrigger>
           </TabsList>
           <Box pt="4">

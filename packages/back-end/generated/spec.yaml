@@ -141,6 +141,9 @@ tags:
   - name: ExperimentSnapshot_model
     x-displayName: ExperimentSnapshot
     description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentSnapshot" />
+  - name: ExperimentWithEnhancedStatus_model
+    x-displayName: ExperimentWithEnhancedStatus
+    description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentWithEnhancedStatus" />
   - name: FactMetric_model
     x-displayName: FactMetric
     description: <SchemaDefinition schemaRef="#/components/schemas/FactMetric" />
@@ -1673,6 +1676,40 @@ paths:
                 properties:
                   experiment:
                     $ref: '#/components/schemas/Experiment'
+  /experiment-names:
+    get:
+      summary: Get a list of experiments with names and ids
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      operationId: getExperimentNames
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/experiment-names?projectId=prj_5l652 \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - experiments
+                properties:
+                  experiments:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - id
+                        - name
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
   '/experiments/{id}':
     get:
       parameters:
@@ -1696,7 +1733,7 @@ paths:
                   - experiment
                 properties:
                   experiment:
-                    $ref: '#/components/schemas/Experiment'
+                    $ref: '#/components/schemas/ExperimentWithEnhancedStatus'
     post:
       parameters:
         - $ref: '#/components/parameters/id'
@@ -6203,6 +6240,14 @@ components:
           enum:
             - days
             - hours
+        linkedFeatures:
+          type: array
+          items:
+            type: string
+        hasVisualChangesets:
+          type: boolean
+        hasURLRedirects:
+          type: boolean
     ExperimentSnapshot:
       type: object
       required:
@@ -6421,6 +6466,25 @@ components:
                                   type: number
                                 chanceToBeatControl:
                                   type: number
+    ExperimentWithEnhancedStatus:
+      allOf:
+        - $ref: '#/components/schemas/Experiment'
+        - type: object
+          properties:
+            enhancedStatus:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - Running
+                    - Stopped
+                    - Draft
+                    - Archived
+                detailedStatus:
+                  type: string
     DataSource:
       type: object
       required:
@@ -7168,6 +7232,7 @@ x-tagGroups:
       - ExperimentMetric_model
       - ExperimentResults_model
       - ExperimentSnapshot_model
+      - ExperimentWithEnhancedStatus_model
       - FactMetric_model
       - FactTable_model
       - FactTableFilter_model

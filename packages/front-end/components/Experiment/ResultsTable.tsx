@@ -29,6 +29,7 @@ import { getValidDate } from "shared/dates";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { Flex } from "@radix-ui/themes";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import { useAuth } from "@/services/auth";
 import {
   ExperimentTableRow,
   getEffectLabel,
@@ -174,7 +175,9 @@ export default function ResultsTable({
   const [tableCellScale, setTableCellScale] = useState(1);
 
   const gb = useGrowthBook<AppFeatures>();
+  const { isAuthenticated } = useAuth();
   let showTimeSeriesButton =
+    isAuthenticated &&
     baselineRow === 0 &&
     tableRowAxis === "metric" &&
     !disableTimeSeriesButton &&

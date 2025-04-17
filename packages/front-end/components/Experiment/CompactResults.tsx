@@ -86,6 +86,7 @@ const CompactResults: FC<{
   experimentType?: ExperimentType;
   ssrPolyfills?: SSRPolyfills;
   hideDetails?: boolean;
+  disableTimeSeriesButton?: boolean;
 }> = ({
   editMetrics,
   variations,
@@ -120,6 +121,7 @@ const CompactResults: FC<{
   experimentType,
   ssrPolyfills,
   hideDetails,
+  disableTimeSeriesButton,
 }) => {
   const { getExperimentMetricById, metricGroups, ready } = useDefinitions();
 
@@ -388,6 +390,7 @@ const CompactResults: FC<{
           isBandit={isBandit}
           isGoalMetrics={true}
           ssrPolyfills={ssrPolyfills}
+          disableTimeSeriesButton={disableTimeSeriesButton}
         />
       ) : null}
 
@@ -426,6 +429,7 @@ const CompactResults: FC<{
             noTooltip={noTooltip}
             isBandit={isBandit}
             ssrPolyfills={ssrPolyfills}
+            disableTimeSeriesButton={disableTimeSeriesButton}
           />
         </div>
       ) : null}
@@ -465,6 +469,7 @@ const CompactResults: FC<{
             noTooltip={noTooltip}
             isBandit={isBandit}
             ssrPolyfills={ssrPolyfills}
+            disableTimeSeriesButton={disableTimeSeriesButton}
           />
         </div>
       ) : (

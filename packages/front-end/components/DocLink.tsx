@@ -170,6 +170,7 @@ export function DocLink({
   docSection,
   fallBackSection = "home",
   className = "",
+  useRadix,
   children,
   useRadix,
 }: DocLinkProps) {

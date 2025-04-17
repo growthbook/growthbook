@@ -6,7 +6,7 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import { DecisionCriteriaData } from "back-end/types/experiment";
 import {
   DEFAULT_DECISION_CRITERIA,
-  DEFAULT_DECISION_CRITERIAS,
+  PRESET_DECISION_CRITERIAS,
 } from "shared/enterprise";
 import Checkbox from "@/components/Radix/Checkbox";
 import Button from "@/components/Radix/Button";
@@ -220,7 +220,7 @@ const DecisionFrameworkSettings: React.FC<DecisionFrameworkSettingsProps> = () =
                         form.setValue("defaultDecisionCriteriaId", id)
                       }
                       decisionCriterias={[
-                        ...DEFAULT_DECISION_CRITERIAS,
+                        ...PRESET_DECISION_CRITERIAS,
                         ...(data?.decisionCriteria || []),
                       ]}
                       onViewEditClick={(criteria: DecisionCriteriaData) => {

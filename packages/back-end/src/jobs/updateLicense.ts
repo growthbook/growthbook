@@ -6,7 +6,7 @@
  */
 import Agenda from "agenda";
 import { getSelfHostedOrganization } from "back-end/src/models/OrganizationModel";
-import { trackJob } from "back-end/src/services/otel";
+import { trackJob } from "back-end/src/services/tracing";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   getLicenseMetaData,
