@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { statsEngines } from "back-end/src/util/constants";
 import { safeRolloutStatusArray } from "back-end/src/validators/safe-rollout";
+import {
+  featurePrerequisite,
+  namespaceValue,
+  savedGroupTargeting,
+} from "back-end/src/validators/shared";
 import { eventUser } from "./events";
 export {
   namespaceValue,
