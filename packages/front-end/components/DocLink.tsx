@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import Link from "@/components/Radix/Link";
 
 const docSections = {
   //Pages
@@ -88,6 +89,7 @@ const docSections = {
   apiPostEnvironment: "/api#tag/environments/operation/postEnvironment",
   idLists: "/features/targeting#id-lists",
   queryOptimization: "/app/query-optimization",
+  metricGroups: "/app/metrics#metric-groups",
 };
 
 export type DocSection = keyof typeof docSections;
@@ -151,6 +153,7 @@ interface DocLinkProps {
   fallBackSection?: DocSection;
   className?: string;
   children: ReactNode;
+  useRadix?: boolean;
 }
 
 export const docUrl = (docSection: DocSection, fallBackSection = "home") => {
@@ -168,7 +171,21 @@ export function DocLink({
   fallBackSection = "home",
   className = "",
   children,
+  useRadix,
 }: DocLinkProps) {
+  if (useRadix) {
+    return (
+      <Link
+        href={docUrl(docSection, fallBackSection)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={className}
+      >
+        {children}
+      </Link>
+    );
+  }
+
   return (
     <a
       href={docUrl(docSection, fallBackSection)}
