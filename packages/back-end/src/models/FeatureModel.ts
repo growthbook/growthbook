@@ -971,26 +971,26 @@ export async function publishRevision(
     throw new Error("Can only publish a draft revision");
   }
 
-  const safeRolloutIds: Record<
+  const safeRolloutStatusesMap: Record<
     string,
     { status: "running" | "rolled-back" | "released" | "stopped" }
   > = Object.fromEntries(
     Object.values(revision.rules)
       .flat()
-      .filter((rule) => rule?.type === "safe-rollout")
+      .filter((rule) => rule.type === "safe-rollout")
       .map((rule: SafeRolloutRule) => {
         return [rule.safeRolloutId, { status: rule.status }];
       })
   );
 
   const safeRollouts = await context.models.safeRollout.findByIds(
-    Object.keys(safeRolloutIds)
+    Object.keys(safeRolloutStatusesMap)
   );
 
   safeRollouts.forEach((safeRollout) => {
     // sync the status of the safe rollout to the status of the revision
     const safeRolloutUpdates: Partial<SafeRolloutInterface> = {
-      status: safeRolloutIds[safeRollout.id].status,
+      status: safeRolloutStatusesMap[safeRollout.id].status,
     };
     if (!safeRollout.startedAt && safeRolloutUpdates.status === "running") {
       safeRolloutUpdates["startedAt"] = new Date();
