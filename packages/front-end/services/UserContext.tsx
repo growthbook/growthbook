@@ -11,6 +11,7 @@ import {
   ProjectScopedPermission,
   UserPermissions,
   GetOrganizationResponse,
+  OrganizationUsage,
 } from "back-end/types/organization";
 import type {
   AccountPlan,
@@ -122,6 +123,7 @@ export interface UserContextValue {
   };
   canSubscribe: boolean;
   freeSeats: number;
+  usage?: OrganizationUsage;
 }
 
 interface UserResponse {
@@ -507,6 +509,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         watching: watching,
         canSubscribe,
         freeSeats: organization?.freeSeats || 3,
+        usage: currentOrg?.usage,
       }}
     >
       {children}

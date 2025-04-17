@@ -142,6 +142,7 @@ import {
   getLicenseError,
   getSubscriptionFromLicense,
 } from "back-end/src/enterprise";
+import { getUsageFromCache } from "back-end/src/enterprise/billing";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
@@ -795,6 +796,7 @@ export async function getOrganization(
       dateCreated: org.dateCreated,
     },
     seatsInUse,
+    usage: getUsageFromCache(org),
   });
 }
 
