@@ -1,0 +1,28 @@
+on: push
+jobs:
+  build-chart:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: charts/growthbook
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - name: Rebuild helm dependencies
+        run: helm dependency build
+      - name: Lint helm chart
+        run: helm lint --strict --with-subcharts .
+      - name: Package helm chart
+        run: helm package .
+      - name: Login to OCI registry
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+      - name: Push helm chart to OCI registry
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        run: |
+          for chart in *.tgz; do
+              helm push "$chart" oci://registry-1.docker.io/growthbook/charts
+          done

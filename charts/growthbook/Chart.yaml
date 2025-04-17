@@ -1,0 +1,32 @@
+apiVersion: v2
+name: growthbook
+description: Open Source Feature Flagging and A/B Testing Platform
+icon: https://avatars.githubusercontent.com/u/65404594
+home: https://www.growthbook.io/
+sources:
+  - https://github.com/growthbook/growthbook/
+
+type: application
+
+# This is the chart version. This version number should be incremented each time you make changes
+# to the chart and its templates, including the app version.
+# Versions are expected to follow Semantic Versioning (https://semver.org/)
+version: "3.5.0"
+
+# This is the version number of the application being deployed. This version number should be
+# incremented each time you make changes to the application. Versions are not expected to
+# follow Semantic Versioning. They should reflect the version the application is using.
+# It is recommended to use it with quotes.
+appVersion: "3.5.0"
+
+dependencies:
+  - name: mongodb
+    repository: oci://registry-1.docker.io/bitnamicharts
+    version: "^16.5.0"
+    condition: mongodb.enabled
+  - name: server
+    version: "0.0.0"
+    alias: frontend
+  - name: server
+    version: "0.0.0"
+    alias: backend

@@ -1,0 +1,172 @@
+# Default values for growthbook.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+global:
+  env:
+    - name: APP_ORIGIN
+      # full URL of your frontend, e.g. https://gb.example.com
+      value: https://growthbook.local
+
+frontend:
+  replicaCount: 1
+  podAnnotations: {}
+  podLabels: {}
+  podSecurityContext: {}
+  securityContext: {}
+  resources: {}
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 100
+    targetCPUUtilizationPercentage: 80
+    # targetMemoryUtilizationPercentage: 80
+  service:
+    port: 3000
+  command: [npx, wsrun, -p, front-end, --no-prefix, -c]
+  args:
+    - start
+  env:
+    - name: API_HOST
+      # full URL of your backend, e.g. https://gb-api.example.com
+      value: https://api.growthbook.local
+
+backend:
+  replicaCount: 1
+  podAnnotations: {}
+  podLabels: {}
+  podSecurityContext: {}
+  securityContext: {}
+  resources: {}
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 100
+    targetCPUUtilizationPercentage: 80
+    # targetMemoryUtilizationPercentage: 80
+  service:
+    port: 3100
+  mongodbEnabled: true
+  # can be disabled when using UPLOAD_METHOD "s3" or "google-cloud"
+  volumeClaim:
+    enabled: true
+  # For use when providing an existing MongoDB instance
+  # mongodbUri:
+  command: [npx, wsrun, -p, back-end, --no-prefix, -c]
+  # To enable tracing/OTEL replace with "start:with-tracing"
+  args:
+    - start
+  # Reference: https://docs.growthbook.io/self-host/env
+  env:
+    # generate random values with: "openssl rand -hex 32"
+    - name: JWT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name:
+          key:
+    - name: ENCRYPTION_KEY
+      valueFrom:
+        secretKeyRef:
+          name:
+          key:
+
+    # ===== License configuration =====
+    # - name: LICENSE_KEY
+    #   valueFrom:
+    #     secretKeyRef:
+    #       name:
+    #       key:
+
+    # ===== E-Mail configuration =====
+    - name: EMAIL_ENABLED
+      value: false
+    # - name: EMAIL_HOST
+    #   value: ""
+    # - name: EMAIL_PORT
+    #   value: ""
+    # - name: EMAIL_HOST_USER
+    #   value: ""
+    # - name: EMAIL_HOST_PASSWORD
+    #   value: ""
+    # - name: EMAIL_FROM
+    #   value: ""
+
+    # ===== Uploads configuration =====
+    # Possible values: local, s3, google-cloud
+    - name: UPLOAD_METHOD
+      value: local
+    # set this to true for access to uploads to proxy through your self hosted server allowing you to keep the bucket private
+    - name: USE_FILE_PROXY
+      value: true
+
+    # ===== S3 uploads configuration =====
+    # - name: S3_BUCKET
+    #   value: ""
+    # default: us-east-1
+    # - name: S3_REGION
+    #   value: ""
+    # default: https://${S3_BUCKET}.s3.amazonaws.com/
+    # - name: S3_DOMAIN
+    #   value: ""
+    # not required when deployed to AWS with an instance role
+    # - name: AWS_ACCESS_KEY_ID
+    #   valueFrom:
+    #     secretKeyRef:
+    #       name: ""
+    #       key: ""
+    # not required when deployed to AWS with an instance role
+    # - name: AWS_SECRET_ACCESS_KEY
+    #   valueFrom:
+    #     secretKeyRef:
+    #       name: ""
+    #       key: ""
+
+    # ===== Google Cloud uploads configuration =====
+    # - name: GCS_BUCKET_NAME
+    #   value: ""
+    # # default: https://storage.googleapis.com/${GCS_BUCKET_NAME}/
+    # - name: GCS_DOMAIN
+    #   value: ""
+    # # not required when deployed to GCP with an instance service account
+    # - name: GOOGLE_APPLICATION_CREDENTIALS
+    #   valueFrom:
+    #     secretKeyRef:
+    #       name: ""
+    #       key: ""
+
+    # ===== OTEL configuration =====
+    # Reference: https://docs.growthbook.io/self-host/env#observability-opentelemetry
+    # - name: OTEL_SERVICE_NAME
+    #   value: ""
+    # - name: OTEL_EXPORTER_OTLP_ENDPOINT
+    #   value: ""
+
+mongodb:
+  enabled: true
+
+# This block is for setting up the ingress for more information can be found here: https://kubernetes.io/docs/concepts/services-networking/ingress/
+ingress:
+  enabled: false
+  className: ""
+  annotations:
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: growthbook.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+          # must be either "frontend" or "backend"
+          service: frontend
+    - host: api.growthbook.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+          # must be either "frontend" or "backend"
+          service: backend
+  tls:
+    []
+    # - secretName: growthbook-tls
+    #   hosts:
+    #     - growthbook.local
+    #     - api.growthbook.local
