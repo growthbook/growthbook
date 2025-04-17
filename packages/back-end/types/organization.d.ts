@@ -368,6 +368,7 @@ export type GetOrganizationResponse = {
     experiments: string[];
     features: string[];
   };
+  usage: OrganizationUsage;
 };
 
 export type DailyUsage = {

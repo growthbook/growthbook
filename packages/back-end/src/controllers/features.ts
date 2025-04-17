@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
 import { isEqual, omit } from "lodash";
+import { v4 as uuidv4 } from "uuid";
 import {
   autoMerge,
   filterEnvironmentsByFeature,
@@ -15,7 +16,6 @@ import {
   getConnectionSDKCapabilities,
   SDKCapability,
 } from "shared/sdk-versioning";
-import { v4 as uuidv4 } from "uuid";
 import {
   ExperimentRefRule,
   FeatureInterface,
@@ -121,12 +121,13 @@ import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
 import { FeatureUsageLookback } from "back-end/src/types/Integration";
 import { getChangesToStartExperiment } from "back-end/src/services/experiments";
 import { getMetricMap } from "back-end/src/models/MetricModel";
-import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { CreateProps } from "back-end/src/models/BaseModel";
 import {
   PostFeatureRuleBody,
   PutFeatureRuleBody,
-} from "back-end/types/safe-rollout";
+} from "back-end/types/feature-rule";
+
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
     super(message);
@@ -2909,24 +2910,5 @@ export async function postCopyEnvironmentRules(
   res.status(200).json({
     status: 200,
     version: revision.version,
-  });
-}
-export async function putSafeRolloutStatus(
-  req: AuthRequest<{ status: "released" | "rolled-back" }, { id: string }>,
-  res: Response<{ status: 200 }, EventUserForResponseLocals>
-) {
-  const { id } = req.params;
-  const { status } = req.body;
-  const context = getContextFromReq(req);
-  const safeRollout = await context.models.safeRollout.getById(id);
-  if (!safeRollout) {
-    throw new Error("Could not find safe rollout");
-  }
-  await context.models.safeRollout.update(safeRollout, {
-    status,
-  });
-
-  res.status(200).json({
-    status: 200,
   });
 }

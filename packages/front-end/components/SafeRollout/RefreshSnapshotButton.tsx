@@ -1,18 +1,14 @@
 import { FC, useState } from "react";
 import { BsArrowRepeat } from "react-icons/bs";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import {
-  FeatureInterface,
-} from "back-end/src/validators/features";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { useAuth } from "@/services/auth";
 import Button from "@/components/Button";
-import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
 
 const RefreshSnapshotButton: FC<{
   mutate: () => void;
   safeRollout: SafeRolloutInterface;
-  feature: FeatureInterface;
-}> = ({ mutate, safeRollout, feature }) => {
+}> = ({ mutate, safeRollout }) => {
   const [loading, setLoading] = useState(false);
   const [longResult, setLongResult] = useState(false);
 
@@ -25,9 +21,6 @@ const RefreshSnapshotButton: FC<{
       snapshot: ExperimentSnapshotInterface;
     }>(`/safe-rollout/${safeRollout.id}/snapshot`, {
       method: "POST",
-      // body: JSON.stringify({
-      //   featureId: feature.id,
-      // }),
     });
     mutate();
   };

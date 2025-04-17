@@ -4,8 +4,9 @@ import { Box, Flex, Text } from "@radix-ui/themes";
 import { getValidDate, ago, relativeDate } from "shared/dates";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { ExperimentMetricInterface } from "shared/experiments";
+import { StatusIndicatorData } from "shared/enterprise";
 import { MetricSnapshotSettings } from "back-end/types/report";
-import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import Link from "@/components/Radix/Link";
@@ -16,7 +17,6 @@ import { RawExperimentStatusIndicator } from "../Experiment/TabbedPage/Experimen
 import { ExperimentTab } from "../Experiment/TabbedPage";
 import { useSafeRolloutSnapshot } from "./SnapshotProvider";
 import SafeRolloutAnalysisSettingsSummary from "./AnalysisSettingsSummary";
-import { StatusIndicatorData } from "shared/enterprise";
 
 const CompactResults = dynamic(
   () => import("@/components/SafeRollout/Results/CompactResults")

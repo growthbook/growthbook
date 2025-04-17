@@ -1,3 +1,4 @@
+import { addDays, differenceInDays } from "date-fns";
 import {
   DecisionCriteriaAction,
   DecisionCriteriaData,
@@ -11,8 +12,9 @@ import {
   ExperimentResultStatusData,
   ExperimentUnhealthyData,
 } from "back-end/types/experiment";
-import { SafeRolloutInterface, SafeRolloutSnapshotInterface } from "back-end/types/safe-rollout";
 import { OrganizationSettings } from "back-end/types/organization";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { SafeRolloutSnapshotInterface } from "back-end/src/validators/safe-rollout-snapshot";
 import {
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
   DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
@@ -28,7 +30,6 @@ import {
   DEFAULT_DECISION_CRITERIA,
   PRESET_DECISION_CRITERIAS,
 } from "./constants";
-import { addDays, differenceInDays } from "date-fns";
 
 // Evaluate a single rule on a variation result
 // Returns the action if the rule is met, otherwise undefined
@@ -468,7 +469,6 @@ export function getExperimentResultStatus({
   }
 }
 
-
 export function getSafeRolloutDaysLeft({
   safeRollout,
   snapshotWithResults,
@@ -480,10 +480,7 @@ export function getSafeRolloutDaysLeft({
   const startDate = safeRollout.startedAt
     ? new Date(safeRollout.startedAt)
     : new Date();
-  const endDate = addDays(
-    new Date(startDate.getTime()),
-    safeRollout.maxDurationDays
-  );
+  const endDate = addDays(startDate, safeRollout.maxDurationDays);
   const latestSnapshotDate = snapshotWithResults?.runStarted
     ? new Date(snapshotWithResults?.runStarted)
     : null;
@@ -505,7 +502,7 @@ export function getSafeRolloutResultStatus({
   daysLeft: number;
 }): ExperimentResultStatusData | undefined {
   const unhealthyData: ExperimentUnhealthyData = {};
-  
+
   const healthSummary = safeRollout.analysisSummary?.health;
   const resultsStatus = safeRollout.analysisSummary?.resultsStatus;
 

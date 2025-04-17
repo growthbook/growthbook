@@ -22,14 +22,14 @@ import { getScopedSettings } from "shared/settings";
 import { kebabCase } from "lodash";
 import { Text } from "@radix-ui/themes";
 import {
-  SafeRolloutInterface,
   CreateSafeRolloutInterface,
-} from "back-end/src/models/SafeRolloutModel";
+  SafeRolloutInterface,
+} from "back-end/src/validators/safe-rollout";
 import { SafeRolloutRule } from "back-end/src/validators/features";
 import {
   PostFeatureRuleBody,
   PutFeatureRuleBody,
-} from "back-end/types/safe-rollout";
+} from "back-end/types/feature-rule";
 import {
   NewExperimentRefRule,
   getDefaultRuleValue,
@@ -357,7 +357,7 @@ export default function RuleModal({
       }
     }
 
-    let interfaceFields: Partial<SafeRolloutInterfaceCreateFields> | undefined;
+    let interfaceFields: Partial<CreateSafeRolloutInterface> | undefined;
     try {
       if (values.type === "experiment-ref-new") {
         // Make sure there's an experiment name

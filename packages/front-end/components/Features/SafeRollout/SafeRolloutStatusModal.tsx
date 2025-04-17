@@ -1,4 +1,4 @@
-import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { useState } from "react";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
@@ -19,7 +19,7 @@ export default function SafeRolloutStatusModal({
   const { apiCall } = useAuth();
   const onSubmit = async () => {
     const status = radioSelected === "revert" ? "rolled-back" : "released";
-    await apiCall(`/safe-rollout/status/${safeRollout.id}`, {
+    await apiCall(`/safe-rollout/${safeRollout.id}/status`, {
       method: "PUT",
       body: JSON.stringify({ status }),
     });
