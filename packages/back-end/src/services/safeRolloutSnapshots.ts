@@ -1,4 +1,3 @@
-import { subDays } from "date-fns";
 import {
   DEFAULT_METRIC_WINDOW,
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
@@ -49,12 +48,15 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { CreateProps } from "back-end/src/models/BaseModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ExperimentAnalysisSummary } from "back-end/src/validators/experiments";
+import { getFeature } from "back-end/src/models/FeatureModel";
+import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
+import { SafeRolloutRule } from "back-end/src/validators/features";
+import { getSourceIntegrationObject } from "./datasource";
 import {
   computeResultsStatus,
   determineNextDate,
   isJoinableMetric,
 } from "./experiments";
-import { getSourceIntegrationObject } from "./datasource";
 
 export function getMetricForSafeRolloutSnapshot(
   id: string | null | undefined,
@@ -249,6 +251,7 @@ export function getDefaultExperimentAnalysisSettingsForSafeRollout(
 
 function getSafeRolloutSnapshotSettings({
   safeRollout,
+  safeRolloutRule,
   settings,
   orgPriorSettings,
   settingsForSnapshotMetrics,
@@ -258,6 +261,7 @@ function getSafeRolloutSnapshotSettings({
   datasource,
 }: {
   safeRollout: SafeRolloutInterface;
+  safeRolloutRule: SafeRolloutRule;
   settings: ExperimentSnapshotAnalysisSettings;
   orgPriorSettings: MetricPriorSettings | undefined;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
@@ -307,9 +311,9 @@ function getSafeRolloutSnapshotSettings({
     queryFilter: "",
     datasourceId: safeRollout.datasourceId || "",
     dimensions: settings.dimensions.map((id) => ({ id })),
-    startDate: safeRollout.startedAt || subDays(new Date(), 10), // should fix this. using 2 hardcoded just for testing
+    startDate: safeRollout.startedAt || new Date(), // TODO: What do we want to do if startedAt is not set?
     endDate: new Date(),
-    experimentId: safeRollout.trackingKey || safeRollout.id,
+    experimentId: safeRolloutRule.trackingKey,
     guardrailMetrics,
     regressionAdjustmentEnabled: !!settings.regressionAdjusted,
     defaultMetricPriorSettings: defaultPriorSettings,
@@ -345,6 +349,17 @@ export async function _createSafeRolloutSnapshot({
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
   const metricGroups = await context.models.metricGroups.getAll();
+  const feature = await getFeature(context, safeRollout.featureId);
+  if (!feature) {
+    throw new Error("Could not load safe rollout feature");
+  }
+  const safeRolloutRule = getSafeRolloutRuleFromFeature(
+    feature,
+    safeRollout.ruleId
+  );
+  if (!safeRolloutRule) {
+    throw new Error("Could not load safe rollout rule");
+  }
 
   const datasource = await getDataSourceById(context, safeRollout.datasourceId);
   if (!datasource) {
@@ -353,6 +368,7 @@ export async function _createSafeRolloutSnapshot({
 
   const snapshotSettings = getSafeRolloutSnapshotSettings({
     safeRollout,
+    safeRolloutRule,
     orgPriorSettings: organization.settings?.metricDefaults?.priorSettings,
     settings: defaultAnalysisSettings,
     settingsForSnapshotMetrics,
