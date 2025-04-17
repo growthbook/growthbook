@@ -1188,7 +1188,7 @@ export async function postFeatureRule(
       throw new Error("Max duration days is required for safe rollouts");
     }
     // TODO: should this live on the rule?
-    if (interfaceFields.hashAttribute === undefined) {
+    if (rule.hashAttribute === undefined) {
       throw new Error("Hash attribute is required for safe rollouts");
     }
     // TODO: are these required?
@@ -1236,16 +1236,15 @@ export async function postFeatureRule(
       }
     }
     rule.status = "running";
+    rule.seed = rule.seed || uuidv4();
+    rule.trackingKey = rule.trackingKey || `srk_${uuidv4()}`;
     const safeRolloutCreateProps: CreateProps<SafeRolloutInterface> = {
       ...interfaceFields,
-      coverage: 1, // hardcode to 100% for now
-      seed: interfaceFields.seed || uuidv4(),
-      trackingKey: interfaceFields.trackingKey || `srk_${uuidv4()}`,
+      hashAttribute: rule.hashAttribute,
       status: rule.status,
       // TODO are these mandatory
       datasourceId: interfaceFields.datasourceId,
       exposureQueryId: interfaceFields.exposureQueryId,
-      hashAttribute: interfaceFields.hashAttribute,
       autoSnapshots: true,
       guardrailMetricIds: interfaceFields.guardrailMetricIds,
       maxDurationDays: interfaceFields.maxDurationDays,

@@ -2,6 +2,11 @@ import { z } from "zod";
 import { statsEngines } from "back-end/src/util/constants";
 import { safeRolloutStatusArray } from "back-end/src/validators/safe-rollout";
 import { eventUser } from "./events";
+export {
+  namespaceValue,
+  featurePrerequisite,
+  savedGroupTargeting,
+} from "./shared";
 
 export const simpleSchemaFieldValidator = z.object({
   key: z.string().max(64),
@@ -18,15 +23,6 @@ export const simpleSchemaValidator = z.object({
   type: z.enum(["object", "object[]", "primitive", "primitive[]"]),
   fields: z.array(simpleSchemaFieldValidator),
 });
-
-export const savedGroupTargeting = z
-  .object({
-    match: z.enum(["all", "none", "any"]),
-    ids: z.array(z.string()),
-  })
-  .strict();
-
-export type SavedGroupTargeting = z.infer<typeof savedGroupTargeting>;
 
 export const featureValueType = [
   "boolean",
@@ -45,15 +41,6 @@ const scheduleRule = z
   .strict();
 
 export type ScheduleRule = z.infer<typeof scheduleRule>;
-
-export const featurePrerequisite = z
-  .object({
-    id: z.string(),
-    condition: z.string(),
-  })
-  .strict();
-
-export type FeaturePrerequisite = z.infer<typeof featurePrerequisite>;
 
 export const baseRule = z
   .object({
@@ -96,16 +83,6 @@ const experimentValue = z
   .strict();
 
 export type ExperimentValue = z.infer<typeof experimentValue>;
-
-export const namespaceValue = z
-  .object({
-    enabled: z.boolean(),
-    name: z.string(),
-    range: z.tuple([z.number(), z.number()]),
-  })
-  .strict();
-
-export type NamespaceValue = z.infer<typeof namespaceValue>;
 
 export const experimentType = ["standard", "multi-armed-bandit"] as const;
 export const banditStageType = ["explore", "exploit", "paused"] as const;
@@ -176,6 +153,9 @@ export const safeRolloutRule = baseRule
     variationValue: z.string(),
     safeRolloutId: z.string(),
     status: z.enum(safeRolloutStatusArray).default("running"),
+    hashAttribute: z.string(),
+    seed: z.string(),
+    trackingKey: z.string(),
   })
   .strict();
 

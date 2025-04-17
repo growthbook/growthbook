@@ -20,7 +20,8 @@ export default function SafeRolloutSummary({
   rule: SafeRolloutRule;
   feature: FeatureInterface;
 }) {
-  const { coverage, hashAttribute, guardrailMetricIds } = safeRollout;
+  const coverage = 1;
+  const { hashAttribute, guardrailMetricIds } = safeRollout;
   const { controlValue, variationValue } = rule;
   const type = feature.valueType;
   const coveragePercent = (coverage / 2) * 100;
