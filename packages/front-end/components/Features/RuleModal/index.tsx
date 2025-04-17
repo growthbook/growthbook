@@ -164,10 +164,10 @@ export default function RuleModal({
   const [
     overviewRadioSelectorRuleType,
     setOverviewRadioSelectorRuleType,
-  ] = useState<RadioSelectorRuleType>("");
-  const [overviewRuleType, setOverviewRuleType] = useState<OverviewRuleType>(
-    ""
-  );
+  ] = useState<RadioSelectorRuleType | "">("");
+  const [overviewRuleType, setOverviewRuleType] = useState<
+    OverviewRuleType | ""
+  >("");
 
   // Paged modal
   const [step, setStep] = useState(0);
@@ -921,7 +921,7 @@ export default function RuleModal({
                   scheduleToggleEnabled={scheduleToggleEnabled}
                   setScheduleToggleEnabled={setScheduleToggleEnabled}
                   isNewRule={isNewRule}
-                  isDraft={safeRollout?.status === "running"}
+                  isDraft={!safeRollout?.startedAt}
                 />
               </Page>
             );
