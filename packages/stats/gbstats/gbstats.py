@@ -221,7 +221,7 @@ def append_combined_row(df: pd.DataFrame) -> pd.DataFrame:
             for col in SUM_COLS:
                 if i > 0:
                     new_row[f"{prefix}_{col}"] += row[f"{prefix}_{col}"]
-    df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+    df = pd.concat([pd.DataFrame([new_row]), df], ignore_index=True)
     return df
 
 
@@ -281,12 +281,12 @@ def get_configured_test(
         )
 
 
-def decision_making_conditions(metric, analysis):
+def decision_making_conditions(metric, analysis, dimension):
     return (
         metric.business_metric_type
         and "goal" in metric.business_metric_type
         and analysis.difference_type == "relative"
-        and analysis.dimension == ""
+        and dimension == ""
     )
 
 
@@ -338,8 +338,7 @@ def analyze_metric_df(
                 row=s, test_index=i, analysis=analysis, metric=metric
             )
             res = test.compute_result()
-            raise ValueError(analysis.dimension)
-            if decision_making_conditions(metric, analysis):
+            if decision_making_conditions(metric, analysis, s["dimension"]):
                 s[f"v{i}_decision_making_conditions"] = True
                 config = BaseConfig(
                     difference_type=analysis.difference_type,
@@ -672,7 +671,6 @@ def process_analysis(
     # diff data, convert raw sql into df of dimensions, and get rid of extra dimensions
     var_names = analysis.var_names
     max_dimensions = analysis.max_dimensions
-
     # If we're doing a daily time series, we need to diff the data
     if analysis.dimension == "pre:datedaily":
         rows = diff_for_daily_time_series(rows)
@@ -701,13 +699,13 @@ def process_analysis(
     )
     if append_combined_dimension:
         reduced = append_combined_row(reduced)
+
     # Run the analysis for each variation and dimension
     result = analyze_metric_df(
         df=reduced,
         metric=metric,
         analysis=analysis,
     )
-    result.to_csv("/Users/lukesmith/Desktop/" + "result.csv")
     return result
 
 
@@ -751,6 +749,7 @@ def process_single_metric(
         )
         for a in analyses
     ]
+
     return ExperimentMetricAnalysis(
         metric=metric.id,
         analyses=[
@@ -933,6 +932,7 @@ def process_data_dict(data: Dict[str, Any]) -> DataForStatsEngine:
 def process_experiment_results(
     data: Dict[str, Any]
 ) -> Tuple[List[ExperimentMetricAnalysis], Optional[BanditResult]]:
+    raise ValueError(["brenda"])
     d = process_data_dict(data)
     results: List[ExperimentMetricAnalysis] = []
     bandit_result: Optional[BanditResult] = None
