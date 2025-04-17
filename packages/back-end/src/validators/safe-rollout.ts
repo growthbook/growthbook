@@ -24,7 +24,6 @@ const safeRollout = z.object({
   autoSnapshots: z.boolean().default(true),
   featureId: z.string(),
   ruleId: z.string(),
-  coverage: z.number(),
   maxDurationDays: z.number(),
   analysisSummary: experimentAnalysisSummary,
 });
