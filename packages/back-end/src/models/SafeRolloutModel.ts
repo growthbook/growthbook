@@ -73,21 +73,11 @@ export class SafeRolloutModel extends BaseClass {
     return true;
   }
 
-  public async findByRuleId(ruleId: string) {
-    // todo REMOVE
-    return await this._findOne({ ruleId });
-  }
-
-  public async findByRuleIds(ruleIds: string[]) {
-    // todo REMOVE
-    return await this._find({ ruleId: { $in: ruleIds } });
+  public async findByIds(ids: string[]) {
+    return await this._find({ id: { $in: ids } });
   }
 
   public async getAllByFeatureId(featureId: string) {
     return await this._find({ featureId });
-  }
-
-  public async findByIds(ids: string[]) {
-    return await this._find({ id: { $in: ids } });
   }
 }

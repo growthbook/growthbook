@@ -18,7 +18,6 @@ import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { ExperimentInterface } from "back-end/types/experiment";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { Environment } from "back-end/types/organization";
-import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
 import { getCurrentEnabledState } from "./scheduleRules";
 
 function getSavedGroupCondition(
@@ -319,7 +318,6 @@ export function getFeatureDefinition({
   environment,
   groupMap,
   experimentMap,
-  safeRolloutMap,
   revision,
   date,
 }: {
@@ -327,7 +325,6 @@ export function getFeatureDefinition({
   environment: string;
   groupMap: GroupMap;
   experimentMap: Map<string, ExperimentInterface>;
-  safeRolloutMap: Map<string, SafeRolloutInterface>;
   revision?: FeatureRevisionInterface;
   date?: Date;
 }): FeatureDefinitionWithProject | null {
@@ -562,25 +559,21 @@ export function getFeatureDefinition({
             rule.hashAttribute = r.hashAttribute;
           }
         } else if (r.type === "safe-rollout") {
-          // TODO fix with safe rollout map
-          const safeRollout = safeRolloutMap.get(r.safeRolloutId);
-          if (!safeRollout) return null;
+          rule.coverage = 1; // Always 100% right now
 
-          rule.coverage = safeRollout.coverage;
+          rule.hashAttribute = r.hashAttribute;
 
-          rule.hashAttribute = safeRollout.hashAttribute;
-
-          rule.seed = safeRollout.seed;
+          rule.seed = r.seed;
 
           rule.hashVersion = 2;
 
-          if (safeRollout.status === "released") {
+          if (r.status === "released") {
             const variationValue = r.variationValue;
             if (!variationValue) return null;
 
             // If a variation has been rolled out to 100%
             rule.force = getJSONValue(feature.valueType, variationValue);
-          } else if (safeRollout.status === "rolled-back") {
+          } else if (r.status === "rolled-back") {
             const controlValue = r.controlValue;
             if (!controlValue) return null;
 
@@ -593,7 +586,7 @@ export function getFeatureDefinition({
             ];
             const varWeights = 0.5;
             rule.weights = [varWeights, varWeights];
-            rule.key = safeRollout.trackingKey;
+            rule.key = r.trackingKey;
             rule.meta = [
               { key: "0", name: "Control" },
               { key: "1", name: "Variation" },

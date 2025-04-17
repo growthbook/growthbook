@@ -31,11 +31,14 @@ export default function SafeRolloutStatusModal({
     <Modal
       open={open}
       close={() => setStatusModalOpen(false)}
-      header={`Revert Safe Rollout`}
+      header={`End Safe Rollout`}
       submit={() => onSubmit()}
       size="lg"
       bodyClassName="px-4 pt-4"
       trackingEventModalType={"updateSafeRolloutStatus"}
+      allowlistedTrackingEventProps={{
+        status: radioSelected,
+      }}
     >
       <div>
         <RadioGroup
@@ -44,8 +47,8 @@ export default function SafeRolloutStatusModal({
             setRadioSelected(v);
           }}
           options={[
-            { value: "revert", label: "Revert" },
-            { value: "rollout", label: "Rollout" },
+            { value: "revert", label: "Revert to 0%" },
+            { value: "rollout", label: "Rollout to 100%" },
           ]}
         />
       </div>
