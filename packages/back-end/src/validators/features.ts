@@ -7,11 +7,6 @@ import {
   savedGroupTargeting,
 } from "back-end/src/validators/shared";
 import { eventUser } from "./events";
-export {
-  namespaceValue,
-  featurePrerequisite,
-  savedGroupTargeting,
-} from "./shared";
 
 export const simpleSchemaFieldValidator = z.object({
   key: z.string().max(64),
