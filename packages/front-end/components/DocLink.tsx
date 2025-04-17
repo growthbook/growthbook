@@ -172,7 +172,6 @@ export function DocLink({
   className = "",
   useRadix,
   children,
-  useRadix,
 }: DocLinkProps) {
   if (useRadix) {
     return (
