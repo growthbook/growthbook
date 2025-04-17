@@ -22,6 +22,7 @@ import { DocLink, DocSection } from "./DocLink";
 type ModalProps = {
   header?: "logo" | string | ReactNode | boolean;
   subHeader?: string | ReactNode;
+  showHeaderCloseButton?: boolean;
   open: boolean;
   hideCta?: boolean;
   // An empty string will prevent firing a tracking event, but the prop is still required to encourage developers to add tracking
@@ -70,6 +71,7 @@ type ModalProps = {
 const Modal: FC<ModalProps> = ({
   header = "logo",
   subHeader = "",
+  showHeaderCloseButton = true,
   children,
   close,
   submit,
@@ -176,7 +178,7 @@ const Modal: FC<ModalProps> = ({
             </h4>
             {subHeader ? <div className="mt-1">{subHeader}</div> : null}
           </div>
-          {close && (
+          {close && showHeaderCloseButton && (
             <button
               type="button"
               className="close"
@@ -192,7 +194,7 @@ const Modal: FC<ModalProps> = ({
         </div>
       ) : (
         <>
-          {close && (
+          {close && showHeaderCloseButton && (
             <Flex justify="end">
               <button
                 type="button"

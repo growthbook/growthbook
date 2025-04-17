@@ -656,11 +656,12 @@ pre {
 .experiment-results,
 .bandit-summary-results {
   tbody {
-    .results-label-row {
-      background-color: var(--slate-a2);
-    }
     tr:not(.noborder) {
       box-shadow: rgba(102, 102, 102, 0.125) 0 -1px inset;
+
+      &:last-of-type {
+        box-shadow: rgba(102, 102, 102, 0.125) 0 -2px inset;
+      }
 
       &:not(.results-label-row) {
         td:not(.graph-cell):not(:last-child) {

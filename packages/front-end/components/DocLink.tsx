@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import Link from "@/components/Radix/Link";
 
 const docSections = {
   //Pages
@@ -151,6 +152,7 @@ interface DocLinkProps {
   fallBackSection?: DocSection;
   className?: string;
   children: ReactNode;
+  useRadix?: boolean;
 }
 
 export const docUrl = (docSection: DocSection, fallBackSection = "home") => {
@@ -167,8 +169,22 @@ export function DocLink({
   docSection,
   fallBackSection = "home",
   className = "",
+  useRadix,
   children,
 }: DocLinkProps) {
+  if (useRadix) {
+    return (
+      <Link
+        href={docUrl(docSection, fallBackSection)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={className}
+      >
+        {children}
+      </Link>
+    );
+  }
+
   return (
     <a
       href={docUrl(docSection, fallBackSection)}

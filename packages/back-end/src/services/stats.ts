@@ -227,6 +227,12 @@ async function runStatsEngine(
   const escapedStatsData = JSON.stringify(statsData).replace(/\\/g, "\\\\");
   const start = Date.now();
   const cpus = os.cpus();
+  const options = process.env.GB_ENABLE_PYTHON_DD_PROFILING
+    ? {
+        pythonPath: "ddtrace-run",
+        pythonOptions: ["python3"],
+      }
+    : {};
   const result = await promisify(PythonShell.runString)(
     `
 
@@ -247,7 +253,7 @@ print(json.dumps({
   'results': results,
   'time': time.time() - start
 }, allow_nan=False))`,
-    {}
+    options
   );
   try {
     const parsed: {

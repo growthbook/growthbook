@@ -128,17 +128,21 @@ export async function getFeatureRevisionsByStatus({
   organization,
   featureId,
   status,
+  limit = 10,
 }: {
   context: ReqContext;
   organization: string;
   featureId: string;
   status?: string;
+  limit?: number;
 }): Promise<FeatureRevisionInterface[]> {
   const docs = await FeatureRevisionModel.find({
     organization,
     featureId,
     ...(status ? { status } : {}),
-  });
+  })
+    .sort({ version: -1 })
+    .limit(limit);
   return docs.map((m) => toInterface(m, context));
 }
 

@@ -893,6 +893,9 @@ Triggered when an experiment is created
             banditScheduleUnit?: ("days" | "hours") | undefined;
             banditBurnInValue?: number | undefined;
             banditBurnInUnit?: ("days" | "hours") | undefined;
+            linkedFeatures?: string[] | undefined;
+            hasVisualChangesets?: boolean | undefined;
+            hasURLRedirects?: boolean | undefined;
         };
     };
     user: {
@@ -1046,6 +1049,9 @@ Triggered when an experiment is updated
             banditScheduleUnit?: ("days" | "hours") | undefined;
             banditBurnInValue?: number | undefined;
             banditBurnInUnit?: ("days" | "hours") | undefined;
+            linkedFeatures?: string[] | undefined;
+            hasVisualChangesets?: boolean | undefined;
+            hasURLRedirects?: boolean | undefined;
         };
         previous_attributes: {
             id?: string | undefined;
@@ -1167,6 +1173,9 @@ Triggered when an experiment is updated
             banditScheduleUnit?: (("days" | "hours") | undefined) | undefined;
             banditBurnInValue?: (number | undefined) | undefined;
             banditBurnInUnit?: (("days" | "hours") | undefined) | undefined;
+            linkedFeatures?: (string[] | undefined) | undefined;
+            hasVisualChangesets?: (boolean | undefined) | undefined;
+            hasURLRedirects?: (boolean | undefined) | undefined;
         };
     };
     user: {
@@ -1320,6 +1329,9 @@ Triggered when an experiment is deleted
             banditScheduleUnit?: ("days" | "hours") | undefined;
             banditBurnInValue?: number | undefined;
             banditBurnInUnit?: ("days" | "hours") | undefined;
+            linkedFeatures?: string[] | undefined;
+            hasVisualChangesets?: boolean | undefined;
+            hasURLRedirects?: boolean | undefined;
         };
     };
     user: {

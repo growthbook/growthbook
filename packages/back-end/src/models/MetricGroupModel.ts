@@ -1,4 +1,5 @@
 import { metricGroupValidator } from "back-end/src/routers/metric-group/metric-group.validators";
+import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -16,8 +17,10 @@ const BaseClass = MakeModelClass({
 });
 
 export class MetricGroupModel extends BaseClass {
-  protected canRead(): boolean {
-    return this.context.permissions.canReadSingleProjectResource("");
+  protected canRead(metricGroup: MetricGroupInterface): boolean {
+    return this.context.permissions.canReadMultiProjectResource(
+      metricGroup.projects
+    );
   }
 
   protected canCreate(): boolean {

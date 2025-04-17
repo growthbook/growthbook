@@ -603,6 +603,12 @@ app.delete(
   experimentsController.deleteVisualChangeset
 );
 
+// Time Series
+app.get(
+  "/experiments/:id/time-series",
+  experimentsController.getExperimentTimeSeries
+);
+
 // Visual editor auth
 app.get(
   "/visual-editor/key",

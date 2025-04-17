@@ -24,6 +24,10 @@ import {
 } from "../../constants";
 import { daysBetween } from "../../dates";
 import { getMultipleExposureHealthData, getSRMHealthData } from "../../health";
+import {
+  PRESET_DECISION_CRITERIA,
+  PRESET_DECISION_CRITERIAS,
+} from "./constants";
 
 // Evaluate a single rule on a variation result
 // Returns the action if the rule is met, otherwise undefined
@@ -466,4 +470,14 @@ export function getExperimentResultStatus({
       return daysLeftStatus;
     }
   }
+}
+
+export function getPresetDecisionCriteriaForOrg(
+  settings?: OrganizationSettings
+) {
+  return !settings?.defaultDecisionCriteriaId
+    ? PRESET_DECISION_CRITERIA
+    : PRESET_DECISION_CRITERIAS.find(
+        (dc) => dc.id === settings.defaultDecisionCriteriaId
+      );
 }

@@ -254,7 +254,6 @@ const ExperimentsPage = (): React.ReactElement => {
           title="Run Adaptive Experiments with Bandits"
           description="Bandits automatically guide more traffic to better variants."
           commercialFeature="multi-armed-bandits"
-          reason="Bandit Experiments No Access"
           learnMoreLink="https://docs.growthbook.io/bandits/overview"
         />
       </div>

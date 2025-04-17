@@ -40,7 +40,6 @@ export default function InAppHelp() {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason="To get access to live chat support,"
           source="in-app-help"
           commercialFeature="livechat"
         />
