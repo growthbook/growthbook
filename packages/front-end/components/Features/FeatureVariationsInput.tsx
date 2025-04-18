@@ -17,6 +17,7 @@ import { GBAddCircle } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "@/components/Forms/Field";
 import Link from "@/components/Radix/Link";
+import PremiumCallout from "../Radix/PremiumCallout";
 import styles from "./VariationsInput.module.scss";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import {
@@ -53,6 +54,7 @@ export interface Props {
   simple?: boolean;
   sortableClassName?: string;
   onlySafeToEditVariationMetadata?: boolean;
+  isBandit: boolean;
 }
 
 export default function FeatureVariationsInput({
@@ -83,6 +85,7 @@ export default function FeatureVariationsInput({
   simple,
   sortableClassName,
   onlySafeToEditVariationMetadata,
+  isBandit,
 }: Props) {
   const weights = variations?.map((v) => v.weight) || [];
   const isEqualWeights = weights?.every(
@@ -277,188 +280,192 @@ export default function FeatureVariationsInput({
             )}
 
           {!hideVariations && (
-            <table className="table table-borderless mb-0">
-              <thead className={styles.thead}>
-                <tr>
-                  {!hideVariationIds && (
-                    <th className="pl-3 pr-0">
-                      {!valueAsId && !hideValueField && editingIds ? "#" : "Id"}
-                    </th>
-                  )}
-                  {!hideVariationIds && !hideValueField && editingIds && (
-                    <th>Id</th>
-                  )}
-                  {hideVariationIds && !valueAsId && <th>Value to Force</th>}
-                  <th>Variation Name</th>
-                  {showDescriptions && <th>Description</th>}
-                  {!hideSplits && (
-                    <th>
-                      Split
-                      {!disableVariations &&
-                        !disableCustomSplit &&
-                        !editingSplits &&
-                        !onlySafeToEditVariationMetadata && (
-                          <Tooltip
-                            body="Customize split"
-                            usePortal={true}
-                            tipPosition="top"
-                          >
-                            <a
-                              role="button"
-                              className="ml-1 mb-0"
-                              onClick={() => {
-                                setEditingSplits(true);
-                              }}
+            <>
+              <table className="table table-borderless mb-0">
+                <thead className={styles.thead}>
+                  <tr>
+                    {!hideVariationIds && (
+                      <th className="pl-3 pr-0">
+                        {!valueAsId && !hideValueField && editingIds
+                          ? "#"
+                          : "Id"}
+                      </th>
+                    )}
+                    {!hideVariationIds && !hideValueField && editingIds && (
+                      <th>Id</th>
+                    )}
+                    {hideVariationIds && !valueAsId && <th>Value to Force</th>}
+                    <th>Variation Name</th>
+                    {showDescriptions && <th>Description</th>}
+                    {!hideSplits && (
+                      <th>
+                        Split
+                        {!disableVariations &&
+                          !disableCustomSplit &&
+                          !editingSplits &&
+                          !onlySafeToEditVariationMetadata && (
+                            <Tooltip
+                              body="Customize split"
+                              usePortal={true}
+                              tipPosition="top"
                             >
-                              <PiLockSimpleFill
-                                className="text-purple"
-                                size={15}
-                              />
-                            </a>
-                          </Tooltip>
-                        )}
-                      {editingSplits &&
-                        !isEqualWeights &&
-                        !disableCustomSplit &&
-                        !hideSplits && (
-                          <Tooltip
-                            body="Assign equal weights to all variations"
-                            usePortal={true}
-                            tipPosition="top"
-                          >
-                            <a
-                              role="button"
-                              className="ml-2 link-purple small"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setEqualWeights();
-                              }}
-                            >
-                              <PiArrowsClockwise className="mr-1" size={12} />
-                              set equal
-                            </a>
-                          </Tooltip>
-                        )}
-                    </th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {variations && (
-                  <SortableVariationsList
-                    valuesAsIds={idsMatchIndexes}
-                    variations={variations}
-                    setVariations={
-                      !disableVariations ? setVariations : undefined
-                    }
-                  >
-                    {variations.map((variation, i) => (
-                      <SortableFeatureVariationRow
-                        i={i}
-                        key={variation.id}
-                        variation={variation}
-                        variations={variations}
-                        setVariations={
-                          !disableVariations ? setVariations : undefined
-                        }
-                        setWeight={!disableVariations ? setWeight : undefined}
-                        onlySafeToEditVariationMetadata={
-                          onlySafeToEditVariationMetadata
-                        }
-                        customSplit={editingSplits}
-                        valueType={valueType}
-                        valueAsId={valueAsId}
-                        hideVariationIds={hideVariationIds}
-                        hideValueField={hideValueField || !editingIds}
-                        hideSplit={hideSplits}
-                        feature={feature}
-                        showDescription={showDescriptions}
-                        className={sortableClassName}
-                      />
-                    ))}
-                  </SortableVariationsList>
-                )}
-              </tbody>
-              <tfoot>
-                {!disableVariations &&
-                  variations &&
-                  setWeight &&
-                  !onlySafeToEditVariationMetadata && (
-                    <tr>
-                      <td colSpan={10}>
-                        <div className="row">
-                          <div className="col">
-                            {valueType !== "boolean" && setVariations && (
                               <a
                                 role="button"
-                                className="btn btn-link link-purple font-weight-bold p-0"
+                                className="ml-1 mb-0"
                                 onClick={() => {
-                                  const newWeights = distributeWeights(
-                                    [...weights, 0],
-                                    editingSplits
-                                  );
-
-                                  // Add a new value and update weights
-                                  const newValues = [
-                                    ...variations,
-                                    {
-                                      value: getDefaultVariationValue(
-                                        defaultValue
-                                      ),
-                                      name: `Variation ${variations.length}`,
-                                      weight: 0,
-                                      id: generateVariationId(),
-                                    },
-                                  ];
-                                  newValues.forEach((v, i) => {
-                                    v.weight = newWeights[i] || 0;
-                                  });
-                                  setVariations(newValues);
-                                  if (isEqualWeights) {
-                                    getEqualWeights(
-                                      newValues.length
-                                    ).forEach((w, i) => setWeight(i, w));
-                                  }
+                                  setEditingSplits(true);
                                 }}
                               >
-                                <GBAddCircle className="mr-1" />
-                                Add variation
+                                <PiLockSimpleFill
+                                  className="text-purple"
+                                  size={15}
+                                />
                               </a>
-                            )}
-                            {valueType === "boolean" && (
-                              <>
-                                <Tooltip body="Boolean features can only have two variations. Use a different feature type to add multiple variations.">
-                                  <a
-                                    role="button"
-                                    className="btn btn-link p-0 disabled"
-                                  >
-                                    <GBAddCircle className="mr-2" />
-                                    Add variation
-                                  </a>
-                                </Tooltip>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-
-                {showPreview && coverage !== undefined && variations ? (
-                  <tr>
-                    <td colSpan={10} className="px-0 border-0">
-                      <div className="box pt-3 px-3">
-                        <ExperimentSplitVisual
-                          coverage={coverage}
-                          values={variations}
-                          type={valueType ?? "string"}
-                        />
-                      </div>
-                    </td>
+                            </Tooltip>
+                          )}
+                        {editingSplits &&
+                          !isEqualWeights &&
+                          !disableCustomSplit &&
+                          !hideSplits && (
+                            <Tooltip
+                              body="Assign equal weights to all variations"
+                              usePortal={true}
+                              tipPosition="top"
+                            >
+                              <a
+                                role="button"
+                                className="ml-2 link-purple small"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setEqualWeights();
+                                }}
+                              >
+                                <PiArrowsClockwise className="mr-1" size={12} />
+                                set equal
+                              </a>
+                            </Tooltip>
+                          )}
+                      </th>
+                    )}
                   </tr>
-                ) : null}
-              </tfoot>
-            </table>
+                </thead>
+                <tbody>
+                  {variations && (
+                    <SortableVariationsList
+                      valuesAsIds={idsMatchIndexes}
+                      variations={variations}
+                      setVariations={
+                        !disableVariations ? setVariations : undefined
+                      }
+                    >
+                      {variations.map((variation, i) => (
+                        <SortableFeatureVariationRow
+                          i={i}
+                          key={variation.id}
+                          variation={variation}
+                          variations={variations}
+                          setVariations={
+                            !disableVariations ? setVariations : undefined
+                          }
+                          setWeight={!disableVariations ? setWeight : undefined}
+                          onlySafeToEditVariationMetadata={
+                            onlySafeToEditVariationMetadata
+                          }
+                          customSplit={editingSplits}
+                          valueType={valueType}
+                          valueAsId={valueAsId}
+                          hideVariationIds={hideVariationIds}
+                          hideValueField={hideValueField || !editingIds}
+                          hideSplit={hideSplits}
+                          feature={feature}
+                          showDescription={showDescriptions}
+                          className={sortableClassName}
+                        />
+                      ))}
+                    </SortableVariationsList>
+                  )}
+                </tbody>
+              </table>
+              {variations && variations.length > 2 && !isBandit ? (
+                <PremiumCallout
+                  id="exp-implementation-bandit-promo"
+                  commercialFeature="multi-armed-bandits"
+                  docSection="bandits"
+                  dismissable={true}
+                  mt="4"
+                  mb="1"
+                >
+                  Bandits can help you quickly find the best performing variant.
+                </PremiumCallout>
+              ) : null}
+              {!disableVariations &&
+                variations &&
+                setWeight &&
+                !onlySafeToEditVariationMetadata && (
+                  <div className="row px-1 py-3">
+                    <div className="col">
+                      {valueType !== "boolean" && setVariations && (
+                        <a
+                          role="button"
+                          className="btn btn-link link-purple font-weight-bold p-0"
+                          onClick={() => {
+                            const newWeights = distributeWeights(
+                              [...weights, 0],
+                              editingSplits
+                            );
+
+                            // Add a new value and update weights
+                            const newValues = [
+                              ...variations,
+                              {
+                                value: getDefaultVariationValue(defaultValue),
+                                name: `Variation ${variations.length}`,
+                                weight: 0,
+                                id: generateVariationId(),
+                              },
+                            ];
+                            newValues.forEach((v, i) => {
+                              v.weight = newWeights[i] || 0;
+                            });
+                            setVariations(newValues);
+                            if (isEqualWeights) {
+                              getEqualWeights(
+                                newValues.length
+                              ).forEach((w, i) => setWeight(i, w));
+                            }
+                          }}
+                        >
+                          <GBAddCircle className="mr-1" />
+                          Add variation
+                        </a>
+                      )}
+                      {valueType === "boolean" && (
+                        <>
+                          <Tooltip body="Boolean features can only have two variations. Use a different feature type to add multiple variations.">
+                            <a
+                              role="button"
+                              className="btn btn-link p-0 disabled"
+                            >
+                              <GBAddCircle className="mr-2" />
+                              Add variation
+                            </a>
+                          </Tooltip>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+              {showPreview && coverage !== undefined && variations ? (
+                <div className="box pt-3 px-3">
+                  <ExperimentSplitVisual
+                    coverage={coverage}
+                    values={variations}
+                    type={valueType ?? "string"}
+                  />
+                </div>
+              ) : null}
+            </>
           )}
         </>
       )}

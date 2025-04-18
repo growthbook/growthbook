@@ -154,6 +154,7 @@ const NewPhaseForm: FC<{
       <FeatureVariationsInput
         valueType={"string"}
         coverage={form.watch("coverage")}
+        isBandit={experiment.type === "multi-armed-bandit"}
         setCoverage={(coverage) => form.setValue("coverage", coverage)}
         setWeight={(i, weight) =>
           form.setValue(`variationWeights.${i}`, weight)

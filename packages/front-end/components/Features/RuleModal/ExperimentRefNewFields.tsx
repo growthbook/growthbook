@@ -84,6 +84,7 @@ export default function ExperimentRefNewFields({
   orgStickyBucketing,
   setCustomFields,
   isTemplate = false,
+  isBandit,
 }: {
   step: number;
   source: "rule" | "experiment";
@@ -119,6 +120,7 @@ export default function ExperimentRefNewFields({
   orgStickyBucketing?: boolean;
   setCustomFields?: (customFields: Record<string, string>) => void;
   isTemplate?: boolean;
+  isBandit: boolean;
 }) {
   const form = useFormContext();
 
@@ -330,6 +332,7 @@ export default function ExperimentRefNewFields({
             label="Traffic Percent & Variations"
             defaultValue={feature ? getFeatureDefaultValue(feature) : undefined}
             valueType={feature?.valueType}
+            isBandit={isBandit}
             coverageLabel="Traffic included in this Experiment"
             coverageTooltip={`Users not included in the Experiment will skip this ${source}`}
             coverage={coverage}
