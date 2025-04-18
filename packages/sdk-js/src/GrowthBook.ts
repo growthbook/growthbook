@@ -86,8 +86,8 @@ export class GrowthBook<
     }
   >;
   // eslint-disable-next-line
-  private _forcedFeatureValues: Map<string, any> | undefined;
-  private _attributeOverrides: Attributes;
+  // private _forcedFeatureValues: Map<string, any> | undefined;
+  // private _attributeOverrides: Attributes;
   private _activeAutoExperiments: Map<
     AutoExperiment,
     { valueHash: string; undo: () => void }
@@ -120,7 +120,7 @@ export class GrowthBook<
     this._subscriptions = new Set();
     this.ready = false;
     this._assigned = new Map();
-    this._attributeOverrides = {};
+    // this._attributeOverrides = options.attributeOverrides || {};
     this._activeAutoExperiments = new Map();
     this._triggeredExpKeys = new Set();
     this._initialized = false;
@@ -436,7 +436,7 @@ export class GrowthBook<
   }
 
   public async setAttributeOverrides(overrides: Attributes) {
-    this._attributeOverrides = overrides;
+    this._options.attributeOverrides = overrides;
     if (this._options.stickyBucketService) {
       await this.refreshStickyBuckets();
     }
@@ -460,7 +460,7 @@ export class GrowthBook<
 
   // eslint-disable-next-line
   public setForcedFeatures(map: Map<string, any>) {
-    this._forcedFeatureValues = map;
+    this._options.forcedFeatureValues = map;
     this._render();
   }
 
@@ -477,7 +477,7 @@ export class GrowthBook<
   }
 
   public getAttributes() {
-    return { ...this._options.attributes, ...this._attributeOverrides };
+    return { ...this._options.attributes, ...this._options.attributeOverrides };
   }
 
   public getForcedVariations() {
@@ -486,7 +486,7 @@ export class GrowthBook<
 
   public getForcedFeatures() {
     // eslint-disable-next-line
-    return this._forcedFeatureValues || new Map<string, any>();
+    return this._options.forcedFeatureValues || new Map<string, any>();
   }
 
   public getStickyBucketAssignmentDocs() {
@@ -638,7 +638,8 @@ export class GrowthBook<
       stickyBucketAssignmentDocs: this._options.stickyBucketAssignmentDocs,
       url: this._getContextUrl(),
       forcedVariations: this._options.forcedVariations,
-      forcedFeatureValues: this._forcedFeatureValues,
+      forcedFeatureValues: this._options.forcedFeatureValues,
+      attributeOverrides: this._options.attributeOverrides,
       saveStickyBucketAssignmentDoc: this._saveStickyBucketAssignmentDoc,
       trackingCallback: this._options.trackingCallback
         ? this._track
