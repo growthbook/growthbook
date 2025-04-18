@@ -371,6 +371,15 @@ export default function ExperimentHeader({
 
   const showSaveAsTemplateButton = canCreateTemplate && !isBandit;
 
+  const runningExperimentDecisionBanner =
+    experiment.status === "running" && runningExperimentStatus ? (
+      <RunningExperimentDecisionBanner
+        experiment={experiment}
+        runningExperimentStatus={runningExperimentStatus}
+        decisionCriteria={decisionCriteria}
+      />
+    ) : null;
+
   return (
     <>
       {showEditInfoModal ? (
@@ -922,15 +931,11 @@ export default function ExperimentHeader({
           editTags={!viewingOldPhase ? editTags : undefined}
         />
 
-        {experiment.status === "running" && runningExperimentStatus && (
+        {runningExperimentDecisionBanner ? (
           <Box pt="1" pb="1">
-            <RunningExperimentDecisionBanner
-              experiment={experiment}
-              runningExperimentStatus={runningExperimentStatus}
-              decisionCriteria={decisionCriteria}
-            />
+            {runningExperimentDecisionBanner}
           </Box>
-        )}
+        ) : null}
       </div>
 
       {shouldHideTabs ? null : (

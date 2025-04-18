@@ -19,8 +19,7 @@ import { DocLink } from "@/components/DocLink";
 import DatePicker from "@/components/DatePicker";
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
 import Callout from "@/components/Radix/Callout";
-
-type Results = "won" | "lost" | "inconclusive" | "dnf";
+import { Results } from "./ResultsIndicator";
 
 const StopExperimentForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -207,10 +206,14 @@ const StopExperimentForm: FC<{
                   form.setValue("winner", 0);
                 } else if (result === "won") {
                   form.setValue("excludeFromPayload", false);
-                  form.setValue("winner", 1);
+                  form.setValue(
+                    "winner",
+                    recommendedReleaseVariationIndex ?? 1
+                  );
                   form.setValue(
                     "releasedVariationId",
-                    experiment.variations[1]?.id || ""
+                    recommendedReleaseVariationId ??
+                      (experiment.variations[1]?.id || "")
                   );
                 } else if (result === "lost") {
                   form.setValue("excludeFromPayload", true);
