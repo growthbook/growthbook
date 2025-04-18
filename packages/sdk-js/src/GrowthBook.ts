@@ -85,9 +85,6 @@ export class GrowthBook<
       result: Result<any>;
     }
   >;
-  // eslint-disable-next-line
-  // private _forcedFeatureValues: Map<string, any> | undefined;
-  // private _attributeOverrides: Attributes;
   private _activeAutoExperiments: Map<
     AutoExperiment,
     { valueHash: string; undo: () => void }
@@ -120,7 +117,6 @@ export class GrowthBook<
     this._subscriptions = new Set();
     this.ready = false;
     this._assigned = new Map();
-    // this._attributeOverrides = options.attributeOverrides || {};
     this._activeAutoExperiments = new Map();
     this._triggeredExpKeys = new Set();
     this._initialized = false;
