@@ -154,6 +154,6 @@ export function removeMongooseFields<T>(
   return result;
 }
 
-export function getCollection(name: string) {
-  return mongoose.connection.db.collection(name);
+export function getCollection<T extends Document>(name: string) {
+  return mongoose.connection.db.collection<T>(name);
 }

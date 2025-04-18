@@ -1,7 +1,7 @@
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import React, { forwardRef, ReactElement } from "react";
+import React, { forwardRef, ReactElement, useState } from "react";
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { filterEnvironmentsByFeature } from "shared/util";
@@ -10,6 +10,7 @@ import { RiAlertLine, RiDraggable } from "react-icons/ri";
 import { RxCircleBackslash } from "react-icons/rx";
 import { PiArrowBendRightDown } from "react-icons/pi";
 import { format as formatTimeZone } from "date-fns-tz";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { getRules, isRuleInactive, useEnvironments } from "@/services/features";
@@ -23,6 +24,11 @@ import HelperText from "@/components/Radix/HelperText";
 import Badge from "@/components/Radix/Badge";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Callout from "@/components/Radix/Callout";
+import SafeRolloutSummary from "@/components/Features/SafeRolloutSummary";
+import SafeRolloutSnapshotProvider from "@/components/SafeRollout/SnapshotProvider";
+import SafeRolloutDetails from "@/components/SafeRollout/SafeRolloutDetails";
+import SafeRolloutStatusModal from "@/components/Features/SafeRollout/SafeRolloutStatusModal";
+import DecisionBanner from "../SafeRollout/DecisionBanner";
 import ConditionDisplay from "./ConditionDisplay";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
@@ -53,6 +59,7 @@ interface SortableProps {
   setVersion: (version: number) => void;
   locked: boolean;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
+  safeRolloutsMap: Map<string, SafeRolloutInterface>;
   hideInactive?: boolean;
   isDraft: boolean;
 }
@@ -112,6 +119,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       setVersion,
       locked,
       experimentsMap,
+      safeRolloutsMap,
       hideInactive,
       isDraft,
       ...props
@@ -123,7 +131,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const allEnvironments = useEnvironments();
     const environments = filterEnvironmentsByFeature(allEnvironments, feature);
     const { featureUsage } = useFeatureUsage();
-
+    const [
+      safeRolloutStatusModalOpen,
+      setSafeRolloutStatusModalOpen,
+    ] = useState(false);
     let title: string | ReactElement =
       rule.description ||
       rule.type[0].toUpperCase() + rule.type.slice(1) + " Rule";
@@ -153,7 +164,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       permissionsUtil.canViewFeatureModal(feature.project) &&
       permissionsUtil.canManageFeatureDrafts(feature);
 
-    const isInactive = isRuleInactive(rule, experimentsMap);
+    const isInactive = isRuleInactive(rule, experimentsMap, safeRolloutsMap);
 
     const hasCondition =
       (rule.condition && rule.condition !== "{}") ||
@@ -163,12 +174,19 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const info = getRuleMetaInfo({
       rule,
       experimentsMap,
+      safeRolloutsMap,
       isDraft,
       unreachable,
     });
 
     if (hideInactive && isInactive) {
       return null;
+    }
+
+    let safeRollout: SafeRolloutInterface | undefined;
+
+    if (rule.type === "safe-rollout") {
+      safeRollout = safeRolloutsMap.get(rule.safeRolloutId);
     }
 
     return (
@@ -229,6 +247,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           experimentData={linkedExperiment}
                         />
                       </Flex>
+                    ) : rule.type === "safe-rollout" ? (
+                      <Flex gap="3" align="center">
+                        <div>{title}</div>
+                      </Flex>
                     ) : (
                       title
                     )}
@@ -268,6 +290,43 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       hashAttribute={rule.hashAttribute || ""}
                     />
                   )}
+                  {rule.type === "safe-rollout" &&
+                    (safeRollout ? (
+                      <SafeRolloutSnapshotProvider
+                        safeRollout={safeRollout}
+                        feature={feature}
+                      >
+                        <SafeRolloutSummary
+                          safeRollout={safeRollout}
+                          rule={rule}
+                          feature={feature}
+                        />
+                        {safeRollout?.startedAt &&
+                          safeRolloutStatusModalOpen && (
+                            <SafeRolloutStatusModal
+                              safeRollout={safeRollout}
+                              open={safeRolloutStatusModalOpen}
+                              setStatusModalOpen={() =>
+                                setSafeRolloutStatusModalOpen(true)
+                              }
+                            />
+                          )}
+                        <DecisionBanner
+                          openStatusModal={() =>
+                            setSafeRolloutStatusModalOpen(true)
+                          }
+                        />
+                        <SafeRolloutDetails
+                          safeRollout={safeRollout}
+                          feature={feature}
+                        />
+                      </SafeRolloutSnapshotProvider>
+                    ) : (
+                      <div>
+                        {/* Better error state if safe rollout is not found */}
+                        <p>Safe Rollout not found</p>
+                      </div>
+                    ))}
                   {rule.type === "experiment" && (
                     <ExperimentSummary
                       feature={feature}
@@ -454,11 +513,13 @@ export type RuleMetaInfo = {
 export function getRuleMetaInfo({
   rule,
   experimentsMap,
+  safeRolloutsMap,
   isDraft,
   unreachable,
 }: {
   rule: FeatureRule;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
+  safeRolloutsMap: Map<string, SafeRolloutInterface>;
   isDraft: boolean;
   unreachable?: boolean;
 }): RuleMetaInfo {
@@ -466,7 +527,7 @@ export function getRuleMetaInfo({
     rule.type === "experiment-ref"
       ? experimentsMap.get(rule.experimentId)
       : undefined;
-  const ruleInactive = isRuleInactive(rule, experimentsMap);
+  const ruleInactive = isRuleInactive(rule, experimentsMap, safeRolloutsMap);
   const ruleSkipped = isRuleSkipped({
     rule,
     linkedExperiment,

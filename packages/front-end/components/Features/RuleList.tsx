@@ -16,6 +16,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { useAuth } from "@/services/auth";
 import {
   getRules,
@@ -37,6 +38,7 @@ export default function RuleList({
   experimentsMap,
   hideInactive,
   isDraft,
+  safeRolloutsMap,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -57,6 +59,7 @@ export default function RuleList({
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
   hideInactive?: boolean;
   isDraft: boolean;
+  safeRolloutsMap: Map<string, SafeRolloutInterface>;
 }) {
   const { apiCall } = useAuth();
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -74,7 +77,9 @@ export default function RuleList({
     })
   );
 
-  const inactiveRules = items.filter((r) => isRuleInactive(r, experimentsMap));
+  const inactiveRules = items.filter((r) =>
+    isRuleInactive(r, experimentsMap, safeRolloutsMap)
+  );
 
   if (!items.length) {
     return (
@@ -92,7 +97,11 @@ export default function RuleList({
   }
 
   // detect unreachable rules, and get the first rule that is at 100%.
-  const unreachableIndex = getUnreachableRuleIndex(items, experimentsMap);
+  const unreachableIndex = getUnreachableRuleIndex(
+    items,
+    experimentsMap,
+    safeRolloutsMap
+  );
 
   const activeRule = activeId ? items[getRuleIndex(activeId)] : null;
 
@@ -166,6 +175,7 @@ export default function RuleList({
             experimentsMap={experimentsMap}
             hideInactive={hideInactive}
             isDraft={isDraft}
+            safeRolloutsMap={safeRolloutsMap}
           />
         ))}
       </SortableContext>
@@ -189,6 +199,7 @@ export default function RuleList({
               getRuleIndex(activeId as string) >= unreachableIndex
             }
             isDraft={isDraft}
+            safeRolloutsMap={safeRolloutsMap}
           />
         ) : null}
       </DragOverlay>

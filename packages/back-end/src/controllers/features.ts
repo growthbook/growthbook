@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
-import { isEqual } from "lodash";
+import { isEqual, omit } from "lodash";
+import { v4 as uuidv4 } from "uuid";
 import {
   autoMerge,
   filterEnvironmentsByFeature,
@@ -119,6 +120,13 @@ import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
 import { FeatureUsageLookback } from "back-end/src/types/Integration";
 import { getChangesToStartExperiment } from "back-end/src/services/experiments";
+import { getMetricMap } from "back-end/src/models/MetricModel";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { CreateProps } from "back-end/src/models/BaseModel";
+import {
+  PostFeatureRuleBody,
+  PutFeatureRuleBody,
+} from "back-end/types/feature-rule";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
@@ -1141,16 +1149,13 @@ export async function postFeatureDiscard(
 }
 
 export async function postFeatureRule(
-  req: AuthRequest<
-    { rule: FeatureRule; environment: string },
-    { id: string; version: string }
-  >,
+  req: AuthRequest<PostFeatureRuleBody, { id: string; version: string }>,
   res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
   const { id, version } = req.params;
-  const { environment, rule } = req.body;
+  const { environment, rule, interfaceFields } = req.body;
 
   const feature = await getFeature(context, id);
   if (!feature) {
@@ -1173,19 +1178,107 @@ export async function postFeatureRule(
   }
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
-  const resetReview = resetReviewOnChange({
-    feature,
-    changedEnvironments: [environment],
-    defaultValueChanged: false,
-    settings: org?.settings,
-  });
-  await addFeatureRule(
-    revision,
-    environment,
-    rule,
-    res.locals.eventAudit,
-    resetReview
-  );
+
+  // Validate that specified metrics exist and belong to the organization for safe-rollout rules
+  if (rule.type === "safe-rollout") {
+    // Validate that the interface fields are valid
+    if (!interfaceFields) {
+      throw new Error("Safe rollout interface settings must be set");
+    }
+
+    if (!interfaceFields.maxDurationDays) {
+      throw new Error("Max duration days is required for safe rollouts");
+    }
+    // TODO: should this live on the rule?
+    if (rule.hashAttribute === undefined) {
+      throw new Error("Hash attribute is required for safe rollouts");
+    }
+    // TODO: are these required?
+    if (interfaceFields.exposureQueryId === undefined) {
+      throw new Error("Exposure query is required for safe rollouts");
+    }
+    if (interfaceFields.datasourceId === undefined) {
+      throw new Error("Datasource is required for safe rollouts");
+    }
+    if (interfaceFields.guardrailMetricIds === undefined) {
+      throw new Error("Guardrail metrics are required for safe rollouts");
+    }
+
+    const metricIds = interfaceFields.guardrailMetricIds;
+    const datasourceId = interfaceFields.datasourceId;
+    if (metricIds.length) {
+      const map = await getMetricMap(context);
+      for (let i = 0; i < metricIds.length; i++) {
+        const metric = map.get(metricIds[i]);
+        if (metric) {
+          if (datasourceId && metric.datasource !== datasourceId) {
+            throw new Error(
+              "Metrics must be tied to the same datasource as the safe rollout: " +
+                metricIds[i]
+            );
+          }
+        } else {
+          // check to see if this metric is actually a metric group
+          const metricGroup = await context.models.metricGroups.getById(
+            metricIds[i]
+          );
+          if (metricGroup) {
+            // Make sure it is tied to the same datasource as the experiment
+            if (datasourceId && metricGroup.datasource !== datasourceId) {
+              throw new Error(
+                "Metrics must be tied to the same datasource as the safe rollout: " +
+                  metricIds[i]
+              );
+            }
+          } else {
+            // new metric that's not recognized...
+            throw new Error("Invalid metric specified: " + metricIds[i]);
+          }
+        }
+      }
+    }
+    rule.status = "running";
+    rule.seed = rule.seed || uuidv4();
+    rule.trackingKey = rule.trackingKey || `srk_${uuidv4()}`;
+    const safeRolloutCreateProps: CreateProps<SafeRolloutInterface> = {
+      ...interfaceFields,
+      hashAttribute: rule.hashAttribute,
+      status: rule.status,
+      // TODO are these mandatory
+      datasourceId: interfaceFields.datasourceId,
+      exposureQueryId: interfaceFields.exposureQueryId,
+      autoSnapshots: true,
+      guardrailMetricIds: interfaceFields.guardrailMetricIds,
+      maxDurationDays: interfaceFields.maxDurationDays,
+      featureId: feature.id,
+      ruleId: rule.id,
+      environment: environment,
+    };
+
+    const safeRollout = await context.models.safeRollout.create(
+      safeRolloutCreateProps
+    );
+
+    if (!safeRollout) {
+      throw new Error("Failed to create safe rollout");
+    }
+
+    rule.safeRolloutId = safeRollout.id;
+
+    const resetReview = resetReviewOnChange({
+      feature,
+      changedEnvironments: [environment],
+      defaultValueChanged: false,
+      settings: org?.settings,
+    });
+    await addFeatureRule(
+      revision,
+      environment,
+      rule,
+      res.locals.eventAudit,
+      resetReview
+    );
+  }
 
   // If referencing a new experiment, add it to linkedExperiments
   if (
@@ -1626,17 +1719,15 @@ export async function postFeatureSchema(
 }
 
 export async function putFeatureRule(
-  req: AuthRequest<
-    { rule: Partial<FeatureRule>; environment: string; i: number },
-    { id: string; version: string }
-  >,
+  req: AuthRequest<PutFeatureRuleBody, { id: string; version: string }>,
   res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
   const { id, version } = req.params;
-  const { environment, rule, i } = req.body;
-
+  const { environment, i } = req.body;
+  const rule = req.body.rule;
+  const interfaceFields = req.body.interfaceFields;
   const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
@@ -1656,26 +1747,66 @@ export async function putFeatureRule(
   ) {
     context.permissions.throwPermissionError();
   }
+  let canUpdateRevision = true;
+  if (rule.type === "safe-rollout") {
+    if (!rule.safeRolloutId) {
+      throw new Error("Safe rollout rule must have a safeRolloutId");
+    }
+    const existingSafeRollout = await context.models.safeRollout.getById(
+      rule.safeRolloutId
+    );
 
-  const revision = await getDraftRevision(context, feature, parseInt(version));
-  const resetReview = resetReviewOnChange({
-    feature,
-    changedEnvironments: [environment],
-    defaultValueChanged: false,
-    settings: org?.settings,
-  });
-  await editFeatureRule(
-    revision,
-    environment,
-    i,
-    rule,
-    res.locals.eventAudit,
-    resetReview
-  );
+    if (!existingSafeRollout) {
+      throw new Error("Safe rollout rule must have a safeRolloutId");
+    }
+    if (environment !== existingSafeRollout.environment) {
+      throw new Error(
+        `you can not update this safe rollout under ${environment} environment because it was created under ${existingSafeRollout.environment} environment`
+      );
+    }
+    if (interfaceFields) {
+      await context.models.safeRollout.update(existingSafeRollout, {
+        ...omit(interfaceFields, [
+          "organization",
+          "dateCreated",
+          "dateUpdated",
+          "startedAt",
+        ]),
+      });
+    }
+    if (existingSafeRollout.startedAt) {
+      // not sure if we want to lock or just create a new revision?
+      // revsion is locked for the safe rollout once it's released
+      canUpdateRevision = false;
+    }
+  }
+  let revisionVersion = parseInt(version);
+  if (canUpdateRevision) {
+    const revision = await getDraftRevision(
+      context,
+      feature,
+      parseInt(version)
+    );
+    revisionVersion = revision.version;
+    const resetReview = resetReviewOnChange({
+      feature,
+      changedEnvironments: [environment],
+      defaultValueChanged: false,
+      settings: org?.settings,
+    });
+    await editFeatureRule(
+      revision,
+      environment,
+      i,
+      rule,
+      res.locals.eventAudit,
+      resetReview
+    );
+  }
 
   res.status(200).json({
     status: 200,
-    version: revision.version,
+    version: revisionVersion,
   });
 }
 
@@ -2294,10 +2425,10 @@ export async function getFeatureById(
     }
   }
 
-  // Get all linked experiments
+  // Get all linked experiments and  saferollouts
   const experimentIds = new Set<string>();
   const trackingKeys = new Set<string>();
-
+  let hasSafeRollout = false;
   revisions.forEach((revision) => {
     environments.forEach((env) => {
       const rules = revision.rules[env];
@@ -2310,11 +2441,14 @@ export async function getFeatureById(
         // Old rules store the trackingKey
         else if (rule.type === "experiment") {
           trackingKeys.add(rule.trackingKey || feature.id);
+        } else if (rule.type === "safe-rollout") {
+          hasSafeRollout = true;
         }
       });
     });
   });
   const experimentsMap: Map<string, ExperimentInterface> = new Map();
+  const safeRolloutMap: Map<string, SafeRolloutInterface> = new Map();
   if (trackingKeys.size) {
     const exps = await getExperimentsByTrackingKeys(context, [...trackingKeys]);
     exps.forEach((exp) => {
@@ -2326,6 +2460,14 @@ export async function getFeatureById(
     const exps = await getExperimentsByIds(context, [...experimentIds]);
     exps.forEach((exp) => {
       experimentsMap.set(exp.id, exp);
+    });
+  }
+  if (hasSafeRollout) {
+    const safeRollouts = await context.models.safeRollout.getAllByFeatureId(
+      feature.id
+    );
+    safeRollouts.forEach((safeRollout: SafeRolloutInterface) => {
+      safeRolloutMap.set(safeRollout.id, safeRollout);
     });
   }
 
@@ -2357,12 +2499,12 @@ export async function getFeatureById(
     feature: feature.id,
     organization: org,
   });
-
   res.status(200).json({
     status: 200,
     feature,
     revisions,
     experiments: [...experimentsMap.values()],
+    safeRollouts: [...safeRolloutMap.values()],
     codeRefs,
   });
 }

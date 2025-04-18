@@ -16,6 +16,11 @@ import { ExperimentReportVariation } from "back-end/types/report";
 import { VisualChange } from "back-end/types/visual-changeset";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { Environment } from "back-end/types/organization";
+import {
+  SafeRolloutSnapshotAnalysis,
+  SafeRolloutSnapshotAnalysisSettings,
+  SafeRolloutSnapshotInterface,
+} from "back-end/src/validators/safe-rollout-snapshot";
 import { SavedGroupInterface } from "../types";
 import { featureHasEnvironment } from "./features";
 
@@ -94,6 +99,16 @@ export function getSnapshotAnalysis(
   );
 }
 
+export function getSafeRolloutSnapshotAnalysis(
+  snapshot: SafeRolloutSnapshotInterface,
+  analysisSettings?: SafeRolloutSnapshotAnalysisSettings | null
+): SafeRolloutSnapshotAnalysis | null {
+  return (
+    (analysisSettings
+      ? snapshot?.analyses?.find((a) => isEqual(a.settings, analysisSettings))
+      : snapshot?.analyses?.[0]) || null
+  );
+}
 export function putBaselineVariationFirst(
   variations: ExperimentReportVariation[],
   baselineVariationIndex: number | null

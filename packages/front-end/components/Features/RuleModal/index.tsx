@@ -20,6 +20,16 @@ import { PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import { kebabCase } from "lodash";
+import { Text } from "@radix-ui/themes";
+import {
+  CreateSafeRolloutInterface,
+  SafeRolloutInterface,
+} from "back-end/src/validators/safe-rollout";
+import { SafeRolloutRule } from "back-end/src/validators/features";
+import {
+  PostFeatureRuleBody,
+  PutFeatureRuleBody,
+} from "back-end/types/feature-rule";
 import {
   NewExperimentRefRule,
   getDefaultRuleValue,
@@ -54,6 +64,7 @@ import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFiel
 import { useIncrementer } from "@/hooks/useIncrementer";
 import HelperText from "@/components/Radix/HelperText";
 import { useTemplates } from "@/hooks/useTemplates";
+import SafeRolloutFields from "@/components/Features/RuleModal/SafeRolloutFields";
 
 export interface Props {
   close: () => void;
@@ -66,15 +77,25 @@ export interface Props {
   defaultType?: string;
   revisions?: FeatureRevisionInterface[];
   duplicate?: boolean;
+  safeRolloutsMap?: Map<string, SafeRolloutInterface>;
 }
 
-type RadioSelectorRuleType = "force" | "rollout" | "experiment" | "bandit" | "";
+type RadioSelectorRuleType =
+  | "force"
+  | "rollout"
+  | "experiment"
+  | "bandit"
+  | "safe-rollout";
 type OverviewRuleType =
   | "force"
   | "rollout"
   | "experiment-ref"
   | "experiment-ref-new"
-  | "";
+  | "safe-rollout";
+
+type SafeRolloutRuleCreateFields = SafeRolloutRule & {
+  safeRolloutInterfaceFields: CreateSafeRolloutInterface;
+};
 
 export default function RuleModal({
   close,
@@ -87,6 +108,7 @@ export default function RuleModal({
   setVersion,
   revisions,
   duplicate,
+  safeRolloutsMap,
 }: Props) {
   const growthbook = useGrowthBook<AppFeatures>();
   const { hasCommercialFeature, organization } = useUser();
@@ -95,9 +117,12 @@ export default function RuleModal({
   const attributeSchema = useAttributeSchema(false, feature.project);
 
   const rules = getRules(feature, environment);
-  const rule = rules[i];
+  const rule: typeof rules[number] | undefined = rules[i];
   const isNewRule = !rule;
-
+  const safeRollout =
+    rule?.type === "safe-rollout"
+      ? safeRolloutsMap?.get(rule?.safeRolloutId)
+      : undefined;
   const { features } = useFeaturesList();
   const { datasources, project: currentProject } = useDefinitions();
   const { experimentsMap, mutateExperiments } = useExperiments();
@@ -116,9 +141,19 @@ export default function RuleModal({
     attributeSchema,
   });
 
+  const convertRuleToFormValues = (rule: FeatureRule) => {
+    if (rule?.type === "safe-rollout") {
+      return {
+        ...rule,
+        safeRolloutInterfaceFields: safeRollout,
+      };
+    }
+    return rule;
+  };
+
   const defaultValues = {
     ...defaultRuleValues,
-    ...rule,
+    ...convertRuleToFormValues(rule),
   };
 
   // Overview Page
@@ -128,15 +163,19 @@ export default function RuleModal({
   const [
     overviewRadioSelectorRuleType,
     setOverviewRadioSelectorRuleType,
-  ] = useState<RadioSelectorRuleType>("");
-  const [overviewRuleType, setOverviewRuleType] = useState<OverviewRuleType>(
-    ""
-  );
+  ] = useState<RadioSelectorRuleType | "">("");
+  const [overviewRuleType, setOverviewRuleType] = useState<
+    OverviewRuleType | ""
+  >("");
 
   // Paged modal
   const [step, setStep] = useState(0);
 
-  const form = useForm<FeatureRule | NewExperimentRefRule>({
+  const form = useForm<
+    | Exclude<FeatureRule, SafeRolloutRule>
+    | NewExperimentRefRule
+    | SafeRolloutRuleCreateFields
+  >({
     defaultValues,
   });
 
@@ -317,6 +356,7 @@ export default function RuleModal({
       }
     }
 
+    let interfaceFields: Partial<CreateSafeRolloutInterface> | undefined;
     try {
       if (values.type === "experiment-ref-new") {
         // Make sure there's an experiment name
@@ -531,6 +571,10 @@ export default function RuleModal({
         delete (values as FeatureRule).prerequisites;
         // eslint-disable-next-line
         delete (values as any).value;
+      } else if (values.type === "safe-rollout") {
+        interfaceFields = values.safeRolloutInterfaceFields;
+        // eslint-disable-next-line
+        delete (values as any).safeRolloutInterfaceFields;
       }
 
       if (
@@ -557,20 +601,38 @@ export default function RuleModal({
         hasCondition: values.condition && values.condition.length > 2,
         hasSavedGroups: !!values.savedGroups?.length,
         hasPrerequisites: !!values.prerequisites?.length,
-        hasDescription: values.description.length > 0,
+        hasDescription: values.description && values.description.length > 0,
       });
 
-      const res = await apiCall<{ version: number }>(
-        `/feature/${feature.id}/${version}/rule`,
-        {
-          method: duplicate ? "POST" : i === rules.length ? "POST" : "PUT",
-          body: JSON.stringify({
-            rule: values,
-            environment,
-            i,
-          }),
-        }
-      );
+      let res: { version: number };
+
+      if (!duplicate && i !== rules.length) {
+        res = await apiCall<{ version: number }>(
+          `/feature/${feature.id}/${version}/rule`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              rule: values,
+              environment,
+              interfaceFields,
+              i,
+            } as PutFeatureRuleBody),
+          }
+        );
+      } else {
+        res = await apiCall<{ version: number }>(
+          `/feature/${feature.id}/${version}/rule`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              rule: values,
+              environment,
+              interfaceFields,
+            } as PostFeatureRuleBody),
+          }
+        );
+      }
+
       await mutate();
       res.version && setVersion(res.version);
     } catch (e) {
@@ -611,9 +673,13 @@ export default function RuleModal({
         autoCloseOnSubmit={false}
       >
         <div className="bg-highlight rounded p-3 mb-3">
-          <h5>Select rule type</h5>
+          <Text size="4" weight="bold" as="div" mb="4">
+            Select Implementation
+          </Text>
+          <Text>MANUAL</Text>
           <RadioCards
-            mt="4"
+            mt="2"
+            mb="5"
             width="100%"
             options={[
               {
@@ -625,6 +691,36 @@ export default function RuleModal({
               {
                 value: "rollout",
                 label: "Percentage rollout",
+                description:
+                  "Release to small percent of users while monitoring logs",
+              },
+            ]}
+            value={overviewRadioSelectorRuleType}
+            setValue={(
+              v: "force" | "rollout" | "safe-rollout" | "experiment" | "bandit"
+            ) => {
+              setOverviewRadioSelectorRuleType(v);
+              if (v === "force") {
+                setOverviewRuleType("force");
+              } else if (v === "rollout") {
+                setOverviewRuleType("rollout");
+              } else if (v === "safe-rollout") {
+                setOverviewRuleType("safe-rollout");
+              } else {
+                setOverviewRuleType("experiment-ref-new");
+              }
+            }}
+          />
+
+          <Text>DATA-DRIVEN</Text>
+          <RadioCards
+            mt="2"
+            width="100%"
+            options={[
+              {
+                value: "safe-rollout",
+                label: "Safe rollout",
+                badge: "NEW!",
                 description:
                   "Release to small percent of users while monitoring logs",
               },
@@ -669,12 +765,16 @@ export default function RuleModal({
                 : []),
             ]}
             value={overviewRadioSelectorRuleType}
-            setValue={(v: "force" | "rollout" | "experiment" | "bandit") => {
+            setValue={(
+              v: "force" | "rollout" | "safe-rollout" | "experiment" | "bandit"
+            ) => {
               setOverviewRadioSelectorRuleType(v);
               if (v === "force") {
                 setOverviewRuleType("force");
               } else if (v === "rollout") {
                 setOverviewRuleType("rollout");
+              } else if (v === "safe-rollout") {
+                setOverviewRuleType("safe-rollout");
               } else {
                 setOverviewRuleType("experiment-ref-new");
               }
@@ -741,10 +841,12 @@ export default function RuleModal({
       ? `${
           ruleType === "experiment-ref-new" ? "new" : "existing"
         } Experiment as Rule`
+      : ruleType === "safe-rollout"
+      ? "Safe Rollout Rule"
       : "Rule";
   const trackingEventModalType = kebabCase(headerText);
   headerText += ` in ${environment}`;
-
+  console.log(ruleType, "ruleType");
   return (
     <FormProvider {...form}>
       <PagedModal
@@ -804,6 +906,32 @@ export default function RuleModal({
             setScheduleToggleEnabled={setScheduleToggleEnabled}
           />
         )}
+
+        {ruleType === "safe-rollout" &&
+          ["Overview", "Metrics"].map((p, i) => {
+            return (
+              <Page display={p} key={i}>
+                <SafeRolloutFields
+                  step={i}
+                  feature={feature}
+                  environment={environment}
+                  defaultValues={defaultValues}
+                  version={version}
+                  revisions={revisions}
+                  setPrerequisiteTargetingSdkIssues={
+                    setPrerequisiteTargetingSdkIssues
+                  }
+                  isCyclic={isCyclic}
+                  cyclicFeatureId={cyclicFeatureId}
+                  conditionKey={conditionKey}
+                  scheduleToggleEnabled={scheduleToggleEnabled}
+                  setScheduleToggleEnabled={setScheduleToggleEnabled}
+                  isNewRule={isNewRule}
+                  isDraft={!safeRollout?.startedAt}
+                />
+              </Page>
+            );
+          })}
 
         {(ruleType === "experiment-ref" || ruleType === "experiment") &&
         experimentType === "experiment" ? (

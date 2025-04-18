@@ -33,6 +33,8 @@ import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import isEqual from "lodash/isEqual";
 import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
 import { SavedGroupInterface } from "shared/src/types";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { SafeRolloutRule } from "back-end/src/validators/features";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
@@ -302,7 +304,8 @@ export function getVariationDefaultName(
 
 export function isRuleInactive(
   rule: FeatureRule,
-  experimentsMap: Map<string, ExperimentInterfaceStringDates>
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>,
+  safeRolloutsMap: Map<string, SafeRolloutInterface>
 ): boolean {
   // Explicitly disabled
   if (!rule.enabled) return true;
@@ -316,7 +319,12 @@ export function isRuleInactive(
   if (scheduleCompletedAndDisabled) {
     return true;
   }
-
+  if (rule.type === "safe-rollout") {
+    const safeRollout = safeRolloutsMap?.get(rule.safeRolloutId);
+    if (safeRollout?.status === "rolled-back") {
+      return true;
+    }
+  }
   // Linked experiment is missing, archived, or stopped with no temp rollout
   if (rule.type === "experiment-ref") {
     const linkedExperiment = experimentsMap.get(rule.experimentId);
@@ -541,6 +549,25 @@ export function validateFeatureRule(
         (ruleCopy as ExperimentRefRule).variations[i].value = newValue;
       }
     });
+  } else if (rule.type === "safe-rollout") {
+    const newVariationValue = validateFeatureValue(
+      feature,
+      rule.variationValue,
+      "Value to Rollout"
+    );
+    if (newVariationValue !== rule.variationValue) {
+      hasChanges = true;
+      (ruleCopy as SafeRolloutRule).variationValue = newVariationValue;
+    }
+    const newControlValue = validateFeatureValue(
+      feature,
+      rule.controlValue,
+      "Control Value"
+    );
+    if (newControlValue !== rule.controlValue) {
+      hasChanges = true;
+      (ruleCopy as SafeRolloutRule).controlValue = newControlValue;
+    }
   } else {
     const newValue = validateFeatureValue(
       feature,
@@ -632,7 +659,7 @@ export function getDefaultRuleValue({
   defaultValue: string;
   attributeSchema?: SDKAttributeSchema;
   ruleType: string;
-}): FeatureRule | NewExperimentRefRule {
+}): FeatureRule | NewExperimentRefRule | SafeRolloutRule {
   const hashAttributes =
     attributeSchema?.filter((a) => a.hashAttribute)?.map((a) => a.property) ||
     [];
@@ -648,10 +675,37 @@ export function getDefaultRuleValue({
       description: "",
       id: "",
       value,
-      coverage: 0.5,
+      coverage: 1, // we are hardcoding the coverage to 1 for now
       condition: "",
       enabled: true,
       hashAttribute,
+      scheduleRules: [
+        {
+          enabled: true,
+          timestamp: null,
+        },
+        {
+          enabled: false,
+          timestamp: null,
+        },
+      ],
+    };
+  }
+  if (ruleType === "safe-rollout") {
+    return {
+      type: "safe-rollout",
+      description: "",
+      id: "",
+      condition: "",
+      safeRolloutId: "",
+      enabled: true,
+      prerequisites: [],
+      controlValue: value,
+      variationValue: value,
+      hashAttribute,
+      trackingKey: "",
+      seed: "",
+      status: "running", // TODO: Check if this is okay for the default value
       scheduleRules: [
         {
           enabled: true,
@@ -791,13 +845,14 @@ export function getDefaultRuleValue({
 
 export function getUnreachableRuleIndex(
   rules: FeatureRule[],
-  experimentsMap: Map<string, ExperimentInterfaceStringDates>
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>,
+  safeRolloutsMap: Map<string, SafeRolloutInterface>
 ) {
   for (let i = 0; i < rules.length; i++) {
     const rule = rules[i];
 
     // Skip over inactive rules
-    if (isRuleInactive(rule, experimentsMap)) continue;
+    if (isRuleInactive(rule, experimentsMap, safeRolloutsMap)) continue;
 
     // Skip rules that are conditional based on a schedule
     const upcomingScheduleRule = getUpcomingScheduleRule(rule);

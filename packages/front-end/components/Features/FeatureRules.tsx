@@ -8,6 +8,7 @@ import {
 import { Environment } from "back-end/types/organization";
 import { Box, Container, Flex, Text } from "@radix-ui/themes";
 import clsx from "clsx";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import RuleModal from "@/components/Features/RuleModal/index";
 import RuleList from "@/components/Features/RuleList";
 import track from "@/services/track";
@@ -37,6 +38,7 @@ export default function FeatureRules({
   setVersion,
   hideInactive,
   isDraft,
+  safeRolloutsMap,
 }: {
   environments: Environment[];
   feature: FeatureInterface;
@@ -49,6 +51,7 @@ export default function FeatureRules({
   setVersion: (v: number) => void;
   hideInactive: boolean;
   isDraft: boolean;
+  safeRolloutsMap: Map<string, SafeRolloutInterface>;
 }) {
   const envs = environments.map((e) => e.id);
   const [env, setEnv] = useEnvironmentState();
@@ -196,6 +199,7 @@ export default function FeatureRules({
                     experimentsMap={experimentsMap}
                     hideInactive={hideInactive}
                     isDraft={isDraft}
+                    safeRolloutsMap={safeRolloutsMap}
                   />
                 ) : (
                   <Box py="4" className="text-muted">
@@ -231,6 +235,7 @@ export default function FeatureRules({
           feature={feature}
           close={() => setRuleModal(null)}
           i={ruleModal.i}
+          safeRolloutsMap={safeRolloutsMap}
           environment={ruleModal.environment}
           mutate={mutate}
           defaultType={ruleModal.defaultType || ""}

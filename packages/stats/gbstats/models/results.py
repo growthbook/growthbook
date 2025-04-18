@@ -12,7 +12,7 @@ from gbstats.models.tests import Uplift
 class SingleVariationResult:
     users: Optional[float]
     cr: Optional[float]
-    ci: Optional[List[float]]
+    ci: Optional[List[Optional[float]]]
 
 
 @dataclass
@@ -63,7 +63,7 @@ class PowerResponse:
 class BaseVariationResponse(BaselineResponse):
     expected: float
     uplift: Uplift
-    ci: Tuple[float, float]
+    ci: Tuple[Optional[float], Optional[float]]
     errorMessage: Optional[str]
     power: Optional[PowerResponse]
 

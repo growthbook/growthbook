@@ -1,4 +1,5 @@
 import { ExperimentType } from "back-end/src/validators/experiments";
+import { SafeRolloutSnapshotInterface } from "back-end/src/validators/safe-rollout-snapshot";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 
 type MultipleExposureHealthStatus =
@@ -133,4 +134,21 @@ export function getSRMValue(
       return undefined;
     }
   }
+}
+
+export function getSafeRolloutSRMValue(
+  safeRolloutSnapshot: SafeRolloutSnapshotInterface
+): number | undefined {
+  const healthQuerySRM = safeRolloutSnapshot.health?.traffic?.overall?.srm;
+  if (healthQuerySRM !== undefined) {
+    return healthQuerySRM;
+  }
+
+  // fall back to main results SRM for no dimension split snapshots
+  // and without health query SRM
+  // if no dimension && only one overall result (e.g. no dim splits)
+  if (safeRolloutSnapshot.analyses?.[0]?.results?.length === 1) {
+    return safeRolloutSnapshot.analyses?.[0]?.results?.[0]?.srm;
+  }
+  return undefined;
 }

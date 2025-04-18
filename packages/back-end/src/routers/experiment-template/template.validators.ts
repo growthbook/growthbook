@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   featurePrerequisite,
   savedGroupTargeting,
-} from "back-end/src/validators/features";
+} from "back-end/src/validators/shared";
 import { statsEngines } from "back-end/src/util/constants";
 
 export const experimentTemplateInterface = z

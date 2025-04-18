@@ -1,6 +1,7 @@
 import { Flex, Text, RadioCards as RadixRadioCards } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { forwardRef, ReactElement } from "react";
+import Badge from "@/components/Radix/Badge";
 
 export type RadioOptions = {
   value: string;
@@ -8,6 +9,7 @@ export type RadioOptions = {
   avatar?: ReactElement;
   description?: ReactElement | string;
   disabled?: boolean;
+  badge?: ReactElement | string;
 }[];
 
 export type Props = {
@@ -42,30 +44,35 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
           disabled={disabled}
           columns={columns}
         >
-          {options.map(({ value, label, avatar, description, disabled }) => {
-            return (
-              <RadixRadioCards.Item
-                key={value}
-                value={value}
-                disabled={disabled}
-                className={disabled ? "disabled" : undefined}
-              >
-                <Flex direction="row" width="100%" gap="3" align={align}>
-                  {avatar}
-                  <Flex direction="column" gap="1">
-                    <Text weight="bold" size="3" className="main-text">
-                      {label || value}
-                    </Text>
-                    {description ? (
-                      <Text weight="regular" size="2">
-                        {description}
-                      </Text>
-                    ) : null}
+          {options.map(
+            ({ value, label, avatar, description, disabled, badge }) => {
+              return (
+                <RadixRadioCards.Item
+                  key={value}
+                  value={value}
+                  disabled={disabled}
+                  className={disabled ? "disabled" : undefined}
+                >
+                  <Flex direction="row" width="100%" gap="3" align={align}>
+                    {avatar}
+                    <Flex direction="column" gap="1">
+                      <Flex direction="row" gap="3">
+                        <Text weight="bold" size="3" className="main-text">
+                          {label || value}
+                        </Text>
+                        {badge ? <Badge label={badge} /> : null}
+                      </Flex>
+                      {description ? (
+                        <Text weight="regular" size="2">
+                          {description}
+                        </Text>
+                      ) : null}
+                    </Flex>
                   </Flex>
-                </Flex>
-              </RadixRadioCards.Item>
-            );
-          })}
+                </RadixRadioCards.Item>
+              );
+            }
+          )}
         </RadixRadioCards.Root>
       </Text>
     </Flex>

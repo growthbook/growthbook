@@ -16,7 +16,7 @@ import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 interface Props
   extends DetailedHTMLProps<HTMLAttributes<SVGPathElement>, SVGPathElement> {
   id: string;
-  ci?: [number, number] | [];
+  ci?: [number, number];
   barType?: "pill" | "violin";
   barFillType?: "gradient" | "significant" | "color";
   barFillColor?: string;

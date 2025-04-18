@@ -1,5 +1,5 @@
 import importlib.metadata
-from typing import List
+from typing import List, Optional
 
 import packaging.version
 import numpy as np
@@ -56,7 +56,7 @@ def check_srm(users: List[int], weights: List[float]) -> float:
 
 def gaussian_credible_interval(
     mean_diff: float, std_diff: float, alpha: float
-) -> List[float]:
+) -> List[Optional[float]]:
     ci = norm.ppf([alpha / 2, 1 - alpha / 2], mean_diff, std_diff)
     return ci.tolist()
 

@@ -5,7 +5,7 @@ import {
   namespaceValue,
   featurePrerequisite,
   savedGroupTargeting,
-} from "./features";
+} from "./shared";
 
 export const experimentResultsType = [
   "dnf",

@@ -13,7 +13,6 @@ import { UserRef } from "./user";
 export {
   FeatureRule,
   FeatureInterface,
-  FeaturePrerequisite,
   FeatureEnvironment,
   FeatureValueType,
   ForceRule,
@@ -22,11 +21,15 @@ export {
   ScheduleRule,
   ExperimentRefRule,
   RolloutRule,
-  NamespaceValue,
-  SavedGroupTargeting,
   ExperimentRefVariation,
   ComputedFeatureInterface,
 } from "back-end/src/validators/features";
+
+export {
+  NamespaceValue,
+  SavedGroupTargeting,
+  FeaturePrerequisite,
+} from "back-end/src/validators/shared";
 
 export type SchemaField = z.infer<typeof simpleSchemaFieldValidator>;
 export type SimpleSchema = z.infer<typeof simpleSchemaValidator>;

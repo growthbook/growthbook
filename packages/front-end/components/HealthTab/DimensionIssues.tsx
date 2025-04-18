@@ -32,7 +32,7 @@ interface Props {
   dataSource: DataSourceInterfaceWithParams | null;
   exposureQuery?: ExposureQuery;
   variations: ExperimentReportVariation[];
-  healthTabConfigParams: HealthTabConfigParams;
+  healthTabConfigParams?: HealthTabConfigParams;
   canConfigHealthTab: boolean;
   isBandit?: boolean;
 }
@@ -327,7 +327,8 @@ export const DimensionIssues = ({
             {exposureQuery?.dimensions &&
             dataSource &&
             canConfigHealthTab &&
-            exposureQuery.dimensions.length > 0 ? (
+            exposureQuery.dimensions.length > 0 &&
+            healthTabConfigParams ? (
               <div className="pt-4 d-flex justify-content-center">
                 <div>
                   <a
