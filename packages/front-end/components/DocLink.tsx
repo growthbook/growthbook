@@ -89,6 +89,7 @@ const docSections = {
   apiPostEnvironment: "/api#tag/environments/operation/postEnvironment",
   idLists: "/features/targeting#id-lists",
   queryOptimization: "/app/query-optimization",
+  devTools: "/tools/chrome-extension",
 };
 
 export type DocSection = keyof typeof docSections;

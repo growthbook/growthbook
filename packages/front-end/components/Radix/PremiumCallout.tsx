@@ -12,7 +12,7 @@ import Link from "@/components/Radix/Link";
 import styles from "./RadixOverrides.module.scss";
 
 export type Props = {
-  commercialFeature: CommercialFeature;
+  commercialFeature: CommercialFeature | null;
   id: string;
   dismissable?: boolean;
   renderWhenDismissed?: (undismiss: () => void) => React.ReactElement;
@@ -30,7 +30,9 @@ export default function PremiumCallout({
   ...containerProps
 }: Props) {
   const { hasCommercialFeature, commercialFeatureLowestPlan } = useUser();
-  const hasFeature = hasCommercialFeature(commercialFeature);
+  const hasFeature = commercialFeature
+    ? hasCommercialFeature(commercialFeature)
+    : true;
 
   const [dismissed, setDismissed] = useLocalStorage(
     `premium-callout:${id}`,
@@ -45,23 +47,25 @@ export default function PremiumCallout({
       ? renderWhenDismissed(() => setDismissed(false))
       : null;
 
-  const lowestPlanLevel =
-    commercialFeatureLowestPlan?.[commercialFeature] || "";
+  const lowestPlanLevel = commercialFeature
+    ? commercialFeatureLowestPlan?.[commercialFeature]
+    : null;
 
   const enterprise = lowestPlanLevel === "enterprise";
   const pro = lowestPlanLevel === "pro";
 
   // Some unknown plan, skip showing the callout
-  if (!enterprise && !pro) {
+  if (!enterprise && !pro && commercialFeature) {
     return null;
   }
 
   const color = hasFeature ? "violet" : pro ? "gold" : "indigo";
-  const icon = hasFeature ? (
-    <PiLightbulb size={15} />
-  ) : (
-    <PaidFeatureBadge commercialFeature={commercialFeature} useTip={false} />
-  );
+  const icon =
+    hasFeature || !commercialFeature ? (
+      <PiLightbulb size={15} />
+    ) : (
+      <PaidFeatureBadge commercialFeature={commercialFeature} useTip={false} />
+    );
 
   const link =
     hasFeature && docSection ? (
