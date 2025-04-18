@@ -105,6 +105,7 @@ const EditVariationsForm: FC<{
         }}
         valueAsId={isBandit}
         hideSplits={isBandit}
+        isBandit={isBandit}
         showDescriptions
         variations={
           form.watch("variations")?.map((v, i) => {

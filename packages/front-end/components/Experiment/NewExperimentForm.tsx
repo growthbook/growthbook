@@ -735,6 +735,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     project={project}
                     environments={envs}
                     noSchedule={true}
+                    isBandit={isBandit}
                     prerequisiteValue={
                       form.watch("phases.0.prerequisites") || []
                     }
@@ -960,6 +961,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               )}
               <FeatureVariationsInput
                 valueType="string"
+                isBandit={isBandit}
                 coverage={form.watch("phases.0.coverage")}
                 setCoverage={(coverage) =>
                   form.setValue("phases.0.coverage", coverage)

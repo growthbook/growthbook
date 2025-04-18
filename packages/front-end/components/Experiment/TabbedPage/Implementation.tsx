@@ -16,6 +16,7 @@ import TrafficAndTargeting from "@/components/Experiment/TabbedPage/TrafficAndTa
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
 import Callout from "@/components/Radix/Callout";
 import Button from "@/components/Radix/Button";
+import PremiumCallout from "@/components/Radix/PremiumCallout";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -81,6 +82,19 @@ export default function Implementation({
             </Button>
           ) : null}
         </div>
+        {experiment.variations.length > 2 &&
+        experiment.type !== "multi-armed-bandit" ? (
+          <PremiumCallout
+            id="exp-implementation-bandit-promo"
+            commercialFeature="multi-armed-bandits"
+            docSection="bandits"
+            dismissable={true}
+            mx="3"
+            mb="5"
+          >
+            Bandits can help you quickly find the best performing variant.
+          </PremiumCallout>
+        ) : null}
 
         <VariationsTable
           experiment={experiment}
