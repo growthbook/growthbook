@@ -207,10 +207,8 @@ export const AuthProvider: React.FC<{
   const [token, setToken] = useState("");
   const [orgId, setOrgId] = useState<string | null>(null);
   const [organizations, setOrganizations] = useState<UserOrganizations>([]);
-  const [
-    specialOrg,
-    setSpecialOrg,
-  ] = useState<Partial<OrganizationInterface> | null>(null);
+  const [specialOrg, setSpecialOrg] =
+    useState<Partial<OrganizationInterface> | null>(null);
   const [authComponent, setAuthComponent] = useState<ReactElement | null>(null);
   const [initError, setInitError] = useState("");
   const [sessionError, setSessionError] = useState(false);
@@ -219,7 +217,7 @@ export const AuthProvider: React.FC<{
 
   const [, setProject] = useLocalStorage(LOCALSTORAGE_PROJECT_KEY, "");
 
-  async function init() {
+  const init = useCallback(async () => {
     const resp = await refreshToken();
     if ("token" in resp) {
       setInitError("");
@@ -286,7 +284,7 @@ export const AuthProvider: React.FC<{
       console.log(resp);
       throw new Error("Unknown refresh response");
     }
-  }
+  }, [exitOnNoAuth, setProject]);
 
   // Start auth flow to get an id token
   useEffect(() => {
@@ -294,18 +292,20 @@ export const AuthProvider: React.FC<{
       setInitError(e.message);
       console.error(e);
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [init]);
 
   const orgList = [...organizations];
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-  if (specialOrg && !orgList.map((o) => o.id).includes(specialOrg.id)) {
-    orgList.push({
-      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-      id: specialOrg.id,
-      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-      name: specialOrg.name,
-    });
+  if (
+    specialOrg &&
+    specialOrg.id &&
+    !orgList.map((o) => o.id).includes(specialOrg.id)
+  ) {
+    if (specialOrg.id && specialOrg.name) {
+      orgList.push({
+        id: specialOrg.id,
+        name: specialOrg.name,
+      });
+    }
   }
 
   const _makeApiCall = useCallback(
@@ -348,47 +348,72 @@ export const AuthProvider: React.FC<{
     ) => {
       if (typeof url !== "string") return;
 
-      let responseData = await _makeApiCall(url, token, options);
+      try {
+        let responseData = await _makeApiCall(url, token, options);
 
-      if (responseData.status && responseData.status >= 400) {
-        // Id token expired, try silently refreshing and doing the API call again
-        if (responseData.message === "jwt expired") {
-          const resp = await refreshToken();
-          if ("token" in resp) {
-            setToken(resp.token);
-            responseData = await _makeApiCall(url, resp.token, options);
-            // Still failing
-            if (responseData.status && responseData.status >= 400) {
-              throw new Error(responseData.message || "There was an error");
-            }
-            return responseData;
-          } else if ("redirectURI" in resp) {
+        if (responseData.status && responseData.status >= 400) {
+          // Id token expired, try silently refreshing and doing the API call again
+          if (responseData.message === "jwt expired") {
             try {
-              const redirectAddress =
-                window.location.pathname + (window.location.search || "");
-              window.sessionStorage.setItem(
-                "postAuthRedirectPath",
-                redirectAddress
+              const resp = await refreshToken();
+              if ("token" in resp) {
+                setToken(resp.token);
+                responseData = await _makeApiCall(url, resp.token, options);
+                // Still failing
+                if (responseData.status && responseData.status >= 400) {
+                  if (errorHandler) {
+                    errorHandler(responseData);
+                  }
+                  throw new Error(responseData.message || "There was an error");
+                }
+                return responseData;
+              } else if ("redirectURI" in resp) {
+                try {
+                  const redirectAddress =
+                    window.location.pathname + (window.location.search || "");
+                  window.sessionStorage.setItem(
+                    "postAuthRedirectPath",
+                    redirectAddress
+                  );
+                } catch (e) {
+                  console.error(e);
+                }
+                // Don't need to confirm, just redirect immediately
+                await redirectWithTimeout(resp.redirectURI);
+              } else {
+                console.error(resp);
+              }
+              setSessionError(true);
+              throw new Error(
+                "Your session has expired. Refresh the page to continue."
               );
-            } catch (e) {
-              // ignore
+            } catch (refreshError) {
+              // If refreshing fails, set the session error but don't close connection abruptly
+              console.error("Token refresh failed:", refreshError);
+              setSessionError(true);
+              throw new Error(
+                "Your session has expired. Refresh the page to continue."
+              );
             }
-            // Don't need to confirm, just redirect immediately
-            await redirectWithTimeout(resp.redirectURI);
           }
+
+          if (errorHandler) {
+            errorHandler(responseData);
+          }
+          throw new Error(responseData.message || "There was an error");
+        }
+
+        return responseData;
+      } catch (error) {
+        // Ensure we don't abruptly close the connection
+        if (error.message === "jwt expired") {
           setSessionError(true);
           throw new Error(
             "Your session has expired. Refresh the page to continue."
           );
         }
-
-        if (errorHandler) {
-          errorHandler(responseData);
-        }
-        throw new Error(responseData.message || "There was an error");
+        throw error;
       }
-
-      return responseData;
     },
     [token, _makeApiCall]
   );
