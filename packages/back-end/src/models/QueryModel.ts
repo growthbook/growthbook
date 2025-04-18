@@ -163,6 +163,44 @@ export async function getStaleQueries(): Promise<
   return docs.map((doc) => ({ id: doc.id, organization: doc.organization }));
 }
 
+export async function getStaleQueuedQueries(): Promise<
+  { id: string; organization: string }[]
+> {
+  // Queued queries don't have a heartbeat to check for, but it should be safe to assume that
+  // any queries that have been queued for 24 hours will not be executed
+  const queuedAt = new Date();
+  queuedAt.setDate(queuedAt.getDate() - 1);
+
+  const query = {
+    status: "queued",
+    createdAt: {
+      $lt: queuedAt,
+    },
+  };
+
+  const docs = await QueryModel.find(query, {
+    _id: 1,
+    id: 1,
+    organization: 1,
+  }).limit(20);
+  if (!docs.length) return [];
+
+  await QueryModel.updateMany(
+    {
+      ...query,
+      _id: { $in: docs.map((d) => d._id) },
+    },
+    {
+      $set: {
+        status: "failed",
+        error: "Queued query timed out. Please try again.",
+      },
+    }
+  );
+
+  return docs.map((doc) => ({ id: doc.id, organization: doc.organization }));
+}
+
 export async function createNewQuery({
   organization,
   datasource,
