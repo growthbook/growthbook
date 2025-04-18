@@ -3,6 +3,7 @@ import {
   DecisionCriteriaData,
   DecisionCriteriaRule,
   DecisionFrameworkExperimentRecommendationStatus,
+  DecisionFrameworkVariation,
   ExperimentAnalysisSummaryResultsStatus,
   ExperimentAnalysisSummaryVariationStatus,
   ExperimentDataForStatus,
@@ -24,7 +25,7 @@ import {
 import { daysBetween } from "../../dates";
 import { getMultipleExposureHealthData, getSRMHealthData } from "../../health";
 import {
-  DEFAULT_DECISION_CRITERIA,
+  PRESET_DECISION_CRITERIA,
   PRESET_DECISION_CRITERIAS,
 } from "./constants";
 
@@ -114,11 +115,11 @@ export function getVariationDecisions({
   guardrailMetrics: string[];
   requireSuperStatSig: boolean;
 }): {
-  variationId: string;
+  variation: DecisionFrameworkVariation;
   decisionCriteriaAction: DecisionCriteriaAction;
 }[] {
   const results: {
-    variationId: string;
+    variation: DecisionFrameworkVariation;
     decisionCriteriaAction: DecisionCriteriaAction;
   }[] = [];
 
@@ -136,7 +137,10 @@ export function getVariationDecisions({
       });
       if (action) {
         results.push({
-          variationId: variation.variationId,
+          variation: {
+            variationId: variation.variationId,
+            decidingRule: rule,
+          },
           decisionCriteriaAction: action,
         });
         decisionReached = true;
@@ -147,7 +151,10 @@ export function getVariationDecisions({
     // decision criteria
     if (!decisionReached) {
       results.push({
-        variationId: variation.variationId,
+        variation: {
+          variationId: variation.variationId,
+          decidingRule: null,
+        },
         decisionCriteriaAction: decisionCriteria.defaultAction,
       });
     }
@@ -187,6 +194,12 @@ export function getDecisionFrameworkStatus({
   guardrailMetrics: string[];
   daysNeeded?: number;
 }): ExperimentResultStatusData | undefined {
+  // Fully skip decision framework if there are no goal metrics
+  // TODO @dmf-experiment: Add front-end information about this
+  if (!goalMetrics.length) {
+    return undefined;
+  }
+
   const powerReached = daysNeeded === 0;
   const sequentialTesting = resultsStatus?.settings?.sequentialTesting;
 
@@ -194,11 +207,9 @@ export function getDecisionFrameworkStatus({
   // if you have reached your needed power or if you used sequential testing
   const decisionReady = powerReached || sequentialTesting;
 
-  const tooltipLanguage = powerReached
-    ? ` and experiment has reached the target statistical power.`
-    : sequentialTesting
-    ? ` and sequential testing is enabled, allowing decisions as soon as statistical significance is reached.`
-    : ".";
+  const rollbackTooltip = `The test variation(s) should be rolled back.`;
+  const shipTooltip = `A test variation is ready to ship.`;
+  const reviewTooltip = `A test variation is ready to be reviewed.`;
 
   if (decisionReady) {
     const variationDecisions = getVariationDecisions({
@@ -215,42 +226,39 @@ export function getDecisionFrameworkStatus({
     if (allRollbackNow) {
       return {
         status: "rollback-now",
-        variationIds: variationDecisions.map(({ variationId }) => variationId),
+        variations: variationDecisions.map(({ variation }) => variation),
         sequentialUsed: sequentialTesting,
         powerReached: powerReached,
-        tooltip: `Guardrails are failing and/or goal metrics are not improving for all variations ${tooltipLanguage}`,
+        tooltip: rollbackTooltip,
       };
     }
 
-    const anyShipNow = variationDecisions.some(
+    const shipVariations = variationDecisions.filter(
       (d) => d.decisionCriteriaAction === "ship"
     );
-    if (anyShipNow) {
+    if (shipVariations.length > 0) {
       return {
         status: "ship-now",
-        variationIds: variationDecisions
-          .filter((d) => d.decisionCriteriaAction === "ship")
-          .map(({ variationId }) => variationId),
+        variations: shipVariations.map(({ variation }) => variation),
         sequentialUsed: sequentialTesting,
         powerReached: powerReached,
-        tooltip: `Goal metrics are improving for a test variation with no failing guardrails ${tooltipLanguage}`,
+        tooltip: shipTooltip,
       };
     }
 
     // only return ready for review if power is reached, not for premature
     // sequential results
     if (powerReached) {
-      if (
-        variationDecisions.some((d) => d.decisionCriteriaAction === "review")
-      ) {
+      const reviewVariations = variationDecisions.filter(
+        (d) => d.decisionCriteriaAction === "review"
+      );
+      if (reviewVariations.length > 0) {
         return {
           status: "ready-for-review",
-          variationIds: variationDecisions
-            .filter((d) => d.decisionCriteriaAction === "review")
-            .map(({ variationId }) => variationId),
+          variations: reviewVariations.map(({ variation }) => variation),
           sequentialUsed: sequentialTesting,
           powerReached: powerReached,
-          tooltip: `The experiment has reached the target statistical power but the results are not conclusive.`,
+          tooltip: reviewTooltip,
         };
       }
     }
@@ -272,27 +280,25 @@ export function getDecisionFrameworkStatus({
     if (allRollbackNow) {
       return {
         status: "rollback-now",
-        variationIds: superStatSigVariationDecisions.map(
-          ({ variationId }) => variationId
+        variations: superStatSigVariationDecisions.map(
+          ({ variation }) => variation
         ),
         sequentialUsed: sequentialTesting,
         powerReached: powerReached,
-        tooltip: `The experiment has not reached the target statistical power, however there are strong negative signals for all test variations.`,
+        tooltip: rollbackTooltip,
       };
     }
 
-    const anyShipNow = superStatSigVariationDecisions.some(
+    const shipVariations = superStatSigVariationDecisions.filter(
       (d) => d.decisionCriteriaAction === "ship"
     );
-    if (anyShipNow) {
+    if (shipVariations.length > 0) {
       return {
         status: "ship-now",
-        variationIds: superStatSigVariationDecisions
-          .filter((d) => d.decisionCriteriaAction === "ship")
-          .map(({ variationId }) => variationId),
+        variations: shipVariations.map(({ variation }) => variation),
         sequentialUsed: sequentialTesting,
         powerReached: powerReached,
-        tooltip: `The experiment has not reached the target statistical power, however there are strong positive signals for a test variation.`,
+        tooltip: shipTooltip,
       };
     }
   }
@@ -470,7 +476,7 @@ export function getPresetDecisionCriteriaForOrg(
   settings?: OrganizationSettings
 ) {
   return !settings?.defaultDecisionCriteriaId
-    ? DEFAULT_DECISION_CRITERIA
+    ? PRESET_DECISION_CRITERIA
     : PRESET_DECISION_CRITERIAS.find(
         (dc) => dc.id === settings.defaultDecisionCriteriaId
       );

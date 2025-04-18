@@ -1,7 +1,7 @@
 import { includeExperimentInPayload, getSnapshotAnalysis } from "shared/util";
 import { getMetricResultStatus } from "shared/experiments";
 import {
-  DEFAULT_DECISION_CRITERIA,
+  PRESET_DECISION_CRITERIA,
   PRESET_DECISION_CRITERIAS,
   getExperimentResultStatus,
   getHealthSettings,
@@ -467,7 +467,7 @@ async function getDecisionCriteria(
   decisionCriteriaId?: string
 ) {
   if (!decisionCriteriaId) {
-    return DEFAULT_DECISION_CRITERIA;
+    return PRESET_DECISION_CRITERIA;
   }
 
   const usedPresetCriteria = PRESET_DECISION_CRITERIAS.find(
@@ -482,7 +482,7 @@ async function getDecisionCriteria(
   );
 
   if (!decisionCriteria) {
-    return DEFAULT_DECISION_CRITERIA;
+    return PRESET_DECISION_CRITERIA;
   }
 
   return decisionCriteria;

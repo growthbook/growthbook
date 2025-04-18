@@ -5,7 +5,7 @@ import { FaPlusCircle } from "react-icons/fa";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { DecisionCriteriaData } from "back-end/types/experiment";
 import {
-  DEFAULT_DECISION_CRITERIA,
+  PRESET_DECISION_CRITERIA,
   PRESET_DECISION_CRITERIAS,
 } from "shared/enterprise";
 import Checkbox from "@/components/Radix/Checkbox";
@@ -214,7 +214,7 @@ const DecisionFrameworkSettings: React.FC<DecisionFrameworkSettingsProps> = () =
                     <DecisionCriteriaTable
                       defaultCriteriaId={
                         form.watch("defaultDecisionCriteriaId") ||
-                        DEFAULT_DECISION_CRITERIA.id
+                        PRESET_DECISION_CRITERIA.id
                       }
                       setDefaultCriteriaId={(id) =>
                         form.setValue("defaultDecisionCriteriaId", id)

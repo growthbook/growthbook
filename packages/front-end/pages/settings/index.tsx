@@ -18,7 +18,7 @@ import { OrganizationSettings } from "back-end/types/organization";
 import Link from "next/link";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Box, Flex, Heading } from "@radix-ui/themes";
-import { DEFAULT_DECISION_CRITERIA } from "shared/enterprise";
+import { PRESET_DECISION_CRITERIA } from "shared/enterprise";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig, isCloud } from "@/services/env";
 import TempMessage from "@/components/TempMessage";
@@ -165,7 +165,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       decisionFrameworkEnabled:
         settings.decisionFrameworkEnabled ?? DEFAULT_DECISION_FRAMEWORK_ENABLED,
       defaultDecisionCriteriaId:
-        settings.defaultDecisionCriteriaId ?? DEFAULT_DECISION_CRITERIA.id,
+        settings.defaultDecisionCriteriaId ?? PRESET_DECISION_CRITERIA.id,
     },
   });
   const { apiCall } = useAuth();
