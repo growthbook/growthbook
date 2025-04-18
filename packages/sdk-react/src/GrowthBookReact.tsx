@@ -154,9 +154,9 @@ export const withRunExperiment = <P extends WithRunExperimentProps>(
   Component: React.ComponentType<P>
 ): React.ComponentType<Omit<P, keyof WithRunExperimentProps>> => {
   // eslint-disable-next-line
-  const withRunExperimentWrapper = (props: any): JSX.Element => (
+  const withRunExperimentWrapper = (props: any): React.JSX.Element => (
     <GrowthBookContext.Consumer>
-      {({ growthbook }): JSX.Element => {
+      {({ growthbook }): React.JSX.Element => {
         return (
           <Component
             {...(props as P)}
@@ -170,11 +170,13 @@ export const withRunExperiment = <P extends WithRunExperimentProps>(
 };
 withRunExperiment.displayName = "WithRunExperiment";
 
-export const GrowthBookProvider: React.FC<
-  React.PropsWithChildren<{
-    growthbook: GrowthBook;
-  }>
-> = ({ children, growthbook }) => {
+export function GrowthBookProvider({
+  children,
+  growthbook,
+}: {
+  children: React.ReactNode | React.JSX.Element;
+  growthbook: GrowthBook;
+}): React.JSX.Element {
   // Tell growthbook how to re-render our app (for dev mode integration)
   // eslint-disable-next-line
   const [_, setRenderCount] = React.useState(0);
@@ -200,4 +202,4 @@ export const GrowthBookProvider: React.FC<
       {children}
     </GrowthBookContext.Provider>
   );
-};
+}
