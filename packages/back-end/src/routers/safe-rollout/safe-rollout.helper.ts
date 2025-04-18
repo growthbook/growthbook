@@ -10,7 +10,7 @@ export function getSafeRolloutRuleFromFeature(
 ): SafeRolloutRule | null {
   Object.keys(feature.environmentSettings).forEach((env: string) =>
     feature.environmentSettings[env].rules.forEach((rule: FeatureRule) => {
-      if (rule.id === ruleId) {
+      if (rule.id === ruleId && rule.type === "safe-rollout") {
         return rule;
       }
     })
