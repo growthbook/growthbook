@@ -1777,14 +1777,14 @@ export async function putFeatureRule(
       canUpdateRevision = false;
     }
   }
-  let revsisonVersion = parseInt(version);
+  let revisionVersion = parseInt(version);
   if (canUpdateRevision) {
     const revision = await getDraftRevision(
       context,
       feature,
       parseInt(version)
     );
-    revsisonVersion = revision.version;
+    revisionVersion = revision.version;
     const resetReview = resetReviewOnChange({
       feature,
       changedEnvironments: [environment],
@@ -1803,7 +1803,7 @@ export async function putFeatureRule(
 
   res.status(200).json({
     status: 200,
-    version: revsisonVersion,
+    version: revisionVersion,
   });
 }
 
