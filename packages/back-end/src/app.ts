@@ -103,6 +103,7 @@ import { segmentRouter } from "./routers/segment/segment.router";
 import { dimensionRouter } from "./routers/dimension/dimension.router";
 import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
 import { projectRouter } from "./routers/project/project.router";
+import { vercelRouter } from "./routers/vercel-native-integration/vercel-native-integration.router";
 import { factTableRouter } from "./routers/fact-table/fact-table.router";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
 import { dataExportRouter } from "./routers/data-export/data-export.router";
@@ -276,6 +277,15 @@ app.get(
     origin: "*",
   }),
   experimentsController.getExperimentPublic
+);
+
+app.use(
+  "/vercel",
+  cors({
+    credentials: false,
+    origin: "*",
+  }),
+  vercelRouter
 );
 
 // Secret API routes (no JWT or CORS)
@@ -852,7 +862,7 @@ const errorHandler: ErrorRequestHandler = (
   req,
   res: Response & { sentry?: string },
   // eslint-disable-next-line
-  next
+  next,
 ) => {
   const status = err.status || 400;
 
