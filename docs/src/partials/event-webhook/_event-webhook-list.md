@@ -117,13 +117,11 @@ Triggered when a feature is created
                         trackingKey?: string | undefined;
                         enabled: boolean;
                         type: "safe-rollout";
-                        values?: {
-                            value: string;
-                            weight: number;
-                            name?: string | undefined;
-                        }[] | undefined;
-                        coverage: number;
-                        hashAttribute: string;
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string | undefined;
+                        hashAttribute?: string | undefined;
+                        safeRolloutId?: string | undefined;
                         status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
                     })[];
                     /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
@@ -204,13 +202,11 @@ Triggered when a feature is created
                             trackingKey?: string | undefined;
                             enabled: boolean;
                             type: "safe-rollout";
-                            values?: {
-                                value: string;
-                                weight: number;
-                                name?: string | undefined;
-                            }[] | undefined;
-                            coverage: number;
-                            hashAttribute: string;
+                            controlValue: string;
+                            variationValue: string;
+                            seed?: string | undefined;
+                            hashAttribute?: string | undefined;
+                            safeRolloutId?: string | undefined;
                             status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
                         })[];
                         /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
@@ -347,13 +343,11 @@ Triggered when a feature is updated
                         trackingKey?: string | undefined;
                         enabled: boolean;
                         type: "safe-rollout";
-                        values?: {
-                            value: string;
-                            weight: number;
-                            name?: string | undefined;
-                        }[] | undefined;
-                        coverage: number;
-                        hashAttribute: string;
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string | undefined;
+                        hashAttribute?: string | undefined;
+                        safeRolloutId?: string | undefined;
                         status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
                     })[];
                     /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
@@ -434,13 +428,11 @@ Triggered when a feature is updated
                             trackingKey?: string | undefined;
                             enabled: boolean;
                             type: "safe-rollout";
-                            values?: {
-                                value: string;
-                                weight: number;
-                                name?: string | undefined;
-                            }[] | undefined;
-                            coverage: number;
-                            hashAttribute: string;
+                            controlValue: string;
+                            variationValue: string;
+                            seed?: string | undefined;
+                            hashAttribute?: string | undefined;
+                            safeRolloutId?: string | undefined;
                             status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
                         })[];
                         /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
@@ -545,13 +537,11 @@ Triggered when a feature is updated
                         trackingKey?: string | undefined;
                         enabled: boolean;
                         type: "safe-rollout";
-                        values?: {
-                            value: string;
-                            weight: number;
-                            name?: string | undefined;
-                        }[] | undefined;
-                        coverage: number;
-                        hashAttribute: string;
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string | undefined;
+                        hashAttribute?: string | undefined;
+                        safeRolloutId?: string | undefined;
                         status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
                     })[];
                     /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
@@ -632,13 +622,11 @@ Triggered when a feature is updated
                             trackingKey?: string | undefined;
                             enabled: boolean;
                             type: "safe-rollout";
-                            values?: {
-                                value: string;
-                                weight: number;
-                                name?: string | undefined;
-                            }[] | undefined;
-                            coverage: number;
-                            hashAttribute: string;
+                            controlValue: string;
+                            variationValue: string;
+                            seed?: string | undefined;
+                            hashAttribute?: string | undefined;
+                            safeRolloutId?: string | undefined;
                             status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
                         })[];
                         /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
@@ -775,13 +763,11 @@ Triggered when a feature is deleted
                         trackingKey?: string | undefined;
                         enabled: boolean;
                         type: "safe-rollout";
-                        values?: {
-                            value: string;
-                            weight: number;
-                            name?: string | undefined;
-                        }[] | undefined;
-                        coverage: number;
-                        hashAttribute: string;
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string | undefined;
+                        hashAttribute?: string | undefined;
+                        safeRolloutId?: string | undefined;
                         status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
                     })[];
                     /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
@@ -862,13 +848,11 @@ Triggered when a feature is deleted
                             trackingKey?: string | undefined;
                             enabled: boolean;
                             type: "safe-rollout";
-                            values?: {
-                                value: string;
-                                weight: number;
-                                name?: string | undefined;
-                            }[] | undefined;
-                            coverage: number;
-                            hashAttribute: string;
+                            controlValue: string;
+                            variationValue: string;
+                            seed?: string | undefined;
+                            hashAttribute?: string | undefined;
+                            safeRolloutId?: string | undefined;
                             status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
                         })[];
                         /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */

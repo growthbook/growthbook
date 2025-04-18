@@ -5854,9 +5854,8 @@ components:
         - id
         - enabled
         - type
-        - value
-        - coverage
-        - hashAttribute
+        - controlValue
+        - variationValue
       properties:
         condition:
           type: string
@@ -5888,23 +5887,15 @@ components:
           type: string
           enum:
             - safe-rollout
-        values:
-          type: array
-          items:
-            type: object
-            required:
-              - value
-              - weight
-            properties:
-              value:
-                type: string
-              weight:
-                type: number
-              name:
-                type: string
-        coverage:
-          type: number
+        controlValue:
+          type: string
+        variationValue:
+          type: string
+        seed:
+          type: string
         hashAttribute:
+          type: string
+        safeRolloutId:
           type: string
         status:
           type: string

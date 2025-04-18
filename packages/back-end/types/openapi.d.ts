@@ -602,13 +602,11 @@ export interface components {
               enabled: boolean;
               /** @enum {string} */
               type: "safe-rollout";
-              values?: ({
-                  value: string;
-                  weight: number;
-                  name?: string;
-                })[];
-              coverage: number;
-              hashAttribute: string;
+              controlValue: string;
+              variationValue: string;
+              seed?: string;
+              hashAttribute?: string;
+              safeRolloutId?: string;
               /** @enum {string} */
               status?: "running" | "released" | "rolled-back" | "stopped";
             }))[];
@@ -698,13 +696,11 @@ export interface components {
                 enabled: boolean;
                 /** @enum {string} */
                 type: "safe-rollout";
-                values?: ({
-                    value: string;
-                    weight: number;
-                    name?: string;
-                  })[];
-                coverage: number;
-                hashAttribute: string;
+                controlValue: string;
+                variationValue: string;
+                seed?: string;
+                hashAttribute?: string;
+                safeRolloutId?: string;
                 /** @enum {string} */
                 status?: "running" | "released" | "rolled-back" | "stopped";
               }))[];
@@ -822,13 +818,11 @@ export interface components {
               enabled: boolean;
               /** @enum {string} */
               type: "safe-rollout";
-              values?: ({
-                  value: string;
-                  weight: number;
-                  name?: string;
-                })[];
-              coverage: number;
-              hashAttribute: string;
+              controlValue: string;
+              variationValue: string;
+              seed?: string;
+              hashAttribute?: string;
+              safeRolloutId?: string;
               /** @enum {string} */
               status?: "running" | "released" | "rolled-back" | "stopped";
             }))[];
@@ -918,13 +912,11 @@ export interface components {
                 enabled: boolean;
                 /** @enum {string} */
                 type: "safe-rollout";
-                values?: ({
-                    value: string;
-                    weight: number;
-                    name?: string;
-                  })[];
-                coverage: number;
-                hashAttribute: string;
+                controlValue: string;
+                variationValue: string;
+                seed?: string;
+                hashAttribute?: string;
+                safeRolloutId?: string;
                 /** @enum {string} */
                 status?: "running" | "released" | "rolled-back" | "stopped";
               }))[];
@@ -1033,13 +1025,11 @@ export interface components {
                 enabled: boolean;
                 /** @enum {string} */
                 type: "safe-rollout";
-                values?: ({
-                    value: string;
-                    weight: number;
-                    name?: string;
-                  })[];
-                coverage: number;
-                hashAttribute: string;
+                controlValue: string;
+                variationValue: string;
+                seed?: string;
+                hashAttribute?: string;
+                safeRolloutId?: string;
                 /** @enum {string} */
                 status?: "running" | "released" | "rolled-back" | "stopped";
               }))[]) | undefined;
@@ -1133,13 +1123,11 @@ export interface components {
           enabled: boolean;
           /** @enum {string} */
           type: "safe-rollout";
-          values?: ({
-              value: string;
-              weight: number;
-              name?: string;
-            })[];
-          coverage: number;
-          hashAttribute: string;
+          controlValue: string;
+          variationValue: string;
+          seed?: string;
+          hashAttribute?: string;
+          safeRolloutId?: string;
           /** @enum {string} */
           status?: "running" | "released" | "rolled-back" | "stopped";
         }))[];
@@ -1229,13 +1217,11 @@ export interface components {
             enabled: boolean;
             /** @enum {string} */
             type: "safe-rollout";
-            values?: ({
-                value: string;
-                weight: number;
-                name?: string;
-              })[];
-            coverage: number;
-            hashAttribute: string;
+            controlValue: string;
+            variationValue: string;
+            seed?: string;
+            hashAttribute?: string;
+            safeRolloutId?: string;
             /** @enum {string} */
             status?: "running" | "released" | "rolled-back" | "stopped";
           }))[];
@@ -1324,13 +1310,11 @@ export interface components {
       enabled: boolean;
       /** @enum {string} */
       type: "safe-rollout";
-      values?: ({
-          value: string;
-          weight: number;
-          name?: string;
-        })[];
-      coverage: number;
-      hashAttribute: string;
+      controlValue: string;
+      variationValue: string;
+      seed?: string;
+      hashAttribute?: string;
+      safeRolloutId?: string;
       /** @enum {string} */
       status?: "running" | "released" | "rolled-back" | "stopped";
     });
@@ -1396,13 +1380,11 @@ export interface components {
       enabled: boolean;
       /** @enum {string} */
       type: "safe-rollout";
-      values?: ({
-          value: string;
-          weight: number;
-          name?: string;
-        })[];
-      coverage: number;
-      hashAttribute: string;
+      controlValue: string;
+      variationValue: string;
+      seed?: string;
+      hashAttribute?: string;
+      safeRolloutId?: string;
       /** @enum {string} */
       status?: "running" | "released" | "rolled-back" | "stopped";
     };
@@ -2368,13 +2350,11 @@ export interface operations {
                         enabled: boolean;
                         /** @enum {string} */
                         type: "safe-rollout";
-                        values?: ({
-                            value: string;
-                            weight: number;
-                            name?: string;
-                          })[];
-                        coverage: number;
-                        hashAttribute: string;
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string;
+                        hashAttribute?: string;
+                        safeRolloutId?: string;
                         /** @enum {string} */
                         status?: "running" | "released" | "rolled-back" | "stopped";
                       }))[];
@@ -2464,13 +2444,11 @@ export interface operations {
                           enabled: boolean;
                           /** @enum {string} */
                           type: "safe-rollout";
-                          values?: ({
-                              value: string;
-                              weight: number;
-                              name?: string;
-                            })[];
-                          coverage: number;
-                          hashAttribute: string;
+                          controlValue: string;
+                          variationValue: string;
+                          seed?: string;
+                          hashAttribute?: string;
+                          safeRolloutId?: string;
                           /** @enum {string} */
                           status?: "running" | "released" | "rolled-back" | "stopped";
                         }))[];
@@ -2840,13 +2818,11 @@ export interface operations {
                       enabled: boolean;
                       /** @enum {string} */
                       type: "safe-rollout";
-                      values?: ({
-                          value: string;
-                          weight: number;
-                          name?: string;
-                        })[];
-                      coverage: number;
-                      hashAttribute: string;
+                      controlValue: string;
+                      variationValue: string;
+                      seed?: string;
+                      hashAttribute?: string;
+                      safeRolloutId?: string;
                       /** @enum {string} */
                       status?: "running" | "released" | "rolled-back" | "stopped";
                     }))[];
@@ -2936,13 +2912,11 @@ export interface operations {
                         enabled: boolean;
                         /** @enum {string} */
                         type: "safe-rollout";
-                        values?: ({
-                            value: string;
-                            weight: number;
-                            name?: string;
-                          })[];
-                        coverage: number;
-                        hashAttribute: string;
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string;
+                        hashAttribute?: string;
+                        safeRolloutId?: string;
                         /** @enum {string} */
                         status?: "running" | "released" | "rolled-back" | "stopped";
                       }))[];
@@ -3081,13 +3055,11 @@ export interface operations {
                       enabled: boolean;
                       /** @enum {string} */
                       type: "safe-rollout";
-                      values?: ({
-                          value: string;
-                          weight: number;
-                          name?: string;
-                        })[];
-                      coverage: number;
-                      hashAttribute: string;
+                      controlValue: string;
+                      variationValue: string;
+                      seed?: string;
+                      hashAttribute?: string;
+                      safeRolloutId?: string;
                       /** @enum {string} */
                       status?: "running" | "released" | "rolled-back" | "stopped";
                     }))[];
@@ -3177,13 +3149,11 @@ export interface operations {
                         enabled: boolean;
                         /** @enum {string} */
                         type: "safe-rollout";
-                        values?: ({
-                            value: string;
-                            weight: number;
-                            name?: string;
-                          })[];
-                        coverage: number;
-                        hashAttribute: string;
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string;
+                        hashAttribute?: string;
+                        safeRolloutId?: string;
                         /** @enum {string} */
                         status?: "running" | "released" | "rolled-back" | "stopped";
                       }))[];
@@ -3292,13 +3262,11 @@ export interface operations {
                         enabled: boolean;
                         /** @enum {string} */
                         type: "safe-rollout";
-                        values?: ({
-                            value: string;
-                            weight: number;
-                            name?: string;
-                          })[];
-                        coverage: number;
-                        hashAttribute: string;
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string;
+                        hashAttribute?: string;
+                        safeRolloutId?: string;
                         /** @enum {string} */
                         status?: "running" | "released" | "rolled-back" | "stopped";
                       }))[]) | undefined;
@@ -3648,13 +3616,11 @@ export interface operations {
                       enabled: boolean;
                       /** @enum {string} */
                       type: "safe-rollout";
-                      values?: ({
-                          value: string;
-                          weight: number;
-                          name?: string;
-                        })[];
-                      coverage: number;
-                      hashAttribute: string;
+                      controlValue: string;
+                      variationValue: string;
+                      seed?: string;
+                      hashAttribute?: string;
+                      safeRolloutId?: string;
                       /** @enum {string} */
                       status?: "running" | "released" | "rolled-back" | "stopped";
                     }))[];
@@ -3744,13 +3710,11 @@ export interface operations {
                         enabled: boolean;
                         /** @enum {string} */
                         type: "safe-rollout";
-                        values?: ({
-                            value: string;
-                            weight: number;
-                            name?: string;
-                          })[];
-                        coverage: number;
-                        hashAttribute: string;
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string;
+                        hashAttribute?: string;
+                        safeRolloutId?: string;
                         /** @enum {string} */
                         status?: "running" | "released" | "rolled-back" | "stopped";
                       }))[];
@@ -3911,13 +3875,11 @@ export interface operations {
                       enabled: boolean;
                       /** @enum {string} */
                       type: "safe-rollout";
-                      values?: ({
-                          value: string;
-                          weight: number;
-                          name?: string;
-                        })[];
-                      coverage: number;
-                      hashAttribute: string;
+                      controlValue: string;
+                      variationValue: string;
+                      seed?: string;
+                      hashAttribute?: string;
+                      safeRolloutId?: string;
                       /** @enum {string} */
                       status?: "running" | "released" | "rolled-back" | "stopped";
                     }))[];
@@ -4007,13 +3969,11 @@ export interface operations {
                         enabled: boolean;
                         /** @enum {string} */
                         type: "safe-rollout";
-                        values?: ({
-                            value: string;
-                            weight: number;
-                            name?: string;
-                          })[];
-                        coverage: number;
-                        hashAttribute: string;
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string;
+                        hashAttribute?: string;
+                        safeRolloutId?: string;
                         /** @enum {string} */
                         status?: "running" | "released" | "rolled-back" | "stopped";
                       }))[];
