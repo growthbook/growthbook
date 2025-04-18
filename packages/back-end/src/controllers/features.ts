@@ -1755,10 +1755,15 @@ export async function putFeatureRule(
     const existingSafeRollout = await context.models.safeRollout.getById(
       rule.safeRolloutId
     );
+
     if (!existingSafeRollout) {
       throw new Error("Safe rollout rule must have a safeRolloutId");
     }
-
+    if (environment !== existingSafeRollout.environment) {
+      throw new Error(
+        `you can not update this safe rollout under ${environment} environment because it was created under ${existingSafeRollout.environment} environment`
+      );
+    }
     if (interfaceFields) {
       await context.models.safeRollout.update(existingSafeRollout, {
         ...omit(interfaceFields, [
