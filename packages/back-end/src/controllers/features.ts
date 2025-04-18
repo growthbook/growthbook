@@ -1177,6 +1177,8 @@ export async function postFeatureRule(
     context.permissions.throwPermissionError();
   }
 
+  const revision = await getDraftRevision(context, feature, parseInt(version));
+
   // Validate that specified metrics exist and belong to the organization for safe-rollout rules
   if (rule.type === "safe-rollout") {
     // Validate that the interface fields are valid
@@ -1256,13 +1258,13 @@ export async function postFeatureRule(
     const safeRollout = await context.models.safeRollout.create(
       safeRolloutCreateProps
     );
-    if (safeRollout && safeRollout.id) rule.safeRolloutId = safeRollout.id;
-  }
-  const revision = await getDraftRevision(context, feature, parseInt(version));
-  if (
-    (rule.type === "safe-rollout" && rule.safeRolloutId) || // make sure the safe rollout is created
-    rule.type !== "safe-rollout"
-  ) {
+
+    if (!safeRollout) {
+      throw new Error("Failed to create safe rollout");
+    }
+
+    rule.safeRolloutId = safeRollout.id;
+
     const resetReview = resetReviewOnChange({
       feature,
       changedEnvironments: [environment],
@@ -1275,10 +1277,6 @@ export async function postFeatureRule(
       rule,
       res.locals.eventAudit,
       resetReview
-    );
-  } else {
-    throw new Error(
-      "Safe rollout rule must be created before adding to feature"
     );
   }
 
