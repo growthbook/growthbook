@@ -32,11 +32,6 @@ const ExperimentPage = (): ReactElement => {
   const router = useRouter();
   const { eid } = router.query;
 
-  const {
-    decisionCriteria,
-    getRunningExperimentResultStatus,
-  } = useRunningExperimentStatus();
-
   const [stopModalOpen, setStopModalOpen] = useState(false);
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
   const [variationsModalOpen, setVariationsModalOpen] = useState(false);
@@ -58,6 +53,15 @@ const ExperimentPage = (): ReactElement => {
     envs: string[];
     urlRedirects: URLRedirectInterface[];
   }>(`/experiment/${eid}`);
+
+  const {
+    getDecisionCriteria,
+    getRunningExperimentResultStatus,
+  } = useRunningExperimentStatus();
+
+  const decisionCriteria = getDecisionCriteria(
+    data?.experiment?.decisionCriteriaId
+  );
 
   useSwitchOrg(data?.experiment?.organization ?? null);
 

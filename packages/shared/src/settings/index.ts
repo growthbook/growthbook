@@ -88,6 +88,10 @@ export const resolvers: Record<
     experiment: true,
     report: true,
   }),
+  decisionCriteria: genDefaultResolver("decisionCriteria", {
+    project: "settings.decisionCriteria",
+    experiment: true,
+  }),
   delayHours: genMetricOverrideResolver("delayHours"),
   windowType: genMetricOverrideResolver("windowType"),
   windowHours: genMetricOverrideResolver("windowHours"),

@@ -10,6 +10,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Link from "@/components/Radix/Link";
+import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -35,6 +36,10 @@ export default function AnalysisSettings({
     getSegmentById,
     metricGroups,
   } = useDefinitions();
+
+  const { getDecisionCriteria } = useRunningExperimentStatus();
+  const decisionCriteria = getDecisionCriteria(experiment.decisionCriteriaId);
+
   const { organization } = useUser();
   const _settings = useOrgSettings();
   const settings = ssrPolyfills?.useOrgSettings() || _settings;
@@ -183,23 +188,6 @@ export default function AnalysisSettings({
                 )}
               </div>
             </div>
-
-            {!isBandit && (
-              <div className="col-4 mb-4">
-                <div className="h5">Stats Engine</div>
-                <div>{upperFirst(statsEngine)}</div>
-              </div>
-            )}
-            {isBandit && (
-              <div className="col-4 mb-4">
-                <div className="h5">CUPED</div>
-                <div>
-                  {experiment.regressionAdjustmentEnabled
-                    ? "Enabled"
-                    : "Disabled"}
-                </div>
-              </div>
-            )}
           </div>
         )}
 
@@ -262,6 +250,29 @@ export default function AnalysisSettings({
             </div>
           </div>
         </div>
+
+        {!isBandit ? (
+          // && decisionFrameworkEnabled
+          <div className="row mt-4">
+            <div className="col-4">
+              <div className="h5">Decision Criteria</div>
+              <div>{decisionCriteria.name}</div>
+            </div>
+
+            <div className="col-4">
+              <div className="h5">Target MDE</div>
+              <div>
+                {goals.map((metric, i) => {
+                  return (
+                    <li key={`goal-mde-${i}`}>
+                      <Link href={getMetricLink(metric.id)}>{metric.name}</Link>
+                    </li>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         {isBandit && (
           <div className="row mt-4">

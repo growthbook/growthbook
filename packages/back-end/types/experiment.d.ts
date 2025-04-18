@@ -239,6 +239,7 @@ export type ExperimentDataForStatusStringDates = Pick<
   | "secondaryMetrics"
   | "guardrailMetrics"
   | "datasource"
+  | "decisionCriteriaId"
 >;
 
 export type ExperimentDataForStatus = Pick<
@@ -255,4 +256,5 @@ export type ExperimentDataForStatus = Pick<
   | "secondaryMetrics"
   | "guardrailMetrics"
   | "datasource"
+  | "decisionCriteriaId"
 >;
