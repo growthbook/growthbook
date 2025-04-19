@@ -334,6 +334,7 @@ export type GlobalContext = {
 export type UserContext = {
   enabled?: boolean;
   qaMode?: boolean;
+  enableDevMode?: boolean;
   attributes?: Attributes;
   url?: string;
   blockedChangeIds?: string[];

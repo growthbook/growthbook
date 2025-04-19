@@ -1,6 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { GrowthBook } from "../GrowthBook";
-import { Plugin } from "../types/growthbook";
+import {
+  Attributes,
+  FeatureApiResponse,
+  LogUnion,
+  Plugin,
+} from "../types/growthbook";
 import { GrowthBookClient, UserScopedGrowthBook } from "../GrowthBookClient";
 
 type DevtoolsState = {
@@ -147,4 +152,78 @@ export function devtoolsExpressPlugin({
 
     devtoolsPlugin(state)(gb);
   };
+}
+
+type LogUnionWithSource = LogUnion & { source?: string };
+type SdkInfo = {
+  apiHost: string;
+  clientKey: string;
+  version?: string;
+  payload?: FeatureApiResponse;
+  attributes?: Attributes;
+};
+type LogEvent = {
+  logs: LogUnionWithSource[];
+  sdkInfo?: SdkInfo;
+};
+/**
+ * Helper method to get log events for DevTools
+ * @param gb - GrowthBook instance. DevMode must be enabled to view log events.
+ * @param {string} [source] - Label these events for ease of reading in DevTools
+ * @example
+ * A React logger component (implement yourself):
+ ```
+  const event = getDebugEvent({ gb, "nextjs" });
+  return (
+    <script dangerouslySetInnerHTML={{
+      __html: \`(window._gbdebugEvents = (window._gbdebugEvents || [])).push(${JSON.stringify(event)});\`
+    }} />
+  );
+ ```
+ */
+export function getDebugEvent(
+  gb: GrowthBook | UserScopedGrowthBook,
+  source?: string
+): LogEvent | null {
+  if (!("logs" in gb)) return null;
+  if (gb instanceof GrowthBook) {
+    // GrowthBook SDK
+    const [apiHost, clientKey] = gb.getApiInfo();
+    return {
+      logs: gb.logs.map((log) => ({ ...log, source, clientKey })),
+      sdkInfo: {
+        apiHost,
+        clientKey,
+        version: gb.version,
+        payload: gb.getDecryptedPayload?.() || {
+          features: gb.getFeatures?.(),
+          experiments: gb.getExperiments?.(),
+        },
+        attributes: gb.getAttributes(),
+      },
+    };
+  } else if (gb instanceof UserScopedGrowthBook) {
+    // UserScopedGrowthBook SDK
+    // @ts-expect-error private access
+    const _gb = gb._gb;
+    // @ts-expect-error private access
+    const _userContext = gb._userContext;
+    const [apiHost, clientKey] = _gb.getApiInfo();
+    return {
+      logs: gb.logs.map((log) => ({ ...log, source, clientKey })),
+      sdkInfo: {
+        apiHost,
+        clientKey,
+        version: _gb.version,
+        payload: _gb.getDecryptedPayload?.() || {
+          features: _gb.getFeatures?.(),
+        },
+        attributes: {
+          ..._userContext.attributes,
+          ..._userContext.attributeOverrides,
+        },
+      },
+    };
+  }
+  return null;
 }

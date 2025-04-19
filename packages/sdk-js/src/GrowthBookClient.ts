@@ -15,6 +15,7 @@ import type {
   InitOptions,
   InitResponse,
   InitSyncOptions,
+  LogUnion,
   Plugin,
   RefreshFeaturesOptions,
   Result,
@@ -359,6 +360,7 @@ export class UserScopedGrowthBook<
 > {
   private _gb: GrowthBookClient;
   private _userContext: UserContext;
+  public logs: Array<LogUnion>;
 
   constructor(
     gb: GrowthBookClient<AppFeatures>,
@@ -367,6 +369,23 @@ export class UserScopedGrowthBook<
   ) {
     this._gb = gb;
     this._userContext = userContext;
+    this.logs = [];
+
+    if (userContext.enableDevMode) {
+      const cb = userContext.onFeatureUsage;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      userContext.onFeatureUsage = (key: string, res: FeatureResult<any>) => {
+        this.logs.push({
+          featureKey: key,
+          result: res,
+          timestamp: Date.now().toString(),
+          logType: "feature",
+        });
+        if (cb) {
+          cb(key, res);
+        }
+      };
+    }
 
     if (plugins) {
       for (const plugin of plugins) {
