@@ -1,27 +1,28 @@
 import type {
   ApiHost,
+  Attributes,
+  AutoExperiment,
   ClientKey,
+  ClientOptions,
+  EvalContext,
+  EventLogger,
+  EventProperties,
   Experiment,
   FeatureApiResponse,
+  FeatureDefinitions,
   FeatureResult,
-  RefreshFeaturesOptions,
-  Result,
-  WidenPrimitives,
-  EvalContext,
+  GlobalContext,
   InitOptions,
   InitResponse,
   InitSyncOptions,
-  GlobalContext,
-  UserContext,
-  ClientOptions,
-  FeatureDefinitions,
-  AutoExperiment,
-  TrackingCallbackWithUser,
-  Attributes,
-  TrackingCallback,
-  EventLogger,
-  EventProperties,
+  LogUnion,
   Plugin,
+  RefreshFeaturesOptions,
+  Result,
+  TrackingCallback,
+  TrackingCallbackWithUser,
+  UserContext,
+  WidenPrimitives,
 } from "./types/growthbook";
 import { loadSDKVersion } from "./util";
 import {
@@ -31,11 +32,11 @@ import {
   unsubscribe,
 } from "./feature-repository";
 import {
-  runExperiment,
+  decryptPayload,
   evalFeature as _evalFeature,
   getAllStickyBucketAssignmentDocs,
-  decryptPayload,
   getApiHosts,
+  runExperiment,
 } from "./core";
 import { StickyBucketService } from "./sticky-bucket-service";
 
@@ -340,14 +341,12 @@ export class GrowthBookClient<
       stickyBucketService
     );
 
-    const userContext: UserContext = {
+    return {
       ...partialContext,
       stickyBucketAssignmentDocs,
       saveStickyBucketAssignmentDoc: (doc) =>
         stickyBucketService.saveAssignments(doc),
     };
-
-    return userContext;
   }
 
   public createScopedInstance(userContext: UserContext) {
@@ -361,6 +360,7 @@ export class UserScopedGrowthBook<
 > {
   private _gb: GrowthBookClient;
   private _userContext: UserContext;
+  public logs: Array<LogUnion>;
 
   constructor(
     gb: GrowthBookClient<AppFeatures>,
@@ -369,6 +369,23 @@ export class UserScopedGrowthBook<
   ) {
     this._gb = gb;
     this._userContext = userContext;
+    this.logs = [];
+
+    if (userContext.enableDevMode) {
+      const cb = userContext.onFeatureUsage;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      userContext.onFeatureUsage = (key: string, res: FeatureResult<any>) => {
+        this.logs.push({
+          featureKey: key,
+          result: res,
+          timestamp: Date.now().toString(),
+          logType: "feature",
+        });
+        if (cb) {
+          cb(key, res);
+        }
+      };
+    }
 
     if (plugins) {
       for (const plugin of plugins) {
@@ -421,5 +438,15 @@ export class UserScopedGrowthBook<
       ...this._userContext.attributes,
       ...attributes,
     };
+  }
+  public setAttributeOverrides(overrides: Attributes) {
+    this._userContext.attributeOverrides = overrides;
+  }
+  public async setForcedVariations(vars: Record<string, number>) {
+    this._userContext.forcedVariations = vars || {};
+  }
+  // eslint-disable-next-line
+  public setForcedFeatures(map: Map<string, any>) {
+    this._userContext.forcedFeatureValues = map;
   }
 }
