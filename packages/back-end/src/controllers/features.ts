@@ -1200,7 +1200,7 @@ export async function postFeatureRule(
       throw new Error("Datasource is required for safe rollouts");
     }
     if (safeRolloutFields.guardrailMetricIds === undefined) {
-      throw new Error("Guardrail metrics are required for safe rollouts");
+      throw new Error("Please select at least 1 guardrail metric");
     }
 
     const metricIds = safeRolloutFields.guardrailMetricIds;
