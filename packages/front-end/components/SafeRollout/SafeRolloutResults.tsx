@@ -45,7 +45,6 @@ const SafeRolloutResults: FC<{
     snapshot,
     latest,
     analysis,
-    mutateSnapshot: mutate,
     loading: snapshotLoading,
   } = useSafeRolloutSnapshot();
 
@@ -95,45 +94,6 @@ const SafeRolloutResults: FC<{
 
   const hasMetrics = safeRollout?.guardrailMetricIds?.length > 0;
 
-  // TODO: how to integrate this and experiment status indicator?
-  // const statusIndicatorData: StatusIndicatorData = (() => {
-  //   switch (safeRollout.status) {
-  //     case "running":
-  //       return {
-  //         color: "indigo",
-  //         status: "Running",
-  //         sortOrder: 1,
-  //       };
-  //     case "released":
-  //       return {
-  //         color: "green",
-  //         status: "Stopped",
-  //         detailedStatus: "Released",
-  //         sortOrder: 1,
-  //       };
-  //     case "rolled-back":
-  //       return {
-  //         color: "red",
-  //         status: "Stopped",
-  //         detailedStatus: "Rolled Back",
-  //         sortOrder: 1,
-  //       };
-  //     case "completed":
-  //       return {
-  //         color: "gold",
-  //         status: "Stopped",
-  //         detailedStatus: "Completed",
-  //         sortOrder: 1,
-  //       };
-  //     case "draft":
-  //       return {
-  //         color: "gray",
-  //         status: "Draft",
-  //         sortOrder: 1,
-  //       };
-  //   }
-  // })();
-
   return (
     <>
       <Flex align="center" justify="between">
@@ -147,11 +107,6 @@ const SafeRolloutResults: FC<{
           Show {isAnalysisExpanded ? "less" : "more"}
         </Link>
       </Flex>
-      {/* <Box mt="3">
-        <RawExperimentStatusIndicator
-          statusIndicatorData={statusIndicatorData}
-        />
-      </Box> */}
       {isAnalysisExpanded ? (
         <Box
           mt="3"
@@ -160,10 +115,7 @@ const SafeRolloutResults: FC<{
             borderRadius: "var(--radius-2)",
           }}
         >
-          <SafeRolloutAnalysisSettingsSummary
-            safeRollout={safeRollout}
-            mutate={mutate}
-          />
+          <SafeRolloutAnalysisSettingsSummary safeRollout={safeRollout} />
 
           {!hasData && status !== "running" && hasMetrics && !snapshotLoading && (
             <Callout status="info" mx="3" my="4">

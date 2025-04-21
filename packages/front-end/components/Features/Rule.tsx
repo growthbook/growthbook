@@ -320,7 +320,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           <Box mt="3">
                             <DecisionBanner
                               openStatusModal={() =>
-                                setSafeRolloutStatusModalOpen
+                                setSafeRolloutStatusModalOpen(true)
                               }
                             />
                             <SafeRolloutDetails
