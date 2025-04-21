@@ -311,15 +311,19 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                               }
                             />
                           )}
-                        <DecisionBanner
-                          openStatusModal={() =>
-                            setSafeRolloutStatusModalOpen(true)
-                          }
-                        />
-                        <SafeRolloutDetails
-                          safeRollout={safeRollout}
-                          feature={feature}
-                        />
+                        {safeRollout?.startedAt && (
+                          <>
+                            <DecisionBanner
+                              openStatusModal={() =>
+                                setSafeRolloutStatusModalOpen(true)
+                              }
+                            />
+                            <SafeRolloutDetails
+                              safeRollout={safeRollout}
+                              feature={feature}
+                            />{" "}
+                          </>
+                        )}
                       </SafeRolloutSnapshotProvider>
                     ) : (
                       <div>
