@@ -9,9 +9,9 @@ import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvide
 import Callout from "../Radix/Callout";
 
 const DecisionBanner = ({
-  openStatusModal,
+  setStatusModal,
 }: {
-  openStatusModal: () => void;
+  setStatusModal: (open: boolean) => void;
 }) => {
   const {
     safeRollout,
@@ -76,7 +76,7 @@ const DecisionBanner = ({
           className="link"
           onClick={(e) => {
             e.preventDefault();
-            openStatusModal();
+            setStatusModal(true);
           }}
         >
           Revert Now
@@ -92,7 +92,7 @@ const DecisionBanner = ({
           className="link"
           onClick={(e) => {
             e.preventDefault();
-            openStatusModal();
+            setStatusModal(true);
           }}
         >
           Ship Now
@@ -108,7 +108,7 @@ const DecisionBanner = ({
           className="link"
           onClick={(e) => {
             e.preventDefault();
-            openStatusModal();
+            setStatusModal(true);
           }}
         >
           Stop Early

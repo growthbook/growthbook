@@ -188,7 +188,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     if (rule.type === "safe-rollout") {
       safeRollout = safeRolloutsMap.get(rule.safeRolloutId);
     }
-
     return (
       <Box {...props} ref={ref}>
         <Box mt="3">
@@ -301,21 +300,27 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           rule={rule}
                           feature={feature}
                         />
-                        {safeRollout?.startedAt &&
-                          safeRolloutStatusModalOpen && (
-                            <SafeRolloutStatusModal
-                              safeRollout={safeRollout}
-                              open={safeRolloutStatusModalOpen}
-                              setStatusModalOpen={() =>
-                                setSafeRolloutStatusModalOpen(true)
-                              }
-                            />
-                          )}
+
+                        {safeRollout?.startedAt && (
+                          <SafeRolloutStatusModal
+                            safeRollout={safeRollout}
+                            rule={rule}
+                            featureId={feature.id}
+                            environment={environment}
+                            version={version}
+                            i={i}
+                            setVersion={setVersion}
+                            mutate={mutate}
+                            open={safeRolloutStatusModalOpen}
+                            setStatusModalOpen={setSafeRolloutStatusModalOpen}
+                            defaultStatus={safeRollout.status}
+                          />
+                        )}
                         {safeRollout?.startedAt && (
                           <Box mt="3">
                             <DecisionBanner
                               openStatusModal={() =>
-                                setSafeRolloutStatusModalOpen(true)
+                                setSafeRolloutStatusModalOpen
                               }
                             />
                             <SafeRolloutDetails

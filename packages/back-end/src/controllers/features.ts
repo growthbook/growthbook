@@ -1155,7 +1155,7 @@ export async function postFeatureRule(
   const context = getContextFromReq(req);
   const { org } = context;
   const { id, version } = req.params;
-  const { environment, rule, interfaceFields } = req.body;
+  const { environment, rule, safeRolloutFields } = req.body;
 
   const feature = await getFeature(context, id);
   if (!feature) {
@@ -1181,12 +1181,11 @@ export async function postFeatureRule(
 
   // Validate that specified metrics exist and belong to the organization for safe-rollout rules
   if (rule.type === "safe-rollout") {
-    // Validate that the interface fields are valid
-    if (!interfaceFields) {
-      throw new Error("Safe rollout interface settings must be set");
+    if (!safeRolloutFields) {
+      throw new Error("Safe Rollout fields must be set");
     }
 
-    if (!interfaceFields.maxDurationDays) {
+    if (!safeRolloutFields.maxDurationDays) {
       throw new Error("Max duration days is required for safe rollouts");
     }
     // TODO: should this live on the rule?
@@ -1194,18 +1193,18 @@ export async function postFeatureRule(
       throw new Error("Hash attribute is required for safe rollouts");
     }
     // TODO: are these required?
-    if (interfaceFields.exposureQueryId === undefined) {
+    if (safeRolloutFields.exposureQueryId === undefined) {
       throw new Error("Exposure query is required for safe rollouts");
     }
-    if (interfaceFields.datasourceId === undefined) {
+    if (safeRolloutFields.datasourceId === undefined) {
       throw new Error("Datasource is required for safe rollouts");
     }
-    if (interfaceFields.guardrailMetricIds === undefined) {
+    if (safeRolloutFields.guardrailMetricIds === undefined) {
       throw new Error("Please select at least 1 guardrail metric");
     }
 
-    const metricIds = interfaceFields.guardrailMetricIds;
-    const datasourceId = interfaceFields.datasourceId;
+    const metricIds = safeRolloutFields.guardrailMetricIds;
+    const datasourceId = safeRolloutFields.datasourceId;
     if (metricIds.length) {
       const map = await getMetricMap(context);
       for (let i = 0; i < metricIds.length; i++) {
@@ -1241,15 +1240,15 @@ export async function postFeatureRule(
     rule.seed = rule.seed || uuidv4();
     rule.trackingKey = rule.trackingKey || `srk_${uuidv4()}`;
     const safeRolloutCreateProps: CreateProps<SafeRolloutInterface> = {
-      ...interfaceFields,
+      ...safeRolloutFields,
       hashAttribute: rule.hashAttribute,
       status: rule.status,
       // TODO are these mandatory
-      datasourceId: interfaceFields.datasourceId,
-      exposureQueryId: interfaceFields.exposureQueryId,
+      datasourceId: safeRolloutFields.datasourceId,
+      exposureQueryId: safeRolloutFields.exposureQueryId,
       autoSnapshots: true,
-      guardrailMetricIds: interfaceFields.guardrailMetricIds,
-      maxDurationDays: interfaceFields.maxDurationDays,
+      guardrailMetricIds: safeRolloutFields.guardrailMetricIds,
+      maxDurationDays: safeRolloutFields.maxDurationDays,
       featureId: feature.id,
       ruleId: rule.id,
       environment: environment,
@@ -1725,9 +1724,7 @@ export async function putFeatureRule(
   const context = getContextFromReq(req);
   const { org } = context;
   const { id, version } = req.params;
-  const { environment, i } = req.body;
-  const rule = req.body.rule;
-  const interfaceFields = req.body.interfaceFields;
+  const { environment, i, rule, safeRolloutFields } = req.body;
   const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
@@ -1764,14 +1761,16 @@ export async function putFeatureRule(
         `you can not update this safe rollout under ${environment} environment because it was created under ${existingSafeRollout.environment} environment`
       );
     }
-    if (interfaceFields) {
+    if (safeRolloutFields) {
       await context.models.safeRollout.update(existingSafeRollout, {
-        ...omit(interfaceFields, [
+        ...omit(safeRolloutFields, [
           "organization",
           "dateCreated",
           "dateUpdated",
           "startedAt",
         ]),
+        status: rule.status || existingSafeRollout.status || "draft",
+        hashAttribute: rule.hashAttribute || existingSafeRollout.hashAttribute,
       });
     }
     if (existingSafeRollout.startedAt) {
