@@ -226,7 +226,7 @@ export default function FeaturesHeader({
                           <strong>
                             {dependents} dependent{dependents !== 1 && "s"}
                           </strong>
-                          . This feature cannot be deleted until{" "}
+                          . This feature cannot be archived until{" "}
                           {dependents === 1 ? "it has" : "they have"} been
                           removed.
                         </Callout>
