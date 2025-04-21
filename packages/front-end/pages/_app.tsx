@@ -161,9 +161,11 @@ function App({
           font-family: var(--default-font-family);
           --default-font-family: ${inter.style.fontFamily};
         }
+
         body {
           font-family: var(--default-font-family);
         }
+
         .radix-themes {
           --default-font-family: ${inter.style.fontFamily};
           --font-weight-medium: 600;
@@ -174,10 +176,10 @@ function App({
         <meta name="robots" content="noindex, nofollow" />
       </Head>
       {ready || noLoadingOverlay ? (
-        <AppearanceUIThemeProvider>
-          <RadixTheme>
-            <GrowthBookProvider growthbook={growthbook}>
-              <div id="portal-root" />
+        <GrowthBookProvider growthbook={growthbook}>
+          <div id="portal-root" />
+          <AppearanceUIThemeProvider>
+            <RadixTheme>
               {preAuth || progressiveAuth ? (
                 renderPreAuth()
               ) : (
@@ -212,9 +214,9 @@ function App({
                   </AuthProvider>
                 </PageHeadProvider>
               )}
-            </GrowthBookProvider>
-          </RadixTheme>
-        </AppearanceUIThemeProvider>
+            </RadixTheme>
+          </AppearanceUIThemeProvider>
+        </GrowthBookProvider>
       ) : error ? (
         <div className="container">
           <div className="alert alert-danger">
