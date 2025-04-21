@@ -575,6 +575,8 @@ export default function RuleModal({
         safeRolloutFields = values.safeRolloutFields;
         // eslint-disable-next-line
         delete (values as any).safeRolloutFields;
+        // eslint-disable-next-line
+        delete (values as any).value; //saferollout uses controlValue so we want to remove the value
       }
 
       if (

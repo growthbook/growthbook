@@ -701,7 +701,7 @@ export function getDefaultRuleValue({
       enabled: true,
       prerequisites: [],
       controlValue: value,
-      variationValue: value,
+      variationValue: "",
       hashAttribute,
       trackingKey: "",
       seed: "",

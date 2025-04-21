@@ -205,7 +205,7 @@ export default function SafeRolloutFields({
         <div className="mb-3 pb-1">
           <FeatureValueField
             label="Control value"
-            id="value"
+            id="controlValue"
             value={form.watch("controlValue")}
             setValue={(v) => form.setValue("controlValue", v)}
             valueType={feature.valueType}
