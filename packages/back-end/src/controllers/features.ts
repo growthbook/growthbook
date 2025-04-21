@@ -1772,6 +1772,8 @@ export async function putFeatureRule(
           "dateUpdated",
           "startedAt",
         ]),
+        status: rule.status || existingSafeRollout.status || "draft",
+        hashAttribute: rule.hashAttribute || existingSafeRollout.hashAttribute,
       });
     }
     if (existingSafeRollout.startedAt) {
