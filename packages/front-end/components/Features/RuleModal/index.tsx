@@ -94,7 +94,7 @@ type OverviewRuleType =
   | "safe-rollout";
 
 type SafeRolloutRuleCreateFields = SafeRolloutRule & {
-  safeRolloutInterfaceFields: CreateSafeRolloutInterface;
+  safeRolloutFields: CreateSafeRolloutInterface;
 };
 
 export default function RuleModal({
@@ -145,7 +145,7 @@ export default function RuleModal({
     if (rule?.type === "safe-rollout") {
       return {
         ...rule,
-        safeRolloutInterfaceFields: safeRollout,
+        safeRolloutFields: safeRollout,
       };
     }
     return rule;
@@ -356,7 +356,7 @@ export default function RuleModal({
       }
     }
 
-    let interfaceFields: Partial<CreateSafeRolloutInterface> | undefined;
+    let safeRolloutFields: Partial<CreateSafeRolloutInterface> | undefined;
     try {
       if (values.type === "experiment-ref-new") {
         // Make sure there's an experiment name
@@ -572,9 +572,9 @@ export default function RuleModal({
         // eslint-disable-next-line
         delete (values as any).value;
       } else if (values.type === "safe-rollout") {
-        interfaceFields = values.safeRolloutInterfaceFields;
+        safeRolloutFields = values.safeRolloutFields;
         // eslint-disable-next-line
-        delete (values as any).safeRolloutInterfaceFields;
+        delete (values as any).safeRolloutFields;
       }
 
       if (
@@ -614,7 +614,7 @@ export default function RuleModal({
             body: JSON.stringify({
               rule: values,
               environment,
-              interfaceFields,
+              safeRolloutFields,
               i,
             } as PutFeatureRuleBody),
           }
@@ -627,7 +627,7 @@ export default function RuleModal({
             body: JSON.stringify({
               rule: values,
               environment,
-              interfaceFields,
+              safeRolloutFields,
             } as PostFeatureRuleBody),
           }
         );
