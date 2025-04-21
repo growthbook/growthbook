@@ -262,8 +262,8 @@ function getMetricSettingsHash(
 }
 
 function getHasSignificantDifference(
-  previousAnalysisSummary: ExperimentAnalysisSummary,
-  currentAnalysisSummary: ExperimentAnalysisSummary
+  previousAnalysisSummary: ExperimentAnalysisSummary | undefined,
+  currentAnalysisSummary: ExperimentAnalysisSummary | undefined
 ) {
   const currentResults = currentAnalysisSummary?.resultsStatus;
   if (!currentResults) {
