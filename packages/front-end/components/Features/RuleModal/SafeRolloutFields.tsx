@@ -51,7 +51,7 @@ export default function SafeRolloutFields({
       value: ds.id,
     })) || [];
   const dataSource = datasources?.find(
-    (ds) => ds.id === form.watch("safeRolloutInterfaceFields.datasourceId")
+    (ds) => ds.id === form.watch("safeRolloutFields.datasourceId")
   );
   const exposureQueries = dataSource?.settings?.queries?.exposure || [];
   const disableFields = !isDraft && !isNewRule;
@@ -133,9 +133,9 @@ export default function SafeRolloutFields({
             <SelectField
               label="Data source"
               options={dataSourceOptions}
-              value={form.watch("safeRolloutInterfaceFields.datasourceId")}
+              value={form.watch("safeRolloutFields.datasourceId")}
               onChange={(v) =>
-                form.setValue("safeRolloutInterfaceFields.datasourceId", v)
+                form.setValue("safeRolloutFields.datasourceId", v)
               }
               required
               placeholder="Select a data source"
@@ -160,12 +160,11 @@ export default function SafeRolloutFields({
               }))}
               required
               disabled={
-                disableFields ||
-                !form.watch("safeRolloutInterfaceFields.datasourceId")
+                disableFields || !form.watch("safeRolloutFields.datasourceId")
               }
-              value={form.watch("safeRolloutInterfaceFields.exposureQueryId")}
+              value={form.watch("safeRolloutFields.exposureQueryId")}
               onChange={(v) =>
-                form.setValue("safeRolloutInterfaceFields.exposureQueryId", v)
+                form.setValue("safeRolloutFields.exposureQueryId", v)
               }
             />
           </div>
@@ -174,17 +173,13 @@ export default function SafeRolloutFields({
           <label>Guardrail metrics</label>
           {/* TODO validate at least one metric is selected */}
           <MetricsSelector
-            datasource={form.watch("safeRolloutInterfaceFields.datasourceId")}
-            exposureQueryId={form.watch(
-              "safeRolloutInterfaceFields.exposureQueryId"
-            )}
+            datasource={form.watch("safeRolloutFields.datasourceId")}
+            exposureQueryId={form.watch("safeRolloutFields.exposureQueryId")}
             project={feature.project}
-            selected={
-              form.watch("safeRolloutInterfaceFields.guardrailMetricIds") || []
-            }
-            disabled={!form.watch("safeRolloutInterfaceFields.exposureQueryId")}
+            selected={form.watch("safeRolloutFields.guardrailMetricIds") || []}
+            disabled={!form.watch("safeRolloutFields.exposureQueryId")}
             onChange={(v) =>
-              form.setValue("safeRolloutInterfaceFields.guardrailMetricIds", v)
+              form.setValue("safeRolloutFields.guardrailMetricIds", v)
             }
           />
         </div>
@@ -193,10 +188,10 @@ export default function SafeRolloutFields({
           <Box maxWidth="300px">
             <TextField.Root
               type="number"
-              value={form.watch("safeRolloutInterfaceFields.maxDurationDays")}
+              value={form.watch("safeRolloutFields.maxDurationDays")}
               onChange={(e) =>
                 form.setValue(
-                  "safeRolloutInterfaceFields.maxDurationDays",
+                  "safeRolloutFields.maxDurationDays",
                   parseInt(e.target.value) || 0
                 )
               }

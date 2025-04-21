@@ -92,7 +92,7 @@ export default function SafeRolloutStatusModal({
         body: JSON.stringify({
           rule: values,
           environment,
-          interfaceFields: values,
+          safeRolloutFields: values,
           i,
         } as PutFeatureRuleBody),
       }
