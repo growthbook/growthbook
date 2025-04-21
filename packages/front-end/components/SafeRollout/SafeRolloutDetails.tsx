@@ -67,7 +67,8 @@ export default function SafeRolloutDetails({ safeRollout }: Props) {
     !hasData &&
     queryStatus !== "running" &&
     !snapshotLoading &&
-    safeRolloutAgeMinutes < 120
+    safeRolloutAgeMinutes < 120 &&
+    safeRollout.status === "running"
   ) {
     return (
       <Callout status="info" my="4">

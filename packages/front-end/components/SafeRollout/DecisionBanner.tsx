@@ -46,6 +46,28 @@ const DecisionBanner = ({
     daysLeft,
   });
 
+  // If the safe rollout has been rolled back or released, explain that the safe rollout is
+  // acting as a temporary rollout with the control or variation value
+  if (safeRollout.status === "rolled-back") {
+    return (
+      <Callout status="info">
+        This Safe Rollout is rolled back and a{" "}
+        <strong>Temporary Rollout</strong> is enabled. All users in the Safe
+        Rollout will receive the control value. If no longer needed, you can
+        disable or delete the safe rollout rule.
+      </Callout>
+    );
+  } else if (safeRollout.status === "released") {
+    return (
+      <Callout status="info">
+        This Safe Rollout is rolled back and a{" "}
+        <strong>Temporary Rollout</strong> is enabled. All users in the Safe
+        Rollout will receive the variation value. If no longer needed, you can
+        disable or delete the safe rollout rule.
+      </Callout>
+    );
+  }
+
   // failingGuardrails comes from the analysis summary for now, but we could return it in the above
   if (decisionStatus?.status === "unhealthy") {
     return (
