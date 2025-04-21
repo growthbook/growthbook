@@ -12,6 +12,7 @@ import {
   ScopedSettingsReturn,
 } from "./types";
 import regressionAdjustmentResolver from "./resolvers/regressionAdjustmentEnabledResolver";
+import metricTargetMDEResolver from "./resolvers/metricTargetMDEResolver";
 
 export const resolvers: Record<
   keyof Settings,
@@ -88,10 +89,7 @@ export const resolvers: Record<
     experiment: true,
     report: true,
   }),
-  decisionCriteria: genDefaultResolver("decisionCriteria", {
-    project: "settings.decisionCriteria",
-    experiment: true,
-  }),
+  targetMDE: metricTargetMDEResolver(),
   delayHours: genMetricOverrideResolver("delayHours"),
   windowType: genMetricOverrideResolver("windowType"),
   windowHours: genMetricOverrideResolver("windowHours"),

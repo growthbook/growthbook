@@ -61,6 +61,7 @@ interface MetricSettings {
 
   winRisk: number | null;
   loseRisk: number | null;
+  targetMDE: number | null;
 }
 
 interface BaseSettings {

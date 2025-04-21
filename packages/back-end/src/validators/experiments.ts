@@ -146,7 +146,7 @@ export const experimentAnalysisSettings = z
     datasource: z.string(),
     exposureQueryId: z.string(),
     goalMetrics: z.array(z.string()),
-    goalMetricTargetMDEOverrides: z.array(z.object({
+    metricTargetMDEOverrides: z.array(z.object({
       id: z.string(),
       targetMDE: z.number(),
     })).optional(),
