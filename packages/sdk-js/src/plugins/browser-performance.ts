@@ -20,9 +20,8 @@ export function browserPerformancePlugin({
   trackTBT = true,
   trackErrors = true,
 }: BrowserPerformanceSettings = {}) {
-  // Browser only
   if (typeof window === "undefined" || typeof document === "undefined") {
-    throw new Error("performanceMonitoringPlugin only works in the browser");
+    throw new Error("browserPerformancePlugin only works in the browser");
   }
 
   return (gb: GrowthBook | UserScopedGrowthBook) => {
@@ -30,98 +29,106 @@ export function browserPerformancePlugin({
       throw new Error("GrowthBook instance must have a logEvent method");
     }
 
-    // Core web vitals
     if ("PerformanceObserver" in window) {
       try {
+        let observing = true;
         const observers: PerformanceObserver[] = [];
-        const stopObserving = () =>
+        const stopObserving = () => {
+          observing = false;
           observers.forEach((observer) => observer.disconnect());
+        };
 
-        // Listen to various cleanup events to remove PerformanceObservers
-        // GB onDestroy call:
-        "onDestroy" in gb && gb.onDestroy(() => stopObserving);
+        let lcpTime = 0;
+        let clsValue = 0;
+        let tbtValue = 0;
 
-        // Navigation to a new path (SPA) via navigation API:
-        const urlPath = window.location.origin + window.location.pathname;
+        const reportCWV = () => {
+          if (!observing) return;
+          stopObserving();
+          if (trackLCP && lcpTime) {
+            gb.logEvent("CWV:LCP", { value: lcpTime });
+          }
+          if (trackCLS && clsValue) {
+            gb.logEvent("CWV:CLS", { value: clsValue });
+          }
+          if (trackTBT && tbtValue) {
+            gb.logEvent("CWV:TBT", { value: tbtValue });
+          }
+        };
+
+        "onDestroy" in gb && gb.onDestroy(stopObserving);
+
+        const currentPath = window.location.origin + window.location.pathname;
+
+        // Track deferred CWV metrics on navigation
         "navigation" in window &&
-          // @ts-expect-error: new Navigate API may not be in types yet
-          window?.navigation?.addEventListener("navigate", (event) => {
+          // @ts-expect-error: Navigate API might be missing from types
+          window.navigation.addEventListener("navigate", (event) => {
             const destination = event?.destination?.url;
             if (destination) {
               const url = new URL(destination);
               const newPath = url.origin + url.pathname;
-              if (newPath !== urlPath) {
-                stopObserving();
+              if (newPath !== currentPath) {
+                reportCWV();
               }
             }
           });
 
-        // Only track each CWV if it happened before the screen was hidden
-        // Otherwise it right-skews the data
-        let hiddenTime = document.visibilityState === "hidden" ? 0 : Infinity;
-        document.addEventListener(
-          "visibilitychange",
-          (event) => {
-            hiddenTime = Math.min(hiddenTime, event.timeStamp);
-          },
-          { once: true }
-        );
+        // Track deferred CWV metrics on hide
+        document.addEventListener("visibilitychange", reportCWV, {
+          once: true,
+        });
 
-        // FCP (First Contentful Paint)
-        let fcpTime = 0; // store FCP offset TBT metric
+        // FCP
         if (trackFCP || trackTBT) {
           new PerformanceObserver((list, observer) => {
             observers.push(observer);
-            list.getEntriesByName("first-contentful-paint").forEach((entry) => {
-              fcpTime = entry.startTime;
+            const entry = list.getEntriesByName("first-contentful-paint")[0];
+            if (entry) {
               observer.disconnect();
-              if (trackFCP && fcpTime < hiddenTime)
-                gb.logEvent("CWV:FCP", { value: fcpTime });
-            });
+              gb.logEvent("CWV:FCP", { value: entry.startTime });
+            }
           }).observe({ type: "paint", buffered: true });
         }
 
-        // LCP (Largest Contentful Paint)
+        // LCP
         if (trackLCP) {
           new PerformanceObserver((list, observer) => {
             observers.push(observer);
             const entries = list.getEntries();
             const lastEntry = entries[entries.length - 1];
-            observer.disconnect();
-            if (lastEntry.startTime < hiddenTime)
-              gb.logEvent("CWV:LCP", { value: lastEntry.startTime });
+            if (lastEntry) {
+              lcpTime = lastEntry.startTime;
+            }
           }).observe({ type: "largest-contentful-paint", buffered: true });
         }
 
-        // FID (First Input Delay)
+        // FID
         if (trackFID) {
           new PerformanceObserver((list, observer) => {
             observers.push(observer);
             list.getEntries().forEach((entry) => {
               observer.disconnect();
-              if (entry.startTime < hiddenTime)
-                gb.logEvent("CWV:FID", { value: entry.startTime });
+              gb.logEvent("CWV:FID", { value: entry.startTime });
             });
           }).observe({ type: "first-input", buffered: true });
         }
 
-        // CLS (Cumulative Layout Shift)
+        // CLS
         if (trackCLS) {
           new PerformanceObserver((list, observer) => {
             observers.push(observer);
-            let cls = 0;
             list.getEntries().forEach((entry) => {
               // @ts-expect-error: types are incomplete
-              if (!entry?.hadRecentInput) {
+              if (!entry.hadRecentInput) {
                 // @ts-expect-error: types are incomplete
-                cls += entry?.value ?? 0;
+                clsValue += entry.value ?? 0;
               }
             });
-            gb.logEvent("CWV:CLS", { value: cls });
           }).observe({ type: "layout-shift", buffered: true });
         }
 
-        // TTFB (Time to First Byte)
+        // TTFB
         if (trackTTFB) {
           const navEntry = performance.getEntriesByType(
             "navigation"
@@ -131,27 +138,31 @@ export function browserPerformancePlugin({
           }
         }
 
-        // TBT (Total Blocking Time)
+        // TBT
         if (trackTBT) {
-          let tbt = 0;
+          let fcpTime = 0;
+          const fcpEntry = performance.getEntriesByName(
+            "first-contentful-paint"
+          )[0];
+          if (fcpEntry) {
+            fcpTime = (fcpEntry as PerformanceEntry).startTime;
+          }
+
           new PerformanceObserver((list, observer) => {
             observers.push(observer);
             for (const entry of list.getEntries()) {
               const blockingTime = Math.max(0, entry.duration - 50);
-              // Only considered blocking if occurred after FCP
               if (entry.startTime + entry.duration > fcpTime) {
-                tbt += blockingTime;
+                tbtValue += blockingTime;
               }
             }
-            gb.logEvent("CWV:TBT", { value: tbt });
           }).observe({ type: "long-task", buffered: true });
         }
-      } catch (e) {
-        // PerformanceObserver not fully supported
+      } catch {
+        // noop
       }
     }
 
-    // JavaScript Errors
     if (trackErrors) {
       window.addEventListener("error", (event) => {
         gb.logEvent("browser-error", {
