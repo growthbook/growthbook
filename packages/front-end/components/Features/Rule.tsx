@@ -188,7 +188,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     if (rule.type === "safe-rollout") {
       safeRollout = safeRolloutsMap.get(rule.safeRolloutId);
     }
-    console.log(safeRolloutStatusModalOpen, "safeRolloutStatusModalOpen");
     return (
       <Box {...props} ref={ref}>
         <Box mt="3">
@@ -320,7 +319,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         {safeRollout?.startedAt && (
                           <Box mt="3">
                             <DecisionBanner
-                              setStatusModal={setSafeRolloutStatusModalOpen}
+                              openStatusModal={() =>
+                                setSafeRolloutStatusModalOpen
+                              }
                             />
                             <SafeRolloutDetails
                               safeRollout={safeRollout}

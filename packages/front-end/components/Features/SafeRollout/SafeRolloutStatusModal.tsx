@@ -78,8 +78,6 @@ export default function SafeRolloutStatusModal({
     defaultStatus = "released";
   }
 
-  console.log(decisionStatus);
-
   const form = useForm<Status>({
     defaultValues: {
       status: defaultStatus,
