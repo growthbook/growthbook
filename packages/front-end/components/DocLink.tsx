@@ -81,6 +81,7 @@ const docSections = {
   prerequisites: "/features/prerequisites",
   statisticsSequential: "/statistics/sequential",
   customMarkdown: "/using/growthbook-best-practices#custom-markdown",
+  customMetadata: "/using/growthbook-best-practices#custom-fields",
   savedGroups: "/features/targeting#saved-groups",
   ga4BigQuery: "/guide/GA4-google-analytics",
   gtmSetup: "/guide/google-tag-manager-and-growthbook",

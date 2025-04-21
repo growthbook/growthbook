@@ -15,6 +15,8 @@ import Markdown from "@/components/Markdown/Markdown";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Frame from "@/components/Radix/Frame";
 import Button from "@/components/Radix/Button";
+import PremiumCallout from "@/components/Radix/PremiumCallout";
+import { useCustomFields } from "@/hooks/useCustomFields";
 import EditHypothesisModal from "../EditHypothesisModal";
 import EditDescriptionModal from "../EditDescriptionModal";
 
@@ -51,6 +53,7 @@ export default function SetupTabOverview({
       ? false
       : true
   );
+  const customFields = useCustomFields();
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -150,6 +153,19 @@ export default function SetupTabOverview({
                 and parameters of your experiment
               </Box>
             )}
+            {!customFields.length ? (
+              <PremiumCallout
+                mt="3"
+                commercialFeature="custom-metadata"
+                dismissable={true}
+                id="exp-description-custom-metadata"
+                docSection="customMetadata"
+              >
+                <strong>Custom Fields</strong> add structured metadata to
+                experiments and feature flags, like Jira links, categories and
+                more.
+              </PremiumCallout>
+            ) : null}
           </Collapsible>
         </Frame>
 
