@@ -60,10 +60,10 @@ const DecisionBanner = ({
   } else if (safeRollout.status === "released") {
     return (
       <Callout status="info">
-        This Safe Rollout is rolled back and a{" "}
-        <strong>Temporary Rollout</strong> is enabled. All users in the Safe
-        Rollout will receive the variation value. If no longer needed, you can
-        disable or delete the safe rollout rule.
+        This Safe Rollout is rolled out and a <strong>Temporary Rollout</strong>{" "}
+        is enabled. All users in the Safe Rollout will receive the variation
+        value. If no longer needed, you can disable or delete the safe rollout
+        rule.
       </Callout>
     );
   }
