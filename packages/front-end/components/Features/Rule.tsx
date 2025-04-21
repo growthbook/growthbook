@@ -324,6 +324,12 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                             />{" "}
                           </>
                         )}
+                        {!safeRollout?.startedAt && (
+                          <Callout status="info" mt="2">
+                            This safe rollout is in a draft state and will not
+                            start until this feature revision is published.
+                          </Callout>
+                        )}
                       </SafeRolloutSnapshotProvider>
                     ) : (
                       <div>
