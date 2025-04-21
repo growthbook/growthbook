@@ -18,6 +18,7 @@ import { StatsEngine } from "back-end/types/stats";
 import { ProjectInterface } from "back-end/types/project";
 import { ReportInterface } from "back-end/types/report";
 import { MetricWindowSettings } from "back-end/types/fact-table";
+import { ExperimentMetricInterface } from "../experiments";
 
 interface SettingMetadata {
   scopeApplied?: keyof ScopeDefinition | "organization";
@@ -42,7 +43,7 @@ export interface ScopeDefinition {
   project?: ProjectInterface;
   datasource?: DataSourceInterface;
   experiment?: ExperimentInterface | ExperimentInterfaceStringDates;
-  metric?: MetricInterface;
+  metric?: ExperimentMetricInterface;
   denominatorMetric?: MetricInterface;
   report?: ReportInterface;
 }

@@ -140,16 +140,19 @@ export type ExperimentType = typeof experimentType[number];
 export const banditStageType = ["explore", "exploit", "paused"] as const;
 export type BanditStageType = typeof banditStageType[number];
 
+export const metricTargetMDEOverride = z.object({
+  id: z.string(),
+  targetMDE: z.number(),
+});
+export type MetricTargetMDEOverride = z.infer<typeof metricTargetMDEOverride>;
+
 export const experimentAnalysisSettings = z
   .object({
     trackingKey: z.string(),
     datasource: z.string(),
     exposureQueryId: z.string(),
     goalMetrics: z.array(z.string()),
-    metricTargetMDEOverrides: z.array(z.object({
-      id: z.string(),
-      targetMDE: z.number(),
-    })).optional(),
+    metricTargetMDEOverrides: z.array(metricTargetMDEOverride).optional(),
     secondaryMetrics: z.array(z.string()),
     guardrailMetrics: z.array(z.string()),
     activationMetric: z.string().optional(),

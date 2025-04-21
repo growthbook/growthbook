@@ -511,7 +511,8 @@ export function getSnapshotSettings({
         m,
         metricMap,
         settingsForSnapshotMetrics,
-        experiment.metricOverrides
+        experiment.metricOverrides,
+        experiment.metricTargetMDEOverrides
       )
     )
     .filter(isDefined);

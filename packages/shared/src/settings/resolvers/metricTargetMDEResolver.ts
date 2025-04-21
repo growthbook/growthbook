@@ -1,6 +1,9 @@
+import { DEFAULT_TARGET_MDE } from "../../constants";
 import { SettingsResolver, Settings, SettingsContext } from "../types";
 
-export default function metricTargetMDEResolver(): SettingsResolver<Settings[keyof Settings]> {
+export default function metricTargetMDEResolver(): SettingsResolver<
+  Settings[keyof Settings]
+> {
   return (ctx: SettingsContext) => {
     const metricTargetMDEOverride = ctx.scopes?.experiment?.metricTargetMDEOverrides?.find(
       (mo) => mo.id === ctx.scopes?.metric?.id
@@ -16,24 +19,11 @@ export default function metricTargetMDEResolver(): SettingsResolver<Settings[key
       };
     }
 
-    if (ctx.scopes?.metric?.targetMDE !== undefined) {
-      return {
-        value: ctx.scopes?.metric?.targetMDE,
-        meta: {
-          scopeApplied: "metric",
-          reason: "metric-level setting applied",
-        },
-      };
-    }
-    // TODO: report override?
-
-    const metricDefaults = ctx.scopes?.organization.settings?.metricDefaults;
-
     return {
-      value: metricDefaults?.targetMDE ?? null,
+      value: ctx.scopes?.metric?.targetMDE ?? DEFAULT_TARGET_MDE,
       meta: {
-        scopeApplied: "organization",
-        reason: "org-level setting applied",
+        scopeApplied: "metric",
+        reason: "metric-level setting applied",
       },
     };
   };

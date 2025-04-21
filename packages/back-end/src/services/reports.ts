@@ -5,6 +5,7 @@ import {
   DEFAULT_METRIC_WINDOW_HOURS,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_STATS_ENGINE,
+  DEFAULT_TARGET_MDE,
 } from "shared/constants";
 import {
   isFactMetric,
@@ -63,6 +64,7 @@ import { ReqContextClass } from "back-end/src/services/context";
 import { getMetricsByIds } from "back-end/src/models/MetricModel";
 import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
 import { ProjectInterface } from "back-end/types/project";
+import { MetricTargetMDEOverride } from "back-end/src/validators/experiments";
 
 export function getReportVariations(
   experiment: ExperimentInterface,
@@ -180,7 +182,8 @@ export function getSnapshotSettingsFromReportArgs(
           m,
           metricMap,
           args.settingsForSnapshotMetrics,
-          args.metricOverrides
+          args.metricOverrides,
+          [] // TODO: add targetMDE overrides
         )
       )
       .filter(isDefined),
@@ -216,12 +219,14 @@ export function getMetricForSnapshot(
   id: string | null | undefined,
   metricMap: Map<string, ExperimentMetricInterface>,
   settingsForSnapshotMetrics?: MetricSnapshotSettings[],
-  metricOverrides?: MetricOverride[]
+  metricOverrides?: MetricOverride[],
+  metricTargetMDEOverrides?: MetricTargetMDEOverride[]
 ): MetricForSnapshot | null {
   if (!id) return null;
   const metric = metricMap.get(id);
   if (!metric) return null;
   const overrides = metricOverrides?.find((o) => o.id === id);
+  const targetMDEOverride = metricTargetMDEOverrides?.find((o) => o.id === id);
   const metricSnapshotSettings = settingsForSnapshotMetrics?.find(
     (s) => s.metric === id
   );
@@ -272,6 +277,8 @@ export function getMetricForSnapshot(
         metricSnapshotSettings?.regressionAdjustmentAvailable ?? true,
       regressionAdjustmentReason:
         metricSnapshotSettings?.regressionAdjustmentReason ?? "",
+      targetMDE:
+        targetMDEOverride?.targetMDE ?? metric.targetMDE ?? DEFAULT_TARGET_MDE,
     },
   };
 }
