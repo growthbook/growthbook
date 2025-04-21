@@ -21,12 +21,10 @@ import RefreshSnapshotButton from "./RefreshSnapshotButton";
 
 export interface Props {
   safeRollout: SafeRolloutInterface;
-  mutate: () => void;
 }
 
 export default function SafeRolloutAnalysisSettingsSummary({
   safeRollout,
-  mutate,
 }: Props) {
   const {
     getDatasourceById,
@@ -141,7 +139,6 @@ export default function SafeRolloutAnalysisSettingsSummary({
                       cancelEndpoint={`safe-rollout/snapshot/${latest.id}/cancel`}
                       mutate={() => {
                         mutateSnapshot();
-                        mutate();
                       }}
                       model={latest}
                       icon="refresh"
@@ -154,7 +151,6 @@ export default function SafeRolloutAnalysisSettingsSummary({
                         })
                           .then(() => {
                             mutateSnapshot();
-                            mutate();
                             setRefreshError("");
                           })
                           .catch((e) => {
@@ -166,7 +162,6 @@ export default function SafeRolloutAnalysisSettingsSummary({
                     <RefreshSnapshotButton
                       mutate={() => {
                         mutateSnapshot();
-                        mutate();
                       }}
                       safeRollout={safeRollout}
                     />

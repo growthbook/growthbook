@@ -353,7 +353,7 @@ export async function _createSafeRolloutSnapshot({
   }
   const safeRolloutRule = getSafeRolloutRuleFromFeature(
     feature,
-    safeRollout.ruleId
+    safeRollout.id
   );
   if (!safeRolloutRule) {
     throw new Error("Could not load safe rollout rule");
