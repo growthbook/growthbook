@@ -6,11 +6,14 @@ import {
 
 export function getSafeRolloutRuleFromFeature(
   feature: FeatureInterface,
-  ruleId: string
+  safeRolloutId: string
 ): SafeRolloutRule | null {
   Object.keys(feature.environmentSettings).forEach((env: string) =>
     feature.environmentSettings[env].rules.forEach((rule: FeatureRule) => {
-      if (rule.id === ruleId && rule.type === "safe-rollout") {
+      if (
+        rule.type === "safe-rollout" &&
+        rule.safeRolloutId === safeRolloutId
+      ) {
         return rule;
       }
     })

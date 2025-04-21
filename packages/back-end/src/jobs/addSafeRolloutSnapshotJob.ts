@@ -61,25 +61,25 @@ const updateSingleSafeRolloutSnapshot = trackJob(
   async (job: UpdateSingleSafeRolloutSnapshotJob) => {
     const { safeRollout } = job.attrs.data;
 
-    const { ruleId, organization, featureId } = safeRollout;
-    if (!ruleId || !organization || !featureId) return;
+    const { id, organization, featureId } = safeRollout;
+    if (!id || !organization || !featureId) return;
 
     const context = await getContextForAgendaJobByOrgId(organization);
     const feature = await getFeature(context, featureId);
     if (!feature) return;
 
-    const safeRolloutRule = getSafeRolloutRuleFromFeature(feature, ruleId);
+    const safeRolloutRule = getSafeRolloutRuleFromFeature(feature, id);
     if (!safeRolloutRule) return;
 
     try {
-      logger.info("Start Refreshing Results for SafeRollout " + ruleId);
+      logger.info("Start Refreshing Results for SafeRollout " + id);
       await createSafeRolloutSnapshot({
         context,
         safeRollout,
         triggeredBy: "schedule",
       });
     } catch (e) {
-      logger.error(e, "Failed to create SafeRollout Snapshot: " + ruleId);
+      logger.error(e, "Failed to create SafeRollout Snapshot: " + id);
     }
   }
 );

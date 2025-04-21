@@ -120,9 +120,10 @@ import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
 import { FeatureUsageLookback } from "back-end/src/types/Integration";
 import { getChangesToStartExperiment } from "back-end/src/services/experiments";
-import { getMetricMap } from "back-end/src/models/MetricModel";
-import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
-import { CreateProps } from "back-end/src/models/BaseModel";
+import {
+  SafeRolloutInterface,
+  validateCreateSafeRolloutFields,
+} from "back-end/src/validators/safe-rollout";
 import {
   PostFeatureRuleBody,
   PutFeatureRuleBody,
@@ -1177,107 +1178,46 @@ export async function postFeatureRule(
     context.permissions.throwPermissionError();
   }
 
-  const revision = await getDraftRevision(context, feature, parseInt(version));
-
-  // Validate that specified metrics exist and belong to the organization for safe-rollout rules
   if (rule.type === "safe-rollout") {
-    if (!safeRolloutFields) {
-      throw new Error("Safe Rollout fields must be set");
-    }
+    const validatedSafeRolloutFields = await validateCreateSafeRolloutFields(
+      safeRolloutFields,
+      context
+    );
 
-    if (!safeRolloutFields.maxDurationDays) {
-      throw new Error("Max duration days is required for safe rollouts");
-    }
-    // TODO: should this live on the rule?
-    if (rule.hashAttribute === undefined) {
-      throw new Error("Hash attribute is required for safe rollouts");
-    }
-    // TODO: are these required?
-    if (safeRolloutFields.exposureQueryId === undefined) {
-      throw new Error("Exposure query is required for safe rollouts");
-    }
-    if (safeRolloutFields.datasourceId === undefined) {
-      throw new Error("Datasource is required for safe rollouts");
-    }
-    if (safeRolloutFields.guardrailMetricIds === undefined) {
-      throw new Error("Please select at least 1 guardrail metric");
-    }
-
-    const metricIds = safeRolloutFields.guardrailMetricIds;
-    const datasourceId = safeRolloutFields.datasourceId;
-    if (metricIds.length) {
-      const map = await getMetricMap(context);
-      for (let i = 0; i < metricIds.length; i++) {
-        const metric = map.get(metricIds[i]);
-        if (metric) {
-          if (datasourceId && metric.datasource !== datasourceId) {
-            throw new Error(
-              "Metrics must be tied to the same datasource as the safe rollout: " +
-                metricIds[i]
-            );
-          }
-        } else {
-          // check to see if this metric is actually a metric group
-          const metricGroup = await context.models.metricGroups.getById(
-            metricIds[i]
-          );
-          if (metricGroup) {
-            // Make sure it is tied to the same datasource as the experiment
-            if (datasourceId && metricGroup.datasource !== datasourceId) {
-              throw new Error(
-                "Metrics must be tied to the same datasource as the safe rollout: " +
-                  metricIds[i]
-              );
-            }
-          } else {
-            // new metric that's not recognized...
-            throw new Error("Invalid metric specified: " + metricIds[i]);
-          }
-        }
-      }
-    }
+    // Set default status for safe rollout rule
     rule.status = "running";
     rule.seed = rule.seed || uuidv4();
     rule.trackingKey = rule.trackingKey || `srk_${uuidv4()}`;
-    const safeRolloutCreateProps: CreateProps<SafeRolloutInterface> = {
-      ...safeRolloutFields,
-      hashAttribute: rule.hashAttribute,
-      status: rule.status,
-      // TODO are these mandatory
-      datasourceId: safeRolloutFields.datasourceId,
-      exposureQueryId: safeRolloutFields.exposureQueryId,
-      autoSnapshots: true,
-      guardrailMetricIds: safeRolloutFields.guardrailMetricIds,
-      maxDurationDays: safeRolloutFields.maxDurationDays,
-      featureId: feature.id,
-      ruleId: rule.id,
-      environment: environment,
-    };
 
-    const safeRollout = await context.models.safeRollout.create(
-      safeRolloutCreateProps
-    );
+    const safeRollout = await context.models.safeRollout.create({
+      ...validatedSafeRolloutFields,
+      environment,
+      featureId: feature.id,
+      status: rule.status,
+      autoSnapshots: true,
+    });
 
     if (!safeRollout) {
       throw new Error("Failed to create safe rollout");
     }
-
     rule.safeRolloutId = safeRollout.id;
-
-    const resetReview = resetReviewOnChange({
-      feature,
-      changedEnvironments: [environment],
-      defaultValueChanged: false,
-      settings: org?.settings,
-    });
-    await addFeatureRule(
-      revision,
-      environment,
-      rule,
-      res.locals.eventAudit,
-      resetReview
-    );
   }
+
+  const revision = await getDraftRevision(context, feature, parseInt(version));
+
+  const resetReview = resetReviewOnChange({
+    feature,
+    changedEnvironments: [environment],
+    defaultValueChanged: false,
+    settings: org?.settings,
+  });
+  await addFeatureRule(
+    revision,
+    environment,
+    rule,
+    res.locals.eventAudit,
+    resetReview
+  );
 
   // If referencing a new experiment, add it to linkedExperiments
   if (
@@ -1770,7 +1710,6 @@ export async function putFeatureRule(
           "startedAt",
         ]),
         status: rule.status || existingSafeRollout.status || "draft",
-        hashAttribute: rule.hashAttribute || existingSafeRollout.hashAttribute,
       });
     }
     if (existingSafeRollout.startedAt) {
