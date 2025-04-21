@@ -1,4 +1,4 @@
-import {ReactNode, FC, useState, ReactElement, isValidElement} from "react";
+import { ReactNode, FC, useState, ReactElement, isValidElement } from "react";
 import Modal from "@/components/Modal";
 
 const ConfirmButton: FC<{
