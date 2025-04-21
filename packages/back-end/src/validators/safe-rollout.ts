@@ -16,7 +16,6 @@ export type SafeRolloutStatus = typeof safeRolloutStatusArray[number];
 const safeRollout = z.object({
   // Refs
   featureId: z.string(),
-  ruleId: z.string(),
   environment: z.string(),
 
   // User defined fields

@@ -1192,7 +1192,6 @@ export async function postFeatureRule(
     const safeRollout = await context.models.safeRollout.create({
       ...validatedSafeRolloutFields,
       environment,
-      ruleId: rule.id,
       featureId: feature.id,
       status: rule.status,
       autoSnapshots: true,
@@ -1711,7 +1710,6 @@ export async function putFeatureRule(
           "startedAt",
         ]),
         status: rule.status || existingSafeRollout.status || "draft",
-        hashAttribute: rule.hashAttribute || existingSafeRollout.hashAttribute,
       });
     }
     if (existingSafeRollout.startedAt) {
