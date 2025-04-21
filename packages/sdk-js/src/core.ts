@@ -1094,7 +1094,7 @@ export async function getAllStickyBucketAssignmentDocs(
   return stickyBucketService.getAllAssignments(attributes);
 }
 
-function getStickyBucketAttributes(
+export function getStickyBucketAttributes(
   ctx: EvalContext,
   data?: FeatureApiResponse
 ): Record<string, string> {

@@ -89,6 +89,32 @@ export abstract class StickyBucketService {
   }
 }
 
+export abstract class StickyBucketServiceSync extends StickyBucketService {
+  abstract getAssignmentsSync(
+    attributeName: string,
+    attributeValue: string
+  ): StickyAssignmentsDocument | null;
+
+  abstract saveAssignmentsSync(doc: StickyAssignmentsDocument): void;
+
+  getAllAssignmentsSync(
+    attributes: Record<string, string>
+  ): Record<StickyAttributeKey, StickyAssignmentsDocument> {
+    const docs: Record<string, StickyAssignmentsDocument> = {};
+    Object.entries(attributes)
+      .map(([attributeName, attributeValue]) =>
+        this.getAssignmentsSync(attributeName, attributeValue)
+      )
+      .forEach((doc) => {
+        if (doc) {
+          const key = `${doc.attributeName}||${doc.attributeValue}`;
+          docs[key] = doc;
+        }
+      });
+    return docs;
+  }
+}
+
 export class LocalStorageStickyBucketService extends StickyBucketService {
   private localStorage: LocalStorageCompat | undefined;
   constructor(opts?: { prefix?: string; localStorage?: LocalStorageCompat }) {
@@ -127,7 +153,7 @@ export class LocalStorageStickyBucketService extends StickyBucketService {
   }
 }
 
-export class ExpressCookieStickyBucketService extends StickyBucketService {
+export class ExpressCookieStickyBucketService extends StickyBucketServiceSync {
   /**
    * Intended to be used with cookieParser() middleware from npm: 'cookie-parser'.
    * Assumes:
@@ -155,7 +181,7 @@ export class ExpressCookieStickyBucketService extends StickyBucketService {
     this.res = res;
     this.cookieAttributes = cookieAttributes;
   }
-  async getAssignments(attributeName: string, attributeValue: string) {
+  getAssignmentsSync(attributeName: string, attributeValue: string) {
     const key = this.getKey(attributeName, attributeValue);
     let doc: StickyAssignmentsDocument | null = null;
     if (!this.req) return doc;
@@ -170,7 +196,10 @@ export class ExpressCookieStickyBucketService extends StickyBucketService {
     }
     return doc;
   }
-  async saveAssignments(doc: StickyAssignmentsDocument) {
+  async getAssignments(attributeName: string, attributeValue: string) {
+    return await this.getAssignmentsSync(attributeName, attributeValue);
+  }
+  saveAssignmentsSync(doc: StickyAssignmentsDocument) {
     const key = this.getKey(doc.attributeName, doc.attributeValue);
     if (!this.res) return;
     const str = JSON.stringify(doc);
@@ -180,9 +209,12 @@ export class ExpressCookieStickyBucketService extends StickyBucketService {
       this.cookieAttributes
     );
   }
+  async saveAssignments(doc: StickyAssignmentsDocument) {
+    await this.saveAssignmentsSync(doc);
+  }
 }
 
-export class BrowserCookieStickyBucketService extends StickyBucketService {
+export class BrowserCookieStickyBucketService extends StickyBucketServiceSync {
   /**
    * Intended to be used with npm: 'js-cookie'.
    * Assumes:
@@ -206,7 +238,7 @@ export class BrowserCookieStickyBucketService extends StickyBucketService {
     this.jsCookie = jsCookie;
     this.cookieAttributes = cookieAttributes;
   }
-  async getAssignments(attributeName: string, attributeValue: string) {
+  getAssignmentsSync(attributeName: string, attributeValue: string) {
     const key = this.getKey(attributeName, attributeValue);
     let doc: StickyAssignmentsDocument | null = null;
     if (!this.jsCookie) return doc;
@@ -221,11 +253,17 @@ export class BrowserCookieStickyBucketService extends StickyBucketService {
     }
     return doc;
   }
-  async saveAssignments(doc: StickyAssignmentsDocument) {
+  async getAssignments(attributeName: string, attributeValue: string) {
+    return await this.getAssignmentsSync(attributeName, attributeValue);
+  }
+  async saveAssignmentsSync(doc: StickyAssignmentsDocument) {
     const key = this.getKey(doc.attributeName, doc.attributeValue);
     if (!this.jsCookie) return;
     const str = JSON.stringify(doc);
     this.jsCookie.set(key, str, this.cookieAttributes);
+  }
+  async saveAssignments(doc: StickyAssignmentsDocument) {
+    await this.saveAssignmentsSync(doc);
   }
 }
 

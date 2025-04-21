@@ -50,7 +50,9 @@ import {
   getAllStickyBucketAssignmentDocs,
   decryptPayload,
   getApiHosts,
+  getStickyBucketAttributes,
 } from "./core";
+import { StickyBucketServiceSync } from "./sticky-bucket-service";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -1150,6 +1152,20 @@ export class GrowthBook<
       );
       this._options.stickyBucketAssignmentDocs = docs;
     }
+  }
+
+  public generateStickyBucketAssignmentDocsSync(
+    stickyBucketService: StickyBucketServiceSync,
+    payload: FeatureApiResponse
+  ) {
+    if (!("getAllAssignmentsSync" in stickyBucketService)) {
+      throw new Error(
+        "generating StickyBucketAssignmentDocs docs requires StickyBucketServiceSync"
+      );
+    }
+    const ctx = this._getEvalContext();
+    const attributes = getStickyBucketAttributes(ctx, payload);
+    return stickyBucketService?.getAllAssignmentsSync(attributes);
   }
 }
 
