@@ -301,26 +301,39 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           rule={rule}
                           feature={feature}
                         />
-                        <SafeRolloutStatusModal
-                          safeRollout={safeRollout}
-                          rule={rule}
-                          featureId={feature.id}
-                          environment={environment}
-                          version={version}
-                          i={i}
-                          setVersion={setVersion}
-                          mutate={mutate}
-                          open={safeRolloutStatusModalOpen}
-                          setStatusModalOpen={setSafeRolloutStatusModalOpen}
-                          defaultStatus={safeRollout.status}
-                        />
-                        <DecisionBanner
-                          setStatusModal={setSafeRolloutStatusModalOpen}
-                        />
-                        <SafeRolloutDetails
-                          safeRollout={safeRollout}
-                          feature={feature}
-                        />
+
+                        {safeRollout?.startedAt && (
+                          <SafeRolloutStatusModal
+                            safeRollout={safeRollout}
+                            rule={rule}
+                            featureId={feature.id}
+                            environment={environment}
+                            version={version}
+                            i={i}
+                            setVersion={setVersion}
+                            mutate={mutate}
+                            open={safeRolloutStatusModalOpen}
+                            setStatusModalOpen={setSafeRolloutStatusModalOpen}
+                            defaultStatus={safeRollout.status}
+                          />
+                        )}
+                        {safeRollout?.startedAt && (
+                          <Box mt="3">
+                            <DecisionBanner
+                              setStatusModal={setSafeRolloutStatusModalOpen}
+                            />
+                            <SafeRolloutDetails
+                              safeRollout={safeRollout}
+                              feature={feature}
+                            />{" "}
+                          </Box>
+                        )}
+                        {!safeRollout?.startedAt && (
+                          <Callout status="info" mt="2">
+                            This safe rollout is in a draft state and will not
+                            start until this feature revision is published.
+                          </Callout>
+                        )}
                       </SafeRolloutSnapshotProvider>
                     ) : (
                       <div>

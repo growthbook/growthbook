@@ -96,7 +96,7 @@ export default function SafeRolloutSummary({
           <strong className="font-weight-semibold">SERVE</strong>
         </Box>
         <Box>
-          <ValueDisplay value={controlValue} type={type} />
+          <ValueDisplay value={variationValue} type={type} />
         </Box>
       </Flex>
       <Flex gap="3" className="mt-2">
@@ -104,7 +104,7 @@ export default function SafeRolloutSummary({
           <strong className="font-weight-semibold">COMPARE AGAINST</strong>
         </Box>
         <Box>
-          <ValueDisplay value={variationValue} type={type} />
+          <ValueDisplay value={controlValue} type={type} />
         </Box>
       </Flex>
       <Flex gap="3" className="mt-2">

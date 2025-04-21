@@ -27,7 +27,7 @@ export interface Props {
   i: number;
   featureId: string;
   defaultStatus: StatusValues;
-  mutate?: () => Promise<unknown>;
+  mutate?: () => void;
 }
 
 export default function SafeRolloutStatusModal({
