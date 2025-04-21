@@ -846,7 +846,7 @@ export default function RuleModal({
       : "Rule";
   const trackingEventModalType = kebabCase(headerText);
   headerText += ` in ${environment}`;
-  console.log(ruleType, "ruleType");
+
   return (
     <FormProvider {...form}>
       <PagedModal

@@ -25,7 +25,7 @@ export default function SafeRolloutSummary({
   const { controlValue, variationValue } = rule;
   const type = feature.valueType;
   const coveragePercent = (coverage / 2) * 100;
-  console.log("coverage", coverage);
+
   return (
     <Box>
       <div className="mb-2">

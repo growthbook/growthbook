@@ -43,7 +43,7 @@ export default function SafeRolloutAnalysisSettingsSummary({
     analysis,
     mutateSnapshot,
   } = useSafeRolloutSnapshot();
-  console.log("latest", latest);
+
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const [refreshError, setRefreshError] = useState("");
 
