@@ -27,6 +27,7 @@ import {
 import { FeatureUsageLookback } from "back-end/src/types/Integration";
 import { Box, Flex, Heading, Switch, Text } from "@radix-ui/themes";
 import { RxListBullet } from "react-icons/rx";
+import { ArchetypeInterface } from "back-end/types/archetype";
 import Button from "@/components/Radix/Button";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -72,6 +73,8 @@ import Badge from "@/components/Radix/Badge";
 import Frame from "@/components/Radix/Frame";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import JSONValidation from "@/components/Features/JSONValidation";
+import useApi from "@/hooks/useApi";
+import PremiumCallout from "../Radix/PremiumCallout";
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";
@@ -112,6 +115,12 @@ export default function FeaturesOverview({
 }) {
   const router = useRouter();
   const { fid } = router.query;
+
+  const { data } = useApi<{
+    archetype: ArchetypeInterface[];
+  }>("/archetype");
+
+  const archetypes = data?.archetype || [];
 
   const settings = useOrgSettings();
   const [edit, setEdit] = useState(false);
@@ -1073,6 +1082,18 @@ export default function FeaturesOverview({
                         Default Value.
                       </p>
                     )}
+                    {!archetypes.length ? (
+                      <PremiumCallout
+                        commercialFeature="archetypes"
+                        dismissable={true}
+                        id="feature-archetypes-promo"
+                        mb="4"
+                        docSection="archetypes"
+                      >
+                        Use Archetypes to save sets of user attributes and
+                        simulate the feature flag value assigned.
+                      </PremiumCallout>
+                    ) : null}
 
                     <FeatureRules
                       environments={environments}
