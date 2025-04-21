@@ -603,7 +603,7 @@ pre {
     }
     &.pinned {
       position: sticky;
-      z-index: 830;
+      z-index: 930;
       // ensure no shadow bleeds above component, otherwise noticeable when scrolling quickly
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), 0 4px 4px rgba(0, 0, 0, 0.025);
       .header-tabs .tab-wrapper {
@@ -613,6 +613,9 @@ pre {
         box-shadow: none !important;
       }
     }
+  }
+  .analysis-settings-top {
+    background-color: var(--color-panel-translucent);
   }
 }
 .tabwrap.sticky {
@@ -656,6 +659,10 @@ pre {
     tr:not(.noborder) {
       box-shadow: rgba(102, 102, 102, 0.125) 0 -1px inset;
 
+      &:last-of-type {
+        box-shadow: rgba(102, 102, 102, 0.125) 0 -2px inset;
+      }
+
       &:not(.results-label-row) {
         td:not(.graph-cell):not(:last-child) {
           box-shadow: rgba(102, 102, 102, 0.125) -1px 0 inset;
@@ -683,9 +690,9 @@ pre {
           position: static;
         }
       }
-      background-color: var(--surface-background-color);
+      background-color: var(--color-panel-solid);
       z-index: 800;
-      box-shadow: 0 -1px 0 var(--text-link-hover-color) inset;
+      box-shadow: 0 -1px 0 var(--slate-9) inset;
 
       &.graph-cell {
         z-index: 801;
@@ -697,7 +704,7 @@ pre {
       }
 
       &.label {
-        color: var(--text-link-hover-color);
+        color: var(--color-text-mid);
         font-size: 13px;
         padding-bottom: 5px;
       }
@@ -727,7 +734,7 @@ pre {
   }
   .result-number-sub {
     font-size: 12px;
-    font-style: italic;
+    //font-style: italic;
     line-height: 14px;
     margin-top: 3px;
   }
@@ -754,25 +761,25 @@ pre {
     }
   }
   .won {
-    color: #00936f;
+    color: var(--jade-11);
     font-weight: bold;
 
     &.results-ctw,
     &.results-pval,
     &.results-mean {
       color: var(--alert-success-color);
-      background: rgba(10, 159, 106, 0.19);
+      background: var(--jade-a3); //rgba(10, 159, 106, 0.19);
     }
   }
   .lost {
-    color: #bb1f37;
+    color: var(--red-11); //#bb1f37;
     font-weight: bold;
 
     &.results-ctw,
     &.results-pval,
     &.results-mean {
       color: var(--alert-danger-color);
-      background: #ce372930;
+      background: var(--red-a3); //#ce372930;
     }
   }
   //&.draw {
@@ -802,6 +809,11 @@ main.main {
   &.public.experiment {
     .experiment-results th.axis-col {
       top: 95px;
+    }
+  }
+  .select-dropdown-underline {
+    .gb-select__control {
+      background-color: inherit !important;
     }
   }
 }
@@ -954,7 +966,7 @@ main.main {
 
 .modal {
   .modal-header {
-    background-color: var(--surface-background-color-alt);
+    background-color: var(--slate-a2);
   }
   .rbt-token {
     background-color: rgba(colors.$highlight-purple, 0.1);
@@ -998,6 +1010,20 @@ main.main {
   td {
     vertical-align: middle;
   }
+
+  .dark &.decision-criteria-table {
+    tbody {
+      tr {
+        background-color: #1b2339;
+        td {
+          color: var(--text-color-main);
+        }
+      }
+    }
+    .hover-highlight:hover {
+      background-color: rgba(124, 69, 234, 0.06);
+    }
+  }
 }
 .dark .gbtable {
   thead {
@@ -1007,6 +1033,24 @@ main.main {
   }
   td {
     vertical-align: middle;
+  }
+}
+
+.query-table {
+  thead {
+    th {
+      background-color: var(--slate-2);
+    }
+  }
+}
+
+.dark .query-table {
+  thead {
+    th {
+      // hard coded to match slate-a2 on the background color
+      // opaque to prevent table header from showing through
+      background-color: rgba(36, 43, 61, 1);
+    }
   }
 }
 
@@ -1294,6 +1338,9 @@ main.main {
 
   &.nobg {
     background-color: initial;
+    .appbox {
+      background-color: var(--color-panel-solid);
+    }
   }
   td {
     vertical-align: middle;
@@ -1313,6 +1360,10 @@ main.main {
       opacity: 1;
     }
   }
+}
+.dark .appbox:not(.nobg) .appbox,
+.dark .box:not(.nobg) .appbox {
+  background-color: var(--white-a1);
 }
 
 .appbox--align-top {
@@ -1344,7 +1395,7 @@ main.main {
 .Collapsible__trigger {
   &:hover {
     cursor: pointer;
-    color: var(--text-link-color);
+    //color: var(--text-link-color);
     .hover-label {
       color: var(--text-link-color) !important;
     }
@@ -1416,7 +1467,7 @@ main.main {
     &::before {
       content: "";
       transform: rotate(45deg);
-      background-color: var(--slate-12);
+      background-color: var(--slate-1);
       box-shadow: 0 1rem 3rem rgb(0 0 0 / 18%);
       position: absolute;
       width: 8px;
@@ -1426,13 +1477,19 @@ main.main {
   }
 
   .body {
-    color: var(--slate-1);
-    background-color: var(--slate-12);
+    color: var(--slate-12);
+    background-color: var(--slate-1);
     padding: 15px;
     border-radius: 5px;
 
+    .text-muted {
+      color: var(--slate-a11) !important;
+    }
     *:last-child {
       margin-bottom: 0;
+    }
+    .gbtable {
+      background-color: var(--surface-background-color);
     }
   }
 
@@ -1981,7 +2038,7 @@ main.main {
 .variation {
   $colors: colors.$variant-0, colors.$variant-1, colors.$variant-2,
     colors.$variant-3, colors.$variant-4, colors.$variant-5, colors.$variant-6,
-    colors.$variant-7;
+    colors.$variant-7, colors.$variant-8;
 
   &.with-variation-label {
     .label {
@@ -1991,15 +2048,16 @@ main.main {
       justify-content: center;
       width: 24px;
       height: 24px;
-      color: colors.$variant-null;
+      line-height: 24px;
+      color: var(--slate-11);
       font-weight: 600;
-      border: 1.5px solid transparentize(colors.$variant-null, 0.35);
+      border: 1.5px solid var(--slate-a11);
       border-radius: 20px;
-      margin-right: 4px;
+      margin-right: var(--space-2);
     }
 
     .name {
-      color: colors.$variant-null;
+      color: var(--slate-11);
       margin-right: 4px;
     }
 
@@ -2008,7 +2066,7 @@ main.main {
       $color: nth($colors, $color-index + 1);
       &.variation#{$i} {
         .label {
-          border-color: transparentize($color, 0.35);
+          border-color: $color;
           color: $color;
         }
 
@@ -2020,7 +2078,7 @@ main.main {
   }
 
   &.with-variation-border-bottom {
-    border-bottom: 7px solid colors.$variant-null;
+    border-bottom: 7px solid var(--slate-11);
 
     @for $i from 0 through 99 {
       $color-index: $i % length($colors);
@@ -2030,9 +2088,30 @@ main.main {
       }
     }
   }
+  &.with-small-border {
+    border-top: 4px solid var(--slate-11);
+    @for $i from 0 through 99 {
+      $color-index: $i % length($colors);
+      $color: nth($colors, $color-index + 1);
+      &.variation#{$i} {
+        border-top: 4px solid $color;
+      }
+    }
+  }
+  &.with-variation-color {
+    background-color: var(--slate-11);
+
+    @for $i from 0 through 99 {
+      $color-index: $i % length($colors);
+      $color: nth($colors, $color-index + 1);
+      &.variation#{$i} {
+        background-color: $color;
+      }
+    }
+  }
 
   &.with-variation-right-shadow {
-    box-shadow: -3px 0 0 colors.$variant-null inset;
+    box-shadow: -3px 0 0 var(--slate-11) inset;
 
     @for $i from 0 through 99 {
       $color-index: $i % length($colors);
@@ -2339,7 +2418,7 @@ li.metrics a span img {
 .experiment-details,
 .metric {
   .tab-content {
-    background-color: var(--surface-background-color);
+    //background-color: var(--surface-background-color);
     padding: 1rem;
     &:not(.noborder) {
       border: 1px solid var(--border-color-200);
@@ -2656,7 +2735,8 @@ html {
     font-size: 10px;
   }
 }
-.select-dropdown-underline {
+.select-dropdown-underline,
+.select-dropdown-no-underline {
   position: relative !important;
   top: 1px !important;
 
@@ -2667,6 +2747,7 @@ html {
     height: 24px !important;
     min-height: initial !important;
     cursor: pointer !important;
+    background-color: inherit !important;
     .gb-select__value-container {
       position: relative !important;
       top: -1px !important;
@@ -2727,6 +2808,16 @@ html {
     }
   }
 }
+.select-dropdown-no-underline {
+  .gb-select__control {
+    border-bottom: 0 transparent !important;
+
+    &:hover {
+      border-bottom: 0 transparent !important;
+    }
+  }
+}
+
 .phase-selector {
   .gb-select__control {
     background-color: transparent !important;
@@ -3173,7 +3264,7 @@ td.disabled {
 .gb-multi-select--is-disabled {
   .gb-select__control,
   .gb-multi-select__control {
-    background-color: var(--disabled-background) !important;
+    background-color: var(--slate-a2) !important;
   }
   .gb-select__single-value,
   .gb-multi-select__single-value {
@@ -3418,10 +3509,11 @@ input:disabled {
 }
 
 .custom-file-label {
-  background-color: unset;
+  background-color: var(--color-surface);
   display: flex;
   align-items: center;
   height: 2.625rem;
+  border-color: var(--border-color-300);
 
   &::after {
     display: flex;
@@ -3449,4 +3541,19 @@ input:disabled {
 
 .disabled-opacity {
   opacity: 0.65;
+}
+
+// CSS style alternative to <TabsTrigger> for when a custom container is necessary
+.tab-trigger-container {
+  position: relative !important;
+  &.active::before {
+    box-sizing: border-box;
+    content: "";
+    height: 2px;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: var(--accent-indicator);
+  }
 }

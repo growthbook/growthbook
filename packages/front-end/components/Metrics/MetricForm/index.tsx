@@ -17,6 +17,7 @@ import {
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { isProjectListValidForProject } from "shared/util";
 import Link from "next/link";
+import { isBinomialMetric } from "shared/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -258,6 +259,7 @@ const MetricForm: FC<MetricFormProps> = ({
     getMinSampleSizeForMetric,
     getMinPercentageChangeForMetric,
     getMaxPercentageChangeForMetric,
+    getTargetMDEForMetric,
     metricDefaults,
   } = useOrganizationMetricDefaults();
 
@@ -337,6 +339,7 @@ const MetricForm: FC<MetricFormProps> = ({
       loseRisk: (current.loseRisk || DEFAULT_LOSE_RISK_THRESHOLD) * 100,
       maxPercentChange: getMaxPercentageChangeForMetric(current) * 100,
       minPercentChange: getMinPercentageChangeForMetric(current) * 100,
+      targetMDE: getTargetMDEForMetric(current) * 100,
       minSampleSize: getMinSampleSizeForMetric(current),
       regressionAdjustmentOverride:
         current.regressionAdjustmentOverride ?? false,
@@ -459,11 +462,12 @@ const MetricForm: FC<MetricFormProps> = ({
 
   if (form.watch("denominator")) {
     const denominator = metrics.find((m) => m.id === form.watch("denominator"));
-    if (denominator?.type === "count") {
+    if (denominator && !isBinomialMetric(denominator)) {
       regressionAdjustmentAvailableForMetric = false;
       regressionAdjustmentAvailableForMetricReason = (
         <>
-          Not available for ratio metrics with <em>count</em> denominators.
+          Not available for ratio metrics with <em>{denominator.type}</em>{" "}
+          denominators, unless you use Fact Tables.
         </>
       );
     }
@@ -510,6 +514,7 @@ const MetricForm: FC<MetricFormProps> = ({
       loseRisk,
       maxPercentChange,
       minPercentChange,
+      targetMDE,
       eventName,
       valueColumn,
       ...otherValues
@@ -522,6 +527,7 @@ const MetricForm: FC<MetricFormProps> = ({
       loseRisk: loseRisk / 100,
       maxPercentChange: maxPercentChange / 100,
       minPercentChange: minPercentChange / 100,
+      targetMDE: targetMDE / 100,
     };
 
     if (value.loseRisk < value.winRisk) return;
@@ -1315,7 +1321,7 @@ const MetricForm: FC<MetricFormProps> = ({
                 helpText={`An experiment that changes the metric by more than this percent will
             be flagged as suspicious (default ${
               metricDefaults.maxPercentageChange * 100
-            })`}
+            }%)`}
               />
               <Field
                 label="Min Percent Change"
@@ -1326,7 +1332,17 @@ const MetricForm: FC<MetricFormProps> = ({
                 helpText={`An experiment that changes the metric by less than this percent will be
             considered a draw (default ${
               metricDefaults.minPercentageChange * 100
-            })`}
+            }%)`}
+              />
+              <Field
+                label="Target MDE"
+                type="number"
+                step="any"
+                append="%"
+                {...form.register("targetMDE", { valueAsNumber: true })}
+                helpText={`The percentage change that you want to reliably detect before ending your experiment. This is used to estimate the "Days Left" for running experiments. (default ${
+                  metricDefaults.targetMDE * 100
+                }%)`}
               />
 
               <PremiumTooltip commercialFeature="regression-adjustment">

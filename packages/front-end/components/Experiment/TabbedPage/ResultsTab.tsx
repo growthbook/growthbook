@@ -127,7 +127,6 @@ export default function ResultsTab({
   const denominatorMetrics = denominatorMetricIds
     .map((m) => getMetricById(m as string))
     .filter(isDefined);
-
   const orgSettings = useOrgSettings();
 
   const {
@@ -200,7 +199,7 @@ export default function ResultsTab({
         </Callout>
       ) : null}
 
-      <div className="bg-white border">
+      <div className="appbox">
         {analysisSettingsOpen && (
           <AnalysisForm
             cancel={() => setAnalysisSettingsOpen(false)}

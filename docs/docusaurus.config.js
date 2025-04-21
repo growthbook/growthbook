@@ -196,6 +196,8 @@ const config = {
           "dart",
           "groovy",
           "scala",
+          "json",
+          "bash",
         ],
       },
       colorMode: {

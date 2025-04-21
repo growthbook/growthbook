@@ -24,12 +24,13 @@ const capabilityParams = [
 type CapabilitiesParamKey = typeof capabilityParams[number][1];
 type CapabilitiesParams = { [k in CapabilitiesParamKey]?: boolean };
 
+// Redirects and Visual Editor are premium features, but they are blocked
+// When starting experiments, not when creating the SDK connection.
+// This way, free users can still preview the features in a draft.
 const premiumFeatures = [
   ["encrypt-features-endpoint", "encryptPayload"],
-  ["visual-editor", "includeVisualExperiments"],
   ["hash-secure-attributes", "hashSecureAttributes"],
   ["remote-evaluation", "remoteEvalEnabled"],
-  ["redirects", "includeRedirectExperiments"],
   ["cloud-proxy", "proxyEnabled"],
 ] as const;
 
@@ -55,6 +56,7 @@ interface CreateSdkConnectionRequestBody
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
+  includeRuleIds?: boolean;
   proxyHost?: string;
   hashSecureAttributes?: boolean;
 }
@@ -158,6 +160,7 @@ export async function validatePostPayload(
     includeDraftExperiments = false,
     includeExperimentNames = false,
     includeRedirectExperiments = false,
+    includeRuleIds = false,
     proxyEnabled,
     proxyHost,
     hashSecureAttributes = false,
@@ -190,6 +193,7 @@ export async function validatePostPayload(
     includeDraftExperiments,
     includeExperimentNames,
     includeRedirectExperiments,
+    includeRuleIds,
     proxyEnabled,
     proxyHost,
     hashSecureAttributes,
@@ -215,6 +219,7 @@ export async function validatePutPayload(
     includeDraftExperiments,
     includeExperimentNames,
     includeRedirectExperiments,
+    includeRuleIds,
     proxyEnabled,
     proxyHost,
     hashSecureAttributes,
@@ -248,6 +253,7 @@ export async function validatePutPayload(
     includeDraftExperiments,
     includeExperimentNames,
     includeRedirectExperiments,
+    includeRuleIds,
     proxyEnabled,
     proxyHost,
     hashSecureAttributes,

@@ -1,5 +1,6 @@
 export { StatsEngine } from "back-end/src/models/ProjectModel";
 
+import { BanditResult } from "back-end/src/validators/experiments";
 import type { MetricStats } from "./metric";
 
 export type PValueCorrection = null | "benjamini-hochberg" | "holm-bonferroni";
@@ -7,6 +8,10 @@ export type PValueCorrection = null | "benjamini-hochberg" | "holm-bonferroni";
 export type DifferenceType = "relative" | "absolute" | "scaled";
 
 export type RiskType = "relative" | "absolute";
+
+export type PValueErrorMessage =
+  | "NUMERICAL_PVALUE_NOT_CONVERGED"
+  | "ALPHA_GREATER_THAN_0.5_FOR_SEQUENTIAL_ONE_SIDED_TEST";
 
 interface BaseVariationResponse {
   cr: number;
@@ -22,6 +27,7 @@ interface BaseVariationResponse {
   };
   ci?: [number, number];
   errorMessage?: string;
+  power?: MetricPowerResponseFromStatsEngine;
 }
 
 interface BayesianVariationResponse extends BaseVariationResponse {
@@ -32,6 +38,21 @@ interface BayesianVariationResponse extends BaseVariationResponse {
 
 interface FrequentistVariationResponse extends BaseVariationResponse {
   pValue?: number;
+  pValueErrorMessage?: PValueErrorMessage;
+}
+
+// Keep in sync with gbstats PowerResponse
+export interface MetricPowerResponseFromStatsEngine {
+  status: string;
+  errorMessage?: string;
+  firstPeriodPairwiseSampleSize?: number;
+  targetMDE: number;
+  sigmahat2Delta?: number;
+  priorProper?: boolean;
+  priorLiftMean?: number;
+  priorLiftVariance?: number;
+  upperBoundAchieved?: boolean;
+  scalingFactor?: number;
 }
 
 interface BaseDimensionResponse {
@@ -65,18 +86,6 @@ export type SingleVariationResult = {
   users?: number;
   cr?: number;
   ci?: [number, number];
-};
-
-export type BanditResult = {
-  singleVariationResults?: SingleVariationResult[];
-  currentWeights: number[];
-  updatedWeights: number[];
-  srm: number;
-  bestArmProbabilities?: number[];
-  seed: number;
-  updateMessage?: string;
-  error?: string;
-  reweight?: boolean;
 };
 
 export type MultipleExperimentMetricAnalysis = {

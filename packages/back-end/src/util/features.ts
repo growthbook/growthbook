@@ -319,7 +319,6 @@ export function getFeatureDefinition({
   groupMap,
   experimentMap,
   revision,
-  returnRuleId = false,
   date,
 }: {
   feature: FeatureInterface;
@@ -327,7 +326,6 @@ export function getFeatureDefinition({
   groupMap: GroupMap;
   experimentMap: Map<string, ExperimentInterface>;
   revision?: FeatureRevisionInterface;
-  returnRuleId?: boolean;
   date?: Date;
 }): FeatureDefinitionWithProject | null {
   const settings = feature.environmentSettings?.[environment];
@@ -373,7 +371,9 @@ export function getFeatureDefinition({
         return isRuleEnabled(r, date);
       })
       ?.map((r) => {
-        const rule: FeatureDefinitionRule = {};
+        const rule: FeatureDefinitionRule = {
+          id: r.id,
+        };
 
         // Experiment reference rules inherit everything from the experiment
         if (r.type === "experiment-ref") {
@@ -479,7 +479,6 @@ export function getFeatureDefinition({
             rule.phase = exp.phases.length - 1 + "";
             rule.name = exp.name;
           }
-          if (returnRuleId) rule.id = r.id;
           return rule;
         }
 
@@ -560,7 +559,6 @@ export function getFeatureDefinition({
             rule.hashAttribute = r.hashAttribute;
           }
         }
-        if (returnRuleId) rule.id = r.id;
         return rule;
       })
       ?.filter(isRule) ?? []),

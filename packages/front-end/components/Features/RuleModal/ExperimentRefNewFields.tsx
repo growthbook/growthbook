@@ -6,7 +6,6 @@ import {
   SavedGroupTargeting,
 } from "back-end/types/feature";
 import React from "react";
-import { FaExclamationTriangle } from "react-icons/fa";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import Collapsible from "react-collapsible";
 import { Flex, Tooltip, Text } from "@radix-ui/themes";
@@ -31,7 +30,6 @@ import ConditionInput from "@/components/Features/ConditionInput";
 import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
-import Toggle from "@/components/Forms/Toggle";
 import ScheduleInputs from "@/components/Features/ScheduleInputs";
 import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
 import Checkbox from "@/components/Radix/Checkbox";
@@ -44,6 +42,7 @@ import { useTemplates } from "@/hooks/useTemplates";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { convertTemplateToExperimentRule } from "@/services/experiments";
 import { useUser } from "@/services/UserContext";
+import Callout from "@/components/Radix/Callout";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import {
   filterCustomFieldsForSectionAndProject,
@@ -384,53 +383,26 @@ export default function ExperimentRefNewFields({
             }
           />
           {isCyclic && (
-            <div className="alert alert-danger">
-              <FaExclamationTriangle /> A prerequisite (
-              <code>{cyclicFeatureId}</code>) creates a circular dependency.
-              Remove this prerequisite to continue.
-            </div>
+            <Callout status="error">
+              A prerequisite (<code>{cyclicFeatureId}</code>) creates a circular
+              dependency. Remove this prerequisite to continue.
+            </Callout>
           )}
 
-          {!isTemplate && source === "rule" && (
-            <>
-              <hr />
-              <div className="mt-4 mb-3">
-                <Toggle
-                  value={form.watch("autoStart")}
-                  setValue={(v) => form.setValue("autoStart", v)}
-                  id="auto-start-new-experiment"
-                />{" "}
-                <label
-                  htmlFor="auto-start-new-experiment"
-                  className="text-dark"
-                >
-                  Start Experiment Immediately
-                </label>
-                <div>
-                  <small className="form-text text-muted">
-                    If On, the Experiment will start serving traffic as soon as
-                    the feature is published. Leave Off if you want to make
-                    additional changes before starting.
-                  </small>
-                </div>
-                {!noSchedule &&
-                !form.watch("autoStart") &&
-                setScheduleToggleEnabled ? (
-                  <div>
-                    <hr />
-                    <ScheduleInputs
-                      defaultValue={defaultValues?.scheduleRules || []}
-                      onChange={(value) =>
-                        form.setValue("scheduleRules", value)
-                      }
-                      scheduleToggleEnabled={!!scheduleToggleEnabled}
-                      setScheduleToggleEnabled={setScheduleToggleEnabled}
-                    />
-                  </div>
-                ) : null}
-              </div>
-            </>
-          )}
+          {!isTemplate &&
+          source === "rule" &&
+          !noSchedule &&
+          setScheduleToggleEnabled ? (
+            <div className="mt-4 mb-3">
+              <hr className="mb-4" />
+              <ScheduleInputs
+                defaultValue={defaultValues?.scheduleRules || []}
+                onChange={(value) => form.setValue("scheduleRules", value)}
+                scheduleToggleEnabled={!!scheduleToggleEnabled}
+                setScheduleToggleEnabled={setScheduleToggleEnabled}
+              />
+            </div>
+          ) : null}
         </>
       ) : null}
       {step === 3 ? (

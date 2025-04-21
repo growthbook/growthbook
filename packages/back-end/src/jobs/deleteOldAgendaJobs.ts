@@ -1,5 +1,5 @@
 import Agenda from "agenda";
-import { trackJob } from "back-end/src/services/otel";
+import { trackJob } from "back-end/src/services/tracing";
 import { getAgendaInstance } from "back-end/src/services/queueing";
 import { logger } from "back-end/src/util/logger";
 const JOB_NAME = "deleteOldAgendaJobs";
@@ -27,7 +27,7 @@ const deleteOldAgendaJobs = trackJob(JOB_NAME, async () => {
 
   const deleteRes = await agenda._collection.deleteMany({ _id: { $in: ids } });
 
-  logger.info(
+  logger.debug(
     `Deleted ${deleteRes.deletedCount} old agenda jobs in ` +
       (Date.now() - startDate) +
       `ms`

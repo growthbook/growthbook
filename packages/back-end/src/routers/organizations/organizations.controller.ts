@@ -1,15 +1,6 @@
 import { Response } from "express";
 import { cloneDeep } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
-import {
-  accountFeatures,
-  getAccountPlan,
-  getEffectiveAccountPlan,
-  getLicense,
-  getLicenseError,
-  getLowestPlanPerFeature,
-  licenseInit,
-} from "enterprise";
 import { experimentHasLinkedChanges } from "shared/util";
 import {
   getRoles,
@@ -18,6 +9,7 @@ import {
   getDefaultRole,
 } from "shared/permissions";
 import uniqid from "uniqid";
+import { LicenseInterface, accountFeatures } from "shared/enterprise";
 import { getWatchedByUser } from "back-end/src/models/WatchModel";
 import {
   UpdateSdkWebhookProps,
@@ -53,6 +45,7 @@ import {
 import { updatePassword } from "back-end/src/services/users";
 import { getAllTags } from "back-end/src/models/TagModel";
 import {
+  GetOrganizationResponse,
   CreateOrganizationPostBody,
   Invite,
   MemberRoleWithProjects,
@@ -140,6 +133,16 @@ import {
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
 import { findSDKConnectionsByIds } from "back-end/src/models/SdkConnectionModel";
+import {
+  getLicense,
+  licenseInit,
+  getLowestPlanPerFeature,
+  getAccountPlan,
+  getEffectiveAccountPlan,
+  getLicenseError,
+  getSubscriptionFromLicense,
+} from "back-end/src/enterprise";
+import { getUsageFromCache } from "back-end/src/enterprise/billing";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
@@ -653,7 +656,10 @@ export async function putInviteRole(
   }
 }
 
-export async function getOrganization(req: AuthRequest, res: Response) {
+export async function getOrganization(
+  req: AuthRequest,
+  res: Response<GetOrganizationResponse | { status: 200; organization: null }>
+) {
   if (!req.organization) {
     return res.status(200).json({
       status: 200,
@@ -670,9 +676,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     name,
     id,
     url,
-    subscription,
     freeSeats,
-    connections,
     settings,
     disableSelfServeBilling,
     licenseKey,
@@ -681,17 +685,15 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     setupEventTracker,
   } = org;
 
-  let license;
+  let license: Partial<LicenseInterface> | null = null;
   if (licenseKey || process.env.LICENSE_KEY) {
     // automatically set the license data based on org license key
     license = getLicense(licenseKey || process.env.LICENSE_KEY);
     if (!license || (license.organizationId && license.organizationId !== id)) {
       try {
-        license = await licenseInit(
-          org,
-          getUserCodesForOrg,
-          getLicenseMetaData
-        );
+        license =
+          (await licenseInit(org, getUserCodesForOrg, getLicenseMetaData)) ||
+          null;
       } catch (e) {
         // eslint-disable-next-line no-console
         console.error("setting license failed", e);
@@ -759,26 +761,25 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     currentUserPermissions,
     teams: teamsWithMembers,
     license,
+    subscription: license ? getSubscriptionFromLicense(license) : null,
     watching: {
       experiments: watch?.experiments || [],
       features: watch?.features || [],
     },
     organization: {
-      invites: filteredInvites,
+      invites: filteredInvites as Invite[],
       ownerEmail,
       demographicData,
       externalId,
       name,
       id,
       url,
-      subscription,
       licenseKey,
       freeSeats,
       enterprise: org.enterprise,
       disableSelfServeBilling,
       freeTrialDate: org.freeTrialDate,
       discountCode: org.discountCode || "",
-      slackTeam: connections?.slack?.team,
       customRoles: org.customRoles,
       deactivatedRoles: org.deactivatedRoles,
       settings: {
@@ -795,6 +796,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       dateCreated: org.dateCreated,
     },
     seatsInUse,
+    usage: getUsageFromCache(org),
   });
 }
 
@@ -1090,6 +1092,7 @@ export async function postInviteAccept(
       throw new Error("Must be logged in");
     }
     const org = await acceptInvite(key, req.userId);
+    await licenseInit(org, getUserCodesForOrg, getLicenseMetaData, true);
 
     return res.status(200).json({
       status: 200,

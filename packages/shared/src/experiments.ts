@@ -1,6 +1,5 @@
 import { MetricInterface } from "back-end/types/metric";
 import {
-  ColumnInterface,
   ColumnRef,
   FactMetricInterface,
   FactTableColumnType,
@@ -52,23 +51,53 @@ export function isFactMetric(
 }
 
 export function canInlineFilterColumn(
-  factTable: Pick<FactTableInterface, "userIdTypes">,
-  column: Pick<ColumnInterface, "column" | "datatype" | "deleted">
+  factTable: Pick<FactTableInterface, "userIdTypes" | "columns">,
+  column: string
 ): boolean {
-  if (column.deleted) return false;
-
-  if (column.datatype !== "string") return false;
-
   // If the column is one of the identifier columns, it is not eligible for prompting
-  if (factTable.userIdTypes.includes(column.column)) return false;
+  if (factTable.userIdTypes.includes(column)) return false;
+
+  if (
+    getSelectedColumnDatatype({ factTable, column, excludeDeleted: true }) !==
+    "string"
+  ) {
+    return false;
+  }
 
   return true;
+}
+
+export function getColumnExpression(
+  column: string,
+  factTable: Pick<FactTableInterface, "columns">,
+  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string,
+  alias: string = ""
+): string {
+  const parts = column.split(".");
+  if (parts.length > 1) {
+    const col = factTable.columns.find((c) => c.column === parts[0]);
+    if (col?.datatype === "json") {
+      const path = parts.slice(1).join(".");
+
+      const field = col.jsonFields?.[path];
+      const isNumeric = field?.datatype === "number";
+
+      return jsonExtract(
+        alias ? `${alias}.${parts[0]}` : parts[0],
+        path,
+        isNumeric
+      );
+    }
+  }
+
+  return alias ? `${alias}.${column}` : column;
 }
 
 export function getColumnRefWhereClause(
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">,
   columnRef: ColumnRef,
   escapeStringLiteral: (s: string) => string,
+  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string,
   showSourceComment = false
 ): string[] {
   const inlineFilters = columnRef.inlineFilters || {};
@@ -84,12 +113,14 @@ export function getColumnRefWhereClause(
         .map((v) => "'" + escapeStringLiteral(v) + "'")
     );
 
+    const columnExpr = getColumnExpression(column, factTable, jsonExtract);
+
     if (!escapedValues.size) {
       return;
     } else if (escapedValues.size === 1) {
-      where.add(`${column} = ${[...escapedValues][0]}`);
+      where.add(`${columnExpr} = ${[...escapedValues][0]}`);
     } else {
-      where.add(`${column} IN (\n  ${[...escapedValues].join(",\n  ")}\n)`);
+      where.add(`${columnExpr} IN (\n  ${[...escapedValues].join(",\n  ")}\n)`);
     }
   });
 
@@ -201,10 +232,12 @@ export function isRegressionAdjusted(
   m: ExperimentMetricInterface,
   denominatorMetric?: ExperimentMetricInterface
 ) {
+  const isLegacyRatioMetric: boolean =
+    isRatioMetric(m, denominatorMetric) && !isFactMetric(m);
   return (
     (m.regressionAdjustmentDays ?? 0) > 0 &&
     !!m.regressionAdjustmentEnabled &&
-    !isRatioMetric(m, denominatorMetric) &&
+    !isLegacyRatioMetric &&
     !quantileMetricType(m)
   );
 }
@@ -236,12 +269,29 @@ export function getDelayWindowHours(
 export function getSelectedColumnDatatype({
   factTable,
   column,
+  excludeDeleted = false,
 }: {
-  factTable: FactTableInterface | null;
+  factTable: Pick<FactTableInterface, "columns"> | null;
   column: string;
+  excludeDeleted?: boolean;
 }): FactTableColumnType | undefined {
   if (!factTable) return undefined;
+
+  // Might be a JSON column, look at nested field
+  const parts = column.split(".");
+  if (parts.length > 1) {
+    const col = factTable.columns.find((c) => c.column === parts[0]);
+    if (col?.datatype === "json" && (!excludeDeleted || !col?.deleted)) {
+      const field = col.jsonFields?.[parts.slice(1).join(".")];
+      if (field) {
+        return field.datatype;
+      }
+    }
+  }
+
   const col = factTable.columns.find((c) => c.column === column);
+  if (excludeDeleted && (!col || col.deleted)) return undefined;
+
   return col?.datatype;
 }
 
@@ -281,6 +331,7 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
   metricOverrides?: MetricOverride[];
 }): {
   newMetric: T;
+  denominatorMetrics: MetricInterface[];
   metricSnapshotSettings: MetricSnapshotSettings;
 } {
   const newMetric = cloneDeep<T>(metric);
@@ -381,12 +432,6 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
 
   // final gatekeeping for RA
   if (regressionAdjustmentEnabled) {
-    if (metric && isFactMetric(metric) && isRatioMetric(metric)) {
-      // is this a fact ratio metric?
-      regressionAdjustmentEnabled = false;
-      regressionAdjustmentAvailable = false;
-      regressionAdjustmentReason = "ratio metrics not supported";
-    }
     if (metric && isFactMetric(metric) && quantileMetricType(metric)) {
       // is this a fact quantile metric?
       regressionAdjustmentEnabled = false;
@@ -401,7 +446,7 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
       if (denominator && !isBinomialMetric(denominator)) {
         regressionAdjustmentEnabled = false;
         regressionAdjustmentAvailable = false;
-        regressionAdjustmentReason = `denominator is ${denominator.type}`;
+        regressionAdjustmentReason = `denominator is ${denominator.type}. CUPED available for ratio metrics only if based on fact tables.`;
       }
     }
     if (metric && !isFactMetric(metric) && metric?.aggregation) {
@@ -420,6 +465,7 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
 
   return {
     newMetric,
+    denominatorMetrics,
     metricSnapshotSettings: {
       metric: newMetric.id,
       ...metricPriorSettings,
@@ -656,15 +702,16 @@ export function getMetricResultStatus({
 
   let resultsStatus: "won" | "lost" | "draw" | "" = "";
   if (statsEngine === "bayesian") {
-    if (_shouldHighlight && (stats.chanceToWin ?? 0) > ciUpper) {
+    if (_shouldHighlight && (stats.chanceToWin ?? 0.5) > ciUpper) {
       resultsStatus = "won";
-    } else if (_shouldHighlight && (stats.chanceToWin ?? 0) < ciLower) {
+    } else if (_shouldHighlight && (stats.chanceToWin ?? 0.5) < ciLower) {
       resultsStatus = "lost";
     }
     if (
       enoughData &&
       belowMinChange &&
-      ((stats.chanceToWin ?? 0) > ciUpper || (stats.chanceToWin ?? 0) < ciLower)
+      ((stats.chanceToWin ?? 0.5) > ciUpper ||
+        (stats.chanceToWin ?? 0.5) < ciLower)
     ) {
       resultsStatus = "draw";
     }
@@ -681,6 +728,36 @@ export function getMetricResultStatus({
       resultsStatus = "draw";
     }
   }
+
+  let clearSignalResultsStatus: "won" | "lost" | "" = "";
+  // TODO make function of existing thresholds
+  if (statsEngine === "bayesian") {
+    if (
+      _shouldHighlight &&
+      (stats.chanceToWin ?? 0.5) > Math.max(0.999, ciUpper)
+    ) {
+      clearSignalResultsStatus = "won";
+    } else if (
+      _shouldHighlight &&
+      (stats.chanceToWin ?? 0.5) < Math.min(0.001, ciLower)
+    ) {
+      clearSignalResultsStatus = "lost";
+    }
+  } else {
+    const clearStatSig = isStatSig(
+      stats.pValueAdjusted ?? stats.pValue ?? 1,
+      Math.min(pValueThreshold, 0.001)
+    );
+    if (_shouldHighlight && clearStatSig && directionalStatus === "winning") {
+      clearSignalResultsStatus = "won";
+    } else if (
+      _shouldHighlight &&
+      clearStatSig &&
+      directionalStatus === "losing"
+    ) {
+      clearSignalResultsStatus = "lost";
+    }
+  }
   return {
     shouldHighlight: _shouldHighlight,
     belowMinChange,
@@ -688,6 +765,7 @@ export function getMetricResultStatus({
     significantUnadjusted,
     directionalStatus,
     resultsStatus,
+    clearSignalResultsStatus,
   };
 }
 

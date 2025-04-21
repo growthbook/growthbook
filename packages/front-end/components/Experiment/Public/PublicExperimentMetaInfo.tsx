@@ -50,9 +50,9 @@ export default function PublicExperimentMetaInfo({
     );
 
   return (
-        <div className="container-fluid pagecontents d-flex mb-3">
+        <div className="container-fluid pagecontents d-flex my-3 px-3">
           <div className="flex-1">
-            <h1 className="mt-1 mb-3 mr-2">
+            <h1 className="mb-3 mr-2">
               {experiment.name}
               <div
                 className="d-inline-block ml-2 position-relative"

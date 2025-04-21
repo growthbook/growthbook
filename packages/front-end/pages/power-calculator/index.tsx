@@ -140,7 +140,7 @@ const PowerCalculationPage = (): React.ReactElement => {
       {finalParams === undefined && (
         <EmptyPowerCalculation showModal={() => setShowModal("select")} />
       )}
-      {results && finalParams && powerCalculationParams && (
+      {results && finalParams && powerCalculationParams ? (
         <PowerCalculationContent
           params={finalParams}
           results={results}
@@ -157,7 +157,7 @@ const PowerCalculationPage = (): React.ReactElement => {
             setShowModal("select");
           }}
         />
-      )}
+      ) : null}
     </div>
   );
 };

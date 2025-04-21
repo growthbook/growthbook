@@ -4,7 +4,7 @@ import {
 } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { includeExperimentInPayload, isDefined } from "shared/util";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useRouter } from "next/router";
@@ -15,7 +15,10 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
 import Modal from "@/components/Modal";
 import HistoryTable from "@/components/HistoryTable";
-import { openVisualEditor } from "@/components/OpenVisualEditorLink";
+import {
+  getBrowserDevice,
+  openVisualEditor,
+} from "@/components/OpenVisualEditorLink";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -170,9 +173,6 @@ export default function TabbedPage({
     (connection) =>
       !visualChangesets.length || connection.includeVisualExperiments
   );
-  const verifiedConnections = matchingConnections.filter(
-    (connection) => connection.connected
-  );
 
   const { data, mutate: mutateWatchers } = useApi<{
     userIds: string[];
@@ -184,6 +184,11 @@ export default function TabbedPage({
     .map((id) => users.get(id))
     .filter(isDefined)
     .map((u) => u.name || u.email);
+
+  const { browser, deviceType } = useMemo(() => {
+    const ua = navigator.userAgent;
+    return getBrowserDevice(ua);
+  }, []);
 
   const safeToEdit = experiment.status !== "running" || !hasLiveLinkedChanges;
 
@@ -226,7 +231,12 @@ export default function TabbedPage({
           close={() => setVisualEditorModal(false)}
           onCreate={async (vc) => {
             // Try to immediately open the visual editor
-            await openVisualEditor(vc, apiCall);
+            await openVisualEditor({
+              vc,
+              apiCall,
+              browser,
+              deviceType,
+            });
           }}
           cta="Open Visual Editor"
           source={trackSource}
@@ -279,7 +289,6 @@ export default function TabbedPage({
         editPhases={editPhases}
         healthNotificationCount={healthNotificationCount}
         checklistItemsRemaining={checklistItemsRemaining}
-        verifiedConnections={verifiedConnections}
         linkedFeatures={linkedFeatures}
       />
 
@@ -354,7 +363,6 @@ export default function TabbedPage({
           <Implementation
             experiment={experiment}
             mutate={mutate}
-            safeToEdit={safeToEdit}
             editVariations={editVariations}
             setFeatureModal={setFeatureModal}
             setVisualEditorModal={setVisualEditorModal}

@@ -1,4 +1,4 @@
-import { databricksCreateTableOptions } from "enterprise";
+import { databricksCreateTableOptions } from "shared/enterprise";
 import { DatabricksConnectionParams } from "back-end/types/integrations/databricks";
 import { runDatabricksQuery } from "back-end/src/services/databricks";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
@@ -75,7 +75,10 @@ export default class Databricks extends SqlIntegration {
   hllCardinality(col: string): string {
     return `HLL_SKETCH_ESTIMATE(${col})`;
   }
-
+  extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
+    const raw = `${jsonCol}:${path}`;
+    return isNumeric ? this.ensureFloat(raw) : raw;
+  }
   getDefaultDatabase(): string {
     return this.params.catalog;
   }

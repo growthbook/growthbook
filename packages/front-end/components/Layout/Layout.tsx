@@ -12,7 +12,6 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Flex } from "@radix-ui/themes";
 import { getGrowthBookBuild } from "@/services/env";
 import { useUser } from "@/services/UserContext";
-import useStripeSubscription from "@/hooks/useStripeSubscription";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
   GBBandit,
@@ -245,6 +244,15 @@ const navlinks: SidebarLinkProps[] = [
           !!gb?.isOn("import-from-x"),
       },
       {
+        name: "Usage",
+        href: "/settings/usage",
+        path: /^settings\/usage/,
+        filter: ({ permissionsUtils, isCloud, gb }) =>
+          permissionsUtils.canViewUsage() &&
+          isCloud &&
+          !!gb?.isOn("cdn-usage-data"),
+      },
+      {
         name: "Billing",
         href: "/settings/billing",
         path: /^settings\/billing/,
@@ -324,8 +332,7 @@ const backgroundShade = (color: string) => {
 const Layout = (): React.ReactElement => {
   const [open, setOpen] = useState(false);
   const settings = useOrgSettings();
-  const { accountPlan, license } = useUser();
-  const { hasPaymentMethod } = useStripeSubscription();
+  const { accountPlan, license, subscription } = useUser();
   const growthbook = useGrowthBook<AppFeatures>();
 
   // app wide a-a tests
@@ -337,9 +344,9 @@ const Layout = (): React.ReactElement => {
   const [upgradeModal, setUpgradeModal] = useState(false);
   const showUpgradeButton =
     ["oss", "starter"].includes(accountPlan || "") ||
-    (license?.isTrial && !hasPaymentMethod) ||
+    (license?.isTrial && !subscription?.hasPaymentMethod) ||
     (["pro", "pro_sso"].includes(accountPlan || "") &&
-      license?.stripeSubscription?.status === "canceled");
+      subscription?.status === "canceled");
 
   // hacky:
   const router = useRouter();
@@ -398,8 +405,8 @@ const Layout = (): React.ReactElement => {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason=""
           source="layout"
+          commercialFeature={null}
         />
       )}
       {settings?.customized && (

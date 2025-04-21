@@ -61,4 +61,10 @@ export type AppFeatures = {
   "feature-usage-auto-refresh-interval": Record<string, unknown>;
   "use-new-setup-flow-2": boolean;
   "show-impact-near-top": boolean;
+  "pro-upgrade-modal": string;
+  "ff_payment-info": boolean;
+  "ff_embedded-payment-form": boolean;
+  "cdn-usage-data": boolean;
+  "experiment-results-timeseries": boolean;
+  "decision-framework-criteria": boolean;
 };

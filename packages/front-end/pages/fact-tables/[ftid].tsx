@@ -33,6 +33,7 @@ import {
   TabsTrigger,
 } from "@/components/Radix/Tabs";
 import Badge from "@/components/Radix/Badge";
+import Frame from "@/components/Radix/Frame";
 
 export default function FactTablePage() {
   const router = useRouter();
@@ -279,7 +280,7 @@ export default function FactTablePage() {
         </div>
       </div>
 
-      <div className="appbox p-3 bg-white mb-3">
+      <Frame>
         <MarkdownInlineEdit
           canEdit={canEdit}
           canCreate={canEdit}
@@ -294,8 +295,7 @@ export default function FactTablePage() {
             mutateDefinitions();
           }}
         />
-      </div>
-
+      </Frame>
       <div className="row mb-4">
         <div className="col col-md-6 d-flex flex-column">
           <h3>SQL Definition</h3>

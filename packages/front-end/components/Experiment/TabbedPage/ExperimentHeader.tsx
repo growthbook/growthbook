@@ -10,8 +10,6 @@ import React, { ReactNode, useEffect, useRef, useState } from "react";
 import { date, daysBetween } from "shared/dates";
 import { MdRocketLaunch } from "react-icons/md";
 import clsx from "clsx";
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
-import Link from "next/link";
 import Collapsible from "react-collapsible";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -31,7 +29,6 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCelebration } from "@/hooks/useCelebration";
-import useSDKConnections from "@/hooks/useSDKConnections";
 import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
@@ -54,6 +51,7 @@ import Callout from "@/components/Radix/Callout";
 import SelectField from "@/components/Forms/SelectField";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import HelperText from "@/components/Radix/HelperText";
+import StartExperimentModal from "@/components/Experiment/TabbedPage/StartExperimentModal";
 import TemplateForm from "../Templates/TemplateForm";
 import ProjectTagBar from "./ProjectTagBar";
 import EditExperimentInfoModal, {
@@ -83,7 +81,6 @@ export interface Props {
   editPhases?: (() => void) | null;
   editTags?: (() => void) | null;
   healthNotificationCount: number;
-  verifiedConnections: SDKConnectionInterface[];
   linkedFeatures: LinkedFeatureInfo[];
 }
 
@@ -135,7 +132,6 @@ export default function ExperimentHeader({
   editPhases,
   editTags,
   healthNotificationCount,
-  verifiedConnections,
   linkedFeatures,
 }: Props) {
   const growthbook = useGrowthBook<AppFeatures>();
@@ -148,9 +144,7 @@ export default function ExperimentHeader({
   const { getDatasourceById } = useDefinitions();
   const dataSource = getDatasourceById(experiment.datasource);
   const startCelebration = useCelebration();
-  const { data: sdkConnections } = useSDKConnections();
   const { snapshot, phase, analysis } = useSnapshot();
-  const connections = sdkConnections?.connections || [];
 
   const [showSdkForm, setShowSdkForm] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -241,8 +235,6 @@ export default function ExperimentHeader({
   const canCreateTemplate =
     permissionsUtil.canViewExperimentTemplateModal() &&
     hasCommercialFeature("templates");
-  const checklistIncomplete =
-    checklistItemsRemaining !== null && checklistItemsRemaining > 0;
 
   const isUsingHealthUnsupportDatasource =
     !dataSource || datasourcesWithoutHealthData.has(dataSource.type);
@@ -282,26 +274,20 @@ export default function ExperimentHeader({
       }
     }
 
-    try {
-      await apiCall(`/experiment/${experiment.id}/status`, {
-        method: "POST",
-        body: JSON.stringify({
-          status: "running",
-        }),
-      });
-      await mutate();
-      startCelebration();
+    await apiCall(`/experiment/${experiment.id}/status`, {
+      method: "POST",
+      body: JSON.stringify({
+        status: "running",
+      }),
+    });
+    await mutate();
+    startCelebration();
 
-      track("Start experiment", {
-        source: "experiment-start-banner",
-        action: "main CTA",
-      });
-      setTab("results");
-      setShowStartExperiment(false);
-    } catch (e) {
-      setShowStartExperiment(false);
-      throw e;
-    }
+    track("Start experiment", {
+      source: "experiment-start-banner",
+      action: "main CTA",
+    });
+    setTab("results");
   }
 
   useEffect(() => {
@@ -566,96 +552,12 @@ export default function ExperimentHeader({
         </Modal>
       ) : null}
       {showStartExperiment && experiment.status === "draft" && (
-        <Modal
-          trackingEventModalType="start-experiment"
-          trackingEventModalSource={
-            checklistIncomplete || !verifiedConnections.length
-              ? "incomplete-checklist"
-              : "complete-checklist"
-          }
-          open={true}
-          size="md"
-          closeCta={
-            checklistIncomplete || !verifiedConnections.length
-              ? "Close"
-              : "Start Immediately"
-          }
-          closeCtaClassName="btn btn-primary"
-          onClickCloseCta={
-            checklistIncomplete || !verifiedConnections.length
-              ? () => setShowStartExperiment(false)
-              : async () => startExperiment()
-          }
-          secondaryCTA={
-            checklistIncomplete || !verifiedConnections.length ? (
-              <button
-                className="btn btn-link text-decoration-none"
-                onClick={async () => startExperiment()}
-              >
-                <span
-                  style={{
-                    color: "var(--text-color-primary)",
-                  }}
-                >
-                  Start Anyway
-                </span>
-              </button>
-            ) : (
-              <button
-                className="btn btn-link text-decoration-none"
-                onClick={() => setShowStartExperiment(false)}
-              >
-                <span
-                  style={{
-                    color: "var(--text-color-primary)",
-                  }}
-                >
-                  Cancel
-                </span>
-              </button>
-            )
-          }
+        <StartExperimentModal
+          experiment={experiment}
           close={() => setShowStartExperiment(false)}
-          header="Start Experiment"
-        >
-          <div className="p-2">
-            {checklistIncomplete ? (
-              <div className="alert alert-warning">
-                You have{" "}
-                <strong>
-                  {checklistItemsRemaining} task
-                  {checklistItemsRemaining > 1 ? "s " : " "}
-                </strong>
-                left to complete. Review the Pre-Launch Checklist before
-                starting this experiment.
-              </div>
-            ) : null}
-            {!verifiedConnections.length ? (
-              <div className="alert alert-warning">
-                You haven&apos;t integrated GrowthBook into your app.{" "}
-                {connections.length > 0 ? (
-                  <Link href="/sdks">Manage SDK Connections</Link>
-                ) : (
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setShowStartExperiment(false);
-                      setShowSdkForm(true);
-                    }}
-                  >
-                    Add SDK Connection
-                  </a>
-                )}
-              </div>
-            ) : null}
-            <div>
-              Once started, linked changes will be activated and users will
-              begin to see your experiment variations{" "}
-              <strong>immediately</strong>.
-            </div>
-          </div>
-        </Modal>
+          startExperiment={startExperiment}
+          checklistItemsRemaining={checklistItemsRemaining || 0}
+        />
       )}
       {showTemplateForm && (
         <TemplateForm
@@ -800,7 +702,7 @@ export default function ExperimentHeader({
               <DropdownMenuGroup>
                 {canRunExperiment &&
                   !isBandit &&
-                  experiment.status !== "draft" && (
+                  (experiment.status !== "draft" || hasResults) && (
                     <DropdownMenuItem
                       onClick={() => {
                         setStatusModal(true);

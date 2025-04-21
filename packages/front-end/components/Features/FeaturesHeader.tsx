@@ -6,7 +6,6 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { filterEnvironmentsByFeature, isFeatureStale } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { ImBlocked } from "react-icons/im";
 import { useUser } from "@/services/UserContext";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
@@ -102,7 +101,7 @@ export default function FeaturesHeader({
                   Feature Flags and Experiments can be linked together. You can
                   delete this once you are done exploring.
                 </Box>
-                <Flex>
+                <Flex flexShrink="0">
                   <DeleteDemoDatasourceButton
                     onDelete={() => router.push("/features")}
                     source="feature"
@@ -189,75 +188,58 @@ export default function FeaturesHeader({
                   </a>
                 )}
                 {canEdit && canPublish && (
-                  <Tooltip
-                    shouldDisplay={dependents > 0}
-                    usePortal={true}
-                    body={
-                      <div style={{ zIndex: 1050 }}>
-                        <ImBlocked className="text-danger" /> This feature has{" "}
-                        <strong>
-                          {dependents} dependent{dependents !== 1 && "s"}
-                        </strong>
-                        . This feature cannot be archived until{" "}
-                        {dependents === 1 ? "it has" : "they have"} been
-                        removed.
-                      </div>
+                  <ConfirmButton
+                    onClick={async () => {
+                      await apiCall(`/feature/${feature.id}/archive`, {
+                        method: "POST",
+                      });
+                      mutate();
+                    }}
+                    modalHeader={
+                      isArchived ? "Unarchive Feature" : "Archive Feature"
+                    }
+                    confirmationText={
+                      isArchived ? (
+                        <>
+                          <p>
+                            Are you sure you want to continue? This will make
+                            the current feature active again.
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p>
+                            Are you sure you want to continue? This will make
+                            the current feature inactive. It will not be
+                            included in API responses or Webhook payloads.
+                          </p>
+                        </>
+                      )
+                    }
+                    cta={isArchived ? "Unarchive" : "Archive"}
+                    ctaColor="danger"
+                    ctaEnabled={dependents === 0}
+                    additionalMessage={
+                      dependents > 0 ? (
+                        <Callout status="error">
+                          This feature has{" "}
+                          <strong>
+                            {dependents} dependent{dependents !== 1 && "s"}
+                          </strong>
+                          . This feature cannot be archived until{" "}
+                          {dependents === 1 ? "it has" : "they have"} been
+                          removed.
+                        </Callout>
+                      ) : undefined
                     }
                   >
-                    <ConfirmButton
-                      onClick={async () => {
-                        await apiCall(`/feature/${feature.id}/archive`, {
-                          method: "POST",
-                        });
-                        mutate();
-                      }}
-                      modalHeader={
-                        isArchived ? "Unarchive Feature" : "Archive Feature"
-                      }
-                      confirmationText={
-                        isArchived ? (
-                          <>
-                            <p>
-                              Are you sure you want to continue? This will make
-                              the current feature active again.
-                            </p>
-                          </>
-                        ) : (
-                          <>
-                            <p>
-                              Are you sure you want to continue? This will make
-                              the current feature inactive. It will not be
-                              included in API responses or Webhook payloads.
-                            </p>
-                          </>
-                        )
-                      }
-                      cta={isArchived ? "Unarchive" : "Archive"}
-                      ctaColor="danger"
-                      disabled={dependents > 0}
-                    >
-                      <button className="dropdown-item">
-                        {isArchived ? "Unarchive" : "Archive"}
-                      </button>
-                    </ConfirmButton>
-                  </Tooltip>
+                    <button className="dropdown-item">
+                      {isArchived ? "Unarchive" : "Archive"}
+                    </button>
+                  </ConfirmButton>
                 )}
                 {canEdit && canPublish && (
-                  <Tooltip
-                    shouldDisplay={dependents > 0}
-                    usePortal={true}
-                    body={
-                      <div style={{ zIndex: 1090, position: "relative" }}>
-                        <ImBlocked className="text-danger" /> This feature has{" "}
-                        <strong>
-                          {dependents} dependent{dependents !== 1 && "s"}
-                        </strong>
-                        . This feature cannot be deleted until{" "}
-                        {dependents === 1 ? "it has" : "they have"} been
-                        removed.
-                      </div>
-                    }
-                  >
+                  <>
                     <hr className="my-2" />
                     <DeleteButton
                       useIcon={false}
@@ -270,9 +252,22 @@ export default function FeaturesHeader({
                       }}
                       className="dropdown-item text-danger"
                       text="Delete"
-                      disabled={dependents > 0}
+                      canDelete={dependents === 0}
+                      additionalMessage={
+                        dependents > 0 ? (
+                          <Callout status="error">
+                            This feature has{" "}
+                            <strong>
+                              {dependents} dependent{dependents !== 1 && "s"}
+                            </strong>
+                            . This feature cannot be deleted until{" "}
+                            {dependents === 1 ? "it has" : "they have"} been
+                            removed.
+                          </Callout>
+                        ) : undefined
+                      }
                     />
-                  </Tooltip>
+                  </>
                 )}
               </MoreMenu>
             </Box>
@@ -390,7 +385,7 @@ export default function FeaturesHeader({
           cta={"Duplicate"}
           close={() => setDuplicateModal(false)}
           onSuccess={async (feature) => {
-            const url = `/features/${feature.id}`;
+            const url = `/features/${feature.id}?new`;
             await router.push(url);
           }}
           featureToDuplicate={feature}

@@ -288,7 +288,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   )}
                 </Box>
               </Box>
-              <Box>
+              <Flex>
                 {featureUsage && (
                   <div className="ml-auto">
                     <FeatureUsageGraph
@@ -395,7 +395,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     />
                   </MoreMenu>
                 )}
-              </Box>
+              </Flex>
             </Flex>
           </Card>
         </Box>

@@ -1,197 +1,87 @@
-import { Tooltip } from "@radix-ui/themes";
-import {
-  DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
-  DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
-  DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
-  DEFAULT_SRM_THRESHOLD,
-  DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
-} from "shared/constants";
-import { getMultipleExposureHealthData, getSRMHealthData } from "shared/health";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { Flex, Tooltip } from "@radix-ui/themes";
+import { ExperimentDataForStatusStringDates } from "back-end/types/experiment";
+import { StatusIndicatorData } from "shared/enterprise";
 import Badge from "@/components/Radix/Badge";
-import useOrgSettings from "@/hooks/useOrgSettings";
+import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
 
 type LabelFormat = "full" | "status-only" | "detail-only";
 
-type ExperimentData = Pick<
-  ExperimentInterfaceStringDates,
-  "type" | "variations" | "status" | "archived" | "results" | "analysisSummary"
->;
-
-/**
- * Component that displays the status of an experiment with an appropriate badge
- *
- * @param experimentData - Experiment data containing status, archived flag, results and analysis summary
- * @param labelFormat - Controls what parts of the status label to show:
- *                     - "full": Shows both status and detail (e.g. "Running - 5 days left")
- *                     - "status-only": Shows just the status (e.g. "Running")
- *                     - "detail-only": Shows just the detail if available (e.g. "5 days left")
- * @param skipArchived - If true, shows the underlying experiment status even if archived
- * @returns A Badge component with appropriate color, variant and label based on experiment state
- */
 export default function ExperimentStatusIndicator({
   experimentData,
   labelFormat = "full",
-  skipArchived = false,
 }: {
-  experimentData: ExperimentData;
+  experimentData: ExperimentDataForStatusStringDates;
   labelFormat?: LabelFormat;
-  skipArchived?: boolean;
 }) {
-  const settings = useOrgSettings();
-  const healthSettings = {
-    srmThreshold: settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD,
-    multipleExposureMinPercent:
-      settings.multipleExposureMinPercent ??
-      DEFAULT_MULTIPLE_EXPOSURES_THRESHOLD,
-  };
+  const getExperimentStatusIndicator = useExperimentStatusIndicator();
+  const statusIndicatorData = getExperimentStatusIndicator(experimentData);
 
+  return (
+    <RawExperimentStatusIndicator
+      statusIndicatorData={statusIndicatorData}
+      labelFormat={labelFormat}
+    />
+  );
+}
+
+export function ExperimentStatusDetailsWithDot({
+  statusIndicatorData,
+}: {
+  statusIndicatorData: StatusIndicatorData;
+}) {
   const {
     color,
-    variant,
     status,
     detailedStatus,
+    needsAttention,
     tooltip,
-  } = getStatusIndicatorData(experimentData, skipArchived, healthSettings);
+  } = statusIndicatorData;
 
+  if (!detailedStatus) return null;
+
+  const contents =
+    needsAttention || status === "Stopped" ? (
+      <Flex gap="1" align="center">
+        <div
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: 8,
+            backgroundColor: `var(--${color}-9)`,
+          }}
+        ></div>
+        {detailedStatus}
+      </Flex>
+    ) : (
+      <div>{detailedStatus}</div>
+    );
+
+  return tooltip ? <Tooltip content={tooltip}>{contents}</Tooltip> : contents;
+}
+
+export function RawExperimentStatusIndicator({
+  statusIndicatorData,
+  labelFormat = "full",
+}: {
+  statusIndicatorData: StatusIndicatorData;
+  labelFormat?: LabelFormat;
+}) {
+  const { color, status, detailedStatus, tooltip } = statusIndicatorData;
   const label = getFormattedLabel(labelFormat, status, detailedStatus);
 
   const badge = (
-    <Badge color={color} variant={variant} radius="full" label={label} />
+    <Badge
+      color={color}
+      variant={"solid"}
+      radius="full"
+      label={label}
+      style={{
+        cursor: tooltip !== undefined ? "default" : undefined,
+      }}
+    />
   );
 
   return tooltip ? <Tooltip content={tooltip}>{badge}</Tooltip> : badge;
-}
-
-function getStatusIndicatorData(
-  experimentData: ExperimentData,
-  skipArchived: boolean,
-  healthSettings: {
-    srmThreshold: number;
-    multipleExposureMinPercent: number;
-  }
-): {
-  color: React.ComponentProps<typeof Badge>["color"];
-  variant: React.ComponentProps<typeof Badge>["variant"];
-  status: string;
-  detailedStatus?: string;
-  tooltip?: string;
-} {
-  if (!skipArchived && experimentData.archived) {
-    return {
-      color: "gold",
-      variant: "soft",
-      status: "Archived",
-    };
-  }
-
-  if (experimentData.status === "draft") {
-    return {
-      color: "indigo",
-      variant: "soft",
-      status: "Draft",
-    };
-  }
-
-  if (experimentData.status == "running") {
-    const unhealthyStatuses: string[] = [];
-    const healthSummary = experimentData.analysisSummary?.health;
-    if (healthSummary) {
-      const srmHealthData = getSRMHealthData({
-        srm: healthSummary.srm,
-        srmThreshold: healthSettings.srmThreshold,
-        totalUsersCount: healthSummary.totalUsers,
-        numOfVariations: experimentData.variations.length,
-        minUsersPerVariation:
-          experimentData.type === "multi-armed-bandit"
-            ? DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION
-            : DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
-      });
-
-      if (srmHealthData === "unhealthy") {
-        unhealthyStatuses.push("SRM");
-      }
-
-      const multipleExposuresHealthData = getMultipleExposureHealthData({
-        multipleExposuresCount: healthSummary.multipleExposures,
-        totalUsersCount: healthSummary.totalUsers,
-        minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
-        minPercentThreshold: healthSettings.multipleExposureMinPercent,
-      });
-
-      if (multipleExposuresHealthData.status === "unhealthy") {
-        unhealthyStatuses.push("Multiple exposures");
-      }
-    }
-
-    if (unhealthyStatuses.length > 0) {
-      return {
-        color: "amber",
-        variant: "solid",
-        status: "Running",
-        detailedStatus: "Unhealthy",
-        tooltip: unhealthyStatuses.join(", "),
-      };
-    }
-
-    return {
-      color: "indigo",
-      variant: "solid",
-      status: "Running",
-    };
-
-    // TODO: Add detail statuses
-    // return ["indigo", "solid", "Running", "~5 days left"];
-    // return ["amber", "soft", "Running", "Rollback now"];
-    // return ["amber", "soft", "Running", "Ship now"];
-    // return ["amber", "soft", "Running", "Discuss results"];
-  }
-
-  if (experimentData.status === "stopped") {
-    switch (experimentData.results) {
-      case "won":
-        return {
-          color: "gray",
-          variant: "soft",
-          status: "Stopped",
-          detailedStatus: "Won",
-        };
-      case "lost":
-        return {
-          color: "gray",
-          variant: "soft",
-          status: "Stopped",
-          detailedStatus: "Lost",
-        };
-      case "inconclusive":
-        return {
-          color: "gray",
-          variant: "soft",
-          status: "Stopped",
-          detailedStatus: "Inconclusive",
-        };
-      case "dnf":
-        return {
-          color: "gray",
-          variant: "soft",
-          status: "Stopped",
-          detailedStatus: "Didn't finish",
-        };
-      default:
-        return {
-          color: "gray",
-          variant: "soft",
-          status: "Stopped",
-          detailedStatus: "Awaiting decision",
-        };
-    }
-  }
-
-  // TODO: Future statuses
-  // return ["indigo", "soft", "Scheduled"];
-
-  // FIXME: How can we make this rely on the typechecker instead of throwing an error?
-  throw new Error(`Unknown experiment status`);
 }
 
 function getFormattedLabel(

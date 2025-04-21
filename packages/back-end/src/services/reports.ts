@@ -157,6 +157,7 @@ export function getAnalysisSettingsFromReportArgs(
     pValueThreshold: args.pValueThreshold,
     differenceType: args.differenceType ?? "relative",
     baselineVariationIndex: 0,
+    numGoalMetrics: args.goalMetrics.length,
   };
 }
 export function getSnapshotSettingsFromReportArgs(
@@ -348,7 +349,6 @@ export async function createReportSnapshot({
   const denominatorMetrics = denominatorMetricIds
     .map((m) => metricMap.get(m) || null)
     .filter(isDefined) as MetricInterface[];
-
   const {
     settingsForSnapshotMetrics,
     regressionAdjustmentEnabled,
@@ -364,13 +364,19 @@ export async function createReportSnapshot({
     hasRegressionAdjustmentFeature: true,
   });
 
-  const analysisSettings = getDefaultExperimentAnalysisSettings(
+  const defaultAnalysisSettings = getDefaultExperimentAnalysisSettings(
     statsEngine,
     report.experimentAnalysisSettings,
     organization,
     regressionAdjustmentEnabled,
     report.experimentAnalysisSettings.dimension
   );
+
+  const analysisSettings: ExperimentSnapshotAnalysisSettings = {
+    ...defaultAnalysisSettings,
+    differenceType:
+      report.experimentAnalysisSettings.differenceType ?? "relative",
+  };
 
   const snapshotSettings = getReportSnapshotSettings({
     report,
@@ -421,7 +427,6 @@ export async function createReportSnapshot({
 
   const snapshot = await createExperimentSnapshotModel({
     data: snapshotData,
-    context,
   });
 
   const integration = getSourceIntegrationObject(context, datasource, true);

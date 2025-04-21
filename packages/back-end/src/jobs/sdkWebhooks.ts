@@ -30,7 +30,7 @@ import {
 } from "back-end/src/services/organizations";
 import { ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
-import { trackJob } from "back-end/src/services/otel";
+import { trackJob } from "back-end/src/services/tracing";
 
 const SDK_WEBHOOKS_JOB_NAME = "fireWebhooks";
 type SDKWebhookJob = Job<{
@@ -348,6 +348,7 @@ export async function fireSdkWebhook(
         includeDraftExperiments: connection.includeDraftExperiments,
         includeExperimentNames: connection.includeExperimentNames,
         includeRedirectExperiments: connection.includeRedirectExperiments,
+        includeRuleIds: connection.includeRuleIds,
         hashSecureAttributes: connection.hashSecureAttributes,
       });
       payload = JSON.stringify(defs);
@@ -436,6 +437,7 @@ export async function fireGlobalSdkWebhooks(
       includeDraftExperiments: connection.includeDraftExperiments,
       includeExperimentNames: connection.includeExperimentNames,
       includeRedirectExperiments: connection.includeRedirectExperiments,
+      includeRuleIds: connection.includeRuleIds,
       hashSecureAttributes: connection.hashSecureAttributes,
     });
 

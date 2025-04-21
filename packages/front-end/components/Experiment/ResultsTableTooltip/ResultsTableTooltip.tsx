@@ -1,3 +1,4 @@
+import Link from "next/link";
 import React, { DetailedHTMLProps, HTMLAttributes, useEffect } from "react";
 import {
   ExperimentReportVariationWithIndex,
@@ -15,7 +16,7 @@ import {
   BsArrowReturnRight,
 } from "react-icons/bs";
 import clsx from "clsx";
-import { FaArrowDown, FaArrowUp } from "react-icons/fa";
+import { FaArrowDown, FaArrowUp, FaQuestionCircle } from "react-icons/fa";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { RxInfoCircled } from "react-icons/rx";
 import { MdSwapCalls } from "react-icons/md";
@@ -25,6 +26,7 @@ import {
   quantileMetricType,
 } from "shared/experiments";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
+import { Flex } from "@radix-ui/themes";
 import NotEnoughData from "@/components/Experiment/NotEnoughData";
 import {
   getEffectLabel,
@@ -144,7 +146,7 @@ export default function ResultsTableTooltip({
       : getExperimentMetricFormatter(
           data.metric,
           ssrPolyfills?.getFactTableById || getFactTableById,
-          true
+          differenceType === "absolute" ? "percentagePoints" : "number"
         );
   const deltaFormatterOptions = {
     currency: displayCurrency,
@@ -379,8 +381,9 @@ export default function ResultsTableTooltip({
             )}
             style={{ paddingTop: 12 }}
           >
-            {["won", "lost", "draw"].includes(data.rowResults.resultsStatus) ||
-            !data.rowResults.significant ? (
+            {(["won", "lost", "draw"].includes(data.rowResults.resultsStatus) ||
+              !data.rowResults.significant) &&
+            data.rowResults.enoughData ? (
               <div
                 className={clsx(
                   "results-status position-absolute d-flex align-items-center",
@@ -411,103 +414,106 @@ export default function ResultsTableTooltip({
                   tipMinWidth={"250px"}
                   className="cursor-pointer"
                 >
-                  <span style={{ marginRight: 12 }}>
-                    {data.rowResults.significant
-                      ? capitalizeFirstLetter(data.rowResults.resultsStatus)
-                      : "Not significant"}
-                  </span>
-                  <RxInfoCircled
-                    className="position-absolute"
-                    style={{ top: 3, right: 4, fontSize: "14px" }}
-                  />
+                  <Flex align="center">
+                    <span className="mr-1">
+                      {data.rowResults.significant
+                        ? capitalizeFirstLetter(data.rowResults.resultsStatus)
+                        : "Not significant"}
+                    </span>
+                    <RxInfoCircled />
+                  </Flex>
                 </Tooltip>
               </div>
             ) : null}
-            <div
-              className={clsx(
-                "results-change d-flex",
-                data.rowResults.directionalStatus
-              )}
-            >
-              <div className="label mr-2">{effectLabel}:</div>
-              <div
-                className={clsx("value", {
-                  "font-weight-bold": !data.isGuardrail
-                    ? data.rowResults.significant
-                    : data.rowResults.significantUnadjusted,
-                  opacity50: !data.rowResults.enoughData,
-                })}
-              >
-                <span className="expectedArrows">
-                  {(data.rowResults.directionalStatus === "winning" &&
-                    !data.metric.inverse) ||
-                  (data.rowResults.directionalStatus === "losing" &&
-                    data.metric.inverse) ? (
-                    <FaArrowUp />
-                  ) : (
-                    <FaArrowDown />
+            {data.rowResults.enoughData ? (
+              <>
+                <div
+                  className={clsx(
+                    "results-change d-flex",
+                    data.rowResults.directionalStatus
                   )}
-                </span>{" "}
-                <span className="expected bold">
-                  {deltaFormatter(
-                    data.stats.expected ?? 0,
-                    deltaFormatterOptions
+                >
+                  <div className="label mr-2">{effectLabel}:</div>
+                  <div
+                    className={clsx("value", {
+                      "font-weight-bold": !data.isGuardrail
+                        ? data.rowResults.significant
+                        : data.rowResults.significantUnadjusted,
+                      opacity50: !data.rowResults.enoughData,
+                    })}
+                  >
+                    <span className="expectedArrows">
+                      {(data.rowResults.directionalStatus === "winning" &&
+                        !data.metric.inverse) ||
+                      (data.rowResults.directionalStatus === "losing" &&
+                        data.metric.inverse) ? (
+                        <FaArrowUp />
+                      ) : (
+                        <FaArrowDown />
+                      )}
+                    </span>{" "}
+                    <span className="expected bold">
+                      {deltaFormatter(
+                        data.stats.expected ?? 0,
+                        deltaFormatterOptions
+                      )}
+                    </span>
+                  </div>
+                </div>
+
+                <div
+                  className={clsx(
+                    "results-ci d-flex mt-1",
+                    data.rowResults.resultsStatus
                   )}
-                </span>
-              </div>
-            </div>
+                >
+                  <div className="label mr-2">
+                    {data.statsEngine === "bayesian"
+                      ? "95% Credible Interval:"
+                      : `${confidencePct} Confidence Interval:`}
+                  </div>
+                  <div
+                    className={clsx("value nowrap", {
+                      "font-weight-bold": !data.isGuardrail
+                        ? data.rowResults.significant
+                        : data.rowResults.significantUnadjusted,
+                      opacity50: !data.rowResults.enoughData,
+                    })}
+                  >
+                    {ciRangeText}
+                  </div>
+                </div>
 
-            <div
-              className={clsx(
-                "results-ci d-flex mt-1",
-                data.rowResults.resultsStatus
-              )}
-            >
-              <div className="label mr-2">
-                {data.statsEngine === "bayesian"
-                  ? "95% Credible Interval:"
-                  : `${confidencePct} Confidence Interval:`}
-              </div>
-              <div
-                className={clsx("value nowrap", {
-                  "font-weight-bold": !data.isGuardrail
-                    ? data.rowResults.significant
-                    : data.rowResults.significantUnadjusted,
-                  opacity50: !data.rowResults.enoughData,
-                })}
-              >
-                {ciRangeText}
-              </div>
-            </div>
-
-            <div
-              className={clsx(
-                "results-chance d-flex mt-1",
-                data.rowResults.resultsStatus
-              )}
-            >
-              <div className="label mr-2">
-                {data.statsEngine === "bayesian"
-                  ? "Chance to Win:"
-                  : "P-Value:"}
-              </div>
-              <div
-                className={clsx("value", {
-                  "font-weight-bold": !data.isGuardrail
-                    ? data.rowResults.significant
-                    : data.rowResults.significantUnadjusted,
-                  opacity50: !data.rowResults.enoughData,
-                })}
-              >
-                {data.statsEngine === "bayesian"
-                  ? percentFormatter.format(data.stats.chanceToWin ?? 0)
-                  : pValText}
-              </div>
-            </div>
-            {addLiftWarning ? (
+                <div
+                  className={clsx(
+                    "results-chance d-flex mt-1",
+                    data.rowResults.resultsStatus
+                  )}
+                >
+                  <div className="label mr-2">
+                    {data.statsEngine === "bayesian"
+                      ? "Chance to Win:"
+                      : "P-Value:"}
+                  </div>
+                  <div
+                    className={clsx("value", {
+                      "font-weight-bold": !data.isGuardrail
+                        ? data.rowResults.significant
+                        : data.rowResults.significantUnadjusted,
+                      opacity50: !data.rowResults.enoughData,
+                    })}
+                  >
+                    {data.statsEngine === "bayesian"
+                      ? percentFormatter.format(data.stats.chanceToWin ?? 0)
+                      : pValText}
+                  </div>
+                </div>
+              </>
+            ) : null}
+            {addLiftWarning && data.rowResults.enoughData ? (
               <div
                 className={clsx(
-                  "results-prior text-muted rounded d-flex justify-content-center mt-2",
+                  "results-prior text-muted rounded d-flex justify-content-center my-2",
                   data.rowResults.resultsStatus
                 )}
               >
@@ -557,7 +563,7 @@ export default function ResultsTableTooltip({
 
             {hasFlaggedItems ? (
               <div
-                className="results-flagged-items d-flex align-items-start mt-2"
+                className="results-flagged-items d-flex align-items-start"
                 style={{ gap: 12 }}
               >
                 {!data.rowResults.enoughData ? (
@@ -595,10 +601,15 @@ export default function ResultsTableTooltip({
                         data.rowResults.riskMeta.riskStatus
                       )}
                     >
-                      <HiOutlineExclamationCircle
-                        size={18}
-                        className="flag-icon"
-                      />
+                      <Link
+                        href="https://docs.growthbook.io/using/experimenting#bayesian-results"
+                        target="_blank"
+                      >
+                        <FaQuestionCircle
+                          size={12}
+                          style={{ marginRight: "8px" }}
+                        />
+                      </Link>
                       <div className="risk">
                         <div className="risk-value">
                           risk: {data.rowResults.riskMeta.relativeRiskFormatted}
@@ -736,7 +747,7 @@ export default function ResultsTableTooltip({
                           {getExperimentMetricFormatter(
                             data.metric,
                             ssrPolyfills?.getFactTableById || getFactTableById,
-                            true
+                            "number"
                           )(row.value, { currency: displayCurrency })}
                         </td>
                       ) : null}

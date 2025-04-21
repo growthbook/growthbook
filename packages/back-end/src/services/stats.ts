@@ -3,8 +3,10 @@ import os from "os";
 import { PythonShell } from "python-shell";
 import cloneDeep from "lodash/cloneDeep";
 import {
+  BANDIT_SRM_DIMENSION_NAME,
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_TARGET_MDE,
   EXPOSURE_DATE_DIMENSION_NAME,
 } from "shared/constants";
 import { putBaselineVariationFirst } from "shared/util";
@@ -19,7 +21,6 @@ import {
 import { hoursBetween } from "shared/dates";
 import chunk from "lodash/chunk";
 import {
-  BanditResult,
   ExperimentMetricAnalysis,
   MultipleExperimentMetricAnalysis,
 } from "back-end/types/stats";
@@ -34,7 +35,7 @@ import {
   ExperimentReportResults,
   ExperimentReportVariation,
 } from "back-end/types/report";
-import { checkSrm } from "back-end/src/util/stats";
+import { checkSrm, chi2pvalue } from "back-end/src/util/stats";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -51,6 +52,7 @@ import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import { updateSnapshotAnalysis } from "back-end/src/models/ExperimentSnapshotModel";
 import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "back-end/src/integrations/SqlIntegration";
 import { applyMetricOverrides } from "back-end/src/util/integration";
+import { BanditResult } from "back-end/types/experiment";
 
 // Keep these interfaces in sync with gbstats
 export interface AnalysisSettingsForStatsEngine {
@@ -60,6 +62,7 @@ export interface AnalysisSettingsForStatsEngine {
   baseline_index: number;
   dimension: string;
   stats_engine: string;
+  p_value_corrected: boolean;
   sequential_testing_enabled: boolean;
   sequential_tuning_parameter: number;
   difference_type: string;
@@ -67,6 +70,7 @@ export interface AnalysisSettingsForStatsEngine {
   alpha: number;
   max_dimensions: number;
   traffic_percentage: number;
+  num_goal_metrics: number;
 }
 
 export interface BanditSettingsForStatsEngine {
@@ -83,6 +87,11 @@ export interface BanditSettingsForStatsEngine {
   bandit_weights_seed: number;
 }
 
+export type BusinessMetricTypeForStatsEngine =
+  | "goal"
+  | "secondary"
+  | "guardrail";
+
 export interface MetricSettingsForStatsEngine {
   id: string;
   name: string;
@@ -90,6 +99,7 @@ export interface MetricSettingsForStatsEngine {
   statistic_type:
     | "mean"
     | "ratio"
+    | "ratio_ra"
     | "mean_ra"
     | "quantile_event"
     | "quantile_unit";
@@ -101,6 +111,8 @@ export interface MetricSettingsForStatsEngine {
   prior_proper?: boolean;
   prior_mean?: number;
   prior_stddev?: number;
+  target_mde: number;
+  business_metric_type: BusinessMetricTypeForStatsEngine[];
 }
 
 export interface QueryResultsForStatsEngine {
@@ -149,7 +161,7 @@ export function getAnalysisSettingsForStatsEngine(
   variations: ExperimentReportVariation[],
   coverage: number,
   phaseLengthDays: number
-) {
+): AnalysisSettingsForStatsEngine {
   const sortedVariations = putBaselineVariationFirst(
     variations,
     settings.baselineVariationIndex ?? 0
@@ -168,6 +180,7 @@ export function getAnalysisSettingsForStatsEngine(
     baseline_index: settings.baselineVariationIndex ?? 0,
     dimension: settings.dimensions[0] || "",
     stats_engine: settings.statsEngine,
+    p_value_corrected: !!settings.pValueCorrection,
     sequential_testing_enabled: settings.sequentialTesting ?? false,
     sequential_tuning_parameter: sequentialTestingTuningParameterNumber,
     difference_type: settings.differenceType,
@@ -178,7 +191,9 @@ export function getAnalysisSettingsForStatsEngine(
         ? 9999
         : MAX_DIMENSIONS,
     traffic_percentage: coverage,
+    num_goal_metrics: settings.numGoalMetrics,
   };
+
   return analysisData;
 }
 
@@ -212,6 +227,12 @@ async function runStatsEngine(
   const escapedStatsData = JSON.stringify(statsData).replace(/\\/g, "\\\\");
   const start = Date.now();
   const cpus = os.cpus();
+  const options = process.env.GB_ENABLE_PYTHON_DD_PROFILING
+    ? {
+        pythonPath: "ddtrace-run",
+        pythonOptions: ["python3"],
+      }
+    : {};
   const result = await promisify(PythonShell.runString)(
     `
 
@@ -232,9 +253,8 @@ print(json.dumps({
   'results': results,
   'time': time.time() - start
 }, allow_nan=False))`,
-    {}
+    options
   );
-
   try {
     const parsed: {
       results: MultipleExperimentMetricAnalysis[];
@@ -330,10 +350,26 @@ export async function runSnapshotAnalyses(
   return results.flat();
 }
 
+function getBusinessMetricTypeForStatsEngine(
+  metricId: string,
+  settings: ExperimentSnapshotSettings
+): BusinessMetricTypeForStatsEngine[] {
+  return [
+    settings.goalMetrics.includes(metricId) ? ("goal" as const) : null,
+    settings.secondaryMetrics.includes(metricId)
+      ? ("secondary" as const)
+      : null,
+    settings.guardrailMetrics.includes(metricId)
+      ? ("guardrail" as const)
+      : null,
+  ].filter((m) => m !== null);
+}
+
 export function getMetricSettingsForStatsEngine(
   metricDoc: ExperimentMetricInterface,
   metricMap: Map<string, ExperimentMetricInterface>,
-  settings: ExperimentSnapshotSettings
+  settings: ExperimentSnapshotSettings,
+  optimizedFactMetric: boolean = false
 ): MetricSettingsForStatsEngine {
   const metric = cloneDeep<ExperimentMetricInterface>(metricDoc);
   applyMetricOverrides(metric, settings);
@@ -352,7 +388,9 @@ export function getMetricSettingsForStatsEngine(
   const quantileMetric = quantileMetricType(metric);
   const regressionAdjusted =
     settings.regressionAdjustmentEnabled &&
-    isRegressionAdjusted(metric, denominator);
+    isRegressionAdjusted(metric, denominator) &&
+    // block RA for ratio metrics from non-optimized fact metrics
+    (!isRatioMetric(metric, denominator) || optimizedFactMetric);
   const mainMetricType = quantileMetric
     ? "quantile"
     : isBinomialMetric(metric)
@@ -372,7 +410,9 @@ export function getMetricSettingsForStatsEngine(
         ? "quantile_unit"
         : quantileMetric === "event"
         ? "quantile_event"
-        : ratioMetric
+        : ratioMetric && regressionAdjusted
+        ? "ratio_ra"
+        : ratioMetric && !regressionAdjusted
         ? "ratio"
         : regressionAdjusted
         ? "mean_ra"
@@ -393,6 +433,11 @@ export function getMetricSettingsForStatsEngine(
     prior_proper: metric.priorSettings.proper,
     prior_mean: metric.priorSettings.mean,
     prior_stddev: metric.priorSettings.stddev,
+    target_mde: metric.targetMDE ?? DEFAULT_TARGET_MDE,
+    business_metric_type: getBusinessMetricTypeForStatsEngine(
+      metric.id,
+      settings
+    ),
   };
 }
 
@@ -467,7 +512,8 @@ export function getMetricsAndQueryDataForStatsEngine(
             metricSettings[metricId] = getMetricSettingsForStatsEngine(
               metric,
               metricMap,
-              settings
+              settings,
+              true
             );
           } else {
             metricIds.push(null);
@@ -487,7 +533,8 @@ export function getMetricsAndQueryDataForStatsEngine(
       metricSettings[key] = getMetricSettingsForStatsEngine(
         metric,
         metricMap,
-        settings
+        settings,
+        false
       );
       queryResults.push({
         metrics: [key],
@@ -748,7 +795,12 @@ export function analyzeExperimentTraffic({
     dimension: {},
   };
 
+  let banditSrmSet = false;
   rows.forEach((r) => {
+    if (r.dimension_name === BANDIT_SRM_DIMENSION_NAME) {
+      trafficResults.overall.srm = chi2pvalue(r.units, variations.length - 1);
+      banditSrmSet = true;
+    }
     const variationIndex = variationIdMap[r.variation];
     const dimTraffic: Map<string, ExperimentSnapshotTrafficDimension> =
       dimTrafficResults.get(r.dimension_name) ?? new Map();
@@ -770,10 +822,15 @@ export function analyzeExperimentTraffic({
       trafficResults.overall.variationUnits[variationIndex] += r.units;
     }
   });
-  trafficResults.overall.srm = checkSrm(
-    trafficResults.overall.variationUnits,
-    variationWeights
-  );
+
+  // compute SRM for non-bandits
+  if (!banditSrmSet) {
+    trafficResults.overall.srm = checkSrm(
+      trafficResults.overall.variationUnits,
+      variationWeights
+    );
+  }
+
   for (const [dimName, dimTraffic] of dimTrafficResults) {
     for (const dimValueTraffic of dimTraffic.values()) {
       dimValueTraffic.srm = checkSrm(

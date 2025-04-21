@@ -90,11 +90,11 @@ export default function Code({
   style['code[class*="language-"]'].fontWeight = 600;
 
   const codeBackgrounds = {
-    dark: "#212529",
+    dark: "transparent",
     light: "#fff",
   };
   style['pre[class*="language-"]'].backgroundColor = codeBackgrounds[theme];
-  style['pre[class*="language-"]'].border = "1px solid var(--border-color-200)";
+  style['pre[class*="language-"]'].border = "1px solid var(--slate-a4)";
 
   if (maxHeight) {
     style['pre[class*="language-"]'].maxHeight = maxHeight;
@@ -121,7 +121,10 @@ export default function Code({
         ..._style,
       }}
     >
-      <div className="action-buttons bg-light border border-bottom-0 d-flex align-items-center rounded-top">
+      <div
+        className="action-buttons bg-light d-flex align-items-center rounded-top"
+        style={{ border: "1px solid var(--slate-a4)", borderBottom: "none" }}
+      >
         <div>
           <small className="text-muted px-2">{display}</small>
         </div>

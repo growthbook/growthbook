@@ -258,21 +258,13 @@ describe("results edited in place", () => {
   });
 
   it("adjusts CIs as we expect", () => {
-    const adjCIs95pct = adjustedCI(
-      0.049999999,
-      { dist: "normal", mean: 0.1 },
-      1.959963984540054
-    );
+    const adjCIs95pct = adjustedCI(0.049999999, 0.1, 0.05);
     expect(adjCIs95pct[0]).toBeGreaterThan(0);
     expect(adjCIs95pct[1]).toBeLessThan(0.2);
     expect(adjCIs95pct.map((x) => +x.toFixed(8))).toEqual([0, 0.2]);
 
     expect(
-      adjustedCI(
-        0.0099999999,
-        { dist: "normal", mean: 0.1 },
-        2.5758293035489004
-      ).map((x) => +x.toFixed(8))
+      adjustedCI(0.0099999999, 0.1, 0.01).map((x) => +x.toFixed(8))
     ).toEqual([0, 0.2]);
   });
 });

@@ -1259,6 +1259,7 @@ describe("SDK Payloads", () => {
       defaultValue: true,
       rules: [
         {
+          id: "abc",
           key: "exp-key",
           coverage: 0.8,
           hashAttribute: "user_id",
@@ -1326,6 +1327,7 @@ describe("SDK Payloads", () => {
       defaultValue: true,
       rules: [
         {
+          id: "abc",
           coverage: 0.8,
           hashAttribute: "user_id",
           hashVersion: 2,
@@ -1467,11 +1469,13 @@ describe("SDK Payloads", () => {
             country: "US",
           },
           force: false,
+          id: "1",
         },
         {
           coverage: 0.8,
           force: false,
           hashAttribute: "id",
+          id: "2",
         },
         {
           coverage: 1,
@@ -1480,6 +1484,7 @@ describe("SDK Payloads", () => {
           meta: [{ key: "0" }, { key: "1" }],
           weights: [0.7, 0.3],
           key: "testing",
+          id: "3",
         },
       ],
     });

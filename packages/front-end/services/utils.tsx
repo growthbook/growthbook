@@ -9,7 +9,7 @@ import {
 } from "@growthbook/growthbook-react";
 import Cookies from "js-cookie";
 import { v4 as uuidv4 } from "uuid";
-import { AccountPlan } from "enterprise";
+import { AccountPlan } from "shared/enterprise";
 import { AppFeatures } from "@/types/app-features";
 import track from "@/services/track";
 

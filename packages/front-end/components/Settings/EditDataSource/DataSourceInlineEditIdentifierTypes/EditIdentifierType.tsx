@@ -27,21 +27,21 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
 
   const form = useForm({
     defaultValues: {
-      userIdType: userIdType,
+      idType: userIdType,
       description: description,
     },
   });
 
   const handleSubmit = form.handleSubmit(async (value) => {
-    await onSave(value.userIdType, value.description);
+    await onSave(value.idType, value.description);
 
     form.reset({
-      userIdType: "",
+      idType: "",
       description: "",
     });
   });
 
-  const userEnteredUserIdType = form.watch("userIdType");
+  const userEnteredUserIdType = form.watch("idType");
 
   const isDuplicate = useMemo(() => {
     return mode === "add" && existingIds.includes(userEnteredUserIdType);
@@ -82,7 +82,7 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
 
         <Field
           label="Identifier Type"
-          {...form.register("userIdType")}
+          {...form.register("idType")}
           pattern="^[a-z_]+$"
           title="Only lowercase letters and underscores allowed"
           readOnly={mode === "edit"}

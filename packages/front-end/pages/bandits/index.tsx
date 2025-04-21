@@ -254,7 +254,6 @@ const ExperimentsPage = (): React.ReactElement => {
           title="Run Adaptive Experiments with Bandits"
           description="Bandits automatically guide more traffic to better variants."
           commercialFeature="multi-armed-bandits"
-          reason="Bandit Experiments No Access"
           learnMoreLink="https://docs.growthbook.io/bandits/overview"
         />
       </div>
@@ -304,13 +303,11 @@ const ExperimentsPage = (): React.ReactElement => {
                 <h1>Adaptively experiment with bandits.</h1>
                 <p className="">Run adaptive experiments with Bandits.</p>
               </div>
-              <div
-                className="d-flex justify-content-center pt-2"
-                style={{ gap: "1rem" }}
-              >
+              <div className="d-flex justify-content-center pt-2">
                 <LinkButton
                   href="/getstarted/experiment-guide"
                   variant="outline"
+                  mr="4"
                 >
                   Setup Instructions
                 </LinkButton>
@@ -340,6 +337,13 @@ const ExperimentsPage = (): React.ReactElement => {
                   </PremiumTooltip>
                 )}
               </div>
+              <div className="mt-5">
+                <img
+                  src="/images/empty-states/bandits.png"
+                  alt="Bandits"
+                  style={{ width: "100%", maxWidth: "740px", height: "auto" }}
+                />
+              </div>
             </div>
           ) : (
             <>
@@ -356,7 +360,7 @@ const ExperimentsPage = (): React.ReactElement => {
                           key={tab}
                           className={clsx("border mb-0", {
                             "badge-purple font-weight-bold": active,
-                            "bg-white text-secondary": !active,
+                            "text-secondary": !active,
                             "rounded-left": i === 0,
                             "rounded-right":
                               tab === "archived" ||
@@ -366,6 +370,7 @@ const ExperimentsPage = (): React.ReactElement => {
                             fontSize: "1em",
                             opacity: active ? 1 : 0.8,
                             padding: "6px 12px",
+                            backgroundColor: active ? "" : "var(--color-panel)",
                           }}
                           onClick={(e) => {
                             e.preventDefault();

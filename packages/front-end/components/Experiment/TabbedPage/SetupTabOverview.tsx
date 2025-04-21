@@ -7,13 +7,14 @@ import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
-import { Box, Flex, ScrollArea } from "@radix-ui/themes";
+import { Box, Flex, ScrollArea, Heading } from "@radix-ui/themes";
 import { PreLaunchChecklist } from "@/components/Experiment/PreLaunchChecklist";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Markdown from "@/components/Markdown/Markdown";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Frame from "@/components/Radix/Frame";
+import Button from "@/components/Radix/Button";
 import EditHypothesisModal from "../EditHypothesisModal";
 import EditDescriptionModal from "../EditDescriptionModal";
 
@@ -109,26 +110,22 @@ export default function SetupTabOverview({
                   cursor: `${experiment.description ? "pointer" : "default"}`,
                 }}
               >
-                <Flex
-                  align="center"
-                  justify="between"
-                  pb="2"
-                  className="text-dark"
-                >
-                  <h4 className="m-0">Description</h4>
-                  <Flex align="center">
+                <Flex align="center" justify="between" className="text-dark">
+                  <Heading mb="0" as="h4" size="3">
+                    Description
+                  </Heading>
+                  <Flex align="center" gap="2">
                     {canEditExperiment ? (
-                      <button
-                        className={`btn p-0 link-purple ${
-                          experiment.description ? "mr-3" : ""
-                        }`}
-                        onClick={(e) => {
-                          e.stopPropagation();
+                      <Button
+                        variant="ghost"
+                        stopPropagation={true}
+                        mr={experiment.description ? "3" : "0"}
+                        onClick={() => {
                           setShowDescriptionModal(true);
                         }}
                       >
                         Edit
-                      </button>
+                      </Button>
                     ) : null}
                     {experiment.description ? (
                       <FaAngleRight className="chevron" />
@@ -158,18 +155,19 @@ export default function SetupTabOverview({
 
         {!isBandit && (
           <Frame>
-            <div className="d-flex flex-row align-items-center justify-content-between mb-3">
-              <h4 className="m-0">Hypothesis</h4>
-              <div className="flex-1" />
+            <Flex align="start" justify="between" mb="3">
+              <Heading as="h4" size="3">
+                Hypothesis
+              </Heading>
               {canEditExperiment ? (
-                <button
-                  className="btn p-0 link-purple"
+                <Button
+                  variant="ghost"
                   onClick={() => setShowHypothesisModal(true)}
                 >
                   Edit
-                </button>
+                </Button>
               ) : null}
-            </div>
+            </Flex>
             <div>
               {!experiment.hypothesis ? (
                 <span className="font-italic text-muted">

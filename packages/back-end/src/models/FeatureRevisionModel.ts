@@ -123,6 +123,29 @@ export async function hasDraft(
   return doc ? true : false;
 }
 
+export async function getFeatureRevisionsByStatus({
+  context,
+  organization,
+  featureId,
+  status,
+  limit = 10,
+}: {
+  context: ReqContext;
+  organization: string;
+  featureId: string;
+  status?: string;
+  limit?: number;
+}): Promise<FeatureRevisionInterface[]> {
+  const docs = await FeatureRevisionModel.find({
+    organization,
+    featureId,
+    ...(status ? { status } : {}),
+  })
+    .sort({ version: -1 })
+    .limit(limit);
+  return docs.map((m) => toInterface(m, context));
+}
+
 export async function getRevision({
   context,
   organization,
@@ -556,6 +579,7 @@ export async function cleanUpPreviousRevisions(
     },
   });
 }
+
 export async function getFeatureRevisionsByFeaturesCurrentVersion(
   context: ReqContext | ApiReqContext,
   features: FeatureInterface[]
@@ -568,6 +592,5 @@ export async function getFeatureRevisionsByFeaturesCurrentVersion(
       version: f.version,
     })),
   });
-
   return docs.map((m) => toInterface(m, context));
 }

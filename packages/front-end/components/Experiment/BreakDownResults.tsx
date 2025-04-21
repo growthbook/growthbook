@@ -71,6 +71,7 @@ const BreakDownResults: FC<{
   dimensionId: string;
   isLatestPhase: boolean;
   startDate: string;
+  endDate: string;
   reportDate: Date;
   activationMetric?: string;
   status: ExperimentStatus;
@@ -98,6 +99,7 @@ const BreakDownResults: FC<{
   guardrailMetrics,
   isLatestPhase,
   startDate,
+  endDate,
   activationMetric,
   status,
   reportDate,
@@ -345,6 +347,7 @@ const BreakDownResults: FC<{
               dateCreated={reportDate}
               isLatestPhase={isLatestPhase}
               startDate={startDate}
+              endDate={endDate}
               status={status}
               queryStatusData={queryStatusData}
               variations={variations}

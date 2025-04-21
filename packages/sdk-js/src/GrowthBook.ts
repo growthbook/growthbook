@@ -27,6 +27,7 @@ import type {
   UserContext,
   StickyAssignmentsDocument,
   EventLogger,
+  LogUnion,
 } from "./types/growthbook";
 import {
   decrypt,
@@ -65,6 +66,7 @@ export class GrowthBook<
   public debug: boolean;
   public ready: boolean;
   public version: string;
+  public logs: Array<LogUnion>;
 
   // Properties and methods that start with "_" are mangled by Terser (saves ~150 bytes)
   private _options: Options;
@@ -126,6 +128,7 @@ export class GrowthBook<
     this._deferredTrackingCalls = new Map();
     this._autoExperimentsAllowed = !options.disableExperimentsOnLoad;
     this._destroyCallbacks = [];
+    this.logs = [];
 
     this.log = this.log.bind(this);
     this._track = this._track.bind(this);
@@ -560,6 +563,7 @@ export class GrowthBook<
     this._payload = undefined;
     this._saveStickyBucketAssignmentDoc = undefined;
     unsubscribe(this);
+    this.logs = [];
 
     if (isBrowser && window._growthbook === this) {
       delete window._growthbook;
@@ -639,9 +643,7 @@ export class GrowthBook<
       trackingCallback: this._options.trackingCallback
         ? this._track
         : undefined,
-      onFeatureUsage: this._options.onFeatureUsage
-        ? this._trackFeatureUsage
-        : undefined,
+      onFeatureUsage: this._trackFeatureUsage,
     };
   }
   private _getGlobalContext(): GlobalContext {
@@ -855,6 +857,15 @@ export class GrowthBook<
     if (this._trackedFeatures[key] === stringifiedValue) return;
     this._trackedFeatures[key] = stringifiedValue;
 
+    if (this._options.enableDevMode) {
+      this.logs.push({
+        featureKey: key,
+        result: res,
+        timestamp: Date.now().toString(),
+        logType: "feature",
+      });
+    }
+
     // Fire user-supplied callback
     if (this._options.onFeatureUsage) {
       try {
@@ -952,6 +963,14 @@ export class GrowthBook<
       console.error("Cannot log event to destroyed GrowthBook instance");
       return;
     }
+    if (this._options.enableDevMode) {
+      this.logs.push({
+        eventName,
+        properties,
+        timestamp: Date.now().toString(),
+        logType: "event",
+      });
+    }
     if (this._options.eventLogger) {
       try {
         await this._options.eventLogger(
@@ -987,13 +1006,22 @@ export class GrowthBook<
   }
 
   private async _track<T>(experiment: Experiment<T>, result: Result<T>) {
-    if (!this._options.trackingCallback) return;
-
     const k = this._getTrackKey(experiment, result);
 
     // Make sure a tracking callback is only fired once per unique experiment
     if (this._trackedExperiments.has(k)) return;
     this._trackedExperiments.add(k);
+
+    if (this._options.enableDevMode) {
+      this.logs.push({
+        experiment,
+        result,
+        timestamp: Date.now().toString(),
+        logType: "experiment",
+      });
+    }
+
+    if (!this._options.trackingCallback) return;
 
     try {
       await this._options.trackingCallback(experiment, result);

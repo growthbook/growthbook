@@ -181,13 +181,11 @@ export default function SetupFlow() {
 
             const sdkCapabilities = getSDKCapabilities(value.languages[0]);
 
-            const canUseVisualEditor =
-              hasCommercialFeature("visual-editor") &&
-              sdkCapabilities.includes("visualEditorJS");
+            const canUseVisualEditor = sdkCapabilities.includes(
+              "visualEditorJS"
+            );
 
-            const canUseUrlRedirects =
-              hasCommercialFeature("redirects") &&
-              sdkCapabilities.includes("redirects");
+            const canUseUrlRedirects = sdkCapabilities.includes("redirects");
 
             const canUseSecureConnection =
               hasCommercialFeature("hash-secure-attributes") &&
@@ -206,6 +204,7 @@ export default function SetupFlow() {
               includeDraftExperiments: true,
               includeVisualExperiments: canUseVisualEditor,
               includeRedirectExperiments: canUseUrlRedirects,
+              includeRuleIds: true,
               projects: project ? [project] : [],
             };
 

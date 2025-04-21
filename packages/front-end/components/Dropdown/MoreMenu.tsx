@@ -90,8 +90,8 @@ const MoreMenu: FC<{
           <BsThreeDotsVertical />
         </a>
       )}
-      <RadixTheme>
-        <FloatingPortal>
+      <FloatingPortal>
+        <RadixTheme>
           <div
             className={`dropdown-menu ${open ? "show" : ""}`}
             onClick={() => {
@@ -104,8 +104,8 @@ const MoreMenu: FC<{
           >
             {children}
           </div>
-        </FloatingPortal>
-      </RadixTheme>
+        </RadixTheme>
+      </FloatingPortal>
     </div>
   );
 };

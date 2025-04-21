@@ -35,8 +35,8 @@ $sidebarwidth: 240px;
   right: 0;
   height: 56px;
   z-index: 1010;
-  background-color: var(--surface-background-color);
-  border-bottom: 1px solid var(--border-color-300);
+  background-color: var(--color-surface-solid);
+  border-bottom: 1px solid var(--slate-a3);
   padding: 0 16px;
   @media (max-width: 520px) {
     padding: 0 8px;

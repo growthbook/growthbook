@@ -30,6 +30,7 @@ import { postCopyTransform } from "./openai/postCopyTransform";
 import { getFeatureKeys } from "./features/getFeatureKeys";
 import ingestionRouter from "./ingestion/ingestion.router";
 import archetypesRouter from "./archetypes/archetypes.router";
+import { getExperimentNames } from "./experiments/getExperimentNames";
 
 const router = Router();
 let openapiSpec: string;
@@ -84,6 +85,7 @@ router.get("/", (req, res) => {
 router.use("/features", featuresRouter);
 router.get("/feature-keys", getFeatureKeys);
 router.use("/experiments", experimentsRouter);
+router.get("/experiment-names", getExperimentNames);
 router.use("/snapshots", snapshotsRouter);
 router.use("/metrics", metricsRouter);
 router.use("/segments", segmentsRouter);

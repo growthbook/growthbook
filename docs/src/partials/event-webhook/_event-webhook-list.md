@@ -9,6 +9,9 @@
 | **[experiment.deleted](#experimentdeleted)** | Triggered when an experiment is deleted |
 | **[experiment.warning](#experimentwarning)** | Triggered when a warning condition is detected on an experiment |
 | **[experiment.info.significance](#experimentinfosignificance)** | Triggered when a goal or guardrail metric reaches significance in an experiment (e.g. either above 95% or below 5% chance to win). Be careful using this without Sequential Testing as it can lead to peeking problems. |
+| **[experiment.decision.ship](#experimentdecisionship)** | Triggered when an experiment is ready to ship a variation. |
+| **[experiment.decision.rollback](#experimentdecisionrollback)** | Triggered when an experiment should be rolled back to the control. |
+| **[experiment.decision.review](#experimentdecisionreview)** | Triggered when an experiment has reached the desired power point, but the results may be ambiguous. |
 | **[user.login](#userlogin)** | Triggered when a user logs in |
 
   
@@ -47,6 +50,11 @@ Triggered when a feature is created
                         savedGroupTargeting?: {
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
+                        }[] | undefined;
+                        prerequisites?: {
+                            /** Feature ID */
+                            id: string;
+                            condition: string;
                         }[] | undefined;
                         id: string;
                         enabled: boolean;
@@ -112,6 +120,11 @@ Triggered when a feature is created
                                 matchType: "all" | "any" | "none";
                                 savedGroups: string[];
                             }[] | undefined;
+                            prerequisites?: {
+                                /** Feature ID */
+                                id: string;
+                                condition: string;
+                            }[] | undefined;
                             id: string;
                             enabled: boolean;
                             type: "force";
@@ -169,10 +182,8 @@ Triggered when a feature is created
                     } | undefined;
                 };
             };
-            prerequisites?: {
-                parentId: string;
-                parentCondition: string;
-            }[] | undefined;
+            /** Feature IDs. Each feature must evaluate to `true` */
+            prerequisites?: string[] | undefined;
             revision: {
                 version: number;
                 comment: string;
@@ -234,6 +245,11 @@ Triggered when a feature is updated
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
                         }[] | undefined;
+                        prerequisites?: {
+                            /** Feature ID */
+                            id: string;
+                            condition: string;
+                        }[] | undefined;
                         id: string;
                         enabled: boolean;
                         type: "force";
@@ -297,6 +313,11 @@ Triggered when a feature is updated
                             savedGroupTargeting?: {
                                 matchType: "all" | "any" | "none";
                                 savedGroups: string[];
+                            }[] | undefined;
+                            prerequisites?: {
+                                /** Feature ID */
+                                id: string;
+                                condition: string;
                             }[] | undefined;
                             id: string;
                             enabled: boolean;
@@ -355,10 +376,8 @@ Triggered when a feature is updated
                     } | undefined;
                 };
             };
-            prerequisites?: {
-                parentId: string;
-                parentCondition: string;
-            }[] | undefined;
+            /** Feature IDs. Each feature must evaluate to `true` */
+            prerequisites?: string[] | undefined;
             revision: {
                 version: number;
                 comment: string;
@@ -387,6 +406,11 @@ Triggered when a feature is updated
                         savedGroupTargeting?: {
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
+                        }[] | undefined;
+                        prerequisites?: {
+                            /** Feature ID */
+                            id: string;
+                            condition: string;
                         }[] | undefined;
                         id: string;
                         enabled: boolean;
@@ -451,6 +475,11 @@ Triggered when a feature is updated
                             savedGroupTargeting?: {
                                 matchType: "all" | "any" | "none";
                                 savedGroups: string[];
+                            }[] | undefined;
+                            prerequisites?: {
+                                /** Feature ID */
+                                id: string;
+                                condition: string;
                             }[] | undefined;
                             id: string;
                             enabled: boolean;
@@ -509,10 +538,8 @@ Triggered when a feature is updated
                     } | undefined;
                 };
             } | undefined;
-            prerequisites?: ({
-                parentId: string;
-                parentCondition: string;
-            }[] | undefined) | undefined;
+            /** Feature IDs. Each feature must evaluate to `true` */
+            prerequisites?: (string[] | undefined) | undefined;
             revision?: {
                 version: number;
                 comment: string;
@@ -574,6 +601,11 @@ Triggered when a feature is deleted
                             matchType: "all" | "any" | "none";
                             savedGroups: string[];
                         }[] | undefined;
+                        prerequisites?: {
+                            /** Feature ID */
+                            id: string;
+                            condition: string;
+                        }[] | undefined;
                         id: string;
                         enabled: boolean;
                         type: "force";
@@ -638,6 +670,11 @@ Triggered when a feature is deleted
                                 matchType: "all" | "any" | "none";
                                 savedGroups: string[];
                             }[] | undefined;
+                            prerequisites?: {
+                                /** Feature ID */
+                                id: string;
+                                condition: string;
+                            }[] | undefined;
                             id: string;
                             enabled: boolean;
                             type: "force";
@@ -695,10 +732,8 @@ Triggered when a feature is deleted
                     } | undefined;
                 };
             };
-            prerequisites?: {
-                parentId: string;
-                parentCondition: string;
-            }[] | undefined;
+            /** Feature IDs. Each feature must evaluate to `true` */
+            prerequisites?: string[] | undefined;
             revision: {
                 version: number;
                 comment: string;
@@ -740,9 +775,11 @@ Triggered when an experiment is created
     data: {
         object: {
             id: string;
+            trackingKey: string;
             dateCreated: string;
             dateUpdated: string;
             name: string;
+            type: "standard" | "multi-armed-bandit";
             project: string;
             hypothesis: string;
             description: string;
@@ -780,6 +817,10 @@ Triggered when an experiment is created
                     range: any[];
                 } | undefined;
                 targetingCondition: string;
+                prerequisites?: {
+                    id: string;
+                    condition: string;
+                }[] | undefined;
                 savedGroupTargeting?: {
                     matchType: "all" | "any" | "none";
                     savedGroups: string[];
@@ -796,6 +837,8 @@ Triggered when an experiment is created
                 attributionModel: "firstExposure" | "experimentDuration";
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean | undefined;
+                sequentialTestingEnabled?: boolean | undefined;
+                sequentialTestingTuningParameter?: number | undefined;
                 goals: {
                     metricId: string;
                     overrides: {
@@ -844,6 +887,15 @@ Triggered when an experiment is created
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
             } | undefined;
+            shareLevel?: ("public" | "organization") | undefined;
+            publicUrl?: string | undefined;
+            banditScheduleValue?: number | undefined;
+            banditScheduleUnit?: ("days" | "hours") | undefined;
+            banditBurnInValue?: number | undefined;
+            banditBurnInUnit?: ("days" | "hours") | undefined;
+            linkedFeatures?: string[] | undefined;
+            hasVisualChangesets?: boolean | undefined;
+            hasURLRedirects?: boolean | undefined;
         };
     };
     user: {
@@ -879,9 +931,11 @@ Triggered when an experiment is updated
     data: {
         object: {
             id: string;
+            trackingKey: string;
             dateCreated: string;
             dateUpdated: string;
             name: string;
+            type: "standard" | "multi-armed-bandit";
             project: string;
             hypothesis: string;
             description: string;
@@ -919,6 +973,10 @@ Triggered when an experiment is updated
                     range: any[];
                 } | undefined;
                 targetingCondition: string;
+                prerequisites?: {
+                    id: string;
+                    condition: string;
+                }[] | undefined;
                 savedGroupTargeting?: {
                     matchType: "all" | "any" | "none";
                     savedGroups: string[];
@@ -935,6 +993,8 @@ Triggered when an experiment is updated
                 attributionModel: "firstExposure" | "experimentDuration";
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean | undefined;
+                sequentialTestingEnabled?: boolean | undefined;
+                sequentialTestingTuningParameter?: number | undefined;
                 goals: {
                     metricId: string;
                     overrides: {
@@ -983,12 +1043,23 @@ Triggered when an experiment is updated
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
             } | undefined;
+            shareLevel?: ("public" | "organization") | undefined;
+            publicUrl?: string | undefined;
+            banditScheduleValue?: number | undefined;
+            banditScheduleUnit?: ("days" | "hours") | undefined;
+            banditBurnInValue?: number | undefined;
+            banditBurnInUnit?: ("days" | "hours") | undefined;
+            linkedFeatures?: string[] | undefined;
+            hasVisualChangesets?: boolean | undefined;
+            hasURLRedirects?: boolean | undefined;
         };
         previous_attributes: {
             id?: string | undefined;
+            trackingKey?: string | undefined;
             dateCreated?: string | undefined;
             dateUpdated?: string | undefined;
             name?: string | undefined;
+            type?: ("standard" | "multi-armed-bandit") | undefined;
             project?: string | undefined;
             hypothesis?: string | undefined;
             description?: string | undefined;
@@ -1026,6 +1097,10 @@ Triggered when an experiment is updated
                     range: any[];
                 } | undefined;
                 targetingCondition: string;
+                prerequisites?: {
+                    id: string;
+                    condition: string;
+                }[] | undefined;
                 savedGroupTargeting?: {
                     matchType: "all" | "any" | "none";
                     savedGroups: string[];
@@ -1042,6 +1117,8 @@ Triggered when an experiment is updated
                 attributionModel: "firstExposure" | "experimentDuration";
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean | undefined;
+                sequentialTestingEnabled?: boolean | undefined;
+                sequentialTestingTuningParameter?: number | undefined;
                 goals: {
                     metricId: string;
                     overrides: {
@@ -1090,6 +1167,15 @@ Triggered when an experiment is updated
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
             } | undefined) | undefined;
+            shareLevel?: (("public" | "organization") | undefined) | undefined;
+            publicUrl?: (string | undefined) | undefined;
+            banditScheduleValue?: (number | undefined) | undefined;
+            banditScheduleUnit?: (("days" | "hours") | undefined) | undefined;
+            banditBurnInValue?: (number | undefined) | undefined;
+            banditBurnInUnit?: (("days" | "hours") | undefined) | undefined;
+            linkedFeatures?: (string[] | undefined) | undefined;
+            hasVisualChangesets?: (boolean | undefined) | undefined;
+            hasURLRedirects?: (boolean | undefined) | undefined;
         };
     };
     user: {
@@ -1125,9 +1211,11 @@ Triggered when an experiment is deleted
     data: {
         object: {
             id: string;
+            trackingKey: string;
             dateCreated: string;
             dateUpdated: string;
             name: string;
+            type: "standard" | "multi-armed-bandit";
             project: string;
             hypothesis: string;
             description: string;
@@ -1165,6 +1253,10 @@ Triggered when an experiment is deleted
                     range: any[];
                 } | undefined;
                 targetingCondition: string;
+                prerequisites?: {
+                    id: string;
+                    condition: string;
+                }[] | undefined;
                 savedGroupTargeting?: {
                     matchType: "all" | "any" | "none";
                     savedGroups: string[];
@@ -1181,6 +1273,8 @@ Triggered when an experiment is deleted
                 attributionModel: "firstExposure" | "experimentDuration";
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean | undefined;
+                sequentialTestingEnabled?: boolean | undefined;
+                sequentialTestingTuningParameter?: number | undefined;
                 goals: {
                     metricId: string;
                     overrides: {
@@ -1229,6 +1323,15 @@ Triggered when an experiment is deleted
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
             } | undefined;
+            shareLevel?: ("public" | "organization") | undefined;
+            publicUrl?: string | undefined;
+            banditScheduleValue?: number | undefined;
+            banditScheduleUnit?: ("days" | "hours") | undefined;
+            banditBurnInValue?: number | undefined;
+            banditBurnInUnit?: ("days" | "hours") | undefined;
+            linkedFeatures?: string[] | undefined;
+            hasVisualChangesets?: boolean | undefined;
+            hasURLRedirects?: boolean | undefined;
         };
     };
     user: {
@@ -1321,6 +1424,117 @@ Triggered when a goal or guardrail metric reaches significance in an experiment 
             statsEngine: string;
             criticalValue: number;
             winning: boolean;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### experiment.decision.ship
+
+Triggered when an experiment is ready to ship a variation.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "experiment.decision.ship";
+    object: "experiment";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            experimentName: string;
+            experimentId: string;
+            decisionDescription?: string | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### experiment.decision.rollback
+
+Triggered when an experiment should be rolled back to the control.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "experiment.decision.rollback";
+    object: "experiment";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            experimentName: string;
+            experimentId: string;
+            decisionDescription?: string | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### experiment.decision.review
+
+Triggered when an experiment has reached the desired power point, but the results may be ambiguous.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "experiment.decision.review";
+    object: "experiment";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            experimentName: string;
+            experimentId: string;
+            decisionDescription?: string | undefined;
         };
     };
     user: {

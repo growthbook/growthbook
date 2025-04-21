@@ -282,10 +282,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
 
             <div className="row mb-3">
               <div className="col">
-                <div
-                  className={`card gsbox mb-3`}
-                  style={{ overflow: "hidden" }}
-                >
+                <div className="appbox p-4" style={{ overflow: "hidden" }}>
                   <GetStartedStep
                     current={true}
                     finished={false}
@@ -311,7 +308,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                   />
                 </div>
                 <div
-                  className={`card gsbox mb-3`}
+                  className={`appbox p-4 mb-3`}
                   style={{ overflow: "hidden" }}
                 >
                   <GetStartedStep
@@ -342,7 +339,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     }}
                   />
                 </div>
-                <div className={`card gsbox`} style={{ overflow: "hidden" }}>
+                <div className={`appbox p-4`} style={{ overflow: "hidden" }}>
                   <GetStartedStep
                     current={true}
                     finished={false}

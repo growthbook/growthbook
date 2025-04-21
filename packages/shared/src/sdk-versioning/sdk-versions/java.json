@@ -1,6 +1,21 @@
 {
   "versions": [
     {
+      "version": "0.9.96"
+    },
+    {
+      "version": "0.9.95"
+    },
+    {
+      "version": "0.9.94"
+    },
+    {
+      "version": "0.9.93"
+    },
+    {
+      "version": "0.9.92"
+    },
+    {
       "version": "0.9.91"
     },
     {
@@ -14,7 +29,7 @@
     },
     {
       "version": "0.9.3",
-      "capabilities": ["prerequisites"]
+      "capabilities": ["prerequisites", "stickyBucketing"]
     },
     {
       "version": "0.9.2"

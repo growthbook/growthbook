@@ -1,3 +1,5 @@
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
 # Configuring GrowthBook with Vercel
 
 _This guide assumes that you already have a Vercel account and have at least one Vercel project_
@@ -18,29 +20,23 @@ This integration creates GrowthBook API keys and creates matching keys as Enviro
 
 Located in the upper right corner of the page, click on the "Add Integration" button.
 
-<img
-  src="/images/integrations/vercel-add-integration.png"
-  alt="Add Mixpanel service account specifics"
-  style={{ width: 700, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={700} border>
+  ![Add vercel integration](/images/integrations/vercel-add-integration.png)
+</MaxWidthImage>
 
 ## 3. Choose which account you want to use for the integration
 
 The account selected will determine which projects are shown in the next step.
 
-<img
-  src="/images/integrations/vercel-choose-account.png"
-  alt="Add Mixpanel service account specifics"
-  style={{ width: 400, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={400} border>
+  ![Choose account](/images/integrations/vercel-choose-account.png)
+</MaxWidthImage>
 
 ## 4. Choose which projects you want GrowthBook to be enabled for
 
-<img
-  src="/images/integrations/vercel-choose-project.png"
-  alt="Add Mixpanel service account specifics"
-  style={{ width: 400, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={400} border>
+  ![Choose project](/images/integrations/vercel-choose-project.png)
+</MaxWidthImage>
 
 ## 5. Setup your environments
 
@@ -51,11 +47,9 @@ using "production" for your Vercel environment you will most likely want to set 
 
 _Note: If you leave a GrowthBook environment as None, neither GrowthBook nor Vercel keys will be created for that environment._
 
-<img
-  src="/images/integrations/vercel-environments.png"
-  alt="Add Mixpanel service account specifics"
-  style={{ width: 400, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={400} border>
+  ![Add environments](/images/integrations/vercel-environments.png)
+</MaxWidthImage>
 
 By clicking "Submit" both sets of keys will be created for all of your environments.
 
@@ -64,11 +58,9 @@ By clicking "Submit" both sets of keys will be created for all of your environme
 You will then be taken to the integration page. From here you can click on "Configure" in the top right corner to
 view the created keys.
 
-<img
-  src="/images/integrations/vercel-configure.png"
-  alt="Add Mixpanel service account specifics"
-  style={{ width: 400, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={400} border>
+  ![Configure button](/images/integrations/vercel-configure.png)
+</MaxWidthImage>
 
 You can also look at your keys from GrowthBook & Vercel:
 

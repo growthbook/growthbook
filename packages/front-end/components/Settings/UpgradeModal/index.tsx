@@ -1,13 +1,23 @@
 import { useEffect, useState } from "react";
 import clsx from "clsx";
-import { daysLeft } from "shared/dates";
+import { date, daysLeft } from "shared/dates";
 import Link from "next/link";
+import { Box, Flex, Text } from "@radix-ui/themes";
+import { FaCheckCircle } from "react-icons/fa";
+import { PiCaretRight, PiArrowSquareOut } from "react-icons/pi";
+import { CommercialFeature } from "shared/enterprise";
+import { growthbook } from "@/services/utils";
 import { useUser } from "@/services/UserContext";
 import { getGrowthBookBuild, isCloud } from "@/services/env";
 import track from "@/services/track";
 import { redirectWithTimeout, useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import RadioCards from "@/components/Radix/RadioCards";
+import CloudProUpgradeModal from "@/enterprise/components/Billing/CloudProUpgradeModal";
+import { StripeProvider } from "@/enterprise/components/Billing/StripeProvider";
+import Callout from "@/components/Radix/Callout";
 import styles from "./index.module.scss";
 import CloudTrialConfirmationModal from "./CloudTrialConfirmationModal";
 import LicenseSuccessModal from "./LicenseSuccessModal";
@@ -17,14 +27,22 @@ import SelfHostedTrialConfirmationModal from "./SelfHostedTrialConfirmationModal
 export interface Props {
   close: () => void;
   source: string;
-  reason: string;
+  commercialFeature: CommercialFeature | null;
 }
 
-export default function UpgradeModal({ close, source }: Props) {
+export default function UpgradeModal({
+  close,
+  source,
+  commercialFeature,
+}: Props) {
   const [error, setError] = useState("");
   const { apiCall } = useAuth();
 
   const [loading, setLoading] = useState(false);
+  const [
+    trialAndUpgradePreference,
+    setTrialAndUpgradePreference,
+  ] = useState<string>("trial");
   const [showSHProTrial, setShowSHProTrial] = useState(false);
   const [showSHProTrialSuccess, setShowSHProTrialSuccess] = useState(false);
   const [showSHEnterpriseTrial, setShowSHEnterpriseTrial] = useState(false);
@@ -40,13 +58,24 @@ export default function UpgradeModal({ close, source }: Props) {
     showCloudEnterpriseTrialSuccess,
     setShowCloudEnterpriseTrialSuccess,
   ] = useState(false);
+  const [cloudProUpgradeSetup, setCloudProUpgradeSetup] = useState<{
+    clientSecret: string;
+  } | null>(null);
   const [showCloudProTrial, setShowCloudProTrial] = useState(false);
   const [showCloudProTrialSuccess, setShowCloudProTrialSuccess] = useState(
     false
   );
-
-  const { name, email, accountPlan, license, effectiveAccountPlan } = useUser();
-
+  const {
+    name,
+    email,
+    accountPlan,
+    license,
+    effectiveAccountPlan,
+    commercialFeatureLowestPlan,
+    subscription,
+    users,
+  } = useUser();
+  const numOfCurrentMembers = users.size || 1;
   const permissionsUtil = usePermissionsUtil();
 
   const { organization, refreshOrganization } = useUser();
@@ -67,11 +96,21 @@ export default function UpgradeModal({ close, source }: Props) {
   const freeTrialAvailable =
     !license || !license.plan || !license.emailVerified;
 
-  const daysToGo = license ? daysLeft(license.dateExpires) : 0;
+  // These are some Upgrade CTAs throughout the app related to enterprise-only features
+  // we don't want to show a user the test treatments if that's the case
+  // since this test doesn't highlight enterprise features at all.
+  const lowestPlan = commercialFeature
+    ? commercialFeatureLowestPlan?.[commercialFeature]
+    : "starter";
+  const featureFlagValue =
+    isCloud() && lowestPlan !== "enterprise" && license?.plan !== "enterprise"
+      ? growthbook.getFeatureValue("pro-upgrade-modal", "OFF")
+      : "OFF";
+  const daysToGo = license?.dateExpires ? daysLeft(license.dateExpires) : 0;
 
   const hasCanceledSubscription =
     ["pro", "pro_sso"].includes(license?.plan || "") &&
-    license?.stripeSubscription?.status === "canceled";
+    subscription?.status === "canceled";
 
   const trackContext = {
     accountPlan,
@@ -79,6 +118,9 @@ export default function UpgradeModal({ close, source }: Props) {
     currentUsers,
     freeTrialAvailable,
   };
+
+  const useInlineUpgradeForm =
+    isCloud() && growthbook.getFeatureValue("ff_embedded-payment-form", false);
 
   useEffect(() => {
     track("View Upgrade Modal", trackContext);
@@ -104,10 +146,7 @@ export default function UpgradeModal({ close, source }: Props) {
     setError("");
     setLoading(true);
     try {
-      if (
-        license?.stripeSubscription &&
-        license?.stripeSubscription.status != "canceled"
-      ) {
+      if (subscription && subscription.status != "canceled") {
         const res = await apiCall<{ url: string }>(`/subscription/manage`, {
           method: "POST",
         });
@@ -120,7 +159,17 @@ export default function UpgradeModal({ close, source }: Props) {
         } else {
           setError("Unknown response");
         }
+      } else if (useInlineUpgradeForm) {
+        // Sets up in-app upgrade
+        const { clientSecret } = await apiCall<{
+          clientSecret: string;
+        }>(`/subscription/setup-intent`, {
+          method: "POST",
+        });
+        setCloudProUpgradeSetup({ clientSecret });
+        setLoading(false);
       } else {
+        // Otherwise, this creates a new checkout session and will redirect to the Stripe checkout page
         const resp = await apiCall<{
           status: number;
           session?: { url?: string };
@@ -253,8 +302,293 @@ export default function UpgradeModal({ close, source }: Props) {
     }
   };
 
+  const bullets: Partial<Record<CommercialFeature, string>> = {
+    "advanced-permissions": "Manage advanced user permissions",
+    "encrypt-features-endpoint": "SDK endpoint encryption",
+    "schedule-feature-flag": "Schedule feature flag rollouts",
+    "override-metrics": "Override metric definitions on a per-experiment basis",
+    "regression-adjustment": "Increase experiment velocity with CUPED",
+    "sequential-testing": "Sequential testing for always-valid p-values",
+    "visual-editor":
+      "Use our no-code Visual Editor to create front-end experiments",
+    archetypes:
+      "Save user archetypes and use them to debug feature flag values",
+    simulate:
+      "Simulate how different users would see an experiment or feature flag",
+    "cloud-proxy":
+      "Use a self-hosted GrowthBook proxy in front of our Cloud CDN",
+    "hash-secure-attributes":
+      "Hash sensitive targeting attributes like email addresses to avoid leaking PII",
+    livechat: "Get fast support with in-app chat",
+    "remote-evaluation": "Enable remote-evaluation for client-side SDKs",
+    "sticky-bucketing": "Ensure consistent experiences with Sticky Bucketing",
+    "code-references":
+      "Quickly see where feature flags are referenced in your codebase",
+    prerequisites:
+      "Define dependencies between feature flags with Pre-requisites",
+    redirects: "Run URL Redirect tests",
+    "multiple-sdk-webhooks":
+      "Implement custom caching and notification logic with SDK Webhooks",
+    "quantile-metrics":
+      "Define quantile metrics such as P99 latency or Median revenue",
+    "retention-metrics":
+      "Define retention metrics that measure return activity",
+    "metric-populations": "Analyze metrics for different sub-populations",
+    "multi-armed-bandits": "Run adaptive experiments with Bandits",
+    "historical-power":
+      "Power calculator that uses historical data for accurate predictions",
+    "decision-framework":
+      "Estimate experiment duration using your data & get shipping recommendations.",
+  };
+
+  const upgradeHeader = (
+    <>
+      <h3
+        className="mb-1"
+        style={{ color: "var(--color-text-high)", fontSize: "20px" }}
+      >
+        Upgrade to Pro
+      </h3>
+      <p
+        className="mb-0"
+        style={{ color: "var(--color-text-mid)", fontSize: "16px" }}
+      >
+        Get instant access to advanced experimentation, permissioning and
+        security features.
+      </p>
+    </>
+  );
+
+  const enterpriseCallout = (
+    <p className="mb-0" style={{ color: "var(--color-text-mid)" }}>
+      Interested in an Enterprise Plan?
+      <a
+        href="https://www.growthbook.io/demo"
+        className="text-decoration-none pl-1"
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={() => {
+          track("Start Enterprise Checkout", trackContext);
+        }}
+      >
+        <strong className="a link-purple text-decoration-none">
+          Talk to Sales
+        </strong>
+      </a>
+    </p>
+  );
+
+  function trialAndUpgradeTreatment() {
+    return (
+      <div>
+        {upgradeHeader}
+        <div className="py-4">
+          <RadioCards
+            columns="2"
+            value={trialAndUpgradePreference}
+            setValue={(v) => setTrialAndUpgradePreference(v)}
+            options={[
+              {
+                value: "trial",
+                label: "Pro Trial",
+                description: "Free for 14 days - no credit card required.",
+              },
+              {
+                value: "upgrade",
+                label: "Pro",
+                description: "Get started now",
+              },
+            ]}
+          />
+        </div>
+        {enterpriseCallout}
+      </div>
+    );
+  }
+
+  function upgradeOnlyTreatment() {
+    const dynamicBullet = commercialFeature ? bullets[commercialFeature] : null;
+    const now = new Date();
+
+    const licensePlanText =
+      license?.plan === "enterprise" ? "Enterprise" : "Pro";
+    const notice =
+      license?.dateExpires && new Date(license?.dateExpires) < now
+        ? `${licensePlanText} license expired ${date(
+            license.dateExpires || ""
+          )}. Renew to regain access to ${licensePlanText} features and higher usage limits.`
+        : null;
+
+    return (
+      <div>
+        {upgradeHeader}
+        {notice && (
+          <Box mt="4">
+            <Callout status="error">{notice}</Callout>
+          </Box>
+        )}
+        <div className="py-4">
+          <Flex align="center" className="pb-2">
+            <FaCheckCircle className="mr-2" color="var(--indigo-9)" />
+            <Text
+              size={"3"}
+              style={{ color: "var(--color-text-high)", fontWeight: 500 }}
+            >
+              {dynamicBullet || "Add up to 100 team members"}
+            </Text>
+          </Flex>
+          <Flex align="center" className="pb-2">
+            <FaCheckCircle className="mr-2" color="var(--indigo-9)" />
+            <Text
+              size={"3"}
+              style={{ color: "var(--color-text-high)", fontWeight: 500 }}
+            >
+              {dynamicBullet === "advanced-permissions"
+                ? "Add up to 100 team members"
+                : "Manage advanced user permissions"}
+            </Text>
+          </Flex>
+          <Flex align="center" className="pb-2">
+            <FaCheckCircle className="mr-2" color="var(--indigo-9)" />
+            <Text
+              size={"3"}
+              style={{ color: "var(--color-text-high)", fontWeight: 500 }}
+            >
+              Get access to advanced experimentation: CUPED, Sequential testing,
+              Bandits and more
+            </Text>
+          </Flex>
+        </div>
+        {isCloud() && permissionsUtil.canManageBilling() && (
+          <>
+            <Box
+              className="mb-4"
+              style={{
+                backgroundColor: "var(--violet-2)",
+                padding: "20px 20px 24px 20px",
+              }}
+            >
+              <Flex
+                align="center"
+                justify="between"
+                style={{ color: "var(--color-text-high)" }}
+                mb={"1"}
+              >
+                <Text size="3" weight={"bold"}>
+                  Base price
+                </Text>
+                <Text size="3" weight={"bold"}>
+                  ${numOfCurrentMembers * 20} / month
+                </Text>
+              </Flex>
+              <Text style={{ color: "var(--color-text-mid)", fontWeight: 500 }}>
+                $20 per seat (Includes 2 million CDN requests and 20GB of
+                bandwidth per month)
+              </Text>
+
+              <Text
+                as="div"
+                size="2"
+                weight={"bold"}
+                mt="3"
+                style={{ color: "var(--color-text-high)" }}
+              >
+                Additional usage:
+              </Text>
+              <ul
+                className="pl-4"
+                style={{ color: "var(--color-text-mid)", fontWeight: 500 }}
+              >
+                <li> $10 per million CDN requests</li>
+                <li> $1 per GB </li>
+              </ul>
+
+              <hr style={{ borderColor: "var(--slate-a6)" }} />
+              <p className="mb-0">
+                <a
+                  href="/settings/usage"
+                  className="text-decoration-none pl-1"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => {
+                    track(
+                      "Clicked See Recent Usage From Upgrade Modal",
+                      trackContext
+                    );
+                  }}
+                >
+                  <Text size="1" weight="bold" className="a link-purple">
+                    See your recent usage{" "}
+                    <PiArrowSquareOut
+                      style={{ position: "relative", top: "-2px" }}
+                    />
+                  </Text>
+                </a>
+              </p>
+            </Box>
+            <Callout status="info">
+              Interested in an Enterprise Plan with volume discounts?
+              <a
+                href="https://www.growthbook.io/demo"
+                className="text-decoration-none pl-1"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => {
+                  track("Start Enterprise Checkout", trackContext);
+                }}
+              >
+                <strong className="a link-purple">
+                  Talk to Sales{" "}
+                  <PiArrowSquareOut
+                    style={{ position: "relative", top: "-2px" }}
+                  />{" "}
+                </strong>
+              </a>
+            </Callout>
+          </>
+        )}{" "}
+        {!isCloud() && permissionsUtil.canManageBilling() && (
+          <div>
+            <div
+              className="p-3 mb-4"
+              style={{ backgroundColor: "var(--violet-2)" }}
+            >
+              <Flex align="center" justify="between">
+                <span>
+                  <label>Cost</label>
+                  <Tooltip
+                    color="purple"
+                    body="Based on your current seat count."
+                    className="pl-1"
+                  />
+                </span>
+                <label>~${numOfCurrentMembers * 20} / month</label>
+              </Flex>
+              <p className="mb-0 text-secondary">
+                $20 per seat per month, {numOfCurrentMembers} current seat
+                {numOfCurrentMembers > 1 ? "s" : ""}
+              </p>
+            </div>
+            {enterpriseCallout}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  async function onSubmit() {
+    if (
+      featureFlagValue === "UPGRADE-ONLY" ||
+      trialAndUpgradePreference === "upgrade"
+    ) {
+      await startPro();
+    } else {
+      await startProTrial(name, email);
+    }
+  }
+
   return (
-    <div>
+    <>
       {showSHProTrial ? (
         <SelfHostedTrialConfirmationModal
           close={close}
@@ -317,115 +651,123 @@ export default function UpgradeModal({ close, source }: Props) {
           header={`🎉 Your 14-day Enterprise Trial starts now!`}
           isTrial={true}
         />
+      ) : cloudProUpgradeSetup ? (
+        <StripeProvider initialClientSecret={cloudProUpgradeSetup.clientSecret}>
+          <CloudProUpgradeModal
+            close={() => setCloudProUpgradeSetup(null)}
+            closeParent={close}
+          />
+        </StripeProvider>
       ) : (
         <Modal
-          trackingEventModalType=""
+          trackingEventModalType="upgrade-modal"
+          allowlistedTrackingEventProps={trackContext}
           open={true}
-          includeCloseCta={false}
+          autoCloseOnSubmit={false}
+          includeCloseCta={featureFlagValue !== "OFF" ? true : false}
           close={close}
           size="lg"
-          header={<>Get more out of GrowthBook</>}
+          header={
+            featureFlagValue === "OFF" ? <>Get more out of GrowthBook</> : null
+          }
+          showHeaderCloseButton={featureFlagValue === "OFF" ? true : false}
           loading={loading}
+          cta={
+            <>
+              {featureFlagValue === "UPGRADE-ONLY" ||
+              trialAndUpgradePreference === "upgrade"
+                ? "Continue"
+                : "Start Trial"}
+              <PiCaretRight />
+            </>
+          }
+          disabledMessage="Contact your admin to upgrade."
+          ctaEnabled={permissionsUtil.canManageBilling()}
+          submit={featureFlagValue !== "OFF" ? onSubmit : undefined}
         >
-          {!permissionsUtil.canManageBilling() ? (
-            <div className="text-center mt-4 mb-5">
-              To upgrade, please contact your system administrator.
-            </div>
-          ) : (
-            <div
-              className={clsx(
-                "container-fluid dashboard p-3 ",
-                styles.upgradeModal
-              )}
-            >
-              {!license?.isTrial &&
-                (daysToGo >= 0 && !hasCanceledSubscription ? (
-                  <div className="row bg-main-color p-3 mb-3 rounded">
-                    <span>You are currently using the </span>
-                    <b className="mx-1"> {licensePlanText} </b> version of
-                    Growthbook with{" "}
-                    <Link
-                      href="/settings/team"
-                      className="mx-1 font-weight-bold"
-                    >
-                      {currentUsers} team members
-                    </Link>
-                    ↗
-                  </div>
-                ) : daysToGo < 0 ? (
-                  <div className="row p-3 mb-3 rounded alert-danger">
-                    {" "}
-                    <span>
-                      Your old <b className="mx-1">{licensePlanText}</b> version
-                      of Growthbook with{" "}
-                      <Link
-                        href="/settings/team"
-                        className="mx-1 font-weight-bold"
-                      >
-                        {currentUsers} team members
-                      </Link>
-                      ↗ expired. Renew below.
-                    </span>
-                  </div>
-                ) : (
-                  <div className="row p-3 mb-3 rounded alert-danger">
-                    {" "}
-                    <span>
-                      Your old <b className="mx-1">{licensePlanText}</b> version
-                      of Growthbook with{" "}
-                      <Link
-                        href="/settings/team"
-                        className="mx-1 font-weight-bold"
-                      >
-                        {currentUsers} team members
-                      </Link>
-                      ↗ was cancelled. Renew below.
-                    </span>
-                  </div>
-                ))}
-              {license?.isTrial && (
-                <div
-                  className={`row p-3 mb-3 rounded ${
-                    daysToGo <= 3
-                      ? "alert-danger"
-                      : daysToGo <= 7
-                      ? "bg-muted-yellow"
-                      : "bg-main-color"
-                  }`}
-                >
-                  {(daysToGo >= 0 && (
-                    <div>
+          <div
+            className={clsx(
+              "container-fluid dashboard p-3 ",
+              styles.upgradeModal
+            )}
+          >
+            {featureFlagValue === "OFF" ? (
+              <>
+                {!license?.isTrial &&
+                  (daysToGo >= 0 && !hasCanceledSubscription ? (
+                    <div className="row bg-main-color p-3 mb-3 rounded">
+                      <span>You are currently using the </span>
+                      <b className="mx-1"> {licensePlanText} </b> version of
+                      Growthbook.
+                    </div>
+                  ) : daysToGo < 0 ? (
+                    <div className="row p-3 mb-3 rounded alert-danger">
+                      {" "}
                       <span>
-                        You have <b>{daysLeft(license.dateExpires)} days</b>{" "}
-                        left in your {licensePlanText} of Growthbook with{" "}
+                        Your old <b className="mx-1">{licensePlanText}</b>{" "}
+                        version of Growthbook expired. Renew below.
                       </span>
-                      <Link
-                        href="/settings/team"
-                        className="mx-1 font-weight-bold"
-                      >
-                        {currentUsers} team members
-                      </Link>
-                      ↗
                     </div>
-                  )) || (
-                    <div>
-                      <span>Your {licensePlanText} of Growthbook with </span>
-                      <Link
-                        href="/settings/team"
-                        className="mx-1 font-weight-bold"
-                      >
-                        {currentUsers} team members
-                      </Link>
-                      ↗<span> has expired</span>
+                  ) : (
+                    <div className="row p-3 mb-3 rounded alert-danger">
+                      {" "}
+                      <span>
+                        Your old <b className="mx-1">{licensePlanText}</b>{" "}
+                        version of Growthbook was cancelled. Renew below.
+                      </span>
                     </div>
-                  )}
-                </div>
-              )}
+                  ))}
+                {license?.isTrial && (
+                  <div
+                    className={`row p-3 mb-3 rounded ${
+                      daysToGo <= 3
+                        ? "alert-danger"
+                        : daysToGo <= 7
+                        ? "bg-muted-yellow"
+                        : "bg-main-color"
+                    }`}
+                  >
+                    {(daysToGo >= 0 && (
+                      <div>
+                        <span>
+                          You have{" "}
+                          <b>{daysLeft(license.dateExpires || "")} days</b> left
+                          in your {licensePlanText} of Growthbook with{" "}
+                        </span>
+                        <Link
+                          href="/settings/team"
+                          className="mx-1 font-weight-bold"
+                        >
+                          {currentUsers} team members
+                        </Link>
+                        ↗
+                      </div>
+                    )) || (
+                      <div>
+                        <span>Your {licensePlanText} of Growthbook with </span>
+                        <Link
+                          href="/settings/team"
+                          className="mx-1 font-weight-bold"
+                        >
+                          {currentUsers} team members
+                        </Link>
+                        ↗<span> has expired</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            ) : null}
+            {featureFlagValue === "UPGRADE-ONLY" ? (
+              upgradeOnlyTreatment()
+            ) : featureFlagValue === "TRIAL-AND-UPGRADE" ? (
+              trialAndUpgradeTreatment()
+            ) : (
               <div className="row">
                 <div
                   className={clsx(
                     "col-lg-6 mb-4",
-                    isAtLeastPro ? "disabled-opacity" : ""
+                    isAtLeastPro && !license?.isTrial ? "disabled-opacity" : ""
                   )}
                 >
                   <div className="pr-lg-2 border rounded p-0 d-flex flex-column">
@@ -464,12 +806,12 @@ export default function UpgradeModal({ close, source }: Props) {
                         <button
                           className="btn btn-primary m-3 w-100"
                           onClick={startPro}
-                          disabled={isAtLeastPro}
+                          disabled={isAtLeastPro && !license?.isTrial}
                         >
                           Upgrade Now
                         </button>
                       </div>
-                      {freeTrialAvailable && (
+                      {freeTrialAvailable && !isCloud() && (
                         <div className="mb-4 text-center">
                           or, start a{" "}
                           {isAtLeastPro ? (
@@ -554,11 +896,12 @@ export default function UpgradeModal({ close, source }: Props) {
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+
           {error && <div className="alert alert-danger">{error}</div>}
         </Modal>
       )}
-    </div>
+    </>
   );
 }

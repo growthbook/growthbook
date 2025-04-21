@@ -2,7 +2,7 @@
   "name": "growthbook-app",
   "repository": "https://github.com/growthbook/growthbook-app.git",
   "private": true,
-  "version": "3.4.0",
+  "version": "3.5.0",
   "scripts": {
     "lint": "eslint './**/*.{ts,tsx,js,jsx}' --fix --max-warnings 0 --cache --cache-strategy content",
     "lint:ci": "eslint './**/*.{ts,tsx,js,jsx}' --max-warnings 0 --cache --cache-strategy content",
@@ -12,13 +12,14 @@
     "doc-gen": "cd docs && yarn && yarn gen",
     "unused-export-check": "wsrun -m unused-export-check",
     "test": "wsrun -m test",
-    "dev:apps": "wsrun -p 'back-end' -p 'front-end' -p 'shared' -p 'enterprise' -c dev",
+    "dev:apps": "wsrun -p 'back-end' -p 'front-end' -p 'shared' -c dev",
     "dev": ". $(cd packages/stats && poetry env info --path)/bin/activate && yarn dev:apps",
-    "build:deps": "wsrun -p '@growthbook/growthbook' -p '@growthbook/growthbook-react' -p 'shared' -p 'enterprise' -t -c build",
+    "build:deps": "wsrun -p '@growthbook/growthbook' -p '@growthbook/growthbook-react' -p 'shared' -t -c build",
     "build:app": "wsrun -p 'back-end' -p 'front-end' -c build",
     "build": "yarn build:deps && yarn build:app",
     "start": "wsrun -p 'back-end' -p 'front-end' --no-prefix -c start",
     "start:with-tracing": "wsrun -p 'back-end' -p 'front-end' --no-prefix -c start:with-tracing",
+    "start:with-datadog": "wsrun -p 'back-end' -p 'front-end' --no-prefix -c start:with-datadog",
     "setup": "yarn build:deps && wsrun -p 'stats' -c setup",
     "prepare": "husky install",
     "plop": "plop",
@@ -26,12 +27,14 @@
     "generate-api-types": "yarn workspace back-end generate-api-types",
     "ci": "yarn lint:ci && yarn run type-check && yarn run test",
     "postinstall": "patch-package",
-    "generate-sdk-report": "yarn workspace shared generate-sdk-report"
+    "generate-sdk-report": "yarn workspace shared generate-sdk-report",
+    "bump-sdk-version": "yarn workspace @growthbook/growthbook bump-version"
   },
   "workspaces": [
     "packages/*"
   ],
   "dependencies": {
+    "dd-trace": "^5.46.0",
     "patch-package": "^8.0.0",
     "wsrun": "^5.2.4"
   },
@@ -67,7 +70,7 @@
     ]
   },
   "resolutions": {
-    "@growthbook/growthbook": "1.3.1"
+    "@growthbook/growthbook": "1.4.1"
   },
   "prettier": {
     "overrides": [
@@ -79,7 +82,7 @@
       }
     ]
   },
-  "license": "MIT",
+  "license": "Mixed",
   "engines": {
     "node": ">=18"
   }

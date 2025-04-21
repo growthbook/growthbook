@@ -73,6 +73,9 @@ export default function InitialSDKConnectionForm({
       mutate={mutate}
       cta={"Continue"}
       autoCloseOnSubmit={false}
+      initialValue={{
+        includeRuleIds: true,
+      }}
     />
   );
 }

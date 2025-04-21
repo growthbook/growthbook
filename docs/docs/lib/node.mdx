@@ -6,10 +6,13 @@ toc_max_heading_level: 5
 ---
 
 import ExternalLink from '@site/src/components/ExternalLink'
+import SdkResources from '@site/src/components/SdkResources';
 
 # Node.js
 
 We officially support Node 18 and above.
+
+<SdkResources sdk="node" />
 
 ## Installation
 
@@ -357,7 +360,7 @@ app.use((req, res, next) => {
       req.trackingData.push({experiment, result});
     }
   }
-  req.growthbook = gbClient.getScopedInstance(userContext);
+  req.growthbook = gbClient.createScopedInstance(userContext);
   next();
 });
 
@@ -418,7 +421,7 @@ app.use((req, res, next) => {
     }
   }, stickyBucketService);
 
-  req.growthbook = gbClient.getScopedInstance(userContext);
+  req.growthbook = gbClient.createScopedInstance(userContext);
 
   next();
 });

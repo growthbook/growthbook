@@ -13,7 +13,6 @@ classifiers=[
     'License :: OSI Approved :: MIT License',
     'Natural Language :: English',
     'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.8',
     'Programming Language :: Python :: 3.9',
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
@@ -24,21 +23,21 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.8,<4.0"
-pandas = "^1.5.1"
-scipy = "^1.9.2"
+python = ">=3.9.4,<4.0"
+pandas = "^2.1.0"
+scipy = "^1.10.1"
 numpy = "^1.23.4"
-nbformat = "^5.8.0"
+nbformat = "^5.10.0"
 pydantic = "^2.5.3"
 packaging = ">=20.0.0"
 
 [tool.poetry.group.dev.dependencies]
-certifi = "2022.12.7"
+certifi = "2024.7.4"
 tox = "^3.20.1"
 virtualenv = "^20.2.2"
 twine = "^3.3.0"
 toml = "^0.10.2"
-black = "22.3.0"
+black = "24.3.0"
 isort = "5.6.4"
 flake8 = "3.8.4"
 flake8-docstrings = "^1.6.0"
@@ -46,7 +45,9 @@ pytest = "6.2.5"
 pytest-cov = "2.10.1"
 pandas-stubs = "^2.0.1.230501"
 pyright = "^1.1.345"
-jupyter = "^1.0.0"
+jupyter = "1.1.1"
+docutils = "!=0.21"
+cryptography = "^44.0.1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

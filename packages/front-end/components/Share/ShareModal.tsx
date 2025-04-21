@@ -281,7 +281,7 @@ const ShareModal = ({
 
   if (experiments.length === 0) {
     return (
-      <div className="alert alert-danger">
+      <div className="alert alert-danger" style={{ marginTop: "1rem" }}>
         You need some experiments to share first.
       </div>
     );

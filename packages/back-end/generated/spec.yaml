@@ -141,6 +141,9 @@ tags:
   - name: ExperimentSnapshot_model
     x-displayName: ExperimentSnapshot
     description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentSnapshot" />
+  - name: ExperimentWithEnhancedStatus_model
+    x-displayName: ExperimentWithEnhancedStatus
+    description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentWithEnhancedStatus" />
   - name: FactMetric_model
     x-displayName: FactMetric
     description: <SchemaDefinition schemaRef="#/components/schemas/FactMetric" />
@@ -174,6 +177,9 @@ tags:
   - name: FeatureRule_model
     x-displayName: FeatureRule
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRule" />
+  - name: FeatureWithRevisions_model
+    x-displayName: FeatureWithRevisions
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureWithRevisions" />
   - name: Member_model
     x-displayName: Member
     description: <SchemaDefinition schemaRef="#/components/schemas/Member" />
@@ -305,7 +311,8 @@ paths:
                         type: array
                         items:
                           anyOf:
-                            - type: object
+                            - title: Force Rule
+                              type: object
                               required:
                                 - type
                                 - value
@@ -344,7 +351,8 @@ paths:
                                     - force
                                 value:
                                   type: string
-                            - type: object
+                            - title: Rollout Rule
+                              type: object
                               required:
                                 - type
                                 - value
@@ -374,6 +382,19 @@ paths:
                                         type: array
                                         items:
                                           type: string
+                                prerequisites:
+                                  type: array
+                                  items:
+                                    type: object
+                                    required:
+                                      - id
+                                      - condition
+                                    properties:
+                                      id:
+                                        type: string
+                                        description: Feature ID
+                                      condition:
+                                        type: string
                                 id:
                                   type: string
                                 enabled:
@@ -390,7 +411,8 @@ paths:
                                   description: Percent of traffic included in this experiment. Users not included in the experiment will skip this rule.
                                 hashAttribute:
                                   type: string
-                            - type: object
+                            - title: Experiment Rule
+                              type: object
                               required:
                                 - type
                                 - variations
@@ -409,6 +431,37 @@ paths:
                                     - experiment-ref
                                 condition:
                                   type: string
+                                savedGroupTargeting:
+                                  type: array
+                                  items:
+                                    type: object
+                                    required:
+                                      - matchType
+                                      - savedGroups
+                                    properties:
+                                      matchType:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - any
+                                          - none
+                                      savedGroups:
+                                        type: array
+                                        items:
+                                          type: string
+                                prerequisites:
+                                  type: array
+                                  items:
+                                    type: object
+                                    required:
+                                      - id
+                                      - condition
+                                    properties:
+                                      id:
+                                        type: string
+                                        description: Feature ID
+                                      condition:
+                                        type: string
                                 variations:
                                   type: array
                                   items:
@@ -424,6 +477,7 @@ paths:
                                 experimentId:
                                   type: string
                             - deprecated: true
+                              title: Experiment (legacy)
                               type: object
                               required:
                                 - condition
@@ -521,6 +575,11 @@ paths:
                           definition:
                             type: string
                             description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
+                prerequisites:
+                  type: array
+                  description: Feature IDs. Each feature must evaluate to `true`
+                  items:
+                    type: string
                 jsonSchema:
                   type: string
                   description: Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).
@@ -539,6 +598,17 @@ paths:
     get:
       parameters:
         - $ref: '#/components/parameters/id'
+        - in: query
+          name: withRevisions
+          schema:
+            type: string
+            enum:
+              - all
+              - drafts
+              - published
+              - none
+          required: false
+          description: 'Also return feature revisions (all, draft, or published statuses)'
       summary: Get a single feature
       tags:
         - features
@@ -558,7 +628,7 @@ paths:
                   - feature
                 properties:
                   feature:
-                    $ref: '#/components/schemas/Feature'
+                    $ref: '#/components/schemas/FeatureWithRevisions'
     post:
       summary: Partially update a feature
       parameters:
@@ -600,6 +670,11 @@ paths:
                   type: object
                   additionalProperties:
                     $ref: '#/paths/~1features/post/requestBody/content/application~1json/schema/properties/environments/additionalProperties'
+                prerequisites:
+                  type: array
+                  description: Feature IDs. Each feature must evaluate to `true`
+                  items:
+                    type: string
                 jsonSchema:
                   type: string
                   description: Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).
@@ -1064,6 +1139,8 @@ paths:
                   type: boolean
                 includeRedirectExperiments:
                   type: boolean
+                includeRuleIds:
+                  type: boolean
                 proxyEnabled:
                   type: boolean
                 proxyHost:
@@ -1150,6 +1227,8 @@ paths:
                 includeExperimentNames:
                   type: boolean
                 includeRedirectExperiments:
+                  type: boolean
+                includeRuleIds:
                   type: boolean
                 proxyEnabled:
                   type: boolean
@@ -1335,7 +1414,6 @@ paths:
               required:
                 - name
                 - variations
-                - datasourceId
                 - trackingKey
                 - assignmentQueryId
               properties:
@@ -1350,6 +1428,11 @@ paths:
                 name:
                   type: string
                   description: Name of the experiment
+                type:
+                  type: string
+                  enum:
+                    - standard
+                    - multi-armed-bandit
                 project:
                   type: string
                   description: Project ID which the experiment belongs to
@@ -1375,6 +1458,15 @@ paths:
                   type: array
                   items:
                     type: string
+                activationMetric:
+                  type: string
+                  description: Users must convert on this metric before being included
+                segmentId:
+                  type: string
+                  description: Only users in this segment will be included
+                queryFilter:
+                  type: string
+                  description: WHERE clause to add to the default experiment query
                 owner:
                   type: string
                   description: Email of the person who owns this experiment
@@ -1507,6 +1599,19 @@ paths:
                             type: boolean
                       targetingCondition:
                         type: string
+                      prerequisites:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - id
+                            - condition
+                          properties:
+                            id:
+                              type: string
+                              description: Feature ID
+                            condition:
+                              type: string
                       reason:
                         type: string
                       condition:
@@ -1536,6 +1641,30 @@ paths:
                 regressionAdjustmentEnabled:
                   type: boolean
                   description: Controls whether regression adjustment (CUPED) is enabled for experiment analyses
+                sequentialTestingEnabled:
+                  type: boolean
+                  description: Only applicable to frequentist analyses
+                sequentialTestingTuningParameter:
+                  type: number
+                shareLevel:
+                  type: string
+                  enum:
+                    - public
+                    - organization
+                banditScheduleValue:
+                  type: number
+                banditScheduleUnit:
+                  type: string
+                  enum:
+                    - days
+                    - hours
+                banditBurnInValue:
+                  type: number
+                banditBurnInUnit:
+                  type: string
+                  enum:
+                    - days
+                    - hours
       responses:
         '200':
           content:
@@ -1547,6 +1676,40 @@ paths:
                 properties:
                   experiment:
                     $ref: '#/components/schemas/Experiment'
+  /experiment-names:
+    get:
+      summary: Get a list of experiments with names and ids
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      operationId: getExperimentNames
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/experiment-names?projectId=prj_5l652 \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - experiments
+                properties:
+                  experiments:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - id
+                        - name
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
   '/experiments/{id}':
     get:
       parameters:
@@ -1570,7 +1733,7 @@ paths:
                   - experiment
                 properties:
                   experiment:
-                    $ref: '#/components/schemas/Experiment'
+                    $ref: '#/components/schemas/ExperimentWithEnhancedStatus'
     post:
       parameters:
         - $ref: '#/components/parameters/id'
@@ -1591,6 +1754,9 @@ paths:
             schema:
               type: object
               properties:
+                datasourceId:
+                  type: string
+                  description: Can only be set if existing experiment does not have a datasource
                 assignmentQueryId:
                   type: string
                 trackingKey:
@@ -1598,6 +1764,11 @@ paths:
                 name:
                   type: string
                   description: Name of the experiment
+                type:
+                  type: string
+                  enum:
+                    - standard
+                    - multi-armed-bandit
                 project:
                   type: string
                   description: Project ID which the experiment belongs to
@@ -1623,6 +1794,15 @@ paths:
                   type: array
                   items:
                     type: string
+                activationMetric:
+                  type: string
+                  description: Users must convert on this metric before being included
+                segmentId:
+                  type: string
+                  description: Only users in this segment will be included
+                queryFilter:
+                  type: string
+                  description: WHERE clause to add to the default experiment query
                 owner:
                   type: string
                   description: Email of the person who owns this experiment
@@ -1755,6 +1935,19 @@ paths:
                             type: boolean
                       targetingCondition:
                         type: string
+                      prerequisites:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - id
+                            - condition
+                          properties:
+                            id:
+                              type: string
+                              description: Feature ID
+                            condition:
+                              type: string
                       reason:
                         type: string
                       condition:
@@ -1784,6 +1977,30 @@ paths:
                 regressionAdjustmentEnabled:
                   type: boolean
                   description: Controls whether regression adjustment (CUPED) is enabled for experiment analyses
+                sequentialTestingEnabled:
+                  type: boolean
+                  description: Only applicable to frequentist analyses
+                sequentialTestingTuningParameter:
+                  type: number
+                shareLevel:
+                  type: string
+                  enum:
+                    - public
+                    - organization
+                banditScheduleValue:
+                  type: number
+                banditScheduleUnit:
+                  type: string
+                  enum:
+                    - days
+                    - hours
+                banditBurnInValue:
+                  type: number
+                banditBurnInUnit:
+                  type: string
+                  enum:
+                    - days
+                    - hours
       responses:
         '200':
           content:
@@ -2158,6 +2375,10 @@ paths:
                     minSampleSize:
                       type: number
                       minimum: 0
+                    targetMDE:
+                      type: number
+                      description: 'The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments.'
+                      minimum: 0
                 sql:
                   type: object
                   description: 'Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified.'
@@ -2467,6 +2688,10 @@ paths:
                       minimum: 0
                     minSampleSize:
                       type: number
+                      minimum: 0
+                    targetMDE:
+                      type: number
+                      description: 'The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments.'
                       minimum: 0
                 sql:
                   type: object
@@ -4131,6 +4356,12 @@ paths:
                       description: Array of Fact Table Filter Ids
                       items:
                         type: string
+                    aggregateFilterColumn:
+                      type: string
+                      description: Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics.
+                    aggregateFilter:
+                      type: string
+                      description: Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`.
                 denominator:
                   description: Only when metricType is 'ratio'
                   type: object
@@ -4293,6 +4524,10 @@ paths:
                 minSampleSize:
                   type: number
                   minimum: 0
+                targetMDE:
+                  type: number
+                  description: 'The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments.'
+                  minimum: 0
                 managedBy:
                   type: string
                   description: Set this to "api" to disable editing in the GrowthBook UI
@@ -4398,6 +4633,12 @@ paths:
                       description: Array of Fact Table Filter Ids
                       items:
                         type: string
+                    aggregateFilterColumn:
+                      type: string
+                      description: Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics.
+                    aggregateFilter:
+                      type: string
+                      description: Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`.
                 denominator:
                   description: Only when metricType is 'ratio'
                   type: object
@@ -4558,6 +4799,9 @@ paths:
                   description: 'Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%)'
                   minimum: 0
                 minSampleSize:
+                  type: number
+                  minimum: 0
+                targetMDE:
                   type: number
                   minimum: 0
                 managedBy:
@@ -4961,6 +5205,7 @@ components:
             - minPercentChange
             - maxPercentChange
             - minSampleSize
+            - targetMDE
           properties:
             goal:
               type: string
@@ -5065,6 +5310,8 @@ components:
             maxPercentChange:
               type: number
             minSampleSize:
+              type: number
+            targetMDE:
               type: number
         sql:
           type: object
@@ -5329,16 +5576,9 @@ components:
             $ref: '#/components/schemas/FeatureEnvironment'
         prerequisites:
           type: array
+          description: Feature IDs. Each feature must evaluate to `true`
           items:
-            type: object
-            required:
-              - parentId
-              - parentCondition
-            properties:
-              parentId:
-                type: string
-              parentCondition:
-                type: string
+            type: string
         revision:
           type: object
           required:
@@ -5356,6 +5596,47 @@ components:
               format: date-time
             publishedBy:
               type: string
+    FeatureWithRevisions:
+      allOf:
+        - $ref: '#/components/schemas/Feature'
+        - type: object
+          properties:
+            revisions:
+              type: array
+              items:
+                type: object
+                required:
+                  - baseVersion
+                  - version
+                  - comment
+                  - date
+                  - status
+                  - rules
+                properties:
+                  baseVersion:
+                    type: integer
+                  version:
+                    type: integer
+                  comment:
+                    type: string
+                  date:
+                    type: string
+                    format: date-time
+                  status:
+                    type: string
+                  publishedBy:
+                    type: string
+                  rules:
+                    type: object
+                    additionalProperties:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/FeatureRule'
+                  definitions:
+                    type: object
+                    additionalProperties:
+                      type: string
+                      description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
     FeatureEnvironment:
       type: object
       required:
@@ -5490,6 +5771,19 @@ components:
                 type: array
                 items:
                   type: string
+        prerequisites:
+          type: array
+          items:
+            type: object
+            required:
+              - id
+              - condition
+            properties:
+              id:
+                type: string
+                description: Feature ID
+              condition:
+                type: string
         id:
           type: string
         enabled:
@@ -5707,6 +6001,8 @@ components:
           type: boolean
         includeRedirectExperiments:
           type: boolean
+        includeRuleIds:
+          type: boolean
         key:
           type: string
         proxyEnabled:
@@ -5727,9 +6023,11 @@ components:
       type: object
       required:
         - id
+        - trackingKey
         - dateCreated
         - dateUpdated
         - name
+        - type
         - project
         - hypothesis
         - description
@@ -5746,6 +6044,8 @@ components:
       properties:
         id:
           type: string
+        trackingKey:
+          type: string
         dateCreated:
           type: string
           format: date-time
@@ -5754,6 +6054,11 @@ components:
           format: date-time
         name:
           type: string
+        type:
+          type: string
+          enum:
+            - standard
+            - multi-armed-bandit
         project:
           type: string
         hypothesis:
@@ -5863,6 +6168,18 @@ components:
                     rangeEnd: number
               targetingCondition:
                 type: string
+              prerequisites:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - condition
+                  properties:
+                    id:
+                      type: string
+                    condition:
+                      type: string
               savedGroupTargeting:
                 type: array
                 items:
@@ -5902,6 +6219,35 @@ components:
               type: string
             excludeFromPayload:
               type: boolean
+        shareLevel:
+          type: string
+          enum:
+            - public
+            - organization
+        publicUrl:
+          type: string
+        banditScheduleValue:
+          type: number
+        banditScheduleUnit:
+          type: string
+          enum:
+            - days
+            - hours
+        banditBurnInValue:
+          type: number
+        banditBurnInUnit:
+          type: string
+          enum:
+            - days
+            - hours
+        linkedFeatures:
+          type: array
+          items:
+            type: string
+        hasVisualChangesets:
+          type: boolean
+        hasURLRedirects:
+          type: boolean
     ExperimentSnapshot:
       type: object
       required:
@@ -5980,6 +6326,10 @@ components:
             - frequentist
         regressionAdjustmentEnabled:
           type: boolean
+        sequentialTestingEnabled:
+          type: boolean
+        sequentialTestingTuningParameter:
+          type: number
         goals:
           type: array
           items:
@@ -6116,6 +6466,25 @@ components:
                                   type: number
                                 chanceToBeatControl:
                                   type: number
+    ExperimentWithEnhancedStatus:
+      allOf:
+        - $ref: '#/components/schemas/Experiment'
+        - type: object
+          properties:
+            enhancedStatus:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - Running
+                    - Stopped
+                    - Draft
+                    - Archived
+                detailedStatus:
+                  type: string
     DataSource:
       type: object
       required:
@@ -6499,6 +6868,7 @@ components:
         - minPercentChange
         - maxPercentChange
         - minSampleSize
+        - targetMDE
         - managedBy
         - dateCreated
         - dateUpdated
@@ -6551,6 +6921,12 @@ components:
               description: Array of Fact Table Filter Ids
               items:
                 type: string
+            aggregateFilterColumn:
+              type: string
+              description: Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics.
+            aggregateFilter:
+              type: string
+              description: Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`.
         denominator:
           type: object
           required:
@@ -6687,6 +7063,8 @@ components:
         maxPercentChange:
           type: number
         minSampleSize:
+          type: number
+        targetMDE:
           type: number
         managedBy:
           type: string
@@ -6854,6 +7232,7 @@ x-tagGroups:
       - ExperimentMetric_model
       - ExperimentResults_model
       - ExperimentSnapshot_model
+      - ExperimentWithEnhancedStatus_model
       - FactMetric_model
       - FactTable_model
       - FactTableFilter_model
@@ -6865,6 +7244,7 @@ x-tagGroups:
       - FeatureForceRule_model
       - FeatureRolloutRule_model
       - FeatureRule_model
+      - FeatureWithRevisions_model
       - Member_model
       - Metric_model
       - Organization_model

@@ -48,7 +48,6 @@ export const ArchetypeList: FC<{
           title="Create Reusable Archetypes"
           description="Archetypes are named sets of attributes that help you test your features."
           commercialFeature="archetypes"
-          reason="Archetypes landing page no access"
           learnMoreLink="https://docs.growthbook.io/features/rules#archetype"
         />
       </div>

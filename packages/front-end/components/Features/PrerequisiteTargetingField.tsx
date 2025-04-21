@@ -37,8 +37,8 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { DocLink } from "@/components/DocLink";
 import SelectField from "@/components/Forms/SelectField";
-import { GBAddCircle } from "@/components/Icons";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
+import Button from "../Radix/Button";
 
 export interface Props {
   value: FeaturePrerequisite[];
@@ -404,34 +404,10 @@ export default function PrerequisiteTargetingField({
             </DocLink>
           </div>
 
-          <button
-            className="btn p-0 ml-2 link-purple font-weight-bold"
+          <Button
+            variant="ghost"
             disabled={!hasPrerequisitesCommercialFeature}
-            onClick={(e) => {
-              e.preventDefault();
-              setValue([
-                ...value,
-                {
-                  id: "",
-                  condition: "",
-                },
-              ]);
-            }}
-          >
-            <FaPlusCircle className="mr-1" />
-            Add prerequisite
-          </button>
-        </>
-      ) : (
-        <div>
-          <div className="font-italic text-muted mr-3">
-            No prerequisite targeting applied.
-          </div>
-          <button
-            className="btn p-0 ml-1 mt-2 link-purple font-weight-bold"
-            disabled={!hasPrerequisitesCommercialFeature}
-            onClick={(e) => {
-              e.preventDefault();
+            onClick={() => {
               setValue([
                 ...value,
                 {
@@ -441,9 +417,32 @@ export default function PrerequisiteTargetingField({
               ]);
             }}
           >
-            <GBAddCircle className="mr-1" />
+            <FaPlusCircle className="mr-1" />
+            Add prerequisite
+          </Button>
+        </>
+      ) : (
+        <div>
+          <div className="font-italic text-muted mr-3">
+            No prerequisite targeting applied.
+          </div>
+          <Button
+            variant="ghost"
+            style={{ paddingLeft: "0px !important" }}
+            disabled={!hasPrerequisitesCommercialFeature}
+            onClick={() => {
+              setValue([
+                ...value,
+                {
+                  id: "",
+                  condition: "{}",
+                },
+              ]);
+            }}
+          >
+            <FaPlusCircle className="mr-1" />
             Add prerequisite targeting
-          </button>
+          </Button>
         </div>
       )}
     </div>

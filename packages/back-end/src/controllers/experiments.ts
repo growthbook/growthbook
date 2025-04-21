@@ -577,7 +577,7 @@ export async function getSnapshots(
   return;
 }
 
-const validateVariationIds = (variations: Variation[]) => {
+export function validateVariationIds(variations: Variation[]) {
   variations.forEach((variation, i) => {
     if (!variation.id) {
       variation.id = uniqid("var_");
@@ -590,7 +590,7 @@ const validateVariationIds = (variations: Variation[]) => {
   if (keys.length !== new Set(keys).size) {
     throw new Error("Variation keys must be unique");
   }
-};
+}
 
 /**
  * Creates a new experiment
@@ -689,8 +689,8 @@ export async function postExperiments(
     archived: false,
     hashAttribute: data.hashAttribute || "",
     fallbackAttribute: data.fallbackAttribute || "",
-    disableStickyBucketing: data.disableStickyBucketing ?? false,
     hashVersion: data.hashVersion || 2,
+    disableStickyBucketing: data.disableStickyBucketing ?? false,
     autoSnapshots: true,
     dateCreated: new Date(),
     dateUpdated: new Date(),
@@ -715,9 +715,9 @@ export async function postExperiments(
     hypothesis: data.hypothesis || "",
     goalMetrics: data.goalMetrics || [],
     secondaryMetrics: data.secondaryMetrics || [],
-    metricOverrides: data.metricOverrides || [],
     guardrailMetrics: data.guardrailMetrics || [],
     activationMetric: data.activationMetric || "",
+    metricOverrides: data.metricOverrides || [],
     segment: data.segment || "",
     queryFilter: data.queryFilter || "",
     skipPartialData: !!data.skipPartialData,
@@ -1041,6 +1041,7 @@ export async function postExperiment(
     "shareLevel",
     "uid",
     "analysisSummary",
+    "dismissedWarnings",
   ];
   let changes: Changeset = {};
 
@@ -1449,7 +1450,11 @@ export async function postExperimentStatus(
     status === "running" &&
     phases?.length > 0
   ) {
-    Object.assign(changes, getChangesToStartExperiment(context, experiment));
+    const additionalChanges: Changeset = await getChangesToStartExperiment(
+      context,
+      experiment
+    );
+    Object.assign(changes, additionalChanges);
   }
   // If starting or drafting a stopped experiment, clear the phase end date
   // and perform any needed bandit cleanup
@@ -1669,6 +1674,13 @@ export async function deleteExperimentPhase(
 
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
+  }
+
+  if (experiment.phases.length === 1) {
+    res.status(400).json({
+      status: 400,
+      message: "Cannot delete the only phase",
+    });
   }
 
   const linkedFeatureIds = experiment.linkedFeatures || [];
@@ -2290,7 +2302,6 @@ export async function createExperimentSnapshot({
   const denominatorMetrics = denominatorMetricIds
     .map((m) => metricMap.get(m) || null)
     .filter(isDefined) as MetricInterface[];
-
   const {
     settingsForSnapshotMetrics,
     regressionAdjustmentEnabled,
@@ -2409,7 +2420,6 @@ export async function postSnapshot(
         orgPriorSettings: metricDefaults.priorSettings,
         analysisSettings,
         metricMap,
-        context,
       });
       res.status(200).json({
         status: 200,
@@ -3211,5 +3221,44 @@ export async function findOrCreateVisualEditorToken(
 
   res.status(200).json({
     key: visualEditorKey.key,
+  });
+}
+
+export async function getExperimentTimeSeries(
+  req: AuthRequest<
+    null,
+    { id: string },
+    { phase: string; metricIds: string[] }
+  >,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const { phase, metricIds } = req.query;
+  const phaseIndex = parseInt(phase, 10);
+
+  const experiment = await getExperimentById(context, id);
+  if (!experiment) {
+    throw new Error("Experiment not found");
+  }
+
+  if (metricIds.length === 0) {
+    throw new Error("metricIds is required");
+  }
+
+  if (isNaN(phaseIndex)) {
+    throw new Error("Invalid phase");
+  }
+
+  const timeSeries = await context.models.metricTimeSeries.getBySourceAndMetricIds(
+    "experiment",
+    id,
+    phaseIndex,
+    metricIds
+  );
+
+  res.status(200).json({
+    status: 200,
+    timeSeries,
   });
 }

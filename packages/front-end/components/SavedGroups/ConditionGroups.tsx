@@ -139,7 +139,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
           </div>
           <div className="row mb-3">
             <div className="col-12">
-              <table className="table gbtable">
+              <table className="table gbtable appbox">
                 <thead>
                   <tr>
                     <SortableTH field="groupName">Name</SortableTH>

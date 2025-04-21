@@ -1,6 +1,6 @@
 import { isRoleValid, roleSupportsEnvLimit } from "shared/permissions";
 import { cloneDeep } from "lodash";
-import { orgHasPremiumFeature } from "enterprise";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { UpdateMemberRoleResponse } from "back-end/types/openapi";

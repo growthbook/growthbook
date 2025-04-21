@@ -17,7 +17,7 @@ import { logger } from "back-end/src/util/logger";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/organization";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
-import { trackJob } from "back-end/src/services/otel";
+import { trackJob } from "back-end/src/services/tracing";
 
 const PROXY_UPDATE_JOB_NAME = "proxyUpdate";
 type ProxyUpdateJob = Job<{
@@ -89,6 +89,7 @@ const proxyUpdate = trackJob(
       includeDraftExperiments: connection.includeDraftExperiments,
       includeExperimentNames: connection.includeExperimentNames,
       includeRedirectExperiments: connection.includeRedirectExperiments,
+      includeRuleIds: connection.includeRuleIds,
       hashSecureAttributes: connection.hashSecureAttributes,
     });
 

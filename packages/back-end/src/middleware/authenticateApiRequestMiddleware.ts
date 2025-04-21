@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { hasPermission } from "shared/permissions";
-import { licenseInit } from "enterprise";
+import { licenseInit } from "back-end/src/enterprise";
 import { ApiRequestLocals } from "back-end/types/api";
 import { lookupOrganizationByApiKey } from "back-end/src/models/ApiKeyModel";
 import { getOrganizationById } from "back-end/src/services/organizations";

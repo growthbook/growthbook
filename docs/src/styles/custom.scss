@@ -13,6 +13,7 @@
 @use './components/button';
 @use './components/feedback-widget';
 @use './components/max-width-image';
+@use './components/sdk-resources';
 //@use './components/navbar';
 
 // Radix color palette
@@ -119,4 +120,9 @@ html {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   font-smoothing: antialiased;
+}
+
+[data-theme="light"] img[src$="#gh-dark-mode-only"],
+[data-theme="dark"] img[src$="#gh-light-mode-only"] {
+  display: none;
 }

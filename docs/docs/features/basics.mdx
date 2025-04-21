@@ -5,6 +5,8 @@ sidebar_label: Feature Flag Basics
 slug: /features/basics
 ---
 
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
 # Basics of Feature Flags
 
 ## Feature Keys
@@ -13,7 +15,9 @@ Every feature is defined by a unique **key**. This is what the engineering team 
 check the value of a feature. Feature keys **cannot** be changed after they are created, so take care when choosing one.
 If you make a mistake, you can always delete the feature and create a new one.
 
-<img src="/images/features/feature-create-feature-1.png" alt="Create Feature" width="600" />
+<MaxWidthImage maxWidth={600}>
+  ![Create Feature](/images/features/feature-create-feature-1.png)
+</MaxWidthImage>
 
 Feature keys must only include letters, numbers, hyphens, and underscores.
 

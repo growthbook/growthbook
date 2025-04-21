@@ -69,6 +69,8 @@ const FeatureAttributesPage = (): React.ReactElement => {
 
     for (const experiment of experiments) {
       try {
+        attributeExperimentIds[experiment.hashAttribute] ||= new Set<string>();
+        attributeExperimentIds[experiment.hashAttribute].add(experiment.id);
         const phase = experiment.phases?.[experiment.phases.length - 1];
         const parsedCondition = JSON.parse(phase?.condition ?? "{}");
         recursiveWalk(parsedCondition, (node) => {
@@ -163,7 +165,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
           <Tooltip
             tipPosition="bottom"
             state={showReferences === i}
-            popperStyle={{ marginLeft: 50 }}
+            popperStyle={{ marginLeft: 50, marginTop: 15 }}
             body={
               <div
                 className="px-3 py-2"
@@ -172,7 +174,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                 <a
                   role="button"
                   style={{ top: 3, right: 5 }}
-                  className="position-absolute text-gray cursor-pointer"
+                  className="position-absolute text-dark-gray cursor-pointer"
                   onClick={(e) => {
                     e.preventDefault();
                     setShowReferences(null);

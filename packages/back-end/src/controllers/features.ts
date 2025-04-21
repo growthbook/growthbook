@@ -141,6 +141,7 @@ export async function getPayloadParamsFromApiKey(
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
+  includeRuleIds?: boolean;
   hashSecureAttributes?: boolean;
   remoteEvalEnabled?: boolean;
   savedGroupReferencesEnabled?: boolean;
@@ -172,6 +173,7 @@ export async function getPayloadParamsFromApiKey(
       includeDraftExperiments: connection.includeDraftExperiments,
       includeExperimentNames: connection.includeExperimentNames,
       includeRedirectExperiments: connection.includeRedirectExperiments,
+      includeRuleIds: connection.includeRuleIds,
       hashSecureAttributes: connection.hashSecureAttributes,
       remoteEvalEnabled: connection.remoteEvalEnabled,
       savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
@@ -235,6 +237,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       includeDraftExperiments,
       includeExperimentNames,
       includeRedirectExperiments,
+      includeRuleIds,
       hashSecureAttributes,
       remoteEvalEnabled,
       savedGroupReferencesEnabled,
@@ -267,6 +270,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       includeDraftExperiments,
       includeExperimentNames,
       includeRedirectExperiments,
+      includeRuleIds,
       hashSecureAttributes,
       savedGroupReferencesEnabled:
         savedGroupReferencesEnabled &&
@@ -332,6 +336,7 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
       includeDraftExperiments,
       includeExperimentNames,
       includeRedirectExperiments,
+      includeRuleIds,
       hashSecureAttributes,
       remoteEvalEnabled,
     } = await getPayloadParamsFromApiKey(key, req);
@@ -374,6 +379,7 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
       includeDraftExperiments,
       includeExperimentNames,
       includeRedirectExperiments,
+      includeRuleIds,
       hashSecureAttributes,
     });
 
@@ -381,7 +387,7 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
     res.set("Cache-control", "no-store");
 
     // todo: don't use link. investigate why clicking through returns the stub only.
-    const payload = evaluateFeatures({
+    const payload = await evaluateFeatures({
       payload: defs,
       attributes,
       forcedVariations,

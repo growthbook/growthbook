@@ -25,6 +25,7 @@ const ideaSchema = new mongoose.Schema({
   impactScore: Number,
   experimentLength: Number,
   estimateParams: {
+    segment: String,
     estimate: String,
     improvement: Number,
     numVariations: Number,

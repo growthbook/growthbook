@@ -339,50 +339,71 @@ export function setAdjustedPValuesOnResults(
 
 export function adjustedCI(
   adjustedPValue: number,
-  uplift: { dist: string; mean?: number; stddev?: number },
-  zScore: number
+  lift: number | undefined,
+  pValueThreshold: number
 ): [number, number] {
-  if (!uplift.mean) return [uplift.mean ?? 0, uplift.mean ?? 0];
+  if (!lift) return [0, 0];
+  const zScore = normal.quantile(1 - pValueThreshold / 2, 0, 1);
   const adjStdDev = Math.abs(
-    uplift.mean / normal.quantile(1 - adjustedPValue / 2, 0, 1)
+    lift / normal.quantile(1 - adjustedPValue / 2, 0, 1)
   );
   const width = zScore * adjStdDev;
-  return [uplift.mean - width, uplift.mean + width];
+  return [lift - width, lift + width];
 }
 
 export function setAdjustedCIs(
   results: ExperimentReportResultDimension[],
   pValueThreshold: number
 ): void {
-  const zScore = normal.quantile(1 - pValueThreshold / 2, 0, 1);
   results.forEach((r) => {
     r.variations.forEach((v) => {
       for (const key in v.metrics) {
         const pValueAdjusted = v.metrics[key].pValueAdjusted;
         const uplift = v.metrics[key].uplift;
         const ci = v.metrics[key].ci;
-        if (pValueAdjusted === undefined) {
-          continue;
-        } else if (pValueAdjusted > 0.999999) {
-          // set to Inf if adjusted pValue is 1
-          v.metrics[key].ciAdjusted = [-Infinity, Infinity];
-        } else if (
-          pValueAdjusted !== undefined &&
-          uplift !== undefined &&
-          ci !== undefined
+        if (
+          pValueAdjusted === undefined ||
+          uplift === undefined ||
+          ci === undefined
         ) {
-          const adjCI = adjustedCI(pValueAdjusted, uplift, zScore);
-          // only update if CI got wider, should never get more narrow
-          if (adjCI[0] < ci[0] && adjCI[1] > ci[1]) {
-            v.metrics[key].ciAdjusted = adjCI;
-          } else {
-            v.metrics[key].ciAdjusted = v.metrics[key].ci;
-          }
+          continue;
+        }
+
+        const adjCI = getAdjustedCI(
+          pValueAdjusted,
+          uplift.mean,
+          pValueThreshold,
+          ci
+        );
+        if (adjCI) {
+          v.metrics[key].ciAdjusted = adjCI;
+        } else {
+          v.metrics[key].ciAdjusted = ci;
         }
       }
     });
   });
   return;
+}
+
+export function getAdjustedCI(
+  pValueAdjusted: number,
+  lift: number | undefined,
+  pValueThreshold: number,
+  ci: [number, number]
+): [number, number] | undefined {
+  // set to Inf if adjusted pValue is 1
+  if (pValueAdjusted > 0.999999) {
+    return [-Infinity, Infinity];
+  }
+
+  const adjCI = adjustedCI(pValueAdjusted, lift, pValueThreshold);
+  // only update if CI got wider, should never get more narrow
+  if (adjCI[0] < ci[0] && adjCI[1] > ci[1]) {
+    return adjCI;
+  } else {
+    return ci;
+  }
 }
 
 export type RowResults = {

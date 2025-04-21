@@ -14,6 +14,8 @@ Segment:
   $ref: "./Segment.yaml"
 Feature:
   $ref: "./Feature.yaml"
+FeatureWithRevisions:
+  $ref: "./FeatureWithRevisions.yaml"
 FeatureEnvironment:
   $ref: "./FeatureEnvironment.yaml"
 FeatureRule:
@@ -40,6 +42,8 @@ ExperimentAnalysisSettings:
   $ref: "./ExperimentAnalysisSettings.yaml"
 ExperimentResults:
   $ref: "./ExperimentResults.yaml"
+ExperimentWithEnhancedStatus:
+  $ref: "./ExperimentWithEnhancedStatus.yaml"
 DataSource:
   $ref: "./DataSource.yaml"
 VisualChangeset:

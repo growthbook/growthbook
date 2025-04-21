@@ -344,7 +344,7 @@ export default function ExperimentImpact({
 
   const metricInterface = metrics.find((m) => m.id === metric);
   const formatter = metricInterface
-    ? getExperimentMetricFormatter(metricInterface, getFactTableById, true)
+    ? getExperimentMetricFormatter(metricInterface, getFactTableById, "number")
     : formatNumber;
 
   const formatterOptions: Intl.NumberFormatOptions = {
@@ -593,7 +593,7 @@ export default function ExperimentImpact({
 
             <TabsContent value="summary">
               <div className="px-3 pt-3">
-                <table className="table bg-white text-center w-auto mb-0">
+                <table className="table text-center w-auto mb-0">
                   <thead>
                     <tr>
                       <th style={{ width: 150 }} className="border-top-0" />

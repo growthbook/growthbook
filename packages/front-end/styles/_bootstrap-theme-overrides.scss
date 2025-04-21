@@ -73,7 +73,7 @@ pre {
 }
 
 .table-hover tbody tr:hover {
-  background-color: var(--table-row-hover-background-color);
+  background-color: var(--slate-a2);
 }
 
 .table tbody + tbody {
@@ -102,7 +102,9 @@ pre {
 }
 
 .bg-light {
-  background-color: var(--surface-background-color-alt) !important;
+  background-color: var(
+    --slate-a2
+  ) !important; //--surface-background-color-alt) !important;
 }
 
 /* Importants here are necessary to override Bootstrap's default (which also have !important) */
@@ -211,7 +213,7 @@ pre {
   align-items: center;
 }
 .dropdown-menu {
-  background-color: var(--surface-background-color);
+  background-color: var(--color-panel-solid);
   color: var(--text-color-main);
   border-color: var(--border-color-300);
 }
@@ -221,7 +223,7 @@ pre {
 
   &:hover {
     color: var(--text-color-main);
-    background-color: var(--surface-background-color-alt);
+    background-color: var(--slate-a3); //var(--surface-background-color-alt);
   }
   > svg,
   > span > svg {
@@ -244,17 +246,17 @@ pre {
 }
 
 .modal-header {
-  border-color: var(--border-color-300);
+  border-color: var(--slate-a3);
 }
 
 .modal-content {
-  background-color: var(--surface-background-color);
+  background-color: var(--color-panel-solid);
   color: var(--text-color-main);
-  border-color: var(--border-color-300);
+  border-color: var(--slate-a4);
 }
 
 .modal-footer {
-  border-color: var(--border-color-300);
+  border-color: var(--slate-a3);
 }
 
 // endregion Modals
@@ -263,11 +265,11 @@ pre {
 
 .pagination {
   .page-link {
-    background-color: var(--surface-background-color);
+    background-color: var(--slate-a3);
   }
 }
 .page-item.disabled .page-link {
-  background-color: var(--surface-background-color);
+  background-color: var(--slate-a3);
 }
 
 // endregion Pagination

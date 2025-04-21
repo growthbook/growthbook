@@ -72,6 +72,17 @@ export const resolvers: Record<
   }),
   regressionAdjustmentEnabled: regressionAdjustmentResolver("enabled"),
   regressionAdjustmentDays: regressionAdjustmentResolver("days"),
+  sequentialTestingEnabled: genDefaultResolver("sequentialTestingEnabled", {
+    experiment: true,
+    report: true,
+  }),
+  sequentialTestingTuningParameter: genDefaultResolver(
+    "sequentialTestingTuningParameter",
+    {
+      experiment: true,
+      report: true,
+    }
+  ),
   attributionModel: genDefaultResolver("attributionModel", {
     project: "settings.attributionModel",
     experiment: true,
@@ -91,6 +102,8 @@ export const resolvers: Record<
   banditScheduleUnit: genDefaultResolver("banditScheduleUnit"),
   banditBurnInValue: genDefaultResolver("banditBurnInValue"),
   banditBurnInUnit: genDefaultResolver("banditBurnInUnit"),
+  experimentMinLengthDays: genDefaultResolver("experimentMinLengthDays"),
+  experimentMaxLengthDays: genDefaultResolver("experimentMaxLengthDays"),
   // TODO prior resolvers
 };
 

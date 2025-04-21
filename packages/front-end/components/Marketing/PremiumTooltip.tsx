@@ -1,4 +1,4 @@
-import { CommercialFeature } from "enterprise";
+import { CommercialFeature } from "shared/enterprise";
 import { CSSProperties, HTMLAttributes, ReactNode } from "react";
 import clsx from "clsx";
 import { Flex, Text } from "@radix-ui/themes";
@@ -10,7 +10,7 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 
 interface Props extends HTMLAttributes<HTMLDivElement> {
   commercialFeature?: CommercialFeature;
-  children: ReactNode;
+  children?: ReactNode;
   body?: string | JSX.Element | null;
   premiumText?: string | JSX.Element;
   tipMinWidth?: string;
@@ -130,6 +130,7 @@ export default function PremiumTooltip({
             commercialFeature={commercialFeature}
             premiumText={tooltipText}
             useTip={false}
+            mx="2"
           />
         )}
       </Flex>

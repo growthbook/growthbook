@@ -162,6 +162,7 @@ if (tracking !== "none") {
 
 // Create GrowthBook instance
 const gb = new GrowthBook({
+  enableDevMode: true,
   ...dataContext,
   remoteEval: !!dataContext.remoteEval,
   ...windowContext,

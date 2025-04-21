@@ -1,0 +1,18 @@
+allOf:
+  - $ref: "./Experiment.yaml"
+  - type: object
+    properties:
+      enhancedStatus:
+        type: object
+        required:
+          - status
+        properties:
+          status:
+            type: string
+            enum:
+              - "Running"
+              - "Stopped"
+              - "Draft"
+              - "Archived"
+          detailedStatus:
+            type: string

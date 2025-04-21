@@ -12,7 +12,7 @@ export default function JSONSchemaDescription({
   );
 
   return (
-    <div className="mt-3 border-top pt-3 d-flex align-items-center">
+    <div className="d-flex align-items-center">
       {jsonSchemaDescription ? (
         <div className="mr-2">{jsonSchemaDescription}</div>
       ) : null}

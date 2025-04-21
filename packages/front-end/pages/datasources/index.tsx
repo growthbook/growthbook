@@ -116,7 +116,7 @@ const DataSourcesPage: FC = () => {
       {filteredDatasources.length > 0 ? (
         <DataSources />
       ) : (
-        <div className="bg-white p-5 mb-3">
+        <div className="appbox p-5 mb-3">
           <div className="text-center mt-3">
             <h2 className="h1 mb-2">
               Automatically Fetch Experiment Results &amp; Metric Values

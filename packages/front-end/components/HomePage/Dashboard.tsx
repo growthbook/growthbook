@@ -8,6 +8,7 @@ import ActivityList from "@/components/ActivityList";
 import ExperimentList from "@/components/Experiment/ExperimentList";
 import ExperimentGraph from "@/components/Experiment/ExperimentGraph";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import Frame from "@/components/Radix/Frame";
 import styles from "./Dashboard.module.scss";
 import IdeasFeed from "./IdeasFeed";
 import NorthStar from "./NorthStar";
@@ -28,7 +29,7 @@ export default function Dashboard({ experiments }: Props) {
 
   const experimentImpactWidget = (
     <div className="col-xl-13 mb-4">
-      <div className="list-group activity-box overflow-auto pt-1">
+      <Frame className="overflow-auto">
         {hasCommercialFeature("experiment-impact") ? (
           <ExperimentImpact experiments={experiments} />
         ) : (
@@ -44,7 +45,7 @@ export default function Dashboard({ experiments }: Props) {
             </PremiumTooltip>
           </div>
         )}
-      </div>
+      </Frame>
     </div>
   );
 
@@ -62,18 +63,18 @@ export default function Dashboard({ experiments }: Props) {
 
         {showImpactNearTop ? experimentImpactWidget : null}
         <div className="row">
-          <div className="col-lg-12 col-md-12 col-xl-8 mb-3">
-            <div className="list-group activity-box">
+          <div className="col-lg-12 col-md-12 col-xl-8">
+            <Frame className="fixed-height" height="100%">
               <ExperimentGraph
                 resolution={"month"}
                 num={12}
                 height={220}
                 initialShowBy={"all"}
               />
-            </div>
+            </Frame>
           </div>
-          <div className="col-md-4 mb-3">
-            <div className="list-group activity-box fixed-height overflow-auto">
+          <div className="col-md-4">
+            <Frame className="overflow-auto fixed-height" height="100%">
               <h4 className="">
                 Recent Activity{" "}
                 <Link href="/activity" className="float-right h6">
@@ -81,10 +82,10 @@ export default function Dashboard({ experiments }: Props) {
                 </Link>
               </h4>
               <ActivityList num={3} />
-            </div>
+            </Frame>
           </div>
-          <div className="col-md-4 col-xl-6 mb-4">
-            <div className="list-group activity-box fixed-height overflow-auto">
+          <div className="col-md-4 col-xl-6">
+            <Frame className="overflow-auto fixed-height" height="100%">
               <h4>
                 Running Experiments
                 <Link href={`/experiments`} className="float-right h6">
@@ -96,10 +97,10 @@ export default function Dashboard({ experiments }: Props) {
                 status={"running"}
                 experiments={experiments}
               />
-            </div>
+            </Frame>
           </div>
-          <div className="col-md-4 col-xl-6 mb-3">
-            <div className="list-group activity-box fixed-height overflow-auto ">
+          <div className="col-md-4 col-xl-6">
+            <Frame className="overflow-auto fixed-height" height="100%">
               <h4>
                 Recent Ideas{" "}
                 <Link href={`/ideas`} className="float-right h6">
@@ -107,7 +108,7 @@ export default function Dashboard({ experiments }: Props) {
                 </Link>
               </h4>
               <IdeasFeed num={5} />
-            </div>
+            </Frame>
           </div>
         </div>
         {!showImpactNearTop ? experimentImpactWidget : null}

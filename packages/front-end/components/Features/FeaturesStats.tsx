@@ -56,7 +56,6 @@ export default function FeaturesStats({
               codebase, with direct links from GrowthBook to the platform of
               your choice."
             commercialFeature="code-references"
-            reason="Code ref on features no access"
             learnMoreLink="https://docs.growthbook.io/features/code-references"
           />
         </div>
@@ -68,7 +67,7 @@ export default function FeaturesStats({
       <>
         <div className="contents container-fluid pagecontents">
           <div
-            className="appbox bg-white"
+            className="appbox"
             style={{
               height: "18rem",
               display: "flex",

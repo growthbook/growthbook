@@ -10,6 +10,7 @@ import {
 import clsx from "clsx";
 import { truncateString } from "shared/util";
 import { v4 as uuidv4 } from "uuid";
+import { Flex, Text } from "@radix-ui/themes";
 import track, { TrackEventProps } from "@/services/track";
 import ConditionalWrapper from "@/components/ConditionalWrapper";
 import Button from "@/components/Radix/Button";
@@ -21,6 +22,7 @@ import { DocLink, DocSection } from "./DocLink";
 type ModalProps = {
   header?: "logo" | string | ReactNode | boolean;
   subHeader?: string | ReactNode;
+  showHeaderCloseButton?: boolean;
   open: boolean;
   hideCta?: boolean;
   // An empty string will prevent firing a tracking event, but the prop is still required to encourage developers to add tracking
@@ -69,6 +71,7 @@ type ModalProps = {
 const Modal: FC<ModalProps> = ({
   header = "logo",
   subHeader = "",
+  showHeaderCloseButton = true,
   children,
   close,
   submit,
@@ -175,7 +178,7 @@ const Modal: FC<ModalProps> = ({
             </h4>
             {subHeader ? <div className="mt-1">{subHeader}</div> : null}
           </div>
-          {close && (
+          {close && showHeaderCloseButton && (
             <button
               type="button"
               className="close"
@@ -191,18 +194,22 @@ const Modal: FC<ModalProps> = ({
         </div>
       ) : (
         <>
-          {close && (
-            <button
-              type="button"
-              className="close"
-              onClick={(e) => {
-                e.preventDefault();
-                close();
-              }}
-              aria-label="Close"
-            >
-              <span aria-hidden="true">&times;</span>
-            </button>
+          {close && showHeaderCloseButton && (
+            <Flex justify="end">
+              <button
+                type="button"
+                className="close px-3 py-1"
+                onClick={(e) => {
+                  e.preventDefault();
+                  close();
+                }}
+                aria-label="Close"
+              >
+                <Text aria-hidden="true" size="6">
+                  &times;
+                </Text>
+              </button>
+            </Flex>
           )}
         </>
       )}
@@ -368,6 +375,9 @@ const Modal: FC<ModalProps> = ({
         display: open ? "block" : "none",
         position: inline ? "relative" : undefined,
         zIndex: inline ? 1 : increasedElevation ? 1550 : undefined,
+      }}
+      onClick={(e) => {
+        e.stopPropagation();
       }}
     >
       <div

@@ -223,8 +223,8 @@ const AnalysisForm: FC<{
     return (
       <UpgradeModal
         close={() => setUpgradeModal(false)}
-        reason="To override metric conversion windows,"
         source="override-metrics"
+        commercialFeature="override-metrics"
       />
     );
   }
@@ -778,16 +778,14 @@ const AnalysisForm: FC<{
             {hasMetrics && !isBandit && (
               <div className="form-group mb-2">
                 <PremiumTooltip commercialFeature="override-metrics">
-                  Metric Overrides (optional)
+                  <label className="font-weight-bold mb-1">
+                    Metric Overrides
+                  </label>
                 </PremiumTooltip>
-                <div className="mb-2 font-italic" style={{ fontSize: 12 }}>
-                  <p className="mb-0">
-                    Override metric behaviors within this experiment.
-                  </p>
-                  <p className="mb-0">
-                    Leave any fields empty that you do not want to override.
-                  </p>
-                </div>
+                <small className="form-text text-muted mb-2">
+                  Override metric behaviors within this experiment. Leave any
+                  fields empty that you do not want to override.
+                </small>
                 <MetricsOverridesSelector
                   experiment={experiment}
                   form={

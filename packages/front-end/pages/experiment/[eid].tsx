@@ -138,6 +138,7 @@ const ExperimentPage = (): ReactElement => {
         <EditVariationsForm
           experiment={experiment}
           cancel={() => setVariationsModalOpen(false)}
+          onlySafeToEditVariationMetadata={!safeToEdit}
           mutate={mutate}
           source="eid"
         />

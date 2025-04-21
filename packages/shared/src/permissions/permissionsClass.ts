@@ -98,6 +98,11 @@ export class Permissions {
     return this.checkGlobalPermission("manageBilling");
   };
 
+  public canViewUsage = (): boolean => {
+    // TODO: separate this from billing?
+    return this.checkGlobalPermission("manageBilling");
+  };
+
   public canManageIntegrations = (): boolean => {
     return this.checkGlobalPermission("manageIntegrations");
   };
@@ -364,6 +369,18 @@ export class Permissions {
       },
       "manageTemplates"
     );
+  };
+
+  public canCreateDecisionCriteria = (): boolean => {
+    return this.checkGlobalPermission("manageDecisionCriteria");
+  };
+
+  public canUpdateDecisionCriteria = (): boolean => {
+    return this.checkGlobalPermission("manageDecisionCriteria");
+  };
+
+  public canDeleteDecisionCriteria = (): boolean => {
+    return this.checkGlobalPermission("manageDecisionCriteria");
   };
 
   // This is a helper method to use on the frontend to determine whether or not to show certain UI elements

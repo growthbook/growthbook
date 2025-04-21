@@ -198,7 +198,7 @@ export default function ExperimentImpactTab({
           ) : null}
 
           <div className="mt-4" style={{ maxHeight: 500, overflowY: "auto" }}>
-            <table className="table bg-white border">
+            <table className="table border">
               <thead className="bg-light">
                 <tr>
                   <th>

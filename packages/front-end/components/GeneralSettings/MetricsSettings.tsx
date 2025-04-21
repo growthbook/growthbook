@@ -137,6 +137,36 @@ export default function MetricsSettings() {
               </p>
             </div>
             {/* endregion Minimum Percentage Change */}
+
+            {/* region Target MDE */}
+            <div>
+              <div className="form-inline">
+                <Field
+                  label="Target Minimum Detectable Effect"
+                  type="number"
+                  min={0}
+                  append="%"
+                  className="ml-2"
+                  containerClassName="mt-2"
+                  disabled={hasFileConfig()}
+                  {...form.register("metricDefaults.targetMDE", {
+                    valueAsNumber: true,
+                    min: 0,
+                  })}
+                />
+              </div>
+              <p>
+                <small className="text-muted mb-3">
+                  The percentage change that you want to be able to reliably
+                  detect before ending your experiment. This is used to estimate
+                  the &quot;Days Left&quot; for running experiments.
+                  <br />
+                  Lower values require more data to reach a decision point for
+                  an experiment.
+                </small>
+              </p>
+            </div>
+            {/* endregion Target MDE */}
           </Box>
           {/* endregion Metrics Behavior Defaults */}
           <>

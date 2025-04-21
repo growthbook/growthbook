@@ -14,7 +14,8 @@ type AutoChecklistOption = {
     | "description"
     | "project"
     | "tag"
-    | "customField";
+    | "customField"
+    | "prerequisiteTargeting";
 };
 
 export default function NewExperimentChecklistItem({
@@ -55,6 +56,11 @@ export default function NewExperimentChecklistItem({
       label: "Add at least 1 tag to this experiment",
       propertyKey: "tag",
     },
+    {
+      value: "Ensure prerequisite targeting is set for this experiment",
+      label: "Ensure prerequisite targeting is set for this experiment",
+      propertyKey: "prerequisiteTargeting",
+    },
   ];
 
   function addNewTask(newTaskInput: ChecklistTask) {
@@ -92,6 +98,7 @@ export default function NewExperimentChecklistItem({
         <label>Task</label>
         <CreatableSelect
           className="pb-3"
+          classNamePrefix="gb-select"
           options={combinedChecklistOptions.filter((option) => {
             return !experimentLaunchChecklist.some(
               (index) => index.task === option.value

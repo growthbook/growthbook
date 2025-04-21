@@ -130,9 +130,9 @@ print(value)
       <Code
         language="go"
         code={`
-value := gb.Feature(${JSON.stringify(
+value := client.EvalFeature(context.Background(), ${JSON.stringify(
           featureId
-        )}).GetValueWithDefault(${getDefaultValue(valueType)})
+        )}).Value
 fmt.Println(value)
             `.trim()}
       />

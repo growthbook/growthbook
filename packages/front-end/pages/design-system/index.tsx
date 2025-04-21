@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { FaDownload, FaExternalLinkAlt } from "react-icons/fa";
 import { BsArrowRepeat } from "react-icons/bs";
 import { PiCaretDownFill, PiHourglassMedium, PiInfoFill } from "react-icons/pi";
+import { Permissions } from "shared/permissions";
 import HelperText from "@/components/Radix/HelperText";
 import Checkbox from "@/components/Radix/Checkbox";
 import RadioGroup from "@/components/Radix/RadioGroup";
@@ -37,6 +38,8 @@ import DatePicker from "@/components/DatePicker";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
 import SplitButton from "@/components/Radix/SplitButton";
+import PremiumCallout from "@/components/Radix/PremiumCallout";
+import { UserContext } from "@/services/UserContext";
 
 export default function DesignSystemPage() {
   const [checked, setChecked] = useState<"indeterminate" | boolean>(false);
@@ -304,12 +307,75 @@ export default function DesignSystemPage() {
 
       <div className="appbox p-3">
         <h3>Callout</h3>
-        <Flex direction="column" gap="3">
+        <Flex direction="column" gap="3" mb="4">
           <Callout status="info">This is an informational callout.</Callout>
           <Callout status="warning">This is a warning callout.</Callout>
           <Callout status="error">This is an error callout.</Callout>
           <Callout status="success">This is a success callout.</Callout>
         </Flex>
+
+        <h3>PremiumCallout</h3>
+        <UserContext.Provider
+          // eslint-disable-next-line
+          // @ts-expect-error
+          value={{
+            hasCommercialFeature: (feature) =>
+              feature === "multi-armed-bandits",
+            commercialFeatureLowestPlan: {
+              "visual-editor": "pro",
+              "custom-roles": "enterprise",
+              "multi-armed-bandits": "pro",
+            } as const,
+            users: new Map(),
+            organization: {},
+            permissionsUtil: new Permissions({
+              global: {
+                permissions: {
+                  manageBilling: true,
+                },
+                limitAccessByEnvironment: false,
+                environments: [],
+              },
+              projects: {},
+            }),
+          }}
+        >
+          <Flex direction="column" gap="3">
+            <PremiumCallout
+              commercialFeature="visual-editor"
+              id="design-system-pro"
+            >
+              This Pro feature unlocks extra power and speed.
+            </PremiumCallout>
+            <PremiumCallout
+              commercialFeature="custom-roles"
+              id="design-system-enterprise"
+            >
+              This Enterprise feature gives you enhanced security and
+              compliance.
+            </PremiumCallout>
+            <PremiumCallout
+              commercialFeature="multi-armed-bandits"
+              id="design-system-dismissable"
+              docSection="bandits"
+              dismissable={true}
+              renderWhenDismissed={(undismiss) => (
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    undismiss();
+                  }}
+                >
+                  Un-dismiss
+                </a>
+              )}
+            >
+              You already have access to this premium feature. This gives you a
+              docs link and is dismissable.
+            </PremiumCallout>
+          </Flex>
+        </UserContext.Provider>
       </div>
 
       <div className="appbox p-3">
@@ -744,6 +810,11 @@ export default function DesignSystemPage() {
               archived: false,
               status: "draft",
               variations: [],
+              phases: [],
+              goalMetrics: [],
+              guardrailMetrics: [],
+              secondaryMetrics: [],
+              datasource: "ds_abc123",
             }}
           />
           <ExperimentStatusIndicator
@@ -751,6 +822,11 @@ export default function DesignSystemPage() {
               archived: false,
               status: "running",
               variations: [],
+              phases: [],
+              goalMetrics: [],
+              guardrailMetrics: [],
+              secondaryMetrics: [],
+              datasource: "ds_abc123",
             }}
           />
           <ExperimentStatusIndicator
@@ -758,6 +834,11 @@ export default function DesignSystemPage() {
               archived: false,
               status: "stopped",
               variations: [],
+              phases: [],
+              goalMetrics: [],
+              guardrailMetrics: [],
+              secondaryMetrics: [],
+              datasource: "ds_abc123",
             }}
           />
           <ExperimentStatusIndicator
@@ -766,6 +847,11 @@ export default function DesignSystemPage() {
               status: "stopped",
               results: "dnf",
               variations: [],
+              phases: [],
+              goalMetrics: [],
+              guardrailMetrics: [],
+              secondaryMetrics: [],
+              datasource: "ds_abc123",
             }}
           />
           <ExperimentStatusIndicator
@@ -774,6 +860,11 @@ export default function DesignSystemPage() {
               status: "stopped",
               results: "inconclusive",
               variations: [],
+              phases: [],
+              goalMetrics: [],
+              guardrailMetrics: [],
+              secondaryMetrics: [],
+              datasource: "ds_abc123",
             }}
           />
           <ExperimentStatusIndicator
@@ -782,6 +873,11 @@ export default function DesignSystemPage() {
               status: "stopped",
               results: "won",
               variations: [],
+              phases: [],
+              goalMetrics: [],
+              guardrailMetrics: [],
+              secondaryMetrics: [],
+              datasource: "ds_abc123",
             }}
           />
           <ExperimentStatusIndicator
@@ -790,6 +886,11 @@ export default function DesignSystemPage() {
               status: "stopped",
               results: "lost",
               variations: [],
+              phases: [],
+              goalMetrics: [],
+              guardrailMetrics: [],
+              secondaryMetrics: [],
+              datasource: "ds_abc123",
             }}
           />
           <ExperimentStatusIndicator
@@ -797,6 +898,11 @@ export default function DesignSystemPage() {
               archived: true,
               status: "running",
               variations: [],
+              phases: [],
+              goalMetrics: [],
+              guardrailMetrics: [],
+              secondaryMetrics: [],
+              datasource: "ds_abc123",
             }}
           />
         </Flex>

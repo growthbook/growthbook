@@ -452,3 +452,29 @@ export function experimentsReferencingSavedGroups({
   });
   return referenceMap;
 }
+
+export function parseProcessLogBase() {
+  let parsedLogBase:
+    | {
+        // eslint-disable-next-line
+        [key: string]: any;
+      }
+    | null
+    | undefined = undefined;
+  try {
+    if (process.env.LOG_BASE === "null") {
+      parsedLogBase = null;
+    } else if (process.env.LOG_BASE) {
+      parsedLogBase = JSON.parse(process.env.LOG_BASE);
+    }
+  } catch {
+    // Empty catch - don't pass a LOG_BASE
+  }
+
+  // Only pass `base` if defined or null
+  return typeof parsedLogBase === "undefined"
+    ? {}
+    : {
+        base: parsedLogBase,
+      };
+}

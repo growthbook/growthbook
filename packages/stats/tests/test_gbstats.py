@@ -1,10 +1,9 @@
 import dataclasses
 from functools import partial
 from unittest import TestCase, main as unittest_main
-from typing import Dict, Union
-import copy
 import numpy as np
 import pandas as pd
+import copy
 
 from gbstats.gbstats import (
     AnalysisSettingsForStatsEngine,
@@ -30,7 +29,6 @@ from gbstats.models.statistics import (
     BanditPeriodDataSampleMean,
 )
 
-from gbstats.gbstats import get_var_id_map
 
 DECIMALS = 9
 round_ = partial(np.round, decimals=DECIMALS)
@@ -187,6 +185,9 @@ RATIO_METRIC = MetricSettingsForStatsEngine(
     denominator_metric_type="count",
 )
 
+RATIO_RA_METRIC = copy.deepcopy(RATIO_METRIC)
+RATIO_RA_METRIC.statistic_type = "ratio_ra"
+
 RATIO_STATISTICS_DF = pd.DataFrame(
     [
         {
@@ -216,6 +217,54 @@ RATIO_STATISTICS_DF = pd.DataFrame(
 
 RATIO_STATISTICS_ADDITIONAL_DIMENSION_DF = RATIO_STATISTICS_DF.copy()
 RATIO_STATISTICS_ADDITIONAL_DIMENSION_DF["dimension"] = "fifth"
+
+RATIO_RA_STATISTICS_DF = pd.DataFrame(
+    [
+        {
+            "dimension": "All",
+            "variation": "zero",
+            "users": 100,
+            "count": 100,
+            "main_sum": 485.112236689623,
+            "main_sum_squares": 2715.484666118136,
+            "denominator_sum": 679.9093275844917,
+            "denominator_sum_squares": 4939.424001640236,
+            "covariate_sum": 192.59138069991536,
+            "covariate_sum_squares": 460.076026390857,
+            "denominator_pre_sum": 290.1398399750233,
+            "denominator_pre_sum_squares": 920.9461385038898,
+            "main_covariate_sum_product": 1113.6215759318352,
+            "main_denominator_sum_product": 3602.146836776702,
+            "main_post_denominator_pre_sum_product": 1559.2878434944676,
+            "main_pre_denominator_post_sum_product": 1460.3181079276983,
+            "main_pre_denominator_pre_sum_product": 634.239482353647,
+            "denominator_post_denominator_pre_sum_product": 2130.9404074446747,
+            "theta": None,
+        },
+        {
+            "dimension": "All",
+            "variation": "one",
+            "users": 100,
+            "count": 100,
+            "main_sum": 514.7757826608777,
+            "main_sum_squares": 2994.897482705013,
+            "denominator_sum": 705.4090874383759,
+            "denominator_sum_squares": 5291.36604146392,
+            "covariate_sum": 206.94157227402536,
+            "covariate_sum_squares": 514.2903702246757,
+            "denominator_pre_sum": 302.54389139107326,
+            "denominator_pre_sum_squares": 994.4506208125663,
+            "main_covariate_sum_product": 1237.0953021125997,
+            "main_denominator_sum_product": 3918.1561431600717,
+            "main_post_denominator_pre_sum_product": 1701.0287270040265,
+            "main_pre_denominator_post_sum_product": 1604.075950326651,
+            "main_pre_denominator_pre_sum_product": 698.4173425817913,
+            "denominator_post_denominator_pre_sum_product": 2292.081739775257,
+            "theta": None,
+        },
+    ]
+)
+
 
 ONE_USER_DF = pd.DataFrame(
     [
@@ -320,10 +369,6 @@ DEFAULT_ANALYSIS = AnalysisSettingsForStatsEngine(
 BANDIT_ANALYSIS = BanditSettingsForStatsEngine(
     var_names=["zero", "one", "two", "three"],
     var_ids=["zero", "one", "two", "three"],
-    historical_weights=[
-        BanditWeightsSinglePeriod(date="", weights=[1 / 4] * 4, total_users=0),
-        BanditWeightsSinglePeriod(date="", weights=[1 / 4] * 4, total_users=0),
-    ],
     current_weights=[1 / 4] * 4,
     reweight=True,
     decision_metric="count_metric",
@@ -765,6 +810,25 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
         self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
         self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.000000352)
 
+    def test_analyze_metric_df_ratio_ra(self):
+        rows = RATIO_RA_STATISTICS_DF
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        result = analyze_metric_df(
+            df,
+            metric=RATIO_RA_METRIC,
+            analysis=dataclasses.replace(DEFAULT_ANALYSIS, stats_engine="frequentist"),
+        )
+        self.assertEqual(len(result.index), 1)
+        self.assertEqual(result.at[0, "dimension"], "All")
+        self.assertEqual(round_(result.at[0, "baseline_cr"]), 0.713495487)
+        self.assertEqual(round_(result.at[0, "baseline_mean"]), 0.713495487)
+        self.assertEqual(round_(result.at[0, "v1_cr"]), 0.729754963)
+        self.assertEqual(round_(result.at[0, "v1_mean"]), 0.729754963)
+        self.assertEqual(result.at[0, "v1_risk"], None)
+        self.assertEqual(round_(result.at[0, "v1_expected"]), -0.000701483)
+        self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
+        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.857710405)
+
 
 class TestAnalyzeMetricDfSequential(TestCase):
     def test_analyze_metric_df_sequential(self):
@@ -843,7 +907,6 @@ class TestBandit(TestCase):
         self.true_additional_reward = 192.0
         num_variations = len(self.true_weights)
         self.constant_weights = [1 / num_variations] * num_variations
-        self.historical_weights = [self.constant_weights, self.constant_weights]
 
     import unittest
 

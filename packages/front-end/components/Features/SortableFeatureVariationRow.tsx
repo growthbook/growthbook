@@ -45,6 +45,7 @@ interface SortableProps {
   showDescription?: boolean;
   dragging?: boolean;
   className?: string;
+  onlySafeToEditVariationMetadata?: boolean;
 }
 
 type VariationProps = SortableProps &
@@ -64,13 +65,14 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
       valueType,
       hideVariationIds,
       hideValueField,
+      onlySafeToEditVariationMetadata,
       customSplit,
       hideSplit,
       setWeight,
       feature,
       showDescription,
       dragging,
-      className = "bg-white",
+      className = "",
       ...props
     },
     ref
@@ -228,12 +230,14 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                 )}
               </>
             )}
-            {variations.length > 1 && setVariations && (
-              <div {...handle} title="Drag and drop to re-order rules">
-                <FaArrowsAlt />
-              </div>
-            )}
-            {setVariations && (
+            {variations.length > 1 &&
+              setVariations &&
+              !onlySafeToEditVariationMetadata && (
+                <div {...handle} title="Drag and drop to re-order rules">
+                  <FaArrowsAlt />
+                </div>
+              )}
+            {setVariations && !onlySafeToEditVariationMetadata && (
               <div className="col-auto">
                 <MoreMenu zIndex={1000000}>
                   <Tooltip

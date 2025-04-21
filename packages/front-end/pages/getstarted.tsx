@@ -65,8 +65,8 @@ const GetStartedPage = (): React.ReactElement => {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason=""
           source="get-started"
+          commercialFeature={null}
         />
       )}
       {showVideoId && (
@@ -165,9 +165,9 @@ const GetStartedPage = (): React.ReactElement => {
                 />
 
                 <OverviewCard
-                  imgUrl="/images/get-started/thumbnails/3.4-release.webp"
+                  imgUrl="/images/get-started/thumbnails/3.5-release.webp"
                   hoverText="View Blog Post"
-                  href="https://blog.growthbook.io/growthbook-version-3-4/"
+                  href="https://blog.growthbook.io/growthbook-version-3-5/"
                   type="link"
                 />
               </Flex>

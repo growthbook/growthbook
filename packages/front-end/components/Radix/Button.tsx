@@ -9,7 +9,7 @@ import {
 import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 
-export type Color = "violet" | "red";
+export type Color = "violet" | "red" | "gray";
 export type Variant = "solid" | "soft" | "outline" | "ghost";
 export type Size = "xs" | "sm" | "md" | "lg";
 
@@ -23,8 +23,10 @@ export type Props = {
   setError?: (error: string | null) => void;
   icon?: ReactNode;
   iconPosition?: "left" | "right";
+  stopPropagation?: boolean;
   children: string | string[] | ReactNode;
   style?: CSSProperties;
+  tabIndex?: number;
 } & MarginProps &
   Pick<ButtonProps, "title" | "type" | "aria-label">;
 
@@ -53,6 +55,7 @@ const Button = forwardRef<HTMLButtonElement, Props>(
       setError,
       icon,
       iconPosition = "left",
+      stopPropagation,
       type = "button",
       children,
       ...otherProps
@@ -70,6 +73,7 @@ const Button = forwardRef<HTMLButtonElement, Props>(
           onClick
             ? async (e) => {
                 e.preventDefault();
+                if (stopPropagation) e.stopPropagation();
                 if (loading) return;
                 setLoading(true);
                 setError?.(null);
@@ -113,6 +117,7 @@ export const WhiteButton = forwardRef<HTMLButtonElement, WhiteButtonProps>(
       iconPosition = "left",
       type = "button",
       children,
+      tabIndex,
       ...otherProps
     }: WhiteButtonProps,
     ref: ForwardedRef<HTMLButtonElement>
@@ -153,6 +158,7 @@ export const WhiteButton = forwardRef<HTMLButtonElement, WhiteButtonProps>(
           boxShadow:
             variant === "outline" ? "inset 0 0 0 1px var(--white-a8)" : "",
         }}
+        tabIndex={tabIndex}
       >
         {icon && iconPosition === "left" ? icon : null}
         <Text weight="medium">{children}</Text>

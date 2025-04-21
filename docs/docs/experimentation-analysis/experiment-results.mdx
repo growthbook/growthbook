@@ -4,6 +4,8 @@ description: Learn how to analyze A/B test results, share insights, and make dat
 slug: /app/experiment-results
 ---
 
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
 # Experiment Results
 
 Once your experiment is up and running, you will be able to track how it is performing in the Experiment Results tab. This can be found on any Experiment page under the Results tab at the top.
@@ -29,11 +31,9 @@ For both columns, the raw data in grey underneath shows the numerator and denomi
 
 Furthermore, we include tooltips for **Risk**, which captures the average loss in a metric if the variation were actually to be worse than control. We use this tooltip to let you know about "risky" cases. For example, in cases like in the screenshot above, the chance to win is above 50% for a few metrics, but the average loss if the baseline was actually better is above the risk threshold, indicating that shipping the variation still has substantial risk. More information about risk is available in a tooltip when you mouseover the result:
 
-<img
-  src="/images/results-tooltip.png"
-  alt="Results Tooltip"
-  style={{ width: 400, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={500} border>
+  ![Results Tooltip](/images/results-tooltip.png)
+</MaxWidthImage>
 
 The graph and the **% Change** column show you how much better/worse the variation is compared to the baseline. It is a probability density graph and the thicker the area, the more likely the true percent change will be there.
 As you collect more data, the tails of the graphs will shorten, indicating more certainty around the estimates.
@@ -98,11 +98,9 @@ The date dimension shows a time series of the count of users _first_ exposed to 
 
 Take the following results, for example.
 
-<img
-  src="/images/experiment-date-results.png"
-  alt="Experiment Date Results"
-  style={{ width: 400, margin: "0 auto" }}
-/>
+<MaxWidthImage border maxWidth={600}>
+  ![Experiment Date Results](/images/experiment-date-results.png)
+</MaxWidthImage>
 
 In the first graph, we see the number of users who were first exposed to the experiment on that day.
 
@@ -154,11 +152,9 @@ To get access to the health tab, you need to enable us to run one additional que
 
 The health tab provides you with more insights on the traffic to your experiment over time and across dimensions.
 
-<img
-  src="/images/health-tab.png"
-  alt="Experiment Health Tab"
-  style={{ width: 800, margin: "0 auto" }}
-/>
+<MaxWidthImage>
+  ![Experiment Health Tab](/images/health-tab.png)
+</MaxWidthImage>
 
 **Experiment Traffic** - A plot of experiment units by the first date they were exposed to the experiment. You can look at daily traffic or cumulative traffic. If you have your experiment dimensions configured with pre-defined slices, we will also return traffic splits by dimension in this tab. For example, if you have a `browser` dimension with pre-defined slices, we will show you the traffic splits by browser.
 

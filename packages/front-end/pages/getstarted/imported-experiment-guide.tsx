@@ -67,8 +67,8 @@ const ImportedExperimentGuide = (): React.ReactElement => {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason=""
           source="get-started-experiment-guide"
+          commercialFeature={null}
         />
       )}
       <h1 className="mb-3">Analyze Imported Experiments</h1>

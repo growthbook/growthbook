@@ -18,11 +18,13 @@ from gbstats.models.statistics import (
     ProportionStatistic,
     SampleMeanStatistic,
     RegressionAdjustedStatistic,
+    RegressionAdjustedRatioStatistic,
 )
 from gbstats.frequentist.tests import (
     frequentist_diff,
     frequentist_variance,
     frequentist_variance_relative_cuped,
+    frequentist_variance_relative_cuped_ratio,
 )
 from gbstats.utils import (
     truncated_normal_mean,
@@ -58,7 +60,6 @@ class BayesianTestResult(TestResult):
     chance_to_win: float
     risk: List[float]
     risk_type: RiskType
-    error_message: Optional[str] = None
 
 
 class BayesianABTest(BaseABTest):
@@ -130,6 +131,7 @@ class BayesianABTest(BaseABTest):
                     ),
                     risk=result.risk,
                     risk_type=result.risk_type,
+                    error_message=None,
                 )
             else:
                 return self._default_output(NO_UNITS_IN_VARIATION_MESSAGE)
@@ -146,8 +148,6 @@ class EffectBayesianABTest(BayesianABTest):
         config: EffectBayesianConfig = EffectBayesianConfig(),
     ):
         super().__init__(stat_a, stat_b, config)
-        self.stat_a = stat_a
-        self.stat_b = stat_b
         self.config = config
 
     def compute_result(self):
@@ -184,6 +184,14 @@ class EffectBayesianABTest(BayesianABTest):
             data_variance = frequentist_variance_relative_cuped(
                 self.stat_a, self.stat_b
             )
+        elif (
+            isinstance(self.stat_a, RegressionAdjustedRatioStatistic)
+            and isinstance(self.stat_b, RegressionAdjustedRatioStatistic)
+            and self.relative
+        ):
+            data_variance = frequentist_variance_relative_cuped_ratio(
+                self.stat_a, self.stat_b
+            )
         else:
             data_variance = frequentist_variance(
                 self.stat_a.variance,
@@ -200,19 +208,28 @@ class EffectBayesianABTest(BayesianABTest):
             self.relative,
             self.stat_a.unadjusted_mean,
         )
-
-        post_prec = 1 / data_variance + (
-            1 / scaled_prior_effect.variance if scaled_prior_effect.proper else 0
-        )
-        self.mean_diff = (
-            (
-                data_mean / data_variance
-                + scaled_prior_effect.mean / scaled_prior_effect.variance
+        if data_variance:
+            post_prec = 1 / data_variance + (
+                1 / scaled_prior_effect.variance if scaled_prior_effect.proper else 0
             )
-            / post_prec
-            if scaled_prior_effect.proper
-            else data_mean
-        )
+            self.mean_diff = (
+                (
+                    data_mean / data_variance
+                    + scaled_prior_effect.mean / scaled_prior_effect.variance
+                )
+                / post_prec
+                if scaled_prior_effect.proper
+                else data_mean
+            )
+        else:
+            post_prec = (
+                1 / scaled_prior_effect.variance if scaled_prior_effect.proper else 0
+            )
+            self.mean_diff = (
+                scaled_prior_effect.mean if scaled_prior_effect.proper else 0
+            )
+        if post_prec == 0:
+            return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
         self.std_diff = np.sqrt(1 / post_prec)
 
         ctw = self.chance_to_win(self.mean_diff, self.std_diff)
@@ -232,6 +249,7 @@ class EffectBayesianABTest(BayesianABTest):
             ),
             risk=risk,
             risk_type="relative" if self.relative else "absolute",
+            error_message=None,
         )
         if self.scaled:
             result = self.scale_result(result)

@@ -55,6 +55,7 @@ export type {
   EventLogger,
   EventProperties,
   Plugin,
+  LogUnion,
 } from "./types/growthbook";
 
 export type {

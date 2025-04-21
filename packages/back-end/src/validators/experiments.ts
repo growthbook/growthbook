@@ -25,19 +25,25 @@ export const banditResult = z.object({
   singleVariationResults: z.array(singleVariationResult).optional(),
   currentWeights: z.array(z.number()),
   updatedWeights: z.array(z.number()),
-  srm: z.number().optional(),
   bestArmProbabilities: z.array(z.number()).optional(),
   seed: z.number().optional(),
   updateMessage: z.string().optional(),
   error: z.string().optional(),
   reweight: z.boolean().optional(),
   weightsWereUpdated: z.boolean().optional(),
+  /** @deprecated */
+  srm: z.number().optional(),
 });
 
 export const banditEvent = z
   .object({
     date: z.date(),
     banditResult: banditResult,
+    health: z
+      .object({
+        srm: z.number().optional(),
+      })
+      .optional(),
     snapshotId: z.string().optional(), // 0th may not have snapshot
   })
   .strict();
@@ -158,19 +164,70 @@ export type ExperimentAnalysisSettings = z.infer<
   typeof experimentAnalysisSettings
 >;
 
+export const experimentAnalysisSummaryHealth = z.object({
+  srm: z.number(),
+  multipleExposures: z.number(),
+  totalUsers: z.number().nullable(),
+  power: z
+    .discriminatedUnion("type", [
+      z.object({
+        type: z.literal("error"),
+        errorMessage: z.string(),
+      }),
+      z.object({
+        type: z.literal("success"),
+        isLowPowered: z.boolean(),
+        additionalDaysNeeded: z.number(),
+      }),
+    ])
+    .optional(),
+});
+export type ExperimentAnalysisSummaryHealth = z.infer<
+  typeof experimentAnalysisSummaryHealth
+>;
+
+export const goalMetricStatus = ["won", "lost", "neutral"] as const;
+export type GoalMetricStatus = typeof goalMetricStatus[number];
+
+export const guardrailMetricStatus = ["lost", "neutral"] as const;
+export type GuardrailMetricStatus = typeof guardrailMetricStatus[number];
+
+export const goalMetricResult = z.object({
+  status: z.enum(goalMetricStatus),
+  superStatSigStatus: z.enum(goalMetricStatus),
+});
+export type GoalMetricResult = z.infer<typeof goalMetricResult>;
+
+export const experimentAnalysisSummaryVariationStatus = z.object({
+  variationId: z.string(),
+  goalMetrics: z.record(z.string(), goalMetricResult).optional(),
+  guardrailMetrics: z
+    .record(z.string(), z.object({ status: z.enum(guardrailMetricStatus) }))
+    .optional(),
+});
+export type ExperimentAnalysisSummaryVariationStatus = z.infer<
+  typeof experimentAnalysisSummaryVariationStatus
+>;
+
+export const experimentAnalysisSummaryResultsStatus = z.object({
+  variations: z.array(experimentAnalysisSummaryVariationStatus),
+  settings: z.object({
+    sequentialTesting: z.boolean(),
+  }),
+});
+export type ExperimentAnalysisSummaryResultsStatus = z.infer<
+  typeof experimentAnalysisSummaryResultsStatus
+>;
+
 export const experimentAnalysisSummary = z
   .object({
     snapshotId: z.string(),
-    health: z
-      .object({
-        srm: z.number(),
-        multipleExposures: z.number(),
-        totalUsers: z.number(),
-      })
-      .optional(),
+    health: experimentAnalysisSummaryHealth.optional(),
+    resultsStatus: experimentAnalysisSummaryResultsStatus.optional(),
   })
   .strict()
   .optional();
+
 export type ExperimentAnalysisSummary = z.infer<
   typeof experimentAnalysisSummary
 >;
@@ -240,6 +297,7 @@ export const experimentInterface = z
     templateId: z.string().optional(),
     shareLevel: z.enum(["public", "organization"]).optional(),
     analysisSummary: experimentAnalysisSummary,
+    dismissedWarnings: z.array(z.enum(["low-power"])).optional(),
   })
   .strict()
   .merge(experimentAnalysisSettings);

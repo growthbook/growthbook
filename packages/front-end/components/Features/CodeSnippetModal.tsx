@@ -94,6 +94,7 @@ export default function CodeSnippetModal({
   const [installationOpen, setInstallationOpen] = useState(true);
   const [setupOpen, setSetupOpen] = useState(true);
   const [usageOpen, setUsageOpen] = useState(true);
+  const [eventTracker, setEventTracker] = useState("");
   const [attributesOpen, setAttributesOpen] = useState(true);
 
   const settings = useOrgSettings();
@@ -264,7 +265,7 @@ export default function CodeSnippetModal({
               </h4>
               {configOpen && (
                 <div className="appbox bg-light p-3">
-                  <table className="gbtable table table-bordered table-sm">
+                  <table className="table table-bordered table-sm">
                     <tbody>
                       <tr>
                         <th
@@ -347,6 +348,8 @@ export default function CodeSnippetModal({
                 <div className="appbox bg-light p-3">
                   <InstallationCodeSnippet
                     language={language}
+                    eventTracker={eventTracker}
+                    setEventTracker={setEventTracker}
                     apiHost={apiHost}
                     apiKey={clientKey}
                     encryptionKey={encryptionKey}
@@ -356,6 +359,7 @@ export default function CodeSnippetModal({
               )}
             </div>
           )}
+
           {language !== "other" && (
             <div className="mb-3">
               <h4
@@ -376,6 +380,8 @@ export default function CodeSnippetModal({
                     apiKey={clientKey}
                     encryptionKey={encryptionKey}
                     remoteEvalEnabled={remoteEvalEnabled}
+                    eventTracker={eventTracker}
+                    setEventTracker={setEventTracker}
                   />
                 </div>
               )}
@@ -401,13 +407,11 @@ export default function CodeSnippetModal({
                     hashSecureAttributes={hashSecureAttributes}
                     secureAttributeSalt={secureAttributeSalt}
                     version={version}
+                    eventTracker={eventTracker}
                   />
 
                   {hashSecureAttributes && secureAttributes.length > 0 && (
-                    <div
-                      className="appbox mt-4"
-                      style={{ background: "rgb(209 236 241 / 25%)" }}
-                    >
+                    <div className="appbox mt-4">
                       <div className="alert alert-info mb-0">
                         <GBHashLock className="text-blue" /> This connection has{" "}
                         <strong>secure attribute hashing</strong> enabled. You

@@ -7,6 +7,7 @@ import {
 } from "back-end/src/validators/features";
 import { Environment } from "back-end/types/organization";
 import { Box, Container, Flex, Text } from "@radix-ui/themes";
+import clsx from "clsx";
 import RuleModal from "@/components/Features/RuleModal/index";
 import RuleList from "@/components/Features/RuleList";
 import track from "@/services/track";
@@ -81,79 +82,103 @@ export default function FeatureRules({
     })
   );
 
+  const tabEnvs = environments.slice(0, 4);
+  const dropdownEnvs = environments.slice(4);
+  const selectedDropdownEnv = dropdownEnvs.find((e) => e.id === env)?.id;
+
   return (
     <>
       <Tabs value={env} onValueChange={setEnv}>
-        {environments.length < 6 ? (
-          <Container maxWidth="100%">
-            <Flex
-              align="center"
-              justify="between"
-              style={{ boxShadow: "inset 0 -1px 0 0 var(--slate-a3)" }}
-            >
-              <TabsList className="w-100" style={{ boxShadow: "none" }}>
-                <Flex wrap="wrap" overflow="hidden">
-                  {environments.map((e) => (
-                    <TabsTrigger value={e.id} key={e.id}>
-                      <Flex maxWidth="220px">
-                        <Text truncate>{e.id}</Text>
-                      </Flex>
-                      <Badge
-                        ml="2"
-                        label={rulesByEnv[e.id].length.toString()}
-                        radius="full"
-                        variant="solid"
-                        color="violet"
-                      ></Badge>
-                    </TabsTrigger>
-                  ))}
-                </Flex>
-              </TabsList>
-              <Link
-                ml="2"
-                onClick={() => setCompareEnvModal({ sourceEnv: env })}
-                underline="none"
-                wrap="nowrap"
-                size="1"
-              >
-                Compare environments
-              </Link>
-            </Flex>
-          </Container>
-        ) : (
-          <Container mb={"4"} maxWidth="100%">
-            <Flex align="center" mb="3">
-              <Container flexGrow="0" width="310px" mr="4">
-                <EnvironmentDropdown
-                  env={env}
-                  setEnv={setEnv}
-                  environments={environments}
-                  formatOptionLabel={({ value }) => (
-                    <Flex justify="between" align="center">
-                      <Flex maxWidth="310px">
-                        <Text weight="medium" truncate>
-                          {value}
-                        </Text>
-                      </Flex>
-                      <Badge
-                        label={`${rulesByEnv[value].length} Rule${
-                          rulesByEnv[value].length === 1 ? "" : "s"
-                        } applied`}
-                        ml="2"
-                      />
+        <Container maxWidth="100%">
+          <Flex
+            align="center"
+            justify="between"
+            style={{ boxShadow: "inset 0 -1px 0 0 var(--slate-a3)" }}
+          >
+            <TabsList className="w-full" style={{ boxShadow: "none" }}>
+              <Flex wrap="wrap" overflow="hidden">
+                {tabEnvs.map((e) => (
+                  <TabsTrigger value={e.id} key={e.id}>
+                    <Flex maxWidth="220px">
+                      <Text truncate>{e.id}</Text>
                     </Flex>
-                  )}
-                />
-              </Container>
-              <Link
-                onClick={() => setCompareEnvModal({ sourceEnv: env })}
-                underline="none"
-              >
-                Compare environments
-              </Link>
-            </Flex>
-          </Container>
-        )}
+                    <Badge
+                      ml="2"
+                      label={rulesByEnv[e.id].length.toString()}
+                      radius="full"
+                      variant="solid"
+                      color="violet"
+                    ></Badge>
+                  </TabsTrigger>
+                ))}
+                {dropdownEnvs.length === 1 && (
+                  <TabsTrigger value={dropdownEnvs[0].id}>
+                    <Flex maxWidth="220px">
+                      <Text truncate>{dropdownEnvs[0].id}</Text>
+                    </Flex>
+                    <Badge
+                      ml="2"
+                      label={rulesByEnv[dropdownEnvs[0].id].length.toString()}
+                      radius="full"
+                      variant="solid"
+                      color="violet"
+                    ></Badge>
+                  </TabsTrigger>
+                )}
+                {dropdownEnvs.length > 1 && (
+                  <Flex
+                    px="1"
+                    direction="column"
+                    justify="center"
+                    align="center"
+                    className={clsx("tab-trigger-container", {
+                      active: !!selectedDropdownEnv,
+                    })}
+                  >
+                    <Container
+                      flexGrow="0"
+                      minWidth={selectedDropdownEnv ? undefined : "100px"}
+                    >
+                      <EnvironmentDropdown
+                        containerClassName={"select-dropdown-no-underline"}
+                        env={selectedDropdownEnv}
+                        setEnv={setEnv}
+                        environments={dropdownEnvs}
+                        placeholder="Other..."
+                        formatOptionLabel={({ value }) => (
+                          <Flex align="center">
+                            <Flex maxWidth="150px">
+                              <Text weight="medium" truncate>
+                                {value}
+                              </Text>
+                            </Flex>
+                            <Badge
+                              ml="2"
+                              mr="3"
+                              label={rulesByEnv[value].length.toString()}
+                              radius="full"
+                              variant="solid"
+                              color="violet"
+                            ></Badge>
+                          </Flex>
+                        )}
+                      />
+                    </Container>
+                  </Flex>
+                )}
+              </Flex>
+            </TabsList>
+            <Link
+              ml="2"
+              onClick={() => setCompareEnvModal({ sourceEnv: env })}
+              underline="none"
+              wrap="nowrap"
+              size="1"
+            >
+              Compare environments
+            </Link>
+          </Flex>
+        </Container>
         {environments.map((e) => {
           return (
             <TabsContent key={e.id} value={e.id}>

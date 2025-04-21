@@ -101,7 +101,7 @@ export default function PublicExperimentResults({
         ssrPolyfills={ssrPolyfills}
       />
 
-      <div className="bg-white border pt-3 mb-5">
+      <div className="appbox pt-3 mb-5">
         {snapshotError ? (
           <div className="mx-3 mb-3">
             <Callout status="error">
@@ -145,6 +145,7 @@ export default function PublicExperimentResults({
                 dimensionId={snapshot.dimension ?? ""}
                 isLatestPhase={phase === experiment.phases.length - 1}
                 startDate={phaseObj?.dateStarted ?? ""}
+                endDate={phaseObj?.dateEnded ?? ""}
                 reportDate={snapshot.dateCreated}
                 activationMetric={experiment.activationMetric}
                 status={experiment.status}
@@ -166,6 +167,7 @@ export default function PublicExperimentResults({
                 queryStatusData={queryStatusData}
                 reportDate={snapshot.dateCreated}
                 startDate={phaseObj?.dateStarted ?? ""}
+                endDate={phaseObj?.dateEnded ?? ""}
                 isLatestPhase={phase === experiment.phases.length - 1}
                 status={experiment.status}
                 goalMetrics={experiment.goalMetrics}

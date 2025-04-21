@@ -61,6 +61,7 @@ const TopNav: FC<{
     enableCelebrations,
     setEnableCelebrations,
   ] = useCelebrationLocalStorage();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const { breadcrumb } = usePageHead();
 
@@ -154,6 +155,7 @@ const TopNav: FC<{
       <DropdownMenuItem
         key="edit-profile"
         onClick={() => {
+          setDropdownOpen(false);
           setEditUserOpen(true);
         }}
       >
@@ -184,6 +186,7 @@ const TopNav: FC<{
       <DropdownMenuItem
         className={styles.dropdownItemIconColor}
         onClick={() => {
+          setDropdownOpen(false);
           router.push("/account/personal-access-tokens");
         }}
       >
@@ -199,6 +202,7 @@ const TopNav: FC<{
       <DropdownMenuItem
         className={styles.dropdownItemIconColor}
         onClick={() => {
+          setDropdownOpen(false);
           router.push("/reports");
         }}
       >
@@ -214,6 +218,7 @@ const TopNav: FC<{
       <DropdownMenuItem
         className={styles.dropdownItemIconColor}
         onClick={() => {
+          setDropdownOpen(false);
           router.push("/activity");
         }}
       >
@@ -235,6 +240,7 @@ const TopNav: FC<{
           className={styles.dropdownItemIconColor}
           key="system"
           onClick={() => {
+            setDropdownOpen(false);
             setTheme("system");
           }}
         >
@@ -247,6 +253,7 @@ const TopNav: FC<{
           className={styles.dropdownItemIconColor}
           key="light"
           onClick={() => {
+            setDropdownOpen(false);
             setTheme("light");
           }}
         >
@@ -259,6 +266,7 @@ const TopNav: FC<{
           className={styles.dropdownItemIconColor}
           key="dark"
           onClick={() => {
+            setDropdownOpen(false);
             setTheme("dark");
           }}
         >
@@ -381,7 +389,12 @@ const TopNav: FC<{
   const renderChangePassword = () => {
     if (!usingSSO()) {
       return (
-        <DropdownMenuItem onClick={() => setChangePasswordOpen(true)}>
+        <DropdownMenuItem
+          onClick={() => {
+            setDropdownOpen(false);
+            setChangePasswordOpen(true);
+          }}
+        >
           Change Password
         </DropdownMenuItem>
       );
@@ -465,6 +478,10 @@ const TopNav: FC<{
           {renderOrganizationDropDown()}
           <DropdownMenu
             variant="solid"
+            open={dropdownOpen}
+            onOpenChange={(o) => {
+              setDropdownOpen(!!o);
+            }}
             trigger={
               <div className="nav-link d-flex">
                 <Avatar

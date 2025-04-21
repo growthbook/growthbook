@@ -1,5 +1,7 @@
 import { MemberRoleInfo, MetricDefaults } from "back-end/types/organization";
 import {
+  DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
+  DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
   DEFAULT_METRIC_CAPPING,
   DEFAULT_METRIC_CAPPING_VALUE,
   DEFAULT_METRIC_WINDOW,
@@ -8,6 +10,8 @@ import {
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+  DEFAULT_SEQUENTIAL_TESTING_ENABLED,
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "../../constants";
 import { Settings } from "../types";
@@ -68,6 +72,8 @@ export default function genDefaultSettings(): Settings {
     pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
     regressionAdjustmentDays: DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
     regressionAdjustmentEnabled: DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+    sequentialTestingEnabled: DEFAULT_SEQUENTIAL_TESTING_ENABLED,
+    sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     sdkInstructionsViewed: DEFAULT_SDK_INSTRUCTIONS_VIEWED,
     statsEngine: DEFAULT_STATS_ENGINE,
     updateSchedule: DEFAULT_UPDATE_SCHEDULE,
@@ -86,5 +92,7 @@ export default function genDefaultSettings(): Settings {
     banditScheduleUnit: DEFAULT_BANDIT_SCHEDULE_UNIT,
     banditBurnInValue: DEFAULT_BANDIT_BURN_IN_VALUE,
     banditBurnInUnit: DEFAULT_BANDIT_BURN_IN_UNIT,
+    experimentMinLengthDays: DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
+    experimentMaxLengthDays: DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
   };
 }

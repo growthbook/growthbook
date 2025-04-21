@@ -106,7 +106,6 @@ export const TemplatesPage = ({
           description="Save time configuring experiment details, and ensure consistency
             across your team and projects."
           commercialFeature="templates"
-          reason="Experiment Templates No Access"
           learnMoreLink="https://docs.growthbook.io/running-experiments/experiment-templates"
         />
       </>
@@ -220,7 +219,7 @@ export const TemplatesPage = ({
         <UpgradeModal
           close={() => setShowUpgradeModal(false)}
           source="templates"
-          reason="Create reusable experiment templates"
+          commercialFeature="templates"
         />
       )}
       <EmptyState

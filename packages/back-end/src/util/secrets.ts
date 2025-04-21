@@ -109,10 +109,6 @@ export const EMAIL_HOST_PASSWORD = process.env.EMAIL_HOST_PASSWORD;
 export const EMAIL_FROM = process.env.EMAIL_FROM;
 export const SITE_MANAGER_EMAIL = process.env.SITE_MANAGER_EMAIL;
 
-export const STRIPE_SECRET = process.env.STRIPE_SECRET || "";
-export const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "";
-export const STRIPE_PRICE = process.env.STRIPE_PRICE || "";
-
 export const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET || "";
 
 const testConn = process.env.POSTGRES_TEST_CONN;
