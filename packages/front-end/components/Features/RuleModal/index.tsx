@@ -577,6 +577,8 @@ export default function RuleModal({
         delete (values as any).safeRolloutFields;
         // eslint-disable-next-line
         delete (values as any).value; //saferollout uses controlValue so we want to remove the value
+        // eslint-disable-next-line
+        delete (values as any).trackingKey;
       }
 
       if (

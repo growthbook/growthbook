@@ -281,7 +281,7 @@ export default function FeaturesOverview({
   environments?.forEach((e) => {
     const r = getRules(feature, e.id) || [];
     if (r.length > 0) hasRules = true;
-    if (r.some((r) => isRuleInactive(r, experimentsMap, safeRolloutsMap))) {
+    if (r.some((r) => isRuleInactive(r, experimentsMap))) {
       hasInactiveRules = true;
     }
   });
