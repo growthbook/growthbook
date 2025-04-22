@@ -5,10 +5,15 @@ import {
 
 export function getSafeRolloutRuleFromFeature(
   feature: FeatureInterface,
-  safeRolloutId: string
+  safeRolloutId: string,
+  omitDisabledEnvironments: boolean = false
 ): SafeRolloutRule | null {
   for (const env of Object.keys(feature.environmentSettings)) {
-    for (const rule of feature.environmentSettings[env].rules) {
+    const environment = feature.environmentSettings[env];
+    if (omitDisabledEnvironments && !environment.enabled) {
+      continue;
+    }
+    for (const rule of environment.rules) {
       if (
         rule.type === "safe-rollout" &&
         rule.safeRolloutId === safeRolloutId

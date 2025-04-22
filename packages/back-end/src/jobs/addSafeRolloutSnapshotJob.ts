@@ -66,10 +66,10 @@ const updateSingleSafeRolloutSnapshot = trackJob(
 
     const context = await getContextForAgendaJobByOrgId(organization);
     const feature = await getFeature(context, featureId);
-    if (!feature) return;
+    if (!feature || feature.archived) return;
 
-    const safeRolloutRule = getSafeRolloutRuleFromFeature(feature, id);
-    if (!safeRolloutRule) return;
+    const safeRolloutRule = getSafeRolloutRuleFromFeature(feature, id, true);
+    if (!safeRolloutRule || !safeRolloutRule.enabled) return;
 
     try {
       logger.info("Start Refreshing Results for SafeRollout " + id);

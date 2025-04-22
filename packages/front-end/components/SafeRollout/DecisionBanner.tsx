@@ -46,6 +46,9 @@ const DecisionBanner = ({
     daysLeft,
   });
 
+  // TODO: Add state that checks if safe rollout status is not the same a rule status
+  // to indicate that
+
   // If the safe rollout has been rolled back or released, explain that the safe rollout is
   // acting as a temporary rollout with the control or variation value
   if (safeRollout.status === "rolled-back") {
