@@ -145,7 +145,6 @@ export default function SafeRolloutAnalysisSettingsSummary({
                       }}
                       model={latest}
                       icon="refresh"
-                      useRadixButton
                       onSubmit={async () => {
                         await apiCall<{
                           snapshot: SafeRolloutSnapshotInterface;
