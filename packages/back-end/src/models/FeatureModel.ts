@@ -910,6 +910,51 @@ export async function setJsonSchema(
   });
 }
 
+const updateSafeRolloutStatuses = async (
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface
+) => {
+  const safeRolloutStatusesMap: Record<
+    string,
+    { status: "running" | "rolled-back" | "released" | "stopped" }
+  > = Object.fromEntries(
+    Object.values(revision.rules)
+      .flat()
+      .filter((rule) => rule.type === "safe-rollout")
+      .map((rule: SafeRolloutRule) => {
+        return [rule.safeRolloutId, { status: rule.status }];
+      })
+  );
+  // stop safe rollouts that have been removed from the in the revision
+  Object.keys(feature.environmentSettings)
+    .flatMap((env) => feature.environmentSettings[env].rules)
+    .forEach((rule: FeatureRule) => {
+      if (
+        rule.type === "safe-rollout" &&
+        !safeRolloutStatusesMap[rule.safeRolloutId]
+      ) {
+        safeRolloutStatusesMap[rule.safeRolloutId] = { status: "stopped" };
+      }
+    });
+
+  const safeRollouts = await context.models.safeRollout.getByIds(
+    Object.keys(safeRolloutStatusesMap)
+  );
+
+  safeRollouts.forEach((safeRollout) => {
+    // sync the status of the safe rollout to the status of the revision
+    const safeRolloutUpdates: Partial<SafeRolloutInterface> = {
+      status: safeRolloutStatusesMap[safeRollout.id].status,
+    };
+    if (!safeRollout.startedAt && safeRolloutUpdates.status === "running") {
+      safeRolloutUpdates["startedAt"] = new Date();
+    }
+
+    context.models.safeRollout.update(safeRollout, safeRolloutUpdates);
+  });
+};
+
 export async function applyRevisionChanges(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -956,7 +1001,7 @@ export async function applyRevisionChanges(
   changes.hasDrafts = await hasDraft(context.org.id, feature, [
     revision.version,
   ]);
-
+  await updateSafeRolloutStatuses(context, feature, revision);
   return await updateFeature(context, feature, changes);
 }
 
@@ -970,34 +1015,6 @@ export async function publishRevision(
   if (revision.status === "published" || revision.status === "discarded") {
     throw new Error("Can only publish a draft revision");
   }
-
-  const safeRolloutStatusesMap: Record<
-    string,
-    { status: "running" | "rolled-back" | "released" | "stopped" }
-  > = Object.fromEntries(
-    Object.values(revision.rules)
-      .flat()
-      .filter((rule) => rule.type === "safe-rollout")
-      .map((rule: SafeRolloutRule) => {
-        return [rule.safeRolloutId, { status: rule.status }];
-      })
-  );
-
-  const safeRollouts = await context.models.safeRollout.getByIds(
-    Object.keys(safeRolloutStatusesMap)
-  );
-
-  safeRollouts.forEach((safeRollout) => {
-    // sync the status of the safe rollout to the status of the revision
-    const safeRolloutUpdates: Partial<SafeRolloutInterface> = {
-      status: safeRolloutStatusesMap[safeRollout.id].status,
-    };
-    if (!safeRollout.startedAt && safeRolloutUpdates.status === "running") {
-      safeRolloutUpdates["startedAt"] = new Date();
-    }
-
-    context.models.safeRollout.update(safeRollout, safeRolloutUpdates);
-  });
 
   // TODO: wrap these 2 calls in a transaction
   const updatedFeature = await applyRevisionChanges(
