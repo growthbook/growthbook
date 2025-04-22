@@ -219,7 +219,7 @@ export default function SafeRolloutFields({
               placeholder="7"
               type="number"
               required
-              {...form.register("safeRolloutFields.maxDurationDays", {
+              {...form.register("safeRolloutFields.maxDuration.amount", {
                 valueAsNumber: true,
               })}
             >

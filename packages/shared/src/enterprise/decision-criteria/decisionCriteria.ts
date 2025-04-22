@@ -480,14 +480,14 @@ export function getSafeRolloutDaysLeft({
   const startDate = safeRollout.startedAt
     ? new Date(safeRollout.startedAt)
     : new Date();
-  const endDate = addDays(startDate, safeRollout.maxDurationDays);
+  const endDate = addDays(startDate, safeRollout?.maxDuration?.amount); // TODO: Add unit
   const latestSnapshotDate = snapshotWithResults?.runStarted
     ? new Date(snapshotWithResults?.runStarted)
     : null;
 
   const daysLeft = latestSnapshotDate
     ? differenceInDays(endDate, latestSnapshotDate)
-    : safeRollout.maxDurationDays;
+    : safeRollout?.maxDuration?.amount; // TODO: Add unit
 
   return daysLeft;
 }

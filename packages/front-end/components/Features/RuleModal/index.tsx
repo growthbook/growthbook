@@ -588,6 +588,10 @@ export default function RuleModal({
         }
         // eslint-disable-next-line
         delete (values as any).sameSeed;
+
+        if (safeRolloutFields?.maxDuration) {
+          safeRolloutFields.maxDuration.unit = "days";
+        }
       }
 
       if (
