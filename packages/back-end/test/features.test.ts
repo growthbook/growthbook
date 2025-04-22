@@ -1355,6 +1355,63 @@ describe("SDK Payloads", () => {
     });
   });
 
+  it("Uses safe rollouts to build feature definitions", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "safe-rollout",
+        controlValue: "false",
+        variationValue: "true",
+        safeRolloutId: "sr_123",
+        status: "running",
+        hashAttribute: "user_id",
+        seed: "testing",
+        trackingKey: "exp-key",
+        description: "",
+        id: "abc",
+        enabled: true,
+      },
+    ];
+
+    // Includes the running safe rollout as an experiment with the right preset coverage
+    // and weights
+    expect(
+      getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+      })
+    ).toEqual({
+      defaultValue: true,
+      project: undefined,
+      rules: [
+        {
+          id: "abc",
+          key: "exp-key",
+          coverage: 1,
+          hashAttribute: "user_id",
+          hashVersion: 2,
+          meta: [
+            {
+              key: "0",
+              name: "Control",
+            },
+            {
+              key: "1",
+              name: "Variation",
+            },
+          ],
+          name: "feature - Safe Rollout",
+          phase: "0",
+          seed: "testing",
+          variations: [false, true],
+          weights: [0.5, 0.5],
+        },
+      ],
+    });
+  });
+
   it("Gets Feature Definitions", () => {
     const feature = cloneDeep(baseFeature);
 
