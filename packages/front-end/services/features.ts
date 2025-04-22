@@ -33,7 +33,6 @@ import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import isEqual from "lodash/isEqual";
 import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
 import { SavedGroupInterface } from "shared/src/types";
-import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { SafeRolloutRule } from "back-end/src/validators/features";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
@@ -304,8 +303,7 @@ export function getVariationDefaultName(
 
 export function isRuleInactive(
   rule: FeatureRule,
-  experimentsMap: Map<string, ExperimentInterfaceStringDates>,
-  safeRolloutsMap: Map<string, SafeRolloutInterface>
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>
 ): boolean {
   // Explicitly disabled
   if (!rule.enabled) return true;
@@ -320,8 +318,7 @@ export function isRuleInactive(
     return true;
   }
   if (rule.type === "safe-rollout") {
-    const safeRollout = safeRolloutsMap?.get(rule.safeRolloutId);
-    if (safeRollout?.status === "rolled-back") {
+    if (rule.status === "stopped" || rule.status === "rolled-back") {
       return true;
     }
   }
@@ -845,14 +842,13 @@ export function getDefaultRuleValue({
 
 export function getUnreachableRuleIndex(
   rules: FeatureRule[],
-  experimentsMap: Map<string, ExperimentInterfaceStringDates>,
-  safeRolloutsMap: Map<string, SafeRolloutInterface>
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>
 ) {
   for (let i = 0; i < rules.length; i++) {
     const rule = rules[i];
 
     // Skip over inactive rules
-    if (isRuleInactive(rule, experimentsMap, safeRolloutsMap)) continue;
+    if (isRuleInactive(rule, experimentsMap)) continue;
 
     // Skip rules that are conditional based on a schedule
     const upcomingScheduleRule = getUpcomingScheduleRule(rule);
