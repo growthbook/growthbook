@@ -26,6 +26,29 @@ export default function SafeRolloutSummary({
   const type = feature.valueType;
   const coveragePercent = (coverage / 2) * 100;
 
+  const rolledBackOrReleased =
+    rule.status === "rolled-back" || rule.status === "released";
+
+  if (rolledBackOrReleased) {
+    return (
+      <Box className="mb-4">
+        <Flex gap="3">
+          <Box>
+            <strong className="font-weight-semibold">SERVE</strong>
+          </Box>
+          <Box>
+            <ValueDisplay
+              value={
+                rule.status === "rolled-back" ? controlValue : variationValue
+              }
+              type={type}
+            />
+          </Box>
+        </Flex>
+      </Box>
+    );
+  }
+
   return (
     <Box>
       <div className="mb-2">
