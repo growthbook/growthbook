@@ -5396,10 +5396,10 @@ export interface operations {
                 metricId: string;
                 /** @description The name of the metric being measured. */
                 metricName: string | null;
-                /** @description The id of the variation that is the baseline for this set of results. */
-                baselineVariationId: string | null;
                 /** @description The name of the baseline variation. */
                 baselineVariationName?: string | null;
+                /** @description The id of the variation that is the baseline for this set of results. */
+                baselineVariationId: string | null;
                 /** @description Number of users in the baseline variation. This is the denominator for non-ratio metrics. */
                 baselineVariationUsers?: number | null;
                 /** @description Metric numerator value for the baseline variation. */
