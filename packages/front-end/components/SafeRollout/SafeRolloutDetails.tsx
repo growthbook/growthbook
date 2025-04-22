@@ -73,6 +73,7 @@ export default function SafeRolloutDetails({ safeRollout }: Props) {
                 dataSource={datasource}
                 exposureQuery={exposureQuery}
                 canConfigHealthTab={false}
+                hideDimensions
               />
               <MultipleExposuresCard
                 totalUsers={totalUsers}
