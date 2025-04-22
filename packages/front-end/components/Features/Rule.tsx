@@ -323,6 +323,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                 openStatusModal={() =>
                                   setSafeRolloutStatusModalOpen(true)
                                 }
+                                rule={rule}
                               />
                             )}
                             <SafeRolloutDetails

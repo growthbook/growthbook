@@ -9,7 +9,6 @@ import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard"
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 import SRMCard from "../HealthTab/SRMCard";
 import Callout from "../Radix/Callout";
-import { getQueryStatus } from "../Queries/RunQueriesButton";
 import SafeRolloutResults from "./SafeRolloutResults";
 import RefreshSnapshotButton from "./RefreshSnapshotButton";
 
@@ -35,17 +34,12 @@ export default function SafeRolloutDetails({ safeRollout }: Props) {
   const {
     snapshot,
     loading: snapshotLoading,
-    latest,
     analysis,
     mutateSnapshot,
   } = useSafeRolloutSnapshot();
   const { getDatasourceById } = useDefinitions();
   const datasource = getDatasourceById(safeRollout.datasourceId);
 
-  const { status: queryStatus } = getQueryStatus(
-    latest?.queries || [],
-    latest?.error
-  );
   const safeRolloutAgeMinutes =
     (Date.now() - getValidDate(safeRollout.startedAt ?? "").getTime()) /
     (1000 * 60);
@@ -65,8 +59,6 @@ export default function SafeRolloutDetails({ safeRollout }: Props) {
 
   if (
     !hasData &&
-    queryStatus !== "running" &&
-    !snapshotLoading &&
     safeRolloutAgeMinutes < 120 &&
     safeRollout.status === "running"
   ) {

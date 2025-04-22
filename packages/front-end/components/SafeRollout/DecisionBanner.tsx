@@ -4,14 +4,17 @@ import {
   getSafeRolloutResultStatus,
 } from "shared/enterprise";
 
+import { SafeRolloutRule } from "back-end/src/validators/features";
 import { useUser } from "@/services/UserContext";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 import Callout from "../Radix/Callout";
 
 const DecisionBanner = ({
   openStatusModal,
+  rule,
 }: {
   openStatusModal: () => void;
+  rule: SafeRolloutRule;
 }) => {
   const {
     safeRollout,
@@ -46,8 +49,10 @@ const DecisionBanner = ({
     daysLeft,
   });
 
-  // TODO: Add state that checks if safe rollout status is not the same a rule status
-  // to indicate that
+  const safeRolloutDraftStatusChangeCopy =
+    rule.status !== safeRollout.status
+      ? "The safe rollout will not stop running until the revision is published and the status is updated."
+      : "";
 
   // If the safe rollout has been rolled back or released, explain that the safe rollout is
   // acting as a temporary rollout with the control or variation value
@@ -106,6 +111,11 @@ const DecisionBanner = ({
         >
           Revert Now
         </a>
+        {safeRolloutDraftStatusChangeCopy && (
+          <p className="mt-2 mb-0">
+            <strong>{safeRolloutDraftStatusChangeCopy}</strong>
+          </p>
+        )}
       </Callout>
     );
   } else if (daysLeft <= 0) {
@@ -122,6 +132,11 @@ const DecisionBanner = ({
         >
           Ship Now
         </a>
+        {safeRolloutDraftStatusChangeCopy && (
+          <p className="mt-2 mb-0">
+            <strong>{safeRolloutDraftStatusChangeCopy}</strong>
+          </p>
+        )}
       </Callout>
     );
   } else {
@@ -138,6 +153,11 @@ const DecisionBanner = ({
         >
           Stop Early
         </a>
+        {safeRolloutDraftStatusChangeCopy && (
+          <p className="mt-2 mb-0">
+            <strong>{safeRolloutDraftStatusChangeCopy}</strong>
+          </p>
+        )}
       </Callout>
     );
   }
