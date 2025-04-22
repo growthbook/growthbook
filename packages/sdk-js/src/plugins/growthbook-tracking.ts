@@ -185,7 +185,6 @@ export function growthbookTrackingPlugin({
       let timer: NodeJS.Timeout | null = null;
       let isUnloading = false;
       const flush = async () => {
-        isUnloading = true;
         const events = _q;
         _q = [];
         timer && clearTimeout(timer);
@@ -269,6 +268,7 @@ export function growthbookTrackingPlugin({
       if (typeof document !== "undefined" && document.visibilityState) {
         document.addEventListener("visibilitychange", () => {
           if (document.visibilityState === "hidden") {
+            isUnloading = true;
             flush().catch(console.error);
           }
         });
@@ -277,6 +277,7 @@ export function growthbookTrackingPlugin({
       // Flush the queue when the growthbook instance is destroyed
       "onDestroy" in gb &&
         gb.onDestroy(() => {
+          isUnloading = true;
           flush().catch(console.error);
         });
     }
