@@ -104,7 +104,10 @@ export default function SRMCard({
         }),
       }}
     >
-      <div className="row overflow-hidden" id="parent-container">
+      <div
+        className={clsx("overflow-hidden", { row: !hideDimensions })}
+        id="parent-container"
+      >
         <div className={clsx({ "col-8 border-right pr-4": !hideDimensions })}>
           <div
             className="overflow-auto"
