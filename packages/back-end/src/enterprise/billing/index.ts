@@ -120,21 +120,14 @@ export const resetUsageCache = () => {
 };
 
 export function getUsageFromCache(organization: OrganizationInterface) {
-  if (!IS_CLOUD) {
-    return UNLIMITED_USAGE;
-  }
-  const plan = getEffectiveAccountPlan(organization);
-
-  if (PLANS_WITH_UNLIMITED_USAGE.includes(plan)) return UNLIMITED_USAGE;
-
-  if (keyToUsageData[organization.id]) {
-    return keyToUsageData[organization.id].usage;
-  } else {
-    getUsage(organization, false).catch((err) => {
+  return getUsage(organization, false)
+    .then((usage) => {
+      return usage;
+    })
+    .catch((err) => {
       logger.error(`Error getting usage data from server`, err);
+      return UNLIMITED_USAGE;
     });
-    return UNLIMITED_USAGE;
-  }
 }
 
 export async function getUsage(
