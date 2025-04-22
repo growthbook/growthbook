@@ -84,7 +84,7 @@ describe("getUsage", () => {
       const usage = await getUsageFromCache(mockOrganization);
       expect(usage).toEqual(UNLIMITED_USAGE);
 
-      // Since it is a pro account now, it should not refetch the data
+      // Since it is not cloud, it should not fetch even in the background
       await backgroundUpdateUsageDataFromServerForTests;
       expect(mockedFetch).toHaveBeenCalledTimes(0);
     });
@@ -109,7 +109,7 @@ describe("getUsage", () => {
         expect(mockedFetch).toHaveBeenCalledTimes(0);
       });
 
-      describe("existing usage data in cache", () => {
+      describe("with existing usage data in cache from when it was free", () => {
         beforeEach(() => {
           setUsageInCache(mockOrganization.id, {
             limits: { requests: 10000000, bandwidth: 100000000 },
@@ -120,6 +120,7 @@ describe("getUsage", () => {
           const usage = await getUsageFromCache(mockOrganization);
           expect(usage).toEqual(UNLIMITED_USAGE);
 
+          // Since it is a pro account now, it should not refetch the data even in the background
           await backgroundUpdateUsageDataFromServerForTests;
           expect(mockedFetch).toHaveBeenCalledTimes(0);
         });
