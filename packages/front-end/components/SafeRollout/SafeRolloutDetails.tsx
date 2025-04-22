@@ -50,43 +50,47 @@ export default function SafeRolloutDetails({ safeRollout }: Props) {
           <SafeRolloutResults safeRollout={safeRollout} />
         </Box>
 
-        <Flex align="center" justify="between" mb="3">
-          <Text weight="medium" size="3">
-            Health
-          </Text>
-          <Link
-            weight="medium"
-            onClick={() => setIsHealthExpanded(!isHealthExpanded)}
-          >
-            Show {isHealthExpanded ? "less" : "more"}
-          </Link>
-        </Flex>
-        {isHealthExpanded ? (
-          traffic && totalUsers ? (
-            <>
-              <SRMCard
-                newDesign={true}
-                traffic={traffic}
-                variations={variations}
-                totalUsers={totalUsers}
-                onNotify={() => {}}
-                dataSource={datasource}
-                exposureQuery={exposureQuery}
-                canConfigHealthTab={false}
-                hideDimensions
-              />
-              <MultipleExposuresCard
-                totalUsers={totalUsers}
-                snapshot={snapshot}
-                onNotify={() => {}}
-              />
-            </>
-          ) : (
-            <Callout status="info" mt="3">
-              Please run a query to see health data.
-            </Callout>
-          )
-        ) : null}
+        {snapshot && (
+          <>
+            <Flex align="center" justify="between" mb="3">
+              <Text weight="medium" size="3">
+                Health
+              </Text>
+              <Link
+                weight="medium"
+                onClick={() => setIsHealthExpanded(!isHealthExpanded)}
+              >
+                Show {isHealthExpanded ? "less" : "more"}
+              </Link>
+            </Flex>
+            {isHealthExpanded ? (
+              traffic && totalUsers ? (
+                <>
+                  <SRMCard
+                    newDesign={true}
+                    traffic={traffic}
+                    variations={variations}
+                    totalUsers={totalUsers}
+                    onNotify={() => {}}
+                    dataSource={datasource}
+                    exposureQuery={exposureQuery}
+                    canConfigHealthTab={false}
+                    hideDimensions
+                  />
+                  <MultipleExposuresCard
+                    totalUsers={totalUsers}
+                    snapshot={snapshot}
+                    onNotify={() => {}}
+                  />
+                </>
+              ) : (
+                <Callout status="info" mt="3">
+                  Please run a query to see health data.
+                </Callout>
+              )
+            ) : null}
+          </>
+        )}
       </div>
     </div>
   );

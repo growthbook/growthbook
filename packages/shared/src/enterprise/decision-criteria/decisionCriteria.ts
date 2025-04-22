@@ -485,10 +485,9 @@ export function getSafeRolloutDaysLeft({
     ? new Date(snapshotWithResults?.runStarted)
     : null;
 
-  const daysLeft =
-    (latestSnapshotDate
-      ? differenceInMinutes(endDate, latestSnapshotDate)
-      : safeRollout?.maxDuration?.amount) / 1440; // TODO: Add unit
+  const daysLeft = latestSnapshotDate
+    ? differenceInMinutes(endDate, latestSnapshotDate) / 1440
+    : safeRollout?.maxDuration?.amount; // TODO: Add unit
 
   return daysLeft;
 }

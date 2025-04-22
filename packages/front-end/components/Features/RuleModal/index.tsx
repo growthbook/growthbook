@@ -751,7 +751,8 @@ export default function RuleModal({
                 description: (
                   <>
                     <div>
-                      Release to small percent of users while monitoring logs
+                      Gradually release a value with automatic rollback based on
+                      guardrail metrics
                     </div>
                     {datasources.length === 0 && (
                       <HelperText status="info" size="sm" mt="2">
