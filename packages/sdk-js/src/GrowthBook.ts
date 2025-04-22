@@ -243,8 +243,9 @@ export class GrowthBook<
       this._options.stickyBucketService &&
       !this._options.stickyBucketAssignmentDocs
     ) {
-      throw new Error(
-        "initSync requires you to pass stickyBucketAssignmentDocs into the GrowthBook constructor"
+      this._options.stickyBucketAssignmentDocs = this.generateStickyBucketAssignmentDocsSync(
+        this._options.stickyBucketService as StickyBucketServiceSync,
+        payload
       );
     }
 
@@ -1165,7 +1166,7 @@ export class GrowthBook<
     }
     const ctx = this._getEvalContext();
     const attributes = getStickyBucketAttributes(ctx, payload);
-    return stickyBucketService?.getAllAssignmentsSync(attributes);
+    return stickyBucketService.getAllAssignmentsSync(attributes);
   }
 }
 
