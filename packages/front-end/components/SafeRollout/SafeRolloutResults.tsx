@@ -146,7 +146,7 @@ const SafeRolloutResults: FC<{
               results={analysis.results[0]}
               queryStatusData={queryStatusData}
               reportDate={snapshot.dateCreated}
-              startDate={safeRollout.startedAt?.toDateString() ?? ""}
+              startDate={getValidDate(safeRollout.startedAt).toDateString()}
               isLatestPhase={true}
               status={safeRollout.status === "running" ? "running" : "stopped"}
               goalMetrics={[]}
