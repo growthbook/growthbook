@@ -1658,6 +1658,128 @@ export async function postFeatureSchema(
   });
 }
 
+export async function putSafeRolloutStatus(
+  req: AuthRequest<
+    { status: SafeRolloutRule["status"]; environment: string; i: number },
+    { id: string; version: string }
+  >,
+  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
+) {
+  const context = getContextFromReq(req);
+  const { id, version } = req.params;
+  const { status, environment, i } = req.body;
+  const { org } = context;
+  const feature = await getFeature(context, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  const revision = await getDraftRevision(context, feature, parseInt(version));
+  const resetReview = resetReviewOnChange({
+    feature,
+    changedEnvironments: [environment],
+    defaultValueChanged: false,
+    settings: org?.settings,
+  });
+
+  await editFeatureRule(
+    revision,
+    environment,
+    i,
+    { status },
+    res.locals.eventAudit,
+    resetReview
+  );
+
+  const live = await getRevision({
+    context,
+    organization: org.id,
+    featureId: feature.id,
+    version: feature.version,
+  });
+  if (!live) {
+    throw new Error("Could not lookup feature history");
+  }
+
+  const base =
+    revision.baseVersion === live.version
+      ? live
+      : await getRevision({
+          context,
+          organization: org.id,
+          featureId: feature.id,
+          version: revision.baseVersion,
+        });
+  if (!base) {
+    throw new Error("Could not lookup feature history");
+  }
+  const allEnvironments = getEnvironments(org);
+  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+  const environmentIds = environments.map((e) => e.id);
+
+  if (!context.permissions.canUpdateFeature(feature, {})) {
+    context.permissions.throwPermissionError();
+  }
+  const requiresReview = checkIfRevisionNeedsReview({
+    feature,
+    baseRevision: base,
+    revision,
+    allEnvironments: environmentIds,
+    settings: org.settings,
+  });
+  if (!requiresReview) {
+    const mergeResult = autoMerge(live, base, revision, environmentIds, {});
+
+    if (!mergeResult.success) {
+      throw new Error("Please resolve conflicts before publishing");
+    }
+
+    // If changing the default value, it affects all enabled environments
+    if (mergeResult.result.defaultValue !== undefined) {
+      if (
+        !context.permissions.canPublishFeature(
+          feature,
+          Array.from(getEnabledEnvironments(feature, environmentIds))
+        )
+      ) {
+        context.permissions.throwPermissionError();
+      }
+    }
+    // Otherwise, only the environments with rule changes are affected
+    else {
+      const changedEnvs = Object.keys(mergeResult.result.rules || {});
+      if (changedEnvs.length > 0) {
+        if (!context.permissions.canPublishFeature(feature, changedEnvs)) {
+          context.permissions.throwPermissionError();
+        }
+      }
+    }
+    const updatedFeature = await publishRevision(
+      context,
+      feature,
+      revision,
+      mergeResult.result,
+      "auto-publish status change"
+    );
+
+    await req.audit({
+      event: "feature.publish",
+      entity: {
+        object: "feature",
+        id: feature.id,
+      },
+      details: auditDetailsUpdate(feature, updatedFeature, {
+        revision: revision.version,
+        comment: "auto-publish status change",
+      }),
+    });
+  }
+  res.status(200).json({
+    status: 200,
+    version: revision.version,
+  });
+}
+
 export async function putFeatureRule(
   req: AuthRequest<PutFeatureRuleBody, { id: string; version: string }>,
   res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
@@ -1755,6 +1877,7 @@ export async function putFeatureRule(
     defaultValueChanged: false,
     settings: org?.settings,
   });
+
   await editFeatureRule(
     revision,
     environment,

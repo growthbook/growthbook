@@ -1,7 +1,6 @@
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { SafeRolloutRule } from "back-end/src/validators/features";
 import { useForm } from "react-hook-form";
-import { PutFeatureRuleBody } from "back-end/types/feature-rule";
 import { Text } from "@radix-ui/themes";
 import {
   getHealthSettings,
@@ -86,15 +85,15 @@ export default function SafeRolloutStatusModal({
 
   const onSubmit = form.handleSubmit(async (values) => {
     const res = await apiCall<{ version: number }>(
-      `/feature/${featureId}/${version}/rule`,
+      `/feature/${featureId}/${version}/rule/status`,
       {
         method: "PUT",
         body: JSON.stringify({
-          rule: values,
+          status: values.status,
           environment,
           safeRolloutFields: values,
           i,
-        } as PutFeatureRuleBody),
+        }),
       }
     );
     setVersion(res.version);
@@ -118,10 +117,6 @@ export default function SafeRolloutStatusModal({
         {titleCopy}
       </Text>
       <div>
-        <Text as="div" size="3" mb="2" weight="medium">
-          {" "}
-          Update SafeRollout Status
-        </Text>
         <RadioGroup
           value={form.watch("status")}
           setValue={(v: "rolled-back" | "released") => {
