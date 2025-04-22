@@ -49,7 +49,6 @@ import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ExperimentAnalysisSummary } from "back-end/src/validators/experiments";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
-import { SafeRolloutRule } from "back-end/src/validators/features";
 import { getSourceIntegrationObject } from "./datasource";
 import {
   computeResultsStatus,
@@ -145,7 +144,7 @@ export function getSnapshotSettingsFromSafeRolloutArgs(
     datasourceId: settings.datasourceId,
     startDate: settings.startDate,
     endDate: settings.endDate || new Date(),
-    experimentId: settings.experimentId,
+    experimentId: args.safeRolloutId,
     exposureQueryId: settings.exposureQueryId,
     manual: false,
     segment: "",
@@ -250,7 +249,6 @@ export function getDefaultExperimentAnalysisSettingsForSafeRollout(
 
 function getSafeRolloutSnapshotSettings({
   safeRollout,
-  safeRolloutRule,
   settings,
   orgPriorSettings,
   settingsForSnapshotMetrics,
@@ -260,7 +258,6 @@ function getSafeRolloutSnapshotSettings({
   datasource,
 }: {
   safeRollout: SafeRolloutInterface;
-  safeRolloutRule: SafeRolloutRule;
   settings: ExperimentSnapshotAnalysisSettings;
   orgPriorSettings: MetricPriorSettings | undefined;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
@@ -312,7 +309,6 @@ function getSafeRolloutSnapshotSettings({
     dimensions: settings.dimensions.map((id) => ({ id })),
     startDate: safeRollout.startedAt || new Date(), // TODO: What do we want to do if startedAt is not set?
     endDate: new Date(),
-    experimentId: safeRolloutRule.trackingKey,
     guardrailMetrics,
     regressionAdjustmentEnabled: !!settings.regressionAdjusted,
     defaultMetricPriorSettings: defaultPriorSettings,
@@ -356,7 +352,7 @@ export async function _createSafeRolloutSnapshot({
     safeRollout.id
   );
   if (!safeRolloutRule) {
-    throw new Error("Could not load safe rollout rule");
+    throw new Error("Could not find safe rollout rule");
   }
 
   const datasource = await getDataSourceById(context, safeRollout.datasourceId);
@@ -366,7 +362,6 @@ export async function _createSafeRolloutSnapshot({
 
   const snapshotSettings = getSafeRolloutSnapshotSettings({
     safeRollout,
-    safeRolloutRule,
     orgPriorSettings: organization.settings?.metricDefaults?.priorSettings,
     settings: defaultAnalysisSettings,
     settingsForSnapshotMetrics,
