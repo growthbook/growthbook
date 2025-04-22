@@ -67,7 +67,7 @@ export default function SafeRolloutDetails({ safeRollout }: Props) {
         <span className="mr-auto">
           {"Started " +
             ago(safeRollout.startedAt ?? "") +
-            ". Give it a little longer and check again."}
+            ". Give it a little longer and check again.  "}
         </span>
         <RefreshSnapshotButton
           mutate={() => {

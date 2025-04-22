@@ -121,7 +121,7 @@ const DecisionBanner = ({
   } else if (daysLeft <= 0) {
     return (
       <Callout status="success">
-        Safe rollout complete and no guardrails failing{" "}
+        Safe rollout complete and no guardrails failing.{" "}
         <a
           role="button"
           className="link"
@@ -142,7 +142,7 @@ const DecisionBanner = ({
   } else {
     return (
       <Callout status="info">
-        {daysLeft} days left{" "}
+        {daysLeft} days left.{" "}
         <a
           role="button"
           className="link"
