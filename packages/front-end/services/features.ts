@@ -320,7 +320,7 @@ export function isRuleInactive(
     return true;
   }
   if (rule.type === "safe-rollout") {
-    if (rule.status === "stopped" || rule.status === "rolled-back") {
+    if (rule.status === "stopped") {
       return true;
     }
   }
