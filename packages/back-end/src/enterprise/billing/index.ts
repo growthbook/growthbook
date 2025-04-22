@@ -119,22 +119,9 @@ export const resetUsageCache = () => {
   });
 };
 
-export function getUsageFromCache(organization: OrganizationInterface) {
-  getUsage(organization, false)
-    .then((usage) => {
-      return usage;
-    })
-    .catch((err) => {
-      logger.error(`Error getting usage data from server`, err);
-      return UNLIMITED_USAGE;
-    });
-  return UNLIMITED_USAGE;
-}
-
-export async function getUsage(
-  organization: OrganizationInterface,
-  wait: boolean = true
-) {
+function getCachedUsageIfValid(
+  organization: OrganizationInterface
+): OrganizationUsage | undefined {
   if (!IS_CLOUD) {
     return UNLIMITED_USAGE;
   }
@@ -145,24 +132,48 @@ export async function getUsage(
   const cacheCutOff = new Date();
   cacheCutOff.setHours(cacheCutOff.getHours() - 1);
 
-  if (!keyToUsageData[organization.id] && wait) {
-    await updateUsageDataFromServer(organization.id);
-  } else if (
-    !keyToUsageData[organization.id] ||
-    keyToUsageData[organization.id]?.timestamp <= cacheCutOff
-  ) {
-    // Don't await for the result, we will just keep showing out of date cached version or the fallback
+  const usage = keyToUsageData[organization.id];
+
+  if (!usage || usage.timestamp <= cacheCutOff) {
+    return undefined;
+  }
+
+  return usage.usage;
+}
+
+export function getUsageFromCache(organization: OrganizationInterface) {
+  const cachedUsage = getCachedUsageIfValid(organization);
+  if (cachedUsage) {
+    return cachedUsage;
+  }
+
+  // Don't await for the result, we will just keep showing out of date cached version or the fallback
+  backgroundUpdateUsageDataFromServerForTests = updateUsageDataFromServer(
+    organization.id
+  ).catch((err) => {
+    logger.error(`Error getting usage data from server`, err);
+  });
+
+  return keyToUsageData[organization.id]?.usage || UNLIMITED_USAGE;
+}
+
+export async function getUsage(organization: OrganizationInterface) {
+  const cachedUsage = getCachedUsageIfValid(organization);
+  if (cachedUsage) {
+    return cachedUsage;
+  }
+
+  if (keyToUsageData[organization.id]) {
+    // If we have a cached version, but it's invalid, we will update it in the background
     backgroundUpdateUsageDataFromServerForTests = updateUsageDataFromServer(
       organization.id
     ).catch((err) => {
       logger.error(`Error getting usage data from server`, err);
     });
+  } else {
+    await updateUsageDataFromServer(organization.id);
   }
 
-  if (keyToUsageData[organization.id]) {
-    return keyToUsageData[organization.id].usage;
-  }
-
-  // If the updateUsageDataFromServer failed or if `wait` was `false` we fall back to unlimited usage
-  return UNLIMITED_USAGE;
+  // If the updateUsageDataFromServer failed we fall back to unlimited usage
+  return keyToUsageData[organization.id]?.usage || UNLIMITED_USAGE;
 }
