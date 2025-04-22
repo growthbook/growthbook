@@ -120,6 +120,13 @@ export const resetUsageCache = () => {
 };
 
 export function getUsageFromCache(organization: OrganizationInterface) {
+  if (!IS_CLOUD) {
+    return UNLIMITED_USAGE;
+  }
+  const plan = getEffectiveAccountPlan(organization);
+
+  if (PLANS_WITH_UNLIMITED_USAGE.includes(plan)) return UNLIMITED_USAGE;
+
   if (keyToUsageData[organization.id]) {
     return keyToUsageData[organization.id].usage;
   } else {
