@@ -93,7 +93,7 @@ type OverviewRuleType =
   | "experiment-ref-new"
   | "safe-rollout";
 
-type SafeRolloutRuleCreateFields = SafeRolloutRule & {
+export type SafeRolloutRuleCreateFields = SafeRolloutRule & {
   safeRolloutFields: CreateSafeRolloutInterface;
 } & {
   sameSeed?: boolean;
@@ -274,6 +274,7 @@ export default function RuleModal({
         defaultValue: getFeatureDefaultValue(feature),
         ruleType: v,
         attributeSchema,
+        settings,
       }),
       description: form.watch("description"),
     };
@@ -737,7 +738,7 @@ export default function RuleModal({
             options={[
               {
                 value: "safe-rollout",
-                disabled: !hasSafeRolloutsFeature,
+                disabled: !hasSafeRolloutsFeature || datasources.length === 0,
                 label: (
                   <PremiumTooltip
                     commercialFeature="safe-rollouts"
@@ -747,8 +748,18 @@ export default function RuleModal({
                   </PremiumTooltip>
                 ),
                 badge: "NEW!",
-                description:
-                  "Release to small percent of users while monitoring logs",
+                description: (
+                  <>
+                    <div>
+                      Release to small percent of users while monitoring logs
+                    </div>
+                    {datasources.length === 0 && (
+                      <HelperText status="info" size="sm" mt="2">
+                        Create a data source to use Safe Rollouts
+                      </HelperText>
+                    )}
+                  </>
+                ),
               },
               {
                 value: "experiment",

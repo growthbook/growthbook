@@ -15,6 +15,7 @@ import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTarget
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import Checkbox from "@/components/Radix/Checkbox";
+import useOrgSettings from "@/hooks/useOrgSettings";
 
 export default function SafeRolloutFields({
   feature,
@@ -60,6 +61,7 @@ export default function SafeRolloutFields({
   const dataSource = datasources?.find(
     (ds) => ds.id === form.watch("safeRolloutFields.datasourceId")
   );
+  const settings = useOrgSettings();
   const exposureQueries = dataSource?.settings?.queries?.exposure || [];
   const disableFields = !isDraft && !isNewRule;
   const renderOverviewSteps = () => {
@@ -161,7 +163,15 @@ export default function SafeRolloutFields({
           <div className="mb-3 pb-1">
             <SelectField
               label="Data source"
-              options={dataSourceOptions}
+              options={datasources.map((d) => {
+                const isDefaultDataSource = d.id === settings.defaultDataSource;
+                return {
+                  value: d.id,
+                  label: `${d.name}${
+                    d.description ? ` — ${d.description}` : ""
+                  }${isDefaultDataSource ? " (default)" : ""}`,
+                };
+              })}
               value={form.watch("safeRolloutFields.datasourceId")}
               onChange={(v) =>
                 form.setValue("safeRolloutFields.datasourceId", v)

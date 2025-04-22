@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import {
   Environment,
   NamespaceUsage,
+  OrganizationSettings,
   SDKAttributeFormat,
   SDKAttributeSchema,
   SDKAttributeType,
@@ -47,6 +48,7 @@ import {
   CheckListItem,
   getChecklistItems,
 } from "@/components/Experiment/PreLaunchChecklist";
+import { SafeRolloutRuleCreateFields } from "@/components/Features/RuleModal";
 import { useDefinitions } from "./DefinitionsContext";
 
 export { generateVariationId } from "shared/util";
@@ -647,19 +649,30 @@ export function getDefaultVariationValue(defaultValue: string) {
   };
   return defaultValue in map ? map[defaultValue] : defaultValue;
 }
-
+type safeRolloutFields = Omit<
+  SafeRolloutRuleCreateFields,
+  "safeRolloutFields"
+> & {
+  safeRolloutFields: Omit<
+    SafeRolloutRuleCreateFields["safeRolloutFields"],
+    "maxDuration"
+  >;
+};
 export function getDefaultRuleValue({
   defaultValue,
   attributeSchema,
   ruleType,
+  settings,
 }: {
   defaultValue: string;
   attributeSchema?: SDKAttributeSchema;
   ruleType: string;
-}): FeatureRule | NewExperimentRefRule | SafeRolloutRule {
+  settings?: OrganizationSettings;
+}): FeatureRule | NewExperimentRefRule | safeRolloutFields {
   const hashAttributes =
     attributeSchema?.filter((a) => a.hashAttribute)?.map((a) => a.property) ||
     [];
+
   const hashAttribute = hashAttributes.includes("id")
     ? "id"
     : hashAttributes[0] || "id";
@@ -700,10 +713,15 @@ export function getDefaultRuleValue({
       prerequisites: [],
       controlValue: defaultValue,
       variationValue: variationValue,
-      hashAttribute,
+      hashAttribute: "id",
       trackingKey: "",
       seed: "",
-      status: "running", // TODO: Check if this is okay for the default value
+      status: "running",
+      safeRolloutFields: {
+        datasourceId: settings?.defaultDataSource || "",
+        exposureQueryId: "",
+        guardrailMetricIds: [],
+      },
     };
   }
   if (ruleType === "experiment") {
