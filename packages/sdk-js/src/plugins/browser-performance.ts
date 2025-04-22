@@ -54,10 +54,6 @@ export function browserPerformancePlugin({
           if (trackTBT && tbtValue) {
             gb.logEvent("CWV:TBT", { value: tbtValue });
           }
-          if ("flushEventLog" in gb) {
-            // @ts-expect-error instantly flush the tracking event log, otherwise there is a race condition with flush()
-            gb?.flushEventLog?.();
-          }
         };
 
         "onDestroy" in gb && gb.onDestroy(stopObserving);

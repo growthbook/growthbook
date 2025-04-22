@@ -183,15 +183,15 @@ export function growthbookTrackingPlugin({
     if ("setEventLogger" in gb) {
       let _q: EventPayload[] = [];
       let timer: NodeJS.Timeout | null = null;
+      let isUnloading = false;
       const flush = async () => {
+        isUnloading = true;
         const events = _q;
         _q = [];
         timer && clearTimeout(timer);
         timer = null;
         events.length && (await track({ clientKey, events, ingestorHost }));
       };
-      // @ts-expect-error add event flush hook to gb SDK for quick access
-      gb.flushEventLog = flush;
 
       let promise: Promise<void> | null = null;
       gb.setEventLogger(async (eventName, properties, userContext) => {
@@ -248,17 +248,21 @@ export function growthbookTrackingPlugin({
 
         _q.push(payload);
 
-        // Only one in-progress promise at a time
-        if (!promise) {
-          promise = new Promise((resolve, reject) => {
-            // Flush the queue after a delay
-            timer = setTimeout(() => {
-              flush().then(resolve).catch(reject);
-              promise = null;
-            }, queueFlushInterval);
-          });
+        if (isUnloading) {
+          flush().catch(console.error);
+        } else {
+          // Only one in-progress promise at a time
+          if (!promise) {
+            promise = new Promise((resolve, reject) => {
+              // Flush the queue after a delay
+              timer = setTimeout(() => {
+                flush().then(resolve).catch(reject);
+                promise = null;
+              }, queueFlushInterval);
+            });
+          }
+          await promise;
         }
-        await promise;
       });
 
       // Flush the queue on page unload
