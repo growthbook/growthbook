@@ -137,8 +137,8 @@ import { ApiReqContext } from "back-end/types/api";
 import { ProjectInterface } from "back-end/types/project";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { SafeRolloutSnapshotAnalysis } from "back-end/src/validators/safe-rollout";
-import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { SafeRolloutSnapshotAnalysis } from "back-end/src/validators/safe-rollout-snapshot";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import {
   getIntegrationFromDatasourceId,
@@ -325,6 +325,8 @@ export async function getManualSnapshotData(
     const data = res.dimensions[0];
     if (!data) return;
 
+    // If the value inside the ci is null from gbstats
+    // it actually means Infinity, so handle that case
     data.variations.map((v, i) => {
       const ci: [number, number] | undefined = v.ci
         ? [v.ci[0] ?? Infinity, v.ci[1] ?? Infinity]
@@ -3055,7 +3057,7 @@ export async function updateExperimentAnalysisSummary({
 function getVariationId(
   experiment: ExperimentInterface | SafeRolloutInterface,
   i: number
-) {
+): string {
   if ("variations" in experiment) {
     return experiment.variations?.[i]?.id;
   }
@@ -3099,7 +3101,12 @@ export async function computeResultsStatus({
         "goalMetrics" in experiment
           ? experiment.goalMetrics.includes(m)
           : false;
-      const guardrailMetric = experiment.guardrailMetrics.includes(m);
+      const guardrailMetric =
+        "guardrailMetrics" in experiment
+          ? experiment.guardrailMetrics.includes(m)
+          : "guardrailMetricIds" in experiment
+          ? experiment.guardrailMetricIds.includes(m)
+          : false;
       if (goalMetric || guardrailMetric) {
         const baselineMetric = baselineVariation.metrics?.[m];
         const currentMetric = currentVariation.metrics?.[m];

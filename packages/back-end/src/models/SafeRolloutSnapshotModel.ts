@@ -2,60 +2,56 @@ import { FilterQuery } from "mongoose";
 import {
   SafeRolloutSnapshotInterface,
   safeRolloutSnapshotInterface,
-} from "back-end/src/validators/safe-rollout";
-import { getSafeRolloutAnalysisSummary, notifySafeRolloutChange } from "back-end/src/services/safeRolloutSnapshots";
+} from "back-end/src/validators/safe-rollout-snapshot";
+import {
+  getSafeRolloutAnalysisSummary,
+  notifySafeRolloutChange,
+} from "back-end/src/services/safeRolloutSnapshots";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
   schema: safeRolloutSnapshotInterface,
   collectionName: "saferolloutsnapshots",
   idPrefix: "srsnp_",
-  globallyUniqueIds: false,
+  globallyUniqueIds: true,
 });
 
 export class SafeRolloutSnapshotModel extends BaseClass {
-  // CRUD permission checks
-  protected canCreate(doc: SafeRolloutSnapshotInterface): boolean {
-    // TODO: Fix me when permission checks are implemented
+  // TODO: fix permissions
+  protected canCreate() {
     return true;
   }
-  protected canRead(doc: SafeRolloutSnapshotInterface): boolean {
+  protected canRead(doc: SafeRolloutSnapshotInterface) {
     const { datasource } = this.getForeignRefs(doc);
 
     return this.context.permissions.canReadMultiProjectResource(
       datasource?.projects
     );
   }
-  protected canUpdate(
-    existing: SafeRolloutSnapshotInterface,
-    updates: SafeRolloutSnapshotInterface
-  ): boolean {
-    // TODO: Fix me when permission checks are implemented
+  protected canUpdate() {
     return true;
   }
-  protected canDelete(doc: SafeRolloutSnapshotInterface): boolean {
-    // TODO: Fix me when permission checks are implemented
+  protected canDelete() {
     return true;
   }
 
   public async getSnapshotForSafeRollout({
-    safeRollout,
+    safeRolloutId,
     dimension,
     beforeSnapshot,
     withResults = true,
   }: {
-    safeRollout: string;
+    safeRolloutId: string;
     dimension?: string;
     beforeSnapshot?: SafeRolloutSnapshotInterface;
     withResults?: boolean;
   }): Promise<SafeRolloutSnapshotInterface | undefined> {
     const query: FilterQuery<SafeRolloutSnapshotInterface> = {
-      safeRolloutId: safeRollout,
+      safeRolloutId,
       dimension: dimension || null,
     };
 
-    // First try getting new snapshots that have a `status` field
-    let all = await super._find(
+    const all = await super._find(
       {
         ...query,
         status: {
@@ -70,41 +66,30 @@ export class SafeRolloutSnapshotModel extends BaseClass {
         limit: 1,
       }
     );
+
     if (all[0]) {
       return all[0];
     }
-
-    // Otherwise, try getting old snapshot records
-    if (withResults) {
-      query.results = { $exists: true, $type: "array", $ne: [] };
-    }
-
-    all = await super._find(query, {
-      sort: { dateCreated: -1 },
-      limit: 1,
-    });
-
-    return all[0];
   }
 
-  public async updateById(
-    id: string,
-    updates: Partial<SafeRolloutSnapshotInterface>
+  protected async afterUpdate(
+    _existingDoc: SafeRolloutSnapshotInterface,
+    _updates: Partial<SafeRolloutSnapshotInterface>,
+    updatedDoc: SafeRolloutSnapshotInterface
   ) {
-    const safeRolloutSnapshot = await super.updateById(id, updates);
-
     const latestSafeRolloutSnapshot = await this.getSnapshotForSafeRollout({
-      safeRollout: safeRolloutSnapshot.safeRolloutId,
+      safeRolloutId: updatedDoc.safeRolloutId,
       withResults: false,
     });
 
+    // Ensure we only update the summary for the latest snapshot (or the new if it's the first one)
     const isLatestSnapshot =
       latestSafeRolloutSnapshot === null ||
-      latestSafeRolloutSnapshot?.id === safeRolloutSnapshot.id;
+      latestSafeRolloutSnapshot?.id === updatedDoc.id;
 
-    if (isLatestSnapshot && safeRolloutSnapshot.status === "success") {
+    if (isLatestSnapshot && updatedDoc.status === "success") {
       const safeRollout = await this.context.models.safeRollout.getById(
-        safeRolloutSnapshot.safeRolloutId
+        updatedDoc.safeRolloutId
       );
       if (!safeRollout) {
         throw new Error("Safe rollout not found");
@@ -113,7 +98,7 @@ export class SafeRolloutSnapshotModel extends BaseClass {
       const safeRolloutAnalysisSummary = await getSafeRolloutAnalysisSummary({
         context: this.context,
         safeRollout,
-        safeRolloutSnapshot: safeRolloutSnapshot,
+        safeRolloutSnapshot: updatedDoc,
       });
 
       await this.context.models.safeRollout.updateById(safeRollout.id, {
@@ -126,10 +111,8 @@ export class SafeRolloutSnapshotModel extends BaseClass {
           ...safeRollout,
           analysisSummary: safeRolloutAnalysisSummary,
         },
-        safeRolloutSnapshot
+        safeRolloutSnapshot: updatedDoc,
       });
     }
-
-    return safeRolloutSnapshot;
   }
 }

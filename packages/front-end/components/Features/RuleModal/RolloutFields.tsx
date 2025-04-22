@@ -11,7 +11,7 @@ import ScheduleInputs from "@/components/Features/ScheduleInputs";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ConditionInput from "@/components/Features/ConditionInput";
 import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
-import { useDefinitions } from "@/services/DefinitionsContext";
+
 export default function RolloutFields({
   feature,
   environment,
@@ -41,16 +41,6 @@ export default function RolloutFields({
   const attributeSchema = useAttributeSchema(false, feature.project);
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
-  const { datasources } = useDefinitions();
-  const dataSourceOptions =
-    datasources?.map((ds) => ({
-      label: ds.name,
-      value: ds.id,
-    })) || [];
-  const dataSource = datasources?.find(
-    (ds) => ds.id === form.watch("datasource")
-  );
-  const exposureQueries = dataSource?.settings?.queries?.exposure || [];
 
   const renderOverviewSteps = () => {
     return (

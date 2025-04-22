@@ -31,6 +31,7 @@ export interface Props {
   placeholder?: string;
   feature?: FeatureInterface;
   renderJSONInline?: boolean;
+  disabled?: boolean;
 }
 
 export default function FeatureValueField({
@@ -42,6 +43,7 @@ export default function FeatureValueField({
   placeholder,
   feature,
   renderJSONInline,
+  disabled = false,
 }: Props) {
   const { hasCommercialFeature } = useUser();
   const hasJsonValidator = hasCommercialFeature("json-validation");
@@ -64,6 +66,7 @@ export default function FeatureValueField({
           renderInline={renderJSONInline}
           label={label}
           placeholder={placeholder}
+          disabled={disabled}
         />
         {helpText && <small className="text-muted">{helpText}</small>}
       </>
@@ -76,6 +79,7 @@ export default function FeatureValueField({
         {label !== undefined && <label>{label}</label>}
         <div>
           <RadioGroup
+            disabled={disabled}
             options={[
               {
                 label: "TRUE",
@@ -105,6 +109,7 @@ export default function FeatureValueField({
         setValue={setValue}
         helpText={helpText}
         placeholder={placeholder}
+        disabled={disabled}
       />
     );
   }
@@ -138,6 +143,7 @@ export default function FeatureValueField({
           ? { width: 120 }
           : undefined
       }
+      disabled={disabled}
     />
   );
 }
@@ -148,12 +154,14 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
   setValue,
   label,
   showDescription,
+  disabled = false,
 }: {
   field: SchemaField;
   value: T;
   setValue: (value: T) => void;
   label?: ReactNode;
   showDescription?: boolean;
+  disabled?: boolean;
 }): ReactElement {
   const uuid = useId();
 
@@ -170,6 +178,7 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
         name={`${uuid}_required`}
         className="ml-1 mr-2"
         checked={isset}
+        disabled={disabled}
         onChange={(e) => {
           if (!isset && e.target.checked) {
             setValue(
@@ -220,7 +229,7 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
         containerClassName={containerClassName}
         labelClassName={labelClassName}
         label={label}
-        disabled={!field.required && !isset}
+        disabled={(!field.required && !isset) || disabled}
         helpText={helpText}
       />
     );
@@ -249,7 +258,7 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
               setValue={(v) => {
                 setValue(v as T);
               }}
-              disabled={!field.required && !isset}
+              disabled={(!field.required && !isset) || disabled}
             />
           </div>
           {helpText && (
@@ -274,7 +283,7 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
               setValue={(v) => {
                 setValue(v as T);
               }}
-              disabled={!field.required && !isset}
+              disabled={(!field.required && !isset) || disabled}
             />
           </div>
           {helpText && (
@@ -296,7 +305,7 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
           maxLength={field.max}
           required={field.required}
           style={{ minWidth: 120 }}
-          disabled={!field.required && !isset}
+          disabled={(!field.required && !isset) || disabled}
           helpText={helpText}
         />
       );
@@ -321,7 +330,7 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
           max={field.max}
           required={field.required}
           style={{ minWidth: 80 }}
-          disabled={!field.required && !isset}
+          disabled={(!field.required && !isset) || disabled}
           helpText={helpText}
         />
       );
@@ -335,6 +344,7 @@ function SimpleSchemaEditor({
   renderInline,
   label,
   placeholder,
+  disabled = false,
 }: {
   schema: SimpleSchema;
   value: string;
@@ -342,6 +352,7 @@ function SimpleSchemaEditor({
   renderInline?: boolean;
   label?: string | ReactNode;
   placeholder?: string;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [tempValue, setTempValue] = useState(value);
@@ -352,6 +363,7 @@ function SimpleSchemaEditor({
       setValue={setValue}
       label={label}
       placeholder={placeholder}
+      disabled={disabled}
     />
   );
 
@@ -374,6 +386,7 @@ function SimpleSchemaEditor({
         setValue={(v) => setValue(JSON.stringify(v))}
         label={label}
         showDescription={true}
+        disabled={disabled}
       />
     );
   }
@@ -415,6 +428,7 @@ function SimpleSchemaEditor({
         placeholder="Select options"
         creatable={!field.enum.length}
         label={label}
+        disabled={disabled}
       />
     );
   }
@@ -445,6 +459,7 @@ function SimpleSchemaEditor({
               fields={schema.fields}
               label={label}
               placeholder={placeholder}
+              disabled={disabled}
             />
           </Modal>
         ) : null}
@@ -492,6 +507,7 @@ function JSONTextEditor({
   setValue,
   helpText,
   placeholder,
+  disabled = false,
 }: {
   label?: string | ReactNode;
   editAsForm?: () => void;
@@ -499,6 +515,7 @@ function JSONTextEditor({
   setValue: (value: string) => void;
   helpText?: ReactNode;
   placeholder?: string;
+  disabled?: boolean;
 }) {
   let formatted;
   try {
@@ -512,6 +529,7 @@ function JSONTextEditor({
     <Field
       labelClassName={editAsForm ? "d-flex w-100" : ""}
       placeholder={placeholder}
+      disabled={disabled}
       label={
         editAsForm ? (
           <>
@@ -571,6 +589,7 @@ function SimpleSchemaObjectArrayEditor({
   setValue,
   label,
   placeholder,
+  disabled = false,
 }: {
   type: "object" | "object[]";
   value: string;
@@ -578,6 +597,7 @@ function SimpleSchemaObjectArrayEditor({
   fields: SchemaField[];
   label?: string | ReactNode;
   placeholder?: string;
+  disabled?: boolean;
 }) {
   let valueParsed: unknown;
   try {
@@ -602,6 +622,7 @@ function SimpleSchemaObjectArrayEditor({
           : undefined
       }
       placeholder={placeholder}
+      disabled={disabled}
     />
   );
 
@@ -634,6 +655,7 @@ function SimpleSchemaObjectArrayEditor({
                 key={field.key}
                 field={field}
                 value={value}
+                disabled={disabled}
                 setValue={(v) => {
                   setValue(
                     JSON.stringify({

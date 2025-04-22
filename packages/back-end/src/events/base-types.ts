@@ -12,7 +12,7 @@ import { experimentDecisionNotificationPayload } from "back-end/src/validators/e
 import {
   safeRolloutDecisionNotificationPayload,
   safeRolloutUnhealthyNotificationPayload,
-} from "back-end/src/validators/safe-rollout";
+} from "back-end/src/validators/safe-rollout-notifications";
 import { EventUser } from "./event-types";
 
 type WebhookEntry = {

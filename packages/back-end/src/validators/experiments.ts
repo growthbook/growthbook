@@ -2,9 +2,9 @@ import { z } from "zod";
 import { windowTypeValidator } from "back-end/src/routers/fact-table/fact-table.validators";
 import { statsEngines } from "back-end/src/util/constants";
 import {
-  savedGroupTargeting,
-  featurePrerequisite,
   namespaceValue,
+  featurePrerequisite,
+  savedGroupTargeting,
 } from "./shared";
 
 export const experimentResultsType = [
@@ -225,8 +225,7 @@ export const experimentAnalysisSummary = z
     health: experimentAnalysisSummaryHealth.optional(),
     resultsStatus: experimentAnalysisSummaryResultsStatus.optional(),
   })
-  .strict()
-  .optional();
+  .strict();
 
 export type ExperimentAnalysisSummary = z.infer<
   typeof experimentAnalysisSummary
@@ -296,7 +295,7 @@ export const experimentInterface = z
     customFields: z.record(z.any()).optional(),
     templateId: z.string().optional(),
     shareLevel: z.enum(["public", "organization"]).optional(),
-    analysisSummary: experimentAnalysisSummary,
+    analysisSummary: experimentAnalysisSummary.optional(),
     dismissedWarnings: z.array(z.enum(["low-power"])).optional(),
   })
   .strict()

@@ -605,12 +605,14 @@ function parseStatsEngineResult({
             metrics: {},
           };
           data.users = Math.max(data.users, v.users);
-          
+
           // translate null in CI to infinity
-          const ci: [number, number] | undefined = v.ci ? [v.ci[0] ?? Infinity, v.ci[1] ?? Infinity] : undefined;
+          const ci: [number, number] | undefined = v.ci
+            ? [v.ci[0] ?? Infinity, v.ci[1] ?? Infinity]
+            : undefined;
           const parsedVariation = {
             ...v,
-            ci
+            ci,
           };
           data.metrics[metric] = {
             ...parsedVariation,
@@ -734,9 +736,8 @@ export async function analyzeExperimentResults({
     metrics: metricSettings,
     banditSettings: snapshotSettings.banditSettings,
   };
-  console.log("params", params);
   const { results: analysis, banditResult } = await runSnapshotAnalysis(params);
-  console.log("analysis", analysis);
+
   const results = parseStatsEngineResult({
     analysisSettings,
     snapshotSettings,

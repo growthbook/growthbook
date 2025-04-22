@@ -1,4 +1,3 @@
-import { subDays } from "date-fns";
 import {
   DEFAULT_METRIC_WINDOW,
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
@@ -25,15 +24,11 @@ import {
   getSafeRolloutResultStatus,
 } from "shared/enterprise";
 import {
-  SafeRolloutInterface,
-  SafeRolloutModel,
-} from "back-end/src/models/SafeRolloutModel";
-import {
   MetricForSafeRolloutSnapshot,
   SafeRolloutSnapshotAnalysisSettings,
   SafeRolloutSnapshotInterface,
   SafeRolloutSnapshotSettings,
-} from "back-end/src/validators/safe-rollout";
+} from "back-end/src/validators/safe-rollout-snapshot";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,
@@ -60,8 +55,11 @@ import { getFeature } from "back-end/src/models/FeatureModel";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import {
   FeatureInterface,
+  SafeRolloutRule,
 } from "back-end/src/validators/features";
 import { ResourceEvents } from "back-end/src/events/base-types";
+import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
+import { SafeRolloutInterface } from "back-end/types/safe-rollout";
 import { getSourceIntegrationObject } from "./datasource";
 import {
   computeResultsStatus,
@@ -168,7 +166,7 @@ export function getSnapshotSettingsFromSafeRolloutArgs(
     goalMetrics: [],
     secondaryMetrics: [],
     guardrailMetrics: settings.guardrailMetrics,
-    dimensions: settings.dimensions ?? [],
+    dimensions: [],
     variations: settings.variations.map((v) => ({
       id: v.id,
       weight: v.weight,
@@ -195,7 +193,7 @@ export async function getSettingsForSnapshotMetrics(
   const metricMap = await getMetricMap(context);
 
   const allExperimentMetricIds = getAllMetricIdsFromExperiment(
-    safeRollout,
+    { guardrailMetrics: safeRollout.guardrailMetricIds },
     false
   );
   const allExperimentMetrics = allExperimentMetricIds
@@ -262,6 +260,7 @@ export function getDefaultExperimentAnalysisSettingsForSafeRollout(
 
 function getSafeRolloutSnapshotSettings({
   safeRollout,
+  safeRolloutRule,
   settings,
   orgPriorSettings,
   settingsForSnapshotMetrics,
@@ -271,6 +270,7 @@ function getSafeRolloutSnapshotSettings({
   datasource,
 }: {
   safeRollout: SafeRolloutInterface;
+  safeRolloutRule: SafeRolloutRule;
   settings: ExperimentSnapshotAnalysisSettings;
   orgPriorSettings: MetricPriorSettings | undefined;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
@@ -293,7 +293,7 @@ function getSafeRolloutSnapshotSettings({
 
   // expand metric groups and scrub unjoinable metrics
   const guardrailMetrics = expandMetricGroups(
-    safeRollout.guardrailMetrics,
+    safeRollout.guardrailMetricIds,
     metricGroups
   ).filter((m) =>
     isJoinableMetric({
@@ -306,7 +306,9 @@ function getSafeRolloutSnapshotSettings({
   );
 
   const metricSettings = expandMetricGroups(
-    getAllMetricIdsFromExperiment(safeRollout),
+    getAllMetricIdsFromExperiment({
+      guardrailMetrics: safeRollout.guardrailMetricIds,
+    }),
     metricGroups
   )
     .map((m) =>
@@ -316,11 +318,11 @@ function getSafeRolloutSnapshotSettings({
 
   return {
     queryFilter: "",
-    datasourceId: safeRollout.datasource || "",
+    datasourceId: safeRollout.datasourceId || "",
     dimensions: settings.dimensions.map((id) => ({ id })),
-    startDate: safeRollout.startedAt || subDays(new Date(), 10), // should fix this. using 2 hardcoded just for testing
+    startDate: safeRollout.startedAt || new Date(), // TODO: What do we want to do if startedAt is not set?
     endDate: new Date(),
-    experimentId: safeRollout.trackingKey || safeRollout.id,
+    experimentId: safeRolloutRule.trackingKey || "",
     guardrailMetrics,
     regressionAdjustmentEnabled: !!settings.regressionAdjusted,
     defaultMetricPriorSettings: defaultPriorSettings,
@@ -354,16 +356,27 @@ export async function _createSafeRolloutSnapshot({
   factTableMap: FactTableMap;
 }): Promise<SafeRolloutResultsQueryRunner> {
   const { org: organization } = context;
-  const dimension = defaultAnalysisSettings.dimensions[0] || null;
   const metricGroups = await context.models.metricGroups.getAll();
+  const feature = await getFeature(context, safeRollout.featureId);
+  if (!feature) {
+    throw new Error("Could not load safe rollout feature");
+  }
+  const safeRolloutRule = getSafeRolloutRuleFromFeature(
+    feature,
+    safeRollout.id
+  );
+  if (!safeRolloutRule) {
+    throw new Error("Could not load safe rollout rule");
+  }
 
-  const datasource = await getDataSourceById(context, safeRollout.datasource);
+  const datasource = await getDataSourceById(context, safeRollout.datasourceId);
   if (!datasource) {
     throw new Error("Could not load data source");
   }
 
   const snapshotSettings = getSafeRolloutSnapshotSettings({
     safeRollout,
+    safeRolloutRule,
     orgPriorSettings: organization.settings?.metricDefaults?.priorSettings,
     settings: defaultAnalysisSettings,
     settingsForSnapshotMetrics,
@@ -377,7 +390,6 @@ export async function _createSafeRolloutSnapshot({
     runStarted: new Date(),
     error: "",
     queries: [],
-    dimension: dimension || null,
     settings: snapshotSettings,
     multipleExposures: 0,
     triggeredBy,
@@ -395,8 +407,8 @@ export async function _createSafeRolloutSnapshot({
   const nextUpdate = determineNextDate(
     organization.settings?.updateSchedule || null
   );
-  const safeRolloutModel = new SafeRolloutModel(context);
-  await safeRolloutModel.update(safeRollout, {
+
+  await context.models.safeRollout.update(safeRollout, {
     nextSnapshotAttempt:
       nextUpdate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
   });
@@ -513,13 +525,13 @@ export async function getSafeRolloutAnalysisSummary({
 const dispatchSafeRolloutEvent = async <T extends ResourceEvents<"feature">>({
   context,
   feature,
-  environments,
+  environment,
   event,
   data,
 }: {
   context: ReqContext;
   feature: FeatureInterface;
-  environments: string[];
+  environment: string;
   event: T;
   data: CreateEventData<"feature", T>;
 }) => {
@@ -531,7 +543,7 @@ const dispatchSafeRolloutEvent = async <T extends ResourceEvents<"feature">>({
     data,
     projects: feature.project ? [feature.project] : [],
     tags: feature.tags || [],
-    environments,
+    environment,
     containsSecrets: false,
   });
 };
@@ -564,20 +576,10 @@ export async function notifySafeRolloutChange({
     throw new Error("Could not find feature to fire event");
   }
 
-  // Find environment that the safe rollout is in
-  const safeRolloutEnvironments: string[] = [];
-  Object.entries(feature.environmentSettings).forEach(([id, env]) => {
-    const affected = env.rules.find((r) => r.id === updatedSafeRollout.ruleId);
-    if (affected) {
-      safeRolloutEnvironments.push(id);
-    }
-  });
-
   const notificationData = {
     featureId: feature.id,
-    ruleId: updatedSafeRollout.ruleId,
     safeRolloutId: updatedSafeRollout.id,
-    environments: safeRolloutEnvironments,
+    environment: updatedSafeRollout.environment,
   };
 
   // always notify of new status, regardless of old status
@@ -594,7 +596,7 @@ export async function notifySafeRolloutChange({
     dispatchSafeRolloutEvent({
       context,
       feature,
-      environments: safeRolloutEnvironments,
+      environment: notificationData.environment,
       event: "saferollout.unhealthy",
       data: {
         object: {
@@ -609,7 +611,7 @@ export async function notifySafeRolloutChange({
     dispatchSafeRolloutEvent({
       context,
       feature,
-      environments: safeRolloutEnvironments,
+      environment: notificationData.environment,
       event: "saferollout.rollback",
       data: {
         object: notificationData,
@@ -621,7 +623,7 @@ export async function notifySafeRolloutChange({
     dispatchSafeRolloutEvent({
       context,
       feature,
-      environments: safeRolloutEnvironments,
+      environment: notificationData.environment,
       event: "saferollout.ship",
       data: {
         object: notificationData,

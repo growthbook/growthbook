@@ -1,40 +1,10 @@
-import { z } from "zod";
-import { experimentAnalysisSummary } from "back-end/src/validators/experiments";
-import { baseSchema, MakeModelClass } from "./BaseModel";
+import {
+  SafeRolloutInterface,
+  safeRolloutValidator,
+} from "back-end/src/validators/safe-rollout";
+import { MakeModelClass, UpdateProps } from "./BaseModel";
 
-export const COLLECTION_NAME = "safeRollout";
-
-const safeRolloutStatus = [
-  "running",
-  "rolled-back",
-  "released",
-  "completed",
-  "draft",
-] as const;
-export type SafeRolloutStatus = typeof safeRolloutStatus[number];
-
-const safeRollout = z.object({
-  trackingKey: z.string(),
-  datasource: z.string(),
-  exposureQueryId: z.string(),
-  hashAttribute: z.string(),
-  seed: z.string(),
-  guardrailMetrics: z.array(z.string()),
-  status: z.enum(safeRolloutStatus),
-  startedAt: z.date().optional(),
-  lastSnapshotAttempt: z.date().optional(),
-  nextSnapshotAttempt: z.date().optional(),
-  autoSnapshots: z.boolean().default(true),
-  featureId: z.string(),
-  ruleId: z.string(),
-  coverage: z.number(),
-  maxDurationDays: z.number(),
-  analysisSummary: experimentAnalysisSummary,
-});
-export const safeRolloutValidator = baseSchema
-  .extend(safeRollout.shape)
-  .strict();
-export type SafeRolloutInterface = z.infer<typeof safeRolloutValidator>;
+export const COLLECTION_NAME = "saferollout";
 
 const BaseClass = MakeModelClass({
   schema: safeRolloutValidator,
@@ -49,17 +19,8 @@ const BaseClass = MakeModelClass({
   globallyUniqueIds: true,
 });
 
-export type CreateSafeRolloutInterface = Pick<
-  SafeRolloutInterface,
-  | "datasource"
-  | "exposureQueryId"
-  | "hashAttribute"
-  | "maxDurationDays"
-  | "seed"
-  | "guardrailMetrics"
-  | "trackingKey"
->;
 export class SafeRolloutModel extends BaseClass {
+  // TODO: fix permissions
   protected canRead() {
     return true;
   }
@@ -73,15 +34,41 @@ export class SafeRolloutModel extends BaseClass {
     return true;
   }
 
-  public async findByRuleId(ruleId: string) {
-    return await this._findOne({ ruleId });
-  }
-
-  public async findByRuleIds(ruleIds: string[]) {
-    return await this._find({ ruleId: { $in: ruleIds } });
-  }
-
   public async getAllByFeatureId(featureId: string) {
     return await this._find({ featureId });
+  }
+
+  protected async beforeUpdate(
+    existing: SafeRolloutInterface,
+    updates: UpdateProps<SafeRolloutInterface>
+  ) {
+    // If the Safe Rollout has already been started, we are limited on what we can update to keep the data consistent
+    // If the Safe Rollout has not been started, we can update all fields
+    if (existing.startedAt) {
+      const allowedFieldsForUpdate = [
+        "status",
+        "guardrailMetricIds",
+        "maxDuration",
+        "autoSnapshots",
+        "lastSnapshotAttempt",
+        "nextSnapshotAttempt",
+        "analysisSummary",
+      ];
+
+      // Check for disallowed field updates
+      for (const [key, value] of Object.entries(updates)) {
+        const typedKey = key as keyof typeof updates;
+
+        // If the field is not allowed and is being changed
+        if (
+          !allowedFieldsForUpdate.includes(typedKey) &&
+          existing[typedKey] !== value
+        ) {
+          throw new Error(
+            `Cannot update field '${key}' after the Safe Rollout has started.`
+          );
+        }
+      }
+    }
   }
 }

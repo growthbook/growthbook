@@ -16,7 +16,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { useAuth } from "@/services/auth";
 import {
   getRules,
@@ -77,9 +77,7 @@ export default function RuleList({
     })
   );
 
-  const inactiveRules = items.filter((r) =>
-    isRuleInactive(r, experimentsMap, safeRolloutsMap)
-  );
+  const inactiveRules = items.filter((r) => isRuleInactive(r, experimentsMap));
 
   if (!items.length) {
     return (
@@ -97,11 +95,7 @@ export default function RuleList({
   }
 
   // detect unreachable rules, and get the first rule that is at 100%.
-  const unreachableIndex = getUnreachableRuleIndex(
-    items,
-    experimentsMap,
-    safeRolloutsMap
-  );
+  const unreachableIndex = getUnreachableRuleIndex(items, experimentsMap);
 
   const activeRule = activeId ? items[getRuleIndex(activeId)] : null;
 

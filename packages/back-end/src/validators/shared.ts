@@ -1,12 +1,13 @@
 import { z } from "zod";
 
-export const savedGroupTargeting = z
+export const namespaceValue = z
   .object({
-    match: z.enum(["all", "none", "any"]),
-    ids: z.array(z.string()),
+    enabled: z.boolean(),
+    name: z.string(),
+    range: z.tuple([z.number(), z.number()]),
   })
   .strict();
-export type SavedGroupTargeting = z.infer<typeof savedGroupTargeting>;
+export type NamespaceValue = z.infer<typeof namespaceValue>;
 
 export const featurePrerequisite = z
   .object({
@@ -16,12 +17,10 @@ export const featurePrerequisite = z
   .strict();
 export type FeaturePrerequisite = z.infer<typeof featurePrerequisite>;
 
-// Add namespaceValue validator
-export const namespaceValue = z
+export const savedGroupTargeting = z
   .object({
-    enabled: z.boolean(),
-    name: z.string(),
-    range: z.tuple([z.number(), z.number()]),
+    match: z.enum(["all", "none", "any"]),
+    ids: z.array(z.string()),
   })
   .strict();
-export type NamespaceValue = z.infer<typeof namespaceValue>;
+export type SavedGroupTargeting = z.infer<typeof savedGroupTargeting>;

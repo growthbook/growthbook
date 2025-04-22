@@ -1,3 +1,4 @@
+import { addDays, differenceInDays } from "date-fns";
 import {
   DecisionCriteriaAction,
   DecisionCriteriaData,
@@ -11,9 +12,11 @@ import {
   ExperimentResultStatusData,
   ExperimentUnhealthyData,
 } from "back-end/types/experiment";
-import { SafeRolloutInterface, SafeRolloutSnapshotInterface } from "back-end/types/safe-rollout";
+import {
+  SafeRolloutInterface,
+  SafeRolloutSnapshotInterface,
+} from "back-end/types/safe-rollout";
 import { OrganizationSettings } from "back-end/types/organization";
-import { addDays, differenceInDays } from "date-fns";
 import {
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
   DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
@@ -479,17 +482,14 @@ export function getSafeRolloutDaysLeft({
   const startDate = safeRollout.startedAt
     ? new Date(safeRollout.startedAt)
     : new Date();
-  const endDate = addDays(
-    new Date(startDate.getTime()),
-    safeRollout.maxDurationDays
-  );
+  const endDate = addDays(startDate, safeRollout?.maxDuration?.amount); // TODO: Add unit
   const latestSnapshotDate = snapshotWithResults?.runStarted
     ? new Date(snapshotWithResults?.runStarted)
     : null;
 
   const daysLeft = latestSnapshotDate
     ? differenceInDays(endDate, latestSnapshotDate)
-    : safeRollout.maxDurationDays;
+    : safeRollout?.maxDuration?.amount; // TODO: Add unit
 
   return daysLeft;
 }
@@ -504,7 +504,6 @@ export function getSafeRolloutResultStatus({
   daysLeft: number;
 }): ExperimentResultStatusData | undefined {
   const unhealthyData: ExperimentUnhealthyData = {};
-  // TODO add analysis summary to safe rollout interface
   const healthSummary = safeRollout.analysisSummary?.health;
   const resultsStatus = safeRollout.analysisSummary?.resultsStatus;
 
@@ -560,7 +559,7 @@ export function getSafeRolloutResultStatus({
         resultsStatus,
         decisionCriteria: ROLLBACK_SAFE_ROLLOUT_DECISION_CRITERIA,
         goalMetrics: [],
-        guardrailMetrics: safeRollout.guardrailMetrics,
+        guardrailMetrics: safeRollout.guardrailMetricIds,
         daysNeeded: Infinity, // sequential relied upon solely for safe rollouts
       })
     : undefined;

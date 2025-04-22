@@ -19,17 +19,17 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import { PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
-import { kebabCase, omit } from "lodash";
+import { kebabCase } from "lodash";
 import { Text } from "@radix-ui/themes";
 import {
+  CreateSafeRolloutInterface,
   SafeRolloutInterface,
-  SafeRolloutInterfaceCreateFields,
-} from "back-end/src/models/SafeRolloutModel";
+} from "back-end/src/validators/safe-rollout";
 import { SafeRolloutRule } from "back-end/src/validators/features";
 import {
   PostFeatureRuleBody,
   PutFeatureRuleBody,
-} from "back-end/types/safe-rollout";
+} from "back-end/types/feature-rule";
 import {
   NewExperimentRefRule,
   getDefaultRuleValue,
@@ -94,7 +94,9 @@ type OverviewRuleType =
   | "safe-rollout";
 
 type SafeRolloutRuleCreateFields = SafeRolloutRule & {
-  safeRolloutInterfaceFields: SafeRolloutInterfaceCreateFields;
+  safeRolloutFields: CreateSafeRolloutInterface;
+} & {
+  sameSeed?: boolean;
 };
 
 export default function RuleModal({
@@ -143,32 +145,14 @@ export default function RuleModal({
 
   const convertRuleToFormValues = (rule: FeatureRule) => {
     if (rule?.type === "safe-rollout") {
-      console.log("testing guy 2", { safeRolloutInterfaceFields: safeRollout });
       return {
         ...rule,
-        safeRolloutInterfaceFields: safeRollout,
+        safeRolloutFields: safeRollout,
       };
     }
     return rule;
   };
 
-  const convertSafeRolloutFromFormValues = (
-    formValues: SafeRolloutRuleCreateFields
-  ) => {
-    if (formValues.type === "safe-rollout" && safeRollout) {
-      return {
-        rule: omit(
-          formValues,
-          "safeRolloutInterfaceFields"
-        ) as Partial<SafeRolloutRule>,
-        safeRolloutInterfaceFields: formValues.safeRolloutInterfaceFields as Partial<SafeRolloutInterfaceCreateFields>,
-      };
-    }
-    return {
-      rule: formValues as SafeRolloutRule,
-    };
-  };
-  console.log("testing guy", convertRuleToFormValues(rule));
   const defaultValues = {
     ...defaultRuleValues,
     ...convertRuleToFormValues(rule),
@@ -181,10 +165,10 @@ export default function RuleModal({
   const [
     overviewRadioSelectorRuleType,
     setOverviewRadioSelectorRuleType,
-  ] = useState<RadioSelectorRuleType>("");
-  const [overviewRuleType, setOverviewRuleType] = useState<OverviewRuleType>(
-    ""
-  );
+  ] = useState<RadioSelectorRuleType | "">("");
+  const [overviewRuleType, setOverviewRuleType] = useState<
+    OverviewRuleType | ""
+  >("");
 
   // Paged modal
   const [step, setStep] = useState(0);
@@ -374,7 +358,7 @@ export default function RuleModal({
       }
     }
 
-    let interfaceFields: Partial<SafeRolloutInterfaceCreateFields> | undefined;
+    let safeRolloutFields: Partial<CreateSafeRolloutInterface> | undefined;
     try {
       if (values.type === "experiment-ref-new") {
         // Make sure there's an experiment name
@@ -590,8 +574,24 @@ export default function RuleModal({
         // eslint-disable-next-line
         delete (values as any).value;
       } else if (values.type === "safe-rollout") {
-        interfaceFields = values.safeRolloutInterfaceFields;
-        delete (values as any).safeRolloutInterfaceFields;
+        safeRolloutFields = values.safeRolloutFields;
+        // eslint-disable-next-line
+        delete (values as any).safeRolloutFields;
+        // eslint-disable-next-line
+        delete (values as any).value; //saferollout uses controlValue so we want to remove the value
+        // eslint-disable-next-line
+        delete (values as any).trackingKey;
+        if (!values.sameSeed) {
+          console.log("deleting seed");
+          // eslint-disable-next-line
+          delete (values as any).seed;
+        }
+        // eslint-disable-next-line
+        delete (values as any).sameSeed;
+
+        if (safeRolloutFields?.maxDuration) {
+          safeRolloutFields.maxDuration.unit = "days";
+        }
       }
 
       if (
@@ -618,31 +618,38 @@ export default function RuleModal({
         hasCondition: values.condition && values.condition.length > 2,
         hasSavedGroups: !!values.savedGroups?.length,
         hasPrerequisites: !!values.prerequisites?.length,
-        hasDescription: values.description.length > 0,
+        hasDescription: values.description && values.description.length > 0,
       });
 
-      let method = "POST";
-      let body: PostFeatureRuleBody | PutFeatureRuleBody = {
-        rule: values,
-        environment,
-        interfaceFields,
-      };
+      let res: { version: number };
+
       if (!duplicate && i !== rules.length) {
-        method = "PUT";
-        body = {
-          rule: values,
-          interfaceFields,
-          environment,
-          i,
-        };
+        res = await apiCall<{ version: number }>(
+          `/feature/${feature.id}/${version}/rule`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              rule: values,
+              environment,
+              safeRolloutFields,
+              i,
+            } as PutFeatureRuleBody),
+          }
+        );
+      } else {
+        res = await apiCall<{ version: number }>(
+          `/feature/${feature.id}/${version}/rule`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              rule: values,
+              environment,
+              safeRolloutFields,
+            } as PostFeatureRuleBody),
+          }
+        );
       }
-      const res = await apiCall<{ version: number }>(
-        `/feature/${feature.id}/${version}/rule`,
-        {
-          method: method,
-          body: JSON.stringify(body),
-        }
-      );
+
       await mutate();
       res.version && setVersion(res.version);
     } catch (e) {
@@ -705,6 +712,21 @@ export default function RuleModal({
                   "Release to small percent of users while monitoring logs",
               },
             ]}
+            value={overviewRadioSelectorRuleType}
+            setValue={(
+              v: "force" | "rollout" | "safe-rollout" | "experiment" | "bandit"
+            ) => {
+              setOverviewRadioSelectorRuleType(v);
+              if (v === "force") {
+                setOverviewRuleType("force");
+              } else if (v === "rollout") {
+                setOverviewRuleType("rollout");
+              } else if (v === "safe-rollout") {
+                setOverviewRuleType("safe-rollout");
+              } else {
+                setOverviewRuleType("experiment-ref-new");
+              }
+            }}
           />
 
           <Text>DATA-DRIVEN</Text>
@@ -841,7 +863,7 @@ export default function RuleModal({
       : "Rule";
   const trackingEventModalType = kebabCase(headerText);
   headerText += ` in ${environment}`;
-  console.log(ruleType, "ruleType");
+
   return (
     <FormProvider {...form}>
       <PagedModal
@@ -922,6 +944,8 @@ export default function RuleModal({
                   scheduleToggleEnabled={scheduleToggleEnabled}
                   setScheduleToggleEnabled={setScheduleToggleEnabled}
                   isNewRule={isNewRule}
+                  isDraft={!safeRollout?.startedAt}
+                  duplicate={!!duplicate}
                 />
               </Page>
             );

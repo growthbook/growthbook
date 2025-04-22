@@ -1,6 +1,6 @@
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import { FeatureInterface } from "back-end/types/feature";
 import { Box, Flex } from "@radix-ui/themes";
-import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { SafeRolloutRule } from "back-end/src/validators/features";
 import ValidateValue from "@/components/Features/ValidateValue";
 import Badge from "@/components/Radix/Badge";
@@ -20,11 +20,12 @@ export default function SafeRolloutSummary({
   rule: SafeRolloutRule;
   feature: FeatureInterface;
 }) {
-  const { coverage, hashAttribute, guardrailMetrics } = safeRollout;
-  const { controlValue, variationValue } = rule;
+  const coverage = 1;
+  const { guardrailMetricIds } = safeRollout;
+  const { controlValue, variationValue, hashAttribute } = rule;
   const type = feature.valueType;
   const coveragePercent = (coverage / 2) * 100;
-  console.log("coverage", coverage);
+
   return (
     <Box>
       <div className="mb-2">
@@ -95,7 +96,7 @@ export default function SafeRolloutSummary({
           <strong className="font-weight-semibold">SERVE</strong>
         </Box>
         <Box>
-          <ValueDisplay value={controlValue} type={type} />
+          <ValueDisplay value={variationValue} type={type} />
         </Box>
       </Flex>
       <Flex gap="3" className="mt-2">
@@ -103,7 +104,7 @@ export default function SafeRolloutSummary({
           <strong className="font-weight-semibold">COMPARE AGAINST</strong>
         </Box>
         <Box>
-          <ValueDisplay value={variationValue} type={type} />
+          <ValueDisplay value={controlValue} type={type} />
         </Box>
       </Flex>
       <Flex gap="3" className="mt-2">
@@ -111,7 +112,7 @@ export default function SafeRolloutSummary({
           <strong className="font-weight-semibold">MONITOR</strong>
         </Box>
         <Box>
-          <Badge color="gray" label={`${guardrailMetrics.length}`}></Badge>
+          <Badge color="gray" label={`${guardrailMetricIds.length}`}></Badge>
           <span className="pl-2">metrics</span>
         </Box>
       </Flex>

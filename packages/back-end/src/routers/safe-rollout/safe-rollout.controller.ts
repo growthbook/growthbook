@@ -1,7 +1,7 @@
 import type { Response } from "express";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { SafeRolloutSnapshotInterface } from "back-end/src/validators/safe-rollout";
+import { SafeRolloutSnapshotInterface } from "back-end/src/validators/safe-rollout-snapshot";
 import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnapshots";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { SafeRolloutResultsQueryRunner } from "back-end/src/queryRunners/SafeRolloutResultsQueryRunner";
@@ -27,13 +27,13 @@ export const getLatestSafeRolloutSnapshot = async (
 
   const snapshot = await context.models.safeRolloutSnapshots.getSnapshotForSafeRollout(
     {
-      safeRollout: req.params.id,
+      safeRolloutId: req.params.id,
     }
   );
 
   const latest = await context.models.safeRolloutSnapshots.getSnapshotForSafeRollout(
     {
-      safeRollout: req.params.id,
+      safeRolloutId: req.params.id,
       withResults: false,
     }
   );
@@ -141,3 +141,32 @@ export const cancelSafeRolloutSnapshot = async (
   res.status(200).json({ status: 200 });
 };
 // endregion POST /safe-rollout/snapshot/:id/cancel
+
+// region PUT /safe-rollout/:id/status
+/**
+ * PUT /safe-rollout/:id/status
+ * Update the status of a safe rollout rule (rolled back, released, etc)
+ * @param req
+ * @param res
+ */
+export async function putSafeRolloutStatus(
+  req: AuthRequest<{ status: "released" | "rolled-back" }, { id: string }>,
+  res: Response<{ status: 200 }>
+) {
+  const { id } = req.params;
+  const { status } = req.body;
+  const context = getContextFromReq(req);
+  const safeRollout = await context.models.safeRollout.getById(id);
+  if (!safeRollout) {
+    throw new Error("Could not find safe rollout");
+  }
+
+  await context.models.safeRollout.update(safeRollout, {
+    status,
+  });
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+// endregion PUT /safe-rollout/:id/status

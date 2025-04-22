@@ -6,7 +6,7 @@ import {
 } from "back-end/types/safe-rollout";
 import { getSafeRolloutSnapshotAnalysis } from "shared/util";
 import { FeatureInterface } from "back-end/src/validators/features";
-import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import useApi from "@/hooks/useApi";
 
 const snapshotContext = React.createContext<{
@@ -44,7 +44,6 @@ export default function SafeRolloutSnapshotProvider({
     ? getSafeRolloutSnapshotAnalysis(data?.snapshot)?.settings
     : null;
 
-  console.log("data", data);
   return (
     <snapshotContext.Provider
       value={{

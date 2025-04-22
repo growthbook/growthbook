@@ -20,7 +20,6 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_TARGET_MDE,
 } from "shared/constants";
-import { getUsage } from "back-end/src/enterprise/billing";
 import {
   MetricCappingSettings,
   MetricPriorSettings,
@@ -135,11 +134,8 @@ export function getContextFromReq(req: AuthRequest): ReqContext {
     throw new Error("Must be logged in");
   }
 
-  const { organization } = req;
-
   return new ReqContextClass({
     org: req.organization,
-    usage: () => getUsage(organization),
     auditUser: {
       type: "dashboard",
       id: req.userId,
@@ -1121,7 +1117,6 @@ export function getContextForAgendaJobByOrgObject(
 ): ApiReqContext {
   return new ReqContextClass({
     org: organization,
-    usage: () => getUsage(organization),
     auditUser: null,
     // TODO: Limit background job permissions to the user who created the job
     role: "admin",

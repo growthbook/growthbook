@@ -119,7 +119,7 @@ import { metricGroupRouter } from "./routers/metric-group/metric-group.router";
 import { findOrCreateGeneratedHypothesis } from "./models/GeneratedHypothesis";
 import { getContextFromReq } from "./services/organizations";
 import { templateRouter } from "./routers/experiment-template/template.router";
-import { safeRolloutSnapshotRouter } from "./routers/safe-rollout-snapshot/safe-rollout-snapshot.router";
+import { safeRolloutRouter } from "./routers/safe-rollout/safe-rollout.router";
 
 const app = express();
 
@@ -593,9 +593,6 @@ app.put(
   experimentLaunchChecklistController.putManualLaunchChecklist
 );
 
-// Safe Rollouts
-app.use("/safe-rollout", safeRolloutSnapshotRouter);
-
 // Visual Changesets
 app.post(
   "/experiments/:id/visual-changeset",
@@ -627,6 +624,9 @@ app.use("/decision-criteria", decisionCriteriaRouter);
 
 // URL Redirects
 app.use("/url-redirects", urlRedirectRouter);
+
+// Safe Rollouts
+app.use("/safe-rollout", safeRolloutRouter);
 
 // Reports
 app.get("/report/:id", reportsController.getReport);
@@ -714,8 +714,9 @@ app.post(
   "/feature/:id/:version/copyEnvironment",
   featuresController.postCopyEnvironmentRules
 );
-app.put("/safe-rollout/status/:id", featuresController.putSafeRolloutStatus);
+
 app.get("/revision/feature", featuresController.getDraftandReviewRevisions);
+
 // Data Sources
 app.get("/datasources", datasourcesController.getDataSources);
 app.get("/datasource/:id", datasourcesController.getDataSource);

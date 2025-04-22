@@ -10,7 +10,7 @@ import { RiAlertLine, RiDraggable } from "react-icons/ri";
 import { RxCircleBackslash } from "react-icons/rx";
 import { PiArrowBendRightDown } from "react-icons/pi";
 import { format as formatTimeZone } from "date-fns-tz";
-import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { getRules, isRuleInactive, useEnvironments } from "@/services/features";
@@ -164,7 +164,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       permissionsUtil.canViewFeatureModal(feature.project) &&
       permissionsUtil.canManageFeatureDrafts(feature);
 
-    const isInactive = isRuleInactive(rule, experimentsMap, safeRolloutsMap);
+    const isInactive = isRuleInactive(rule, experimentsMap);
 
     const hasCondition =
       (rule.condition && rule.condition !== "{}") ||
@@ -174,7 +174,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const info = getRuleMetaInfo({
       rule,
       experimentsMap,
-      safeRolloutsMap,
       isDraft,
       unreachable,
     });
@@ -188,7 +187,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     if (rule.type === "safe-rollout") {
       safeRollout = safeRolloutsMap.get(rule.safeRolloutId);
     }
-
     return (
       <Box {...props} ref={ref}>
         <Box mt="3">
@@ -301,25 +299,44 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           rule={rule}
                           feature={feature}
                         />
-                        {safeRollout?.status === "running" &&
-                          safeRolloutStatusModalOpen && (
-                            <SafeRolloutStatusModal
+
+                        {safeRollout?.startedAt && (
+                          <SafeRolloutStatusModal
+                            safeRollout={safeRollout}
+                            rule={rule}
+                            featureId={feature.id}
+                            environment={environment}
+                            version={version}
+                            i={i}
+                            setVersion={setVersion}
+                            mutate={mutate}
+                            open={safeRolloutStatusModalOpen}
+                            setStatusModalOpen={setSafeRolloutStatusModalOpen}
+                            defaultStatus={safeRollout.status}
+                          />
+                        )}
+                        {safeRollout?.startedAt && (
+                          <Box mt="3">
+                            {rule.enabled && (
+                              <DecisionBanner
+                                openStatusModal={() =>
+                                  setSafeRolloutStatusModalOpen(true)
+                                }
+                                rule={rule}
+                              />
+                            )}
+                            <SafeRolloutDetails
                               safeRollout={safeRollout}
-                              open={safeRolloutStatusModalOpen}
-                              setStatusModalOpen={() =>
-                                setSafeRolloutStatusModalOpen(true)
-                              }
-                            />
-                          )}
-                        <DecisionBanner
-                          openStatusModal={() =>
-                            setSafeRolloutStatusModalOpen(true)
-                          }
-                        />
-                        <SafeRolloutDetails
-                          safeRollout={safeRollout}
-                          feature={feature}
-                        />
+                              rule={rule}
+                            />{" "}
+                          </Box>
+                        )}
+                        {!safeRollout?.startedAt && (
+                          <Callout status="info" mt="2">
+                            This safe rollout is in a draft state and will not
+                            start until this feature revision is published.
+                          </Callout>
+                        )}
                       </SafeRolloutSnapshotProvider>
                     ) : (
                       <div>
@@ -513,13 +530,11 @@ export type RuleMetaInfo = {
 export function getRuleMetaInfo({
   rule,
   experimentsMap,
-  safeRolloutsMap,
   isDraft,
   unreachable,
 }: {
   rule: FeatureRule;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
-  safeRolloutsMap: Map<string, SafeRolloutInterface>;
   isDraft: boolean;
   unreachable?: boolean;
 }): RuleMetaInfo {
@@ -527,7 +542,7 @@ export function getRuleMetaInfo({
     rule.type === "experiment-ref"
       ? experimentsMap.get(rule.experimentId)
       : undefined;
-  const ruleInactive = isRuleInactive(rule, experimentsMap, safeRolloutsMap);
+  const ruleInactive = isRuleInactive(rule, experimentsMap);
   const ruleSkipped = isRuleSkipped({
     rule,
     linkedExperiment,

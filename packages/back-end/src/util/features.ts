@@ -6,7 +6,7 @@ import {
 } from "@growthbook/growthbook";
 import { includeExperimentInPayload, isDefined } from "shared/util";
 import { GroupMap } from "shared/src/types";
-import { cloneDeep } from "lodash";
+import { cloneDeep, isNil } from "lodash";
 import {
   FeatureInterface,
   FeatureRule,
@@ -559,36 +559,34 @@ export function getFeatureDefinition({
             rule.hashAttribute = r.hashAttribute;
           }
         } else if (r.type === "safe-rollout") {
-          // TODO fix with safe rollout map
-          
-          rule.coverage = r.coverage;
-
-          rule.hashAttribute = r.hashAttribute;
-
-          rule.seed = r.seed;
-
-          rule.hashVersion = 2;
-
           if (r.status === "released") {
             const variationValue = r.variationValue;
-            if (!variationValue) return null;
+            if (isNil(variationValue)) return null;
 
             // If a variation has been rolled out to 100%
             rule.force = getJSONValue(feature.valueType, variationValue);
           } else if (r.status === "rolled-back") {
             const controlValue = r.controlValue;
-            if (!controlValue) return null;
+            if (isNil(controlValue)) return null;
 
             // Return control value if rolled back. Feature default value might not be the same as the control value.
             rule.force = getJSONValue(feature.valueType, controlValue);
           } else {
+            rule.coverage = 1; // Always 100% right now
+
+            rule.hashAttribute = r.hashAttribute;
+
+            rule.seed = r.seed;
+
+            rule.hashVersion = 2;
+
             rule.variations = [
               getJSONValue(feature.valueType, r.controlValue),
               getJSONValue(feature.valueType, r.variationValue),
             ];
             const varWeights = 0.5;
             rule.weights = [varWeights, varWeights];
-            rule.key = r.trackingKey; // UUID
+            rule.key = r.trackingKey;
             rule.meta = [
               { key: "0", name: "Control" },
               { key: "1", name: "Variation" },

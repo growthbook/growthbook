@@ -18,7 +18,7 @@ import {
   getMetricLink,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
-import { SafeRolloutReportResultDimension } from "back-end/src/validators/safe-rollout";
+import { SafeRolloutReportResultDimension } from "back-end/src/validators/safe-rollout-snapshot";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
@@ -63,7 +63,6 @@ const CompactResults: FC<{
   settingsForSnapshotMetrics?: MetricSnapshotSettings[];
   metricFilter?: ResultsMetricFilters;
   setMetricFilter?: (filter: ResultsMetricFilters) => void;
-  isTabActive: boolean;
   noTooltip?: boolean;
   experimentType?: ExperimentType;
   ssrPolyfills?: SSRPolyfills;
@@ -90,7 +89,6 @@ const CompactResults: FC<{
   settingsForSnapshotMetrics,
   metricFilter,
   setMetricFilter,
-  isTabActive,
   noTooltip,
   experimentType,
   ssrPolyfills,
@@ -260,7 +258,7 @@ const CompactResults: FC<{
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
             metricTags={allMetricTags}
-            isTabActive={isTabActive}
+            isTabActive={true}
             noStickyHeader={true}
             noTooltip={noTooltip}
             isBandit={isBandit}

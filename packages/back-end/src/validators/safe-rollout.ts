@@ -1,251 +1,115 @@
 import { z } from "zod";
-import { MidExperimentPowerCalculationResultValidator } from "shared/enterprise";
-import {
-  cappingSettingsValidator,
-  priorSettingsValidator,
-  windowSettingsValidator,
-} from "back-end/src/routers/fact-table/fact-table.validators";
-import { statsEnginesValidator } from "back-end/src/models/ProjectModel";
-import { queryPointerValidator } from "./queries";
+import { baseSchema } from "back-end/src/models/BaseModel";
+import { getMetricMap } from "back-end/src/models/MetricModel";
+import { experimentAnalysisSummary } from "back-end/src/validators/experiments";
+import { ApiReqContext } from "back-end/types/api";
+import { ReqContext } from "back-end/types/organization";
 
-const metricStatsObject = z.object({
-  users: z.number(),
-  count: z.number(),
-  stddev: z.number(),
-  mean: z.number(),
+export const safeRolloutStatusArray = [
+  "running",
+  "rolled-back",
+  "released",
+  "stopped",
+] as const;
+export type SafeRolloutStatus = typeof safeRolloutStatusArray[number];
+
+export const MaxDuration = z.object({
+  amount: z.number(),
+  unit: z.enum(["days", "hours", "minutes"]),
 });
-
-// Keep in sync with gbstats PowerResponse
-const metricPowerResponseFromStatsEngineObject = z.object({
-  status: z.string(),
-  errorMessage: z.string().optional(),
-  firstPeriodPairwiseSampleSize: z.number().optional(),
-  targetMDE: z.number(),
-  sigmahat2Delta: z.number().optional(),
-  priorProper: z.boolean().optional(),
-  priorLiftMean: z.number().optional(),
-  priorLiftVariance: z.number().optional(),
-  upperBoundAchieved: z.boolean().optional(),
-  scalingFactor: z.number().optional(),
-});
-
-const safeRolloutSnapshotMetricObject = z.object({
-  value: z.number(),
-  cr: z.number(),
-  users: z.number(),
-  denominator: z.number().optional(),
-  ci: z.tuple([z.number(), z.number()]).optional(),
-  ciAdjusted: z.tuple([z.number(), z.number()]).optional(),
-  expected: z.number().optional(),
-  risk: z.tuple([z.number(), z.number()]).optional(),
-  riskType: z.enum(["relative", "absolute"]).optional(),
-  stats: metricStatsObject.optional(),
-  pValue: z.number().optional(),
-  pValueAdjusted: z.number().optional(),
-  uplift: z
-    .object({
-      dist: z.string(),
-      mean: z.number().optional(),
-      stddev: z.number().optional(),
-    })
-    .optional(),
-  buckets: z
-    .array(
-      z.object({
-        x: z.number(),
-        y: z.number(),
-      })
-    )
-    .optional(),
-  chanceToWin: z.number().optional(),
-  // TODO: do we want to have nullish here or should we parse to undefined?
-  errorMessage: z.string().nullish(),
-  power: metricPowerResponseFromStatsEngineObject.nullish(),
-});
-
-const safeRolloutSnapshotTrafficDimensionObject = z.object({
-  name: z.string(),
-  srm: z.number(),
-  variationUnits: z.array(z.number()),
-});
-
-export type SafeRolloutSnapshotTrafficDimension = z.infer<
-  typeof safeRolloutSnapshotTrafficDimensionObject
->;
-
-const safeRolloutSnapshotTrafficObject = z.object({
-  overall: safeRolloutSnapshotTrafficDimensionObject,
-  dimension: z.record(
-    z.string(),
-    z.array(safeRolloutSnapshotTrafficDimensionObject)
-  ),
-  error: z
-    .enum(["NO_ROWS_IN_UNIT_QUERY", "TOO_MANY_ROWS"])
-    .or(z.string())
-    .optional(),
-});
-
-const safeRolloutSnapshotHealthObject = z.object({
-  traffic: safeRolloutSnapshotTrafficObject,
-  power: MidExperimentPowerCalculationResultValidator.optional(),
-});
-
-export type SafeRolloutSnapshotHealth = z.infer<
-  typeof safeRolloutSnapshotHealthObject
->;
-
-const dimensionForSnapshotObject = z.object({
-  id: z.string(),
-  settings: z
-    .object({
-      datasource: z.string(),
-      userIdType: z.string(),
-      sql: z.string(),
-    })
-    .optional(),
-});
-
-const metricForSnapshotObject = z.object({
-  id: z.string(),
-  settings: z
-    .object({
-      datasource: z.string(),
-      aggregation: z.string().optional(),
-      sql: z.string().optional(),
-      cappingSettings: cappingSettingsValidator,
-      denominator: z.string().optional(),
-      userIdTypes: z.array(z.string()).optional(),
-      type: z.enum(["binomial", "count", "duration", "revenue"]),
-    })
-    .optional(),
-  computedSettings: z
-    .object({
-      regressionAdjustmentEnabled: z.boolean(),
-      regressionAdjustmentAvailable: z.boolean(),
-      regressionAdjustmentDays: z.number(),
-      regressionAdjustmentReason: z.string(),
-      properPrior: z.boolean(),
-      properPriorMean: z.number(),
-      properPriorStdDev: z.number(),
-      windowSettings: windowSettingsValidator,
-    })
-    .optional(),
-});
-
-export type MetricForSafeRolloutSnapshot = z.infer<
-  typeof metricForSnapshotObject
->;
-
-const snapshotSettingsVariationValidator = z.object({
-  id: z.string(),
-  weight: z.number(),
-});
-
-const safeRolloutSnapshotSettings = z.object({
-  dimensions: z.array(dimensionForSnapshotObject),
-  metricSettings: z.array(metricForSnapshotObject),
-  guardrailMetrics: z.array(z.string()),
-  defaultMetricPriorSettings: priorSettingsValidator,
-  regressionAdjustmentEnabled: z.boolean(),
-  experimentId: z.string(),
-  queryFilter: z.string(),
+// NB: These are the fields that the user submit, and the rest of the interface
+// is generated by us based on this information + feature & rule definition.
+export const createSafeRolloutValidator = z.object({
   datasourceId: z.string(),
   exposureQueryId: z.string(),
-  startDate: z.date(),
-  endDate: z.date(),
-  variations: z.array(snapshotSettingsVariationValidator),
-  coverage: z.number().optional(),
+  guardrailMetricIds: z.array(z.string()),
+  maxDuration: MaxDuration,
 });
-
-export type SafeRolloutSnapshotSettings = z.infer<
-  typeof safeRolloutSnapshotSettings
+export type CreateSafeRolloutInterface = z.infer<
+  typeof createSafeRolloutValidator
 >;
 
-const safeRolloutSnapshotVariationObject = z.object({
-  users: z.number(),
-  metrics: z.record(z.string(), safeRolloutSnapshotMetricObject),
-});
-
-const safeRolloutReportResultDimensionObject = z.object({
-  name: z.string(),
-  srm: z.number(),
-  variations: z.array(safeRolloutSnapshotVariationObject),
-});
-export type SafeRolloutReportResultDimension = z.infer<
-  typeof safeRolloutReportResultDimensionObject
->;
-
-const safeRolloutSnapshotAnalysisSettingsValidator = z.object({
-  statsEngine: statsEnginesValidator,
-  regressionAdjusted: z.boolean().optional(),
-  sequentialTesting: z.boolean().optional(),
-  sequentialTestingTuningParameter: z.number().optional(),
-  pValueCorrection: z
-    .enum(["holm-bonferroni", "benjamini-hochberg"])
-    .nullable()
-    .optional(),
-  pValueThreshold: z.number().optional(),
-});
-
-export type SafeRolloutSnapshotAnalysisSettings = z.infer<
-  typeof safeRolloutSnapshotAnalysisSettingsValidator
->;
-
-const safeRolloutSnapshotAnalysisObject = z.object({
-  settings: safeRolloutSnapshotAnalysisSettingsValidator,
-  dateCreated: z.date(),
-  status: z.enum(["running", "success", "error"]),
-  error: z.string().optional(),
-  results: z.array(safeRolloutReportResultDimensionObject),
-});
-
-export type SafeRolloutSnapshotAnalysis = z.infer<
-  typeof safeRolloutSnapshotAnalysisObject
->;
-
-export const safeRolloutSnapshotInterface = z
-  .object({
-    id: z.string(),
-    organization: z.string(),
-    safeRolloutId: z.string(),
-    dimension: z.string().nullable(),
-    dateCreated: z.date(),
-    dateUpdated: z.date(),
-    error: z.string().optional().nullable(),
-    runStarted: z.date(),
-    status: z.enum(["running", "success", "error"]),
-    settings: safeRolloutSnapshotSettings,
-    triggeredBy: z.enum(["manual", "schedule"]),
-    queries: z.array(queryPointerValidator),
-    multipleExposures: z.number(),
-    analyses: z.array(safeRolloutSnapshotAnalysisObject),
-    health: safeRolloutSnapshotHealthObject.optional(),
-  })
-  .strict();
-
-export type SafeRolloutSnapshotInterface = z.infer<
-  typeof safeRolloutSnapshotInterface
->;
-
-export const safeRolloutBaseNotificationPayload = z.object({
+const safeRollout = createSafeRolloutValidator.extend({
+  // Refs
   featureId: z.string(),
-  ruleId: z.string(),
-  safeRolloutId: z.string(),
-  environments: z.array(z.string()),
+  environment: z.string(),
+
+  // Managed fields
+  status: z.enum(safeRolloutStatusArray),
+  autoSnapshots: z.boolean().default(true),
+  startedAt: z.date().optional(),
+  lastSnapshotAttempt: z.date().optional(),
+  nextSnapshotAttempt: z.date().optional(),
+  analysisSummary: experimentAnalysisSummary.optional(),
 });
-
-export const safeRolloutDecisionNotificationPayload = safeRolloutBaseNotificationPayload.strict();
-
-export type SafeRolloutDecisionNotificationPayload = z.infer<
-  typeof safeRolloutDecisionNotificationPayload
->;
-
-export const safeRolloutUnhealthyNotificationPayload = safeRolloutBaseNotificationPayload
-  .extend({
-    unhealthyReason: z.array(z.enum(["srm", "multipleExposures"])),
-  })
+export const safeRolloutValidator = baseSchema
+  .extend(safeRollout.shape)
   .strict();
+export type SafeRolloutInterface = z.infer<typeof safeRolloutValidator>;
 
-export type SafeRolloutUnhealthyNotificationPayload = z.infer<
-  typeof safeRolloutUnhealthyNotificationPayload
->;
+export async function validateCreateSafeRolloutFields(
+  safeRolloutFields: Partial<CreateSafeRolloutInterface> | undefined,
+  context: ReqContext | ApiReqContext
+): Promise<CreateSafeRolloutInterface> {
+  // TODO: How to use Zod validator here and provide a good error message to the user?
+  if (!safeRolloutFields) {
+    throw new Error("Safe Rollout fields must be set");
+  }
+  if (
+    safeRolloutFields?.maxDuration?.amount === undefined ||
+    safeRolloutFields?.maxDuration?.amount < 1
+  ) {
+    throw new Error("Time to monitor must be at least 1 day");
+  }
+  if (safeRolloutFields.maxDuration.unit === undefined) {
+    throw new Error("Time to monitor must be specified for safe rollouts");
+  }
+  if (safeRolloutFields.exposureQueryId === undefined) {
+    throw new Error("Exposure query must be specified for safe rollouts");
+  }
+  if (safeRolloutFields.datasourceId === undefined) {
+    throw new Error("Datasource must be specified for safe rollouts");
+  }
+  if (
+    safeRolloutFields.guardrailMetricIds === undefined ||
+    safeRolloutFields.guardrailMetricIds.length === 0
+  ) {
+    throw new Error("Please select at least 1 guardrail metric");
+  }
+
+  const metricIds = safeRolloutFields.guardrailMetricIds;
+  const datasourceId = safeRolloutFields.datasourceId;
+  if (metricIds.length) {
+    const map = await getMetricMap(context);
+    for (let i = 0; i < metricIds.length; i++) {
+      const metric = map.get(metricIds[i]);
+      if (metric) {
+        if (datasourceId && metric.datasource !== datasourceId) {
+          throw new Error(
+            "Metrics must belong to the same datasource as the safe rollout: " +
+              metricIds[i]
+          );
+        }
+      } else {
+        // check to see if this metric is actually a metric group
+        const metricGroup = await context.models.metricGroups.getById(
+          metricIds[i]
+        );
+        if (metricGroup) {
+          // Make sure it is tied to the same datasource as the experiment
+          if (datasourceId && metricGroup.datasource !== datasourceId) {
+            throw new Error(
+              "Metrics must be tied to the same datasource as the safe rollout: " +
+                metricIds[i]
+            );
+          }
+        } else {
+          // new metric that's not recognized...
+          throw new Error("Invalid metric specified: " + metricIds[i]);
+        }
+      }
+    }
+  }
+
+  return createSafeRolloutValidator.strip().parse(safeRolloutFields);
+}

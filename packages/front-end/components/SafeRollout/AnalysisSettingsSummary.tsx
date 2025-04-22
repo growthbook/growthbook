@@ -2,8 +2,8 @@ import { FaDatabase, FaExclamationTriangle } from "react-icons/fa";
 import React, { ReactElement, useState } from "react";
 import clsx from "clsx";
 import { expandMetricGroups } from "shared/experiments";
-import { SafeRolloutRule } from "back-end/src/validators/features";
-import { SafeRolloutSnapshotInterface } from "back-end/src/validators/safe-rollout";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { SafeRolloutSnapshotInterface } from "back-end/src/validators/safe-rollout-snapshot";
 import { differenceInHours } from "date-fns";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -12,22 +12,19 @@ import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
+import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import OutdatedBadge from "@/components/OutdatedBadge";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import OverflowText from "../Experiment/TabbedPage/OverflowText";
 import RefreshSnapshotButton from "./RefreshSnapshotButton";
-import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
-import { SafeRolloutInterface } from "back-end/src/models/SafeRolloutModel";
 
 export interface Props {
   safeRollout: SafeRolloutInterface;
-  mutate: () => void;
 }
 
 export default function SafeRolloutAnalysisSettingsSummary({
   safeRollout,
-  mutate,
 }: Props) {
   const {
     getDatasourceById,
@@ -37,8 +34,14 @@ export default function SafeRolloutAnalysisSettingsSummary({
 
   const permissionsUtil = usePermissionsUtil();
 
-  const { snapshot, feature, latest, analysis, mutateSnapshot } = useSafeRolloutSnapshot();
-  console.log("latest", latest);
+  const {
+    snapshot,
+    feature,
+    latest,
+    analysis,
+    mutateSnapshot,
+  } = useSafeRolloutSnapshot();
+
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const [refreshError, setRefreshError] = useState("");
 
@@ -51,15 +54,16 @@ export default function SafeRolloutAnalysisSettingsSummary({
     snapshot?.runStarted &&
     differenceInHours(Date.now(), new Date(snapshot.runStarted)) > 24.5;
 
-  const ds = getDatasourceById(safeRollout.datasource);
+  const ds = getDatasourceById(safeRollout.datasourceId);
 
   const guardrails: string[] = [];
-  expandMetricGroups(safeRollout.guardrailMetrics ?? [], metricGroups).forEach(
-    (m) => {
-      const name = getExperimentMetricById(m)?.name;
-      if (name) guardrails.push(name);
-    }
-  );
+  expandMetricGroups(
+    safeRollout.guardrailMetricIds ?? [],
+    metricGroups
+  ).forEach((m) => {
+    const name = getExperimentMetricById(m)?.name;
+    if (name) guardrails.push(name);
+  });
 
   const numMetrics = guardrails.length;
 
@@ -127,7 +131,7 @@ export default function SafeRolloutAnalysisSettingsSummary({
               numMetrics > 0 &&
               feature && (
                 <div className="col-auto">
-                  {safeRollout.datasource &&
+                  {safeRollout.datasourceId &&
                   latest &&
                   latest.queries?.length > 0 ? (
                     <RunQueriesButton
@@ -135,7 +139,6 @@ export default function SafeRolloutAnalysisSettingsSummary({
                       cancelEndpoint={`safe-rollout/snapshot/${latest.id}/cancel`}
                       mutate={() => {
                         mutateSnapshot();
-                        mutate();
                       }}
                       model={latest}
                       icon="refresh"
@@ -145,14 +148,9 @@ export default function SafeRolloutAnalysisSettingsSummary({
                           snapshot: SafeRolloutSnapshotInterface;
                         }>(`/safe-rollout/${safeRollout.id}/snapshot`, {
                           method: "POST",
-                          // Luke Sonnet doesnt think we need the featureId in the body
-                          // body: JSON.stringify({
-                          //   featureId: feature.id,
-                          // }),
                         })
                           .then(() => {
                             mutateSnapshot();
-                            mutate();
                             setRefreshError("");
                           })
                           .catch((e) => {
@@ -164,54 +162,49 @@ export default function SafeRolloutAnalysisSettingsSummary({
                     <RefreshSnapshotButton
                       mutate={() => {
                         mutateSnapshot();
-                        mutate();
                       }}
                       safeRollout={safeRollout}
-                      feature={feature}
                     />
                   )}
                 </div>
               )}
 
-            {ds &&
-              permissionsUtil.canRunExperimentQueries(ds) &&
-              latest && (
+            {ds && permissionsUtil.canRunExperimentQueries(ds) && latest && (
               // (status === "failed" || status === "partially-succeeded") && (
-                <div className="col-auto pl-1">
-                  <ViewAsyncQueriesButton
-                    queries={latest.queries.map((q) => q.query)}
-                    error={latest.error ?? undefined}
-                    color={clsx(
-                      {
-                        "outline-danger":
-                          status === "failed" ||
-                          status === "partially-succeeded",
-                      },
-                      " "
-                    )}
-                    display={null}
-                    status={status}
-                    icon={
-                      <span
-                        className="position-relative pr-2"
-                        style={{ marginRight: 6 }}
-                      >
-                        <span className="text-main">
-                          <FaDatabase />
-                        </span>
-                        <FaExclamationTriangle
-                          className="position-absolute"
-                          style={{
-                            top: -6,
-                            right: -4,
-                          }}
-                        />
+              <div className="col-auto pl-1">
+                <ViewAsyncQueriesButton
+                  queries={latest.queries.map((q) => q.query)}
+                  error={latest.error ?? undefined}
+                  color={clsx(
+                    {
+                      "outline-danger":
+                        status === "failed" || status === "partially-succeeded",
+                    },
+                    " "
+                  )}
+                  display={null}
+                  status={status}
+                  icon={
+                    <span
+                      className="position-relative pr-2"
+                      style={{ marginRight: 6 }}
+                    >
+                      <span className="text-main">
+                        <FaDatabase />
                       </span>
-                    }
-                    condensed={true}
-                  />
-                </div>
-              )}
+                      <FaExclamationTriangle
+                        className="position-absolute"
+                        style={{
+                          top: -6,
+                          right: -4,
+                        }}
+                      />
+                    </span>
+                  }
+                  condensed={true}
+                />
+              </div>
+            )}
 
             <div className="col-auto px-0"></div>
           </div>

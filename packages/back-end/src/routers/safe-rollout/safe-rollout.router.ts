@@ -2,13 +2,23 @@ import express from "express";
 import { z } from "zod";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
-import * as rawSnapshotController from "./safe-rollout-snapshot.controller";
+import { safeRolloutStatusArray } from "back-end/src/validators/safe-rollout";
+import * as rawSnapshotController from "./safe-rollout.controller";
 
 const router = express.Router();
-
-const safeRolloutSnapshotController = wrapController(rawSnapshotController);
+const safeRolloutController = wrapController(rawSnapshotController);
 
 const snapshotParams = z.object({ id: z.string() }).strict();
+const statusBody = z
+  .object({ status: z.enum(safeRolloutStatusArray) })
+  .strict();
+
+// Update the status of a safe rollout rule (rolled back, released, etc)
+router.put(
+  "/:id/status",
+  validateRequestMiddleware({ body: statusBody }),
+  safeRolloutController.putSafeRolloutStatus
+);
 
 // Get the latest snapshot for a safe rollout rule
 router.get(
@@ -16,7 +26,7 @@ router.get(
   validateRequestMiddleware({
     params: snapshotParams,
   }),
-  safeRolloutSnapshotController.getLatestSafeRolloutSnapshot
+  safeRolloutController.getLatestSafeRolloutSnapshot
 );
 
 // Create a snapshot for a safe rollout rule
@@ -26,7 +36,7 @@ router.post(
     params: snapshotParams,
     query: z.object({ force: z.string().optional() }).optional(),
   }),
-  safeRolloutSnapshotController.postSafeRolloutSnapshot
+  safeRolloutController.postSafeRolloutSnapshot
 );
 
 // Cancel a running snapshot for a safe rollout rule
@@ -35,7 +45,7 @@ router.post(
   validateRequestMiddleware({
     params: snapshotParams,
   }),
-  safeRolloutSnapshotController.cancelSafeRolloutSnapshot
+  safeRolloutController.cancelSafeRolloutSnapshot
 );
 
-export { router as safeRolloutSnapshotRouter };
+export { router as safeRolloutRouter };

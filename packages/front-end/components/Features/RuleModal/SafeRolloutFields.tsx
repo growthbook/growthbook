@@ -3,6 +3,8 @@ import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { Box, TextField } from "@radix-ui/themes";
+import { PiCaretUp, PiCaretDown } from "react-icons/pi";
+import { useState } from "react";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import SelectField from "@/components/Forms/SelectField";
@@ -12,6 +14,8 @@ import ConditionInput from "@/components/Features/ConditionInput";
 import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
+import Checkbox from "@/components/Radix/Checkbox";
+
 export default function SafeRolloutFields({
   feature,
   environment,
@@ -23,6 +27,8 @@ export default function SafeRolloutFields({
   conditionKey,
   isNewRule,
   step,
+  isDraft,
+  duplicate,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -37,8 +43,11 @@ export default function SafeRolloutFields({
   setScheduleToggleEnabled: (b: boolean) => void;
   step: number;
   isNewRule: boolean;
+  isDraft: boolean;
+  duplicate: boolean;
 }) {
   const form = useFormContext();
+  const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
   const attributeSchema = useAttributeSchema(false, feature.project);
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
@@ -49,9 +58,10 @@ export default function SafeRolloutFields({
       value: ds.id,
     })) || [];
   const dataSource = datasources?.find(
-    (ds) => ds.id === form.watch("safeRolloutInterfaceFields.datasource")
+    (ds) => ds.id === form.watch("safeRolloutFields.datasourceId")
   );
   const exposureQueries = dataSource?.settings?.queries?.exposure || [];
+  const disableFields = !isDraft && !isNewRule;
   const renderOverviewSteps = () => {
     return (
       <>
@@ -72,16 +82,18 @@ export default function SafeRolloutFields({
             valueType={feature.valueType}
             feature={feature}
             renderJSONInline={true}
+            disabled={disableFields}
           />
         </div>
         <SelectField
+          disabled={disableFields}
           label="Enroll based on attribute"
           options={attributeSchema
             .filter((s) => !hasHashAttributes || s.hashAttribute)
             .map((s) => ({ label: s.property, value: s.property }))}
-          value={form.watch("safeRolloutInterfaceFields.hashAttribute")}
+          value={form.watch("hashAttribute")}
           onChange={(v) => {
-            form.setValue("safeRolloutInterfaceFields.hashAttribute", v);
+            form.setValue("hashAttribute", v);
           }}
           required
         />
@@ -116,6 +128,28 @@ export default function SafeRolloutFields({
             Remove this prerequisite to continue.
           </div>
         )}
+
+        {duplicate && !!form.watch("seed") && (
+          <div
+            className="ml-auto link-purple cursor-pointer mb-2"
+            onClick={(e) => {
+              e.preventDefault();
+              setAdvancedOptionsOpen(!advancedOptionsOpen);
+            }}
+          >
+            Advanced Options{" "}
+            {!advancedOptionsOpen ? <PiCaretDown /> : <PiCaretUp />}
+          </div>
+        )}
+        {duplicate && !!form.watch("seed") && advancedOptionsOpen && (
+          <div className="ml-2">
+            <Checkbox
+              value={form.watch("sameSeed")}
+              setValue={(value: boolean) => form.setValue("sameSeed", value)}
+              label="Same seed"
+            />
+          </div>
+        )}
       </>
     );
   };
@@ -128,14 +162,14 @@ export default function SafeRolloutFields({
             <SelectField
               label="Data source"
               options={dataSourceOptions}
-              value={form.watch("safeRolloutInterfaceFields.datasource")}
+              value={form.watch("safeRolloutFields.datasourceId")}
               onChange={(v) =>
-                form.setValue("safeRolloutInterfaceFields.datasource", v)
+                form.setValue("safeRolloutFields.datasourceId", v)
               }
               required
               placeholder="Select a data source"
               // Add a disabled state while loading
-              disabled={!dataSourceOptions || !isNewRule}
+              disabled={!dataSourceOptions || disableFields}
             />
             {dataSourceOptions.length === 0 && (
               <div className="alert alert-warning mt-2">
@@ -155,12 +189,11 @@ export default function SafeRolloutFields({
               }))}
               required
               disabled={
-                !isNewRule ||
-                !form.watch("safeRolloutInterfaceFields.datasource")
+                disableFields || !form.watch("safeRolloutFields.datasourceId")
               }
-              value={form.watch("safeRolloutInterfaceFields.exposureQueryId")}
+              value={form.watch("safeRolloutFields.exposureQueryId")}
               onChange={(v) =>
-                form.setValue("safeRolloutInterfaceFields.exposureQueryId", v)
+                form.setValue("safeRolloutFields.exposureQueryId", v)
               }
             />
           </div>
@@ -169,16 +202,13 @@ export default function SafeRolloutFields({
           <label>Guardrail metrics</label>
           {/* TODO validate at least one metric is selected */}
           <MetricsSelector
-            datasource={form.watch("safeRolloutInterfaceFields.datasource")}
-            exposureQueryId={form.watch(
-              "safeRolloutInterfaceFields.exposureQueryId"
-            )}
+            datasource={form.watch("safeRolloutFields.datasourceId")}
+            exposureQueryId={form.watch("safeRolloutFields.exposureQueryId")}
             project={feature.project}
-            selected={
-              form.watch("safeRolloutInterfaceFields.guardrailMetrics") || []
-            }
+            selected={form.watch("safeRolloutFields.guardrailMetricIds") || []}
+            disabled={!form.watch("safeRolloutFields.exposureQueryId")}
             onChange={(v) =>
-              form.setValue("safeRolloutInterfaceFields.guardrailMetrics", v)
+              form.setValue("safeRolloutFields.guardrailMetricIds", v)
             }
           />
         </div>
@@ -186,15 +216,12 @@ export default function SafeRolloutFields({
           <label>Duration to monitor</label>
           <Box maxWidth="300px">
             <TextField.Root
+              placeholder="7"
               type="number"
-              value={form.watch("safeRolloutInterfaceFields.maxDurationDays")}
-              onChange={(e) =>
-                form.setValue(
-                  "safeRolloutInterfaceFields.maxDurationDays",
-                  parseInt(e.target.value) || 0
-                )
-              }
               required
+              {...form.register("safeRolloutFields.maxDuration.amount", {
+                valueAsNumber: true,
+              })}
             >
               <TextField.Slot></TextField.Slot>
               <TextField.Slot>Days</TextField.Slot>
@@ -204,12 +231,13 @@ export default function SafeRolloutFields({
         <div className="mb-3 pb-1">
           <FeatureValueField
             label="Control value"
-            id="value"
+            id="controlValue"
             value={form.watch("controlValue")}
             setValue={(v) => form.setValue("controlValue", v)}
             valueType={feature.valueType}
             feature={feature}
             renderJSONInline={true}
+            disabled={disableFields}
           />
         </div>
       </>
