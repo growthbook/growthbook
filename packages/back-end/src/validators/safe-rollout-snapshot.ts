@@ -146,7 +146,6 @@ const safeRolloutSnapshotSettings = z.object({
   guardrailMetrics: z.array(z.string()),
   defaultMetricPriorSettings: priorSettingsValidator,
   regressionAdjustmentEnabled: z.boolean(),
-  experimentId: z.string(),
   queryFilter: z.string(),
   datasourceId: z.string(),
   exposureQueryId: z.string(),
