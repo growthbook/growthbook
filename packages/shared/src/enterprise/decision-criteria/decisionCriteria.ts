@@ -569,7 +569,7 @@ export function getSafeRolloutResultStatus({
     return {
       status: "rollback-now",
       variationIds: decisionStatus.variationIds,
-      sequentialUsed: false,
+      sequentialUsed: true,
       powerReached: false,
     };
   }
