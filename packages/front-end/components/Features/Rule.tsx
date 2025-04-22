@@ -317,7 +317,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         )}
                         {safeRollout?.startedAt && (
                           <Box mt="3">
-                            {rule.enabled && rule.status === "running" && (
+                            {rule.enabled && (
                               <DecisionBanner
                                 openStatusModal={() =>
                                   setSafeRolloutStatusModalOpen(true)
