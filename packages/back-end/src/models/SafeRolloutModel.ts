@@ -1,5 +1,8 @@
-import { safeRolloutValidator } from "back-end/src/validators/safe-rollout";
-import { MakeModelClass } from "./BaseModel";
+import {
+  SafeRolloutInterface,
+  safeRolloutValidator,
+} from "back-end/src/validators/safe-rollout";
+import { MakeModelClass, UpdateProps } from "./BaseModel";
 
 export const COLLECTION_NAME = "saferollout";
 
@@ -33,5 +36,39 @@ export class SafeRolloutModel extends BaseClass {
 
   public async getAllByFeatureId(featureId: string) {
     return await this._find({ featureId });
+  }
+
+  protected async beforeUpdate(
+    existing: SafeRolloutInterface,
+    updates: UpdateProps<SafeRolloutInterface>
+  ) {
+    // If the Safe Rollout has already been started, we are limited on what we can update to keep the data consistent
+    // If the Safe Rollout has not been started, we can update all fields
+    if (existing.startedAt) {
+      const allowedFieldsForUpdate = [
+        "status",
+        "guardrailMetricIds",
+        "maxDurationDays",
+        "autoSnapshots",
+        "lastSnapshotAttempt",
+        "nextSnapshotAttempt",
+        "analysisSummary",
+      ];
+
+      // Check for disallowed field updates
+      for (const [key, value] of Object.entries(updates)) {
+        const typedKey = key as keyof typeof updates;
+
+        // If the field is not allowed and is being changed
+        if (
+          !allowedFieldsForUpdate.includes(typedKey) &&
+          existing[typedKey] !== value
+        ) {
+          throw new Error(
+            `Cannot update field '${key}' after the Safe Rollout has started.`
+          );
+        }
+      }
+    }
   }
 }

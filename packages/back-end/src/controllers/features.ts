@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
-import { isEqual, omit } from "lodash";
+import { isEqual } from "lodash";
 import { v4 as uuidv4 } from "uuid";
 import {
   autoMerge,
@@ -1664,7 +1664,8 @@ export async function putFeatureRule(
   const context = getContextFromReq(req);
   const { org } = context;
   const { id, version } = req.params;
-  const { environment, i, rule, safeRolloutFields } = req.body;
+  const { environment, rule, safeRolloutFields, i } = req.body;
+
   const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
@@ -1684,67 +1685,52 @@ export async function putFeatureRule(
   ) {
     context.permissions.throwPermissionError();
   }
-  let canUpdateRevision = true;
-  if (rule.type === "safe-rollout") {
+
+  if (rule.type === "safe-rollout" && safeRolloutFields) {
+    const validatedSafeRolloutFields = await validateCreateSafeRolloutFields(
+      safeRolloutFields,
+      context
+    );
     if (!rule.safeRolloutId) {
-      throw new Error("Safe rollout rule must have a safeRolloutId");
+      throw new Error("Safe Rollout rule must have a safeRolloutId");
     }
     const existingSafeRollout = await context.models.safeRollout.getById(
       rule.safeRolloutId
     );
-
     if (!existingSafeRollout) {
-      throw new Error("Safe rollout rule must have a safeRolloutId");
+      throw new Error("Associated Safe Rollout must exist");
     }
     if (environment !== existingSafeRollout.environment) {
       throw new Error(
         `you can not update this safe rollout under ${environment} environment because it was created under ${existingSafeRollout.environment} environment`
       );
     }
-    if (safeRolloutFields) {
-      await context.models.safeRollout.update(existingSafeRollout, {
-        ...omit(safeRolloutFields, [
-          "organization",
-          "dateCreated",
-          "dateUpdated",
-          "startedAt",
-        ]),
-        status: rule.status || existingSafeRollout.status || "draft",
-      });
-    }
-    if (existingSafeRollout.startedAt) {
-      // not sure if we want to lock or just create a new revision?
-      // revsion is locked for the safe rollout once it's released
-      canUpdateRevision = false;
-    }
-  }
-  let revisionVersion = parseInt(version);
-  if (canUpdateRevision) {
-    const revision = await getDraftRevision(
-      context,
-      feature,
-      parseInt(version)
-    );
-    revisionVersion = revision.version;
-    const resetReview = resetReviewOnChange({
-      feature,
-      changedEnvironments: [environment],
-      defaultValueChanged: false,
-      settings: org?.settings,
+
+    await context.models.safeRollout.update(existingSafeRollout, {
+      ...validatedSafeRolloutFields,
+      ...(rule.status && { status: rule.status }),
     });
-    await editFeatureRule(
-      revision,
-      environment,
-      i,
-      rule,
-      res.locals.eventAudit,
-      resetReview
-    );
   }
+
+  const revision = await getDraftRevision(context, feature, parseInt(version));
+  const resetReview = resetReviewOnChange({
+    feature,
+    changedEnvironments: [environment],
+    defaultValueChanged: false,
+    settings: org?.settings,
+  });
+  await editFeatureRule(
+    revision,
+    environment,
+    i,
+    rule,
+    res.locals.eventAudit,
+    resetReview
+  );
 
   res.status(200).json({
     status: 200,
-    version: revisionVersion,
+    version: revision.version,
   });
 }
 
