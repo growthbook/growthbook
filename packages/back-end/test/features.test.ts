@@ -1410,6 +1410,78 @@ describe("SDK Payloads", () => {
         },
       ],
     });
+
+    const feature2 = cloneDeep(baseFeature);
+    feature2.environmentSettings["production"].rules = [
+      {
+        type: "safe-rollout",
+        controlValue: "false",
+        variationValue: "true",
+        safeRolloutId: "sr_123",
+        status: "rolled-back",
+        hashAttribute: "user_id",
+        seed: "testing",
+        trackingKey: "exp-key",
+        description: "",
+        id: "abc",
+        enabled: true,
+      },
+    ];
+
+    // Includes the rolled-back safe rollout as a force rule with the control value
+    expect(
+      getFeatureDefinition({
+        feature: feature2,
+        environment: "production",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+      })
+    ).toEqual({
+      defaultValue: true,
+      project: undefined,
+      rules: [
+        {
+          id: "abc",
+          force: false,
+        },
+      ],
+    });
+
+    const feature3 = cloneDeep(baseFeature);
+    feature3.environmentSettings["production"].rules = [
+      {
+        type: "safe-rollout",
+        controlValue: "false",
+        variationValue: "true",
+        safeRolloutId: "sr_123",
+        status: "released",
+        hashAttribute: "user_id",
+        seed: "testing",
+        trackingKey: "exp-key",
+        description: "",
+        id: "abc",
+        enabled: true,
+      },
+    ];
+
+    // Includes the released safe rollout as a force rule with the variation value
+    expect(
+      getFeatureDefinition({
+        feature: feature3,
+        environment: "production",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+      })
+    ).toEqual({
+      defaultValue: true,
+      project: undefined,
+      rules: [
+        {
+          id: "abc",
+          force: true,
+        },
+      ],
+    });
   });
 
   it("Gets Feature Definitions", () => {
