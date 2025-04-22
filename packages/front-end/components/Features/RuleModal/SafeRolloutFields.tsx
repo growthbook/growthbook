@@ -188,15 +188,12 @@ export default function SafeRolloutFields({
           <label>Duration to monitor</label>
           <Box maxWidth="300px">
             <TextField.Root
+              placeholder="7"
               type="number"
-              value={form.watch("safeRolloutFields.maxDurationDays")}
-              onChange={(e) =>
-                form.setValue(
-                  "safeRolloutFields.maxDurationDays",
-                  parseInt(e.target.value) || 0
-                )
-              }
               required
+              {...form.register("safeRolloutFields.maxDurationDays", {
+                valueAsNumber: true,
+              })}
             >
               <TextField.Slot></TextField.Slot>
               <TextField.Slot>Days</TextField.Slot>
