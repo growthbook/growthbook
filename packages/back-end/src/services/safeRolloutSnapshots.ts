@@ -543,7 +543,7 @@ const dispatchSafeRolloutEvent = async <T extends ResourceEvents<"feature">>({
     data,
     projects: feature.project ? [feature.project] : [],
     tags: feature.tags || [],
-    environment,
+    environments: [environment],
     containsSecrets: false,
   });
 };
