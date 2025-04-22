@@ -360,6 +360,7 @@ export class UserScopedGrowthBook<
 > {
   private _gb: GrowthBookClient;
   private _userContext: UserContext;
+  private _trackedFeatures: Record<string, string>;
   public logs: Array<LogUnion>;
 
   constructor(
@@ -368,24 +369,14 @@ export class UserScopedGrowthBook<
     plugins?: Plugin[]
   ) {
     this._gb = gb;
-    this._userContext = userContext;
+    this._userContext = {
+      ...userContext,
+      onFeatureUsage: this._trackFeatureUsage,
+    };
+    this._trackedFeatures = {};
     this.logs = [];
 
-    if (userContext.enableDevMode) {
-      const cb = userContext.onFeatureUsage;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      userContext.onFeatureUsage = (key: string, res: FeatureResult<any>) => {
-        this.logs.push({
-          featureKey: key,
-          result: res,
-          timestamp: Date.now().toString(),
-          logType: "feature",
-        });
-        if (cb) {
-          cb(key, res);
-        }
-      };
-    }
+    this._trackFeatureUsage = this._trackFeatureUsage.bind(this);
 
     if (plugins) {
       for (const plugin of plugins) {
@@ -460,5 +451,30 @@ export class UserScopedGrowthBook<
   }
   public getDecryptedPayload() {
     return this._gb.getDecryptedPayload();
+  }
+
+  private _trackFeatureUsage(key: string, res: FeatureResult): void {
+    // Only track a feature once, unless the assigned value changed
+    const stringifiedValue = JSON.stringify(res.value);
+    if (this._trackedFeatures[key] === stringifiedValue) return;
+    this._trackedFeatures[key] = stringifiedValue;
+
+    if (this._userContext.enableDevMode) {
+      this.logs.push({
+        featureKey: key,
+        result: res,
+        timestamp: Date.now().toString(),
+        logType: "feature",
+      });
+    }
+
+    // Fire user-supplied callback
+    if (this._userContext.onFeatureUsage) {
+      try {
+        this._userContext.onFeatureUsage(key, res);
+      } catch (e) {
+        // Ignore feature usage callback errors
+      }
+    }
   }
 }
