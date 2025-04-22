@@ -325,10 +325,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                 rule={rule}
                               />
                             )}
-                            <SafeRolloutDetails
-                              safeRollout={safeRollout}
-                              rule={rule}
-                            />{" "}
+                            <SafeRolloutDetails safeRollout={safeRollout} />{" "}
                           </Box>
                         )}
                         {!safeRollout?.startedAt && (

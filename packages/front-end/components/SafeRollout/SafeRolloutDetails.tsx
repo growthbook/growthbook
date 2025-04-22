@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
-import { ago, getValidDate } from "shared/dates";
-import { SafeRolloutRule } from "back-end/src/validators/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Link from "@/components/Radix/Link";
 import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";
@@ -10,11 +8,9 @@ import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvide
 import SRMCard from "../HealthTab/SRMCard";
 import Callout from "../Radix/Callout";
 import SafeRolloutResults from "./SafeRolloutResults";
-import RefreshSnapshotButton from "./RefreshSnapshotButton";
 
 interface Props {
   safeRollout: SafeRolloutInterface;
-  rule: SafeRolloutRule;
 }
 
 const variations = [
@@ -30,20 +26,10 @@ const variations = [
   },
 ];
 
-export default function SafeRolloutDetails({ safeRollout, rule }: Props) {
-  const {
-    snapshot,
-    loading: snapshotLoading,
-    analysis,
-    mutateSnapshot,
-  } = useSafeRolloutSnapshot();
+export default function SafeRolloutDetails({ safeRollout }: Props) {
+  const { snapshot } = useSafeRolloutSnapshot();
   const { getDatasourceById } = useDefinitions();
   const datasource = getDatasourceById(safeRollout.datasourceId);
-
-  const safeRolloutAgeMinutes =
-    (Date.now() - getValidDate(safeRollout.startedAt ?? "").getTime()) /
-    (1000 * 60);
-  const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
 
   const exposureQuery = datasource?.settings.queries?.exposure?.find(
     (e) => e.id === safeRollout.exposureQueryId
@@ -56,30 +42,6 @@ export default function SafeRolloutDetails({ safeRollout, rule }: Props) {
 
   const traffic = snapshot?.health?.traffic;
   const [isHealthExpanded, setIsHealthExpanded] = useState(false);
-
-  if (
-    !hasData &&
-    safeRolloutAgeMinutes < 120 &&
-    safeRollout.status === "running" &&
-    rule.enabled
-  ) {
-    return (
-      <Callout status="info" my="4">
-        <span className="mr-auto">
-          {"Started " +
-            ago(safeRollout.startedAt ?? "") +
-            ". Give it a little longer and check again.  "}
-        </span>
-        <RefreshSnapshotButton
-          mutate={() => {
-            mutateSnapshot();
-          }}
-          safeRollout={safeRollout}
-        />
-        {snapshotLoading && <div> Snapshot loading...</div>}
-      </Callout>
-    );
-  }
 
   return (
     <div>
