@@ -141,6 +141,7 @@ const snapshotSettingsVariationValidator = z.object({
 });
 
 const safeRolloutSnapshotSettings = z.object({
+  experimentId: z.string(),
   dimensions: z.array(dimensionForSnapshotObject),
   metricSettings: z.array(metricForSnapshotObject),
   guardrailMetrics: z.array(z.string()),
