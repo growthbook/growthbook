@@ -281,6 +281,7 @@ export default function ResultsTable({
     hoveredMetricRow,
     hoveredVariationRow,
     resetTimeout,
+    TooltipInPortal,
   } = useResultsTableTooltip({
     orderedVariations,
     rows,
@@ -298,34 +299,45 @@ export default function ResultsTable({
 
   return (
     <div className="position-relative" ref={containerRef}>
-      <CSSTransition
-        key={`${hoveredMetricRow}-${hoveredVariationRow}`}
-        in={
-          tooltipOpen &&
-          tooltipData &&
-          hoveredX !== null &&
-          hoveredY !== null &&
-          hoveredMetricRow !== null &&
-          hoveredVariationRow !== null
-        }
-        timeout={200}
-        classNames="tooltip-animate"
-        appear={true}
+      <TooltipInPortal
+        left={hoveredX ?? 0}
+        top={hoveredY ?? 0}
+        key={Math.random()}
+        style={{
+          backgroundColor: "transparent",
+          boxShadow: "none",
+          position: "absolute",
+        }}
       >
-        <ResultsTableTooltip
-          left={hoveredX ?? 0}
-          top={hoveredY ?? 0}
-          data={tooltipData}
-          tooltipOpen={tooltipOpen}
-          close={closeTooltip}
-          differenceType={differenceType}
-          onPointerMove={resetTimeout}
-          onClick={resetTimeout}
-          onPointerLeave={leaveRow}
-          isBandit={isBandit}
-          ssrPolyfills={ssrPolyfills}
-        />
-      </CSSTransition>
+        <CSSTransition
+          key={`${hoveredMetricRow}-${hoveredVariationRow}`}
+          in={
+            tooltipOpen &&
+            tooltipData &&
+            hoveredX !== null &&
+            hoveredY !== null &&
+            hoveredMetricRow !== null &&
+            hoveredVariationRow !== null
+          }
+          timeout={200}
+          classNames="tooltip-animate"
+          appear={true}
+        >
+          <ResultsTableTooltip
+            left={0}
+            top={0}
+            data={tooltipData}
+            tooltipOpen={tooltipOpen}
+            close={closeTooltip}
+            differenceType={differenceType}
+            onPointerMove={resetTimeout}
+            onClick={resetTimeout}
+            onPointerLeave={leaveRow}
+            isBandit={isBandit}
+            ssrPolyfills={ssrPolyfills}
+          />
+        </CSSTransition>
+      </TooltipInPortal>
 
       <div ref={tableContainerRef} className="experiment-results-wrapper">
         <div className="w-100" style={{ minWidth: 700 }}>
