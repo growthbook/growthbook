@@ -10,14 +10,20 @@ import { findDimensionById } from "back-end/src/models/DimensionModel";
 type ExperimentResultRow = {
   experimentName: string;
   experimentId: string;
-  snapshotDate: string | null;
   snapshotId: string;
+  snapshotDate: string | null;
   dimensionId: string | null;
   dimensionName: string | null;
   dimensionValue: string | null;
   metricName: string | null;
   metricId: string;
   baselineVariationId: string | null;
+  baselineVariationName: string | null;
+  baselineVariationUsers: number | null;
+  baselineVariationNumerator: number | null;
+  baselineVariationDenominator: number | null;
+  baselineVariationMean: number | null;
+  baselineVariationStdDev: number | null;
   variationName: string | null;
   variationId: string | null;
   variationUsers: number;
@@ -27,7 +33,7 @@ type ExperimentResultRow = {
   variationStdDev: number | null;
   differenceType: DifferenceType;
   effect: number | null;
-  chanceToBeatControl: number | null;
+  chanceToWin: number | null;
   relativeRisk: number | null;
   pValue: number | null;
   pValueAdjusted: number | null;
@@ -57,8 +63,16 @@ export async function getExperimentResultRows({
   const rows: ExperimentResultRow[] = [];
 
   snapshot.analyses.forEach((analysis) => {
+    // skip analyses where the control variation is not the baseline variation
+    if (analysis.settings.baselineVariationIndex !== 0) {
+      return;
+    }
     analysis.results.forEach((result) => {
       result.variations.forEach((variation, i) => {
+        // skip if the variation is the control
+        if (i === 0) {
+          return;
+        }
         Object.entries(variation.metrics).forEach(
           ([metricId, metricResult]) => {
             const metric = metricMap.get(metricId);
@@ -82,6 +96,12 @@ export async function getExperimentResultRows({
               metricName: metric?.name ?? null,
               metricId: metricId,
               baselineVariationId: experiment.variations[0]?.id ?? "0",
+              baselineVariationName: experiment.variations[0]?.name ?? null,
+              baselineVariationUsers: baselineMetric?.users ?? null,
+              baselineVariationNumerator: baselineMetric?.value ?? null,
+              baselineVariationDenominator: baselineMetric?.denominator ?? null,
+              baselineVariationMean: baselineMetric?.cr ?? null,
+              baselineVariationStdDev: baselineMetric?.stats?.stddev ?? null,
               variationName: experiment.variations[i]?.name ?? null,
               variationId: experiment.variations[i]?.id ?? `${i}`,
               variationUsers: metricResult.users,
@@ -91,7 +111,7 @@ export async function getExperimentResultRows({
               variationStdDev: metricResult.stats?.stddev ?? null,
               differenceType: analysis.settings.differenceType,
               effect: metricResult.expected ?? null,
-              chanceToBeatControl: metricResult.chanceToWin ?? null,
+              chanceToWin: metricResult.chanceToWin ?? null,
               relativeRisk: relativeRisk ?? null,
               pValue: metricResult.pValue ?? null,
               pValueAdjusted: metricResult.pValueAdjusted ?? null,

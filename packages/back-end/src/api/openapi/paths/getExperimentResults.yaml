@@ -32,5 +32,6 @@ get:
                 $ref: "../schemas/ExperimentResults.yaml"
               cleanedResults:
                 type: array
+                description: "The results for the experiment de-normalized. Each element in this array represents the results for a single variation on a single metric. If a dimension was requested, then each element will be the results for a single value of the dimension. If multiple difference types (e.g. relative, absolute, scaled impact) were in the results, then each element will contain the results for a single difference type. Therefore, each element in this array will be the results for a single variation on a single metric for a single difference type for a single value of the dimension (which will be null for the overall results)."
                 items:
                   $ref: "../schemas/ExperimentResultsRow.yaml"
