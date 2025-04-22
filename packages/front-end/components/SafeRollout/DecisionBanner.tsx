@@ -56,7 +56,7 @@ const DecisionBanner = ({
 
   // If the safe rollout has been rolled back or released, explain that the safe rollout is
   // acting as a temporary rollout with the control or variation value
-  if (safeRollout.status === "rolled-back") {
+  if (safeRollout.status === "rolled-back" && rule.enabled !== false) {
     return (
       <Callout status="info">
         This Safe Rollout is rolled back and a{" "}
@@ -65,7 +65,7 @@ const DecisionBanner = ({
         disable or delete the safe rollout rule.
       </Callout>
     );
-  } else if (safeRollout.status === "released") {
+  } else if (safeRollout.status === "released" && rule.enabled !== false) {
     return (
       <Callout status="info">
         This Safe Rollout is rolled out and a <strong>Temporary Rollout</strong>{" "}
