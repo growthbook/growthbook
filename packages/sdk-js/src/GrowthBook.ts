@@ -630,6 +630,7 @@ export class GrowthBook<
             ...this.getAttributes(),
           }
         : this.getAttributes(),
+      enableDevMode: this._options.enableDevMode,
       blockedChangeIds: this._options.blockedChangeIds,
       stickyBucketAssignmentDocs: this._options.stickyBucketAssignmentDocs,
       url: this._getContextUrl(),

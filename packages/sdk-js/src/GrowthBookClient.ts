@@ -427,6 +427,9 @@ export class UserScopedGrowthBook<
   public setTrackingCallback(cb: TrackingCallback) {
     this._userContext.trackingCallback = cb;
   }
+  public getApiInfo(): [ApiHost, ClientKey] {
+    return this._gb.getApiInfo();
+  }
   public getClientKey() {
     return this._gb.getClientKey();
   }
@@ -448,5 +451,14 @@ export class UserScopedGrowthBook<
   // eslint-disable-next-line
   public setForcedFeatures(map: Map<string, any>) {
     this._userContext.forcedFeatureValues = map;
+  }
+  public getUserContext() {
+    return this._userContext;
+  }
+  public getVersion() {
+    return SDK_VERSION;
+  }
+  public getDecryptedPayload() {
+    return this._gb.getDecryptedPayload();
   }
 }

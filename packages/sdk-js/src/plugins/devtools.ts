@@ -154,16 +154,16 @@ export function devtoolsExpressPlugin({
   };
 }
 
-type LogUnionWithSource = LogUnion & { source?: string };
 type SdkInfo = {
   apiHost: string;
   clientKey: string;
+  source?: string;
   version?: string;
   payload?: FeatureApiResponse;
   attributes?: Attributes;
 };
 type LogEvent = {
-  logs: LogUnionWithSource[];
+  logs: LogUnion[];
   sdkInfo?: SdkInfo;
 };
 /**
@@ -173,7 +173,7 @@ type LogEvent = {
  * @example
  * A React logger component (implement yourself):
  ```
-  const event = getDebugEvent({ gb, "nextjs" });
+  const event = getDebugEvent({ gb, source: "nextjs" });
   return (
     <script dangerouslySetInnerHTML={{
       __html: \`(window._gbdebugEvents = (window._gbdebugEvents || [])).push(${JSON.stringify(event)});\`
@@ -190,37 +190,30 @@ export function getDebugEvent(
     // GrowthBook SDK
     const [apiHost, clientKey] = gb.getApiInfo();
     return {
-      logs: gb.logs.map((log) => ({ ...log, source, clientKey })),
+      logs: gb.logs,
       sdkInfo: {
         apiHost,
         clientKey,
+        source,
         version: gb.version,
-        payload: gb.getDecryptedPayload?.() || {
-          features: gb.getFeatures?.(),
-          experiments: gb.getExperiments?.(),
-        },
+        payload: gb.getDecryptedPayload(),
         attributes: gb.getAttributes(),
       },
     };
   } else if (gb instanceof UserScopedGrowthBook) {
     // UserScopedGrowthBook SDK
-    // @ts-expect-error private access
-    const _gb = gb._gb;
-    // @ts-expect-error private access
-    const _userContext = gb._userContext;
-    const [apiHost, clientKey] = _gb.getApiInfo();
+    const userContext = gb.getUserContext();
+    const [apiHost, clientKey] = gb.getApiInfo();
     return {
       logs: gb.logs.map((log) => ({ ...log, source, clientKey })),
       sdkInfo: {
         apiHost,
         clientKey,
-        version: _gb.version,
-        payload: _gb.getDecryptedPayload?.() || {
-          features: _gb.getFeatures?.(),
-        },
+        version: gb.getVersion(),
+        payload: gb.getDecryptedPayload(),
         attributes: {
-          ..._userContext.attributes,
-          ..._userContext.attributeOverrides,
+          ...userContext.attributes,
+          ...userContext.attributeOverrides,
         },
       },
     };
