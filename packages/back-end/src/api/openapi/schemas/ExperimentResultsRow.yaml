@@ -59,13 +59,13 @@ properties:
     type: string
     description: "The name of the metric being measured."
     nullable: true
-  baselineVariationId:
-    type: string
-    description: "The id of the variation that is the baseline for this set of results."
-    nullable: true
   baselineVariationName:
     type: string
     description: "The name of the baseline variation."
+    nullable: true
+  baselineVariationId:
+    type: string
+    description: "The id of the variation that is the baseline for this set of results."
     nullable: true
   baselineVariationUsers:
     type: number

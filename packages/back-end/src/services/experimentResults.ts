@@ -17,8 +17,8 @@ type ExperimentResultRow = {
   dimensionValue: string | null;
   metricName: string | null;
   metricId: string;
-  baselineVariationId: string | null;
   baselineVariationName: string | null;
+  baselineVariationId: string | null;
   baselineVariationUsers: number | null;
   baselineVariationNumerator: number | null;
   baselineVariationDenominator: number | null;
