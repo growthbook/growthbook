@@ -797,6 +797,10 @@ class PostStratificationSummary:
     def p_value(self) -> float:
         return 2 * (1 - norm.cdf(abs(self.point_estimate) / np.sqrt(self.estimated_variance)))  # type: ignore
 
+    @property
+    def unadjusted_baseline_mean(self) -> float:
+        return self.mean[0]
+
     def compute_result(self) -> FrequentistTestResult:
         return FrequentistTestResult(
             expected=self.point_estimate,
@@ -809,6 +813,8 @@ class PostStratificationSummary:
             error_message=None,
             p_value=self.p_value,
             p_value_error_message=None,
+            unadjusted_baseline_mean=self.unadjusted_baseline_mean,
+            n=self.n_total,
         )
 
 
@@ -889,6 +895,13 @@ class PostStratificationSummaryRatio(PostStratificationSummary):
                 return 0
             else:
                 return mn_trt_num / mn_trt_den - mn_ctrl_num / mn_ctrl_den
+
+    @property
+    def unadjusted_baseline_mean(self) -> float:
+        if self.mean[2] == 0:
+            return 0
+        else:
+            return self.mean[0] / self.mean[2]
 
 
 def nu_adjusted(nu_hat, n) -> np.ndarray:

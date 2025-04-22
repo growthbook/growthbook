@@ -43,9 +43,10 @@ PValueErrorMessage = Literal[
 # Results
 @dataclass
 class FrequentistTestResult(TestResult):
+    unadjusted_baseline_mean: float
+    n: int
     p_value: Optional[float] = None
     p_value_error_message: Optional[PValueErrorMessage] = None
-    unadjusted_baseline_mean: Optional[float] = None
 
 
 @dataclass
@@ -229,6 +230,8 @@ class TTest(BaseABTest):
             ),
             error_message=error_message,
             p_value_error_message=p_value_error_message,
+            unadjusted_baseline_mean=self.stat_a.unadjusted_mean,
+            n=self.stat_a.n + self.stat_b.n,
         )
 
     def compute_p_value(self) -> PValueResult:
@@ -275,6 +278,8 @@ class TTest(BaseABTest):
             ),
             error_message=None,
             p_value_error_message=p_value_result.p_value_error_message,
+            unadjusted_baseline_mean=self.stat_a.unadjusted_mean,
+            n=self.stat_a.n + self.stat_b.n,
         )
         if self.scaled:
             result = self.scale_result(result)
@@ -299,6 +304,8 @@ class TTest(BaseABTest):
                     ),
                     error_message=None,
                     p_value_error_message=result.p_value_error_message,
+                    unadjusted_baseline_mean=result.unadjusted_baseline_mean,
+                    n=result.n,
                 )
             else:
                 return self._default_output(NO_UNITS_IN_VARIATION_MESSAGE)
@@ -397,12 +404,14 @@ class SequentialTTest(TTest):
         stat_a: TestStatistic,
         stat_b: TestStatistic,
         config: SequentialConfig = SequentialConfig(),
+        result: Optional[FrequentistTestResult] = None,
     ):
         config_dict = asdict(config)
         self.sequential_tuning_parameter = config_dict.pop(
             "sequential_tuning_parameter"
         )
         super().__init__(stat_a, stat_b, FrequentistConfig(**config_dict))
+        self.result = result
 
     @property
     def n(self) -> float:
@@ -420,13 +429,20 @@ class SequentialTTest(TTest):
     def halfwidth(self) -> float:
         pass
 
+    # "variance" of the treatment effect distribution;
+    @property
+    def s2(self) -> float:
+        if self.result is not None:
+            return self.result.uplift.stddev**2 * float(self.result.n)
+        else:
+            return self.variance * self.n
+
 
 class SequentialTwoSidedTTest(SequentialTTest):
     @property
     def halfwidth(self) -> float:
-        s2 = self.variance * self.n
         return sequential_interval_halfwidth(
-            s2, self.n, self.sequential_tuning_parameter, self.alpha
+            self.s2, self.n, self.sequential_tuning_parameter, self.alpha
         )
 
     @property
@@ -458,9 +474,8 @@ class SequentialOneSidedTreatmentLesserTTest(SequentialTTest):
 
     @property
     def halfwidth(self) -> float:
-        s2 = self.variance * self.n
         return sequential_interval_halfwidth_one_sided(
-            s2,
+            self.s2,
             self.n,
             self.sequential_tuning_parameter,
             self.alpha,

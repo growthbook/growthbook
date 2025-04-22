@@ -60,6 +60,8 @@ class TestTwoSidedTTest(TestCase):
                 uplift=Uplift("normal", 0.70732, 0.37879),
                 p_value=0.06191,
                 error_message=None,
+                unadjusted_baseline_mean=stat_a.unadjusted_mean,
+                n=stat_a.n + stat_b.n,
             )
         )
         if result_dict["p_value"]:
@@ -84,6 +86,8 @@ class TestTwoSidedTTest(TestCase):
                 uplift=Uplift("normal", 0.29, 0.12478),
                 p_value=0.02016,
                 error_message=None,
+                unadjusted_baseline_mean=stat_a.unadjusted_mean,
+                n=stat_a.n + stat_b.n,
             )
         )
 
@@ -100,6 +104,8 @@ class TestTwoSidedTTest(TestCase):
                 uplift=Uplift("normal", 0.06667, 0.2717),
                 p_value=0.80707,
                 error_message=None,
+                unadjusted_baseline_mean=stat_a.unadjusted_mean,
+                n=stat_a.n + stat_b.n,
             )
         )
 
@@ -168,6 +174,8 @@ class TestTwoSidedTTest(TestCase):
                 uplift=Uplift(dist="normal", mean=-0.0007, stddev=0.00391),
                 error_message=None,
                 p_value=0.85771,
+                unadjusted_baseline_mean=round(stat_a.unadjusted_mean, 4),
+                n=stat_a.n + stat_b.n,
             )
         )
         self.assertDictEqual(_round_result_dict(result_dict), expected_dict)
@@ -188,6 +196,8 @@ class TestSequentialTTest(TestCase):
                 uplift=Uplift("normal", 0.50336, 0.33341),
                 p_value=1,
                 error_message=None,
+                unadjusted_baseline_mean=round(stat_a.unadjusted_mean, 5),
+                n=stat_a.n + stat_b.n,
             )
         )
 
@@ -204,6 +214,8 @@ class TestSequentialTTest(TestCase):
                 uplift=Uplift("normal", 0.50386, 0.03386),
                 p_value=0.0,
                 error_message=None,
+                unadjusted_baseline_mean=round(stat_a.unadjusted_mean, 5),
+                n=stat_a.n + stat_b.n,
             )
         )
         self.assertEqual(_round_result_dict(result_dict), expected_dict)
@@ -237,9 +249,10 @@ class TestSequentialTTest(TestCase):
                 uplift=Uplift("normal", 0.50338, 0.33341),
                 p_value=1,
                 error_message=None,
+                unadjusted_baseline_mean=round(stat_a_ra.unadjusted_mean, 5),
+                n=stat_a_ra.n + stat_b_ra.n,
             )
         )
-
         self.assertEqual(_round_result_dict(result_dict), expected_dict)
 
     def test_sequential_test_runs_ratio_ra(self):
@@ -296,6 +309,8 @@ class TestSequentialTTest(TestCase):
                 uplift=Uplift(dist="normal", mean=-0.0007, stddev=0.00391),
                 error_message=None,
                 p_value=1.0,
+                unadjusted_baseline_mean=round(stat_a.unadjusted_mean, 4),
+                n=stat_a.n + stat_b.n,
             )
         )
         self.assertEqual(_round_result_dict(result_dict), expected_dict)
@@ -353,6 +368,8 @@ class TestOneSidedGreaterTTest(TestCase):
                 error_message=None,
                 p_value=0.06558262868467746,
                 p_value_error_message=None,
+                unadjusted_baseline_mean=self.stat_a.unadjusted_mean,
+                n=self.stat_a.n + self.stat_b.n,
             )
         )
         self.assertDictEqual(
@@ -377,6 +394,8 @@ class TestOneSidedGreaterTTest(TestCase):
                 error_message=None,
                 p_value=0.03554272489873023,
                 p_value_error_message=None,
+                unadjusted_baseline_mean=self.stat_a.unadjusted_mean,
+                n=self.stat_a.n + self.stat_b.n,
             )
         )
         self.assertDictEqual(
@@ -403,6 +422,8 @@ class TestOneSidedLesserTTest(TestCase):
                 error_message=None,
                 p_value=0.9344173713153225,
                 p_value_error_message=None,
+                unadjusted_baseline_mean=self.stat_a.unadjusted_mean,
+                n=self.stat_a.n + self.stat_b.n,
             )
         )
         self.assertDictEqual(
@@ -427,6 +448,8 @@ class TestOneSidedLesserTTest(TestCase):
                 error_message=None,
                 p_value=0.9644572751012698,
                 p_value_error_message=None,
+                unadjusted_baseline_mean=self.stat_a.unadjusted_mean,
+                n=self.stat_a.n + self.stat_b.n,
             )
         )
         self.assertDictEqual(
@@ -455,6 +478,8 @@ class TestSequentialOneSidedGreaterTTest(TestCase):
                 error_message=None,
                 p_value=0.4999,
                 p_value_error_message=None,
+                unadjusted_baseline_mean=self.stat_a.unadjusted_mean,
+                n=self.stat_a.n + self.stat_b.n,
             )
         )
         self.assertDictEqual(
@@ -479,6 +504,8 @@ class TestSequentialOneSidedGreaterTTest(TestCase):
                 error_message=None,
                 p_value=0.4999,
                 p_value_error_message=None,
+                unadjusted_baseline_mean=self.stat_a.unadjusted_mean,
+                n=self.stat_a.n + self.stat_b.n,
             )
         )
         self.assertDictEqual(
@@ -507,6 +534,8 @@ class TestSequentialOneSidedLesserTTest(TestCase):
                 error_message=None,
                 p_value=0.4999,
                 p_value_error_message=None,
+                unadjusted_baseline_mean=self.stat_a.unadjusted_mean,
+                n=self.stat_a.n + self.stat_b.n,
             )
         )
         self.assertDictEqual(
@@ -531,6 +560,8 @@ class TestSequentialOneSidedLesserTTest(TestCase):
                 error_message=None,
                 p_value=0.4999,
                 p_value_error_message=None,
+                unadjusted_baseline_mean=self.stat_a.unadjusted_mean,
+                n=self.stat_a.n + self.stat_b.n,
             )
         )
         self.assertDictEqual(
