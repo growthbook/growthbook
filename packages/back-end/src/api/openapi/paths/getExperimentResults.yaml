@@ -30,3 +30,7 @@ get:
             properties:
               result:
                 $ref: "../schemas/ExperimentResults.yaml"
+              cleanedResults:
+                type: array
+                items:
+                  $ref: "../schemas/ExperimentResultsRow.yaml"
