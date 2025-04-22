@@ -116,6 +116,7 @@ describe("getUsage", () => {
             cdn: { lastUpdated: new Date(), status: "over" },
           });
         });
+
         it("should return UNLIMITED_USAGE getUsageFromCache for plans with unlimited usage", async () => {
           const usage = await getUsageFromCache(mockOrganization);
           expect(usage).toEqual(UNLIMITED_USAGE);
