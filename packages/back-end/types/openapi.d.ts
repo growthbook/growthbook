@@ -5376,6 +5376,36 @@ export interface operations {
                     })[];
                 })[];
             };
+            cleanedResults?: ({
+                experimentName: string;
+                experimentId: string;
+                snapshotDate?: string | null;
+                snapshotId: string;
+                dimensionId: string | null;
+                dimensionName: string | null;
+                dimensionValue: string | null;
+                metricName: string | null;
+                metricId: string;
+                baselineVariationId: string | null;
+                variationName: string | null;
+                variationId: string | null;
+                variationUsers: number;
+                variationNumerator: number;
+                variationDenominator: number | null;
+                variationMean: number;
+                variationStdDev: number | null;
+                /** @enum {string} */
+                differenceType: "relative" | "absolute";
+                effect: number | null;
+                chanceToBeatControl: number | null;
+                relativeRisk: number | null;
+                pValue: number | null;
+                pValueAdjusted: number | null;
+                ciLower: number | null;
+                ciUpper: number | null;
+                ciLowerAdjusted: number | null;
+                ciUpperAdjusted: number | null;
+              })[];
           };
         };
       };

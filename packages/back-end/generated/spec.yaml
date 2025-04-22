@@ -138,6 +138,9 @@ tags:
   - name: ExperimentResults_model
     x-displayName: ExperimentResults
     description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentResults" />
+  - name: ExperimentResultsRow_model
+    x-displayName: ExperimentResultsRow
+    description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentResultsRow" />
   - name: ExperimentSnapshot_model
     x-displayName: ExperimentSnapshot
     description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentSnapshot" />
@@ -2089,6 +2092,114 @@ paths:
                 properties:
                   result:
                     $ref: '#/components/schemas/ExperimentResults'
+                  cleanedResults:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - experimentName
+                        - experimentId
+                        - snapshotId
+                        - dimensionId
+                        - dimensionName
+                        - dimensionValue
+                        - metricName
+                        - metricId
+                        - baselineVariationId
+                        - variationName
+                        - variationId
+                        - variationUsers
+                        - variationNumerator
+                        - variationDenominator
+                        - variationMean
+                        - variationStdDev
+                        - differenceType
+                        - effect
+                        - chanceToBeatControl
+                        - relativeRisk
+                        - pValue
+                        - pValueAdjusted
+                        - ciLower
+                        - ciUpper
+                        - ciLowerAdjusted
+                        - ciUpperAdjusted
+                      properties:
+                        experimentName:
+                          type: string
+                        experimentId:
+                          type: string
+                        snapshotDate:
+                          type: string
+                          nullable: true
+                        snapshotId:
+                          type: string
+                        dimensionId:
+                          type: string
+                          nullable: true
+                        dimensionName:
+                          type: string
+                          nullable: true
+                        dimensionValue:
+                          type: string
+                          nullable: true
+                        metricName:
+                          type: string
+                          nullable: true
+                        metricId:
+                          type: string
+                        baselineVariationId:
+                          type: string
+                          nullable: true
+                        variationName:
+                          type: string
+                          nullable: true
+                        variationId:
+                          type: string
+                          nullable: true
+                        variationUsers:
+                          type: number
+                        variationNumerator:
+                          type: number
+                        variationDenominator:
+                          type: number
+                          nullable: true
+                        variationMean:
+                          type: number
+                        variationStdDev:
+                          type: number
+                          nullable: true
+                        differenceType:
+                          type: string
+                          enum:
+                            - relative
+                            - absolute
+                        effect:
+                          type: number
+                          nullable: true
+                        chanceToBeatControl:
+                          type: number
+                          nullable: true
+                        relativeRisk:
+                          type: number
+                          nullable: true
+                        pValue:
+                          type: number
+                          nullable: true
+                        pValueAdjusted:
+                          type: number
+                          nullable: true
+                        ciLower:
+                          type: number
+                          nullable: true
+                        ciUpper:
+                          type: number
+                          nullable: true
+                        ciLowerAdjusted:
+                          type: number
+                          nullable: true
+                        ciUpperAdjusted:
+                          type: number
+                          nullable: true
   '/experiments/{id}/visual-changesets':
     get:
       summary: Get all visual changesets
@@ -7231,6 +7342,7 @@ x-tagGroups:
       - ExperimentAnalysisSettings_model
       - ExperimentMetric_model
       - ExperimentResults_model
+      - ExperimentResultsRow_model
       - ExperimentSnapshot_model
       - ExperimentWithEnhancedStatus_model
       - FactMetric_model
