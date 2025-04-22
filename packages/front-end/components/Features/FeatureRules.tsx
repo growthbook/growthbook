@@ -254,6 +254,7 @@ export default function FeatureRules({
           rules={copyRuleModal.rules}
           cancel={() => setCopyRuleModal(null)}
           mutate={mutate}
+          safeRolloutsMap={safeRolloutsMap}
         />
       )}
       {compareEnvModal !== null && (
