@@ -711,7 +711,7 @@ export default function RuleModal({
                 value: "rollout",
                 label: "Percentage rollout",
                 description:
-                  "Release to small percent of users while monitoring logs",
+                  "Release to small percentage of users while monitoring logs",
               },
             ]}
             value={overviewRadioSelectorRuleType}
