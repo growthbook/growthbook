@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
-import { FeatureInterface } from "back-end/src/validators/features";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { ago, getValidDate } from "shared/dates";
+import { SafeRolloutRule } from "back-end/src/validators/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Link from "@/components/Radix/Link";
 import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";
@@ -14,7 +14,7 @@ import RefreshSnapshotButton from "./RefreshSnapshotButton";
 
 interface Props {
   safeRollout: SafeRolloutInterface;
-  feature: FeatureInterface;
+  rule: SafeRolloutRule;
 }
 
 const variations = [
@@ -30,7 +30,7 @@ const variations = [
   },
 ];
 
-export default function SafeRolloutDetails({ safeRollout }: Props) {
+export default function SafeRolloutDetails({ safeRollout, rule }: Props) {
   const {
     snapshot,
     loading: snapshotLoading,
@@ -60,7 +60,8 @@ export default function SafeRolloutDetails({ safeRollout }: Props) {
   if (
     !hasData &&
     safeRolloutAgeMinutes < 120 &&
-    safeRollout.status === "running"
+    safeRollout.status === "running" &&
+    rule.enabled
   ) {
     return (
       <Callout status="info" my="4">

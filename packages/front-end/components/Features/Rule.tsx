@@ -327,7 +327,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                             )}
                             <SafeRolloutDetails
                               safeRollout={safeRollout}
-                              feature={feature}
+                              rule={rule}
                             />{" "}
                           </Box>
                         )}
