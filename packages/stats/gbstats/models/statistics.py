@@ -541,6 +541,15 @@ class QuantileClusteredStatistic(QuantileStatistic):
         return num / den
 
 
+PostStratificationStatistic = Union[
+    ProportionStatistic,
+    SampleMeanStatistic,
+    RegressionAdjustedStatistic,
+    RatioStatistic,
+    RegressionAdjustedRatioStatistic,
+]
+
+
 TestStatistic = Union[
     ProportionStatistic,
     SampleMeanStatistic,

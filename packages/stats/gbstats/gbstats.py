@@ -699,6 +699,7 @@ def process_analysis(
     )
     if append_combined_dimension:
         reduced = append_combined_row(reduced)
+    reduced.to_csv("/Users/lukesmith/Desktop/" + "reduced.csv")
 
     # Run the analysis for each variation and dimension
     result = analyze_metric_df(
