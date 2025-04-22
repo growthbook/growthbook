@@ -1,4 +1,4 @@
-import { addDays, differenceInDays } from "date-fns";
+import { addDays, differenceInMinutes } from "date-fns";
 import {
   DecisionCriteriaAction,
   DecisionCriteriaData,
@@ -485,9 +485,10 @@ export function getSafeRolloutDaysLeft({
     ? new Date(snapshotWithResults?.runStarted)
     : null;
 
-  const daysLeft = latestSnapshotDate
-    ? differenceInDays(endDate, latestSnapshotDate)
-    : safeRollout?.maxDuration?.amount; // TODO: Add unit
+  const daysLeft =
+    (latestSnapshotDate
+      ? differenceInMinutes(endDate, latestSnapshotDate)
+      : safeRollout?.maxDuration?.amount) / 1440; // TODO: Add unit
 
   return daysLeft;
 }
@@ -589,7 +590,7 @@ export function getSafeRolloutResultStatus({
     };
   }
 
-  if (daysLeft <= 0) {
+  if (daysLeft <= 0 && resultsStatus) {
     // If no days left, return ship decision
     return {
       status: "ship-now",
