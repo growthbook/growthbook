@@ -8,7 +8,7 @@ import { filterEnvironmentsByFeature } from "shared/util";
 import { Box, Card, Flex, Heading } from "@radix-ui/themes";
 import { RiAlertLine, RiDraggable } from "react-icons/ri";
 import { RxCircleBackslash } from "react-icons/rx";
-import { PiArrowBendRightDown } from "react-icons/pi";
+import { PiArrowBendLeftDown, PiArrowBendRightDown } from "react-icons/pi";
 import { format as formatTimeZone } from "date-fns-tz";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { useAuth } from "@/services/auth";
@@ -519,6 +519,19 @@ function SkippedPill() {
     />
   );
 }
+function RolledBackPill() {
+  return (
+    <Badge
+      color="gray"
+      label={
+        <>
+          <PiArrowBendLeftDown />
+          Rolled Back
+        </>
+      }
+    />
+  );
+}
 
 export type RuleMetaInfo = {
   pill?: ReactElement;
@@ -602,6 +615,12 @@ export function getRuleMetaInfo({
     return {
       pill: <SkippedPill />,
       sideColor: "skipped",
+    };
+  }
+  if (rule.type === "safe-rollout" && rule.status === "rolled-back") {
+    return {
+      pill: <RolledBackPill />,
+      sideColor: "active",
     };
   }
 
