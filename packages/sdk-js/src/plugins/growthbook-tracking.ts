@@ -190,6 +190,8 @@ export function growthbookTrackingPlugin({
         timer = null;
         events.length && (await track({ clientKey, events, ingestorHost }));
       };
+      // @ts-expect-error add event flush hook to gb SDK for quick access
+      gb.flushEventLog = flush;
 
       let promise: Promise<void> | null = null;
       gb.setEventLogger(async (eventName, properties, userContext) => {
