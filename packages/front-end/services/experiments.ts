@@ -1,8 +1,5 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
-import {
-  DifferenceType,
-  StatsEngine,
-} from "back-end/types/stats";
+import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import {
   ExperimentReportVariationWithIndex,
   MetricSnapshotSettings,
