@@ -205,10 +205,11 @@ export function getDebugEvent(
     const userContext = gb.getUserContext();
     const [apiHost, clientKey] = gb.getApiInfo();
     return {
-      logs: gb.logs.map((log) => ({ ...log, source, clientKey })),
+      logs: gb.logs,
       sdkInfo: {
         apiHost,
         clientKey,
+        source,
         version: gb.getVersion(),
         payload: gb.getDecryptedPayload(),
         attributes: {
