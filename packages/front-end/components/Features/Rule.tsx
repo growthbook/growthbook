@@ -164,7 +164,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       permissionsUtil.canViewFeatureModal(feature.project) &&
       permissionsUtil.canManageFeatureDrafts(feature);
 
-    const isInactive = isRuleInactive(rule, experimentsMap, safeRolloutsMap);
+    const isInactive = isRuleInactive(rule, experimentsMap);
 
     const hasCondition =
       (rule.condition && rule.condition !== "{}") ||
@@ -174,7 +174,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const info = getRuleMetaInfo({
       rule,
       experimentsMap,
-      safeRolloutsMap,
       isDraft,
       unreachable,
     });
@@ -531,13 +530,11 @@ export type RuleMetaInfo = {
 export function getRuleMetaInfo({
   rule,
   experimentsMap,
-  safeRolloutsMap,
   isDraft,
   unreachable,
 }: {
   rule: FeatureRule;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
-  safeRolloutsMap: Map<string, SafeRolloutInterface>;
   isDraft: boolean;
   unreachable?: boolean;
 }): RuleMetaInfo {
@@ -545,7 +542,7 @@ export function getRuleMetaInfo({
     rule.type === "experiment-ref"
       ? experimentsMap.get(rule.experimentId)
       : undefined;
-  const ruleInactive = isRuleInactive(rule, experimentsMap, safeRolloutsMap);
+  const ruleInactive = isRuleInactive(rule, experimentsMap);
   const ruleSkipped = isRuleSkipped({
     rule,
     linkedExperiment,
