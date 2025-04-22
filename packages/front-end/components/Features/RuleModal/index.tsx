@@ -95,6 +95,8 @@ type OverviewRuleType =
 
 type SafeRolloutRuleCreateFields = SafeRolloutRule & {
   safeRolloutFields: CreateSafeRolloutInterface;
+} & {
+  sameSeed?: boolean;
 };
 
 export default function RuleModal({
@@ -579,6 +581,17 @@ export default function RuleModal({
         delete (values as any).value; //saferollout uses controlValue so we want to remove the value
         // eslint-disable-next-line
         delete (values as any).trackingKey;
+        if (!values.sameSeed) {
+          console.log("deleting seed");
+          // eslint-disable-next-line
+          delete (values as any).seed;
+        }
+        // eslint-disable-next-line
+        delete (values as any).sameSeed;
+
+        if (safeRolloutFields?.maxDuration) {
+          safeRolloutFields.maxDuration.unit = "days";
+        }
       }
 
       if (
@@ -932,6 +945,7 @@ export default function RuleModal({
                   setScheduleToggleEnabled={setScheduleToggleEnabled}
                   isNewRule={isNewRule}
                   isDraft={!safeRollout?.startedAt}
+                  duplicate={!!duplicate}
                 />
               </Page>
             );

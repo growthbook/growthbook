@@ -3,6 +3,8 @@ import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { Box, TextField } from "@radix-ui/themes";
+import { PiCaretUp, PiCaretDown } from "react-icons/pi";
+import { useState } from "react";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import SelectField from "@/components/Forms/SelectField";
@@ -12,6 +14,7 @@ import ConditionInput from "@/components/Features/ConditionInput";
 import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
+import Checkbox from "@/components/Radix/Checkbox";
 
 export default function SafeRolloutFields({
   feature,
@@ -25,6 +28,7 @@ export default function SafeRolloutFields({
   isNewRule,
   step,
   isDraft,
+  duplicate,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -40,8 +44,10 @@ export default function SafeRolloutFields({
   step: number;
   isNewRule: boolean;
   isDraft: boolean;
+  duplicate: boolean;
 }) {
   const form = useFormContext();
+  const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
   const attributeSchema = useAttributeSchema(false, feature.project);
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
@@ -122,6 +128,28 @@ export default function SafeRolloutFields({
             Remove this prerequisite to continue.
           </div>
         )}
+
+        {duplicate && !!form.watch("seed") && (
+          <div
+            className="ml-auto link-purple cursor-pointer mb-2"
+            onClick={(e) => {
+              e.preventDefault();
+              setAdvancedOptionsOpen(!advancedOptionsOpen);
+            }}
+          >
+            Advanced Options{" "}
+            {!advancedOptionsOpen ? <PiCaretDown /> : <PiCaretUp />}
+          </div>
+        )}
+        {duplicate && !!form.watch("seed") && advancedOptionsOpen && (
+          <div className="ml-2">
+            <Checkbox
+              value={form.watch("sameSeed")}
+              setValue={(value: boolean) => form.setValue("sameSeed", value)}
+              label="Same seed"
+            />
+          </div>
+        )}
       </>
     );
   };
@@ -191,7 +219,7 @@ export default function SafeRolloutFields({
               placeholder="7"
               type="number"
               required
-              {...form.register("safeRolloutFields.maxDurationDays", {
+              {...form.register("safeRolloutFields.maxDuration.amount", {
                 valueAsNumber: true,
               })}
             >

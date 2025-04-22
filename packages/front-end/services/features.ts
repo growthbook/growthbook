@@ -703,16 +703,6 @@ export function getDefaultRuleValue({
       trackingKey: "",
       seed: "",
       status: "running", // TODO: Check if this is okay for the default value
-      scheduleRules: [
-        {
-          enabled: true,
-          timestamp: null,
-        },
-        {
-          enabled: false,
-          timestamp: null,
-        },
-      ],
     };
   }
   if (ruleType === "experiment") {

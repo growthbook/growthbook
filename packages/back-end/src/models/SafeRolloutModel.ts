@@ -48,7 +48,7 @@ export class SafeRolloutModel extends BaseClass {
       const allowedFieldsForUpdate = [
         "status",
         "guardrailMetricIds",
-        "maxDurationDays",
+        "maxDuration",
         "autoSnapshots",
         "lastSnapshotAttempt",
         "nextSnapshotAttempt",

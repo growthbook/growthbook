@@ -151,7 +151,7 @@ const DecisionBanner = ({
             openStatusModal();
           }}
         >
-          Stop Early
+          {safeRolloutDraftStatusChangeCopy ? "Update Variation" : "Stop Early"}
         </a>
         {safeRolloutDraftStatusChangeCopy && (
           <p className="mt-2 mb-0">
