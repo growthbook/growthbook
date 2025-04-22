@@ -128,6 +128,8 @@ import {
   PostFeatureRuleBody,
   PutFeatureRuleBody,
 } from "back-end/types/feature-rule";
+import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
+import { SafeRolloutRule } from "back-end/src/validators/features";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
@@ -1204,7 +1206,6 @@ export async function postFeatureRule(
   }
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
-
   const resetReview = resetReviewOnChange({
     feature,
     changedEnvironments: [environment],
@@ -1686,11 +1687,7 @@ export async function putFeatureRule(
     context.permissions.throwPermissionError();
   }
 
-  if (rule.type === "safe-rollout" && safeRolloutFields) {
-    const validatedSafeRolloutFields = await validateCreateSafeRolloutFields(
-      safeRolloutFields,
-      context
-    );
+  if (rule.type === "safe-rollout") {
     if (!rule.safeRolloutId) {
       throw new Error("Safe Rollout rule must have a safeRolloutId");
     }
@@ -1698,18 +1695,57 @@ export async function putFeatureRule(
       rule.safeRolloutId
     );
     if (!existingSafeRollout) {
-      throw new Error("Associated Safe Rollout must exist");
-    }
-    if (environment !== existingSafeRollout.environment) {
-      throw new Error(
-        `you can not update this safe rollout under ${environment} environment because it was created under ${existingSafeRollout.environment} environment`
-      );
+      throw new Error("Safe Rollout must exist");
     }
 
-    await context.models.safeRollout.update(existingSafeRollout, {
-      ...validatedSafeRolloutFields,
-      ...(rule.status && { status: rule.status }),
-    });
+    const hasSafeRolloutStarted = existingSafeRollout.startedAt !== undefined;
+    if (hasSafeRolloutStarted) {
+      const existingRule = getSafeRolloutRuleFromFeature(
+        feature,
+        rule.safeRolloutId
+      );
+      if (!existingRule) {
+        throw new Error("Unable to update rule that does not exist.");
+      }
+
+      const fieldsThatCannotBeUpdated = [
+        "controlValue",
+        "variationValue",
+        "safeRolloutId",
+        "hashAttribute",
+        "seed",
+        "trackingKey",
+      ];
+      const fieldsBeingUpdated = Object.entries(rule).filter(
+        ([k, v]) => !isEqual(existingRule[k as keyof SafeRolloutRule], v)
+      );
+
+      // Check if any of the fields that cannot be updated are being updated
+      const fieldsBeingUpdatedThatCannotBeUpdated = fieldsBeingUpdated.filter(
+        ([fieldName]) => fieldsThatCannotBeUpdated.includes(fieldName)
+      );
+
+      if (fieldsBeingUpdatedThatCannotBeUpdated.length > 0) {
+        const fieldNames = fieldsBeingUpdatedThatCannotBeUpdated
+          .map(([fieldName]) => fieldName)
+          .join(", ");
+        throw new Error(
+          `Cannot update the following fields after a Safe Rollout has started: ${fieldNames}`
+        );
+      }
+    }
+
+    if (safeRolloutFields) {
+      const validatedSafeRolloutFields = await validateCreateSafeRolloutFields(
+        safeRolloutFields,
+        context
+      );
+
+      await context.models.safeRollout.update(existingSafeRollout, {
+        ...validatedSafeRolloutFields,
+        ...(rule.status && { status: rule.status }),
+      });
+    }
   }
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
