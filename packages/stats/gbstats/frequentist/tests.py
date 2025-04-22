@@ -26,7 +26,6 @@ from typing import Literal
 # Configs
 @dataclass
 class FrequentistConfig(BaseConfig):
-    alpha: float = 0.05
     test_value: float = 0
 
 
@@ -46,6 +45,7 @@ PValueErrorMessage = Literal[
 class FrequentistTestResult(TestResult):
     p_value: Optional[float] = None
     p_value_error_message: Optional[PValueErrorMessage] = None
+    unadjusted_baseline_mean: Optional[float] = None
 
 
 @dataclass
