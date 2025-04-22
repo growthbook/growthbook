@@ -20,10 +20,7 @@ import {
   PValueCorrection,
   StatsEngine,
 } from "back-end/types/stats";
-import {
-  DEFAULT_P_VALUE_THRESHOLD,
-  DEFAULT_STATS_ENGINE,
-} from "shared/constants";
+import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
@@ -33,7 +30,6 @@ import {
   getRowResults,
   RowResults,
 } from "@/services/experiments";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import { GBEdit } from "@/components/Icons";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
@@ -63,7 +59,6 @@ export type ResultsTableProps = {
   startDate: string;
   rows: ExperimentTableRow[];
   dimension?: string;
-  tableRowAxis: "metric" | "dimension";
   labelHeader: ReactElement | string;
   editMetrics?: () => void;
   renderLabelColumn: (
@@ -101,7 +96,6 @@ export default function ResultsTable({
   queryStatusData,
   rows,
   dimension,
-  tableRowAxis,
   labelHeader,
   editMetrics,
   variations,
@@ -139,14 +133,12 @@ export default function ResultsTable({
   const _confidenceLevels = useConfidenceLevels();
   const _pValueThreshold = usePValueThreshold();
   const _displayCurrency = useCurrency();
-  const _orgSettings = useOrgSettings();
 
   const { ciUpper, ciLower } =
     ssrPolyfills?.useConfidenceLevels?.() || _confidenceLevels;
   const pValueThreshold =
     ssrPolyfills?.usePValueThreshold?.() || _pValueThreshold;
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
-  const orgSettings = ssrPolyfills?.useOrgSettings?.() || _orgSettings;
 
   const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
 
@@ -289,6 +281,7 @@ export default function ResultsTable({
     hoveredMetricRow,
     hoveredVariationRow,
     resetTimeout,
+    TooltipInPortal,
   } = useResultsTableTooltip({
     orderedVariations,
     rows,
@@ -304,41 +297,47 @@ export default function ResultsTable({
 
   const changeTitle = getEffectLabel(differenceType);
 
-  const hasGoalMetrics = rows.some((r) => r.resultGroup === "goal");
-  const appliedPValueCorrection = hasGoalMetrics
-    ? pValueCorrection ?? null
-    : null;
-
   return (
     <div className="position-relative" ref={containerRef}>
-      <CSSTransition
-        key={`${hoveredMetricRow}-${hoveredVariationRow}`}
-        in={
-          tooltipOpen &&
-          tooltipData &&
-          hoveredX !== null &&
-          hoveredY !== null &&
-          hoveredMetricRow !== null &&
-          hoveredVariationRow !== null
-        }
-        timeout={200}
-        classNames="tooltip-animate"
-        appear={true}
+      <TooltipInPortal
+        left={hoveredX ?? 0}
+        top={hoveredY ?? 0}
+        key={Math.random()}
+        style={{
+          backgroundColor: "transparent",
+          boxShadow: "none",
+          position: "absolute",
+        }}
       >
-        <ResultsTableTooltip
-          left={hoveredX ?? 0}
-          top={hoveredY ?? 0}
-          data={tooltipData}
-          tooltipOpen={tooltipOpen}
-          close={closeTooltip}
-          differenceType={differenceType}
-          onPointerMove={resetTimeout}
-          onClick={resetTimeout}
-          onPointerLeave={leaveRow}
-          isBandit={isBandit}
-          ssrPolyfills={ssrPolyfills}
-        />
-      </CSSTransition>
+        <CSSTransition
+          key={`${hoveredMetricRow}-${hoveredVariationRow}`}
+          in={
+            tooltipOpen &&
+            tooltipData &&
+            hoveredX !== null &&
+            hoveredY !== null &&
+            hoveredMetricRow !== null &&
+            hoveredVariationRow !== null
+          }
+          timeout={200}
+          classNames="tooltip-animate"
+          appear={true}
+        >
+          <ResultsTableTooltip
+            left={0}
+            top={0}
+            data={tooltipData}
+            tooltipOpen={tooltipOpen}
+            close={closeTooltip}
+            differenceType={differenceType}
+            onPointerMove={resetTimeout}
+            onClick={resetTimeout}
+            onPointerLeave={leaveRow}
+            isBandit={isBandit}
+            ssrPolyfills={ssrPolyfills}
+          />
+        </CSSTransition>
+      </TooltipInPortal>
 
       <div ref={tableContainerRef} className="experiment-results-wrapper">
         <div className="w-100" style={{ minWidth: 700 }}>
@@ -395,39 +394,24 @@ export default function ResultsTable({
                       style={{ width: 120 * tableCellScale }}
                       className={clsx("axis-col label", { noStickyHeader })}
                     >
-                      {statsEngine === "bayesian" ? (
-                        <div
-                          style={{
-                            lineHeight: "15px",
-                            marginBottom: 2,
-                          }}
-                        >
-                          <span className="nowrap">Chance</span>{" "}
-                          <span className="nowrap">to Win</span>
-                        </div>
-                      ) : sequentialTestingEnabled ||
-                        appliedPValueCorrection ? (
-                        <Tooltip
-                          usePortal={true}
-                          innerClassName={"text-left"}
-                          body={
-                            <div style={{ lineHeight: 1.5 }}>
-                              {getPValueTooltip(
-                                !!sequentialTestingEnabled,
-                                appliedPValueCorrection,
-                                orgSettings.pValueThreshold ??
-                                  DEFAULT_P_VALUE_THRESHOLD,
-                                tableRowAxis
-                              )}
-                            </div>
-                          }
-                        >
-                          Status
-                          <RxInfoCircled className="ml-1" />
-                        </Tooltip>
-                      ) : (
-                        <>P-value</>
-                      )}
+                      <Tooltip
+                        usePortal={true}
+                        innerClassName={"text-left"}
+                        body={
+                          <div style={{ lineHeight: 1.5 }}>
+                            Guardrails are either neutral or failing. Once a
+                            guardrail is statistically significant in the
+                            undesirable direction, the status is changed to
+                            failing. All safe rollouts use frequentist
+                            sequential testing to enable reverting issues as
+                            soon as they appear without increased false positive
+                            rates.
+                          </div>
+                        }
+                      >
+                        Status
+                        <RxInfoCircled className="ml-1" />
+                      </Tooltip>
                     </th>
                     <th
                       style={{ width: 150 * tableCellScale }}
@@ -715,9 +699,9 @@ function getChangeTooltip(
         {confidencePct} of the time.
         {sequentialTestingEnabled && (
           <p className="mt-2 mb-0">
-            Because sequential testing is enabled, these confidence intervals
-            are valid no matter how many times you analyze (or peek at) this
-            experiment as it runs.
+            Because sequential testing is enabled for all safe rollouts, these
+            confidence intervals are valid no matter how many times you analyze
+            (or peek at) this experiment as it runs.
           </p>
         )}
         {pValueCorrection && (
@@ -740,38 +724,6 @@ function getChangeTooltip(
       <p className="mt-3">
         <b>Graph</b> - {intervalText}
       </p>
-    </>
-  );
-}
-
-function getPValueTooltip(
-  sequentialTestingEnabled: boolean,
-  pValueCorrection: PValueCorrection,
-  pValueThreshold: number,
-  tableRowAxis: "dimension" | "metric"
-) {
-  return (
-    <>
-      {sequentialTestingEnabled && (
-        <div className={pValueCorrection ? "mb-3" : ""}>
-          Sequential testing is enabled. These are &apos;always valid
-          p-values&apos; and robust to peeking. They have a slightly different
-          interpretation to normal p-values and can often be 1.000. Nonetheless,
-          the interpretation remains that the result is still statistically
-          significant if it drops below your threshold ({pValueThreshold}).
-        </div>
-      )}
-      {pValueCorrection && (
-        <div>
-          The p-values presented below are adjusted for multiple comparisons
-          using the {pValueCorrection} method. P-values were adjusted across
-          tests for
-          {tableRowAxis === "dimension"
-            ? " all dimension values, goal metrics, and variations"
-            : " all goal metrics and variations"}
-          . The unadjusted p-values are returned in the tooltip.
-        </div>
-      )}
     </>
   );
 }
