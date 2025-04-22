@@ -31,7 +31,7 @@ export default function SafeRolloutSummary({
 
   if (rolledBackOrReleased) {
     return (
-      <Box className="mb-4">
+      <Box>
         <Flex gap="3">
           <Box>
             <strong className="font-weight-semibold">SERVE</strong>
