@@ -193,6 +193,7 @@ export default function RuleModal({
   const hasMultiArmedBanditFeature = hasCommercialFeature(
     "multi-armed-bandits"
   );
+  const hasSafeRolloutsFeature = hasCommercialFeature("safe-rollouts");
 
   const experimentId = form.watch("experimentId");
   const selectedExperiment = experimentsMap.get(experimentId) || null;
@@ -736,7 +737,15 @@ export default function RuleModal({
             options={[
               {
                 value: "safe-rollout",
-                label: "Safe rollout",
+                disabled: !hasSafeRolloutsFeature,
+                label: (
+                  <PremiumTooltip
+                    commercialFeature="safe-rollouts"
+                    usePortal={true}
+                  >
+                    Safe rollout
+                  </PremiumTooltip>
+                ),
                 badge: "NEW!",
                 description:
                   "Release to small percent of users while monitoring logs",
