@@ -48,6 +48,9 @@ export default function SafeRolloutAnalysisSettingsSummary({
   const { apiCall } = useAuth();
   const { status } = getQueryStatus(latest?.queries || [], latest?.error);
 
+  const showQueryWarning =
+    status === "failed" || status === "partially-succeeded";
+
   // Results are considered outdated if there isn't currently a running snapshot and
   // the last snapshot was taken more than 24 hours ago
   const outdated =
@@ -170,15 +173,13 @@ export default function SafeRolloutAnalysisSettingsSummary({
               )}
 
             {ds && permissionsUtil.canRunExperimentQueries(ds) && latest && (
-              // (status === "failed" || status === "partially-succeeded") && (
               <div className="col-auto pl-1">
                 <ViewAsyncQueriesButton
                   queries={latest.queries.map((q) => q.query)}
                   error={latest.error ?? undefined}
                   color={clsx(
                     {
-                      "outline-danger":
-                        status === "failed" || status === "partially-succeeded",
+                      "outline-danger": showQueryWarning,
                     },
                     " "
                   )}
@@ -187,21 +188,24 @@ export default function SafeRolloutAnalysisSettingsSummary({
                   icon={
                     <span
                       className="position-relative pr-2"
-                      style={{ marginRight: 6 }}
+                      style={{ marginRight: showQueryWarning ? 6 : 0 }}
                     >
                       <span className="text-main">
                         <FaDatabase />
                       </span>
-                      <FaExclamationTriangle
-                        className="position-absolute"
-                        style={{
-                          top: -6,
-                          right: -4,
-                        }}
-                      />
+                      {showQueryWarning && (
+                        <FaExclamationTriangle
+                          className="position-absolute"
+                          style={{
+                            top: -6,
+                            right: -4,
+                          }}
+                        />
+                      )}
                     </span>
                   }
                   condensed={true}
+                  hideQueryCount={status !== "failed"}
                 />
               </div>
             )}
