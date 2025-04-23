@@ -9,7 +9,6 @@ export type DifferenceType = "relative" | "absolute" | "scaled";
 
 export type RiskType = "relative" | "absolute";
 
-
 interface BaseVariationResponse {
   cr: number;
   value: number;

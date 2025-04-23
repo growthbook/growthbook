@@ -1,4 +1,5 @@
 import { Fragment } from "react";
+import { expandMetricGroups } from "shared/experiments";
 import { FeatureInterface } from "back-end/types/feature";
 import { Box, Flex, Text, Tooltip } from "@radix-ui/themes";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
@@ -27,8 +28,12 @@ export default function SafeRolloutSummary({
   const numOfVariations = 2; // Control & Rollout
   const singleVariationCoverage = coverage / numOfVariations;
 
-  const { getMetricById } = useDefinitions();
+  const { getMetricById, metricGroups } = useDefinitions();
   const { guardrailMetricIds } = safeRollout;
+  const expandedGuardrailMetricIds: string[] = expandMetricGroups(
+    guardrailMetricIds,
+    metricGroups
+  );
   const { controlValue, variationValue, hashAttribute } = rule;
   const type = feature.valueType;
 
@@ -74,7 +79,7 @@ export default function SafeRolloutSummary({
             variant="soft"
             label={
               <Tooltip
-                content={guardrailMetricIds.map((id) => (
+                content={expandedGuardrailMetricIds.map((id) => (
                   <Fragment key={id}>
                     {getMetricById(id)?.name}
                     <br />
@@ -82,12 +87,12 @@ export default function SafeRolloutSummary({
                 ))}
               >
                 <Text style={{ color: "var(--slate-12)" }}>
-                  {guardrailMetricIds.length}
+                  {expandedGuardrailMetricIds.length}
                 </Text>
               </Tooltip>
             }
           />
-          metric{guardrailMetricIds.length > 1 ? "s" : ""}
+          metric{expandedGuardrailMetricIds.length > 1 ? "s" : ""}
         </Flex>
         <ValidateValue value={controlValue} feature={feature} />
         <ValidateValue value={variationValue} feature={feature} />

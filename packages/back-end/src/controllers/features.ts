@@ -1181,6 +1181,10 @@ export async function postFeatureRule(
   }
 
   if (rule.type === "safe-rollout") {
+    if (!context.hasPremiumFeature("safe-rollout")) {
+      throw new Error(`Safe Rollout rules is a premium feature.`);
+    }
+
     const validatedSafeRolloutFields = await validateCreateSafeRolloutFields(
       safeRolloutFields,
       context
