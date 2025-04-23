@@ -711,7 +711,7 @@ export default function RuleModal({
                 value: "rollout",
                 label: "Percentage rollout",
                 description:
-                  "Release to small percent of users while monitoring logs",
+                  "Release to small percentage of users while monitoring logs",
               },
             ]}
             value={overviewRadioSelectorRuleType}
@@ -945,32 +945,26 @@ export default function RuleModal({
           />
         )}
 
-        {ruleType === "safe-rollout" &&
-          ["Overview", "Metrics"].map((p, i) => {
-            return (
-              <Page display={p} key={i}>
-                <SafeRolloutFields
-                  step={i}
-                  feature={feature}
-                  environment={environment}
-                  defaultValues={defaultValues}
-                  version={version}
-                  revisions={revisions}
-                  setPrerequisiteTargetingSdkIssues={
-                    setPrerequisiteTargetingSdkIssues
-                  }
-                  isCyclic={isCyclic}
-                  cyclicFeatureId={cyclicFeatureId}
-                  conditionKey={conditionKey}
-                  scheduleToggleEnabled={scheduleToggleEnabled}
-                  setScheduleToggleEnabled={setScheduleToggleEnabled}
-                  isNewRule={isNewRule}
-                  isDraft={!safeRollout?.startedAt}
-                  duplicate={!!duplicate}
-                />
-              </Page>
-            );
-          })}
+        {ruleType === "safe-rollout" && (
+          <SafeRolloutFields
+            feature={feature}
+            environment={environment}
+            defaultValues={defaultValues}
+            version={version}
+            revisions={revisions}
+            setPrerequisiteTargetingSdkIssues={
+              setPrerequisiteTargetingSdkIssues
+            }
+            isCyclic={isCyclic}
+            cyclicFeatureId={cyclicFeatureId}
+            conditionKey={conditionKey}
+            scheduleToggleEnabled={scheduleToggleEnabled}
+            setScheduleToggleEnabled={setScheduleToggleEnabled}
+            isNewRule={isNewRule}
+            isDraft={!safeRollout?.startedAt}
+            duplicate={!!duplicate}
+          />
+        )}
 
         {(ruleType === "experiment-ref" || ruleType === "experiment") &&
         experimentType === "experiment" ? (

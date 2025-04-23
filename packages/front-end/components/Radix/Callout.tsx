@@ -20,8 +20,23 @@ export default forwardRef<
     children: ReactNode;
     status: Status;
     size?: "sm" | "md";
+    icon?: ReactNode | null;
   } & MarginProps
->(function Callout({ children, status, size = "md", ...containerProps }, ref) {
+>(function Callout(
+  { children, status, size = "md", icon, ...containerProps },
+  ref
+) {
+  const renderedIcon = (() => {
+    if (icon === null) {
+      return null; // Render no icon if icon prop is null
+    }
+    if (icon !== undefined) {
+      return icon; // Render custom icon if provided
+    }
+    // Otherwise render the default icon
+    return <RadixStatusIcon status={status} size={size} />;
+  })();
+
   return (
     <RadixCallout.Root
       ref={ref}
@@ -29,14 +44,19 @@ export default forwardRef<
       color={getRadixColor(status)}
       role={status === "error" ? "alert" : undefined}
       size={getRadixSize(size)}
+      style={{ display: "flex", alignItems: "center" }}
       {...containerProps}
     >
-      <RadixCallout.Icon>
-        <RadixStatusIcon status={status} size={size} />
-      </RadixCallout.Icon>
-      <RadixCallout.Text size={getRadixSize(size)}>
-        {children}
-      </RadixCallout.Text>
+      {renderedIcon ? (
+        <RadixCallout.Icon>{renderedIcon}</RadixCallout.Icon>
+      ) : null}
+      {typeof children === "string" ? (
+        <RadixCallout.Text size={getRadixSize(size)}>
+          {children}
+        </RadixCallout.Text>
+      ) : (
+        children
+      )}
     </RadixCallout.Root>
   );
 });

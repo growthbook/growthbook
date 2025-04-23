@@ -32,6 +32,7 @@ export interface Props {
   feature?: FeatureInterface;
   renderJSONInline?: boolean;
   disabled?: boolean;
+  useDropdown?: boolean;
 }
 
 export default function FeatureValueField({
@@ -44,6 +45,7 @@ export default function FeatureValueField({
   feature,
   renderJSONInline,
   disabled = false,
+  useDropdown = false,
 }: Props) {
   const { hasCommercialFeature } = useUser();
   const hasJsonValidator = hasCommercialFeature("json-validation");
@@ -72,8 +74,24 @@ export default function FeatureValueField({
       </>
     );
   }
+  if (valueType === "boolean" && useDropdown) {
+    return (
+      <SelectField
+        options={[
+          { label: "TRUE", value: "true" },
+          { label: "FALSE", value: "false" },
+        ]}
+        value={value}
+        onChange={(v) => {
+          setValue(v);
+        }}
+        label={label}
+        disabled={disabled}
+      />
+    );
+  }
 
-  if (valueType === "boolean") {
+  if (valueType === "boolean" && !useDropdown) {
     return (
       <div className={clsx("form-group", { "mb-0": label === undefined })}>
         {label !== undefined && <label>{label}</label>}

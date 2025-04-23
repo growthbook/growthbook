@@ -8,7 +8,7 @@ import { filterEnvironmentsByFeature } from "shared/util";
 import { Box, Card, Flex, Heading } from "@radix-ui/themes";
 import { RiAlertLine, RiDraggable } from "react-icons/ri";
 import { RxCircleBackslash } from "react-icons/rx";
-import { PiArrowBendRightDown } from "react-icons/pi";
+import { PiArrowBendLeftDown, PiArrowBendRightDown } from "react-icons/pi";
 import { format as formatTimeZone } from "date-fns-tz";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { useAuth } from "@/services/auth";
@@ -316,24 +316,22 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           />
                         )}
                         {safeRollout?.startedAt && (
-                          <Box my="3">
+                          <Flex direction="column" mt="4" gap="4">
                             {rule.enabled && (
-                              <Box my="3">
-                                <DecisionBanner
-                                  openStatusModal={() =>
-                                    setSafeRolloutStatusModalOpen(true)
-                                  }
-                                  rule={rule}
-                                />
-                              </Box>
+                              <DecisionBanner
+                                openStatusModal={() =>
+                                  setSafeRolloutStatusModalOpen(true)
+                                }
+                                rule={rule}
+                              />
                             )}
                             <SafeRolloutDetails safeRollout={safeRollout} />{" "}
-                          </Box>
+                          </Flex>
                         )}
                         {!safeRollout?.startedAt && (
-                          <Callout status="info" mt="2">
-                            This safe rollout is in a draft state and will not
-                            start until this feature revision is published.
+                          <Callout status="info" mt="4">
+                            This Safe Rollout rule is in a draft state and will
+                            start when this feature revision is published.
                           </Callout>
                         )}
                       </SafeRolloutSnapshotProvider>
@@ -519,6 +517,19 @@ function SkippedPill() {
     />
   );
 }
+function RolledBackPill() {
+  return (
+    <Badge
+      color="gray"
+      label={
+        <>
+          <PiArrowBendLeftDown />
+          Rolled Back
+        </>
+      }
+    />
+  );
+}
 
 export type RuleMetaInfo = {
   pill?: ReactElement;
@@ -602,6 +613,12 @@ export function getRuleMetaInfo({
     return {
       pill: <SkippedPill />,
       sideColor: "skipped",
+    };
+  }
+  if (rule.type === "safe-rollout" && rule.status === "rolled-back") {
+    return {
+      pill: <RolledBackPill />,
+      sideColor: "active",
     };
   }
 

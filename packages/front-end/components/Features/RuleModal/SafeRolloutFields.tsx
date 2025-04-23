@@ -2,10 +2,9 @@ import { useFormContext } from "react-hook-form";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { Box, TextField } from "@radix-ui/themes";
+import { Box, TextField, Text, Flex } from "@radix-ui/themes";
 import { PiCaretUp, PiCaretDown } from "react-icons/pi";
 import { useState } from "react";
-import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import SelectField from "@/components/Forms/SelectField";
 import { NewExperimentRefRule, useAttributeSchema } from "@/services/features";
@@ -16,6 +15,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import Checkbox from "@/components/Radix/Checkbox";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import HelperText from "@/components/Radix/HelperText";
 
 export default function SafeRolloutFields({
   feature,
@@ -27,7 +27,6 @@ export default function SafeRolloutFields({
   cyclicFeatureId,
   conditionKey,
   isNewRule,
-  step,
   isDraft,
   duplicate,
 }: {
@@ -42,7 +41,6 @@ export default function SafeRolloutFields({
   conditionKey: number;
   scheduleToggleEnabled: boolean;
   setScheduleToggleEnabled: (b: boolean) => void;
-  step: number;
   isNewRule: boolean;
   isDraft: boolean;
   duplicate: boolean;
@@ -53,6 +51,7 @@ export default function SafeRolloutFields({
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
   const { datasources } = useDefinitions();
+  const [controlValueDisabled] = useState(true);
   const dataSourceOptions =
     datasources?.map((ds) => ({
       label: ds.name,
@@ -64,29 +63,25 @@ export default function SafeRolloutFields({
   const settings = useOrgSettings();
   const exposureQueries = dataSource?.settings?.queries?.exposure || [];
   const disableFields = !isDraft && !isNewRule;
+
+  const durationValue = form.watch("safeRolloutFields.maxDuration.amount");
+  const unit = form.watch("safeRolloutFields.maxDuration.unit") || "days";
+
+  const unitMultipliers = {
+    days: 24 * 60 * 60 * 1000,
+    hours: 60 * 60 * 1000,
+    minutes: 60 * 1000,
+  };
+
+  const dateMonitoredUntil = durationValue
+    ? new Date(
+        new Date().getTime() + durationValue * (unitMultipliers[unit] || 0)
+      )
+    : null;
+
   const renderOverviewSteps = () => {
     return (
       <>
-        <Field
-          label="Description"
-          textarea
-          minRows={1}
-          {...form.register("description")}
-          placeholder="Short human-readable description of the rule"
-        />
-
-        <div className="mb-3 pb-1">
-          <FeatureValueField
-            label="Value to roll out"
-            id="value"
-            value={form.watch("variationValue")}
-            setValue={(v) => form.setValue("variationValue", v)}
-            valueType={feature.valueType}
-            feature={feature}
-            renderJSONInline={true}
-            disabled={disableFields}
-          />
-        </div>
         <SelectField
           disabled={disableFields}
           label="Enroll based on attribute"
@@ -207,37 +202,63 @@ export default function SafeRolloutFields({
               }
             />
           </div>
+          <div className="pb-1 ">
+            <Text as="label" size="2" weight="medium">
+              Guardrail metrics
+              <Text size="1" as="div" weight="regular" color="gray">
+                Metrics to monitor during safe rollout
+              </Text>
+            </Text>
+
+            {/* TODO validate at least one metric is selected */}
+            <MetricsSelector
+              datasource={form.watch("safeRolloutFields.datasourceId")}
+              exposureQueryId={form.watch("safeRolloutFields.exposureQueryId")}
+              project={feature.project}
+              selected={
+                form.watch("safeRolloutFields.guardrailMetricIds") || []
+              }
+              disabled={!form.watch("safeRolloutFields.exposureQueryId")}
+              onChange={(v) =>
+                form.setValue("safeRolloutFields.guardrailMetricIds", v)
+              }
+            />
+          </div>
+          <div className="mb-3 pb-1">
+            <Text as="label" size="2" weight="medium">
+              Duration to monitor guardrail results
+              <Text size="1" as="div" weight="regular" color="gray">
+                Monitor for regressions and receive recommendations based on
+                guardrail metric results
+              </Text>
+            </Text>
+            <Box maxWidth="100px">
+              <TextField.Root
+                placeholder="7"
+                type="number"
+                required
+                {...form.register("safeRolloutFields.maxDuration.amount", {
+                  valueAsNumber: true,
+                })}
+              >
+                <TextField.Slot></TextField.Slot>
+                <TextField.Slot>Days</TextField.Slot>
+              </TextField.Root>
+            </Box>
+            {dateMonitoredUntil && !isNaN(dateMonitoredUntil.getTime()) && (
+              <HelperText status="info" size="sm" mt="2">
+                Feature will be monitored until{" "}
+                {dateMonitoredUntil.toLocaleDateString()} if started today
+              </HelperText>
+            )}
+          </div>
         </div>
-        <div className="mb-3 pb-1">
-          <label>Guardrail metrics</label>
-          {/* TODO validate at least one metric is selected */}
-          <MetricsSelector
-            datasource={form.watch("safeRolloutFields.datasourceId")}
-            exposureQueryId={form.watch("safeRolloutFields.exposureQueryId")}
-            project={feature.project}
-            selected={form.watch("safeRolloutFields.guardrailMetricIds") || []}
-            disabled={!form.watch("safeRolloutFields.exposureQueryId")}
-            onChange={(v) =>
-              form.setValue("safeRolloutFields.guardrailMetricIds", v)
-            }
-          />
-        </div>
-        <div className="mb-3 pb-1">
-          <label>Duration to monitor</label>
-          <Box maxWidth="300px">
-            <TextField.Root
-              placeholder="7"
-              type="number"
-              required
-              {...form.register("safeRolloutFields.maxDuration.amount", {
-                valueAsNumber: true,
-              })}
-            >
-              <TextField.Slot></TextField.Slot>
-              <TextField.Slot>Days</TextField.Slot>
-            </TextField.Root>
-          </Box>
-        </div>
+      </>
+    );
+  };
+  const renderVariationFieldSelector = () => {
+    return (
+      <>
         <div className="mb-3 pb-1">
           <FeatureValueField
             label="Control value"
@@ -247,12 +268,80 @@ export default function SafeRolloutFields({
             valueType={feature.valueType}
             feature={feature}
             renderJSONInline={true}
+            disabled={disableFields || controlValueDisabled}
+            useDropdown={true}
+          />
+        </div>
+        <div className="mb-3 pb-1">
+          <FeatureValueField
+            label="Value to roll out"
+            id="value"
+            value={form.watch("variationValue")}
+            setValue={(v) => form.setValue("variationValue", v)}
+            valueType={feature.valueType}
+            feature={feature}
+            renderJSONInline={true}
             disabled={disableFields}
+            useDropdown={true}
           />
         </div>
       </>
     );
   };
 
-  return <>{step === 1 ? renderSafeRolloutSteps() : renderOverviewSteps()}</>;
+  const renderTrafficPreview = () => {
+    return (
+      <div className="mb-3 pb-1 border rounded p-3">
+        <Text as="label" weight="medium" mb="2">
+          Traffic Split Preview
+        </Text>
+        <Flex width="100%">
+          <div style={{ width: "50%" }}>
+            <div
+              style={{
+                backgroundColor: "var(--indigo-8)",
+                height: "20px",
+                borderTopLeftRadius: "4px",
+                borderBottomLeftRadius: "4px",
+              }}
+            ></div>
+            <div className="h-full">50%</div>
+          </div>
+          <div style={{ width: "50%" }}>
+            <div
+              style={{
+                backgroundColor: "var(--orange-8)",
+                height: "20px",
+                borderTopRightRadius: "4px",
+                borderBottomRightRadius: "4px",
+              }}
+            ></div>
+            <div className="h-full">50%</div>
+          </div>
+        </Flex>
+      </div>
+    );
+  };
+
+  return (
+    <>
+      <Text size="2" as="div" mb="4">
+        Run an A/B test for a short period of time while monitoring guardrail
+        metrics for regressions. Based on the results, choose whether to revert
+        the feature or release it to 100% of users.
+      </Text>
+      <Text as="label" weight="medium" size="2" mb="2">
+        Description
+      </Text>
+      <TextField.Root
+        mb="4"
+        {...form.register("description")}
+        placeholder="Short human-readable description of the safe rollout"
+      />
+      {renderVariationFieldSelector()}
+      {renderTrafficPreview()}
+      {renderSafeRolloutSteps()}
+      {renderOverviewSteps()}
+    </>
+  );
 }

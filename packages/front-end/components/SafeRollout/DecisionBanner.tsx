@@ -4,10 +4,12 @@ import {
   getSafeRolloutResultStatus,
 } from "shared/enterprise";
 
+import { Flex } from "@radix-ui/themes";
 import { SafeRolloutRule } from "back-end/src/validators/features";
+import Button from "@/components/Radix/Button";
+import Callout from "@/components/Radix/Callout";
 import { useUser } from "@/services/UserContext";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
-import Callout from "../Radix/Callout";
 
 const DecisionBanner = ({
   openStatusModal,
@@ -164,18 +166,15 @@ const DecisionBanner = ({
     );
   } else {
     return (
-      <Callout status="info">
-        {Math.ceil(daysLeft).toFixed(0)} days left.{" "}
-        <a
-          role="button"
-          className="link"
-          onClick={(e) => {
-            e.preventDefault();
-            openStatusModal();
-          }}
-        >
-          {safeRolloutDraftStatusChangeCopy ? "Update Variation" : "Stop Early"}
-        </a>
+      <Callout status="info" icon={null}>
+        <Flex direction="row" align="center" justify="between" width="100%">
+          {Math.ceil(daysLeft).toFixed(0)} days left.
+          <Button variant="soft" onClick={openStatusModal}>
+            {safeRolloutDraftStatusChangeCopy
+              ? "Update Variation"
+              : "Stop Early"}
+          </Button>
+        </Flex>
         {safeRolloutDraftStatusChangeCopy && (
           <p className="mt-2 mb-0">
             <strong>{safeRolloutDraftStatusChangeCopy}</strong>
