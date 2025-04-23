@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { FaCaretDown, FaCaretRight } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Link from "@/components/Radix/Link";
 import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";
@@ -52,17 +53,14 @@ export default function SafeRolloutDetails({ safeRollout }: Props) {
 
         {snapshot && (
           <>
-            <Flex align="center" justify="between" mb="3">
-              <Text weight="medium" size="3">
-                Health
-              </Text>
-              <Link
-                weight="medium"
-                onClick={() => setIsHealthExpanded(!isHealthExpanded)}
-              >
-                Show {isHealthExpanded ? "less" : "more"}
-              </Link>
-            </Flex>
+            <Link
+              weight="medium"
+              onClick={() => setIsHealthExpanded(!isHealthExpanded)}
+            >
+              {isHealthExpanded ? <FaCaretDown /> : <FaCaretRight />} View
+              Traffic
+            </Link>
+
             {isHealthExpanded ? (
               traffic && totalUsers ? (
                 <>

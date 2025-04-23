@@ -59,7 +59,6 @@ export type ResultsTableProps = {
   startDate: string;
   rows: ExperimentTableRow[];
   dimension?: string;
-  labelHeader: ReactElement | string;
   editMetrics?: () => void;
   renderLabelColumn: (
     label: string,
@@ -96,7 +95,6 @@ export default function ResultsTable({
   queryStatusData,
   rows,
   dimension,
-  labelHeader,
   editMetrics,
   variations,
   variationFilter,
@@ -339,15 +337,17 @@ export default function ResultsTable({
         </CSSTransition>
       </TooltipInPortal>
 
-      <div ref={tableContainerRef} className="experiment-results-wrapper">
+      <div
+        ref={tableContainerRef}
+        className="experiment-results-wrapper px-4 pb-4"
+      >
         <div className="w-100" style={{ minWidth: 700 }}>
           <table id="main-results" className="experiment-results table-sm">
             <thead>
               <tr className="results-top-row">
                 <th
-                  className={clsx("axis-col header-label", { noStickyHeader })}
+                  className={clsx("axis-col label", { noStickyHeader })}
                   style={{
-                    lineHeight: "15px",
                     width: 220 * tableCellScale,
                   }}
                 >
@@ -370,7 +370,7 @@ export default function ResultsTable({
                         overflowWrap: "anywhere",
                       }}
                     >
-                      {labelHeader}
+                      Metric
                     </div>
                     {editMetrics ? (
                       <div className="col d-flex align-items-end px-0">

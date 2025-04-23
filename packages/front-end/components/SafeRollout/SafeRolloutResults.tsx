@@ -1,11 +1,12 @@
 import React, { FC, useState } from "react";
 import dynamic from "next/dynamic";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import { getValidDate, ago, relativeDate } from "shared/dates";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { MetricSnapshotSettings } from "back-end/types/report";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { FaCaretDown, FaCaretRight } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import Link from "@/components/Radix/Link";
@@ -96,17 +97,13 @@ const SafeRolloutResults: FC<{
 
   return (
     <>
-      <Flex align="center" justify="between">
-        <Text weight="medium" size="3">
-          Analysis
-        </Text>
-        <Link
-          weight="medium"
-          onClick={() => setIsAnalysisExpanded(!isAnalysisExpanded)}
-        >
-          Show {isAnalysisExpanded ? "less" : "more"}
-        </Link>
-      </Flex>
+      <Link
+        weight="medium"
+        onClick={() => setIsAnalysisExpanded(!isAnalysisExpanded)}
+      >
+        {isAnalysisExpanded ? <FaCaretDown /> : <FaCaretRight />} View Results
+      </Link>
+
       {isAnalysisExpanded ? (
         <Box
           mt="3"
