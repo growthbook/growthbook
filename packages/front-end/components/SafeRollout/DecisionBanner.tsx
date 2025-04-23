@@ -166,20 +166,21 @@ const DecisionBanner = ({
     );
   } else {
     return (
-      <Callout status="info" icon={null}>
-        <Flex direction="row" align="center" justify="between" width="100%">
-          {Math.ceil(daysLeft).toFixed(0)} days left.
-          <Button variant="soft" onClick={openStatusModal}>
-            {safeRolloutDraftStatusChangeCopy
-              ? "Update Variation"
-              : "Stop Early"}
-          </Button>
-        </Flex>
-        {safeRolloutDraftStatusChangeCopy && (
-          <p className="mt-2 mb-0">
+      <Callout status="info" icon={null} fullWidthChildren={true}>
+        <Flex direction="column" gap="2">
+          <Flex direction="row" align="center" justify="between" width="100%">
+            {Math.ceil(daysLeft).toFixed(0)} days left
+            <Button variant="soft" onClick={openStatusModal}>
+              {safeRolloutDraftStatusChangeCopy
+                ? "Update Variation"
+                : "Stop Early"}
+            </Button>
+          </Flex>
+
+          {safeRolloutDraftStatusChangeCopy && (
             <strong>{safeRolloutDraftStatusChangeCopy}</strong>
-          </p>
-        )}
+          )}
+        </Flex>
       </Callout>
     );
   }
