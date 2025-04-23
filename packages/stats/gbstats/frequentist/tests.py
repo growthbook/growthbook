@@ -20,7 +20,6 @@ from gbstats.models.statistics import (
 )
 from gbstats.models.tests import BaseABTest, BaseConfig, TestResult, Uplift
 from gbstats.utils import variance_of_ratios, isinstance_union
-from typing import Literal
 
 
 # Configs
@@ -35,23 +34,10 @@ class SequentialConfig(FrequentistConfig):
     sequential_tuning_parameter: float = 5000
 
 
-PValueErrorMessage = Literal[
-    "NUMERICAL_PVALUE_NOT_CONVERGED",
-    "ALPHA_GREATER_THAN_0.5_FOR_SEQUENTIAL_ONE_SIDED_TEST",
-]
-
-
 # Results
 @dataclass
 class FrequentistTestResult(TestResult):
     p_value: Optional[float] = None
-    p_value_error_message: Optional[PValueErrorMessage] = None
-
-
-@dataclass
-class PValueResult:
-    p_value: Optional[float | None] = None
-    p_value_error_message: Optional[PValueErrorMessage] = None
 
 
 def frequentist_diff(mean_a, mean_b, relative, mean_a_unadjusted=None) -> float:
@@ -85,7 +71,9 @@ def frequentist_variance_relative_cuped(
     )
     v_trt = num_trt / den_trt
     const = -stat_b.post_statistic.mean
-    num_a = stat_a.post_statistic.variance * const**2 / (stat_a.post_statistic.mean**2)
+    num_a = (
+        stat_a.post_statistic.variance * const**2 / (stat_a.post_statistic.mean**2)
+    )
     num_b = 2 * theta * stat_a.covariance * const / stat_a.post_statistic.mean
     num_c = theta**2 * stat_a.pre_statistic.variance
     v_ctrl = (num_a + num_b + num_c) / den_ctrl
@@ -211,7 +199,6 @@ class TTest(BaseABTest):
     def _default_output(
         self,
         error_message: Optional[str] = None,
-        p_value_error_message: Optional[PValueErrorMessage] = None,
     ) -> FrequentistTestResult:
         """Return uninformative output when AB test analysis can't be performed
         adequately
@@ -226,13 +213,6 @@ class TTest(BaseABTest):
                 stddev=0,
             ),
             error_message=error_message,
-            p_value_error_message=p_value_error_message,
-        )
-
-    def compute_p_value(self) -> PValueResult:
-        return PValueResult(
-            p_value=self.p_value,
-            p_value_error_message=None,
         )
 
     @property
@@ -257,22 +237,18 @@ class TTest(BaseABTest):
         if self.sequential_one_sided_test and self.alpha >= 0.5:
             return self._default_output(
                 error_message=None,
-                p_value_error_message="ALPHA_GREATER_THAN_0.5_FOR_SEQUENTIAL_ONE_SIDED_TEST",
             )
-
-        p_value_result = self.compute_p_value()
 
         result = FrequentistTestResult(
             expected=self.point_estimate,
             ci=self.confidence_interval,
-            p_value=p_value_result.p_value,
+            p_value=self.p_value,
             uplift=Uplift(
                 dist="normal",
                 mean=self.point_estimate,
                 stddev=np.sqrt(self.variance),
             ),
             error_message=None,
-            p_value_error_message=p_value_result.p_value_error_message,
         )
         if self.scaled:
             result = self.scale_result(result)
@@ -298,7 +274,6 @@ class TTest(BaseABTest):
                         stddev=result.uplift.stddev * adjustment,
                     ),
                     error_message=None,
-                    p_value_error_message=result.p_value_error_message,
                 )
             else:
                 return self._default_output(NO_UNITS_IN_VARIATION_MESSAGE)
@@ -475,22 +450,6 @@ class SequentialOneSidedTreatmentLesserTTest(SequentialTTest):
     @property
     def p_value(self) -> float | None:
         return None
-
-    def compute_p_value(self) -> PValueResult:
-        if self.lesser:
-            if self.confidence_interval[1] is None or self.confidence_interval[1] > 0:
-                p_value = 2 * self.alpha
-            else:
-                p_value = 0.5 * self.alpha
-        else:
-            if self.confidence_interval[0] is None or self.confidence_interval[0] < 0:
-                p_value = 2 * self.alpha
-            else:
-                p_value = 0.5 * self.alpha
-        return PValueResult(
-            p_value=p_value,
-            p_value_error_message=None,
-        )
 
 
 class SequentialOneSidedTreatmentGreaterTTest(SequentialOneSidedTreatmentLesserTTest):
