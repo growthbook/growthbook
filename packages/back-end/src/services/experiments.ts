@@ -36,6 +36,8 @@ import {
   isFactMetric,
   isFactMetricId,
   isMetricJoinable,
+  setAdjustedCIs,
+  setAdjustedPValuesOnResults,
 } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
@@ -156,6 +158,7 @@ import {
   getConfidenceLevelsForOrg,
   getEnvironmentIdsFromOrg,
   getMetricDefaultsForOrg,
+  getPValueCorrectionForOrg,
   getPValueThresholdForOrg,
 } from "./organizations";
 
@@ -3052,12 +3055,29 @@ async function computeResultsStatus({
   experiment: ExperimentInterface;
 }): Promise<ExperimentAnalysisSummaryResultsStatus | undefined> {
   const statsEngine = relativeAnalysis.settings.statsEngine;
+  const pValueCorrection = getPValueCorrectionForOrg(context);
   const { ciUpper, ciLower } = getConfidenceLevelsForOrg(context);
   const metricDefaults = getMetricDefaultsForOrg(context);
   const pValueThreshold = getPValueThresholdForOrg(context);
   const metricMap = await getMetricMap(context);
+  const metricGroups = await context.models.metricGroups.getAll();
 
-  const variations = relativeAnalysis.results[0]?.variations;
+  const expandedGoalMetrics = expandMetricGroups(
+    experiment.goalMetrics,
+    metricGroups
+  );
+  const expandedGuardrailMetrics = expandMetricGroups(
+    experiment.guardrailMetrics,
+    metricGroups
+  );
+
+  const results = cloneDeep(relativeAnalysis.results);
+
+  // modifies results in place
+  setAdjustedPValuesOnResults(results, expandedGoalMetrics, pValueCorrection);
+  setAdjustedCIs(results, pValueThreshold);
+
+  const variations = results[0]?.variations;
   if (!variations || !variations.length) {
     return;
   }
@@ -3075,8 +3095,8 @@ async function computeResultsStatus({
       guardrailMetrics: {},
     };
     for (const m in currentVariation.metrics) {
-      const goalMetric = experiment.goalMetrics.includes(m);
-      const guardrailMetric = experiment.guardrailMetrics.includes(m);
+      const goalMetric = expandedGoalMetrics.includes(m);
+      const guardrailMetric = expandedGuardrailMetrics.includes(m);
       if (goalMetric || guardrailMetric) {
         const baselineMetric = baselineVariation.metrics?.[m];
         const currentMetric = currentVariation.metrics?.[m];
