@@ -236,6 +236,11 @@ export default function SafeRolloutFields({
               <TextField.Root
                 placeholder="7"
                 type="number"
+                disabled={
+                  form.watch("status") === "stopped" ||
+                  form.watch("status") === "rolled-back" ||
+                  form.watch("status") === "released"
+                }
                 required
                 {...form.register("safeRolloutFields.maxDuration.amount", {
                   valueAsNumber: true,
