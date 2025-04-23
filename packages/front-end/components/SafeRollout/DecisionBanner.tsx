@@ -83,7 +83,17 @@ const DecisionBanner = ({
     return (
       <Callout status="warning">
         Your safe rollout is over 24 hours old but has never updated. Please
-        check your experiment update schedule or manually run an update below
+        check your experiment update schedule or manually run an update below.{" "}
+        <a
+          role="button"
+          className="link"
+          onClick={(e) => {
+            e.preventDefault();
+            openStatusModal();
+          }}
+        >
+          {safeRolloutDraftStatusChangeCopy ? "Update Variation" : "Stop Early"}
+        </a>
       </Callout>
     );
   }
@@ -91,9 +101,19 @@ const DecisionBanner = ({
   else if (decisionStatus?.status === "no-data" && snapshotWithResults) {
     return (
       <Callout status="warning">
-        Your safe rollout has been running for over 24 hours and no data has
+        Your safe rollout has been running for over 24 hours and no traffic has
         come in. Check your implementation and ensure that the tracking callback
-        is firing as expected.
+        is firing as expected.{" "}
+        <a
+          role="button"
+          className="link"
+          onClick={(e) => {
+            e.preventDefault();
+            openStatusModal();
+          }}
+        >
+          {safeRolloutDraftStatusChangeCopy ? "Update Variation" : "Stop Early"}
+        </a>
       </Callout>
     );
   } else if (decisionStatus?.status === "unhealthy") {
