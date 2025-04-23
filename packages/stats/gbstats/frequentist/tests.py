@@ -477,91 +477,20 @@ class SequentialOneSidedTreatmentLesserTTest(SequentialTTest):
         return None
 
     def compute_p_value(self) -> PValueResult:
-        difference_type = (
-            "relative" if self.relative else "scaled" if self.scaled else "absolute"
-        )
-        tol = 1e-6
-        max_iters = 100
-        min_alpha = 1e-5
-        max_alpha = 0.4999
-        this_config = SequentialConfig(difference_type=difference_type, alpha=min_alpha)
-        this_test = (
-            SequentialOneSidedTreatmentLesserTTest
-            if self.lesser
-            else SequentialOneSidedTreatmentGreaterTTest
-        )
-        ci_index = 1 if self.lesser else 0
-        this_ci_small = this_test(
-            self.stat_a, self.stat_b, this_config
-        ).confidence_interval  # type: ignore
-        # smaller alpha => bigger confidence interval;
         if self.lesser:
-            if this_ci_small[ci_index] is not None:
-                if this_ci_small[ci_index] < 0:  # type: ignore
-                    return PValueResult(
-                        p_value=min_alpha,
-                        p_value_error_message=None,
-                    )
-            this_config.alpha = max_alpha
-            # bigger alpha => smaller confidence interval;
-            this_ci_big = this_test(
-                self.stat_a, self.stat_b, this_config
-            ).confidence_interval
-            if this_ci_big[ci_index] is not None and this_ci_big[ci_index] < 0:  # type: ignore
-                return PValueResult(
-                    p_value=max_alpha,
-                    p_value_error_message=None,
-                )
+            if self.confidence_interval[1] is None or self.confidence_interval[1] > 0:
+                p_value = 2 * self.alpha
+            else:
+                p_value = 0.5 * self.alpha
         else:
-            if this_ci_small[ci_index] is not None and this_ci_small[ci_index] > 0:  # type: ignore
-                return PValueResult(
-                    p_value=min_alpha,
-                    p_value_error_message=None,
-                )
-            this_config.alpha = max_alpha
-            # bigger alpha => smaller confidence interval;
-            this_ci_big = this_test(
-                self.stat_a, self.stat_b, this_config
-            ).confidence_interval
-            if this_ci_big[ci_index] is not None and this_ci_big[ci_index] > 0:  # type: ignore
-                return PValueResult(
-                    p_value=max_alpha,
-                    p_value_error_message=None,
-                )
-        iters = 0
-        this_alpha = 0.5 * (min_alpha + max_alpha)
-        diff = 0
-        for _ in range(max_iters):
-            this_config.alpha = this_alpha
-            this_ci = this_test(
-                self.stat_a, self.stat_b, this_config
-            ).confidence_interval
-            if this_ci[ci_index] is not None:
-                diff = this_ci[ci_index] - 0  # type: ignore
-                if self.lesser:
-                    if diff > 0:
-                        min_alpha = this_alpha
-                    else:
-                        max_alpha = this_alpha
-                else:
-                    if diff < 0:
-                        min_alpha = this_alpha
-                    else:
-                        max_alpha = this_alpha
-                this_alpha = 0.5 * (min_alpha + max_alpha)
-                if abs(diff) < tol:
-                    break
-        converged = abs(diff) < tol and iters != max_iters
-        if converged:
-            return PValueResult(
-                p_value=this_alpha,
-                p_value_error_message=None,
-            )
-        else:
-            return PValueResult(
-                p_value=None,
-                p_value_error_message="NUMERICAL_PVALUE_NOT_CONVERGED",
-            )
+            if self.confidence_interval[0] is None or self.confidence_interval[0] < 0:
+                p_value = 2 * self.alpha
+            else:
+                p_value = 0.5 * self.alpha
+        return PValueResult(
+            p_value=p_value,
+            p_value_error_message=None,
+        )
 
 
 class SequentialOneSidedTreatmentGreaterTTest(SequentialOneSidedTreatmentLesserTTest):
