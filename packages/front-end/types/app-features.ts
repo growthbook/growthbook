@@ -67,4 +67,5 @@ export type AppFeatures = {
   "cdn-usage-data": boolean;
   "experiment-results-timeseries": boolean;
   "decision-framework-criteria": boolean;
+  "safe-rollout": boolean;
 };
