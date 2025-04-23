@@ -84,7 +84,7 @@ export default function SafeRolloutFields({
       )
     : null;
 
-  const renderOverviewSteps = () => {
+  const renderTargeting = () => {
     return (
       <>
         <SelectField
@@ -156,7 +156,7 @@ export default function SafeRolloutFields({
     );
   };
 
-  const renderSafeRolloutSteps = () => {
+  const renderDataAndMetrics = () => {
     return (
       <>
         <div className="bg-highlight rounded p-3 mb-3">
@@ -364,8 +364,8 @@ export default function SafeRolloutFields({
         placeholder="Short human-readable description of the safe rollout"
       />
       {renderVariationFieldSelector()}
-      {renderSafeRolloutSteps()}
-      {renderOverviewSteps()}
+      {renderDataAndMetrics()}
+      {renderTargeting()}
     </>
   );
 }
