@@ -76,7 +76,6 @@ const DecisionBanner = ({
     );
   }
 
-  // failingGuardrails comes from the analysis summary for now, but we could return it in the above
   if (decisionStatus?.status === "unhealthy") {
     return (
       <Callout status="warning" my="4">
@@ -118,7 +117,23 @@ const DecisionBanner = ({
         )}
       </Callout>
     );
-  } else if (daysLeft <= 0) {
+  } else if (decisionStatus?.status === "rollback-now") {
+    return (
+      <Callout status="error">
+        Guardrail(s) are failing.
+        <a
+          role="button"
+          className="link"
+          onClick={(e) => {
+            e.preventDefault();
+            openStatusModal();
+          }}
+        >
+          Revert Now
+        </a>
+      </Callout>
+    );
+  } else if (decisionStatus?.status === "ship-now") {
     return (
       <Callout status="success">
         Safe rollout complete and no guardrails failing.{" "}
@@ -142,7 +157,7 @@ const DecisionBanner = ({
   } else {
     return (
       <Callout status="info">
-        {daysLeft} days left.{" "}
+        {Math.ceil(daysLeft).toFixed(0)} days left.{" "}
         <a
           role="button"
           className="link"

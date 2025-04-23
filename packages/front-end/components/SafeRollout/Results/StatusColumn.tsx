@@ -37,7 +37,7 @@ export default function StatusColumn({
   hideScaledImpact = false,
   ...otherProps
 }: Props) {
-  const pValText =
+  const statusText =
     rowResults.resultsStatus === "lost" && rowResults.significant
       ? "Failing"
       : "Neutral";
@@ -65,7 +65,7 @@ export default function StatusColumn({
         />
       ) : (
         <div className="d-flex align-items-center justify-content-end">
-          <div className="result-number d-inline-block">{pValText}</div>
+          <div className="result-number d-inline-block">{statusText}</div>
           {shouldRenderRisk ? (
             <span
               className={rowResults.riskMeta.riskStatus}

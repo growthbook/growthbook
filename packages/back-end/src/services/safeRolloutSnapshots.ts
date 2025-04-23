@@ -318,11 +318,11 @@ function getSafeRolloutSnapshotSettings({
 
   return {
     queryFilter: "",
+    experimentId: safeRolloutRule.trackingKey,
     datasourceId: safeRollout.datasourceId || "",
     dimensions: settings.dimensions.map((id) => ({ id })),
     startDate: safeRollout.startedAt || new Date(), // TODO: What do we want to do if startedAt is not set?
     endDate: new Date(),
-    experimentId: safeRolloutRule.trackingKey,
     guardrailMetrics,
     regressionAdjustmentEnabled: !!settings.regressionAdjusted,
     defaultMetricPriorSettings: defaultPriorSettings,
@@ -366,7 +366,7 @@ export async function _createSafeRolloutSnapshot({
     safeRollout.id
   );
   if (!safeRolloutRule) {
-    throw new Error("Could not load safe rollout rule");
+    throw new Error("Could not find safe rollout rule");
   }
 
   const datasource = await getDataSourceById(context, safeRollout.datasourceId);

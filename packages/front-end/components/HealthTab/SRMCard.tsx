@@ -10,6 +10,7 @@ import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
 } from "back-end/types/datasource";
+import clsx from "clsx";
 import { useUser } from "@/services/UserContext";
 import VariationUsersTable from "@/components/Experiment/TabbedPage/VariationUsersTable";
 import SRMWarning from "@/components/Experiment/SRMWarning";
@@ -28,6 +29,7 @@ interface Props {
   healthTabConfigParams?: HealthTabConfigParams;
   canConfigHealthTab: boolean;
   newDesign?: boolean;
+  hideDimensions?: boolean;
 }
 
 export const EXPERIMENT_DIMENSION_PREFIX = "dim_exp_";
@@ -43,6 +45,7 @@ export default function SRMCard({
   healthTabConfigParams,
   canConfigHealthTab,
   newDesign = false,
+  hideDimensions = false,
 }: Props) {
   const { settings } = useUser();
 
@@ -101,8 +104,11 @@ export default function SRMCard({
         }),
       }}
     >
-      <div className="row overflow-hidden" id="parent-container">
-        <div className="col-8 border-right pr-4">
+      <div
+        className={clsx("overflow-hidden", { row: !hideDimensions })}
+        id="parent-container"
+      >
+        <div className={clsx({ "col-8 border-right pr-4": !hideDimensions })}>
           <div
             className="overflow-auto"
             id="child-container"
@@ -154,17 +160,19 @@ export default function SRMCard({
             </div>
           </div>
         </div>
-        <div className="col h-100 p-0 overflow-hidden">
-          <DimensionIssues
-            dimensionData={traffic.dimension}
-            variations={variations}
-            dataSource={dataSource}
-            exposureQuery={exposureQuery}
-            healthTabConfigParams={healthTabConfigParams}
-            canConfigHealthTab={canConfigHealthTab}
-            isBandit={false}
-          />
-        </div>
+        {!hideDimensions && (
+          <div className="col h-100 p-0 overflow-hidden">
+            <DimensionIssues
+              dimensionData={traffic.dimension}
+              variations={variations}
+              dataSource={dataSource}
+              exposureQuery={exposureQuery}
+              healthTabConfigParams={healthTabConfigParams}
+              canConfigHealthTab={canConfigHealthTab}
+              isBandit={false}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
