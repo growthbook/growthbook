@@ -310,7 +310,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                             mutate={mutate}
                             open={safeRolloutStatusModalOpen}
                             setStatusModalOpen={setSafeRolloutStatusModalOpen}
-                            defaultStatus={safeRollout.status}
                             valueType={feature.valueType}
                           />
                         )}
