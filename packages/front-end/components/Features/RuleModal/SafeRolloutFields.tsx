@@ -2,8 +2,13 @@ import { useFormContext } from "react-hook-form";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { Box, TextField, Text, Flex } from "@radix-ui/themes";
-import { PiCaretUp, PiCaretDown } from "react-icons/pi";
+import { Box, TextField, Text, Flex, Grid } from "@radix-ui/themes";
+import {
+  PiCaretUp,
+  PiCaretDown,
+  PiLockBold,
+  PiLockOpenBold,
+} from "react-icons/pi";
 import { useState } from "react";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import SelectField from "@/components/Forms/SelectField";
@@ -51,7 +56,7 @@ export default function SafeRolloutFields({
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
   const { datasources } = useDefinitions();
-  const [controlValueDisabled] = useState(true);
+  const [controlValueDisabled, setControlValueDisabled] = useState(true);
   const dataSourceOptions =
     datasources?.map((ds) => ({
       label: ds.name,
@@ -264,67 +269,82 @@ export default function SafeRolloutFields({
   const renderVariationFieldSelector = () => {
     return (
       <>
-        <div className="mb-3 pb-1">
-          <FeatureValueField
-            label="Control value"
-            id="controlValue"
-            value={form.watch("controlValue")}
-            setValue={(v) => form.setValue("controlValue", v)}
-            valueType={feature.valueType}
-            feature={feature}
-            renderJSONInline={true}
-            disabled={disableFields || controlValueDisabled}
-            useDropdown={true}
-          />
-        </div>
-        <div className="mb-3 pb-1">
-          <FeatureValueField
-            label="Value to roll out"
-            id="value"
-            value={form.watch("variationValue")}
-            setValue={(v) => form.setValue("variationValue", v)}
-            valueType={feature.valueType}
-            feature={feature}
-            renderJSONInline={true}
-            disabled={disableFields}
-            useDropdown={true}
-          />
-        </div>
-      </>
-    );
-  };
+        <Grid
+          columns="auto auto 1fr 1fr"
+          rows="auto auto auto"
+          gapX="5"
+          gapY="3"
+          align="center"
+          mb="4"
+        >
+          <Text as="label" weight="medium">
+            Variation
+          </Text>
+          <Text as="label" weight="medium">
+            Weight
+          </Text>
+          <Text as="label" weight="medium">
+            Value to Force
+          </Text>
+          <Flex align="end" justify="end">
+            <Text
+              color="purple"
+              size="1"
+              weight="medium"
+              onClick={() => {
+                setControlValueDisabled(!controlValueDisabled);
+              }}
+            >
+              {controlValueDisabled ? (
+                <>
+                  <PiLockBold /> Unlock to edit &apos;Control&apos;
+                </>
+              ) : (
+                <>
+                  <PiLockOpenBold /> Lock editing &apos;Control&apos;
+                </>
+              )}
+            </Text>
+          </Flex>
 
-  const renderTrafficPreview = () => {
-    return (
-      <div className="mb-3 pb-1 border rounded p-3">
-        <Text as="label" weight="medium" mb="2">
-          Traffic Split Preview
-        </Text>
-        <Flex width="100%">
-          <div style={{ width: "50%" }}>
-            <div
-              style={{
-                backgroundColor: "var(--indigo-8)",
-                height: "20px",
-                borderTopLeftRadius: "4px",
-                borderBottomLeftRadius: "4px",
-              }}
-            ></div>
-            <div className="h-full">50%</div>
-          </div>
-          <div style={{ width: "50%" }}>
-            <div
-              style={{
-                backgroundColor: "var(--orange-8)",
-                height: "20px",
-                borderTopRightRadius: "4px",
-                borderBottomRightRadius: "4px",
-              }}
-            ></div>
-            <div className="h-full">50%</div>
-          </div>
-        </Flex>
-      </div>
+          <Text as="label">Control</Text>
+          <Text>50%</Text>
+          <Box width="100%" style={{ gridColumn: "3 / span 2" }}>
+            <FeatureValueField
+              id="controlValue"
+              value={form.watch("controlValue")}
+              setValue={(v) => form.setValue("controlValue", v)}
+              valueType={feature.valueType}
+              feature={feature}
+              renderJSONInline={true}
+              disabled={disableFields || controlValueDisabled}
+              useDropdown={true}
+            />
+          </Box>
+          <Box
+            style={{
+              gridColumn: "1 / 5",
+              borderBottom: "1px solid var(--gray-6)",
+              height: "1px",
+              margin: "0.5rem 0",
+            }}
+          />
+          <Text as="label">Rollout value</Text>
+          <Text as="label">50%</Text>
+          <Box width="100%" style={{ gridColumn: "3 / span 2" }}>
+            <FeatureValueField
+              id="variationValue"
+              value={form.watch("variationValue")}
+              setValue={(v) => form.setValue("variationValue", v)}
+              valueType={feature.valueType}
+              feature={feature}
+              renderJSONInline={true}
+              disabled={disableFields}
+              useDropdown={true}
+            />
+          </Box>
+        </Grid>
+      </>
     );
   };
 
@@ -344,7 +364,6 @@ export default function SafeRolloutFields({
         placeholder="Short human-readable description of the safe rollout"
       />
       {renderVariationFieldSelector()}
-      {renderTrafficPreview()}
       {renderSafeRolloutSteps()}
       {renderOverviewSteps()}
     </>
