@@ -1,5 +1,8 @@
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
-import { SafeRolloutRule } from "back-end/src/validators/features";
+import {
+  FeatureValueType,
+  SafeRolloutRule,
+} from "back-end/src/validators/features";
 import { useForm } from "react-hook-form";
 import { Text } from "@radix-ui/themes";
 import {
@@ -7,16 +10,19 @@ import {
   getSafeRolloutDaysLeft,
   getSafeRolloutResultStatus,
 } from "shared/enterprise";
+import { ExperimentResultStatus } from "back-end/types/experiment";
+import { useEffect } from "react";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
-import RadioGroup from "@/components/Radix/RadioGroup";
 import { useUser } from "@/services/UserContext";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
+import Callout from "@/components/Radix/Callout";
+import SelectField from "@/components/Forms/SelectField";
+import ValueDisplay from "@/components/Features/ValueDisplay";
 
-type Status = Pick<SafeRolloutRule, "status">;
-type StatusValues = Status["status"];
 export interface Props {
   safeRollout: SafeRolloutInterface;
+  valueType: FeatureValueType;
   rule: SafeRolloutRule;
   open: boolean;
   setStatusModalOpen: (open: boolean) => void;
@@ -25,12 +31,59 @@ export interface Props {
   version: number;
   i: number;
   featureId: string;
-  defaultStatus: StatusValues;
   mutate?: () => void;
+}
+
+type RolloutStatusChoice = "rolled-back" | "released" | "";
+
+function getDefaultStatusAndText(
+  decisionStatus: ExperimentResultStatus | undefined
+): { defaultStatus: RolloutStatusChoice; text: string } {
+  if (!decisionStatus) {
+    return {
+      defaultStatus: "",
+      text: "",
+    };
+  }
+
+  switch (decisionStatus.status) {
+    case "unhealthy":
+      return {
+        defaultStatus: "rolled-back",
+        text:
+          "The Safe Rollout is marked as unhealthy. We recommend reverting to Control.",
+      };
+    case "ship-now":
+      return {
+        defaultStatus: "released",
+        text: "The Safe Rollout has finished and no issues were detected.",
+      };
+    case "rollback-now":
+      return {
+        defaultStatus: "rolled-back",
+        text:
+          "The Safe Rollout has failing guardrails. We recommend reverting to Control.",
+      };
+    case "before-min-duration":
+    case "days-left":
+    case "no-data":
+      return {
+        defaultStatus: "",
+        text:
+          "The Safe Rollout is still collecting data. Are you sure you want to stop early?",
+      };
+    case "ready-for-review":
+      return {
+        defaultStatus: "",
+        text:
+          "The Safe Rollout is ready for review. Are you sure you want to stop early?",
+      };
+  }
 }
 
 export default function SafeRolloutStatusModal({
   safeRollout,
+  valueType,
   rule,
   open,
   setStatusModalOpen,
@@ -39,101 +92,118 @@ export default function SafeRolloutStatusModal({
   version,
   i,
   featureId,
-  defaultStatus,
   mutate,
 }: Props) {
   const { apiCall } = useAuth();
-  defaultStatus = defaultStatus || safeRollout.status;
   const { snapshot: snapshotWithResults } = useSafeRolloutSnapshot();
 
   const { hasCommercialFeature, organization } = useUser();
+
   const settings = organization?.settings;
 
   const daysLeft = getSafeRolloutDaysLeft({
-    safeRollout,
+    safeRollout: safeRollout,
     snapshotWithResults,
   });
 
   const decisionStatus = getSafeRolloutResultStatus({
-    safeRollout,
+    safeRollout: safeRollout,
     healthSettings: getHealthSettings(
       settings,
       hasCommercialFeature("decision-framework")
     ),
     daysLeft,
   });
-  let titleCopy = "Rollout is still collecting data";
-  if (decisionStatus?.status === "unhealthy") {
-    titleCopy =
-      "Rollout is Marked as unhealthy. you might want to revert to control";
-    defaultStatus = "rolled-back";
-  }
-  if (decisionStatus?.status === "no-data") {
-    titleCopy = "Rollout is not collecting data";
-    defaultStatus = "rolled-back";
-  }
-  if (decisionStatus?.status === "ship-now") {
-    titleCopy = "Rollout is ready to be released 100% to Variation";
-    defaultStatus = "released";
-  }
 
-  const form = useForm<Status>({
+  const form = useForm<{ status: RolloutStatusChoice }>({
     defaultValues: {
-      status: defaultStatus,
+      status: "",
     },
   });
 
-  const onSubmit = form.handleSubmit(async (values) => {
-    const res = await apiCall<{ version: number }>(
-      `/feature/${featureId}/${version}/rule/status`,
-      {
-        method: "PUT",
-        body: JSON.stringify({
-          status: values.status,
-          environment,
-          safeRolloutFields: values,
-          i,
-        }),
-      }
-    );
-    setVersion(res.version);
-    setStatusModalOpen(false);
-    mutate?.();
-  });
+  const { defaultStatus, text } = getDefaultStatusAndText(decisionStatus);
+
+  const status = form.watch("status");
+
+  const selectedValue =
+    status === "released"
+      ? rule.variationValue
+      : status === "rolled-back"
+      ? rule.controlValue
+      : null;
+
+  // The default status depends on async API calls, so when that finishes, update the form
+  // As long as the user has not interacted with the input yet
+  useEffect(() => {
+    if (status || !defaultStatus) return;
+    form.setValue("status", defaultStatus);
+  }, [form, status, defaultStatus]);
+
   return (
     <Modal
       open={open}
       close={() => setStatusModalOpen(false)}
       header={`End Safe Rollout`}
-      submit={() => onSubmit()}
+      ctaEnabled={!!status}
+      submit={form.handleSubmit(async (values) => {
+        const res = await apiCall<{ version: number }>(
+          `/feature/${featureId}/${version}/rule/status`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              status: values.status,
+              environment,
+              safeRolloutFields: values,
+              i,
+            }),
+          }
+        );
+        setVersion(res.version);
+        mutate?.();
+      })}
       size="lg"
       bodyClassName="px-4 pt-4"
       trackingEventModalType={"updateSafeRolloutStatus"}
-      allowlistedTrackingEventProps={{
-        status: form.watch("status"),
-      }}
+      allowlistedTrackingEventProps={{ status }}
     >
-      <Text as="div" size="2" mb="3">
-        {titleCopy}
-      </Text>
-      <div>
-        <RadioGroup
+      {text ? (
+        <Text as="div" size="2" mb="4">
+          {text}
+        </Text>
+      ) : null}
+      <div className="mb-4">
+        <SelectField
+          label="Update Safe Rollout status"
           value={form.watch("status")}
-          setValue={(v: "rolled-back" | "released") => {
+          required
+          onChange={(v: "rolled-back" | "released") => {
             form.setValue("status", v);
           }}
           options={[
             {
               value: "rolled-back",
-              label: `Revert to ${rule.controlValue}`,
+              label: `Revert to 'Control'`,
             },
             {
               value: "released",
-              label: `Rollout to ${rule.variationValue}`,
+              label: `Release to 100%`,
             },
           ]}
+          sort={false}
         />
       </div>
+      {status && selectedValue !== null ? (
+        <div className="form-group mb-4">
+          <label>Value to roll out</label>
+          <div>
+            <ValueDisplay type={valueType} value={selectedValue} />
+          </div>
+        </div>
+      ) : null}
+      <Callout status="info" my="4">
+        A new revision will be published and changes will take effect
+        immediately.
+      </Callout>
     </Modal>
   );
 }
