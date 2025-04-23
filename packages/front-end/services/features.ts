@@ -678,8 +678,6 @@ export function getDefaultRuleValue({
     : hashAttributes[0] || "id";
 
   const value = getDefaultVariationValue(defaultValue);
-  const variationValue =
-    value === "true" ? "true" : value === "false" ? "false" : "";
   if (ruleType === "rollout") {
     return {
       type: "rollout",
@@ -712,7 +710,7 @@ export function getDefaultRuleValue({
       enabled: true,
       prerequisites: [],
       controlValue: defaultValue,
-      variationValue: variationValue,
+      variationValue: value,
       hashAttribute: "id",
       trackingKey: "",
       seed: "",

@@ -157,9 +157,10 @@ export default function SafeRolloutFields({
           onChange={(v) => {
             form.setValue("hashAttribute", v);
           }}
+          className="mb-4"
           required
         />
-        <div className="bg-highlight rounded p-3 mb-3">
+        <div className="bg-highlight rounded p-3 mb-4">
           <div className="mb-3 pb-1">
             <SelectField
               label="Data source"
@@ -274,14 +275,14 @@ export default function SafeRolloutFields({
           rows="auto auto auto"
           gapX="5"
           gapY="3"
-          align="center"
+          align={feature.valueType === "json" ? "start" : "center"}
           mb="6"
         >
           <Text as="label" weight="medium">
             Variation
           </Text>
           <Text as="label" weight="medium">
-            Weight
+            Traffic
           </Text>
           <Text as="label" weight="medium">
             Value to Force
