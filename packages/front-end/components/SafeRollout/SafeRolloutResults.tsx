@@ -13,6 +13,8 @@ import Link from "@/components/Radix/Link";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/components/Radix/Callout";
+import MultipleExposuresCard from "../HealthTab/MultipleExposuresCard";
+import SRMCard from "../HealthTab/SRMCard";
 import { useSafeRolloutSnapshot } from "./SnapshotProvider";
 import SafeRolloutAnalysisSettingsSummary from "./AnalysisSettingsSummary";
 
@@ -81,7 +83,21 @@ const SafeRolloutResults: FC<{
 
   const showCompactResults = !draftMode && hasData && snapshot && analysis;
 
+  const datasource = getDatasourceById(safeRollout.datasourceId);
+
+  const exposureQuery = datasource?.settings.queries?.exposure?.find(
+    (e) => e.id === safeRollout.exposureQueryId
+  );
+
+  const totalUsers = snapshot?.health?.traffic?.overall?.variationUnits?.reduce(
+    (acc, a) => acc + a,
+    0
+  );
+
+  const traffic = snapshot?.health?.traffic;
+
   const [isAnalysisExpanded, setIsAnalysisExpanded] = useState(false);
+  const [isHealthExpanded, setIsHealthExpanded] = useState(false);
 
   if (error) {
     return (
@@ -91,12 +107,10 @@ const SafeRolloutResults: FC<{
     );
   }
 
-  const datasource = getDatasourceById(safeRollout.datasourceId);
-
   const hasMetrics = safeRollout?.guardrailMetricIds?.length > 0;
 
   return (
-    <>
+    <Box>
       <Link
         weight="medium"
         onClick={() => setIsAnalysisExpanded(!isAnalysisExpanded)}
@@ -105,64 +119,113 @@ const SafeRolloutResults: FC<{
       </Link>
 
       {isAnalysisExpanded ? (
-        <Box
-          mt="3"
-          style={{
-            border: "1px solid var(--slate-a4)",
-            borderRadius: "var(--radius-2)",
-          }}
-        >
-          <SafeRolloutAnalysisSettingsSummary safeRollout={safeRollout} />
+        <>
+          <Box
+            mt="3"
+            style={{
+              border: "1px solid var(--slate-a4)",
+              borderRadius: "var(--radius-2)",
+            }}
+          >
+            <SafeRolloutAnalysisSettingsSummary safeRollout={safeRollout} />
 
-          {!hasData && status !== "running" && hasMetrics && !snapshotLoading && (
-            <Callout status="info" mx="3" my="4">
-              No data yet.{" "}
-              {snapshot &&
-                phaseAgeMinutes >= 120 &&
-                "Make sure your safe rollout is tracking properly."}
-              {snapshot &&
-                phaseAgeMinutes < 120 &&
-                (phaseAgeMinutes < 0
-                  ? "This safe rollout will start " +
-                    relativeDate(safeRollout.startedAt ?? "") +
-                    ". Wait until it's been running for a little while and click the 'Update' button above to check again."
-                  : "It was just started " +
-                    ago(safeRollout.startedAt ?? "") +
-                    ". Give it a little longer and click the 'Update' button above to check again.")}
-              {!snapshot &&
-                datasource &&
-                permissionsUtil.canRunExperimentQueries(datasource) &&
-                `Click the "Update" button above.`}
-              {snapshotLoading && <div> Snapshot loading...</div>}
-            </Callout>
+            {!hasData &&
+              status !== "running" &&
+              hasMetrics &&
+              !snapshotLoading && (
+                <Callout status="info" mx="3" my="4">
+                  No data yet.{" "}
+                  {snapshot &&
+                    phaseAgeMinutes >= 120 &&
+                    "Make sure your safe rollout is tracking properly."}
+                  {snapshot &&
+                    phaseAgeMinutes < 120 &&
+                    (phaseAgeMinutes < 0
+                      ? "This safe rollout will start " +
+                        relativeDate(safeRollout.startedAt ?? "") +
+                        ". Wait until it's been running for a little while and click the 'Update' button above to check again."
+                      : "It was just started " +
+                        ago(safeRollout.startedAt ?? "") +
+                        ". Give it a little longer and click the 'Update' button above to check again.")}
+                  {!snapshot &&
+                    datasource &&
+                    permissionsUtil.canRunExperimentQueries(datasource) &&
+                    `Click the "Update" button above.`}
+                  {snapshotLoading && <div> Snapshot loading...</div>}
+                </Callout>
+              )}
+
+            {showCompactResults ? (
+              <CompactResults
+                variations={SAFE_ROLLOUT_VARIATIONS}
+                results={analysis.results[0]}
+                queryStatusData={queryStatusData}
+                reportDate={snapshot.dateCreated}
+                startDate={getValidDate(safeRollout.startedAt).toDateString()}
+                isLatestPhase={true}
+                status={
+                  safeRollout.status === "running" ? "running" : "stopped"
+                }
+                goalMetrics={[]}
+                secondaryMetrics={[]}
+                guardrailMetrics={safeRollout.guardrailMetricIds}
+                metricOverrides={[]}
+                id={safeRollout.id}
+                statsEngine={"frequentist"}
+                pValueCorrection={pValueCorrection}
+                regressionAdjustmentEnabled={
+                  analysis.settings?.regressionAdjusted
+                }
+                settingsForSnapshotMetrics={settingsForSnapshotMetrics}
+                experimentType={"standard"}
+              />
+            ) : null}
+          </Box>
+          {snapshot && (
+            <>
+              <Link
+                weight="medium"
+                mt="4"
+                mb="3"
+                onClick={() => setIsHealthExpanded(!isHealthExpanded)}
+              >
+                {isHealthExpanded ? <FaCaretDown /> : <FaCaretRight />} View
+                Traffic
+              </Link>
+
+              {isHealthExpanded ? (
+                traffic && totalUsers ? (
+                  <>
+                    <SRMCard
+                      newDesign={true}
+                      traffic={traffic}
+                      variations={SAFE_ROLLOUT_VARIATIONS}
+                      totalUsers={totalUsers}
+                      onNotify={() => {}}
+                      dataSource={datasource}
+                      exposureQuery={exposureQuery}
+                      canConfigHealthTab={false}
+                      hideDimensions
+                    />
+                    <Box mt="4">
+                      <MultipleExposuresCard
+                        totalUsers={totalUsers}
+                        snapshot={snapshot}
+                        onNotify={() => {}}
+                      />
+                    </Box>
+                  </>
+                ) : (
+                  <Callout status="info" mt="3">
+                    Please run a query to see health data.
+                  </Callout>
+                )
+              ) : null}
+            </>
           )}
-
-          {showCompactResults ? (
-            <CompactResults
-              variations={SAFE_ROLLOUT_VARIATIONS}
-              results={analysis.results[0]}
-              queryStatusData={queryStatusData}
-              reportDate={snapshot.dateCreated}
-              startDate={getValidDate(safeRollout.startedAt).toDateString()}
-              isLatestPhase={true}
-              status={safeRollout.status === "running" ? "running" : "stopped"}
-              goalMetrics={[]}
-              secondaryMetrics={[]}
-              guardrailMetrics={safeRollout.guardrailMetricIds}
-              metricOverrides={[]}
-              id={safeRollout.id}
-              statsEngine={"frequentist"}
-              pValueCorrection={pValueCorrection}
-              regressionAdjustmentEnabled={
-                analysis.settings?.regressionAdjusted
-              }
-              settingsForSnapshotMetrics={settingsForSnapshotMetrics}
-              experimentType={"standard"}
-            />
-          ) : null}
-        </Box>
+        </>
       ) : null}
-    </>
+    </Box>
   );
 };
 
