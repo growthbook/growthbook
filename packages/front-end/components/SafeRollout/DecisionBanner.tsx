@@ -76,7 +76,15 @@ const DecisionBanner = ({
     );
   }
 
-  if (decisionStatus?.status === "unhealthy") {
+  if (decisionStatus?.status === "no-data") {
+    return (
+      <Callout status="warning">
+        Safe Rollout has been running for over 24 hours and no data has come in.
+        Check your implementation and ensure that the tracking callback is
+        firing as expected.
+      </Callout>
+    );
+  } else if (decisionStatus?.status === "unhealthy") {
     return (
       <Callout status="warning" my="4">
         {decisionStatus.unhealthyData.srm && (

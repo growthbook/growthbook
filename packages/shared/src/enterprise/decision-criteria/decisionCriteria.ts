@@ -1,4 +1,4 @@
-import { addDays, differenceInMinutes } from "date-fns";
+import { addDays, differenceInHours, differenceInMinutes } from "date-fns";
 import {
   DecisionCriteriaAction,
   DecisionCriteriaData,
@@ -505,6 +505,18 @@ export function getSafeRolloutResultStatus({
 
   const healthSummary = safeRollout.analysisSummary?.health;
   const resultsStatus = safeRollout.analysisSummary?.resultsStatus;
+  const hoursRunning = differenceInHours(
+    Date.now(),
+    safeRollout.startedAt ? new Date(safeRollout.startedAt) : Date.now()
+  );
+
+  // If the safe rollout has been running for over 24 hours and no data has come in
+  // return no data
+  if (!resultsStatus && !healthSummary && hoursRunning > 24) {
+    return {
+      status: "no-data",
+    };
+  }
 
   if (healthSummary?.totalUsers) {
     const srmHealthData = getSRMHealthData({
