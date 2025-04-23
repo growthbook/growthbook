@@ -87,18 +87,6 @@ export default function SafeRolloutFields({
   const renderTargeting = () => {
     return (
       <>
-        <SelectField
-          disabled={disableFields}
-          label="Split based on attribute"
-          options={attributeSchema
-            .filter((s) => !hasHashAttributes || s.hashAttribute)
-            .map((s) => ({ label: s.property, value: s.property }))}
-          value={form.watch("hashAttribute")}
-          onChange={(v) => {
-            form.setValue("hashAttribute", v);
-          }}
-          required
-        />
         <SavedGroupTargetingField
           value={form.watch("savedGroups") || []}
           setValue={(savedGroups) => form.setValue("savedGroups", savedGroups)}
@@ -159,6 +147,18 @@ export default function SafeRolloutFields({
   const renderDataAndMetrics = () => {
     return (
       <>
+        <SelectField
+          disabled={disableFields}
+          label="Split based on attribute"
+          options={attributeSchema
+            .filter((s) => !hasHashAttributes || s.hashAttribute)
+            .map((s) => ({ label: s.property, value: s.property }))}
+          value={form.watch("hashAttribute")}
+          onChange={(v) => {
+            form.setValue("hashAttribute", v);
+          }}
+          required
+        />
         <div className="bg-highlight rounded p-3 mb-3">
           <div className="mb-3 pb-1">
             <SelectField
@@ -291,6 +291,7 @@ export default function SafeRolloutFields({
               color="purple"
               size="1"
               weight="medium"
+              style={{ cursor: "pointer" }}
               onClick={() => {
                 setControlValueDisabled(!controlValueDisabled);
               }}
