@@ -311,6 +311,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                             open={safeRolloutStatusModalOpen}
                             setStatusModalOpen={setSafeRolloutStatusModalOpen}
                             defaultStatus={safeRollout.status}
+                            valueType={feature.valueType}
                           />
                         )}
                         {safeRollout?.startedAt && (
