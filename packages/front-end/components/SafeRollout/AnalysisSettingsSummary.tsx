@@ -17,8 +17,10 @@ import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import OutdatedBadge from "@/components/OutdatedBadge";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import OverflowText from "../Experiment/TabbedPage/OverflowText";
+import Metadata from "../Radix/Metadata";
 import RefreshSnapshotButton from "./RefreshSnapshotButton";
 
+const numberFormatter = Intl.NumberFormat();
 export interface Props {
   safeRollout: SafeRolloutInterface;
 }
@@ -82,6 +84,14 @@ export default function SafeRolloutAnalysisSettingsSummary({
       <div className="row align-items-center justify-content-between">
         <div className="col-auto">
           <h4>Guardrail Metrics</h4>
+          <div>
+            <Metadata
+              label="Total users"
+              value={numberFormatter.format(
+                safeRollout.analysisSummary?.health?.totalUsers ?? 0
+              )}
+            />
+          </div>
         </div>
         <div className="col-auto">
           <div className="row align-items-center text-muted">

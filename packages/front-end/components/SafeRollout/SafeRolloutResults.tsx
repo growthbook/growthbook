@@ -62,8 +62,6 @@ const SafeRolloutResults: FC<{
     loading: snapshotLoading,
   } = useSafeRolloutSnapshot();
 
-  console.log({ snapshot });
-
   const queryStatusData = getQueryStatus(latest?.queries || [], latest?.error);
 
   const permissionsUtil = usePermissionsUtil();

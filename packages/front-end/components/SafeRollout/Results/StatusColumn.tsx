@@ -64,7 +64,7 @@ export default function StatusColumn({
           showPercentComplete={showPercentComplete}
         />
       ) : (
-        <div className="d-flex align-items-center justify-content-end">
+        <div className="d-flex align-items-center">
           <div className="result-number d-inline-block">{statusText}</div>
           {shouldRenderRisk ? (
             <span

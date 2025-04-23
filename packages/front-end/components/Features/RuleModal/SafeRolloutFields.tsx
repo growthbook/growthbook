@@ -287,25 +287,27 @@ export default function SafeRolloutFields({
             Value to Force
           </Text>
           <Flex align="end" justify="end">
-            <Text
-              color="purple"
-              size="1"
-              weight="medium"
-              style={{ cursor: "pointer" }}
-              onClick={() => {
-                setControlValueDisabled(!controlValueDisabled);
-              }}
-            >
-              {controlValueDisabled ? (
-                <>
-                  <PiLockBold /> Unlock to edit &apos;Control&apos;
-                </>
-              ) : (
-                <>
-                  <PiLockOpenBold /> Lock editing &apos;Control&apos;
-                </>
-              )}
-            </Text>
+            {!disableFields && (
+              <Text
+                color="purple"
+                size="1"
+                weight="medium"
+                style={{ cursor: "pointer" }}
+                onClick={() => {
+                  setControlValueDisabled(!controlValueDisabled);
+                }}
+              >
+                {controlValueDisabled ? (
+                  <>
+                    <PiLockBold /> Unlock to edit &apos;Control&apos;
+                  </>
+                ) : (
+                  <>
+                    <PiLockOpenBold /> Lock editing &apos;Control&apos;
+                  </>
+                )}
+              </Text>
+            )}
           </Flex>
 
           <Text as="label">Control</Text>
