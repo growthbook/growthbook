@@ -12,9 +12,11 @@ import {
   ExperimentResultStatusData,
   ExperimentUnhealthyData,
 } from "back-end/types/experiment";
+import {
+  SafeRolloutInterface,
+  SafeRolloutSnapshotInterface,
+} from "back-end/types/safe-rollout";
 import { OrganizationSettings } from "back-end/types/organization";
-import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
-import { SafeRolloutSnapshotInterface } from "back-end/src/validators/safe-rollout-snapshot";
 import {
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
   DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
@@ -502,7 +504,6 @@ export function getSafeRolloutResultStatus({
   daysLeft: number;
 }): ExperimentResultStatusData | undefined {
   const unhealthyData: ExperimentUnhealthyData = {};
-
   const healthSummary = safeRollout.analysisSummary?.health;
   const resultsStatus = safeRollout.analysisSummary?.resultsStatus;
   const hoursRunning = differenceInHours(
@@ -580,7 +581,7 @@ export function getSafeRolloutResultStatus({
     return {
       status: "rollback-now",
       variationIds: decisionStatus.variationIds,
-      sequentialUsed: false,
+      sequentialUsed: true,
       powerReached: false,
     };
   }
