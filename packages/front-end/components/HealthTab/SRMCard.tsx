@@ -23,7 +23,7 @@ interface Props {
   traffic: ExperimentSnapshotTraffic;
   variations: ExperimentReportVariation[];
   totalUsers: number;
-  onNotify: (issue: IssueValue) => void;
+  onNotify?: (issue: IssueValue) => void;
   dataSource: DataSourceInterfaceWithParams | null;
   exposureQuery?: ExposureQuery;
   healthTabConfigParams?: HealthTabConfigParams;
@@ -79,7 +79,8 @@ export default function SRMCard({
 
   useEffect(() => {
     if (srmHealth === "unhealthy") {
-      onNotify({ label: "Experiment Balance", value: "balanceCheck" });
+      onNotify &&
+        onNotify({ label: "Experiment Balance", value: "balanceCheck" });
     }
   }, [traffic, srmHealth, onNotify]);
 

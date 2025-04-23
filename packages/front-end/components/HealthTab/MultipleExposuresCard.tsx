@@ -12,7 +12,7 @@ import { IssueValue } from "./IssueTags";
 
 interface Props {
   totalUsers: number;
-  onNotify: (issue: IssueValue) => void;
+  onNotify?: (issue: IssueValue) => void;
   snapshot: ExperimentSnapshotInterface | SafeRolloutSnapshotInterface;
 }
 

@@ -574,6 +574,14 @@ export function getSafeRolloutResultStatus({
       })
     : undefined;
 
+  // If unhealthy, return unhealthy status
+  if (unhealthyData.srm || unhealthyData.multipleExposures) {
+    return {
+      status: "unhealthy",
+      unhealthyData,
+    };
+  }
+
   // If rollback now, return rollback now
   if (decisionStatus?.status === "rollback-now") {
     return {
@@ -581,14 +589,6 @@ export function getSafeRolloutResultStatus({
       variationIds: decisionStatus.variationIds,
       sequentialUsed: true,
       powerReached: false,
-    };
-  }
-
-  // If unhealthy, return unhealthy status
-  if (unhealthyData.srm || unhealthyData.multipleExposures) {
-    return {
-      status: "unhealthy",
-      unhealthyData,
     };
   }
 

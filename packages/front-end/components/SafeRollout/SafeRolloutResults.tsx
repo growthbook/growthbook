@@ -8,12 +8,18 @@ import { MetricSnapshotSettings } from "back-end/types/report";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { FaCaretDown, FaCaretRight } from "react-icons/fa";
 import { PiWarningFill } from "react-icons/pi";
+import {
+  getHealthSettings,
+  getSafeRolloutDaysLeft,
+  getSafeRolloutResultStatus,
+} from "shared/enterprise";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import Link from "@/components/Radix/Link";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/components/Radix/Callout";
+import { useUser } from "@/services/UserContext";
 import MultipleExposuresCard from "../HealthTab/MultipleExposuresCard";
 import SRMCard from "../HealthTab/SRMCard";
 import { useSafeRolloutSnapshot } from "./SnapshotProvider";
@@ -36,6 +42,10 @@ const SAFE_ROLLOUT_VARIATIONS = [
   },
 ];
 
+const WarningIcon = () => (
+  <PiWarningFill style={{ color: "var(--amber-11)" }} />
+);
+
 const SafeRolloutResults: FC<{
   safeRollout: SafeRolloutInterface;
   draftMode?: boolean;
@@ -52,10 +62,14 @@ const SafeRolloutResults: FC<{
     loading: snapshotLoading,
   } = useSafeRolloutSnapshot();
 
+  console.log({ snapshot });
+
   const queryStatusData = getQueryStatus(latest?.queries || [], latest?.error);
 
   const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
+  const { hasCommercialFeature, organization } = useUser();
+  const settings = organization?.settings;
 
   const { status } = getQueryStatus(latest?.queries || [], latest?.error);
 
@@ -99,10 +113,26 @@ const SafeRolloutResults: FC<{
 
   const [isAnalysisExpanded, setIsAnalysisExpanded] = useState(false);
   const [isHealthExpanded, setIsHealthExpanded] = useState(false);
-  const [healthWarning, setHealthWarning] = useState(false);
-  // TODO: Wire up setResultsWarning to be set to true when at least one guardrail metric is failing
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [resultsWarning, _setResultsWarning] = useState(false);
+
+  const resultsStatus = safeRollout.analysisSummary?.resultsStatus;
+  const showGuardrailWarning = Object.values(
+    resultsStatus?.variations[0].guardrailMetrics ?? {}
+  )?.some((metric) => metric.status === "lost");
+
+  const daysLeft = getSafeRolloutDaysLeft({
+    safeRollout,
+    snapshotWithResults: snapshot,
+  });
+
+  const decisionStatus = getSafeRolloutResultStatus({
+    safeRollout,
+    healthSettings: getHealthSettings(
+      settings,
+      hasCommercialFeature("decision-framework")
+    ),
+    daysLeft,
+  });
+  const showHealthWarning = decisionStatus?.status === "unhealthy";
 
   if (error) {
     return (
@@ -121,9 +151,7 @@ const SafeRolloutResults: FC<{
         onClick={() => setIsAnalysisExpanded(!isAnalysisExpanded)}
       >
         {isAnalysisExpanded ? <FaCaretDown /> : <FaCaretRight />} View Results{" "}
-        {(healthWarning || resultsWarning) && (
-          <PiWarningFill style={{ color: "var(--amber-11)" }} />
-        )}
+        {(showHealthWarning || showGuardrailWarning) && <WarningIcon />}
       </Link>
 
       {isAnalysisExpanded ? (
@@ -198,10 +226,7 @@ const SafeRolloutResults: FC<{
                 onClick={() => setIsHealthExpanded(!isHealthExpanded)}
               >
                 {isHealthExpanded ? <FaCaretDown /> : <FaCaretRight />} View
-                Traffic{" "}
-                {healthWarning && (
-                  <PiWarningFill style={{ color: "var(--amber-11)" }} />
-                )}
+                Traffic {showHealthWarning && <WarningIcon />}
               </Link>
 
               {isHealthExpanded ? (
@@ -212,9 +237,6 @@ const SafeRolloutResults: FC<{
                       traffic={traffic}
                       variations={SAFE_ROLLOUT_VARIATIONS}
                       totalUsers={totalUsers}
-                      onNotify={(_) => {
-                        setHealthWarning(true);
-                      }}
                       dataSource={datasource}
                       exposureQuery={exposureQuery}
                       canConfigHealthTab={false}
@@ -224,9 +246,6 @@ const SafeRolloutResults: FC<{
                       <MultipleExposuresCard
                         totalUsers={totalUsers}
                         snapshot={snapshot}
-                        onNotify={(_) => {
-                          setHealthWarning(true);
-                        }}
                       />
                     </Box>
                   </>
