@@ -399,8 +399,8 @@ export default function ResultsTable({
                         innerClassName={"text-left"}
                         body={
                           <div style={{ lineHeight: 1.5 }}>
-                            Guardrails are either neutral or failing. Once a
-                            guardrail is statistically significant in the
+                            Guardrails are either within bounds or failing. Once
+                            a guardrail is statistically significant in the
                             undesirable direction, the status is changed to
                             failing. All safe rollouts use frequentist
                             sequential testing to enable reverting issues as

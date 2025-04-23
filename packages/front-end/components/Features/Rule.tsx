@@ -28,7 +28,6 @@ import SafeRolloutSummary from "@/components/Features/SafeRolloutSummary";
 import SafeRolloutSnapshotProvider from "@/components/SafeRollout/SnapshotProvider";
 import SafeRolloutDetails from "@/components/SafeRollout/SafeRolloutDetails";
 import SafeRolloutStatusModal from "@/components/Features/SafeRollout/SafeRolloutStatusModal";
-import DecisionBanner from "../SafeRollout/DecisionBanner";
 import ConditionDisplay from "./ConditionDisplay";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
@@ -299,7 +298,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           rule={rule}
                           feature={feature}
                         />
-
                         {safeRollout?.startedAt && (
                           <SafeRolloutStatusModal
                             safeRollout={safeRollout}
@@ -317,15 +315,13 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         )}
                         {safeRollout?.startedAt && (
                           <Flex direction="column" mt="4" gap="4">
-                            {rule.enabled && (
-                              <DecisionBanner
-                                openStatusModal={() =>
-                                  setSafeRolloutStatusModalOpen(true)
-                                }
-                                rule={rule}
-                              />
-                            )}
-                            <SafeRolloutDetails safeRollout={safeRollout} />{" "}
+                            <SafeRolloutDetails
+                              safeRollout={safeRollout}
+                              rule={rule}
+                              openStatusModal={() =>
+                                setSafeRolloutStatusModalOpen(true)
+                              }
+                            />{" "}
                           </Flex>
                         )}
                         {!safeRollout?.startedAt && (
