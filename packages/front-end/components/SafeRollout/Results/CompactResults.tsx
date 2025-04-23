@@ -16,15 +16,15 @@ import {
   expandMetricGroups,
   ExperimentMetricInterface,
   getMetricLink,
+  setAdjustedCIs,
+  setAdjustedPValuesOnResults,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import { SafeRolloutReportResultDimension } from "back-end/src/validators/safe-rollout-snapshot";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
-  setAdjustedPValuesOnResults,
   ExperimentTableRow,
-  setAdjustedCIs,
   hasRisk,
 } from "@/services/experiments";
 import { GBCuped } from "@/components/Icons";

@@ -3020,7 +3020,7 @@ export async function getExperimentAnalysisSummary({
     if (overallResults && overallResults.name === "") {
       const resultsStatus = await computeResultsStatus({
         context,
-        analysis: relativeAnalysis,
+        relativeAnalysis,
         experiment,
       });
 
@@ -3069,11 +3069,11 @@ function getVariationId(
 
 export async function computeResultsStatus({
   context,
-  analysis,
+  relativeAnalysis,
   experiment,
 }: {
   context: ReqContext;
-  analysis: ExperimentSnapshotAnalysis | SafeRolloutSnapshotAnalysis;
+  relativeAnalysis: ExperimentSnapshotAnalysis | SafeRolloutSnapshotAnalysis;
   experiment: ExperimentInterface | SafeRolloutInterface;
 }): Promise<ExperimentAnalysisSummaryResultsStatus | undefined> {
   const statsEngine = relativeAnalysis.settings.statsEngine;
@@ -3084,14 +3084,14 @@ export async function computeResultsStatus({
   const metricMap = await getMetricMap(context);
   const metricGroups = await context.models.metricGroups.getAll();
 
-  const expandedGoalMetrics = expandMetricGroups(
-    experiment.goalMetrics,
-    metricGroups
-  );
-  const expandedGuardrailMetrics = expandMetricGroups(
-    experiment.guardrailMetrics,
-    metricGroups
-  );
+  const expandedGoalMetrics =
+    "goalMetrics" in experiment
+      ? expandMetricGroups(experiment.goalMetrics, metricGroups)
+      : [];
+  const expandedGuardrailMetrics =
+    "guardrailMetrics" in experiment
+      ? expandMetricGroups(experiment.guardrailMetrics, metricGroups)
+      : expandMetricGroups(experiment.guardrailMetricIds, metricGroups);
 
   const results = cloneDeep(relativeAnalysis.results);
 
@@ -3176,7 +3176,7 @@ export async function computeResultsStatus({
   return {
     variations: variationStatuses,
     settings: {
-      sequentialTesting: analysis.settings.sequentialTesting ?? false,
+      sequentialTesting: relativeAnalysis.settings.sequentialTesting ?? false,
     },
   };
 }

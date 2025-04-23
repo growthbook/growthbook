@@ -3,11 +3,8 @@ import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import { ExperimentStatus } from "back-end/src/validators/experiments";
 import { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
 import { daysBetween, getValidDate } from "shared/dates";
-import {
-  ExperimentMetricInterface,
-  getAdjustedCI,
-} from "shared/src/experiments";
 import { addDays, min } from "date-fns";
+import { ExperimentMetricInterface, getAdjustedCI } from "shared/experiments";
 import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {

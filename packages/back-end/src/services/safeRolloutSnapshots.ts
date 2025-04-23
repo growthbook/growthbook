@@ -514,7 +514,7 @@ export async function getSafeRolloutAnalysisSummary({
   if (analysis) {
     analysisSummary.resultsStatus = await computeResultsStatus({
       context,
-      analysis,
+      relativeAnalysis: analysis,
       experiment: safeRollout,
     });
   }
