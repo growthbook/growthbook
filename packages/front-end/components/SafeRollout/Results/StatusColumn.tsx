@@ -40,7 +40,7 @@ export default function StatusColumn({
   const statusText =
     rowResults.resultsStatus === "lost" && rowResults.significant
       ? "Failing"
-      : "Neutral";
+      : "Within bounds";
 
   const shouldRenderRisk =
     showRisk &&

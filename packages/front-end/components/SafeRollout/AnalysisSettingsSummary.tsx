@@ -78,8 +78,11 @@ export default function SafeRolloutAnalysisSettingsSummary({
   }[] = [];
 
   return (
-    <div className="pr-3 py-2 analysis-settings-top border-bottom">
-      <div className="row align-items-center justify-content-end">
+    <div className="pr-2 pl-4 pt-3 pb-2 analysis-settings-top">
+      <div className="row align-items-center justify-content-between">
+        <div className="col-auto">
+          <h4>Guardrail Metrics</h4>
+        </div>
         <div className="col-auto">
           <div className="row align-items-center text-muted">
             {items.map((item, i) => (

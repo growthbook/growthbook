@@ -243,7 +243,6 @@ const CompactResults: FC<{
             rows={rows.filter((r) => r.resultGroup === "guardrail")}
             id={id}
             hasRisk={hasRisk(rows)}
-            labelHeader="Guardrail Metrics"
             editMetrics={editMetrics}
             statsEngine="frequentist"
             sequentialTestingEnabled={true}

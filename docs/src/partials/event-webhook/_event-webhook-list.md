@@ -4,6 +4,9 @@
   | **[feature.created](#featurecreated)** | Triggered when a feature is created |
 | **[feature.updated](#featureupdated)** | Triggered when a feature is updated |
 | **[feature.deleted](#featuredeleted)** | Triggered when a feature is deleted |
+| **[feature.saferollout.ship](#featuresaferolloutship)** | Triggered when a safe rollout is completed and safe to rollout to 100%. |
+| **[feature.saferollout.rollback](#featuresaferolloutrollback)** | Triggered when a safe rollout has a failing guardrail and should be reverted. |
+| **[feature.saferollout.unhealthy](#featuresaferolloutunhealthy)** | Triggered when a safe rollout is failing a health check and may not be working as expected. |
 | **[experiment.created](#experimentcreated)** | Triggered when an experiment is created |
 | **[experiment.updated](#experimentupdated)** | Triggered when an experiment is updated |
 | **[experiment.deleted](#experimentdeleted)** | Triggered when an experiment is deleted |
@@ -868,6 +871,118 @@ Triggered when a feature is deleted
                 date: string;
                 publishedBy: string;
             };
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.saferollout.ship
+
+Triggered when a safe rollout is completed and safe to rollout to 100%.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.saferollout.ship";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            featureId: string;
+            safeRolloutId: string;
+            environment: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.saferollout.rollback
+
+Triggered when a safe rollout has a failing guardrail and should be reverted.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.saferollout.rollback";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            featureId: string;
+            safeRolloutId: string;
+            environment: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.saferollout.unhealthy
+
+Triggered when a safe rollout is failing a health check and may not be working as expected.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.saferollout.unhealthy";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            featureId: string;
+            safeRolloutId: string;
+            environment: string;
+            unhealthyReason: ("srm" | "multipleExposures")[];
         };
     };
     user: {

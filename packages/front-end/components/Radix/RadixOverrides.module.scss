@@ -2,6 +2,13 @@
   margin-bottom: 0;
 }
 
+.fullWidthChildren {
+  grid-template-columns: 1fr;
+}
+.fullWidthChildren > div {
+  grid-column: 1 / -1;
+}
+
 .avatar {
   overflow: hidden;
   img {
