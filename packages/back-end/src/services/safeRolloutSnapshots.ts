@@ -322,7 +322,7 @@ function getSafeRolloutSnapshotSettings({
     dimensions: settings.dimensions.map((id) => ({ id })),
     startDate: safeRollout.startedAt || new Date(), // TODO: What do we want to do if startedAt is not set?
     endDate: new Date(),
-    experimentId: safeRolloutRule.trackingKey || "",
+    experimentId: safeRolloutRule.trackingKey,
     guardrailMetrics,
     regressionAdjustmentEnabled: !!settings.regressionAdjusted,
     defaultMetricPriorSettings: defaultPriorSettings,
