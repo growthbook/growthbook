@@ -316,24 +316,22 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           />
                         )}
                         {safeRollout?.startedAt && (
-                          <Box my="3">
+                          <Flex direction="column" mt="4" gap="4">
                             {rule.enabled && (
-                              <Box my="3">
-                                <DecisionBanner
-                                  openStatusModal={() =>
-                                    setSafeRolloutStatusModalOpen(true)
-                                  }
-                                  rule={rule}
-                                />
-                              </Box>
+                              <DecisionBanner
+                                openStatusModal={() =>
+                                  setSafeRolloutStatusModalOpen(true)
+                                }
+                                rule={rule}
+                              />
                             )}
                             <SafeRolloutDetails safeRollout={safeRollout} />{" "}
-                          </Box>
+                          </Flex>
                         )}
                         {!safeRollout?.startedAt && (
-                          <Callout status="info" mt="2">
-                            This safe rollout is in a draft state and will not
-                            start until this feature revision is published.
+                          <Callout status="info" mt="4">
+                            This Safe Rollout rule is in a draft state and will
+                            start when this feature revision is published.
                           </Callout>
                         )}
                       </SafeRolloutSnapshotProvider>
