@@ -142,7 +142,7 @@ export default function SafeRolloutAnalysisSettingsSummary({
                   latest.queries?.length > 0 ? (
                     <RunQueriesButton
                       cta="Update"
-                      cancelEndpoint={`safe-rollout/snapshot/${latest.id}/cancel`}
+                      cancelEndpoint={`/safe-rollout/snapshot/${latest.id}/cancel`}
                       mutate={() => {
                         mutateSnapshot();
                       }}
