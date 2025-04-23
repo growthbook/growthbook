@@ -275,7 +275,7 @@ export default function SafeRolloutFields({
           gapX="5"
           gapY="3"
           align="center"
-          mb="4"
+          mb="6"
         >
           <Text as="label" weight="medium">
             Variation
@@ -353,7 +353,7 @@ export default function SafeRolloutFields({
 
   return (
     <>
-      <Text size="2" as="div" mb="4">
+      <Text size="2" as="div" mb="4" color="gray">
         Run an A/B test for a short period of time while monitoring guardrail
         metrics for regressions. Based on the results, choose whether to revert
         the feature or release it to 100% of users.
@@ -362,7 +362,7 @@ export default function SafeRolloutFields({
         Description
       </Text>
       <TextField.Root
-        mb="4"
+        mb="6"
         {...form.register("description")}
         placeholder="Short human-readable description of the safe rollout"
       />
