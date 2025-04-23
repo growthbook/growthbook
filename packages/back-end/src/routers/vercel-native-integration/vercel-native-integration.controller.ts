@@ -3,31 +3,41 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { v4 as uuidv4 } from "uuid";
-import { VercelNativeIntegrationModel } from "back-end/src/models/VercelNativeIntegration";
+import {
+  findVercelInstallationIdByResourceId,
+  VercelNativeIntegrationModel,
+} from "back-end/src/models/VercelNativeIntegration";
 import {
   createOrganization,
   findOrganizationByVercelInstallationId,
 } from "back-end/src/models/OrganizationModel";
 import { createUser, getUserByEmail } from "back-end/src/models/UserModel";
 import { ReqContextClass } from "back-end/src/services/context";
+import { sendLocalSuccessResponse } from "back-end/src/controllers/auth";
 import {
   userAuthenticationValidator,
   systemAuthenticationValidator,
   UpsertInstallationPayload,
-  UpdateInstallation,
   ProvisitionResource,
   Resource,
   BillingPlan,
 } from "./vercel-native-integration.validators";
 
-const DEFAULT_BILLING_PLAN: BillingPlan = {
-  description: "Dev test",
-  id: "dev-test",
-  name: "Dev test",
+const FREE_BILLING_PLAN: BillingPlan = {
+  description: "Free Billing Plan",
+  id: "free-billing-plan",
+  name: "Free",
   type: "subscription",
 };
 
-const DEFAULT_PRODUCT = "dev-test";
+const NON_FREE_BILLING_PLAN: BillingPlan = {
+  description: "Non Free Billing Plan",
+  id: "non-free",
+  name: "Non free",
+  type: "subscription",
+};
+
+const billingPlans = [FREE_BILLING_PLAN, NON_FREE_BILLING_PLAN] as const;
 
 const VERCEL_JKWS_URL = "https://marketplace.vercel.com/.well-known/jwks";
 
@@ -84,6 +94,46 @@ const checkAuth = async <T extends string | "user">({
   }
 };
 
+const getContext = async ({
+  installationId,
+  res,
+}: {
+  installationId: string;
+  res: Response;
+}) => {
+  const failed = (status: number, reason?: string) => {
+    if (reason) res.status(status).send(reason);
+    else res.sendStatus(status);
+
+    throw "Authentication failed";
+  };
+
+  const org = await findOrganizationByVercelInstallationId(installationId);
+
+  if (!org) return failed(400, "Invalid installation!");
+
+  const user = await getUserByEmail(org.ownerEmail);
+
+  if (!user) return failed(400, "Invalid installation!");
+
+  const context = new ReqContextClass({
+    org,
+    auditUser: null,
+    user,
+  });
+
+  const nativeIntegrationModel = new VercelNativeIntegrationModel(context);
+
+  const nativeIntegration = await nativeIntegrationModel.getByInstallationId({
+    installationId,
+    organization: org.id,
+  });
+
+  if (!nativeIntegration) return failed(400, "Invalid installation!");
+
+  return { context, org, user, nativeIntegrationModel, nativeIntegration };
+};
+
 const authContext = async (req: Request, res: Response) => {
   const failed = (status: number, reason?: string) => {
     if (reason) res.status(status).send(reason);
@@ -105,32 +155,10 @@ const authContext = async (req: Request, res: Response) => {
 
   const { authentication } = checkedAuth;
 
-  const org = await findOrganizationByVercelInstallationId(
-    authentication.payload.installation_id
-  );
-
-  if (!org) return failed(400, "Invalid installation!");
-
-  const user = await getUserByEmail(org.ownerEmail);
-
-  if (!user) return failed(400, "Invalid installation!");
-
-  const context = new ReqContextClass({
-    org,
-    auditUser: null,
-    user,
-  });
-
-  const nativeIntegrationModel = new VercelNativeIntegrationModel(context);
-
-  const nativeIntegration = await nativeIntegrationModel.getByInstallationId({
+  return getContext({
     installationId: authentication.payload.installation_id,
-    organization: org.id,
+    res,
   });
-
-  if (!nativeIntegration) return failed(400, "Invalid installation!");
-
-  return { context, org, user, nativeIntegrationModel, nativeIntegration };
 };
 
 export async function upsertInstallation(req: Request, res: Response) {
@@ -183,7 +211,7 @@ export async function upsertInstallation(req: Request, res: Response) {
     upsertData: { payload, authentication: authentication.payload },
   });
 
-  return res.send(JSON.stringify(DEFAULT_BILLING_PLAN));
+  return res.sendStatus(204);
 }
 
 export async function getInstallation(req: Request, res: Response) {
@@ -192,23 +220,12 @@ export async function getInstallation(req: Request, res: Response) {
   if (nativeIntegration.installationId !== req.params.installation_id)
     return res.status(400).send("Invalid request!");
 
-  return res.send(JSON.stringify(DEFAULT_BILLING_PLAN));
+  return res.json();
 }
 
 export async function updateInstallation(req: Request, res: Response) {
-  const { nativeIntegrationModel, nativeIntegration } = await authContext(
-    req,
-    res
-  );
-
-  if (nativeIntegration.installationId !== req.params.installation_id)
-    return res.status(400).send("Invalid request!");
-
-  const { billingPlanId } = req.body as UpdateInstallation;
-
-  await nativeIntegrationModel.update(nativeIntegration, { billingPlanId });
-
-  return res.sendStatus(204);
+  // We don't support installation-level billing plans!
+  return res.status(400).send("Invalid request!");
 }
 
 export async function deleteInstallation(req: Request, res: Response) {
@@ -243,16 +260,13 @@ export async function provisionResource(req: Request, res: Response) {
   const resource: Resource = {
     ...payload,
     id: uuidv4(),
-    productId: DEFAULT_PRODUCT,
     secrets: [{ name: "token", value: uuidv4() }],
     status: "ready",
   };
 
-  await nativeIntegrationModel.update(nativeIntegration, {
-    resources: [...(nativeIntegration.resources || []), resource],
-  });
+  await nativeIntegrationModel.update(nativeIntegration, { resource });
 
-  return res.send(JSON.stringify(resource));
+  return res.json(resource);
 }
 
 export async function getResource(req: Request, res: Response) {
@@ -261,13 +275,29 @@ export async function getResource(req: Request, res: Response) {
   if (nativeIntegration.installationId !== req.params.installation_id)
     return res.status(400).send("Invalid request!");
 
-  const resource = (nativeIntegration.resources || []).find(
-    ({ id }) => id === req.params.resource_id
+  if (nativeIntegration.resource?.id !== req.params.resource_id)
+    return res.status(400).send("Invalid request!");
+
+  return res.json(nativeIntegration.resource);
+}
+
+export async function deleteResource(req: Request, res: Response) {
+  const { nativeIntegrationModel, nativeIntegration } = await authContext(
+    req,
+    res
   );
 
-  if (!resource) return res.sendStatus(404);
+  if (nativeIntegration.installationId !== req.params.installation_id)
+    return res.status(400).send("Invalid request!");
 
-  return res.send(JSON.stringify(resource));
+  if (nativeIntegration.resource?.id !== req.params.resource_id)
+    return res.status(400).send("Invalid request!");
+
+  await nativeIntegrationModel.update(nativeIntegration, {
+    resource: undefined,
+  });
+
+  return res.sendStatus(204);
 }
 
 export async function getProducts(req: Request, res: Response) {
@@ -277,5 +307,34 @@ export async function getProducts(req: Request, res: Response) {
 
   if (!slug) return res.status(400).send("Invalid request!");
 
-  return res.send(JSON.stringify({ plans: [DEFAULT_BILLING_PLAN] }));
+  return res.json({ plans: billingPlans });
+}
+
+const VERCEL_URL = "https://api.vercel.com";
+
+const VERCEL_CLIENT_ID = "oac_3hOBpTjMhOxQtMxq8zfKOqUm";
+const VERCEL_CLIENT_SECRET = "ROFdNRGEkd1j49WQGAKAO9aV";
+
+export async function postVercelIntegrationSSO(req: Request, res: Response) {
+  const { code, resourceId } = req.body;
+
+  const installationId = await findVercelInstallationIdByResourceId(resourceId);
+
+  if (!installationId) return res.status(400).send("Invalid request!");
+
+  const { user } = await getContext({ installationId, res });
+
+  await fetch(`${VERCEL_URL}/v1/integrations/sso/token`, {
+    method: "POST",
+    body: JSON.stringify({
+      code,
+      client_id: VERCEL_CLIENT_ID,
+      client_secret: VERCEL_CLIENT_SECRET,
+    }),
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  return sendLocalSuccessResponse(req, res, user);
 }

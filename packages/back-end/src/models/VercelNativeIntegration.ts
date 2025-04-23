@@ -4,6 +4,7 @@ import {
   userAuthenticationValidator,
   resourceValidator,
 } from "back-end/src/routers/vercel-native-integration/vercel-native-integration.validators";
+import mongoose from "mongoose";
 import { MakeModelClass } from "./BaseModel";
 
 const vercelNativeIntegrationValidator = z
@@ -13,8 +14,9 @@ const vercelNativeIntegrationValidator = z
     dateCreated: z.date(),
     dateUpdated: z.date(),
     installationId: z.string(),
+    // This is NOT an installation-level billingPlanId
     billingPlanId: z.string().optional(),
-    resources: z.array(resourceValidator).optional(),
+    resource: resourceValidator.optional(),
     upsertData: z
       .object({
         payload: upsertInstallationPayloadValidator,
@@ -28,9 +30,11 @@ export type VercelNativeIntegration = z.infer<
   typeof vercelNativeIntegrationValidator
 >;
 
+const COLLECTION_NAME = "vercelNativeIntegration";
+
 const BaseClass = MakeModelClass({
   schema: vercelNativeIntegrationValidator,
-  collectionName: "vercelNativeIntegration",
+  collectionName: COLLECTION_NAME,
   idPrefix: "vclni_",
   auditLog: {
     entity: "vercelNativeIntegration",
@@ -65,3 +69,15 @@ export class VercelNativeIntegrationModel extends BaseClass {
     return this._findOne(data);
   }
 }
+
+export const findVercelInstallationIdByResourceId = async (
+  resourceId: string,
+) => {
+  const model = await mongoose.connection.db
+    .collection(COLLECTION_NAME)
+    .findOne({ "resource.id": resourceId });
+
+  if (!model) return;
+
+  return model.installationId;
+};

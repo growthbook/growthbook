@@ -172,3 +172,7 @@ export const updateResourceValidator = z.object({
     })
     .optional(),
 });
+
+export const postSSOCodeValidator = z.object({
+  code: z.string(),
+});

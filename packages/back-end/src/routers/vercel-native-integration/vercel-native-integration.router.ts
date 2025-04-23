@@ -7,6 +7,7 @@ import {
   updateInstallationValidator,
   deleteInstallationPayloadValidator,
   provisitionResourceValidator,
+  postSSOCodeValidator,
 } from "./vercel-native-integration.validators";
 
 const router = express.Router();
@@ -49,10 +50,22 @@ router.get(
   vercelController.getResource
 );
 
+router.delete(
+  "/v1/installations/:installation_id/resources/:resource_id",
+  validateRequestMiddleware({}),
+  vercelController.deleteResource
+);
+
 router.get(
   "/v1/products/:slug/plans",
   validateRequestMiddleware({}),
   vercelController.getProducts
+);
+
+router.post(
+  "/auth/sso",
+  validateRequestMiddleware({ body: postSSOCodeValidator }),
+  vercelController.postVercelIntegrationSSO
 );
 
 export { router as vercelRouter };

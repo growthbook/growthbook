@@ -115,7 +115,7 @@ export async function postOAuthCallback(req: Request, res: Response) {
   }
 }
 
-async function sendLocalSuccessResponse(
+export async function sendLocalSuccessResponse(
   req: Request,
   res: Response,
   user: UserInterface,

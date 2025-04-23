@@ -279,14 +279,16 @@ app.get(
   experimentsController.getExperimentPublic
 );
 
-app.use(
-  "/vercel",
-  cors({
-    credentials: false,
-    origin: "*",
-  }),
-  vercelRouter
-);
+if (ENVIRONMENT !== "production" || IS_CLOUD) {
+  app.use(
+    "/vercel",
+    cors({
+      credentials: false,
+      origin: "*",
+    }),
+    vercelRouter
+  );
+}
 
 // Secret API routes (no JWT or CORS)
 app.use(
