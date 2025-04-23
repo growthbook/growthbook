@@ -36,6 +36,8 @@ import {
   isFactMetric,
   isFactMetricId,
   isMetricJoinable,
+  setAdjustedCIs,
+  setAdjustedPValuesOnResults,
 } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
@@ -158,6 +160,7 @@ import {
   getConfidenceLevelsForOrg,
   getEnvironmentIdsFromOrg,
   getMetricDefaultsForOrg,
+  getPValueCorrectionForOrg,
   getPValueThresholdForOrg,
 } from "./organizations";
 
@@ -3073,13 +3076,30 @@ export async function computeResultsStatus({
   analysis: ExperimentSnapshotAnalysis | SafeRolloutSnapshotAnalysis;
   experiment: ExperimentInterface | SafeRolloutInterface;
 }): Promise<ExperimentAnalysisSummaryResultsStatus | undefined> {
-  const statsEngine = analysis.settings.statsEngine;
+  const statsEngine = relativeAnalysis.settings.statsEngine;
+  const pValueCorrection = getPValueCorrectionForOrg(context);
   const { ciUpper, ciLower } = getConfidenceLevelsForOrg(context);
   const metricDefaults = getMetricDefaultsForOrg(context);
   const pValueThreshold = getPValueThresholdForOrg(context);
   const metricMap = await getMetricMap(context);
+  const metricGroups = await context.models.metricGroups.getAll();
 
-  const variations = analysis.results[0]?.variations;
+  const expandedGoalMetrics = expandMetricGroups(
+    experiment.goalMetrics,
+    metricGroups
+  );
+  const expandedGuardrailMetrics = expandMetricGroups(
+    experiment.guardrailMetrics,
+    metricGroups
+  );
+
+  const results = cloneDeep(relativeAnalysis.results);
+
+  // modifies results in place
+  setAdjustedPValuesOnResults(results, expandedGoalMetrics, pValueCorrection);
+  setAdjustedCIs(results, pValueThreshold);
+
+  const variations = results[0]?.variations;
   if (!variations || !variations.length) {
     return;
   }
@@ -3097,16 +3117,8 @@ export async function computeResultsStatus({
       guardrailMetrics: {},
     };
     for (const m in currentVariation.metrics) {
-      const goalMetric =
-        "goalMetrics" in experiment
-          ? experiment.goalMetrics.includes(m)
-          : false;
-      const guardrailMetric =
-        "guardrailMetrics" in experiment
-          ? experiment.guardrailMetrics.includes(m)
-          : "guardrailMetricIds" in experiment
-          ? experiment.guardrailMetricIds.includes(m)
-          : false;
+      const goalMetric = expandedGoalMetrics.includes(m);
+      const guardrailMetric = expandedGuardrailMetrics.includes(m);
       if (goalMetric || guardrailMetric) {
         const baselineMetric = baselineVariation.metrics?.[m];
         const currentMetric = currentVariation.metrics?.[m];
