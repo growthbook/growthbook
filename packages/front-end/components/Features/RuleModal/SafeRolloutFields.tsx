@@ -51,7 +51,7 @@ export default function SafeRolloutFields({
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
   const { datasources } = useDefinitions();
-  //const [controlValueDisabled, setControlValueDisabled] = useState(true);
+  const [controlValueDisabled] = useState(true);
   const dataSourceOptions =
     datasources?.map((ds) => ({
       label: ds.name,
