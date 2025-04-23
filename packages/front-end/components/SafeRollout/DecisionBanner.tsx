@@ -78,12 +78,22 @@ const DecisionBanner = ({
     );
   }
 
-  if (decisionStatus?.status === "no-data") {
+  // Snapshot never ran
+  if (decisionStatus?.status === "no-data" && !snapshotWithResults) {
     return (
       <Callout status="warning">
-        Safe Rollout has been running for over 24 hours and no data has come in.
-        Check your implementation and ensure that the tracking callback is
-        firing as expected.
+        Your safe rollout is over 24 hours old but has never updated. Please
+        check your experiment update schedule or manually run an update below
+      </Callout>
+    );
+  }
+  // Snapshot has run but no data has come in
+  else if (decisionStatus?.status === "no-data" && snapshotWithResults) {
+    return (
+      <Callout status="warning">
+        Your safe rollout has been running for over 24 hours and no data has
+        come in. Check your implementation and ensure that the tracking callback
+        is firing as expected.
       </Callout>
     );
   } else if (decisionStatus?.status === "unhealthy") {
