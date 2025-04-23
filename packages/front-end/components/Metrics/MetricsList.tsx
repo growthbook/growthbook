@@ -411,7 +411,7 @@ const MetricsList = (): React.ReactElement => {
           <TagsFilter filter={tagsFilter} items={unpaginatedItems} />
         </div>
       </div>
-      {/* if org doesn't have fact tables and hasn't dismissed the promo, render the promo, otherwise move on */}
+      {/* only show fact table promo if org doesn't have any AND they haven't previously dismissed the callout */}
       {!factTables && !factTablePromoDismissed ? (
         <DismissableCallout
           id="metrics-list-fact-table-promo"
@@ -435,7 +435,7 @@ const MetricsList = (): React.ReactElement => {
             </Link>
           </Flex>
         </DismissableCallout>
-      ) : metricGroups.length > 0 ? (
+      ) : !metricGroups.length ? (
         <PremiumCallout
           commercialFeature="metric-groups"
           dismissable={true}

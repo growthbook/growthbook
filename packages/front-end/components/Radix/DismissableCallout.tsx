@@ -1,6 +1,7 @@
 import { Flex, IconButton, Callout as RadixCallout } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { PiArrowSquareOut, PiLightbulb, PiX } from "react-icons/pi";
+import { forwardRef, ReactNode } from "react";
 import { DocLink, DocSection } from "@/components/DocLink";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { getRadixSize } from "./Callout";
@@ -16,15 +17,28 @@ export type Props = {
   status: Status;
 } & MarginProps;
 
-export default function DismissableCallout({
-  id,
-  children,
-  docSection,
-  renderWhenDismissed,
-  size = "md",
-  status,
-  ...containerProps
-}: Props) {
+export default forwardRef<
+  HTMLDivElement,
+  {
+    children: ReactNode;
+    status: Status;
+    size?: "sm" | "md";
+    id: string;
+    docSection?: DocSection;
+    renderWhenDismissed?: (undismiss: () => void) => React.ReactElement;
+  } & MarginProps
+>(function DismissableCallout(
+  {
+    children,
+    status,
+    docSection,
+    id,
+    renderWhenDismissed,
+    size = "md",
+    ...containerProps
+  },
+  ref
+) {
   const [dismissed, setDismissed] = useLocalStorage(
     `premium-callout:${id}`,
     false
@@ -44,6 +58,7 @@ export default function DismissableCallout({
   return (
     <>
       <RadixCallout.Root
+        ref={ref}
         className={styles.callout}
         color={getRadixColor(status)}
         role={status === "error" ? "alert" : undefined}
@@ -59,7 +74,7 @@ export default function DismissableCallout({
         <RadixCallout.Text size="2">
           <Flex align="start" gap="1" pr="3">
             <div>{children}</div>
-            <div style={{ flex: 1 }}>{link}</div>
+            {link ? <div style={{ flex: 1 }}>{link}</div> : null}
           </Flex>
         </RadixCallout.Text>
 
@@ -81,4 +96,4 @@ export default function DismissableCallout({
       </RadixCallout.Root>
     </>
   );
-}
+});
