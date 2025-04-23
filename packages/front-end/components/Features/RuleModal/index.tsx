@@ -193,7 +193,8 @@ export default function RuleModal({
   const hasMultiArmedBanditFeature = hasCommercialFeature(
     "multi-armed-bandits"
   );
-  const hasSafeRolloutsFeature = hasCommercialFeature("safe-rollouts");
+  const isSafeRolloutEnabled = growthbook.isOn("safe-rollout");
+  const hasSafeRolloutsFeature = hasCommercialFeature("safe-rollout");
 
   const experimentId = form.watch("experimentId");
   const selectedExperiment = experimentsMap.get(experimentId) || null;
@@ -736,32 +737,37 @@ export default function RuleModal({
             mt="2"
             width="100%"
             options={[
-              {
-                value: "safe-rollout",
-                disabled: !hasSafeRolloutsFeature || datasources.length === 0,
-                label: (
-                  <PremiumTooltip
-                    commercialFeature="safe-rollouts"
-                    usePortal={true}
-                  >
-                    Safe rollout
-                  </PremiumTooltip>
-                ),
-                badge: "NEW!",
-                description: (
-                  <>
-                    <div>
-                      Gradually release a value with automatic rollback based on
-                      guardrail metrics
-                    </div>
-                    {datasources.length === 0 && (
-                      <HelperText status="info" size="sm" mt="2">
-                        Create a data source to use Safe Rollouts
-                      </HelperText>
-                    )}
-                  </>
-                ),
-              },
+              ...(isSafeRolloutEnabled
+                ? [
+                    {
+                      value: "safe-rollout",
+                      disabled:
+                        !hasSafeRolloutsFeature || datasources.length === 0,
+                      label: (
+                        <PremiumTooltip
+                          commercialFeature="safe-rollout"
+                          usePortal={true}
+                        >
+                          Safe rollout
+                        </PremiumTooltip>
+                      ),
+                      badge: "NEW!",
+                      description: (
+                        <>
+                          <div>
+                            Gradually release a value with automatic rollback
+                            based on guardrail metrics
+                          </div>
+                          {datasources.length === 0 && (
+                            <HelperText status="info" size="sm" mt="2">
+                              Create a data source to use Safe Rollouts
+                            </HelperText>
+                          )}
+                        </>
+                      ),
+                    },
+                  ]
+                : []),
               {
                 value: "experiment",
                 label: "Experiment",

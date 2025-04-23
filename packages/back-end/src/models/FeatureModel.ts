@@ -18,6 +18,7 @@ import {
   getSavedGroupMap,
   refreshSDKPayloadCache,
 } from "back-end/src/services/features";
+import { determineNextDate } from "back-end/src/services/experiments";
 import { upgradeFeatureInterface } from "back-end/src/util/migrations";
 import { ReqContext } from "back-end/types/organization";
 import {
@@ -949,6 +950,9 @@ const updateSafeRolloutStatuses = async (
     };
     if (!safeRollout.startedAt && safeRolloutUpdates.status === "running") {
       safeRolloutUpdates["startedAt"] = new Date();
+      safeRolloutUpdates["nextSnapshotAttempt"] =
+        determineNextDate(context.org.settings?.updateSchedule || null) ??
+        new Date(); // TODO: `null` should not be possible here because we need to update
     }
 
     context.models.safeRollout.update(safeRollout, safeRolloutUpdates);
