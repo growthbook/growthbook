@@ -3,6 +3,7 @@ from typing import List, Optional, Tuple, Union
 from pydantic.dataclasses import dataclass
 
 from gbstats.bayesian.tests import RiskType
+from gbstats.frequentist.tests import PValueErrorMessage
 from gbstats.models.tests import Uplift
 
 
@@ -77,6 +78,7 @@ class BayesianVariationResponse(BaseVariationResponse):
 @dataclass
 class FrequentistVariationResponse(BaseVariationResponse):
     pValue: Optional[float]
+    pValueErrorMessage: Optional[PValueErrorMessage]
 
 
 VariationResponse = Union[
