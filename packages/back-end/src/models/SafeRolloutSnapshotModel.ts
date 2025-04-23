@@ -3,7 +3,10 @@ import {
   SafeRolloutSnapshotInterface,
   safeRolloutSnapshotInterface,
 } from "back-end/src/validators/safe-rollout-snapshot";
-import { getSafeRolloutAnalysisSummary } from "back-end/src/services/safeRolloutSnapshots";
+import {
+  getSafeRolloutAnalysisSummary,
+  notifySafeRolloutChange,
+} from "back-end/src/services/safeRolloutSnapshots";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -100,6 +103,15 @@ export class SafeRolloutSnapshotModel extends BaseClass {
 
       await this.context.models.safeRollout.updateById(safeRollout.id, {
         analysisSummary: safeRolloutAnalysisSummary,
+      });
+
+      await notifySafeRolloutChange({
+        context: this.context,
+        updatedSafeRollout: {
+          ...safeRollout,
+          analysisSummary: safeRolloutAnalysisSummary,
+        },
+        safeRolloutSnapshot: updatedDoc,
       });
     }
   }

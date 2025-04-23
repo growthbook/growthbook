@@ -18,7 +18,11 @@ import {
   isFactMetric,
 } from "shared/experiments";
 import { getSafeRolloutSRMValue } from "shared/health";
-import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import {
+  getHealthSettings,
+  getSafeRolloutDaysLeft,
+  getSafeRolloutResultStatus,
+} from "shared/enterprise";
 import {
   MetricForSafeRolloutSnapshot,
   SafeRolloutSnapshotAnalysisSettings,
@@ -48,8 +52,14 @@ import { CreateProps } from "back-end/src/models/BaseModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ExperimentAnalysisSummary } from "back-end/src/validators/experiments";
 import { getFeature } from "back-end/src/models/FeatureModel";
+import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
+import {
+  FeatureInterface,
+  SafeRolloutRule,
+} from "back-end/src/validators/features";
+import { ResourceEvents } from "back-end/src/events/base-types";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
-import { SafeRolloutRule } from "back-end/src/validators/features";
+import { SafeRolloutInterface } from "back-end/types/safe-rollout";
 import { getSourceIntegrationObject } from "./datasource";
 import {
   computeResultsStatus,
@@ -510,4 +520,114 @@ export async function getSafeRolloutAnalysisSummary({
   }
 
   return analysisSummary;
+}
+
+const dispatchSafeRolloutEvent = async <T extends ResourceEvents<"feature">>({
+  context,
+  feature,
+  environment,
+  event,
+  data,
+}: {
+  context: ReqContext;
+  feature: FeatureInterface;
+  environment: string;
+  event: T;
+  data: CreateEventData<"feature", T>;
+}) => {
+  await createEvent({
+    context,
+    object: "feature",
+    objectId: feature.id,
+    event,
+    data,
+    projects: feature.project ? [feature.project] : [],
+    tags: feature.tags || [],
+    environments: [environment],
+    containsSecrets: false,
+  });
+};
+
+export async function notifySafeRolloutChange({
+  context,
+  updatedSafeRollout,
+  safeRolloutSnapshot,
+}: {
+  context: ReqContext;
+  updatedSafeRollout: SafeRolloutInterface;
+  safeRolloutSnapshot: SafeRolloutSnapshotInterface;
+}): Promise<void> {
+  const daysLeft = getSafeRolloutDaysLeft({
+    safeRollout: updatedSafeRollout,
+    snapshotWithResults: safeRolloutSnapshot,
+  });
+  const healthSettings = getHealthSettings(
+    context.org.settings,
+    orgHasPremiumFeature(context.org, "decision-framework")
+  );
+  const safeRolloutStatus = getSafeRolloutResultStatus({
+    safeRollout: updatedSafeRollout,
+    healthSettings,
+    daysLeft,
+  });
+
+  const feature = await getFeature(context, updatedSafeRollout.featureId);
+  if (!feature) {
+    throw new Error("Could not find feature to fire event");
+  }
+
+  const notificationData = {
+    featureId: feature.id,
+    safeRolloutId: updatedSafeRollout.id,
+    environment: updatedSafeRollout.environment,
+  };
+
+  // always notify of new status, regardless of old status
+  // (no memoization or checking the old status)
+  if (safeRolloutStatus?.status === "unhealthy") {
+    const unhealthyReasons: ("srm" | "multipleExposures")[] = [];
+    if (safeRolloutStatus.unhealthyData.srm) {
+      unhealthyReasons.push("srm");
+    }
+    if (safeRolloutStatus.unhealthyData.multipleExposures) {
+      unhealthyReasons.push("multipleExposures");
+    }
+
+    dispatchSafeRolloutEvent({
+      context,
+      feature,
+      environment: notificationData.environment,
+      event: "saferollout.unhealthy",
+      data: {
+        object: {
+          ...notificationData,
+          unhealthyReason: unhealthyReasons,
+        },
+      },
+    });
+  }
+
+  if (safeRolloutStatus?.status === "rollback-now") {
+    dispatchSafeRolloutEvent({
+      context,
+      feature,
+      environment: notificationData.environment,
+      event: "saferollout.rollback",
+      data: {
+        object: notificationData,
+      },
+    });
+  }
+
+  if (safeRolloutStatus?.status === "ship-now") {
+    dispatchSafeRolloutEvent({
+      context,
+      feature,
+      environment: notificationData.environment,
+      event: "saferollout.ship",
+      data: {
+        object: notificationData,
+      },
+    });
+  }
 }

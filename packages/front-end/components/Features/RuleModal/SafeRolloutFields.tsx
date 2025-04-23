@@ -84,7 +84,7 @@ export default function SafeRolloutFields({
       <>
         <SelectField
           disabled={disableFields}
-          label="Enroll based on attribute"
+          label="Split based on attribute"
           options={attributeSchema
             .filter((s) => !hasHashAttributes || s.hashAttribute)
             .map((s) => ({ label: s.property, value: s.property }))}
@@ -236,6 +236,11 @@ export default function SafeRolloutFields({
               <TextField.Root
                 placeholder="7"
                 type="number"
+                disabled={
+                  form.watch("status") === "stopped" ||
+                  form.watch("status") === "rolled-back" ||
+                  form.watch("status") === "released"
+                }
                 required
                 {...form.register("safeRolloutFields.maxDuration.amount", {
                   valueAsNumber: true,
