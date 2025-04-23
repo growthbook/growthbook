@@ -6,7 +6,6 @@ import {
   rebalance,
 } from "@/services/utils";
 
-
 describe("variation weighting functions", () => {
   it("getEqualWeights with default precision", () => {
     expect(getEqualWeights(1)).toEqual([1]);
