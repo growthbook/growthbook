@@ -513,13 +513,11 @@ export function getSafeRolloutResultStatus({
 
   // If the safe rollout has been running for over 24 hours and no data has come in
   // return no data
-  if (!resultsStatus && !healthSummary && hoursRunning > 24) {
+  if (!healthSummary?.totalUsers && hoursRunning > 24) {
     return {
       status: "no-data",
     };
-  }
-
-  if (healthSummary?.totalUsers) {
+  } else if (healthSummary?.totalUsers) {
     const srmHealthData = getSRMHealthData({
       srm: healthSummary.srm,
       srmThreshold: healthSettings.srmThreshold,
