@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { FeatureInterface } from "back-end/types/feature";
 import { Box, Flex, Text, Tooltip } from "@radix-ui/themes";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
@@ -74,10 +75,10 @@ export default function SafeRolloutSummary({
             label={
               <Tooltip
                 content={guardrailMetricIds.map((id) => (
-                  <>
+                  <Fragment key={id}>
                     {getMetricById(id)?.name}
                     <br />
-                  </>
+                  </Fragment>
                 ))}
               >
                 <Text style={{ color: "var(--slate-12)" }}>

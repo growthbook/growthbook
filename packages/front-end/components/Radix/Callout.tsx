@@ -61,12 +61,12 @@ export default forwardRef<
       {renderedIcon ? (
         <RadixCallout.Icon>{renderedIcon}</RadixCallout.Icon>
       ) : null}
-      {typeof children === "string" ? (
+      {fullWidthChildren ? (
+        children
+      ) : (
         <RadixCallout.Text size={getRadixSize(size)}>
           {children}
         </RadixCallout.Text>
-      ) : (
-        children
       )}
     </RadixCallout.Root>
   );
