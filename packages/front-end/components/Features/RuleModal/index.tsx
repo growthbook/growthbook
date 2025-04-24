@@ -193,7 +193,7 @@ export default function RuleModal({
   const hasMultiArmedBanditFeature = hasCommercialFeature(
     "multi-armed-bandits"
   );
-  const isSafeRolloutEnabled = growthbook.isOn("safe-rollout");
+  const isSafeRolloutEnabled = true || growthbook.isOn("safe-rollout");
   const hasSafeRolloutsFeature = hasCommercialFeature("safe-rollout");
 
   const experimentId = form.watch("experimentId");

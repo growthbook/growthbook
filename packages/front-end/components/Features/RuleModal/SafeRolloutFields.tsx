@@ -165,6 +165,7 @@ export default function SafeRolloutFields({
           <div className="mb-3 pb-1">
             <SelectField
               label="Data source"
+              className="portal-overflow-ellipsis"
               options={datasources.map((d) => {
                 const isDefaultDataSource = d.id === settings.defaultDataSource;
                 return {
@@ -195,6 +196,7 @@ export default function SafeRolloutFields({
           <div className="pb-1">
             <SelectField
               label="Experiment assignment table"
+              className="portal-overflow-ellipsis"
               options={exposureQueries.map((q) => ({
                 label: q.name,
                 value: q.id,
