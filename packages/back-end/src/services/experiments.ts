@@ -332,7 +332,7 @@ export async function getManualSnapshotData(
     // it actually means Infinity, so handle that case
     data.variations.map((v, i) => {
       const ci: [number, number] | undefined = v.ci
-        ? [v.ci[0] ?? Infinity, v.ci[1] ?? Infinity]
+        ? [v.ci[0] ?? -Infinity, v.ci[1] ?? Infinity]
         : undefined;
       variations[i].metrics[metric] = {
         ...v,

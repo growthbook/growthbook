@@ -608,7 +608,7 @@ function parseStatsEngineResult({
 
           // translate null in CI to infinity
           const ci: [number, number] | undefined = v.ci
-            ? [v.ci[0] ?? Infinity, v.ci[1] ?? Infinity]
+            ? [v.ci[0] ?? -Infinity, v.ci[1] ?? Infinity]
             : undefined;
           const parsedVariation = {
             ...v,
