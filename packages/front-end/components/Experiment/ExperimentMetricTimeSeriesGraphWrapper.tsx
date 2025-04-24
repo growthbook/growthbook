@@ -3,7 +3,7 @@ import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import { ExperimentStatus } from "back-end/src/validators/experiments";
 import { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
 import { daysBetween, getValidDate } from "shared/dates";
-import { ExperimentMetricInterface } from "shared/src/experiments";
+import { ExperimentMetricInterface, getAdjustedCI } from "shared/experiments";
 import { addDays, min } from "date-fns";
 import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -11,7 +11,6 @@ import {
   getExperimentMetricFormatter,
   formatPercent,
 } from "@/services/metrics";
-import { getAdjustedCI } from "@/services/experiments";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useSnapshot } from "./SnapshotProvider";
