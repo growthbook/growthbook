@@ -13,19 +13,18 @@ The GrowthBook Framer plugin makes it easy to run A/B tests right inside your Fr
 
 Here’s a high-level overview:
 
-1. **Create an experiment in GrowthBook**
-   Define your variants and set your goals—like increasing clicks or signups.
-2. **Connect the experiment to Framer**
-   Use the GrowthBook plugin to assign different components to each variant.
-3. **Track and measure**
-   Track which variant users see using GA4, then analyze the results in GrowthBook (via BigQuery).
+1. **Create an experiment in GrowthBook**: Define your variants and set your goals—like increasing clicks or signups.
+
+2. **Connect the experiment to Framer**: Use the GrowthBook plugin to assign different components to each variant.
+
+3. **Track and measure**: Track which variant users see using GA4, then analyze the results in GrowthBook (via BigQuery).
 
 ### Requirements
 
 You'll need:
 
-- A **GrowthBook account** (free and open source!)
-- **Google Analytics 4** (GA4) set up on your Framer site
+- A [**GrowthBook account**](https://growthbook.io/) (free and open source!)
+- **Google Analytics 4** (GA4) set up on your Framer site. Framer has a [step-by-step guide](https://www.framer.com/help/articles/how-to-set-up-google-analytics/) for setting up GA4.
 - A **BigQuery** project linked to your GA4 account (for analyzing results)
 
 :::tip
@@ -36,18 +35,21 @@ Need help setting up GA4 or BigQuery? Check out our [Google Analytics 4 and BigQ
 
 - Install the GrowthBook plugin from the Framer Marketplace.
 - In GrowthBook, go to **SDK Configuration** &rarr; **SDK Connections** and click **Add SDK Connection**. Call the connection something like "Framer" and choose **React** as the SDK Language (don’t worry—this works even if you’re not using React directly).
+- Copy the **Client Key** from GrowthBook, paste it into the Framer plugin **Settings**, and click **Save**.
 
+<MaxWidthImage caption="SDK connection page in GrowthBook">
 ![SDK connection page in GrowthBook](/images/integrations/framer/framer-sdk-connection.png)
+</MaxWidthImage>
 
-- Copy the **Client Key** from GrowthBook and paste it into the Framer plugin Settings.
-
-<MaxWidthImage maxWidth={400} border>
+<MaxWidthImage maxWidth={400} border caption="Framer plugin settings">
 ![Framer plugin settings](/images/integrations/framer/framer-plugin-settings.png)
 </MaxWidthImage>
 
 The plugin is now ready to use!
 
 ## Launch an Experiment
+
+In GrowthBook, feature flags are the underlying mechanism for experiments. You can think of flags like trucks and A/B tests as the cargo they carry. (Other types of cargo might include targeting rules, progressive rollouts, and more.)
 
 Now that you have the plugin installed, we'll walk through the steps to launch an experiment.
 
@@ -60,13 +62,17 @@ Now that you have the plugin installed, we'll walk through the steps to launch a
 - Under **Data Source**, select your data source and choose **Goal Metrics** that you'd like to test against. (You can choose or change this later.)
 - Click **Review & Publish** to make the experiment live.
 
-![GrowthBook feature creation](/images/integrations/framer/framer-create-feature.png)
+<MaxWidthImage border caption="Feature creation page">
+![Feature creation page](/images/integrations/framer/framer-create-feature.png)
+</MaxWidthImage>
 
+<MaxWidthImage border caption="Feature flag experiment rule setup">
 ![GrowthBook experiment setup](/images/integrations/framer/framer-gb-experiment.png)
+</MaxWidthImage>
 
 ### Configure the Experiment in Framer
 
-- In Framer, open the GrowthBook plugin and select the feature flag you created in the previous step.
+- In Framer, open the GrowthBook plugin and select the feature flag you created in the previous step. (Click the refresh icon if you don't see it.)
 - Click **Add to Canvas** to add the GrowthBook component.
 - Connect the **Control** to your default component.
 - Connect additional components for the **Variants**.
@@ -77,15 +83,19 @@ Now that you have the plugin installed, we'll walk through the steps to launch a
 ![Framer add to canvas](/images/integrations/framer/framer-plugin-add-to-canvas.png)
 </MaxWidthImage>
 
-<MaxWidthImage>
+<MaxWidthImage caption="GrowthBook component with variants attached">
 ![Framer experiment](/images/integrations/framer/framer-experiment-setup.png)
 </MaxWidthImage>
 
 ## FAQ
 
+### How can I see if the experiment is working?
+
+Use [GrowthBook Dev Tools](/tools/chrome-extension) to test, debug, and override experiments. The Chrome/Firefox extension makes it easy to understand and test your A/B experiments.
+
 ### Why do I need to use a numeric feature flag?
 
-The Framer plugin uses numbers to choose between your components, where `0` is your control (default). `1` is your first variant, `2` is your second, and so on.
+The Framer plugin uses numbers to choose between your components, where `0` is your control (default). `1` is your first variant, `2` is your second, and so on. These numbers match the order of the variants in the GrowthBook experiment.
 
 ### Which targeting attributes are supported?
 
@@ -111,16 +121,18 @@ See the docs for how to [create custom targeting attributes](/lib/script-tag#add
 
 ### How do I track experiment results?
 
-The plugin [automatically sends exposure events](/lib/script-tag#tracking-experiment-views) for GA 4, GTM, and Segment.
+The plugin [automatically sends exposure events](/lib/script-tag#tracking-experiment-views) for GA 4, Google Tag Manager (GTM), and Segment.
 
 GTM users will need to add a new trigger. We have a full walkthrough on how to configure this in our [GTM docs](/guide/google-tag-manager-and-growthbook).
 
+:::note
 We support other event trackers and data warehouses, but they'll require some additional setup. Get in touch with us to learn more.
+:::
 
 ### How do I export the experiment results to BigQuery?
 
-You'll need to connect your GA4 property (or data warehouse) to BigQuery. See the [BigQuery docs](/guide/bigquery) for more info.
+You'll need to connect your GA 4 property (or data warehouse) to BigQuery. See the [BigQuery docs](/guide/bigquery) for more info.
 
-### How can I debug the experiment?
+### What if I have more questions?
 
-Use [GrowthBook Dev Tools](/tools/chrome-extension) to test, debug, and override experiments. The Chrome/Firefox extension makes it easy to understand and test your A/B experiments.
+Join our [Slack community](https://join.slack.com/t/growthbookusers/shared_invite/zt-2xw8fu279-Y~hwnfCEf7WrEI9qScHURQ) to ask questions and get help from the GrowthBook team and other users.
