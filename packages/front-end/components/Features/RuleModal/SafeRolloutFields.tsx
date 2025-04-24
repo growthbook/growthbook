@@ -224,6 +224,10 @@ export default function SafeRolloutFields({
               datasource={form.watch("safeRolloutFields.datasourceId")}
               exposureQueryId={form.watch("safeRolloutFields.exposureQueryId")}
               project={feature.project}
+              includeFacts={true}
+              forceSingleMetric={false}
+              includeGroups={true}
+              noPercentile={false}
               selected={
                 form.watch("safeRolloutFields.guardrailMetricIds") || []
               }
