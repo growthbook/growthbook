@@ -27,6 +27,8 @@ const DecisionCTA = ({
   if (!safeRollout || !safeRollout.startedAt || rule.enabled === false) {
     return null;
   }
+
+  // Don't show a CTA when looking at a non-live revision
   if (rule.status !== safeRollout.status) {
     return null;
   }

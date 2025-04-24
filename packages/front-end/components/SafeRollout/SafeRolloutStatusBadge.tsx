@@ -21,7 +21,9 @@ const SafeRolloutStatusBadge = ({ rule }: { rule: SafeRolloutRule }) => {
   if (!safeRollout || !safeRollout.startedAt || rule.enabled === false) {
     return null;
   }
-  if (rule.status !== safeRollout.status) return null;
+
+  // If we're looking at a non-live revision, don't rely on snapshot data
+  const useSnapshotData = rule.status === safeRollout.status;
 
   const daysLeft = getSafeRolloutDaysLeft({
     safeRollout,
@@ -40,12 +42,15 @@ const SafeRolloutStatusBadge = ({ rule }: { rule: SafeRolloutRule }) => {
   let color: "violet" | "green" | "red" | "amber" = "violet";
   let label = "";
 
-  if (safeRollout.status === "rolled-back") {
+  if (rule.status === "rolled-back") {
     color = "red";
     label = "Reverted";
-  } else if (safeRollout.status === "released") {
+  } else if (rule.status === "released") {
     color = "green";
     label = "Released";
+  } else if (!useSnapshotData) {
+    color = "violet";
+    label = "Running";
   } else if (decisionStatus?.status === "no-data") {
     color = "amber";
     label = "No Data";

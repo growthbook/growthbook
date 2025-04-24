@@ -28,9 +28,9 @@ const DecisionHelpText = ({ rule }: { rule: SafeRolloutRule }) => {
   if (!safeRollout || !safeRollout.startedAt || rule.enabled === false) {
     return null;
   }
-  if (rule.status !== safeRollout.status) {
-    return null;
-  }
+
+  // Only use the snapshot data when looking at a live revision (or at least one with the same status as the live revision)
+  const useSnapshotData = rule.status === safeRollout.status;
 
   const daysLeft = getSafeRolloutDaysLeft({
     safeRollout,
@@ -48,14 +48,14 @@ const DecisionHelpText = ({ rule }: { rule: SafeRolloutRule }) => {
 
   // If the safe rollout has been rolled back or released, explain that the safe rollout is
   // acting as a temporary rollout with the control or variation value
-  if (safeRollout.status === "rolled-back") {
+  if (rule.status === "rolled-back") {
     return (
       <HelperText status="info" mb="3">
         All users will receive the control value. If this is no longer needed,
         you can disable or delete this rule.
       </HelperText>
     );
-  } else if (safeRollout.status === "released") {
+  } else if (rule.status === "released") {
     return (
       <HelperText status="info" mb="3">
         All users will receive the rollout value. If this is no longer needed,
@@ -65,7 +65,7 @@ const DecisionHelpText = ({ rule }: { rule: SafeRolloutRule }) => {
   }
 
   // If there's no decision, we can't provide more info in the help text
-  if (!decisionStatus) return null;
+  if (!useSnapshotData || !decisionStatus) return null;
 
   // Snapshot never ran
   if (decisionStatus.status === "no-data" && !snapshotWithResults) {
