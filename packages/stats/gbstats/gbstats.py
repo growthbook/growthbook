@@ -51,6 +51,7 @@ from gbstats.models.results import (
     MetricStats,
     MultipleExperimentMetricAnalysis,
     BanditResult,
+    ResponseCI,
     SingleVariationResult,
     PowerResponse,
 )
@@ -508,7 +509,10 @@ def format_variation_result(
             power_response = None
 
         # sanitize CIs to replace inf with None
-        ci = [None if np.isinf(x) else x for x in row[f"{prefix}_ci"]]
+        ci: ResponseCI = (
+            None if np.isinf(row[f"{prefix}_ci"][0]) else row[f"{prefix}_ci"][0],
+            None if np.isinf(row[f"{prefix}_ci"][1]) else row[f"{prefix}_ci"][1],
+        )
         testResult = {
             "expected": row[f"{prefix}_expected"],
             "uplift": row[f"{prefix}_uplift"],
