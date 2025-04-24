@@ -5,6 +5,7 @@ import copy
 from typing import Any, Dict, Hashable, List, Optional, Set, Tuple, Union
 
 import pandas as pd
+import numpy as np
 
 from gbstats.bayesian.tests import (
     BayesianTestResult,
@@ -34,7 +35,12 @@ from gbstats.frequentist.tests import (
     SequentialConfig,
     SequentialTwoSidedTTest,
     TwoSidedTTest,
+    OneSidedTreatmentGreaterTTest,
+    OneSidedTreatmentLesserTTest,
+    SequentialOneSidedTreatmentLesserTTest,
+    SequentialOneSidedTreatmentGreaterTTest,
 )
+
 from gbstats.models.results import (
     BaselineResponse,
     BayesianVariationResponse,
@@ -45,6 +51,7 @@ from gbstats.models.results import (
     MetricStats,
     MultipleExperimentMetricAnalysis,
     BanditResult,
+    ResponseCI,
     SingleVariationResult,
     PowerResponse,
 )
@@ -209,7 +216,15 @@ def get_configured_test(
     test_index: int,
     analysis: AnalysisSettingsForStatsEngine,
     metric: MetricSettingsForStatsEngine,
-) -> Union[EffectBayesianABTest, SequentialTwoSidedTTest, TwoSidedTTest]:
+) -> Union[
+    EffectBayesianABTest,
+    SequentialTwoSidedTTest,
+    TwoSidedTTest,
+    OneSidedTreatmentGreaterTTest,
+    OneSidedTreatmentLesserTTest,
+    SequentialOneSidedTreatmentLesserTTest,
+    SequentialOneSidedTreatmentGreaterTTest,
+]:
 
     stat_a = variation_statistic_from_metric_row(row, "baseline", metric)
     stat_b = variation_statistic_from_metric_row(row, f"v{test_index}", metric)
@@ -220,27 +235,36 @@ def get_configured_test(
         "phase_length_days": analysis.phase_length_days,
         "difference_type": analysis.difference_type,
     }
-
     if analysis.stats_engine == "frequentist":
         if analysis.sequential_testing_enabled:
-            return SequentialTwoSidedTTest(
-                stat_a,
-                stat_b,
-                SequentialConfig(
-                    **base_config,
-                    alpha=analysis.alpha,
-                    sequential_tuning_parameter=analysis.sequential_tuning_parameter,
-                ),
+            sequential_config = SequentialConfig(
+                **base_config,
+                alpha=analysis.alpha,
+                sequential_tuning_parameter=analysis.sequential_tuning_parameter,
             )
+            if analysis.one_sided_intervals:
+                if metric.inverse:
+                    return SequentialOneSidedTreatmentGreaterTTest(
+                        stat_a, stat_b, sequential_config
+                    )
+                else:
+                    return SequentialOneSidedTreatmentLesserTTest(
+                        stat_a, stat_b, sequential_config
+                    )
+            else:
+                return SequentialTwoSidedTTest(stat_a, stat_b, sequential_config)
         else:
-            return TwoSidedTTest(
-                stat_a,
-                stat_b,
-                FrequentistConfig(
-                    **base_config,
-                    alpha=analysis.alpha,
-                ),
+            config = FrequentistConfig(
+                **base_config,
+                alpha=analysis.alpha,
             )
+            if analysis.one_sided_intervals:
+                if metric.inverse:
+                    return OneSidedTreatmentGreaterTTest(stat_a, stat_b, config)
+                else:
+                    return OneSidedTreatmentLesserTTest(stat_a, stat_b, config)
+            else:
+                return TwoSidedTTest(stat_a, stat_b, config)
     else:
         assert type(stat_a) is type(stat_b), "stat_a and stat_b must be of same type."
         prior = GaussianPrior(
@@ -276,7 +300,6 @@ def analyze_metric_df(
     analysis: AnalysisSettingsForStatsEngine,
 ) -> pd.DataFrame:
     num_variations = df.at[0, "variations"]
-
     # Add new columns to the dataframe with placeholder values
     df["srm_p"] = 0
     df["engine"] = analysis.stats_engine
@@ -484,10 +507,16 @@ def format_variation_result(
             )
         else:
             power_response = None
+
+        # sanitize CIs to replace inf with None
+        ci: ResponseCI = (
+            None if np.isinf(row[f"{prefix}_ci"][0]) else row[f"{prefix}_ci"][0],
+            None if np.isinf(row[f"{prefix}_ci"][1]) else row[f"{prefix}_ci"][1],
+        )
         testResult = {
             "expected": row[f"{prefix}_expected"],
             "uplift": row[f"{prefix}_uplift"],
-            "ci": row[f"{prefix}_ci"],
+            "ci": ci,
             "errorMessage": row[f"{prefix}_error_message"],
         }
         if row["engine"] == "frequentist":
