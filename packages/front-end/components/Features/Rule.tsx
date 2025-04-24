@@ -309,7 +309,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       <div style={{ marginTop: -5 }}>
                         <DecisionHelpText rule={rule} />
                         {rule.description ? (
-                          <div className="appbox p-2">{rule.description}</div>
+                          <Box mb="3">{rule.description}</Box>
                         ) : null}
                         <SafeRolloutSummary
                           safeRollout={safeRollout}
