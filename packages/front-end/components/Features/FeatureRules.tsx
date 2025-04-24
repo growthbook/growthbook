@@ -256,17 +256,11 @@ export default function FeatureRules({
                       <Callout
                         mt="5"
                         status="info"
-                        icon={null}
-                        fullWidthChildren
+                        icon={<Badge label="NEW!" />}
                       >
-                        <Flex direction="row" gap="2">
-                          <Badge label="NEW!" />
-                          <Text>
-                            Use <strong>Safe Rollouts</strong> to test for
-                            guardrail errors while releasing a new value. Click
-                            &lsquo;Add Rule&rsquo; to get started.
-                          </Text>
-                        </Flex>
+                        Use <strong>Safe Rollouts</strong> to test for guardrail
+                        errors while releasing a new value. Click &lsquo;Add
+                        Rule&rsquo; to get started.
                       </Callout>
                     ) : null}
                   </>
