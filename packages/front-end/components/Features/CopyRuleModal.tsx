@@ -71,7 +71,7 @@ export default function CopyRuleModal({
               environment: env,
               rule:
                 rule.type === "safe-rollout"
-                  ? { ...rule, id: "", trackingkey: "" } // Don't copy tracking key but keep the seed for safe rollout copies
+                  ? { ...rule, id: "", trackingKey: "" } // Don't copy tracking key but keep the seed for safe rollout copies
                   : { ...rule, id: "" },
               ...(rule.type === "safe-rollout" && {
                 safeRolloutFields: safeRolloutsMap.get(rule.safeRolloutId),
